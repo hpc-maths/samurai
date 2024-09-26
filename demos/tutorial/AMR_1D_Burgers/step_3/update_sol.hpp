@@ -15,7 +15,7 @@ void update_sol(double dt, Field& phi, Field& phi_np1)
         mesh[mesh_id_t::cells],
         [&](std::size_t level, const auto& i, auto) // <-----------------
         {
-            const double dx = samurai::cell_length(level);
+            const double dx = mesh.cell_length(level);
 
             phi_np1(level, i) = phi(level, i)
                               - .5 * dt / dx * (phi(level, i) * phi(level, i) - phi(level, i - 1) * phi(level, i - 1)); // <-----------------

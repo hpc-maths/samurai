@@ -24,7 +24,7 @@ namespace samurai
 
             if (level == max_level)
             {
-                double dx_ = this->dx();
+                double dx_ = phi.mesh().cell_length(level);
                 // // First order one sided
                 // auto dxp = (phi(level, i + 1, j) - phi(level, i    , j))/dx;
                 // auto dxm = (phi(level, i    , j) - phi(level, i - 1, j))/dx;
@@ -168,7 +168,8 @@ namespace samurai
             xt::masked_view(rm12, mask_sign)  = rm12 * (u(level, i - 1, j) - u(level, i - 2, j));
             xt::masked_view(rm12, !mask_sign) = rm12 * (u(level, i + 1, j) - u(level, i, j));
 
-            return flux(vel_at_interface, u(level, i - 1, j), u(level, i, j), dt / dx(), rm12);
+            auto dx = u.mesh().cell_length(level);
+            return flux(vel_at_interface, u(level, i - 1, j), u(level, i, j), dt / dx, rm12);
         }
 
         template <class T0, class T1>
@@ -189,7 +190,8 @@ namespace samurai
             xt::masked_view(rp12, mask_sign)  = rp12 * (u(level, i, j) - u(level, i - 1, j));
             xt::masked_view(rp12, !mask_sign) = rp12 * (u(level, i + 2, j) - u(level, i + 1, j));
 
-            return flux(vel_at_interface, u(level, i, j), u(level, i + 1, j), dt / dx(), rp12);
+            auto dx = u.mesh().cell_length(level);
+            return flux(vel_at_interface, u(level, i, j), u(level, i + 1, j), dt / dx, rp12);
         }
 
         template <class T0, class T1>
@@ -210,7 +212,8 @@ namespace samurai
             xt::masked_view(rm12, mask_sign)  = rm12 * (u(level, i, j - 1) - u(level, i, j - 2));
             xt::masked_view(rm12, !mask_sign) = rm12 * (u(level, i, j + 1) - u(level, i, j));
 
-            return flux(vel_at_interface, u(level, i, j - 1), u(level, i, j), dt / dx(), rm12);
+            auto dx = u.mesh().cell_length(level);
+            return flux(vel_at_interface, u(level, i, j - 1), u(level, i, j), dt / dx, rm12);
         }
 
         template <class T0, class T1>
@@ -231,7 +234,8 @@ namespace samurai
             xt::masked_view(rp12, mask_sign)  = rp12 * (u(level, i, j) - u(level, i, j - 1));
             xt::masked_view(rp12, !mask_sign) = rp12 * (u(level, i, j + 2) - u(level, i, j + 1));
 
-            return flux(vel_at_interface, u(level, i, j), u(level, i, j + 1), dt / dx(), rp12);
+            auto dx = u.mesh().cell_length(level);
+            return flux(vel_at_interface, u(level, i, j), u(level, i, j + 1), dt / dx, rp12);
         }
     };
 

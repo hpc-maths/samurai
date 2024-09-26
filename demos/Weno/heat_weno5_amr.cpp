@@ -306,7 +306,8 @@ class weno5_op : public samurai::field_operator_base<TInterval>,
     template <class View>
     auto flux(const View& phi_i) const
     {
-        double inv_dx = 1. / dx();
+        auto dx       = phi_i.mesh().cell_length(level);
+        double inv_dx = 1. / dx;
         double eps    = 1e-6;
 
         auto q1 = (xt::view(phi_i, 1) - xt::view(phi_i, 0)) * inv_dx;
@@ -474,7 +475,8 @@ class laplace_explicit : public samurai::field_operator_base<TInterval>,
     template <class View>
     auto flux_lap(const View& phi_i, View& nu_i) const
     {
-        double inv_dx = 1. / dx();
+        auto dx       = phi_i.mesh().cell_length(level);
+        double inv_dx = 1. / dx;
 
         /* Flux Ordre 2 */
 
@@ -498,7 +500,8 @@ class laplace_explicit : public samurai::field_operator_base<TInterval>,
         xt::xtensor<double, 2> phi_i = xt::zeros<double>(shape);
         xt::xtensor<double, 2> nu_i  = xt::zeros<double>(shape);
 
-        double inv_12dx = 1. / (12. * dx());
+        auto dx         = phi.mesh().cell_length(level);
+        double inv_12dx = 1. / (12. * dx);
 
         for (int s = -2, kk = 0; s < 2; ++s, ++kk)
         {
@@ -542,7 +545,8 @@ class laplace_explicit : public samurai::field_operator_base<TInterval>,
         xt::xtensor<double, 2> phi_i = xt::zeros<double>(shape);
         xt::xtensor<double, 2> nu_i  = xt::zeros<double>(shape);
 
-        double inv_12dx = 1. / (12. * dx());
+        auto dx         = phi.mesh().cell_length(level);
+        double inv_12dx = 1. / (12. * dx);
 
         for (int s = -2, kk = 0; s < 2; ++s, ++kk)
         {

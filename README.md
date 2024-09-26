@@ -127,7 +127,7 @@ The following steps describe how to solve this problem with samurai. It is impor
 - Time loop
 
     ```cpp
-    double dx = samurai::cell_length(max_level);
+    double dx = mesh.cell_length(max_level);
     double dt = 0.5*dx;
     auto unp1 = samurai::make_field<double, 1>("u", mesh);
 
@@ -143,7 +143,7 @@ The following steps describe how to solve this problem with samurai. It is impor
         // upwind scheme
         samurai::for_each_interval(mesh, [&](std::size_t level, const auto& i, const auto& index)
         {
-            double dx = samurai::cell_length(level);
+            double dx = mesh.cell_length(level);
             auto j = index[0];
 
             unp1(level, i, j) = u(level, i, j) - dt / dx * (u(level, i, j) - u(level, i - 1, j)

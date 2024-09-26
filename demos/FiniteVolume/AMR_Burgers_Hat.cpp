@@ -64,7 +64,7 @@ void AMR_criteria(const Field& f, Tag& tag)
 
     for (std::size_t level = min_level; level <= max_level; ++level)
     {
-        const double dx = samurai::cell_length(level);
+        const double dx = mesh.cell_length(level);
 
         samurai::for_each_interval(
             mesh[mesh_id_t::cells][level],
@@ -134,11 +134,11 @@ void flux_correction(Field& phi_np1, const Field& phi_n, double dt)
     const std::size_t min_level = mesh[mesh_id_t::cells].min_level();
     const std::size_t max_level = mesh[mesh_id_t::cells].max_level();
 
-    const double dx = 1. / (1 << max_level);
+    const double dx = mesh.cell_length(max_level);
 
     for (std::size_t level = min_level; level < max_level; ++level)
     {
-        const double dx_loc = samurai::cell_length(level);
+        const double dx_loc = mesh.cell_length(level);
         xt::xtensor_fixed<int, xt::xshape<1>> stencil;
 
         stencil           = {-1};
@@ -185,9 +185,9 @@ int main(int argc, char* argv[])
     double cfl       = 0.99;
 
     // AMR parameters
-    std::size_t start_level = 6;
-    std::size_t min_level   = 1;
-    std::size_t max_level   = 6;
+    std::size_t start_level = 9;
+    std::size_t min_level   = 4;
+    std::size_t max_level   = 9;
     bool correction         = false;
 
     // Output parameters
@@ -222,7 +222,7 @@ int main(int argc, char* argv[])
     auto tag = samurai::make_field<int, 1>("tag", mesh);
     const xt::xtensor_fixed<int, xt::xshape<2, 1>> stencil_grad{{1}, {-1}};
 
-    const double dx      = 1. / (1 << max_level);
+    const double dx      = mesh.cell_length(max_level);
     double dt            = 0.99 * dx;
     const double dt_save = Tf / static_cast<double>(nfiles);
     double t             = 0.;
@@ -233,10 +233,10 @@ int main(int argc, char* argv[])
     while (t != Tf)
     {
         // AMR adaptation
-        std::size_t ite_adapt = 0;
+        // std::size_t ite_adapt = 0;
         while (true)
         {
-            std::cout << "\tmesh adaptation: " << ite_adapt++ << std::endl;
+            // std::cout << "\tmesh adaptation: " << ite_adapt++ << std::endl;
             samurai::update_ghost(phi);
             tag.resize();
             AMR_criteria(phi, tag);

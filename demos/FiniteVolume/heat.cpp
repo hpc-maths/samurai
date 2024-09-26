@@ -81,8 +81,8 @@ int main(int argc, char* argv[])
     double cfl           = 0.95;
 
     // Multiresolution parameters
-    std::size_t min_level = 0;
-    std::size_t max_level = dim == 1 ? 5 : 3;
+    std::size_t min_level = 3;
+    std::size_t max_level = dim == 1 ? 5 : 6;
     double mr_epsilon     = 1e-4; // Threshold used by multiresolution
     double mr_regularity  = 1.;   // Regularity guess for multiresolution
 
@@ -183,7 +183,7 @@ int main(int argc, char* argv[])
 
     if (explicit_scheme)
     {
-        double dx = samurai::cell_length(max_level);
+        double dx = mesh.cell_length(max_level);
         dt        = cfl * (dx * dx) / (pow(2, dim) * diff_coeff);
     }
 

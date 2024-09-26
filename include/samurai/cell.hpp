@@ -12,9 +12,9 @@
 namespace samurai
 {
     template <typename LevelType, std::enable_if_t<std::is_integral<LevelType>::value, bool> = true>
-    inline double cell_length(LevelType level)
+    inline double cell_length(double scaling_factor, LevelType level)
     {
-        return 1. / (1 << level);
+        return scaling_factor / (1 << level);
     }
 
     /** @class Cell
@@ -38,8 +38,12 @@ namespace samurai
 
         Cell() = default;
 
-        Cell(std::size_t level, const indices_t& indices, index_t index);
-        Cell(std::size_t level, const value_t& i, const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> others, index_t index);
+        Cell(double scaling_factor, std::size_t level, const indices_t& indices, index_t index);
+        Cell(double scaling_factor,
+             std::size_t level,
+             const value_t& i,
+             const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> others,
+             index_t index);
 
         coords_t corner() const;
         double corner(std::size_t i) const;
@@ -68,22 +72,23 @@ namespace samurai
     };
 
     template <std::size_t dim_, class TInterval>
-    inline Cell<dim_, TInterval>::Cell(std::size_t level_, const indices_t& indices_, index_t index_)
+    inline Cell<dim_, TInterval>::Cell(double scaling_factor, std::size_t level_, const indices_t& indices_, index_t index_)
         : level(level_)
         , indices(indices_)
         , index(index_)
-        , length(cell_length(level))
+        , length(cell_length(scaling_factor, level))
     {
     }
 
     template <std::size_t dim_, class TInterval>
-    inline Cell<dim_, TInterval>::Cell(std::size_t level_,
+    inline Cell<dim_, TInterval>::Cell(double scaling_factor,
+                                       std::size_t level_,
                                        const value_t& i,
                                        const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> others,
                                        index_t index_)
         : level(level_)
         , index(index_)
-        , length(cell_length(level))
+        , length(cell_length(scaling_factor, level))
     {
         using namespace xt::placeholders;
 

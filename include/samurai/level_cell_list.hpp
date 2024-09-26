@@ -73,6 +73,7 @@ namespace samurai
 
         LevelCellList();
         LevelCellList(std::size_t level);
+        LevelCellList(std::size_t level, double scaling_factor);
 
         const list_interval_t& operator[](const index_yz_t& index) const;
         list_interval_t& operator[](const index_yz_t& index);
@@ -87,11 +88,14 @@ namespace samurai
 
         void add_cell(const Cell<dim, interval_t>& cell);
 
+        double scaling_factor() const;
+
       private:
 
         grid_t m_grid_yz; ///< Sparse dim-1 array that points to the interval
                           ///< lists along the x axis.
         std::size_t m_level;
+        double m_scaling_factor = 1;
     };
 
     //////////////////////////////////
@@ -106,6 +110,13 @@ namespace samurai
     template <std::size_t Dim, class TInterval>
     inline LevelCellList<Dim, TInterval>::LevelCellList(std::size_t level)
         : m_level{level}
+    {
+    }
+
+    template <std::size_t Dim, class TInterval>
+    inline LevelCellList<Dim, TInterval>::LevelCellList(std::size_t level, double scaling_factor)
+        : m_level{level}
+        , m_scaling_factor(scaling_factor)
     {
     }
 
@@ -156,6 +167,12 @@ namespace samurai
         using namespace xt::placeholders;
 
         (*this)[xt::view(cell.indices, xt::range(1, _))].add_point(cell.indices[0]);
+    }
+
+    template <std::size_t Dim, class TInterval>
+    inline double LevelCellList<Dim, TInterval>::scaling_factor() const
+    {
+        return m_scaling_factor;
     }
 
     template <std::size_t Dim, class TInterval>

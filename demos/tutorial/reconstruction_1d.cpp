@@ -33,7 +33,7 @@ auto init(Mesh& mesh, Case& c)
     samurai::for_each_interval(mesh[mesh_id_t::cells],
                                [&](std::size_t level, const auto& i, const auto&)
                                {
-                                   const double dx = samurai::cell_length(level);
+                                   const double dx = mesh.cell_length(level);
                                    auto x          = dx * xt::arange(i.start, i.end) + 0.5 * dx;
 
                                    switch (c)

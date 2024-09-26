@@ -88,6 +88,7 @@ namespace samurai
         using const_reverse_iterator = CellArray_reverse_iterator<const_iterator>;
 
         CellArray();
+        CellArray(double scaling_factor);
         CellArray(const cl_type& cl, bool with_update_index = true);
 
         const lca_type& operator[](std::size_t i) const;
@@ -122,6 +123,9 @@ namespace samurai
         std::size_t max_level() const;
         std::size_t min_level() const;
 
+        double scaling_factor() const;
+        void set_scaling_factor(double scaling_factor);
+
         void update_index();
 
         void to_stream(std::ostream& os) const;
@@ -145,6 +149,7 @@ namespace samurai
       private:
 
         std::array<lca_type, max_size + 1> m_cells;
+        double m_scaling_factor = 1;
 
 #ifdef SAMURAI_WITH_MPI
         friend class boost::serialization::access;
@@ -239,6 +244,16 @@ namespace samurai
         }
     }
 
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
+    inline CellArray<dim_, TInterval, max_size_>::CellArray(double scaling_factor)
+    {
+        m_scaling_factor = scaling_factor;
+        for (std::size_t level = 0; level <= max_size; ++level)
+        {
+            m_cells[level] = {level, scaling_factor};
+        }
+    }
+
     /**
      * Construction of a CellArray from a CellList
      *
@@ -248,6 +263,7 @@ namespace samurai
      */
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
     inline CellArray<dim_, TInterval, max_size_>::CellArray(const cl_type& cl, bool with_update_index)
+        : m_scaling_factor(cl.scaling_factor())
     {
         for (std::size_t level = 0; level <= max_size; ++level)
         {
@@ -405,6 +421,22 @@ namespace samurai
             }
         }
         return max_size + 1;
+    }
+
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
+    inline double CellArray<dim_, TInterval, max_size_>::scaling_factor() const
+    {
+        return m_scaling_factor;
+    }
+
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
+    inline void CellArray<dim_, TInterval, max_size_>::set_scaling_factor(double scaling_factor)
+    {
+        m_scaling_factor = scaling_factor;
+        for (std::size_t level = 0; level <= max_size; ++level)
+        {
+            m_cells[level].set_scaling_factor(scaling_factor);
+        }
     }
 
     /**

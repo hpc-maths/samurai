@@ -277,7 +277,8 @@ class weno5_op : public samurai::field_operator_base<TInterval>,
     template <class View>
     auto flux(const View& phi_i) const
     {
-        double inv_dx = 1. / dx();
+        auto dx       = phi_i.mesh().cell_length(level);
+        double inv_dx = 1. / dx;
         double eps    = 1e-6;
 
         auto q1 = (xt::view(phi_i, 1) - xt::view(phi_i, 0)) * inv_dx;

@@ -68,12 +68,15 @@ namespace samurai
 
         void to_stream(std::ostream& os) const;
 
+        auto scaling_factor() const;
+
       private:
 
         void update_sub_mesh();
         void renumbering();
 
         mesh_t m_cells;
+        double m_scaling_factor = 1;
     };
 
     template <class Config>
@@ -131,7 +134,7 @@ namespace samurai
     template <class Config>
     inline void UniformMesh<Config>::update_sub_mesh()
     {
-        cl_type cl{this->m_cells[mesh_id_t::cells].level()};
+        cl_type cl{this->m_cells[mesh_id_t::cells].level(), this->scaling_factor()};
         for_each_interval(this->m_cells[mesh_id_t::cells],
                           [&](std::size_t, const auto& interval, const auto& index_yz)
                           {
@@ -180,6 +183,12 @@ namespace samurai
             os << fmt::format(fmt::emphasis::bold, "{}\n{:─^50}", mt, "") << std::endl;
             os << m_cells[id];
         }
+    }
+
+    template <class Config>
+    inline auto UniformMesh<Config>::scaling_factor() const
+    {
+        return m_scaling_factor;
     }
 
     template <class Config>

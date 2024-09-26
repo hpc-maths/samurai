@@ -35,7 +35,7 @@ auto init(Mesh& mesh, Case& c)
                                [&](std::size_t level, const auto& i, const auto& index)
                                {
                                    auto j          = index[0];
-                                   const double dx = samurai::cell_length(level);
+                                   const double dx = mesh.cell_length(level);
                                    auto x          = dx * xt::arange(i.start, i.end) + 0.5 * dx;
                                    auto y          = j * dx + 0.5 * dx;
 

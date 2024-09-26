@@ -207,7 +207,7 @@ int main(int argc, char* argv[])
     if (explicit_scheme)
     {
         double diff_coeff = 1;
-        double dx         = samurai::cell_length(max_level);
+        double dx         = mesh.cell_length(max_level);
         dt                = cfl * (dx * dx) / (pow(2, dim) * diff_coeff);
     }
 
