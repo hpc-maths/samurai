@@ -104,29 +104,34 @@ int main(int argc, char* argv[])
     // Problem definition //
     //--------------------//
 
-    point_t box_corner1, box_corner2;
-    box_corner1.fill(left_box);
-    box_corner2.fill(right_box);
-    Box box(box_corner1, box_corner2);
+    // point_t box_corner1, box_corner2;
+    // box_corner1.fill(left_box);
+    // box_corner2.fill(right_box);
+    // Box box(box_corner1, box_corner2);
+    // Box box({0, 0}, {4, 3});
+    Box box({-1, -0.7}, {1, 1});
     std::array<bool, dim> periodic;
     periodic.fill(true);
     samurai::MRMesh<Config> mesh{box, min_level, max_level, periodic};
+    // mesh.scale_domain(100); // * mesh.scaling_factor());
+
+    double scale = 1; // mesh.scaling_factor() / 2;
 
     // Initial solution
     auto u = samurai::make_field<1>("u",
                                     mesh,
-                                    [](const auto& coords)
+                                    [&](const auto& coords)
                                     {
                                         if constexpr (dim == 1)
                                         {
                                             auto& x = coords(0);
-                                            return (x >= -0.8 && x <= -0.3) ? 1. : 0.;
+                                            return (x >= -0.8 * scale && x <= -0.3 * scale) ? 1. : 0.;
                                         }
                                         else
                                         {
                                             auto& x = coords(0);
                                             auto& y = coords(1);
-                                            return (x >= -0.8 && x <= -0.3 && y >= 0.3 && y <= 0.8) ? 1. : 0.;
+                                            return (x >= -0.8 * scale && x <= -0.3 * scale && y >= 0.3 * scale && y <= 0.8 * scale) ? 1. : 0.;
                                         }
                                     });
 
@@ -141,10 +146,10 @@ int main(int argc, char* argv[])
 
     // Convection operator
     samurai::VelocityVector<dim> velocity;
-    velocity.fill(1);
+    velocity.fill(1 * scale);
     if constexpr (dim == 2)
     {
-        velocity(1) = -1;
+        velocity(1) = -1 * scale;
     }
     auto conv = samurai::make_convection_weno5<decltype(u)>(velocity);
 
@@ -154,7 +159,7 @@ int main(int argc, char* argv[])
 
     if (dt == 0)
     {
-        double dx             = samurai::cell_length(max_level);
+        double dx             = mesh.cell_length(max_level);
         auto a                = xt::abs(velocity);
         double sum_velocities = xt::sum(xt::abs(velocity))();
         dt                    = cfl * dx / sum_velocities;
@@ -191,6 +196,20 @@ int main(int argc, char* argv[])
         u2.resize();
         u1.fill(0);
         u2.fill(0);
+
+        // std::cout << "scaling = " << mesh.scaling_factor() << std::endl;
+
+        // for (std::size_t level = 0; level <= max_level; ++level)
+        // {
+        //     std::cout << "l = " << level << ": h = " << mesh.cell_length(level) << std::endl;
+        //     assert(mesh.cell_length(level) == 0.2 / (1 << level));
+        // }
+
+        // for_each_cell(mesh,
+        //               [&](auto cell)
+        //               {
+        //                   assert(mesh.cell_length(cell.level) == cell.length);
+        //               });
 
         // unp1 = u - dt * conv(u);
 

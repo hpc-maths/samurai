@@ -39,6 +39,7 @@ namespace samurai
         point_t& max_corner();
 
         auto length() const;
+        auto min_length() const;
         bool is_valid() const;
 
         Box& operator*=(value_t v);
@@ -109,6 +110,15 @@ namespace samurai
     inline auto Box<value_t, dim_>::length() const
     {
         return (m_max_corner - m_min_corner);
+    }
+
+    /**
+     * Return the minimum length of the box.
+     */
+    template <class value_t, std::size_t dim_>
+    inline auto Box<value_t, dim_>::min_length() const
+    {
+        return xt::amin(length())[0];
     }
 
     /**

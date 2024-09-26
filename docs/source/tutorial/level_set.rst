@@ -238,7 +238,7 @@ where the Hamiltonian flux is encoded by
         template<class Field>
         inline auto operator()(Dim<2> d, const Field& phi, const Field& phi_0, const std::size_t max_level) const
         {
-            double dx = this->dx();
+            double dx = phi.mesh().cell_length(level);
             auto out = xt::empty<double>({i.size()});
             out.fill(0.);
 

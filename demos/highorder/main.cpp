@@ -289,7 +289,7 @@ int main(int argc, char* argv[])
             return exp(x * y * y);
         };
 
-        double h = samurai::cell_length(mesh.min_level());
+        double h = mesh.cell_length(mesh.min_level());
 
         double error = L2_error(u, exact_func);
         std::cout.precision(2);

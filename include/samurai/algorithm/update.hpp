@@ -819,7 +819,7 @@ namespace samurai
         using cl_type                    = typename Field::mesh_t::cl_type;
 
         auto& mesh = field.mesh();
-        cl_type cl;
+        cl_type cl(mesh.scaling_factor());
 
         for_each_interval(mesh[mesh_id_t::cells],
                           [&](std::size_t level, const auto& interval, const auto& index)

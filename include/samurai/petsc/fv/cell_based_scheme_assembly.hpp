@@ -100,7 +100,7 @@ namespace samurai
                     // Not sure if this optimization really makes a difference though...
                     if constexpr (cfg_t::scheme_type == SchemeType::LinearHomogeneous && field_t::is_soa)
                     {
-                        auto coeffs  = scheme().coefficients(cell_length(0));
+                        auto coeffs  = scheme().coefficients(cell_length(1., 0));
                         scheme_nnz_i = 0;
                         for (unsigned int field_j = 0; field_j < field_size; ++field_j)
                         {

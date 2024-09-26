@@ -30,7 +30,7 @@ namespace samurai
                        [&](std::size_t level)
                        {
                            auto bdry   = intersection(mesh[mesh_id_t::cells][level], boundary_region).on(level);
-                           auto coeffs = get_coefficients(cell_length(level));
+                           auto coeffs = get_coefficients(mesh.cell_length(level));
                            for_each_stencil(mesh,
                                             bdry,
                                             stencil,
@@ -60,8 +60,8 @@ namespace samurai
                            for (std::size_t i = 0; i < nb_equations; ++i)
                            {
                                equations_coeffs[i].ghost_index    = equations[i].ghost_index;
-                               equations_coeffs[i].stencil_coeffs = equations[i].get_stencil_coeffs(cell_length(level));
-                               equations_coeffs[i].rhs_coeffs     = equations[i].get_rhs_coeffs(cell_length(level));
+                               equations_coeffs[i].stencil_coeffs = equations[i].get_stencil_coeffs(mesh.cell_length(level));
+                               equations_coeffs[i].rhs_coeffs     = equations[i].get_rhs_coeffs(mesh.cell_length(level));
                            }
                            for_each_stencil(mesh,
                                             bdry,

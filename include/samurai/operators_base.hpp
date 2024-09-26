@@ -20,6 +20,7 @@ namespace samurai
         inline field_operator_function(CT&&... e)
             : m_e{std::forward<CT>(e)...}
         {
+            m_scaling_factor = detail::extract_mesh(arguments()).scaling_factor();
         }
 
         template <class interval_t, class... index_t>
@@ -41,6 +42,11 @@ namespace samurai
             return m_e;
         }
 
+        const auto& scaling_factor() const
+        {
+            return m_scaling_factor;
+        }
+
       private:
 
         template <class interval_t>
@@ -56,6 +62,7 @@ namespace samurai
         }
 
         std::tuple<CT...> m_e;
+        double m_scaling_factor = 1;
     };
 
     template <template <std::size_t dim, class T> class OP, class... CT>
@@ -81,18 +88,12 @@ namespace samurai
 
         // NOLINTEND(cppcoreguidelines-non-private-member-variables-in-classes,misc-non-private-member-variables-in-classes)
 
-        double dx() const
-        {
-            return m_dx;
-        }
-
       protected:
 
         inline field_operator_base(std::size_t level_, const interval_t& interval, const array_index_t& index_)
             : level{level_}
             , i{interval}
             , index{index_}
-            , m_dx{cell_length(level)}
         {
             if constexpr (dim > 1)
             {
@@ -108,7 +109,6 @@ namespace samurai
             : level{level_}
             , i{interval}
             , index{}
-            , m_dx{cell_length(level)}
         {
         }
 
@@ -117,7 +117,6 @@ namespace samurai
             , i{interval}
             , j{j_}
             , index{j_}
-            , m_dx{cell_length(level)}
         {
         }
 
@@ -127,13 +126,8 @@ namespace samurai
             , j{j_}
             , k{k_}
             , index{j_, k_}
-            , m_dx{cell_length(level)}
         {
         }
-
-      private:
-
-        double m_dx;
     };
 
 // NOLINTBEGIN(cppcoreguidelines-macro-usage)
@@ -147,7 +141,6 @@ namespace samurai
     using base::j;                                                                           \
     using base::k;                                                                           \
     using base::level;                                                                       \
-    using base::dx;                                                                          \
     using base::index;                                                                       \
                                                                                              \
     inline NAME(std::size_t level_, const interval_t& interval, const array_index_t& index_) \

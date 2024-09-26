@@ -221,7 +221,7 @@ int main_dim(int argc, char* argv[])
     //   Time iteration   //
     //--------------------//
 
-    double dx = samurai::cell_length(max_level);
+    double dx = mesh.cell_length(max_level);
     dt        = cfl * dx / pow(2, dim);
 
     auto MRadaptation = samurai::make_MRAdapt(u);

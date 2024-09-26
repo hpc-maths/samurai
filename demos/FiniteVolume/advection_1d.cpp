@@ -62,7 +62,7 @@ void flux_correction(double dt, double a, const Field& u, Field& unp1)
         subset_right(
             [&](const auto& i, auto)
             {
-                const double dx = samurai::cell_length(level);
+                const double dx = mesh.cell_length(level);
 
                 unp1(level, i) = unp1(level, i)
                                - dt / dx
@@ -79,7 +79,7 @@ void flux_correction(double dt, double a, const Field& u, Field& unp1)
         subset_left(
             [&](const auto& i, auto)
             {
-                const double dx = samurai::cell_length(level);
+                const double dx = mesh.cell_length(level);
 
                 unp1(level, i) = unp1(level, i)
                                - dt / dx
@@ -125,8 +125,8 @@ int main(int argc, char* argv[])
     double cfl       = 0.95;
 
     // Multiresolution parameters
-    std::size_t min_level = 4;
-    std::size_t max_level = 10;
+    std::size_t min_level = 6;
+    std::size_t max_level = 12;
     double mr_epsilon     = 2.e-4; // Threshold used by multiresolution
     double mr_regularity  = 1.;    // Regularity guess for multiresolution
     bool correction       = false;
@@ -166,7 +166,7 @@ int main(int argc, char* argv[])
     const samurai::Box<double, dim> box({left_box}, {right_box});
     samurai::MRMesh<Config> mesh(box, min_level, max_level, {is_periodic});
 
-    double dt            = cfl / (1 << max_level);
+    double dt            = cfl * mesh.cell_length(max_level);
     const double dt_save = Tf / static_cast<double>(nfiles);
     double t             = 0.;
 

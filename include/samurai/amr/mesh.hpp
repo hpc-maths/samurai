@@ -99,7 +99,7 @@ namespace samurai::amr
     template <class Config>
     inline void Mesh<Config>::update_sub_mesh_impl()
     {
-        cl_type cl;
+        cl_type cl(this->scaling_factor());
         for_each_interval(this->cells()[mesh_id_t::cells],
                           [&](std::size_t level, const auto& interval, const auto& index_yz)
                           {

@@ -481,7 +481,7 @@ std::array<double, 2> compute_error(samurai::Field<Config, double, 2>& f, FieldR
     double error = 0; // To return
     double diff  = 0.0;
 
-    double dx = 1.0 / (1 << max_level);
+    double dx = meshR.cell_length(max_level);
 
     for (std::size_t level = 0; level <= max_level; ++level)
     {

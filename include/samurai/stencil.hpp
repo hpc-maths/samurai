@@ -476,7 +476,7 @@ namespace samurai
         {
             m_mesh_interval = &mesh_interval;
 
-            double length = cell_length(mesh_interval.level);
+            double length = m_mesh.cell_length(mesh_interval.level);
             for (cell_t& cell : m_cells)
             {
                 cell.level  = mesh_interval.level;

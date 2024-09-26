@@ -227,7 +227,7 @@ void one_time_step(Field& f, Func&& update_bc_for_level, double s_rel, double la
     {
         samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std)) for (std::size_t level = 0; level <= max_level; ++level)
         {
-            double dx = samurai::cell_length(level);
+            double dx = mesh.cell_length(level);
 
             auto leaves = samurai::intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level]);
 
@@ -326,7 +326,7 @@ compute_error(samurai::Field<Config, double, 2>& f, FieldR& fR, Func&& update_bc
 
     double error = 0; // To return
     double diff  = 0.0;
-    double dx    = 1.0 / (1 << max_level);
+    double dx    = meshR.cell_length(max_level);
 
     samurai::for_each_interval(meshR[mesh_id_t::cells][max_level],
                                [&](std::size_t level, auto& i, auto&)
@@ -460,7 +460,7 @@ int main(int argc, char* argv[])
                     auto f  = init_f(mesh, 0.0, ad_vel, lambda, test_number);
                     auto fR = init_f(meshR, 0.0, ad_vel, lambda, test_number);
 
-                    double dx = 1.0 / (1 << max_level);
+                    double dx = meshR.cell_length(max_level);
                     double dt = dx / lambda;
 
                     std::size_t N = static_cast<std::size_t>(T / dt);

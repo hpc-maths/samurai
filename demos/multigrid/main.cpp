@@ -303,7 +303,7 @@ int main(int argc, char* argv[])
             // double hidden_constant             = samurai::compute_error_bound_hidden_constant<order>(h, error);
             // std::cout << "hidden_constant: " << hidden_constant << std::endl;
             static constexpr std::size_t order = 2;
-            double h                           = samurai::cell_length(mesh.min_level());
+            double h                           = mesh.cell_length(mesh.min_level());
             double hidden_constant             = 5e-2;
             double theoretical_bound           = samurai::theoretical_error_bound<order>(field_size * hidden_constant, h);
             // std::cout << "theoretical_bound: " << theoretical_bound << std::endl;

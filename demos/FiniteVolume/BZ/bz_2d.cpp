@@ -182,7 +182,8 @@ class diffusion_op : public samurai::field_operator_base<TInterval>,
     template <class T1, class T2>
     inline auto flux(T1&& ul, T2&& ur) const
     {
-        return xt::eval((std::forward<T1>(ur) - std::forward<T2>(ul)) / dx());
+        auto dx = u.mesh().cell_length(level);
+        return xt::eval((std::forward<T1>(ur) - std::forward<T2>(ul)) / dx);
     }
 
     template <class T1>
@@ -281,7 +282,7 @@ int main()
     const double D_c     = 1.5e-3; // Diffusion coefficient 'c'
     const double epsilon = 1.e-2;  // Stiffness parameter
 
-    const double dx = 1. / (1 << max_level); // Space step
+    const double dx = mesh.cell_length(max_level); // Space step
 
     const double Tf = 1.;
 

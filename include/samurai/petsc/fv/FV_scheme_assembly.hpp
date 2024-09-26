@@ -756,7 +756,7 @@ namespace samurai
                         mesh(),
                         [&](auto level, PetscInt ghost, const std::array<PetscInt, static_cast<std::size_t>(number_of_children)>& children)
                         {
-                            double h       = cell_length(level);
+                            double h       = mesh().cell_length(level);
                             double scaling = 1. / (h * h);
                             for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
                             {
@@ -835,7 +835,7 @@ namespace samurai
                     mesh(),
                     [&](auto& ghost)
                     {
-                        double h       = cell_length(ghost.level);
+                        double h       = mesh().cell_length(ghost.level);
                         double scaling = 1. / (h * h);
                         for (unsigned int field_i = 0; field_i < field_size; ++field_i)
                         {
@@ -900,7 +900,7 @@ namespace samurai
                     mesh(),
                     [&](auto& ghost)
                     {
-                        double h       = cell_length(ghost.level);
+                        double h       = mesh().cell_length(ghost.level);
                         double scaling = 1. / (h * h);
                         for (unsigned int field_i = 0; field_i < field_size; ++field_i)
                         {
@@ -982,7 +982,7 @@ namespace samurai
                     mesh(),
                     [&](auto& ghost)
                     {
-                        double h       = cell_length(ghost.level);
+                        double h       = mesh().cell_length(ghost.level);
                         double scaling = 1. / (h * h);
                         for (unsigned int field_i = 0; field_i < field_size; ++field_i)
                         {

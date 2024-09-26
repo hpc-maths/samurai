@@ -298,7 +298,7 @@ int main(int argc, char* argv[])
     //
     // Time iteration
 
-    double dx                 = samurai::cell_length(mesh.max_level());
+    double dx                 = mesh.cell_length(mesh.max_level());
     double sum_max_velocities = 2;
     dt                        = cfl * dx / sum_max_velocities;
 
