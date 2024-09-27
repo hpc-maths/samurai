@@ -73,6 +73,7 @@ namespace samurai
         using index_t             = typename interval_t::index_t;
         using value_t             = typename interval_t::value_t;
         using mesh_interval_t     = MeshInterval<Dim, TInterval>;
+        using coords_t            = typename cell_t::coords_t;
 
         using iterator               = LevelCellArray_iterator<LevelCellArray<Dim, TInterval>, false>;
         using reverse_iterator       = LevelCellArray_reverse_iterator<iterator>;
@@ -90,7 +91,7 @@ namespace samurai
         LevelCellArray(std::size_t level, const Box<value_t, dim>& box);
         LevelCellArray(std::size_t level, const Box<double, dim>& box);
         LevelCellArray(std::size_t level);
-        LevelCellArray(std::size_t level, double scaling_factor);
+        LevelCellArray(std::size_t level, const coords_t& origin_point, double scaling_factor);
 
         iterator begin();
         iterator end();
@@ -165,7 +166,11 @@ namespace samurai
         auto min_indices() const;
         auto max_indices() const;
         auto minmax_indices() const;
-        auto& scaling_factor() const;
+
+        auto& origin_point() const;
+        void set_origin_point(const coords_t& origin_point);
+
+        auto scaling_factor() const;
         void set_scaling_factor(double scaling_factor);
 
       private:
@@ -203,7 +208,8 @@ namespace samurai
         std::array<std::vector<interval_t>, dim> m_cells;        ///< All intervals in every direction
         std::array<std::vector<std::size_t>, dim - 1> m_offsets; ///< Offsets in interval list for each dim >
                                                                  ///< 1
-        std::size_t m_level     = 0;
+        std::size_t m_level = 0;
+        coords_t m_origin_point;
         double m_scaling_factor = 1;
     };
 
@@ -281,6 +287,7 @@ namespace samurai
     template <std::size_t Dim, class TInterval>
     inline LevelCellArray<Dim, TInterval>::LevelCellArray(const LevelCellList<Dim, TInterval>& lcl)
         : m_level(lcl.level())
+        , m_origin_point(lcl.origin_point())
         , m_scaling_factor(lcl.scaling_factor())
     {
         /* Estimating reservation size
@@ -327,6 +334,7 @@ namespace samurai
         : m_level{level}
     {
         m_scaling_factor = box.min_length();
+        m_origin_point   = box.min_corner();
         init_from_box(box);
     }
 
@@ -341,8 +349,10 @@ namespace samurai
         auto min_length = box.min_length();
         // auto cell_length_level0 = min_length;
         Box<double, dim> approx_box(box);
-        // approx_box.min_corner() = box.min_corner();
-        // approx_box.max_corner() = box.min_corner() + xt::ceil(box.length() / min_length) * min_length;
+        approx_box.min_corner() = box.min_corner();
+        approx_box.max_corner() = box.min_corner() + xt::ceil(box.length() / min_length) * min_length;
+
+        m_origin_point = box.min_corner();
         // approx_box.min_corner().fill(0);
         // approx_box.max_corner() = xt::ceil(box.length() / min_length) * min_length;
 
@@ -358,8 +368,9 @@ namespace samurai
         // point_t end_pt   = approx_box.max_corner() / cell_length(level);
         // auto start_pt_   = xt::eval(approx_box.min_corner() / cell_length(level));
         // auto end_pt_     = xt::eval(approx_box.max_corner() / cell_length(level));
-        point_t start_pt = approx_box.min_corner() / cell_length(level);
-        point_t end_pt   = approx_box.max_corner() / cell_length(level);
+        point_t start_pt;
+        start_pt.fill(0);
+        point_t end_pt = approx_box.length() / cell_length(level);
 
         // std::cout << "--> " << start_pt << std::endl;
         init_from_box(box_t{start_pt, end_pt});
@@ -369,11 +380,13 @@ namespace samurai
     inline LevelCellArray<Dim, TInterval>::LevelCellArray(std::size_t level)
         : m_level{level}
     {
+        m_origin_point.fill(0);
     }
 
     template <std::size_t Dim, class TInterval>
-    inline LevelCellArray<Dim, TInterval>::LevelCellArray(std::size_t level, double scaling_factor)
+    inline LevelCellArray<Dim, TInterval>::LevelCellArray(std::size_t level, const coords_t& origin_point, double scaling_factor)
         : m_level{level}
+        , m_origin_point(origin_point)
         , m_scaling_factor(scaling_factor)
     {
     }
@@ -572,14 +585,14 @@ namespace samurai
     template <typename... T, typename D>
     inline auto LevelCellArray<Dim, TInterval>::get_cell(value_t i, T... index) const -> cell_t
     {
-        return {m_scaling_factor, m_level, i, xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>{index...}, get_index(i, index...)};
+        return {m_origin_point, m_scaling_factor, m_level, i, xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>{index...}, get_index(i, index...)};
     }
 
     template <std::size_t Dim, class TInterval>
     template <class E>
     inline auto LevelCellArray<Dim, TInterval>::get_cell(value_t i, const xt::xexpression<E>& others) const -> cell_t
     {
-        return {m_scaling_factor, m_level, i, others, get_index(i, others)};
+        return {m_origin_point, m_scaling_factor, m_level, i, others, get_index(i, others)};
     }
 
     template <std::size_t Dim, class TInterval>
@@ -590,7 +603,7 @@ namespace samurai
 
         auto i      = coord_array[0];
         auto others = xt::view(coord_array, xt::range(1, _));
-        return {m_scaling_factor, m_level, i, others, get_index(i, others)};
+        return {m_origin_point, m_scaling_factor, m_level, i, others, get_index(i, others)};
     }
 
     /**
@@ -716,7 +729,19 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto& LevelCellArray<Dim, TInterval>::scaling_factor() const
+    inline auto& LevelCellArray<Dim, TInterval>::origin_point() const
+    {
+        return m_origin_point;
+    }
+
+    template <std::size_t Dim, class TInterval>
+    inline void LevelCellArray<Dim, TInterval>::set_origin_point(const coords_t& origin_point)
+    {
+        m_origin_point = origin_point;
+    }
+
+    template <std::size_t Dim, class TInterval>
+    inline auto LevelCellArray<Dim, TInterval>::scaling_factor() const
     {
         return m_scaling_factor;
     }

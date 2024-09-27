@@ -219,7 +219,7 @@ namespace samurai
             for (index_value_t i = it->start; i < it->end; ++i)
             {
                 index[0] = i;
-                cell_t cell{lca.scaling_factor(), lca.level(), index, it->index + i};
+                cell_t cell{lca.origin_point(), lca.scaling_factor(), lca.level(), index, it->index + i};
                 f(cell);
             }
         }
@@ -245,7 +245,7 @@ namespace samurai
                         index[d + 1] = it.index()[d];
                     }
                     index[0] = i;
-                    cell_t cell{lca.scaling_factor(), lca.level(), index, it->index + i};
+                    cell_t cell{lca.origin_point(), lca.scaling_factor(), lca.level(), index, it->index + i};
                     f(cell);
                 }
             }
@@ -281,7 +281,7 @@ namespace samurai
                 for (index_value_t i = interval.start; i < interval.end; ++i)
                 {
                     index[0] = i;
-                    cell_t cell{lca.scaling_factor(), set.level(), index, cell_index++};
+                    cell_t cell{lca.origin_point(), lca.scaling_factor(), set.level(), index, cell_index++};
                     f(cell);
                 }
             });
@@ -338,7 +338,7 @@ namespace samurai
             coord[d + 1] = index[d];
         }
         auto cell_index = mesh.get_index(level, coord);
-        cell_t cell{mesh.scaling_factor(), level, coord, cell_index};
+        cell_t cell{mesh.origin_point(), mesh.scaling_factor(), level, coord, cell_index};
         for (index_value_t ii = 0; ii < static_cast<index_value_t>(i.size()); ++ii)
         {
             f(cell);

@@ -81,6 +81,7 @@ namespace samurai
         using index_t    = typename interval_t::index_t;
         using lca_type   = LevelCellArray<dim, TInterval>;
         using cl_type    = CellList<dim, TInterval, max_size>;
+        using coords_t   = typename lca_type::coords_t;
 
         using iterator               = CellArray_iterator<self_type, false>;
         using reverse_iterator       = CellArray_reverse_iterator<iterator>;
@@ -88,7 +89,6 @@ namespace samurai
         using const_reverse_iterator = CellArray_reverse_iterator<const_iterator>;
 
         CellArray();
-        CellArray(double scaling_factor);
         CellArray(const cl_type& cl, bool with_update_index = true);
 
         const lca_type& operator[](std::size_t i) const;
@@ -123,6 +123,8 @@ namespace samurai
         std::size_t max_level() const;
         std::size_t min_level() const;
 
+        auto& origin_point() const;
+        void set_origin_point(const coords_t& origin_point);
         double scaling_factor() const;
         void set_scaling_factor(double scaling_factor);
 
@@ -149,7 +151,6 @@ namespace samurai
       private:
 
         std::array<lca_type, max_size + 1> m_cells;
-        double m_scaling_factor = 1;
 
 #ifdef SAMURAI_WITH_MPI
         friend class boost::serialization::access;
@@ -244,16 +245,6 @@ namespace samurai
         }
     }
 
-    template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline CellArray<dim_, TInterval, max_size_>::CellArray(double scaling_factor)
-    {
-        m_scaling_factor = scaling_factor;
-        for (std::size_t level = 0; level <= max_size; ++level)
-        {
-            m_cells[level] = {level, scaling_factor};
-        }
-    }
-
     /**
      * Construction of a CellArray from a CellList
      *
@@ -263,11 +254,12 @@ namespace samurai
      */
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
     inline CellArray<dim_, TInterval, max_size_>::CellArray(const cl_type& cl, bool with_update_index)
-        : m_scaling_factor(cl.scaling_factor())
     {
         for (std::size_t level = 0; level <= max_size; ++level)
         {
             m_cells[level] = cl[level];
+            m_cells[level].set_origin_point(cl.origin_point());
+            m_cells[level].set_scaling_factor(cl.scaling_factor());
         }
 
         if (with_update_index)
@@ -424,15 +416,29 @@ namespace samurai
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
+    inline auto& CellArray<dim_, TInterval, max_size_>::origin_point() const
+    {
+        return m_cells[0].origin_point();
+    }
+
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
+    inline void CellArray<dim_, TInterval, max_size_>::set_origin_point(const coords_t& origin_point)
+    {
+        for (std::size_t level = 0; level <= max_size; ++level)
+        {
+            m_cells[level].set_origin_point(origin_point);
+        }
+    }
+
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
     inline double CellArray<dim_, TInterval, max_size_>::scaling_factor() const
     {
-        return m_scaling_factor;
+        return m_cells[0].scaling_factor();
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
     inline void CellArray<dim_, TInterval, max_size_>::set_scaling_factor(double scaling_factor)
     {
-        m_scaling_factor = scaling_factor;
         for (std::size_t level = 0; level <= max_size; ++level)
         {
             m_cells[level].set_scaling_factor(scaling_factor);
