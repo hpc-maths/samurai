@@ -77,6 +77,8 @@ namespace samurai
         using ca_type  = CellArray<dim, interval_t, max_refinement_level>;
         using lca_type = typename ca_type::lca_type;
 
+        using coords_t = typename lca_type::coords_t;
+
         using mesh_interval_t = typename ca_type::lca_type::mesh_interval_t;
 
         using mesh_t = samurai::MeshIDArray<ca_type, mesh_id_t>;
@@ -90,10 +92,12 @@ namespace samurai
 
         std::size_t max_level() const;
         std::size_t min_level() const;
+        auto& origin_point() const;
+        void set_origin_point(const coords_t& origin_point);
         double scaling_factor() const;
         void set_scaling_factor(double scaling_factor);
         void scale_domain(double domain_scaling_factor);
-        void set_cell_length(std::size_t level, double length);
+        // void set_cell_length(std::size_t level, double length);
         const lca_type& domain() const;
         const lca_type& subdomain() const;
         const ca_type& get_union() const;
@@ -104,7 +108,7 @@ namespace samurai
 
         inline double cell_length(std::size_t level) const
         {
-            return samurai::cell_length(m_scaling_factor, level);
+            return samurai::cell_length(scaling_factor(), level);
         }
 
         void swap(Mesh_base& mesh) noexcept;
@@ -172,7 +176,6 @@ namespace samurai
         ca_type m_union;
         // std::vector<int> m_neighbouring_ranks;
         std::vector<mpi_subdomain_t> m_mpi_neighbourhood;
-        double m_scaling_factor = 1;
 
 #ifdef SAMURAI_WITH_MPI
         friend class boost::serialization::access;
@@ -221,7 +224,6 @@ namespace samurai
         , m_max_level{max_level}
     {
         assert(min_level <= max_level);
-        m_scaling_factor = b.min_length();
         m_periodic.fill(false);
 
 #ifdef SAMURAI_WITH_MPI
@@ -235,6 +237,9 @@ namespace samurai
         update_sub_mesh();
         renumbering();
         update_mesh_neighbour();
+
+        set_origin_point(origin_point());
+        set_scaling_factor(scaling_factor());
     }
 
     template <class D, class Config>
@@ -250,8 +255,6 @@ namespace samurai
     {
         assert(min_level <= max_level);
 
-        m_scaling_factor = b.min_length();
-
 #ifdef SAMURAI_WITH_MPI
         partition_mesh(start_level, b);
         // load_balancing();
@@ -264,6 +267,9 @@ namespace samurai
         update_sub_mesh();
         renumbering();
         update_mesh_neighbour();
+
+        set_origin_point(origin_point());
+        set_scaling_factor(scaling_factor());
     }
 
     template <class D, class Config>
@@ -282,6 +288,9 @@ namespace samurai
         update_sub_mesh();
         renumbering();
         update_mesh_neighbour();
+
+        set_origin_point(cl.origin_point());
+        set_scaling_factor(cl.scaling_factor());
     }
 
     template <class D, class Config>
@@ -291,7 +300,6 @@ namespace samurai
         , m_max_level(ref_mesh.m_max_level)
         , m_periodic(ref_mesh.m_periodic)
         , m_mpi_neighbourhood(ref_mesh.m_mpi_neighbourhood)
-        , m_scaling_factor(ref_mesh.m_scaling_factor)
 
     {
         m_cells[mesh_id_t::cells] = {cl, false};
@@ -301,6 +309,9 @@ namespace samurai
         update_sub_mesh();
         renumbering();
         update_mesh_neighbour();
+
+        set_origin_point(ref_mesh.origin_point());
+        set_scaling_factor(ref_mesh.scaling_factor());
     }
 
     template <class D, class Config>
@@ -340,15 +351,32 @@ namespace samurai
     }
 
     template <class D, class Config>
+    inline auto& Mesh_base<D, Config>::origin_point() const
+    {
+        return m_domain.origin_point();
+    }
+
+    template <class D, class Config>
+    inline void Mesh_base<D, Config>::set_origin_point(const coords_t& origin_point)
+    {
+        m_domain.set_origin_point(origin_point);
+        m_subdomain.set_origin_point(origin_point);
+        m_union.set_origin_point(origin_point);
+        for (std::size_t i = 0; i < static_cast<std::size_t>(mesh_id_t::count); ++i)
+        {
+            m_cells[i].set_origin_point(origin_point);
+        }
+    }
+
+    template <class D, class Config>
     inline double Mesh_base<D, Config>::scaling_factor() const
     {
-        return m_scaling_factor;
+        return m_domain.scaling_factor();
     }
 
     template <class D, class Config>
     inline void Mesh_base<D, Config>::set_scaling_factor(double scaling_factor)
     {
-        m_scaling_factor = scaling_factor;
         m_domain.set_scaling_factor(scaling_factor);
         m_subdomain.set_scaling_factor(scaling_factor);
         m_union.set_scaling_factor(scaling_factor);
@@ -361,7 +389,7 @@ namespace samurai
     template <class D, class Config>
     inline void Mesh_base<D, Config>::scale_domain(double domain_scaling_factor)
     {
-        set_scaling_factor(domain_scaling_factor * m_scaling_factor);
+        set_scaling_factor(domain_scaling_factor * scaling_factor());
     }
 
     template <class D, class Config>
@@ -539,7 +567,7 @@ namespace samurai
     inline void Mesh_base<D, Config>::construct_subdomain()
     {
         // lcl_type lcl = {m_cells[mesh_id_t::cells].max_level()};
-        lcl_type lcl = {m_max_level, m_scaling_factor};
+        lcl_type lcl = {m_max_level};
 
         for_each_interval(m_cells[mesh_id_t::cells],
                           [&](std::size_t level, const auto& i, const auto& index)
@@ -581,7 +609,7 @@ namespace samurai
         m_union[max_lvl] = {max_lvl};
         for (std::size_t level = max_lvl; level >= ((min_lvl == 0) ? 1 : min_lvl); --level)
         {
-            lcl_type lcl{level - 1, m_scaling_factor};
+            lcl_type lcl{level - 1};
             auto expr = union_(this->m_cells[mesh_id_t::cells][level], m_union[level]).on(level - 1);
 
             expr(

@@ -46,8 +46,9 @@ namespace samurai
         using interval_t    = typename config::interval_t;
         using coord_index_t = typename interval_t::coord_index_t;
 
-        using cl_type = LevelCellList<dim, interval_t>;
-        using ca_type = LevelCellArray<dim, interval_t>;
+        using cl_type  = LevelCellList<dim, interval_t>;
+        using ca_type  = LevelCellArray<dim, interval_t>;
+        using coords_t = typename ca_type::coords_t;
 
         using mesh_t = MeshIDArray<ca_type, mesh_id_t>;
 
@@ -68,6 +69,7 @@ namespace samurai
 
         void to_stream(std::ostream& os) const;
 
+        auto& origin_point() const;
         auto scaling_factor() const;
 
       private:
@@ -76,7 +78,6 @@ namespace samurai
         void renumbering();
 
         mesh_t m_cells;
-        double m_scaling_factor = 1;
     };
 
     template <class Config>
@@ -134,7 +135,7 @@ namespace samurai
     template <class Config>
     inline void UniformMesh<Config>::update_sub_mesh()
     {
-        cl_type cl{this->m_cells[mesh_id_t::cells].level(), this->scaling_factor()};
+        cl_type cl{this->m_cells[mesh_id_t::cells].level()};
         for_each_interval(this->m_cells[mesh_id_t::cells],
                           [&](std::size_t, const auto& interval, const auto& index_yz)
                           {
@@ -186,9 +187,15 @@ namespace samurai
     }
 
     template <class Config>
+    inline auto& UniformMesh<Config>::origin_point() const
+    {
+        return m_cells[0].origin_point();
+    }
+
+    template <class Config>
     inline auto UniformMesh<Config>::scaling_factor() const
     {
-        return m_scaling_factor;
+        return m_cells[0].scaling_factor();
     }
 
     template <class Config>

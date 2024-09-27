@@ -119,13 +119,13 @@ namespace samurai
         auto max_level = mpi::all_reduce(world, this->cells()[mesh_id_t::cells].max_level(), mpi::maximum<std::size_t>());
         // cppcheck-suppress redundantInitialization
         auto min_level = mpi::all_reduce(world, this->cells()[mesh_id_t::cells].min_level(), mpi::minimum<std::size_t>());
-        cl_type cell_list(this->scaling_factor());
+        cl_type cell_list;
 #else
         // cppcheck-suppress redundantInitialization
         auto max_level = this->cells()[mesh_id_t::cells].max_level();
         // cppcheck-suppress redundantInitialization
         auto min_level = this->cells()[mesh_id_t::cells].min_level();
-        cl_type cell_list(this->scaling_factor());
+        cl_type cell_list;
 #endif
         // Construction of ghost cells
         // ===========================
