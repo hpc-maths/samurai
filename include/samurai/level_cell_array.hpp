@@ -346,33 +346,27 @@ namespace samurai
         using point_t = typename box_t::point_t;
 
         // The computational domain is an approximation of the desired box
-        auto min_length = box.min_length();
-        // auto cell_length_level0 = min_length;
-        Box<double, dim> approx_box(box);
-        approx_box.min_corner() = box.min_corner();
-        approx_box.max_corner() = box.min_corner() + xt::ceil(box.length() / min_length) * min_length;
+        m_origin_point   = box.min_corner();
+        m_scaling_factor = box.min_length(); // cell length at level 0
 
-        m_origin_point = box.min_corner();
-        // approx_box.min_corner().fill(0);
-        // approx_box.max_corner() = xt::ceil(box.length() / min_length) * min_length;
+        // std::cout << box.length() << std::endl;
 
-        m_scaling_factor = min_length;
-        // m_scaling_factor = box.max_length();
+        const double tol   = 0.05;
+        auto approx_length = xt::eval(xt::ceil(box.length() / m_scaling_factor) * m_scaling_factor);
+        // std::cout << approx_length << std::endl;
+        while (xt::any(xt::abs(approx_length - box.length()) > tol * box.length()))
+        {
+            m_scaling_factor /= 2;
+            approx_length = xt::eval(xt::ceil(box.length() / m_scaling_factor) * m_scaling_factor);
+            // std::cout << approx_length << std::endl;
+        }
 
-        // std::cout << static_cast<double>(1 << level) << std::endl;
-        // std::cout << box.min_corner() << std::endl;
-        // point_t start_pt = box.min_corner() * static_cast<double>(1 << level) * box.length();
-        // point_t end_pt   = box.max_corner() * static_cast<double>(1 << level);
-
-        // point_t start_pt = approx_box.min_corner() / cell_length(level);
-        // point_t end_pt   = approx_box.max_corner() / cell_length(level);
-        // auto start_pt_   = xt::eval(approx_box.min_corner() / cell_length(level));
-        // auto end_pt_     = xt::eval(approx_box.max_corner() / cell_length(level));
+        // Box<double, dim> approx_box(box);
+        // approx_box.min_corner() = box.min_corner();
+        // approx_box.max_corner() = box.min_corner() + approx_length;
         point_t start_pt;
         start_pt.fill(0);
-        point_t end_pt = approx_box.length() / cell_length(level);
-
-        // std::cout << "--> " << start_pt << std::endl;
+        point_t end_pt = approx_length / cell_length(level);
         init_from_box(box_t{start_pt, end_pt});
     }
 
