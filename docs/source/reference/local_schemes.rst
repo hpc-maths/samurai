@@ -7,7 +7,7 @@ The local schemes are part of the Finite Volume module, enabled by
 .. code-block:: c++
 
     #include <samurai/schemes/fv.hpp>
-    #include <samurai/petsc.hpp> // optional, necessary for implicit shemes
+    #include <samurai/petsc.hpp> // optional, necessary for implicit schemes
 
 They are characterized by a function that applies to a field, whose computation only involves information located in the current mesh cell.
 The C++ interface is built similarly to the :doc:`flux-based Finite Volume schemes <finite_volume_schemes>`.

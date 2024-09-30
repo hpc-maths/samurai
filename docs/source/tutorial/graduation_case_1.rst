@@ -196,7 +196,7 @@ We can now apply this kernel for different stencils and different levels of the 
         }
     }
 
-At the end of thess operations, we know which cell must be refined and which cell must be kept.
+At the end of these operations, we know which cell must be refined and which cell must be kept.
 We can construct the new mesh using `tag` field and :cpp:class:`samurai::CellList`.
 
 .. code-block:: c++

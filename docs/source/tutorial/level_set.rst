@@ -481,7 +481,7 @@ Just to show how to initialize the velocity field, we consider the following C++
 the same is done for the level set, which is a scalar field.
 
 
-The time-step is chosen as :math:`\Delta t = 5\Delta x/8` and :math:`\Delta \tau = \Delta t/100` doing just two iterations with the fictitious time at each time step, which are perfomed only on the cells at the finest level (close to the interface).
+The time-step is chosen as :math:`\Delta t = 5\Delta x/8` and :math:`\Delta \tau = \Delta t/100` doing just two iterations with the fictitious time at each time step, which are performed only on the cells at the finest level (close to the interface).
 
 .. image:: ./figures/level_set.png
     :width: 100%
