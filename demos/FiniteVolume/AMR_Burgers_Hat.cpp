@@ -185,9 +185,9 @@ int main(int argc, char* argv[])
     double cfl       = 0.99;
 
     // AMR parameters
-    std::size_t start_level = 9;
-    std::size_t min_level   = 4;
-    std::size_t max_level   = 9;
+    std::size_t start_level = 7;
+    std::size_t min_level   = 2;
+    std::size_t max_level   = 7;
     bool correction         = false;
 
     // Output parameters
