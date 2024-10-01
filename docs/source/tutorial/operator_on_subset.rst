@@ -180,7 +180,7 @@ Then, we apply a projection operator on cells at level `0` which are completely 
 
 where this property holds for the cells  `1`, `2` and `6` beneath the red arrows.
 
-This projection operator is just the average of valus on the two fine cells. Thus, the result is set in the coarse cell.
+This projection operator is just the average of values on the two fine cells. Thus, the result is set in the coarse cell.
 
 .. code-block:: c++
 

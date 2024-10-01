@@ -123,7 +123,7 @@ Let's take the example of a Dirichlet condition to better understand how it work
 
 The :code:`get_stencil` method must return the stencil that allows to manage the boundary condition in the x-direction, i.e. for the boundary on the right.
 The stencil employed for the other directions will be deduced from this one by rotating it.
-The instuction :code:`line_stencil<dim, 0>(0, 1)` builds a stencil of two cells in the x-direction.
+The instruction :code:`line_stencil<dim, 0>(0, 1)` builds a stencil of two cells in the x-direction.
 In 2D, it yields :code:`{{0,0}, {1,0}}`.
 The origin cell in the stencil (coordinates :code:`{0,0}`) always captures the inner cell that touches the boundary.
 Here, we capture the origin cell and its right neighbour, which is the ghost cell we want to populate.

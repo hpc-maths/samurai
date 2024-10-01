@@ -312,16 +312,16 @@ Each :code:`c[i]` is a matrix of size :code:`output_field_size x input_field_siz
 where :code:`output_field_size` is set in :code:`cfg`,
 and :code:`input_field_size` corresponds to the size of the field type set in :code:`cfg` as :code:`input_field_type`.
 The matrix type is in fact an :code:`xtensor` object.
-You can then, amongs other things, access the :math:`k`-th row of :code:`c[0]` via :code:`xt::row(c[0], k)`,
+You can then, among other things, access the :math:`k`-th row of :code:`c[0]` via :code:`xt::row(c[0], k)`,
 its :math:`l`-th column via :code:`xt::col(c[0], l)`, or its coefficient at indices :math:`(k, l)` via :code:`c[0](k, l)`.
 
 .. note::
     When both :code:`output_field_size` and :code:`input_field_size` equal 1,
-    the matrix type employed to store the coefficents reduces to a scalar type (typically :code:`double`).
+    the matrix type employed to store the coefficients reduces to a scalar type (typically :code:`double`).
     In particular, no accessor or :code:`xtensor` function is available.
     To write an :math:`n`-dimensional program, a separate code for the special case where the matrix reduces to a scalar is usually necessary.
 
-As the operator is declared homogenous over the mesh, the coefficients do not depend on specific cell values.
+As the operator is declared homogeneous over the mesh, the coefficients do not depend on specific cell values.
 They can, however, depend on the mesh size :math:`h`, making :math:`h` the only parameter of the flux function.
 The coefficients can then be computed only once per mesh level, and re-used for all interfaces.
 If other (constant!) parameters are needed, they can be captured by the lambda function.
@@ -457,7 +457,7 @@ The implementation of the vector laplacian operator then writes
 Compared to the scalar laplacian code:
 
 - in the configuration, the :code:`output_field_size` now equals the :code:`field_size`,
-- in the flux fonction, the coefficients for each cell of the stencil are now matrices.
+- in the flux function, the coefficients for each cell of the stencil are now matrices.
   Specifically, they are diagonal matrices with the same coefficients as in the scalar laplacian.
 
 When :code:`field_size = 1`, the matrix type actually reduces to a scalar type, thus forbidding instructions such as :code:`c[L](i, i)`.
@@ -959,7 +959,7 @@ We have
 .. math::
     \int_V \nabla \cdot \mathbf{u}\otimes\mathbf{u} = \int_{\partial V} (\mathbf{u}\otimes\mathbf{u})\mathbf{n}.
 
-Developped in 2D, where :math:`\mathbf{u} := [u\;v]`, it reads
+Developed in 2D, where :math:`\mathbf{u} := [u\;v]`, it reads
 
 .. math::
     (\mathbf{u}\otimes\mathbf{u})\mathbf{n} =
@@ -1055,7 +1055,7 @@ Implementing a non-conservative scheme
 --------------------------------------
 
 Flux-based, non-conservative schemes also exist.
-Exemples can be found in two-phase flow simulation: while the scheme remains conservative within each phase, non-conservative fluxes can be computed at the interface between phases.
+Examples can be found in two-phase flow simulation: while the scheme remains conservative within each phase, non-conservative fluxes can be computed at the interface between phases.
 
 We recall :math:`V_L` and :math:`V_R`, the two cells sharing the face :math:`F`, and ordered in the direction of the corresponding Cartesian vector
 (i.e., in the x-direction, :math:`V_L` and :math:`V_R` are the left and right cells, respectively).

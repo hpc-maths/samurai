@@ -101,7 +101,7 @@ We have two cells :math:`0` and :math:`1` on the level :math:`l`. Therefore, we 
 Cell properties
 ---------------
 
-As hinted so far, given an interval and a level, we can reconstruct the correspoding cells.
+As hinted so far, given an interval and a level, we can reconstruct the corresponding cells.
 Indeed:
 
 - The number of cells contained in an interval is equal to the size of the interval.

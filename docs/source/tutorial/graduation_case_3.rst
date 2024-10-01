@@ -37,7 +37,7 @@ We shall apply the `for_each_cell` function to this end.
 
 We create a field named `tag` attached to the mesh.
 Again, this field is an array of booleans.
-If the value is set to true, the correspoding cell must be refined, otherwise, it must be kept .
+If the value is set to true, the corresponding cell must be refined, otherwise, it must be kept .
 
 .. code-block:: c++
 
@@ -78,7 +78,7 @@ The :cpp:func:`samurai::for_each_cell` function takes two parameters: the first 
 This `cell` parameter is of type :cpp:class:`samurai::Cell`.
 We use the method :cpp:func:`corner` to recover the bottom left point of each cell.
 
-We have tagged the cells and we can now re-create a new mesh from the `tag` field by creating four new cells if the correspoding value is `true`.
+We have tagged the cells and we can now re-create a new mesh from the `tag` field by creating four new cells if the corresponding value is `true`.
 We use :cpp:class:`samurai::CellList` to add new intervals efficiently.
 
 .. code-block: c++
