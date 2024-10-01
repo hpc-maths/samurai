@@ -110,6 +110,14 @@ namespace samurai
         /// Display to the given stream
         void to_stream(std::ostream& os) const;
 
+        // get_interval_location
+        template <typename... T, typename = std::enable_if_t<std::conjunction_v<std::is_convertible<T, value_t>...>, void>>
+        std::size_t get_interval_location(const interval_t& interval, T... index) const;
+        template <class E>
+        std::size_t get_interval_location(const interval_t& interval, const xt::xexpression<E>& index) const;
+        template <class E>
+        std::size_t get_interval_location(const xt::xexpression<E>& coord) const;
+
         // get_interval
         template <typename... T, typename = std::enable_if_t<std::conjunction_v<std::is_convertible<T, value_t>...>, void>>
         const interval_t& get_interval(const interval_t& interval, T... index) const;
@@ -144,6 +152,9 @@ namespace samurai
 
         //// Gives the total number of intervals
         auto nb_intervals() const;
+
+        //// Gives the number of intervals for a given dimension
+        std::size_t nb_intervals(std::size_t d) const;
 
         //// Gives the number of cells
         std::size_t nb_cells() const;
@@ -470,6 +481,37 @@ namespace samurai
     }
 
     /**
+     * Return the index in the x-interval array satisfying the input parameters
+     *
+     * @param interval The desired x-interval.
+     * @param index The desired indices for the other dimensions.
+     */
+    template <std::size_t Dim, class TInterval>
+    template <typename... T, typename D>
+    inline std::size_t LevelCellArray<Dim, TInterval>::get_interval_location(const interval_t& interval, T... index) const
+    {
+        return static_cast<std::size_t>(find(*this, {interval.start, index...}));
+    }
+
+    template <std::size_t Dim, class TInterval>
+    template <class E>
+    inline std::size_t LevelCellArray<Dim, TInterval>::get_interval_location(const interval_t& interval, const xt::xexpression<E>& index) const
+    {
+        xt::xtensor_fixed<value_t, xt::xshape<dim>> point;
+        point[0]                         = interval.start;
+        xt::view(point, xt::range(1, _)) = index;
+        return static_cast<std::size_t>(find(*this, point));
+    }
+
+    template <std::size_t Dim, class TInterval>
+    template <class E>
+    inline std::size_t LevelCellArray<Dim, TInterval>::get_interval_location(const xt::xexpression<E>& coord) const
+    {
+        xt::xtensor_fixed<value_t, xt::xshape<dim>> coord_array = coord;
+        return static_cast<std::size_t>(find(*this, coord_array));
+    }
+
+    /**
      * Return the x-interval satisfying the input parameters
      *
      * @param interval The desired x-interval.
@@ -479,8 +521,7 @@ namespace samurai
     template <typename... T, typename D>
     inline auto LevelCellArray<Dim, TInterval>::get_interval(const interval_t& interval, T... index) const -> const interval_t&
     {
-        auto row = find(*this, {interval.start, index...});
-        return m_cells[0][static_cast<std::size_t>(row)];
+        return m_cells[0][get_interval_location(interval, index...)];
     }
 
     template <std::size_t Dim, class TInterval>
@@ -488,20 +529,14 @@ namespace samurai
     inline auto LevelCellArray<Dim, TInterval>::get_interval(const interval_t& interval, const xt::xexpression<E>& index) const
         -> const interval_t&
     {
-        xt::xtensor_fixed<value_t, xt::xshape<dim>> point;
-        point[0]                         = interval.start;
-        xt::view(point, xt::range(1, _)) = index;
-        auto row                         = find(*this, point);
-        return m_cells[0][static_cast<std::size_t>(row)];
+        return m_cells[0][get_interval_location(interval, index)];
     }
 
     template <std::size_t Dim, class TInterval>
     template <class E>
     inline auto LevelCellArray<Dim, TInterval>::get_interval(const xt::xexpression<E>& coord) const -> const interval_t&
     {
-        xt::xtensor_fixed<value_t, xt::xshape<dim>> coord_array = coord;
-        auto row                                                = find(*this, coord_array);
-        return m_cells[0][static_cast<std::size_t>(row)];
+        return m_cells[0][get_interval_location(coord)];
     }
 
     template <std::size_t Dim, class TInterval>
@@ -594,6 +629,13 @@ namespace samurai
             s += m_cells[d].size();
         }
         return s;
+    }
+
+    template <std::size_t Dim, class TInterval>
+    inline std::size_t LevelCellArray<Dim, TInterval>::nb_intervals(std::size_t d) const
+    {
+        assert(d < dim);
+        return m_cells[d].size();
     }
 
     template <std::size_t Dim, class TInterval>

@@ -26,6 +26,9 @@ set(SAMURAI_TESTS
     test_periodic.cpp
     test_portion.cpp
     test_utils.cpp
+    test_sfc.cpp
+    test_mrmesh.cpp
+    test_loadbalancing.cpp
 )
 
 if(rapidcheck_FOUND)

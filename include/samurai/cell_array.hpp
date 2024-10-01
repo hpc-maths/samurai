@@ -95,10 +95,8 @@ namespace samurai
 
         template <typename... T>
         const interval_t& get_interval(std::size_t level, const interval_t& interval, T... index) const;
-
         template <class E>
         const interval_t& get_interval(std::size_t level, const interval_t& interval, const xt::xexpression<E>& index) const;
-
         template <class E>
         const interval_t& get_interval(std::size_t level, const xt::xexpression<E>& coord) const;
 
@@ -118,6 +116,9 @@ namespace samurai
 
         std::size_t nb_cells() const;
         std::size_t nb_cells(std::size_t level) const;
+
+        std::size_t nb_intervals(std::size_t dim) const;
+        std::size_t nb_intervals(std::size_t dim, std::size_t level) const;
 
         std::size_t max_level() const;
         std::size_t min_level() const;
@@ -373,6 +374,38 @@ namespace samurai
     inline std::size_t CellArray<dim_, TInterval, max_size_>::nb_cells(std::size_t level) const
     {
         return m_cells[level].nb_cells();
+    }
+
+    /**
+     * Return the number of intervals for a given dimension over the levels.
+     *
+     * @param d The dimension where to compute the number of intervals
+     * @return The number of intervals for the given dimension
+     */
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
+    inline std::size_t CellArray<dim_, TInterval, max_size_>::nb_intervals(std::size_t d) const
+    {
+        assert(d < dim);
+        std::size_t size = 0;
+        for (std::size_t level = 0; level <= max_size; ++level)
+        {
+            size += m_cells[level].nb_intervals(d);
+        }
+        return size;
+    }
+
+    /**
+     * Return the number of intervals for a given dimension and a given level.
+     *
+     * @param d The dimension where to compute the number of intervals
+     * @param level The level where to compute the number of intervals
+     * @return The number of intervals for the given dimension
+     */
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
+    inline std::size_t CellArray<dim_, TInterval, max_size_>::nb_intervals(std::size_t d, std::size_t level) const
+    {
+        assert(d < dim);
+        return m_cells[level].nb_intervals(d);
     }
 
     /**

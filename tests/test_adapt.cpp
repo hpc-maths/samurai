@@ -20,7 +20,7 @@ namespace samurai
 
     TYPED_TEST(adapt_test, mutliple_fields)
     {
-        ::samurai::initialize();
+        // ::samurai::initialize();
 
         static constexpr std::size_t dim = TypeParam::value;
         using config                     = MRConfig<dim>;
@@ -31,6 +31,7 @@ namespace samurai
 
         auto adapt = make_MRAdapt(u_1, u_2, u_3);
         adapt(1e-4, 2);
-        ::samurai::finalize();
+
+        // ::samurai::finalize();
     }
 }

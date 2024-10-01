@@ -73,9 +73,12 @@ namespace samurai
 
         MRMesh() = default;
         MRMesh(const cl_type& cl, const self_type& ref_mesh);
+        MRMesh(const ca_type& ca, const self_type& ref_mesh);
         MRMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level);
         MRMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t max_level);
         MRMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t max_level, const std::array<bool, dim>& periodic);
+        // Used for load balancing
+        //MRMesh( const cl_type & cl, std::size_t min_level, std::size_t max_level, std::vector<mpi_subdomain_t> & neighbourhood );
 
         void update_sub_mesh_impl();
 
@@ -86,6 +89,12 @@ namespace samurai
     template <class Config>
     inline MRMesh<Config>::MRMesh(const cl_type& cl, const self_type& ref_mesh)
         : base_type(cl, ref_mesh)
+    {
+    }
+
+    template <class Config>
+    inline MRMesh<Config>::MRMesh(const ca_type& ca, const self_type& ref_mesh)
+        : base_type(ca, ref_mesh)
     {
     }
 
@@ -109,6 +118,13 @@ namespace samurai
         : base_type(b, max_level, min_level, max_level, periodic)
     {
     }
+
+    // template <class Config>
+    // inline MRMesh<Config>::MRMesh( const cl_type & cl, std::size_t min_level, std::size_t max_level, 
+    //                                 std::vector<mpi_subdomain_t> & neighbourhood)
+    //     : base_type(cl, min_level, max_level, neighbourhood )
+    // {
+    // }
 
     template <class Config>
     inline void MRMesh<Config>::update_sub_mesh_impl()
