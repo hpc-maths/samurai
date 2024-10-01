@@ -15,7 +15,10 @@ namespace samurai
 
         zero.coefficients_func() = [](double) -> StencilCoeffs<cfg>
         {
-            return {zeros<field_value_type, output_field_size, field_size>()};
+            // return {zeros<field_value_type, output_field_size, field_size>()};
+            StencilCoeffs<cfg> sc;
+            sc(0) = zeros<field_value_type, output_field_size, field_size>();
+            return sc;
         };
         zero.is_symmetric(true);
         return zero;

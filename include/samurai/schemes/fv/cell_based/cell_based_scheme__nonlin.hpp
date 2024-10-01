@@ -14,6 +14,7 @@ namespace samurai
         using base_class::dim;
         using base_class::field_size;
         using base_class::output_field_size;
+        using size_type = typename base_class::size_type;
 
         using cfg_t            = cfg;
         using bdry_cfg_t       = bdry_cfg;
@@ -131,7 +132,7 @@ namespace samurai
             return m_scheme_definition.jacobian_function(stencil_cells, field);
         }
 
-        inline field_value_type contrib_cmpnent(const SchemeValue<cfg>& coeffs, [[maybe_unused]] std::size_t field_i) const
+        inline field_value_type contrib_cmpnent(const SchemeValue<cfg>& coeffs, [[maybe_unused]] size_type field_i) const
         {
             if constexpr (cfg::output_field_size == 1)
             {
