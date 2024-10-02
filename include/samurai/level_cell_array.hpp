@@ -82,6 +82,8 @@ namespace samurai
 
         using index_type = std::array<value_t, dim>;
 
+        static constexpr double default_approx_box_tol = 0.05;
+
         LevelCellArray() = default;
         LevelCellArray(const LevelCellList<Dim, TInterval>& lcl);
 
@@ -89,7 +91,10 @@ namespace samurai
         LevelCellArray(subset_operator<F, CT...> set);
 
         LevelCellArray(std::size_t level, const Box<value_t, dim>& box);
-        LevelCellArray(std::size_t level, const Box<double, dim>& box);
+        LevelCellArray(std::size_t level,
+                       const Box<double, dim>& box,
+                       double approx_box_tol = default_approx_box_tol,
+                       double scaling_factor = 0);
         LevelCellArray(std::size_t level);
         LevelCellArray(std::size_t level, const coords_t& origin_point, double scaling_factor);
 
@@ -339,26 +344,33 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline LevelCellArray<Dim, TInterval>::LevelCellArray(std::size_t level, const Box<double, dim>& box)
+    inline LevelCellArray<Dim, TInterval>::LevelCellArray(std::size_t level,
+                                                          const Box<double, dim>& box,
+                                                          double approx_box_tol,
+                                                          double scaling_factor)
         : m_level(level)
     {
         using box_t   = Box<value_t, dim>;
         using point_t = typename box_t::point_t;
 
-        // The computational domain is an approximation of the desired box
+        assert(approx_box_tol > 0 || scaling_factor > 0);
+
+        // The computational domain is an approximation of the desired box.
+        // If `scaling_factor` is given (i.e. > 0), we take it; otherwise we choosing using the tolerance `approx_box_tol`.
         m_origin_point   = box.min_corner();
-        m_scaling_factor = box.min_length(); // cell length at level 0
+        m_scaling_factor = scaling_factor > 0 ? scaling_factor : box.min_length(); // cell length at level 0
 
-        // std::cout << box.length() << std::endl;
-
-        const double tol   = 0.05;
         auto approx_length = xt::eval(xt::ceil(box.length() / m_scaling_factor) * m_scaling_factor);
         // std::cout << approx_length << std::endl;
-        while (xt::any(xt::abs(approx_length - box.length()) > tol * box.length()))
+
+        if (scaling_factor <= 0)
         {
-            m_scaling_factor /= 2;
-            approx_length = xt::eval(xt::ceil(box.length() / m_scaling_factor) * m_scaling_factor);
-            // std::cout << approx_length << std::endl;
+            while (xt::any(xt::abs(approx_length - box.length()) > approx_box_tol * box.length()))
+            {
+                m_scaling_factor /= 2;
+                approx_length = xt::eval(xt::ceil(box.length() / m_scaling_factor) * m_scaling_factor);
+                // std::cout << approx_length << std::endl;
+            }
         }
 
         // Box<double, dim> approx_box(box);
