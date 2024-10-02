@@ -164,7 +164,7 @@ int main(int argc, char* argv[])
     CLI11_PARSE(app, argc, argv);
 
     const samurai::Box<double, dim> box({left_box}, {right_box});
-    samurai::MRMesh<Config> mesh(box, min_level, max_level, {is_periodic});
+    samurai::MRMesh<Config> mesh(box, min_level, max_level, std::array<bool, dim>{is_periodic});
 
     double dt            = cfl * mesh.cell_length(max_level);
     const double dt_save = Tf / static_cast<double>(nfiles);
