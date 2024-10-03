@@ -470,6 +470,10 @@ namespace samurai
             int origin_index = find_stencil_origin(stencil);
             assert(origin_index >= 0 && "the zero vector is required in the stencil definition.");
             m_origin_cell = static_cast<unsigned int>(origin_index);
+            for (cell_t& cell : m_cells)
+            {
+                cell.origin_point = mesh.origin_point();
+            }
         }
 
         void init(const mesh_interval_t& mesh_interval)
