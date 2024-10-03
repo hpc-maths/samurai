@@ -97,8 +97,6 @@ int main(int argc, char* argv[])
     box_corner1.fill(left_box);
     box_corner2.fill(right_box);
     Box box(box_corner1, box_corner2);
-    // Box box({0, 0}, {4, 3});
-    // Box box({-1, -0.7}, {1, 1});
     std::array<bool, dim> periodic;
     periodic.fill(true);
     samurai::MRMesh<Config> mesh{box, min_level, max_level, periodic};
@@ -106,7 +104,7 @@ int main(int argc, char* argv[])
     // Initial solution
     auto u = samurai::make_field<1>("u",
                                     mesh,
-                                    [&](const auto& coords)
+                                    [](const auto& coords)
                                     {
                                         if constexpr (dim == 1)
                                         {
