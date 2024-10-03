@@ -11,7 +11,13 @@ namespace samurai
     {
         auto indices          = xt::xtensor_fixed<int, xt::xshape<2>>({1, 1});
         double scaling_factor = 1;
-        Cell<2, Interval<int>> c{scaling_factor, 1, indices, 0};
+        Cell<2, Interval<int>> c{
+            {0, 0},
+            scaling_factor,
+            1,
+            indices,
+            0
+        };
         EXPECT_EQ(c.length, 0.5);
     }
 
@@ -19,7 +25,13 @@ namespace samurai
     {
         auto indices          = xt::xtensor_fixed<int, xt::xshape<2>>({1, 1});
         double scaling_factor = 1;
-        Cell<2, Interval<int>> c{scaling_factor, 1, indices, 0};
+        Cell<2, Interval<int>> c{
+            {0, 0},
+            scaling_factor,
+            1,
+            indices,
+            0
+        };
         xt::xarray<double> expected{.75, .75};
         EXPECT_EQ(c.center(), expected);
     }
@@ -28,7 +40,13 @@ namespace samurai
     {
         auto indices          = xt::xtensor_fixed<int, xt::xshape<2>>({1, 1});
         double scaling_factor = 1;
-        Cell<2, Interval<int>> c{scaling_factor, 1, indices, 0};
+        Cell<2, Interval<int>> c{
+            {0, 0},
+            scaling_factor,
+            1,
+            indices,
+            0
+        };
         xt::xarray<double> expected{.5, .5};
         EXPECT_EQ(c.corner(), expected);
     }

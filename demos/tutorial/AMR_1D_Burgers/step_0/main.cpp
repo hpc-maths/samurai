@@ -53,7 +53,7 @@ int main(int argc, char* argv[])
     const samurai::Box<double, dim> box({-2}, {2});
     samurai::CellArray<dim> mesh;
 
-    mesh[init_level] = {init_level, box};
+    mesh[init_level] = {init_level, box, 0, 1};
 
     std::cout << mesh << "\n";
 

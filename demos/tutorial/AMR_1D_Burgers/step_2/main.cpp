@@ -56,12 +56,12 @@ int main(int argc, char* argv[])
     const samurai::Box<double, dim> box({-3}, {3});
     samurai::CellArray<dim> mesh;
 
-    mesh[init_level] = {init_level, box};
+    mesh[init_level] = {init_level, box, 0, 1};
 
     auto phi = init_sol(mesh);
 
     /////////////////////////////////
-    const double dx      = 1. / (1 << init_level);
+    const double dx      = mesh.cell_length(init_level);
     double dt            = cfl * dx;
     const double dt_save = Tf / static_cast<double>(nfiles);
 

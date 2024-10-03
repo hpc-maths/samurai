@@ -63,7 +63,7 @@ int main(int argc, char* argv[])
 
     auto phi = init_sol(mesh);
 
-    const double dx      = 1. / (1 << max_level);
+    const double dx      = mesh.cell_length(max_level);
     double dt            = cfl * dx;
     const double dt_save = Tf / static_cast<double>(nfiles);
 
