@@ -53,7 +53,10 @@ namespace samurai
         using mesh_t = MeshIDArray<ca_type, mesh_id_t>;
 
         UniformMesh(const cl_type& cl);
-        UniformMesh(const Box<double, dim>& b, std::size_t level);
+        UniformMesh(const Box<double, dim>& b,
+                    std::size_t level,
+                    double approx_box_tol = ca_type::default_approx_box_tol,
+                    double scaling_factor = 0);
 
         std::size_t nb_cells(mesh_id_t mesh_id = mesh_id_t::reference) const;
 
@@ -70,7 +73,10 @@ namespace samurai
         void to_stream(std::ostream& os) const;
 
         auto& origin_point() const;
+        void set_origin_point(const coords_t& origin_point);
         auto scaling_factor() const;
+        void set_scaling_factor(double scaling_factor);
+        double cell_length(std::size_t level) const;
 
       private:
 
@@ -81,12 +87,15 @@ namespace samurai
     };
 
     template <class Config>
-    inline UniformMesh<Config>::UniformMesh(const Box<double, dim>& b, std::size_t level)
+    inline UniformMesh<Config>::UniformMesh(const Box<double, dim>& b, std::size_t level, double approx_box_tol, double scaling_factor_)
     {
-        this->m_cells[mesh_id_t::cells] = {level, b};
+        this->m_cells[mesh_id_t::cells] = {level, b, approx_box_tol, scaling_factor_};
 
         update_sub_mesh();
         renumbering();
+
+        set_origin_point(origin_point());
+        set_scaling_factor(scaling_factor());
     }
 
     template <class Config>
@@ -96,6 +105,9 @@ namespace samurai
 
         update_sub_mesh();
         renumbering();
+
+        set_origin_point(cl.origin_point());
+        set_scaling_factor(cl.scaling_factor());
     }
 
     template <class Config>
@@ -193,9 +205,33 @@ namespace samurai
     }
 
     template <class Config>
+    inline void UniformMesh<Config>::set_origin_point(const coords_t& origin_point)
+    {
+        for (std::size_t i = 0; i < static_cast<std::size_t>(mesh_id_t::count); ++i)
+        {
+            m_cells[i].set_origin_point(origin_point);
+        }
+    }
+
+    template <class Config>
     inline auto UniformMesh<Config>::scaling_factor() const
     {
         return m_cells[0].scaling_factor();
+    }
+
+    template <class Config>
+    inline void UniformMesh<Config>::set_scaling_factor(double scaling_factor)
+    {
+        for (std::size_t i = 0; i < static_cast<std::size_t>(mesh_id_t::count); ++i)
+        {
+            m_cells[i].set_scaling_factor(scaling_factor);
+        }
+    }
+
+    template <class Config>
+    inline double UniformMesh<Config>::cell_length(std::size_t level) const
+    {
+        return samurai::cell_length(scaling_factor(), level);
     }
 
     template <class Config>

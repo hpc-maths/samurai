@@ -35,7 +35,7 @@ bool update_mesh(Field& f, const Tag& tag)
 
     auto& mesh = f.mesh();
 
-    cl_type cell_list;
+    cl_type cell_list(mesh.origin_point(), mesh.scaling_factor());
 
     samurai::for_each_interval(mesh[mesh_id_t::cells],
                                [&](std::size_t level, const auto& interval, const auto&)

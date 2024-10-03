@@ -109,21 +109,23 @@ namespace samurai
         cell_list[2][{6}].add_interval({10, 12});
 
         CellArray<dim> cell_array(cell_list);
-        using cell_t = typename CellArray<dim>::cell_t;
+        using cell_t   = typename CellArray<dim>::cell_t;
+        using coords_t = typename cell_t::coords_t;
 
+        coords_t origin_point{0, 0};
         double scaling_factor = 1;
 
-        EXPECT_EQ(cell_array.get_cell(2, 0, 5), (cell_t(scaling_factor, 2, 0, 5, 5)));
+        EXPECT_EQ(cell_array.get_cell(2, 0, 5), (cell_t(origin_point, scaling_factor, 2, 0, 5, 5)));
 
         xt::xtensor_fixed<int, xt::xshape<1>> index{10};
-        EXPECT_EQ(cell_array.get_cell(2, 3, index / 2), (cell_t(scaling_factor, 2, 3, 5, 8)));
+        EXPECT_EQ(cell_array.get_cell(2, 3, index / 2), (cell_t(origin_point, scaling_factor, 2, 3, 5, 8)));
 
         // TODO : nothing is done for get_cell has no answer
         // EXPECT_EQ(cell_array.get_cell(2, 0, index / 2 + 1), (cell_t(2, 0, 6, 0)));
 
-        EXPECT_EQ(cell_array.get_cell(2, 10, index / 2 + 1), (cell_t(scaling_factor, 2, 10, 6, 14)));
+        EXPECT_EQ(cell_array.get_cell(2, 10, index / 2 + 1), (cell_t(origin_point, scaling_factor, 2, 10, 6, 14)));
 
         xt::xtensor_fixed<int, xt::xshape<2>> coords{1, 2};
-        EXPECT_EQ(cell_array.get_cell(2, 2 * coords + 1), (cell_t(scaling_factor, 2, 3, 5, 8)));
+        EXPECT_EQ(cell_array.get_cell(2, 2 * coords + 1), (cell_t(origin_point, scaling_factor, 2, 3, 5, 8)));
     }
 }

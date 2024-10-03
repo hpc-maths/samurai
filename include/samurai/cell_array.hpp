@@ -127,6 +127,7 @@ namespace samurai
         void set_origin_point(const coords_t& origin_point);
         double scaling_factor() const;
         void set_scaling_factor(double scaling_factor);
+        double cell_length(std::size_t level) const;
 
         void update_index();
 
@@ -443,6 +444,12 @@ namespace samurai
         {
             m_cells[level].set_scaling_factor(scaling_factor);
         }
+    }
+
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
+    inline double CellArray<dim_, TInterval, max_size_>::cell_length(std::size_t level) const
+    {
+        return samurai::cell_length(scaling_factor(), level);
     }
 
     /**
