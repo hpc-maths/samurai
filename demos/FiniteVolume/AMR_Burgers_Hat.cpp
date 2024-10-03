@@ -233,10 +233,10 @@ int main(int argc, char* argv[])
     while (t != Tf)
     {
         // AMR adaptation
-        // std::size_t ite_adapt = 0;
+        std::size_t ite_adapt = 0;
         while (true)
         {
-            // std::cout << "\tmesh adaptation: " << ite_adapt++ << std::endl;
+            std::cout << "\tmesh adaptation: " << ite_adapt++ << std::endl;
             samurai::update_ghost(phi);
             tag.resize();
             AMR_criteria(phi, tag);

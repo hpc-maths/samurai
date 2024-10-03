@@ -361,7 +361,6 @@ namespace samurai
         m_scaling_factor = scaling_factor > 0 ? scaling_factor : box.min_length(); // cell length at level 0
 
         auto approx_length = xt::eval(xt::ceil(box.length() / m_scaling_factor) * m_scaling_factor);
-        // std::cout << approx_length << std::endl;
 
         if (scaling_factor <= 0)
         {
@@ -369,13 +368,14 @@ namespace samurai
             {
                 m_scaling_factor /= 2;
                 approx_length = xt::eval(xt::ceil(box.length() / m_scaling_factor) * m_scaling_factor);
-                // std::cout << approx_length << std::endl;
             }
         }
 
+        // The actual domain is the following box:
         // Box<double, dim> approx_box(box);
         // approx_box.min_corner() = box.min_corner();
         // approx_box.max_corner() = box.min_corner() + approx_length;
+
         point_t start_pt;
         start_pt.fill(0);
         point_t end_pt = approx_length / cell_length(level);
