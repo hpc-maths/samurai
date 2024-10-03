@@ -155,10 +155,7 @@ namespace samurai
         //// Gives the number of cells
         std::size_t nb_cells() const;
 
-        inline double cell_length(std::size_t level) const
-        {
-            return samurai::cell_length(m_scaling_factor, level);
-        }
+        double cell_length() const;
 
         const std::vector<interval_t>& operator[](std::size_t d) const;
         std::vector<interval_t>& operator[](std::size_t d);
@@ -378,7 +375,7 @@ namespace samurai
 
         point_t start_pt;
         start_pt.fill(0);
-        point_t end_pt = approx_length / cell_length(level);
+        point_t end_pt = approx_length / cell_length();
         init_from_box(box_t{start_pt, end_pt});
     }
 
@@ -671,6 +668,12 @@ namespace samurai
     inline std::size_t LevelCellArray<Dim, TInterval>::level() const
     {
         return m_level;
+    }
+
+    template <std::size_t Dim, class TInterval>
+    inline double LevelCellArray<Dim, TInterval>::cell_length() const
+    {
+        return samurai::cell_length(m_scaling_factor, m_level);
     }
 
     /**
