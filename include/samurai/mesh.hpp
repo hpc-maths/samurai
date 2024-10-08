@@ -649,12 +649,13 @@ namespace samurai
     void Mesh_base<D, Config>::partition_mesh([[maybe_unused]] std::size_t start_level, [[maybe_unused]] const Box<double, dim>& global_box)
     {
 #ifdef SAMURAI_WITH_MPI
-        using box_t   = Box<value_t, dim>;
-        using point_t = typename box_t::point_t;
-
         mpi::communicator world;
         auto rank = world.rank();
         auto size = world.size();
+
+        /*
+        using box_t   = Box<value_t, dim>;
+        using point_t = typename box_t::point_t;
 
         double h = cell_length(start_level);
 
@@ -711,6 +712,25 @@ namespace samurai
         }
         box_t subdomain_box                          = {min_corner, max_corner};
         this->m_cells[mesh_id_t::cells][start_level] = {start_level, subdomain_box};
+        */
+
+        lcl_type subdomain_cells(start_level, m_domain.origin_point(), m_domain.scaling_factor());
+        auto subdomain_nb_intervals = m_domain.nb_intervals() / static_cast<std::size_t>(size);
+        auto subdomain_start        = static_cast<std::size_t>(rank) * subdomain_nb_intervals;
+        auto subdomain_end          = (static_cast<std::size_t>(rank) + 1) * subdomain_nb_intervals;
+
+        std::size_t k = 0;
+        for_each_meshinterval(m_domain,
+                              [&](auto mi)
+                              {
+                                  if (k >= subdomain_start && k < subdomain_end)
+                                  {
+                                      subdomain_cells[mi.index].add_interval(mi.i);
+                                  }
+                                  ++k;
+                              });
+
+        this->m_cells[mesh_id_t::cells][start_level] = subdomain_cells;
 
         m_mpi_neighbourhood.reserve(static_cast<std::size_t>(size) - 1);
         for (int ir = 0; ir < size; ++ir)
