@@ -119,8 +119,11 @@ namespace samurai
             update_ghost_subdomains(min_level - 1, field, other_fields...);
         }
         update_bc(min_level, field, other_fields...);
+        // std::cout << "> update_ghost_periodic" << std::endl;
         update_ghost_periodic(min_level, field, other_fields...);
+        // std::cout << "> update_ghost_subdomains" << std::endl;
         update_ghost_subdomains(min_level, field, other_fields...);
+        // std::cout << "< update_ghost_subdomains" << std::endl;
 
         for (std::size_t level = min_level + 1; level <= max_level; ++level)
         {

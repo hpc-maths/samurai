@@ -28,7 +28,27 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
                                level_[cell] = cell.level;
                            });
 
-    samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
+    auto cell_index = samurai::make_field<long long, 1>("cell_index", mesh);
+    samurai::for_each_cell(mesh,
+                           [&](const auto& cell)
+                           {
+                               cell_index[cell] = cell.index;
+                           });
+
+    auto rank = samurai::make_field<int, 1>("rank", mesh);
+
+    mpi::communicator world;
+    auto r = world.rank();
+    samurai::for_each_cell(mesh,
+                           [&](const auto& cell)
+                           {
+                               // std::cout << r << ": " << cell.index << std::endl;
+                               rank[cell] = r;
+                           });
+
+    // std::cout << rank << std::endl;
+
+    samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_, rank, cell_index);
 }
 
 int main(int argc, char* argv[])
@@ -93,12 +113,96 @@ int main(int argc, char* argv[])
     // Problem definition //
     //--------------------//
 
+    static constexpr std::size_t dim_ = 1;
+    // static constexpr int test         = 0;
+    if constexpr (dim_ == 1)
+    {
+        samurai::Box<double, dim_> box1({-1}, {6});
+        samurai::Box<double, dim_> box2({1}, {4});
+        samurai::LevelCellArray<dim_> lca1(2, box1);
+        samurai::LevelCellArray<dim_> lca2(1, box2, 0, lca1.scaling_factor());
+
+        std::cout << "lca1:" << std::endl;
+        samurai::for_each_cell(lca1,
+                               [](auto& cell)
+                               {
+                                   std::cout << cell << std::endl;
+                               });
+        std::cout << "lca2:" << std::endl;
+        samurai::for_each_cell(lca2,
+                               [](auto& cell)
+                               {
+                                   std::cout << cell << std::endl;
+                               });
+
+        samurai::LevelCellArray<dim_> inters = samurai::intersection(lca1, lca2).on(0);
+        std::cout << "inters:" << std::endl;
+        samurai::for_each_cell(inters,
+                               [](auto& cell)
+                               {
+                                   std::cout << cell << std::endl;
+                               });
+    }
+    if constexpr (dim_ == 2)
+    {
+        samurai::Box<double, dim_> box10({-1, -1}, {6, 6});
+        samurai::Box<double, dim_> box11({3, 3}, {5, 5});
+        samurai::Box<double, dim_> box2({1, 1}, {4, 4});
+        // samurai::LevelCellArray<dim_> lca10(0, box10, 0, 1);
+        // samurai::LevelCellArray<dim_> lca11(0, box11, 0, 1);
+        // samurai::LevelCellArray<dim_> lca2(0, box2, 0, 1);
+        samurai::LevelCellArray<dim_> lca10(1, box10);
+        samurai::LevelCellArray<dim_> lca11(0, box11, 0, lca10.scaling_factor());
+        samurai::LevelCellArray<dim_> lca2(0, box2, 0, lca10.scaling_factor());
+
+        // std::cout << "lca1:" << std::endl;
+        // samurai::for_each_cell(lca10,
+        //                        [](auto& cell)
+        //                        {
+        //                            std::cout << cell << std::endl;
+        //                        });
+        // std::cout << "lca2:" << std::endl;
+        // samurai::for_each_cell(lca2,
+        //                        [](auto& cell)
+        //                        {
+        //                            std::cout << cell << std::endl;
+        //                        });
+        std::cout << "sub:" << std::endl;
+        auto sub = samurai::difference(lca10, lca11).on(0);
+        // samurai::for_each_cell(sub,
+        //                        [](auto& cell)
+        //                        {
+        //                            std::cout << cell << std::endl;
+        //                        });
+
+        samurai::LevelCellArray<dim_> inters = samurai::intersection(sub, lca2).on(0);
+        std::cout << "inters:" << std::endl;
+        samurai::for_each_cell(inters,
+                               [](auto& cell)
+                               {
+                                   std::cout << cell << std::endl;
+                               });
+    }
+    else
+    {
+        // samurai::Box<double, dim_> box({-1, -1}, {2, 2});
+        // samurai::LevelCellArray<dim_> lca(0, box, 0, 1);
+        // samurai::LevelCellArray<dim_> trans = samurai::translate(lca, samurai::DirectionVector<dim_>{1, 1});
+        // samurai::for_each_cell(trans,
+        //                        [](auto& cell)
+        //                        {
+        //                            std::cout << cell << std::endl;
+        //                        });
+    }
+    std::cout << "------------------------------------------------" << std::endl;
+    std::cout << "------------------------------------------------" << std::endl;
+
     point_t box_corner1, box_corner2;
     box_corner1.fill(left_box);
     box_corner2.fill(right_box);
     Box box(box_corner1, box_corner2);
     std::array<bool, dim> periodic;
-    periodic.fill(true);
+    periodic.fill(false);
     samurai::MRMesh<Config> mesh{box, min_level, max_level, periodic};
 
     // Initial solution
@@ -124,6 +228,11 @@ int main(int argc, char* argv[])
     auto u1 = samurai::make_field<1>("u1", mesh);
     auto u2 = samurai::make_field<1>("u2", mesh);
 
+    samurai::make_bc<samurai::Neumann<1>>(u, 0.);
+    samurai::make_bc<samurai::Neumann<1>>(unp1, 0.);
+    samurai::make_bc<samurai::Neumann<1>>(u1, 0.);
+    samurai::make_bc<samurai::Neumann<1>>(u2, 0.);
+
     unp1.fill(0);
     u1.fill(0);
     u2.fill(0);
@@ -137,6 +246,15 @@ int main(int argc, char* argv[])
     }
     auto conv = samurai::make_convection_weno5<decltype(u)>(velocity);
 
+    static constexpr std::size_t field_size = 2;
+
+    auto u_ = samurai::make_field<field_size>("u_", mesh);
+    std::array<samurai::VelocityVector<dim>, field_size> velocities;
+    velocities[0] = {1, 1};
+    velocities[1] = {-1, 1};
+
+    auto multi_conv = samurai::make_multi_convection_weno5<decltype(u_)>(velocities);
+
     //--------------------//
     //   Time iteration   //
     //--------------------//
@@ -148,6 +266,10 @@ int main(int argc, char* argv[])
         double sum_velocities = xt::sum(xt::abs(velocity))();
         dt                    = cfl * dx / sum_velocities;
     }
+
+    save(path, filename, u, "_init");
+    // samurai::finalize();
+    // return 0;
 
     auto MRadaptation = samurai::make_MRAdapt(u);
     MRadaptation(mr_epsilon, mr_regularity);
