@@ -2,17 +2,17 @@
 <Xdmf>
     <Domain>
         <Grid Name="mesh">
-            <Topology TopologyType="Polyline" NumberOfElements="119">
-                <DataItem Dimensions="238" Format="HDF">test_finite_volume_demo_finite-volume-amr-burgers-hat-1.h5:/mesh/connectivity</DataItem>
+            <Topology TopologyType="Polyline" NumberOfElements="55">
+                <DataItem Dimensions="110" Format="HDF">test_finite_volume_demo_finite-volume-amr-burgers-hat-1.h5:/mesh/connectivity</DataItem>
             </Topology>
             <Geometry GeometryType="XYZ">
-                <DataItem Dimensions="360" Format="HDF">test_finite_volume_demo_finite-volume-amr-burgers-hat-1.h5:/mesh/points</DataItem>
+                <DataItem Dimensions="168" Format="HDF">test_finite_volume_demo_finite-volume-amr-burgers-hat-1.h5:/mesh/points</DataItem>
             </Geometry>
             <Attribute Name="phi" Center="Cell">
-                <DataItem Dimensions="119" Format="HDF" Precision="8">test_finite_volume_demo_finite-volume-amr-burgers-hat-1.h5:/mesh/fields/phi</DataItem>
+                <DataItem Dimensions="55" Format="HDF" Precision="8">test_finite_volume_demo_finite-volume-amr-burgers-hat-1.h5:/mesh/fields/phi</DataItem>
             </Attribute>
             <Attribute Name="level" Center="Cell">
-                <DataItem Dimensions="119" Format="HDF" Precision="8">test_finite_volume_demo_finite-volume-amr-burgers-hat-1.h5:/mesh/fields/level</DataItem>
+                <DataItem Dimensions="55" Format="HDF" Precision="8">test_finite_volume_demo_finite-volume-amr-burgers-hat-1.h5:/mesh/fields/level</DataItem>
             </Attribute>
         </Grid>
     </Domain>

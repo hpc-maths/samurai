@@ -15,7 +15,7 @@ void update_sol(double dt, Field& phi, Field& phi_np1)
                                {
                                    using interval_t = decltype(interval);
 
-                                   const double dx = samurai::cell_length(level);
+                                   const double dx = mesh.cell_length(level);
 
                                    // remove the extrema to avoid problem with the boundaries
                                    auto ii = interval_t{interval.start + 1, interval.end - 1};

@@ -57,8 +57,10 @@ namespace samurai
     {
         static constexpr std::size_t dim = 1;
         using config                     = MRConfig<dim>;
-        auto mesh                        = MRMesh<config>({{0}, {1}}, 2, 4);
-        auto u                           = make_field<double, 1>("u", mesh);
+
+        Box<double, dim> box = {{0}, {1}};
+        auto mesh            = MRMesh<config>(box, 2, 4);
+        auto u               = make_field<double, 1>("u", mesh);
 
         make_bc<Dirichlet<1>>(u,
                               [](const auto& direction, const auto& cell, const auto& coord)

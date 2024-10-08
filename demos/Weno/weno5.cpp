@@ -176,7 +176,8 @@ class weno5_op : public samurai::field_operator_base<TInterval>,
     template <class T, class Field, class Vel>
     inline auto vel_x_pos(T& dphi, const Field& phi, const Vel& vel) const
     {
-        double inv_dx = 1. / dx();
+        auto dx       = phi.mesh().cell_length(level);
+        double inv_dx = 1. / dx;
         double eps    = 1e-6;
         auto mask     = vel(0, level, i, j) >= 0;
 
@@ -216,7 +217,8 @@ class weno5_op : public samurai::field_operator_base<TInterval>,
     template <class T, class Field, class Vel>
     inline auto vel_x_neg(T& dphi, const Field& phi, const Vel& vel) const
     {
-        double inv_dx = 1. / dx();
+        auto dx       = phi.mesh().cell_length(level);
+        double inv_dx = 1. / dx;
         double eps    = 1e-6;
         auto mask     = vel(0, level, i, j) < 0;
 
@@ -256,7 +258,8 @@ class weno5_op : public samurai::field_operator_base<TInterval>,
     template <class T, class Field, class Vel>
     inline auto vel_y_pos(T& dphi, const Field& phi, const Vel& vel) const
     {
-        double inv_dx = 1. / dx();
+        auto dx       = phi.mesh().cell_length(level);
+        double inv_dx = 1. / dx;
         double eps    = 1e-6;
         auto mask     = vel(1, level, i, j) >= 0;
 
@@ -296,7 +299,8 @@ class weno5_op : public samurai::field_operator_base<TInterval>,
     template <class T, class Field, class Vel>
     inline auto vel_y_neg(T& dphi, const Field& phi, const Vel& vel) const
     {
-        double inv_dx = 1. / dx();
+        auto dx       = phi.mesh().cell_length(level);
+        double inv_dx = 1. / dx;
         double eps    = 1e-6;
         auto mask     = vel(1, level, i, j) < 0;
 

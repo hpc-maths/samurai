@@ -48,7 +48,7 @@ int main(int argc, char* argv[])
     const samurai::Box<double, dim> box({-3}, {3});
     samurai::CellArray<dim> mesh;
 
-    mesh[init_level] = {init_level, box};
+    mesh[init_level] = {init_level, box, 0, 1};
 
     //////////////////////////////////
     auto phi = init_sol(mesh);

@@ -97,7 +97,7 @@ void flux_correction(double dt, const std::array<double, 2>& a, const Field& u, 
             [&](const auto& i, const auto& index)
             {
                 auto j          = index[0];
-                const double dx = samurai::cell_length(level);
+                const double dx = mesh.cell_length(level);
 
                 unp1(level, i, j) = unp1(level, i, j)
                                   + dt / dx
@@ -118,7 +118,7 @@ void flux_correction(double dt, const std::array<double, 2>& a, const Field& u, 
             [&](const auto& i, const auto& index)
             {
                 auto j          = index[0];
-                const double dx = samurai::cell_length(level);
+                const double dx = mesh.cell_length(level);
 
                 unp1(level, i, j) = unp1(level, i, j)
                                   - dt / dx
@@ -138,7 +138,7 @@ void flux_correction(double dt, const std::array<double, 2>& a, const Field& u, 
             [&](const auto& i, const auto& index)
             {
                 auto j          = index[0];
-                const double dx = samurai::cell_length(level);
+                const double dx = mesh.cell_length(level);
 
                 unp1(level, i, j) = unp1(level, i, j)
                                   + dt / dx
@@ -159,7 +159,7 @@ void flux_correction(double dt, const std::array<double, 2>& a, const Field& u, 
             [&](const auto& i, const auto& index)
             {
                 auto j          = index[0];
-                const double dx = samurai::cell_length(level);
+                const double dx = mesh.cell_length(level);
 
                 unp1(level, i, j) = unp1(level, i, j)
                                   - dt / dx
@@ -247,7 +247,7 @@ int main(int argc, char* argv[])
     const samurai::Box<double, dim> box(min_corner, max_corner);
     samurai::MRMesh<Config> mesh{box, min_level, max_level};
 
-    double dt            = cfl / (1 << max_level);
+    double dt            = cfl * mesh.cell_length(max_level);
     const double dt_save = Tf / static_cast<double>(nfiles);
     double t             = 0.;
 

@@ -193,7 +193,8 @@ class os5_op : public samurai::field_operator_base<TInterval>,
     template <class View, class Vel>
     auto flux(const View& phi_i, const Vel& vel, const double dt) const
     {
-        auto xnu   = xt::abs(vel) * dt / dx();
+        auto dx    = phi_i.mesh().cell_length(level);
+        auto xnu   = xt::abs(vel) * dt / dx;
         auto xcoe2 = 0.5 - xnu * 0.5;
         auto xcoe3 = xcoe2 * (1. + xnu) / 3;
         auto xcoe4 = xcoe3 * (xnu * 0.25 - 0.5);
@@ -255,13 +256,14 @@ class os5_op : public samurai::field_operator_base<TInterval>,
     template <class Field, class Vel>
     auto operator()(samurai::Dim<2>, Field& field, const Vel& vel, double dt, std::size_t direction) const
     {
+        auto dx = field.mesh().cell_length(level);
         if (direction == 0)
         {
-            return xt::eval(vel(0, level, i, j) * flux_x(field, vel, dt) / dx());
+            return xt::eval(vel(0, level, i, j) * flux_x(field, vel, dt) / dx);
         }
         else
         {
-            return xt::eval(vel(1, level, i, j) * flux_y(field, vel, dt) / dx());
+            return xt::eval(vel(1, level, i, j) * flux_y(field, vel, dt) / dx);
         }
     }
 };

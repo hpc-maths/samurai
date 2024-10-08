@@ -66,6 +66,7 @@ namespace samurai
         using coord_index_t       = typename interval_t::coord_index_t;
         using index_yz_t          = xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>>;
         using list_interval_t     = ListOfIntervals<coord_index_t, index_t>;
+        using coords_t            = xt::xtensor_fixed<double, xt::xshape<dim>>;
 
         /// Sparse dim-1 array that points to the interval lists along the x
         /// axis.
@@ -73,6 +74,7 @@ namespace samurai
 
         LevelCellList();
         LevelCellList(std::size_t level);
+        LevelCellList(std::size_t level, const coords_t& origin_point, double scaling_factor);
 
         const list_interval_t& operator[](const index_yz_t& index) const;
         list_interval_t& operator[](const index_yz_t& index);
@@ -87,11 +89,16 @@ namespace samurai
 
         void add_cell(const Cell<dim, interval_t>& cell);
 
+        auto& origin_point() const;
+        double scaling_factor() const;
+
       private:
 
         grid_t m_grid_yz; ///< Sparse dim-1 array that points to the interval
                           ///< lists along the x axis.
         std::size_t m_level;
+        coords_t m_origin_point;
+        double m_scaling_factor = 1;
     };
 
     //////////////////////////////////
@@ -101,11 +108,21 @@ namespace samurai
     inline LevelCellList<Dim, TInterval>::LevelCellList()
         : m_level{0}
     {
+        m_origin_point.fill(0);
     }
 
     template <std::size_t Dim, class TInterval>
     inline LevelCellList<Dim, TInterval>::LevelCellList(std::size_t level)
         : m_level{level}
+    {
+        m_origin_point.fill(0);
+    }
+
+    template <std::size_t Dim, class TInterval>
+    inline LevelCellList<Dim, TInterval>::LevelCellList(std::size_t level, const coords_t& origin_point, double scaling_factor)
+        : m_level{level}
+        , m_origin_point(origin_point)
+        , m_scaling_factor(scaling_factor)
     {
     }
 
@@ -156,6 +173,18 @@ namespace samurai
         using namespace xt::placeholders;
 
         (*this)[xt::view(cell.indices, xt::range(1, _))].add_point(cell.indices[0]);
+    }
+
+    template <std::size_t Dim, class TInterval>
+    inline auto& LevelCellList<Dim, TInterval>::origin_point() const
+    {
+        return m_origin_point;
+    }
+
+    template <std::size_t Dim, class TInterval>
+    inline double LevelCellList<Dim, TInterval>::scaling_factor() const
+    {
+        return m_scaling_factor;
     }
 
     template <std::size_t Dim, class TInterval>

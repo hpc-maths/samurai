@@ -2,17 +2,17 @@
 <Xdmf>
     <Domain>
         <Grid Name="mesh">
-            <Topology TopologyType="Polyline" NumberOfElements="131">
-                <DataItem Dimensions="262" Format="HDF">test_finite_volume_demo_nagumo_imp_diff_exp_react.h5:/mesh/connectivity</DataItem>
+            <Topology TopologyType="Polyline" NumberOfElements="112">
+                <DataItem Dimensions="224" Format="HDF">test_finite_volume_demo_nagumo_imp_diff_exp_react.h5:/mesh/connectivity</DataItem>
             </Topology>
             <Geometry GeometryType="XYZ">
-                <DataItem Dimensions="396" Format="HDF">test_finite_volume_demo_nagumo_imp_diff_exp_react.h5:/mesh/points</DataItem>
+                <DataItem Dimensions="339" Format="HDF">test_finite_volume_demo_nagumo_imp_diff_exp_react.h5:/mesh/points</DataItem>
             </Geometry>
             <Attribute Name="u" Center="Cell">
-                <DataItem Dimensions="131" Format="HDF" Precision="8">test_finite_volume_demo_nagumo_imp_diff_exp_react.h5:/mesh/fields/u</DataItem>
+                <DataItem Dimensions="112" Format="HDF" Precision="8">test_finite_volume_demo_nagumo_imp_diff_exp_react.h5:/mesh/fields/u</DataItem>
             </Attribute>
             <Attribute Name="level" Center="Cell">
-                <DataItem Dimensions="131" Format="HDF" Precision="8">test_finite_volume_demo_nagumo_imp_diff_exp_react.h5:/mesh/fields/level</DataItem>
+                <DataItem Dimensions="112" Format="HDF" Precision="8">test_finite_volume_demo_nagumo_imp_diff_exp_react.h5:/mesh/fields/level</DataItem>
             </Attribute>
         </Grid>
     </Domain>
