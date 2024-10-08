@@ -434,13 +434,6 @@ namespace samurai
         // Examples:
         // - the intersection of an empty set with other sets is empty
         // - the difference of an empty set with other sets is empty
-
-        // std::cout << "(d=" << d;
-        // if (d == 0)
-        // {
-        //     std::cout << ", y=" << m_index_yz(0);
-        // }
-        // std::cout << ") " << std::endl;
         if (is_empty())
         {
             return;
@@ -453,14 +446,11 @@ namespace samurai
         coord_index_t sentinel = max() + 1;
 
         // spdlog::debug("scan -> {} sentinel -> {}", scan, sentinel);
-        // std::cout << "scan = " << scan << ", sentinel = " << sentinel << std::endl;
         while (scan < sentinel)
         {
             // Check if scan is in the subset
-            // std::cout << "scan = " << scan;
             bool in_res = eval(scan, d);
             // spdlog::debug("in_res for {} -> {}", d, in_res);
-            // std::cout << ", in_res = " << in_res << std::endl;
 
             // Two cases:
             //

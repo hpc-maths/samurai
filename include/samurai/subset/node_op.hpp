@@ -242,8 +242,7 @@ namespace samurai
         {
             return std::numeric_limits<value_t>::max();
         }
-        // value_t origin_index = static_cast<value_t>(m_data.origin_point()[d] / m_data.scaling_factor());
-        return /*origin_index +*/ m_data[d][index].start;
+        return m_data[d][index].start;
     }
 
     template <class Mesh>
@@ -253,8 +252,7 @@ namespace samurai
         {
             return std::numeric_limits<value_t>::max();
         }
-        // value_t origin_index = static_cast<value_t>(m_data.origin_point()[d] / m_data.scaling_factor());
-        return /*origin_index +*/ m_data[d][index].end;
+        return m_data[d][index].end;
     }
 
     template <class Mesh>
@@ -282,10 +280,9 @@ namespace samurai
     }
 
     template <class Mesh>
-    inline auto mesh_node<Mesh>::transform(std::size_t /*d*/, value_t coord) const noexcept
+    inline auto mesh_node<Mesh>::transform(std::size_t /*dim*/, value_t coord) const noexcept
     {
-        // value_t origin_index = static_cast<value_t>(m_data.origin_point()[d] / m_data.scaling_factor());
-        return coord /* - origin_index*/;
+        return coord;
     }
 
     template <class Mesh>
