@@ -158,4 +158,30 @@ namespace samurai
         out << "Box(" << box.min_corner() << ", " << box.max_corner() << ")";
         return out;
     }
+
+    template <class value_t, std::size_t dim>
+    Box<value_t, dim> approximate_box(const Box<value_t, dim>& box, double tol, double& subdivision_length)
+    {
+        bool given_subdivision_length = subdivision_length > 0;
+        if (!given_subdivision_length)
+        {
+            subdivision_length = box.min_length(); // / 2;
+        }
+
+        auto approx_length = xt::eval(xt::ceil(box.length() / subdivision_length) * subdivision_length);
+
+        if (!given_subdivision_length)
+        {
+            while (xt::any(xt::abs(approx_length - box.length()) > tol * box.length()))
+            {
+                subdivision_length /= 2;
+                approx_length = xt::eval(xt::ceil(box.length() / subdivision_length) * subdivision_length);
+            }
+        }
+
+        Box<value_t, dim> approx_box;
+        approx_box.min_corner() = box.min_corner();
+        approx_box.max_corner() = box.min_corner() + approx_length;
+        return approx_box;
+    }
 } // namespace samurai
