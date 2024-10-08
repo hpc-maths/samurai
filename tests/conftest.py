@@ -60,7 +60,7 @@ class H5File:
 
                 dataset = None
                 def func(name, obj):
-                    if isinstance(obj, h5py.Dataset) and "level" not in name and "connectivity" not in name:
+                    if isinstance(obj, h5py.Dataset):
                         dataset = obj
                         assert test_file[name][...] == pytest.approx(ref_file[name][...], rel=rtol, abs=atol)
                 try:

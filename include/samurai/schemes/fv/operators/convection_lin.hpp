@@ -131,60 +131,6 @@ namespace samurai
     }
 
     /**
-     * Linear convection, discretized by the WENO5 (Jiang & Shu) scheme.
-     * @param velocities: constant velocity vectors, one for each component of the field.
-     */
-    template <class Field>
-    auto make_multi_convection_weno5(const std::array<VelocityVector<Field::dim>, Field::size>& velocities)
-    {
-        static_assert(Field::mesh_t::config::ghost_width >= 3, "WENO5 requires at least 3 ghosts.");
-
-        static constexpr std::size_t dim               = Field::dim;
-        static constexpr std::size_t field_size        = Field::size;
-        static constexpr std::size_t output_field_size = field_size;
-        static constexpr std::size_t stencil_size      = 6;
-
-        using cfg = FluxConfig<SchemeType::NonLinear, output_field_size, stencil_size, Field>;
-
-        FluxDefinition<cfg> weno5;
-
-        static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
-            [&](auto integral_constant_d)
-            {
-                static constexpr std::size_t d = decltype(integral_constant_d)::value;
-
-                // Stencil creation:
-                //        weno5[0].stencil = {{-2, 0}, {-1, 0}, {0,0}, {1,0}, {2,0}, {3,0}};
-                //        weno5[1].stencil = {{ 0,-2}, { 0,-1}, {0,0}, {0,1}, {0,2}, {0,3}};
-                weno5[d].stencil = line_stencil<dim, d>(-2, -1, 0, 1, 2, 3);
-
-                weno5[d].cons_flux_function = [&velocities](auto& cells, const Field& u) -> FluxValue<cfg>
-                {
-                    FluxValue<cfg> flux;
-                    for (std::size_t c = 0; c < Field::size; ++c)
-                    {
-                        auto& velocity = velocities[c];
-                        if (velocity(d) >= 0)
-                        {
-                            Array<double, 5> f({u[cells[0]](c), u[cells[1]](c), u[cells[2]](c), u[cells[3]](c), u[cells[4]](c)});
-                            f *= velocity(d);
-                            flux(c) = compute_weno5_flux(f);
-                        }
-                        else
-                        {
-                            Array<double, 5> f({u[cells[5]](c), u[cells[4]](c), u[cells[3]](c), u[cells[2]](c), u[cells[1]](c)});
-                            f *= velocity(d);
-                            flux(c) = compute_weno5_flux(f);
-                        }
-                    }
-                    return flux;
-                };
-            });
-
-        return make_flux_based_scheme(weno5);
-    }
-
-    /**
      * Linear convection, discretized by a (linear) upwind scheme.
      * @param velocity_field: the velocity field
      */
