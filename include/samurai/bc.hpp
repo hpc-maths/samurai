@@ -926,11 +926,14 @@ namespace samurai
                     __apply_bc_on_subset(bc, field, bdry_cells, stencil, direction[d]);
 
                     // 2. Inner ghosts in the boundary region that have a neighbouring ghost outside the domain
-                    auto translated_outer_nghbr        = translate(mesh[mesh_id_t::reference][level], -(stencil_size / 2) * direction[d]);
-                    auto inner_cells_and_ghosts        = intersection(translated_outer_nghbr, lca[d]);
-                    auto inner_ghosts_with_outer_nghbr = difference(inner_cells_and_ghosts, bdry_cells).on(level);
+                    if (mesh.min_level() != mesh.max_level())
+                    {
+                        auto translated_outer_nghbr = translate(mesh[mesh_id_t::reference][level], -(stencil_size / 2) * direction[d]);
+                        auto inner_cells_and_ghosts = intersection(translated_outer_nghbr, lca[d]);
+                        auto inner_ghosts_with_outer_nghbr = difference(inner_cells_and_ghosts, bdry_cells).on(level);
 
-                    __apply_bc_on_subset(bc, field, inner_ghosts_with_outer_nghbr, stencil, direction[d]);
+                        __apply_bc_on_subset(bc, field, inner_ghosts_with_outer_nghbr, stencil, direction[d]);
+                    }
                 }
             }
         }
