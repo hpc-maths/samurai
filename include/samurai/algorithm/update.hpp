@@ -112,7 +112,7 @@ namespace samurai
             set_at_levelm1.apply_op(variadic_projection(field, other_fields...));
         }
 
-        if (min_level > 0)
+        if (min_level > 0 && min_level != max_level)
         {
             update_bc(min_level - 1, field, other_fields...);
             update_ghost_periodic(min_level - 1, field, other_fields...);
