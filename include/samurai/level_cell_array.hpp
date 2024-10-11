@@ -353,12 +353,13 @@ namespace samurai
         assert(approx_box_tol > 0 || scaling_factor > 0);
 
         // The computational domain is an approximation of the desired box.
-        // If `scaling_factor` is given (i.e. > 0), we take it; otherwise we choosing using the tolerance `approx_box_tol`.
-        m_origin_point = box.min_corner();
+        // If `scaling_factor` is given (i.e. > 0), we take it;
+        // otherwise we choose the scaling factor dynamically in order to approximate the desired box
+        // up to the tolerance `approx_box_tol`.
 
+        m_origin_point   = box.min_corner();
         auto approx_box  = approximate_box(box, approx_box_tol, scaling_factor);
         m_scaling_factor = scaling_factor;
-        // std::cout << "approximate (sf=" << scaling_factor << ") " << approx_box << std::endl;
 
         point_t start_pt;
         start_pt.fill(0);

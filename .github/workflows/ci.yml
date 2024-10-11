@@ -171,7 +171,7 @@ jobs:
       - name: Build
         shell: bash -l {0}
         run: |
-          cmake --build build --target all --parallel 4
+          cmake --build build --target all --parallel 3
 
       - name: Test with googletest
         shell: bash -l {0}
@@ -212,7 +212,7 @@ jobs:
         with:
           environment-file: conda/mpi-environment.yml
           environment-name: samurai-env
-          cache-environment: true
+          cache-environment: false # somehow the cache doesn't work in this case...
 
       - name: Petsc installation
         shell: bash -l {0}
