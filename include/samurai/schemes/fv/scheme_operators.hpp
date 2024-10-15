@@ -26,6 +26,28 @@ namespace samurai
         }
     }
 
+    template <class... Operators>
+    constexpr std::size_t stencil_size_of_sum()
+    {
+        return std::max({Operators::cfg_t::stencil_size...});
+    }
+
+    template <class... Operators>
+    constexpr std::size_t get_largest_stencil_index()
+    {
+        std::size_t max = std::max({Operators::cfg_t::stencil_size...});
+        std::size_t i   = 0;
+        for (const auto& size : {Operators::cfg_t::stencil_size...})
+        {
+            if (size == max)
+            {
+                break;
+            }
+            i++;
+        }
+        return i;
+    }
+
     /**
      * @class OperatorSum:
      * Stores a list of operators that cannot be combined.
@@ -38,10 +60,11 @@ namespace samurai
     {
       private:
 
-        template <SchemeType scheme_type_, std::size_t output_field_size_>
+        template <SchemeType scheme_type_, std::size_t stencil_size_, std::size_t output_field_size_>
         struct Config
         {
             static constexpr SchemeType scheme_type        = scheme_type_;
+            static constexpr std::size_t stencil_size      = stencil_size_;
             static constexpr std::size_t output_field_size = output_field_size_;
         };
 
@@ -54,7 +77,10 @@ namespace samurai
         using output_field_t                           = typename FirstOperatorType::output_field_t;
         using field_t                                  = input_field_t;
 
-        using cfg_t = Config<scheme_type_of_sum<Operators...>(), output_field_size>;
+        using cfg_t = Config<scheme_type_of_sum<Operators...>(), stencil_size_of_sum<Operators...>(), output_field_size>;
+
+        // cppcheck-suppress unusedStructMember
+        static constexpr std::size_t largest_stencil_index = get_largest_stencil_index<Operators...>();
 
       private:
 

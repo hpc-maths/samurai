@@ -33,14 +33,24 @@ namespace samurai
                 this->set_name(sum_scheme.name());
             }
 
+            constexpr const auto& largest_stencil_assembly() const
+            {
+                return std::get<scheme_t::largest_stencil_index>(m_assembly_ops);
+            }
+
+            constexpr auto& largest_stencil_assembly()
+            {
+                return std::get<scheme_t::largest_stencil_index>(m_assembly_ops);
+            }
+
             auto& unknown() const
             {
-                return std::get<0>(m_assembly_ops).unknown();
+                return largest_stencil_assembly().unknown();
             }
 
             auto unknown_ptr() const
             {
-                return std::get<0>(m_assembly_ops).unknown_ptr();
+                return largest_stencil_assembly().unknown_ptr();
             }
 
             bool undefined_unknown() const
@@ -145,28 +155,26 @@ namespace samurai
 
             void sparsity_pattern_scheme(std::vector<PetscInt>& nnz) const override
             {
-                // To be safe, allocate for all schemes (nnz is the sum)
-                for_each(m_assembly_ops,
-                         [&](auto& op)
-                         {
-                             op.sparsity_pattern_scheme(nnz);
-                         });
+                // The scheme with largest stencil allocates the number of non-zeros.
+                largest_stencil_assembly().sparsity_pattern_scheme(nnz);
             }
 
             void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const override
             {
-                // Only one scheme will assemble the boundary conditions
-                std::get<0>(m_assembly_ops).sparsity_pattern_boundary(nnz);
+                // Only one scheme assembles the boundary conditions.
+                // We arbitrarily choose the one with largest stencil,
+                // because we already use it to allocate the number of non-zeros in the scheme.
+                largest_stencil_assembly().sparsity_pattern_boundary(nnz);
             }
 
             void sparsity_pattern_projection(std::vector<PetscInt>& nnz) const override
             {
-                std::get<0>(m_assembly_ops).sparsity_pattern_projection(nnz);
+                largest_stencil_assembly().sparsity_pattern_projection(nnz);
             }
 
             void sparsity_pattern_prediction(std::vector<PetscInt>& nnz) const override
             {
-                std::get<0>(m_assembly_ops).sparsity_pattern_prediction(nnz);
+                largest_stencil_assembly().sparsity_pattern_prediction(nnz);
             }
 
             void assemble_scheme(Mat& A) override
@@ -183,22 +191,24 @@ namespace samurai
             void assemble_boundary_conditions(Mat& A) override
             {
                 // We hope that all schemes implement the boundary conditions in the same fashion,
-                // and arbitrarily choose the first one.
-                std::get<0>(m_assembly_ops).assemble_boundary_conditions(A);
+                // and arbitrarily choose the one with largest stencil
+                // (because this is the one used to allocate the number of non-zeros in the scheme,
+                // so we use it everywhere).
+                largest_stencil_assembly().assemble_boundary_conditions(A);
             }
 
             void assemble_projection(Mat& A) override
             {
                 // We hope that all schemes implement the projection operator in the same fashion,
-                // and arbitrarily choose the first one.
-                std::get<0>(m_assembly_ops).assemble_projection(A);
+                // and arbitrarily choose the one with largest stencil.
+                largest_stencil_assembly().assemble_projection(A);
             }
 
             void assemble_prediction(Mat& A) override
             {
                 // We hope that all schemes implement the prediction operator in the same fashion,
-                // and arbitrarily choose the first one.
-                std::get<0>(m_assembly_ops).assemble_prediction(A);
+                // and arbitrarily choose the one with largest stencil.
+                largest_stencil_assembly().assemble_prediction(A);
             }
 
             void include_boundary_fluxes(bool include)
@@ -218,38 +228,38 @@ namespace samurai
             void set_diag_value_for_useless_ghosts(PetscScalar value) override
             {
                 MatrixAssembly::set_diag_value_for_useless_ghosts(value);
-                std::get<0>(m_assembly_ops).set_diag_value_for_useless_ghosts(value);
+                largest_stencil_assembly().set_diag_value_for_useless_ghosts(value);
             }
 
             void insert_value_on_diag_for_useless_ghosts(Mat& A) override
             {
-                std::get<0>(m_assembly_ops).insert_value_on_diag_for_useless_ghosts(A);
+                largest_stencil_assembly().insert_value_on_diag_for_useless_ghosts(A);
             }
 
             template <class Func>
             void for_each_useless_ghost_row(Func&& f) const // cppcheck-suppress duplInheritedMember
             {
-                std::get<0>(m_assembly_ops).for_each_useless_ghost_row(std::forward<Func>(f));
+                largest_stencil_assembly().for_each_useless_ghost_row(std::forward<Func>(f));
             }
 
             void set_0_for_all_ghosts(Vec& b) const
             {
-                std::get<0>(m_assembly_ops).set_0_for_all_ghosts(b);
+                largest_stencil_assembly().set_0_for_all_ghosts(b);
             }
 
             void enforce_bc(Vec& b) const
             {
-                std::get<0>(m_assembly_ops).enforce_bc(b);
+                largest_stencil_assembly().enforce_bc(b);
             }
 
             void set_0_for_useless_ghosts(Vec& b) const
             {
-                std::get<0>(m_assembly_ops).set_0_for_useless_ghosts(b);
+                largest_stencil_assembly().set_0_for_useless_ghosts(b);
             }
 
             void enforce_projection_prediction(Vec& b) const
             {
-                std::get<0>(m_assembly_ops).enforce_projection_prediction(b);
+                largest_stencil_assembly().enforce_projection_prediction(b);
             }
 
             bool matrix_is_symmetric() const override
