@@ -75,6 +75,7 @@ namespace samurai
         static constexpr std::size_t output_field_size = FirstOperatorType::cfg_t::output_field_size;
         using input_field_t                            = typename FirstOperatorType::input_field_t;
         using output_field_t                           = typename FirstOperatorType::output_field_t;
+        using size_type                                = typename FirstOperatorType::size_type;
         using field_t                                  = input_field_t;
 
         using cfg_t = Config<scheme_type_of_sum<Operators...>(), stencil_size_of_sum<Operators...>(), output_field_size>;

@@ -39,7 +39,7 @@ namespace samurai
 
         auto u = u_const;
         EXPECT_EQ(u.name(), u_const.name());
-        EXPECT_EQ(u.array(), u_const.array());
+        EXPECT_TRUE(compare(u.array(), u_const.array()));
         EXPECT_EQ(u.mesh(), u_const.mesh());
         EXPECT_EQ(&(u.mesh()), &(u_const.mesh()));
 
@@ -47,7 +47,7 @@ namespace samurai
         const auto u_const1 = make_field<double, 1>("uc", m, 1.);
         auto u1             = u_const1;
         EXPECT_EQ(u1.name(), u_const1.name());
-        EXPECT_EQ(u1.array(), u_const1.array());
+        EXPECT_TRUE(compare(u1.array(), u_const1.array()));
         EXPECT_EQ(u1.mesh(), u_const1.mesh());
     }
 
@@ -72,7 +72,7 @@ namespace samurai
 
         u = u_const;
         EXPECT_EQ(u.name(), u_const.name());
-        EXPECT_EQ(u.array(), u_const.array());
+        EXPECT_TRUE(compare(u.array(), u_const.array()));
         EXPECT_EQ(u.mesh(), u_const.mesh());
         EXPECT_EQ(&(u.mesh()), &(u_const.mesh()));
 
@@ -92,7 +92,7 @@ namespace samurai
                                         });
         u1                  = u_const1;
         EXPECT_EQ(u1.name(), u_const1.name());
-        EXPECT_EQ(u1.array(), u_const1.array());
+        EXPECT_TRUE(compare(u1.array(), u_const1.array()));
         EXPECT_EQ(u1.mesh(), u_const1.mesh());
     }
 
@@ -115,16 +115,16 @@ namespace samurai
                       });
 
         auto it = field.begin();
-        EXPECT_EQ(*it, (xt::xtensor<std::size_t, 1>{0, 1}));
+        EXPECT_TRUE(compare(*it, samurai::Array<std::size_t, 2, true>{0, 1}));
         it += 2;
-        EXPECT_EQ(*it, (xt::xtensor<std::size_t, 1>{4, 5, 6, 7}));
+        EXPECT_TRUE(compare(*it, samurai::Array<std::size_t, 4, true>{4, 5, 6, 7}));
         ++it;
         EXPECT_EQ(it, field.end());
 
         auto itr = field.rbegin();
-        EXPECT_EQ(*itr, (xt::xtensor<std::size_t, 1>{4, 5, 6, 7}));
+        EXPECT_TRUE(compare(*itr, samurai::Array<std::size_t, 4, true>{4, 5, 6, 7}));
         itr += 2;
-        EXPECT_EQ(*itr, (xt::xtensor<std::size_t, 1>{0, 1}));
+        EXPECT_TRUE(compare(*itr, samurai::Array<std::size_t, 2, true>{0, 1}));
         ++itr;
         EXPECT_EQ(itr, field.rend());
     }
