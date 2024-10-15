@@ -79,6 +79,7 @@ namespace samurai
 
         using cfg_t = Config<scheme_type_of_sum<Operators...>(), stencil_size_of_sum<Operators...>(), output_field_size>;
 
+        //
         // cppcheck-suppress unusedStructMember
         static constexpr std::size_t largest_stencil_index = get_largest_stencil_index<Operators...>();
 
