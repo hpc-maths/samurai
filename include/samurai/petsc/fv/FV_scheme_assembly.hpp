@@ -267,7 +267,7 @@ namespace samurai
 
             void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const override
             {
-                if (unknown().get_bc().empty())
+                if (cfg_t::stencil_size > 1 && unknown().get_bc().empty())
                 {
                     std::cerr << "Failure to assemble to boundary conditions in the operator '" << this->name()
                               << "': no boundary condition attached to the field '" << unknown().name() << "'." << std::endl;
@@ -371,7 +371,7 @@ namespace samurai
 
             void assemble_boundary_conditions(Mat& A) override
             {
-                if (unknown().get_bc().empty())
+                if (cfg_t::stencil_size > 1 && unknown().get_bc().empty())
                 {
                     std::cerr << "Failure to assemble to boundary conditions in the operator '" << this->name()
                               << "': no boundary condition attached to the field '" << unknown().name() << "'." << std::endl;
