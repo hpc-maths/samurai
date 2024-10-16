@@ -98,7 +98,7 @@ namespace samurai
             // Same level
             for (std::size_t level = min_level; level <= max_level; ++level)
             {
-                auto h = cell_length(level);
+                auto h = mesh.cell_length(level);
 
                 for_each_interior_interface__same_level<run_type>(mesh,
                                                                   level,
@@ -116,8 +116,8 @@ namespace samurai
             // Level jumps (level -- level+1)
             for (std::size_t level = min_level; level < max_level; ++level)
             {
-                auto h_l   = cell_length(level);
-                auto h_lp1 = cell_length(level + 1);
+                auto h_l   = mesh.cell_length(level);
+                auto h_lp1 = mesh.cell_length(level + 1);
 
                 //         |__|   l+1
                 //    |____|      l
@@ -174,7 +174,7 @@ namespace samurai
             for_each_level(mesh,
                            [&](auto level)
                            {
-                               auto h = cell_length(level);
+                               auto h = mesh.cell_length(level);
 
                                // Boundary in direction
                                for_each_boundary_interface__direction<run_type>(mesh,
@@ -232,7 +232,7 @@ namespace samurai
                 // Same level
                 for (std::size_t level = min_level; level <= max_level; ++level)
                 {
-                    auto h = cell_length(level);
+                    auto h = mesh.cell_length(level);
 
                     for_each_interior_interface__same_level<run_type>(
                         mesh,
@@ -251,8 +251,8 @@ namespace samurai
                 // Level jumps (level -- level+1)
                 for (std::size_t level = min_level; level < max_level; ++level)
                 {
-                    auto h_l   = cell_length(level);
-                    auto h_lp1 = cell_length(level + 1);
+                    auto h_l   = mesh.cell_length(level);
+                    auto h_lp1 = mesh.cell_length(level + 1);
 
                     //         |__|   l+1
                     //    |____|      l
@@ -313,7 +313,7 @@ namespace samurai
                     mesh,
                     [&](auto level)
                     {
-                        auto h = cell_length(level);
+                        auto h = mesh.cell_length(level);
 
                         // Boundary in direction
                         for_each_boundary_interface__direction<run_type>(mesh,

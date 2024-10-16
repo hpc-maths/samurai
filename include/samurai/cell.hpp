@@ -12,9 +12,9 @@
 namespace samurai
 {
     template <typename LevelType, std::enable_if_t<std::is_integral<LevelType>::value, bool> = true>
-    inline double cell_length(LevelType level)
+    inline double cell_length(double scaling_factor, LevelType level)
     {
-        return 1. / (1 << level);
+        return scaling_factor / (1 << level);
     }
 
     /** @class Cell
@@ -38,8 +38,13 @@ namespace samurai
 
         Cell() = default;
 
-        Cell(std::size_t level, const indices_t& indices, index_t index);
-        Cell(std::size_t level, const value_t& i, const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> others, index_t index);
+        Cell(const coords_t& origin_point, double scaling_factor, std::size_t level, const indices_t& indices, index_t index);
+        Cell(const coords_t& origin_point,
+             double scaling_factor,
+             std::size_t level,
+             const value_t& i,
+             const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> others,
+             index_t index);
 
         coords_t corner() const;
         double corner(std::size_t i) const;
@@ -53,6 +58,8 @@ namespace samurai
         coords_t face_center(const Vector& direction) const;
 
         void to_stream(std::ostream& os) const;
+
+        coords_t origin_point;
 
         /// The level of the cell.
         std::size_t level = 0;
@@ -68,22 +75,30 @@ namespace samurai
     };
 
     template <std::size_t dim_, class TInterval>
-    inline Cell<dim_, TInterval>::Cell(std::size_t level_, const indices_t& indices_, index_t index_)
-        : level(level_)
+    inline Cell<dim_, TInterval>::Cell(const coords_t& origin_point_,
+                                       double scaling_factor,
+                                       std::size_t level_,
+                                       const indices_t& indices_,
+                                       index_t index_)
+        : origin_point(origin_point_)
+        , level(level_)
         , indices(indices_)
         , index(index_)
-        , length(cell_length(level))
+        , length(cell_length(scaling_factor, level))
     {
     }
 
     template <std::size_t dim_, class TInterval>
-    inline Cell<dim_, TInterval>::Cell(std::size_t level_,
+    inline Cell<dim_, TInterval>::Cell(const coords_t& origin_point_,
+                                       double scaling_factor,
+                                       std::size_t level_,
                                        const value_t& i,
                                        const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> others,
                                        index_t index_)
-        : level(level_)
+        : origin_point(origin_point_)
+        , level(level_)
         , index(index_)
-        , length(cell_length(level))
+        , length(cell_length(scaling_factor, level))
     {
         using namespace xt::placeholders;
 
@@ -97,13 +112,13 @@ namespace samurai
     template <std::size_t dim_, class TInterval>
     inline auto Cell<dim_, TInterval>::corner() const -> coords_t
     {
-        return length * indices;
+        return origin_point + length * indices;
     }
 
     template <std::size_t dim_, class TInterval>
     inline double Cell<dim_, TInterval>::corner(std::size_t i) const
     {
-        return length * indices[i];
+        return origin_point[i] + length * indices[i];
     }
 
     /**
@@ -112,13 +127,13 @@ namespace samurai
     template <std::size_t dim_, class TInterval>
     inline auto Cell<dim_, TInterval>::center() const -> coords_t
     {
-        return length * (indices + 0.5);
+        return origin_point + length * (indices + 0.5);
     }
 
     template <std::size_t dim_, class TInterval>
     inline double Cell<dim_, TInterval>::center(std::size_t i) const
     {
-        return length * (indices[i] + 0.5);
+        return origin_point[i] + length * (indices[i] + 0.5);
     }
 
     template <std::size_t dim_, class TInterval>

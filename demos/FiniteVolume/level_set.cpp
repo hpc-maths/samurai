@@ -90,7 +90,7 @@ void AMR_criteria(const Field& f, Tag& tag)
     samurai::for_each_cell(mesh[mesh_id_t::cells],
                            [&](auto cell)
                            {
-                               const double dx = 1. / (1 << (max_level));
+                               const double dx = mesh.cell_length(max_level);
 
                                if (std::abs(f[cell]) < 1.2 * 5 * std::sqrt(2.) * dx)
                                {
@@ -144,7 +144,7 @@ void flux_correction(Field& phi_np1, const Field& phi_n, const Field_u& u, doubl
             [&](const auto& i, const auto& index)
             {
                 auto j          = index[0];
-                const double dx = samurai::cell_length(level);
+                const double dx = mesh.cell_length(level);
 
                 phi_np1(
                     level,
@@ -168,7 +168,7 @@ void flux_correction(Field& phi_np1, const Field& phi_n, const Field_u& u, doubl
             [&](const auto& i, const auto& index)
             {
                 auto j          = index[0];
-                const double dx = samurai::cell_length(level);
+                const double dx = mesh.cell_length(level);
 
                 phi_np1(level,
                         i,
@@ -190,7 +190,7 @@ void flux_correction(Field& phi_np1, const Field& phi_n, const Field_u& u, doubl
             [&](const auto& i, const auto& index)
             {
                 auto j          = index[0];
-                const double dx = samurai::cell_length(level);
+                const double dx = mesh.cell_length(level);
 
                 phi_np1(
                     level,
@@ -214,7 +214,7 @@ void flux_correction(Field& phi_np1, const Field& phi_n, const Field_u& u, doubl
             [&](const auto& i, const auto& index)
             {
                 auto j          = index[0];
-                const double dx = samurai::cell_length(level);
+                const double dx = mesh.cell_length(level);
 
                 phi_np1(level,
                         i,
@@ -290,7 +290,7 @@ int main(int argc, char* argv[])
     const samurai::Box<double, dim> box(min_corner, max_corner);
     samurai::amr::Mesh<Config> mesh(box, start_level, min_level, max_level);
 
-    double dt            = cfl / (1 << max_level);
+    double dt            = cfl * mesh.cell_length(max_level);
     const double dt_save = Tf / static_cast<double>(nfiles);
     double t             = 0.;
 

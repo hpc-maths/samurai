@@ -71,7 +71,7 @@ class Mesh : public samurai::Mesh_base<Mesh<Config>, Config>
 
     // Constructor from a given box (domain)
     inline Mesh(const samurai::Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level)
-        : base_type(b, start_level, min_level, max_level)
+        : base_type(b, start_level, min_level, max_level, 0, 1)
     {
     }
 

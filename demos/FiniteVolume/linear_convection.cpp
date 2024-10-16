@@ -11,15 +11,6 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
-template <std::size_t dim>
-double exact_solution(xt::xtensor_fixed<double, xt::xshape<dim>> coords, double t)
-{
-    const double a  = 1;
-    const double b  = 0;
-    const double& x = coords(0);
-    return (a * x + b) / (a * t + 1);
-}
-
 template <class Field>
 void save(const fs::path& path, const std::string& filename, const Field& u, const std::string& suffix = "")
 {
@@ -56,9 +47,8 @@ int main(int argc, char* argv[])
     //--------------------//
 
     // Simulation parameters
-    double left_box      = -1;
-    double right_box     = 1;
-    std::string init_sol = "hat";
+    double left_box  = -1;
+    double right_box = 1;
 
     // Time integration
     double Tf  = 3;
@@ -66,8 +56,8 @@ int main(int argc, char* argv[])
     double cfl = 0.95;
 
     // Multiresolution parameters
-    std::size_t min_level = 0;
-    std::size_t max_level = dim == 1 ? 5 : 3;
+    std::size_t min_level = 1;
+    std::size_t max_level = dim == 1 ? 6 : 4;
     double mr_epsilon     = 1e-4; // Threshold used by multiresolution
     double mr_regularity  = 1.;   // Regularity guess for multiresolution
 
@@ -76,10 +66,9 @@ int main(int argc, char* argv[])
     std::string filename = "linear_convection_" + std::to_string(dim) + "D";
     std::size_t nfiles   = 0;
 
-    CLI::App app{"Finite volume example for the heat equation in 1d"};
+    CLI::App app{"Finite volume example for the linear convection equation"};
     app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--right", right_box, "The right border of the box")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--init-sol", init_sol, "Initial solution: hat/linear/bands")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
@@ -154,7 +143,7 @@ int main(int argc, char* argv[])
 
     if (dt == 0)
     {
-        double dx             = samurai::cell_length(max_level);
+        double dx             = mesh.cell_length(max_level);
         auto a                = xt::abs(velocity);
         double sum_velocities = xt::sum(xt::abs(velocity))();
         dt                    = cfl * dx / sum_velocities;

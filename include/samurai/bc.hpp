@@ -1146,7 +1146,7 @@ namespace samurai
                     static constexpr std::size_t in  = 0;
                     static constexpr std::size_t out = 1;
 
-                    double dx     = cell_length(cells[out].level);
+                    double dx     = f.mesh().cell_length(cells[out].level);
                     f[cells[out]] = dx * value + f[cells[in]];
                 }
                 else

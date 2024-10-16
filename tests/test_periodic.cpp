@@ -23,7 +23,7 @@ namespace samurai
     template <class Mesh>
     auto init(Mesh& mesh)
     {
-        double dx = 1. / (1 << mesh.max_level());
+        double dx = mesh.cell_length(mesh.max_level());
         auto u    = make_field<double, 1>("u", mesh);
         u.fill(0.);
 
@@ -53,7 +53,7 @@ namespace samurai
         max_corner.fill(1);
 
         // Multiresolution parameters
-        std::size_t min_level = 2, max_level = 5;
+        std::size_t min_level = 3, max_level = 6;
         double mr_epsilon    = 1.e-4; // Threshold used by multiresolution
         double mr_regularity = 1.;    // Regularity guess for multiresolution
 
@@ -64,7 +64,7 @@ namespace samurai
         using mesh_id_t = typename MRMesh<Config>::mesh_id_t;
 
         double dt = 1;
-        double Tf = 2 * (1 << max_level);
+        double Tf = 2 / mesh.cell_length(max_level);
         double t  = 0.;
 
         auto u    = init(mesh);

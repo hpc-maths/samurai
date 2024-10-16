@@ -27,25 +27,27 @@ namespace samurai
         template <class... CT>
         inline auto operator()(Dim<1>, CT&&... e) const
         {
-            return (derived_cast().right_flux(std::forward<CT>(e)...) - derived_cast().left_flux(std::forward<CT>(e)...))
-                 / derived_cast().dx();
+            auto dx = detail::extract_mesh(std::forward<CT>(e)...).cell_length(derived_cast().level);
+            return xt::eval((derived_cast().right_flux(std::forward<CT>(e)...) - derived_cast().left_flux(std::forward<CT>(e)...)) / dx);
         }
 
         template <class... CT>
         inline auto operator()(Dim<2>, CT&&... e) const
         {
-            return (-derived_cast().left_flux(std::forward<CT>(e)...) + derived_cast().right_flux(std::forward<CT>(e)...)
-                    + -derived_cast().down_flux(std::forward<CT>(e)...) + derived_cast().up_flux(std::forward<CT>(e)...))
-                 / derived_cast().dx();
+            auto dx = detail::extract_mesh(std::forward<CT>(e)...).cell_length(derived_cast().level);
+            return xt::eval((-derived_cast().left_flux(std::forward<CT>(e)...) + derived_cast().right_flux(std::forward<CT>(e)...)
+                             + -derived_cast().down_flux(std::forward<CT>(e)...) + derived_cast().up_flux(std::forward<CT>(e)...))
+                            / dx);
         }
 
         template <class... CT>
         inline auto operator()(Dim<3>, CT&&... e) const
         {
-            return (-derived_cast().left_flux(std::forward<CT>(e)...) + derived_cast().right_flux(std::forward<CT>(e)...)
-                    + -derived_cast().down_flux(std::forward<CT>(e)...) + derived_cast().up_flux(std::forward<CT>(e)...)
-                    + -derived_cast().front_flux(std::forward<CT>(e)...) + derived_cast().back_flux(std::forward<CT>(e)...))
-                 / derived_cast().dx();
+            auto dx = detail::extract_mesh(std::forward<CT>(e)...).cell_length(derived_cast().level);
+            return xt::eval((-derived_cast().left_flux(std::forward<CT>(e)...) + derived_cast().right_flux(std::forward<CT>(e)...)
+                             + -derived_cast().down_flux(std::forward<CT>(e)...) + derived_cast().up_flux(std::forward<CT>(e)...)
+                             + -derived_cast().front_flux(std::forward<CT>(e)...) + derived_cast().back_flux(std::forward<CT>(e)...))
+                            / dx);
         }
 
       protected:

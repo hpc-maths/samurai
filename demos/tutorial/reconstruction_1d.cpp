@@ -33,8 +33,8 @@ auto init(Mesh& mesh, Case& c)
     samurai::for_each_interval(mesh[mesh_id_t::cells],
                                [&](std::size_t level, const auto& i, const auto&)
                                {
-                                   const double dx = samurai::cell_length(level);
-                                   auto x          = dx * xt::arange(i.start, i.end) + 0.5 * dx;
+                                   const double dx = mesh.cell_length(level);
+                                   auto x          = mesh.origin_point()[0] + dx * xt::arange(i.start, i.end) + 0.5 * dx;
 
                                    switch (c)
                                    {
@@ -109,8 +109,8 @@ int main(int argc, char* argv[])
     using UMesh   = samurai::UniformMesh<UConfig>;
 
     const samurai::Box<double, dim> box({-1}, {1});
-    MRMesh mrmesh{box, min_level, max_level};
-    UMesh umesh{box, max_level};
+    MRMesh mrmesh{box, min_level, max_level, 0, 1};
+    UMesh umesh{box, max_level, 0, 1};
     auto u       = init(mrmesh, test_case);
     auto u_exact = init(umesh, test_case);
 

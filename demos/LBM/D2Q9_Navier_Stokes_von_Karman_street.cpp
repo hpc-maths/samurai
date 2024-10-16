@@ -1038,7 +1038,7 @@ std::pair<double, double> one_time_step(Field& f,
                     auto m8 = xt::eval(
                         l2 * (advected(5, level, k, h) - advected(6, level, k, h) + advected(7, level, k, h) - advected(8, level, k, h)));
 
-                    double space_step = 1.0 / (1 << max_level);
+                    double space_step = mesh.cell_length(max_level);
                     double dummy      = 3.0 / (lambda * rho0 * space_step);
 
                     double cs2     = (lambda * lambda) / 3.0; // sound velocity squared

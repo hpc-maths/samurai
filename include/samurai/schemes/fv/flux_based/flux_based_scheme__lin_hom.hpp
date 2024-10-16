@@ -80,7 +80,7 @@ namespace samurai
             // Same level
             for (std::size_t level = min_level; level <= max_level; ++level)
             {
-                auto h           = cell_length(level);
+                auto h           = mesh.cell_length(level);
                 auto flux_coeffs = flux_def.cons_flux_function(h);
 
                 auto left_cell_coeffs                        = contribution(flux_coeffs, h, h);
@@ -100,8 +100,8 @@ namespace samurai
             // Level jumps (level -- level+1)
             for (std::size_t level = min_level; level < max_level; ++level)
             {
-                auto h_l                                = cell_length(level);
-                auto h_lp1                              = cell_length(level + 1);
+                auto h_l                                = mesh.cell_length(level);
+                auto h_lp1                              = mesh.cell_length(level + 1);
                 auto flux_coeffs                        = flux_def.cons_flux_function(h_lp1); // flux computed at level l+1
                 decltype(flux_coeffs) minus_flux_coeffs = -flux_coeffs;
 
@@ -166,7 +166,7 @@ namespace samurai
             for_each_level(mesh,
                            [&](auto level)
                            {
-                               auto h = cell_length(level);
+                               auto h = mesh.cell_length(level);
 
                                // Boundary in direction
                                auto flux_coeffs = flux_def.cons_flux_function(h);

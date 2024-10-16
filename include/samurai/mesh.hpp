@@ -77,6 +77,8 @@ namespace samurai
         using ca_type  = CellArray<dim, interval_t, max_refinement_level>;
         using lca_type = typename ca_type::lca_type;
 
+        using coords_t = typename lca_type::coords_t;
+
         using mesh_interval_t = typename ca_type::lca_type::mesh_interval_t;
 
         using mesh_t = samurai::MeshIDArray<ca_type, mesh_id_t>;
@@ -90,6 +92,12 @@ namespace samurai
 
         std::size_t max_level() const;
         std::size_t min_level() const;
+        auto& origin_point() const;
+        void set_origin_point(const coords_t& origin_point);
+        double scaling_factor() const;
+        void set_scaling_factor(double scaling_factor);
+        void scale_domain(double domain_scaling_factor);
+        double cell_length(std::size_t level) const;
         const lca_type& domain() const;
         const lca_type& subdomain() const;
         const ca_type& get_union() const;
@@ -131,12 +139,19 @@ namespace samurai
         Mesh_base() = default; // cppcheck-suppress uninitMemberVar
         Mesh_base(const cl_type& cl, const self_type& ref_mesh);
         Mesh_base(const cl_type& cl, std::size_t min_level, std::size_t max_level);
-        Mesh_base(const samurai::Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level);
         Mesh_base(const samurai::Box<double, dim>& b,
                   std::size_t start_level,
                   std::size_t min_level,
                   std::size_t max_level,
-                  const std::array<bool, dim>& periodic);
+                  double approx_box_tol = lca_type::default_approx_box_tol,
+                  double scaling_factor = 0);
+        Mesh_base(const samurai::Box<double, dim>& b,
+                  std::size_t start_level,
+                  std::size_t min_level,
+                  std::size_t max_level,
+                  const std::array<bool, dim>& periodic,
+                  double approx_box_tol = lca_type::default_approx_box_tol,
+                  double scaling_factor = 0);
 
         derived_type& derived_cast() & noexcept;
         const derived_type& derived_cast() const& noexcept;
@@ -205,8 +220,10 @@ namespace samurai
     inline Mesh_base<D, Config>::Mesh_base(const samurai::Box<double, dim>& b,
                                            std::size_t start_level,
                                            std::size_t min_level,
-                                           std::size_t max_level)
-        : m_domain{start_level, b}
+                                           std::size_t max_level,
+                                           double approx_box_tol,
+                                           double scaling_factor_)
+        : m_domain{start_level, b, approx_box_tol, scaling_factor_}
         , m_min_level{min_level}
         , m_max_level{max_level}
     {
@@ -217,13 +234,16 @@ namespace samurai
         partition_mesh(start_level, b);
         // load_balancing();
 #else
-        this->m_cells[mesh_id_t::cells][start_level] = {start_level, b};
+        this->m_cells[mesh_id_t::cells][start_level] = {start_level, b, approx_box_tol, scaling_factor_};
 #endif
         construct_subdomain();
         construct_union();
         update_sub_mesh();
         renumbering();
         update_mesh_neighbour();
+
+        set_origin_point(origin_point());
+        set_scaling_factor(scaling_factor());
     }
 
     template <class D, class Config>
@@ -231,8 +251,10 @@ namespace samurai
                                            std::size_t start_level,
                                            std::size_t min_level,
                                            std::size_t max_level,
-                                           const std::array<bool, dim>& periodic)
-        : m_domain{start_level, b}
+                                           const std::array<bool, dim>& periodic,
+                                           double approx_box_tol,
+                                           double scaling_factor_)
+        : m_domain{start_level, b, approx_box_tol, scaling_factor_}
         , m_min_level{min_level}
         , m_max_level{max_level}
         , m_periodic{periodic}
@@ -243,7 +265,7 @@ namespace samurai
         partition_mesh(start_level, b);
         // load_balancing();
 #else
-        this->m_cells[mesh_id_t::cells][start_level] = {start_level, b};
+        this->m_cells[mesh_id_t::cells][start_level] = {start_level, b, approx_box_tol, scaling_factor_};
 #endif
 
         construct_subdomain();
@@ -251,6 +273,9 @@ namespace samurai
         update_sub_mesh();
         renumbering();
         update_mesh_neighbour();
+
+        set_origin_point(origin_point());
+        set_scaling_factor(scaling_factor());
     }
 
     template <class D, class Config>
@@ -269,6 +294,9 @@ namespace samurai
         update_sub_mesh();
         renumbering();
         update_mesh_neighbour();
+
+        set_origin_point(cl.origin_point());
+        set_scaling_factor(cl.scaling_factor());
     }
 
     template <class D, class Config>
@@ -287,6 +315,9 @@ namespace samurai
         update_sub_mesh();
         renumbering();
         update_mesh_neighbour();
+
+        set_origin_point(ref_mesh.origin_point());
+        set_scaling_factor(ref_mesh.scaling_factor());
     }
 
     template <class D, class Config>
@@ -323,6 +354,54 @@ namespace samurai
     inline std::size_t Mesh_base<D, Config>::min_level() const
     {
         return m_min_level;
+    }
+
+    template <class D, class Config>
+    inline auto& Mesh_base<D, Config>::origin_point() const
+    {
+        return m_domain.origin_point();
+    }
+
+    template <class D, class Config>
+    inline void Mesh_base<D, Config>::set_origin_point(const coords_t& origin_point)
+    {
+        m_domain.set_origin_point(origin_point);
+        m_subdomain.set_origin_point(origin_point);
+        m_union.set_origin_point(origin_point);
+        for (std::size_t i = 0; i < static_cast<std::size_t>(mesh_id_t::count); ++i)
+        {
+            m_cells[i].set_origin_point(origin_point);
+        }
+    }
+
+    template <class D, class Config>
+    inline double Mesh_base<D, Config>::scaling_factor() const
+    {
+        return m_domain.scaling_factor();
+    }
+
+    template <class D, class Config>
+    inline void Mesh_base<D, Config>::set_scaling_factor(double scaling_factor)
+    {
+        m_domain.set_scaling_factor(scaling_factor);
+        m_subdomain.set_scaling_factor(scaling_factor);
+        m_union.set_scaling_factor(scaling_factor);
+        for (std::size_t i = 0; i < static_cast<std::size_t>(mesh_id_t::count); ++i)
+        {
+            m_cells[i].set_scaling_factor(scaling_factor);
+        }
+    }
+
+    template <class D, class Config>
+    inline void Mesh_base<D, Config>::scale_domain(double domain_scaling_factor)
+    {
+        set_scaling_factor(domain_scaling_factor * scaling_factor());
+    }
+
+    template <class D, class Config>
+    inline double Mesh_base<D, Config>::cell_length(std::size_t level) const
+    {
+        return samurai::cell_length(scaling_factor(), level);
     }
 
     template <class D, class Config>
@@ -570,12 +649,13 @@ namespace samurai
     void Mesh_base<D, Config>::partition_mesh([[maybe_unused]] std::size_t start_level, [[maybe_unused]] const Box<double, dim>& global_box)
     {
 #ifdef SAMURAI_WITH_MPI
-        using box_t   = Box<value_t, dim>;
-        using point_t = typename box_t::point_t;
-
         mpi::communicator world;
         auto rank = world.rank();
         auto size = world.size();
+
+        /*
+        using box_t   = Box<value_t, dim>;
+        using point_t = typename box_t::point_t;
 
         double h = cell_length(start_level);
 
@@ -632,6 +712,25 @@ namespace samurai
         }
         box_t subdomain_box                          = {min_corner, max_corner};
         this->m_cells[mesh_id_t::cells][start_level] = {start_level, subdomain_box};
+        */
+
+        lcl_type subdomain_cells(start_level, m_domain.origin_point(), m_domain.scaling_factor());
+        auto subdomain_nb_intervals = m_domain.nb_intervals() / static_cast<std::size_t>(size);
+        auto subdomain_start        = static_cast<std::size_t>(rank) * subdomain_nb_intervals;
+        auto subdomain_end          = (static_cast<std::size_t>(rank) + 1) * subdomain_nb_intervals;
+
+        std::size_t k = 0;
+        for_each_meshinterval(m_domain,
+                              [&](auto mi)
+                              {
+                                  if (k >= subdomain_start && k < subdomain_end)
+                                  {
+                                      subdomain_cells[mi.index].add_interval(mi.i);
+                                  }
+                                  ++k;
+                              });
+
+        this->m_cells[mesh_id_t::cells][start_level] = subdomain_cells;
 
         m_mpi_neighbourhood.reserve(static_cast<std::size_t>(size) - 1);
         for (int ir = 0; ir < size; ++ir)

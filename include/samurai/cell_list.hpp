@@ -26,13 +26,18 @@ namespace samurai
         static constexpr auto max_size = max_size_;
 
         using lcl_type = LevelCellList<dim, TInterval>;
+        using coords_t = typename lcl_type::coords_t;
 
         CellList();
+        CellList(const coords_t& origin_point, double scaling_factor);
 
         const lcl_type& operator[](std::size_t i) const;
         lcl_type& operator[](std::size_t i);
 
         void to_stream(std::ostream& os) const;
+
+        auto& origin_point() const;
+        auto scaling_factor() const;
 
       private:
 
@@ -52,6 +57,15 @@ namespace samurai
         for (std::size_t level = 0; level <= max_size; ++level)
         {
             m_cells[level] = {level};
+        }
+    }
+
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
+    inline CellList<dim_, TInterval, max_size_>::CellList(const coords_t& origin_point, double scaling_factor)
+    {
+        for (std::size_t level = 0; level <= max_size; ++level)
+        {
+            m_cells[level] = {level, origin_point, scaling_factor};
         }
     }
 
@@ -76,6 +90,18 @@ namespace samurai
             m_cells[level].to_stream(os);
             os << "\n";
         }
+    }
+
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
+    inline auto& CellList<dim_, TInterval, max_size_>::origin_point() const
+    {
+        return m_cells[0].origin_point();
+    }
+
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
+    inline auto CellList<dim_, TInterval, max_size_>::scaling_factor() const
+    {
+        return m_cells[0].scaling_factor();
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
