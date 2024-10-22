@@ -45,6 +45,13 @@ class Plot:
             for i, f in enumerate(args.field):
                 ax = plt.subplot(1, len(args.field), i + 1)
                 mesh = read_mesh(filename)
+
+                unknown_field = next((f for f in args.field if f not in mesh['fields']), None)
+
+                if unknown_field is not None:
+                    keys = ' '.join(mesh['fields'].keys())
+                    raise ValueError(f"file:{filename}> field:{unknown_field} not in available fields values: {keys}")
+
                 if 'points' in mesh:
                     self.plot(ax, mesh, f)
                 else:
