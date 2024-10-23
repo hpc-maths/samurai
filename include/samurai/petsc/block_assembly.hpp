@@ -92,6 +92,77 @@ namespace samurai
                 return std::get<row * cols + col>(m_assembly_ops);
             }
 
+            void check_and_set_sizes()
+            {
+                // Check compatibility of dimensions and set dimensions for blocks that must fit into the matrix
+                // - rows:
+                for (std::size_t r = 0; r < rows; r++)
+                {
+                    PetscInt block_rows = 0;
+                    for_each_assembly_op(
+                        [&](auto& op, auto row, auto)
+                        {
+                            if (row == r)
+                            {
+                                if (block_rows == 0 && !op.fit_block_dimensions())
+                                {
+                                    block_rows = op.matrix_rows();
+                                }
+                            }
+                        });
+                    for_each_assembly_op(
+                        [&](auto& op, auto row, auto col)
+                        {
+                            if (row == r)
+                            {
+                                if (op.fit_block_dimensions())
+                                {
+                                    op.set_matrix_rows(block_rows);
+                                }
+                                else if (op.matrix_rows() != block_rows)
+                                {
+                                    std::cerr << "Assembly failure: incompatible number of rows of block (" << row << ", " << col
+                                              << "): " << op.matrix_rows() << " (expected " << block_rows << ")" << std::endl;
+                                    exit(EXIT_FAILURE);
+                                }
+                            }
+                        });
+                }
+                // - cols:
+                for (std::size_t c = 0; c < cols; c++)
+                {
+                    PetscInt block_cols = 0;
+                    for_each_assembly_op(
+                        [&](auto& op, auto, auto col)
+                        {
+                            if (col == c)
+                            {
+                                if (block_cols == 0 && !op.fit_block_dimensions())
+                                {
+                                    block_cols = op.matrix_cols();
+                                }
+                            }
+                        });
+                    for_each_assembly_op(
+                        [&](auto& op, auto row, auto col)
+                        {
+                            if (col == c)
+                            {
+                                if (op.fit_block_dimensions())
+                                {
+                                    op.set_matrix_cols(block_cols);
+                                }
+                                else if (op.matrix_cols() != block_cols)
+                                {
+                                    std::cerr << "Assembly failure: incompatible number of columns of block (" << row << ", " << col
+                                              << "): " << op.matrix_cols() << " (expected " << block_cols << ")" << std::endl;
+                                    exit(EXIT_FAILURE);
+                                }
+                            }
+                        });
+                }
+            }
+
             template <class... Fields>
             void set_unknowns(Fields&... unknowns)
             {
@@ -212,6 +283,8 @@ namespace samurai
 
             void create_matrix(Mat& A)
             {
+                reset();
+
                 for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
@@ -243,6 +316,9 @@ namespace samurai
                     {
                         op.reset();
                     });
+
+                // Check compatibility of dimensions and set dimensions for blocks that must fit into the matrix
+                this->check_and_set_sizes();
             }
 
             Mat& block(std::size_t row, std::size_t col)
@@ -422,72 +498,7 @@ namespace samurai
                     });
 
                 // Check compatibility of dimensions and set dimensions for blocks that must fit into the matrix
-                // - rows:
-                for (std::size_t r = 0; r < rows; r++)
-                {
-                    PetscInt block_rows = 0;
-                    for_each_assembly_op(
-                        [&](auto& op, auto row, auto)
-                        {
-                            if (row == r)
-                            {
-                                if (block_rows == 0 && !op.fit_block_dimensions())
-                                {
-                                    block_rows = op.matrix_rows();
-                                }
-                            }
-                        });
-                    for_each_assembly_op(
-                        [&](auto& op, auto row, auto col)
-                        {
-                            if (row == r)
-                            {
-                                if (op.fit_block_dimensions())
-                                {
-                                    op.set_matrix_rows(block_rows);
-                                }
-                                else if (op.matrix_rows() != block_rows)
-                                {
-                                    std::cerr << "Assembly failure: incompatible number of rows of block (" << row << ", " << col
-                                              << "): " << op.matrix_rows() << " (expected " << block_rows << ")" << std::endl;
-                                    exit(EXIT_FAILURE);
-                                }
-                            }
-                        });
-                }
-                // - cols:
-                for (std::size_t c = 0; c < cols; c++)
-                {
-                    PetscInt block_cols = 0;
-                    for_each_assembly_op(
-                        [&](auto& op, auto, auto col)
-                        {
-                            if (col == c)
-                            {
-                                if (block_cols == 0 && !op.fit_block_dimensions())
-                                {
-                                    block_cols = op.matrix_cols();
-                                }
-                            }
-                        });
-                    for_each_assembly_op(
-                        [&](auto& op, auto row, auto col)
-                        {
-                            if (col == c)
-                            {
-                                if (op.fit_block_dimensions())
-                                {
-                                    op.set_matrix_cols(block_cols);
-                                }
-                                else if (op.matrix_cols() != block_cols)
-                                {
-                                    std::cerr << "Assembly failure: incompatible number of columns of block (" << row << ", " << col
-                                              << "): " << op.matrix_cols() << " (expected " << block_cols << ")" << std::endl;
-                                    exit(EXIT_FAILURE);
-                                }
-                            }
-                        });
-                }
+                this->check_and_set_sizes();
 
                 // Set row_shift and col_shift
                 PetscInt row_shift = 0;
