@@ -3,6 +3,7 @@
 
 #pragma once
 
+// #include <xtensor/xlayout.hpp>
 #include <xtensor/xnoalias.hpp>
 #include <xtensor/xtensor.hpp>
 #include <xtensor/xview.hpp>
@@ -17,11 +18,33 @@ namespace samurai
         using xt::placeholders::_;
     }
 
+    namespace detail
+    {
+        template <::samurai::layout_type L>
+        struct xtensor_layout;
+
+        template <>
+        struct xtensor_layout<::samurai::layout_type::row_major>
+        {
+            static constexpr ::xt::layout_type value = ::xt::layout_type::row_major;
+        };
+
+        template <>
+        struct xtensor_layout<::samurai::layout_type::column_major>
+        {
+            static constexpr ::xt::layout_type value = ::xt::layout_type::column_major;
+        };
+
+        template <layout_type L>
+        static constexpr ::xt::layout_type xtensor_layout_v = xtensor_layout<L>::value;
+    }
+
     template <class value_t, std::size_t size, bool SOA = false>
     struct xtensor_container
     {
-        using container_t = xt::xtensor<value_t, (size == 1) ? 1 : 2>;
-        using size_type   = std::size_t;
+        static constexpr layout_type static_layout = SAMURAI_DEFAULT_LAYOUT;
+        using container_t                          = xt::xtensor<value_t, (size == 1) ? 1 : 2, detail::xtensor_layout_v<static_layout>>;
+        using size_type                            = std::size_t;
 
         xtensor_container() = default;
 
@@ -49,7 +72,7 @@ namespace samurai
             }
             else
             {
-                if constexpr (SOA)
+                if constexpr (detail::static_size_first_v<size, SOA, static_layout>)
                 {
                     m_data.resize({size, dynamic_size});
                 }
@@ -65,122 +88,136 @@ namespace samurai
         container_t m_data;
     };
 
-    template <class value_t, bool SOA>
-    auto view(xtensor_container<value_t, 1, SOA>& container, const range_t<long long>& range)
+    ////////////////////////////////
+    // VIEW: CONST IMPLEMENTATION //
+    ////////////////////////////////
+
+    template <class value_t, std::size_t size, bool SOA>
+    auto view(const xtensor_container<value_t, size, SOA>& container, const range_t<long long>& range)
     {
-        return xt::view(container.data(), xt::range(range.start, range.end, range.step));
+        static constexpr layout_type static_layout = xtensor_container<value_t, size, SOA>::static_layout;
+        if constexpr (detail::static_size_first_v<size, SOA, static_layout>)
+        {
+            return xt::view(container.data(), xt::all(), xt::range(range.start, range.end, range.step));
+        }
+        else
+        {
+            return xt::view(container.data(), xt::range(range.start, range.end, range.step));
+        }
     }
 
-    template <class value_t, std::size_t size, typename = std::enable_if_t<(size > 1)>>
-    auto view(xtensor_container<value_t, size, true>& container, const range_t<long long>& range)
+    template <class value_t, std::size_t size, bool SOA>
+    auto view(const xtensor_container<value_t, size, SOA>& container, const range_t<std::size_t>& range_item, const range_t<long long>& range)
     {
-        return xt::view(container.data(), xt::all(), xt::range(range.start, range.end, range.step));
+        static_assert(size > 1, "size must be greater than 1");
+        static constexpr layout_type static_layout = xtensor_container<value_t, size, SOA>::static_layout;
+        if constexpr (detail::static_size_first_v<size, SOA, static_layout>)
+        {
+            return xt::view(container.data(),
+                            xt::range(range_item.start, range_item.end, range_item.step),
+                            xt::range(range.start, range.end, range.step));
+        }
+        else
+        {
+            return xt::view(container.data(),
+                            xt::range(range.start, range.end, range.step),
+                            xt::range(range_item.start, range_item.end, range_item.step));
+        }
     }
 
-    template <class value_t, std::size_t size, typename = std::enable_if_t<(size > 1)>>
-    auto view(xtensor_container<value_t, size, false>& container, const range_t<long long>& range)
+    template <class value_t, std::size_t size, bool SOA>
+    auto view(const xtensor_container<value_t, size, SOA>& container, std::size_t item, const range_t<long long>& range)
     {
-        return xt::view(container.data(), xt::range(range.start, range.end, range.step));
+        static_assert(size > 1, "size must be greater than 1");
+        static constexpr layout_type static_layout = xtensor_container<value_t, size, SOA>::static_layout;
+        if constexpr (detail::static_size_first_v<size, SOA, static_layout>)
+        {
+            return xt::view(container.data(), item, xt::range(range.start, range.end, range.step));
+        }
+        else
+        {
+            return xt::view(container.data(), xt::range(range.start, range.end, range.step), item);
+        }
     }
 
-    template <class value_t, std::size_t size>
-    auto view(xtensor_container<value_t, size, true>& container, const range_t<std::size_t>& range_item, const range_t<long long>& range)
+    template <class value_t, std::size_t size, bool SOA>
+    auto view(const xtensor_container<value_t, size, SOA>& container, std::size_t index)
     {
-        return xt::view(container.data(),
-                        xt::range(range_item.start, range_item.end, range_item.step),
-                        xt::range(range.start, range.end, range.step));
+        static constexpr layout_type static_layout = xtensor_container<value_t, size, SOA>::static_layout;
+        if constexpr (detail::static_size_first_v<size, SOA, static_layout>)
+        {
+            return xt::view(container.data(), xt::all(), index);
+        }
+        else
+        {
+            return xt::view(container.data(), index);
+        }
     }
 
-    template <class value_t, std::size_t size>
-    auto view(xtensor_container<value_t, size, false>& container, const range_t<std::size_t>& range_item, const range_t<long long>& range)
+    ////////////////////////////////////
+    // VIEW: NON CONST IMPLEMENTATION //
+    ////////////////////////////////////
+
+    template <class value_t, std::size_t size, bool SOA>
+    auto view(xtensor_container<value_t, size, SOA>& container, const range_t<long long>& range)
     {
-        return xt::view(container.data(),
-                        xt::range(range.start, range.end, range.step),
-                        xt::range(range_item.start, range_item.end, range_item.step));
+        static constexpr layout_type static_layout = xtensor_container<value_t, size, SOA>::static_layout;
+        if constexpr (detail::static_size_first_v<size, SOA, static_layout>)
+        {
+            return xt::view(container.data(), xt::all(), xt::range(range.start, range.end, range.step));
+        }
+        else
+        {
+            return xt::view(container.data(), xt::range(range.start, range.end, range.step));
+        }
     }
 
-    template <class value_t, std::size_t size>
-    auto view(xtensor_container<value_t, size, true>& container, std::size_t item, const range_t<long long>& range)
+    template <class value_t, std::size_t size, bool SOA>
+    auto view(xtensor_container<value_t, size, SOA>& container, const range_t<std::size_t>& range_item, const range_t<long long>& range)
     {
-        return xt::view(container.data(), item, xt::range(range.start, range.end, range.step));
+        static_assert(size > 1, "size must be greater than 1");
+        static constexpr layout_type static_layout = xtensor_container<value_t, size, SOA>::static_layout;
+        if constexpr (detail::static_size_first_v<size, SOA, static_layout>)
+        {
+            return xt::view(container.data(),
+                            xt::range(range_item.start, range_item.end, range_item.step),
+                            xt::range(range.start, range.end, range.step));
+        }
+        else
+        {
+            return xt::view(container.data(),
+                            xt::range(range.start, range.end, range.step),
+                            xt::range(range_item.start, range_item.end, range_item.step));
+        }
     }
 
-    template <class value_t, std::size_t size>
-    auto view(xtensor_container<value_t, size, false>& container, std::size_t item, const range_t<long long>& range)
+    template <class value_t, std::size_t size, bool SOA>
+    auto view(xtensor_container<value_t, size, SOA>& container, std::size_t item, const range_t<long long>& range)
     {
-        return xt::view(container.data(), xt::range(range.start, range.end, range.step), item);
+        static_assert(size > 1, "size must be greater than 1");
+        static constexpr layout_type static_layout = xtensor_container<value_t, size, SOA>::static_layout;
+        if constexpr (detail::static_size_first_v<size, SOA, static_layout>)
+        {
+            return xt::view(container.data(), item, xt::range(range.start, range.end, range.step));
+        }
+        else
+        {
+            return xt::view(container.data(), xt::range(range.start, range.end, range.step), item);
+        }
     }
 
-    template <class value_t, bool SOA>
-    auto view(const xtensor_container<value_t, 1, SOA>& container, const range_t<long long>& range)
+    template <class value_t, std::size_t size, bool SOA>
+    auto view(xtensor_container<value_t, size, SOA>& container, std::size_t index)
     {
-        return xt::view(container.data(), xt::range(range.start, range.end, range.step));
-    }
-
-    template <class value_t, std::size_t size, typename = std::enable_if_t<(size > 1)>>
-    auto view(const xtensor_container<value_t, size, true>& container, const range_t<long long>& range)
-    {
-        return xt::view(container.data(), xt::all(), xt::range(range.start, range.end, range.step));
-    }
-
-    template <class value_t, std::size_t size, typename = std::enable_if_t<(size > 1)>>
-    auto view(const xtensor_container<value_t, size, false>& container, const range_t<long long>& range)
-    {
-        return xt::view(container.data(), xt::range(range.start, range.end, range.step));
-    }
-
-    template <class value_t, std::size_t size>
-    auto
-    view(const xtensor_container<value_t, size, true>& container, const range_t<std::size_t>& range_item, const range_t<long long>& range)
-    {
-        return xt::view(container.data(),
-                        xt::range(range_item.start, range_item.end, range_item.step),
-                        xt::range(range.start, range.end, range.step));
-    }
-
-    template <class value_t, std::size_t size>
-    auto
-    view(const xtensor_container<value_t, size, false>& container, const range_t<std::size_t>& range_item, const range_t<long long>& range)
-    {
-        return xt::view(container.data(),
-                        xt::range(range.start, range.end, range.step),
-                        xt::range(range_item.start, range_item.end, range_item.step));
-    }
-
-    template <class value_t, std::size_t size>
-    auto view(const xtensor_container<value_t, size, true>& container, std::size_t item, const range_t<long long>& range)
-    {
-        return xt::view(container.data(), item, xt::range(range.start, range.end, range.step));
-    }
-
-    template <class value_t, std::size_t size>
-    auto view(const xtensor_container<value_t, size, false>& container, std::size_t item, const range_t<long long>& range)
-    {
-        return xt::view(container.data(), xt::range(range.start, range.end, range.step), item);
-    }
-
-    template <class value_t, std::size_t size>
-    auto view(const xtensor_container<value_t, size, false>& container, std::size_t index)
-    {
-        return xt::view(container.data(), index);
-    }
-
-    template <class value_t, std::size_t size>
-    auto view(xtensor_container<value_t, size, false>& container, std::size_t index)
-    {
-        return xt::view(container.data(), index);
-    }
-
-    template <class value_t, std::size_t size>
-    auto view(const xtensor_container<value_t, size, true>& container, std::size_t index)
-    {
-        return xt::view(container.data(), xt::all(), index);
-    }
-
-    template <class value_t, std::size_t size>
-    auto view(xtensor_container<value_t, size, true>& container, std::size_t index)
-    {
-        return xt::view(container.data(), xt::all(), index);
+        static constexpr layout_type static_layout = xtensor_container<value_t, size, SOA>::static_layout;
+        if constexpr (detail::static_size_first_v<size, SOA, static_layout>)
+        {
+            return xt::view(container.data(), xt::all(), index);
+        }
+        else
+        {
+            return xt::view(container.data(), index);
+        }
     }
 
     template <class D>
