@@ -368,7 +368,7 @@ namespace samurai
         template <class T, class QS>
         auto qs_view_even(QS& qs, int dec)
         {
-            if constexpr (T::is_soa && T::size > 1)
+            if constexpr (detail::static_size_first_v<T::size, T::is_soa, T::static_layout>)
             {
                 return view(qs, placeholders::all(), range(dec, shape(qs, 1)));
             }
@@ -381,7 +381,7 @@ namespace samurai
         template <class T, class QS>
         auto qs_view_odd(QS& qs, int dec)
         {
-            if constexpr (T::is_soa && T::size > 1)
+            if constexpr (detail::static_size_first_v<T::size, T::is_soa, T::static_layout>)
             {
                 return view(qs, placeholders::all(), range(0, safe_subs<int>(shape(qs, 1), dec)));
             }
