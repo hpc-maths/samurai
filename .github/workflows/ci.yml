@@ -41,7 +41,7 @@ jobs:
       - name: cppcheck installation
         shell: bash -el {0}
         run: |
-          conda install -y cppcheck=2.12 cxx-compiler
+          conda install -y cppcheck=2.13 cxx-compiler
 
       - name: Configure
         shell: bash -el {0}
