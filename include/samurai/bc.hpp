@@ -1270,7 +1270,7 @@ namespace samurai
                                     PolynomialExtrapolation<Field, i> bc(domain, ConstantBc<Field>(), true);
 
                                     bool only_fill_corners          = false;
-                                    bool only_fill_ghost_neighbours = true;
+                                    bool only_fill_ghost_neighbours = true; // because cell neighbours will be filled by the B.C.
                                     apply_extrapolation_bc_impl<Field, i>(bc, level, field, only_fill_corners, only_fill_ghost_neighbours);
                                 }
                             }
@@ -1300,9 +1300,14 @@ namespace samurai
         }
 
         // Step 2:
-        // Polynomial extrapolation to populate corners and ghosts layers that are not filled by the B.C.
+        // Polynomial extrapolation to populate corners and ghosts layers that are not filled by the B.C. (i.e. outside of the B.C.'s
+        // stencil)
 
-        if (mesh.min_level() != mesh.max_level())
+        // if (mesh.min_level() != mesh.max_level()) // We comment this test because some schemes have a box stencil and need values in
+        //                                              external corners. However, the associated B.C. doesn't fill them, so we do it.
+        //                                              Since on a uniform mesh, the MR process doesn't need corners, it would be better
+        //                                              that the corners be filled by the user as part of the BCs.
+        //                                              But so far the users don't have an easy way to do that...
         {
             // We populate the ghosts sequentially from the closest to the farthest.
             for (std::size_t ghost_layer = 1; ghost_layer <= ghost_width; ++ghost_layer)
