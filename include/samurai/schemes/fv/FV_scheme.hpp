@@ -3,6 +3,7 @@
 #include "../../boundary.hpp"
 #include "../../field.hpp"
 #include "../../static_algorithm.hpp"
+#include "../../timers.hpp"
 #include "utils.hpp"
 
 namespace samurai
@@ -168,26 +169,35 @@ namespace samurai
          */
         auto operator()(input_field_t& input_field) const
         {
+            times::timers.start("operator " + name());
             auto explicit_scheme = make_explicit(derived_cast());
-            return explicit_scheme.apply_to(input_field);
+            auto output_field    = explicit_scheme.apply_to(input_field);
+            times::timers.stop("operator " + name());
+            return output_field;
         }
 
         void apply(output_field_t& output_field, input_field_t& input_field) const
         {
+            times::timers.start("operator " + name());
             auto explicit_scheme = make_explicit(derived_cast());
             explicit_scheme.apply(output_field, input_field);
+            times::timers.stop("operator " + name());
         }
 
         auto operator()(std::size_t d, input_field_t& input_field) const
         {
+            times::timers.start("operator " + name());
             auto explicit_scheme = make_explicit(derived_cast());
             return explicit_scheme.apply_to(d, input_field);
+            times::timers.stop("operator " + name());
         }
 
         void apply(std::size_t d, output_field_t& output_field, input_field_t& input_field) const
         {
+            times::timers.start("operator " + name());
             auto explicit_scheme = make_explicit(derived_cast());
             explicit_scheme.apply(d, output_field, input_field);
+            times::timers.stop("operator " + name());
         }
 
         /**

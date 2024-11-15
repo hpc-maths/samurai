@@ -171,7 +171,9 @@ namespace samurai
                     return coeffs;
                 };
             });
-        return make_diffusion__<cfg, dirichlet_enfcmt>(K_grad);
+        auto scheme = make_diffusion__<cfg, dirichlet_enfcmt>(K_grad);
+        scheme.set_name("diffusion");
+        return scheme;
     }
 
     /**
@@ -234,7 +236,9 @@ namespace samurai
                     return coeffs;
                 };
             });
-        return make_diffusion__<cfg, dirichlet_enfcmt>(K_grad);
+        auto scheme = make_diffusion__<cfg, dirichlet_enfcmt>(K_grad);
+        scheme.set_name("diffusion");
+        return scheme;
     }
 
     template <class Field, DirichletEnforcement dirichlet_enfcmt = Equation>
@@ -315,7 +319,9 @@ namespace samurai
                 };
             });
 
-        return make_diffusion__<cfg>(K_grad);
+        auto scheme = make_diffusion__<cfg>(K_grad);
+        scheme.set_name("diffusion");
+        return scheme;
     }
 
 } // end namespace samurai

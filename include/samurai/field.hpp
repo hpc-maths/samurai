@@ -22,6 +22,7 @@ namespace fs = std::filesystem;
 #include "cell.hpp"
 #include "cell_array.hpp"
 #include "field_expression.hpp"
+#include "timers.hpp"
 // #include "hdf5.hpp"
 #include "mesh_holder.hpp"
 #include "numeric/gauss_legendre.hpp"
@@ -648,6 +649,7 @@ namespace samurai
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     inline auto Field<mesh_t, value_t, size_, SOA>::operator=(const Field& field) -> Field&
     {
+        times::timers.start("field expressions");
         inner_mesh_t::operator=(field.mesh());
         m_name = field.m_name;
         m_data = field.m_data;
@@ -661,6 +663,7 @@ namespace samurai
                            return v->clone();
                        });
         std::swap(p_bc, tmp);
+        times::timers.stop("field expressions");
         return *this;
     }
 
@@ -668,11 +671,13 @@ namespace samurai
     template <class E>
     inline auto Field<mesh_t, value_t, size_, SOA>::operator=(const field_expression<E>& e) -> Field&
     {
+        times::timers.start("field expressions");
         for_each_interval(this->mesh(),
                           [&](std::size_t level, const auto& i, const auto& index)
                           {
                               (*this)(level, i, index) = e.derived_cast()(level, i, index);
                           });
+        times::timers.stop("field expressions");
         return *this;
     }
 

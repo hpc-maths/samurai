@@ -8,6 +8,7 @@
 #include "../field.hpp"
 #include "../hdf5.hpp"
 #include "../static_algorithm.hpp"
+#include "../timers.hpp"
 #include "criteria.hpp"
 #include <type_traits>
 
@@ -137,6 +138,7 @@ namespace samurai
         }
         update_ghost_mr(m_fields);
 
+        times::timers.start("mesh adaptation");
         for (std::size_t i = 0; i < max_level - min_level; ++i)
         {
             // std::cout << "MR mesh adaptation " << i << std::endl;
@@ -149,6 +151,7 @@ namespace samurai
                 break;
             }
         }
+        times::timers.stop("mesh adaptation");
     }
 
     // TODO: to remove since it is used at several place
@@ -210,7 +213,10 @@ namespace samurai
         {
             update_tag_subdomains(level, m_tag, true);
         }
+
+        times::timers.stop("mesh adaptation");
         update_ghost_mr(m_fields);
+        times::timers.start("mesh adaptation");
 
         for (std::size_t level = ((min_level > 0) ? min_level - 1 : 0); level < max_level - ite; ++level)
         {
@@ -335,8 +341,10 @@ namespace samurai
             // update_tag_subdomains(level, m_tag);
             update_tag_subdomains<false>(level, m_tag);
         }
-
+        times::timers.stop("mesh adaptation");
         update_ghost_mr(other_fields...);
+        times::timers.start("mesh adaptation");
+
         keep_only_one_coarse_tag(m_tag);
 
         return update_field_mr(m_tag, m_fields, other_fields...);

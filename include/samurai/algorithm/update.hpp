@@ -12,6 +12,7 @@
 #include "../numeric/prediction.hpp"
 #include "../numeric/projection.hpp"
 #include "../subset/subset_op.hpp"
+#include "../timers.hpp"
 #include "utils.hpp"
 
 using namespace xt::placeholders;
@@ -92,6 +93,8 @@ namespace samurai
         using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
         constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
 
+        times::timers.start("ghost update");
+
         auto& mesh = field.mesh();
 
 #ifdef SAMURAI_WITH_MPI
@@ -135,6 +138,8 @@ namespace samurai
             update_ghost_subdomains(level, field, other_fields...);
             update_bc(level, field, other_fields...);
         }
+
+        times::timers.stop("ghost update");
     }
 
     inline void update_ghost_mr()

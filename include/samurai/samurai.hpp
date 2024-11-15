@@ -7,6 +7,8 @@
 namespace mpi = boost::mpi;
 #endif
 
+#include "timers.hpp"
+
 namespace samurai
 {
 
@@ -15,6 +17,7 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
         MPI_Init(&argc, &argv);
 #endif
+        times::timers.start("total runtime");
     }
 
     inline void initialize()
@@ -22,10 +25,14 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
         MPI_Init(nullptr, nullptr);
 #endif
+        times::timers.start("total runtime");
     }
 
     inline void finalize()
     {
+        times::timers.stop("total runtime");
+
+        times::timers.print();
 #ifdef SAMURAI_WITH_MPI
         MPI_Finalize();
 #endif

@@ -76,7 +76,9 @@ namespace samurai
                 }
             });
 
-        return make_flux_based_scheme(upwind);
+        auto scheme = make_flux_based_scheme(upwind);
+        scheme.set_name("convection");
+        return scheme;
     }
 
     /**
@@ -127,7 +129,9 @@ namespace samurai
                 }
             });
 
-        return make_flux_based_scheme(weno5);
+        auto scheme = make_flux_based_scheme(weno5);
+        scheme.set_name("convection");
+        return scheme;
     }
 
     /**
@@ -197,7 +201,9 @@ namespace samurai
                 };
             });
 
-        return make_flux_based_scheme(upwind);
+        auto scheme = make_flux_based_scheme(upwind);
+        scheme.set_name("convection");
+        return scheme;
     }
 
     /**
@@ -249,7 +255,9 @@ namespace samurai
                 };
             });
 
-        return make_flux_based_scheme(weno5);
+        auto scheme = make_flux_based_scheme(weno5);
+        scheme.set_name("convection");
+        return scheme;
     }
 
 } // end namespace samurai
