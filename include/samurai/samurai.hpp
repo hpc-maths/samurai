@@ -7,17 +7,28 @@
 namespace mpi = boost::mpi;
 #endif
 
+#include "arguments.hpp"
 #include "timers.hpp"
 
 namespace samurai
 {
-
-    inline void initialize([[maybe_unused]] int& argc, [[maybe_unused]] char**& argv)
+    inline void initialize(CLI::App& app, int& argc, char**& argv)
     {
+        read_samurai_arguments(app, argc, argv);
+
 #ifdef SAMURAI_WITH_MPI
         MPI_Init(&argc, &argv);
 #endif
-        times::timers.start("total runtime");
+        if (args::timers)
+        {
+            times::timers.start("total runtime");
+        }
+    }
+
+    inline void initialize(int& argc, char**& argv)
+    {
+        CLI::App app{"SAMURAI"};
+        initialize(app, argc, argv);
     }
 
     inline void initialize()
@@ -25,15 +36,17 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
         MPI_Init(nullptr, nullptr);
 #endif
-        times::timers.start("total runtime");
     }
 
     inline void finalize()
     {
-        times::timers.stop("total runtime");
+        if (args::timers)
+        {
+            times::timers.stop("total runtime");
 
-        std::cout << std::endl;
-        times::timers.print();
+            std::cout << std::endl;
+            times::timers.print();
+        }
 #ifdef SAMURAI_WITH_MPI
         MPI_Finalize();
 #endif
