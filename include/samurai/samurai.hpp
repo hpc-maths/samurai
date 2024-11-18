@@ -19,10 +19,7 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
         MPI_Init(&argc, &argv);
 #endif
-        if (args::timers)
-        {
-            times::timers.start("total runtime");
-        }
+        times::timers.start("total runtime");
     }
 
     inline void initialize(int& argc, char**& argv)

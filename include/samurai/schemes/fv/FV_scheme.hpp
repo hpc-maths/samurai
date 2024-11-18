@@ -188,8 +188,9 @@ namespace samurai
         {
             times::timers.start(name() + " operator");
             auto explicit_scheme = make_explicit(derived_cast());
-            return explicit_scheme.apply_to(d, input_field);
+            auto output_field    = explicit_scheme.apply_to(d, input_field);
             times::timers.stop(name() + " operator");
+            return output_field;
         }
 
         void apply(std::size_t d, output_field_t& output_field, input_field_t& input_field) const
