@@ -158,7 +158,8 @@ namespace samurai
         {
             std::chrono::microseconds total_runtime(0);
             std::chrono::microseconds total_measured(0);
-            bool has_total_runtime = false;
+            std::size_t max_name_length = 0;
+            bool has_total_runtime      = false;
             for (const auto& timer : _times)
             {
                 if (timer.first == "total runtime")
@@ -169,6 +170,7 @@ namespace samurai
                 else
                 {
                     total_measured += timer.second.elapsed;
+                    max_name_length = std::max(max_name_length, timer.first.length());
                 }
             }
             std::chrono::microseconds total = has_total_runtime ? total_runtime : total_measured;
@@ -182,14 +184,15 @@ namespace samurai
                       });
 
             double total_perc = 0.0;
-            std::cout << "\n\t> [Process] Timers " << std::endl;
-            int setwSize = 20;
+            // std::cout << "\n\t> [Process] Timers " << std::endl;
+            int setwSizeName = static_cast<int>(max_name_length) + 4;
+            int setwSizeData = 16;
 
-            std::cout << "\t";
-            std::cout << std::setw(setwSize) << " ";
-            std::cout << std::setw(setwSize) << "Elapsed (s)";
-            std::cout << std::setw(setwSize) << "Fraction (%)";
-            std::cout << std::setw(setwSize) << "Calls";
+            // std::cout << "\t";
+            std::cout << std::setw(setwSizeName) << " ";
+            std::cout << std::setw(setwSizeData) << "Elapsed (s)";
+            std::cout << std::setw(setwSizeData) << "Fraction (%)";
+            // std::cout << std::setw(setwSizeData) << "Calls";
             std::cout << std::endl;
 
             std::cout << std::fixed;
@@ -198,11 +201,11 @@ namespace samurai
                 if (timer.first != "total runtime")
                 {
                     auto elapsedInSeconds = std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1>>>(timer.second.elapsed);
-                    std::cout << "\t";
-                    std::cout << std::setw(setwSize) << timer.first;
-                    std::cout << std::setw(setwSize) << std::setprecision(3) << elapsedInSeconds.count();
-                    std::cout << std::setw(setwSize) << std::setprecision(1) << _percent(timer.second.elapsed, total);
-                    std::cout << std::setw(setwSize) << timer.second.ntimes;
+                    // std::cout << "\t";
+                    std::cout << std::setw(setwSizeName) << timer.first;
+                    std::cout << std::setw(setwSizeData) << std::setprecision(3) << elapsedInSeconds.count();
+                    std::cout << std::setw(setwSizeData) << std::setprecision(1) << _percent(timer.second.elapsed, total);
+                    // std::cout << std::setw(setwSizeData) << timer.second.ntimes;
                     std::cout << std::endl;
                     total_perc += timer.second.elapsed * 100.0 / total;
                 }
@@ -212,23 +215,27 @@ namespace samurai
             {
                 if (timer.first == "total runtime")
                 {
+                    std::string msg = "----------------";
+                    std::cout << std::setw(setwSizeName) << msg /*<< std::setw(setwSizeData) << msg << std::setw(setwSizeData) << msg
+                              << std::setw(setwSizeData)*/
+                              << std::endl;
+
                     auto untimed          = total_runtime - total_measured;
                     auto untimedInSeconds = std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1>>>(untimed);
-                    std::cout << "\t";
-                    std::cout << std::setw(setwSize) << "(untimed)";
-                    std::cout << std::setw(setwSize) << std::setprecision(3) << untimedInSeconds.count();
-                    std::cout << std::setw(setwSize) << std::setprecision(1) << _percent(untimed, total);
+                    // std::cout << "\t";
+                    std::cout << std::setw(setwSizeName) << "(untimed)";
+                    std::cout << std::setw(setwSizeData) << std::setprecision(3) << untimedInSeconds.count();
+                    std::cout << std::setw(setwSizeData) << std::setprecision(1) << _percent(untimed, total);
                     std::cout << std::endl;
 
-                    std::string msg = "--------------------";
-                    std::cout << "\t" << std::setw(setwSize) << msg << std::setw(setwSize) << msg << std::setw(setwSize) << msg
-                              << std::setw(setwSize) << msg << std::endl;
+                    std::cout << std::setw(setwSizeName) << msg << std::setw(setwSizeData) << msg << std::setw(setwSizeData) << msg
+                              << std::setw(setwSizeData) << std::endl;
 
                     auto totalInSeconds = std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1>>>(timer.second.elapsed);
-                    std::cout << "\t";
-                    std::cout << std::setw(setwSize) << timer.first;
-                    std::cout << std::setw(setwSize) << std::setprecision(3) << totalInSeconds.count();
-                    std::cout << std::setw(setwSize) << std::setprecision(1) << 100.0;
+                    // std::cout << "\t";
+                    std::cout << std::setw(setwSizeName) << timer.first;
+                    std::cout << std::setw(setwSizeData) << std::setprecision(3) << totalInSeconds.count();
+                    std::cout << std::setw(setwSizeData) << std::setprecision(1) << 100.0;
                     std::cout << std::endl;
                     total_perc += _percent(timer.second.elapsed, total);
                 }
@@ -236,13 +243,14 @@ namespace samurai
 
             if (!has_total_runtime)
             {
-                std::cout << "\t";
-                std::cout << std::setw(setwSize) << "Total";
-                std::cout << std::setw(setwSize) << total_measured.count();
-                std::cout << std::setw(setwSize) << total_perc << std::endl;
+                // std::cout << "\t";
+                std::cout << std::setw(setwSizeName) << "Total";
+                std::cout << std::setw(setwSizeData) << total_measured.count();
+                std::cout << std::setw(setwSizeData) << total_perc;
+                std::cout << std::endl;
             }
 
-            std::flush(std::cout);
+            std::cout << std::endl;
         }
 #endif
 

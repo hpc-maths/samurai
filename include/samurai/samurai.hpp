@@ -32,6 +32,7 @@ namespace samurai
     {
         times::timers.stop("total runtime");
 
+        std::cout << std::endl;
         times::timers.print();
 #ifdef SAMURAI_WITH_MPI
         MPI_Finalize();

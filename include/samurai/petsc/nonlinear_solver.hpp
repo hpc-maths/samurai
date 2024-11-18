@@ -156,6 +156,7 @@ namespace samurai
 
             static PetscErrorCode PETSC_nonlinear_function(SNES /*snes*/, Vec x, Vec f, void* ctx)
             {
+                times::timers.stop("nonlinear system solve");
                 // const char* x_name;
                 // PetscObjectGetName(reinterpret_cast<PetscObject>(x), &x_name);
                 // const char* f_name;
@@ -173,16 +174,21 @@ namespace samurai
                 x_field.copy_bc_from(assembly.unknown());
 
                 // Apply explicit scheme
+
                 update_ghost_mr(x_field);
                 auto f_field = self->scheme()(x_field);
 
                 copy(f_field, f);
                 self->prepare_rhs(f);
+
+                times::timers.start("nonlinear system solve");
                 return 0; // PETSC_SUCCESS
             }
 
             static PetscErrorCode PETSC_jacobian_function(SNES /*snes*/, Vec x, Mat jac, Mat B, void* ctx)
             {
+                times::timers.stop("nonlinear system solve");
+
                 // Here, jac = B = this.m_J
 
                 auto self      = reinterpret_cast<NonLinearSolverBase*>(ctx); // this
@@ -219,6 +225,7 @@ namespace samurai
                 // Put back the real unknown: we need its B.C. for the evaluation of the non-linear function
                 assembly.set_unknown(*real_system_unknown);
 
+                times::timers.start("nonlinear system solve");
                 return 0; // PETSC_SUCCESS
             }
 
@@ -248,7 +255,9 @@ namespace samurai
             void solve_system(Vec& b, Vec& x)
             {
                 // Solve the system
+                times::timers.start("nonlinear system solve");
                 SNESSolve(m_snes, b, x);
+                times::timers.stop("nonlinear system solve");
 
                 SNESConvergedReason reason_code;
                 SNESGetConvergedReason(m_snes, &reason_code);
