@@ -185,7 +185,6 @@ struct Coupling_auxCe_s : public samurai::petsc::ManualAssembly<aux_t>
 };
 
 int main(int argc, char* argv[])
-
 {
     samurai::initialize(argc, argv);
 

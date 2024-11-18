@@ -96,7 +96,8 @@ void configure_solver(Solver& solver)
 
 int main(int argc, char* argv[])
 {
-    samurai::initialize(argc, argv);
+    CLI::App app{"Lid-driven cavity"};
+    samurai::initialize(app, argc, argv);
 
     constexpr std::size_t dim = 2;
     using Config              = samurai::MRConfig<dim, 2>;
@@ -131,7 +132,6 @@ int main(int argc, char* argv[])
     fs::path path        = fs::current_path();
     std::string filename = "ldc_ink";
 
-    CLI::App app{"Lid-driven cavity"};
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
@@ -143,11 +143,11 @@ int main(int argc, char* argv[])
     app.add_option("--mr-reg", mr_regularity, "The regularity criteria used by the multiresolution to adapt the mesh")
         ->capture_default_str()
         ->group("Multiresolution");
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
-    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
-    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Ouput");
-    app.add_flag("--export-velocity", export_velocity, "Export velocity field")->capture_default_str()->group("Ouput");
-    app.add_flag("--export-reconstruct", export_reconstruct, "Export reconstructed fields")->capture_default_str()->group("Ouput");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
+    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
+    app.add_flag("--export-velocity", export_velocity, "Export velocity field")->capture_default_str()->group("Output");
+    app.add_flag("--export-reconstruct", export_reconstruct, "Export reconstructed fields")->capture_default_str()->group("Output");
     app.allow_extras();
     CLI11_PARSE(app, argc, argv);
 
@@ -156,12 +156,14 @@ int main(int argc, char* argv[])
         fs::create_directory(path);
     }
 
+    samurai::times::timers.start("petsc init");
     PetscInitialize(&argc, &argv, 0, nullptr);
 
     PetscMPIInt size;
     PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size));
     PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
     PetscOptionsSetValue(NULL, "-options_left", "off"); // disable warning for unused options
+    samurai::times::timers.stop("petsc init");
 
     auto box = samurai::Box<double, dim>({0, 0}, {1, 1});
 
@@ -485,7 +487,9 @@ int main(int argc, char* argv[])
     }
 
     stokes_solver.destroy_petsc_objects();
+    samurai::times::timers.start("petsc finalize");
     PetscFinalize();
+    samurai::times::timers.stop("petsc finalize");
     samurai::finalize();
     return 0;
 }

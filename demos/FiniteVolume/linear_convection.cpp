@@ -82,9 +82,9 @@ int main(int argc, char* argv[])
                    "adapt the mesh")
         ->capture_default_str()
         ->group("Multiresolution");
-    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
-    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Ouput");
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
+    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
     app.allow_extras();
     CLI11_PARSE(app, argc, argv);
 

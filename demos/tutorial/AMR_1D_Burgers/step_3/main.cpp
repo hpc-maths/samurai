@@ -28,7 +28,8 @@ namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])
 {
-    samurai::initialize(argc, argv);
+    CLI::App app{"Tutorial AMR Burgers 1D step 3"};
+    samurai::initialize(app, argc, argv);
 
     // Simulation parameters
     double cfl = 0.99;
@@ -39,12 +40,11 @@ int main(int argc, char* argv[])
     std::string filename = "amr_1d_burgers_step_3";
     std::size_t nfiles   = 1;
 
-    CLI::App app{"Tutorial AMR Burgers 1D step 3"};
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
-    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Ouput");
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
+    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
     CLI11_PARSE(app, argc, argv);
 
     if (!fs::exists(path))

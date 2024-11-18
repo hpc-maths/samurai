@@ -45,7 +45,8 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 
 int main(int argc, char* argv[])
 {
-    samurai::initialize(argc, argv);
+    CLI::App app{"Finite volume example for the heat equation"};
+    samurai::initialize(app, argc, argv);
 
     static constexpr std::size_t dim = 2;
     using Config                     = samurai::MRConfig<dim>;
@@ -91,7 +92,6 @@ int main(int argc, char* argv[])
     std::string filename       = "heat_" + std::to_string(dim) + "D";
     bool save_final_state_only = false;
 
-    CLI::App app{"Finite volume example for the heat equation"};
     app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--right", right_box, "The right border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--init-sol", init_sol, "Initial solution: dirac/crenel")->capture_default_str()->group("Simulation parameters");
@@ -111,8 +111,8 @@ int main(int argc, char* argv[])
                    "adapt the mesh")
         ->capture_default_str()
         ->group("Multiresolution");
-    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_flag("--save-final-state-only", save_final_state_only, "Save final state only")->group("Output");
     app.allow_extras();
     CLI11_PARSE(app, argc, argv);
@@ -121,6 +121,7 @@ int main(int argc, char* argv[])
     // Petsc initialize //
     //------------------//
 
+    samurai::times::timers.start("petsc init");
     PetscInitialize(&argc, &argv, 0, nullptr);
 
     PetscMPIInt size;
@@ -128,6 +129,7 @@ int main(int argc, char* argv[])
     PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
     PetscOptionsSetValue(NULL, "-options_left", "off"); // If on, Petsc will issue warnings saying that
                                                         // the options managed by CLI are unused
+    samurai::times::timers.stop("petsc init");
 
     //--------------------//
     // Problem definition //
@@ -259,7 +261,9 @@ int main(int argc, char* argv[])
         save(path, filename, u);
     }
 
+    samurai::times::timers.start("petsc finalize");
     PetscFinalize();
+    samurai::times::timers.stop("petsc finalize");
 
     samurai::finalize();
     return 0;

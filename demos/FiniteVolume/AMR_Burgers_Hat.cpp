@@ -173,7 +173,8 @@ void flux_correction(Field& phi_np1, const Field& phi_n, double dt)
 
 int main(int argc, char* argv[])
 {
-    samurai::initialize(argc, argv);
+    CLI::App app{"Finite volume example for the Burgers equation in 2d using AMR"};
+    samurai::initialize(app, argc, argv);
 
     constexpr std::size_t dim = 1; // cppcheck-suppress unreadVariable
     using Config              = samurai::amr::Config<dim>;
@@ -195,7 +196,6 @@ int main(int argc, char* argv[])
     std::string filename = "FV_AMR_Burgers_Hat_1d";
     std::size_t nfiles   = 1;
 
-    CLI::App app{"Finite volume example for the Burgers equation in 2d using AMR"};
     app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--right", right_box, "The right border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
@@ -206,9 +206,9 @@ int main(int argc, char* argv[])
     app.add_option("--with-correction", correction, "Apply flux correction at the interface of two refinement levels")
         ->capture_default_str()
         ->group("AMR parameters");
-    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
-    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Ouput");
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
+    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
     CLI11_PARSE(app, argc, argv);
 
     const samurai::Box<double, dim> box({left_box}, {right_box});

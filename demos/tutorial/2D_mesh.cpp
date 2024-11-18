@@ -15,7 +15,8 @@ namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])
 {
-    samurai::initialize(argc, argv);
+    CLI::App app{"Create mesh from CellList and save it"};
+    samurai::initialize(app, argc, argv);
 
     constexpr std::size_t dim = 2; // cppcheck-suppress unreadVariable
     samurai::CellList<dim> cl;
@@ -24,9 +25,8 @@ int main(int argc, char* argv[])
     fs::path path        = fs::current_path();
     std::string filename = "2d_mesh_construction";
 
-    CLI::App app{"Create mesh from CellList and save it"};
-    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     CLI11_PARSE(app, argc, argv);
 
     if (!fs::exists(path))

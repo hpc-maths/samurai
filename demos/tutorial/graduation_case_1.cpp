@@ -60,7 +60,8 @@ auto generate_mesh(std::size_t start_level, std::size_t max_level)
 
 int main(int argc, char* argv[])
 {
-    samurai::initialize(argc, argv);
+    CLI::App app{"Graduation example: test case 1"};
+    samurai::initialize(app, argc, argv);
 
     constexpr std::size_t dim        = 2;
     std::size_t start_level          = 1;
@@ -71,12 +72,11 @@ int main(int argc, char* argv[])
     fs::path path        = fs::current_path();
     std::string filename = "graduation_case_1";
 
-    CLI::App app{"Graduation example: test case 1"};
     app.add_option("--start-level", start_level, "where to start the mesh generator")->capture_default_str();
     app.add_option("--max-refinement-level", max_refinement_level, "Maximum level of the mesh generator")->capture_default_str();
     app.add_flag("--with-corner", with_corner, "Make the graduation including the diagonal")->capture_default_str();
-    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     CLI11_PARSE(app, argc, argv);
 
     if (!fs::exists(path))

@@ -83,7 +83,8 @@ auto init(Mesh& mesh, Case& c)
 
 int main(int argc, char* argv[])
 {
-    samurai::initialize(argc, argv);
+    CLI::App app{"2d reconstruction of an adapted solution using multiresolution"};
+    samurai::initialize(app, argc, argv);
 
     constexpr size_t dim                        = 2;
     constexpr std::size_t max_stencil_width_    = 2;
@@ -109,7 +110,6 @@ int main(int argc, char* argv[])
     fs::path path        = fs::current_path();
     std::string filename = "reconstruction_2d";
 
-    CLI::App app{"2d reconstruction of an adapted solution using multiresolution"};
     app.add_option("--case", test_case, "Test case")->capture_default_str()->transform(CLI::CheckedTransformer(map, CLI::ignore_case));
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
@@ -122,8 +122,8 @@ int main(int argc, char* argv[])
                    "adapt the mesh")
         ->capture_default_str()
         ->group("Multiresolution");
-    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     CLI11_PARSE(app, argc, argv);
 
     if (!fs::exists(path))

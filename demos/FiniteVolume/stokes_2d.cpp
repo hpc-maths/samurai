@@ -152,7 +152,8 @@ void configure_solver(Solver& solver)
 
 int main(int argc, char* argv[])
 {
-    samurai::initialize(argc, argv);
+    CLI::App app{"Stokes problem"};
+    samurai::initialize(app, argc, argv);
 
     constexpr std::size_t dim        = 2;
     using Config                     = samurai::MRConfig<dim, 2>;
@@ -179,7 +180,6 @@ int main(int argc, char* argv[])
     fs::path path        = fs::current_path();
     std::string filename = "";
 
-    CLI::App app{"Stokes problem"};
     app.add_option("--test-case", test_case, "Test case (s = stationary, ns = non-stationary)")
         ->capture_default_str()
         ->group("Simulation parameters");
@@ -193,9 +193,9 @@ int main(int argc, char* argv[])
     app.add_option("--mr-reg", mr_regularity, "The regularity criteria used by the multiresolution to adapt the mesh")
         ->capture_default_str()
         ->group("Multiresolution");
-    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
-    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Ouput");
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
+    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
     app.allow_extras();
     CLI11_PARSE(app, argc, argv);
 

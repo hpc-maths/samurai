@@ -113,7 +113,9 @@ class HighOrderDiffusion : public samurai::CellBasedScheme<cfg, bdry_cfg>
 
 int main(int argc, char* argv[])
 {
-    samurai::initialize(argc, argv);
+    CLI::App app{"Finite volume example for the advection equation in 2d "
+                 "using multiresolution"};
+    samurai::initialize(app, argc, argv);
 
     constexpr std::size_t dim              = 2;
     constexpr std::size_t stencil_width    = 2;
@@ -138,8 +140,6 @@ int main(int argc, char* argv[])
     std::string filename = "poisson_highorder_2d";
     std::size_t nfiles   = 1;
 
-    CLI::App app{"Finite volume example for the advection equation in 2d "
-                 "using multiresolution"};
     app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--max-corner", min_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
@@ -157,9 +157,9 @@ int main(int argc, char* argv[])
     app.add_option("--with-correction", correction, "Apply flux correction at the interface of two refinement levels")
         ->capture_default_str()
         ->group("Multiresolution");
-    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
-    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Ouput");
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
+    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
     app.allow_extras();
     CLI11_PARSE(app, argc, argv);
 

@@ -98,7 +98,8 @@ auto make_nonlinear_diffusion()
 
 int main(int argc, char* argv[])
 {
-    samurai::initialize(argc, argv);
+    CLI::App app{"Finite volume example for the heat equation"};
+    samurai::initialize(app, argc, argv);
 
     static constexpr std::size_t dim = 2;
     using Config                     = samurai::MRConfig<dim>;
@@ -142,7 +143,6 @@ int main(int argc, char* argv[])
     std::string filename       = "heat_nonlinear_" + std::to_string(dim) + "D";
     bool save_final_state_only = false;
 
-    CLI::App app{"Finite volume example for the heat equation in 2D"};
     app.add_flag("--explicit", explicit_scheme, "Explicit scheme instead of implicit")->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
@@ -155,8 +155,8 @@ int main(int argc, char* argv[])
     app.add_option("--mr-reg", mr_regularity, "The regularity criteria used by the multiresolution to adapt the mesh")
         ->capture_default_str()
         ->group("Multiresolution");
-    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_flag("--save-final-state-only", save_final_state_only, "Save final state only")->group("Output");
     app.allow_extras();
     CLI11_PARSE(app, argc, argv);

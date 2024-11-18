@@ -36,7 +36,8 @@ namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])
 {
-    samurai::initialize(argc, argv);
+    CLI::App app{"Tutorial AMR Burgers 1D step 6"};
+    samurai::initialize(app, argc, argv);
 
     // Simulation parameters
     double cfl         = 0.99;
@@ -52,15 +53,14 @@ int main(int argc, char* argv[])
     fs::path path        = fs::current_path();
     std::string filename = "amr_1d_burgers_step_6";
 
-    CLI::App app{"Tutorial AMR Burgers 1D step 6"};
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--start-level", start_level, "Start level of the AMR")->capture_default_str()->group("AMR parameter");
     app.add_option("--min-level", min_level, "Minimum level of the AMR")->capture_default_str()->group("AMR parameter");
     app.add_option("--max-level", max_level, "Maximum level of the AMR")->capture_default_str()->group("AMR parameter");
-    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
-    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Ouput");
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
+    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
     CLI11_PARSE(app, argc, argv);
 
     if (!fs::exists(path))
