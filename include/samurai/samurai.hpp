@@ -37,9 +37,9 @@ namespace samurai
 
     inline void finalize()
     {
-        times::timers.stop("total runtime");
         if (args::timers) // cppcheck-suppress knownConditionTrueFalse
         {
+            times::timers.stop("total runtime");
             std::cout << std::endl;
             times::timers.print();
         }
