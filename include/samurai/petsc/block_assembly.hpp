@@ -8,7 +8,7 @@ namespace samurai
     namespace petsc
     {
         template <std::size_t rows_, std::size_t cols_, class... Operators>
-        class BlockAssembly
+        class BlockAssemblyBase
         {
           public:
 
@@ -24,7 +24,7 @@ namespace samurai
 
           public:
 
-            explicit BlockAssembly(const block_operator_t& block_op)
+            explicit BlockAssemblyBase(const block_operator_t& block_op)
                 : m_block_operator(block_op)
                 , m_assembly_ops(transform(block_op.operators(),
                                            [](const auto& op)
@@ -249,13 +249,18 @@ namespace samurai
             }
         };
 
+        template <bool monolithic, std::size_t rows_, std::size_t cols_, class... Operators>
+        class BlockAssembly
+        {
+        };
+
         /**
          * Assemble block matrix using PETSc nested matrices.
          */
         template <std::size_t rows_, std::size_t cols_, class... Operators>
-        class NestedBlockAssembly : public BlockAssembly<rows_, cols_, Operators...>
+        class BlockAssembly<false, rows_, cols_, Operators...> : public BlockAssemblyBase<rows_, cols_, Operators...>
         {
-            using base_class = BlockAssembly<rows_, cols_, Operators...>;
+            using base_class = BlockAssemblyBase<rows_, cols_, Operators...>;
 
           public:
 
@@ -271,7 +276,7 @@ namespace samurai
 
           public:
 
-            explicit NestedBlockAssembly(const block_operator_t& block_op)
+            explicit BlockAssembly(const block_operator_t& block_op)
                 : base_class(block_op)
             {
                 for_each_assembly_op(
@@ -464,10 +469,10 @@ namespace samurai
          * Assemble block matrix as a monolithic matrix.
          */
         template <std::size_t rows_, std::size_t cols_, class... Operators>
-        class MonolithicBlockAssembly : public BlockAssembly<rows_, cols_, Operators...>,
-                                        public MatrixAssembly
+        class BlockAssembly<true, rows_, cols_, Operators...> : public BlockAssemblyBase<rows_, cols_, Operators...>,
+                                                                public MatrixAssembly
         {
-            using base_class = BlockAssembly<rows_, cols_, Operators...>;
+            using base_class = BlockAssemblyBase<rows_, cols_, Operators...>;
 
           public:
 
@@ -477,7 +482,7 @@ namespace samurai
             using base_class::for_each_assembly_op;
             using base_class::rows;
 
-            explicit MonolithicBlockAssembly(const block_operator_t& block_op)
+            explicit BlockAssembly(const block_operator_t& block_op)
                 : base_class(block_op)
             {
                 this->set_name("(unnamed monolithic block operator)");
@@ -836,19 +841,37 @@ namespace samurai
                              i++;
                          });
             }
+
+            std::array<IS, cols> create_fields_IS()
+            {
+                std::array<IS, cols> IS_array;
+                for_each_assembly_op(
+                    [&](auto& op, auto row, auto col)
+                    {
+                        if (row == 1)
+                        {
+                            std::vector<PetscInt> idx(static_cast<std::size_t>(op.matrix_cols()));
+                            for (std::size_t i = 0; i < idx.size(); ++i)
+                            {
+                                idx[i] = op.col_shift() + static_cast<PetscInt>(i);
+                            }
+                            ISCreateGeneral(PETSC_COMM_SELF, static_cast<PetscInt>(idx.size()), idx.data(), PETSC_COPY_VALUES, &IS_array[col]);
+                        }
+                    });
+                return IS_array;
+            }
         };
+
+        // template <std::size_t rows_, std::size_t cols_, class... Operators>
+        // using NestedBlockAssembly = BlockAssembly<false, rows_, cols_, Operators...>;
+
+        // template <std::size_t rows_, std::size_t cols_, class... Operators>
+        // using MonolithicBlockAssembly = BlockAssembly<true, rows_, cols_, Operators...>;
 
         template <bool monolithic, std::size_t rows_, std::size_t cols_, class... Operators>
         auto make_assembly(const BlockOperator<rows_, cols_, Operators...>& block_op)
         {
-            if constexpr (monolithic)
-            {
-                return MonolithicBlockAssembly<rows_, cols_, Operators...>(block_op);
-            }
-            else
-            {
-                return NestedBlockAssembly<rows_, cols_, Operators...>(block_op);
-            }
+            return BlockAssembly<monolithic, rows_, cols_, Operators...>(block_op);
         }
 
         template <std::size_t rows_, std::size_t cols_, class... Operators>
