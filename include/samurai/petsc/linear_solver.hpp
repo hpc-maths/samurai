@@ -123,6 +123,24 @@ namespace samurai
 
           public:
 
+            void assemble_matrix()
+            {
+                if (m_A == nullptr)
+                {
+                    if (assembly().undefined_unknown())
+                    {
+                        std::cerr << "Undefined unknown(s) for this linear system. Please set the unknowns using the instruction '[solver].set_unknown(u);' or '[solver].set_unknowns(u1, u2...);'."
+                                  << std::endl;
+                        assert(false && "Undefined unknown(s)");
+                        exit(EXIT_FAILURE);
+                    }
+
+                    assembly().create_matrix(m_A);
+                    assembly().assemble_matrix(m_A);
+                    PetscObjectSetName(reinterpret_cast<PetscObject>(m_A), "A");
+                }
+            }
+
             virtual void setup()
             {
                 if (is_set_up())
@@ -130,24 +148,14 @@ namespace samurai
                     return;
                 }
 
-                if (assembly().undefined_unknown())
-                {
-                    std::cerr << "Undefined unknown(s) for this linear system. Please set the unknowns using the instruction '[solver].set_unknown(u);' or '[solver].set_unknowns(u1, u2...);'."
-                              << std::endl;
-                    assert(false && "Undefined unknown(s)");
-                    exit(EXIT_FAILURE);
-                }
-
-                assembly().create_matrix(m_A);
-                assembly().assemble_matrix(m_A);
-                PetscObjectSetName(reinterpret_cast<PetscObject>(m_A), "A");
+                assemble_matrix();
 
                 // PetscBool is_symmetric;
                 // MatIsSymmetric(m_A, 0, &is_symmetric);
 
                 KSPSetOperators(m_ksp, m_A, m_A);
-                PetscInt err = KSPSetUp(m_ksp);
-                if (err != 0)
+                PetscErrorCode err = KSPSetUp(m_ksp);
+                if (err != PETSC_SUCCESS)
                 {
                     std::cerr << "The setup of the solver failed!" << std::endl;
                     assert(false && "Failed solver setup");
@@ -175,7 +183,13 @@ namespace samurai
             void solve_system(Vec& b, Vec& x)
             {
                 // Solve the system
-                KSPSolve(m_ksp, b, x);
+                PetscErrorCode err = KSPSolve(m_ksp, b, x);
+                if (err != PETSC_SUCCESS)
+                {
+                    std::cerr << "KSPSolve() failed (code " << err << ")" << std::endl;
+                    assert(false && "PETSc failure");
+                    exit(EXIT_FAILURE);
+                }
 
                 KSPConvergedReason reason_code;
                 KSPGetConvergedReason(m_ksp, &reason_code);

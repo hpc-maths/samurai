@@ -98,13 +98,17 @@ void configure_saddle_point_solver(Solver& block_solver)
     KSP ksp = block_solver.Ksp();
     PC pc;
     KSPGetPC(ksp, &pc);
-    PCSetType(pc, PCFIELDSPLIT);                 // (equiv. '-pc_type fieldsplit')
+
+    block_solver.assemble_matrix(); // if nested matrix, must be called before calling set_pc_fieldsplit().
+
+    block_solver.set_pc_fieldsplit(pc);
     PCFieldSplitSetType(pc, PC_COMPOSITE_SCHUR); // Schur complement preconditioner (equiv. '-pc_fieldsplit_type schur')
     PCFieldSplitSetSchurPre(pc, PC_FIELDSPLIT_SCHUR_PRE_SELFP, PETSC_NULLPTR); // (equiv. '-pc_fieldsplit_schur_precondition selfp')
     PCFieldSplitSetSchurFactType(pc, PC_FIELDSPLIT_SCHUR_FACT_FULL);           // (equiv. '-pc_fieldsplit_schur_fact_type full')
 
     // Configure the sub-solvers
-    block_solver.setup(); // must be called before using PCFieldSplitSchurGetSubKSP(), because the matrices are needed.
+    block_solver.setup(); // KSPSetUp() or PCSetUp() must be called before calling PCFieldSplitSchurGetSubKSP(), because the matrices are
+                          // needed.
     KSP* sub_ksp;
     PCFieldSplitSchurGetSubKSP(pc, nullptr, &sub_ksp);
     KSP A_ksp     = sub_ksp[0];
@@ -142,7 +146,7 @@ void configure_solver(Solver& solver)
     }
     else
     {
-        configure_saddle_point_solver(solver);
+        configure_saddle_point_solver(solver); // works also for monolithic
     }
 }
 
