@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.18.0](https://github.com/hpc-maths/samurai/compare/v0.17.0...v0.18.0) (2024-11-20)
+
+
+### Features
+
+* Scaling ([#229](https://github.com/hpc-maths/samurai/issues/229)) ([faf792a](https://github.com/hpc-maths/samurai/commit/faf792a7b9111263e6d303fb7996b630fc5e3478))
+
+
+### Bug Fixes
+
+* BC no longer required to assemble the matrix of a local scheme ([#231](https://github.com/hpc-maths/samurai/issues/231)) ([2080c00](https://github.com/hpc-maths/samurai/commit/2080c00f4364ec40beb7d643f2674c311e23482a))
+* fill corners on uniform meshes ([#234](https://github.com/hpc-maths/samurai/issues/234)) ([59d81b1](https://github.com/hpc-maths/samurai/commit/59d81b15a94e2b0667b71c85c187ca830885a558))
+* fix block sizes for nested matrices ([#233](https://github.com/hpc-maths/samurai/issues/233)) ([142be77](https://github.com/hpc-maths/samurai/commit/142be77364e3567f4b4e419d71678465c6d0e66d))
+* fmt usage with version 11 ([#226](https://github.com/hpc-maths/samurai/issues/226)) ([b3902b0](https://github.com/hpc-maths/samurai/commit/b3902b08b809183ccc57c3bb0b57bb61862c5d39))
+* The matrix size is set upon calling `assembly.set_unknowns(...)`. ([#227](https://github.com/hpc-maths/samurai/issues/227)) ([5d324de](https://github.com/hpc-maths/samurai/commit/5d324de21cda3ec4b847c9e71b9950d6d5feee0c))
+
+
+### Performance Improvements
+
+* `update_ghost_mr()` performance improved on uniform meshes ([#230](https://github.com/hpc-maths/samurai/issues/230)) ([2596ba7](https://github.com/hpc-maths/samurai/commit/2596ba7421d62b76af13ce60f4bc08ae4556bac0))
+
 ## [0.17.0](https://github.com/hpc-maths/samurai/compare/v0.16.0...v0.17.0) (2024-09-10)
 
 
