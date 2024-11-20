@@ -101,7 +101,7 @@ namespace samurai
         using tag_t             = Field<mesh_t, int, 1>;
 
         static constexpr std::size_t dim = mesh_t::dim;
-        static constexpr bool enlarge    = enlarge_;
+        static constexpr bool enlarge_v  = enlarge_;
 
         using interval_t    = typename mesh_t::interval_t;
         using coord_index_t = typename interval_t::coord_index_t;
@@ -115,17 +115,17 @@ namespace samurai
         tag_t m_tag;
     };
 
-    template <bool enlarge, class TField, class... TFields>
-    inline Adapt<enlarge, TField, TFields...>::Adapt(TField& field, TFields&... fields)
+    template <bool enlarge_, class TField, class... TFields>
+    inline Adapt<enlarge_, TField, TFields...>::Adapt(TField& field, TFields&... fields)
         : m_fields(field, fields...)
         , m_detail("detail", field.mesh())
         , m_tag("tag", field.mesh())
     {
     }
 
-    template <bool enlarge, class TField, class... TFields>
+    template <bool enlarge_, class TField, class... TFields>
     template <class... Fields>
-    void Adapt<enlarge, TField, TFields...>::operator()(double eps, double regularity, Fields&... other_fields)
+    void Adapt<enlarge_, TField, TFields...>::operator()(double eps, double regularity, Fields&... other_fields)
     {
         auto& mesh            = m_fields.mesh();
         std::size_t min_level = mesh.min_level();
@@ -191,9 +191,9 @@ namespace samurai
         }
     }
 
-    template <bool enlarge, class TField, class... TFields>
+    template <bool enlarge_, class TField, class... TFields>
     template <class... Fields>
-    bool Adapt<enlarge, TField, TFields...>::harten(std::size_t ite, double eps, double regularity, Fields&... other_fields)
+    bool Adapt<enlarge_, TField, TFields...>::harten(std::size_t ite, double eps, double regularity, Fields&... other_fields)
     {
         auto& mesh = m_fields.mesh();
 
@@ -242,7 +242,7 @@ namespace samurai
 
             subset_2.apply_op(keep_around_refine(m_tag));
 
-            if constexpr (enlarge)
+            if constexpr (enlarge_v)
             {
                 auto subset_3 = intersection(mesh[mesh_id_t::cells_and_ghosts][level], mesh[mesh_id_t::cells_and_ghosts][level]);
                 subset_2.apply_op(enlarge(m_tag));
@@ -348,9 +348,9 @@ namespace samurai
         return Adapt<false, TFields...>(fields...);
     }
 
-    template <bool enlarge, class... TFields>
+    template <bool enlarge_, class... TFields>
     auto make_MRAdapt(TFields&... fields)
     {
-        return Adapt<enlarge, TFields...>(fields...);
+        return Adapt<enlarge_, TFields...>(fields...);
     }
 } // namespace samurai
