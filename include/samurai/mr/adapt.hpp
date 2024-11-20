@@ -3,13 +3,11 @@
 
 #pragma once
 
-#include "../algorithm/graduation.hpp"
+#include <algorithm>
+
 #include "../algorithm/update.hpp"
 #include "../field.hpp"
-#include "../hdf5.hpp"
-#include "../static_algorithm.hpp"
 #include "criteria.hpp"
-#include <type_traits>
 
 namespace samurai
 {
@@ -224,14 +222,14 @@ namespace samurai
             std::size_t exponent = dim * (max_level - level);
             double eps_l         = eps / (1 << exponent);
 
-            double regularity_to_use = regularity + dim;
+            double regularity_to_use = std::min<double>(regularity, 2 * mesh_t::config::prediction_order + 1) + dim;
 
             auto subset_1 = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
 
             subset_1.apply_op(to_coarsen_mr(m_detail, m_tag, eps_l, min_level)); // Derefinement
             subset_1.apply_op(to_refine_mr(m_detail,
                                            m_tag,
-                                           (pow(2.0, regularity_to_use)) * eps_l,
+                                           pow(2.0, regularity_to_use) * eps_l,
                                            max_level)); // Refinement according to Harten
             update_tag_subdomains(level, m_tag, true);
         }
