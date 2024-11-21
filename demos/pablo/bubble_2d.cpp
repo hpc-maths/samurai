@@ -1,6 +1,5 @@
 // Copyright 2018-2024 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
-#include <CLI/CLI.hpp>
 
 #include <iostream>
 
@@ -228,10 +227,11 @@ void make_graduation(samurai::CellArray<dim>& ca)
 
 int main(int argc, char* argv[])
 {
-    CLI::App app{"2d bubble example from pablo (see "
-                 "https://github.com/optimad/bitpit/blob/master/examples/"
-                 "PABLO_bubbles_2D.cpp)"};
-    samurai::initialize(app, argc, argv);
+    auto& app = samurai::initialize("2d bubble example from pablo (see "
+                                    "https://github.com/optimad/bitpit/blob/master/examples/"
+                                    "PABLO_bubbles_2D.cpp)",
+                                    argc,
+                                    argv);
 
     constexpr std::size_t dim = 2; // cppcheck-suppress unreadVariable
 
@@ -263,7 +263,7 @@ int main(int argc, char* argv[])
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
-    CLI11_PARSE(app, argc, argv);
+    SAMURAI_PARSE(argc, argv);
 
     if (!fs::exists(path))
     {

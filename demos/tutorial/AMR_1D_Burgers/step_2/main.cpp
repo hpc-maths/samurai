@@ -1,6 +1,5 @@
 // Copyright 2018-2024 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
-#include <CLI/CLI.hpp>
 
 #include <filesystem>
 
@@ -26,8 +25,7 @@ namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])
 {
-    CLI::App app{"Tutorial AMR Burgers 1D step 2"};
-    samurai::initialize(app, argc, argv);
+    auto& app = samurai::initialize("Tutorial AMR Burgers 1D step 2", argc, argv);
 
     // Simulation parameters
     double cfl = 0.99;
@@ -43,7 +41,7 @@ int main(int argc, char* argv[])
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
-    CLI11_PARSE(app, argc, argv);
+    SAMURAI_PARSE(argc, argv);
 
     if (!fs::exists(path))
     {

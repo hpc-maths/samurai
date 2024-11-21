@@ -172,8 +172,7 @@ void flux_correction(Field& phi_np1, const Field& phi_n, double dt)
 
 int main(int argc, char* argv[])
 {
-    CLI::App app{"Finite volume example for the Burgers equation in 2d using AMR"};
-    samurai::initialize(app, argc, argv);
+    auto& app = samurai::initialize("Finite volume example for the Burgers equation in 2d using AMR", argc, argv);
 
     constexpr std::size_t dim = 1; // cppcheck-suppress unreadVariable
     using Config              = samurai::amr::Config<dim>;
@@ -208,7 +207,7 @@ int main(int argc, char* argv[])
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
-    CLI11_PARSE(app, argc, argv);
+    SAMURAI_PARSE(argc, argv);
 
     const samurai::Box<double, dim> box({left_box}, {right_box});
     samurai::amr::Mesh<Config> mesh(box, start_level, min_level, max_level);

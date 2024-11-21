@@ -31,8 +31,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 
 int main(int argc, char* argv[])
 {
-    CLI::App app{"Finite volume example for the Nagumo equation"};
-    samurai::initialize(app, argc, argv);
+    auto& app = samurai::initialize("Finite volume example for the Nagumo equation", argc, argv);
 
     static constexpr std::size_t dim        = 1;
     static constexpr std::size_t field_size = 1;
@@ -102,7 +101,7 @@ int main(int argc, char* argv[])
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_flag("--save-final-state-only", save_final_state_only, "Save final state only")->group("Output");
     app.allow_extras();
-    CLI11_PARSE(app, argc, argv);
+    SAMURAI_PARSE(argc, argv);
 
     //------------------//
     // Petsc initialize //

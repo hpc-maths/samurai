@@ -97,8 +97,7 @@ auto make_nonlinear_diffusion()
 
 int main(int argc, char* argv[])
 {
-    CLI::App app{"Finite volume example for the heat equation"};
-    samurai::initialize(app, argc, argv);
+    auto& app = samurai::initialize("Finite volume example for the heat equation", argc, argv);
 
     static constexpr std::size_t dim = 2;
     using Config                     = samurai::MRConfig<dim>;
@@ -158,7 +157,7 @@ int main(int argc, char* argv[])
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_flag("--save-final-state-only", save_final_state_only, "Save final state only")->group("Output");
     app.allow_extras();
-    CLI11_PARSE(app, argc, argv);
+    SAMURAI_PARSE(argc, argv);
 
     //------------------//
     // Petsc initialize //

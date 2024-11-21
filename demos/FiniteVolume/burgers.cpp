@@ -43,8 +43,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 template <std::size_t dim, std::size_t field_size>
 int main_dim(int argc, char* argv[])
 {
-    CLI::App app{"Finite volume example for the heat equation in 1d"};
-    samurai::initialize(app, argc, argv);
+    auto& app = samurai::initialize("Finite volume example for the heat equation in 1d", argc, argv);
 
     using Config  = samurai::MRConfig<dim, 3>;
     using Box     = samurai::Box<double, dim>;
@@ -98,7 +97,7 @@ int main_dim(int argc, char* argv[])
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
     app.allow_extras();
-    CLI11_PARSE(app, argc, argv);
+    SAMURAI_PARSE(argc, argv);
 
     //--------------------//
     // Problem definition //

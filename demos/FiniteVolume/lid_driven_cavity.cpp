@@ -94,8 +94,7 @@ void configure_solver(Solver& solver)
 
 int main(int argc, char* argv[])
 {
-    CLI::App app{"Lid-driven cavity"};
-    samurai::initialize(app, argc, argv);
+    auto& app = samurai::initialize("Lid-driven cavity", argc, argv);
 
     constexpr std::size_t dim = 2;
     using Config              = samurai::MRConfig<dim, 2>;
@@ -147,7 +146,7 @@ int main(int argc, char* argv[])
     app.add_flag("--export-velocity", export_velocity, "Export velocity field")->capture_default_str()->group("Output");
     app.add_flag("--export-reconstruct", export_reconstruct, "Export reconstructed fields")->capture_default_str()->group("Output");
     app.allow_extras();
-    CLI11_PARSE(app, argc, argv);
+    SAMURAI_PARSE(argc, argv);
 
     if (!fs::exists(path))
     {

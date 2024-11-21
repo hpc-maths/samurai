@@ -12,20 +12,33 @@ namespace mpi = boost::mpi;
 
 namespace samurai
 {
-    inline void initialize(CLI::App& app, int& argc, char**& argv)
+    static CLI::App app;
+
+#define SAMURAI_PARSE(argc, argv)       \
+    try                                 \
+    {                                   \
+        samurai::app.parse(argc, argv); \
+    }                                   \
+    catch (const CLI::ParseError& e)    \
+    {                                   \
+        return samurai::app.exit(e);    \
+    }
+
+    inline auto& initialize(const std::string& description, int& argc, char**& argv)
     {
+        app.description(description);
         read_samurai_arguments(app, argc, argv);
 
 #ifdef SAMURAI_WITH_MPI
         MPI_Init(&argc, &argv);
 #endif
         times::timers.start("total runtime");
+        return app;
     }
 
-    inline void initialize(int& argc, char**& argv)
+    inline auto& initialize(int& argc, char**& argv)
     {
-        CLI::App app{"SAMURAI"};
-        initialize(app, argc, argv);
+        return initialize("SAMURAI", argc, argv);
     }
 
     inline void initialize()

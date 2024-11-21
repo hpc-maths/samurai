@@ -151,8 +151,7 @@ void configure_solver(Solver& solver)
 
 int main(int argc, char* argv[])
 {
-    CLI::App app{"Stokes problem"};
-    samurai::initialize(app, argc, argv);
+    auto& app = samurai::initialize("Stokes problem", argc, argv);
 
     constexpr std::size_t dim        = 2;
     using Config                     = samurai::MRConfig<dim, 2>;
@@ -196,7 +195,7 @@ int main(int argc, char* argv[])
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
     app.allow_extras();
-    CLI11_PARSE(app, argc, argv);
+    SAMURAI_PARSE(argc, argv);
 
     if (!fs::exists(path))
     {

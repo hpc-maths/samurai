@@ -557,8 +557,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 
 int main(int argc, char* argv[])
 {
-    CLI::App app{"Finite volume example with a level set in 2d using AMR"};
-    samurai::initialize(app, argc, argv);
+    auto& app = samurai::initialize("Finite volume example with a level set in 2d using AMR", argc, argv);
 
     constexpr size_t dim = 2;
     using Config         = AMRConfig<dim>;
@@ -593,7 +592,7 @@ int main(int argc, char* argv[])
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
-    CLI11_PARSE(app, argc, argv);
+    SAMURAI_PARSE(argc, argv);
 
     const samurai::Box<double, dim> box(min_corner, max_corner);
     AMRMesh<Config> mesh{box, max_level, min_level, max_level};

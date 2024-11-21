@@ -1,6 +1,5 @@
 // Copyright 2018-2024 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
-#include <CLI/CLI.hpp>
 
 #include <chrono>
 #include <filesystem>
@@ -54,8 +53,7 @@ auto init(Mesh& mesh, Case& c)
 
 int main(int argc, char* argv[])
 {
-    CLI::App app{"1d reconstruction of an adapted solution using multiresolution"};
-    samurai::initialize(app, argc, argv);
+    auto& app = samurai::initialize("1d reconstruction of an adapted solution using multiresolution", argc, argv);
 
     constexpr size_t dim                        = 1;
     constexpr std::size_t max_stencil_width_    = 2;
@@ -95,7 +93,7 @@ int main(int argc, char* argv[])
         ->group("Multiresolution");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
-    CLI11_PARSE(app, argc, argv);
+    SAMURAI_PARSE(argc, argv);
 
     if (!fs::exists(path))
     {

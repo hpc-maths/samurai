@@ -4,8 +4,8 @@
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
-#include <samurai/petsc.hpp>
 #include <samurai/samurai.hpp>
+#include <samurai/schemes/fv.hpp>
 
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -32,8 +32,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 
 int main(int argc, char* argv[])
 {
-    CLI::App app{"Finite volume example for the linear convection equation"};
-    samurai::initialize(app, argc, argv);
+    auto& app = samurai::initialize("Finite volume example for the linear convection equation", argc, argv);
 
     static constexpr std::size_t dim = 2;
     using Config                     = samurai::MRConfig<dim, 3>;
@@ -86,7 +85,7 @@ int main(int argc, char* argv[])
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
     app.allow_extras();
-    CLI11_PARSE(app, argc, argv);
+    SAMURAI_PARSE(argc, argv);
 
     //--------------------//
     // Problem definition //

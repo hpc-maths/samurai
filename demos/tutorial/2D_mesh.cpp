@@ -1,6 +1,5 @@
 // Copyright 2018-2024 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
-#include <CLI/CLI.hpp>
 
 #include <iostream>
 
@@ -15,8 +14,7 @@ namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])
 {
-    CLI::App app{"Create mesh from CellList and save it"};
-    samurai::initialize(app, argc, argv);
+    auto& app = samurai::initialize("Create mesh from CellList and save it", argc, argv);
 
     constexpr std::size_t dim = 2; // cppcheck-suppress unreadVariable
     samurai::CellList<dim> cl;
@@ -27,7 +25,7 @@ int main(int argc, char* argv[])
 
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
-    CLI11_PARSE(app, argc, argv);
+    SAMURAI_PARSE(argc, argv);
 
     if (!fs::exists(path))
     {

@@ -1,6 +1,5 @@
 // Copyright 2018-2024 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
-#include <CLI/CLI.hpp>
 
 #include <iostream>
 
@@ -192,10 +191,11 @@ void refine_2(mesh_t& mesh, std::size_t max_level)
 
 int main(int argc, char* argv[])
 {
-    CLI::App app{"simple 2d p4est example (see "
-                 "https://github.com/cburstedde/p4est/blob/master/example/"
-                 "simple/simple2.c)"};
-    samurai::initialize(app, argc, argv);
+    auto& app = samurai::initialize("simple 2d p4est example (see "
+                                    "https://github.com/cburstedde/p4est/blob/master/example/"
+                                    "simple/simple2.c)",
+                                    argc,
+                                    argv);
 
     constexpr size_t dim = 2;
 
@@ -209,7 +209,7 @@ int main(int argc, char* argv[])
     app.add_option("--max-level", max_level, "Maximum level of the adaptation")->capture_default_str()->group("Adaptation parameters");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
-    CLI11_PARSE(app, argc, argv);
+    SAMURAI_PARSE(argc, argv);
 
     if (!fs::exists(path))
     {
