@@ -106,13 +106,13 @@ int main(int argc, char* argv[])
                                     {
                                         if constexpr (dim == 1)
                                         {
-                                            auto& x = coords(0);
+                                            const auto& x = coords(0);
                                             return (x >= -0.8 && x <= -0.3) ? 1. : 0.;
                                         }
                                         else
                                         {
-                                            auto& x = coords(0);
-                                            auto& y = coords(1);
+                                            const auto& x = coords(0);
+                                            const auto& y = coords(1);
                                             return (x >= -0.8 && x <= -0.3 && y >= 0.3 && y <= 0.8) ? 1. : 0.;
                                         }
                                     });
