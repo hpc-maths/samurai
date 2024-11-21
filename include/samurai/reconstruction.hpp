@@ -1095,7 +1095,15 @@ namespace samurai
                         {
                             auto i_dst = static_cast<size_type>(((i.start + ii) >> static_cast<value_t>(shift))
                                                                 - (i.start >> static_cast<value_t>(shift)));
-                            view(dst, i_dst) += view(src, static_cast<size_type>(ii)) / (1 << shift * dim);
+                            if constexpr (Field_src::is_soa && Field_src::size > 1)
+                            {
+                                view(dst, placeholders::all(), i_dst) += view(src, placeholders::all(), static_cast<size_type>(ii))
+                                                                       / (1 << shift * dim);
+                            }
+                            else
+                            {
+                                view(dst, i_dst) += view(src, static_cast<size_type>(ii)) / (1 << shift * dim);
+                            }
                         }
                     });
             }

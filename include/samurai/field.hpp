@@ -92,12 +92,13 @@ namespace samurai
         template <class mesh_t, class value_t, bool SOA>
         struct inner_field_types<Field<mesh_t, value_t, 1, SOA>> : public crtp_field<Field<mesh_t, value_t, 1, SOA>>
         {
-            static constexpr std::size_t dim = mesh_t::dim;
-            using interval_t                 = typename mesh_t::interval_t;
-            using index_t                    = typename interval_t::index_t;
-            using cell_t                     = Cell<dim, interval_t>;
-            using data_type                  = field_data_storage_t<value_t, 1>;
-            using size_type                  = typename data_type::size_type;
+            static constexpr std::size_t dim    = mesh_t::dim;
+            using interval_t                    = typename mesh_t::interval_t;
+            using index_t                       = typename interval_t::index_t;
+            using cell_t                        = Cell<dim, interval_t>;
+            using data_type                     = field_data_storage_t<value_t, 1>;
+            using size_type                     = typename data_type::size_type;
+            static constexpr auto static_layout = data_type::static_layout;
 
             inline const value_t& operator[](size_type i) const
             {
@@ -213,6 +214,8 @@ namespace samurai
             using cell_t                     = Cell<dim, interval_t>;
             using data_type                  = field_data_storage_t<value_t, size, SOA>;
             using size_type                  = typename data_type::size_type;
+
+            static constexpr auto static_layout = data_type::static_layout;
 
             inline auto operator[](size_type i) const
             {
@@ -352,6 +355,7 @@ namespace samurai
 
         static constexpr size_type size = size_;
         static constexpr bool is_soa    = SOA;
+        using inner_types::static_layout;
 
         Field() = default;
 
