@@ -50,8 +50,9 @@ namespace samurai
     template <class value_t, std::size_t size, bool SOA>
     struct eigen_container
     {
-        using container_t = detail::eigen_type_t<value_t, size, SOA>;
-        using size_type   = Eigen::Index;
+        static constexpr layout_type static_layout = SAMURAI_DEFAULT_LAYOUT;
+        using container_t                          = detail::eigen_type_t<value_t, size, SOA>;
+        using size_type                            = Eigen::Index;
 
         eigen_container() = default;
 
