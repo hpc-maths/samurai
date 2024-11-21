@@ -14,8 +14,8 @@ namespace samurai
     };
 
 #ifndef SAMURAI_DEFAULT_LAYOUT
-// #define SAMURAI_DEFAULT_LAYOUT ::samurai::layout_type::row_major
-#define SAMURAI_DEFAULT_LAYOUT ::samurai::layout_type::column_major
+#define SAMURAI_DEFAULT_LAYOUT ::samurai::layout_type::row_major
+// #define SAMURAI_DEFAULT_LAYOUT ::samurai::layout_type::column_major
 #endif
 
     static constexpr bool disable_color = true;

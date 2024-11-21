@@ -10,11 +10,11 @@ endif()
 
 project(samurai VERSION ${SAMURAI_VERSION} LANGUAGES CXX C)
 
-# if (NOT CMAKE_CXX_STANDARD)
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-# endif()
+if (NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 20)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+  set(CMAKE_CXX_EXTENSIONS OFF)
+endif()
 
 # Avoid warning about DOWNLOAD_EXTRACT_TIMESTAMP in CMake 3.24:
 if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
@@ -166,6 +166,10 @@ if(${WITH_MPI})
   target_compile_definitions(samurai INTERFACE SAMURAI_WITH_MPI)
 endif()
 
+
+target_compile_features(samurai INTERFACE cxx_std_20)
+
+# target_compile_definitions(samurai INTERFACE _HAS_AUTO_PTR_ETC=0)
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 OPTION(BUILD_BENCHMARKS "samurai benchmark suite" OFF)
