@@ -1,4 +1,5 @@
 #pragma once
+#include "../timers.hpp"
 #include "gauss_legendre.hpp"
 
 namespace samurai
@@ -10,6 +11,8 @@ namespace samurai
     template <bool relative_error, class Field, class Func>
     double L2_error(Field& approximate, Func&& exact)
     {
+        times::timers.start("error computation");
+
         // In FV, we want only 1 quadrature point.
         // This is equivalent to
         //       error += pow(exact(cell.center()) - approximate(cell.index), 2) * cell.length^dim;
@@ -57,6 +60,9 @@ namespace samurai
 
         error_norm    = sqrt(error_norm);
         solution_norm = sqrt(solution_norm);
+
+        times::timers.stop("error computation");
+
         if constexpr (relative_error)
         {
             return error_norm / solution_norm;

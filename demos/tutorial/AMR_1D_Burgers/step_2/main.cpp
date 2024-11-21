@@ -1,6 +1,5 @@
 // Copyright 2018-2024 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
-#include <CLI/CLI.hpp>
 
 #include <filesystem>
 
@@ -26,7 +25,7 @@ namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])
 {
-    samurai::initialize(argc, argv);
+    auto& app = samurai::initialize("Tutorial AMR Burgers 1D step 2", argc, argv);
 
     // Simulation parameters
     double cfl = 0.99;
@@ -37,13 +36,12 @@ int main(int argc, char* argv[])
     std::string filename = "amr_1d_burgers_step_2";
     std::size_t nfiles   = 1;
 
-    CLI::App app{"Tutorial AMR Burgers 1D step 2"};
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
-    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Ouput");
-    CLI11_PARSE(app, argc, argv);
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
+    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
+    SAMURAI_PARSE(argc, argv);
 
     if (!fs::exists(path))
     {

@@ -211,7 +211,7 @@ The [tutorial](./demos/tutorial/) directory is a good first step followed by the
 - [ ] AMR patch-based and block-based methods
 - [x] MRA cell-based methods
 - [ ] MRA point-based methods
-- [x] HDF5 ouput format support
+- [x] HDF5 output format support
 - [ ] MPI implementation
 
 ## Installation

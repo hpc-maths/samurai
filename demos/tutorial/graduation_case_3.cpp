@@ -1,6 +1,5 @@
 // Copyright 2018-2024 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
-#include <CLI/CLI.hpp>
 
 #include <cmath>
 
@@ -30,7 +29,7 @@ auto generate_mesh(std::size_t start_level)
 
 int main(int argc, char* argv[])
 {
-    samurai::initialize(argc, argv);
+    auto& app = samurai::initialize("Graduation example: test case 3", argc, argv);
 
     constexpr std::size_t dim = 2; // cppcheck-suppress unreadVariable
     std::size_t start_level   = 1;
@@ -43,13 +42,12 @@ int main(int argc, char* argv[])
     fs::path path        = fs::current_path();
     std::string filename = "graduation_case_3";
 
-    CLI::App app{"Graduation example: test case 3"};
     app.add_option("--start-level", start_level, "where to start the mesh generator")->capture_default_str();
     app.add_option("--max-level", max_level, "Maximum level of the mesh generator")->capture_default_str();
     app.add_flag("--with-graduation", with_graduation, "Make the mesh graduated")->capture_default_str();
-    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
-    CLI11_PARSE(app, argc, argv);
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
+    SAMURAI_PARSE(argc, argv);
 
     if (!fs::exists(path))
     {

@@ -154,7 +154,11 @@ namespace samurai
                 // MatIsSymmetric(m_A, 0, &is_symmetric);
 
                 KSPSetOperators(m_ksp, m_A, m_A);
+
+                times::timers.start("solver setup");
                 PetscErrorCode err = KSPSetUp(m_ksp);
+                times::timers.stop("solver setup");
+
                 if (err != PETSC_SUCCESS)
                 {
                     std::cerr << "The setup of the solver failed!" << std::endl;
@@ -168,6 +172,8 @@ namespace samurai
 
             void prepare_rhs_and_solve(Vec& b, Vec& x)
             {
+                times::timers.start("system solve");
+
                 // Update the right-hand side with the boundary conditions stored in the solution field
                 assembly().enforce_bc(b);
                 // Set to zero the right-hand side of the ghost equations
@@ -176,20 +182,19 @@ namespace samurai
                 assembly().set_0_for_useless_ghosts(b);
                 // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
                 // assert(check_nan_or_inf(b));
+                times::timers.stop("system solve");
 
                 solve_system(b, x);
             }
 
             void solve_system(Vec& b, Vec& x)
             {
+                times::timers.start("system solve");
+
                 // Solve the system
-                PetscErrorCode err = KSPSolve(m_ksp, b, x);
-                if (err != PETSC_SUCCESS)
-                {
-                    std::cerr << "KSPSolve() failed (code " << err << ")" << std::endl;
-                    assert(false && "PETSc failure");
-                    exit(EXIT_FAILURE);
-                }
+                KSPSolve(m_ksp, b, x);
+
+                times::timers.stop("system solve");
 
                 KSPConvergedReason reason_code;
                 KSPGetConvergedReason(m_ksp, &reason_code);
@@ -335,7 +340,10 @@ namespace samurai
 
                     KSPSetOperators(m_ksp, m_A, m_A);
                 }
+
+                times::timers.start("solver setup");
                 KSPSetUp(m_ksp);
+                times::timers.stop("solver setup");
                 m_is_set_up = true;
             }
 

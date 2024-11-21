@@ -1,12 +1,11 @@
 // Copyright 2018-2024 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
-#include <CLI/CLI.hpp>
 
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
-#include <samurai/petsc.hpp>
 #include <samurai/samurai.hpp>
+#include <samurai/schemes/fv.hpp>
 
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -33,7 +32,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 
 int main(int argc, char* argv[])
 {
-    samurai::initialize(argc, argv);
+    auto& app = samurai::initialize("Finite volume example for the linear convection equation", argc, argv);
 
     static constexpr std::size_t dim = 2;
     using Config                     = samurai::MRConfig<dim, 3>;
@@ -66,7 +65,6 @@ int main(int argc, char* argv[])
     std::string filename = "linear_convection_" + std::to_string(dim) + "D";
     std::size_t nfiles   = 0;
 
-    CLI::App app{"Finite volume example for the linear convection equation"};
     app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--right", right_box, "The right border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
@@ -83,11 +81,11 @@ int main(int argc, char* argv[])
                    "adapt the mesh")
         ->capture_default_str()
         ->group("Multiresolution");
-    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
-    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Ouput");
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
+    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
     app.allow_extras();
-    CLI11_PARSE(app, argc, argv);
+    SAMURAI_PARSE(argc, argv);
 
     //--------------------//
     // Problem definition //
@@ -108,13 +106,13 @@ int main(int argc, char* argv[])
                                     {
                                         if constexpr (dim == 1)
                                         {
-                                            auto& x = coords(0);
+                                            const auto& x = coords(0);
                                             return (x >= -0.8 && x <= -0.3) ? 1. : 0.;
                                         }
                                         else
                                         {
-                                            auto& x = coords(0);
-                                            auto& y = coords(1);
+                                            const auto& x = coords(0);
+                                            const auto& y = coords(1);
                                             return (x >= -0.8 && x <= -0.3 && y >= 0.3 && y <= 0.8) ? 1. : 0.;
                                         }
                                     });

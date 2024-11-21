@@ -1,6 +1,5 @@
 // Copyright 2018-2024 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
-#include <CLI/CLI.hpp>
 
 #include <iostream>
 
@@ -228,7 +227,11 @@ void make_graduation(samurai::CellArray<dim>& ca)
 
 int main(int argc, char* argv[])
 {
-    samurai::initialize(argc, argv);
+    auto& app = samurai::initialize("2d bubble example from pablo (see "
+                                    "https://github.com/optimad/bitpit/blob/master/examples/"
+                                    "PABLO_bubbles_2D.cpp)",
+                                    argc,
+                                    argv);
 
     constexpr std::size_t dim = 2; // cppcheck-suppress unreadVariable
 
@@ -249,9 +252,6 @@ int main(int argc, char* argv[])
     std::string filename = "bubble_2d";
     std::size_t nfiles   = 1;
 
-    CLI::App app{"2d bubble example from pablo (see "
-                 "https://github.com/optimad/bitpit/blob/master/examples/"
-                 "PABLO_bubbles_2D.cpp)"};
     app.add_option("--min-corner", min_corner_v, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--max-corner", max_corner_v, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--nb-bubbles", nb_bubbles, "Number of bubbles")->capture_default_str()->group("Simulation parameters");
@@ -260,10 +260,10 @@ int main(int argc, char* argv[])
     app.add_option("--start-level", start_level, "Start level of AMR")->capture_default_str()->group("Adaptation parameters");
     app.add_option("--min-level", min_level, "Minimum level of AMR")->capture_default_str()->group("Adaptation parameters");
     app.add_option("--max-level", max_level, "Maximum level of AMR")->capture_default_str()->group("Adaptation parameters");
-    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
-    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Ouput");
-    CLI11_PARSE(app, argc, argv);
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
+    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
+    SAMURAI_PARSE(argc, argv);
 
     if (!fs::exists(path))
     {

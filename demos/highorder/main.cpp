@@ -1,6 +1,5 @@
 // Copyright 2018-2024 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
-#include <CLI/CLI.hpp>
 
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
@@ -113,7 +112,7 @@ class HighOrderDiffusion : public samurai::CellBasedScheme<cfg, bdry_cfg>
 
 int main(int argc, char* argv[])
 {
-    samurai::initialize(argc, argv);
+    auto& app = samurai::initialize("Finite volume example for the advection equation in 2d using multiresolution", argc, argv);
 
     constexpr std::size_t dim              = 2;
     constexpr std::size_t stencil_width    = 2;
@@ -138,8 +137,6 @@ int main(int argc, char* argv[])
     std::string filename = "poisson_highorder_2d";
     std::size_t nfiles   = 1;
 
-    CLI::App app{"Finite volume example for the advection equation in 2d "
-                 "using multiresolution"};
     app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--max-corner", min_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
@@ -157,11 +154,11 @@ int main(int argc, char* argv[])
     app.add_option("--with-correction", correction, "Apply flux correction at the interface of two refinement levels")
         ->capture_default_str()
         ->group("Multiresolution");
-    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
-    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Ouput");
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
+    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
     app.allow_extras();
-    CLI11_PARSE(app, argc, argv);
+    SAMURAI_PARSE(argc, argv);
 
     samurai::Box<double, dim> box(min_corner, max_corner);
     using mesh_t    = samurai::MRMesh<Config>;

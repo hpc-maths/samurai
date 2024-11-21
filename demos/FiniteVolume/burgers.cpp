@@ -1,6 +1,5 @@
 // Copyright 2018-2024 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
-#include <CLI/CLI.hpp>
 
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
@@ -44,7 +43,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 template <std::size_t dim, std::size_t field_size>
 int main_dim(int argc, char* argv[])
 {
-    samurai::initialize(argc, argv);
+    auto& app = samurai::initialize("Finite volume example for the heat equation in 1d", argc, argv);
 
     using Config  = samurai::MRConfig<dim, 3>;
     using Box     = samurai::Box<double, dim>;
@@ -77,7 +76,6 @@ int main_dim(int argc, char* argv[])
     std::string filename = "burgers_" + std::to_string(dim) + "D";
     std::size_t nfiles   = 50;
 
-    CLI::App app{"Finite volume example for the heat equation in 1d"};
     app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--right", right_box, "The right border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--init-sol", init_sol, "Initial solution: hat/linear/bands")->capture_default_str()->group("Simulation parameters");
@@ -95,11 +93,11 @@ int main_dim(int argc, char* argv[])
                    "adapt the mesh")
         ->capture_default_str()
         ->group("Multiresolution");
-    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
-    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Ouput");
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
+    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
     app.allow_extras();
-    CLI11_PARSE(app, argc, argv);
+    SAMURAI_PARSE(argc, argv);
 
     //--------------------//
     // Problem definition //

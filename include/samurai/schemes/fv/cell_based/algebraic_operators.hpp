@@ -56,6 +56,17 @@ namespace samurai
                 };
             }
         }
+
+        std::ostringstream name;
+        if (scalar == static_cast<int>(scalar))
+        {
+            name << static_cast<int>(scalar) << " * " << scheme.name();
+        }
+        else
+        {
+            name << std::setprecision(1) << std::scientific << scalar << " * " << scheme.name();
+        }
+        multiplied_scheme.set_name(name.str());
         return multiplied_scheme;
     }
 

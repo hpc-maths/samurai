@@ -1,4 +1,5 @@
 #pragma once
+#include "../timers.hpp"
 #include <petsc.h>
 
 namespace samurai
@@ -162,6 +163,8 @@ namespace samurai
              */
             virtual void create_matrix(Mat& A)
             {
+                times::timers.start("matrix assembly");
+
                 reset();
                 auto m = matrix_rows();
                 auto n = matrix_cols();
@@ -198,6 +201,7 @@ namespace samurai
                     MatSeqAIJSetPreallocation(A, PETSC_DEFAULT, nnz.data());
                 }
                 // MatSetOption(A, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
+                times::timers.stop("matrix assembly");
             }
 
             /**
@@ -206,6 +210,8 @@ namespace samurai
              */
             virtual void assemble_matrix(Mat& A, bool final_assembly = true)
             {
+                times::timers.start("matrix assembly");
+
                 assemble_scheme(A);
                 if (m_include_bc)
                 {
@@ -235,6 +241,7 @@ namespace samurai
                         MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
                     }
                 }
+                times::timers.stop("matrix assembly");
             }
 
             virtual ~MatrixAssembly()

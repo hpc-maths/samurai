@@ -1,7 +1,5 @@
 // Copyright 2018-2024 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
-#include <CLI/CLI.hpp>
-
 #include <xtensor/xfixed.hpp>
 
 #include <samurai/algorithm.hpp>
@@ -111,7 +109,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 
 int main(int argc, char* argv[])
 {
-    samurai::initialize(argc, argv);
+    auto& app = samurai::initialize("Finite volume example for the advection equation in 1d using multiresolution", argc, argv);
 
     constexpr std::size_t dim = 1; // cppcheck-suppress unreadVariable
     using Config              = samurai::MRConfig<dim>;
@@ -136,8 +134,6 @@ int main(int argc, char* argv[])
     std::string filename = "FV_advection_1d";
     std::size_t nfiles   = 1;
 
-    CLI::App app{"Finite volume example for the advection equation in 1d "
-                 "using multiresolution"};
     app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--right", right_box, "The right border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_flag("--periodic", is_periodic, "Set the domain periodic")->capture_default_str()->group("Simulation parameters");
@@ -158,10 +154,10 @@ int main(int argc, char* argv[])
     app.add_option("--with-correction", correction, "Apply flux correction at the interface of two refinement levels")
         ->capture_default_str()
         ->group("Multiresolution");
-    app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
-    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Ouput");
-    CLI11_PARSE(app, argc, argv);
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
+    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
+    SAMURAI_PARSE(argc, argv);
 
     const samurai::Box<double, dim> box({left_box}, {right_box});
     samurai::MRMesh<Config> mesh(box, min_level, max_level, std::array<bool, dim>{is_periodic});

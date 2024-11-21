@@ -122,8 +122,10 @@ namespace samurai
                 KSPGetPC(m_ksp, &pc);
 
                 KSPSetFromOptions(m_ksp);
+                times::timers.start("solver setup");
                 PCSetUp(pc);
                 // KSPSetUp(m_ksp); // PETSc fails at KSPSolve() for some reason.
+                times::timers.stop("solver setup");
 
                 m_is_set_up = true;
             }
