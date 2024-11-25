@@ -242,28 +242,6 @@ namespace samurai
             }
             this->cells()[mesh_id_t::all_cells] = {cell_list, false};
 
-            for (std::size_t level = 0; level < max_level; ++level)
-            {
-                lcl_type& lcl = cell_list[level + 1];
-                lcl_type lcl_proj{level};
-                auto expr = intersection(this->cells()[mesh_id_t::all_cells][level], this->get_union()[level]);
-
-                expr(
-                    [&](const auto& interval, const auto& index_yz)
-                    {
-                        static_nested_loop<dim - 1, 0, 2>(
-                            [&](auto s)
-                            {
-                                lcl[(index_yz << 1) + s].add_interval(interval << 1);
-                            });
-                        lcl_proj[index_yz].add_interval(interval);
-                    });
-                this->cells()[mesh_id_t::all_cells][level + 1] = lcl;
-                this->cells()[mesh_id_t::proj_cells][level]    = lcl_proj;
-            }
-
-            this->update_mesh_neighbour();
-
             // add ghosts for periodicity
             xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> stencil;
             xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> min_corner;
@@ -327,6 +305,27 @@ namespace samurai
                     }
                 }
             }
+
+            for (std::size_t level = 0; level < max_level; ++level)
+            {
+                lcl_type& lcl = cell_list[level + 1];
+                lcl_type lcl_proj{level};
+                auto expr = intersection(this->cells()[mesh_id_t::all_cells][level], this->get_union()[level]);
+
+                expr(
+                    [&](const auto& interval, const auto& index_yz)
+                    {
+                        static_nested_loop<dim - 1, 0, 2>(
+                            [&](auto s)
+                            {
+                                lcl[(index_yz << 1) + s].add_interval(interval << 1);
+                            });
+                        lcl_proj[index_yz].add_interval(interval);
+                    });
+                this->cells()[mesh_id_t::all_cells][level + 1] = lcl;
+                this->cells()[mesh_id_t::proj_cells][level]    = lcl_proj;
+            }
+            this->update_mesh_neighbour();
         }
         else
         {
