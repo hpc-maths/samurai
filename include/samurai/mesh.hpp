@@ -331,7 +331,7 @@ namespace samurai
     inline std::size_t Mesh_base<D, Config>::max_nb_cells(std::size_t level) const
     {
         auto last_xinterval = m_cells[mesh_id_t::reference][level][0].back();
-        return last_xinterval.start + last_xinterval.index + last_xinterval.size();
+        return static_cast<std::size_t>(last_xinterval.start) + last_xinterval.index + last_xinterval.size();
     }
 
     template <class D, class Config>
