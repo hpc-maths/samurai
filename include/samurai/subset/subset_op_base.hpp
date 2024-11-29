@@ -44,9 +44,6 @@ namespace samurai
         template <class Func>
         void operator()(Func&& func);
 
-        template <class Func>
-        void apply_interval_index(Func&& func);
-
         template <class... Op>
         void apply_op(Op&&... op);
 
@@ -67,8 +64,6 @@ namespace samurai
         std::size_t level() const;
 
         bool is_empty() const;
-
-        void get_interval_index(std::vector<std::size_t>& index) const;
 
       private:
 
@@ -121,29 +116,7 @@ namespace samurai
     inline void subset_operator<F, CT...>::operator()(Func&& func)
     {
         reset();
-        auto func_hack = [&](auto& interval, auto& index, auto&)
-        {
-            std::forward<Func>(func)(interval, index);
-        };
-
-        apply(func_hack, std::integral_constant<std::size_t, dim - 1>{});
-    }
-
-    /**
-     * Apply a function on the subset
-     * @param func function to apply on each element of the subset
-     */
-    template <class F, class... CT>
-    template <class Func>
-    inline void subset_operator<F, CT...>::apply_interval_index(Func&& func)
-    {
-        reset();
-        auto func_hack = [&](auto&, auto&, auto& interval_index)
-        {
-            std::forward<Func>(func)(interval_index);
-        };
-
-        apply(func_hack, std::integral_constant<std::size_t, dim - 1>{});
+        apply(std::forward<Func>(func), std::integral_constant<std::size_t, dim - 1>{});
     }
 
     /**
@@ -156,7 +129,7 @@ namespace samurai
     inline void subset_operator<F, CT...>::apply_op(Op&&... op)
     {
         reset();
-        auto func = [&](auto& interval, auto& index, auto&)
+        auto func = [&](auto& interval, auto& index)
         {
             (op(m_ref_level, interval, index), ...);
         };
@@ -385,11 +358,6 @@ namespace samurai
     template <class Func>
     inline void subset_operator<F, CT...>::sub_apply(Func&& func, std::integral_constant<std::size_t, 0>)
     {
-        std::vector<std::size_t> index;
-        // Store into index the intervals of each node that are
-        // in the subset.
-        get_interval_index(index);
-
         // If the ref_level <= to common_level then the result
         // is a projection to a lower level which means that the result
         // is already at the right level and we can call func on it.
@@ -398,7 +366,7 @@ namespace samurai
         // result on the ref_level before calling func on it.
         if (m_ref_level <= common_level())
         {
-            func(m_result[0], m_index_yz, index);
+            func(m_result[0], m_index_yz);
         }
         else
         {
@@ -415,7 +383,7 @@ namespace samurai
                                         [&](auto stencil)
                                         {
                                             auto index_yz = xt::eval(shift_index_yz + stencil);
-                                            func(shift_result[0], index_yz, index);
+                                            func(shift_result[0], index_yz);
                                         });
         }
     }
@@ -491,17 +459,6 @@ namespace samurai
             update(scan, sentinel);
             scan = min();
         }
-    }
-
-    template <class F, class... CT>
-    inline void subset_operator<F, CT...>::get_interval_index(std::vector<std::size_t>& index) const
-    {
-        std::apply(
-            [&index](auto&&... args)
-            {
-                (args.get_interval_index(index), ...);
-            },
-            m_e);
     }
 
     template <class D>

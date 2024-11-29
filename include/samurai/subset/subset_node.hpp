@@ -61,7 +61,6 @@ namespace samurai
         void set_shift(std::size_t ref_level, std::size_t common_level);
 
         const node_type& get_node() const;
-        void get_interval_index(std::vector<std::size_t>& index) const;
 
       private:
 
@@ -513,11 +512,5 @@ namespace samurai
     inline auto subset_node<T>::get_node() const -> const node_type&
     {
         return m_node;
-    }
-
-    template <class T>
-    inline void subset_node<T>::get_interval_index(std::vector<std::size_t>& index) const
-    {
-        index.push_back(m_index[m_d] + m_ipos[m_d] - 1);
     }
 } // namespace samurai

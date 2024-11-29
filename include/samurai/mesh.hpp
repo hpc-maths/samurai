@@ -550,18 +550,11 @@ namespace samurai
 
             if (mt != mesh_id_t::reference)
             {
-                for (std::size_t level = 0; level <= max_refinement_level; ++level)
-                {
-                    lca_type& lhs       = m_cells[mt][level];
-                    const lca_type& rhs = m_cells[mesh_id_t::reference][level];
-
-                    auto expr = intersection(lhs, rhs);
-                    expr.apply_interval_index(
-                        [&](const auto& interval_index)
-                        {
-                            lhs[0][interval_index[0]].index = rhs[0][interval_index[1]].index;
-                        });
-                }
+                for_each_interval(m_cells[mt],
+                                  [&](std::size_t level, auto& i, auto& index)
+                                  {
+                                      i.index = m_cells[mesh_id_t::reference][level].get_interval(i, index).index;
+                                  });
             }
         }
     }
