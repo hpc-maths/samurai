@@ -173,15 +173,11 @@ namespace samurai
 
             if (mt != mesh_id_t::reference)
             {
-                ca_type& lhs       = m_cells[mt];
-                const ca_type& rhs = m_cells[mesh_id_t::reference];
-
-                auto expr = intersection(lhs, rhs);
-                expr.apply_interval_index(
-                    [&](const auto& interval_index)
-                    {
-                        lhs[0][interval_index[0]].index = rhs[0][interval_index[1]].index;
-                    });
+                for_each_interval(m_cells[mt],
+                                  [&](std::size_t, auto& i, auto& index)
+                                  {
+                                      i.index = m_cells[mesh_id_t::reference].get_interval(i, index).index;
+                                  });
             }
         }
     }

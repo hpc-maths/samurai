@@ -331,27 +331,19 @@ namespace samurai
     inline std::size_t Mesh_base<D, Config>::max_nb_cells(std::size_t level) const
     {
         auto last_xinterval = m_cells[mesh_id_t::reference][level][0].back();
-        return static_cast<std::size_t>(last_xinterval.start) + last_xinterval.index + last_xinterval.size();
+        return static_cast<std::size_t>(static_cast<index_t>(last_xinterval.start) + last_xinterval.index) + last_xinterval.size();
     }
 
     template <class D, class Config>
     inline std::size_t Mesh_base<D, Config>::nb_cells(mesh_id_t mesh_id) const
     {
-        if (mesh_id == mesh_id_t::reference)
-        {
-            return max_nb_cells(m_cells[mesh_id].max_level());
-        }
-        return m_cells[mesh_id].nb_cells();
+        return (mesh_id == mesh_id_t::reference) ? max_nb_cells(m_cells[mesh_id].max_level()) : m_cells[mesh_id].nb_cells();
     }
 
     template <class D, class Config>
     inline std::size_t Mesh_base<D, Config>::nb_cells(std::size_t level, mesh_id_t mesh_id) const
     {
-        if (mesh_id == mesh_id_t::reference)
-        {
-            return max_nb_cells(level);
-        }
-        return m_cells[mesh_id][level].nb_cells();
+        return (mesh_id == mesh_id_t::reference) ? max_nb_cells(level) : m_cells[mesh_id][level].nb_cells();
     }
 
     template <class D, class Config>
@@ -550,18 +542,11 @@ namespace samurai
 
             if (mt != mesh_id_t::reference)
             {
-                for (std::size_t level = 0; level <= max_refinement_level; ++level)
-                {
-                    lca_type& lhs       = m_cells[mt][level];
-                    const lca_type& rhs = m_cells[mesh_id_t::reference][level];
-
-                    auto expr = intersection(lhs, rhs);
-                    expr.apply_interval_index(
-                        [&](const auto& interval_index)
-                        {
-                            lhs[0][interval_index[0]].index = rhs[0][interval_index[1]].index;
-                        });
-                }
+                for_each_interval(m_cells[mt],
+                                  [&](std::size_t level, auto& i, auto& index)
+                                  {
+                                      i.index = m_cells[mesh_id_t::reference][level].get_interval(i, index).index;
+                                  });
             }
         }
     }
