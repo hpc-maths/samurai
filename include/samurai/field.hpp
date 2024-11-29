@@ -681,9 +681,8 @@ namespace samurai
 
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
     template <class... T>
-    inline auto Field<mesh_t, value_t, size_, SOA>::get_interval(std::size_t level,
-                                                                 const interval_t& interval,
-                                                                 const T... index) const -> const interval_t&
+    inline auto Field<mesh_t, value_t, size_, SOA>::get_interval(std::size_t level, const interval_t& interval, const T... index) const
+        -> const interval_t&
     {
         const interval_t& interval_tmp = this->mesh().get_interval(level, interval, index...);
 
@@ -714,10 +713,10 @@ namespace samurai
     }
 
     template <class mesh_t, class value_t, std::size_t size_, bool SOA>
-    inline auto
-    Field<mesh_t, value_t, size_, SOA>::get_interval(std::size_t level,
-                                                     const interval_t& interval,
-                                                     const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>& index) const -> const interval_t&
+    inline auto Field<mesh_t, value_t, size_, SOA>::get_interval(std::size_t level,
+                                                                 const interval_t& interval,
+                                                                 const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>& index) const
+        -> const interval_t&
     {
         const interval_t& interval_tmp = this->mesh().get_interval(level, interval, index);
 
