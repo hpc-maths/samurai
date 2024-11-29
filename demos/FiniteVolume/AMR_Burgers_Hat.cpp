@@ -54,6 +54,7 @@ auto init_solution(Mesh& mesh)
 template <class Field, class Tag>
 void AMR_criteria(const Field& f, Tag& tag)
 {
+    using namespace samurai::math;
     auto mesh             = f.mesh();
     using mesh_id_t       = typename Field::mesh_t::mesh_id_t;
     std::size_t min_level = mesh.min_level();
@@ -69,11 +70,11 @@ void AMR_criteria(const Field& f, Tag& tag)
             mesh[mesh_id_t::cells][level],
             [&](std::size_t, auto& i, auto)
             {
-                auto der_approx     = xt::eval(xt::abs((f(level, i + 1) - f(level, i - 1)) / (2. * dx)));
-                auto der_der_approx = xt::eval(xt::abs((f(level, i + 1) - 2. * f(level, i) + f(level, i - 1)) / (dx * dx)));
+                auto der_approx     = samurai::eval(abs((f(level, i + 1) - f(level, i - 1)) / (2. * dx)));
+                auto der_der_approx = samurai::eval(abs((f(level, i + 1) - 2. * f(level, i) + f(level, i - 1)) / (dx * dx)));
 
-                auto der_plus  = xt::eval(xt::abs((f(level, i + 1) - f(level, i)) / (dx)));
-                auto der_minus = xt::eval(xt::abs((f(level, i) - f(level, i - 1)) / (dx)));
+                auto der_plus  = samurai::eval(abs((f(level, i + 1) - f(level, i)) / (dx)));
+                auto der_minus = samurai::eval(abs((f(level, i) - f(level, i - 1)) / (dx)));
 
                 // auto mask = xt::abs(f(level, i)) > 0.001;
                 auto mask = der_approx > 0.01;
@@ -82,8 +83,18 @@ void AMR_criteria(const Field& f, Tag& tag)
 
                 if (level == max_level)
                 {
-                    xt::masked_view(tag(level, i), mask)  = static_cast<int>(samurai::CellFlag::keep);
-                    xt::masked_view(tag(level, i), !mask) = static_cast<int>(samurai::CellFlag::coarsen);
+                    samurai::apply_on_masked(tag(level, i),
+                                             mask,
+                                             [](auto& e)
+                                             {
+                                                 e = static_cast<int>(samurai::CellFlag::keep);
+                                             });
+                    samurai::apply_on_masked(tag(level, i),
+                                             !mask,
+                                             [](auto& e)
+                                             {
+                                                 e = static_cast<int>(samurai::CellFlag::coarsen);
+                                             });
                 }
                 else
                 {
@@ -93,8 +104,18 @@ void AMR_criteria(const Field& f, Tag& tag)
                     }
                     else
                     {
-                        xt::masked_view(tag(level, i), mask)  = static_cast<int>(samurai::CellFlag::refine);
-                        xt::masked_view(tag(level, i), !mask) = static_cast<int>(samurai::CellFlag::coarsen);
+                        samurai::apply_on_masked(tag(level, i),
+                                                 mask,
+                                                 [](auto& e)
+                                                 {
+                                                     e = static_cast<int>(samurai::CellFlag::refine);
+                                                 });
+                        samurai::apply_on_masked(tag(level, i),
+                                                 !mask,
+                                                 [](auto& e)
+                                                 {
+                                                     e = static_cast<int>(samurai::CellFlag::coarsen);
+                                                 });
                     }
                 }
             });

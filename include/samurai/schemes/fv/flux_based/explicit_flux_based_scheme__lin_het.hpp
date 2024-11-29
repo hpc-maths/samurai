@@ -17,11 +17,12 @@ namespace samurai
         using scheme_t       = typename base_class::scheme_t;
         using input_field_t  = typename base_class::input_field_t;
         using output_field_t = typename base_class::output_field_t;
+        using size_type      = typename base_class::size_type;
         using base_class::scheme;
 
-        static constexpr std::size_t field_size        = input_field_t::size;
-        static constexpr std::size_t output_field_size = scheme_t::output_field_size;
-        static constexpr std::size_t stencil_size      = cfg::stencil_size;
+        static constexpr size_type field_size        = input_field_t::size;
+        static constexpr size_type output_field_size = scheme_t::output_field_size;
+        static constexpr std::size_t stencil_size    = cfg::stencil_size;
 
       public:
 
@@ -51,9 +52,9 @@ namespace samurai
                 input_field,
                 [&](const auto& interface_cells, const auto& comput_cells, auto& left_cell_coeffs, auto& right_cell_coeffs)
                 {
-                    for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
+                    for (size_type field_i = 0; field_i < output_field_size; ++field_i)
                     {
-                        for (std::size_t field_j = 0; field_j < field_size; ++field_j)
+                        for (size_type field_j = 0; field_j < field_size; ++field_j)
                         {
                             for (std::size_t c = 0; c < stencil_size; ++c)
                             {
@@ -84,9 +85,9 @@ namespace samurai
                     input_field,
                     [&](const auto& cell, const auto& comput_cells, auto& coeffs)
                     {
-                        for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
+                        for (size_type field_i = 0; field_i < output_field_size; ++field_i)
                         {
-                            for (std::size_t field_j = 0; field_j < field_size; ++field_j)
+                            for (size_type field_j = 0; field_j < field_size; ++field_j)
                             {
                                 for (std::size_t c = 0; c < stencil_size; ++c)
                                 {

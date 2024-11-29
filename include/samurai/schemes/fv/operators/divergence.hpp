@@ -39,8 +39,10 @@ namespace samurai
                     {
                         coeffs[left].fill(0);
                         coeffs[right].fill(0);
-                        xt::col(coeffs[left], d)  = 0.5;
-                        xt::col(coeffs[right], d) = 0.5;
+                        coeffs[left](0, d)  = 0.5;
+                        coeffs[right](0, d) = 0.5;
+                        // xt::col(coeffs[left], d)  = 0.5;
+                        // xt::col(coeffs[right], d) = 0.5;
                     }
                     return coeffs;
                 };

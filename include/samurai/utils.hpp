@@ -286,22 +286,23 @@ namespace samurai
         return static_cast<R>(static_cast<std::ptrdiff_t>(a) - static_cast<std::ptrdiff_t>(b));
     }
 
-    template <class Field>
-    inline auto& field_value(Field& f, const typename Field::cell_t& cell, [[maybe_unused]] std::size_t field_i)
+    template <class Field, class index_t>
+    inline auto& field_value(Field& f, const typename Field::cell_t& cell, [[maybe_unused]] index_t field_i)
     {
         return field_value(f, cell.index, field_i);
     }
 
-    template <class Field>
-    inline auto& field_value(Field& f, const typename Field::index_t& cell_index, [[maybe_unused]] std::size_t field_i)
+    template <class Field, class index_t>
+    inline auto& field_value(Field& f, const typename Field::index_t& cell_index, [[maybe_unused]] index_t field_i)
     {
+        using size_type = typename Field::size_type;
         if constexpr (Field::size == 1)
         {
-            return f[cell_index];
+            return f[static_cast<size_type>(cell_index)];
         }
         else
         {
-            return f[cell_index][field_i];
+            return f[static_cast<size_type>(cell_index)][field_i];
         }
     }
 
