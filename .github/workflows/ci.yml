@@ -13,7 +13,25 @@ jobs:
             - uses: actions/checkout@v4
             - uses: actions/setup-python@v5
             - uses: pre-commit/action@v3.0.0
+    #
+    # Check samurai with pre-commit
+    #
+    #########################################################
+    pre-commit:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-python@v5
+            - uses: pre-commit/action@v3.0.0
 
+    #
+    # Check samurai with cppcheck
+    #
+    #########################################################
+    cppcheck:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
     #
     # Check samurai with cppcheck
     #
@@ -30,7 +48,20 @@ jobs:
                       ~/.cache/ccache
                       ~/micromamba/envs/samurai-env
                   key: cppcheck
+            - name: Cache
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      ~/.cache/ccache
+                      ~/micromamba/envs/samurai-env
+                  key: cppcheck
 
+            - name: Mamba and samurai env installation
+              uses: mamba-org/setup-micromamba@v1
+              with:
+                  environment-file: conda/environment.yml
+                  environment-name: samurai-env
+                  cache-environment: true
             - name: Mamba and samurai env installation
               uses: mamba-org/setup-micromamba@v1
               with:
@@ -42,12 +73,24 @@ jobs:
               shell: bash -el {0}
               run: |
                   conda install -y cppcheck=2.12 python=3.12 cxx-compiler
+            - name: cppcheck installation
+              shell: bash -el {0}
+              run: |
+                  conda install -y cppcheck=2.12 python=3.12 cxx-compiler
 
             - name: Configure
               shell: bash -el {0}
               run: |
                   cmake . -Bbuild -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_DEMOS=ON
+            - name: Configure
+              shell: bash -el {0}
+              run: |
+                  cmake . -Bbuild -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_DEMOS=ON
 
+            - name: Run cppcheck on samurai
+              shell: bash -el {0}
+              run: |
+                  cppcheck --enable=all -q --project=./build/compile_commands.json --suppressions-list=.cppcheck --inline-suppr 2> cppcheck_err.txt
             - name: Run cppcheck on samurai
               shell: bash -el {0}
               run: |
@@ -149,12 +192,24 @@ jobs:
                   key: linux-${{ matrix.cpp-version }}
                   restore-keys: |
                       linux-${{ matrix.cpp-version }}
+            - name: Cache
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      ~/.cache/ccache
+                      ~/micromamba-root/envs/samurai-env
+                  key: linux-${{ matrix.cpp-version }}
+                  restore-keys: |
+                      linux-${{ matrix.cpp-version }}
 
             - name: Compiler and dev tools installation
-              if: ${{ matrix.compiler == 'gcc' }}
               run: |
                   sudo apt update
                   sudo apt install ${{ matrix.package }}
+
+            # - name: Information about ccache
+            #   run: |
+            #     ccache -s -v
 
             - name: Mamba and samurai env installation
               uses: mamba-org/setup-micromamba@v1
@@ -167,7 +222,16 @@ jobs:
               shell: bash -l {0}
               run: |
                   conda install -y petsc pkg-config
+            - name: Petsc installation
+              shell: bash -l {0}
+              run: |
+                  conda install -y petsc pkg-config
 
+            - name: Conda informations
+              shell: bash -l {0}
+              run: |
+                  conda info
+                  conda list
             - name: Conda informations
               shell: bash -l {0}
               run: |
@@ -185,12 +249,33 @@ jobs:
                       -DCMAKE_BUILD_TYPE=Release \
                       -DBUILD_DEMOS=ON \
                       -DBUILD_TESTS=ON
+            - name: Configure
+              shell: bash -l {0}
+              run: |
+                  export LDFLAGS="${LDFLAGS} -L$CONDA_PREFIX/lib"
+                  CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
+                      . \
+                      -Bbuild \
+                      -GNinja \
+                      -DCMAKE_BUILD_TYPE=Release \
+                      -DBUILD_DEMOS=ON \
+                      -DBUILD_TESTS=ON
 
             - name: Build
               shell: bash -l {0}
               run: |
                   cmake --build build --target all --parallel 3
+            - name: Build
+              shell: bash -l {0}
+              run: |
+                  cmake --build build --target all --parallel 3
 
+            - name: Test with googletest
+              shell: bash -l {0}
+              run: |
+                  export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
+                  cd build
+                  ./tests/test_samurai_lib
             - name: Test with googletest
               shell: bash -l {0}
               run: |
@@ -204,7 +289,22 @@ jobs:
                   export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
                   cd tests
                   pytest -v -s --h5diff
+            - name: Test with pytest
+              shell: bash -l {0}
+              run: |
+                  export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
+                  cd tests
+                  pytest -v -s --h5diff
 
+    #
+    # Check linux build with mamba environment
+    #
+    #########################################################
+    linux-mpi-mamba:
+        needs: [pre-commit, cppcheck]
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
     #
     # Check linux build with mamba environment
     #
@@ -224,7 +324,22 @@ jobs:
                   key: linux-mpi
                   restore-keys: |
                       linux-mpi
+            - name: Cache
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      ~/.cache/ccache
+                      ~/micromamba-root/envs/samurai-env
+                  key: linux-mpi
+                  restore-keys: |
+                      linux-mpi
 
+            - name: Mamba and samurai env installation
+              uses: mamba-org/setup-micromamba@v1
+              with:
+                  environment-file: conda/mpi-environment.yml
+                  environment-name: samurai-env
+                  cache-environment: false # somehow the cache doesn't work in this case...
             - name: Mamba and samurai env installation
               uses: mamba-org/setup-micromamba@v1
               with:
@@ -236,7 +351,16 @@ jobs:
               shell: bash -l {0}
               run: |
                   conda install -y mpich petsc pkg-config cxx-compiler
+            - name: Petsc installation
+              shell: bash -l {0}
+              run: |
+                  conda install -y mpich petsc pkg-config cxx-compiler
 
+            - name: Conda informations
+              shell: bash -l {0}
+              run: |
+                  conda info
+                  conda list
             - name: Conda informations
               shell: bash -l {0}
               run: |
@@ -254,7 +378,22 @@ jobs:
                       -DWITH_MPI=ON \
                       -DBUILD_DEMOS=ON \
                       -DBUILD_TESTS=ON
+            - name: Configure
+              shell: bash -l {0}
+              run: |
+                  cmake \
+                      . \
+                      -Bbuild \
+                      -GNinja \
+                      -DCMAKE_BUILD_TYPE=Release \
+                      -DWITH_MPI=ON \
+                      -DBUILD_DEMOS=ON \
+                      -DBUILD_TESTS=ON
 
+            - name: Build
+              shell: bash -l {0}
+              run: |
+                  cmake --build build --target finite-volume-advection-2d --parallel 4
             - name: Build
               shell: bash -l {0}
               run: |
@@ -286,7 +425,22 @@ jobs:
                   environment-file: conda/environment.yml
                   environment-name: samurai-env
                   cache-environment: true
+    macos-mamba:
+        needs: [pre-commit, cppcheck]
+        runs-on: macos-14
+        steps:
+            - uses: actions/checkout@v4
+            - name: Mamba and samurai env installation
+              uses: mamba-org/setup-micromamba@v1
+              with:
+                  environment-file: conda/environment.yml
+                  environment-name: samurai-env
+                  cache-environment: true
 
+            # - name: Petsc installation
+            #   shell: bash -l {0}
+            #   run: |
+            #     micromamba install -y petsc=3.18 pkg-config
             # - name: Petsc installation
             #   shell: bash -l {0}
             #   run: |
@@ -296,7 +450,16 @@ jobs:
               shell: bash -l {0}
               run: |
                   micromamba install -y cxx-compiler
+            - name: Installl cxx compiler
+              shell: bash -l {0}
+              run: |
+                  micromamba install -y cxx-compiler
 
+            - name: micromamba informations
+              shell: bash -l {0}
+              run: |
+                  micromamba info
+                  micromamba list
             - name: micromamba informations
               shell: bash -l {0}
               run: |
@@ -313,12 +476,31 @@ jobs:
                       -DCMAKE_BUILD_TYPE=Release \
                       -DBUILD_DEMOS=ON \
                       -DBUILD_TESTS=ON
+            - name: Configure
+              shell: bash -l {0}
+              run: |
+                  cmake \
+                      . \
+                      -Bbuild \
+                      -GNinja \
+                      -DCMAKE_BUILD_TYPE=Release \
+                      -DBUILD_DEMOS=ON \
+                      -DBUILD_TESTS=ON
 
             - name: Build
               shell: bash -l {0}
               run: |
                   cmake --build ./build --config Release --parallel 3
+            - name: Build
+              shell: bash -l {0}
+              run: |
+                  cmake --build ./build --config Release --parallel 3
 
+            - name: Run tests
+              shell: bash -l {0}
+              run: |
+                  ./build/tests/test_samurai_lib
+                  cd tests; pytest --h5diff
             - name: Run tests
               shell: bash -l {0}
               run: |
