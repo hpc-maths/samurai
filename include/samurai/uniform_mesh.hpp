@@ -174,9 +174,9 @@ namespace samurai
             if (mt != mesh_id_t::reference)
             {
                 for_each_interval(m_cells[mt],
-                                  [&](std::size_t level, auto& i, auto& index)
+                                  [&](std::size_t, auto& i, auto& index)
                                   {
-                                      i.index = m_cells[mesh_id_t::reference][level].get_interval(i, index).index;
+                                      i.index = m_cells[mesh_id_t::reference].get_interval(i, index).index;
                                   });
             }
         }
