@@ -80,8 +80,9 @@ namespace samurai
         using const_iterator         = LevelCellArray_iterator<const LevelCellArray<Dim, TInterval>, true>;
         using const_reverse_iterator = LevelCellArray_reverse_iterator<const_iterator>;
 
-        using coord_type = typename iterator::coord_type;
-        using index_type = std::array<value_t, dim>;
+        using coord_type     = typename iterator::coord_type;
+        using all_coord_type = typename iterator::all_coord_type;
+        using index_type     = std::array<value_t, dim>;
 
         static constexpr double default_approx_box_tol = 0.05;
 
@@ -122,20 +123,14 @@ namespace samurai
         template <typename... T, typename = std::enable_if_t<std::conjunction_v<std::is_convertible<T, value_t>...>, void>>
         const interval_t& get_interval(const interval_t& interval, T... index) const;
         const interval_t& get_interval(const interval_t& interval, const coord_type& index) const;
-        // template <class E>
-        // const interval_t& get_interval(const interval_t& interval, const xt::xexpression<E>& index) const;
-        // template <class E>
-        // const interval_t& get_interval(const xt::xexpression<E>& coord) const;
-        const interval_t& get_interval(const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const;
+        const interval_t& get_interval(const all_coord_type& coord) const;
 
         // get_index
         template <typename... T, typename = std::enable_if_t<std::conjunction_v<std::is_convertible<T, value_t>...>, void>>
         index_t get_index(value_t i, T... index) const;
         template <class E>
         index_t get_index(value_t i, const xt::xexpression<E>& others) const;
-        // template <class E>
-        // index_t get_index(const xt::xexpression<E>& coord) const;
-        index_t get_index(const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const;
+        index_t get_index(const all_coord_type& coord) const;
 
         // get_cell
         template <typename... T, typename = std::enable_if_t<std::conjunction_v<std::is_convertible<T, value_t>...>, void>>
@@ -259,7 +254,8 @@ namespace samurai
         using offset_type          = std::vector<std::size_t>;
         using offset_type_iterator = std::array<typename offset_type::const_iterator, dim - 1>;
 
-        using coord_type = xt::xtensor_fixed<typename value_type::value_t, xt::xshape<dim - 1>>;
+        using coord_type     = xt::xtensor_fixed<typename value_type::value_t, xt::xshape<dim - 1>>;
+        using all_coord_type = xt::xtensor_fixed<typename value_type::value_t, xt::xshape<dim>>;
 
         LevelCellArray_iterator(LCA* lca, offset_type_iterator&& offset_index, iterator_container&& current_index, coord_type&& index);
 
@@ -535,9 +531,8 @@ namespace samurai
     template <std::size_t Dim, class TInterval>
     inline auto LevelCellArray<Dim, TInterval>::get_interval(const interval_t& interval, const coord_type& index) const -> const interval_t&
     {
-        xt::xtensor_fixed<value_t, xt::xshape<dim>> point;
+        all_coord_type point;
         point[0] = interval.start;
-        // xt::view(point, xt::range(1, _)) = index;
         for (std::size_t d = 1; d < dim; ++d)
         {
             point[d] = index[d - 1];
@@ -547,21 +542,11 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::get_interval(const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const
-        -> const interval_t&
+    inline auto LevelCellArray<Dim, TInterval>::get_interval(const all_coord_type& coord) const -> const interval_t&
     {
         auto row = find(*this, coord);
         return m_cells[0][static_cast<std::size_t>(row)];
     }
-
-    // template <std::size_t Dim, class TInterval>
-    // template <class E>
-    // inline auto LevelCellArray<Dim, TInterval>::get_interval(const xt::xexpression<E>& coord) const -> const interval_t&
-    // {
-    //     xt::xtensor_fixed<value_t, xt::xshape<dim>> coord_array = coord;
-    //     auto row                                                = find(*this, coord_array);
-    //     return m_cells[0][static_cast<std::size_t>(row)];
-    // }
 
     template <std::size_t Dim, class TInterval>
     template <typename... T, typename D>
@@ -578,19 +563,10 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::get_index(const xt::xtensor_fixed<value_t, xt::xshape<dim>>& coord) const -> index_t
+    inline auto LevelCellArray<Dim, TInterval>::get_index(const all_coord_type& coord) const -> index_t
     {
         return get_interval(coord).index + coord(0);
     }
-
-    // template <std::size_t Dim, class TInterval>
-    // template <class E>
-    // inline auto LevelCellArray<Dim, TInterval>::get_index(const xt::xexpression<E>& coord) const -> index_t
-    // {
-    //     using namespace xt::placeholders;
-    //     xt::xtensor_fixed<value_t, xt::xshape<dim>> coord_array = coord;
-    //     return get_interval({coord_array(0), coord_array(0) + 1}, xt::view(coord_array, xt::range(1, _))).index + coord_array(0);
-    // }
 
     template <std::size_t Dim, class TInterval>
     template <typename... T, typename D>
