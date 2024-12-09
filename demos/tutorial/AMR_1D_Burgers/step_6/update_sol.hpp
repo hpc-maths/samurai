@@ -9,6 +9,7 @@
 template <class Field>
 void update_sol(double dt, Field& phi, Field& phi_np1)
 {
+    using namespace samurai::math;
     using mesh_id_t = typename Field::mesh_t::mesh_id_t;
     auto& mesh      = phi.mesh();
 
@@ -17,8 +18,7 @@ void update_sol(double dt, Field& phi, Field& phi_np1)
                                {
                                    const double dx = mesh.cell_length(level);
 
-                                   phi_np1(level, i) = phi(level, i)
-                                                     - .5 * dt / dx * (xt::pow(phi(level, i), 2.) - xt::pow(phi(level, i - 1), 2.));
+                                   phi_np1(level, i) = phi(level, i) - .5 * dt / dx * (pow(phi(level, i), 2.) - pow(phi(level, i - 1), 2.));
                                });
 
     /////////////////////////
@@ -47,8 +47,8 @@ void update_sol(double dt, Field& phi, Field& phi_np1)
         subset_left(
             [&](const auto& i, const auto&)
             {
-                phi_np1(level, i) = phi_np1(level, i) - .5 * dt / dx * xt::pow(phi(level, i - 1), 2.)
-                                  + .5 * dt / dx * xt::pow(phi(level + 1, 2 * i - 1), 2.);
+                phi_np1(level, i) = phi_np1(level, i) - .5 * dt / dx * pow(phi(level, i - 1), 2.)
+                                  + .5 * dt / dx * pow(phi(level + 1, 2 * i - 1), 2.);
             });
     }
     /////////////////////////
