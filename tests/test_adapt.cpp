@@ -15,7 +15,9 @@ namespace samurai
 
 #if __GNUC__ == 11
     // The 3d case is broken for gcc-11.4 with gtest for release build type and only in gtest. It works outside...
-    using adapt_test_types = ::testing::Types<std::integral_constant<std::size_t, 1>, std::integral_constant<std::size_t, 2>>;
+    using adapt_test_types = ::testing::Types<std::integral_constant<std::size_t, 1>, std::integral_constant<std::size_t, 2>>; //,
+                                                                                                                               // std::integral_constant<std::size_t,
+                                                                                                                               // 3>>;
 #else
     using adapt_test_types = ::testing::
         Types<std::integral_constant<std::size_t, 1>, std::integral_constant<std::size_t, 2>, std::integral_constant<std::size_t, 3>>;
