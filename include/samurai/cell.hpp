@@ -29,12 +29,12 @@ namespace samurai
     template <std::size_t dim_, class TInterval>
     struct Cell
     {
-        static constexpr std::size_t dim = dim_;                                        /// The dimension of the cell.
-        using interval_t                 = TInterval;                                   /// Type of interval.
-        using value_t                    = typename interval_t::value_t;                /// Type of value stored in interval.
-        using index_t                    = typename interval_t::index_t;                /// Type of index stored in interval.
-        using indices_t                  = xt::xtensor_fixed<value_t, xt::xshape<dim>>; /// Type of indices to access to field data.
-        using coords_t                   = xt::xtensor_fixed<double, xt::xshape<dim>>;  /// Type of coordinates.
+        static constexpr std::size_t dim = dim_;                                        ///< The dimension of the cell.
+        using interval_t                 = TInterval;                                   ///< Type of interval.
+        using value_t                    = typename interval_t::value_t;                ///< Type of value stored in interval.
+        using index_t                    = typename interval_t::index_t;                ///< Type of index stored in interval.
+        using indices_t                  = xt::xtensor_fixed<value_t, xt::xshape<dim>>; ///< Type of indices to access to field data.
+        using coords_t                   = xt::xtensor_fixed<double, xt::xshape<dim>>;  ///< Type of coordinates.
 
         Cell() = default;
 
