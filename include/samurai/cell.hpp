@@ -29,12 +29,12 @@ namespace samurai
     template <std::size_t dim_, class TInterval>
     struct Cell
     {
-        static constexpr std::size_t dim = dim_;
-        using interval_t                 = TInterval;
-        using value_t                    = typename interval_t::value_t;
-        using index_t                    = typename interval_t::index_t;
-        using indices_t                  = xt::xtensor_fixed<value_t, xt::xshape<dim>>;
-        using coords_t                   = xt::xtensor_fixed<double, xt::xshape<dim>>;
+        static constexpr std::size_t dim = dim_;                                        /// The dimension of the cell.
+        using interval_t                 = TInterval;                                   /// Type of interval.
+        using value_t                    = typename interval_t::value_t;                /// Type of value stored in interval.
+        using index_t                    = typename interval_t::index_t;                /// Type of index stored in interval.
+        using indices_t                  = xt::xtensor_fixed<value_t, xt::xshape<dim>>; /// Type of indices to access to field data.
+        using coords_t                   = xt::xtensor_fixed<double, xt::xshape<dim>>;  /// Type of coordinates.
 
         Cell() = default;
 
@@ -74,6 +74,15 @@ namespace samurai
         double length = 0;
     };
 
+    /**
+     * @brief Construct a new Cell<dim_, TInterval>::Cell object
+     *
+     * @param origin_point_
+     * @param scaling_factor
+     * @param level_
+     * @param indices_
+     * @param index_
+     */
     template <std::size_t dim_, class TInterval>
     inline Cell<dim_, TInterval>::Cell(const coords_t& origin_point_,
                                        double scaling_factor,
@@ -88,6 +97,16 @@ namespace samurai
     {
     }
 
+    /**
+     * @brief Construct a new Cell<dim_, TInterval>::Cell object
+     *
+     * @param origin_point_
+     * @param scaling_factor
+     * @param level_
+     * @param i
+     * @param others
+     * @param index_
+     */
     template <std::size_t dim_, class TInterval>
     inline Cell<dim_, TInterval>::Cell(const coords_t& origin_point_,
                                        double scaling_factor,
@@ -107,7 +126,7 @@ namespace samurai
     }
 
     /**
-     * The minimum corner of the cell.
+     * @brief The minimum corner of the cell.
      */
     template <std::size_t dim_, class TInterval>
     inline auto Cell<dim_, TInterval>::corner() const -> coords_t
@@ -115,6 +134,11 @@ namespace samurai
         return origin_point + length * indices;
     }
 
+    /**
+     * @brief The ith coordinate of minimum corner of the cell.
+     *
+     * @param i Component number.
+     */
     template <std::size_t dim_, class TInterval>
     inline double Cell<dim_, TInterval>::corner(std::size_t i) const
     {
@@ -122,7 +146,7 @@ namespace samurai
     }
 
     /**
-     * The minimum corner of the cell.
+     * @brief The center of the cell.
      */
     template <std::size_t dim_, class TInterval>
     inline auto Cell<dim_, TInterval>::center() const -> coords_t
@@ -130,12 +154,23 @@ namespace samurai
         return origin_point + length * (indices + 0.5);
     }
 
+    /**
+     * @brief The ith coordinate of center of the cell.
+     *
+     * @param i Component number.
+     */
     template <std::size_t dim_, class TInterval>
     inline double Cell<dim_, TInterval>::center(std::size_t i) const
     {
         return origin_point[i] + length * (indices[i] + 0.5);
     }
 
+    /**
+     * @brief The center of the face in the requested Cartesian direction.
+     *
+     * @tparam Vector   Type of direction, must be addable with a `coords_t`.
+     * @param direction Cartesian unit vector of direction where we request center.
+     */
     template <std::size_t dim_, class TInterval>
     template <class Vector>
     inline auto Cell<dim_, TInterval>::face_center(const Vector& direction) const -> coords_t
@@ -144,12 +179,20 @@ namespace samurai
         return center() + (length / 2) * direction;
     }
 
+    /**
+     * @brief Insert formatted cell into an output stream.
+     *
+     * @param os output stream
+     */
     template <std::size_t dim_, class TInterval>
     inline void Cell<dim_, TInterval>::to_stream(std::ostream& os) const
     {
         os << "Cell -> level: " << level << " indices: " << indices << " center: " << center() << " index: " << index;
     }
 
+    /**
+     * @brief Insert formatted cell into an output stream.
+     */
     template <std::size_t dim, class TInterval>
     inline std::ostream& operator<<(std::ostream& out, const Cell<dim, TInterval>& cell)
     {
@@ -157,12 +200,18 @@ namespace samurai
         return out;
     }
 
+    /**
+     * @brief Test equality between cells.
+     */
     template <std::size_t dim, class TInterval>
     inline bool operator==(const Cell<dim, TInterval>& c1, const Cell<dim, TInterval>& c2)
     {
         return !(c1.level != c2.level || c1.indices != c2.indices || c1.index != c2.index || c1.length != c2.length);
     }
 
+    /**
+     * @brief Test inequality between cells.
+     */
     template <std::size_t dim, class TInterval>
     inline bool operator!=(const Cell<dim, TInterval>& c1, const Cell<dim, TInterval>& c2)
     {
