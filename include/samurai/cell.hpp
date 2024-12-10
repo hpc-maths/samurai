@@ -11,10 +11,16 @@
 
 namespace samurai
 {
+    /**
+     * @brief Return length (\f$\Delta x\f$) of a cell on a specific level with a specific scaling factor
+     *
+     * @param scaling_factor Scaling factor of the box.
+     * @param level          Level of cell.
+     */
     template <typename LevelType, std::enable_if_t<std::is_integral<LevelType>::value, bool> = true>
     inline double cell_length(double scaling_factor, LevelType level)
     {
-        return scaling_factor / (1 << level);
+        return scaling_factor / static_cast<double>(1 << level);
     }
 
     /** @class Cell
