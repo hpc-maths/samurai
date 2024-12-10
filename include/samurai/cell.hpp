@@ -46,14 +46,15 @@ namespace samurai
              const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> others,
              index_t index);
 
+        // The minimum corner of the cell.
         coords_t corner() const;
         double corner(std::size_t i) const;
 
-        /// The center of the cell.
+        // The center of the cell.
         coords_t center() const;
         double center(std::size_t i) const;
 
-        /// The center of the face in the requested Cartesian direction.
+        // The center of the face in the requested Cartesian direction.
         template <class Vector>
         coords_t face_center(const Vector& direction) const;
 
