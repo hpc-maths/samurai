@@ -173,9 +173,12 @@ namespace samurai
         }
 
         template <typename lambda_t>
-        static inline constexpr void apply(lambda_t&& f)
+        static inline constexpr void apply([[maybe_unused]] lambda_t&& f)
         {
-            apply_impl(std::forward<lambda_t>(f), std::make_integer_sequence<std::size_t, end - begin>());
+            if constexpr (begin <= end)
+            {
+                apply_impl(std::forward<lambda_t>(f), std::make_integer_sequence<std::size_t, end - begin>());
+            }
         }
     };
 } // namespace samurai
