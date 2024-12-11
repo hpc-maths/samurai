@@ -172,10 +172,18 @@ namespace samurai
         template <class T1, class T2, std::size_t order = T2::mesh_t::config::prediction_order>
         inline void operator()(Dim<1>, T1& detail, const T2& field) const
         {
-            auto qs_i = xt::eval(Qs_i<order>(field, level, i));
+            if constexpr (order == 0)
+            {
+                detail(level + 1, 2 * i)     = field(level + 1, 2 * i) - field(level, i);
+                detail(level + 1, 2 * i + 1) = field(level + 1, 2 * i + 1) - field(level, i);
+            }
+            else
+            {
+                auto qs_i = xt::eval(Qs_i<order>(field, level, i));
 
-            detail(level + 1, 2 * i)     = field(level + 1, 2 * i) - (field(level, i) + qs_i);
-            detail(level + 1, 2 * i + 1) = field(level + 1, 2 * i + 1) - (field(level, i) - qs_i);
+                detail(level + 1, 2 * i)     = field(level + 1, 2 * i) - (field(level, i) + qs_i);
+                detail(level + 1, 2 * i + 1) = field(level + 1, 2 * i + 1) - (field(level, i) - qs_i);
+            }
 
             if (level >= 1)
             {
@@ -188,28 +196,38 @@ namespace samurai
         template <class T1, class T2, std::size_t order = T2::mesh_t::config::prediction_order>
         inline void operator()(Dim<2>, T1& detail, const T2& field) const
         {
-            auto qs_i  = Qs_i<order>(field, level, i, j);
-            auto qs_j  = Qs_j<order>(field, level, i, j);
-            auto qs_ij = Qs_ij<order>(field, level, i, j);
+            if constexpr (order == 0)
+            {
+                detail(level + 1, 2 * i, 2 * j)         = field(level + 1, 2 * i, 2 * j) - field(level, i, j);
+                detail(level + 1, 2 * i + 1, 2 * j)     = field(level + 1, 2 * i + 1, 2 * j) - field(level, i, j);
+                detail(level + 1, 2 * i, 2 * j + 1)     = field(level + 1, 2 * i, 2 * j + 1) - field(level, i, j);
+                detail(level + 1, 2 * i + 1, 2 * j + 1) = field(level + 1, 2 * i + 1, 2 * j + 1) - field(level, i, j);
+            }
+            else
+            {
+                auto qs_i  = Qs_i<order>(field, level, i, j);
+                auto qs_j  = Qs_j<order>(field, level, i, j);
+                auto qs_ij = Qs_ij<order>(field, level, i, j);
 
 #ifdef SAMURAI_CHECK_NAN
-            if constexpr (T1::size == 1)
-            {
-                for (std::size_t ii = 0; ii < i.size(); ++ii)
+                if constexpr (T1::size == 1)
                 {
-                    if (std::isnan(qs_i(ii)) || std::isnan(qs_j(ii)) || std::isnan(qs_ij(ii)))
+                    for (std::size_t ii = 0; ii < i.size(); ++ii)
                     {
-                        std::cerr << "NaN detected during the computation of details." << std::endl;
-                        break;
+                        if (std::isnan(qs_i(ii)) || std::isnan(qs_j(ii)) || std::isnan(qs_ij(ii)))
+                        {
+                            std::cerr << "NaN detected during the computation of details." << std::endl;
+                            break;
+                        }
                     }
                 }
-            }
 #endif
 
-            detail(level + 1, 2 * i, 2 * j)         = field(level + 1, 2 * i, 2 * j) - (field(level, i, j) + qs_i + qs_j - qs_ij);
-            detail(level + 1, 2 * i + 1, 2 * j)     = field(level + 1, 2 * i + 1, 2 * j) - (field(level, i, j) - qs_i + qs_j + qs_ij);
-            detail(level + 1, 2 * i, 2 * j + 1)     = field(level + 1, 2 * i, 2 * j + 1) - (field(level, i, j) + qs_i - qs_j + qs_ij);
-            detail(level + 1, 2 * i + 1, 2 * j + 1) = field(level + 1, 2 * i + 1, 2 * j + 1) - (field(level, i, j) - qs_i - qs_j - qs_ij);
+                detail(level + 1, 2 * i, 2 * j)     = field(level + 1, 2 * i, 2 * j) - (field(level, i, j) + qs_i + qs_j - qs_ij);
+                detail(level + 1, 2 * i + 1, 2 * j) = field(level + 1, 2 * i + 1, 2 * j) - (field(level, i, j) - qs_i + qs_j + qs_ij);
+                detail(level + 1, 2 * i, 2 * j + 1) = field(level + 1, 2 * i, 2 * j + 1) - (field(level, i, j) + qs_i - qs_j + qs_ij);
+                detail(level + 1, 2 * i + 1, 2 * j + 1) = field(level + 1, 2 * i + 1, 2 * j + 1) - (field(level, i, j) - qs_i - qs_j - qs_ij);
+            }
 
             if (level >= 1)
             {
@@ -222,30 +240,46 @@ namespace samurai
         template <class T1, class T2, std::size_t order = T2::mesh_t::config::prediction_order>
         inline void operator()(Dim<3>, T1& detail, const T2& field) const
         {
-            auto qs_i   = Qs_i<order>(field, level, i, j, k);
-            auto qs_j   = Qs_j<order>(field, level, i, j, k);
-            auto qs_k   = Qs_k<order>(field, level, i, j, k);
-            auto qs_ij  = Qs_ij<order>(field, level, i, j, k);
-            auto qs_ik  = Qs_ik<order>(field, level, i, j, k);
-            auto qs_jk  = Qs_jk<order>(field, level, i, j, k);
-            auto qs_ijk = Qs_ijk<order>(field, level, i, j, k);
+            if constexpr (order == 0)
+            {
+                detail(level + 1, 2 * i, 2 * j, 2 * k)             = field(level + 1, 2 * i, 2 * j, 2 * k) - field(level, i, j, k);
+                detail(level + 1, 2 * i + 1, 2 * j, 2 * k)         = field(level + 1, 2 * i + 1, 2 * j, 2 * k) - field(level, i, j, k);
+                detail(level + 1, 2 * i, 2 * j + 1, 2 * k)         = field(level + 1, 2 * i, 2 * j + 1, 2 * k) - field(level, i, j, k);
+                detail(level + 1, 2 * i + 1, 2 * j + 1, 2 * k)     = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k) - field(level, i, j, k);
+                detail(level + 1, 2 * i, 2 * j, 2 * k + 1)         = field(level + 1, 2 * i, 2 * j, 2 * k + 1) - field(level, i, j, k);
+                detail(level + 1, 2 * i + 1, 2 * j, 2 * k + 1)     = field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1) - field(level, i, j, k);
+                detail(level + 1, 2 * i, 2 * j + 1, 2 * k + 1)     = field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1) - field(level, i, j, k);
+                detail(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1) = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1)
+                                                                   - field(level, i, j, k);
+            }
+            else
+            {
+                auto qs_i   = Qs_i<order>(field, level, i, j, k);
+                auto qs_j   = Qs_j<order>(field, level, i, j, k);
+                auto qs_k   = Qs_k<order>(field, level, i, j, k);
+                auto qs_ij  = Qs_ij<order>(field, level, i, j, k);
+                auto qs_ik  = Qs_ik<order>(field, level, i, j, k);
+                auto qs_jk  = Qs_jk<order>(field, level, i, j, k);
+                auto qs_ijk = Qs_ijk<order>(field, level, i, j, k);
 
-            detail(level + 1, 2 * i, 2 * j, 2 * k) = field(level + 1, 2 * i, 2 * j, 2 * k)
-                                                   - (field(level, i, j, k) + qs_i + qs_j + qs_k - qs_ij - qs_ik - qs_jk + qs_ijk);
-            detail(level + 1, 2 * i + 1, 2 * j, 2 * k) = field(level + 1, 2 * i + 1, 2 * j, 2 * k)
-                                                       - (field(level, i, j, k) - qs_i + qs_j + qs_k + qs_ij + qs_ik - qs_jk - qs_ijk);
-            detail(level + 1, 2 * i, 2 * j + 1, 2 * k) = field(level + 1, 2 * i, 2 * j + 1, 2 * k)
-                                                       - (field(level, i, j, k) + qs_i - qs_j + qs_k + qs_ij - qs_ik + qs_jk - qs_ijk);
-            detail(level + 1, 2 * i + 1, 2 * j + 1, 2 * k) = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k)
-                                                           - (field(level, i, j, k) - qs_i - qs_j + qs_k - qs_ij + qs_ik + qs_jk + qs_ijk);
-            detail(level + 1, 2 * i, 2 * j, 2 * k + 1) = field(level + 1, 2 * i, 2 * j, 2 * k + 1)
-                                                       - (field(level, i, j, k) + qs_i + qs_j - qs_k - qs_ij + qs_ik + qs_jk - qs_ijk);
-            detail(level + 1, 2 * i + 1, 2 * j, 2 * k + 1) = field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1)
-                                                           - (field(level, i, j, k) - qs_i + qs_j - qs_k + qs_ij - qs_ik + qs_jk + qs_ijk);
-            detail(level + 1, 2 * i, 2 * j + 1, 2 * k + 1) = field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1)
-                                                           - (field(level, i, j, k) + qs_i - qs_j - qs_k + qs_ij + qs_ik - qs_jk + qs_ijk);
-            detail(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1) = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1)
-                                                               - (field(level, i, j, k) - qs_i - qs_j - qs_k - qs_ij - qs_ik - qs_jk - qs_ijk);
+                detail(level + 1, 2 * i, 2 * j, 2 * k) = field(level + 1, 2 * i, 2 * j, 2 * k)
+                                                       - (field(level, i, j, k) + qs_i + qs_j + qs_k - qs_ij - qs_ik - qs_jk + qs_ijk);
+                detail(level + 1, 2 * i + 1, 2 * j, 2 * k) = field(level + 1, 2 * i + 1, 2 * j, 2 * k)
+                                                           - (field(level, i, j, k) - qs_i + qs_j + qs_k + qs_ij + qs_ik - qs_jk - qs_ijk);
+                detail(level + 1, 2 * i, 2 * j + 1, 2 * k) = field(level + 1, 2 * i, 2 * j + 1, 2 * k)
+                                                           - (field(level, i, j, k) + qs_i - qs_j + qs_k + qs_ij - qs_ik + qs_jk - qs_ijk);
+                detail(level + 1, 2 * i + 1, 2 * j + 1, 2 * k) = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k)
+                                                               - (field(level, i, j, k) - qs_i - qs_j + qs_k - qs_ij + qs_ik + qs_jk + qs_ijk);
+                detail(level + 1, 2 * i, 2 * j, 2 * k + 1) = field(level + 1, 2 * i, 2 * j, 2 * k + 1)
+                                                           - (field(level, i, j, k) + qs_i + qs_j - qs_k - qs_ij + qs_ik + qs_jk - qs_ijk);
+                detail(level + 1, 2 * i + 1, 2 * j, 2 * k + 1) = field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1)
+                                                               - (field(level, i, j, k) - qs_i + qs_j - qs_k + qs_ij - qs_ik + qs_jk + qs_ijk);
+                detail(level + 1, 2 * i, 2 * j + 1, 2 * k + 1) = field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1)
+                                                               - (field(level, i, j, k) + qs_i - qs_j - qs_k + qs_ij + qs_ik - qs_jk + qs_ijk);
+                detail(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1) = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1)
+                                                                   - (field(level, i, j, k) - qs_i - qs_j - qs_k - qs_ij - qs_ik - qs_jk
+                                                                      - qs_ijk);
+            }
 
             if (level >= 1)
             {
