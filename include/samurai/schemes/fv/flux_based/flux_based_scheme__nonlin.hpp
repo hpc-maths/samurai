@@ -76,7 +76,7 @@ namespace samurai
             }
             else
             {
-                return flux_value(field_i);
+                return flux_value(static_cast<flux_index_type>(field_i));
             }
         }
 

@@ -2,6 +2,9 @@
 #include "../collapsable.hpp"
 #include <array>
 #include <math.h>
+#if defined(SAMURAI_FIELD_CONTAINER_EIGEN3)
+    #include "../eigen/eigen.hpp"
+#endif
 
 namespace samurai
 {
@@ -62,6 +65,17 @@ namespace samurai
                 this->_a[i] = xt(i);
             }
         }
+
+#if defined(SAMURAI_FIELD_CONTAINER_EIGEN3)
+        template <class T2>
+        StdArrayWrapper(const T2& eigen) // cppcheck-suppress noExplicitConstructor
+        {
+            for (std::size_t i = 0; i < size; ++i)
+            {
+                this->_a[i] = eigen(static_cast<Eigen::Index>(i));
+            }
+        }
+#endif
 
         StdArrayWrapper(T value) // cppcheck-suppress noExplicitConstructor
         {
@@ -223,6 +237,17 @@ namespace samurai
     {
         StdArrayWrapper<T, size> b(a);
         b /= scalar;
+        return b;
+    }
+
+    template <class T, std::size_t size, class NumberType>
+    auto operator/(NumberType scalar, const StdArrayWrapper<T, size>& a)
+    {
+        StdArrayWrapper<T, size> b;
+        for (std::size_t i = 0; i < size; ++i)
+        {
+            b[i] = scalar / a[i];
+        }
         return b;
     }
 
