@@ -51,7 +51,7 @@ option(ENABLE_COVERAGE "Activate coverage" OFF)
 option(WITH_MPI "Enable MPI" OFF)
 option(WITH_OPENMP "Enable OpenMP" OFF)
 
-set(FLUX_CONTAINER_LIST array xtensor)
+set(FLUX_CONTAINER_LIST "array" "xtensor" "eigen3")
 set(FLUX_CONTAINER "xtensor" CACHE STRING "Container to store fluxes: ${FLUX_CONTAINER_LIST}")
 set_property(CACHE FLUX_CONTAINER PROPERTY STRINGS ${FLUX_CONTAINER_LIST})
 
@@ -130,7 +130,8 @@ if(FIELD_CONTAINER MATCHES xtensor)
     INTERFACE
     xtensor
   )
-elseif(FIELD_CONTAINER MATCHES eigen3)
+endif()
+if(FIELD_CONTAINER MATCHES eigen3 OR FLUX_CONTAINER MATCHES eigen3)
   message(STATUS "Using Eigen3 as field container")
   list(APPEND DEPENDENCIES_CONFIGURED Eigen3)
   find_package(Eigen3 CONFIG REQUIRED)
@@ -205,6 +206,7 @@ endif()
 if(NOT FLUX_CONTAINER IN_LIST FLUX_CONTAINER_LIST)
     message(FATAL_ERROR "FLUX_CONTAINER must be one of: ${FLUX_CONTAINER_LIST}")
 else()
+    string(TOUPPER ${FLUX_CONTAINER} FLUX_CONTAINER)
     target_compile_definitions(samurai INTERFACE FLUX_CONTAINER_${FLUX_CONTAINER})
 endif()
 

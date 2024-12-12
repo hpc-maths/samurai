@@ -28,11 +28,12 @@ if(SAMURAI_CHECK_NAN)
 endif()
 
 
-set(FLUX_CONTAINER_LIST array xtensor)
+set(FLUX_CONTAINER_LIST "array" "xtensor" "eigen3")
 set(SAMURAI_FLUX_CONTAINER "xtensor" CACHE STRING "Container to store fluxes: ${FLUX_CONTAINER_LIST}")
 set_property(CACHE SAMURAI_FLUX_CONTAINER PROPERTY STRINGS ${FLUX_CONTAINER_LIST})
 if(NOT SAMURAI_FLUX_CONTAINER IN_LIST FLUX_CONTAINER_LIST)
     message(FATAL_ERROR "SAMURAI_FLUX_CONTAINER must be one of: ${FLUX_CONTAINER_LIST}")
 else()
+    string(TOUPPER ${FLUX_CONTAINER} FLUX_CONTAINER)
     target_compile_definitions(samurai::samurai INTERFACE FLUX_CONTAINER_${FLUX_CONTAINER})
 endif()

@@ -8,16 +8,13 @@
 // according to the compilation variables.                                    //
 //----------------------------------------------------------------------------//
 
-// #define SAMURAI_FIELD_CONTAINER_EIGEN3
-
 // clang-format off
 #include "std/algebraic_array.hpp"
-#ifdef SAMURAI_FIELD_CONTAINER_EIGEN3
+#if defined(SAMURAI_FIELD_CONTAINER_EIGEN3) || defined(FLUX_CONTAINER_EIGEN3)
     // #define EIGEN_DEFAULT_DENSE_INDEX_TYPE int64_t
     #include "eigen/eigen.hpp"
     #include "eigen/eigen_static.hpp"
 
-    #define FLUX_CONTAINER_eigen
     #define TMP_STATIC_MATRIX_CONTAINER_eigen
 #else
     #include "xtensor/xtensor.hpp"
@@ -59,16 +56,33 @@ namespace samurai
     //--------------//
 
     template <class value_type, std::size_t size, bool SOA>
-#if defined(FLUX_CONTAINER_array)
-    using Array = StdArrayWrapper<value_type, size>;
-#elif defined(FLUX_CONTAINER_eigen)
-    using Array          = eigen_static_array<value_type, size, SOA>;
-#else // FLUX_CONTAINER_xtensor
+#if defined(SAMURAI_FIELD_CONTAINER_EIGEN3)
+    using Array = eigen_static_array<value_type, size, SOA>;
+#else // SAMURAI_FIELD_CONTAINER_XTENSOR
     using Array = xtensor_static_array<value_type, size>;
 #endif
 
     template <class value_type, std::size_t size, bool SOA>
     using CollapsArray = CollapsableArray<Array<value_type, size, SOA>, value_type, size>;
+
+    //----------------//
+    // Flux container //
+    //----------------//
+
+    template <class value_type, std::size_t size>
+#if defined(FLUX_CONTAINER_ARRAY)
+    using flux_array_t = StdArrayWrapper<value_type, size>;
+    using flux_index_type = std::size_t;
+#elif defined(FLUX_CONTAINER_EIGEN3)
+    using flux_array_t = eigen_static_array<value_type, size, false>;
+    using flux_index_type = Eigen::Index;
+#else // FLUX_CONTAINER_XTENSOR
+    using flux_array_t = xtensor_static_array<value_type, size>;
+    using flux_index_type = std::size_t;
+#endif
+
+    template <class value_type, std::size_t size>
+    using CollapsFluxArray = CollapsableArray<flux_array_t<value_type, size>, value_type, size>;
 
     //---------------//
     // Static matrix //
