@@ -271,13 +271,16 @@ namespace samurai
             keep_subset.apply_op(maximum(m_tag));
 
             int grad_width = static_cast<int>(mesh_t::config::graduation_width);
-            auto stencil   = grad_width * detail::box_dir<dim>();
+            auto stencil   = detail::box_dir<dim>();
 
-            for (std::size_t is = 0; is < stencil.shape(0); ++is)
+            for (int ig = 1; ig <= grad_width; ++ig)
             {
-                auto s = xt::view(stencil, is);
-                auto subset = intersection(mesh[mesh_id_t::cells][level], translate(mesh[mesh_id_t::all_cells][level - 1], s)).on(level - 1);
-                subset.apply_op(balance_2to1(m_tag, s));
+                for (std::size_t is = 0; is < stencil.shape(0); ++is)
+                {
+                    auto s = ig * xt::view(stencil, is);
+                    auto subset = intersection(mesh[mesh_id_t::cells][level], translate(mesh[mesh_id_t::all_cells][level - 1], s)).on(level - 1);
+                    subset.apply_op(balance_2to1(m_tag, s));
+                }
             }
 
             update_tag_periodic(level, m_tag);
@@ -294,15 +297,17 @@ namespace samurai
             update_tag_subdomains<false>(level, m_tag);
 
             int grad_width = static_cast<int>(mesh_t::config::graduation_width);
-            auto stencil   = grad_width * detail::box_dir<dim>();
+            auto stencil   = detail::box_dir<dim>();
 
-            for (std::size_t is = 0; is < stencil.shape(0); ++is)
+            for (int ig = 1; ig <= grad_width; ++ig)
             {
-                auto s = xt::view(stencil, is);
-                auto subset = intersection(translate(mesh[mesh_id_t::cells][level], s), mesh[mesh_id_t::all_cells][level - 1], mesh.domain())
-                                  .on(level);
+                for (std::size_t is = 0; is < stencil.shape(0); ++is)
+                {
+                    auto s = ig * xt::view(stencil, is);
+                    auto subset = intersection(translate(mesh[mesh_id_t::cells][level], s), mesh[mesh_id_t::all_cells][level - 1]).on(level);
 
-                subset.apply_op(make_graduation(m_tag));
+                    subset.apply_op(make_graduation(m_tag));
+                }
             }
 
             update_tag_periodic(level, m_tag);
