@@ -10,12 +10,10 @@
 
 // clang-format off
 #include "std/algebraic_array.hpp"
-#if defined(SAMURAI_FIELD_CONTAINER_EIGEN3) || defined(FLUX_CONTAINER_EIGEN3)
+#if defined(SAMURAI_FIELD_CONTAINER_EIGEN3) || defined(FLUX_CONTAINER_EIGEN3) || defined(STATIC_MATRIX_CONTAINER_EIGEN3)
     // #define EIGEN_DEFAULT_DENSE_INDEX_TYPE int64_t
     #include "eigen/eigen.hpp"
     #include "eigen/eigen_static.hpp"
-
-    #define TMP_STATIC_MATRIX_CONTAINER_eigen
 #else
     #include "xtensor/xtensor.hpp"
 #endif
@@ -88,19 +86,16 @@ namespace samurai
     // Static matrix //
     //---------------//
 
-#if defined(TMP_STATIC_MATRIX_CONTAINER_eigen)
-
+#if defined(STATIC_MATRIX_CONTAINER_EIGEN3)
     template <class value_type, std::size_t rows, std::size_t cols>
     using Matrix = eigen_static_matrix<value_type, rows, cols>;
 
     // template <class value_type, std::size_t rows, std::size_t cols>
     // using CollapsMatrix = eigen_collapsable_static_matrix<value_type, rows, cols>;
 
-#else // TMP_STATIC_MATRIX_CONTAINER_xtensor
-
+#else // STATIC_MATRIX_CONTAINER_XTENSOR
     template <class value_type, std::size_t rows, std::size_t cols>
     using Matrix = xtensor_static_matrix<value_type, rows, cols>;
-
 #endif
 
     template <class value_type, std::size_t rows, std::size_t cols>
