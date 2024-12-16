@@ -85,8 +85,9 @@ void update_mesh(Mesh& mesh,
     samurai::for_each_interval(mesh,
                                [&](std::size_t level, const auto& interval, const auto& index_yz)
                                {
-                                   auto itag = interval.start + interval.index;
-                                   for (int i = interval.start; i < interval.end; ++i)
+                                   using size_type = typename decltype(tag)::size_type;
+                                   auto itag       = static_cast<size_type>(interval.start + interval.index);
+                                   for (auto i = interval.start; i < interval.end; ++i)
                                    {
                                        if (tag[itag] & static_cast<int>(samurai::CellFlag::refine))
                                        {

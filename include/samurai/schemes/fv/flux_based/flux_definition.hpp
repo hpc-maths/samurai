@@ -57,13 +57,13 @@ namespace samurai
     };
 
     template <class cfg>
-    using FluxValue = CollapsArray<typename cfg::input_field_t::value_type, cfg::output_field_size>;
+    using FluxValue = CollapsFluxArray<typename cfg::input_field_t::value_type, cfg::output_field_size>; //, cfg::input_field_t::is_soa>;
 
     template <class cfg>
-    using FluxValuePair = Array<FluxValue<cfg>, 2>;
+    using FluxValuePair = StdArrayWrapper<FluxValue<cfg>, 2>;
 
     template <class cfg>
-    using StencilJacobianPair = Array<StencilJacobian<cfg>, 2>;
+    using StencilJacobianPair = StdArrayWrapper<StencilJacobian<cfg>, 2>;
 
     /**
      * Specialization of @class NormalFluxDefinition.
