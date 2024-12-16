@@ -69,13 +69,13 @@ namespace samurai
 
     template <class value_type, std::size_t size>
 #if defined(FLUX_CONTAINER_ARRAY)
-    using flux_array_t = StdArrayWrapper<value_type, size>;
+    using flux_array_t    = StdArrayWrapper<value_type, size>;
     using flux_index_type = std::size_t;
 #elif defined(FLUX_CONTAINER_EIGEN3)
-    using flux_array_t = eigen_static_array<value_type, size, false>;
+    using flux_array_t    = eigen_static_array<value_type, size, false>;
     using flux_index_type = Eigen::Index;
 #else // FLUX_CONTAINER_XTENSOR
-    using flux_array_t = xtensor_static_array<value_type, size>;
+    using flux_array_t    = xtensor_static_array<value_type, size>;
     using flux_index_type = std::size_t;
 #endif
 
