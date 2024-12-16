@@ -3,7 +3,7 @@
 #include <array>
 #include <math.h>
 #if defined(SAMURAI_FIELD_CONTAINER_EIGEN3)
-    #include "../eigen/eigen.hpp"
+#include "../eigen/eigen.hpp"
 #endif
 
 namespace samurai
