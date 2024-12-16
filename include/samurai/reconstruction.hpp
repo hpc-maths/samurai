@@ -1102,6 +1102,10 @@ namespace samurai
                             }
                             else
                             {
+#if defined(SAMURAI_FIELD_CONTAINER_EIGEN3)
+                                static_assert(Field_src::is_soa && Field_src::size > 1, "transfer() is not implemented with Eigen for scalar fields and vectorial fields in AOS.");
+                                // In the lid-driven-cavity demo, the following line does not compile with Eigen.
+#endif
                                 view(dst, i_dst) += view(src, static_cast<size_type>(ii)) / (1 << shift * dim);
                             }
                         }

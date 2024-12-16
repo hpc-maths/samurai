@@ -276,7 +276,7 @@ namespace samurai
     }
 
     template <class Scalar, int RowsAtCompileTime, int ColsAtCompileTime, int Options, class RowIndices, class ColIndices, class... Ranges>
-    inline auto& view(Eigen::IndexedView<Eigen::Array<Scalar, RowsAtCompileTime, ColsAtCompileTime, Options>, RowIndices, ColIndices>& exp,
+    auto view(Eigen::IndexedView<Eigen::Array<Scalar, RowsAtCompileTime, ColsAtCompileTime, Options>, RowIndices, ColIndices>& exp,
               Ranges... ranges)
     {
         return exp(ranges...);
