@@ -922,14 +922,17 @@ namespace samurai
 
                     // 1. Inner cells in the boundary region
                     auto bdry_cells = intersection(mesh[mesh_id_t::cells][level], lca[d]).on(level);
-
-                    __apply_bc_on_subset(bc, field, bdry_cells, stencil, direction[d]);
+                    if (level >= mesh.min_level()) // otherwise there is no cells
+                    {
+                        __apply_bc_on_subset(bc, field, bdry_cells, stencil, direction[d]);
+                    }
 
                     // 2. Inner ghosts in the boundary region that have a neighbouring ghost outside the domain
                     if (mesh.min_level() != mesh.max_level())
                     {
                         auto translated_outer_nghbr = translate(mesh[mesh_id_t::reference][level], -(stencil_size / 2) * direction[d]);
-                        auto inner_cells_and_ghosts = intersection(translated_outer_nghbr, lca[d]);
+                        auto potential_inner_cells_and_ghosts = intersection(translated_outer_nghbr, lca[d]);
+                        auto inner_cells_and_ghosts = intersection(potential_inner_cells_and_ghosts, mesh[mesh_id_t::reference][level]).on(level);
                         auto inner_ghosts_with_outer_nghbr = difference(inner_cells_and_ghosts, bdry_cells).on(level);
 
                         __apply_bc_on_subset(bc, field, inner_ghosts_with_outer_nghbr, stencil, direction[d]);
@@ -955,7 +958,7 @@ namespace samurai
         auto stencil   = convert_for_direction(stencil_0, direction);
 
         // 1. Inner cells in the boundary region
-        if (!only_fill_ghost_neighbours)
+        if (!only_fill_ghost_neighbours && level >= mesh.min_level())
         {
             auto bdry_cells = intersection(mesh[mesh_id_t::cells][level], subset);
             // We need to check that the furthest ghost exists. It's not always the case for large stencils!
@@ -967,9 +970,10 @@ namespace samurai
 
         // 2. Inner ghosts in the boundary region that have a neighbouring ghost outside the domain
         {
-            auto bdry_cells                    = intersection(mesh[mesh_id_t::cells][level], subset);
-            auto translated_outer_nghbr        = translate(mesh[mesh_id_t::reference][level], -(stencil_size / 2) * direction);
-            auto inner_cells_and_ghosts        = intersection(translated_outer_nghbr, subset).on(level);
+            auto bdry_cells                       = intersection(mesh[mesh_id_t::cells][level], subset);
+            auto translated_outer_nghbr           = translate(mesh[mesh_id_t::reference][level], -(stencil_size / 2) * direction);
+            auto potential_inner_cells_and_ghosts = intersection(translated_outer_nghbr, subset).on(level);
+            auto inner_cells_and_ghosts = intersection(potential_inner_cells_and_ghosts, mesh[mesh_id_t::reference][level]).on(level);
             auto inner_ghosts_with_outer_nghbr = difference(inner_cells_and_ghosts, bdry_cells).on(level);
 
             __apply_bc_on_subset(bc, field, inner_ghosts_with_outer_nghbr, stencil, direction);
