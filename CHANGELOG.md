@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.19.0](https://github.com/hpc-maths/samurai/compare/v0.18.0...v0.19.0) (2024-12-17)
+
+
+### Features
+
+* fieldsplit PC for monolithic matrix ([#237](https://github.com/hpc-maths/samurai/issues/237)) ([b4bcdb7](https://github.com/hpc-maths/samurai/commit/b4bcdb7fffc4f652344368317670ccc37fe34684))
+* Timers ([#235](https://github.com/hpc-maths/samurai/issues/235)) ([7d39d12](https://github.com/hpc-maths/samurai/commit/7d39d126e4c6cc6abef86683fd68cbb3cccc08aa))
+
+
+### Bug Fixes
+
+* enlarge ([#238](https://github.com/hpc-maths/samurai/issues/238)) ([8cfbea9](https://github.com/hpc-maths/samurai/commit/8cfbea9fa1b4a4c58dfbb420bcfb9b8ace4274e8))
+* fix BC ([#248](https://github.com/hpc-maths/samurai/issues/248)) ([9758202](https://github.com/hpc-maths/samurai/commit/9758202baade42020da0e944ce127f6b1168147d))
+* Fix prediction order 0 ([#246](https://github.com/hpc-maths/samurai/issues/246)) ([f37575d](https://github.com/hpc-maths/samurai/commit/f37575d48fb33ae070c88f59bb4b7a5a8b2c5d0a))
+* projection cells for periodic case ([#240](https://github.com/hpc-maths/samurai/issues/240)) ([6c03245](https://github.com/hpc-maths/samurai/commit/6c03245c7734df3bd4e51e24c02d8e3c5249c8a0))
+* the tagged cells with the graduation ([#247](https://github.com/hpc-maths/samurai/issues/247)) ([3156cd2](https://github.com/hpc-maths/samurai/commit/3156cd23fe9438b4efc187d337c5022a08b58ec7))
+
+
+### Performance Improvements
+
+* Improve nb cells ([#241](https://github.com/hpc-maths/samurai/issues/241)) ([6cd24b5](https://github.com/hpc-maths/samurai/commit/6cd24b5d988f01885dfc43fadec8505511163a07))
+* remove apply interval index ([#242](https://github.com/hpc-maths/samurai/issues/242)) ([c3b3f73](https://github.com/hpc-maths/samurai/commit/c3b3f73ecd349c52bea054114735231f530aec6e))
+* remove hardcoded access modes in get_interval ([#243](https://github.com/hpc-maths/samurai/issues/243)) ([8fdf11e](https://github.com/hpc-maths/samurai/commit/8fdf11e0bf279fc6de105d6e44669675d5211274))
+* replace views/ranges with loops ([#244](https://github.com/hpc-maths/samurai/issues/244)) ([15849e2](https://github.com/hpc-maths/samurai/commit/15849e2fa52de077cad6ae1f4e7d59e7378bdf05))
+
 ## [0.18.0](https://github.com/hpc-maths/samurai/compare/v0.17.0...v0.18.0) (2024-11-20)
 
 
