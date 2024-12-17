@@ -55,7 +55,7 @@ namespace samurai
     ////////////////////////
 
     /**
-     * Construction of a bounded box.
+     * @brief Construction of a bounded box.
      *
      * @param min_corner The vertex with the minimum coordinates
      * @param max_corner The vertex with the maximum coordinates
@@ -68,7 +68,7 @@ namespace samurai
     }
 
     /**
-     * Return the min corner of the box.
+     * @brief Return the min corner of the box.
      */
     template <class value_t, std::size_t dim_>
     inline auto Box<value_t, dim_>::min_corner() const -> const point_t&
@@ -77,7 +77,7 @@ namespace samurai
     }
 
     /**
-     * Return the min corner of the box.
+     * @brief Return the min corner of the box.
      */
     template <class value_t, std::size_t dim_>
     inline auto Box<value_t, dim_>::min_corner() -> point_t&
@@ -86,7 +86,7 @@ namespace samurai
     }
 
     /**
-     * Return the max corner of the box.
+     * @brief Return the max corner of the box.
      */
     template <class value_t, std::size_t dim_>
     inline auto Box<value_t, dim_>::max_corner() const -> const point_t&
@@ -95,7 +95,7 @@ namespace samurai
     }
 
     /**
-     * Return the max corner of the box.
+     * @brief Return the max corner of the box.
      */
     template <class value_t, std::size_t dim_>
     inline auto Box<value_t, dim_>::max_corner() -> point_t&
@@ -104,7 +104,7 @@ namespace samurai
     }
 
     /**
-     * Return the length of the box.
+     * @brief Return the length of the box.
      */
     template <class value_t, std::size_t dim_>
     inline auto Box<value_t, dim_>::length() const
@@ -113,7 +113,7 @@ namespace samurai
     }
 
     /**
-     * Return the minimum length of the box.
+     * @brief Return the minimum length of the box.
      */
     template <class value_t, std::size_t dim_>
     inline auto Box<value_t, dim_>::min_length() const
@@ -122,7 +122,7 @@ namespace samurai
     }
 
     /**
-     * Check if the box is valid.
+     * @brief Check if the box is valid.
      */
     template <class value_t, std::size_t dim_>
     inline bool Box<value_t, dim_>::is_valid() const
@@ -130,6 +130,11 @@ namespace samurai
         return xt::all(m_min_corner < m_max_corner);
     }
 
+    /**
+     * @brief Inplace homothety operator of ratio v.
+     *
+     * @param v Ratio of homothety.
+     */
     template <class value_t, std::size_t dim_>
     inline auto Box<value_t, dim_>::operator*=(value_t v) -> Box&
     {
@@ -138,6 +143,12 @@ namespace samurai
         return *this;
     }
 
+    /**
+     * @brief Homothety operator of ratio v.
+     *
+     * @param box Box to dilate.
+     * @param v   Ratio of homothety.
+     */
     template <class value_t, std::size_t dim_>
     inline auto operator*(const Box<value_t, dim_>& box, value_t v)
     {
@@ -145,6 +156,12 @@ namespace samurai
         return that *= v;
     }
 
+    /**
+     * @brief Homothety operator of ratio v.
+     *
+     * @param v   Ratio of homothety.
+     * @param box Box to dilate.
+     */
     template <class value_t, std::size_t dim_>
     inline auto operator*(value_t v, const Box<value_t, dim_>& box)
     {
@@ -152,6 +169,9 @@ namespace samurai
         return that *= v;
     }
 
+    /**
+     * @brief Insert formatted box into an output stream.
+     */
     template <class value_t, std::size_t dim>
     inline std::ostream& operator<<(std::ostream& out, const Box<value_t, dim>& box)
     {
@@ -159,6 +179,13 @@ namespace samurai
         return out;
     }
 
+    /**
+     * @brief Return approximate box with given subdivision length with a tolerance.
+     *
+     * @param box                Box to approximate.
+     * @param tol                Tolerance for approximate box if subdivision isn't given.
+     * @param subdivision_length Length of subdivision (modified if is 0 to the approximate box with given tolerance).
+     */
     template <class value_t, std::size_t dim>
     Box<value_t, dim> approximate_box(const Box<value_t, dim>& box, double tol, double& subdivision_length)
     {
