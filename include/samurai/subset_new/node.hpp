@@ -10,26 +10,11 @@
 #include <type_traits>
 #include <utility>
 
+#include "crtp.hpp"
+#include "interval_interface.hpp"
+
 namespace samurai::experimental
 {
-    static constexpr int sentinel = std::numeric_limits<int>::max();
-
-    namespace detail
-    {
-        template <class T>
-        inline T end_shift(T value, T shift)
-        {
-            return shift >= 0 ? value << shift : ((value - 1) >> -shift) + 1;
-        }
-
-        template <class T>
-        inline T start_shift(T value, T shift)
-        {
-            return shift >= 0 ? value << shift : value >> -shift;
-        }
-
-    } // namespace detail
-
     constexpr auto compute_min(auto const& value, auto const&... args)
     {
         if constexpr (sizeof...(args) == 0u) // Single argument case!
@@ -57,9 +42,9 @@ namespace samurai::experimental
     }
 
     template <class Set, class Func>
-    void apply(Set&& set, Func&& func)
+    void apply(Set&& global_set, Func&& func)
     {
-        set.reset();
+        auto set = global_set.get_local_set();
         Interval<int, long long> result;
         int r_ipos = 0;
         auto scan  = set.min();
@@ -67,7 +52,7 @@ namespace samurai::experimental
 
         while (scan < sentinel)
         {
-            bool is_in = set.is_in(0, scan);
+            bool is_in = set.is_in(scan);
             // std::cout << std::boolalpha << "is_in: " << is_in << std::endl;
 
             if (is_in && r_ipos == 0)
@@ -79,8 +64,8 @@ namespace samurai::experimental
             {
                 result.end = scan;
                 r_ipos     = 0;
-                // std::cout << result << " " << set.ref_level() << " " << set.level() << std::endl;
-                auto true_result = result >> (set.ref_level() - set.level());
+                // std::cout << result << " " << set.shift() << std::endl;
+                auto true_result = result >> set.shift();
                 func(true_result);
             }
 
@@ -132,6 +117,16 @@ namespace samurai::experimental
                 m_s);
         }
 
+        auto get_local_set()
+        {
+            return std::apply(
+                [](auto&&... args)
+                {
+                    (args.get_local_set(), ...);
+                },
+                m_s);
+        }
+
         int level() const
         {
             return m_level;
@@ -149,36 +144,6 @@ namespace samurai::experimental
                 [*this](auto&&... args)
                 {
                     (args.ref_level(m_ref_level), ...);
-                },
-                m_s);
-        }
-
-        auto min()
-        {
-            return std::apply(
-                [](auto&&... args)
-                {
-                    return compute_min(args.min()...);
-                },
-                m_s);
-        }
-
-        void reset()
-        {
-            std::apply(
-                [](auto&&... args)
-                {
-                    (args.reset(), ...);
-                },
-                m_s);
-        }
-
-        void next(auto scan)
-        {
-            return std::apply(
-                [scan](auto&&... args)
-                {
-                    (args.next(scan), ...);
                 },
                 m_s);
         }
@@ -215,7 +180,7 @@ namespace samurai::experimental
         using interval_t                 = typename lca_t::interval_t;
         using value_t                    = typename interval_t::value_t;
 
-        Identity(const lca_t& lca)
+        Identity(lca_t& lca)
             : m_lca(lca)
             , m_level(static_cast<int>(lca.level()))
             , m_ref_level(m_level)
@@ -223,30 +188,14 @@ namespace samurai::experimental
         {
         }
 
-        void reset()
+        auto get_local_set() const
         {
-            m_d = dim - 1;
-            if (m_lca[m_d].empty())
-            {
-                m_current[m_d] = sentinel;
-                return;
-            }
-            m_is_start.fill(0);
-            m_index[m_d]   = 0;
-            m_offset[m_d]  = m_lca[m_d].size();
-            int min_shift  = m_min_level - static_cast<int>(m_lca.level());
-            int ref_shift  = m_ref_level - m_min_level;
-            m_current[m_d] = detail::start_shift(detail::start_shift(m_lca[m_d][m_index[m_d]].start, min_shift), ref_shift);
-        }
-
-        bool is_in(std::size_t, auto scan) const
-        {
-            return m_current[m_d] != sentinel && !((scan < m_current[m_d]) ^ m_is_start[m_d]);
-        }
-
-        auto min()
-        {
-            return m_current[m_d];
+            return IntervalVector<std::decay_t<decltype(m_lca[0])>>(m_lca.level(),
+                                                                    m_level,
+                                                                    m_min_level,
+                                                                    m_ref_level,
+                                                                    m_lca[0].begin(),
+                                                                    m_lca[0].end());
         }
 
         auto ref_level() const
@@ -276,58 +225,88 @@ namespace samurai::experimental
             m_min_level = std::min(m_min_level, level);
         }
 
-        void next(auto scan)
-        {
-            if (m_current[m_d] == scan)
-            {
-                int min_shift = m_min_level - static_cast<int>(m_lca.level());
-                int ref_shift = m_ref_level - m_min_level;
-                // std::cout << min_shift << " " << ref_shift << std::endl;
-                if (m_is_start[m_d] == 0)
-                {
-                    auto end       = m_lca[m_d][m_index[m_d]].end;
-                    auto start     = m_lca[m_d][m_index[m_d] + 1].start;
-                    m_current[m_d] = detail::end_shift(detail::end_shift(end, min_shift), ref_shift);
-                    while (m_index[m_d] < m_offset[m_d] - 1
-                           && m_current[m_d] >= detail::start_shift(detail::start_shift(start, min_shift), ref_shift))
-                    {
-                        m_index[m_d]++;
-                        end            = m_lca[m_d][m_index[m_d]].end;
-                        m_current[m_d] = detail::end_shift(detail::end_shift(end, min_shift), ref_shift);
-                        start          = m_lca[m_d][m_index[m_d] + 1].start;
-                        // std::cout << m_current[m_d] << std::endl;
-                    }
-                    m_is_start[m_d] = 1;
-                    // std::cout << "finish" << std::endl;
-                }
-                else
-                {
-                    m_index[m_d]++;
-                    if (m_index[m_d] == m_offset[m_d])
-                    {
-                        m_current[m_d] = std::numeric_limits<value_t>::max();
-                        return;
-                    }
-                    m_current[m_d]  = detail::start_shift(detail::start_shift(m_lca[m_d][m_index[m_d]].start, min_shift), ref_shift);
-                    m_is_start[m_d] = 0;
-                }
-                // std::cout << "m_current: " << m_current[m_d] << " " << m_is_start[m_d] << " " << m_offset[m_d] << std::endl;
-            }
-        }
-
-        const lca_t& m_lca;
-        std::array<value_t, dim> m_current;
-        std::array<int, dim> m_is_start;
-        std::array<std::size_t, dim> m_index;
-        std::array<std::size_t, dim> m_offset;
-        std::size_t m_d;
+        lca_t& m_lca;
         int m_level;
         int m_ref_level;
         int m_min_level;
     };
 
+    template <class D>
+    struct SetOp : public crtp_base<D>
+    {
+        bool is_in(auto scan) const
+        {
+            return this->derived_cast().is_in_impl(scan);
+        }
+
+        auto min() const
+        {
+            return std::apply(
+                [](auto&... args)
+                {
+                    return compute_min(args.min()...);
+                },
+                this->derived_cast().get_elements());
+        }
+
+        void next(auto scan)
+        {
+            std::apply(
+                [scan](auto&... args)
+                {
+                    (args.next(scan), ...);
+                },
+                this->derived_cast().get_elements());
+        }
+    };
+
+    template <class... S>
+    class IntersectionOp : public SetOp<IntersectionOp<S...>>
+    {
+      public:
+
+        using set_type = std::tuple<std::decay_t<S>...>;
+
+        IntersectionOp(int shift, const S&... s)
+            : m_shift(shift)
+            , m_s(s...)
+        {
+        }
+
+        auto shift() const
+        {
+            return m_shift;
+        }
+
+        bool is_in_impl(auto scan) const
+        {
+            return std::apply(
+                [scan](const auto&... args)
+                {
+                    return (args.is_in(scan) && ...);
+                },
+                m_s);
+        }
+
+        const auto& get_elements() const
+        {
+            return m_s;
+        }
+
+        auto& get_elements()
+        {
+            return m_s;
+        }
+
+      private:
+
+        int m_shift;
+        set_type m_s;
+    };
+
     template <class... S>
     struct Intersection : public subset<S...>
+
     {
         using base = subset<S...>;
         using base::base;
@@ -338,19 +317,65 @@ namespace samurai::experimental
             return *this;
         }
 
-        bool is_in(std::size_t d, auto scan) const
+        auto get_local_set() const
         {
+            int shift = this->ref_level() - this->level();
             return std::apply(
-                [d, scan](const auto&... args)
+                [shift](auto&... args)
                 {
-                    return (args.is_in(d, scan) && ...);
+                    return IntersectionOp(shift, args.get_local_set()...);
                 },
                 this->m_s);
         }
     };
 
     template <class... S>
+    class UnionOp : public SetOp<UnionOp<S...>>
+    {
+      public:
+
+        using set_type = std::tuple<std::decay_t<S>...>;
+
+        UnionOp(int shift, const S&... s)
+            : m_shift(shift)
+            , m_s(s...)
+        {
+        }
+
+        auto shift() const
+        {
+            return m_shift;
+        }
+
+        bool is_in_impl(auto scan) const
+        {
+            return std::apply(
+                [scan](const auto&... args)
+                {
+                    return (args.is_in(scan) || ...);
+                },
+                m_s);
+        }
+
+        const auto& get_elements() const
+        {
+            return m_s;
+        }
+
+        auto& get_elements()
+        {
+            return m_s;
+        }
+
+      private:
+
+        int m_shift;
+        set_type m_s;
+    };
+
+    template <class... S>
     struct Union : public subset<S...>
+
     {
         using base = subset<S...>;
         using base::base;
@@ -361,12 +386,13 @@ namespace samurai::experimental
             return *this;
         }
 
-        bool is_in(std::size_t d, auto scan) const
+        auto get_local_set() const
         {
+            int shift = this->ref_level() - this->level();
             return std::apply(
-                [d, scan, this](const auto&... args)
+                [shift](auto&... args)
                 {
-                    return (args.is_in(d, scan) || ...);
+                    return UnionOp(shift, args.get_local_set()...);
                 },
                 this->m_s);
         }

@@ -10,6 +10,8 @@ namespace samurai::experimental
     TEST(new_subset, compute_min)
     {
         EXPECT_EQ(1, compute_min(3, 4, 1, 4));
+        EXPECT_EQ(0, compute_min(0, 0, 0, 0));
+        EXPECT_EQ(-1, compute_min(-1, -1, -1, -1));
     }
 
     TEST(new_subset, test1)
@@ -17,10 +19,6 @@ namespace samurai::experimental
         samurai::CellList<1> cl;
         samurai::CellArray<1> ca;
         using interval_t = typename samurai::CellArray<1>::interval_t;
-
-        // cl[0][{}].add_point(0);
-        // cl[2][{}].add_point(0);
-        // cl[2][{}].add_point(2);
 
         cl[1][{}].add_point(0);
         cl[1][{}].add_point(1);
@@ -34,9 +32,6 @@ namespace samurai::experimental
 
         ca = {cl, true};
 
-        // std::cout << ca << std::endl;
-
-        // auto set = samurai::intersection(ca[0], samurai::translate(ca[4], xt::xtensor_fixed<int, xt::xshape<1>>{-4})).on(1);
         {
             auto set = intersection(identity(ca[4]).on(0), ca[5]).on(1);
             apply(set,
