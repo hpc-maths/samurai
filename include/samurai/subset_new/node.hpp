@@ -47,7 +47,8 @@ namespace samurai::experimental
         auto set = global_set.get_local_set();
         Interval<int, long long> result;
         int r_ipos = 0;
-        auto scan  = set.min();
+        set.next(0);
+        auto scan = set.min();
         // std::cout << "first scan " << scan << std::endl;
 
         while (scan < sentinel)
@@ -116,10 +117,16 @@ namespace samurai::experimental
 
         void next(auto scan)
         {
+            next(scan, m_operator);
+        }
+
+        template <class IntervalOp>
+        void next(auto scan, IntervalOp op)
+        {
             std::apply(
-                [scan](auto&... args)
+                [scan, &op](auto&... args)
                 {
-                    (args.next(scan), ...);
+                    (args.next(scan, op), ...);
                 },
                 m_s);
         }
@@ -131,7 +138,7 @@ namespace samurai::experimental
         set_type m_s;
     };
 
-    struct IntersectionOp
+    struct IntersectionOp : public detail::IntervalInfo
     {
         bool is_in(auto scan, const auto&... args) const
         {
@@ -139,7 +146,7 @@ namespace samurai::experimental
         }
     };
 
-    struct UnionOp
+    struct UnionOp : public detail::IntervalInfo
     {
         bool is_in(auto scan, const auto&... args) const
         {
@@ -147,12 +154,48 @@ namespace samurai::experimental
         }
     };
 
-    struct DifferenceOp
+    struct DifferenceOp : public detail::IntervalInfo
     {
         bool is_in(auto scan, const auto& arg, const auto&... args) const
         {
             return arg.is_in(scan) && !(args.is_in(scan) || ...);
         }
+    };
+
+    template <std::size_t dim>
+    class TranslationOp
+    {
+      public:
+
+        TranslationOp(const std::array<int, dim>& t)
+            : m_t(t)
+        {
+        }
+
+        bool is_in(auto scan, const auto& arg) const
+        {
+            return arg.is_in(scan);
+        }
+
+        inline auto start_op(int level, const auto it)
+        {
+            return it->start + detail::start_shift(m_t[0], level - m_level);
+        }
+
+        inline auto end_op(int level, const auto it)
+        {
+            return it->end + detail::end_shift(m_t[0], level - m_level);
+        }
+
+        inline void set_level(auto level)
+        {
+            m_level = level;
+        }
+
+      private:
+
+        std::array<int, dim> m_t;
+        int m_level;
     };
 
     template <class Op, class... S>
@@ -199,9 +242,10 @@ namespace samurai::experimental
                 m_s);
         }
 
-        auto get_local_set() const
+        auto get_local_set()
         {
             int shift = this->ref_level() - this->level();
+            m_operator.set_level(this->level());
             return std::apply(
                 [*this, shift](auto&&... args)
                 {
@@ -272,7 +316,7 @@ namespace samurai::experimental
         {
         }
 
-        auto get_local_set() const
+        auto get_local_set()
         {
             return IntervalVector<std::decay_t<decltype(m_lca[0])>>(m_lca.level(),
                                                                     m_level,
@@ -361,6 +405,12 @@ namespace samurai::experimental
                 return subset(DifferenceOp(), std::forward<decltype(args)>(args)...);
             },
             std::make_tuple(detail::transform(std::forward<sets_t>(sets))...));
+    }
+
+    template <class set_t, std::size_t dim>
+    auto translation(const set_t& set, const std::array<int, dim>& t)
+    {
+        return subset(TranslationOp(t), detail::transform(set));
     }
 
     template <class lca_t>

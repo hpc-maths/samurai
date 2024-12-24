@@ -18,6 +18,23 @@ namespace samurai::experimental
             return shift >= 0 ? value << shift : value >> -shift;
         }
 
+        struct IntervalInfo
+        {
+            inline auto start_op(auto, const auto it)
+            {
+                return it->start;
+            }
+
+            inline auto end_op(auto, const auto it)
+            {
+                return it->end;
+            }
+
+            void set_level(auto)
+            {
+            }
+        };
+
     } // namespace detail
 
     template <class vInterval_t>
@@ -31,32 +48,23 @@ namespace samurai::experimental
             : m_min_shift(min_level - static_cast<int>(lca_level))
             , m_max_shift(max_level - min_level)
             , m_shift(max_level - level)
+            , m_lca_level(static_cast<int>(lca_level))
             , m_first(begin)
             , m_last(end)
-            , m_current(start(m_first))
+            , m_current(std::numeric_limits<int>::min())
             , m_is_start(true)
         {
             // std::cout << "start with: " << m_current << " " << level << " " << m_min_shift << " " << m_max_shift << std::endl;
         }
 
-        auto start_op(const auto it) const
+        auto start(const auto i) const
         {
-            return it->start;
+            return detail::start_shift(detail::start_shift(i, m_min_shift), m_max_shift);
         }
 
-        auto start(const auto it) const
+        auto end(const auto i) const
         {
-            return detail::start_shift(detail::start_shift(start_op(it), m_min_shift), m_max_shift);
-        }
-
-        auto end_op(const auto it) const
-        {
-            return it->end;
-        }
-
-        auto end(const auto it) const
-        {
-            return detail::end_shift(detail::end_shift(end_op(it), m_min_shift), m_max_shift);
+            return detail::end_shift(detail::end_shift(i, m_min_shift), m_max_shift);
         }
 
         bool is_in(auto scan) const
@@ -75,18 +83,25 @@ namespace samurai::experimental
             return m_shift;
         }
 
-        void next(auto scan)
+        template <class IntervalOp = detail::IntervalInfo>
+        void next(auto scan, IntervalOp iop = {})
         {
+            if (m_current == std::numeric_limits<int>::min())
+            {
+                m_current = start(iop.start_op(m_lca_level, m_first));
+                return;
+            }
+
             if (m_current == scan)
             {
                 if (m_is_start)
                 {
                     // std::cout << "end of m_first: " << end_op(m_first) << std::endl;
-                    m_current = end(m_first);
-                    while (m_first + 1 != m_last && m_current >= start(m_first + 1))
+                    m_current = end(iop.end_op(m_lca_level, m_first));
+                    while (m_first + 1 != m_last && m_current >= start(iop.start_op(m_lca_level, m_first + 1)))
                     {
                         m_first++;
-                        m_current = end(m_first);
+                        m_current = end(iop.end_op(m_lca_level, m_first));
                         // std::cout << "update end in while loop: " << m_current << std::endl;
                     }
                     // std::cout << "update end: " << m_current << std::endl;
@@ -99,7 +114,7 @@ namespace samurai::experimental
                         m_current = sentinel;
                         return;
                     }
-                    m_current = start(m_first);
+                    m_current = start(iop.start_op(m_lca_level, m_first));
                     // std::cout << "update start: " << m_current << std::endl;
                 }
                 m_is_start = !m_is_start;
@@ -109,6 +124,7 @@ namespace samurai::experimental
         int m_min_shift;
         int m_max_shift;
         int m_shift;
+        int m_lca_level;
         iterator_t m_first;
         iterator_t m_last;
         value_t m_current;

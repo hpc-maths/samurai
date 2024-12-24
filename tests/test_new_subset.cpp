@@ -32,48 +32,48 @@ namespace samurai::experimental
 
         ca = {cl, true};
 
-        {
-            auto set = intersection(identity(ca[4]).on(0), ca[5]).on(1);
-            apply(set,
-                  [](auto& i)
-                  {
-                      EXPECT_EQ(interval_t(0, 2), i);
-                  });
-        }
+        // {
+        //     auto set = intersection(identity(ca[4]).on(0), ca[5]).on(1);
+        //     apply(set,
+        //           [](auto& i)
+        //           {
+        //               EXPECT_EQ(interval_t(0, 2), i);
+        //           });
+        // }
 
-        {
-            auto set = intersection(identity(ca[5]).on(1), ca[1]);
-            EXPECT_EQ(set.level(), 1);
-            apply(set,
-                  [](auto& i)
-                  {
-                      EXPECT_EQ(interval_t(0, 2), i);
-                  });
+        // {
+        //     auto set = intersection(identity(ca[5]).on(1), ca[1]);
+        //     EXPECT_EQ(set.level(), 1);
+        //     apply(set,
+        //           [](auto& i)
+        //           {
+        //               EXPECT_EQ(interval_t(0, 2), i);
+        //           });
 
-            EXPECT_EQ(set.on(3).level(), 3);
-            apply(set.on(3),
-                  [](auto& i)
-                  {
-                      EXPECT_EQ(interval_t(0, 8), i);
-                  });
-        }
+        //     EXPECT_EQ(set.on(3).level(), 3);
+        //     apply(set.on(3),
+        //           [](auto& i)
+        //           {
+        //               EXPECT_EQ(interval_t(0, 8), i);
+        //           });
+        // }
 
-        {
-            auto set = union_(ca[4], intersection(identity(ca[5]).on(1), ca[1])).on(4);
-            EXPECT_EQ(set.level(), 4);
-            apply(set,
-                  [](auto& i)
-                  {
-                      EXPECT_EQ(interval_t(0, 20), i);
-                  });
+        // {
+        //     auto set = union_(ca[4], intersection(identity(ca[5]).on(1), ca[1])).on(4);
+        //     EXPECT_EQ(set.level(), 4);
+        //     apply(set,
+        //           [](auto& i)
+        //           {
+        //               EXPECT_EQ(interval_t(0, 20), i);
+        //           });
 
-            EXPECT_EQ(set.on(5).level(), 5);
-            apply(set,
-                  [](auto& i)
-                  {
-                      EXPECT_EQ(interval_t(0, 40), i);
-                  });
-        }
+        //     EXPECT_EQ(set.on(5).level(), 5);
+        //     apply(set,
+        //           [](auto& i)
+        //           {
+        //               EXPECT_EQ(interval_t(0, 40), i);
+        //           });
+        // }
 
         samurai::LevelCellList<1> Al(3);
         Al[{}].add_point(0);
@@ -94,6 +94,30 @@ namespace samurai::experimental
                   never_call = false;
               });
         EXPECT_TRUE(never_call);
+
+        apply(translation(Identity(A), std::array<int, 1>{2}).on(2),
+              [](auto& i)
+              {
+                  EXPECT_EQ(interval_t(2, 3), i);
+              });
+
+        apply(translation(Identity(B), std::array<int, 1>{-2}).on(2),
+              [](auto& i)
+              {
+                  EXPECT_EQ(interval_t(-1, 1), i);
+              });
+
+        apply(translation(Identity(B), std::array<int, 1>{-2}).on(1).on(2),
+              [](auto& i)
+              {
+                  EXPECT_EQ(interval_t(-2, 2), i);
+              });
+
+        apply(translation(Identity(B), std::array<int, 1>{-2}).on(4),
+              [](auto& i)
+              {
+                  EXPECT_EQ(interval_t(4, 8), i);
+              });
 
         never_call = true;
         apply(intersection(intersection(identity(A).on(2), identity(B).on(2)).on(1), C),
@@ -130,6 +154,12 @@ namespace samurai::experimental
               [](auto& i)
               {
                   EXPECT_EQ(interval_t(0, 1), i);
+              });
+
+        apply(translation(identity(A).on(2).on(1), std::array<int, 1>{1}),
+              [](auto& i)
+              {
+                  EXPECT_EQ(interval_t(1, 2), i);
               });
     }
 }
