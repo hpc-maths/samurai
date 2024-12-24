@@ -89,7 +89,7 @@ namespace samurai::experimental
 
         bool never_call = true;
         apply(intersection(intersection(identity(A).on(1), identity(B).on(1)).on(2), C),
-              [&never_call](auto& i)
+              [&never_call](auto&)
               {
                   never_call = false;
               });
@@ -97,7 +97,7 @@ namespace samurai::experimental
 
         never_call = true;
         apply(intersection(intersection(identity(A).on(2), identity(B).on(2)).on(1), C),
-              [&never_call](auto& i)
+              [&never_call](auto&)
               {
                   never_call = false;
               });

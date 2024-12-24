@@ -65,7 +65,7 @@ namespace samurai::experimental
                 result.end = scan;
                 r_ipos     = 0;
                 // std::cout << result << " " << set.shift() << std::endl;
-                auto true_result = result >> set.shift();
+                auto true_result = result >> static_cast<std::size_t>(set.shift());
                 func(true_result);
             }
 
@@ -75,15 +75,96 @@ namespace samurai::experimental
         }
     }
 
-    template <class... S>
-    class subset
+    template <class Operator, class... S>
+    class SetOp
     {
-        using set_type = std::tuple<std::decay_t<S>...>;
-
       public:
 
-        subset(S&&... s)
-            : m_s(std::forward<S>(s)...)
+        using set_type = std::tuple<std::decay_t<S>...>;
+
+        SetOp(int shift, Operator op, const S&... s)
+            : m_shift(shift)
+            , m_operator(op)
+            , m_s(s...)
+        {
+        }
+
+        auto shift() const
+        {
+            return m_shift;
+        }
+
+        bool is_in(auto scan) const
+        {
+            return std::apply(
+                [*this, scan](const auto&... args)
+                {
+                    return m_operator.is_in(scan, args...);
+                },
+                m_s);
+        }
+
+        auto min() const
+        {
+            return std::apply(
+                [](auto&... args)
+                {
+                    return compute_min(args.min()...);
+                },
+                m_s);
+        }
+
+        void next(auto scan)
+        {
+            std::apply(
+                [scan](auto&... args)
+                {
+                    (args.next(scan), ...);
+                },
+                m_s);
+        }
+
+      private:
+
+        int m_shift;
+        Operator m_operator;
+        set_type m_s;
+    };
+
+    struct IntersectionOp
+    {
+        bool is_in(auto scan, const auto&... args) const
+        {
+            return (args.is_in(scan) && ...);
+        }
+    };
+
+    struct UnionOp
+    {
+        bool is_in(auto scan, const auto&... args) const
+        {
+            return (args.is_in(scan) || ...);
+        }
+    };
+
+    struct DifferenceOp
+    {
+        bool is_in(auto scan, const auto& arg, const auto&... args) const
+        {
+            return arg.is_in(scan) && !(args.is_in(scan) || ...);
+        }
+    };
+
+    template <class Op, class... S>
+    class subset
+    {
+      public:
+
+        using set_type = std::tuple<S...>;
+
+        subset(Op&& op, S&&... s)
+            : m_operator(std::forward<Op>(op))
+            , m_s(std::forward<S>(s)...)
             , m_ref_level(compute_max(s.ref_level()...))
             , m_level(compute_max(s.level()...))
             , m_min_level(m_level)
@@ -96,7 +177,7 @@ namespace samurai::experimental
                 m_s);
         }
 
-        void on(auto level)
+        auto& on(auto level)
         {
             if (level > m_ref_level)
             {
@@ -105,6 +186,7 @@ namespace samurai::experimental
             m_min_level = std::min(m_min_level, level);
             m_level     = level;
             on_parent(level);
+            return *this;
         }
 
         void on_parent(auto level)
@@ -117,12 +199,13 @@ namespace samurai::experimental
                 m_s);
         }
 
-        auto get_local_set()
+        auto get_local_set() const
         {
+            int shift = this->ref_level() - this->level();
             return std::apply(
-                [](auto&&... args)
+                [*this, shift](auto&&... args)
                 {
-                    (args.get_local_set(), ...);
+                    return SetOp(shift, m_operator, args.get_local_set()...);
                 },
                 m_s);
         }
@@ -150,6 +233,7 @@ namespace samurai::experimental
 
       protected:
 
+        Op m_operator;
         set_type m_s;
         int m_ref_level;
         int m_level;
@@ -231,203 +315,6 @@ namespace samurai::experimental
         int m_min_level;
     };
 
-    template <class D>
-    struct SetOp : public crtp_base<D>
-    {
-        bool is_in(auto scan) const
-        {
-            return this->derived_cast().is_in_impl(scan);
-        }
-
-        auto min() const
-        {
-            return std::apply(
-                [](auto&... args)
-                {
-                    return compute_min(args.min()...);
-                },
-                this->derived_cast().get_elements());
-        }
-
-        void next(auto scan)
-        {
-            std::apply(
-                [scan](auto&... args)
-                {
-                    (args.next(scan), ...);
-                },
-                this->derived_cast().get_elements());
-        }
-    };
-
-    template <class... S>
-    class IntersectionOp : public SetOp<IntersectionOp<S...>>
-    {
-      public:
-
-        using set_type = std::tuple<std::decay_t<S>...>;
-
-        IntersectionOp(int shift, const S&... s)
-            : m_shift(shift)
-            , m_s(s...)
-        {
-        }
-
-        auto shift() const
-        {
-            return m_shift;
-        }
-
-        bool is_in_impl(auto scan) const
-        {
-            return std::apply(
-                [scan](const auto&... args)
-                {
-                    return (args.is_in(scan) && ...);
-                },
-                m_s);
-        }
-
-        const auto& get_elements() const
-        {
-            return m_s;
-        }
-
-        auto& get_elements()
-        {
-            return m_s;
-        }
-
-      private:
-
-        int m_shift;
-        set_type m_s;
-    };
-
-    template <class... S>
-    struct Intersection : public subset<S...>
-
-    {
-        using base = subset<S...>;
-        using base::base;
-
-        auto& on(auto level)
-        {
-            base::on(level);
-            return *this;
-        }
-
-        auto get_local_set() const
-        {
-            int shift = this->ref_level() - this->level();
-            return std::apply(
-                [shift](auto&... args)
-                {
-                    return IntersectionOp(shift, args.get_local_set()...);
-                },
-                this->m_s);
-        }
-    };
-
-    template <class... S>
-    class UnionOp : public SetOp<UnionOp<S...>>
-    {
-      public:
-
-        using set_type = std::tuple<std::decay_t<S>...>;
-
-        UnionOp(int shift, const S&... s)
-            : m_shift(shift)
-            , m_s(s...)
-        {
-        }
-
-        auto shift() const
-        {
-            return m_shift;
-        }
-
-        bool is_in_impl(auto scan) const
-        {
-            return std::apply(
-                [scan](const auto&... args)
-                {
-                    return (args.is_in(scan) || ...);
-                },
-                m_s);
-        }
-
-        const auto& get_elements() const
-        {
-            return m_s;
-        }
-
-        auto& get_elements()
-        {
-            return m_s;
-        }
-
-      private:
-
-        int m_shift;
-        set_type m_s;
-    };
-
-    template <class... S>
-    struct Union : public subset<S...>
-
-    {
-        using base = subset<S...>;
-        using base::base;
-
-        auto& on(auto level)
-        {
-            base::on(level);
-            return *this;
-        }
-
-        auto get_local_set() const
-        {
-            int shift = this->ref_level() - this->level();
-            return std::apply(
-                [shift](auto&... args)
-                {
-                    return UnionOp(shift, args.get_local_set()...);
-                },
-                this->m_s);
-        }
-    };
-
-    template <class... S>
-    struct Difference : public subset<S...>
-    {
-        bool is_in(std::size_t d, auto scan) const
-        {
-            if (d == 0)
-            {
-                return std::apply(
-                    [d, scan, this](const auto& arg, const auto&... args)
-                    {
-                        return arg.is_in(d, scan) && !(args.is_in(d, scan) || ...);
-                    },
-                    this->m_s);
-            }
-            return std::apply(
-                [d, scan, this](const auto&... args)
-                {
-                    return (args.is_in(d, scan) || ...);
-                },
-                this->m_s);
-        }
-    };
-
-    template <class... lca_t>
-        requires(IsLCA<lca_t> && ...)
-    auto make_intersection(const lca_t&... lca)
-    {
-        return Intersection<Identity<lca_t>...>(Identity(lca)...);
-    }
-
     namespace detail
     {
         template <std::size_t dim, class interval_t>
@@ -449,7 +336,7 @@ namespace samurai::experimental
         return std::apply(
             [](auto&&... args)
             {
-                return Intersection<std::decay_t<decltype(args)>...>(std::forward<decltype(args)>(args)...);
+                return subset(IntersectionOp(), std::forward<decltype(args)>(args)...);
             },
             std::make_tuple(detail::transform(std::forward<sets_t>(sets))...));
     }
@@ -460,7 +347,18 @@ namespace samurai::experimental
         return std::apply(
             [](auto&&... args)
             {
-                return Union<std::decay_t<decltype(args)>...>(std::forward<decltype(args)>(args)...);
+                return subset(UnionOp(), std::forward<decltype(args)>(args)...);
+            },
+            std::make_tuple(detail::transform(std::forward<sets_t>(sets))...));
+    }
+
+    template <class... sets_t>
+    auto difference(sets_t&&... sets)
+    {
+        return std::apply(
+            [](auto&&... args)
+            {
+                return subset(DifferenceOp(), std::forward<decltype(args)>(args)...);
             },
             std::make_tuple(detail::transform(std::forward<sets_t>(sets))...));
     }

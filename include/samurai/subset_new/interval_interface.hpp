@@ -28,7 +28,7 @@ namespace samurai::experimental
         using value_t          = typename vInterval_t::value_type::value_t;
 
         IntervalVector(auto lca_level, auto level, auto min_level, auto max_level, iterator_t begin, iterator_t end)
-            : m_min_shift(min_level - lca_level)
+            : m_min_shift(min_level - static_cast<int>(lca_level))
             , m_max_shift(max_level - min_level)
             , m_shift(max_level - level)
             , m_first(begin)
