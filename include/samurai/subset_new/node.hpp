@@ -408,9 +408,9 @@ namespace samurai::experimental
     }
 
     template <class set_t, std::size_t dim>
-    auto translation(const set_t& set, const std::array<int, dim>& t)
+    auto translation(set_t&& set, const std::array<int, dim>& t)
     {
-        return subset(TranslationOp(t), detail::transform(set));
+        return subset(TranslationOp(t), detail::transform(std::forward<set_t>(set)));
     }
 
     template <class lca_t>

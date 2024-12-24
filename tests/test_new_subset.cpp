@@ -32,48 +32,48 @@ namespace samurai::experimental
 
         ca = {cl, true};
 
-        // {
-        //     auto set = intersection(identity(ca[4]).on(0), ca[5]).on(1);
-        //     apply(set,
-        //           [](auto& i)
-        //           {
-        //               EXPECT_EQ(interval_t(0, 2), i);
-        //           });
-        // }
+        {
+            auto set = intersection(identity(ca[4]).on(0), ca[5]).on(1);
+            apply(set,
+                  [](auto& i)
+                  {
+                      EXPECT_EQ(interval_t(0, 2), i);
+                  });
+        }
 
-        // {
-        //     auto set = intersection(identity(ca[5]).on(1), ca[1]);
-        //     EXPECT_EQ(set.level(), 1);
-        //     apply(set,
-        //           [](auto& i)
-        //           {
-        //               EXPECT_EQ(interval_t(0, 2), i);
-        //           });
+        {
+            auto set = intersection(identity(ca[5]).on(1), ca[1]);
+            EXPECT_EQ(set.level(), 1);
+            apply(set,
+                  [](auto& i)
+                  {
+                      EXPECT_EQ(interval_t(0, 2), i);
+                  });
 
-        //     EXPECT_EQ(set.on(3).level(), 3);
-        //     apply(set.on(3),
-        //           [](auto& i)
-        //           {
-        //               EXPECT_EQ(interval_t(0, 8), i);
-        //           });
-        // }
+            EXPECT_EQ(set.on(3).level(), 3);
+            apply(set.on(3),
+                  [](auto& i)
+                  {
+                      EXPECT_EQ(interval_t(0, 8), i);
+                  });
+        }
 
-        // {
-        //     auto set = union_(ca[4], intersection(identity(ca[5]).on(1), ca[1])).on(4);
-        //     EXPECT_EQ(set.level(), 4);
-        //     apply(set,
-        //           [](auto& i)
-        //           {
-        //               EXPECT_EQ(interval_t(0, 20), i);
-        //           });
+        {
+            auto set = union_(ca[4], intersection(identity(ca[5]).on(1), ca[1])).on(4);
+            EXPECT_EQ(set.level(), 4);
+            apply(set,
+                  [](auto& i)
+                  {
+                      EXPECT_EQ(interval_t(0, 20), i);
+                  });
 
-        //     EXPECT_EQ(set.on(5).level(), 5);
-        //     apply(set,
-        //           [](auto& i)
-        //           {
-        //               EXPECT_EQ(interval_t(0, 40), i);
-        //           });
-        // }
+            EXPECT_EQ(set.on(5).level(), 5);
+            apply(set,
+                  [](auto& i)
+                  {
+                      EXPECT_EQ(interval_t(0, 40), i);
+                  });
+        }
 
         samurai::LevelCellList<1> Al(3);
         Al[{}].add_point(0);
@@ -94,6 +94,18 @@ namespace samurai::experimental
                   never_call = false;
               });
         EXPECT_TRUE(never_call);
+
+        apply(intersection(translation(A, std::array<int, 1>{2}), B).on(4),
+              [](auto& i)
+              {
+                  EXPECT_EQ(interval_t(6, 8), i);
+              });
+
+        apply(translation(intersection(A, B).on(1), std::array<int, 1>{5}).on(4),
+              [](auto& i)
+              {
+                  EXPECT_EQ(interval_t(40, 49), i);
+              });
 
         apply(translation(Identity(A), std::array<int, 1>{2}).on(2),
               [](auto& i)
