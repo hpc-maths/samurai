@@ -1,121 +1,32 @@
 // Copyright 2018-2024 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-#include <concepts>
+#pragma once
+
 #include <cstddef>
 #include <limits>
 #include <tuple>
 #include <type_traits>
 #include <utility>
 
-#include "crtp.hpp"
+#include "../algorithm.hpp"
+#include "concepts.hpp"
 #include "interval_interface.hpp"
-#include "samurai/algorithm.hpp"
-#include "samurai/interval.hpp"
 
 namespace samurai::experimental
 {
-    constexpr auto compute_min(auto const& value, auto const&... args)
-    {
-        if constexpr (sizeof...(args) == 0u) // Single argument case!
-        {
-            return value;
-        }
-        else // For the Ts...
-        {
-            const auto min = compute_min(args...);
-            return value < min ? value : min;
-        }
-    }
-
-    constexpr auto compute_max(auto const& value, auto const&... args)
-    {
-        if constexpr (sizeof...(args) == 0u) // Single argument case!
-        {
-            return value;
-        }
-        else // For the Ts...
-        {
-            const auto max = compute_max(args...);
-            return value > max ? value : max;
-        }
-    }
-
-    template <class Set, class Func>
-    void apply(Set&& global_set, Func&& func)
-    {
-        auto set = global_set.get_local_set();
-        apply(set, std::forward<Func>(func));
-    }
-
-    template <class Operator, class... S>
-    class SetOp;
-
-    template <class T>
-    struct is_setop : std::false_type
-    {
-    };
-
-    template <class... T>
-    struct is_setop<SetOp<T...>> : std::true_type
-    {
-    };
-
-    template <class T>
-    constexpr bool is_setop_v{is_setop<std::decay_t<T>>::value};
-
-    template <typename T>
-    concept IsSetOp = is_setop_v<T>;
-
-    template <typename T>
-    concept IsIntervalVector = std::is_base_of_v<IntervalVector<typename std::decay_t<T>::iterator_t>, std::decay_t<T>>;
-
-    template <class Set, class Func>
-        requires IsSetOp<Set> || IsIntervalVector<Set>
-    void apply(Set&& set, Func&& func)
-    {
-        Interval<int, long long> result;
-        int r_ipos = 0;
-        set.next(0);
-        auto scan = set.min();
-        // std::cout << "first scan " << scan << std::endl;
-
-        while (scan < sentinel && !set.is_empty())
-        {
-            bool is_in = set.is_in(scan);
-            // std::cout << std::boolalpha << "is_in: " << is_in << std::endl;
-
-            if (is_in && r_ipos == 0)
-            {
-                result.start = scan;
-                r_ipos       = 1;
-            }
-            else if (!is_in && r_ipos == 1)
-            {
-                result.end = scan;
-                r_ipos     = 0;
-                // std::cout << result << " " << set.shift() << std::endl;
-                auto true_result = result >> static_cast<std::size_t>(set.shift());
-                func(true_result);
-            }
-
-            set.next(scan);
-            scan = set.min();
-            // std::cout << "scan " << scan << std::endl;
-        }
-    }
-
-    template <class Operator, class... S>
+    template <class Operator, class S1, class... S>
     class SetOp
     {
       public:
 
-        using set_type = std::tuple<std::decay_t<S>...>;
+        using set_type   = std::tuple<S1, S...>;
+        using interval_t = typename S1::interval_t;
 
-        SetOp(int shift, Operator op, const S&... s)
+        SetOp(int shift, Operator op, const S1& s1, const S&... s)
             : m_shift(shift)
             , m_operator(op)
-            , m_s(s...)
+            , m_s(s1, s...)
         {
         }
 
@@ -238,12 +149,12 @@ namespace samurai::experimental
 
         inline auto start_op(int level, const auto it)
         {
-            return it->start + detail::start_shift(m_t[0], level - m_level);
+            return it->start + start_shift(m_t[0], level - m_level);
         }
 
         inline auto end_op(int level, const auto it)
         {
-            return it->end + detail::end_shift(m_t[0], level - m_level);
+            return it->end + end_shift(m_t[0], level - m_level);
         }
 
         inline void set_level(auto level)
@@ -342,22 +253,6 @@ namespace samurai::experimental
         int m_level;
         int m_min_level;
     };
-
-    template <class T>
-    struct is_lca : std::false_type
-    {
-    };
-
-    template <std::size_t dim, class interval_t>
-    struct is_lca<LevelCellArray<dim, interval_t>> : std::true_type
-    {
-    };
-
-    template <class T>
-    using is_lca_v = typename is_lca<std::decay_t<T>>::value;
-
-    template <typename T>
-    concept IsLCA = std::same_as<LevelCellArray<T::dim, typename T::interval_t>, T>;
 
     template <class lca_t>
         requires IsLCA<lca_t>

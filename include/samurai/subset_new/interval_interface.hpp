@@ -1,30 +1,20 @@
+// Copyright 2018-2024 the samurai's authors
+// SPDX-License-Identifier:  BSD-3-Clause
+
 #pragma once
 
 #include <algorithm>
 #include <cstddef>
 #include <limits>
-#include <type_traits>
 
 #include <xtl/xiterator_base.hpp>
 
+#include "utils.hpp"
+
 namespace samurai::experimental
 {
-    static constexpr int sentinel = std::numeric_limits<int>::max();
-
     namespace detail
     {
-        template <class T>
-        inline T end_shift(T value, T shift)
-        {
-            return shift >= 0 ? value << shift : ((value - 1) >> -shift) + 1;
-        }
-
-        template <class T>
-        inline T start_shift(T value, T shift)
-        {
-            return shift >= 0 ? value << shift : value >> -shift;
-        }
-
         struct IntervalInfo
         {
             inline auto start_op(auto, const auto it)
@@ -50,7 +40,8 @@ namespace samurai::experimental
       public:
 
         using iterator_t = iterator;
-        using value_t    = typename iterator_t::value_type::value_t;
+        using interval_t = typename iterator_t::value_type;
+        using value_t    = typename interval_t::value_t;
 
         IntervalVector(auto lca_level, auto level, auto min_level, auto max_level, iterator_t begin, iterator_t end)
             : m_min_shift(min_level - static_cast<int>(lca_level))
@@ -66,22 +57,22 @@ namespace samurai::experimental
 
         auto start(const auto i) const
         {
-            return detail::start_shift(detail::start_shift(i, m_min_shift), m_max_shift);
+            return start_shift(start_shift(i, m_min_shift), m_max_shift);
         }
 
         auto end(const auto i) const
         {
-            return detail::end_shift(detail::end_shift(i, m_min_shift), m_max_shift);
+            return end_shift(end_shift(i, m_min_shift), m_max_shift);
         }
 
         bool is_in(auto scan) const
         {
-            return m_current != sentinel && !((scan < m_current) ^ !m_is_start);
+            return m_current != sentinel<value_t> && !((scan < m_current) ^ !m_is_start);
         }
 
         bool is_empty() const
         {
-            return m_current == sentinel;
+            return m_current == sentinel<value_t>;
         }
 
         auto min() const
@@ -122,7 +113,7 @@ namespace samurai::experimental
                     m_first++;
                     if (m_first == m_last)
                     {
-                        m_current = sentinel;
+                        m_current = sentinel<value_t>;
                         return;
                     }
                     m_current = start(iop.start_op(m_lca_level, m_first));

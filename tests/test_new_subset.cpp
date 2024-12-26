@@ -1,13 +1,14 @@
 #include <cstddef>
 #include <span>
 
-#include "samurai/interval.hpp"
-#include "samurai/level_cell_array.hpp"
-#include "samurai/subset_new/interval_interface.hpp"
 #include <gtest/gtest.h>
 
 #include <samurai/cell_array.hpp>
 #include <samurai/cell_list.hpp>
+#include <samurai/interval.hpp>
+#include <samurai/level_cell_array.hpp>
+#include <samurai/subset_new/apply.hpp>
+#include <samurai/subset_new/interval_interface.hpp>
 #include <samurai/subset_new/node.hpp>
 
 namespace samurai::experimental
