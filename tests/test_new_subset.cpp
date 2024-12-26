@@ -113,25 +113,25 @@ namespace samurai::experimental
                   EXPECT_EQ(interval_t(40, 49), i);
               });
 
-        apply(translation(self(A), std::array<int, 1>{2}).on(2),
+        apply(translation(A, std::array<int, 1>{2}).on(2),
               [](auto& i)
               {
                   EXPECT_EQ(interval_t(2, 3), i);
               });
 
-        apply(translation(self(B), std::array<int, 1>{-2}).on(2),
+        apply(translation(B, std::array<int, 1>{-2}).on(2),
               [](auto& i)
               {
                   EXPECT_EQ(interval_t(-1, 1), i);
               });
 
-        apply(translation(self(B), std::array<int, 1>{-2}).on(1).on(2),
+        apply(translation(B, std::array<int, 1>{-2}).on(1).on(2),
               [](auto& i)
               {
                   EXPECT_EQ(interval_t(-2, 2), i);
               });
 
-        apply(translation(self(B), std::array<int, 1>{-2}).on(4),
+        apply(translation(B, std::array<int, 1>{-2}).on(4),
               [](auto& i)
               {
                   EXPECT_EQ(interval_t(4, 8), i);
@@ -151,13 +151,13 @@ namespace samurai::experimental
                   EXPECT_EQ(interval_t(0, 4), i);
               });
 
-        apply(intersection(self(A).on(1), self(B)).on(2),
+        apply(intersection(self(A).on(1), B).on(2),
               [](auto& i)
               {
                   EXPECT_EQ(interval_t(1, 2), i);
               });
 
-        apply(intersection(union_(self(A).on(2), self(B).on(2)), self(B)).on(2),
+        apply(intersection(union_(self(A).on(2), self(B).on(2)), B).on(2),
               [](auto& i)
               {
                   EXPECT_EQ(interval_t(1, 3), i);
