@@ -1,8 +1,6 @@
 // Copyright 2018-2024 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-#include "samurai/algorithm.hpp"
-#include "samurai/interval.hpp"
 #include <concepts>
 #include <cstddef>
 #include <limits>
@@ -12,6 +10,8 @@
 
 #include "crtp.hpp"
 #include "interval_interface.hpp"
+#include "samurai/algorithm.hpp"
+#include "samurai/interval.hpp"
 
 namespace samurai::experimental
 {
@@ -80,7 +80,7 @@ namespace samurai::experimental
         auto scan = set.min();
         // std::cout << "first scan " << scan << std::endl;
 
-        while (scan < sentinel)
+        while (scan < sentinel && !set.is_empty())
         {
             bool is_in = set.is_in(scan);
             // std::cout << std::boolalpha << "is_in: " << is_in << std::endl;
@@ -134,6 +134,16 @@ namespace samurai::experimental
                 m_s);
         }
 
+        bool is_empty() const
+        {
+            return std::apply(
+                [*this](const auto&... args)
+                {
+                    return m_operator.is_empty(args...);
+                },
+                m_s);
+        }
+
         auto min() const
         {
             return std::apply(
@@ -173,6 +183,11 @@ namespace samurai::experimental
         {
             return (args.is_in(scan) && ...);
         }
+
+        bool is_empty(const auto&... args) const
+        {
+            return (args.is_empty() || ...);
+        }
     };
 
     struct UnionOp : public detail::IntervalInfo
@@ -181,6 +196,11 @@ namespace samurai::experimental
         {
             return (args.is_in(scan) || ...);
         }
+
+        bool is_empty(const auto&... args) const
+        {
+            return (args.is_empty() && ...);
+        }
     };
 
     struct DifferenceOp : public detail::IntervalInfo
@@ -188,6 +208,11 @@ namespace samurai::experimental
         bool is_in(auto scan, const auto& arg, const auto&... args) const
         {
             return arg.is_in(scan) && !(args.is_in(scan) || ...);
+        }
+
+        bool is_empty(const auto& arg, const auto&...) const
+        {
+            return arg.is_empty();
         }
     };
 
@@ -204,6 +229,11 @@ namespace samurai::experimental
         bool is_in(auto scan, const auto& arg) const
         {
             return arg.is_in(scan);
+        }
+
+        bool is_empty(const auto& arg) const
+        {
+            return arg.is_empty();
         }
 
         inline auto start_op(int level, const auto it)

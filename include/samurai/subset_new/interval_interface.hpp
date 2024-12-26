@@ -49,11 +49,6 @@ namespace samurai::experimental
     {
       public:
 
-        // using container_t       = vInterval_t;
-        // using decay_container_t = std::decay_t<vInterval_t>;
-        // using const_iterator_t  = typename decay_container_t::const_iterator;
-        // using value_t           = typename decay_container_t::value_type::value_t;
-
         using iterator_t = iterator;
         using value_t    = typename iterator_t::value_type::value_t;
 
@@ -67,7 +62,6 @@ namespace samurai::experimental
             , m_current(std::numeric_limits<int>::min())
             , m_is_start(true)
         {
-            // std::cout << "start with: " << m_current << " " << level << " " << m_min_shift << " " << m_max_shift << std::endl;
         }
 
         auto start(const auto i) const
@@ -81,9 +75,13 @@ namespace samurai::experimental
         }
 
         bool is_in(auto scan) const
-
         {
             return m_current != sentinel && !((scan < m_current) ^ !m_is_start);
+        }
+
+        bool is_empty() const
+        {
+            return m_current == sentinel;
         }
 
         auto min() const
@@ -162,6 +160,7 @@ namespace samurai::experimental
             : m_interval_it(interval_it)
             , m_interval_end(interval_it + (!is_end ? static_cast<std::ptrdiff_t>(offset.back()) : 0))
             , m_offset(offset)
+            , m_count(1)
         {
             p_first.reserve(offset.size() - 1);
             p_last.reserve(offset.size() - 1);
@@ -185,16 +184,9 @@ namespace samurai::experimental
         {
             using value_t = typename value_type::value_t;
 
-            std::size_t count = 0;
-            for (std::size_t i = 0; i < p_first.size(); ++i)
-            {
-                if (p_first[i] == p_last[i])
-                {
-                    count++;
-                }
-            }
+            update_count();
 
-            if (count == m_offset.size() - 1)
+            if (m_count == m_offset.size())
             {
                 m_current = {0, 0};
                 return;
@@ -274,12 +266,28 @@ namespace samurai::experimental
 
       private:
 
+        void update_count()
+        {
+            if (m_count != m_offset.size())
+            {
+                m_count = 1;
+                for (std::size_t i = 0; i < p_first.size(); ++i)
+                {
+                    if (p_first[i] == p_last[i])
+                    {
+                        m_count++;
+                    }
+                }
+            }
+        }
+
         value_type m_current;
         std::vector<const_iterator_t> p_first;
         std::vector<const_iterator_t> p_last;
         const_iterator_t m_interval_it;
         const_iterator_t m_interval_end;
         const offset_t& m_offset;
+        std::size_t m_count;
     };
 
     template <class const_iterator_t, class offset_t>
@@ -293,45 +301,13 @@ namespace samurai::experimental
         return temp;
     }
 
-    template <class interval_t, class offset_t>
-    class offset_view
+    auto IntervalVectorOffset(auto lca_level, auto level, auto min_level, auto max_level, const auto& x, const auto& offset)
     {
-      public:
-
-        using container_t = std::vector<interval_t>;
-        using iterator_t  = typename container_t::iterator;
-
-        offset_view(const container_t& intervals, const offset_t& offsets)
-            : m_intervals{intervals}
-            , m_offsets(offsets)
-        {
-        }
-
-        auto begin() const
-        {
-            return offset_iterator(m_intervals.cbegin(), m_offsets);
-        }
-
-        auto end() const
-        {
-            return offset_iterator(m_intervals.cbegin() + static_cast<std::ptrdiff_t>(m_offsets.back()), m_offsets, true);
-        }
-
-      private:
-
-        const container_t& m_intervals;
-        const offset_t& m_offsets;
-    };
-
-    template <class container_t, class offset_t>
-    struct IntervalVectorOffset : public IntervalVector<offset_iterator<typename container_t::const_iterator, offset_t>>
-    {
-        using iterator_t = offset_iterator<typename container_t::const_iterator, offset_t>;
-        using base_t     = IntervalVector<iterator_t>;
-
-        IntervalVectorOffset(auto lca_level, auto level, auto min_level, auto max_level, const container_t& x, const offset_t& offset)
-            : base_t(lca_level, level, min_level, max_level, offset_view(x, offset).begin(), offset_view(x, offset).end())
-        {
-        }
-    };
+        return IntervalVector(lca_level,
+                              level,
+                              min_level,
+                              max_level,
+                              offset_iterator(x.cbegin(), offset),
+                              offset_iterator(x.cbegin() + static_cast<std::ptrdiff_t>(offset.back()), offset, true));
+    }
 }

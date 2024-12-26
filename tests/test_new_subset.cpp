@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <span>
 
 #include "samurai/interval.hpp"
@@ -191,14 +192,15 @@ namespace samurai::experimental
         };
         std::vector<std::size_t> offset = {0, 2, 4, 5};
 
-        auto off = offset_view(x, offset);
-        auto it  = off.begin();
+        auto begin = offset_iterator(x.cbegin(), offset);
+        auto end   = offset_iterator(x.cbegin() + static_cast<std::ptrdiff_t>(offset.back()), offset, true);
+        auto it    = begin;
         EXPECT_EQ(interval_t(0, 5), *it);
         it++;
         EXPECT_EQ(interval_t(7, 9), *it);
         it++;
         it++;
-        EXPECT_TRUE(it == off.end());
+        EXPECT_TRUE(it == end);
     }
 
     TEST(new_subset, union_of_offset)
