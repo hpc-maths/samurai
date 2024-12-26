@@ -39,7 +39,7 @@ namespace samurai::experimental
         ca = {cl, true};
 
         {
-            auto set = intersection(identity(ca[4]).on(0), ca[5]).on(1);
+            auto set = intersection(self(ca[4]).on(0), ca[5]).on(1);
             apply(set,
                   [](auto& i)
                   {
@@ -48,7 +48,7 @@ namespace samurai::experimental
         }
 
         {
-            auto set = intersection(identity(ca[5]).on(1), ca[1]);
+            auto set = intersection(self(ca[5]).on(1), ca[1]);
             EXPECT_EQ(set.level(), 1);
             apply(set,
                   [](auto& i)
@@ -65,7 +65,7 @@ namespace samurai::experimental
         }
 
         {
-            auto set = union_(ca[4], intersection(identity(ca[5]).on(1), ca[1])).on(4);
+            auto set = union_(ca[4], intersection(self(ca[5]).on(1), ca[1])).on(4);
             EXPECT_EQ(set.level(), 4);
             apply(set,
                   [](auto& i)
@@ -94,7 +94,7 @@ namespace samurai::experimental
         samurai::LevelCellArray<1> C{Cl};
 
         bool never_call = true;
-        apply(intersection(intersection(identity(A).on(1), identity(B).on(1)).on(2), C),
+        apply(intersection(intersection(self(A).on(1), self(B).on(1)).on(2), C),
               [&never_call](auto&)
               {
                   never_call = false;
@@ -113,68 +113,68 @@ namespace samurai::experimental
                   EXPECT_EQ(interval_t(40, 49), i);
               });
 
-        apply(translation(Identity(A), std::array<int, 1>{2}).on(2),
+        apply(translation(self(A), std::array<int, 1>{2}).on(2),
               [](auto& i)
               {
                   EXPECT_EQ(interval_t(2, 3), i);
               });
 
-        apply(translation(Identity(B), std::array<int, 1>{-2}).on(2),
+        apply(translation(self(B), std::array<int, 1>{-2}).on(2),
               [](auto& i)
               {
                   EXPECT_EQ(interval_t(-1, 1), i);
               });
 
-        apply(translation(Identity(B), std::array<int, 1>{-2}).on(1).on(2),
+        apply(translation(self(B), std::array<int, 1>{-2}).on(1).on(2),
               [](auto& i)
               {
                   EXPECT_EQ(interval_t(-2, 2), i);
               });
 
-        apply(translation(Identity(B), std::array<int, 1>{-2}).on(4),
+        apply(translation(self(B), std::array<int, 1>{-2}).on(4),
               [](auto& i)
               {
                   EXPECT_EQ(interval_t(4, 8), i);
               });
 
         never_call = true;
-        apply(intersection(intersection(identity(A).on(2), identity(B).on(2)).on(1), C),
+        apply(intersection(intersection(self(A).on(2), self(B).on(2)).on(1), C),
               [&never_call](auto&)
               {
                   never_call = false;
               });
         EXPECT_TRUE(never_call);
 
-        apply(intersection(identity(A).on(1), identity(B).on(1)).on(2).on(1).on(3),
+        apply(intersection(self(A).on(1), self(B).on(1)).on(2).on(1).on(3),
               [](auto& i)
               {
                   EXPECT_EQ(interval_t(0, 4), i);
               });
 
-        apply(intersection(identity(A).on(1), identity(B)).on(2),
+        apply(intersection(self(A).on(1), self(B)).on(2),
               [](auto& i)
               {
                   EXPECT_EQ(interval_t(1, 2), i);
               });
 
-        apply(intersection(union_(identity(A).on(2), identity(B).on(2)), identity(B)).on(2),
+        apply(intersection(union_(self(A).on(2), self(B).on(2)), self(B)).on(2),
               [](auto& i)
               {
                   EXPECT_EQ(interval_t(1, 3), i);
               });
-        apply(identity(A).on(1).on(2),
+        apply(self(A).on(1).on(2),
               [](auto& i)
               {
                   EXPECT_EQ(interval_t(0, 2), i);
               });
 
-        apply(identity(A).on(2).on(1),
+        apply(self(A).on(2).on(1),
               [](auto& i)
               {
                   EXPECT_EQ(interval_t(0, 1), i);
               });
 
-        apply(translation(identity(A).on(2).on(1), std::array<int, 1>{1}),
+        apply(translation(self(A).on(2).on(1), std::array<int, 1>{1}),
               [](auto& i)
               {
                   EXPECT_EQ(interval_t(1, 2), i);

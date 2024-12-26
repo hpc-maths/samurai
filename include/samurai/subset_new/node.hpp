@@ -256,13 +256,13 @@ namespace samurai::experimental
 
     template <class lca_t>
         requires IsLCA<lca_t>
-    struct Identity
+    struct Self
     {
         static constexpr std::size_t dim = lca_t::dim;
         using interval_t                 = typename lca_t::interval_t;
         using value_t                    = typename interval_t::value_t;
 
-        Identity(const lca_t& lca)
+        Self(const lca_t& lca)
             : m_lca(lca)
             , m_level(static_cast<int>(lca.level()))
             , m_ref_level(m_level)
@@ -313,7 +313,7 @@ namespace samurai::experimental
         template <std::size_t dim, class interval_t>
         auto transform(LevelCellArray<dim, interval_t>& lca)
         {
-            return Identity<LevelCellArray<dim, interval_t>>(lca);
+            return Self<LevelCellArray<dim, interval_t>>(lca);
         }
 
         template <class E>
@@ -363,8 +363,8 @@ namespace samurai::experimental
     }
 
     template <class lca_t>
-    auto identity(lca_t&& lca)
+    auto self(lca_t&& lca)
     {
-        return Identity<std::decay_t<lca_t>>(std::forward<lca_t>(lca));
+        return Self<std::decay_t<lca_t>>(std::forward<lca_t>(lca));
     }
 }
