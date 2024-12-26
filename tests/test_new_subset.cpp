@@ -1,4 +1,8 @@
+#include <span>
+
+#include "samurai/interval.hpp"
 #include "samurai/level_cell_array.hpp"
+#include "samurai/subset_new/interval_interface.hpp"
 #include <gtest/gtest.h>
 
 #include <samurai/cell_array.hpp>
@@ -174,4 +178,58 @@ namespace samurai::experimental
                   EXPECT_EQ(interval_t(1, 2), i);
               });
     }
+
+    TEST(new_subset, offset_iterator)
+    {
+        using interval_t          = Interval<int>;
+        std::vector<interval_t> x = {
+            {0, 2},
+            {4, 5},
+            {0, 1},
+            {2, 4},
+            {7, 9}
+        };
+        std::vector<std::size_t> offset = {0, 2, 4, 5};
+
+        auto off = offset_view(x, offset);
+        auto it  = off.begin();
+        EXPECT_EQ(interval_t(0, 5), *it);
+        it++;
+        EXPECT_EQ(interval_t(7, 9), *it);
+        it++;
+        it++;
+        EXPECT_TRUE(it == off.end());
+    }
+
+    TEST(new_subset, union_of_offset)
+    {
+        using interval_t          = Interval<int>;
+        int level                 = 0;
+        std::vector<interval_t> x = {
+            {0, 2},
+            {4, 5},
+            {0, 1},
+            {3, 4},
+            {7, 9}
+        };
+        std::vector<std::size_t> offset = {0, 2, 4, 5};
+
+        auto set_1 = IntervalVectorOffset(level + 2, level + 1, level + 1, level + 2, x, offset);
+
+        apply(set_1,
+              [](auto& i)
+              {
+                  EXPECT_EQ(interval_t(0, 5), i);
+              });
+
+        auto partial_offset_view = std::span(offset).subspan(1, 3);
+        auto set_2               = IntervalVectorOffset(level + 2, level, level, level + 2, x, partial_offset_view);
+
+        apply(set_2,
+              [](auto& i)
+              {
+                  EXPECT_EQ(interval_t(0, 3), i);
+              });
+    }
+
 }

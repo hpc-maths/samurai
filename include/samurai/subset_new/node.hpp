@@ -45,6 +45,35 @@ namespace samurai::experimental
     void apply(Set&& global_set, Func&& func)
     {
         auto set = global_set.get_local_set();
+        apply(set, std::forward<Func>(func));
+    }
+
+    template <class Operator, class... S>
+    class SetOp;
+
+    template <class T>
+    struct is_setop : std::false_type
+    {
+    };
+
+    template <class... T>
+    struct is_setop<SetOp<T...>> : std::true_type
+    {
+    };
+
+    template <class T>
+    constexpr bool is_setop_v{is_setop<std::decay_t<T>>::value};
+
+    template <typename T>
+    concept IsSetOp = is_setop_v<T>;
+
+    template <typename T>
+    concept IsIntervalVector = std::is_base_of_v<IntervalVector<typename std::decay_t<T>::iterator_t>, std::decay_t<T>>;
+
+    template <class Set, class Func>
+        requires IsSetOp<Set> || IsIntervalVector<Set>
+    void apply(Set&& set, Func&& func)
+    {
         Interval<int, long long> result;
         int r_ipos = 0;
         set.next(0);
@@ -195,7 +224,7 @@ namespace samurai::experimental
       private:
 
         std::array<int, dim> m_t;
-        int m_level;
+        int m_level{std::numeric_limits<int>::min()};
     };
 
     template <class Op, class... S>
@@ -308,7 +337,7 @@ namespace samurai::experimental
         using interval_t                 = typename lca_t::interval_t;
         using value_t                    = typename interval_t::value_t;
 
-        Identity(lca_t& lca)
+        Identity(const lca_t& lca)
             : m_lca(lca)
             , m_level(static_cast<int>(lca.level()))
             , m_ref_level(m_level)
@@ -318,12 +347,7 @@ namespace samurai::experimental
 
         auto get_local_set()
         {
-            return IntervalVector<std::decay_t<decltype(m_lca[0])>>(m_lca.level(),
-                                                                    m_level,
-                                                                    m_min_level,
-                                                                    m_ref_level,
-                                                                    m_lca[0].begin(),
-                                                                    m_lca[0].end());
+            return IntervalVector(m_lca.level(), m_level, m_min_level, m_ref_level, m_lca[0].begin(), m_lca[0].end());
         }
 
         auto ref_level() const
@@ -353,7 +377,7 @@ namespace samurai::experimental
             m_min_level = std::min(m_min_level, level);
         }
 
-        lca_t& m_lca;
+        const lca_t& m_lca;
         int m_level;
         int m_ref_level;
         int m_min_level;

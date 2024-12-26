@@ -1,5 +1,12 @@
 #pragma once
 
+#include <algorithm>
+#include <cstddef>
+#include <limits>
+#include <type_traits>
+
+#include <xtl/xiterator_base.hpp>
+
 namespace samurai::experimental
 {
     static constexpr int sentinel = std::numeric_limits<int>::max();
@@ -37,12 +44,18 @@ namespace samurai::experimental
 
     } // namespace detail
 
-    template <class vInterval_t>
-    struct IntervalVector
+    template <class iterator>
+    class IntervalVector
     {
-        using iterator_t       = typename vInterval_t::iterator;
-        using const_iterator_t = typename vInterval_t::const_iterator;
-        using value_t          = typename vInterval_t::value_type::value_t;
+      public:
+
+        // using container_t       = vInterval_t;
+        // using decay_container_t = std::decay_t<vInterval_t>;
+        // using const_iterator_t  = typename decay_container_t::const_iterator;
+        // using value_t           = typename decay_container_t::value_type::value_t;
+
+        using iterator_t = iterator;
+        using value_t    = typename iterator_t::value_type::value_t;
 
         IntervalVector(auto lca_level, auto level, auto min_level, auto max_level, iterator_t begin, iterator_t end)
             : m_min_shift(min_level - static_cast<int>(lca_level))
@@ -121,6 +134,8 @@ namespace samurai::experimental
             }
         }
 
+      private:
+
         int m_min_shift;
         int m_max_shift;
         int m_shift;
@@ -129,5 +144,194 @@ namespace samurai::experimental
         iterator_t m_last;
         value_t m_current;
         bool m_is_start;
+    };
+
+    template <class const_iterator_t, class offset_t>
+    class offset_iterator
+    {
+      public:
+
+        using iterator_category = std::forward_iterator_tag;
+        using const_iterator    = const_iterator_t;
+        using value_type        = typename const_iterator_t::value_type;
+        using const_reference   = typename const_iterator_t::reference;
+        using pointer           = typename const_iterator_t::pointer;
+        using const_pointer     = const pointer;
+
+        offset_iterator(const_iterator_t interval_it, const offset_t& offset, bool is_end = false)
+            : m_interval_it(interval_it)
+            , m_interval_end(interval_it + (!is_end ? static_cast<std::ptrdiff_t>(offset.back()) : 0))
+            , m_offset(offset)
+        {
+            p_first.reserve(offset.size() - 1);
+            p_last.reserve(offset.size() - 1);
+            for (std::size_t i = 0; i < offset.size() - 1; ++i)
+            {
+                if (is_end)
+                {
+                    p_first.push_back(interval_it + static_cast<std::ptrdiff_t>(offset[i + 1]));
+                }
+                else
+                {
+                    p_first.push_back(interval_it + static_cast<std::ptrdiff_t>(offset[i]));
+                }
+                p_last.push_back(interval_it + static_cast<std::ptrdiff_t>(offset[i + 1]));
+            }
+
+            next();
+        }
+
+        void next()
+        {
+            using value_t = typename value_type::value_t;
+
+            std::size_t count = 0;
+            for (std::size_t i = 0; i < p_first.size(); ++i)
+            {
+                if (p_first[i] == p_last[i])
+                {
+                    count++;
+                }
+            }
+
+            if (count == m_offset.size() - 1)
+            {
+                m_current = {0, 0};
+                return;
+            }
+
+            auto start = std::numeric_limits<value_t>::max();
+            auto end   = std::numeric_limits<value_t>::min();
+
+            for (std::size_t i = 0; i < p_first.size(); ++i)
+            {
+                if (p_first[i] != p_last[i])
+                {
+                    if (start >= p_first[i]->start)
+                    {
+                        start         = p_first[i]->start;
+                        end           = std::max(end, p_first[i]->end);
+                        m_interval_it = p_first[i];
+                        p_first[i]++;
+                    }
+                }
+            }
+
+            bool unchanged = false;
+            while (!unchanged)
+            {
+                unchanged = true;
+                for (std::size_t i = 0; i < p_first.size(); ++i)
+                {
+                    if (p_first[i] != p_last[i] && p_first[i]->start <= end)
+                    {
+                        end = std::max(end, p_first[i]->end);
+                        p_first[i]++;
+                        unchanged = false;
+                    }
+                }
+            }
+
+            m_current = {start, end};
+        }
+
+        offset_iterator& operator++()
+        {
+            next();
+            if (!m_current.is_valid())
+            {
+                m_interval_it = m_interval_end;
+            }
+            return *this;
+        }
+
+        offset_iterator operator++(int)
+        {
+            offset_iterator temp = *this;
+            ++(*this);
+            return temp;
+        }
+
+        const_reference operator*() const
+        {
+            return m_current;
+        }
+
+        const_pointer operator->() const
+        {
+            return &m_current;
+        }
+
+        bool operator==(const offset_iterator& other) const
+        {
+            return m_interval_it == other.m_interval_it;
+        }
+
+        bool operator!=(const offset_iterator& other) const
+        {
+            return !(*this == other);
+        }
+
+      private:
+
+        value_type m_current;
+        std::vector<const_iterator_t> p_first;
+        std::vector<const_iterator_t> p_last;
+        const_iterator_t m_interval_it;
+        const_iterator_t m_interval_end;
+        const offset_t& m_offset;
+    };
+
+    template <class const_iterator_t, class offset_t>
+    auto operator+(const offset_iterator<const_iterator_t, offset_t>& it, int i)
+    {
+        offset_iterator<const_iterator_t, offset_t> temp = it;
+        for (int ii = 0; ii < i; ++ii)
+        {
+            temp++;
+        }
+        return temp;
+    }
+
+    template <class interval_t, class offset_t>
+    class offset_view
+    {
+      public:
+
+        using container_t = std::vector<interval_t>;
+        using iterator_t  = typename container_t::iterator;
+
+        offset_view(const container_t& intervals, const offset_t& offsets)
+            : m_intervals{intervals}
+            , m_offsets(offsets)
+        {
+        }
+
+        auto begin() const
+        {
+            return offset_iterator(m_intervals.cbegin(), m_offsets);
+        }
+
+        auto end() const
+        {
+            return offset_iterator(m_intervals.cbegin() + static_cast<std::ptrdiff_t>(m_offsets.back()), m_offsets, true);
+        }
+
+      private:
+
+        const container_t& m_intervals;
+        const offset_t& m_offsets;
+    };
+
+    template <class container_t, class offset_t>
+    struct IntervalVectorOffset : public IntervalVector<offset_iterator<typename container_t::const_iterator, offset_t>>
+    {
+        using iterator_t = offset_iterator<typename container_t::const_iterator, offset_t>;
+        using base_t     = IntervalVector<iterator_t>;
+
+        IntervalVectorOffset(auto lca_level, auto level, auto min_level, auto max_level, const container_t& x, const offset_t& offset)
+            : base_t(lca_level, level, min_level, max_level, offset_view(x, offset).begin(), offset_view(x, offset).end())
+        {
+        }
     };
 }
