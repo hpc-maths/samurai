@@ -15,18 +15,19 @@
 
 namespace samurai::experimental
 {
-    template <class Operator, class S1, class... S>
+    template <class Operator, class... S>
     class SetOp
     {
       public:
 
-        using set_type   = std::tuple<S1, S...>;
-        using interval_t = typename S1::interval_t;
+        static constexpr std::size_t dim = get_set_dim_v<S...>;
+        using set_type   = std::tuple<S...>;
+        using interval_t = get_interval_t<S...>;
 
-        SetOp(int shift, Operator op, const S1& s1, const S&... s)
+        SetOp(int shift, Operator op, const S&... s)
             : m_shift(shift)
             , m_operator(op)
-            , m_s(s1, s...)
+            , m_s(s...)
         {
         }
 
@@ -173,7 +174,9 @@ namespace samurai::experimental
     {
       public:
 
-        using set_type = std::tuple<S...>;
+        static constexpr std::size_t dim = get_set_dim_v<S...>;
+        using set_type   = std::tuple<S...>;
+        using interval_t = get_interval_t<S...>;
 
         subset(Op&& op, S&&... s)
             : m_operator(std::forward<Op>(op))

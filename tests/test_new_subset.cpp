@@ -20,6 +20,19 @@ namespace samurai::experimental
         EXPECT_EQ(-1, compute_min(-1, -1, -1, -1));
     }
 
+    TEST(new_subset, check_dim)
+    {
+        samurai::LevelCellArray<1> lca_1d;
+        auto set_1d = self(lca_1d);
+        static_assert(decltype(set_1d)::dim == 1);
+        static_assert(decltype(intersection(set_1d, set_1d))::dim == 1);
+
+        samurai::LevelCellArray<2> lca_2d;
+        auto set_2d = self(lca_2d);
+        static_assert(decltype(set_2d)::dim == 2);
+        static_assert(decltype(intersection(set_2d, set_2d))::dim == 2);
+    }
+
     TEST(new_subset, test1)
     {
         samurai::CellList<1> cl;

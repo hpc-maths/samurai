@@ -47,4 +47,22 @@ namespace samurai::experimental
             return value > max ? value : max;
         }
     }
+
+    template <class S1, class... S>
+    struct get_interval_type
+    {
+        using type = typename S1::interval_t;
+    };
+
+    template <class... S>
+    using get_interval_t = typename get_interval_type<S...>::type;
+
+    template <class S1, class... S>
+    struct get_set_dim
+    {
+        static constexpr std::size_t value = S1::dim;
+    };
+
+    template <class... S>
+    constexpr std::size_t get_set_dim_v = get_set_dim<S...>::value;
 }

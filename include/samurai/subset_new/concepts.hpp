@@ -14,7 +14,7 @@ namespace samurai
 
 namespace samurai::experimental
 {
-    template <class Operator, class S1, class... S>
+    template <class Operator, class... S>
     class SetOp;
 
     template <class iterator>
