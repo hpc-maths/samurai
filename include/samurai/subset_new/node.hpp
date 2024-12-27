@@ -215,6 +215,7 @@ namespace samurai::experimental
                 m_s);
         }
 
+        template <std::size_t dim>
         auto get_local_set()
         {
             int shift = this->ref_level() - this->level();
@@ -222,7 +223,7 @@ namespace samurai::experimental
             return std::apply(
                 [*this, shift](auto&&... args)
                 {
-                    return SetOp(shift, m_operator, args.get_local_set()...);
+                    return SetOp(shift, m_operator, args.template get_local_set<dim>()...);
                 },
                 m_s);
         }
@@ -273,9 +274,10 @@ namespace samurai::experimental
         {
         }
 
+        template<std::size_t dim>
         auto get_local_set()
         {
-            return IntervalVector(m_lca.level(), m_level, m_min_level, m_ref_level, m_lca[0].begin(), m_lca[0].end());
+            return IntervalVector(m_lca.level(), m_level, m_min_level, m_ref_level, m_lca[dim-1].begin(), m_lca[dim-1].end());
         }
 
         auto ref_level() const

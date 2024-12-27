@@ -12,7 +12,8 @@ namespace samurai::experimental
     template <class Set, class Func>
     void apply(Set&& global_set, Func&& func)
     {
-        auto set = global_set.get_local_set();
+        constexpr std::size_t dim = std::decay_t<Set>::dim;
+        auto set = global_set.template get_local_set<dim>();
         apply(set, std::forward<Func>(func));
     }
 
