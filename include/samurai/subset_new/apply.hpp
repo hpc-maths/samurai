@@ -3,18 +3,49 @@
 
 #pragma once
 
-#include "concepts.hpp"
+#include <array>
 
+#include "concepts.hpp"
 #include "utils.hpp"
 
 namespace samurai::experimental
 {
+    namespace detail
+    {
+        template <std::size_t dim, class Set, class Func, class Container>
+        void apply_impl(Set&& global_set, Func&& func, Container& index)
+        {
+            auto set = global_set.template get_local_set<dim>(global_set.level(), index);
+
+            if constexpr (dim != 1)
+            {
+                auto func_int = [&](auto& interval)
+                {
+                    for (auto i = interval.start; i < interval.end; ++i)
+                    {
+                        index[dim - 2] = i;
+                        apply_impl<dim - 1>(std::forward<Set>(global_set), std::forward<Func>(func), index);
+                    }
+                };
+                apply(set, func_int);
+            }
+            else
+            {
+                auto func_int = [&](auto& interval)
+                {
+                    func(interval, index);
+                };
+                apply(set, func_int);
+            }
+        }
+    }
+
     template <class Set, class Func>
     void apply(Set&& global_set, Func&& func)
     {
         constexpr std::size_t dim = std::decay_t<Set>::dim;
-        auto set = global_set.template get_local_set<dim>();
-        apply(set, std::forward<Func>(func));
+        std::array<int, dim - 1> index;
+        detail::apply_impl<dim>(std::forward<Set>(global_set), std::forward<Func>(func), index);
     }
 
     template <class Set, class Func>
@@ -33,7 +64,6 @@ namespace samurai::experimental
         while (scan < sentinel<value_t> && !set.is_empty())
         {
             bool is_in = set.is_in(scan);
-            // std::cout << std::boolalpha << "is_in: " << is_in << std::endl;
 
             if (is_in && r_ipos == 0)
             {
@@ -42,10 +72,11 @@ namespace samurai::experimental
             }
             else if (!is_in && r_ipos == 1)
             {
-                result.end = scan;
-                r_ipos     = 0;
-                // std::cout << result << " " << set.shift() << std::endl;
-                auto true_result = result >> static_cast<std::size_t>(set.shift());
+                result.end       = scan;
+                r_ipos           = 0;
+                auto true_result = set.shift() >= 0 ? result >> static_cast<std::size_t>(set.shift())
+                                                    : result << -static_cast<std::size_t>(set.shift());
+                // std::cout << result << " " << set.shift() << " " << true_result << std::endl;
                 func(true_result);
             }
 

@@ -54,7 +54,7 @@ namespace samurai::experimental
         {
             auto set = intersection(self(ca[4]).on(0), ca[5]).on(1);
             apply(set,
-                  [](auto& i)
+                  [](auto& i, auto)
                   {
                       EXPECT_EQ(interval_t(0, 2), i);
                   });
@@ -64,14 +64,14 @@ namespace samurai::experimental
             auto set = intersection(self(ca[5]).on(1), ca[1]);
             EXPECT_EQ(set.level(), 1);
             apply(set,
-                  [](auto& i)
+                  [](auto& i, auto)
                   {
                       EXPECT_EQ(interval_t(0, 2), i);
                   });
 
             EXPECT_EQ(set.on(3).level(), 3);
             apply(set.on(3),
-                  [](auto& i)
+                  [](auto& i, auto)
                   {
                       EXPECT_EQ(interval_t(0, 8), i);
                   });
@@ -81,14 +81,14 @@ namespace samurai::experimental
             auto set = union_(ca[4], intersection(self(ca[5]).on(1), ca[1])).on(4);
             EXPECT_EQ(set.level(), 4);
             apply(set,
-                  [](auto& i)
+                  [](auto& i, auto)
                   {
                       EXPECT_EQ(interval_t(0, 20), i);
                   });
 
             EXPECT_EQ(set.on(5).level(), 5);
             apply(set,
-                  [](auto& i)
+                  [](auto& i, auto)
                   {
                       EXPECT_EQ(interval_t(0, 40), i);
                   });
@@ -108,87 +108,87 @@ namespace samurai::experimental
 
         bool never_call = true;
         apply(intersection(intersection(self(A).on(1), self(B).on(1)).on(2), C),
-              [&never_call](auto&)
+              [&never_call](auto&, auto)
               {
                   never_call = false;
               });
         EXPECT_TRUE(never_call);
 
         apply(intersection(translation(A, std::array<int, 1>{2}), B).on(4),
-              [](auto& i)
+              [](auto& i, auto)
               {
                   EXPECT_EQ(interval_t(6, 8), i);
               });
 
         apply(translation(intersection(A, B).on(1), std::array<int, 1>{5}).on(4),
-              [](auto& i)
+              [](auto& i, auto)
               {
                   EXPECT_EQ(interval_t(40, 49), i);
               });
 
         apply(translation(A, std::array<int, 1>{2}).on(2),
-              [](auto& i)
+              [](auto& i, auto)
               {
                   EXPECT_EQ(interval_t(2, 3), i);
               });
 
         apply(translation(B, std::array<int, 1>{-2}).on(2),
-              [](auto& i)
+              [](auto& i, auto)
               {
                   EXPECT_EQ(interval_t(-1, 1), i);
               });
 
         apply(translation(B, std::array<int, 1>{-2}).on(1).on(2),
-              [](auto& i)
+              [](auto& i, auto)
               {
                   EXPECT_EQ(interval_t(-2, 2), i);
               });
 
         apply(translation(B, std::array<int, 1>{-2}).on(4),
-              [](auto& i)
+              [](auto& i, auto)
               {
                   EXPECT_EQ(interval_t(4, 8), i);
               });
 
         never_call = true;
         apply(intersection(intersection(self(A).on(2), self(B).on(2)).on(1), C),
-              [&never_call](auto&)
+              [&never_call](auto&, auto)
               {
                   never_call = false;
               });
         EXPECT_TRUE(never_call);
 
         apply(intersection(self(A).on(1), self(B).on(1)).on(2).on(1).on(3),
-              [](auto& i)
+              [](auto& i, auto)
               {
                   EXPECT_EQ(interval_t(0, 4), i);
               });
 
         apply(intersection(self(A).on(1), B).on(2),
-              [](auto& i)
+              [](auto& i, auto)
               {
                   EXPECT_EQ(interval_t(1, 2), i);
               });
 
         apply(intersection(union_(self(A).on(2), self(B).on(2)), B).on(2),
-              [](auto& i)
+              [](auto& i, auto)
               {
                   EXPECT_EQ(interval_t(1, 3), i);
               });
         apply(self(A).on(1).on(2),
-              [](auto& i)
+              [](auto& i, auto)
               {
                   EXPECT_EQ(interval_t(0, 2), i);
               });
 
         apply(self(A).on(2).on(1),
-              [](auto& i)
+              [](auto& i, auto)
               {
                   EXPECT_EQ(interval_t(0, 1), i);
               });
 
         apply(translation(self(A).on(2).on(1), std::array<int, 1>{1}),
-              [](auto& i)
+              [](auto& i, auto)
               {
                   EXPECT_EQ(interval_t(1, 2), i);
               });
@@ -248,4 +248,51 @@ namespace samurai::experimental
               });
     }
 
+    TEST(new_subset, one_interval)
+    {
+        samurai::CellList<1> cl;
+        samurai::CellArray<1> ca;
+
+        cl[4][{}].add_interval({2, 4});
+        cl[4][{}].add_interval({5, 6});
+
+        ca = {cl, true};
+
+        auto set = IntervalVector(4, 4, 4, 4, ca[4][0].begin(), ca[4][0].begin() + 1);
+        apply(set,
+              [](auto& i)
+              {
+                  std::cout << i << std::endl;
+              });
+    }
+
+    TEST(new_subset, 2d_case)
+    {
+        samurai::CellList<2> cl;
+        samurai::CellArray<2> ca1, ca2;
+
+        cl[4][{-1}].add_interval({2, 4});
+        cl[4][{0}].add_interval({3, 5});
+        cl[4][{1}].add_interval({4, 6});
+
+        ca1 = {cl, true};
+
+        cl.clear();
+        cl[5][{-1}].add_interval({5, 7});
+        cl[5][{0}].add_interval({3, 5});
+        cl[5][{1}].add_interval({4, 6});
+        ca2 = {cl, true};
+
+        // apply(self(ca1[4]).on(5),
+        //       [](auto& i, auto index)
+        //       {
+        //           std::cout << i << " " << index[0] << std::endl;
+        //       });
+
+        apply(intersection(ca1[4], ca2[4]),
+              [](auto& i, auto index)
+              {
+                  std::cout << i << " " << index[0] << std::endl;
+              });
+    }
 }

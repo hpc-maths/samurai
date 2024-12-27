@@ -21,8 +21,8 @@ namespace samurai::experimental
       public:
 
         static constexpr std::size_t dim = get_set_dim_v<S...>;
-        using set_type   = std::tuple<S...>;
-        using interval_t = get_interval_t<S...>;
+        using set_type                   = std::tuple<S...>;
+        using interval_t                 = get_interval_t<S...>;
 
         SetOp(int shift, Operator op, const S&... s)
             : m_shift(shift)
@@ -175,8 +175,8 @@ namespace samurai::experimental
       public:
 
         static constexpr std::size_t dim = get_set_dim_v<S...>;
-        using set_type   = std::tuple<S...>;
-        using interval_t = get_interval_t<S...>;
+        using set_type                   = std::tuple<S...>;
+        using interval_t                 = get_interval_t<S...>;
 
         subset(Op&& op, S&&... s)
             : m_operator(std::forward<Op>(op))
@@ -215,15 +215,15 @@ namespace samurai::experimental
                 m_s);
         }
 
-        template <std::size_t dim>
-        auto get_local_set()
+        template <std::size_t d>
+        auto get_local_set(int level, std::array<int, dim - 1>& index)
         {
             int shift = this->ref_level() - this->level();
             m_operator.set_level(this->level());
             return std::apply(
-                [*this, shift](auto&&... args)
+                [*this, &index, shift, level](auto&&... args)
                 {
-                    return SetOp(shift, m_operator, args.template get_local_set<dim>()...);
+                    return SetOp(shift, m_operator, args.template get_local_set<d>(level, index)...);
                 },
                 m_s);
         }
@@ -274,10 +274,40 @@ namespace samurai::experimental
         {
         }
 
-        template<std::size_t dim>
-        auto get_local_set()
+        template <std::size_t d>
+        auto get_local_set(int level, std::array<int, dim - 1>& index)
         {
-            return IntervalVector(m_lca.level(), m_level, m_min_level, m_ref_level, m_lca[dim-1].begin(), m_lca[dim-1].end());
+            using iterator_t = decltype(m_lca[d - 1].begin());
+            if constexpr (dim == d)
+            {
+                if (m_lca[d - 1].empty())
+                {
+                    return IntervalVector<iterator_t>();
+                }
+                return IntervalVector(m_lca.level(), m_level, m_min_level, m_ref_level, m_lca[d - 1].begin(), m_lca[d - 1].end());
+            }
+            else
+            {
+                auto current_index = index[d - 1] >> (static_cast<std::size_t>(level) - m_lca.level());
+                auto j             = samurai::find_on_dim(m_lca, d, 0, m_lca[d].size(), current_index);
+
+                std::cout << "j " << j << std::endl;
+                if (j == std::numeric_limits<std::size_t>::max())
+                {
+                    return IntervalVector<iterator_t>();
+                }
+
+                // std::cout << "j " << j << " index: " << m_lca[d][j].index << " " << current_index << std::endl;
+                auto io       = static_cast<std::size_t>(m_lca[d][j].index + current_index);
+                auto& offsets = m_lca.offsets(d);
+                // std::cout << io << " " << offsets[io] << " " << offsets[io + 1] << std::endl;
+                return IntervalVector(m_lca.level(),
+                                      m_level,
+                                      m_min_level,
+                                      m_ref_level,
+                                      m_lca[d - 1].begin() + static_cast<std::ptrdiff_t>(offsets[io]),
+                                      m_lca[d - 1].begin() + static_cast<std::ptrdiff_t>(offsets[io + 1]));
+            }
         }
 
         auto ref_level() const

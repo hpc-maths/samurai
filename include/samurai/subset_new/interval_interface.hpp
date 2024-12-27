@@ -50,8 +50,13 @@ namespace samurai::experimental
             , m_lca_level(static_cast<int>(lca_level))
             , m_first(begin)
             , m_last(end)
-            , m_current(std::numeric_limits<int>::min())
+            , m_current(std::numeric_limits<value_t>::min())
             , m_is_start(true)
+        {
+        }
+
+        IntervalVector()
+            : m_current(sentinel<value_t>)
         {
         }
 
