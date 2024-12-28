@@ -206,15 +206,31 @@ namespace samurai::experimental
         };
         std::vector<std::size_t> offset = {0, 2, 4, 5};
 
-        auto begin = offset_iterator(x.cbegin(), offset);
-        auto end   = offset_iterator(x.cbegin() + static_cast<std::ptrdiff_t>(offset.back()), offset, true);
+        auto begin = offset_iterator(x.cbegin(), x.cbegin() + 1);
+        auto end   = offset_iterator(x.cbegin() + 1, x.cbegin() + 1);
         auto it    = begin;
-        EXPECT_EQ(interval_t(0, 5), *it);
+        EXPECT_EQ(interval_t(0, 2), *it);
         it++;
-        EXPECT_EQ(interval_t(7, 9), *it);
+        EXPECT_EQ(interval_t(4, 5), *it);
         it++;
         it++;
         EXPECT_TRUE(it == end);
+
+        std::vector<interval_t> y = {
+            {2, 4},
+            {3, 5},
+            {4, 6}
+        };
+        using iterator_t = decltype(y.cbegin());
+        std::vector<iterator_t> obegin{y.cbegin(), y.cbegin() + 1, y.cbegin() + 2};
+        std::vector<iterator_t> oend{y.cbegin() + 1, y.cbegin() + 2, y.cbegin() + 3};
+        auto ybegin = offset_iterator<iterator_t>(obegin, oend);
+        auto yend   = offset_iterator<iterator_t>(oend, oend);
+        auto yit    = ybegin;
+        EXPECT_EQ(interval_t(2, 6), *yit);
+        yit++;
+        yit++;
+        EXPECT_TRUE(yit == yend);
     }
 
     TEST(new_subset, union_of_offset)
@@ -230,7 +246,12 @@ namespace samurai::experimental
         };
         std::vector<std::size_t> offset = {0, 2, 4, 5};
 
-        auto set_1 = IntervalVectorOffset(level + 2, level + 1, level + 1, level + 2, x, offset);
+        using iterator_t = decltype(x.cbegin());
+        std::vector<iterator_t> obegin{x.cbegin(), x.cbegin() + 2, x.cbegin() + 4};
+        std::vector<iterator_t> oend{x.cbegin() + 2, x.cbegin() + 4, x.cbegin() + 5};
+        auto begin = offset_iterator(obegin, oend);
+        auto end   = offset_iterator(oend, oend);
+        auto set_1 = IntervalVector(level + 2, level + 1, level + 1, level + 2, begin, end);
 
         apply(set_1,
               [](auto& i)
@@ -238,8 +259,12 @@ namespace samurai::experimental
                   EXPECT_EQ(interval_t(0, 5), i);
               });
 
-        auto partial_offset_view = std::span(offset).subspan(1, 3);
-        auto set_2               = IntervalVectorOffset(level + 2, level, level, level + 2, x, partial_offset_view);
+        obegin.erase(obegin.begin());
+        oend.erase(oend.begin());
+        begin = offset_iterator(obegin, oend);
+        end   = offset_iterator(oend, oend);
+
+        auto set_2 = IntervalVector(level + 2, level, level, level + 2, begin, end);
 
         apply(set_2,
               [](auto& i)
@@ -283,16 +308,16 @@ namespace samurai::experimental
         cl[5][{1}].add_interval({4, 6});
         ca2 = {cl, true};
 
-        // apply(self(ca1[4]).on(5),
+        apply(self(ca1[4]).on(3),
+              [](auto& i, auto index)
+              {
+                  std::cout << "solution: " << i << " " << index[0] << std::endl;
+              });
+
+        // apply(intersection(ca1[4], ca2[4]),
         //       [](auto& i, auto index)
         //       {
         //           std::cout << i << " " << index[0] << std::endl;
         //       });
-
-        apply(intersection(ca1[4], ca2[4]),
-              [](auto& i, auto index)
-              {
-                  std::cout << i << " " << index[0] << std::endl;
-              });
     }
 }
