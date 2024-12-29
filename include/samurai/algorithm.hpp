@@ -157,7 +157,7 @@ namespace samurai
     template <class MeshIntervalType, class SetType, class Func>
     inline void for_each_meshinterval(SetType& set, Func&& f)
     {
-        MeshIntervalType mesh_interval(set.level());
+        MeshIntervalType mesh_interval(static_cast<std::size_t>(set.level()));
         set(
             [&](const auto& i, const auto& index)
             {

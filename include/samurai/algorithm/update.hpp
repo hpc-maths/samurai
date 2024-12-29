@@ -8,10 +8,9 @@
 #include <xtensor/xfixed.hpp>
 
 #include "../bc.hpp"
-#include "../mr/operators.hpp"
 #include "../numeric/prediction.hpp"
 #include "../numeric/projection.hpp"
-#include "../subset/subset_op.hpp"
+#include "../subset/node.hpp"
 #include "../timers.hpp"
 #include "utils.hpp"
 
