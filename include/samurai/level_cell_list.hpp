@@ -92,6 +92,8 @@ namespace samurai
         auto& origin_point() const;
         double scaling_factor() const;
 
+        void clear();
+
       private:
 
         grid_t m_grid_yz; ///< Sparse dim-1 array that points to the interval
@@ -185,6 +187,12 @@ namespace samurai
     inline double LevelCellList<Dim, TInterval>::scaling_factor() const
     {
         return m_scaling_factor;
+    }
+
+    template <std::size_t Dim, class TInterval>
+    inline void LevelCellList<Dim, TInterval>::clear()
+    {
+        m_grid_yz.clear();
     }
 
     template <std::size_t Dim, class TInterval>
