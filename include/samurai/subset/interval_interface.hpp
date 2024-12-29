@@ -5,14 +5,15 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <ios>
+#include <iterator>
 #include <limits>
 
 #include <xtl/xiterator_base.hpp>
 
 #include "utils.hpp"
 
-namespace samurai::experimental
+// namespace samurai::experimental
+namespace samurai
 {
     namespace detail
     {
@@ -94,6 +95,7 @@ namespace samurai::experimental
         template <class IntervalOp = detail::IntervalInfo>
         void next(auto scan, IntervalOp iop = {})
         {
+            // std::cout << std::endl;
             // std::cout << "m_current in next: " << m_current << " " << std::numeric_limits<value_t>::min() << std::endl;
             if (m_current == std::numeric_limits<value_t>::min())
             {
@@ -121,6 +123,7 @@ namespace samurai::experimental
                 else
                 {
                     m_first++;
+
                     if (m_first == m_last)
                     {
                         m_current = sentinel<value_t>;
@@ -157,7 +160,12 @@ namespace samurai::experimental
         using pointer           = typename const_iterator_t::pointer;
         using const_pointer     = const pointer;
 
-        offset_iterator() = default;
+        offset_iterator()
+            : p_first({})
+            , p_last({})
+            , m_current({0, 0})
+        {
+        }
 
         offset_iterator(const std::vector<const_iterator_t>& interval_it_begin, const std::vector<const_iterator_t>& interval_it_end)
             : p_first(interval_it_begin)
@@ -169,24 +177,32 @@ namespace samurai::experimental
                 next();
                 // std::cout << "first m_current in iterator: " << m_current << std::endl;
             }
+            else
+            {
+                m_current = (interval_it_begin == interval_it_end) ? value_type({0, 0}) : *interval_it_begin[0];
+            }
         }
 
         offset_iterator(const_iterator_t interval_it_begin, const_iterator_t interval_it_end)
             : p_first({interval_it_begin})
             , p_last({interval_it_end})
-            , m_current(*interval_it_begin)
+            , m_current((interval_it_begin == interval_it_end) ? value_type({0, 0}) : *interval_it_begin)
         {
         }
 
         void next()
         {
+            if (p_first.size() == 0)
+            {
+                return;
+            }
             if (p_first.size() == 1)
             {
                 if (p_first[0] != p_last[0])
                 {
                     p_first[0]++;
                 }
-                m_current = *p_first[0];
+                m_current = (p_first[0] != p_last[0]) ? *p_first[0] : value_type({0, 0});
                 return;
             }
 

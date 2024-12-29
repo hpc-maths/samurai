@@ -10,10 +10,10 @@ namespace samurai
 {
     template <std::size_t dim, class interval_t>
     class LevelCellArray;
-}
+    // }
 
-namespace samurai::experimental
-{
+    // namespace samurai::experimental
+    // {
     template <class Operator, class... S>
     class SetOp;
 

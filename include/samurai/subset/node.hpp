@@ -3,18 +3,26 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <limits>
 #include <tuple>
 #include <type_traits>
 #include <utility>
 
+#include <xtensor/xfixed.hpp>
+
 #include "../algorithm.hpp"
 #include "concepts.hpp"
 #include "interval_interface.hpp"
 
-namespace samurai::experimental
+// namespace samurai::experimental
+namespace samurai
 {
+
+    template <class Set, class Func>
+    void apply(Set&& global_set, Func&& func);
+
     template <class Operator, class... S>
     class SetOp
     {
@@ -133,7 +141,7 @@ namespace samurai::experimental
     {
       public:
 
-        TranslationOp(const std::array<int, dim>& t)
+        TranslationOp(const xt::xtensor_fixed<int, xt::xshape<dim>>& t)
             : m_t(t)
         {
         }
@@ -165,7 +173,7 @@ namespace samurai::experimental
 
       private:
 
-        std::array<int, dim> m_t;
+        xt::xtensor_fixed<int, xt::xshape<dim>> m_t;
         int m_level{std::numeric_limits<int>::min()};
     };
 
@@ -195,13 +203,13 @@ namespace samurai::experimental
 
         auto& on(auto level)
         {
-            if (level > m_ref_level)
+            if (static_cast<int>(level) > m_ref_level)
             {
                 ref_level(level);
             }
-            m_min_level = std::min(m_min_level, level);
-            m_level     = level;
-            on_parent(level);
+            m_min_level = std::min(m_min_level, static_cast<int>(level));
+            m_level     = static_cast<int>(level);
+            on_parent(static_cast<int>(level));
             return *this;
         }
 
@@ -215,8 +223,24 @@ namespace samurai::experimental
                 m_s);
         }
 
+        template <class Func>
+        void operator()(Func&& func)
+        {
+            apply(*this, std::forward<Func>(func));
+        }
+
+        template <class... ApplyOp>
+        void apply_op(ApplyOp&&... op)
+        {
+            auto func = [&](auto& interval, auto& index)
+            {
+                (op(static_cast<std::size_t>(m_level), interval, index), ...);
+            };
+            apply(*this, func);
+        }
+
         template <std::size_t d>
-        auto get_local_set(int level, std::array<int, dim - 1>& index)
+        auto get_local_set(int level, xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index)
         {
             int shift = this->ref_level() - this->level();
             m_operator.set_level(this->level());
@@ -240,7 +264,7 @@ namespace samurai::experimental
 
         void ref_level(auto level)
         {
-            m_ref_level = level;
+            m_ref_level = static_cast<int>(level);
             std::apply(
                 [*this](auto&&... args)
                 {
@@ -275,7 +299,7 @@ namespace samurai::experimental
         }
 
         template <std::size_t d>
-        auto get_local_set(int level, std::array<int, dim - 1>& index)
+        auto get_local_set(int level, xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index)
         {
             using iterator_t  = decltype(m_lca[d - 1].cbegin());
             using offset_it_t = offset_iterator<iterator_t>;
@@ -407,6 +431,12 @@ namespace samurai::experimental
     namespace detail
     {
         template <std::size_t dim, class interval_t>
+        auto transform(const LevelCellArray<dim, interval_t>& lca)
+        {
+            return Self<LevelCellArray<dim, interval_t>>(lca);
+        }
+
+        template <std::size_t dim, class interval_t>
         auto transform(LevelCellArray<dim, interval_t>& lca)
         {
             return Self<LevelCellArray<dim, interval_t>>(lca);
@@ -452,10 +482,12 @@ namespace samurai::experimental
             std::make_tuple(detail::transform(std::forward<sets_t>(sets))...));
     }
 
-    template <class set_t, std::size_t dim>
-    auto translation(set_t&& set, const std::array<int, dim>& t)
+    template <class set_t, class stencil_t>
+    auto translate(const set_t& set, const stencil_t& stencil)
     {
-        return subset(TranslationOp(t), detail::transform(std::forward<set_t>(set)));
+        constexpr std::size_t dim = set_t::dim;
+        // return subset(TranslationOp(xt::xtensor_fixed<int, xt::xshape<dim>>(stencil)), detail::transform(std::forward<set_t>(set)));
+        return subset(TranslationOp(xt::xtensor_fixed<int, xt::xshape<dim>>(stencil)), detail::transform(set));
     }
 
     template <class lca_t>

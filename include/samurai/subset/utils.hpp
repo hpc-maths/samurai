@@ -5,7 +5,8 @@
 
 #include <limits>
 
-namespace samurai::experimental
+// namespace samurai::experimental
+namespace samurai
 {
     template <class T>
     static constexpr T sentinel = std::numeric_limits<T>::max();

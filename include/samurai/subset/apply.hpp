@@ -8,7 +8,8 @@
 #include "concepts.hpp"
 #include "utils.hpp"
 
-namespace samurai::experimental
+// namespace samurai::experimental
+namespace samurai
 {
     namespace detail
     {
@@ -44,7 +45,7 @@ namespace samurai::experimental
     void apply(Set&& global_set, Func&& func)
     {
         constexpr std::size_t dim = std::decay_t<Set>::dim;
-        std::array<int, dim - 1> index;
+        xt::xtensor_fixed<int, xt::xshape<dim - 1>> index;
         detail::apply_impl<dim>(std::forward<Set>(global_set), std::forward<Func>(func), index);
     }
 
