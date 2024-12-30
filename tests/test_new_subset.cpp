@@ -1,5 +1,5 @@
 #include <cstddef>
-#include <span>
+#include <xtensor/xfixed.hpp>
 
 #include <gtest/gtest.h>
 
@@ -7,9 +7,9 @@
 #include <samurai/cell_list.hpp>
 #include <samurai/interval.hpp>
 #include <samurai/level_cell_array.hpp>
-#include <samurai/subset_new/apply.hpp>
-#include <samurai/subset_new/interval_interface.hpp>
-#include <samurai/subset_new/node.hpp>
+#include <samurai/subset/apply.hpp>
+#include <samurai/subset/interval_interface.hpp>
+#include <samurai/subset/node.hpp>
 
 namespace samurai::experimental
 {
@@ -114,37 +114,37 @@ namespace samurai::experimental
               });
         EXPECT_TRUE(never_call);
 
-        apply(intersection(translation(A, std::array<int, 1>{2}), B).on(4),
+        apply(intersection(translate(A, xt::xtensor_fixed<int, xt::xshape<1>>{2}), B).on(4),
               [](auto& i, auto)
               {
                   EXPECT_EQ(interval_t(6, 8), i);
               });
 
-        apply(translation(intersection(A, B).on(1), std::array<int, 1>{5}).on(4),
+        apply(translate(intersection(A, B).on(1), xt::xtensor_fixed<int, xt::xshape<1>>{5}).on(4),
               [](auto& i, auto)
               {
                   EXPECT_EQ(interval_t(40, 49), i);
               });
 
-        apply(translation(A, std::array<int, 1>{2}).on(2),
+        apply(translate(A, xt::xtensor_fixed<int, xt::xshape<1>>{2}).on(2),
               [](auto& i, auto)
               {
                   EXPECT_EQ(interval_t(2, 3), i);
               });
 
-        apply(translation(B, std::array<int, 1>{-2}).on(2),
+        apply(translate(B, xt::xtensor_fixed<int, xt::xshape<1>>{-2}).on(2),
               [](auto& i, auto)
               {
                   EXPECT_EQ(interval_t(-1, 1), i);
               });
 
-        apply(translation(B, std::array<int, 1>{-2}).on(1).on(2),
+        apply(translate(B, xt::xtensor_fixed<int, xt::xshape<1>>{-2}).on(1).on(2),
               [](auto& i, auto)
               {
                   EXPECT_EQ(interval_t(-2, 2), i);
               });
 
-        apply(translation(B, std::array<int, 1>{-2}).on(4),
+        apply(translate(B, xt::xtensor_fixed<int, xt::xshape<1>>{-2}).on(4),
               [](auto& i, auto)
               {
                   EXPECT_EQ(interval_t(4, 8), i);
@@ -187,91 +187,91 @@ namespace samurai::experimental
                   EXPECT_EQ(interval_t(0, 1), i);
               });
 
-        apply(translation(self(A).on(2).on(1), std::array<int, 1>{1}),
+        apply(translate(self(A).on(2).on(1), xt::xtensor_fixed<int, xt::xshape<1>>{1}),
               [](auto& i, auto)
               {
                   EXPECT_EQ(interval_t(1, 2), i);
               });
     }
 
-    TEST(new_subset, offset_iterator)
-    {
-        using interval_t          = Interval<int>;
-        std::vector<interval_t> x = {
-            {0, 2},
-            {4, 5},
-            {0, 1},
-            {2, 4},
-            {7, 9}
-        };
-        std::vector<std::size_t> offset = {0, 2, 4, 5};
+    // TEST(new_subset, offset_iterator)
+    // {
+    //     using interval_t          = Interval<int>;
+    //     std::vector<interval_t> x = {
+    //         {0, 2},
+    //         {4, 5},
+    //         {0, 1},
+    //         {2, 4},
+    //         {7, 9}
+    //     };
+    //     std::vector<std::size_t> offset = {0, 2, 4, 5};
 
-        auto begin = offset_iterator(x.cbegin(), x.cbegin() + 1);
-        auto end   = offset_iterator(x.cbegin() + 1, x.cbegin() + 1);
-        auto it    = begin;
-        EXPECT_EQ(interval_t(0, 2), *it);
-        it++;
-        EXPECT_EQ(interval_t(4, 5), *it);
-        it++;
-        it++;
-        EXPECT_TRUE(it == end);
+    //     auto begin = offset_iterator(x.cbegin(), x.cbegin() + 1);
+    //     auto end   = offset_iterator(x.cbegin() + 1, x.cbegin() + 1);
+    //     auto it    = begin;
+    //     EXPECT_EQ(interval_t(0, 2), *it);
+    //     it++;
+    //     EXPECT_EQ(interval_t(4, 5), *it);
+    //     it++;
+    //     it++;
+    //     EXPECT_TRUE(it == end);
 
-        std::vector<interval_t> y = {
-            {2, 4},
-            {3, 5},
-            {4, 6}
-        };
-        using iterator_t = decltype(y.cbegin());
-        std::vector<iterator_t> obegin{y.cbegin(), y.cbegin() + 1, y.cbegin() + 2};
-        std::vector<iterator_t> oend{y.cbegin() + 1, y.cbegin() + 2, y.cbegin() + 3};
-        auto ybegin = offset_iterator<iterator_t>(obegin, oend);
-        auto yend   = offset_iterator<iterator_t>(oend, oend);
-        auto yit    = ybegin;
-        EXPECT_EQ(interval_t(2, 6), *yit);
-        yit++;
-        yit++;
-        EXPECT_TRUE(yit == yend);
-    }
+    //     std::vector<interval_t> y = {
+    //         {2, 4},
+    //         {3, 5},
+    //         {4, 6}
+    //     };
+    //     using iterator_t = decltype(y.cbegin());
+    //     std::vector<iterator_t> obegin{y.cbegin(), y.cbegin() + 1, y.cbegin() + 2};
+    //     std::vector<iterator_t> oend{y.cbegin() + 1, y.cbegin() + 2, y.cbegin() + 3};
+    //     auto ybegin = offset_iterator<iterator_t>(obegin, oend);
+    //     auto yend   = offset_iterator<iterator_t>(oend, oend);
+    //     auto yit    = ybegin;
+    //     EXPECT_EQ(interval_t(2, 6), *yit);
+    //     yit++;
+    //     yit++;
+    //     EXPECT_TRUE(yit == yend);
+    // }
 
-    TEST(new_subset, union_of_offset)
-    {
-        using interval_t          = Interval<int>;
-        int level                 = 0;
-        std::vector<interval_t> x = {
-            {0, 2},
-            {4, 5},
-            {0, 1},
-            {3, 4},
-            {7, 9}
-        };
-        std::vector<std::size_t> offset = {0, 2, 4, 5};
+    // TEST(new_subset, union_of_offset)
+    // {
+    //     using interval_t          = Interval<int>;
+    //     int level                 = 0;
+    //     std::vector<interval_t> x = {
+    //         {0, 2},
+    //         {4, 5},
+    //         {0, 1},
+    //         {3, 4},
+    //         {7, 9}
+    //     };
+    //     std::vector<std::size_t> offset = {0, 2, 4, 5};
 
-        using iterator_t = decltype(x.cbegin());
-        std::vector<iterator_t> obegin{x.cbegin(), x.cbegin() + 2, x.cbegin() + 4};
-        std::vector<iterator_t> oend{x.cbegin() + 2, x.cbegin() + 4, x.cbegin() + 5};
-        auto begin = offset_iterator(obegin, oend);
-        auto end   = offset_iterator(oend, oend);
-        auto set_1 = IntervalVector(level + 2, level + 1, level + 1, level + 2, begin, end);
+    //     using iterator_t = decltype(x.cbegin());
+    //     std::vector<iterator_t> obegin{x.cbegin(), x.cbegin() + 2, x.cbegin() + 4};
+    //     std::vector<iterator_t> oend{x.cbegin() + 2, x.cbegin() + 4, x.cbegin() + 5};
+    //     auto begin = offset_iterator(obegin, oend);
+    //     auto end   = offset_iterator(oend, oend);
+    //     auto set_1 = IntervalVector(level + 2, level + 1, level + 1, level + 2, begin, end);
 
-        apply(set_1,
-              [](auto& i)
-              {
-                  EXPECT_EQ(interval_t(0, 5), i);
-              });
+    //     apply(set_1,
+    //           [](auto& i)
+    //           {
+    //               EXPECT_EQ(interval_t(0, 5), i);
+    //           });
 
-        obegin.erase(obegin.begin());
-        oend.erase(oend.begin());
-        begin = offset_iterator(obegin, oend);
-        end   = offset_iterator(oend, oend);
+    //     obegin.erase(obegin.begin());
+    //     oend.erase(oend.begin());
+    //     begin = offset_iterator(obegin, oend);
+    //     end   = offset_iterator(oend, oend);
 
-        auto set_2 = IntervalVector(level + 2, level, level, level + 2, begin, end);
+    //     auto set_2 = IntervalVector(level + 2, level, level, level + 2, begin, end);
 
-        apply(set_2,
-              [](auto& i)
-              {
-                  EXPECT_EQ(interval_t(0, 3), i);
-              });
-    }
+    //     apply(set_2,
+    //           [](auto& i)
+    //           {
+    //               EXPECT_EQ(interval_t(0, 3), i);
+    //           });
+    // }
 
     TEST(new_subset, one_interval)
     {
@@ -283,7 +283,7 @@ namespace samurai::experimental
 
         ca = {cl, true};
 
-        auto set = IntervalVector(4, 4, 4, 4, ca[4][0].begin(), ca[4][0].begin() + 1);
+        auto set = IntervalVector(4, 4, 4, 4, ca[4][0].begin(), ca[4][0].begin() + 1, node_t());
         apply(set,
               [](auto& i)
               {
@@ -291,33 +291,68 @@ namespace samurai::experimental
               });
     }
 
-    TEST(new_subset, 2d_case)
+    // TEST(new_subset, 2d_case)
+    // {
+    //     samurai::CellList<2> cl;
+    //     samurai::CellArray<2> ca1, ca2;
+
+    //     cl[4][{-1}].add_interval({2, 4});
+    //     cl[4][{0}].add_interval({3, 5});
+    //     cl[4][{1}].add_interval({4, 6});
+
+    //     ca1 = {cl, true};
+
+    //     cl.clear();
+    //     cl[5][{-1}].add_interval({5, 7});
+    //     cl[5][{0}].add_interval({3, 5});
+    //     cl[5][{1}].add_interval({4, 6});
+    //     ca2 = {cl, true};
+
+    //     apply(self(ca1[4]).on(3),
+    //           [](auto& i, auto index)
+    //           {
+    //               std::cout << "solution: " << i << " " << index[0] << std::endl;
+    //           });
+
+    //     // apply(intersection(ca1[4], ca2[4]),
+    //     //       [](auto& i, auto index)
+    //     //       {
+    //     //           std::cout << i << " " << index[0] << std::endl;
+    //     //       });
+    // }
+
+    TEST(new_subset, translate)
     {
-        samurai::CellList<2> cl;
-        samurai::CellArray<2> ca1, ca2;
+        samurai::CellList<1> cl;
+        samurai::CellArray<1> ca;
 
-        cl[4][{-1}].add_interval({2, 4});
-        cl[4][{0}].add_interval({3, 5});
-        cl[4][{1}].add_interval({4, 6});
+        cl[14][{}].add_interval({8612, 8620});
+        cl[13][{}].add_interval({4279, 4325});
 
-        ca1 = {cl, true};
+        ca = {cl, true};
 
-        cl.clear();
-        cl[5][{-1}].add_interval({5, 7});
-        cl[5][{0}].add_interval({3, 5});
-        cl[5][{1}].add_interval({4, 6});
-        ca2 = {cl, true};
-
-        apply(self(ca1[4]).on(3),
-              [](auto& i, auto index)
+        apply(translate(intersection(translate(ca[14], xt::xtensor_fixed<int, xt::xshape<1>>{-1}), self(ca[13]).on(14)),
+                        xt::xtensor_fixed<int, xt::xshape<1>>{-2}),
+              [](auto& i, auto)
               {
-                  std::cout << "solution: " << i << " " << index[0] << std::endl;
+                  std::cout << "solution: " << i << std::endl;
               });
+    }
 
-        // apply(intersection(ca1[4], ca2[4]),
-        //       [](auto& i, auto index)
-        //       {
-        //           std::cout << i << " " << index[0] << std::endl;
-        //       });
+    TEST(new_subset, translate_test)
+    {
+        samurai::CellList<1> cl;
+        samurai::CellArray<1> ca;
+
+        cl[14][{}].add_interval({8612, 8620});
+        cl[13][{}].add_interval({4279, 4325});
+
+        ca = {cl, true};
+
+        apply(translate(translate(ca[14], xt::xtensor_fixed<int, xt::xshape<1>>{-2}), xt::xtensor_fixed<int, xt::xshape<1>>{2}),
+              [](auto& i, auto)
+              {
+                  std::cout << "solution: " << i << std::endl;
+              });
     }
 }

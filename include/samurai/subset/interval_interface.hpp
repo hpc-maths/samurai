@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <iterator>
 #include <limits>
+#include <memory>
 
 #include <xtl/xiterator_base.hpp>
 
@@ -15,22 +16,168 @@
 // namespace samurai::experimental
 namespace samurai
 {
+    struct node_impl
+    {
+        node_impl()                                      = default;
+        virtual int start(int level, int i) const        = 0;
+        virtual int end(int level, int i) const          = 0;
+        virtual std::unique_ptr<node_impl> clone() const = 0;
+
+        virtual ~node_impl() = default;
+
+        node_impl(const node_impl&)            = delete;
+        node_impl& operator=(const node_impl&) = delete;
+        node_impl(node_impl&&)                 = delete;
+        node_impl& operator=(node_impl&&)      = delete;
+    };
+
+    struct final_node : public node_impl
+    {
+        final_node()
+            : node_impl()
+        {
+        }
+
+        virtual int start(int, int i) const override
+        {
+            return i;
+        }
+
+        virtual int end(int, int i) const override
+        {
+            return i;
+        }
+
+        std::unique_ptr<node_impl> clone() const override
+        {
+            return std::make_unique<final_node>();
+        }
+    };
+
+    struct self_node : public node_impl
+    {
+        self_node()
+            : node_impl()
+            , m_op(std::make_unique<final_node>())
+        {
+        }
+
+        self_node(const std::unique_ptr<node_impl>& op)
+            : node_impl()
+            , m_op(op->clone())
+        {
+        }
+
+        virtual int start(int level, int i) const override
+        {
+            return m_op->start(level, i);
+        }
+
+        virtual int end(int level, int i) const override
+        {
+            return m_op->end(level, i);
+        }
+
+        std::unique_ptr<node_impl> clone() const override
+        {
+            return std::make_unique<self_node>(m_op);
+        }
+
+        std::unique_ptr<node_impl> m_op;
+    };
+
+    struct translate_node : public node_impl
+    {
+        translate_node(const std::unique_ptr<node_impl>& op, int level, int t)
+            : node_impl()
+            , m_op(op->clone())
+            , m_level(level)
+            , m_t(t)
+        {
+        }
+
+        translate_node(int level, int t)
+            : node_impl()
+            , m_op(std::make_unique<final_node>())
+            , m_level(level)
+            , m_t(t)
+        {
+        }
+
+        virtual int start(int level, int i) const override
+        {
+            return m_op->start(level, i) + start_shift(m_t, level - m_level);
+        }
+
+        virtual int end(int level, int i) const override
+        {
+            return m_op->end(level, i) + end_shift(m_t, level - m_level);
+        }
+
+        virtual std::unique_ptr<node_impl> clone() const override
+        {
+            return std::make_unique<translate_node>(m_op, m_level, m_t);
+        }
+
+        std::unique_ptr<node_impl> m_op;
+        int m_level;
+        int m_t;
+    };
+
+    struct node_t
+    {
+        node_t(std::unique_ptr<node_impl>&& op)
+            : p_impl(std::move(op))
+        {
+        }
+
+        node_t()
+            : p_impl(std::make_unique<final_node>())
+        {
+        }
+
+        node_t(const node_t& rhs)
+            : p_impl(rhs.p_impl->clone())
+        {
+        }
+
+        auto start(auto level, auto i)
+        {
+            return p_impl->start(level, i);
+        }
+
+        auto end(auto level, auto i)
+        {
+            return p_impl->end(level, i);
+        }
+
+        node_t& operator=(const node_t& rhs)
+        {
+            p_impl.reset();
+            p_impl = rhs.p_impl->clone();
+            return *this;
+        }
+
+        ~node_t()                                = default;
+        node_t(node_t&& rhs) noexcept            = default;
+        node_t& operator=(node_t&& rhs) noexcept = default;
+
+        std::unique_ptr<node_impl> p_impl;
+    };
+
     namespace detail
+
     {
         struct IntervalInfo
         {
-            inline auto start_op(auto, const auto it)
+            inline node_t get_node(auto, auto)
             {
-                return it->start;
+                return node_t();
             }
 
-            inline auto end_op(auto, const auto it)
+            inline auto get_node(const node_t& node, auto, auto)
             {
-                return it->end;
-            }
-
-            void set_level(auto)
-            {
+                return node_t(std::make_unique<self_node>(node.p_impl));
             }
         };
 
@@ -45,7 +192,7 @@ namespace samurai
         using interval_t = typename iterator_t::value_type;
         using value_t    = typename interval_t::value_t;
 
-        IntervalVector(auto lca_level, auto level, auto min_level, auto max_level, iterator_t begin, iterator_t end)
+        IntervalVector(auto lca_level, auto level, auto min_level, auto max_level, iterator_t begin, iterator_t end, const node_t& node)
             : m_min_shift(min_level - static_cast<int>(lca_level))
             , m_max_shift(max_level - min_level)
             , m_shift(max_level - level)
@@ -54,6 +201,7 @@ namespace samurai
             , m_last(end)
             , m_current(std::numeric_limits<value_t>::min())
             , m_is_start(true)
+            , m_node(node)
         {
         }
 
@@ -92,14 +240,13 @@ namespace samurai
             return m_shift;
         }
 
-        template <class IntervalOp = detail::IntervalInfo>
-        void next(auto scan, IntervalOp iop = {})
+        void next(auto scan)
         {
             // std::cout << std::endl;
             // std::cout << "m_current in next: " << m_current << " " << std::numeric_limits<value_t>::min() << std::endl;
             if (m_current == std::numeric_limits<value_t>::min())
             {
-                m_current = start(iop.start_op(m_lca_level, m_first));
+                m_current = start(m_node.start(m_lca_level, m_first->start));
                 // std::cout << "first m_current: " << m_current << std::endl;
                 return;
             }
@@ -108,12 +255,12 @@ namespace samurai
             {
                 if (m_is_start)
                 {
-                    m_current = end(iop.end_op(m_lca_level, m_first));
+                    m_current = end(m_node.end(m_lca_level, m_first->end));
                     // std::cout << "change m_current: " << m_current << std::endl;
-                    while (m_first + 1 != m_last && m_current >= start(iop.start_op(m_lca_level, m_first + 1)))
+                    while (m_first + 1 != m_last && m_current >= start(m_node.start(m_lca_level, (m_first + 1)->start)))
                     {
                         m_first++;
-                        m_current = end(iop.end_op(m_lca_level, m_first));
+                        m_current = end(m_node.end(m_lca_level, m_first->end));
                         // std::cout << "update end in while loop: " << m_current << std::endl;
                         // std::cout << "next start: " << start(iop.start_op(m_lca_level, m_first + 1)) << std::boolalpha << " "
                         //           << (m_first + 1 != m_last) << std::endl;
@@ -129,7 +276,7 @@ namespace samurai
                         m_current = sentinel<value_t>;
                         return;
                     }
-                    m_current = start(iop.start_op(m_lca_level, m_first));
+                    m_current = start(m_node.start(m_lca_level, m_first->start));
                     // std::cout << "update start: " << m_current << std::endl;
                 }
                 m_is_start = !m_is_start;
@@ -146,6 +293,7 @@ namespace samurai
         iterator_t m_last;
         value_t m_current;
         bool m_is_start;
+        node_t m_node;
     };
 
     template <class const_iterator_t>
@@ -153,17 +301,19 @@ namespace samurai
     {
       public:
 
-        using iterator_category = std::forward_iterator_tag;
-        using const_iterator    = const_iterator_t;
-        using value_type        = typename const_iterator_t::value_type;
-        using const_reference   = typename const_iterator_t::reference;
-        using pointer           = typename const_iterator_t::pointer;
-        using const_pointer     = const pointer;
+        static constexpr std::size_t max_size = 1;
+        using iterator_category               = std::forward_iterator_tag;
+        using const_iterator                  = const_iterator_t;
+        using value_type                      = typename const_iterator_t::value_type;
+        using const_reference                 = typename const_iterator_t::reference;
+        using pointer                         = typename const_iterator_t::pointer;
+        using const_pointer                   = const pointer;
 
         offset_iterator()
             : p_first({})
             , p_last({})
             , m_current({0, 0})
+            , m_size(0)
         {
         }
 
@@ -187,16 +337,17 @@ namespace samurai
             : p_first({interval_it_begin})
             , p_last({interval_it_end})
             , m_current((interval_it_begin == interval_it_end) ? value_type({0, 0}) : *interval_it_begin)
+            , m_size(1)
         {
         }
 
         void next()
         {
-            if (p_first.size() == 0)
+            if (m_size == 0)
             {
                 return;
             }
-            if (p_first.size() == 1)
+            if (m_size == 1)
             {
                 if (p_first[0] != p_last[0])
                 {
@@ -284,9 +435,12 @@ namespace samurai
 
       private:
 
-        std::vector<const_iterator_t> p_first;
-        std::vector<const_iterator_t> p_last;
+        // std::vector<const_iterator_t> p_first;
+        // std::vector<const_iterator_t> p_last;
+        std::array<const_iterator_t, max_size> p_first;
+        std::array<const_iterator_t, max_size> p_last;
         value_type m_current;
+        std::size_t m_size;
     };
 
     template <class const_iterator_t>

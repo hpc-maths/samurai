@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <limits>
+#include <memory>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -32,10 +33,10 @@ namespace samurai
         using set_type                   = std::tuple<S...>;
         using interval_t                 = get_interval_t<S...>;
 
-        SetOp(int shift, Operator op, const S&... s)
+        SetOp(int shift, const Operator& op, S&&... s)
             : m_shift(shift)
             , m_operator(op)
-            , m_s(s...)
+            , m_s(std::forward<S>(s)...)
         {
         }
 
@@ -47,7 +48,7 @@ namespace samurai
         bool is_in(auto scan) const
         {
             return std::apply(
-                [*this, scan](const auto&... args)
+                [this, scan](auto&&... args)
                 {
                     return m_operator.is_in(scan, args...);
                 },
@@ -57,7 +58,7 @@ namespace samurai
         bool is_empty() const
         {
             return std::apply(
-                [*this](const auto&... args)
+                [this](auto&&... args)
                 {
                     return m_operator.is_empty(args...);
                 },
@@ -67,7 +68,7 @@ namespace samurai
         auto min() const
         {
             return std::apply(
-                [](auto&... args)
+                [](auto&&... args)
                 {
                     return compute_min(args.min()...);
                 },
@@ -76,16 +77,10 @@ namespace samurai
 
         void next(auto scan)
         {
-            next(scan, m_operator);
-        }
-
-        template <class IntervalOp>
-        void next(auto scan, IntervalOp op)
-        {
             std::apply(
-                [scan, &op](auto&... args)
+                [scan](auto&&... args)
                 {
-                    (args.next(scan, op), ...);
+                    (args.next(scan), ...);
                 },
                 m_s);
         }
@@ -156,25 +151,19 @@ namespace samurai
             return arg.is_empty();
         }
 
-        inline auto start_op(int level, const auto it)
+        inline auto get_node(auto level, auto d)
         {
-            return it->start + start_shift(m_t[0], level - m_level);
+            return node_t(std::make_unique<translate_node>(level, m_t[d]));
         }
 
-        inline auto end_op(int level, const auto it)
+        inline auto get_node(const node_t& node, auto level, auto d)
         {
-            return it->end + end_shift(m_t[0], level - m_level);
-        }
-
-        inline void set_level(auto level)
-        {
-            m_level = level;
+            return node_t(std::make_unique<translate_node>(node.p_impl, level, m_t[d]));
         }
 
       private:
 
         xt::xtensor_fixed<int, xt::xshape<dim>> m_t;
-        int m_level{std::numeric_limits<int>::min()};
     };
 
     template <class Op, class... S>
@@ -194,7 +183,7 @@ namespace samurai
             , m_min_level(m_level)
         {
             std::apply(
-                [*this](auto&&... args)
+                [this](auto&&... args)
                 {
                     (args.ref_level(m_ref_level), ...);
                 },
@@ -240,14 +229,17 @@ namespace samurai
         }
 
         template <std::size_t d>
-        auto get_local_set(int level, xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index)
+        auto get_local_set(int level, xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index, const node_t& node = node_t())
         {
             int shift = this->ref_level() - this->level();
-            m_operator.set_level(this->level());
+            // m_operator.set_level(this->level());
+            // m_operator.set_dim(d);
             return std::apply(
-                [*this, &index, shift, level](auto&&... args)
+                [this, &index, shift, level, &node](auto&&... args)
                 {
-                    return SetOp(shift, m_operator, args.template get_local_set<d>(level, index)...);
+                    return SetOp(shift,
+                                 m_operator,
+                                 args.template get_local_set<d>(level, index, m_operator.get_node(node, this->level(), d))...);
                 },
                 m_s);
         }
@@ -266,7 +258,7 @@ namespace samurai
         {
             m_ref_level = static_cast<int>(level);
             std::apply(
-                [*this](auto&&... args)
+                [this](auto&&... args)
                 {
                     (args.ref_level(m_ref_level), ...);
                 },
@@ -299,7 +291,7 @@ namespace samurai
         }
 
         template <std::size_t d>
-        auto get_local_set(int level, xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index)
+        auto get_local_set(int level, xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index, const node_t& node = node_t())
         {
             using iterator_t  = decltype(m_lca[d - 1].cbegin());
             using offset_it_t = offset_iterator<iterator_t>;
@@ -307,11 +299,13 @@ namespace samurai
             {
                 if (m_lca[d - 1].empty())
                 {
-                    return IntervalVector<offset_it_t>();
+                    // return IntervalVector<offset_it_t>();
+                    return IntervalVector<iterator_t>();
                 }
-                auto begin = offset_it_t(m_lca[d - 1].begin(), m_lca[d - 1].end());
-                auto end   = offset_it_t(m_lca[d - 1].end(), m_lca[d - 1].end());
-                return IntervalVector<offset_it_t>(m_lca.level(), m_level, m_min_level, m_ref_level, begin, end);
+                // auto begin = offset_it_t(m_lca[d - 1].begin(), m_lca[d - 1].end());
+                // auto end   = offset_it_t(m_lca[d - 1].end(), m_lca[d - 1].end());
+                // return IntervalVector<offset_it_t>(m_lca.level(), m_level, m_min_level, m_ref_level, begin, end);
+                return IntervalVector<iterator_t>(m_lca.level(), m_level, m_min_level, m_ref_level, m_lca[d - 1].begin(), m_lca[d - 1].end(), node);
             }
             else
             {
@@ -483,11 +477,11 @@ namespace samurai
     }
 
     template <class set_t, class stencil_t>
-    auto translate(const set_t& set, const stencil_t& stencil)
+    auto translate(set_t&& set, const stencil_t& stencil)
     {
-        constexpr std::size_t dim = set_t::dim;
-        // return subset(TranslationOp(xt::xtensor_fixed<int, xt::xshape<dim>>(stencil)), detail::transform(std::forward<set_t>(set)));
-        return subset(TranslationOp(xt::xtensor_fixed<int, xt::xshape<dim>>(stencil)), detail::transform(set));
+        constexpr std::size_t dim = std::decay_t<set_t>::dim;
+        return subset(TranslationOp(xt::xtensor_fixed<int, xt::xshape<dim>>(stencil)), detail::transform(std::forward<set_t>(set)));
+        // return subset(TranslationOp(xt::xtensor_fixed<int, xt::xshape<dim>>(stencil)), detail::transform(set));
     }
 
     template <class lca_t>
