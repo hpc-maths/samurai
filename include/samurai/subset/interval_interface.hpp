@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <deque>
 #include <iterator>
 #include <limits>
 #include <memory>
@@ -18,10 +19,10 @@ namespace samurai
 {
     struct node_impl
     {
-        node_impl()                                      = default;
-        virtual int start(int level, int i) const        = 0;
-        virtual int end(int level, int i) const          = 0;
-        virtual std::unique_ptr<node_impl> clone() const = 0;
+        node_impl()                               = default;
+        virtual int start(int level, int i) const = 0;
+        virtual int end(int level, int i) const   = 0;
+        virtual int level() const                 = 0;
 
         virtual ~node_impl() = default;
 
@@ -31,130 +32,129 @@ namespace samurai
         node_impl& operator=(node_impl&&)      = delete;
     };
 
-    struct final_node : public node_impl
+    struct self_node : public node_impl
     {
-        final_node()
+        self_node(int level, int min_level, int max_level)
             : node_impl()
+            , m_level(level)
+            , m_min_level(min_level)
+            , m_max_level(max_level)
         {
         }
 
         virtual int start(int, int i) const override
         {
-            return i;
+            auto min_shift = m_min_level - m_max_level;
+            auto max_shift = m_max_level - m_min_level;
+            // std::cout << fmt::format(" (level: {}, m_level: {}, min_level: {}, max_level: {}, min_shift: {}, max_shift: {}) ",
+            //                          level,
+            //                          m_level,
+            //                          m_min_level,
+            //                          m_max_level,
+            //                          min_shift,
+            //                          max_shift);
+            return start_shift(start_shift(i, min_shift), max_shift);
         }
 
         virtual int end(int, int i) const override
         {
-            return i;
+            auto min_shift = m_min_level - m_max_level;
+            auto max_shift = m_max_level - m_min_level;
+            return end_shift(end_shift(i, min_shift), max_shift);
         }
 
-        std::unique_ptr<node_impl> clone() const override
+        virtual int level() const override
         {
-            return std::make_unique<final_node>();
-        }
-    };
-
-    struct self_node : public node_impl
-    {
-        self_node()
-            : node_impl()
-            , m_op(std::make_unique<final_node>())
-        {
+            return m_level;
         }
 
-        self_node(const std::unique_ptr<node_impl>& op)
-            : node_impl()
-            , m_op(op->clone())
-        {
-        }
-
-        virtual int start(int level, int i) const override
-        {
-            return m_op->start(level, i);
-        }
-
-        virtual int end(int level, int i) const override
-        {
-            return m_op->end(level, i);
-        }
-
-        std::unique_ptr<node_impl> clone() const override
-        {
-            return std::make_unique<self_node>(m_op);
-        }
-
-        std::unique_ptr<node_impl> m_op;
+        int m_level;
+        int m_min_level;
+        int m_max_level;
     };
 
     struct translate_node : public node_impl
     {
-        translate_node(const std::unique_ptr<node_impl>& op, int level, int t)
+        translate_node(int level, int min_level, int max_level, int t)
             : node_impl()
-            , m_op(op->clone())
             , m_level(level)
+            , m_min_level(min_level)
+            , m_max_level(max_level)
             , m_t(t)
         {
         }
 
-        translate_node(int level, int t)
-            : node_impl()
-            , m_op(std::make_unique<final_node>())
-            , m_level(level)
-            , m_t(t)
+        virtual int start(int level, int s) const override
         {
+            // auto min_shift = m_min_level - m_max_level;
+            // auto max_shift = m_max_level - m_min_level;
+            // std::cout << fmt::format(" (level: {}, m_level: {}, min_level: {}, max_level: {}, min_shift: {}, max_shift: {}, t: {}) ",
+            //                          level,
+            //                          m_level,
+            //                          m_min_level,
+            //                          m_max_level,
+            //                          min_shift,
+            //                          max_shift,
+            //                          m_t);
+
+            // return start_shift(start_shift(start_shift(s, min_shift), level - m_min_level) + m_t, m_max_level - level);
+            return start_shift(start_shift(start_shift(s, level - m_max_level) + m_t, m_min_level - level), m_max_level - m_min_level);
         }
 
-        virtual int start(int level, int i) const override
+        virtual int end(int level, int e) const override
         {
-            return m_op->start(level, i) + start_shift(m_t, level - m_level);
+            // auto min_shift = m_min_level - m_max_level;
+            // auto max_shift = m_max_level - m_min_level;
+            // return end_shift(end_shift(end_shift(e, min_shift), level - m_min_level) + m_t, m_max_level - level);
+            return end_shift(end_shift(end_shift(e, level - m_max_level) + m_t, m_min_level - level), m_max_level - m_min_level);
         }
 
-        virtual int end(int level, int i) const override
+        virtual int level() const override
         {
-            return m_op->end(level, i) + end_shift(m_t, level - m_level);
+            return m_level;
         }
 
-        virtual std::unique_ptr<node_impl> clone() const override
-        {
-            return std::make_unique<translate_node>(m_op, m_level, m_t);
-        }
-
-        std::unique_ptr<node_impl> m_op;
         int m_level;
+        int m_min_level;
+        int m_max_level;
         int m_t;
     };
 
     struct node_t
     {
-        node_t(std::unique_ptr<node_impl>&& op)
-            : p_impl(std::move(op))
+        node_t(const std::shared_ptr<node_impl>& op)
+            : p_impl(op)
         {
         }
 
         node_t()
-            : p_impl(std::make_unique<final_node>())
+            : p_impl(nullptr)
         {
         }
 
         node_t(const node_t& rhs)
-            : p_impl(rhs.p_impl->clone())
+            : p_impl(rhs.p_impl)
         {
         }
 
-        auto start(auto level, auto i)
+        auto start(auto level, auto i) const
         {
             return p_impl->start(level, i);
         }
 
-        auto end(auto level, auto i)
+        auto end(auto level, auto i) const
         {
             return p_impl->end(level, i);
         }
 
+        auto level() const
+        {
+            return p_impl->level();
+        }
+
         node_t& operator=(const node_t& rhs)
         {
-            p_impl.reset();
-            p_impl = rhs.p_impl->clone();
+            p_impl = rhs.p_impl;
             return *this;
         }
 
@@ -162,7 +162,7 @@ namespace samurai
         node_t(node_t&& rhs) noexcept            = default;
         node_t& operator=(node_t&& rhs) noexcept = default;
 
-        std::unique_ptr<node_impl> p_impl;
+        std::shared_ptr<node_impl> p_impl;
     };
 
     namespace detail
@@ -170,14 +170,12 @@ namespace samurai
     {
         struct IntervalInfo
         {
-            inline node_t get_node(auto, auto)
+            inline void update_node(auto& node, auto level, auto min_level, auto max_level, auto)
             {
-                return node_t();
-            }
-
-            inline auto get_node(const node_t& node, auto, auto)
-            {
-                return node_t(std::make_unique<self_node>(node.p_impl));
+                // if (level != min_level)
+                {
+                    node.push_front(node_t(std::make_shared<self_node>(level, min_level, max_level)));
+                }
             }
         };
 
@@ -192,9 +190,11 @@ namespace samurai
         using interval_t = typename iterator_t::value_type;
         using value_t    = typename interval_t::value_t;
 
-        IntervalVector(auto lca_level, auto level, auto min_level, auto max_level, iterator_t begin, iterator_t end, const node_t& node)
+        IntervalVector(auto lca_level, auto level, auto min_level, auto max_level, iterator_t begin, iterator_t end, const std::deque<node_t>& node)
             : m_min_shift(min_level - static_cast<int>(lca_level))
             , m_max_shift(max_level - min_level)
+            , m_max_level(max_level)
+            , m_level(level)
             , m_shift(max_level - level)
             , m_lca_level(static_cast<int>(lca_level))
             , m_first(begin)
@@ -210,14 +210,37 @@ namespace samurai
         {
         }
 
-        auto start(const auto i) const
+        auto start(const auto it) const
         {
-            return start_shift(start_shift(i, m_min_shift), m_max_shift);
+            auto i = it->start << (m_max_level - m_lca_level);
+            // auto i = start_shift(start_shift(it->start, m_min_shift), m_max_shift);
+            // std::cout << "start: " << i;
+            auto previous_level = m_lca_level;
+            for (auto& n : m_node)
+            {
+                i = n.start(previous_level, i);
+                // std::cout << " -> " << i;
+                previous_level = n.level();
+            }
+            // std::cout << std::endl << std::endl;
+            // std::cout << "dans start " << i << " " << start_shift(start_shift(i, m_min_shift), m_max_shift) << " " << m_min_shift << " "
+            //           << m_max_shift << std::endl;
+            // return start_shift(start_shift(i, m_min_shift), m_max_shift);
+            return i;
         }
 
-        auto end(const auto i) const
+        auto end(const auto it) const
         {
-            return end_shift(end_shift(i, m_min_shift), m_max_shift);
+            auto i = it->end << (m_max_level - m_lca_level);
+            // auto i = end_shift(end_shift(it->end, m_min_shift), m_max_shift);
+            auto previous_level = m_lca_level;
+            for (auto& n : m_node)
+            {
+                i              = n.end(previous_level, i);
+                previous_level = n.level();
+            }
+            // return end_shift(end_shift(i, m_min_shift), m_max_shift);
+            return i;
         }
 
         bool is_in(auto scan) const
@@ -246,8 +269,7 @@ namespace samurai
             // std::cout << "m_current in next: " << m_current << " " << std::numeric_limits<value_t>::min() << std::endl;
             if (m_current == std::numeric_limits<value_t>::min())
             {
-                m_current = start(m_node.start(m_lca_level, m_first->start));
-                // std::cout << "first m_current: " << m_current << std::endl;
+                m_current = start(m_first);
                 return;
             }
 
@@ -255,12 +277,12 @@ namespace samurai
             {
                 if (m_is_start)
                 {
-                    m_current = end(m_node.end(m_lca_level, m_first->end));
+                    m_current = end(m_first);
                     // std::cout << "change m_current: " << m_current << std::endl;
-                    while (m_first + 1 != m_last && m_current >= start(m_node.start(m_lca_level, (m_first + 1)->start)))
+                    while (m_first + 1 != m_last && m_current >= start(m_first + 1))
                     {
                         m_first++;
-                        m_current = end(m_node.end(m_lca_level, m_first->end));
+                        m_current = end(m_first);
                         // std::cout << "update end in while loop: " << m_current << std::endl;
                         // std::cout << "next start: " << start(iop.start_op(m_lca_level, m_first + 1)) << std::boolalpha << " "
                         //           << (m_first + 1 != m_last) << std::endl;
@@ -276,7 +298,7 @@ namespace samurai
                         m_current = sentinel<value_t>;
                         return;
                     }
-                    m_current = start(m_node.start(m_lca_level, m_first->start));
+                    m_current = start(m_first);
                     // std::cout << "update start: " << m_current << std::endl;
                 }
                 m_is_start = !m_is_start;
@@ -287,13 +309,15 @@ namespace samurai
 
         int m_min_shift;
         int m_max_shift;
+        int m_max_level;
+        int m_level;
         int m_shift;
         int m_lca_level;
         iterator_t m_first;
         iterator_t m_last;
         value_t m_current;
         bool m_is_start;
-        node_t m_node;
+        std::deque<node_t> m_node;
     };
 
     template <class const_iterator_t>

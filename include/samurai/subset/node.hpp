@@ -151,20 +151,25 @@ namespace samurai
             return arg.is_empty();
         }
 
-        inline auto get_node(auto level, auto d)
+        inline void update_node(auto& node, auto level, auto min_level, auto max_level, auto d)
         {
-            return node_t(std::make_unique<translate_node>(level, m_t[d]));
-        }
-
-        inline auto get_node(const node_t& node, auto level, auto d)
-        {
-            return node_t(std::make_unique<translate_node>(node.p_impl, level, m_t[d]));
+            node.push_front(node_t(std::make_shared<translate_node>(level, min_level, max_level, m_t[d])));
         }
 
       private:
 
         xt::xtensor_fixed<int, xt::xshape<dim>> m_t;
     };
+
+    namespace detail
+    {
+        template <std::size_t d>
+        auto& construct_node(auto& node, const auto& subnode)
+        {
+            node.p_impl = subnode;
+            return node;
+        }
+    }
 
     template <class Op, class... S>
     class subset
@@ -198,19 +203,19 @@ namespace samurai
             }
             m_min_level = std::min(m_min_level, static_cast<int>(level));
             m_level     = static_cast<int>(level);
-            on_parent(static_cast<int>(level));
+            // on_parent(static_cast<int>(level));
             return *this;
         }
 
-        void on_parent(auto level)
-        {
-            std::apply(
-                [level](auto&&... args)
-                {
-                    (args.on_parent(level), ...);
-                },
-                m_s);
-        }
+        // void on_parent(auto level)
+        // {
+        //     std::apply(
+        //         [level](auto&&... args)
+        //         {
+        //             (args.on_parent(level), ...);
+        //         },
+        //         m_s);
+        // }
 
         template <class Func>
         void operator()(Func&& func)
@@ -229,19 +234,23 @@ namespace samurai
         }
 
         template <std::size_t d>
-        auto get_local_set(int level, xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index, const node_t& node = node_t())
+        auto get_local_set(int level, xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index, std::deque<node_t> node)
         {
             int shift = this->ref_level() - this->level();
-            // m_operator.set_level(this->level());
-            // m_operator.set_dim(d);
             return std::apply(
                 [this, &index, shift, level, &node](auto&&... args)
                 {
-                    return SetOp(shift,
-                                 m_operator,
-                                 args.template get_local_set<d>(level, index, m_operator.get_node(node, this->level(), d))...);
+                    m_operator.update_node(node, m_level, m_min_level, m_ref_level, d);
+
+                    return SetOp(shift, m_operator, args.template get_local_set<d>(level, index, node)...);
                 },
                 m_s);
+        }
+
+        template <std::size_t d>
+        auto get_local_set(int level, xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index)
+        {
+            return get_local_set<d>(level, index, {});
         }
 
         int level() const
@@ -291,10 +300,13 @@ namespace samurai
         }
 
         template <std::size_t d>
-        auto get_local_set(int level, xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index, const node_t& node = node_t())
+        auto get_local_set(int level, xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index, std::deque<node_t> node)
         {
             using iterator_t  = decltype(m_lca[d - 1].cbegin());
             using offset_it_t = offset_iterator<iterator_t>;
+
+            node.push_front(node_t(std::make_shared<self_node>(m_level, m_min_level, m_ref_level)));
+
             if constexpr (dim == d)
             {
                 if (m_lca[d - 1].empty())
@@ -389,6 +401,12 @@ namespace samurai
             }
         }
 
+        template <std::size_t d>
+        auto get_local_set(int level, xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index)
+        {
+            return get_local_set<d>(level, index, {});
+        }
+
         auto ref_level() const
         {
             return m_ref_level;
@@ -411,10 +429,10 @@ namespace samurai
             return *this;
         }
 
-        void on_parent(int level)
-        {
-            m_min_level = std::min(m_min_level, level);
-        }
+        // void on_parent(int level)
+        // {
+        //     m_min_level = std::min(m_min_level, level);
+        // }
 
         const lca_t& m_lca;
         int m_level;

@@ -123,22 +123,22 @@ namespace samurai::experimental
         apply(translate(intersection(A, B).on(1), xt::xtensor_fixed<int, xt::xshape<1>>{5}).on(4),
               [](auto& i, auto)
               {
-                  EXPECT_EQ(interval_t(40, 49), i);
+                  EXPECT_EQ(interval_t(40, 48), i);
               });
 
         apply(translate(A, xt::xtensor_fixed<int, xt::xshape<1>>{2}).on(2),
               [](auto& i, auto)
               {
-                  EXPECT_EQ(interval_t(2, 3), i);
+                  EXPECT_EQ(interval_t(1, 2), i);
               });
 
         apply(translate(B, xt::xtensor_fixed<int, xt::xshape<1>>{-2}).on(2),
               [](auto& i, auto)
               {
-                  EXPECT_EQ(interval_t(-1, 1), i);
+                  EXPECT_EQ(interval_t(0, 2), i);
               });
 
-        apply(translate(B, xt::xtensor_fixed<int, xt::xshape<1>>{-2}).on(1).on(2),
+        apply(translate(B, xt::xtensor_fixed<int, xt::xshape<1>>{-4}).on(1).on(2),
               [](auto& i, auto)
               {
                   EXPECT_EQ(interval_t(-2, 2), i);
@@ -147,7 +147,7 @@ namespace samurai::experimental
         apply(translate(B, xt::xtensor_fixed<int, xt::xshape<1>>{-2}).on(4),
               [](auto& i, auto)
               {
-                  EXPECT_EQ(interval_t(4, 8), i);
+                  EXPECT_EQ(interval_t(2, 6), i);
               });
 
         never_call = true;
@@ -283,7 +283,7 @@ namespace samurai::experimental
 
         ca = {cl, true};
 
-        auto set = IntervalVector(4, 4, 4, 4, ca[4][0].begin(), ca[4][0].begin() + 1, node_t());
+        auto set = IntervalVector(4, 4, 4, 4, ca[4][0].begin(), ca[4][0].begin() + 1, {node_t(std::make_shared<self_node>(4, 4, 4))});
         apply(set,
               [](auto& i)
               {
@@ -343,16 +343,56 @@ namespace samurai::experimental
     {
         samurai::CellList<1> cl;
         samurai::CellArray<1> ca;
+        using interval_t = typename samurai::CellArray<1>::interval_t;
 
-        cl[14][{}].add_interval({8612, 8620});
-        cl[13][{}].add_interval({4279, 4325});
+        cl[5][{}].add_interval({3, 17});
 
         ca = {cl, true};
 
-        apply(translate(translate(ca[14], xt::xtensor_fixed<int, xt::xshape<1>>{-2}), xt::xtensor_fixed<int, xt::xshape<1>>{2}),
+        apply(intersection(translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{-2}), ca[5]),
               [](auto& i, auto)
               {
-                  std::cout << "solution: " << i << std::endl;
+                  EXPECT_EQ(interval_t(3, 15), i);
+              });
+
+        apply(intersection(translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{-2}).on(4), ca[5]),
+              [](auto& i, auto)
+              {
+                  EXPECT_EQ(interval_t(3, 16), i);
+              });
+
+        apply(intersection(translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{-2}).on(4),
+                           translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{2})),
+              [](auto& i, auto)
+              {
+                  EXPECT_EQ(interval_t(5, 16), i);
+              });
+
+        apply(translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{-2}).on(4),
+              [](auto& i, auto)
+              {
+                  EXPECT_EQ(interval_t(0, 8), i);
+              });
+
+        apply(translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{2}).on(3),
+              [](auto& i, auto)
+              {
+                  EXPECT_EQ(interval_t(1, 5), i);
+              });
+
+        apply(intersection(translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{-2}).on(4),
+                           translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{2}).on(3)),
+              [](auto& i, auto)
+              {
+                  EXPECT_EQ(interval_t(2, 8), i);
+              });
+
+        apply(translate(intersection(translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{-2}).on(4),
+                                     translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{2}).on(3)),
+                        xt::xtensor_fixed<int, xt::xshape<1>>{5}),
+              [](auto& i, auto)
+              {
+                  EXPECT_EQ(interval_t(7, 13), i);
               });
     }
 }
