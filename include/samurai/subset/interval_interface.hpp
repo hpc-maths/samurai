@@ -127,26 +127,16 @@ namespace samurai
         using value_t    = typename interval_t::value_t;
         using function_t = std::function<int(int, int)>;
 
-        IntervalVector(auto lca_level,
-                       auto level,
-                       auto min_level,
-                       auto max_level,
-                       iterator_t begin,
-                       iterator_t end,
-                       const function_t& start_fct,
-                       const function_t& end_fct)
-            : m_min_shift(min_level - static_cast<int>(lca_level))
-            , m_max_shift(max_level - min_level)
-            , m_max_level(max_level)
-            , m_level(level)
-            , m_shift(max_level - level)
-            , m_lca_level(static_cast<int>(lca_level))
+        IntervalVector(auto lca_level, auto level, auto max_level, iterator_t begin, iterator_t end, function_t&& start_fct, function_t&& end_fct)
+            : m_lca_level(static_cast<int>(lca_level))
+            , m_shift2dest(max_level - level)
+            , m_shift2ref(max_level - static_cast<int>(lca_level))
             , m_first(begin)
             , m_last(end)
             , m_current(std::numeric_limits<value_t>::min())
             , m_is_start(true)
-            , m_start_fct(start_fct)
-            , m_end_fct(end_fct)
+            , m_start_fct(std::move(start_fct))
+            , m_end_fct(std::move(end_fct))
         {
         }
 
@@ -157,13 +147,13 @@ namespace samurai
 
         auto start(const auto it) const
         {
-            auto i = it->start << (m_max_level - m_lca_level);
+            auto i = it->start << m_shift2ref;
             return m_start_fct(m_lca_level, i);
         }
 
         auto end(const auto it) const
         {
-            auto i = it->end << (m_max_level - m_lca_level);
+            auto i = it->end << m_shift2ref;
             return m_end_fct(m_lca_level, i);
         }
 
@@ -184,7 +174,7 @@ namespace samurai
 
         auto shift() const
         {
-            return m_shift;
+            return m_shift2dest;
         }
 
         void next(auto scan)
@@ -231,12 +221,9 @@ namespace samurai
 
       private:
 
-        int m_min_shift;
-        int m_max_shift;
-        int m_max_level;
-        int m_level;
-        int m_shift;
         int m_lca_level;
+        int m_shift2dest;
+        int m_shift2ref;
         iterator_t m_first;
         iterator_t m_last;
         value_t m_current;

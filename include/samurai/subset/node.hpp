@@ -307,7 +307,6 @@ namespace samurai
                 // return IntervalVector<offset_it_t>(m_lca.level(), m_level, m_min_level, m_ref_level, begin, end);
                 return IntervalVector<iterator_t>(m_lca.level(),
                                                   m_level,
-                                                  m_min_level,
                                                   m_ref_level,
                                                   m_lca[d - 1].begin(),
                                                   m_lca[d - 1].end(),

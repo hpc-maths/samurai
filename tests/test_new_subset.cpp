@@ -288,7 +288,7 @@ namespace samurai::experimental
             return i;
         };
 
-        auto set = IntervalVector(4, 4, 4, 4, ca[4][0].begin(), ca[4][0].begin() + 1, func, func);
+        auto set = IntervalVector(4, 4, 4, ca[4][0].begin(), ca[4][0].begin() + 1, func, func);
         apply(set,
               [](auto& i)
               {
