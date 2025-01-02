@@ -117,22 +117,64 @@ namespace samurai
 
     } // namespace detail
 
-    template <class iterator>
+    template <class container_>
+    class interval_iterator
+    {
+      public:
+
+        using container_t = container_;
+        using value_t     = typename container_t::value_type;
+        using iterator_t  = typename container_t::const_iterator;
+
+        interval_iterator(const container_t& data, std::ptrdiff_t start, std::ptrdiff_t end)
+            : m_data(data)
+            , m_start(start)
+            , m_end(end)
+        {
+        }
+
+        auto begin()
+        {
+            return m_data.cbegin() + m_start;
+        }
+
+        auto end()
+        {
+            return m_data.cbegin() + m_end;
+        }
+
+      private:
+
+        const container_t& m_data;
+        std::ptrdiff_t m_start;
+        std::ptrdiff_t m_end;
+        container_t m_work;
+    };
+
+    template <class container_>
     class IntervalVector
     {
       public:
 
-        using iterator_t = iterator;
-        using interval_t = typename iterator_t::value_type;
-        using value_t    = typename interval_t::value_t;
-        using function_t = std::function<int(int, int)>;
+        using container_t = container_;
+        using base_t      = interval_iterator<container_t>;
+        using iterator_t  = typename base_t::iterator_t;
+        using interval_t  = typename base_t::value_t;
+        using value_t     = typename interval_t::value_t;
+        using function_t  = std::function<int(int, int)>;
 
-        IntervalVector(auto lca_level, auto level, auto max_level, iterator_t begin, iterator_t end, function_t&& start_fct, function_t&& end_fct)
+        IntervalVector(auto lca_level,
+                       auto level,
+                       auto max_level,
+                       interval_iterator<container_t>&& intervals,
+                       function_t&& start_fct,
+                       function_t&& end_fct)
             : m_lca_level(static_cast<int>(lca_level))
             , m_shift2dest(max_level - level)
             , m_shift2ref(max_level - static_cast<int>(lca_level))
-            , m_first(begin)
-            , m_last(end)
+            , m_intervals(std::move(intervals))
+            , m_first(m_intervals.begin())
+            , m_last(m_intervals.end())
             , m_current(std::numeric_limits<value_t>::min())
             , m_is_start(true)
             , m_start_fct(std::move(start_fct))
@@ -140,8 +182,9 @@ namespace samurai
         {
         }
 
-        IntervalVector()
-            : m_current(sentinel<value_t>)
+        IntervalVector(interval_iterator<container_t>&& intervals)
+            : m_intervals(std::move(intervals))
+            , m_current(sentinel<value_t>)
         {
         }
 
@@ -224,6 +267,7 @@ namespace samurai
         int m_lca_level;
         int m_shift2dest;
         int m_shift2ref;
+        interval_iterator<container_t> m_intervals;
         iterator_t m_first;
         iterator_t m_last;
         value_t m_current;

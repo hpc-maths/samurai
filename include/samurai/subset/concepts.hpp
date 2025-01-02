@@ -17,7 +17,7 @@ namespace samurai
     template <class Operator, class... S>
     class SetOp;
 
-    template <class iterator>
+    template <class container_t>
     class IntervalVector;
 
     template <class T>
@@ -37,7 +37,7 @@ namespace samurai
     concept IsSetOp = is_setop_v<T>;
 
     template <typename T>
-    concept IsIntervalVector = std::is_base_of_v<IntervalVector<typename std::decay_t<T>::iterator_t>, std::decay_t<T>>;
+    concept IsIntervalVector = std::is_base_of_v<IntervalVector<typename std::decay_t<T>::container_t>, std::decay_t<T>>;
 
     template <typename T>
     concept IsLCA = std::same_as<LevelCellArray<T::dim, typename T::interval_t>, T>;
