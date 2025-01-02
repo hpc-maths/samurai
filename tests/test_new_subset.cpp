@@ -288,7 +288,7 @@ namespace samurai::experimental
             return i;
         };
 
-        auto set = IntervalVector(4, 4, 4, interval_iterator(ca[4][0], 0, 1), func, func);
+        auto set = IntervalVector(4, 4, 4, IntervalIterator(ca[4][0], 0, 1), func, func);
         apply(set,
               [](auto& i)
               {

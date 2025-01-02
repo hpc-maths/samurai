@@ -297,7 +297,7 @@ namespace samurai
                 if (m_lca[d - 1].empty())
                 {
                     // return IntervalVector<offset_it_t>();
-                    return IntervalVector(interval_iterator(m_lca[d - 1], 0, 0));
+                    return IntervalVector(IntervalIterator(m_lca[d - 1], 0, 0));
                 }
                 // auto begin = offset_it_t(m_lca[d - 1].begin(), m_lca[d - 1].end());
                 // auto end   = offset_it_t(m_lca[d - 1].end(), m_lca[d - 1].end());
@@ -305,7 +305,7 @@ namespace samurai
                 return IntervalVector(m_lca.level(),
                                       m_level,
                                       m_ref_level,
-                                      interval_iterator(m_lca[d - 1], 0, static_cast<std::ptrdiff_t>(m_lca[d - 1].size())),
+                                      IntervalIterator(m_lca[d - 1], 0, static_cast<std::ptrdiff_t>(m_lca[d - 1].size())),
                                       new_start_fct,
                                       new_end_fct);
             }
