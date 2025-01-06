@@ -93,6 +93,10 @@ class MyFixture : public ::benchmark::Fixture
     samurai::CellArray<dim_> mesh;
 };
 
+
+
+
+
 BENCHMARK_TEMPLATE_DEFINE_F(MyFixture, Search_1D, 1, 1000)
 
 (benchmark::State& state)
