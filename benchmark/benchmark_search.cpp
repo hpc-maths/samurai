@@ -74,7 +74,7 @@ class MyFixture : public ::benchmark::Fixture
             for (std::size_t s = 0; s < state.range(0); ++s)
             {
                 auto level = std::experimental::randint(min_level, max_level);
-                std::array<int, dim> coord;
+                xt::xtensor_fixed<int, xt::xshape<dim>> coord;
                 for (auto& c : coord)
                 {
                     c = std::experimental::randint(-bound << level, (bound << level) - 1);
@@ -92,6 +92,10 @@ class MyFixture : public ::benchmark::Fixture
 
     samurai::CellArray<dim_> mesh;
 };
+
+
+
+
 
 BENCHMARK_TEMPLATE_DEFINE_F(MyFixture, Search_1D, 1, 1000)
 
