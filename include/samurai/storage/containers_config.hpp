@@ -67,7 +67,7 @@ namespace samurai
     // Flux container //
     //----------------//
 
-    // Just to trigger pre-commit
+    // Just to trigger pre-commit (remove)
 
     template <class value_type, std::size_t size>
 #if defined(FLUX_CONTAINER_ARRAY)
