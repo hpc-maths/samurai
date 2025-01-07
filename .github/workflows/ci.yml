@@ -81,7 +81,7 @@ jobs:
                       package: "gcc-11 g++-11"
                       cc: "gcc-11"
                       cxx: "g++-11"
-                      - cpp-version: gcc-12
+                    - cpp-version: gcc-12
                       compiler: "gcc"
                       package: "gcc-12 g++-12"
                       cc: "gcc-12"
