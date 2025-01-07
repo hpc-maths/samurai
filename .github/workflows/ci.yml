@@ -155,6 +155,7 @@ jobs:
                       package: "clang-14 libc++-14-dev libc++abi-14-dev"
                       cc: "clang-14"
                       cxx: "clang++-14"
+                      cxx-flags: "-stdlib=libc++"
                     - cpp-version: clang-15
                       os: ubuntu-22.04
                       compiler: "clang"
@@ -242,7 +243,7 @@ jobs:
               shell: bash -l {0}
               run: |
                   export LDFLAGS="${LDFLAGS} -L$CONDA_PREFIX/lib"
-                  CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
+                  CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} CXX_FLAGS="${{ matrix.cxx-flags }}" cmake \
                       . \
                       -Bbuild \
                       -GNinja \
