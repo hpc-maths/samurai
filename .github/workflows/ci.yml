@@ -146,13 +146,13 @@ jobs:
                     - cpp-version: clang-13
                       os: ubuntu-22.04
                       compiler: "clang"
-                      package: "clang-13"
+                      package: "clang"
                       cc: "clang-13"
                       cxx: "clang++-13"
                     - cpp-version: clang-14
                       os: ubuntu-22.04
                       compiler: "clang"
-                      package: "clang-14"
+                      package: "clang"
                       cc: "clang-14"
                       cxx: "clang++-14"
                     - cpp-version: clang-15
