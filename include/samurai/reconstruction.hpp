@@ -1105,7 +1105,11 @@ namespace samurai
 #if defined(SAMURAI_FIELD_CONTAINER_EIGEN3)
                                 static_assert(Field_src::is_soa && Field_src::size > 1,
                                               "transfer() is not implemented with Eigen for scalar fields and vectorial fields in AOS.");
-                            // In the lid-driven-cavity demo, the following line does not compile with Eigen.
+                            // In the lid-driven-cavity demo, the following line of code does not compile with Eigen.
+#else
+                                static_assert(Field_src::inner_types::static_layout == layout_type::row_major,
+                                              "transfer() is not implemented when the xtensor within a field is col-major.");
+                            // In the lid-driven-cavity demo, the following line of code crashes at execution in col_major.
 #endif
                                 view(dst, i_dst) += view(src, static_cast<size_type>(ii)) / (1 << shift * dim);
                             }
