@@ -67,6 +67,8 @@ namespace samurai
     // Flux container //
     //----------------//
 
+    // Just to trigger pre-commit
+
     template <class value_type, std::size_t size>
 #if defined(FLUX_CONTAINER_ARRAY)
     using flux_array_t    = StdArrayWrapper<value_type, size>;
