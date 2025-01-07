@@ -6,7 +6,7 @@ dependencies:
   - ninja
   - xtensor
   - highfive
-  - fmt
+  - fmt=10
   - pugixml
   - cxxopts
   - cli11
