@@ -96,7 +96,7 @@ jobs:
                       package: "gcc-14 g++-14"
                       cc: "gcc-14"
                       cxx: "g++-14"
-                      - cpp-version: clang-14
+                    - cpp-version: clang-14
                       compiler: "clang"
                       package: "clang-14"
                       cc: "clang-14"
