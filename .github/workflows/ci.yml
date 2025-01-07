@@ -155,11 +155,10 @@ jobs:
                       package: "clang-14 libc++-14-dev libc++abi-14-dev"
                       cc: "clang-14"
                       cxx: "clang++-14"
-                      cxx-flags: "-stdlib=libc++"
                     - cpp-version: clang-15
                       os: ubuntu-22.04
                       compiler: "clang"
-                      package: "clang-15"
+                      package: "clang-15 libc++-15-dev libc++abi-15-dev"
                       cc: "clang-15"
                       cxx: "clang++-15"
                     - cpp-version: clang-16
