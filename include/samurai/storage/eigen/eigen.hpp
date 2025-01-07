@@ -50,7 +50,7 @@ namespace samurai
     template <class value_t, std::size_t size, bool SOA>
     struct eigen_container
     {
-        static constexpr layout_type static_layout = SAMURAI_DEFAULT_LAYOUT;
+        static constexpr layout_type static_layout = SAMURAI_DEFAULT_LAYOUT; // cppcheck-suppress unusedStructMember
         using container_t                          = detail::eigen_type_t<value_t, size, SOA>;
         using size_type                            = Eigen::Index;
 
