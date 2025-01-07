@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "../samurai_config.hpp"
+#include "layout_config.hpp"
 
 namespace samurai
 {
