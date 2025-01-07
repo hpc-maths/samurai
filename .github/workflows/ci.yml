@@ -121,11 +121,6 @@ jobs:
                       package: "clang-18"
                       cc: "clang-18"
                       cxx: "clang++-18"
-                    - cpp-version: clang-19
-                      compiler: "clang"
-                      package: "clang-19"
-                      cc: "clang-19"
-                      cxx: "clang++-19"
         steps:
             - uses: actions/checkout@v4
 
