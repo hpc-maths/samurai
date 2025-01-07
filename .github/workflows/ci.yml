@@ -152,7 +152,7 @@ jobs:
                     - cpp-version: clang-14
                       os: ubuntu-22.04
                       compiler: "clang"
-                      package: "clang-14 libc++-15-dev libc++abi-15-dev"
+                      package: "clang-14 libc++-14-dev libc++abi-14-dev"
                       cc: "clang-14"
                       cxx: "clang++-14"
                     - cpp-version: clang-15
