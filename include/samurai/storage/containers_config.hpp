@@ -46,7 +46,7 @@ namespace samurai
     using local_field_data_t = xtensor_collapsable_static_array<value_type, size>;
 
     template <class T>
-    using default_view_t = xt::xview<T&, xt::xstepped_range<long>>;
+    using default_view_t  = xt::xview<T&, xt::xstepped_range<long>>;
 #endif
 
     //--------------//
@@ -57,7 +57,7 @@ namespace samurai
 #if defined(SAMURAI_FIELD_CONTAINER_EIGEN3)
     using Array = eigen_static_array<value_type, size, SOA>;
 #else // SAMURAI_FIELD_CONTAINER_XTENSOR
-    using Array = xtensor_static_array<value_type, size>;
+    using Array           = xtensor_static_array<value_type, size>;
 #endif
 
     template <class value_type, std::size_t size, bool SOA>
@@ -66,8 +66,6 @@ namespace samurai
     //----------------//
     // Flux container //
     //----------------//
-
-    // Just to trigger pre-commit (remove)
 
     template <class value_type, std::size_t size>
 #if defined(FLUX_CONTAINER_ARRAY)
