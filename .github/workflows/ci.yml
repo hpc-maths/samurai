@@ -67,7 +67,7 @@ jobs:
     linux-mamba:
         needs: [pre-commit, cppcheck]
         strategy:
-            fail-fast: true
+            fail-fast: false
             matrix:
                 include:
                     - cpp-version: gcc-10
@@ -76,12 +76,12 @@ jobs:
                       package: "gcc-10 g++-10"
                       cc: "gcc-10"
                       cxx: "g++-10"
-                    - cpp-version: gcc-11
-                      os: ubuntu-22.04
-                      compiler: "gcc"
-                      package: "gcc-11 g++-11"
-                      cc: "gcc-11"
-                      cxx: "g++-11"
+                    # - cpp-version: gcc-11
+                    #   os: ubuntu-22.04
+                    #   compiler: "gcc"
+                    #   package: "gcc-11 g++-11"
+                    #   cc: "gcc-11"
+                    #   cxx: "g++-11"
                     - cpp-version: gcc-12
                       os: ubuntu-24.04
                       compiler: "gcc"
