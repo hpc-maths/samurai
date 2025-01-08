@@ -82,16 +82,11 @@ project_options(
   ${FEATURES}
   ENABLE_VS_ANALYSIS
   ${ENABLE_CONAN}
-)
+  )
 
 add_library(samurai INTERFACE)
+target_compile_features(samurai INTERFACE cxx_std_20)
 target_link_libraries(samurai INTERFACE project_options project_warnings)
-set_target_properties(samurai
-    PROPERTIES
-        CXX_STANDARD ${CMAKE_CXX_STANDARD}
-        CXX_STANDARD_REQUIRED ${CMAKE_CXX_STANDARD_REQUIRED}
-        CXX_EXTENSIONS ${CMAKE_CXX_EXTENSIONS}
-)
 
 # Includes
 set(INCLUDE_DIR "include") # must be relative paths
@@ -147,7 +142,6 @@ if(${WITH_MPI})
 endif()
 
 
-target_compile_features(samurai INTERFACE cxx_std_20)
 
 # target_compile_definitions(samurai INTERFACE _HAS_AUTO_PTR_ETC=0)
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
