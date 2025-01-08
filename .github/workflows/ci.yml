@@ -71,31 +71,31 @@ jobs:
             matrix:
                 include:
                     - cpp-version: gcc-10
-                      os: ubuntu-22.04
+                      os: ubuntu-latest
                       compiler: "gcc"
                       package: "gcc-10 g++-10"
                       cc: "gcc-10"
                       cxx: "g++-10"
-                    # - cpp-version: gcc-11
-                    #   os: ubuntu-22.04
-                    #   compiler: "gcc"
-                    #   package: "gcc-11 g++-11"
-                    #   cc: "gcc-11"
-                    #   cxx: "g++-11"
+                    - cpp-version: gcc-11
+                      os: ubuntu-latest
+                      compiler: "gcc"
+                      package: "gcc-11 g++-11"
+                      cc: "gcc-11"
+                      cxx: "g++-11"
                     - cpp-version: gcc-12
-                      os: ubuntu-24.04
+                      os: ubuntu-latest
                       compiler: "gcc"
                       package: "gcc-12 g++-12"
                       cc: "gcc-12"
                       cxx: "g++-12"
                     - cpp-version: gcc-13
-                      os: ubuntu-24.04
+                      os: ubuntu-latest
                       compiler: "gcc"
                       package: "gcc-13 g++-13"
                       cc: "gcc-13"
                       cxx: "g++-13"
                     - cpp-version: gcc-14
-                      os: ubuntu-24.04
+                      os: ubuntu-latest
                       compiler: "gcc"
                       package: "gcc-14 g++-14"
                       cc: "gcc-14"
@@ -149,6 +149,12 @@ jobs:
                   key: linux-${{ matrix.cpp-version }}
                   restore-keys: |
                       linux-${{ matrix.cpp-version }}
+
+            - name: Compiler and dev tools installation
+              if: ${{ matrix.compiler }} == "gcc"
+              run: |
+                  sudo apt update
+                  sudo apt install ${{ matrix.package }}
 
             - name: Mamba and samurai env installation
               uses: mamba-org/setup-micromamba@v1
