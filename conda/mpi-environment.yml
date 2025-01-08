@@ -3,6 +3,7 @@ channels:
   - conda-forge
 dependencies:
   - cmake
+  - cxx-compiler
   - ninja
   - xtensor
   - highfive
