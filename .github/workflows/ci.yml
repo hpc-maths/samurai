@@ -66,7 +66,7 @@ jobs:
     #########################################################
     linux-mamba:
         needs: [pre-commit, cppcheck]
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-22.04
         strategy:
             fail-fast: true
             matrix:
