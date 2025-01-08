@@ -53,7 +53,7 @@ namespace samurai
         {
             return 1;
         }
-#ifdef SAMURAI_FIELD_CONTAINER_EIGEN3
+#ifdef SAMURAI_STATIC_MAT_CONTAINER_EIGEN3
         else if constexpr (is_eigen_matrix_v<matrix_type>)
         {
             return matrix_type::Identity();

@@ -13,8 +13,9 @@ namespace samurai
         column_major = 0x01
     };
 
-#ifndef SAMURAI_DEFAULT_LAYOUT
+#if defined(SAMURAI_CONTAINER_LAYOUT_COL_MAJOR)
+#define SAMURAI_DEFAULT_LAYOUT ::samurai::layout_type::column_major
+#else
 #define SAMURAI_DEFAULT_LAYOUT ::samurai::layout_type::row_major
-    // #define SAMURAI_DEFAULT_LAYOUT ::samurai::layout_type::column_major
 #endif
 }

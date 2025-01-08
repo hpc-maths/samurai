@@ -10,14 +10,17 @@
 
 // clang-format off
 #include "std/algebraic_array.hpp"
-#if defined(SAMURAI_FIELD_CONTAINER_EIGEN3) || defined(FLUX_CONTAINER_EIGEN3) || defined(STATIC_MATRIX_CONTAINER_EIGEN3)
+#if defined(SAMURAI_FIELD_CONTAINER_EIGEN3)
     // #define EIGEN_DEFAULT_DENSE_INDEX_TYPE int64_t
     #include "eigen/eigen.hpp"
-    #include "eigen/eigen_static.hpp"
 #else
     #include "xtensor/xtensor.hpp"
 #endif
 #include "xtensor/xtensor_static.hpp"
+
+#if defined(SAMURAI_FIELD_CONTAINER_EIGEN3) || defined(SAMURAI_FLUX_CONTAINER_EIGEN3) || defined(SAMURAI_STATIC_MAT_CONTAINER_EIGEN3)
+    #include "eigen/eigen_static.hpp"
+#endif
 
 // clang-format on
 
@@ -68,13 +71,13 @@ namespace samurai
     //----------------//
 
     template <class value_type, std::size_t size>
-#if defined(FLUX_CONTAINER_ARRAY)
+#if defined(SAMURAI_FLUX_CONTAINER_ARRAY)
     using flux_array_t    = StdArrayWrapper<value_type, size>;
     using flux_index_type = std::size_t;
-#elif defined(FLUX_CONTAINER_EIGEN3)
+#elif defined(SAMURAI_FLUX_CONTAINER_EIGEN3)
     using flux_array_t    = eigen_static_array<value_type, size, false>;
     using flux_index_type = Eigen::Index;
-#else // FLUX_CONTAINER_XTENSOR
+#else // SAMURAI_FLUX_CONTAINER_XTENSOR
     using flux_array_t    = xtensor_static_array<value_type, size>;
     using flux_index_type = std::size_t;
 #endif
@@ -86,14 +89,14 @@ namespace samurai
     // Static matrix //
     //---------------//
 
-#if defined(STATIC_MATRIX_CONTAINER_EIGEN3)
+#if defined(SAMURAI_STATIC_MAT_CONTAINER_EIGEN3)
     template <class value_type, std::size_t rows, std::size_t cols>
     using Matrix = eigen_static_matrix<value_type, rows, cols>;
 
     // template <class value_type, std::size_t rows, std::size_t cols>
     // using CollapsMatrix = eigen_collapsable_static_matrix<value_type, rows, cols>;
 
-#else // STATIC_MATRIX_CONTAINER_XTENSOR
+#else // SAMURAI_STATIC_MAT_CONTAINER_XTENSOR
     template <class value_type, std::size_t rows, std::size_t cols>
     using Matrix = xtensor_static_matrix<value_type, rows, cols>;
 #endif
