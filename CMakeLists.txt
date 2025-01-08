@@ -10,11 +10,11 @@ endif()
 
 project(samurai VERSION ${SAMURAI_VERSION} LANGUAGES CXX C)
 
-if (NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 17)
-  set(CMAKE_CXX_STANDARD_REQUIRED ON)
-  set(CMAKE_CXX_EXTENSIONS OFF)
-endif()
+# if (NOT CMAKE_CXX_STANDARD)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+# endif()
 
 # Avoid warning about DOWNLOAD_EXTRACT_TIMESTAMP in CMake 3.24:
 if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
@@ -86,7 +86,7 @@ project_options(
   )
 
 add_library(samurai INTERFACE)
-target_compile_features(samurai INTERFACE cxx_std_17)
+target_compile_features(samurai INTERFACE cxx_std_20)
 target_link_libraries(samurai INTERFACE project_options project_warnings)
 
 # Includes
