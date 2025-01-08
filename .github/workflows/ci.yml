@@ -151,7 +151,7 @@ jobs:
                       linux-${{ matrix.cpp-version }}
 
             - name: Compiler and dev tools installation
-              if: ${{ matrix.compiler == "gcc" }}
+              if: ${{ matrix.compiler == 'gcc' }}
               run: |
                   sudo apt update
                   sudo apt install ${{ matrix.package }}
