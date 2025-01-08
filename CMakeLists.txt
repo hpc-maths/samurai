@@ -92,7 +92,6 @@ set_target_properties(samurai
     PROPERTIES
         CXX_STANDARD ${CMAKE_CXX_STANDARD}
         CXX_STANDARD_REQUIRED YES
-        CXX_EXTENSIONS NO
 )
 
 # Includes
