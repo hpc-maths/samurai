@@ -189,8 +189,7 @@ namespace samurai
         template <class T1, class T2>
         inline auto flux(double a, const T1& ul, const T2& ur) const
         {
-            auto out = xt::xarray<double>::from_shape(ul.shape());
-            out.fill(0);
+            xt::xtensor<double, 1> out = xt::zeros<double>(ul.shape());
 
             auto mask1 = (a * ul < a * ur);
             auto mask2 = (ul * ur > 0.0);
