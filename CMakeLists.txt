@@ -10,11 +10,11 @@ endif()
 
 project(samurai VERSION ${SAMURAI_VERSION} LANGUAGES CXX C)
 
-if (NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 17)
-  set(CMAKE_CXX_STANDARD_REQUIRED ON)
-  set(CMAKE_CXX_EXTENSIONS OFF)
-endif()
+# if (NOT CMAKE_CXX_STANDARD)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+# endif()
 
 # Avoid warning about DOWNLOAD_EXTRACT_TIMESTAMP in CMake 3.24:
 if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
@@ -22,10 +22,10 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
 endif()
 
 
-# Add project_options v0.33.0
+# Add project_options v0.41.0
 # https://github.com/aminya/project_options
 include(FetchContent)
-FetchContent_Declare(_project_options URL https://github.com/aminya/project_options/archive/refs/tags/v0.33.0.zip)
+FetchContent_Declare(_project_options URL https://github.com/aminya/project_options/archive/refs/tags/v0.41.0.zip)
 FetchContent_MakeAvailable(_project_options)
 include(${_project_options_SOURCE_DIR}/Index.cmake)
 
@@ -55,7 +55,6 @@ set(FLUX_CONTAINER_LIST array xtensor)
 set(FLUX_CONTAINER "xtensor" CACHE STRING "Container to store fluxes: ${FLUX_CONTAINER_LIST}")
 set_property(CACHE FLUX_CONTAINER PROPERTY STRINGS ${FLUX_CONTAINER_LIST})
 
-
 SET(FEATURES)
 
 if(${CLANG_TIDY})
@@ -84,16 +83,11 @@ project_options(
   ${FEATURES}
   ENABLE_VS_ANALYSIS
   ${ENABLE_CONAN}
-)
+  )
 
 add_library(samurai INTERFACE)
+target_compile_features(samurai INTERFACE cxx_std_20)
 target_link_libraries(samurai INTERFACE project_options project_warnings)
-set_target_properties(samurai
-    PROPERTIES
-        CXX_STANDARD ${CMAKE_CXX_STANDARD}
-        CXX_STANDARD_REQUIRED YES
-        CXX_EXTENSIONS NO
-)
 
 # Includes
 set(INCLUDE_DIR "include") # must be relative paths
@@ -148,10 +142,6 @@ if(${WITH_MPI})
   target_compile_definitions(samurai INTERFACE SAMURAI_WITH_MPI)
 endif()
 
-
-target_compile_features(samurai INTERFACE cxx_std_17)
-
-# target_compile_definitions(samurai INTERFACE _HAS_AUTO_PTR_ETC=0)
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 OPTION(BUILD_BENCHMARKS "samurai benchmark suite" OFF)
