@@ -99,6 +99,7 @@ namespace samurai
         using mesh_t           = typename field_t::mesh_t;
         using mesh_id_t        = typename mesh_t::mesh_id_t;
         using field_value_type = typename field_t::value_type; // double
+        using size_type        = typename field_t::size_type;
 
         using cfg                                             = cfg_;
         using bdry_cfg                                        = bdry_cfg_;
@@ -206,8 +207,8 @@ namespace samurai
          */
         inline field_value_type cell_coeff(const StencilJacobian<cfg>& coeffs,
                                            std::size_t cell_number_in_stencil,
-                                           [[maybe_unused]] std::size_t field_i,
-                                           [[maybe_unused]] std::size_t field_j) const
+                                           [[maybe_unused]] size_type field_i,
+                                           [[maybe_unused]] size_type field_j) const
         {
             if constexpr (field_size == 1 && output_field_size == 1)
             {
@@ -221,8 +222,8 @@ namespace samurai
 
         inline field_value_type bdry_cell_coeff(const bdry_stencil_coeffs_t& coeffs,
                                                 std::size_t cell_number_in_stencil,
-                                                [[maybe_unused]] std::size_t field_i,
-                                                [[maybe_unused]] std::size_t field_j) const
+                                                [[maybe_unused]] size_type field_i,
+                                                [[maybe_unused]] size_type field_j) const
         {
             if constexpr (field_size == 1 && output_field_size == 1)
             {

@@ -14,6 +14,7 @@ namespace samurai
         using scheme_t       = typename base_class::scheme_t;
         using input_field_t  = typename base_class::input_field_t;
         using output_field_t = typename base_class::output_field_t;
+        using size_type      = typename base_class::size_type;
         using base_class::scheme;
 
         explicit Explicit(const scheme_t& sum_scheme)

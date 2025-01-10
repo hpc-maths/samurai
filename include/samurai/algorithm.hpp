@@ -363,25 +363,50 @@ namespace samurai
 
     namespace detail
     {
+        // template <class ForwardIt, class T>
+        // auto interval_search(ForwardIt first, ForwardIt last, const T& value)
+        // {
+        //     auto comp = [](const auto& interval, auto v)
+        //     {
+        //         return interval.end < v;
+        //     };
+
+        //     auto result = std::lower_bound(first, last, value, comp);
+
+        //     if (!(result == last) && !(comp(*result, value)))
+        //     {
+        //         if (result->contains(value))
+        //         {
+        //             return static_cast<int>(std::distance(first, result));
+        //         }
+        //     }
+        //     return -1;
+        // }
+
         template <class ForwardIt, class T>
-        auto my_binary_search(ForwardIt first, ForwardIt last, const T& value)
+        inline auto interval_search(ForwardIt first, ForwardIt last, const T& value)
         {
-            auto comp = [](const auto& interval, auto v)
+            for (int dist = 0; first != last; ++first, ++dist)
             {
-                return interval.end < v;
-            };
-
-            auto result = std::lower_bound(first, last, value, comp);
-
-            if (!(result == last) && !(comp(*result, value)))
-            {
-                if (result->contains(value))
+                if (first->contains(value))
                 {
-                    return static_cast<int>(std::distance(first, result));
+                    return dist;
                 }
             }
             return -1;
         }
+
+        // template <class ForwardIt, class T>
+        // inline auto interval_search(ForwardIt first, ForwardIt last, const T& value)
+        // {
+        //     auto it = std::find_if(first,
+        //                            last,
+        //                            [value](const auto& e)
+        //                            {
+        //                                return e.contains(value);
+        //                            });
+        //     return (it == last) ? -1 : static_cast<int>(std::distance(first, it));
+        // }
 
         template <std::size_t dim, class TInterval, class index_t = typename TInterval::index_t, class coord_index_t = typename TInterval::coord_index_t>
         inline auto find_impl(const LevelCellArray<dim, TInterval>& lca,
@@ -392,9 +417,9 @@ namespace samurai
         {
             using lca_t     = const LevelCellArray<dim, TInterval>;
             using diff_t    = typename lca_t::const_iterator::difference_type;
-            auto find_index = my_binary_search(lca[0].cbegin() + static_cast<diff_t>(start_index),
-                                               lca[0].cbegin() + static_cast<diff_t>(end_index),
-                                               coord[0]);
+            auto find_index = interval_search(lca[0].cbegin() + static_cast<diff_t>(start_index),
+                                              lca[0].cbegin() + static_cast<diff_t>(end_index),
+                                              coord[0]);
 
             return (find_index != -1) ? find_index + static_cast<diff_t>(start_index) : find_index;
         }
@@ -412,9 +437,9 @@ namespace samurai
         {
             using lca_t        = const LevelCellArray<dim, TInterval>;
             using diff_t       = typename lca_t::const_iterator::difference_type;
-            index_t find_index = my_binary_search(lca[N].cbegin() + static_cast<diff_t>(start_index),
-                                                  lca[N].cbegin() + static_cast<diff_t>(end_index),
-                                                  coord[N]);
+            index_t find_index = interval_search(lca[N].cbegin() + static_cast<diff_t>(start_index),
+                                                 lca[N].cbegin() + static_cast<diff_t>(end_index),
+                                                 coord[N]);
 
             if (find_index != -1)
             {
@@ -441,9 +466,9 @@ namespace samurai
     {
         using lca_t        = const LevelCellArray<dim, TInterval>;
         using diff_t       = typename lca_t::const_iterator::difference_type;
-        index_t find_index = detail::my_binary_search(lca[d].cbegin() + static_cast<diff_t>(start_index),
-                                                      lca[d].cbegin() + static_cast<diff_t>(end_index),
-                                                      coord);
+        index_t find_index = detail::interval_search(lca[d].cbegin() + static_cast<diff_t>(start_index),
+                                                     lca[d].cbegin() + static_cast<diff_t>(end_index),
+                                                     coord);
 
         return (find_index != -1) ? static_cast<std::size_t>(find_index) + start_index : std::numeric_limits<std::size_t>::max();
     }

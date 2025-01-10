@@ -13,7 +13,6 @@ jobs:
             - uses: actions/checkout@v4
             - uses: actions/setup-python@v5
             - uses: pre-commit/action@v3.0.0
-
     #
     # Check samurai with cppcheck
     #
@@ -151,10 +150,13 @@ jobs:
                       linux-${{ matrix.cpp-version }}
 
             - name: Compiler and dev tools installation
-              if: ${{ matrix.compiler == 'gcc' }}
               run: |
                   sudo apt update
                   sudo apt install ${{ matrix.package }}
+
+            # - name: Information about ccache
+            #   run: |
+            #     ccache -s -v
 
             - name: Mamba and samurai env installation
               uses: mamba-org/setup-micromamba@v1
@@ -204,7 +206,6 @@ jobs:
                   export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
                   cd tests
                   pytest -v -s --h5diff
-
     #
     # Check linux build with mamba environment
     #

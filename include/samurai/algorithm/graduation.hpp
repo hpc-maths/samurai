@@ -23,77 +23,39 @@ namespace samurai
 
         INIT_OPERATOR(graduate_op)
 
-        template <class T, class Stencil>
-        inline void operator()(Dim<1>, T& tag, const Stencil& s) const
+        template <std::size_t d, class T, class Stencil>
+        inline void operator()(Dim<d>, T& tag, const Stencil& s) const
         {
-            auto mask = tag(level, i - s[0]) & static_cast<int>(CellFlag::refine);
-            auto i_c  = i >> 1;
-            xt::masked_view(tag(level - 1, i_c), mask) |= static_cast<int>(CellFlag::refine);
+            using namespace xt::placeholders;
 
-            mask = tag(level, i - s[0]) & static_cast<int>(CellFlag::keep);
-            xt::masked_view(tag(level - 1, i_c), mask) |= static_cast<int>(CellFlag::keep);
-        }
-
-        template <class T, class Stencil>
-        inline void operator()(Dim<2>, T& tag, const Stencil& s) const
-        {
-            auto i_f = i.even_elements();
-            auto j_f = j;
-
-            if (i_f.is_valid())
+            auto tag_func = [&](auto& i_f)
             {
-                auto mask = tag(level, i_f - s[0], j_f - s[1]) & static_cast<int>(CellFlag::refine);
+                auto mask = tag(level, i_f - s[0], index - view(s, xt::range(1, _))) & static_cast<int>(CellFlag::refine);
                 auto i_c  = i_f >> 1;
-                auto j_c  = j_f >> 1;
-                xt::masked_view(tag(level - 1, i_c, j_c), mask) |= static_cast<int>(CellFlag::refine);
+                apply_on_masked(tag(level - 1, i_c, index >> 1),
+                                mask,
+                                [](auto& e)
+                                {
+                                    e |= static_cast<int>(CellFlag::refine);
+                                });
 
-                mask = tag(level, i_f - s[0], j_f - s[1]) & static_cast<int>(CellFlag::keep);
-                xt::masked_view(tag(level - 1, i_c, j_c), mask) |= static_cast<int>(CellFlag::keep);
+                auto mask2 = tag(level, i_f - s[0], index - view(s, xt::range(1, _))) & static_cast<int>(CellFlag::keep);
+                apply_on_masked(tag(level - 1, i_c, index >> 1),
+                                mask2,
+                                [](auto& e)
+                                {
+                                    e |= static_cast<int>(CellFlag::keep);
+                                });
+            };
+
+            if (auto i_even = i.even_elements(); i_even.is_valid())
+            {
+                tag_func(i_even);
             }
 
-            i_f = i.odd_elements();
-            if (i_f.is_valid())
+            if (auto i_odd = i.odd_elements(); i_odd.is_valid())
             {
-                auto mask = tag(level, i_f - s[0], j_f - s[1]) & static_cast<int>(CellFlag::refine);
-                auto i_c  = i_f >> 1;
-                auto j_c  = j_f >> 1;
-                xt::masked_view(tag(level - 1, i_c, j_c), mask) |= static_cast<int>(CellFlag::refine);
-
-                mask = tag(level, i_f - s[0], j_f - s[1]) & static_cast<int>(CellFlag::keep);
-                xt::masked_view(tag(level - 1, i_c, j_c), mask) |= static_cast<int>(CellFlag::keep);
-            }
-        }
-
-        template <class T, class Stencil>
-        inline void operator()(Dim<3>, T& tag, const Stencil& s) const
-        {
-            auto i_f = i.even_elements();
-            auto j_f = j;
-            auto k_f = k;
-
-            if (i_f.is_valid())
-            {
-                auto mask = tag(level, i_f - s[0], j_f - s[1], k_f - s[2]) & static_cast<int>(CellFlag::refine);
-                auto i_c  = i_f >> 1;
-                auto j_c  = j_f >> 1;
-                auto k_c  = k_f >> 1;
-                xt::masked_view(tag(level - 1, i_c, j_c, k_c), mask) |= static_cast<int>(CellFlag::refine);
-
-                mask = tag(level, i_f - s[0], j_f - s[1], k_f - s[2]) & static_cast<int>(CellFlag::keep);
-                xt::masked_view(tag(level - 1, i_c, j_c, k_c), mask) |= static_cast<int>(CellFlag::keep);
-            }
-
-            i_f = i.odd_elements();
-            if (i_f.is_valid())
-            {
-                auto mask = tag(level, i_f - s[0], j_f - s[1], k_f - s[2]) & static_cast<int>(CellFlag::refine);
-                auto i_c  = i_f >> 1;
-                auto j_c  = j_f >> 1;
-                auto k_c  = k_f >> 1;
-                xt::masked_view(tag(level - 1, i_c, j_c, k_c), mask) |= static_cast<int>(CellFlag::refine);
-
-                mask = tag(level, i_f - s[0], j_f - s[1], k_f - s[2]) & static_cast<int>(CellFlag::keep);
-                xt::masked_view(tag(level - 1, i_c, j_c, k_c), mask) |= static_cast<int>(CellFlag::keep);
+                tag_func(i_odd);
             }
         }
     };

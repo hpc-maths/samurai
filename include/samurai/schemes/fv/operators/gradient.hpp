@@ -38,8 +38,10 @@ namespace samurai
                     {
                         coeffs[left].fill(0);
                         coeffs[right].fill(0);
-                        xt::row(coeffs[left], d)  = 0.5;
-                        xt::row(coeffs[right], d) = 0.5;
+                        coeffs[left](d, 0)  = 0.5;
+                        coeffs[right](d, 0) = 0.5;
+                        // xt::row(coeffs[left], d)  = 0.5;
+                        // xt::row(coeffs[right], d) = 0.5;
                     }
                     return coeffs;
                 };

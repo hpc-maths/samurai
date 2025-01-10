@@ -22,7 +22,7 @@ void update_sol(double dt, Field& phi, Field& phi_np1)
 
                                    // upwind scheme
                                    phi_np1(level, ii) = phi(level, ii)
-                                                      - .5 * dt / dx * (xt::pow(phi(level, ii), 2.) - xt::pow(phi(level, ii - 1), 2.));
+                                                      - .5 * dt / dx * (pow(phi(level, ii), 2.) - pow(phi(level, ii - 1), 2.));
                                    // phi_np1(level, ii) = phi(level, ii) - .5*dt/dx*(phi(level,
                                    // ii)*phi(level, ii) - phi(level, ii - 1)*phi(level, ii - 1));
                                });

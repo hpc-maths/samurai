@@ -3,9 +3,6 @@
 
 #pragma once
 
-#include <xtensor/xeval.hpp>
-#include <xtensor/xmasked_view.hpp>
-
 #include <samurai/algorithm.hpp>
 #include <samurai/cell_flag.hpp>
 
@@ -25,6 +22,7 @@
 template <class Field, class Tag>
 void AMR_criterion(const Field& f, Tag& tag)
 {
+    using namespace samurai::math;
     using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
     auto& mesh = f.mesh();
@@ -39,16 +37,26 @@ void AMR_criterion(const Field& f, Tag& tag)
                                {
                                    const double dx = mesh.cell_length(level);
 
-                                   auto der_approx = xt::eval(xt::abs((f(level, i + 1) - f(level, i - 1)) / (2. * dx)));
+                                   auto der_approx = samurai::eval(abs((f(level, i + 1) - f(level, i - 1)) / (2. * dx)));
                                    auto mask       = der_approx > 0.01;
 
                                    if (level < max_level)
                                    {
-                                       xt::masked_view(tag(level, i), mask) = static_cast<int>(samurai::CellFlag::refine);
+                                       samurai::apply_on_masked(tag(level, i),
+                                                                mask,
+                                                                [](auto& e)
+                                                                {
+                                                                    e = static_cast<int>(samurai::CellFlag::refine);
+                                                                });
                                    }
                                    if (level > min_level)
                                    {
-                                       xt::masked_view(tag(level, i), !mask) = static_cast<int>(samurai::CellFlag::coarsen);
+                                       samurai::apply_on_masked(tag(level, i),
+                                                                !mask,
+                                                                [](auto& e)
+                                                                {
+                                                                    e = static_cast<int>(samurai::CellFlag::coarsen);
+                                                                });
                                    }
                                });
 }
