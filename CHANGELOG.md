@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.0](https://github.com/hpc-maths/samurai/compare/v0.19.0...v0.20.0) (2025-01-10)
+
+
+### Features
+
+* new container types ([#222](https://github.com/hpc-maths/samurai/issues/222)) ([85f12b6](https://github.com/hpc-maths/samurai/commit/85f12b6c156827dbdef57793510bf96091163790))
+
 ## [0.19.0](https://github.com/hpc-maths/samurai/compare/v0.18.0...v0.19.0) (2024-12-17)
 
 
