@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.0](https://github.com/hpc-maths/samurai/compare/v0.20.0...v0.21.0) (2025-01-13)
+
+
+### Bug Fixes
+
+* cmake samuraiConfig bug ([#255](https://github.com/hpc-maths/samurai/issues/255)) ([265ee64](https://github.com/hpc-maths/samurai/commit/265ee6431767ae38db349704c78a44209851be61))
+
 ## [0.20.0](https://github.com/hpc-maths/samurai/compare/v0.19.0...v0.20.0) (2025-01-10)
 
 
