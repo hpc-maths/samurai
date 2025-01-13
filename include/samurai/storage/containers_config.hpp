@@ -56,14 +56,14 @@ namespace samurai
     // Static array //
     //--------------//
 
-    template <class value_type, std::size_t size, bool SOA>
+    template <class value_type, std::size_t size, bool SOA = false>
 #if defined(SAMURAI_FIELD_CONTAINER_EIGEN3)
     using Array = eigen_static_array<value_type, size, SOA>;
 #else // SAMURAI_FIELD_CONTAINER_XTENSOR
     using Array           = xtensor_static_array<value_type, size>;
 #endif
 
-    template <class value_type, std::size_t size, bool SOA>
+    template <class value_type, std::size_t size, bool SOA = false>
     using CollapsArray = CollapsableArray<Array<value_type, size, SOA>, value_type, size>;
 
     //----------------//
