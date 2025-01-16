@@ -499,11 +499,11 @@ namespace samurai
     template <class D, class Config>
     inline auto Mesh_base<D, Config>::get_cell(const typename cell_t::coords_t& cartesian_coords) const -> cell_t
     {
-        std::size_t min_level = m_cells[mesh_id_t::cells].min_level();
-        std::size_t max_level = m_cells[mesh_id_t::cells].max_level();
+        std::size_t min_level_ = m_cells[mesh_id_t::cells].min_level();
+        std::size_t max_level_ = m_cells[mesh_id_t::cells].max_level();
 
         cell_t cell;
-        for (std::size_t level = min_level; level <= max_level; ++level)
+        for (std::size_t level = min_level_; level <= max_level_; ++level)
         {
             cell.indices = xt::floor((cartesian_coords - origin_point()) / cell_length(level));
             auto offset  = find(m_cells[mesh_id_t::cells][level], cell.indices);
