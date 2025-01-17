@@ -473,4 +473,35 @@ namespace samurai
         return (find_index != -1) ? static_cast<std::size_t>(find_index) + start_index : std::numeric_limits<std::size_t>::max();
     }
 
+    template <class Mesh>
+    auto find_cell(const Mesh mesh, const typename Mesh::cell_t::coords_t& cartesian_coords)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+        using cell_t    = typename Mesh::cell_t;
+
+        std::size_t min_level = mesh[mesh_id_t::cells].min_level();
+        std::size_t max_level = mesh[mesh_id_t::cells].max_level();
+
+        cell_t cell;
+        for (std::size_t level = min_level; level <= max_level; ++level)
+        {
+            auto cell_length = mesh.cell_length(level);
+            cell.indices     = xt::floor((cartesian_coords - mesh.origin_point()) / cell_length);
+            auto offset      = find(mesh[mesh_id_t::cells][level], cell.indices);
+            if (offset >= 0)
+            {
+                auto interval     = mesh[mesh_id_t::cells][level][0][static_cast<std::size_t>(offset)];
+                cell.index        = interval.index + cell.indices[0];
+                cell.level        = level;
+                cell.length       = cell_length;
+                cell.origin_point = mesh.origin_point();
+                std::cout << cell.corner() << ", " << cell.corner() + cell_length << std::endl;
+                return cell;
+            }
+        }
+        // cell not found
+        cell.length = 0;
+        return cell;
+    }
+
 } // namespace samurai
