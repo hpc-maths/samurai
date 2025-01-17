@@ -129,8 +129,6 @@ namespace samurai
         template <class E>
         cell_t get_cell(std::size_t level, const xt::xexpression<E>& coord) const;
 
-        cell_t get_cell(const typename cell_t::coords_t& cartesian_coords) const;
-
         void update_mesh_neighbour();
         void to_stream(std::ostream& os) const;
 
@@ -494,32 +492,6 @@ namespace samurai
     inline auto Mesh_base<D, Config>::get_cell(std::size_t level, const xt::xexpression<E>& coord) const -> cell_t
     {
         return m_cells[mesh_id_t::reference].get_cell(level, coord);
-    }
-
-    template <class D, class Config>
-    inline auto Mesh_base<D, Config>::get_cell(const typename cell_t::coords_t& cartesian_coords) const -> cell_t
-    {
-        std::size_t min_level_ = m_cells[mesh_id_t::cells].min_level();
-        std::size_t max_level_ = m_cells[mesh_id_t::cells].max_level();
-
-        cell_t cell;
-        for (std::size_t level = min_level_; level <= max_level_; ++level)
-        {
-            cell.indices = xt::floor((cartesian_coords - origin_point()) / cell_length(level));
-            auto offset  = find(m_cells[mesh_id_t::cells][level], cell.indices);
-            if (offset >= 0)
-            {
-                auto interval     = m_cells[mesh_id_t::cells][level][0][static_cast<std::size_t>(offset)];
-                cell.index        = interval.index + cell.indices[0];
-                cell.level        = level;
-                cell.length       = cell_length(level);
-                cell.origin_point = origin_point();
-                return cell;
-            }
-        }
-        // cell not found
-        cell.length = 0;
-        return cell;
     }
 
     template <class D, class Config>
