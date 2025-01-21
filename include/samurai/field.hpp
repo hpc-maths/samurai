@@ -95,6 +95,7 @@ namespace samurai
             static constexpr std::size_t dim    = mesh_t::dim;
             using interval_t                    = typename mesh_t::interval_t;
             using index_t                       = typename interval_t::index_t;
+            using interval_value_t              = typename interval_t::value_t;
             using cell_t                        = Cell<dim, interval_t>;
             using data_type                     = field_data_storage_t<value_t, 1>;
             using size_type                     = typename data_type::size_type;
@@ -153,20 +154,22 @@ namespace samurai
                 return data;
             }
 
-            inline auto
-            operator()(const std::size_t level, const interval_t& interval, const xt::xtensor_fixed<index_t, xt::xshape<dim - 1>>& index)
+            inline auto operator()(const std::size_t level,
+                                   const interval_t& interval,
+                                   const xt::xtensor_fixed<interval_value_t, xt::xshape<dim - 1>>& index)
             {
-                auto interval_tmp = this->derived_cast().get_interval("READ OR WRITE", level, interval, index);
+                auto interval_tmp = this->derived_cast().get_interval(level, interval, index);
 
                 // std::cout << "READ OR WRITE: " << level << " " << interval << " " << (... << index) << std::endl;
                 return view(m_storage, {interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step});
             }
 
             template <class... T>
-            inline auto
-            operator()(const std::size_t level, const interval_t& interval, const xt::xtensor_fixed<index_t, xt::xshape<dim - 1>>& index) const
+            inline auto operator()(const std::size_t level,
+                                   const interval_t& interval,
+                                   const xt::xtensor_fixed<interval_value_t, xt::xshape<dim - 1>>& index) const
             {
-                auto interval_tmp = this->derived_cast().get_interval("READ", level, interval, index);
+                auto interval_tmp = this->derived_cast().get_interval(level, interval, index);
                 // std::cout << "READ: " << level << " " << interval << " " << (... << index) << std::endl;
                 auto data = view(m_storage, {interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step});
 
