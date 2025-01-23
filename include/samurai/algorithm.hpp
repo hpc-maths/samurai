@@ -473,34 +473,57 @@ namespace samurai
         return (find_index != -1) ? static_cast<std::size_t>(find_index) + start_index : std::numeric_limits<std::size_t>::max();
     }
 
-    template <class Mesh>
-    auto find_cell(const Mesh mesh, const typename Mesh::cell_t::coords_t& cartesian_coords)
-    {
-        using mesh_id_t = typename Mesh::mesh_id_t;
-        using cell_t    = typename Mesh::cell_t;
+    //----------------------------------------//
+    // Find a cell from Cartesian coordinates //
+    //----------------------------------------//
 
-        std::size_t min_level = mesh[mesh_id_t::cells].min_level();
-        std::size_t max_level = mesh[mesh_id_t::cells].max_level();
+    template <std::size_t dim, class TInterval>
+    inline auto
+    find_cell(const LevelCellArray<dim, TInterval>& lca, const typename LevelCellArray<dim, TInterval>::cell_t::coords_t& cartesian_coords)
+    {
+        using cell_t = typename LevelCellArray<dim, TInterval>::cell_t;
 
         cell_t cell;
-        for (std::size_t level = min_level; level <= max_level; ++level)
+        cell.length = 0; // cell not found
+
+        auto length  = lca.cell_length();
+        cell.indices = xt::floor((cartesian_coords - lca.origin_point()) / length);
+        auto offset  = find(lca, cell.indices);
+        if (offset >= 0)
         {
-            auto length  = mesh.cell_length(level);
-            cell.indices = xt::floor((cartesian_coords - mesh.origin_point()) / length);
-            auto offset  = find(mesh[mesh_id_t::cells][level], cell.indices);
-            if (offset >= 0)
+            auto interval     = lca[0][static_cast<std::size_t>(offset)];
+            cell.index        = interval.index + cell.indices[0];
+            cell.level        = lca.level();
+            cell.length       = length;
+            cell.origin_point = lca.origin_point();
+        }
+        return cell;
+    }
+
+    template <std::size_t dim, class TInterval, std::size_t max_size>
+    inline auto find_cell(const CellArray<dim, TInterval, max_size>& ca,
+                          const typename CellArray<dim, TInterval, max_size>::cell_t::coords_t& cartesian_coords)
+    {
+        using cell_t = typename CellArray<dim, TInterval, max_size>::cell_t;
+
+        cell_t cell;
+        cell.length = 0; // cell not found
+        for (std::size_t level = ca.min_level(); level <= ca.max_level(); ++level)
+        {
+            cell = find_cell(ca[level], cartesian_coords);
+            if (cell.length != 0)
             {
-                auto interval     = mesh[mesh_id_t::cells][level][0][static_cast<std::size_t>(offset)];
-                cell.index        = interval.index + cell.indices[0];
-                cell.level        = level;
-                cell.length       = length;
-                cell.origin_point = mesh.origin_point();
-                return cell;
+                break;
             }
         }
-        // cell not found
-        cell.length = 0;
         return cell;
+    }
+
+    template <class Mesh>
+    inline auto find_cell(const Mesh& mesh, const typename Mesh::cell_t::coords_t& cartesian_coords)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+        return find_cell(mesh[mesh_id_t::cells], cartesian_coords);
     }
 
 } // namespace samurai
