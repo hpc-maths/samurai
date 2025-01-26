@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.21.0](https://github.com/hpc-maths/samurai/compare/v0.20.0...v0.21.0) (2025-01-26)
+
+
+### Features
+
+* find cell from cartesian coordinates ([#259](https://github.com/hpc-maths/samurai/issues/259)) ([2432537](https://github.com/hpc-maths/samurai/commit/24325371dae7669931bde3282df614fdd6ce6236))
+
+
+### Bug Fixes
+
+* cmake samuraiConfig bug ([#255](https://github.com/hpc-maths/samurai/issues/255)) ([265ee64](https://github.com/hpc-maths/samurai/commit/265ee6431767ae38db349704c78a44209851be61))
+* default value for SOA in Array ([#258](https://github.com/hpc-maths/samurai/issues/258)) ([4bab319](https://github.com/hpc-maths/samurai/commit/4bab319b5802cc484f303ee5140d3ef196361ac3))
+* Fix type issue in Field.operator() ([#260](https://github.com/hpc-maths/samurai/issues/260)) ([df0115f](https://github.com/hpc-maths/samurai/commit/df0115feb475acbbb86163dceddd4d6ff310cc76))
+
 ## [0.20.0](https://github.com/hpc-maths/samurai/compare/v0.19.0...v0.20.0) (2025-01-10)
 
 
