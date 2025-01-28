@@ -19,6 +19,8 @@ namespace samurai
         interval_t i;
         coord_type index;
 
+        MeshInterval() = default;
+
         MeshInterval(std::size_t _level)
             : level(_level)
         {

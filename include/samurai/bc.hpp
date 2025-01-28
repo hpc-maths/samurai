@@ -816,8 +816,11 @@ namespace samurai
     // BC Types //
     //////////////
     template <class Field, class Subset, std::size_t stencil_size, class Vector>
-    void
-    __apply_bc_on_subset(Bc<Field>& bc, Field& field, Subset& subset, const Stencil<stencil_size, Field::dim>& stencil, const Vector& direction)
+    void __apply_bc_on_subset(Bc<Field>& bc,
+                              Field& field,
+                              Subset& subset,
+                              const StencilAnalyzer<stencil_size, Field::dim>& stencil,
+                              const Vector& direction)
     {
         auto apply_bc = bc.get_apply_function(std::integral_constant<std::size_t, stencil_size>(), direction);
         if (bc.get_value_type() == BCVType::constant)
@@ -833,14 +836,13 @@ namespace samurai
         }
         else if (bc.get_value_type() == BCVType::function)
         {
-            int origin_index = find_stencil_origin(stencil);
-            assert(origin_index >= 0);
+            assert(stencil.has_origin);
             for_each_stencil(field.mesh(),
                              subset,
                              stencil,
-                             [&, origin_index](auto& cells)
+                             [&](auto& cells)
                              {
-                                 auto& cell_in    = cells[static_cast<std::size_t>(origin_index)];
+                                 auto& cell_in    = cells[stencil.origin_index];
                                  auto face_coords = cell_in.face_center(direction);
                                  auto value       = bc.value(direction, cell_in, face_coords);
                                  apply_bc(field, cells, value);
@@ -884,13 +886,14 @@ namespace samurai
 
                 if (is_cartesian_direction)
                 {
-                    auto stencil = convert_for_direction(stencil_0, direction[d]);
+                    auto stencil          = convert_for_direction(stencil_0, direction[d]);
+                    auto stencil_analyzer = make_stencil_analyzer(stencil);
 
                     // 1. Inner cells in the boundary region
                     auto bdry_cells = intersection(mesh[mesh_id_t::cells][level], lca[d]).on(level);
                     if (level >= mesh.min_level()) // otherwise there is no cells
                     {
-                        __apply_bc_on_subset(bc, field, bdry_cells, stencil, direction[d]);
+                        __apply_bc_on_subset(bc, field, bdry_cells, stencil_analyzer, direction[d]);
                     }
 
                     // 2. Inner ghosts in the boundary region that have a neighbouring ghost outside the domain
@@ -901,7 +904,7 @@ namespace samurai
                         auto inner_cells_and_ghosts = intersection(potential_inner_cells_and_ghosts, mesh[mesh_id_t::reference][level]).on(level);
                         auto inner_ghosts_with_outer_nghbr = difference(inner_cells_and_ghosts, bdry_cells).on(level);
 
-                        __apply_bc_on_subset(bc, field, inner_ghosts_with_outer_nghbr, stencil, direction[d]);
+                        __apply_bc_on_subset(bc, field, inner_ghosts_with_outer_nghbr, stencil_analyzer, direction[d]);
                     }
                 }
             }
@@ -920,8 +923,9 @@ namespace samurai
 
         auto& mesh = field.mesh();
 
-        auto stencil_0 = bc.get_stencil(std::integral_constant<std::size_t, stencil_size>());
-        auto stencil   = convert_for_direction(stencil_0, direction);
+        auto stencil_0        = bc.get_stencil(std::integral_constant<std::size_t, stencil_size>());
+        auto stencil          = convert_for_direction(stencil_0, direction);
+        auto stencil_analyzer = make_stencil_analyzer(stencil);
 
         // 1. Inner cells in the boundary region
         if (!only_fill_ghost_neighbours && level >= mesh.min_level())
@@ -931,7 +935,7 @@ namespace samurai
             auto translated_outer_nghbr = translate(mesh[mesh_id_t::reference][level], -(stencil_size / 2) * direction);
             auto cells                  = intersection(translated_outer_nghbr, bdry_cells).on(level);
 
-            __apply_bc_on_subset(bc, field, cells, stencil, direction);
+            __apply_bc_on_subset(bc, field, cells, stencil_analyzer, direction);
         }
 
         // 2. Inner ghosts in the boundary region that have a neighbouring ghost outside the domain
@@ -942,7 +946,7 @@ namespace samurai
             auto inner_cells_and_ghosts = intersection(potential_inner_cells_and_ghosts, mesh[mesh_id_t::reference][level]).on(level);
             auto inner_ghosts_with_outer_nghbr = difference(inner_cells_and_ghosts, bdry_cells).on(level);
 
-            __apply_bc_on_subset(bc, field, inner_ghosts_with_outer_nghbr, stencil, direction);
+            __apply_bc_on_subset(bc, field, inner_ghosts_with_outer_nghbr, stencil_analyzer, direction);
         }
     }
 

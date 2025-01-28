@@ -294,7 +294,7 @@ namespace samurai
                                     auto coeff = this->scheme().cell_coeff(coeffs, c, field_i, field_j);
                                     // field_value(output_field, cell, field_i) += coeff * field_value(input_field, stencil[c], field_j);
 
-                                    auto cell_index_init   = cell.index;
+                                    auto cell_index_init   = cell.cells()[0].index;
                                     auto comput_index_init = stencil.cells()[c].index;
 
                                     using index_t = decltype(cell_index_init);

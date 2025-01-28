@@ -44,7 +44,7 @@ namespace samurai
          *                   normal flux
          *
          */
-        Stencil<cfg::stencil_size, cfg::dim> stencil;
+        StencilAnalyzer<cfg::stencil_size, cfg::dim> stencil;
     };
 
     /**
