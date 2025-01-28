@@ -30,12 +30,12 @@ namespace samurai
 
         using base_class::apply;
 
-        explicit Explicit(const scheme_t& s)
+        explicit Explicit(scheme_t& s)
             : base_class(s)
         {
         }
 
-        void apply(output_field_t& output_field, input_field_t& input_field) const override
+        void apply(output_field_t& output_field, input_field_t& input_field) override
         {
             scheme().for_each_stencil_and_coeffs(
                 input_field,
@@ -79,12 +79,12 @@ namespace samurai
 
         using base_class::apply;
 
-        explicit Explicit(const scheme_t& s)
+        explicit Explicit(scheme_t& s)
             : base_class(s)
         {
         }
 
-        void apply(output_field_t& output_field, input_field_t& input_field) const override
+        void apply(output_field_t& output_field, input_field_t& input_field) override
         {
             scheme().for_each_stencil_center(
                 input_field,

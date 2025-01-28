@@ -35,7 +35,7 @@ namespace samurai
     template <class value_type, std::size_t size = 1, bool SOA = false>
     using field_data_storage_t = eigen_container<value_type, size, SOA>;
 
-    template <class value_type, std::size_t size, bool SOA>
+    template <class value_type, std::size_t size, bool SOA = false>
     using local_field_data_t = eigen_collapsable_static_array<value_type, size, SOA>;
 
     template <class T>
@@ -45,7 +45,7 @@ namespace samurai
     template <class value_type, std::size_t size = 1, bool SOA = false>
     using field_data_storage_t = xtensor_container<value_type, size, SOA>;
 
-    template <class value_type, std::size_t size, bool>
+    template <class value_type, std::size_t size, bool SOA = false>
     using local_field_data_t = xtensor_collapsable_static_array<value_type, size>;
 
     template <class T>
