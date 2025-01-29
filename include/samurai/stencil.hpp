@@ -13,12 +13,15 @@ namespace samurai
     template <std::size_t stencil_size, std::size_t dim>
     struct StencilAnalyzer
     {
-        std::size_t origin_index;
-        bool has_origin = false;
+        std::size_t origin_index = 0;
+        bool has_origin          = false;
         std::array<bool, stencil_size> same_row_as_origin;
         Stencil<stencil_size, dim> stencil;
 
-        StencilAnalyzer() = default;
+        StencilAnalyzer()
+        {
+            same_row_as_origin.fill(false);
+        }
 
         StencilAnalyzer(const Stencil<stencil_size, dim>& stencil_)
             : stencil(stencil_)
