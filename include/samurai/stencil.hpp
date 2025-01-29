@@ -23,13 +23,13 @@ namespace samurai
             same_row_as_origin.fill(false);
         }
 
-        StencilAnalyzer(const Stencil<stencil_size, dim>& stencil_)
+        explicit StencilAnalyzer(const Stencil<stencil_size, dim>& stencil_)
             : stencil(stencil_)
         {
             init();
         }
 
-        StencilAnalyzer(Stencil<stencil_size, dim>&& stencil_)
+        explicit StencilAnalyzer(Stencil<stencil_size, dim>&& stencil_)
             : stencil(std::move(stencil_))
         {
             init();

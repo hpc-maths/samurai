@@ -67,7 +67,7 @@ namespace samurai
                          });
             }
 
-            auto& scheme()
+            auto& scheme() // cppcheck-suppress functionRedefined
             {
                 return *m_sum_scheme;
             }
