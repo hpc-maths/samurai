@@ -130,19 +130,19 @@ namespace samurai
             return ss.str();
         }
 
-        auto operator()(input_field_t& input_field) const
+        auto operator()(input_field_t& input_field)
         {
             auto explicit_scheme = make_explicit(*this);
             return explicit_scheme.apply_to(input_field);
         }
 
-        auto operator()(std::size_t d, input_field_t& input_field) const
+        auto operator()(std::size_t d, input_field_t& input_field)
         {
             auto explicit_scheme = make_explicit(*this);
             return explicit_scheme.apply_to(d, input_field);
         }
 
-        void apply(output_field_t& output_field, input_field_t& input_field) const
+        void apply(output_field_t& output_field, input_field_t& input_field)
         {
             auto explicit_scheme = make_explicit(*this);
             explicit_scheme.apply(output_field, input_field);

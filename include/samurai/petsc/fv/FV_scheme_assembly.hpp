@@ -74,7 +74,12 @@ namespace samurai
                 this->set_name(scheme.name());
             }
 
-            auto& scheme() const
+            auto& scheme()
+            {
+                return m_scheme;
+            }
+
+            const auto& scheme() const
             {
                 return m_scheme;
             }

@@ -24,7 +24,12 @@ namespace samurai
             static_assert(n_operators == rows * cols, "The number of operators must correspond to rows*cols.");
         }
 
-        auto& operators() const
+        const auto& operators() const
+        {
+            return m_operators;
+        }
+
+        auto& operators()
         {
             return m_operators;
         }
