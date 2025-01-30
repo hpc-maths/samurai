@@ -100,13 +100,51 @@ namespace samurai
                                          double right_factor,
                                          Func&& apply_contrib)
         {
+            StencilValues<cfg> stencil_values;
             for (std::size_t ii = 0; ii < comput_stencil_it.interval().size(); ++ii)
             {
-                auto flux_values = flux_function(comput_stencil_it.cells(), field);
+                for (std::size_t s = 0; s < cfg::stencil_size; ++s)
+                {
+                    stencil_values[s] = field[comput_stencil_it.cells()[s]];
+                }
+                auto flux_values = flux_function(comput_stencil_it.cells(), stencil_values);
                 flux_values[0] *= left_factor;
                 flux_values[1] *= right_factor;
                 apply_contrib(interface_it.cells()[0], flux_values[0]);
                 apply_contrib(interface_it.cells()[1], flux_values[1]);
+
+                interface_it.move_next();
+                comput_stencil_it.move_next();
+            }
+        }
+
+        template <bool direction, class InterfaceIterator, class StencilIterator, class FluxFunction, class Func>
+        void process_boundary_interfaces(InterfaceIterator& interface_it,
+                                         StencilIterator& comput_stencil_it,
+                                         FluxFunction& flux_function,
+                                         input_field_t& field,
+                                         double factor,
+                                         Func&& apply_contrib)
+        {
+            StencilValues<cfg> stencil_values;
+            for (std::size_t ii = 0; ii < comput_stencil_it.interval().size(); ++ii)
+            {
+                for (std::size_t s = 0; s < cfg::stencil_size; ++s)
+                {
+                    stencil_values[s] = field[comput_stencil_it.cells()[s]];
+                }
+
+                auto flux_values = flux_function(comput_stencil_it.cells(), stencil_values);
+                if constexpr (direction)
+                {
+                    flux_values[0] *= factor;
+                    apply_contrib(interface_it.cells()[0], flux_values[0]);
+                }
+                else // opposite direction
+                {
+                    flux_values[1] *= -factor;
+                    apply_contrib(interface_it.cells()[0], flux_values[1]);
+                }
 
                 interface_it.move_next();
                 comput_stencil_it.move_next();
@@ -217,7 +255,7 @@ namespace samurai
          * in a specific direction and receive the contribution computed from the stencil.
          */
         template <Run run_type = Run::Sequential, class Func>
-        void for_each_boundary_interface(std::size_t d, input_field_t& field, Func&& apply_contrib) const
+        void for_each_boundary_interface(std::size_t d, input_field_t& field, Func&& apply_contrib)
         {
             auto& mesh = field.mesh();
 
@@ -228,31 +266,41 @@ namespace samurai
             for_each_level(mesh,
                            [&](auto level)
                            {
-                               auto h = mesh.cell_length(level);
+                               auto h      = mesh.cell_length(level);
+                               auto factor = h_factor(h, h);
 
                                // Boundary in direction
-                               for_each_boundary_interface__direction<run_type>(mesh,
-                                                                                level,
-                                                                                flux_def.direction,
-                                                                                flux_def.stencil,
-                                                                                [&](auto& cell, auto& comput_cells)
-                                                                                {
-                                                                                    auto flux_values  = flux_function(comput_cells, field);
-                                                                                    auto cell_contrib = contribution(flux_values[0], h, h);
-                                                                                    apply_contrib(cell, cell_contrib);
-                                                                                });
-
-                               // Boundary in opposite direction
-                               for_each_boundary_interface__opposite_direction<run_type>(
+                               for_each_boundary_interface__direction<run_type, Get::Intervals>(
                                    mesh,
                                    level,
                                    flux_def.direction,
                                    flux_def.stencil,
-                                   [&](auto& cell, auto& comput_cells)
+                                   [&](auto& interface_it, auto& comput_stencil_it)
                                    {
-                                       auto flux_values  = flux_function(comput_cells, field);
-                                       auto cell_contrib = contribution(flux_values[1], h, h);
-                                       apply_contrib(cell, cell_contrib);
+                                       static constexpr bool direction = true;
+                                       process_boundary_interfaces<direction>(interface_it,
+                                                                              comput_stencil_it,
+                                                                              flux_function,
+                                                                              field,
+                                                                              factor,
+                                                                              std::forward<Func>(apply_contrib));
+                                   });
+
+                               // Boundary in opposite direction
+                               for_each_boundary_interface__opposite_direction<run_type, Get::Intervals>(
+                                   mesh,
+                                   level,
+                                   flux_def.direction,
+                                   flux_def.stencil,
+                                   [&](auto& interface_it, auto& comput_stencil_it)
+                                   {
+                                       static constexpr bool direction = false; // opposite direction
+                                       process_boundary_interfaces<direction>(interface_it,
+                                                                              comput_stencil_it,
+                                                                              flux_function,
+                                                                              field,
+                                                                              -factor,
+                                                                              std::forward<Func>(apply_contrib));
                                    });
                            });
         }

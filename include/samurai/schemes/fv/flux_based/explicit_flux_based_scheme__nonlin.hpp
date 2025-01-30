@@ -36,13 +36,13 @@ namespace samurai
             scheme().template for_each_interior_interface<Run::Parallel>( // We need the 'template' keyword...
                 d,
                 input_field,
-                [&](const auto& interface_cell, auto& contrib)
+                [&](const auto& cell, auto& contrib)
                 {
                     for (size_type field_i = 0; field_i < output_field_size; ++field_i)
                     {
                     // clang-format off
                         #pragma omp atomic update
-                        field_value(output_field, interface_cell, field_i) += this->scheme().flux_value_cmpnent(contrib, field_i);
+                        field_value(output_field, cell, field_i) += this->scheme().flux_value_cmpnent(contrib, field_i);
                         // clang-format on
                     }
                 });
