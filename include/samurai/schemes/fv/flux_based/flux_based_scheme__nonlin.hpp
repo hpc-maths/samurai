@@ -40,7 +40,7 @@ namespace samurai
         {
         }
 
-        auto& flux_definition() const
+        const auto& flux_definition() const
         {
             return m_flux_definition;
         }
@@ -60,13 +60,22 @@ namespace samurai
             return m_include_boundary_fluxes;
         }
 
-        template <class T> // FluxValue<cfg> or StencilJacobian<cfg>
-        T contribution(const T& flux_value, double h_face, double h_cell) const
+      private:
+
+        inline auto h_factor(double h_face, double h_cell) const
         {
             double face_measure = std::pow(h_face, dim - 1);
             double cell_measure = std::pow(h_cell, dim);
-            return (face_measure / cell_measure) * flux_value;
+            return face_measure / cell_measure;
         }
+
+        template <class T> // FluxValue<cfg> or StencilJacobian<cfg>
+        inline T contribution(const T& flux_value, double h_face, double h_cell) const
+        {
+            return h_factor(h_face, h_cell) * flux_value;
+        }
+
+      public:
 
         inline field_value_type flux_value_cmpnent(const FluxValue<cfg>& flux_value, [[maybe_unused]] size_type field_i) const
         {
@@ -80,12 +89,38 @@ namespace samurai
             }
         }
 
+      private:
+
+        template <class InterfaceIterator, class StencilIterator, class FluxFunction, class Func>
+        void process_interior_interfaces(InterfaceIterator& interface_it,
+                                         StencilIterator& comput_stencil_it,
+                                         FluxFunction& flux_function,
+                                         input_field_t& field,
+                                         double left_factor,
+                                         double right_factor,
+                                         Func&& apply_contrib)
+        {
+            for (std::size_t ii = 0; ii < comput_stencil_it.interval().size(); ++ii)
+            {
+                auto flux_values = flux_function(comput_stencil_it.cells(), field);
+                flux_values[0] *= left_factor;
+                flux_values[1] *= right_factor;
+                apply_contrib(interface_it.cells()[0], flux_values[0]);
+                apply_contrib(interface_it.cells()[1], flux_values[1]);
+
+                interface_it.move_next();
+                comput_stencil_it.move_next();
+            }
+        }
+
+      public:
+
         /**
          * This function is used in the Explicit class to iterate over the interior interfaces
          * in a specific direction and receive the contribution computed from the stencil.
          */
         template <Run run_type = Run::Sequential, class Func>
-        void for_each_interior_interface(std::size_t d, input_field_t& field, Func&& apply_contrib) const
+        void for_each_interior_interface(std::size_t d, input_field_t& field, Func&& apply_contrib)
         {
             auto& mesh = field.mesh();
 
@@ -101,17 +136,23 @@ namespace samurai
             {
                 auto h = mesh.cell_length(level);
 
-                for_each_interior_interface__same_level<run_type>(mesh,
-                                                                  level,
-                                                                  flux_def.direction,
-                                                                  flux_def.stencil,
-                                                                  [&](auto& interface_cells, auto& comput_cells)
-                                                                  {
-                                                                      auto flux_values        = flux_function(comput_cells, field);
-                                                                      auto left_cell_contrib  = contribution(flux_values[0], h, h);
-                                                                      auto right_cell_contrib = contribution(flux_values[1], h, h);
-                                                                      apply_contrib(interface_cells, left_cell_contrib, right_cell_contrib);
-                                                                  });
+                auto factor = h_factor(h, h);
+
+                for_each_interior_interface__same_level<run_type, Get::Intervals>(mesh,
+                                                                                  level,
+                                                                                  flux_def.direction,
+                                                                                  flux_def.stencil,
+                                                                                  [&](auto& interface_it, auto& comput_stencil_it)
+                                                                                  {
+                                                                                      process_interior_interfaces(
+                                                                                          interface_it,
+                                                                                          comput_stencil_it,
+                                                                                          flux_function,
+                                                                                          field,
+                                                                                          factor,
+                                                                                          factor,
+                                                                                          std::forward<Func>(apply_contrib));
+                                                                                  });
             }
 
             // Level jumps (level -- level+1)
@@ -125,17 +166,23 @@ namespace samurai
                 //    --------->
                 //    direction
                 {
-                    for_each_interior_interface__level_jump_direction<run_type>(
+                    auto left_factor  = h_factor(h_lp1, h_l);
+                    auto right_factor = h_factor(h_lp1, h_lp1);
+
+                    for_each_interior_interface__level_jump_direction<run_type, Get::Intervals>(
                         mesh,
                         level,
                         flux_def.direction,
                         flux_def.stencil,
-                        [&](auto& interface_cells, auto& comput_cells)
+                        [&](auto& interface_it, auto& comput_stencil_it)
                         {
-                            auto flux_values        = flux_function(comput_cells, field);
-                            auto left_cell_contrib  = contribution(flux_values[0], h_lp1, h_l);
-                            auto right_cell_contrib = contribution(flux_values[1], h_lp1, h_lp1);
-                            apply_contrib(interface_cells, left_cell_contrib, right_cell_contrib);
+                            process_interior_interfaces(interface_it,
+                                                        comput_stencil_it,
+                                                        flux_function,
+                                                        field,
+                                                        left_factor,
+                                                        right_factor,
+                                                        std::forward<Func>(apply_contrib));
                         });
                 }
                 //    |__|        l+1
@@ -143,17 +190,23 @@ namespace samurai
                 //    --------->
                 //    direction
                 {
-                    for_each_interior_interface__level_jump_opposite_direction<run_type>(
+                    auto left_factor  = h_factor(h_lp1, h_lp1);
+                    auto right_factor = h_factor(h_lp1, h_l);
+
+                    for_each_interior_interface__level_jump_opposite_direction<run_type, Get::Intervals>(
                         mesh,
                         level,
                         flux_def.direction,
                         flux_def.stencil,
-                        [&](auto& interface_cells, auto& comput_cells)
+                        [&](auto& interface_it, auto& comput_stencil_it)
                         {
-                            auto flux_values        = flux_function(comput_cells, field);
-                            auto left_cell_contrib  = contribution(flux_values[0], h_lp1, h_lp1);
-                            auto right_cell_contrib = contribution(flux_values[1], h_lp1, h_l);
-                            apply_contrib(interface_cells, left_cell_contrib, right_cell_contrib);
+                            process_interior_interfaces(interface_it,
+                                                        comput_stencil_it,
+                                                        flux_function,
+                                                        field,
+                                                        left_factor,
+                                                        right_factor,
+                                                        std::forward<Func>(apply_contrib));
                         });
                 }
             }
