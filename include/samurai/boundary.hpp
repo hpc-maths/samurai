@@ -20,7 +20,7 @@ namespace samurai
     template <class Mesh, class Subset, std::size_t stencil_size, class GetCoeffsFunc, class Func>
     void for_each_stencil_on_boundary(const Mesh& mesh,
                                       const Subset& boundary_region,
-                                      const Stencil<stencil_size, Mesh::dim>& stencil,
+                                      const StencilAnalyzer<stencil_size, Mesh::dim>& stencil,
                                       GetCoeffsFunc&& get_coefficients,
                                       Func&& func)
     {
@@ -44,7 +44,7 @@ namespace samurai
     template <class Mesh, class Subset, std::size_t stencil_size, class Equation, std::size_t nb_equations, class Func>
     void for_each_stencil_on_boundary(const Mesh& mesh,
                                       const Subset& boundary_region,
-                                      const Stencil<stencil_size, Mesh::dim>& stencil,
+                                      const StencilAnalyzer<stencil_size, Mesh::dim>& stencil,
                                       std::array<Equation, nb_equations> equations,
                                       Func&& func)
     {

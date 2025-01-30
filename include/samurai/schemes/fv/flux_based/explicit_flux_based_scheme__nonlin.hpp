@@ -25,12 +25,12 @@ namespace samurai
 
         using base_class::apply;
 
-        explicit Explicit(const scheme_t& s)
+        explicit Explicit(scheme_t& s)
             : base_class(s)
         {
         }
 
-        void apply(std::size_t d, output_field_t& output_field, input_field_t& input_field) const override
+        void apply(std::size_t d, output_field_t& output_field, input_field_t& input_field) override
         {
             // Interior interfaces
             scheme().template for_each_interior_interface<Run::Parallel>( // We need the 'template' keyword...

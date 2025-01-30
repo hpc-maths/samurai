@@ -29,7 +29,7 @@ namespace samurai
 
         using base_class::apply;
 
-        explicit Explicit(const scheme_t& s)
+        explicit Explicit(scheme_t& s)
             : base_class(s)
         {
         }
@@ -230,7 +230,7 @@ namespace samurai
 
       public:
 
-        void apply(std::size_t d, output_field_t& output_field, input_field_t& input_field) const override
+        void apply(std::size_t d, output_field_t& output_field, input_field_t& input_field) override
         {
             /**
              * Implementation by matrix-vector multiplication
@@ -294,7 +294,7 @@ namespace samurai
                                     auto coeff = this->scheme().cell_coeff(coeffs, c, field_i, field_j);
                                     // field_value(output_field, cell, field_i) += coeff * field_value(input_field, stencil[c], field_j);
 
-                                    auto cell_index_init   = cell.index;
+                                    auto cell_index_init   = cell.cells()[0].index;
                                     auto comput_index_init = stencil.cells()[c].index;
 
                                     using index_t = decltype(cell_index_init);

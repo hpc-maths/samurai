@@ -33,7 +33,7 @@ namespace samurai
 
             static constexpr bool is_monolithic = monolithic;
 
-            explicit LinearBlockSolver(const block_operator_t& block_op)
+            explicit LinearBlockSolver(block_operator_t& block_op)
                 : base_class(block_op)
             {
                 _configure_solver();

@@ -11,10 +11,100 @@ namespace samurai
     using DirectionVector = xt::xtensor_fixed<int, xt::xshape<dim>>;
 
     template <std::size_t stencil_size, std::size_t dim>
+    struct StencilAnalyzer
+    {
+        std::size_t origin_index = 0;
+        bool has_origin          = false;
+        std::array<bool, stencil_size> same_row_as_origin;
+        Stencil<stencil_size, dim> stencil;
+
+        StencilAnalyzer()
+        {
+            same_row_as_origin.fill(false);
+        }
+
+        explicit StencilAnalyzer(const Stencil<stencil_size, dim>& stencil_)
+            : stencil(stencil_)
+        {
+            init();
+        }
+
+        explicit StencilAnalyzer(Stencil<stencil_size, dim>&& stencil_)
+            : stencil(std::move(stencil_))
+        {
+            init();
+        }
+
+        void operator=(Stencil<stencil_size, dim>&& stencil_)
+        {
+            stencil = std::move(stencil_);
+            init();
+        }
+
+        void init()
+        {
+            for (std::size_t id = 0; id < stencil_size; ++id)
+            {
+                auto dir = xt::view(stencil, id);
+
+                bool is_zero_vector = true;
+                bool same_row       = true;
+                for (std::size_t i = 0; i < dim; ++i)
+                {
+                    if (dir[i] != 0)
+                    {
+                        is_zero_vector = false;
+                        if (i > 0)
+                        {
+                            // We are on the same row as the stencil origin if dir = {dir[0], 0,..., 0}
+                            same_row = false;
+                            break;
+                        }
+                    }
+                }
+                if (is_zero_vector)
+                {
+                    has_origin   = true;
+                    origin_index = id;
+                }
+                same_row_as_origin[id] = same_row;
+            }
+        }
+
+        int find(const DirectionVector<dim>& vector) const
+        {
+            for (unsigned int id = 0; id < stencil_size; ++id)
+            {
+                auto d     = xt::view(stencil, id);
+                bool found = true;
+                for (unsigned int i = 0; i < dim; ++i)
+                {
+                    if (d[i] != vector[i])
+                    {
+                        found = false;
+                        break;
+                    }
+                }
+                if (found)
+                {
+                    return static_cast<int>(id);
+                }
+            }
+            return -1;
+        }
+    };
+
+    template <std::size_t stencil_size, std::size_t dim>
+    auto make_stencil_analyzer(const Stencil<stencil_size, dim>& stencil)
+    {
+        return StencilAnalyzer<stencil_size, dim>(stencil);
+    }
+
+    template <std::size_t stencil_size, std::size_t dim>
     struct DirectionalStencil
     {
         DirectionVector<dim> direction;
-        Stencil<stencil_size, dim> stencil;
+        StencilAnalyzer<stencil_size, dim> stencil;
     };
 
     //-----------------------//
@@ -25,52 +115,6 @@ namespace samurai
     bool is_cartesian(const T& direction)
     {
         return xt::sum(xt::abs(direction))[0] == 1; // only one non-zero in the vector
-    }
-
-    template <std::size_t stencil_size, std::size_t dim>
-    int find_stencil_origin(const Stencil<stencil_size, dim>& stencil)
-    {
-        for (unsigned int id = 0; id < stencil_size; ++id)
-        {
-            auto d              = xt::view(stencil, id);
-            bool is_zero_vector = true;
-            for (unsigned int i = 0; i < dim; ++i)
-            {
-                if (d[i] != 0)
-                {
-                    is_zero_vector = false;
-                    break;
-                }
-            }
-            if (is_zero_vector)
-            {
-                return static_cast<int>(id);
-            }
-        }
-        return -1;
-    }
-
-    template <std::size_t stencil_size, std::size_t dim>
-    int find(const Stencil<stencil_size, dim>& stencil, const DirectionVector<dim>& vector)
-    {
-        for (unsigned int id = 0; id < stencil_size; ++id)
-        {
-            auto d     = xt::view(stencil, id);
-            bool found = true;
-            for (unsigned int i = 0; i < dim; ++i)
-            {
-                if (d[i] != vector[i])
-                {
-                    found = false;
-                    break;
-                }
-            }
-            if (found)
-            {
-                return static_cast<int>(id);
-            }
-        }
-        return -1;
     }
 
     template <std::size_t dim>
@@ -243,25 +287,13 @@ namespace samurai
     template <std::size_t dim>
     constexpr Stencil<dim, dim> positive_cartesian_directions()
     {
-        static_assert(dim >= 1 && dim <= 3, "positive_cartesian_directions() not implemented for this dimension");
-        // clang-format off
-        if constexpr (dim == 1)
+        Stencil<dim, dim> s;
+        s.fill(0);
+        for (std::size_t i = 0; i < dim; ++i)
         {
-            //     right
-            return {{1}};
+            s(i, i) = 1;
         }
-        else if constexpr (dim == 2)
-        {
-            //      right,   top
-            return {{1, 0}, {0, 1}};
-        }
-        else if constexpr (dim == 3)
-        {
-            //        right,     back,       top
-            return {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
-        }
-        // clang-format on
-        return Stencil<dim, dim>();
+        return s;
     }
 
     /**
@@ -394,7 +426,9 @@ namespace samurai
     template <std::size_t dim>
     constexpr Stencil<1, dim> center_only_stencil()
     {
-        return star_stencil<dim, 0>();
+        Stencil<1, dim> s;
+        s.fill(0);
+        return s;
     }
 
     template <std::size_t dim, class Vector>
@@ -405,6 +439,9 @@ namespace samurai
         xt::view(stencil_shape, 1) = towards_out_from_in;
         return stencil_shape;
     }
+
+    template <std::size_t dim>
+    static const StencilAnalyzer<1, dim> center_only_stencil_analyzer = StencilAnalyzer<1, dim>(center_only_stencil<dim>());
 
     template <std::size_t stencil_size, std::size_t dim>
     Stencil<stencil_size, dim> convert_for_direction(const Stencil<stencil_size, dim>& stencil_in_x, const DirectionVector<dim>& direction)
@@ -443,102 +480,106 @@ namespace samurai
         return stencil_in_d;
     }
 
-    template <class Mesh, std::size_t stencil_size>
+    template <class Mesh, std::size_t stencil_size_>
     class IteratorStencil
     {
       public:
 
-        static constexpr std::size_t dim = Mesh::dim;
-        using mesh_interval_t            = typename Mesh::mesh_interval_t;
-        using coord_index_t              = typename Mesh::config::interval_t::coord_index_t;
-        using cell_t                     = Cell<dim, typename Mesh::interval_t>;
+        static constexpr std::size_t dim          = Mesh::dim;
+        static constexpr std::size_t stencil_size = stencil_size_;
+        using mesh_t                              = Mesh;
+        using mesh_interval_t                     = typename Mesh::mesh_interval_t;
+        using coord_index_t                       = typename Mesh::config::interval_t::coord_index_t;
+        using cell_t                              = Cell<dim, typename Mesh::interval_t>;
 
       private:
 
-        const Mesh& m_mesh;                         // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
-        const Stencil<stencil_size, dim> m_stencil; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
-        std::array<cell_t, stencil_size> m_cells;
-        unsigned int m_origin_cell;
+        const Mesh& m_mesh; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
         const mesh_interval_t* m_mesh_interval = nullptr;
+        const StencilAnalyzer<stencil_size, dim>& m_stencil_analyzer;
+        std::array<cell_t, stencil_size> m_cells;
 
       public:
 
-        IteratorStencil(const Mesh& mesh, const Stencil<stencil_size, dim>& stencil)
+        IteratorStencil(const Mesh& mesh, const StencilAnalyzer<stencil_size, dim>& stencil_analyzer)
             : m_mesh(mesh)
-            , m_stencil(stencil)
+            , m_stencil_analyzer(stencil_analyzer)
         {
-            int origin_index = find_stencil_origin(stencil);
-            assert(origin_index >= 0 && "the zero vector is required in the stencil definition.");
-            m_origin_cell = static_cast<unsigned int>(origin_index);
+            assert(m_stencil_analyzer.has_origin && "the zero vector is required in the stencil definition.");
+            auto length = mesh.cell_length(mesh.min_level());
             for (cell_t& cell : m_cells)
             {
                 cell.origin_point = mesh.origin_point();
+                cell.level        = mesh.min_level();
+                cell.length       = length;
             }
         }
 
-        void init(const mesh_interval_t& mesh_interval)
+        void init(const mesh_interval_t& origin_mesh_interval)
         {
-            m_mesh_interval = &mesh_interval;
-
-            double length = m_mesh.cell_length(mesh_interval.level);
-            for (cell_t& cell : m_cells)
+            if (origin_mesh_interval.level != m_cells[0].level)
             {
-                cell.level  = mesh_interval.level;
-                cell.length = length;
+                double length = m_mesh.cell_length(origin_mesh_interval.level);
+                for (cell_t& cell : m_cells)
+                {
+                    cell.level  = origin_mesh_interval.level;
+                    cell.length = length;
+                }
             }
+            m_mesh_interval = &origin_mesh_interval;
 
             // origin of the stencil
-            cell_t& origin_cell    = m_cells[m_origin_cell];
-            origin_cell.indices[0] = mesh_interval.i.start;
+            cell_t& origin_cell    = m_cells[m_stencil_analyzer.origin_index];
+            origin_cell.indices[0] = origin_mesh_interval.i.start;
             for (unsigned int d = 0; d < dim - 1; ++d)
             {
-                origin_cell.indices[d + 1] = mesh_interval.index[d];
+                origin_cell.indices[d + 1] = origin_mesh_interval.index[d];
             }
-            origin_cell.index = get_index_start(m_mesh, mesh_interval);
-            if (origin_cell.index > 0 && static_cast<std::size_t>(origin_cell.index) > m_mesh.nb_cells())
+            origin_cell.index = get_index_start(m_mesh, origin_mesh_interval);
+#ifndef NDEBUG
+            if (origin_cell.index > 0 && static_cast<std::size_t>(origin_cell.index) > m_mesh.nb_cells()) // nb_cells() is very costly
             {
                 std::cout << "Cell not found in the mesh: " << origin_cell << std::endl;
                 assert(false);
             }
-
-            for (unsigned int id = 0; id < stencil_size; ++id)
+#endif
+            if constexpr (stencil_size > 1)
             {
-                if (id == m_origin_cell)
+                for (unsigned int i = 0; i < stencil_size; ++i)
                 {
-                    continue;
-                }
-
-                auto d = xt::view(m_stencil, id);
-
-                // Translate the coordinates according the direction d
-                cell_t& cell = m_cells[id];
-                for (unsigned int k = 0; k < dim; ++k)
-                {
-                    cell.indices[k] = origin_cell.indices[k] + d[k];
-                }
-
-                // We are on the same row as the stencil origin if d = {d[0], 0,..., 0}
-                bool same_row = true;
-                for (std::size_t k = 1; k < dim; ++k)
-                {
-                    if (d[k] != 0)
+                    if (i == m_stencil_analyzer.origin_index)
                     {
-                        same_row = false;
-                        break;
+                        continue;
                     }
-                }
-                if (same_row) // same row as the stencil origin
-                {
-                    // translation on the row
-                    cell.index = origin_cell.index + d[0];
-                }
-                else
-                {
-                    cell.index = get_index_start_translated(m_mesh, mesh_interval, d);
-                    if (cell.index > 0 && static_cast<std::size_t>(cell.index) > m_mesh.nb_cells())
+
+                    // Translate the coordinates according the direction d
+                    cell_t& cell = m_cells[i];
+                    for (unsigned int k = 0; k < dim; ++k)
                     {
-                        std::cout << "Non-existing neighbour for " << origin_cell << " in the direction " << d << std::endl;
-                        assert(false);
+                        cell.indices[k] = origin_cell.indices[k] + m_stencil_analyzer.stencil(i, k);
+                    }
+
+                    // Find cell index
+                    if (m_stencil_analyzer.same_row_as_origin[i])
+                    {
+                        // translation on the row
+                        cell.index = origin_cell.index + m_stencil_analyzer.stencil(i, 0);
+                    }
+                    else
+                    {
+                        DirectionVector<dim> dir;
+                        for (std::size_t k = 0; k < dim; ++k)
+                        {
+                            dir(k) = m_stencil_analyzer.stencil(i, k);
+                        }
+                        cell.index = get_index_start_translated(m_mesh, origin_mesh_interval, dir);
+#ifndef NDEBUG
+                        if (cell.index > 0 && static_cast<std::size_t>(cell.index) > m_mesh.nb_cells()) // nb_cells() is very costly
+                        {
+                            std::cout << "Non-existing neighbour for " << origin_cell << " in the direction " << dir << std::endl;
+                            assert(false);
+                        }
+#endif
                     }
                 }
             }
@@ -549,23 +590,24 @@ namespace samurai
             return m_mesh;
         }
 
+        inline auto& mesh_interval() const
+        {
+            return *m_mesh_interval;
+        }
+
         inline auto& interval() const
         {
             return m_mesh_interval->i;
         }
 
-        inline const auto& stencil() const
+        inline auto& level() const
         {
-            return m_stencil;
+            return m_mesh_interval->level;
         }
 
-        inline void move_next()
+        inline const auto& stencil() const
         {
-            for (cell_t& cell : m_cells)
-            {
-                cell.index++;      // increment cell index
-                cell.indices[0]++; // increment x-coordinate
-            }
+            return m_stencil_analyzer.stencil;
         }
 
         inline const auto& cells() const
@@ -577,11 +619,22 @@ namespace samurai
         {
             return m_cells;
         }
+
+        inline void move_next()
+        {
+            for (cell_t& cell : m_cells)
+            {
+                ++cell.index;      // increment cell index
+                ++cell.indices[0]; // increment x-coordinate
+            }
+        }
     };
 
     template <std::size_t index_coarse_cell, class Mesh, std::size_t stencil_size>
     class LevelJumpIterator
     {
+      public:
+
         static constexpr std::size_t dim = Mesh::dim;
         using cell_t                     = Cell<dim, typename Mesh::interval_t>;
         using mesh_interval_t            = typename Mesh::mesh_interval_t;
@@ -589,17 +642,20 @@ namespace samurai
         static constexpr std::size_t coarse = index_coarse_cell;
         static constexpr std::size_t fine   = (index_coarse_cell + 1) % 2;
 
+      private:
+
         std::size_t m_direction_index;
+
         IteratorStencil<Mesh, 1> m_coarse_it;
         const IteratorStencil<Mesh, stencil_size>* m_fine_it = nullptr;
         std::array<cell_t, 2> m_cells;
-        std::size_t m_ii = 0;
+        bool m_move_coarse_cell = false;
 
       public:
 
         LevelJumpIterator(const IteratorStencil<Mesh, stencil_size>& fine_it, std::size_t direction_index)
             : m_direction_index(direction_index)
-            , m_coarse_it(fine_it.mesh(), center_only_stencil<dim>())
+            , m_coarse_it(fine_it.mesh(), center_only_stencil_analyzer<dim>)
             , m_fine_it(&fine_it)
         {
         }
@@ -613,7 +669,7 @@ namespace samurai
             m_cells[coarse] = m_coarse_it.cells()[0];
             m_cells[fine]   = m_fine_it->cells()[m_direction_index];
 
-            m_ii = 0;
+            m_move_coarse_cell = false;
         }
 
         inline auto& interval() const
@@ -621,26 +677,26 @@ namespace samurai
             return m_fine_it->interval();
         }
 
-        inline void move_next()
-        {
-            // Move fine cell
-            m_cells[fine].index++;      // increment cell index
-            m_cells[fine].indices[0]++; // increment x-coordinate
-
-            // Move coarse cell only once every two iterations
-            m_cells[coarse].index += (m_ii % 2 == 1) ? 1 : 0;
-            m_cells[coarse].indices[0] += (m_ii % 2 == 1) ? 1 : 0;
-            m_ii++;
-        }
-
         inline const auto& cells() const
         {
             return m_cells;
         }
+
+        inline void move_next()
+        {
+            // Move fine cell
+            ++m_cells[fine].index;      // increment cell index
+            ++m_cells[fine].indices[0]; // increment x-coordinate
+
+            // Move coarse cell only once every two iterations
+            m_cells[coarse].index += static_cast<std::size_t>(m_move_coarse_cell);
+            m_cells[coarse].indices[0] += static_cast<std::size_t>(m_move_coarse_cell);
+            m_move_coarse_cell = !m_move_coarse_cell;
+        }
     };
 
     template <class Mesh, std::size_t stencil_size>
-    auto make_stencil_iterator(const Mesh& mesh, const Stencil<stencil_size, Mesh::dim>& stencil)
+    auto make_stencil_iterator(const Mesh& mesh, const StencilAnalyzer<stencil_size, Mesh::dim>& stencil)
     {
         return IteratorStencil<Mesh, stencil_size>(mesh, stencil);
     }
@@ -661,7 +717,7 @@ namespace samurai
     template <class Mesh, std::size_t stencil_size, class Func>
     inline void for_each_stencil_sliding_in_interval(const Mesh& mesh,
                                                      const typename Mesh::mesh_interval_t& mesh_interval,
-                                                     const Stencil<stencil_size, Mesh::dim>& stencil,
+                                                     const StencilAnalyzer<stencil_size, Mesh::dim>& stencil,
                                                      Func&& f)
     {
         auto stencil_it = make_stencil_iterator(mesh, stencil);
@@ -680,7 +736,7 @@ namespace samurai
     }
 
     template <class Mesh, std::size_t stencil_size, class Func>
-    inline void for_each_stencil(const Mesh& mesh, const Stencil<stencil_size, Mesh::dim>& stencil, Func&& f)
+    inline void for_each_stencil(const Mesh& mesh, const StencilAnalyzer<stencil_size, Mesh::dim>& stencil, Func&& f)
     {
         auto stencil_it = make_stencil_iterator(mesh, stencil);
         for_each_level(mesh,
@@ -702,7 +758,7 @@ namespace samurai
     }
 
     template <class Mesh, class Set, std::size_t stencil_size, class Func>
-    inline void for_each_stencil(const Mesh& mesh, Set& set, const Stencil<stencil_size, Mesh::dim>& stencil, Func&& f)
+    inline void for_each_stencil(const Mesh& mesh, Set& set, const StencilAnalyzer<stencil_size, Mesh::dim>& stencil, Func&& f)
     {
         auto stencil_it = make_stencil_iterator(mesh, stencil);
         for_each_stencil(set, stencil_it, std::forward<Func>(f));
@@ -713,5 +769,4 @@ namespace samurai
     {
         return LevelJumpIterator<index_coarse_cell, Mesh, stencil_size>(fine_iterator, direction_index);
     }
-
 }
