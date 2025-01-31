@@ -70,7 +70,7 @@ namespace samurai
 
         void apply(std::size_t d, output_field_t& output_field, input_field_t& input_field) override
         {
-            if (args::enable_max_level_flux)
+            if (args::enable_max_level_flux || scheme().enable_max_level_flux())
             {
                 _apply<true>(d, output_field, input_field);
             }

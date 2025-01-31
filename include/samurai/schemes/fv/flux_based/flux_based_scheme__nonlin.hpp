@@ -34,6 +34,7 @@ namespace samurai
 
         FluxDefinition<cfg> m_flux_definition;
         bool m_include_boundary_fluxes = true;
+        bool m_enable_max_level_flux   = false;
 
       public:
 
@@ -60,6 +61,16 @@ namespace samurai
         bool include_boundary_fluxes() const
         {
             return m_include_boundary_fluxes;
+        }
+
+        void enable_max_level_flux(bool enable)
+        {
+            m_enable_max_level_flux = enable;
+        }
+
+        bool enable_max_level_flux() const
+        {
+            return m_enable_max_level_flux;
         }
 
       private:
@@ -99,7 +110,7 @@ namespace samurai
             static_assert(!enable_max_level_flux || cfg::stencil_size == 2,
                           "The finest level flux is implemented only for stencils of size 2");
 
-            if constexpr (enable_max_level_flux)
+            if constexpr (enable_max_level_flux && mesh_t::config::prediction_order > 0)
             {
                 const auto& left  = cells[0];
                 const auto& right = cells[1];
