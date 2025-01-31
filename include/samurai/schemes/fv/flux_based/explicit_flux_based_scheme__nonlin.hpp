@@ -30,10 +30,13 @@ namespace samurai
         {
         }
 
-        void apply(std::size_t d, output_field_t& output_field, input_field_t& input_field) override
+      private:
+
+        template <bool enable_max_level_flux>
+        void _apply(std::size_t d, output_field_t& output_field, input_field_t& input_field)
         {
             // Interior interfaces
-            scheme().template for_each_interior_interface<Run::Parallel>( // We need the 'template' keyword...
+            scheme().template for_each_interior_interface<Run::Parallel, enable_max_level_flux>( // We need the 'template' keyword...
                 d,
                 input_field,
                 [&](const auto& cell, auto& contrib)
@@ -50,7 +53,7 @@ namespace samurai
             // Boundary interfaces
             if (scheme().include_boundary_fluxes())
             {
-                scheme().template for_each_boundary_interface<Run::Parallel>( // We need the 'template' keyword...
+                scheme().template for_each_boundary_interface<Run::Parallel, enable_max_level_flux>( // We need the 'template' keyword...
                     d,
                     input_field,
                     [&](const auto& cell, auto& contrib)
@@ -60,6 +63,20 @@ namespace samurai
                             field_value(output_field, cell, field_i) += this->scheme().flux_value_cmpnent(contrib, field_i);
                         }
                     });
+            }
+        }
+
+      public:
+
+        void apply(std::size_t d, output_field_t& output_field, input_field_t& input_field) override
+        {
+            if (args::enable_max_level_flux)
+            {
+                _apply<true>(d, output_field, input_field);
+            }
+            else
+            {
+                _apply<false>(d, output_field, input_field);
             }
         }
     };
