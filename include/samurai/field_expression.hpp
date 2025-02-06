@@ -122,6 +122,13 @@ namespace samurai
         , m_f(std::forward<Func>(f))
     {
     }
+
+    template <class F, class... E>
+    inline auto make_field_function(E&&... e) noexcept
+    {
+        using type = field_function<F, E...>;
+        return type(F(), std::forward<E>(e)...);
+    }
 } // namespace samurai
 
 namespace xt::detail
