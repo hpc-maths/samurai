@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.1](https://github.com/hpc-maths/samurai/compare/v0.21.0...v0.21.1) (2025-02-06)
+
+
+### Bug Fixes
+
+* add make_field_function ([#266](https://github.com/hpc-maths/samurai/issues/266)) ([057bfbe](https://github.com/hpc-maths/samurai/commit/057bfbecba69d112318dea522d395c87967a9432))
+
 ## [0.21.0](https://github.com/hpc-maths/samurai/compare/v0.20.0...v0.21.0) (2025-01-26)
 
 
