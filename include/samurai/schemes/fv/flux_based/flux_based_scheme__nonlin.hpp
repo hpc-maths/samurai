@@ -107,11 +107,11 @@ namespace samurai
         template <bool enable_max_level_flux>
         void compute_stencil_values(const StencilCells<cfg>& cells, input_field_t& field, StencilValues<cfg>& stencil_values)
         {
-            static_assert(!enable_max_level_flux || cfg::stencil_size == 2,
-                          "The finest level flux is implemented only for stencils of size 2");
-
             if constexpr (enable_max_level_flux && mesh_t::config::prediction_order > 0)
             {
+                SAMURAI_ASSERT(cfg::stencil_size == 2,
+                               "The computation of flux at the finest level is implemented only for stencils of size 2");
+
                 const auto& left  = cells[0];
                 const auto& right = cells[1];
                 interval_t ileft{left.indices[0], left.indices[0] + 1};
@@ -119,8 +119,8 @@ namespace samurai
 
                 auto level         = left.level;
                 std::size_t deltal = field.mesh().max_level() - level;
-                stencil_values[0]  = samurai::portion(field, level, ileft, deltal, (1 << deltal) - 1)[0]; // field(level, i-1);
-                stencil_values[1]  = samurai::portion(field, level, iright, deltal, 0)[0];                // field(level, i);
+                stencil_values[0]  = portion(field, level, ileft, deltal, (1 << deltal) - 1)[0]; // field(level, i-1);
+                stencil_values[1]  = portion(field, level, iright, deltal, 0)[0];                // field(level, i);
             }
             else
             {

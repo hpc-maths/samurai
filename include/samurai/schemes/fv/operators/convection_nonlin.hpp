@@ -155,10 +155,10 @@ namespace samurai
                     }
                 };
 
-                upwind[d].cons_flux_function = [f](auto& cells, const Field& field)
+                upwind[d].cons_flux_function = [f](auto& /*cells*/, const StencilValues<cfg>& field)
                 {
-                    auto& left  = cells[0];
-                    auto& right = cells[1];
+                    static constexpr std::size_t left  = 0;
+                    static constexpr std::size_t right = 1;
 
                     field_value_t v;
                     if constexpr (field_size == 1)
@@ -217,28 +217,28 @@ namespace samurai
 
                 weno5[d].stencil = line_stencil<dim, d>(-2, -1, 0, 1, 2, 3);
 
-                weno5[d].cons_flux_function = [f](auto& cells, const Field& u) -> FluxValue<cfg>
+                weno5[d].cons_flux_function = [f](auto& /*cells*/, const StencilValues<cfg>& u) -> FluxValue<cfg>
                 {
                     static constexpr std::size_t stencil_center = 2;
 
                     field_value_t v;
                     if constexpr (field_size == 1)
                     {
-                        v = u[cells[stencil_center]];
+                        v = u[stencil_center];
                     }
                     else
                     {
-                        v = u[cells[stencil_center]](d);
+                        v = u[stencil_center](d);
                     }
 
                     if (v >= 0)
                     {
-                        std::array<FluxValue<cfg>, 5> f_u = {f(u[cells[0]]), f(u[cells[1]]), f(u[cells[2]]), f(u[cells[3]]), f(u[cells[4]])};
+                        std::array<FluxValue<cfg>, 5> f_u = {f(u[0]), f(u[1]), f(u[2]), f(u[3]), f(u[4])};
                         return compute_weno5_flux(f_u);
                     }
                     else
                     {
-                        std::array<FluxValue<cfg>, 5> f_u = {f(u[cells[5]]), f(u[cells[4]]), f(u[cells[3]]), f(u[cells[2]]), f(u[cells[1]])};
+                        std::array<FluxValue<cfg>, 5> f_u = {f(u[5]), f(u[4]), f(u[3]), f(u[2]), f(u[1])};
                         return compute_weno5_flux(f_u);
                     }
                 };

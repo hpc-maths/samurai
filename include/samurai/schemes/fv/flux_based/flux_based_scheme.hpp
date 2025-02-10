@@ -1,5 +1,6 @@
 #pragma once
 #include "../../../interface.hpp"
+#include "../../../reconstruction.hpp"
 #include "../../explicit_scheme.hpp"
 #include "../FV_scheme.hpp"
 #include "flux_definition.hpp"
