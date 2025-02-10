@@ -10,6 +10,8 @@
 #include <samurai/cell_list.hpp>
 #include <samurai/static_algorithm.hpp>
 
+
+/**
 template <std::size_t dim>
 auto generate_mesh(int bound, std::size_t start_level, std::size_t max_level)
 {
@@ -117,3 +119,5 @@ BENCHMARK_TEMPLATE_DEFINE_F(MyFixture, Search_3D, 3, 1)(benchmark::State& state)
 }
 
 BENCHMARK_REGISTER_F(MyFixture, Search_3D)->DenseRange(1, 10, 1);
+
+**/
