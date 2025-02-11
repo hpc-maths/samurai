@@ -131,7 +131,7 @@ def test_finite_volume_demo_burgers(config):
 
 @pytest.mark.h5diff()
 @pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
-def test_finite_volume_demo_burgers_mra(config):
+def test_finite_volume_demo_mra_burgers(config):
     cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-burgers-mra"),
            "--path", config['path'],
            '--filename', config['filename'],
