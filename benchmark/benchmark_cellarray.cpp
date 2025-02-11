@@ -43,9 +43,20 @@ void CELLARRAY_default(benchmark::State& state){
 }
 
 
+template <unsigned int dim>
+void CELLARRAY_cl_ca_multi(benchmark::State& state){
+        auto cl = cell_list_with_n_intervals<dim>(state.range(0)) ;
+        for (auto _ : state){
+                samurai::CellArray<dim> ca(cl) ;
+                benchmark::DoNotOptimize(ca[0]);
+        }
+}
 
 
 BENCHMARK_TEMPLATE(CELLARRAY_default,1, 16);
 BENCHMARK_TEMPLATE(CELLARRAY_default,2, 16);
 BENCHMARK_TEMPLATE(CELLARRAY_default,3, 16);
 
+BENCHMARK_TEMPLATE(CELLARRAY_cl_ca_multi,1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(CELLARRAY_cl_ca_multi,2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(CELLARRAY_cl_ca_multi,3)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
