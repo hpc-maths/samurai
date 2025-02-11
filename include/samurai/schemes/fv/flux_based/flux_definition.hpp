@@ -77,7 +77,7 @@ namespace samurai
         StencilCells<cfg>& cells;
         double cell_length = 0;
 
-        StencilData(StencilCells<cfg>& c)
+        explicit StencilData(StencilCells<cfg>& c)
             : cells(c)
         {
         }
