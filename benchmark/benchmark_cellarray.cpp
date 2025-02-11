@@ -52,6 +52,20 @@ void CELLARRAY_cl_ca_multi(benchmark::State& state){
         }
 }
 
+template <unsigned int dim>
+void CELLARRAY_min_level(benchmark::State& state){
+        samurai::CellList<dim> cl ; 
+	cl[state.range(0)][{}].add_interval({0,1}) ; 
+	samurai::CellArray<dim> ca (cl) ; 
+        for (auto _ : state){
+		auto min = ca.min_level() ; 
+                benchmark::DoNotOptimize(min);
+        }
+}
+
+
+
+
 static void CELLARRAY_CellList2CellArray_2D(benchmark::State& state)
 {
     constexpr std::size_t dim = 2;
@@ -117,3 +131,8 @@ BENCHMARK_TEMPLATE(CELLARRAY_default,3, 12);
 BENCHMARK_TEMPLATE(CELLARRAY_cl_ca_multi,1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
 BENCHMARK_TEMPLATE(CELLARRAY_cl_ca_multi,2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
 BENCHMARK_TEMPLATE(CELLARRAY_cl_ca_multi,3)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+
+BENCHMARK_TEMPLATE(CELLARRAY_min_level,1)->DenseRange(0,15);
+BENCHMARK_TEMPLATE(CELLARRAY_min_level,2)->DenseRange(0,15);
+BENCHMARK_TEMPLATE(CELLARRAY_min_level,3)->DenseRange(0,15);
+
