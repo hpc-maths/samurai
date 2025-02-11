@@ -57,7 +57,7 @@ void FIELD_make_field_uniform(benchmark::State& state){
         using Config = samurai::UniformConfig<dim> ;
 	auto mesh = samurai::UniformMesh<Config>(box, state.range(0));
         for (auto _ : state){
-		auto u = make_field<double, dim>("u", mesh) ; 
+		auto u = make_field<double, 1>("u", mesh) ; 
         }
 }
 
@@ -66,7 +66,7 @@ void FIELD_fill_uniform(benchmark::State& state){
         samurai::Box<double, dim> box = unitary_box<dim>() ;
         using Config = samurai::UniformConfig<dim> ;
         auto mesh = samurai::UniformMesh<Config>(box, state.range(0));
-	auto u = make_field<double, dim>("u", mesh) ;
+	auto u = make_field<double, 1>("u", mesh) ;
         for (auto _ : state){
 		u.fill(1.0) ; 
         }
@@ -78,7 +78,7 @@ void FIELD_for_each_cell_uniform(benchmark::State& state){
         samurai::Box<double, dim> box = unitary_box<dim>() ;
         using Config = samurai::UniformConfig<dim> ;
         auto mesh = samurai::UniformMesh<Config>(box, state.range(0));
-        auto u = make_field<double, dim>("u", mesh) ;
+        auto u = make_field<double, 1>("u", mesh) ;
         for (auto _ : state){
                 for_each_cell(mesh, 
 				[&](auto cell)
@@ -94,8 +94,8 @@ void FIELD_equal_uniform(benchmark::State& state){
         samurai::Box<double, dim> box = unitary_box<dim>() ;
         using Config = samurai::UniformConfig<dim> ;
         auto mesh = samurai::UniformMesh<Config>(box, state.range(0));
-        auto u = make_field<double, dim>("u", mesh) ;
-        auto v = make_field<double, dim>("v", mesh) ;	
+        auto u = make_field<double, 1>("u", mesh) ;
+        auto v = make_field<double, 1>("v", mesh) ;	
 	u.fill(1.0) ;
         for (auto _ : state){
                 v = u ; 
@@ -107,9 +107,9 @@ void FIELD_add_scalar_uniform(benchmark::State& state){
         samurai::Box<double, dim> box = unitary_box<dim>() ;
         using Config = samurai::UniformConfig<dim> ;
         auto mesh = samurai::UniformMesh<Config>(box, state.range(0));
-        auto u = make_field<double, dim>("u", mesh) ;
+        auto u = make_field<double, 1>("u", mesh) ;
         u.fill(1.0) ;
-        auto v = make_field<double, dim>("v", mesh) ;	
+        auto v = make_field<double, 1>("v", mesh) ;	
         for (auto _ : state){
                 v = u + 2.0 ;
 		benchmark::DoNotOptimize(v[0]) ; 
@@ -122,9 +122,9 @@ void FIELD_add_scalar_for_each_cell_uniform(benchmark::State& state){
         samurai::Box<double, dim> box = unitary_box<dim>() ;
         using Config = samurai::UniformConfig<dim> ;
         auto mesh = samurai::UniformMesh<Config>(box, state.range(0));
-        auto u = make_field<double, dim>("u", mesh) ;
+        auto u = make_field<double, 1>("u", mesh) ;
 	u.fill(1.0) ; 
-        auto v = make_field<double, dim>("v", mesh) ;	
+        auto v = make_field<double, 1>("v", mesh) ;	
         for (auto _ : state){
                 for_each_cell(mesh,
                                 [&](auto cell)
@@ -139,11 +139,11 @@ void FIELD_add_for_each_cell_uniform(benchmark::State& state){
         samurai::Box<double, dim> box = unitary_box<dim>() ;
         using Config = samurai::UniformConfig<dim> ;
         auto mesh = samurai::UniformMesh<Config>(box, state.range(0));
-        auto u = make_field<double, dim>("u", mesh) ;
+        auto u = make_field<double, 1>("u", mesh) ;
         u.fill(1.0) ;
-        auto v = make_field<double, dim>("v", mesh) ;
+        auto v = make_field<double, 1>("v", mesh) ;
         v.fill(1.0) ;
-        auto w = make_field<double, dim>("w", mesh) ;
+        auto w = make_field<double, 1>("w", mesh) ;
         w.fill(1.0) ;
 	
         for (auto _ : state){
@@ -163,11 +163,11 @@ void FIELD_add_uniform(benchmark::State& state){
         samurai::Box<double, dim> box = unitary_box<dim>() ;
         using Config = samurai::UniformConfig<dim> ;
         auto mesh = samurai::UniformMesh<Config>(box, state.range(0));
-        auto u = make_field<double, dim>("u", mesh) ;
+        auto u = make_field<double, 1>("u", mesh) ;
         u.fill(1.0) ;
-        auto v = make_field<double, dim>("v", mesh) ;
+        auto v = make_field<double, 1>("v", mesh) ;
         v.fill(1.0) ;
-        auto w = make_field<double, dim>("w", mesh) ;
+        auto w = make_field<double, 1>("w", mesh) ;
 	w.fill(0.0) ; 
         for (auto _ : state){
                 w = u + v ;
