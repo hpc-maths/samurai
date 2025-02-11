@@ -125,7 +125,7 @@ void run_simulation(Field& u,
 
     if (nfiles > 1)
     {
-        std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave) : "";
+        std::string suffix = fmt::format("_ite_{}", nsave);
         save(path, filename, u, suffix);
 
         samurai::update_ghost_mr(u);
