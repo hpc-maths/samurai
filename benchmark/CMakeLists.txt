@@ -27,6 +27,8 @@ set(SAMURAI_BENCHMARKS
     benchmark_cellarray.cpp
     benchmark_level_cell_array.cpp
     benchmark_mesh.cpp
+    benchmark_stencil.cpp
+    benchmark_field.cpp
     main.cpp
 )
 
