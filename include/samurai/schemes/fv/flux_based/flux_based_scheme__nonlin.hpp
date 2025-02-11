@@ -105,15 +105,17 @@ namespace samurai
       private:
 
         template <bool enable_max_level_flux>
-        void compute_stencil_values(const StencilCells<cfg>& cells, input_field_t& field, StencilValues<cfg>& stencil_values)
+        void compute_stencil_values(StencilData<cfg>& data, input_field_t& field, StencilValues<cfg>& stencil_values)
         {
             if constexpr (enable_max_level_flux && mesh_t::config::prediction_order > 0)
             {
                 SAMURAI_ASSERT(cfg::stencil_size == 2,
                                "The computation of flux at the finest level is implemented only for stencils of size 2");
 
-                const auto& left  = cells[0];
-                const auto& right = cells[1];
+                data.cell_length = field.mesh().cell_length(field.mesh().max_level());
+
+                const auto& left  = data.cells[0];
+                const auto& right = data.cells[1];
                 interval_t ileft{left.indices[0], left.indices[0] + 1};
                 interval_t iright{right.indices[0], right.indices[0] + 1};
 
@@ -124,9 +126,10 @@ namespace samurai
             }
             else
             {
+                data.cell_length = data.cells[0].length;
                 for (std::size_t s = 0; s < cfg::stencil_size; ++s)
                 {
-                    stencil_values[s] = field[cells[s]];
+                    stencil_values[s] = field[data.cells[s]];
                 }
             }
         }
@@ -140,11 +143,14 @@ namespace samurai
                                          double right_factor,
                                          Func&& apply_contrib)
         {
+            FluxValuePair<cfg> flux_values;
             StencilValues<cfg> stencil_values;
+            StencilData<cfg> data(comput_stencil_it.cells());
+
             for (std::size_t ii = 0; ii < comput_stencil_it.interval().size(); ++ii)
             {
-                compute_stencil_values<enable_max_level_flux>(comput_stencil_it.cells(), field, stencil_values);
-                auto flux_values = flux_function(comput_stencil_it.cells(), stencil_values);
+                compute_stencil_values<enable_max_level_flux>(data, field, stencil_values);
+                flux_function(flux_values, data, stencil_values);
                 flux_values[0] *= left_factor;
                 flux_values[1] *= right_factor;
                 apply_contrib(interface_it.cells()[0], flux_values[0]);
@@ -163,12 +169,15 @@ namespace samurai
                                          double factor,
                                          Func&& apply_contrib)
         {
+            FluxValuePair<cfg> flux_values;
             StencilValues<cfg> stencil_values;
+            StencilData<cfg> data(comput_stencil_it.cells());
+
             for (std::size_t ii = 0; ii < comput_stencil_it.interval().size(); ++ii)
             {
-                compute_stencil_values<false>(comput_stencil_it.cells(), field, stencil_values);
+                compute_stencil_values<false>(data, field, stencil_values);
 
-                auto flux_values = flux_function(comput_stencil_it.cells(), stencil_values);
+                flux_function(flux_values, data, stencil_values);
                 if constexpr (direction)
                 {
                     flux_values[0] *= factor;

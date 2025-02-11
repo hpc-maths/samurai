@@ -23,8 +23,8 @@ namespace samurai
      * WENO5 implementation.
      * Based on 'Efficent implementation of Weighted ENO schemes', Jiang and Shu, 1996.
      */
-    template <class stencil_values>
-    auto compute_weno5_flux(stencil_values& f)
+    template <class flux_type, class stencil_values>
+    auto compute_weno5_flux(flux_type& flux, stencil_values& f)
     {
         using value_type = typename stencil_values::value_type;
         // using scalar_type = std::conditional_t<std::is_floating_point_v<value_type>, value_type, typename value_type::value_type>;
@@ -59,8 +59,7 @@ namespace samurai
         auto omega2     = alpha2 / sum_alphas;
 
         // (2.10)
-        value_type flux = omega0 * q0 + omega1 * q1 + omega2 * q2;
-        return flux;
+        flux = omega0 * q0 + omega1 * q1 + omega2 * q2;
     }
 
     // template <class ScalarType, class Field, class Func>
