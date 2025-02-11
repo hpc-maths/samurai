@@ -139,6 +139,10 @@ void run_simulation(Field& u,
     //--------------------//
 
     double Tf = init_sol == "hat" ? 4. : 16.;
+    if (nfiles == 1)
+    {
+        Tf = 0.1; // for automatic test
+    }
 
     double dx = mesh.cell_length(mesh.max_level());
     double dt = cfl * dx;
@@ -183,14 +187,14 @@ void run_simulation(Field& u,
             std::cout.precision(2);
 
             double error = samurai::L2_error(u,
-                                             [&](auto& coord)
+                                             [&](const auto& coord)
                                              {
                                                  return hat_exact_solution(coord[0], t);
                                              });
             std::cout << "[w.r.t. exact, no recons] " << error;
 
             error = samurai::L2_error(u_recons,
-                                      [&](auto& coord)
+                                      [&](const auto& coord)
                                       {
                                           return hat_exact_solution(coord[0], t);
                                       });
@@ -247,7 +251,7 @@ int main(int argc, char* argv[])
     // Multiresolution parameters
     std::size_t min_level = 1;
     std::size_t max_level = 7;
-    double mr_epsilon     = 1e-3; // Threshold used by multiresolution
+    double mr_epsilon     = 1e-5; // Threshold used by multiresolution
     double mr_regularity  = 0.;   // Regularity guess for multiresolution
 
     // Output parameters
