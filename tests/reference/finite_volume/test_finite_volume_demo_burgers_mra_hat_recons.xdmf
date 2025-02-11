@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<Xdmf>
+    <Domain>
+        <Grid Name="mesh">
+            <Topology TopologyType="Polyline" NumberOfElements="512">
+                <DataItem Dimensions="1024" Format="HDF">test_finite_volume_demo_burgers_mra_hat_recons.h5:/mesh/connectivity</DataItem>
+            </Topology>
+            <Geometry GeometryType="XYZ">
+                <DataItem Dimensions="1539" Format="HDF">test_finite_volume_demo_burgers_mra_hat_recons.h5:/mesh/points</DataItem>
+            </Geometry>
+            <Attribute Name="u" Center="Cell">
+                <DataItem Dimensions="512" Format="HDF" Precision="8">test_finite_volume_demo_burgers_mra_hat_recons.h5:/mesh/fields/u</DataItem>
+            </Attribute>
+        </Grid>
+    </Domain>
+</Xdmf>

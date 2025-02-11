@@ -123,6 +123,7 @@ void run_simulation(Field& u,
     nsave          = 0;
     std::size_t nt = 0;
 
+    if (nfiles > 1)
     {
         std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave) : "";
         save(path, filename, u, suffix);
@@ -181,11 +182,10 @@ void run_simulation(Field& u,
         auto u_recons = samurai::reconstruction(u);
 
         // Error
+        std::cout << ", L2-error: " << std::scientific;
+        std::cout.precision(2);
         if (init_sol == "hat")
         {
-            std::cout << ", L2-error: " << std::scientific;
-            std::cout.precision(2);
-
             double error = samurai::L2_error(u,
                                              [&](const auto& coord)
                                              {
@@ -199,17 +199,17 @@ void run_simulation(Field& u,
                                           return hat_exact_solution(coord[0], t);
                                       });
             std::cout << ", [w.r.t. exact, recons] " << error;
-
-            error = 0;
-            samurai::for_each_cell(u_max.mesh(),
-                                   [&](auto& cell)
-                                   {
-                                       auto cell2 = samurai::find_cell(u_recons.mesh(), cell.center());
-                                       error += std::pow(u_max[cell] - u_recons[cell2], 2) * std::pow(cell.length, 1);
-                                   });
-            error = std::sqrt(error);
-            std::cout << ", [w.r.t. max level, recons] " << error;
         }
+
+        double error = 0;
+        samurai::for_each_cell(u_max.mesh(),
+                               [&](auto& cell)
+                               {
+                                   auto cell2 = samurai::find_cell(u_recons.mesh(), cell.center());
+                                   error += std::pow(u_max[cell] - u_recons[cell2], 2) * std::pow(cell.length, 1);
+                               });
+        error = std::sqrt(error);
+        std::cout << ", [w.r.t. max level, recons] " << error;
 
         // Save the result
         if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
@@ -217,7 +217,7 @@ void run_simulation(Field& u,
             std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave) : "";
             save(path, filename, u, suffix);
 
-            std::string file = fmt::format("{}_recons_ite_{}", filename, nsave);
+            std::string file = (nfiles != 1) ? fmt::format("{}_recons_ite_{}", filename, nsave) : fmt::format("{}_recons", filename);
             samurai::save(path, file, u_recons.mesh(), u_recons);
             nsave++;
         }

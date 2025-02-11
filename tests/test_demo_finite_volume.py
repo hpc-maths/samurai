@@ -131,6 +131,19 @@ def test_finite_volume_demo_burgers(config):
 
 @pytest.mark.h5diff()
 @pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+def test_finite_volume_demo_burgers_mra(config):
+    cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-burgers-mra"),
+           "--path", config['path'],
+           '--filename', config['filename'],
+           "--nfiles", "1",
+           "--min-level", "2",
+           "--max-level", "9",
+           "--init-sol", "hat",
+           "--mr-eps", "1e-5"]
+    output = subprocess.run(cmd, check=True, capture_output=True)
+
+@pytest.mark.h5diff()
+@pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
 def test_finite_volume_demo_nagumo_imp_diff_imp_react(config):
     cmd = [get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-nagumo"),
            "--path", config['path'],
