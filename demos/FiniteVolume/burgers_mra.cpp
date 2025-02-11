@@ -14,32 +14,6 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
-template <class Field>
-auto make_upwind()
-{
-    static constexpr std::size_t output_field_size = 1;
-    static constexpr std::size_t stencil_size      = 2;
-
-    using cfg = samurai::FluxConfig<samurai::SchemeType::NonLinear, output_field_size, stencil_size, Field>;
-
-    auto f = [](auto u) -> samurai::FluxValue<cfg>
-    {
-        return 0.5 * u * u;
-    };
-
-    samurai::FluxDefinition<cfg> upwind_f;
-    upwind_f[0].stencil = {{0}, {1}};
-
-    upwind_f[0].cons_flux_function = [f](auto& /*cells*/, const samurai::StencilValues<cfg>& u)
-    {
-        auto& u_left  = u[0];
-        auto& u_right = u[1];
-        return u_left >= 0 ? f(u_left) : f(u_right);
-    };
-
-    return samurai::make_flux_based_scheme(upwind_f);
-}
-
 double hat_exact_solution(double x, double t)
 {
     const double x0 = -1;
@@ -55,7 +29,7 @@ double hat_exact_solution(double x, double t)
     }
     else
     {
-        x_top = sqrt(2 * (1 + t)) - 1;
+        x_top = std::sqrt(2 * (1 + t)) - 1;
         x1    = x_top;
         top   = std::sqrt(2 / (1 + t));
     }
@@ -95,6 +69,8 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 template <class Field, class Scheme>
 void run_simulation(Field& u,
                     Field& unp1,
+                    Field& u_max,
+                    Field& unp1_max,
                     Scheme& scheme,
                     double cfl,
                     double mr_epsilon,
@@ -102,9 +78,48 @@ void run_simulation(Field& u,
                     const std::string& init_sol,
                     std::size_t nfiles,
                     const fs::path& path,
-                    const std::string& filename,
+                    std::string filename,
                     std::size_t& nsave)
 {
+    auto& mesh = u.mesh();
+
+    std::cout << std::endl << "max-level-flux enabled: " << scheme.enable_max_level_flux() << std::endl;
+
+    if (scheme.enable_max_level_flux())
+    {
+        filename += "_mlf";
+    }
+
+    // Initial solution
+    if (init_sol == "hat")
+    {
+        samurai::for_each_cell(mesh,
+                               [&](auto& cell)
+                               {
+                                   u[cell] = hat_exact_solution(cell.center(0), 0);
+                               });
+        samurai::for_each_cell(u_max.mesh(),
+                               [&](auto& cell)
+                               {
+                                   u_max[cell] = hat_exact_solution(cell.center(0), 0);
+                               });
+    }
+    else // gaussian
+    {
+        samurai::for_each_cell(mesh,
+                               [&](auto& cell)
+                               {
+                                   double x = cell.center(0);
+                                   u[cell]  = 0.1 * exp(-2.0 * x * x);
+                               });
+        samurai::for_each_cell(u_max.mesh(),
+                               [&](auto& cell)
+                               {
+                                   double x    = cell.center(0);
+                                   u_max[cell] = 0.1 * exp(-2.0 * x * x);
+                               });
+    }
+
     nsave          = 0;
     std::size_t nt = 0;
 
@@ -119,13 +134,11 @@ void run_simulation(Field& u,
         nsave++;
     }
 
-    auto& mesh = u.mesh();
-
     //--------------------//
     //   Time iteration   //
     //--------------------//
 
-    double Tf = 4.;
+    double Tf = init_sol == "hat" ? 4. : 16.;
 
     double dx = mesh.cell_length(mesh.max_level());
     double dt = cfl * dx;
@@ -152,10 +165,12 @@ void run_simulation(Field& u,
         samurai::update_ghost_mr(u);
         unp1.resize();
 
-        unp1 = u - dt * scheme(u);
+        unp1     = u - dt * scheme(u);
+        unp1_max = u_max - dt * scheme(u_max);
 
         // u <-- unp1
         std::swap(u.array(), unp1.array());
+        std::swap(u_max.array(), unp1_max.array());
 
         // Reconstruction
         samurai::update_ghost_mr(u);
@@ -164,13 +179,32 @@ void run_simulation(Field& u,
         // Error
         if (init_sol == "hat")
         {
+            std::cout << ", L2-error: " << std::scientific;
+            std::cout.precision(2);
+
             double error = samurai::L2_error(u,
                                              [&](auto& coord)
                                              {
                                                  return hat_exact_solution(coord[0], t);
                                              });
-            std::cout.precision(2);
-            std::cout << ", L2-error: " << std::scientific << error;
+            std::cout << "[w.r.t. exact, no recons] " << error;
+
+            error = samurai::L2_error(u_recons,
+                                      [&](auto& coord)
+                                      {
+                                          return hat_exact_solution(coord[0], t);
+                                      });
+            std::cout << ", [w.r.t. exact, recons] " << error;
+
+            error = 0;
+            samurai::for_each_cell(u_max.mesh(),
+                                   [&](auto& cell)
+                                   {
+                                       auto cell2 = samurai::find_cell(u_recons.mesh(), cell.center());
+                                       error += std::pow(u_max[cell] - u_recons[cell2], 2) * std::pow(cell.length, 1);
+                                   });
+            error = std::sqrt(error);
+            std::cout << ", [w.r.t. max level, recons] " << error;
         }
 
         // Save the result
@@ -243,34 +277,21 @@ int main(int argc, char* argv[])
 
     Box box({left_box}, {right_box});
     samurai::MRMesh<Config> mesh{box, min_level, max_level};
+    samurai::MRMesh<Config> max_level_mesh{box, max_level, max_level};
 
     auto u    = samurai::make_field<1>("u", mesh);
     auto unp1 = samurai::make_field<1>("unp1", mesh);
 
-    // Initial solution
-    if (init_sol == "hat")
-    {
-        samurai::for_each_cell(mesh,
-                               [&](auto& cell)
-                               {
-                                   u[cell] = hat_exact_solution(cell.center(0), 0);
-                               });
-    }
-    else // gaussian
-    {
-        samurai::for_each_cell(mesh,
-                               [&](auto& cell)
-                               {
-                                   double x = cell.center(0);
-                                   u[cell]  = 0.1 * exp(-2.0 * x * x);
-                               });
-    }
+    auto u_max    = samurai::make_field<1>("u", max_level_mesh);
+    auto unp1_max = samurai::make_field<1>("unp1", max_level_mesh);
+
     filename += "_" + init_sol;
 
     // Boundary conditions
     samurai::make_bc<samurai::Dirichlet<1>>(u, 0.0);
+    samurai::make_bc<samurai::Dirichlet<1>>(u_max, 0.0);
 
-    auto scheme = make_upwind<decltype(u)>();
+    auto scheme = 0.5 * samurai::make_convection_upwind<decltype(u)>();
 
     //-----------------//
     // Run simulations //
@@ -279,15 +300,17 @@ int main(int argc, char* argv[])
     std::size_t nsave;
 
     scheme.enable_max_level_flux(false);
-    run_simulation(u, unp1, scheme, cfl, mr_epsilon, mr_regularity, init_sol, nfiles, path, filename, nsave);
+    run_simulation(u, unp1, u_max, unp1_max, scheme, cfl, mr_epsilon, mr_regularity, init_sol, nfiles, path, filename, nsave);
 
     scheme.enable_max_level_flux(true);
-    run_simulation(u, unp1, scheme, cfl, mr_epsilon, mr_regularity, init_sol, nfiles, path, filename, nsave);
+    run_simulation(u, unp1, u_max, unp1_max, scheme, cfl, mr_epsilon, mr_regularity, init_sol, nfiles, path, filename, nsave);
 
     std::cout << std::endl;
     std::cout << "Run the following commands to view the results:" << std::endl;
-    std::cout << "python ../python/read_mesh.py " << filename << "_ite_ --field u level --start 0 --end " << nsave << std::endl;
-    std::cout << "python ../python/read_mesh.py " << filename << "_recons_ite_ --field u --start 0 --end " << nsave << std::endl;
+    std::cout << "max-level-flux disabled:" << std::endl;
+    std::cout << "     python ../python/read_mesh.py " << filename << "_recons_ite_ --field u --start 0 --end " << nsave << std::endl;
+    std::cout << "max-level-flux enabled:" << std::endl;
+    std::cout << "     python ../python/read_mesh.py " << filename << "_mlf_recons_ite_ --field u --start 0 --end " << nsave << std::endl;
 
     samurai::finalize();
     return 0;
