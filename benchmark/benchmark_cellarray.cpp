@@ -52,10 +52,67 @@ void CELLARRAY_cl_ca_multi(benchmark::State& state){
         }
 }
 
+static void CELLARRAY_CellList2CellArray_2D(benchmark::State& state)
+{
+    constexpr std::size_t dim = 2;
 
-BENCHMARK_TEMPLATE(CELLARRAY_default,1, 16);
-BENCHMARK_TEMPLATE(CELLARRAY_default,2, 16);
-BENCHMARK_TEMPLATE(CELLARRAY_default,3, 16);
+    std::size_t min_level = 1;
+    std::size_t max_level = 12;
+
+    samurai::CellList<dim> cl;
+    samurai::CellArray<dim> ca;
+
+    for (std::size_t s = 0; s < state.range(0); ++s)
+    {
+        auto level = std::experimental::randint(min_level, max_level);
+        auto x     = std::experimental::randint(0, (100 << level) - 1);
+        auto y     = std::experimental::randint(0, (100 << level) - 1);
+
+        cl[level][{y}].add_point(x);
+    }
+
+    for (auto _ : state)
+    {
+        ca = {cl};
+    }
+}
+
+BENCHMARK(CELLARRAY_CellList2CellArray_2D)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+
+
+static void CELLARRAY_CellList2CellArray_3D(benchmark::State& state)
+{
+    constexpr std::size_t dim = 3;
+
+    std::size_t min_level = 1;
+    std::size_t max_level = 12;
+
+    samurai::CellList<dim> cl;
+    samurai::CellArray<dim> ca;
+
+    for (std::size_t s = 0; s < state.range(0); ++s)
+    {
+        auto level = std::experimental::randint(min_level, max_level);
+        auto x     = std::experimental::randint(0, (100 << level) - 1);
+        auto y     = std::experimental::randint(0, (100 << level) - 1);
+        auto z     = std::experimental::randint(0, (100 << level) - 1);
+
+        cl[level][{y, z}].add_point(x);
+    }
+
+    for (auto _ : state)
+    {
+        ca = {cl};
+    }
+}
+
+BENCHMARK(CELLARRAY_CellList2CellArray_3D)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+
+
+
+BENCHMARK_TEMPLATE(CELLARRAY_default,1, 12);
+BENCHMARK_TEMPLATE(CELLARRAY_default,2, 12);
+BENCHMARK_TEMPLATE(CELLARRAY_default,3, 12);
 
 BENCHMARK_TEMPLATE(CELLARRAY_cl_ca_multi,1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
 BENCHMARK_TEMPLATE(CELLARRAY_cl_ca_multi,2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
