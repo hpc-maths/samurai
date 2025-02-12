@@ -11,6 +11,139 @@
 #include <samurai/static_algorithm.hpp>
 
 
+template <unsigned int dim>
+auto cell_list_with_n_intervals(int64_t size){
+        samurai::CellList<dim> cl ;
+        for (int64_t i = 0 ; i < size; i++){
+                int index = static_cast<int>(i) ;
+                cl[0][{}].add_interval({2*index, 2*index+1});
+        }
+        return cl ;
+}
+
+template <unsigned int dim>
+auto cell_array_with_n_intervals(int64_t size){
+        auto cl = cell_list_with_n_intervals<dim>(size) ;
+        samurai::CellArray<dim> ca(cl) ;
+        return ca;
+}
+
+
+template <unsigned int dim>
+void FIND_find_begin(benchmark::State& state){
+	auto ca = cell_array_with_n_intervals<dim>(state.range(0)) ;
+	xt::xtensor_fixed<int, xt::xshape<dim>> coord = {0} ; 
+	for(auto _ : state ){
+		auto index = find(ca[0], coord) ; 
+		benchmark::DoNotOptimize(index) ; 
+	}
+}
+
+template <unsigned int dim>
+void FIND_find_end(benchmark::State& state){
+        auto ca = cell_array_with_n_intervals<dim>(state.range(0)) ;
+        xt::xtensor_fixed<int, xt::xshape<dim>> coord = {2*state.range(0)} ;
+        for(auto _ : state ){
+                auto index = find(ca[0], coord) ;
+                benchmark::DoNotOptimize(index) ;
+        }
+}
+
+template <unsigned int dim>
+void FIND_find_impl_begin(benchmark::State& state){
+        auto ca = cell_array_with_n_intervals<dim>(state.range(0)) ;
+	auto lca = ca[0] ; 
+        xt::xtensor_fixed<int, xt::xshape<dim>> coord = {0} ;
+	auto size = lca[dim-1].size() ; 
+	auto integral = std::integral_constant<std::size_t, dim-1>{} ; 
+        for(auto _ : state ){
+                auto index = samurai::detail::find_impl(lca, 0, size, coord, integral) ;
+                benchmark::DoNotOptimize(index) ;
+        }
+}
+
+template <unsigned int dim>
+void FIND_find_impl_end(benchmark::State& state){
+        auto ca = cell_array_with_n_intervals<dim>(state.range(0)) ;
+        auto lca = ca[0] ;
+        xt::xtensor_fixed<int, xt::xshape<dim>> coord = {2*state.range(0)} ;
+        auto size = lca[dim-1].size() ;
+        auto integral = std::integral_constant<std::size_t, dim-1>{} ;
+        for(auto _ : state ){
+                auto index = samurai::detail::find_impl(lca, 0, size, coord, integral) ;
+                benchmark::DoNotOptimize(index) ;
+        }
+}
+
+template <unsigned int dim>
+void FIND_interval_search_begin(benchmark::State& state){
+	using  TInterval = samurai::default_config::interval_t;
+	using lca_t = const samurai::LevelCellArray<dim, TInterval> ; 
+	using diff_t = typename lca_t::const_iterator::difference_type ; 
+
+        auto ca = cell_array_with_n_intervals<dim>(state.range(0)) ;
+        auto lca = ca[0] ;
+        xt::xtensor_fixed<int, xt::xshape<dim>> coord = {0} ;
+        auto size = lca[dim-1].size() ;
+        auto integral = std::integral_constant<std::size_t, dim-1>{} ;
+	auto begin = lca[0].cbegin() + static_cast<diff_t>(0) ; 
+	auto end = lca[0].cend() +static_cast<diff_t>(size); 
+
+        for(auto _ : state ){
+		auto index = samurai::detail::interval_search(begin, end, coord[0]) ; 
+                benchmark::DoNotOptimize(index) ;
+        }
+}
+
+
+template <unsigned int dim>
+void FIND_interval_search_end(benchmark::State& state){
+        using  TInterval = samurai::default_config::interval_t;
+        using lca_t = const samurai::LevelCellArray<dim, TInterval> ;
+        using diff_t = typename lca_t::const_iterator::difference_type ;
+
+        auto ca = cell_array_with_n_intervals<dim>(state.range(0)) ;
+        auto lca = ca[0] ;
+        xt::xtensor_fixed<int, xt::xshape<dim>> coord = {2*state.range(0)} ;
+        auto size = lca[dim-1].size() ;
+        auto integral = std::integral_constant<std::size_t, dim-1>{} ;
+        auto begin = lca[0].cbegin() + static_cast<diff_t>(0) ;
+        auto end = lca[0].cend() +static_cast<diff_t>(size);
+
+        for(auto _ : state ){
+                auto index = samurai::detail::interval_search(begin, end, coord[0]) ;
+                benchmark::DoNotOptimize(index) ;
+        }
+}
+
+
+
+BENCHMARK_TEMPLATE(FIND_find_begin,1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(FIND_find_begin,2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(FIND_find_begin,3)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(FIND_find_end,1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(FIND_find_end,2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(FIND_find_end,3)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+
+BENCHMARK_TEMPLATE(FIND_find_impl_begin,1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(FIND_find_impl_begin,2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(FIND_find_impl_begin,3)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+
+BENCHMARK_TEMPLATE(FIND_find_impl_end,1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(FIND_find_impl_end,1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(FIND_find_impl_end,2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+
+
+BENCHMARK_TEMPLATE(FIND_interval_search_begin,1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(FIND_interval_search_begin,2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(FIND_interval_search_begin,3)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+
+BENCHMARK_TEMPLATE(FIND_interval_search_end,1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(FIND_interval_search_end,2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(FIND_interval_search_end,3)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+
+
+
 /**
 template <std::size_t dim>
 auto generate_mesh(int bound, std::size_t start_level, std::size_t max_level)
@@ -54,6 +187,8 @@ auto generate_mesh(int bound, std::size_t start_level, std::size_t max_level)
     return ca;
 }
 
+
+
 template <std::size_t dim_, int bound>
 class MyFixture : public ::benchmark::Fixture
 {
@@ -72,11 +207,10 @@ class MyFixture : public ::benchmark::Fixture
     {
         std::size_t found = 0;
         for (auto _ : state)
-        {
-            for (std::size_t s = 0; s < state.range(0); ++s)
             {
                 auto level = std::experimental::randint(min_level, max_level);
-                std::array<int, dim> coord;
+//              std::array<int, dim> coord;
+		xt::xtensor_fixed<int, xt::xshape<dim>> coord ;               
                 for (auto& c : coord)
                 {
                     c = std::experimental::randint(-bound << level, (bound << level) - 1);
@@ -101,6 +235,8 @@ BENCHMARK_TEMPLATE_DEFINE_F(MyFixture, Search_1D, 1, 1000)
 {
     bench(state);
 }
+
+
 
 BENCHMARK_REGISTER_F(MyFixture, Search_1D)->DenseRange(1, 10, 1);
 

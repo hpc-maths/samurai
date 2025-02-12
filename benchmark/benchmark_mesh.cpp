@@ -134,6 +134,29 @@ void FIELD_add_scalar_for_each_cell_uniform(benchmark::State& state){
         }
 }
 
+/**
+template <unsigned int dim>
+void FIELD_add_scalar_for_each_interval_uniform(benchmark::State& state){
+        samurai::Box<double, dim> box = unitary_box<dim>() ;
+        using Config = samurai::UniformConfig<dim> ;
+        auto mesh = samurai::UniformMesh<Config>(box, state.range(0));
+        auto u = make_field<double, 1>("u", mesh) ;
+        u.fill(1.0) ;
+        auto v = make_field<double, 1>("v", mesh) ;
+	v.fill(0.0) ; 
+        for (auto _ : state){
+                for_each_cell(mesh,
+                                [&](std::size_t level, const auto& interval, const auto& index)
+                                {
+					auto i = interval ; 
+					auto j = index[0] ; 
+                                        v(level, i, j) = 1.0 ; 
+                                });
+        }
+}
+**/
+
+
 template <unsigned int dim>
 void FIELD_add_for_each_cell_uniform(benchmark::State& state){
         samurai::Box<double, dim> box = unitary_box<dim>() ;
@@ -215,7 +238,9 @@ BENCHMARK_TEMPLATE(FIELD_add_scalar_for_each_cell_uniform,1)->DenseRange(1, 16);
 BENCHMARK_TEMPLATE(FIELD_add_scalar_for_each_cell_uniform,2)->DenseRange(1, 12);;
 BENCHMARK_TEMPLATE(FIELD_add_scalar_for_each_cell_uniform,3)->DenseRange(1, 7);;
 
-
+//BENCHMARK_TEMPLATE(FIELD_add_scalar_for_each_interval_uniform,1)->DenseRange(1, 16);;
+//BENCHMARK_TEMPLATE(FIELD_add_scalar_for_each_interval_uniform,2)->DenseRange(1, 12);;
+//BENCHMARK_TEMPLATE(FIELD_add_scalar_for_each_interval_uniform,3)->DenseRange(1, 7);;
 
 
 
