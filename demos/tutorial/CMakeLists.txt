@@ -30,6 +30,12 @@ target_link_libraries(tutorial-reconstruction-3d PRIVATE samurai CLI11::CLI11)
 add_executable(tutorial-proj-on-mesh proj_on_mesh.cpp)
 target_link_libraries(tutorial-proj-on-mesh PRIVATE samurai CLI11::CLI11)
 
+add_executable(test-add-point test_add_point.cpp)
+target_link_libraries(test-add-point PRIVATE samurai CLI11::CLI11)
+
+add_executable(test-add-interval test-add-interval.cpp)
+target_link_libraries(test-add-interval PRIVATE samurai CLI11::CLI11)
+
 if(MSVC)
     target_compile_options(tutorial-reconstruction-3d PUBLIC /bigobj)
 endif()

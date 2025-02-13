@@ -7,7 +7,8 @@
 #include <iterator>
 #include <limits>
 #include <vector>
-
+#include <type_traits> // fore std::make_signed
+ 
 #ifdef SAMURAI_WITH_MPI
 #include <boost/serialization/serialization.hpp>
 #include <boost/serialization/vector.hpp>
@@ -15,6 +16,8 @@
 
 #include <fmt/color.h>
 #include <fmt/format.h>
+
+#include <ranges>
 
 #include "algorithm.hpp"
 #include "box.hpp"
@@ -72,7 +75,9 @@ namespace samurai
         using cell_t              = Cell<dim, interval_t>;
         using index_t             = typename interval_t::index_t;
         using value_t             = typename interval_t::value_t;
+        using coord_index_t       = typename interval_t::coord_index_t;
         using mesh_interval_t     = MeshInterval<Dim, TInterval>;
+        using indices_t           = typename cell_t::indices_t;
         using coords_t            = typename cell_t::coords_t;
 
         using iterator               = LevelCellArray_iterator<LevelCellArray<Dim, TInterval>, false>;
@@ -86,7 +91,7 @@ namespace samurai
 
         static constexpr double default_approx_box_tol = 0.05;
 
-        LevelCellArray() = default;
+        LevelCellArray();
         LevelCellArray(const LevelCellList<Dim, TInterval>& lcl);
 
         template <class Op, class StartEndOp, class... S>
@@ -99,6 +104,11 @@ namespace samurai
                        double scaling_factor = 0);
         LevelCellArray(std::size_t level);
         LevelCellArray(std::size_t level, const coords_t& origin_point, double scaling_factor);
+				
+				void add_interval (const std::array<value_t, 2>& x_interval, const std::array<value_t, Dim-1>& yz_point);
+				void add_interval (const std::array<interval_t, Dim>& interval_nd);
+				void add_point    (const indices_t& point);
+				void remove_point (const indices_t& point);
 
         iterator begin();
         iterator end();
@@ -153,6 +163,11 @@ namespace samurai
 
         //// Gives the number of cells
         std::size_t nb_cells() const;
+        
+        // return the number of cells in the mesh
+        size_t nb_cells(const size_t d) const;
+
+				// 
 
         double cell_length() const;
 
@@ -177,7 +192,6 @@ namespace samurai
         void set_scaling_factor(double scaling_factor);
 
       private:
-
 #ifdef SAMURAI_WITH_MPI
         friend class boost::serialization::access;
 
@@ -195,7 +209,20 @@ namespace samurai
             ar & m_level;
         }
 #endif
+				void add_interval_rec       (const std::array<value_t, 2>& x_interval, const std::array<value_t, Dim-1>& yz_point, const size_t d, const index_t z_interval_idx);
+				void add_interval_rec_final (const std::array<value_t, 2>& x_interval, const std::array<value_t, Dim-1>& yz_point,                 const index_t z_interval_idx);
 
+				void add_interval_rec       (const std::array<interval_t, Dim>& interval_nd, const size_t d, const typename interval_t::value_t y, const index_t y_interval_idx);
+				void add_interval_rec_final (const std::array<interval_t, Dim>& interval_nd,                 const typename interval_t::value_t y, const index_t y_interval_idx);
+				
+				void add_point_rec       (const indices_t& point, const size_t d, const index_t interval_idx);
+				void add_point_rec_final (const indices_t& point,                 const index_t interval_idx);
+				
+				void remove_point_rec       (const indices_t& point, const size_t d, const index_t interval_idx);
+				void remove_point_rec_final (const indices_t& point,                 const index_t interval_idx);
+				
+				void update_index(const size_t d); 
+				
         /// Recursive construction from a level cell list along dimension > 0
         template <typename TGrid, std::size_t N>
         void init_from_level_cell_list(const TGrid& grid, std::array<value_t, dim - 1> index, std::integral_constant<std::size_t, N>);
@@ -289,6 +316,17 @@ namespace samurai
     // LevelCellArray implementation //
     ///////////////////////////////////
     template <std::size_t Dim, class TInterval>
+    inline LevelCellArray<Dim, TInterval>::LevelCellArray() // ensures m_offsets size is 1 
+			: m_level(0)
+			, m_scaling_factor(1)
+    {
+			for (std::size_t d = 0; d < dim - 1; ++d) 
+			{
+				m_offsets[d].push_back(0);
+			}
+		}    
+    
+    template <std::size_t Dim, class TInterval>
     inline LevelCellArray<Dim, TInterval>::LevelCellArray(const LevelCellList<Dim, TInterval>& lcl)
         : m_level(lcl.level())
         , m_origin_point(lcl.origin_point())
@@ -374,6 +412,10 @@ namespace samurai
         : m_level{level}
     {
         m_origin_point.fill(0);
+			for (std::size_t d = 0; d < dim - 1; ++d) 
+			{
+				m_offsets[d].push_back(0);
+			}
     }
 
     template <std::size_t Dim, class TInterval>
@@ -383,6 +425,1166 @@ namespace samurai
         , m_scaling_factor(scaling_factor)
     {
     }
+    
+    template <std::size_t Dim, class TInterval>
+		size_t LevelCellArray<Dim, TInterval>::nb_cells(const size_t d) const 
+		{ 
+			return std::accumulate(m_cells[d].cbegin(), m_cells[d].cend(), 0u, [](const size_t& value, const interval_t& interval) -> size_t 
+			{ 
+				return value + interval.size(); 
+			}); 
+		}
+		
+		template<std::size_t Dim, class TInterval>
+    inline void LevelCellArray<Dim, TInterval>::add_interval(const std::array<value_t, 2>& x_interval, const std::array<value_t, Dim-1>& yz_point)
+    {
+			constexpr size_t d = Dim-1;
+			
+			using interval_index_t = typename interval_t::index_t;
+			using interval_value_t = typename interval_t::value_t;
+			
+			//if (x_interval.is_empty() or not x_interval.is_valid()) { return; }
+			if (x_interval[0] >=  x_interval[1]) { return; }
+			
+			if constexpr (Dim == 1)
+			{
+				add_interval_rec_final(x_interval, yz_point, 0);
+			}
+			else
+			{
+				const auto recursive_call = [this, &x_interval = std::as_const(x_interval), &yz_point = std::as_const(yz_point)](const interval_index_t z_interval_index) -> void 
+				{
+					if (d > 1) { add_interval_rec(x_interval, yz_point, d-1, z_interval_index);  }
+					else       { add_interval_rec_final(x_interval, yz_point, z_interval_index); }
+				};
+				
+				const value_t z = yz_point[d-1];
+			
+				std::vector<std::size_t>& z_offsets = m_offsets[d-1];
+			
+				std::vector<interval_t>& intervals = m_cells[d];
+			
+				assert(z_offsets.size() == nb_cells(d) + 1);
+			
+				if (intervals.size() == 0)
+				{
+					intervals.push_back( interval_t(z, z+1) );	
+					z_offsets.insert(z_offsets.begin() + 1, z_offsets[0]);
+					update_index(d);			
+					recursive_call(intervals[0].index);
+					return;
+				}
+				for (const size_t i : std::views::iota(0u, intervals.size()) | std::views::reverse)
+				{
+					interval_value_t& a = intervals[i].start;
+					interval_value_t& b = intervals[i].end;
+					interval_index_t& ab_index = intervals[i].index;
+					
+					if (intervals[i].contains(z))
+					{
+						recursive_call(ab_index);
+						break;
+					}
+					else if (z == b) // extend the interval [a,b) to [a,b)U{z} = [a,b+1)
+					{                // there may be a an interval [a', b') such that b = a' -> extend [a, b) to [a,b')
+						z_offsets.insert(z_offsets.begin() + b + ab_index + 1, z_offsets[b + ab_index]);
+						++b;
+						if (i+1 < intervals.size() and b == intervals[i+1].start)
+						{
+							b = intervals[i+1].end;
+							intervals.erase(intervals.begin() + int(i) + 1); // delete [a',b')	
+						}
+						update_index(d);
+						recursive_call(ab_index);
+						break;
+					}
+					else if (z == a-1) // extend the interval [a,b) to {z}U[a,b) = [a-1,b)
+					{                  // there may be an interval [a',b') such that b' = a -> extend [a',b') to [a', b)
+						z_offsets.insert(z_offsets.begin() + a + ab_index, z_offsets[a + ab_index]);
+						interval_index_t z_interval_index = ab_index;
+						--a;
+						if (0 < i and intervals[i-1].end == a)
+						{
+							z_interval_index = intervals[i-1].index;
+							intervals[i-1].end = b;
+							intervals.erase(intervals.begin() + int(i)); // delete [a,b)
+						}
+						update_index(d);
+						recursive_call( z_interval_index );
+						break;
+					}
+					else if (z > b) // add singleton {y} = [y,y+1) after [a,b)
+					{
+						z_offsets.insert(z_offsets.begin() + b + ab_index + 1, z_offsets[b + ab_index]);
+						const interval_index_t& z_interval_idx = intervals.insert(intervals.begin() + int(i) + 1, interval_t(z, z+1))->index;
+						update_index(d);
+						recursive_call(z_interval_idx); // probably possible to avoid recursive call here.
+						break;
+					}
+				}
+				assert(z_offsets.size() == nb_cells(d) + 1);
+			}
+		}
+		
+		template<std::size_t Dim, class TInterval>
+    inline void LevelCellArray<Dim, TInterval>::add_interval_rec(const std::array<value_t, 2>& x_interval, const std::array<value_t, Dim-1>& yz_point, const size_t d, const index_t z_interval_idx)
+    {
+			assert(d-2 < Dim-1);
+			
+			using signed_size_t    = std::make_signed_t<size_t>;
+			using interval_index_t = typename interval_t::index_t;
+			using interval_value_t = typename interval_t::value_t;
+			
+			const auto recursive_call = [this, d, &x_interval = std::as_const(x_interval), &yz_point = std::as_const(yz_point)](const interval_index_t z_interval_index) -> void 
+			{
+				if (d > 1) { add_interval_rec(x_interval, yz_point, d-1, z_interval_index);  }
+				else       { add_interval_rec_final(x_interval, yz_point, z_interval_index); }
+			};
+			
+			const value_t y = yz_point[d-1];
+			const value_t z = yz_point[d];
+			
+			std::vector<std::size_t>& y_offsets = m_offsets[d-1];
+			std::vector<std::size_t>& z_offsets = m_offsets[d];
+			
+			std::vector<interval_t>& intervals = m_cells[d];
+			
+			assert(y_offsets.size() == nb_cells(d) + 1);
+			assert(z + z_interval_idx     < signed_size_t(z_offsets.size()));
+			assert(z + z_interval_idx + 1 < signed_size_t(z_offsets.size()));
+			
+			const size_t i0 = z_offsets[z + z_interval_idx];
+			const size_t i1 = z_offsets[z + z_interval_idx + 1];
+			
+			if (intervals.size() == 0)
+			{
+				intervals.push_back(interval_t(y, y+1));
+				y_offsets.insert(y_offsets.begin() + 1, y_offsets[0]);
+				for (size_t j=z + z_interval_idx + 1;j<z_offsets.size();++j) { ++z_offsets[j]; }
+				update_index(d);
+				recursive_call(intervals[0].index);
+				return;
+			}
+			else if (i0 == i1)
+			{
+				typename std::vector<interval_t>::const_iterator it = intervals.insert(intervals.begin() + i1, interval_t(y, y+1));
+				interval_value_t b = 0;
+				interval_value_t y_interval_idx = 0;
+				
+				if (i0 > 0)
+				{
+					b = intervals[i0-1].end;
+					y_interval_idx = intervals[i0-1].index;
+				}
+				y_offsets.insert(y_offsets.begin() + b + y_interval_idx + 1, y_offsets[b + y_interval_idx]);
+				for (size_t j=z + z_interval_idx + 1;j<z_offsets.size();++j) { ++z_offsets[j]; }
+				update_index(d);
+				recursive_call(it->index);
+				return;
+			}
+			for (const size_t i : std::views::iota(i0, i1) | std::views::reverse)
+			{
+				interval_value_t& a = intervals[i].start;
+				interval_value_t& b = intervals[i].end;
+				interval_index_t& ab_index = intervals[i].index;
+				
+				if (intervals[i].contains(y))
+				{
+					recursive_call(ab_index);
+					break;
+				}
+				else if (y == b) // extend the interval [a,b) to [a,b)U{y} = [a,b+1)
+				{                // there may be a an interval [a', b') such that b = a' -> extend [a, b) to [a,b')
+					y_offsets.insert(y_offsets.begin() + b + ab_index + 1, y_offsets[b + ab_index]);
+					++b;
+					if (i+1 < i1 and b == intervals[i+1].start)
+					{
+						b = intervals[i+1].end;
+						intervals.erase(intervals.begin() + int(i) + 1); // delete [a',b')	
+						for (size_t j=z + z_interval_idx + 1;j<z_offsets.size();++j) { --z_offsets[j]; }
+					}
+					update_index(d);
+					recursive_call(ab_index);
+					break;
+				}
+				else if (y == a-1) // extend the interval [a,b) to {y}U[a,b) = [a-1,b)
+				{                  // there may be an interval [a',b') such that b' = a -> extend [a',b') to [a', b)
+					y_offsets.insert(y_offsets.begin() + a + ab_index, y_offsets[a + ab_index]);
+					interval_index_t y_interval_index = ab_index;
+					--a;
+					if (i0 < i and intervals[i-1].end == a)
+					{
+						y_interval_index = intervals[i-1].index;
+						intervals[i-1].end = b;
+						intervals.erase(intervals.begin() + int(i)); // delete [a,b)
+						for (size_t j=z + z_interval_idx + 1;j<z_offsets.size();++j) { --z_offsets[j]; }
+					}
+					update_index(d);
+					recursive_call(y_interval_index);
+					break;
+				}
+				else if (y > b) // add singleton {y} = [y,y+1) after [a,b)
+				{
+					y_offsets.insert(y_offsets.begin() + b + ab_index + 1, y_offsets[b + ab_index]);
+					const interval_index_t& y_interval_idx = intervals.insert(intervals.begin() + int(i) + 1, interval_t(y, y+1))->index;
+					update_index(d);
+					for (size_t j=z + z_interval_idx + 1;j<z_offsets.size();++j) { ++z_offsets[j]; }
+					recursive_call(y_interval_idx);
+					break;
+				}
+			}
+			assert(y_offsets.size() == nb_cells(d) + 1);
+		}
+		
+		template<std::size_t Dim, class TInterval>
+    inline void LevelCellArray<Dim, TInterval>::add_interval_rec_final(const std::array<value_t, 2>& _x_interval, const std::array<value_t, Dim-1>& yz_point, const index_t y_interval_idx)
+    {
+			constexpr size_t d = 0;
+			
+			using signed_size_t    = std::make_signed_t<size_t>;
+			using interval_value_t = typename interval_t::value_t;
+			
+			//const value_t y = yz_point[d];
+			const interval_t x_interval(_x_interval[0], _x_interval[1]);
+			
+			//std::vector<std::size_t>& y_offsets = m_offsets[d];
+			
+			std::vector<interval_t>& intervals = m_cells[d];
+			
+			if (Dim > 1) { assert(yz_point[d] + y_interval_idx     < signed_size_t(m_offsets[d].size())); }
+			if (Dim > 1) { assert(yz_point[d] + y_interval_idx + 1 < signed_size_t(m_offsets[d].size())); }
+			
+			const size_t i0 = (Dim > 1) ? m_offsets[d][yz_point[d] + y_interval_idx]     : 0;
+			const size_t i1 = (Dim > 1) ? m_offsets[d][yz_point[d] + y_interval_idx + 1] : intervals.size();
+			
+			assert(i1 <= intervals.size());
+			if (intervals.size() == 0)
+			{
+				intervals.push_back(x_interval);
+				if (Dim > 1) { for (size_t j=yz_point[d] + y_interval_idx + 1;j<m_offsets[d].size();++j) { ++m_offsets[d][j]; } }
+				return;
+			}
+			else if (Dim > 1 and i0 == i1)
+			{
+				intervals.insert(intervals.begin() + signed_size_t(i1), x_interval);
+				for (size_t j=yz_point[d] + y_interval_idx + 1;j<m_offsets[d].size();++j) { ++m_offsets[d][j]; }
+				return;
+			}
+			for (const size_t i : std::views::iota(i0, i1) | std::views::reverse)
+			{
+				interval_value_t& a = intervals[i].start;
+				interval_value_t& b = intervals[i].end;
+				
+				if (b < x_interval.start)
+				{
+					intervals.insert(intervals.begin() + int(i) + 1, x_interval);
+					if (Dim > 1) { for (size_t j=yz_point[d] + y_interval_idx + 1;j<m_offsets[d].size();++j) { ++m_offsets[d][j]; } }
+					break;
+				}
+				else if (a <= x_interval.start)
+				{
+					b = std::max(b, x_interval.end);
+					if (i+1 < i1 and b == intervals[i+1].start)
+					{
+						b = intervals[i+1].end;
+						intervals.erase(intervals.begin() + signed_size_t(i) + 1);
+						if (Dim > 1) { for (size_t j=yz_point[d] + y_interval_idx + 1;j<m_offsets[d].size();++j) { --m_offsets[d][j]; } }
+					}
+					break;
+				}
+				else if (a <= x_interval.end)
+				{
+					const size_t old_size = intervals.size();
+					
+					b = std::max(b, x_interval.end);
+					if (i+1 < i1 and b == intervals[i+1].start)
+					{
+						b = intervals[i+1].end;
+						intervals.erase(intervals.begin() + signed_size_t(i) + 1);
+					}
+					a = x_interval.start;
+					for (const size_t j : std::views::iota(i0, i) | std::views::reverse)
+					{
+						if (intervals[j].end < a) { break; }
+						if (intervals[j].start <= a) 
+						{
+							a = intervals[j].start;
+							intervals[j].end = intervals[j].start;
+							break; 
+						}
+						else { intervals[j].end = intervals[j].start; }
+					}
+					const auto it = std::remove_if(intervals.begin() + i0, intervals.begin() + signed_size_t(i), [](const interval_t& interval) -> bool
+					{
+						return interval.is_empty();
+					});
+					intervals.erase(it, intervals.begin() + signed_size_t(i));
+					const size_t new_size = intervals.size();
+					if (Dim > 1) { for (size_t j=yz_point[d] + y_interval_idx + 1;j<m_offsets[d].size();++j) { m_offsets[d][j] -= (old_size - new_size); } }
+					break;
+				}
+			}
+		}
+
+    template<std::size_t Dim, class TInterval>
+    inline void LevelCellArray<Dim, TInterval>::add_interval(const std::array<interval_t, Dim>& interval_nd)
+    {
+			constexpr size_t d = Dim-1;
+			
+			using interval_index_t = typename interval_t::index_t;
+			using interval_value_t = typename interval_t::value_t;
+			
+			for (size_t i=0;i<Dim;++i)
+			{
+				if (interval_nd[d].is_empty() or not interval_nd[d].is_valid()) { return; }
+			}
+			
+			const auto recursive_call = [this, d, &interval_nd = std::as_const(interval_nd)](const interval_value_t x_start, const interval_value_t x_end, const index_t x_interval_index) -> void 
+			{
+				if constexpr (Dim > 1)
+				{
+					if (d > 1) { for (interval_value_t x=x_start;x!=x_end;++x) { add_interval_rec(interval_nd, d-1, x, x_interval_index);  } }
+					else       { for (interval_value_t x=x_start;x!=x_end;++x) { add_interval_rec_final(interval_nd, x, x_interval_index); } }
+				}
+			};
+			
+			const interval_t& x_interval  = interval_nd[d];
+			
+			//std::vector<std::size_t>& x_offsets = m_offsets[d-1];
+			
+			std::vector<interval_t>& intervals = m_cells[d];
+			
+			if (Dim > 1) { assert(m_offsets[d-1].size() == nb_cells(d) + 1); }
+			
+			if (intervals.size() == 0)
+			{
+				intervals.push_back(x_interval);
+				if (Dim > 1) { m_offsets[d-1].insert(m_offsets[d-1].begin() + 1, x_interval.size(), m_offsets[d-1][0]); }
+				update_index(d);
+				recursive_call(x_interval.start, x_interval.end, intervals[0].index);
+				return;
+			}
+			for (const size_t i : std::views::iota(0u, intervals.size()) | std::views::reverse)
+			{
+				interval_value_t& a = intervals[i].start;
+				interval_value_t& b = intervals[i].end;
+				interval_index_t& ab_index = intervals[i].index;
+				
+				if (b < x_interval.start)
+				{
+					if (Dim > 1) { m_offsets[d-1].insert(m_offsets[d-1].begin() + b + ab_index + 1, x_interval.size(), m_offsets[d-1][b + ab_index]); }
+					const interval_index_t& x_interval_idx = intervals.insert(intervals.begin() + int(i) + 1, x_interval)->index;
+					update_index(d);
+					recursive_call(x_interval.start, x_interval.end, x_interval_idx);
+					break;
+				}
+				else if (a <= x_interval.start)
+				{
+					if (Dim > 1 and b < x_interval.end) { m_offsets[d-1].insert(m_offsets[d-1].begin() + b + ab_index + 1, x_interval.end - b, m_offsets[d-1][b + ab_index]); }
+					b = std::max(b, x_interval.end);
+					if (i+1 < intervals.size() and b == intervals[i+1].start)
+					{
+						b = intervals[i+1].end;
+						intervals.erase(intervals.begin() + int(i) + 1);
+					}
+					update_index(d);
+					recursive_call(x_interval.start, x_interval.end, ab_index);
+					break;
+				}
+				else if (a <= x_interval.end)
+				{
+					//b = std::max(b, x_interval.end);
+					// add offsets corresponding to [b, x_interval.end[
+					if (Dim > 1 and b < x_interval.end) { m_offsets[d-1].insert(m_offsets[d-1].begin() + b + ab_index + 1, x_interval.end - b, m_offsets[d-1][b + ab_index]); }
+					b = std::max(b, x_interval.end);
+					if (i+1 < intervals.size() and b == intervals[i+1].start)
+					{
+						b = intervals[i+1].end;
+						intervals.erase(intervals.begin() + int(i) + 1);
+					}
+					// if last interval, add offsets corresponding to [x_interval.start, a[
+					if (Dim > 1 and i == 0u) { m_offsets[d-1].insert(m_offsets[d-1].begin() + a + ab_index,  a - x_interval.start, m_offsets[d-1][a + ab_index]); }
+					interval_value_t new_a = x_interval.start;
+					for (const size_t j : std::views::iota(0u, i) | std::views::reverse)
+					{
+						if (intervals[j].end < new_a)    
+						{ // add offsets corresponding to [new_a, intervals[j+1].start[
+							if (Dim > 1) { m_offsets[d-1].insert(m_offsets[d-1].begin() + intervals[j+1].start + intervals[j+1].index,  intervals[j+1].start - new_a, m_offsets[d-1][intervals[j+1].start + intervals[j+1].index]); }
+							break; 
+						}
+						if (intervals[j].start <= new_a) 
+						{ // add offsets corresponding to [intervals[j].end, intervals[j+1].start[
+							if (Dim > 1) { m_offsets[d-1].insert(m_offsets[d-1].begin() + intervals[j].end + intervals[j].index + 1, intervals[j+1].start - intervals[j].end, m_offsets[d-1][intervals[j].end + intervals[j].index]); }
+							new_a = intervals[j].start; 
+							intervals[j].end = intervals[j].start;
+							break; 
+						}
+						else
+						{ // add offsets corresponding to [intervals[j].end, intervals[j+1].start[
+							if (Dim > 1) { m_offsets[d-1].insert(m_offsets[d-1].begin() + intervals[j].end + intervals[j].index + 1, intervals[j+1].start - intervals[j].end, m_offsets[d-1][intervals[j].end + intervals[j].index]); }
+							intervals[j].end = intervals[j].start;
+							// if last interval, add offsets corresponding to [x_interval.start, intervals[j].start[
+							if (Dim > 1 and j == 0u) { m_offsets[d-1].insert(m_offsets[d-1].begin() + intervals[j].start + intervals[j].index, intervals[j].start - x_interval.start, m_offsets[d-1][intervals[j].start + intervals[j].index]); }
+						}
+					}
+					a = new_a;
+					const auto it = std::remove_if(intervals.begin(), intervals.begin() + int(i), [](const interval_t& interval) -> bool
+					{
+						return interval.is_empty();
+					});
+					// We need to recompute the indexes before removing the empty intervals.
+					// 1. Since the intervals to be removed are empty, the indexes are correctly calculated
+					// 2. If we where to remove the intervals before storing the index the pointer would be invalidated.
+					// Thus we first compute and store the index and then remove the empty intervals. 
+					update_index(d);
+					const interval_value_t interval_start = a;
+					const interval_value_t interval_end = b;
+					const interval_index_t interval_index = ab_index; // after erase, ab_index is invalidated.
+					intervals.erase(it, intervals.begin() + int(i));
+					
+					recursive_call(interval_start, interval_end, interval_index);
+					break;
+				}
+			}	
+			if (Dim > 1) { assert(m_offsets[d-1].size() == nb_cells(d) + 1); }
+		}
+    
+    template<std::size_t Dim, class TInterval>
+    inline void LevelCellArray<Dim, TInterval>::add_interval_rec(const std::array<interval_t, Dim>& interval_nd, const size_t d, const typename interval_t::value_t y, const index_t y_interval_idx)
+    {
+			assert(d > 0);
+			
+			using interval_index_t = typename interval_t::index_t;
+			using interval_value_t = typename interval_t::value_t;
+			
+			const auto recursive_call = [this, d, &interval_nd = std::as_const(interval_nd)](const interval_value_t x_start, const interval_value_t x_end, const index_t x_interval_index) -> void 
+			{
+				if (d > 1) { for (interval_value_t x=x_start;x!=x_end;++x) { add_interval_rec(interval_nd, d-1, x, x_interval_index);  } }
+				else       { for (interval_value_t x=x_start;x!=x_end;++x) { add_interval_rec_final(interval_nd, x, x_interval_index); } }
+			};
+			
+			const interval_t& x_interval = interval_nd[d];
+			
+			std::vector<std::size_t>& x_offsets = m_offsets[d-1];
+			std::vector<std::size_t>& y_offsets = m_offsets[d];
+			
+			std::vector<interval_t>& intervals = m_cells[d];
+			
+			assert(x_offsets.size() == nb_cells(d) + 1);
+			assert(y + y_interval_idx < y_offsets.size());
+			assert(y + y_interval_idx + 1 < y_offsets.size());
+			
+			const size_t i0 = y_offsets[y + y_interval_idx];
+			const size_t i1 = y_offsets[y + y_interval_idx + 1];
+			
+			assert(i1 <= intervals.size());
+			
+			if (intervals.size() == 0)
+			{
+				intervals.push_back(x_interval);
+				x_offsets.insert(x_offsets.begin() + 1, x_interval.size(), x_offsets[0]);
+				for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { ++y_offsets[j]; }
+				update_index(d);
+				recursive_call(x_interval.start, x_interval.end, intervals[0].index);
+				return;
+			}
+			else if (i0 == i1)
+			{
+				typename std::vector<interval_t>::const_iterator it = intervals.insert(intervals.begin() + i1, x_interval);
+				interval_value_t b = 0;
+				interval_value_t x_interval_idx = 0;
+				
+				if (i0 > 0)
+				{
+					b = intervals[i0-1].end;
+					x_interval_idx = intervals[i0-1].index;
+				}
+				x_offsets.insert(x_offsets.begin() + b + x_interval_idx + 1, x_interval.size(), x_offsets[b + x_interval_idx]);
+				for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { ++y_offsets[j]; }
+				update_index(d);
+				recursive_call(x_interval.start, x_interval.end, it->index);
+				return;
+			}
+			for (const size_t i : std::views::iota(i0, i1) | std::views::reverse)
+			{
+				interval_value_t& a = intervals[i].start;
+				interval_value_t& b = intervals[i].end;
+				interval_index_t& ab_index = intervals[i].index;
+				
+				if (b < x_interval.start)
+				{
+					x_offsets.insert(x_offsets.begin() + b + ab_index + 1, x_interval.size(), x_offsets[b + ab_index]);
+					const interval_index_t& x_interval_idx = intervals.insert(intervals.begin() + int(i) + 1, x_interval)->index;
+					for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { ++y_offsets[j]; }
+					update_index(d);
+					recursive_call(x_interval.start, x_interval.end, x_interval_idx);
+					break;
+				}
+				else if (a <= x_interval.start)
+				{
+					if (b < x_interval.end) { x_offsets.insert(x_offsets.begin() + b + ab_index + 1, x_interval.end - b, x_offsets[b + ab_index]); }
+					b = std::max(b, x_interval.end);
+					if (i+1 < i1 and b == intervals[i+1].start)
+					{
+						b = intervals[i+1].end;
+						intervals.erase(intervals.begin() + i + 1);
+						for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { --y_offsets[j]; }
+					}
+					update_index(d);
+					recursive_call(x_interval.start, x_interval.end, ab_index);
+					break;
+				}
+				else if (a <= x_interval.end)
+				{
+					const size_t old_size = intervals.size();
+					//b = std::max(b, x_interval.end);
+					// add offsets corresponding to [b, x_interval.end[
+					if (b < x_interval.end) { x_offsets.insert(x_offsets.begin() + b + ab_index + 1, x_interval.end - b, x_offsets[b + ab_index]); }
+					b = std::max(b, x_interval.end);
+					if (i+1 < i1 and b == intervals[i+1].start)
+					{
+						b = intervals[i+1].end;
+						intervals.erase(intervals.begin() + i + 1);
+					}
+					// if last interval, add offsets corresponding to [x_interval.start, a[
+					if (i==i0) { x_offsets.insert(x_offsets.begin() + a + ab_index,  a - x_interval.start, x_offsets[a + ab_index]); }
+					interval_value_t new_a = x_interval.start;
+					for (const size_t j : std::views::iota(i0, i) | std::views::reverse)
+					{
+						if (intervals[j].end < new_a)    
+						{ // add offsets corresponding to [new_a, intervals[j+1].start[
+							x_offsets.insert(x_offsets.begin() + intervals[j+1].start + intervals[j+1].index,  intervals[j+1].start - new_a, x_offsets[intervals[j+1].start + intervals[j+1].index]);
+							break; 
+						}
+						if (intervals[j].start <= new_a) 
+						{ // add offsets corresponding to [intervals[j].end, intervals[j+1].start[
+							x_offsets.insert(x_offsets.begin() + intervals[j].end + intervals[j].index + 1, intervals[j+1].start - intervals[j].end, x_offsets[intervals[j].end + intervals[j].index]);
+							new_a = intervals[j].start; 
+							intervals[j].end = intervals[j].start;
+							break; 
+						}
+						else
+						{ // add offsets corresponding to [intervals[j].end, intervals[j+1].start[
+							x_offsets.insert(x_offsets.begin() + intervals[j].end + intervals[j].index + 1, intervals[j+1].start - intervals[j].end, x_offsets[intervals[j].end + intervals[j].index]);
+							intervals[j].end = intervals[j].start;
+							// if last interval, add offsets corresponding to [x_interval.start, intervals[j].start[
+							if (j == 0u) { x_offsets.insert(x_offsets.begin() + intervals[j].start + intervals[j].index, intervals[j].start - x_interval.start, x_offsets[intervals[j].start + intervals[j].index]); }
+						}
+					}
+					a = new_a;
+					const auto it = std::remove_if(intervals.begin() + i0, intervals.begin() + i, [](const interval_t& interval) -> bool
+					{
+						return interval.is_empty();
+					});
+					// We need to recompute the indexes before removing the empty intervals.
+					// 1. Since the intervals to be removed are empty, the indexes are correctly calculated
+					// 2. If we where to remove the intervals before storing the index the pointer would be invalidated.
+					// Thus we first compute and store the index and then remove the empty intervals. 
+					update_index(d);
+					const interval_value_t interval_start = a;
+					const interval_value_t interval_end = b;
+					const interval_index_t interval_index = ab_index; // after erase, ab_index is invalidated.
+					intervals.erase(it, intervals.begin() + i);
+					
+					const size_t new_size = intervals.size();
+					for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { y_offsets[j] -= (old_size - new_size); }
+					
+					recursive_call(interval_start, interval_end, interval_index);
+					break;
+				}
+			}
+			assert(x_offsets.size() == nb_cells(d) + 1);
+		}
+    
+    template<std::size_t Dim, class TInterval>
+    inline void LevelCellArray<Dim, TInterval>::add_interval_rec_final(const std::array<interval_t, Dim>& interval_nd, const typename interval_t::value_t y, const index_t y_interval_idx)
+    {
+			constexpr size_t d = 0;
+			
+			//using interval_index_t = typename interval_t::index_t;
+			using interval_value_t = typename interval_t::value_t;
+			
+			const interval_t& x_interval = interval_nd[d];
+			
+			std::vector<std::size_t>& y_offsets = m_offsets[d];
+			
+			std::vector<interval_t>& intervals = m_cells[d];
+			
+			assert(y + y_interval_idx < y_offsets.size());
+			assert(y + y_interval_idx + 1 < y_offsets.size());
+			
+			const size_t i0 = y_offsets[y + y_interval_idx];
+			const size_t i1 = y_offsets[y + y_interval_idx + 1];
+			
+			assert(i1 <= intervals.size());
+			
+			if (intervals.size() == 0)
+			{
+				intervals.push_back(x_interval);
+				for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { ++y_offsets[j]; }
+				update_index(d);
+				return;
+			}
+			else if (i0 == i1)
+			{
+				intervals.insert(intervals.begin() + i1, x_interval);
+				for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { ++y_offsets[j]; }
+				update_index(d);
+				return;
+			}
+			for (const size_t i : std::views::iota(i0, i1) | std::views::reverse)
+			{
+				interval_value_t& a = intervals[i].start;
+				interval_value_t& b = intervals[i].end;
+				
+				if (b < x_interval.start)
+				{
+					intervals.insert(intervals.begin() + int(i) + 1, x_interval);
+					update_index(d);
+					for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { ++y_offsets[j]; }
+					break;
+				}
+				else if (a <= x_interval.start)
+				{
+					b = std::max(b, x_interval.end);
+					if (i+1 < i1 and b == intervals[i+1].start)
+					{
+						b = intervals[i+1].end;
+						intervals.erase(intervals.begin() + i + 1);
+						for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { --y_offsets[j]; }
+					}
+					update_index(d);
+					break;
+				}
+				else if (a <= x_interval.end)
+				{
+					const size_t old_size = intervals.size();
+					
+					b = std::max(b, x_interval.end);
+					if (i+1 < i1 and b == intervals[i+1].start)
+					{
+						b = intervals[i+1].end;
+						intervals.erase(intervals.begin() + i + 1);
+					}
+					a = x_interval.start;
+					for (const size_t j : std::views::iota(i0, i) | std::views::reverse)
+					{
+						if (intervals[j].end < a) { break; }
+						if (intervals[j].start <= a) 
+						{
+							a = intervals[j].start;
+							intervals[j].end = intervals[j].start;
+							break; 
+						}
+						else 
+						{ 
+							intervals[j].end = intervals[j].start; 
+						}
+					}
+					const auto it = std::remove_if(intervals.begin() + i0, intervals.begin() + i, [](const interval_t& interval) -> bool
+					{
+						return interval.is_empty();
+					});
+					intervals.erase(it, intervals.begin() + i);
+					update_index(d);
+					
+					const size_t new_size = intervals.size();
+					for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { y_offsets[j] -= (old_size - new_size); }
+					break;
+				}
+			}
+		}
+    
+    template <std::size_t Dim, class TInterval>
+		inline void LevelCellArray<Dim, TInterval>::add_point(const indices_t& point)
+		{
+			using interval_index_t = typename interval_t::index_t;
+			using interval_value_t = typename interval_t::value_t;
+			
+			constexpr size_t d = Dim-1;
+			
+			const auto recursive_call = [this, &point = std::as_const(point)](const interval_index_t x_interval_index) -> void 
+			{
+				if constexpr (Dim > 1)
+				{
+					if (d > 1) { add_point_rec(point, d-1, x_interval_index);  }
+					else       { add_point_rec_final(point, x_interval_index); }
+				}
+			};
+			
+			const value_t x = point[d];
+			
+			//std::vector<std::size_t>& x_offsets = m_offsets[d-1];
+			
+			std::vector<interval_t>& intervals = m_cells[d];
+			
+			if (Dim > 1) { assert(m_offsets[d-1].size() == nb_cells(d) + 1); }
+			
+			if (intervals.size() == 0)
+			{
+				intervals.push_back( interval_t(x, x+1) );	
+				if (Dim > 1) { m_offsets[d-1].insert(m_offsets[d-1].begin() + 1, m_offsets[d-1][0]); }
+				update_index(d);			
+				recursive_call(intervals[0].index);
+				return;
+			}
+			for (const size_t i : std::views::iota(0u, intervals.size()) | std::views::reverse)
+			{
+				interval_value_t& a = intervals[i].start;
+				interval_value_t& b = intervals[i].end;
+				interval_index_t& ab_index = intervals[i].index;
+				
+				if (intervals[i].contains(x))
+				{
+					recursive_call(ab_index);
+					break;
+				}
+				else if (x == b) // extend the interval [a,b) to [a,b)U{x} = [a,b+1)
+				{                // there may be a an interval [a', b') such that b = a' -> extend [a, b) to [a,b')
+					if (Dim > 1) { m_offsets[d-1].insert(m_offsets[d-1].begin() + b + ab_index + 1, m_offsets[d-1][b + ab_index]); }
+					++b;
+					if (i+1 < intervals.size() and b == intervals[i+1].start)
+					{
+						b = intervals[i+1].end;
+						intervals.erase(intervals.begin() + int(i) + 1); // delete [a',b')	
+					}
+					if (Dim > 1) { update_index(d); }
+					recursive_call(ab_index);
+					break;
+				}
+				else if (x == a-1) // extend the interval [a,b) to {x}U[a,b) = [a-1,b)
+				{                  // there may be an interval [a',b') such that b' = a -> extend [a',b') to [a', b)
+					if (Dim > 1) { m_offsets[d-1].insert(m_offsets[d-1].begin() + a + ab_index, m_offsets[d-1][a + ab_index]); }
+					interval_index_t z_interval_index = ab_index;
+					--a;
+					if (0 < i and intervals[i-1].end == a)
+					{
+						z_interval_index = intervals[i-1].index;
+						intervals[i-1].end = b;
+						intervals.erase(intervals.begin() + int(i)); // delete [a,b)
+					}
+					if (Dim > 1) { update_index(d); }
+					recursive_call( z_interval_index );
+					break;
+				}
+				else if (x > b) // add singleton {x} = [x,x+1) after [a,b)
+				{
+					if (Dim > 1) { m_offsets[d-1].insert(m_offsets[d-1].begin() + b + ab_index + 1, m_offsets[d-1][b + ab_index]); }
+					const interval_index_t& x_interval_idx = intervals.insert(intervals.begin() + int(i) + 1, interval_t(x, x+1))->index;
+					if (Dim > 1) { update_index(d); }
+					recursive_call(x_interval_idx); // probably possible to avoid recursive call here.
+					break;
+				}
+			}
+			
+			if (Dim > 1) { assert(m_offsets[d-1].size() == nb_cells(d) + 1); }
+		}
+
+		template <std::size_t Dim, class TInterval>
+    inline void LevelCellArray<Dim, TInterval>::add_point_rec(const indices_t& point, const size_t d, const index_t y_interval_idx)
+    {
+			assert(d > 0);
+			
+			using interval_index_t = typename interval_t::index_t;
+			using interval_value_t = typename interval_t::value_t;
+			
+			const auto recursive_call = [this, d, &point = std::as_const(point)](const interval_index_t x_interval_index) -> void 
+			{
+				if (d > 1) { add_point_rec(point, d-1, x_interval_index);  }
+				else       { add_point_rec_final(point, x_interval_index); }
+			};
+			
+			const value_t x = point[d];
+			const value_t y = point[d+1];
+
+			std::vector<std::size_t>& x_offsets = m_offsets[d-1];
+			std::vector<std::size_t>& y_offsets = m_offsets[d];
+			
+			std::vector<interval_t>& intervals = m_cells[d];
+			
+			assert(x_offsets.size() == nb_cells(d) + 1);
+			assert(y + y_interval_idx < y_offsets.size());
+			assert(y + y_interval_idx + 1 < y_offsets.size());
+			
+			const size_t i0 = y_offsets[y + y_interval_idx];
+			const size_t i1 = y_offsets[y + y_interval_idx + 1];
+			
+			if (intervals.size() == 0)
+			{
+				intervals.push_back(interval_t(x, x+1));
+				x_offsets.insert(x_offsets.begin() + 1, x_offsets[0]);
+				for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { ++y_offsets[j]; }
+				update_index(d);
+				recursive_call(intervals[0].index);
+				return;
+			}
+			else if (i0 == i1)
+			{
+				//const interval_index_t& index = intervals.insert(intervals.begin() + i1, interval_t(x, x+1))->index;
+				typename std::vector<interval_t>::const_iterator it = intervals.insert(intervals.begin() + i1, interval_t(x, x+1));
+				interval_value_t b = 0;
+				interval_value_t x_interval_idx = 0;
+				
+				if (i0 > 0)
+				{
+					b = intervals[i0-1].end;
+					x_interval_idx = intervals[i0-1].index;
+				}
+				x_offsets.insert(x_offsets.begin() + b + x_interval_idx + 1, x_offsets[b + x_interval_idx]);
+				for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { ++y_offsets[j]; }
+				update_index(d);
+				recursive_call(it->index);
+				return;
+			}
+			for (const size_t i : std::views::iota(i0, i1) | std::views::reverse)
+			{
+				interval_value_t& a = intervals[i].start;
+				interval_value_t& b = intervals[i].end;
+				interval_index_t& ab_index = intervals[i].index;
+				
+				if (intervals[i].contains(x))
+				{
+					recursive_call(ab_index);
+					break;
+				}
+				else if (x == b) // extend the interval [a,b) to [a,b)U{x} = [a,b+1)
+				{                // there may be a an interval [a', b') such that b = a' -> extend [a, b) to [a,b')
+					x_offsets.insert(x_offsets.begin() + b + ab_index + 1, x_offsets[b + ab_index]);
+					++b;
+					if (i+1 < i1 and b == intervals[i+1].start)
+					{
+						b = intervals[i+1].end;
+						intervals.erase(intervals.begin() + int(i) + 1); // delete [a',b')	
+						for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { --y_offsets[j]; }
+					}
+					update_index(d);
+					recursive_call(ab_index);
+					break;
+				}
+				else if (x == a-1) // extend the interval [a,b) to {x}U[a,b) = [a-1,b)
+				{                  // there may be an interval [a',b') such that b' = a -> extend [a',b') to [a', b)
+					x_offsets.insert(x_offsets.begin() + a + ab_index, x_offsets[a + ab_index]);
+					interval_index_t z_interval_index = ab_index;
+					--a;
+					if (i0 < i and intervals[i-1].end == a)
+					{
+						z_interval_index = intervals[i-1].index;
+						intervals[i-1].end = b;
+						intervals.erase(intervals.begin() + int(i)); // delete [a,b)
+						for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { --y_offsets[j]; }
+					}
+					update_index(d);
+					recursive_call(z_interval_index);
+					break;
+				}
+				else if (x > b) // add singleton {x} = [x,x+1) after [a,b)
+				{
+					x_offsets.insert(x_offsets.begin() + b + ab_index + 1, x_offsets[b + ab_index]);
+					const interval_index_t& x_interval_idx = intervals.insert(intervals.begin() + int(i) + 1, interval_t(x, x+1))->index;
+					update_index(d);
+					for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { ++y_offsets[j]; }
+					recursive_call(x_interval_idx);
+					break;
+				}
+			}
+			assert(x_offsets.size() == nb_cells(d) + 1);
+		}
+		
+		template <std::size_t Dim, class TInterval>
+    inline void LevelCellArray<Dim, TInterval>::add_point_rec_final(const indices_t& point, const index_t y_interval_idx)
+    {			
+			constexpr size_t d = 0;
+			
+			using interval_value_t = typename interval_t::value_t;
+			
+			const value_t x = point[d];
+			const value_t y = point[d+1];
+			
+			std::vector<std::size_t>& y_offsets = m_offsets[d];
+			
+			std::vector<interval_t>& intervals = m_cells[d];
+			
+			assert(y + y_interval_idx < y_offsets.size());
+			assert(y + y_interval_idx + 1 < y_offsets.size());
+			
+			const size_t i0 = y_offsets[y + y_interval_idx];
+			const size_t i1 = y_offsets[y + y_interval_idx + 1];
+			
+			if (intervals.size() == 0)
+			{
+				intervals.push_back(interval_t(x, x+1));
+				for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { ++y_offsets[j]; }
+				return;
+			}
+			else if (i0 == i1)
+			{
+				intervals.insert(intervals.begin() + i1, interval_t(x, x+1));
+				for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { ++y_offsets[j]; }
+				return;
+			}
+			for (const size_t i : std::views::iota(i0, i1) | std::views::reverse)
+			{
+				interval_value_t& a = intervals[i].start;
+				interval_value_t& b = intervals[i].end;
+				
+				if (intervals[i].contains(x))
+				{
+					break;
+				}
+				else if (x == b) // extend the interval [a,b) to [a,b)U{x} = [a,b+1)
+				{                // there may be a an interval [a', b') such that b = a' -> extend [a, b) to [a,b')
+					++b;
+					if (i+1 < i1 and b == intervals[i+1].start)
+					{
+						b = intervals[i+1].end;
+						intervals.erase(intervals.begin() + int(i) + 1); // delete [a',b')	
+						for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { --y_offsets[j]; }
+					}
+					break;
+				}
+				else if (x == a-1) // extend the interval [a,b) to {x}U[a,b) = [a-1,b)
+				{                  // there may be an interval [a',b') such that b' = a -> extend [a',b') to [a', b)
+					--a;
+					if (i0 < i and intervals[i-1].end == a)
+					{
+						intervals[i-1].end = b;
+						intervals.erase(intervals.begin() + int(i)); // delete [a,b)
+						for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { --y_offsets[j]; }
+					}
+					break;
+				}
+				else if (x > b) // add singleton {x} = [x,x+1) after [a,b)
+				{
+					intervals.insert(intervals.begin() + int(i) + 1, interval_t(x, x+1));
+					for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { ++y_offsets[j]; }
+					break;
+				}
+			}
+		}
+
+		template <std::size_t Dim, class TInterval>
+    inline void LevelCellArray<Dim, TInterval>::remove_point(const indices_t& point)
+    {			
+			constexpr size_t d = Dim-1;
+			
+			using interval_index_t = typename interval_t::index_t;
+			using interval_value_t = typename interval_t::value_t;
+		
+			const auto recursive_call = [this, &point = std::as_const(point)](const interval_index_t x_interval_index) -> void 
+			{
+				if constexpr (Dim > 1)
+				{
+					if (d > 1) { remove_point_rec(point, d-1, x_interval_index);  }
+					else       { remove_point_rec_final(point, x_interval_index); }
+				}
+			};
+			
+			const value_t x = point[d];
+			
+			//std::vector<std::size_t>& x_offsets = m_offsets[d-1];
+			
+			std::vector<interval_t>& intervals = m_cells[d];
+			
+			if (Dim > 1) { assert(m_offsets[d-1].size() == nb_cells(d) + 1); }
+			
+			
+			for (const size_t i : std::views::iota(0u, intervals.size()) | std::views::reverse)
+			{		
+				interval_value_t& a = intervals[i].start;
+				interval_value_t& b = intervals[i].end;
+				interval_index_t& ab_index = intervals[i].index;
+				
+				if (x == a)
+				{
+					recursive_call(ab_index);
+					const bool remove_x = (Dim == 1) or (m_offsets[d-1][x + ab_index] == m_offsets[d-1][x + ab_index + 1]); // thanks lazy eval 
+					if (remove_x) // there is no interval for x=a, shrink [a,b) to [a+1,b)
+					{
+						if (Dim > 1) { m_offsets[d-1].erase(m_offsets[d-1].begin() + x + ab_index); } // known at compile time, do not create branches
+						++a;
+						if (intervals[i].is_empty())  // remove interval
+						{ 
+							intervals.erase(intervals.begin() + int(i));
+						}
+					}
+					if (Dim > 1) { update_index(d); }
+					break;
+				}
+				else if (x == b-1)
+				{
+					recursive_call(ab_index);
+					const bool remove_x = (Dim == 1) or (m_offsets[d-1][x + ab_index] == m_offsets[d-1][x + ab_index + 1]); 
+					if (remove_x) // there is no interval for x=a, shrink [a,b) to [a,b-1)
+					{
+						if (Dim > 1) { m_offsets[d-1].erase(m_offsets[d-1].begin() + x + ab_index); } // known at compile time, do not create branches
+						--b;
+						if (intervals[i].is_empty())  // remove interval
+						{ 
+							intervals.erase(intervals.begin() + int(i));
+						}
+					}
+					if (Dim > 1) { update_index(d); }
+					break;
+				}
+				else if (intervals[i].contains(x))
+				{
+					recursive_call(ab_index);
+					const bool remove_x = (Dim == 1) or (m_offsets[d-1][x + ab_index] == m_offsets[d-1][x + ab_index + 1]); 
+					if (remove_x) // there is no interval for x, split [a,b) to [a, x) and [x+1,b)
+					{
+						if (Dim > 1) { m_offsets[d-1].erase(m_offsets[d-1].begin() + x + ab_index); } // known at compile time, do not create branches
+						
+						interval_t new_interval = interval_t(x+1, b);
+						b = x;
+						intervals.insert(intervals.begin() + int(i) + 1, new_interval);
+					}
+					if (Dim > 1) { update_index(d); }
+					break;
+				}
+			}
+			
+			if (Dim > 1) { assert(m_offsets[d-1].size() == nb_cells(d) + 1); }
+		}
+
+		template <std::size_t Dim, class TInterval>
+    inline void LevelCellArray<Dim, TInterval>::remove_point_rec(const indices_t& point, const size_t d, const index_t y_interval_idx)
+    {			
+			assert(d > 0);
+			
+			using interval_index_t = typename interval_t::index_t;
+			using interval_value_t = typename interval_t::value_t;
+		
+			const auto recursive_call = [this, d, &point = std::as_const(point)]( const interval_index_t x_interval_index) -> void 
+			{
+				if (d > 1) { remove_point_rec(point, d-1, x_interval_index);  }
+				else       { remove_point_rec_final(point, x_interval_index);      }
+			};
+			
+			const value_t x = point[d];
+			const value_t y = point[d+1];
+			
+			std::vector<std::size_t>& x_offsets = m_offsets[d-1];
+			std::vector<std::size_t>& y_offsets = m_offsets[d];
+			
+			std::vector<interval_t>& intervals = m_cells[d];
+			
+			if (Dim > 1) { assert(x_offsets.size() == nb_cells(d) + 1); }
+			
+			const size_t i0 = y_offsets[y + y_interval_idx];
+			const size_t i1 = y_offsets[y + y_interval_idx + 1];
+			
+			for (const size_t i : std::views::iota(i0, i1) | std::views::reverse)
+			{		
+				interval_value_t& a = intervals[i].start;
+				interval_value_t& b = intervals[i].end;
+				interval_index_t& ab_index = intervals[i].index;
+				
+				if (x == a)
+				{
+					recursive_call(ab_index);
+					if (x_offsets[x + ab_index] == x_offsets[x + ab_index + 1]) // there is no interval for x=a, shrink [a,b) to [a+1,b)
+					{
+						x_offsets.erase(x_offsets.begin() + x + ab_index);
+						++a;
+						if (intervals[i].is_empty())  // remove interval
+						{ 
+							intervals.erase(intervals.begin() + int(i));
+							for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { --y_offsets[j]; }
+						}
+					}
+					update_index(d);
+					break;
+				}
+				else if (x == b-1)
+				{
+					recursive_call(ab_index);
+					if (x_offsets[x + ab_index] == x_offsets[x + ab_index + 1]) // there is no interval for x=a, shrink [a,b) to [a,b-1)
+					{
+						x_offsets.erase(x_offsets.begin() + x + ab_index);
+						--b;
+						if (intervals[i].is_empty())  // remove interval
+						{ 
+							intervals.erase(intervals.begin() + int(i));
+							for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { --y_offsets[j]; }
+						}
+					}
+					update_index(d);
+					break;
+				}
+				else if (intervals[i].contains(x))
+				{
+					recursive_call(ab_index);
+					if (x_offsets[x + ab_index] == x_offsets[x + ab_index + 1]) // there is no interval for x, split [a,b) to [a, x) and [x+1,b)
+					{
+						x_offsets.erase(x_offsets.begin() + x + ab_index);
+						
+						interval_t new_interval = interval_t(x+1, b);
+						b = x;
+						intervals.insert(intervals.begin() + int(i) + 1, new_interval);
+						for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { ++y_offsets[j]; }
+					}
+					update_index(d);
+					break;
+				}
+			}
+			
+			if (Dim > 1) { assert(x_offsets.size() == nb_cells(d) + 1); }
+		}
+		
+		template <std::size_t Dim, class TInterval>
+    inline void LevelCellArray<Dim, TInterval>::remove_point_rec_final(const indices_t& point, const index_t y_interval_idx)
+    {			
+			constexpr size_t d = 0;
+			
+			using interval_index_t = typename interval_t::index_t;
+			using interval_value_t = typename interval_t::value_t;
+			
+			const value_t x = point[d];
+			const value_t y = point[d+1];
+			
+			std::vector<std::size_t>& y_offsets = m_offsets[d];
+			
+			std::vector<interval_t>& intervals = m_cells[d];
+			
+			const size_t i0 = y_offsets[y + y_interval_idx];
+			const size_t i1 = y_offsets[y + y_interval_idx + 1];
+			
+			for (const size_t i : std::views::iota(i0, i1) | std::views::reverse)
+			{		
+				interval_value_t& a = intervals[i].start;
+				interval_value_t& b = intervals[i].end;
+				interval_index_t& ab_index = intervals[i].index;
+				
+				if (x == a)
+				{
+					++a;
+					if (intervals[i].is_empty())  // remove interval
+					{ 
+						intervals.erase(intervals.begin() + int(i));
+						for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { --y_offsets[j]; }
+					}
+					break;
+				}
+				else if (x == b-1)
+				{
+					--b;
+					if (intervals[i].is_empty())  // remove interval
+					{ 
+						intervals.erase(intervals.begin() + int(i));
+						for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { --y_offsets[j]; }
+					}
+					break;
+				}
+				else if (intervals[i].contains(x))
+				{					
+					interval_t new_interval = interval_t(x+1, b);
+					b = x;
+					intervals.insert(intervals.begin() + int(i) + 1, new_interval);
+					for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { ++y_offsets[j]; }
+					break;
+				}
+			}
+		}
 
     template <std::size_t Dim, class TInterval>
     inline auto LevelCellArray<Dim, TInterval>::begin() -> iterator
@@ -527,7 +1729,6 @@ namespace samurai
     inline auto LevelCellArray<Dim, TInterval>::get_interval(const interval_t& interval, T... index) const -> const interval_t&
     {
         auto offset = find(*this, {interval.start, index...});
-        assert(offset >= 0 && "Interval not found");
         return m_cells[0][static_cast<std::size_t>(offset)];
     }
 
@@ -541,7 +1742,6 @@ namespace samurai
             point[d] = index[d - 1];
         }
         auto offset = find(*this, point);
-        assert(offset >= 0 && "Interval not found");
         return m_cells[0][static_cast<std::size_t>(offset)];
     }
 
@@ -549,7 +1749,6 @@ namespace samurai
     inline auto LevelCellArray<Dim, TInterval>::get_interval(const all_coord_type& coord) const -> const interval_t&
     {
         auto offset = find(*this, coord);
-        assert(offset >= 0 && "Interval not found");
         return m_cells[0][static_cast<std::size_t>(offset)];
     }
 
@@ -613,6 +1812,20 @@ namespace samurai
                               acc_size += interval.size();
                           });
     }
+    
+    template <std::size_t Dim, class TInterval>
+		void LevelCellArray<Dim, TInterval>::update_index(const size_t d)
+		{
+			if (d < m_cells.size())
+			{
+				size_t acc_size = 0;
+				for (interval_t& interval : m_cells[d])
+				{
+					interval.index = safe_subs<index_t>(acc_size, interval.start);
+					acc_size += interval.size();
+				}
+			}
+		}
 
     template <std::size_t Dim, class TInterval>
     inline bool LevelCellArray<Dim, TInterval>::empty() const
@@ -834,6 +2047,7 @@ namespace samurai
             else
             {
                 // If there is no current interval (at the beginning of the
+                
                 // loop) we create a new one.
                 curr_interval = interval_t(i, i + 1, static_cast<index_t>(m_offsets[N - 1].size()) - i);
             }

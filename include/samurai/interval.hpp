@@ -69,6 +69,9 @@ namespace samurai
         bool contains(value_t x) const;
         std::size_t size() const;
         bool is_valid() const;
+        
+        bool is_singleton() const { return start + 1 == end;  }
+        bool is_empty()     const { return start == end;  }
 
         Interval even_elements() const;
         Interval odd_elements() const;
