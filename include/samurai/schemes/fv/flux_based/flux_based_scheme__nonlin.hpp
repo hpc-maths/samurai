@@ -25,10 +25,13 @@ namespace samurai
         using typename base_class::mesh_id_t;
         using typename base_class::mesh_t;
 
-        using interval_t = typename mesh_t::interval_t;
+        using interval_t       = typename mesh_t::interval_t;
+        using interval_value_t = typename interval_t::value_t;
 
         using cfg_t      = cfg;
         using bdry_cfg_t = bdry_cfg;
+
+        static constexpr std::size_t stencil_size = cfg::stencil_size;
 
       private:
 
@@ -109,25 +112,107 @@ namespace samurai
         {
             if constexpr (enable_max_level_flux && mesh_t::config::prediction_order > 0)
             {
-                SAMURAI_ASSERT(cfg::stencil_size == 2,
-                               "The computation of flux at the finest level is implemented only for stencils of size 2");
+                // SAMURAI_ASSERT(stencil_size == 2, "The computation of flux at the finest level is implemented only for stencils of size
+                // 2");
 
-                data.cell_length = field.mesh().cell_length(field.mesh().max_level());
+                data.cell_length             = field.mesh().cell_length(field.mesh().max_level());
+                auto level                   = data.cells[0].level;
+                auto delta_l                 = field.mesh().max_level() - level;
+                auto n_children_at_max_level = 1 << delta_l;
 
-                const auto& left  = data.cells[0];
-                const auto& right = data.cells[1];
-                interval_t ileft{left.indices[0], left.indices[0] + 1};
-                interval_t iright{right.indices[0], right.indices[0] + 1};
+                // {
+                //     const auto& left  = data.cells[0];
+                //     const auto& right = data.cells[1];
+                //     interval_t ileft{left.indices[0], left.indices[0] + 1};
+                //     interval_t iright{right.indices[0], right.indices[0] + 1};
 
-                auto level         = left.level;
-                std::size_t deltal = field.mesh().max_level() - level;
-                stencil_values[0]  = portion(field, level, ileft, deltal, (1 << deltal) - 1)[0]; // field(level, i-1);
-                stencil_values[1]  = portion(field, level, iright, deltal, 0)[0];                // field(level, i);
+                //     stencil_values[0] = portion(field, level, ileft, delta_l, n_children_at_max_level - 1)[0]; // field(level, i-1);
+                //     stencil_values[1] = portion(field, level, iright, delta_l, 0)[0];                          // field(level, i);
+                // }
+
+                static_assert(stencil_size % 2 == 0, "not implemented for odd stencil sizes");
+                static_assert(dim == 1);
+
+                if (delta_l == 0)
+                {
+                    for (std::size_t s = 0; s < stencil_size; ++s)
+                    {
+                        stencil_values[s] = field[data.cells[s]];
+                    }
+                }
+                // We need `stencil_size` cells at max_level, half to the left, half to the right of the interface
+                else
+                {
+                    // WENO5 example with delta_l = 1
+                    //
+                    // We have a stencil of 3+3 coarse cells, and we want 3+3 cells at the upper level.
+                    //
+                    //            |___|___|___|___|___|___|___|___|
+                    //    |_______|_______|_______|_______|_______|_______|
+                    //                       left | right
+
+                    const auto& left  = data.cells[stencil_size / 2 - 1];
+                    const auto& right = data.cells[stencil_size / 2];
+
+                    // To get 3+3 children (x marks below), we need to predict the children of 2+2 coarse cells.
+                    //
+                    //                  x   x   x   x   x   x
+                    //            |___|___|___|___|___|___|___|___|
+                    //    |_______|_______|_______|_______|_______|_______|
+                    //            left-shift      |      right+shift
+                    //
+                    // Below, n_children_at_max_level = 4 (although we only need 3)
+
+                    interval_value_t shift = 0;
+                    while (stencil_size / 2 > static_cast<std::size_t>(n_children_at_max_level))
+                    {
+                        n_children_at_max_level *= 2;
+                        ++shift;
+                    }
+
+                    // We then build the following intervals:
+                    // i_left=[left-shift, left+1[       i_right=[right, right+shift+1[
+                    //
+                    //            |___|___|___|___|___|___|___|___|
+                    //    |_______|_______|_______|_______|_______|_______|
+                    //               l-s      l   | l+1=r    r+s    r+s+1
+
+                    interval_t i_left{left.indices[0] - shift, left.indices[0] + 1};
+                    interval_t i_right{right.indices[0], right.indices[0] + 1 + shift};
+
+                    // The predicted values on the fine level are numbered this way:
+                    //
+                    //              left interval | right interval
+                    //              0   1   2   3 | 0   1   2   3
+                    //            |___|___|___|___|___|___|___|___|
+                    //    |_______|_______|_______|_______|_______|_______|
+                    //
+                    // We want 1,2,3 on the left, and 0,1,2 on the right.
+
+                    // (stencil_size / 2) values on the left of the interface
+                    interval_value_t most_left_index = n_children_at_max_level - static_cast<interval_value_t>(stencil_size / 2);
+                    for (std::size_t s = 0; s < stencil_size / 2; ++s)
+                    {
+                        stencil_values[s] = portion(field, level, i_left, delta_l, most_left_index + static_cast<interval_value_t>(s))[0];
+                    }
+
+                    // (stencil_size / 2) values on the right of the interface
+                    for (std::size_t s = 0; s < stencil_size / 2; ++s)
+                    {
+                        if (level == 8 && i_right.start == 32 && s == 2)
+                        {
+                            std::cout << std::endl;
+                            std::cout << data.cells[stencil_size / 2 + s] << std::endl;
+                            std::cout << field.mesh()[mesh_id_t::reference][level] << std::endl;
+                        }
+                        stencil_values[stencil_size / 2 + s] = portion(field, level, i_right, delta_l, static_cast<interval_value_t>(s))[0];
+                    }
+                }
             }
             else
             {
                 data.cell_length = data.cells[0].length;
-                for (std::size_t s = 0; s < cfg::stencil_size; ++s)
+                for (std::size_t s = 0; s < stencil_size; ++s)
                 {
                     stencil_values[s] = field[data.cells[s]];
                 }
@@ -169,13 +254,21 @@ namespace samurai
                                          double factor,
                                          Func&& apply_contrib)
         {
+            static_assert(!enable_max_level_flux);
+
             FluxValuePair<cfg> flux_values;
             StencilValues<cfg> stencil_values;
             StencilData<cfg> data(comput_stencil_it.cells());
 
+            data.cell_length = data.cells[0].length;
+
             for (std::size_t ii = 0; ii < comput_stencil_it.interval().size(); ++ii)
             {
-                compute_stencil_values<false>(data, field, stencil_values);
+                // compute_stencil_values<false>(data, field, stencil_values);
+                for (std::size_t s = 0; s < cfg::stencil_size; ++s)
+                {
+                    stencil_values[s] = field[data.cells[s]];
+                }
 
                 flux_function(flux_values, data, stencil_values);
                 if constexpr (direction)
@@ -212,12 +305,14 @@ namespace samurai
 
             auto flux_function = flux_def.flux_function ? flux_def.flux_function : flux_def.flux_function_as_conservative();
 
+            double h_max_level = mesh.cell_length(mesh.max_level());
+
             // Same level
             for (std::size_t level = min_level; level <= max_level; ++level)
             {
-                auto h = mesh.cell_length(level);
-
-                auto factor = h_factor(h, h);
+                auto h      = mesh.cell_length(level);
+                auto h_face = enable_max_level_flux ? h_max_level : h;
+                auto factor = h_factor(h_face, h);
 
                 for_each_interior_interface__same_level<run_type, Get::Intervals>(mesh,
                                                                                   level,
@@ -242,13 +337,15 @@ namespace samurai
                 auto h_l   = mesh.cell_length(level);
                 auto h_lp1 = mesh.cell_length(level + 1);
 
+                auto h_face = enable_max_level_flux ? h_max_level : h_lp1;
+
                 //         |__|   l+1
                 //    |____|      l
                 //    --------->
                 //    direction
                 {
-                    auto left_factor  = h_factor(h_lp1, h_l);
-                    auto right_factor = h_factor(h_lp1, h_lp1);
+                    auto left_factor  = h_factor(h_face, h_l);
+                    auto right_factor = h_factor(h_face, h_lp1);
 
                     for_each_interior_interface__level_jump_direction<run_type, Get::Intervals>(
                         mesh,
@@ -271,8 +368,8 @@ namespace samurai
                 //    --------->
                 //    direction
                 {
-                    auto left_factor  = h_factor(h_lp1, h_lp1);
-                    auto right_factor = h_factor(h_lp1, h_l);
+                    auto left_factor  = h_factor(h_face, h_lp1);
+                    auto right_factor = h_factor(h_face, h_l);
 
                     for_each_interior_interface__level_jump_opposite_direction<run_type, Get::Intervals>(
                         mesh,
@@ -321,12 +418,12 @@ namespace samurai
                                    [&](auto& interface_it, auto& comput_stencil_it)
                                    {
                                        static constexpr bool direction = true;
-                                       process_boundary_interfaces<enable_max_level_flux, direction>(interface_it,
-                                                                                                     comput_stencil_it,
-                                                                                                     flux_function,
-                                                                                                     field,
-                                                                                                     factor,
-                                                                                                     std::forward<Func>(apply_contrib));
+                                       process_boundary_interfaces<false, direction>(interface_it,
+                                                                                     comput_stencil_it,
+                                                                                     flux_function,
+                                                                                     field,
+                                                                                     factor,
+                                                                                     std::forward<Func>(apply_contrib));
                                    });
 
                                // Boundary in opposite direction
@@ -338,12 +435,12 @@ namespace samurai
                                    [&](auto& interface_it, auto& comput_stencil_it)
                                    {
                                        static constexpr bool direction = false; // opposite direction
-                                       process_boundary_interfaces<enable_max_level_flux, direction>(interface_it,
-                                                                                                     comput_stencil_it,
-                                                                                                     flux_function,
-                                                                                                     field,
-                                                                                                     -factor,
-                                                                                                     std::forward<Func>(apply_contrib));
+                                       process_boundary_interfaces<false, direction>(interface_it,
+                                                                                     comput_stencil_it,
+                                                                                     flux_function,
+                                                                                     field,
+                                                                                     -factor,
+                                                                                     std::forward<Func>(apply_contrib));
                                    });
                            });
         }
