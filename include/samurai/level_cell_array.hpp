@@ -107,8 +107,8 @@ namespace samurai
 				
 				void add_interval (const std::array<value_t, 2>& x_interval, const std::array<value_t, Dim-1>& yz_point);
 				void add_interval (const std::array<interval_t, Dim>& interval_nd);
-				void add_point    (const indices_t& point);
-				void remove_point (const indices_t& point);
+				void add_point    (const std::array<value_t, Dim>& point);
+				void remove_point (const std::array<value_t, Dim>& point);
 
         iterator begin();
         iterator end();
@@ -215,11 +215,11 @@ namespace samurai
 				void add_interval_rec       (const std::array<interval_t, Dim>& interval_nd, const size_t d, const typename interval_t::value_t y, const index_t y_interval_idx);
 				void add_interval_rec_final (const std::array<interval_t, Dim>& interval_nd,                 const typename interval_t::value_t y, const index_t y_interval_idx);
 				
-				void add_point_rec       (const indices_t& point, const size_t d, const index_t interval_idx);
-				void add_point_rec_final (const indices_t& point,                 const index_t interval_idx);
+				void add_point_rec       (const std::array<value_t, Dim>& point, const size_t d, const index_t interval_idx);
+				void add_point_rec_final (const std::array<value_t, Dim>& point,                 const index_t interval_idx);
 				
-				void remove_point_rec       (const indices_t& point, const size_t d, const index_t interval_idx);
-				void remove_point_rec_final (const indices_t& point,                 const index_t interval_idx);
+				void remove_point_rec       (const std::array<value_t, Dim>& point, const size_t d, const index_t interval_idx);
+				void remove_point_rec_final (const std::array<value_t, Dim>& point,                 const index_t interval_idx);
 				
 				void update_index(const size_t d); 
 				
@@ -440,6 +440,7 @@ namespace samurai
     {
 			constexpr size_t d = Dim-1;
 			
+			using signed_size_t    = std::make_signed_t<size_t>;
 			using interval_index_t = typename interval_t::index_t;
 			using interval_value_t = typename interval_t::value_t;
 			
@@ -492,7 +493,7 @@ namespace samurai
 						if (i+1 < intervals.size() and b == intervals[i+1].start)
 						{
 							b = intervals[i+1].end;
-							intervals.erase(intervals.begin() + int(i) + 1); // delete [a',b')	
+							intervals.erase(intervals.begin() + signed_size_t(i) + 1); // delete [a',b')	
 						}
 						update_index(d);
 						recursive_call(ab_index);
@@ -501,22 +502,22 @@ namespace samurai
 					else if (z == a-1) // extend the interval [a,b) to {z}U[a,b) = [a-1,b)
 					{                  // there may be an interval [a',b') such that b' = a -> extend [a',b') to [a', b)
 						z_offsets.insert(z_offsets.begin() + a + ab_index, z_offsets[a + ab_index]);
-						interval_index_t z_interval_index = ab_index;
+						bool merge = false;
 						--a;
 						if (0 < i and intervals[i-1].end == a)
 						{
-							z_interval_index = intervals[i-1].index;
+							merge = true;
 							intervals[i-1].end = b;
-							intervals.erase(intervals.begin() + int(i)); // delete [a,b)
+							intervals.erase(intervals.begin() + signed_size_t(i)); // delete [a,b)
 						}
 						update_index(d);
-						recursive_call( z_interval_index );
+						recursive_call( (merge) ? intervals[i-1].index : ab_index );
 						break;
 					}
 					else if (z > b) // add singleton {y} = [y,y+1) after [a,b)
 					{
 						z_offsets.insert(z_offsets.begin() + b + ab_index + 1, z_offsets[b + ab_index]);
-						const interval_index_t& z_interval_idx = intervals.insert(intervals.begin() + int(i) + 1, interval_t(z, z+1))->index;
+						const interval_index_t& z_interval_idx = intervals.insert(intervals.begin() + signed_size_t(i) + 1, interval_t(z, z+1))->index;
 						update_index(d);
 						recursive_call(z_interval_idx); // probably possible to avoid recursive call here.
 						break;
@@ -600,7 +601,7 @@ namespace samurai
 					if (i+1 < i1 and b == intervals[i+1].start)
 					{
 						b = intervals[i+1].end;
-						intervals.erase(intervals.begin() + int(i) + 1); // delete [a',b')	
+						intervals.erase(intervals.begin() + signed_size_t(i) + 1); // delete [a',b')	
 						for (size_t j=z + z_interval_idx + 1;j<z_offsets.size();++j) { --z_offsets[j]; }
 					}
 					update_index(d);
@@ -610,23 +611,23 @@ namespace samurai
 				else if (y == a-1) // extend the interval [a,b) to {y}U[a,b) = [a-1,b)
 				{                  // there may be an interval [a',b') such that b' = a -> extend [a',b') to [a', b)
 					y_offsets.insert(y_offsets.begin() + a + ab_index, y_offsets[a + ab_index]);
-					interval_index_t y_interval_index = ab_index;
+					bool merge = false;
 					--a;
 					if (i0 < i and intervals[i-1].end == a)
 					{
-						y_interval_index = intervals[i-1].index;
+						merge = true;
 						intervals[i-1].end = b;
-						intervals.erase(intervals.begin() + int(i)); // delete [a,b)
+						intervals.erase(intervals.begin() + signed_size_t(i)); // delete [a,b)
 						for (size_t j=z + z_interval_idx + 1;j<z_offsets.size();++j) { --z_offsets[j]; }
 					}
 					update_index(d);
-					recursive_call(y_interval_index);
+					recursive_call( (merge) ? intervals[i-1].index : ab_index );
 					break;
 				}
 				else if (y > b) // add singleton {y} = [y,y+1) after [a,b)
 				{
 					y_offsets.insert(y_offsets.begin() + b + ab_index + 1, y_offsets[b + ab_index]);
-					const interval_index_t& y_interval_idx = intervals.insert(intervals.begin() + int(i) + 1, interval_t(y, y+1))->index;
+					const interval_index_t& y_interval_idx = intervals.insert(intervals.begin() + signed_size_t(i) + 1, interval_t(y, y+1))->index;
 					update_index(d);
 					for (size_t j=z + z_interval_idx + 1;j<z_offsets.size();++j) { ++z_offsets[j]; }
 					recursive_call(y_interval_idx);
@@ -641,6 +642,7 @@ namespace samurai
     {
 			constexpr size_t d = 0;
 			
+			using signed_size_t    = std::make_signed_t<size_t>;
 			using signed_size_t    = std::make_signed_t<size_t>;
 			using interval_value_t = typename interval_t::value_t;
 			
@@ -677,7 +679,7 @@ namespace samurai
 				
 				if (b < x_interval.start)
 				{
-					intervals.insert(intervals.begin() + int(i) + 1, x_interval);
+					intervals.insert(intervals.begin() + signed_size_t(i) + 1, x_interval);
 					if (Dim > 1) { for (size_t j=yz_point[d] + y_interval_idx + 1;j<m_offsets[d].size();++j) { ++m_offsets[d][j]; } }
 					break;
 				}
@@ -731,6 +733,7 @@ namespace samurai
     {
 			constexpr size_t d = Dim-1;
 			
+			using signed_size_t    = std::make_signed_t<size_t>;
 			using interval_index_t = typename interval_t::index_t;
 			using interval_value_t = typename interval_t::value_t;
 			
@@ -773,7 +776,7 @@ namespace samurai
 				if (b < x_interval.start)
 				{
 					if (Dim > 1) { m_offsets[d-1].insert(m_offsets[d-1].begin() + b + ab_index + 1, x_interval.size(), m_offsets[d-1][b + ab_index]); }
-					const interval_index_t& x_interval_idx = intervals.insert(intervals.begin() + int(i) + 1, x_interval)->index;
+					const interval_index_t& x_interval_idx = intervals.insert(intervals.begin() + signed_size_t(i) + 1, x_interval)->index;
 					update_index(d);
 					recursive_call(x_interval.start, x_interval.end, x_interval_idx);
 					break;
@@ -785,7 +788,7 @@ namespace samurai
 					if (i+1 < intervals.size() and b == intervals[i+1].start)
 					{
 						b = intervals[i+1].end;
-						intervals.erase(intervals.begin() + int(i) + 1);
+						intervals.erase(intervals.begin() + signed_size_t(i) + 1);
 					}
 					update_index(d);
 					recursive_call(x_interval.start, x_interval.end, ab_index);
@@ -800,7 +803,7 @@ namespace samurai
 					if (i+1 < intervals.size() and b == intervals[i+1].start)
 					{
 						b = intervals[i+1].end;
-						intervals.erase(intervals.begin() + int(i) + 1);
+						intervals.erase(intervals.begin() + signed_size_t(i) + 1);
 					}
 					// if last interval, add offsets corresponding to [x_interval.start, a[
 					if (Dim > 1 and i == 0u) { m_offsets[d-1].insert(m_offsets[d-1].begin() + a + ab_index,  a - x_interval.start, m_offsets[d-1][a + ab_index]); }
@@ -828,7 +831,7 @@ namespace samurai
 						}
 					}
 					a = new_a;
-					const auto it = std::remove_if(intervals.begin(), intervals.begin() + int(i), [](const interval_t& interval) -> bool
+					const auto it = std::remove_if(intervals.begin(), intervals.begin() + signed_size_t(i), [](const interval_t& interval) -> bool
 					{
 						return interval.is_empty();
 					});
@@ -840,7 +843,7 @@ namespace samurai
 					const interval_value_t interval_start = a;
 					const interval_value_t interval_end = b;
 					const interval_index_t interval_index = ab_index; // after erase, ab_index is invalidated.
-					intervals.erase(it, intervals.begin() + int(i));
+					intervals.erase(it, intervals.begin() + signed_size_t(i));
 					
 					recursive_call(interval_start, interval_end, interval_index);
 					break;
@@ -854,6 +857,7 @@ namespace samurai
     {
 			assert(d > 0);
 			
+			using signed_size_t    = std::make_signed_t<size_t>;
 			using interval_index_t = typename interval_t::index_t;
 			using interval_value_t = typename interval_t::value_t;
 			
@@ -914,7 +918,7 @@ namespace samurai
 				if (b < x_interval.start)
 				{
 					x_offsets.insert(x_offsets.begin() + b + ab_index + 1, x_interval.size(), x_offsets[b + ab_index]);
-					const interval_index_t& x_interval_idx = intervals.insert(intervals.begin() + int(i) + 1, x_interval)->index;
+					const interval_index_t& x_interval_idx = intervals.insert(intervals.begin() + signed_size_t(i) + 1, x_interval)->index;
 					for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { ++y_offsets[j]; }
 					update_index(d);
 					recursive_call(x_interval.start, x_interval.end, x_interval_idx);
@@ -1001,6 +1005,7 @@ namespace samurai
     {
 			constexpr size_t d = 0;
 			
+			using signed_size_t    = std::make_signed_t<size_t>;
 			//using interval_index_t = typename interval_t::index_t;
 			using interval_value_t = typename interval_t::value_t;
 			
@@ -1039,7 +1044,7 @@ namespace samurai
 				
 				if (b < x_interval.start)
 				{
-					intervals.insert(intervals.begin() + int(i) + 1, x_interval);
+					intervals.insert(intervals.begin() + signed_size_t(i) + 1, x_interval);
 					update_index(d);
 					for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { ++y_offsets[j]; }
 					break;
@@ -1096,8 +1101,9 @@ namespace samurai
 		}
     
     template <std::size_t Dim, class TInterval>
-		inline void LevelCellArray<Dim, TInterval>::add_point(const indices_t& point)
+		inline void LevelCellArray<Dim, TInterval>::add_point(const std::array<value_t, Dim>& point)
 		{
+			using signed_size_t    = std::make_signed_t<size_t>;
 			using interval_index_t = typename interval_t::index_t;
 			using interval_value_t = typename interval_t::value_t;
 			
@@ -1124,6 +1130,7 @@ namespace samurai
 			{
 				intervals.push_back( interval_t(x, x+1) );	
 				if (Dim > 1) { m_offsets[d-1].insert(m_offsets[d-1].begin() + 1, m_offsets[d-1][0]); }
+				//if (Dim > 1) { m_offsets[d-1].push_back(m_offsets[d-1].begin() + 1, m_offsets[d-1][0]); }
 				update_index(d);			
 				recursive_call(intervals[0].index);
 				return;
@@ -1141,12 +1148,12 @@ namespace samurai
 				}
 				else if (x == b) // extend the interval [a,b) to [a,b)U{x} = [a,b+1)
 				{                // there may be a an interval [a', b') such that b = a' -> extend [a, b) to [a,b')
-					if (Dim > 1) { m_offsets[d-1].insert(m_offsets[d-1].begin() + b + ab_index + 1, m_offsets[d-1][b + ab_index]); }
+					if (Dim > 1) { m_offsets[d-1].insert(m_offsets[d-1].begin() + b + ab_index + 1, m_offsets[d-1].data()[b + ab_index]); }
 					++b;
 					if (i+1 < intervals.size() and b == intervals[i+1].start)
 					{
 						b = intervals[i+1].end;
-						intervals.erase(intervals.begin() + int(i) + 1); // delete [a',b')	
+						intervals.erase(intervals.begin() + signed_size_t(i) + 1); // delete [a',b')	
 					}
 					if (Dim > 1) { update_index(d); }
 					recursive_call(ab_index);
@@ -1154,23 +1161,23 @@ namespace samurai
 				}
 				else if (x == a-1) // extend the interval [a,b) to {x}U[a,b) = [a-1,b)
 				{                  // there may be an interval [a',b') such that b' = a -> extend [a',b') to [a', b)
-					if (Dim > 1) { m_offsets[d-1].insert(m_offsets[d-1].begin() + a + ab_index, m_offsets[d-1][a + ab_index]); }
-					interval_index_t z_interval_index = ab_index;
+					if (Dim > 1) { m_offsets[d-1].insert(m_offsets[d-1].begin() + a + ab_index, m_offsets[d-1].data()[a + ab_index]); }
+					bool merge = false;
 					--a;
 					if (0 < i and intervals[i-1].end == a)
 					{
-						z_interval_index = intervals[i-1].index;
+						merge = true;
 						intervals[i-1].end = b;
-						intervals.erase(intervals.begin() + int(i)); // delete [a,b)
+						intervals.erase(intervals.begin() + signed_size_t(i)); // delete [a,b)
 					}
 					if (Dim > 1) { update_index(d); }
-					recursive_call( z_interval_index );
+					recursive_call( (merge) ? intervals[i-1].index : ab_index );
 					break;
 				}
 				else if (x > b) // add singleton {x} = [x,x+1) after [a,b)
 				{
-					if (Dim > 1) { m_offsets[d-1].insert(m_offsets[d-1].begin() + b + ab_index + 1, m_offsets[d-1][b + ab_index]); }
-					const interval_index_t& x_interval_idx = intervals.insert(intervals.begin() + int(i) + 1, interval_t(x, x+1))->index;
+					if (Dim > 1) { m_offsets[d-1].insert(m_offsets[d-1].begin() + b + ab_index + 1, m_offsets[d-1].data()[b + ab_index]); }
+					const interval_index_t& x_interval_idx = intervals.insert(intervals.begin() + signed_size_t(i) + 1, interval_t(x, x+1))->index;
 					if (Dim > 1) { update_index(d); }
 					recursive_call(x_interval_idx); // probably possible to avoid recursive call here.
 					break;
@@ -1181,10 +1188,11 @@ namespace samurai
 		}
 
 		template <std::size_t Dim, class TInterval>
-    inline void LevelCellArray<Dim, TInterval>::add_point_rec(const indices_t& point, const size_t d, const index_t y_interval_idx)
+    inline void LevelCellArray<Dim, TInterval>::add_point_rec(const std::array<value_t, Dim>& point, const size_t d, const index_t y_interval_idx)
     {
 			assert(d > 0);
 			
+			using signed_size_t    = std::make_signed_t<size_t>;
 			using interval_index_t = typename interval_t::index_t;
 			using interval_value_t = typename interval_t::value_t;
 			
@@ -1206,14 +1214,14 @@ namespace samurai
 			assert(y + y_interval_idx < y_offsets.size());
 			assert(y + y_interval_idx + 1 < y_offsets.size());
 			
-			const size_t i0 = y_offsets[y + y_interval_idx];
-			const size_t i1 = y_offsets[y + y_interval_idx + 1];
+			const size_t i0 = y_offsets.data()[y + y_interval_idx];
+			const size_t i1 = y_offsets.data()[y + y_interval_idx + 1];
 			
 			if (intervals.size() == 0)
 			{
 				intervals.push_back(interval_t(x, x+1));
 				x_offsets.insert(x_offsets.begin() + 1, x_offsets[0]);
-				for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { ++y_offsets[j]; }
+				for (size_t j=size_t(y + y_interval_idx + 1);j<y_offsets.size();++j) { ++y_offsets[j]; }
 				update_index(d);
 				recursive_call(intervals[0].index);
 				return;
@@ -1221,17 +1229,17 @@ namespace samurai
 			else if (i0 == i1)
 			{
 				//const interval_index_t& index = intervals.insert(intervals.begin() + i1, interval_t(x, x+1))->index;
-				typename std::vector<interval_t>::const_iterator it = intervals.insert(intervals.begin() + i1, interval_t(x, x+1));
+				typename std::vector<interval_t>::const_iterator it = intervals.insert(intervals.begin() + signed_size_t(i1), interval_t(x, x+1));
 				interval_value_t b = 0;
-				interval_value_t x_interval_idx = 0;
+				interval_index_t x_interval_idx = 0;
 				
 				if (i0 > 0)
 				{
 					b = intervals[i0-1].end;
 					x_interval_idx = intervals[i0-1].index;
 				}
-				x_offsets.insert(x_offsets.begin() + b + x_interval_idx + 1, x_offsets[b + x_interval_idx]);
-				for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { ++y_offsets[j]; }
+				x_offsets.insert(x_offsets.begin() + b + x_interval_idx + 1, x_offsets.data()[b + x_interval_idx]);
+				for (size_t j=size_t(y + y_interval_idx + 1);j<y_offsets.size();++j) { ++y_offsets[j]; }
 				update_index(d);
 				recursive_call(it->index);
 				return;
@@ -1249,13 +1257,13 @@ namespace samurai
 				}
 				else if (x == b) // extend the interval [a,b) to [a,b)U{x} = [a,b+1)
 				{                // there may be a an interval [a', b') such that b = a' -> extend [a, b) to [a,b')
-					x_offsets.insert(x_offsets.begin() + b + ab_index + 1, x_offsets[b + ab_index]);
+					x_offsets.insert(x_offsets.begin() + b + ab_index + 1, x_offsets.data()[b + ab_index]);
 					++b;
 					if (i+1 < i1 and b == intervals[i+1].start)
 					{
 						b = intervals[i+1].end;
-						intervals.erase(intervals.begin() + int(i) + 1); // delete [a',b')	
-						for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { --y_offsets[j]; }
+						intervals.erase(intervals.begin() + signed_size_t(i) + 1); // delete [a',b')	
+						for (size_t j=size_t(y + y_interval_idx + 1);j<y_offsets.size();++j) { --y_offsets[j]; }
 					}
 					update_index(d);
 					recursive_call(ab_index);
@@ -1263,26 +1271,26 @@ namespace samurai
 				}
 				else if (x == a-1) // extend the interval [a,b) to {x}U[a,b) = [a-1,b)
 				{                  // there may be an interval [a',b') such that b' = a -> extend [a',b') to [a', b)
-					x_offsets.insert(x_offsets.begin() + a + ab_index, x_offsets[a + ab_index]);
-					interval_index_t z_interval_index = ab_index;
+					x_offsets.insert(x_offsets.begin() + a + ab_index, x_offsets.data()[a + ab_index]);
+					bool merge = false;
 					--a;
 					if (i0 < i and intervals[i-1].end == a)
 					{
-						z_interval_index = intervals[i-1].index;
+						merge = true;
 						intervals[i-1].end = b;
-						intervals.erase(intervals.begin() + int(i)); // delete [a,b)
-						for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { --y_offsets[j]; }
+						intervals.erase(intervals.begin() + signed_size_t(i)); // delete [a,b)
+						for (size_t j=size_t(y + y_interval_idx + 1);j<y_offsets.size();++j) { --y_offsets[j]; }
 					}
 					update_index(d);
-					recursive_call(z_interval_index);
+					recursive_call( (merge) ? intervals[i-1].index : ab_index );
 					break;
 				}
 				else if (x > b) // add singleton {x} = [x,x+1) after [a,b)
 				{
-					x_offsets.insert(x_offsets.begin() + b + ab_index + 1, x_offsets[b + ab_index]);
-					const interval_index_t& x_interval_idx = intervals.insert(intervals.begin() + int(i) + 1, interval_t(x, x+1))->index;
+					x_offsets.insert(x_offsets.begin() + b + ab_index + 1, x_offsets.data()[b + ab_index]);
+					const interval_index_t& x_interval_idx = intervals.insert(intervals.begin() + signed_size_t(i) + 1, interval_t(x, x+1))->index;
 					update_index(d);
-					for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { ++y_offsets[j]; }
+					for (size_t j=size_t(y + y_interval_idx + 1);j<y_offsets.size();++j) { ++y_offsets[j]; }
 					recursive_call(x_interval_idx);
 					break;
 				}
@@ -1291,10 +1299,11 @@ namespace samurai
 		}
 		
 		template <std::size_t Dim, class TInterval>
-    inline void LevelCellArray<Dim, TInterval>::add_point_rec_final(const indices_t& point, const index_t y_interval_idx)
+    inline void LevelCellArray<Dim, TInterval>::add_point_rec_final(const std::array<value_t, Dim>& point, const index_t y_interval_idx)
     {			
 			constexpr size_t d = 0;
 			
+			using signed_size_t    = std::make_signed_t<size_t>;
 			using interval_value_t = typename interval_t::value_t;
 			
 			const value_t x = point[d];
@@ -1307,19 +1316,20 @@ namespace samurai
 			assert(y + y_interval_idx < y_offsets.size());
 			assert(y + y_interval_idx + 1 < y_offsets.size());
 			
-			const size_t i0 = y_offsets[y + y_interval_idx];
-			const size_t i1 = y_offsets[y + y_interval_idx + 1];
+			const size_t i0 = y_offsets.data()[y + y_interval_idx];
+			const size_t i1 = y_offsets.data()[y + y_interval_idx + 1];
 			
 			if (intervals.size() == 0)
 			{
-				intervals.push_back(interval_t(x, x+1));
-				for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { ++y_offsets[j]; }
+				//intervals.push_back(interval_t(x, x+1));
+				intervals.emplace_back(x, x+1);
+				for (size_t j=size_t(y + y_interval_idx + 1);j<y_offsets.size();++j) { ++y_offsets[j]; }
 				return;
 			}
 			else if (i0 == i1)
 			{
-				intervals.insert(intervals.begin() + i1, interval_t(x, x+1));
-				for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { ++y_offsets[j]; }
+				intervals.insert(intervals.begin() + signed_size_t(i1), interval_t(x, x+1));
+				for (size_t j=size_t(y + y_interval_idx + 1);j<y_offsets.size();++j) { ++y_offsets[j]; }
 				return;
 			}
 			for (const size_t i : std::views::iota(i0, i1) | std::views::reverse)
@@ -1337,8 +1347,8 @@ namespace samurai
 					if (i+1 < i1 and b == intervals[i+1].start)
 					{
 						b = intervals[i+1].end;
-						intervals.erase(intervals.begin() + int(i) + 1); // delete [a',b')	
-						for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { --y_offsets[j]; }
+						intervals.erase(intervals.begin() + signed_size_t(i) + 1); // delete [a',b')	
+						for (size_t j=size_t(y + y_interval_idx + 1);j<y_offsets.size();++j) { --y_offsets[j]; }
 					}
 					break;
 				}
@@ -1348,25 +1358,26 @@ namespace samurai
 					if (i0 < i and intervals[i-1].end == a)
 					{
 						intervals[i-1].end = b;
-						intervals.erase(intervals.begin() + int(i)); // delete [a,b)
-						for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { --y_offsets[j]; }
+						intervals.erase(intervals.begin() + signed_size_t(i)); // delete [a,b)
+						for (size_t j=size_t(y + y_interval_idx + 1);j<y_offsets.size();++j) { --y_offsets[j]; }
 					}
 					break;
 				}
 				else if (x > b) // add singleton {x} = [x,x+1) after [a,b)
 				{
-					intervals.insert(intervals.begin() + int(i) + 1, interval_t(x, x+1));
-					for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { ++y_offsets[j]; }
+					intervals.insert(intervals.begin() + signed_size_t(i) + 1, interval_t(x, x+1));
+					for (size_t j=size_t(y + y_interval_idx + 1);j<y_offsets.size();++j) { ++y_offsets[j]; }
 					break;
 				}
 			}
 		}
 
 		template <std::size_t Dim, class TInterval>
-    inline void LevelCellArray<Dim, TInterval>::remove_point(const indices_t& point)
+    inline void LevelCellArray<Dim, TInterval>::remove_point(const std::array<value_t, Dim>& point)
     {			
 			constexpr size_t d = Dim-1;
 			
+			using signed_size_t    = std::make_signed_t<size_t>;
 			using interval_index_t = typename interval_t::index_t;
 			using interval_value_t = typename interval_t::value_t;
 		
@@ -1404,7 +1415,7 @@ namespace samurai
 						++a;
 						if (intervals[i].is_empty())  // remove interval
 						{ 
-							intervals.erase(intervals.begin() + int(i));
+							intervals.erase(intervals.begin() + signed_size_t(i));
 						}
 					}
 					if (Dim > 1) { update_index(d); }
@@ -1420,7 +1431,7 @@ namespace samurai
 						--b;
 						if (intervals[i].is_empty())  // remove interval
 						{ 
-							intervals.erase(intervals.begin() + int(i));
+							intervals.erase(intervals.begin() + signed_size_t(i));
 						}
 					}
 					if (Dim > 1) { update_index(d); }
@@ -1436,7 +1447,7 @@ namespace samurai
 						
 						interval_t new_interval = interval_t(x+1, b);
 						b = x;
-						intervals.insert(intervals.begin() + int(i) + 1, new_interval);
+						intervals.insert(intervals.begin() + signed_size_t(i) + 1, new_interval);
 					}
 					if (Dim > 1) { update_index(d); }
 					break;
@@ -1447,10 +1458,11 @@ namespace samurai
 		}
 
 		template <std::size_t Dim, class TInterval>
-    inline void LevelCellArray<Dim, TInterval>::remove_point_rec(const indices_t& point, const size_t d, const index_t y_interval_idx)
+    inline void LevelCellArray<Dim, TInterval>::remove_point_rec(const std::array<value_t, Dim>& point, const size_t d, const index_t y_interval_idx)
     {			
 			assert(d > 0);
 			
+			using signed_size_t    = std::make_signed_t<size_t>;
 			using interval_index_t = typename interval_t::index_t;
 			using interval_value_t = typename interval_t::value_t;
 		
@@ -1488,7 +1500,7 @@ namespace samurai
 						++a;
 						if (intervals[i].is_empty())  // remove interval
 						{ 
-							intervals.erase(intervals.begin() + int(i));
+							intervals.erase(intervals.begin() + signed_size_t(i));
 							for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { --y_offsets[j]; }
 						}
 					}
@@ -1504,7 +1516,7 @@ namespace samurai
 						--b;
 						if (intervals[i].is_empty())  // remove interval
 						{ 
-							intervals.erase(intervals.begin() + int(i));
+							intervals.erase(intervals.begin() + signed_size_t(i));
 							for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { --y_offsets[j]; }
 						}
 					}
@@ -1520,7 +1532,7 @@ namespace samurai
 						
 						interval_t new_interval = interval_t(x+1, b);
 						b = x;
-						intervals.insert(intervals.begin() + int(i) + 1, new_interval);
+						intervals.insert(intervals.begin() + signed_size_t(i) + 1, new_interval);
 						for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { ++y_offsets[j]; }
 					}
 					update_index(d);
@@ -1532,10 +1544,11 @@ namespace samurai
 		}
 		
 		template <std::size_t Dim, class TInterval>
-    inline void LevelCellArray<Dim, TInterval>::remove_point_rec_final(const indices_t& point, const index_t y_interval_idx)
+    inline void LevelCellArray<Dim, TInterval>::remove_point_rec_final(const std::array<value_t, Dim>& point, const index_t y_interval_idx)
     {			
 			constexpr size_t d = 0;
-			
+
+			using signed_size_t    = std::make_signed_t<size_t>;
 			using interval_index_t = typename interval_t::index_t;
 			using interval_value_t = typename interval_t::value_t;
 			
@@ -1553,14 +1566,14 @@ namespace samurai
 			{		
 				interval_value_t& a = intervals[i].start;
 				interval_value_t& b = intervals[i].end;
-				interval_index_t& ab_index = intervals[i].index;
+				//interval_index_t& ab_index = intervals[i].index;
 				
 				if (x == a)
 				{
 					++a;
 					if (intervals[i].is_empty())  // remove interval
 					{ 
-						intervals.erase(intervals.begin() + int(i));
+						intervals.erase(intervals.begin() + signed_size_t(i));
 						for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { --y_offsets[j]; }
 					}
 					break;
@@ -1570,7 +1583,7 @@ namespace samurai
 					--b;
 					if (intervals[i].is_empty())  // remove interval
 					{ 
-						intervals.erase(intervals.begin() + int(i));
+						intervals.erase(intervals.begin() + signed_size_t(i));
 						for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { --y_offsets[j]; }
 					}
 					break;
@@ -1579,7 +1592,7 @@ namespace samurai
 				{					
 					interval_t new_interval = interval_t(x+1, b);
 					b = x;
-					intervals.insert(intervals.begin() + int(i) + 1, new_interval);
+					intervals.insert(intervals.begin() + signed_size_t(i) + 1, new_interval);
 					for (size_t j=y + y_interval_idx + 1;j<y_offsets.size();++j) { ++y_offsets[j]; }
 					break;
 				}

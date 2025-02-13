@@ -3,6 +3,8 @@
 
 #include <iostream>
 
+#include <experimental/random>
+
 #include <samurai/cell_array.hpp>
 #include <samurai/cell_list.hpp>
 
@@ -51,43 +53,56 @@ int main()
 	for (int i=0;i<21;++i) { ca[0].add_point({i}); }
 	std::cout << "ca = " << std::endl << ca << std::endl;
 */
-	constexpr size_t dim = 3;
+	//constexpr size_t dim = 3;
 	
-	samurai::CellArray<dim> ca;
+	//samurai::CellArray<dim> ca;
 	
-	ca[0].add_point({0, 0 , 0});
-	ca[0].add_point({0, 1 , 0});
-	ca[0].add_point({0, 4 , 0});
-	ca[0].add_point({0, 5 , 0});
-	ca[0].add_point({0, 8 , 0});
-	ca[0].add_point({0, 9 , 0});
-	ca[0].add_point({0, 15, 0});
-	ca[0].add_point({0, 16, 0});
-	std::cout << "ca = " << std::endl << ca << std::endl;
-	ca[0].add_point({0, 3, 0});
-	std::cout << "ca = " << std::endl << ca << std::endl;
-	ca[0].add_point({0, 2, 0});
-	std::cout << "ca = " << std::endl << ca << std::endl;
-	ca[0].add_point({0, 20, 0});
-	std::cout << "ca = " << std::endl << ca << std::endl;
+	//ca[0].add_point({0, 0 , 0});
+	//ca[0].add_point({0, 1 , 0});
+	//ca[0].add_point({0, 4 , 0});
+	//ca[0].add_point({0, 5 , 0});
+	//ca[0].add_point({0, 8 , 0});
+	//ca[0].add_point({0, 9 , 0});
+	//ca[0].add_point({0, 15, 0});
+	//ca[0].add_point({0, 16, 0});
+	//std::cout << "ca = " << std::endl << ca << std::endl;
+	//ca[0].add_point({0, 3, 0});
+	//std::cout << "ca = " << std::endl << ca << std::endl;
+	//ca[0].add_point({0, 2, 0});
+	//std::cout << "ca = " << std::endl << ca << std::endl;
+	//ca[0].add_point({0, 20, 0});
+	//std::cout << "ca = " << std::endl << ca << std::endl;
 	
-	for (int i=0;i<21;++i) { ca[0].add_point({0, i, 0}); }
-	std::cout << "ca = " << std::endl << ca << std::endl;
+	//for (int i=0;i<21;++i) { ca[0].add_point({0, i, 0}); }
+	//std::cout << "ca = " << std::endl << ca << std::endl;
 	
-	ca[0].remove_point({0, 10, 0});
-	std::cout << "ca = " << std::endl << ca << std::endl;
+	//ca[0].remove_point({0, 10, 0});
+	//std::cout << "ca = " << std::endl << ca << std::endl;
 	
-	ca[0].remove_point({0, 0, 0});
-	std::cout << "ca = " << std::endl << ca << std::endl;
+	//ca[0].remove_point({0, 0, 0});
+	//std::cout << "ca = " << std::endl << ca << std::endl;
 	
-	ca[0].remove_point({0, 20, 0});
-	std::cout << "ca = " << std::endl << ca << std::endl;
+	//ca[0].remove_point({0, 20, 0});
+	//std::cout << "ca = " << std::endl << ca << std::endl;
 	
-	for (int i=0;i<21;++i) { ca[0].remove_point({0, i, 0}); }
-	std::cout << "ca = " << std::endl << ca << std::endl;
+	//for (int i=0;i<21;++i) { ca[0].remove_point({0, i, 0}); }
+	//std::cout << "ca = " << std::endl << ca << std::endl;
 
-	for (int i=0;i<21;++i) { ca[0].add_point({0, i, 0}); }
-	std::cout << "ca = " << std::endl << ca << std::endl;
+	//for (int i=0;i<21;++i) { ca[0].add_point({0, i, 0}); }
+	//std::cout << "ca = " << std::endl << ca << std::endl;
+
+    std::size_t min_level = 1;
+    std::size_t max_level = 12;
+
+			samurai::CellArray<2> ca;
+			for (std::size_t s = 0; s < (8 << 18) ; ++s)
+			{
+					auto level = std::experimental::randint(min_level, max_level);
+					auto x     = std::experimental::randint(0, (100 << level) - 1);
+					auto y     = std::experimental::randint(0, (100 << level) - 1);
+
+					ca[level].add_point({x, y});
+			}
 
 	return 0;
 }
