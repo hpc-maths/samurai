@@ -108,7 +108,7 @@ namespace samurai
       private:
 
         template <bool enable_max_level_flux>
-        void compute_stencil_values(StencilData<cfg>& data, input_field_t& field, StencilValues<cfg>& stencil_values)
+        void compute_stencil_values(StencilData<cfg>& data, input_field_t& field, std::vector<StencilValues<cfg>>& stencil_values_list)
         {
             if constexpr (enable_max_level_flux && mesh_t::config::prediction_order > 0)
             {
@@ -131,13 +131,13 @@ namespace samurai
                 // }
 
                 static_assert(stencil_size % 2 == 0, "not implemented for odd stencil sizes");
-                static_assert(dim == 1);
+                // static_assert(dim == 1);
 
                 if (delta_l == 0)
                 {
                     for (std::size_t s = 0; s < stencil_size; ++s)
                     {
-                        stencil_values[s] = field[data.cells[s]];
+                        stencil_values_list[0][s] = field[data.cells[s]];
                     }
                 }
                 // We need `stencil_size` cells at max_level, half to the left, half to the right of the interface
@@ -163,49 +163,109 @@ namespace samurai
                     //
                     // Below, n_children_at_max_level = 4 (although we only need 3)
 
-                    interval_value_t shift = 0;
-                    while (stencil_size / 2 > static_cast<std::size_t>(n_children_at_max_level))
+                    bool interval_method = false;
+                    if (interval_method)
                     {
-                        n_children_at_max_level *= 2;
-                        ++shift;
-                    }
-
-                    // We then build the following intervals:
-                    // i_left=[left-shift, left+1[       i_right=[right, right+shift+1[
-                    //
-                    //            |___|___|___|___|___|___|___|___|
-                    //    |_______|_______|_______|_______|_______|_______|
-                    //               l-s      l   | l+1=r    r+s    r+s+1
-
-                    interval_t i_left{left.indices[0] - shift, left.indices[0] + 1};
-                    interval_t i_right{right.indices[0], right.indices[0] + 1 + shift};
-
-                    // The predicted values on the fine level are numbered this way:
-                    //
-                    //              left interval | right interval
-                    //              0   1   2   3 | 0   1   2   3
-                    //            |___|___|___|___|___|___|___|___|
-                    //    |_______|_______|_______|_______|_______|_______|
-                    //
-                    // We want 1,2,3 on the left, and 0,1,2 on the right.
-
-                    // (stencil_size / 2) values on the left of the interface
-                    interval_value_t most_left_index = n_children_at_max_level - static_cast<interval_value_t>(stencil_size / 2);
-                    for (std::size_t s = 0; s < stencil_size / 2; ++s)
-                    {
-                        stencil_values[s] = portion(field, level, i_left, delta_l, most_left_index + static_cast<interval_value_t>(s))[0];
-                    }
-
-                    // (stencil_size / 2) values on the right of the interface
-                    for (std::size_t s = 0; s < stencil_size / 2; ++s)
-                    {
-                        if (level == 8 && i_right.start == 32 && s == 2)
+                        interval_value_t shift = 0;
+                        while (stencil_size / 2 > static_cast<std::size_t>(n_children_at_max_level))
                         {
-                            std::cout << std::endl;
-                            std::cout << data.cells[stencil_size / 2 + s] << std::endl;
-                            std::cout << field.mesh()[mesh_id_t::reference][level] << std::endl;
+                            n_children_at_max_level *= 2;
+                            ++shift;
                         }
-                        stencil_values[stencil_size / 2 + s] = portion(field, level, i_right, delta_l, static_cast<interval_value_t>(s))[0];
+
+                        // We then build the following intervals:
+                        // i_left=[left-shift, left+1[       i_right=[right, right+shift+1[
+                        //
+                        //            |___|___|___|___|___|___|___|___|
+                        //    |_______|_______|_______|_______|_______|_______|
+                        //               l-s      l   | l+1=r    r+s    r+s+1
+
+                        interval_t i_left{left.indices[0] - shift, left.indices[0] + 1};
+                        interval_t i_right{right.indices[0], right.indices[0] + 1 + shift};
+
+                        // The predicted values on the fine level are numbered this way:
+                        //
+                        //              left interval | right interval
+                        //              0   1   2   3 | 0   1   2   3
+                        //            |___|___|___|___|___|___|___|___|
+                        //    |_______|_______|_______|_______|_______|_______|
+                        //
+                        // We want 1,2,3 on the left, and 0,1,2 on the right.
+
+                        // (stencil_size / 2) values on the left of the interface
+                        interval_value_t most_left_index = n_children_at_max_level - static_cast<interval_value_t>(stencil_size / 2);
+                        for (std::size_t s = 0; s < stencil_size / 2; ++s)
+                        {
+                            stencil_values_list[0][s] = portion(field,
+                                                                level,
+                                                                i_left,
+                                                                delta_l,
+                                                                most_left_index + static_cast<interval_value_t>(s))[0];
+                        }
+
+                        // (stencil_size / 2) values on the right of the interface
+                        for (std::size_t s = 0; s < stencil_size / 2; ++s)
+                        {
+                            if (level == 8 && i_right.start == 32 && s == 2)
+                            {
+                                std::cout << std::endl;
+                                std::cout << data.cells[stencil_size / 2 + s] << std::endl;
+                                std::cout << field.mesh()[mesh_id_t::reference][level] << std::endl;
+                            }
+                            stencil_values_list[0][stencil_size / 2 + s] = portion(field,
+                                                                                   level,
+                                                                                   i_right,
+                                                                                   delta_l,
+                                                                                   static_cast<interval_value_t>(s))[0];
+                        }
+                    }
+                    else
+                    {
+                        std::size_t coarse_stencil_size = 2;
+                        while (stencil_size > static_cast<std::size_t>(n_children_at_max_level) * coarse_stencil_size)
+                        {
+                            coarse_stencil_size += 2;
+                        }
+
+                        interval_t i_left{left.indices[0], left.indices[0] + 1};
+                        interval_t i_right{right.indices[0], right.indices[0] + 1};
+
+                        int remaining_values_to_compute = stencil_size / 2;
+
+                        for (std::size_t coarse_cell = 0; coarse_cell < coarse_stencil_size / 2; ++coarse_cell)
+                        {
+                            // left side of the interface: we fill from right to left
+                            std::size_t index_in_stencil = stencil_size / 2 - 1
+                                                         - coarse_cell * static_cast<std::size_t>(n_children_at_max_level);
+                            int n_values_to_compute = std::min(remaining_values_to_compute, n_children_at_max_level);
+                            for (std::size_t s = 0; s < static_cast<std::size_t>(n_values_to_compute); ++s)
+                            {
+                                stencil_values_list[0][index_in_stencil - s] = portion(
+                                    field,
+                                    level,
+                                    i_left,
+                                    delta_l,
+                                    n_children_at_max_level - 1 - static_cast<interval_value_t>(s))[0];
+                            }
+
+                            // right side of the interface: we fill from left to right
+                            index_in_stencil = stencil_size / 2 + coarse_cell * static_cast<std::size_t>(n_children_at_max_level);
+                            for (std::size_t s = 0; s < static_cast<std::size_t>(n_values_to_compute); ++s)
+                            {
+                                stencil_values_list[0][index_in_stencil + s] = portion(field,
+                                                                                       level,
+                                                                                       i_right,
+                                                                                       delta_l,
+                                                                                       static_cast<interval_value_t>(s))[0];
+                            }
+
+                            remaining_values_to_compute -= n_values_to_compute;
+
+                            i_left.start--;
+                            i_left.end--;
+                            i_right.start++;
+                            i_right.end++;
+                        }
                     }
                 }
             }
@@ -214,7 +274,7 @@ namespace samurai
                 data.cell_length = data.cells[0].length;
                 for (std::size_t s = 0; s < stencil_size; ++s)
                 {
-                    stencil_values[s] = field[data.cells[s]];
+                    stencil_values_list[0][s] = field[data.cells[s]];
                 }
             }
         }
@@ -228,18 +288,25 @@ namespace samurai
                                          double right_factor,
                                          Func&& apply_contrib)
         {
+            auto delta_l               = field.mesh().max_level() - comput_stencil_it.level();
+            std::size_t n_small_fluxes = enable_max_level_flux ? (1 << ((dim - 1) * delta_l)) : 1;
+
+            std::vector<StencilValues<cfg>> stencil_values_list(n_small_fluxes);
             FluxValuePair<cfg> flux_values;
-            StencilValues<cfg> stencil_values;
             StencilData<cfg> data(comput_stencil_it.cells());
 
             for (std::size_t ii = 0; ii < comput_stencil_it.interval().size(); ++ii)
             {
-                compute_stencil_values<enable_max_level_flux>(data, field, stencil_values);
-                flux_function(flux_values, data, stencil_values);
-                flux_values[0] *= left_factor;
-                flux_values[1] *= right_factor;
-                apply_contrib(interface_it.cells()[0], flux_values[0]);
-                apply_contrib(interface_it.cells()[1], flux_values[1]);
+                compute_stencil_values<enable_max_level_flux>(data, field, stencil_values_list);
+
+                for (std::size_t k = 0; k < n_small_fluxes; ++k)
+                {
+                    flux_function(flux_values, data, stencil_values_list[k]);
+                    flux_values[0] *= left_factor;
+                    flux_values[1] *= right_factor;
+                    apply_contrib(interface_it.cells()[0], flux_values[0]);
+                    apply_contrib(interface_it.cells()[1], flux_values[1]);
+                }
 
                 interface_it.move_next();
                 comput_stencil_it.move_next();
