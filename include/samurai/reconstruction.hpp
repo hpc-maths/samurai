@@ -1058,10 +1058,13 @@ namespace samurai
         typename Field::interval_t src_i{src_indices[0], src_indices[0] + 1};
         if (dim == 1)
         {
+            assert(dst_indices[0] <= (1 << (delta_l * (dim - 1))));
             return detail::portion_impl<Field::mesh_t::config::prediction_order>(f, level, src_i, delta_l, dst_indices[0]);
         }
         else if (dim == 2)
         {
+            assert(dst_indices[0] <= (1 << (delta_l * (dim - 1))));
+            assert(dst_indices[1] <= (1 << (delta_l * (dim - 1))));
             return detail::portion_impl<Field::mesh_t::config::prediction_order>(f,
                                                                                  level,
                                                                                  src_i,
@@ -1072,6 +1075,9 @@ namespace samurai
         }
         else if (dim == 3)
         {
+            assert(dst_indices[0] <= (1 << (delta_l * (dim - 1))));
+            assert(dst_indices[1] <= (1 << (delta_l * (dim - 1))));
+            assert(dst_indices[3] <= (1 << (delta_l * (dim - 1))));
             return detail::portion_impl<Field::mesh_t::config::prediction_order>(f,
                                                                                  level,
                                                                                  src_i,
