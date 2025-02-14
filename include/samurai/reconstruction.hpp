@@ -1044,6 +1044,46 @@ namespace samurai
         return detail::portion_impl<prediction_order>(f, level, i, j, k, delta_l, ii, jj, kk);
     }
 
+    // N-D
+    template <class Field>
+    auto portion(const Field& f,
+                 std::size_t level,
+                 const typename Field::cell_t::indices_t& src_indices,
+                 std::size_t delta_l,
+                 const typename Field::cell_t::indices_t& dst_indices)
+    {
+        static constexpr std::size_t dim = Field::dim;
+        static_assert(dim <= 3, "Not implemented for dim >3");
+
+        typename Field::interval_t src_i{src_indices[0], src_indices[0] + 1};
+        if (dim == 1)
+        {
+            return detail::portion_impl<Field::mesh_t::config::prediction_order>(f, level, src_i, delta_l, dst_indices[0]);
+        }
+        else if (dim == 2)
+        {
+            return detail::portion_impl<Field::mesh_t::config::prediction_order>(f,
+                                                                                 level,
+                                                                                 src_i,
+                                                                                 src_indices[1],
+                                                                                 delta_l,
+                                                                                 dst_indices[0],
+                                                                                 dst_indices[1]);
+        }
+        else if (dim == 3)
+        {
+            return detail::portion_impl<Field::mesh_t::config::prediction_order>(f,
+                                                                                 level,
+                                                                                 src_i,
+                                                                                 src_indices[1],
+                                                                                 src_indices[2],
+                                                                                 delta_l,
+                                                                                 dst_indices[0],
+                                                                                 dst_indices[1],
+                                                                                 dst_indices[2]);
+        }
+    }
+
     template <class Field_src, class Field_dst>
     void transfer(Field_src& field_src, Field_dst& field_dst)
     {

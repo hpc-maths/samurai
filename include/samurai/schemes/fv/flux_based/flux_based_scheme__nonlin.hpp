@@ -27,6 +27,7 @@ namespace samurai
 
         using interval_t       = typename mesh_t::interval_t;
         using interval_value_t = typename interval_t::value_t;
+        using cell_indices_t   = typename mesh_t::cell_t::indices_t;
 
         using cfg_t      = cfg;
         using bdry_cfg_t = bdry_cfg;
@@ -108,7 +109,10 @@ namespace samurai
       private:
 
         template <bool enable_max_level_flux>
-        void compute_stencil_values(StencilData<cfg>& data, input_field_t& field, std::vector<StencilValues<cfg>>& stencil_values_list)
+        void compute_stencil_values(std::size_t direction_index,
+                                    StencilData<cfg>& data,
+                                    input_field_t& field,
+                                    std::vector<StencilValues<cfg>>& stencil_values_list)
         {
             if constexpr (enable_max_level_flux && mesh_t::config::prediction_order > 0)
             {
@@ -130,7 +134,7 @@ namespace samurai
                 //     stencil_values[1] = portion(field, level, iright, delta_l, 0)[0];                          // field(level, i);
                 // }
 
-                static_assert(stencil_size % 2 == 0, "not implemented for odd stencil sizes");
+                static_assert(!enable_max_level_flux || stencil_size % 2 == 0, "not implemented for odd stencil sizes");
                 // static_assert(dim == 1);
 
                 if (delta_l == 0)
@@ -227,13 +231,15 @@ namespace samurai
                             coarse_stencil_size += 2;
                         }
 
-                        interval_t i_left{left.indices[0], left.indices[0] + 1};
-                        interval_t i_right{right.indices[0], right.indices[0] + 1};
+                        cell_indices_t left_coarse_cell_indices  = left.indices;
+                        cell_indices_t right_coarse_cell_indices = right.indices;
 
                         int remaining_values_to_compute = stencil_size / 2;
 
                         for (std::size_t coarse_cell = 0; coarse_cell < coarse_stencil_size / 2; ++coarse_cell)
                         {
+                            // for (std::size_t d; d< dim; ++d)
+
                             // left side of the interface: we fill from right to left
                             std::size_t index_in_stencil = stencil_size / 2 - 1
                                                          - coarse_cell * static_cast<std::size_t>(n_children_at_max_level);
@@ -243,7 +249,7 @@ namespace samurai
                                 stencil_values_list[0][index_in_stencil - s] = portion(
                                     field,
                                     level,
-                                    i_left,
+                                    left_coarse_cell_indices,
                                     delta_l,
                                     n_children_at_max_level - 1 - static_cast<interval_value_t>(s))[0];
                             }
@@ -254,17 +260,15 @@ namespace samurai
                             {
                                 stencil_values_list[0][index_in_stencil + s] = portion(field,
                                                                                        level,
-                                                                                       i_right,
+                                                                                       right_coarse_cell_indices,
                                                                                        delta_l,
                                                                                        static_cast<interval_value_t>(s))[0];
                             }
 
                             remaining_values_to_compute -= n_values_to_compute;
 
-                            i_left.start--;
-                            i_left.end--;
-                            i_right.start++;
-                            i_right.end++;
+                            left_coarse_cell_indices[0]--;
+                            right_coarse_cell_indices[0]++;
                         }
                     }
                 }
@@ -280,7 +284,8 @@ namespace samurai
         }
 
         template <bool enable_max_level_flux, class InterfaceIterator, class StencilIterator, class FluxFunction, class Func>
-        void process_interior_interfaces(InterfaceIterator& interface_it,
+        void process_interior_interfaces(std::size_t d, // direction index
+                                         InterfaceIterator& interface_it,
                                          StencilIterator& comput_stencil_it,
                                          FluxFunction& flux_function,
                                          input_field_t& field,
@@ -297,7 +302,7 @@ namespace samurai
 
             for (std::size_t ii = 0; ii < comput_stencil_it.interval().size(); ++ii)
             {
-                compute_stencil_values<enable_max_level_flux>(data, field, stencil_values_list);
+                compute_stencil_values<enable_max_level_flux>(d, data, field, stencil_values_list);
 
                 for (std::size_t k = 0; k < n_small_fluxes; ++k)
                 {
@@ -388,6 +393,7 @@ namespace samurai
                                                                                   [&](auto& interface_it, auto& comput_stencil_it)
                                                                                   {
                                                                                       process_interior_interfaces<enable_max_level_flux>(
+                                                                                          d,
                                                                                           interface_it,
                                                                                           comput_stencil_it,
                                                                                           flux_function,
@@ -421,7 +427,8 @@ namespace samurai
                         flux_def.stencil,
                         [&](auto& interface_it, auto& comput_stencil_it)
                         {
-                            process_interior_interfaces<enable_max_level_flux>(interface_it,
+                            process_interior_interfaces<enable_max_level_flux>(d,
+                                                                               interface_it,
                                                                                comput_stencil_it,
                                                                                flux_function,
                                                                                field,
@@ -445,7 +452,8 @@ namespace samurai
                         flux_def.stencil,
                         [&](auto& interface_it, auto& comput_stencil_it)
                         {
-                            process_interior_interfaces<enable_max_level_flux>(interface_it,
+                            process_interior_interfaces<enable_max_level_flux>(d,
+                                                                               interface_it,
                                                                                comput_stencil_it,
                                                                                flux_function,
                                                                                field,
