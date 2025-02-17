@@ -173,6 +173,7 @@ jobs:
             - name: Conda informations
               shell: bash -l {0}
               run: |
+                  conda update
                   conda info
                   conda list
 
