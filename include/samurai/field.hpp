@@ -141,7 +141,7 @@ namespace samurai
                     for (decltype(interval_tmp.index) i = interval_tmp.index + interval.start; i < interval_tmp.index + interval.end;
                          i += interval.step)
                     {
-                        if (std::isnan(this->derived_cast().m_data[static_cast<std::size_t>(i)]))
+                        if (std::isnan(this->derived_cast().m_storage.data()[static_cast<std::size_t>(i)]))
                         {
                             // std::cerr << "READ NaN at level " << level << ", in interval " << interval << std::endl;
                             auto ii   = i - interval_tmp.index;
@@ -180,11 +180,11 @@ namespace samurai
                     for (decltype(interval_tmp.index) i = interval_tmp.index + interval.start; i < interval_tmp.index + interval.end;
                          i += interval.step)
                     {
-                        if (std::isnan(this->derived_cast().m_data[static_cast<std::size_t>(i)]))
+                        if (std::isnan(this->derived_cast().m_storage.data()[static_cast<std::size_t>(i)]))
                         {
                             // std::cerr << "READ NaN at level " << level << ", in interval " << interval << std::endl;
                             auto ii   = i - interval_tmp.index;
-                            auto cell = this->derived_cast().mesh().get_cell(level, static_cast<int>(ii), index...);
+                            auto cell = this->derived_cast().mesh().get_cell(level, static_cast<int>(ii), index);
                             std::cerr << "READ NaN in " << cell << std::endl;
                             break;
                         }
@@ -200,7 +200,7 @@ namespace samurai
 #ifdef SAMURAI_CHECK_NAN
                 if constexpr (std::is_floating_point_v<value_t>)
                 {
-                    this->derived_cast().m_data.fill(std::nan(""));
+                    this->derived_cast().m_storage.data().fill(std::nan(""));
                 }
 #endif
             }
@@ -321,7 +321,7 @@ namespace samurai
             {
                 m_storage.resize(static_cast<size_type>(this->derived_cast().mesh().nb_cells()));
 #ifdef SAMURAI_CHECK_NAN
-                this->derived_cast().m_data.fill(std::nan(""));
+                m_storage.data().fill(std::nan(""));
 #endif
             }
 
