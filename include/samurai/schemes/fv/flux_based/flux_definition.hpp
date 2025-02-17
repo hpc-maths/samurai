@@ -92,14 +92,11 @@ namespace samurai
     {
         using field_t = typename cfg::input_field_t;
 
-        using stencil_cells_t  = StencilCells<cfg>;
-        using stencil_values_t = StencilValues<cfg>;
+        using flux_func = std::function<void(FluxValuePair<cfg>&, const StencilData<cfg>&, const StencilValues<cfg>&)>;  // non-conservative
+        using cons_flux_func = std::function<void(FluxValue<cfg>&, const StencilData<cfg>&, const StencilValues<cfg>&)>; // conservative
 
-        using flux_func = std::function<void(FluxValuePair<cfg>&, const StencilData<cfg>&, const stencil_values_t&)>;  // non-conservative
-        using cons_flux_func = std::function<void(FluxValue<cfg>&, const StencilData<cfg>&, const stencil_values_t&)>; // conservative
-
-        using jacobian_func      = std::function<StencilJacobianPair<cfg>(stencil_cells_t&, const field_t&)>; // non-conservative
-        using cons_jacobian_func = std::function<StencilJacobian<cfg>(stencil_cells_t&, const field_t&)>;     // conservative
+        using jacobian_func      = std::function<StencilJacobianPair<cfg>(StencilCells<cfg>&, const field_t&)>; // non-conservative
+        using cons_jacobian_func = std::function<StencilJacobian<cfg>(StencilCells<cfg>&, const field_t&)>;     // conservative
 
         /**
          * Conservative flux function:
