@@ -140,26 +140,35 @@ namespace samurai
             }
         };
 
+        inline void copy_stencil_values(const input_field_t& field, const StencilCells<cfg>& cells, StencilValues<cfg>& stencil_values)
+        {
+            for (std::size_t s = 0; s < stencil_size; ++s)
+            {
+                stencil_values[s] = field[cells[s]];
+            }
+        }
+
         template <bool enable_max_level_flux>
         void compute_stencil_values(const FluxParameters<enable_max_level_flux>& flux_params,
                                     const StencilCells<cfg>& cells,
                                     const input_field_t& field,
                                     std::vector<StencilValues<cfg>>& stencil_values_list)
         {
-            if constexpr (enable_max_level_flux && mesh_t::config::prediction_order > 0)
+            if constexpr (!enable_max_level_flux || mesh_t::config::prediction_order == 0)
+            {
+                copy_stencil_values(field, cells, stencil_values_list[0]);
+            }
+            else
             {
                 static_assert(!enable_max_level_flux || stencil_size % 2 == 0, "not implemented for odd stencil sizes");
 
                 if (flux_params.delta_l == 0)
                 {
-                    for (std::size_t s = 0; s < stencil_size; ++s)
-                    {
-                        stencil_values_list[0][s] = field[cells[s]];
-                    }
+                    copy_stencil_values(field, cells, stencil_values_list[0]);
                 }
-                // We need `stencil_size` cells at max_level, half to the left, half to the right of the interface
                 else
                 {
+                    // We need `stencil_size` cells at max_level, half to the left, half to the right of the interface.
                     // WENO5 example with delta_l = 1:
                     //
                     // We have a stencil of 3+3 coarse cells, and we want 3+3 cells at the upper level.
@@ -178,165 +187,90 @@ namespace samurai
                     //    |_______|_______|_______|_______|_______|_______|
                     //                o       o   |   o       o
 
-                    // bool interval_method = false;
-                    // if (interval_method)
-                    // {
-                    //     // To get 3+3 children (x marks below), we need to predict the children of 2+2 coarse cells.
-                    //     //
-                    //     //                  x   x   x   x   x   x
-                    //     //            |___|___|___|___|___|___|___|___|
-                    //     //    |_______|_______|_______|_______|_______|_______|
-                    //     //            left-shift      |      right+shift
-                    //     //
-                    //     // Below, n_children_at_max_level = 4 (although we only need 3)
+                    auto& flux_direction          = flux_params.flux_direction;
+                    auto& n_children_at_max_level = flux_params.n_children_at_max_level;
 
-                    //     interval_value_t shift = 0;
-                    //     while (stencil_size / 2 > static_cast<std::size_t>(n_children_at_max_level))
-                    //     {
-                    //         n_children_at_max_level *= 2;
-                    //         ++shift;
-                    //     }
+                    cell_indices_t left_coarse_cell_indices;
+                    cell_indices_t right_coarse_cell_indices;
 
-                    //     // We then build the following intervals:
-                    //     // i_left=[left-shift, left+1[       i_right=[right, right+shift+1[
-                    //     //
-                    //     //            |___|___|___|___|___|___|___|___|
-                    //     //    |_______|_______|_______|_______|_______|_______|
-                    //     //               l-s      l   | l+1=r    r+s    r+s+1
+                    cell_indices_t left_fine_cell_indices;
+                    cell_indices_t right_fine_cell_indices;
+                    left_fine_cell_indices.fill(0);
+                    right_fine_cell_indices.fill(0);
 
-                    //     interval_t i_left{left.indices[0] - shift, left.indices[0] + 1};
-                    //     interval_t i_right{right.indices[0], right.indices[0] + 1 + shift};
+                    std::size_t moving_direction = flux_params.flux_direction == 0 ? 1 : 0; // first other direction
 
-                    //     // The predicted values on the fine level are numbered this way:
-                    //     //
-                    //     //              left interval | right interval
-                    //     //              0   1   2   3 | 0   1   2   3
-                    //     //            |___|___|___|___|___|___|___|___|
-                    //     //    |_______|_______|_______|_______|_______|_______|
-                    //     //
-                    //     // We want 1,2,3 on the left, and 0,1,2 on the right.
-
-                    //     // (stencil_size / 2) values on the left of the interface
-                    //     interval_value_t most_left_index = n_children_at_max_level - static_cast<interval_value_t>(stencil_size / 2);
-                    //     for (std::size_t s = 0; s < stencil_size / 2; ++s)
-                    //     {
-                    //         stencil_values_list[0][s] = portion(field,
-                    //                                             level,
-                    //                                             i_left,
-                    //                                             delta_l,
-                    //                                             most_left_index + static_cast<interval_value_t>(s))[0];
-                    //     }
-
-                    //     // (stencil_size / 2) values on the right of the interface
-                    //     for (std::size_t s = 0; s < stencil_size / 2; ++s)
-                    //     {
-                    //         if (level == 8 && i_right.start == 32 && s == 2)
-                    //         {
-                    //             std::cout << std::endl;
-                    //             std::cout << data.cells[stencil_size / 2 + s] << std::endl;
-                    //             std::cout << field.mesh()[mesh_id_t::reference][level] << std::endl;
-                    //         }
-                    //         stencil_values_list[0][stencil_size / 2 + s] = portion(field,
-                    //                                                                level,
-                    //                                                                i_right,
-                    //                                                                delta_l,
-                    //                                                                static_cast<interval_value_t>(s))[0];
-                    //     }
-                    // }
-                    // else
+                    for (std::size_t fine_flux_index = 0; fine_flux_index < flux_params.n_fine_fluxes; ++fine_flux_index)
                     {
-                        auto& flux_direction          = flux_params.flux_direction;
-                        auto& n_children_at_max_level = flux_params.n_children_at_max_level;
+                        left_coarse_cell_indices  = left.indices;
+                        right_coarse_cell_indices = right.indices;
 
-                        cell_indices_t left_coarse_cell_indices;
-                        cell_indices_t right_coarse_cell_indices;
+                        // Compute the necessary stencil values for the current fine flux.
+                        // We need (stencil_size / 2) on each side of the interface.
+                        int remaining_values_to_compute = stencil_size / 2;
 
-                        cell_indices_t left_fine_cell_indices;
-                        cell_indices_t right_fine_cell_indices;
-                        left_fine_cell_indices.fill(0);
-                        right_fine_cell_indices.fill(0);
-
-                        std::size_t moving_direction = flux_params.flux_direction == 0 ? 1 : 0; // first other direction
-
-                        for (std::size_t fine_flux_index = 0; fine_flux_index < flux_params.n_fine_fluxes; ++fine_flux_index)
+                        for (std::size_t coarse_cell = 0; coarse_cell < flux_params.coarse_stencil_size / 2; ++coarse_cell)
                         {
-                            left_coarse_cell_indices  = left.indices;
-                            right_coarse_cell_indices = right.indices;
+                            int n_values_to_compute = std::min(remaining_values_to_compute, n_children_at_max_level);
 
-                            // Compute the necessary stencil values for the current fine flux.
-                            // We need (stencil_size / 2) on each side of the interface.
-                            int remaining_values_to_compute = stencil_size / 2;
+                            // left side of the interface: we fill from right to left
+                            std::size_t index_in_stencil = stencil_size / 2 - 1
+                                                         - coarse_cell * static_cast<std::size_t>(n_children_at_max_level);
+                            left_fine_cell_indices[flux_direction] = n_children_at_max_level - 1;
 
-                            for (std::size_t coarse_cell = 0; coarse_cell < flux_params.coarse_stencil_size / 2; ++coarse_cell)
+                            for (std::size_t s = 0; s < static_cast<std::size_t>(n_values_to_compute); ++s)
                             {
-                                int n_values_to_compute = std::min(remaining_values_to_compute, n_children_at_max_level);
-
-                                // left side of the interface: we fill from right to left
-                                std::size_t index_in_stencil = stencil_size / 2 - 1
-                                                             - coarse_cell * static_cast<std::size_t>(n_children_at_max_level);
-                                left_fine_cell_indices[flux_direction] = n_children_at_max_level - 1;
-
-                                for (std::size_t s = 0; s < static_cast<std::size_t>(n_values_to_compute); ++s)
-                                {
-                                    stencil_values_list[fine_flux_index][index_in_stencil - s] = portion(field,
-                                                                                                         flux_params.level,
-                                                                                                         left_coarse_cell_indices,
-                                                                                                         flux_params.delta_l,
-                                                                                                         left_fine_cell_indices)[0];
-                                    left_fine_cell_indices[flux_direction]--;
-                                }
-
-                                // right side of the interface: we fill from left to right
-                                index_in_stencil = stencil_size / 2 + coarse_cell * static_cast<std::size_t>(n_children_at_max_level);
-                                right_fine_cell_indices[flux_direction] = 0;
-
-                                for (std::size_t s = 0; s < static_cast<std::size_t>(n_values_to_compute); ++s)
-                                {
-                                    stencil_values_list[fine_flux_index][index_in_stencil + s] = portion(field,
-                                                                                                         flux_params.level,
-                                                                                                         right_coarse_cell_indices,
-                                                                                                         flux_params.delta_l,
-                                                                                                         right_fine_cell_indices)[0];
-                                    right_fine_cell_indices[flux_direction]++;
-                                }
-
-                                remaining_values_to_compute -= n_values_to_compute;
-
-                                left_coarse_cell_indices[flux_direction]--;
-                                right_coarse_cell_indices[flux_direction]++;
+                                stencil_values_list[fine_flux_index][index_in_stencil - s] = portion(field,
+                                                                                                     flux_params.level,
+                                                                                                     left_coarse_cell_indices,
+                                                                                                     flux_params.delta_l,
+                                                                                                     left_fine_cell_indices)[0];
+                                left_fine_cell_indices[flux_direction]--;
                             }
 
-                            if constexpr (dim > 1)
+                            // right side of the interface: we fill from left to right
+                            index_in_stencil = stencil_size / 2 + coarse_cell * static_cast<std::size_t>(n_children_at_max_level);
+                            right_fine_cell_indices[flux_direction] = 0;
+
+                            for (std::size_t s = 0; s < static_cast<std::size_t>(n_values_to_compute); ++s)
                             {
-                                // Move to next fine flux
-                                if (left_fine_cell_indices[moving_direction] < n_children_at_max_level - 1)
+                                stencil_values_list[fine_flux_index][index_in_stencil + s] = portion(field,
+                                                                                                     flux_params.level,
+                                                                                                     right_coarse_cell_indices,
+                                                                                                     flux_params.delta_l,
+                                                                                                     right_fine_cell_indices)[0];
+                                right_fine_cell_indices[flux_direction]++;
+                            }
+
+                            remaining_values_to_compute -= n_values_to_compute;
+
+                            left_coarse_cell_indices[flux_direction]--;
+                            right_coarse_cell_indices[flux_direction]++;
+                        }
+
+                        if constexpr (dim > 1)
+                        {
+                            // Move to next fine flux
+                            if (left_fine_cell_indices[moving_direction] < n_children_at_max_level - 1)
+                            {
+                                left_fine_cell_indices[moving_direction]++;
+                                right_fine_cell_indices[moving_direction]++;
+                            }
+                            else
+                            {
+                                // if moving_direction = 'y':
+                                // - reset 'y' indices
+                                // - start moving the fine cells according to the 'z' direction
+                                left_fine_cell_indices[moving_direction]  = 0;
+                                right_fine_cell_indices[moving_direction] = 0;
+                                moving_direction++;
+                                if (moving_direction == flux_direction)
                                 {
-                                    left_fine_cell_indices[moving_direction]++;
-                                    right_fine_cell_indices[moving_direction]++;
-                                }
-                                else
-                                {
-                                    // if moving_direction = 'y':
-                                    // - reset 'y' indices
-                                    // - start moving the fine cells according to the 'z' direction
-                                    left_fine_cell_indices[moving_direction]  = 0;
-                                    right_fine_cell_indices[moving_direction] = 0;
                                     moving_direction++;
-                                    if (moving_direction == flux_direction)
-                                    {
-                                        moving_direction++;
-                                    }
                                 }
                             }
                         }
                     }
-                }
-            }
-            else
-            {
-                for (std::size_t s = 0; s < stencil_size; ++s)
-                {
-                    stencil_values_list[0][s] = field[cells[s]];
                 }
             }
         }
@@ -391,11 +325,7 @@ namespace samurai
 
             for (std::size_t ii = 0; ii < comput_stencil_it.interval().size(); ++ii)
             {
-                // compute_stencil_values<false>(data, field, stencil_values);
-                for (std::size_t s = 0; s < stencil_size; ++s)
-                {
-                    stencil_values[s] = field[data.cells[s]];
-                }
+                copy_stencil_values(field, data.cells, stencil_values);
 
                 flux_function(flux_values, data, stencil_values);
                 if constexpr (direction)
