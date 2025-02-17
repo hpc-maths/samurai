@@ -122,7 +122,7 @@ namespace samurai
             double right_factor             = 0;
             double cell_length              = 0; // cell length at the level where the flux is computed
             std::size_t n_fine_fluxes       = 0; // number of fluxes at max_level to sum up together, or 1 if enable_max_level_flux=false
-            int n_children_at_max_level     = 0; // number of children at max_level of one cell at the current level
+            int n_children_at_max_level     = 0; // number of 1D children at max_level of one cell at the current level
             std::size_t coarse_stencil_size = 0; // number of cells at the current level used to predict the required values at max_level
 
             void set_level(std::size_t l)
@@ -145,6 +145,23 @@ namespace samurai
             for (std::size_t s = 0; s < stencil_size; ++s)
             {
                 stencil_values[s] = field[cells[s]];
+            }
+        }
+
+        inline void predict_value(cfg::input_field_t::local_data_type& predicted_value,
+                                  const input_field_t& field,
+                                  const std::size_t level,
+                                  const cell_indices_t& coarse_cell_indices,
+                                  const std::size_t delta_l,
+                                  const cell_indices_t& fine_cell_indices)
+        {
+            if constexpr (field_size == 1)
+            {
+                predicted_value = portion(field, level, coarse_cell_indices, delta_l, fine_cell_indices)[0];
+            }
+            else
+            {
+                predicted_value = portion(field, level, coarse_cell_indices, delta_l, fine_cell_indices);
             }
         }
 
@@ -220,11 +237,12 @@ namespace samurai
 
                             for (std::size_t s = 0; s < static_cast<std::size_t>(n_values_to_compute); ++s)
                             {
-                                stencil_values_list[fine_flux_index][index_in_stencil - s] = portion(field,
-                                                                                                     flux_params.level,
-                                                                                                     left_coarse_cell_indices,
-                                                                                                     flux_params.delta_l,
-                                                                                                     left_fine_cell_indices)[0];
+                                predict_value(stencil_values_list[fine_flux_index][index_in_stencil - s],
+                                              field,
+                                              flux_params.level,
+                                              left_coarse_cell_indices,
+                                              flux_params.delta_l,
+                                              left_fine_cell_indices);
                                 left_fine_cell_indices[flux_direction]--;
                             }
 
@@ -234,11 +252,12 @@ namespace samurai
 
                             for (std::size_t s = 0; s < static_cast<std::size_t>(n_values_to_compute); ++s)
                             {
-                                stencil_values_list[fine_flux_index][index_in_stencil + s] = portion(field,
-                                                                                                     flux_params.level,
-                                                                                                     right_coarse_cell_indices,
-                                                                                                     flux_params.delta_l,
-                                                                                                     right_fine_cell_indices)[0];
+                                predict_value(stencil_values_list[fine_flux_index][index_in_stencil + s],
+                                              field,
+                                              flux_params.level,
+                                              right_coarse_cell_indices,
+                                              flux_params.delta_l,
+                                              right_fine_cell_indices);
                                 right_fine_cell_indices[flux_direction]++;
                             }
 
