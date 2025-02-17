@@ -163,7 +163,7 @@ jobs:
               with:
                   environment-file: conda/environment.yml
                   environment-name: samurai-env
-                  cache-environment: true
+                  cache-environment: false
 
             - name: Petsc installation
               shell: bash -l {0}
