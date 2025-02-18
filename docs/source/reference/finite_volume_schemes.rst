@@ -920,11 +920,12 @@ The associated code yields
                 return f_v;
             };
 
-            f_h[d].cons_flux_function = [f](auto& cells, const Field& u)
+            f_h[d].cons_flux_function = [f](samurai::FluxValue<cfg>& flux, const samurai::StencilData<cfg>& data, const samurai::StencilValues<cfg>& u)
             {
-                auto& L = cells[0];
-                auto& R = cells[1];
-                return (f(u[L]) + f(u[R])) / 2;
+                static constexpr std::size_t L = 0;
+                static constexpr std::size_t R = 1;
+
+                flux = (f(u[L]) + f(u[R])) / 2;
             };
         });
 
@@ -1001,19 +1002,21 @@ We choose the upwind scheme, and implement:
     samurai::FluxDefinition<cfg> upwind_f;
 
     // x-direction
-    upwind_f[0].cons_flux_function = [f_x](auto& cells, const Field& u)
+    upwind_f[0].cons_flux_function = [f_x](samurai::FluxValue<cfg>& flux, const samurai::StencilData<cfg>& data, const samurai::StencilValues<cfg>& u)
     {
-        auto& L = cells[0]; // left
-        auto& R = cells[1]; // right
-        return u[L](0) >= 0 ? f_x(u[L]) : f_x(u[R]);
+        static constexpr std::size_t L = 0; // left
+        static constexpr std::size_t R = 1; // right
+
+        flux = u[L](0) >= 0 ? f_x(u[L]) : f_x(u[R]);
     };
 
     // y-direction
-    upwind_f[1].cons_flux_function = [f_y](auto& cells, const Field& u)
+    upwind_f[1].cons_flux_function = [f_y](samurai::FluxValue<cfg>& flux, const samurai::StencilData<cfg>& data, const samurai::StencilValues<cfg>& u)
     {
-        auto& B = cells[0]; // bottom
-        auto& T = cells[1]; // top
-        return u[B](1) >= 0 ? f_y(u[B]) : f_y(u[T]);
+        static constexpr std::size_t B = 0; // bottom
+        static constexpr std::size_t T = 1; // top
+
+        flux = u[B](1) >= 0 ? f_y(u[B]) : f_y(u[T]);
     };
 
     return samurai::make_flux_based_scheme(upwind_f);
@@ -1039,11 +1042,12 @@ where :math:`u_d` is the :math:`d`-th component of :math:`\mathbf{u}`, the code 
                 return u(d) * u;
             };
 
-            upwind_f[d].cons_flux_function = [f_d](auto& cells, const Field& u)
+            upwind_f[d].cons_flux_function = [f_d](samurai::FluxValue<cfg>& flux, const samurai::StencilData<cfg>& data, const samurai::StencilValues<cfg>& u)
             {
-                auto& L = cells[0];
-                auto& R = cells[1];
-                return u[L](d) >= 0 ? f_d(u[L]) : f_d(u[R]);
+                static constexpr std::size_t L = 0;
+                static constexpr std::size_t R = 1;
+
+                flux = u[L](d) >= 0 ? f_d(u[L]) : f_d(u[R]);
             };
         });
 
@@ -1086,33 +1090,20 @@ The signature is the same as :code:`flux_function`, except that it returns two v
 
     samurai::FluxDefinition<cfg> my_flux;
 
-    my_flux[0].flux_function = [](auto& cells, const Field& u)
+    my_flux[0].flux_function = [](samurai::FluxValuePair<cfg>& flux, const samurai::StencilData<cfg>& data, const samurai::StencilValues<cfg>& u)
                                {
-                                   samurai::FluxValuePair<cfg> flux;
                                    flux[0] = ...; // left --> right (direction '+')
                                    flux[1] = ...; // right --> left (direction '-')
-                                   return flux;
-                               };
-
-Alternatively, you can also write
-
-.. code-block:: c++
-
-    my_flux[0].flux_function = [](auto& cells, const Field& u) -> samurai::FluxValuePair<cfg>
-                               {
-                                   samurai::FluxValue<cfg> fluxLR = ...; // left --> right (direction '+')
-                                   samurai::FluxValue<cfg> fluxRL = ...; // right --> left (direction '-')
-                                   return {fluxLR, fluxRL};
                                };
 
 For instance, conservativity can be enforced by
 
 .. code-block:: c++
 
-    my_flux[0].flux_function = [](auto& cells, const Field& u) -> samurai::FluxValuePair<cfg>
+    my_flux[0].flux_function = [](samurai::FluxValuePair<cfg>& flux, const samurai::StencilData<cfg>& data, const samurai::StencilValues<cfg>& u)
                                {
-                                   samurai::FluxValue<cfg> flux = ...;
-                                   return {flux, -flux};
+                                   flux[0] = ...;
+                                   flux[1] = -flux[0];
                                };
 
 Available implementations

@@ -58,4 +58,7 @@ target_link_libraries(finite-volume-linear-convection samurai CLI11::CLI11)
 add_executable(finite-volume-burgers burgers.cpp)
 target_link_libraries(finite-volume-burgers samurai CLI11::CLI11)
 
+add_executable(finite-volume-burgers-mra burgers_mra.cpp)
+target_link_libraries(finite-volume-burgers-mra samurai CLI11::CLI11)
+
 # add_subdirectory(BZ)

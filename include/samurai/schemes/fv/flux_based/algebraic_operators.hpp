@@ -37,16 +37,19 @@ namespace samurai
                     {
                         if (scheme.flux_definition()[d].cons_flux_function)
                         {
-                            multiplied_scheme.flux_definition()[d].cons_flux_function = [=](auto& cells, const auto& field) -> FluxValue<cfg>
+                            multiplied_scheme.flux_definition()[d].cons_flux_function = [=](auto& flux, const auto& data, const auto& field)
                             {
-                                return scalar * scheme.flux_definition()[d].cons_flux_function(cells, field);
+                                scheme.flux_definition()[d].cons_flux_function(flux, data, field);
+                                flux *= scalar;
                             };
                         }
                         if (scheme.flux_definition()[d].flux_function)
                         {
-                            multiplied_scheme.flux_definition()[d].flux_function = [=](auto& cells, const auto& field) -> FluxValuePair<cfg>
+                            multiplied_scheme.flux_definition()[d].flux_function =
+                                [=](auto& flux_value_pair, const auto& data, const auto& field)
                             {
-                                return scalar * scheme.flux_definition()[d].flux_function(cells, field);
+                                scheme.flux_definition()[d].flux_function(flux_value_pair, data, field);
+                                flux_value_pair *= scalar;
                             };
                         }
                         if (scheme.flux_definition()[d].cons_jacobian_function)

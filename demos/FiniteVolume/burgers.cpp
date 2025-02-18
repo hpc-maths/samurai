@@ -4,7 +4,6 @@
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
-#include <samurai/reconstruction.hpp>
 #include <samurai/samurai.hpp>
 #include <samurai/schemes/fv.hpp>
 
@@ -44,7 +43,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 template <std::size_t dim, std::size_t field_size>
 int main_dim(int argc, char* argv[])
 {
-    auto& app = samurai::initialize("Finite volume example for the heat equation in 1d", argc, argv);
+    auto& app = samurai::initialize("Finite volume example for the Burgers equation", argc, argv);
 
     using Config  = samurai::MRConfig<dim, 3>;
     using Box     = samurai::Box<double, dim>;

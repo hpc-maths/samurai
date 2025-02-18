@@ -1,5 +1,7 @@
 #pragma once
+#include "../../../arguments.hpp"
 #include "../../../interface.hpp"
+#include "../../../reconstruction.hpp"
 #include "../../explicit_scheme.hpp"
 #include "../FV_scheme.hpp"
 #include "flux_definition.hpp"
@@ -18,6 +20,12 @@ namespace samurai
     auto make_flux_based_scheme(const FluxDefinition<cfg>& flux_definition)
     {
         using bdry_cfg = BoundaryConfigFV<cfg::stencil_size / 2>;
+
+        if (args::enable_max_level_flux && cfg::dim > 1 && cfg::stencil_size > 4) // cppcheck-suppress knownConditionTrueFalse
+        {
+            std::cout << "Warning: for stencils larger than 4, computing fluxes at max_level may cause issues close to the boundary."
+                      << std::endl;
+        }
 
         return FluxBasedScheme<cfg, bdry_cfg>(flux_definition);
     }

@@ -609,6 +609,18 @@ namespace samurai
             {
                 // cppcheck-suppress useStlAlgorithm
                 result += kv.second * f(level, i + kv.first[0], j + kv.first[1]);
+#ifdef SAMURAI_CHECK_NAN
+                if (xt::any(xt::isnan(f(level, i + kv.first[0], j + kv.first[1]))))
+                {
+                    if (i.size() == 1)
+                    {
+                        auto cell = f.mesh().get_cell(level, i.start + kv.first[0], j + kv.first[1]);
+                        std::cerr << "NaN detected in [" << cell << "] when trying to predict a value at level " << (level + delta_l)
+                                  << ". NaN in position {" << kv.first[0] << "," << kv.first[1] << "} of the prediction stencil."
+                                  << std::endl;
+                    }
+                }
+#endif
             }
             return result;
         }
@@ -1042,6 +1054,52 @@ namespace samurai
                  const typename Field::interval_t& kk)
     {
         return detail::portion_impl<prediction_order>(f, level, i, j, k, delta_l, ii, jj, kk);
+    }
+
+    // N-D
+    template <class Field>
+    auto portion(const Field& f,
+                 std::size_t level,
+                 const typename Field::cell_t::indices_t& src_indices,
+                 std::size_t delta_l,
+                 const typename Field::cell_t::indices_t& dst_indices)
+    {
+        static constexpr std::size_t dim = Field::dim;
+        static_assert(dim <= 3, "Not implemented for dim > 3");
+
+        typename Field::interval_t src_i{src_indices[0], src_indices[0] + 1};
+        if (dim == 1)
+        {
+            assert(dst_indices[0] <= (1 << delta_l));
+            return detail::portion_impl<Field::mesh_t::config::prediction_order>(f, level, src_i, delta_l, dst_indices[0]);
+        }
+        else if (dim == 2)
+        {
+            assert(dst_indices[0] <= (1 << delta_l));
+            assert(dst_indices[1] <= (1 << delta_l));
+            return detail::portion_impl<Field::mesh_t::config::prediction_order>(f,
+                                                                                 level,
+                                                                                 src_i,
+                                                                                 src_indices[1],
+                                                                                 delta_l,
+                                                                                 dst_indices[0],
+                                                                                 dst_indices[1]);
+        }
+        else if (dim == 3)
+        {
+            assert(dst_indices[0] <= (1 << delta_l));
+            assert(dst_indices[1] <= (1 << delta_l));
+            assert(dst_indices[3] <= (1 << delta_l));
+            return detail::portion_impl<Field::mesh_t::config::prediction_order>(f,
+                                                                                 level,
+                                                                                 src_i,
+                                                                                 src_indices[1],
+                                                                                 src_indices[2],
+                                                                                 delta_l,
+                                                                                 dst_indices[0],
+                                                                                 dst_indices[1],
+                                                                                 dst_indices[2]);
+        }
     }
 
     template <class Field_src, class Field_dst>

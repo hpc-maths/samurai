@@ -59,17 +59,18 @@ auto make_nonlinear_diffusion()
         {
             static constexpr std::size_t d = integral_constant_d();
 
-            flux[d].cons_flux_function = [](auto& cells, const Field& u)
+            flux[d].cons_flux_function =
+                [](samurai::FluxValue<cfg>& flux, const samurai::StencilData<cfg>& data, const samurai::StencilValues<cfg>& u)
             {
-                auto& L = cells[0];
-                auto& R = cells[1];
-                auto dx = L.length;
+                static constexpr std::size_t L = 0;
+                static constexpr std::size_t R = 1;
+
+                auto dx = data.cell_length;
 
                 auto _u     = (u[L] + u[R]) / 2;
                 auto grad_u = (u[L] - u[R]) / dx;
 
-                samurai::FluxValue<cfg> f = _u * grad_u; // (1)
-                return f;
+                flux = _u * grad_u; // (1)
             };
 
             flux[d].cons_jacobian_function = [](auto& cells, const Field& u)

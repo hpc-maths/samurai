@@ -98,6 +98,7 @@ namespace samurai
             using interval_value_t              = typename interval_t::value_t;
             using cell_t                        = Cell<dim, interval_t>;
             using data_type                     = field_data_storage_t<value_t, 1>;
+            using local_data_type               = local_field_data_t<value_t, 1>;
             using size_type                     = typename data_type::size_type;
             static constexpr auto static_layout = data_type::static_layout;
 
@@ -140,7 +141,7 @@ namespace samurai
                     for (decltype(interval_tmp.index) i = interval_tmp.index + interval.start; i < interval_tmp.index + interval.end;
                          i += interval.step)
                     {
-                        if (std::isnan(this->derived_cast().m_data[static_cast<std::size_t>(i)]))
+                        if (std::isnan(this->derived_cast().m_storage.data()[static_cast<std::size_t>(i)]))
                         {
                             // std::cerr << "READ NaN at level " << level << ", in interval " << interval << std::endl;
                             auto ii   = i - interval_tmp.index;
@@ -179,11 +180,11 @@ namespace samurai
                     for (decltype(interval_tmp.index) i = interval_tmp.index + interval.start; i < interval_tmp.index + interval.end;
                          i += interval.step)
                     {
-                        if (std::isnan(this->derived_cast().m_data[static_cast<std::size_t>(i)]))
+                        if (std::isnan(this->derived_cast().m_storage.data()[static_cast<std::size_t>(i)]))
                         {
                             // std::cerr << "READ NaN at level " << level << ", in interval " << interval << std::endl;
                             auto ii   = i - interval_tmp.index;
-                            auto cell = this->derived_cast().mesh().get_cell(level, static_cast<int>(ii), index...);
+                            auto cell = this->derived_cast().mesh().get_cell(level, static_cast<int>(ii), index);
                             std::cerr << "READ NaN in " << cell << std::endl;
                             break;
                         }
@@ -199,7 +200,7 @@ namespace samurai
 #ifdef SAMURAI_CHECK_NAN
                 if constexpr (std::is_floating_point_v<value_t>)
                 {
-                    this->derived_cast().m_data.fill(std::nan(""));
+                    this->derived_cast().m_storage.data().fill(std::nan(""));
                 }
 #endif
             }
@@ -216,6 +217,7 @@ namespace samurai
             using index_t                    = typename interval_t::index_t;
             using cell_t                     = Cell<dim, interval_t>;
             using data_type                  = field_data_storage_t<value_t, size, SOA>;
+            using local_data_type            = local_field_data_t<value_t, size, SOA>;
             using size_type                  = typename data_type::size_type;
 
             static constexpr auto static_layout = data_type::static_layout;
@@ -319,7 +321,7 @@ namespace samurai
             {
                 m_storage.resize(static_cast<size_type>(this->derived_cast().mesh().nb_cells()));
 #ifdef SAMURAI_CHECK_NAN
-                this->derived_cast().m_data.fill(std::nan(""));
+                m_storage.data().fill(std::nan(""));
 #endif
             }
 
@@ -341,10 +343,11 @@ namespace samurai
         using inner_mesh_t = inner_mesh_type<mesh_t_>;
         using mesh_t       = mesh_t_;
 
-        using value_type  = value_t;
-        using inner_types = detail::inner_field_types<Field<mesh_t, value_t, size_, SOA>>;
-        using data_type   = typename inner_types::data_type::container_t;
-        using size_type   = typename inner_types::size_type;
+        using value_type      = value_t;
+        using inner_types     = detail::inner_field_types<Field<mesh_t, value_t, size_, SOA>>;
+        using data_type       = typename inner_types::data_type::container_t;
+        using local_data_type = typename inner_types::local_data_type;
+        using size_type       = typename inner_types::size_type;
         using inner_types::operator();
         using bc_container = std::vector<std::unique_ptr<Bc<Field>>>;
 
