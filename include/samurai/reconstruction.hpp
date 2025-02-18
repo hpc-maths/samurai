@@ -609,6 +609,18 @@ namespace samurai
             {
                 // cppcheck-suppress useStlAlgorithm
                 result += kv.second * f(level, i + kv.first[0], j + kv.first[1]);
+#ifdef SAMURAI_CHECK_NAN
+                if (xt::any(xt::isnan(f(level, i + kv.first[0], j + kv.first[1]))))
+                {
+                    if (i.size() == 1)
+                    {
+                        auto cell = f.mesh().get_cell(level, i.start + kv.first[0], j + kv.first[1]);
+                        std::cerr << "NaN detected in [" << cell << "] when trying to predict a value at level " << (level + delta_l)
+                                  << ". NaN in position {" << kv.first[0] << "," << kv.first[1] << "} of the prediction stencil."
+                                  << std::endl;
+                    }
+                }
+#endif
             }
             return result;
         }
