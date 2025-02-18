@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../../storage/containers.hpp"
+#include "batch.hpp"
 
 namespace samurai
 {

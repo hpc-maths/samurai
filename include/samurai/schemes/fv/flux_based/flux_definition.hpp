@@ -65,6 +65,22 @@ namespace samurai
     template <class cfg>
     using StencilJacobianPair = StdArrayWrapper<StencilJacobian<cfg>, 2>;
 
+    template <class cfg>
+    using StencilValuesBatch = ArrayBatch<typename cfg::input_field_t::local_data_type, cfg::stencil_size>;
+
+    template <class cfg>
+    struct BatchData
+    {
+        using cell_t = typename cfg::input_field_t::cell_t;
+
+        std::size_t batch_size;
+        double cell_length;
+        void* temp_variables;
+
+        ArrayBatch<cell_t, 2> interfaces;
+        ArrayBatch<cell_t, cfg::stencil_size> comput_stencils;
+    };
+
     /**
      * Specialization of @class NormalFluxDefinition.
      * Defines how to compute a NON-LINEAR normal flux.
@@ -73,14 +89,45 @@ namespace samurai
     struct NormalFluxDefinition<cfg, std::enable_if_t<cfg::scheme_type == SchemeType::NonLinear>> : NormalFluxDefinitionBase<cfg>
     {
         using field_t = typename cfg::input_field_t;
+        using cell_t  = typename field_t::cell_t;
 
-        using stencil_cells_t = StencilCells<cfg>;
+        using field_data_view_t = decltype(std::declval<field_t>()(
+            std::declval<std::size_t>(),
+            std::declval<typename field_t::interval_t>(),
+            std::declval<xt::xtensor_fixed<typename field_t::interval_value_t, xt::xshape<field_t::dim - 1>>>()));
 
+        using stencil_cells_t                 = StencilCells<cfg>;
+        using stencil_cells_batch_t           = ArrayBatch<cell_t, cfg::stencil_size>;
+        using stencil_values_batch_t          = StencilValuesBatch<cfg>; // ArrayBatch<typename field_t::value_type, cfg::stencil_size>;
+        using stencil_values_interval_batch_t = std::vector<field_data_view_t>;
+        using flux_values_batch_t             = Batch<FluxValue<cfg>>;
+
+        // using context_t = StencilValuesBatch<cfg>;
+        using temp_variables_t = void*;
+
+        //--------------------------//
+        // User function signatures //
+        //--------------------------//
+
+        // ------ Fluxes computed 1 by 1
         using flux_func      = std::function<FluxValuePair<cfg>(stencil_cells_t&, const field_t&)>; // non-conservative
         using cons_flux_func = std::function<FluxValue<cfg>(stencil_cells_t&, const field_t&)>;     // conservative
 
         using jacobian_func      = std::function<StencilJacobianPair<cfg>(stencil_cells_t&, const field_t&)>; // non-conservative
         using cons_jacobian_func = std::function<StencilJacobian<cfg>(stencil_cells_t&, const field_t&)>;     // conservative
+
+        // ------ Fluxes computed by batches
+        using cons_flux_func__batch_copies_func = std::function<
+            void(const BatchData<cfg>&, flux_values_batch_t&, const stencil_values_batch_t&)>; // conservative
+        using cons_flux_func__batch_views_func = std::function<
+            void(const BatchData<cfg>&, flux_values_batch_t&, const stencil_values_interval_batch_t&)>; // conservative
+        using create_temp_variables_func = std::function<temp_variables_t()>;
+
+        //-----------------------//
+        // Stored user functions //
+        //-----------------------//
+
+        // ------ Fluxes computed 1 by 1
 
         /**
          * Conservative flux function:
@@ -97,6 +144,23 @@ namespace samurai
 
         cons_jacobian_func cons_jacobian_function = nullptr;
         jacobian_func jacobian_function           = nullptr;
+
+        // ------ Fluxes computed by batches
+
+        cons_flux_func__batch_copies_func cons_flux_function__batch_copies = nullptr;
+        cons_flux_func__batch_views_func cons_flux_function__batch_views   = nullptr;
+        create_temp_variables_func create_temp_variables                   = nullptr;
+
+        template <class Func>
+        void set_cons_flux_function__batch(Func&& f)
+        {
+            cons_flux_function__batch_copies = f;
+            cons_flux_function__batch_views  = f;
+        }
+
+        //--------------------------------------------------//
+        // Conversion from conservative to non-conservative //
+        //--------------------------------------------------//
 
         /**
          * @returns the non-conservative flux function that calls the conservative one.
