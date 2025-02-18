@@ -39,11 +39,11 @@ namespace samurai
         static constexpr ::xt::layout_type xtensor_layout_v = xtensor_layout<L>::value;
     }
 
-    template <class value_t, std::size_t size, bool SOA = false>
+    template <class value_t, std::size_t size_, bool SOA = false>
     struct xtensor_container
     {
         static constexpr layout_type static_layout = SAMURAI_DEFAULT_LAYOUT;
-        using container_t                          = xt::xtensor<value_t, (size == 1) ? 1 : 2, detail::xtensor_layout_v<static_layout>>;
+        using container_t                          = xt::xtensor<value_t, (size_ == 1) ? 1 : 2, detail::xtensor_layout_v<static_layout>>;
         using size_type                            = std::size_t;
 
         xtensor_container() = default;
@@ -64,23 +64,38 @@ namespace samurai
             return m_data;
         }
 
+        std::size_t size() const
+        {
+            return m_data.size();
+        }
+
         void resize(std::size_t dynamic_size)
         {
-            if constexpr (size == 1)
+            if constexpr (size_ == 1)
             {
                 m_data.resize({dynamic_size});
             }
             else
             {
-                if constexpr (detail::static_size_first_v<size, SOA, static_layout>)
+                if constexpr (detail::static_size_first_v<size_, SOA, static_layout>)
                 {
-                    m_data.resize({size, dynamic_size});
+                    m_data.resize({size_, dynamic_size});
                 }
                 else
                 {
-                    m_data.resize({dynamic_size, size});
+                    m_data.resize({dynamic_size, size_});
                 }
             }
+        }
+
+        inline auto& operator[](std::size_t i)
+        {
+            return m_data[i];
+        }
+
+        inline const auto& operator[](std::size_t i) const
+        {
+            return m_data[i];
         }
 
       private:
