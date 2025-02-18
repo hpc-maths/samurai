@@ -5,6 +5,7 @@
 
 #include "../algorithm/graduation.hpp"
 #include "../algorithm/update.hpp"
+#include "../arguments.hpp"
 #include "../boundary.hpp"
 #include "../field.hpp"
 #include "../hdf5.hpp"
