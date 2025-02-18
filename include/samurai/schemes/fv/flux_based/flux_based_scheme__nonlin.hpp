@@ -148,7 +148,7 @@ namespace samurai
             }
         }
 
-        inline void predict_value(cfg::input_field_t::local_data_type& predicted_value,
+        inline void predict_value(typename cfg::input_field_t::local_data_type& predicted_value,
                                   const input_field_t& field,
                                   const std::size_t level,
                                   const cell_indices_t& coarse_cell_indices,
