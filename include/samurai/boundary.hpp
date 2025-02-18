@@ -4,7 +4,7 @@
 namespace samurai
 {
     template <class Mesh, class Vector>
-    auto boundary(const Mesh& mesh, std::size_t level, const Vector& direction)
+    auto boundary_layer(const Mesh& mesh, std::size_t level, const Vector& direction, std::size_t layer_width)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
 
@@ -12,9 +12,24 @@ namespace samurai
         auto& domain = mesh.subdomain();
 
         auto max_level    = domain.level(); // domain.level();//mesh[mesh_id_t::cells].max_level();
-        auto one_interval = 1 << (max_level - level);
+        auto one_interval = layer_width << (max_level - level);
 
         return difference(cells, translate(domain, -one_interval * direction)).on(level);
+    }
+
+    template <class Mesh, class Vector>
+    auto boundary(const Mesh& mesh, std::size_t level, const Vector& direction)
+    {
+        // using mesh_id_t = typename Mesh::mesh_id_t;
+
+        // auto& cells  = mesh[mesh_id_t::cells][level];
+        // auto& domain = mesh.subdomain();
+
+        // auto max_level    = domain.level(); // domain.level();//mesh[mesh_id_t::cells].max_level();
+        // auto one_interval = 1 << (max_level - level);
+
+        // return difference(cells, translate(domain, -one_interval * direction)).on(level);
+        return boundary_layer(mesh, level, direction, 1);
     }
 
     template <class Mesh, class Subset, std::size_t stencil_size, class GetCoeffsFunc, class Func>
