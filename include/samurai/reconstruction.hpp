@@ -1075,8 +1075,8 @@ namespace samurai
         }
         else if (dim == 2)
         {
-            assert(dst_indices[0] <= (1 << (1 << delta_l)));
-            assert(dst_indices[1] <= (1 << (1 << delta_l)));
+            assert(dst_indices[0] <= (1 << delta_l));
+            assert(dst_indices[1] <= (1 << delta_l));
             return detail::portion_impl<Field::mesh_t::config::prediction_order>(f,
                                                                                  level,
                                                                                  src_i,
