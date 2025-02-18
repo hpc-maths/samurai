@@ -275,7 +275,7 @@ namespace samurai
             update_tag_subdomains(level, m_tag, true);
         }
 
-        if (args::refine_boundary)
+        if (args::refine_boundary) // cppcheck-suppress knownConditionTrueFalse
         {
             keep_boundary_refined(mesh, m_tag);
         }
