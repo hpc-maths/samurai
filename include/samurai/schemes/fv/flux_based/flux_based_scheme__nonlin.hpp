@@ -69,7 +69,7 @@ namespace samurai
 
         void enable_max_level_flux(bool enable)
         {
-            if (enable && dim > 1 && stencil_size > 4)
+            if (enable && dim > 1 && stencil_size > 4 && !args::refine_boundary)
             {
                 std::cout << "Warning: for stencils larger than 4, computing fluxes at max_level may cause issues close to the boundary."
                           << std::endl;
