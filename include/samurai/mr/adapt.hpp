@@ -5,6 +5,8 @@
 
 #include "../algorithm/graduation.hpp"
 #include "../algorithm/update.hpp"
+#include "../arguments.hpp"
+#include "../boundary.hpp"
 #include "../field.hpp"
 #include "../hdf5.hpp"
 #include "../static_algorithm.hpp"
@@ -194,6 +196,37 @@ namespace samurai
         }
     }
 
+    template <class Mesh>
+    void keep_boundary_refined(const Mesh& mesh, Field<Mesh, int, 1>& tag, const DirectionVector<Mesh::dim>& direction)
+    {
+        // Since the adaptation process starts at max_level, we just need to flag to `keep` the boundary cells at max_level only.
+        // There will never be boundary cells at lower levels.
+        auto bdry = boundary_layer(mesh, mesh.max_level(), direction, Mesh::config::max_stencil_width);
+        for_each_cell(mesh,
+                      bdry,
+                      [&](auto& cell)
+                      {
+                          tag[cell] = static_cast<int>(CellFlag::keep);
+                      });
+    }
+
+    template <class Mesh>
+    void keep_boundary_refined(const Mesh& mesh, Field<Mesh, int, 1>& tag)
+    {
+        constexpr std::size_t dim = Mesh::dim;
+
+        DirectionVector<dim> direction;
+        direction.fill(0);
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            direction(d) = 1;
+            keep_boundary_refined(mesh, tag, direction);
+            direction(d) = -1;
+            keep_boundary_refined(mesh, tag, direction);
+            direction(d) = 0;
+        }
+    }
+
     template <bool enlarge_, class TField, class... TFields>
     template <class... Fields>
     bool Adapt<enlarge_, TField, TFields...>::harten(std::size_t ite, double eps, double regularity, Fields&... other_fields)
@@ -240,6 +273,11 @@ namespace samurai
                                            (pow(2.0, regularity_to_use)) * eps_l,
                                            max_level)); // Refinement according to Harten
             update_tag_subdomains(level, m_tag, true);
+        }
+
+        if (args::refine_boundary) // cppcheck-suppress knownConditionTrueFalse
+        {
+            keep_boundary_refined(mesh, m_tag);
         }
 
         for (std::size_t level = min_level; level <= max_level - ite; ++level)
