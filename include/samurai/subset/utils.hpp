@@ -65,5 +65,5 @@ namespace samurai
     };
 
     template <class... S>
-    constexpr std::size_t get_set_dim_v = get_set_dim<S...>::value;
+    constexpr std::size_t get_set_dim_v = get_set_dim<std::decay_t<S>...>::value;
 }

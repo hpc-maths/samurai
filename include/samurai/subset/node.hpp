@@ -92,7 +92,7 @@ namespace samurai
         set_type m_s;
     };
 
-    struct IntersectionOp : public detail::IntervalInfo
+    struct IntersectionOp
     {
         bool is_in(auto scan, const auto&... args) const
         {
@@ -105,7 +105,7 @@ namespace samurai
         }
     };
 
-    struct UnionOp : public detail::IntervalInfo
+    struct UnionOp
     {
         bool is_in(auto scan, const auto&... args) const
         {
@@ -118,7 +118,7 @@ namespace samurai
         }
     };
 
-    struct DifferenceOp : public detail::IntervalInfo
+    struct DifferenceOp
     {
         bool is_in(auto scan, const auto& arg, const auto&... args) const
         {
@@ -131,16 +131,27 @@ namespace samurai
         }
     };
 
-    template <std::size_t dim>
-    class TranslationOp
+    template <std::size_t d, class operator_t>
+    auto get_operator(const operator_t& op)
     {
-      public:
+        return op;
+    }
 
-        TranslationOp(const xt::xtensor_fixed<int, xt::xshape<dim>>& t)
-            : m_t(t)
+    template <std::size_t d>
+    auto get_operator(const DifferenceOp& op)
+    {
+        if constexpr (d == 1)
         {
+            return op;
         }
+        else
+        {
+            return UnionOp();
+        }
+    }
 
+    struct TranslationOp
+    {
         bool is_in(auto scan, const auto& arg) const
         {
             return arg.is_in(scan);
@@ -150,15 +161,6 @@ namespace samurai
         {
             return arg.is_empty();
         }
-
-        inline auto get_func(auto level, auto min_level, auto max_level, auto d) const
-        {
-            return start_end_translate_function(level, min_level, max_level, m_t[d]);
-        }
-
-      private:
-
-        xt::xtensor_fixed<int, xt::xshape<dim>> m_t;
     };
 
     template <class Op, class StartEndOp, class... S>
@@ -213,21 +215,27 @@ namespace samurai
             apply(*this, func);
         }
 
-        template <std::size_t d, class Func_start, class Func_end>
-        auto get_local_set(int level, xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index, Func_start&& start_fct, Func_end&& end_fct)
+        template <std::size_t d, class Func_start, class Func_end, class Func_goback>
+        auto get_local_set(int level,
+                           xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index,
+                           Func_start&& start_fct,
+                           Func_end&& end_fct,
+                           Func_goback&& goback_fct)
         {
-            int shift      = this->ref_level() - this->level();
-            m_start_end_op = m_operator.get_func(m_level, m_min_level, m_ref_level, d);
+            int shift = this->ref_level() - this->level();
+            m_start_end_op(m_level, m_min_level, m_ref_level);
 
             return std::apply(
-                [this, &index, shift, level, &start_fct, &end_fct](auto&&... args)
+                [this, &index, shift, level, &start_fct, &end_fct, &goback_fct](auto&&... args)
                 {
-                    return SetOp(shift,
-                                 m_operator,
-                                 args.template get_local_set<d>(level,
-                                                                index,
-                                                                m_start_end_op.start(std::forward<Func_start>(start_fct)),
-                                                                m_start_end_op.end(std::forward<Func_end>(end_fct)))...);
+                    return SetOp(
+                        shift,
+                        get_operator<d>(m_operator),
+                        args.template get_local_set<d>(level,
+                                                       index,
+                                                       m_start_end_op.template start<d>(std::forward<Func_start>(start_fct)),
+                                                       m_start_end_op.template end<d>(std::forward<Func_end>(end_fct)),
+                                                       m_start_end_op.template goback<d + 1>(std::forward<Func_goback>(goback_fct)))...);
                 },
                 m_s);
         }
@@ -235,7 +243,7 @@ namespace samurai
         template <std::size_t d>
         auto get_local_set(int level, xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index)
         {
-            return get_local_set<d>(level, index, default_function(), default_function());
+            return get_local_set<d>(level, index, default_function(), default_function(), default_function());
         }
 
         int level() const
@@ -285,23 +293,24 @@ namespace samurai
         {
         }
 
-        template <std::size_t d, class Func_start, class Func_end>
-        auto get_local_set(int level, xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index, Func_start&& start_fct, Func_end&& end_fct)
+        template <std::size_t d, class Func_start, class Func_end, class Func_goback>
+        auto get_local_set(int level,
+                           xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index,
+                           Func_start&& start_fct,
+                           Func_end&& end_fct,
+                           Func_goback&& goback_fct)
         {
-            m_func             = start_end_function(m_level, m_min_level, m_ref_level);
-            auto new_start_fct = m_func.start(std::forward<Func_start>(start_fct));
-            auto new_end_fct   = m_func.end(std::forward<Func_end>(end_fct));
+            m_func(m_level, m_min_level, m_ref_level);
+            auto new_start_fct = m_func.template start<d>(std::forward<Func_start>(start_fct));
+            auto new_end_fct   = m_func.template end<d>(std::forward<Func_end>(end_fct));
+
+            if (m_lca[d - 1].empty())
+            {
+                return IntervalVector(IntervalIterator(m_lca[d - 1], 0, 0));
+            }
 
             if constexpr (dim == d)
             {
-                if (m_lca[d - 1].empty())
-                {
-                    // return IntervalVector<offset_it_t>();
-                    return IntervalVector(IntervalIterator(m_lca[d - 1], 0, 0));
-                }
-                // auto begin = offset_it_t(m_lca[d - 1].begin(), m_lca[d - 1].end());
-                // auto end   = offset_it_t(m_lca[d - 1].end(), m_lca[d - 1].end());
-                // return IntervalVector<offset_it_t>(m_lca.level(), m_level, m_min_level, m_ref_level, begin, end);
                 return IntervalVector(m_lca.level(),
                                       m_level,
                                       m_ref_level,
@@ -309,137 +318,185 @@ namespace samurai
                                       new_start_fct,
                                       new_end_fct);
             }
-            // else
-            // {
-            //     if (static_cast<std::size_t>(level) >= m_lca.level())
-            //     {
-            //         auto current_index = index[d - 1] >> (static_cast<std::size_t>(level) - m_lca.level());
-            //         auto j             = samurai::find_on_dim(m_lca, d, 0, m_lca[d].size(), current_index);
+            else
+            {
+                if (m_lca[d].empty())
+                {
+                    return IntervalVector(IntervalIterator(m_lca[d - 1], 0, 0));
+                }
 
-            //         std::cout << "j " << j << std::endl;
-            //         if (j == std::numeric_limits<std::size_t>::max())
-            //         {
-            //             return IntervalVector<interval_t>();
-            //         }
+                auto new_goback_fct = m_func.template goback<d + 1>(std::forward<Func_goback>(goback_fct));
 
-            //         // std::cout << "j " << j << " index: " << m_lca[d][j].index << " " << current_index << std::endl;
-            //         auto io       = static_cast<std::size_t>(m_lca[d][j].index + current_index);
-            //         auto& offsets = m_lca.offsets(d);
-            //         // std::cout << io << " " << offsets[io] << " " << offsets[io + 1] << std::endl;
-            //         auto begin = offset_it_t(m_lca[d - 1].begin() + static_cast<std::ptrdiff_t>(offsets[io]),
-            //                                  m_lca[d - 1].begin() + static_cast<std::ptrdiff_t>(offsets[io + 1]));
-            //         auto end   = offset_it_t(m_lca[d - 1].begin() + static_cast<std::ptrdiff_t>(offsets[io + 1]),
-            //                                m_lca[d - 1].begin() + static_cast<std::ptrdiff_t>(offsets[io + 1]));
-            //         return IntervalVector<offset_it_t>(m_lca.level(), m_level, m_min_level, m_ref_level, begin, end);
-            //     }
-            //     else
-            //     {
-            //         std::cout << index[d - 1] << std::endl;
-            //         auto min_index = index[d - 1] << (m_lca.level() - static_cast<std::size_t>(level));
-            //         auto max_index = (index[d - 1] + 1) << (m_lca.level() - static_cast<std::size_t>(level));
+                if (static_cast<std::size_t>(level) >= m_lca.level())
+                {
+                    // auto current_index     = index[d - 1] >> (static_cast<std::size_t>(level) - m_lca.level());
+                    // auto new_current_index = start_shift(new_goback_fct(level, index[d - 1]), static_cast<int>(m_lca.level()) - m_level);
+                    // std::cout << "current_index " << current_index << " new_current_index " << new_current_index << std::endl;
+                    auto current_index = start_shift(new_goback_fct(m_level, index[d - 1]), static_cast<int>(m_lca.level()) - m_level);
+                    auto j             = find_on_dim(m_lca, d, 0, m_lca[d].size(), current_index);
 
-            //         auto comp = [](const auto& interval, auto v)
-            //         {
-            //             return interval.end < v;
-            //         };
+                    // std::cout << "j " << j << std::endl;
+                    if (j == std::numeric_limits<std::size_t>::max())
+                    {
+                        return IntervalVector(IntervalIterator(m_lca[d - 1], 0, 0));
+                    }
 
-            //         auto j_min = std::lower_bound(m_lca[d].begin(), m_lca[d].end(), min_index, comp);
-            //         auto j_max = std::lower_bound(j_min, m_lca[d].end(), max_index, comp);
+                    // std::cout << "j " << j << " index: " << m_lca[d][j] << " " << current_index << std::endl;
+                    auto io       = static_cast<std::size_t>(m_lca[d][j].index + current_index);
+                    auto& offsets = m_lca.offsets(d);
+                    // std::cout << io << " " << offsets[io] << " " << offsets[io + 1] << std::endl;
+                    // std::cout << "i intervals " << std::endl;
+                    // for (std::size_t ii = offsets[io]; ii < offsets[io + 1]; ++ii)
+                    // {
+                    //     std::cout << m_lca[d - 1][ii] << std::endl;
+                    // }
+                    // std::cout << std::endl;
+                    return IntervalVector(
+                        m_lca.level(),
+                        m_level,
+                        m_ref_level,
+                        IntervalIterator(m_lca[d - 1], static_cast<std::ptrdiff_t>(offsets[io]), static_cast<std::ptrdiff_t>(offsets[io + 1])),
+                        new_start_fct,
+                        new_end_fct);
+                }
+                else
+                {
+                    // std::cout << "Try to find " << index[d - 1] << std::endl;
+                    // auto min_index = index[d - 1] << (m_lca.level() - static_cast<std::size_t>(level));
+                    // auto max_index = (index[d - 1] + 1) << (m_lca.level() - static_cast<std::size_t>(level));
 
-            //         std::cout << min_index << " " << max_index << std::endl;
-            //         if (j_min != m_lca[d].end())
-            //         {
-            //             // std::cout << *j_min << " " << *j_max << std::endl;
-            //             std::size_t start_offset = 0;
-            //             auto ii                  = min_index;
-            //             do
-            //             {
-            //                 if (j_min->contains(ii))
-            //                 {
-            //                     start_offset = static_cast<std::size_t>(j_min->index + ii);
-            //                     break;
-            //                 }
-            //                 ii++;
-            //             } while (ii < max_index);
+                    // int tmp_lvl    = static_cast<int>(m_level);
+                    // auto min_index = goback_fct(tmp_lvl, index[d - 1]);
+                    // tmp_lvl        = static_cast<int>(m_level);
+                    // auto max_index = goback_fct(tmp_lvl, index[d - 1] + 1);
 
-            //             std::size_t end_offset = 0;
-            //             ii                     = max_index;
-            //             do
-            //             {
-            //                 if (j_max->contains(ii - 1))
-            //                 {
-            //                     end_offset = static_cast<std::size_t>(j_max->index + ii);
-            //                     break;
-            //                 }
-            //                 ii--;
-            //             } while (ii > min_index);
-            //             // std::cout << "offset " << start_offset << " " << end_offset << std::endl;
+                    auto min_index = start_shift(new_goback_fct(m_level, index[d - 1]), static_cast<int>(m_lca.level()) - m_level);
+                    auto max_index = start_shift(new_goback_fct(m_level, index[d - 1] + 1), static_cast<int>(m_lca.level()) - m_level);
 
-            //             std::vector<iterator_t> obegin(end_offset - start_offset);
-            //             std::vector<iterator_t> oend(end_offset - start_offset);
-            //             for (std::size_t o = start_offset; o < end_offset; ++o)
-            //             {
-            //                 obegin.emplace_back(m_lca[d - 1].cbegin() + static_cast<std::ptrdiff_t>(m_lca.offsets(d)[o]));
-            //                 oend.emplace_back(m_lca[d - 1].cbegin() + static_cast<std::ptrdiff_t>(m_lca.offsets(d)[o + 1]));
-            //             }
+                    // auto comp = [](const auto& interval, auto v)
+                    auto comp = [](auto v, const auto& interval)
+                    {
+                        // std::cout << "interval in comp " << interval << " " << v << " " << std::boolalpha << (interval.end < v) <<
+                        // std::endl;
+                        return (interval.end > v && v >= interval.start);
+                    };
 
-            //             std::vector<interval_t> intervals;
+                    auto j_min = std::upper_bound(m_lca[d].begin(), m_lca[d].end(), min_index, comp);
+                    auto j_max = std::upper_bound(j_min, m_lca[d].end(), max_index, comp);
 
-            //             auto start_v = std::numeric_limits<value_t>::max();
-            //             auto end_v   = std::numeric_limits<value_t>::min();
+                    if (j_max == m_lca[d].end())
+                    {
+                        j_max--;
+                    }
+                    // std::cout << min_index << " " << max_index << std::endl;
+                    // std::cout << "found intervals in j " << m_lca[d].size() << std::endl;
+                    // std::cout << *j_min << " " << *j_max << std::endl;
+                    // std::cout << std::endl;
 
-            //             while (obegin != oend)
-            //             {
-            //                 for (std::size_t i = 0; i < obegin.size(); ++i)
-            //                 {
-            //                     if (obegin[i] != oend[i])
-            //                     {
-            //                         if (start_v >= obegin[i]->start)
-            //                         {
-            //                             start_v = obegin[i]->start;
-            //                             end_v   = std::max(end_v, obegin[i]->end);
-            //                             obegin[i]++;
-            //                         }
-            //                     }
-            //                 }
+                    if (j_min != m_lca[d].end())
+                    {
+                        // std::cout << *j_min << " " << *j_max << std::endl;
+                        std::size_t start_offset = std::numeric_limits<std::size_t>::max();
+                        auto ii                  = min_index;
+                        do
+                        {
+                            if (j_min->contains(ii))
+                            {
+                                start_offset = static_cast<std::size_t>(j_min->index + ii);
+                                break;
+                            }
+                            ii++;
+                        } while (ii < max_index);
 
-            //                 bool unchanged = false;
-            //                 while (!unchanged)
-            //                 {
-            //                     unchanged = true;
-            //                     for (std::size_t i = 0; i < obegin.size(); ++i)
-            //                     {
-            //                         if (obegin[i] != oend[i] && obegin[i]->start <= end_v)
-            //                         {
-            //                             end_v = std::max(end_v, obegin[i]->end);
-            //                             obegin[i]++;
-            //                             unchanged = false;
-            //                         }
-            //                     }
-            //                 }
+                        if (start_offset == std::numeric_limits<std::size_t>::max())
+                        {
+                            return IntervalVector(IntervalIterator(m_lca[d - 1], 0, 0));
+                        }
 
-            //                 intervals.emplace_back({start_v, end_v});
-            //             }
+                        std::size_t end_offset = 0;
+                        ii                     = max_index;
+                        do
+                        {
+                            if (j_max->contains(ii - 1))
+                            {
+                                end_offset = static_cast<std::size_t>(j_max->index + ii);
+                                break;
+                            }
+                            ii--;
+                        } while (ii > min_index);
+                        // std::cout << "offset " << start_offset << " " << end_offset << std::endl;
 
-            //             for (auto& i : intervals)
-            //             {
-            //                 std::cout << i << std::endl;
-            //             }
+                        using iterator_t = decltype(m_lca[d - 1].cbegin());
+                        std::vector<iterator_t> obegin(end_offset - start_offset);
+                        std::vector<iterator_t> oend(end_offset - start_offset);
+                        for (std::size_t o = start_offset; o < end_offset; ++o)
+                        {
+                            obegin.emplace_back(m_lca[d - 1].cbegin() + static_cast<std::ptrdiff_t>(m_lca.offsets(d)[o]));
+                            oend.emplace_back(m_lca[d - 1].cbegin() + static_cast<std::ptrdiff_t>(m_lca.offsets(d)[o + 1]));
+                        }
 
-            //             auto begin = offset_it_t(obegin, oend);
-            //             auto end   = offset_it_t(oend, oend);
-            //             return IntervalVector<offset_it_t>(m_lca.level(), m_level, m_ref_level, begin, end);
-            //         }
-            //         return IntervalVector<offset_it_t>();
-            //     }
-            // }
+                        std::vector<interval_t> intervals;
+
+                        while (obegin != oend)
+                        {
+                            auto start_v = std::numeric_limits<value_t>::max();
+                            auto end_v   = std::numeric_limits<value_t>::min();
+
+                            for (std::size_t i = 0; i < obegin.size(); ++i)
+                            {
+                                if (obegin[i] != oend[i])
+                                {
+                                    if (start_v >= obegin[i]->start)
+                                    {
+                                        start_v = obegin[i]->start;
+                                        end_v   = std::max(end_v, obegin[i]->end);
+                                        obegin[i]++;
+                                    }
+                                }
+                            }
+
+                            bool unchanged = false;
+                            while (!unchanged)
+                            {
+                                unchanged = true;
+                                for (std::size_t i = 0; i < obegin.size(); ++i)
+                                {
+                                    if (obegin[i] != oend[i] && obegin[i]->start <= end_v)
+                                    {
+                                        end_v = std::max(end_v, obegin[i]->end);
+                                        obegin[i]++;
+                                        unchanged = false;
+                                    }
+                                }
+                            }
+
+                            intervals.push_back({start_v, end_v});
+                        }
+
+                        // std::cout << "new intervals" << std::endl;
+                        // for (auto& i : intervals)
+                        // {
+                        //     std::cout << i << std::endl;
+                        // }
+                        // std::cout << std::endl;
+
+                        return IntervalVector(m_lca.level(),
+                                              m_level,
+                                              m_ref_level,
+                                              IntervalIterator(m_lca[d - 1], std::move(intervals)),
+                                              new_start_fct,
+                                              new_end_fct);
+                    }
+                    return IntervalVector(IntervalIterator(m_lca[d - 1], 0, 0));
+                }
+            }
         }
 
         template <std::size_t d>
         auto get_local_set(int level, xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index)
 
         {
-            return get_local_set<d>(level, index, default_function(), default_function());
+            return get_local_set<d>(level, index, default_function(), default_function(), default_function());
         }
 
         auto ref_level() const
@@ -473,7 +530,7 @@ namespace samurai
         int m_level;
         int m_ref_level;
         int m_min_level;
-        start_end_function m_func;
+        start_end_function<dim> m_func;
     };
 
     namespace detail
@@ -500,10 +557,11 @@ namespace samurai
     template <class... sets_t>
     auto intersection(sets_t&&... sets)
     {
+        static constexpr std::size_t dim = get_set_dim_v<sets_t...>;
         return std::apply(
             [](auto&&... args)
             {
-                return subset(IntersectionOp(), start_end_function(), std::forward<decltype(args)>(args)...);
+                return subset(IntersectionOp(), start_end_function<dim>(), std::forward<decltype(args)>(args)...);
             },
             std::make_tuple(detail::transform(std::forward<sets_t>(sets))...));
     }
@@ -511,10 +569,11 @@ namespace samurai
     template <class... sets_t>
     auto union_(sets_t&&... sets)
     {
+        static constexpr std::size_t dim = get_set_dim_v<sets_t...>;
         return std::apply(
             [](auto&&... args)
             {
-                return subset(UnionOp(), start_end_function(), std::forward<decltype(args)>(args)...);
+                return subset(UnionOp(), start_end_function<dim>(), std::forward<decltype(args)>(args)...);
             },
             std::make_tuple(detail::transform(std::forward<sets_t>(sets))...));
     }
@@ -522,10 +581,11 @@ namespace samurai
     template <class... sets_t>
     auto difference(sets_t&&... sets)
     {
+        static constexpr std::size_t dim = get_set_dim_v<sets_t...>;
         return std::apply(
             [](auto&&... args)
             {
-                return subset(DifferenceOp(), start_end_function(), std::forward<decltype(args)>(args)...);
+                return subset(DifferenceOp(), start_end_function<dim>(), std::forward<decltype(args)>(args)...);
             },
             std::make_tuple(detail::transform(std::forward<sets_t>(sets))...));
     }
@@ -534,8 +594,8 @@ namespace samurai
     auto translate(set_t&& set, const stencil_t& stencil)
     {
         constexpr std::size_t dim = std::decay_t<set_t>::dim;
-        return subset(TranslationOp(xt::xtensor_fixed<int, xt::xshape<dim>>(stencil)),
-                      start_end_translate_function(),
+        return subset(TranslationOp(),
+                      start_end_translate_function<dim>(xt::xtensor_fixed<int, xt::xshape<dim>>(stencil)),
                       detail::transform(std::forward<set_t>(set)));
         // return subset(TranslationOp(xt::xtensor_fixed<int, xt::xshape<dim>>(stencil)), detail::transform(set));
     }

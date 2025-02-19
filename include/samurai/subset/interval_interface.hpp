@@ -5,12 +5,9 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <deque>
-#include <iterator>
 #include <limits>
-#include <memory>
 
-#include <xtl/xiterator_base.hpp>
+#include <xtensor/xfixed.hpp>
 
 #include "utils.hpp"
 
@@ -22,22 +19,25 @@ namespace samurai
     {
         return [](int, int i)
         {
+            // std::cout << "default value " << i << std::endl;
             return i;
         };
     }
 
+    template <std::size_t dim>
     struct start_end_function
     {
         start_end_function() = default;
 
-        start_end_function(int level, int min_level, int max_level)
-            : m_level(level)
-            , m_min_shift(min_level - max_level)
-            , m_max_shift(max_level - min_level)
+        auto& operator()(int level, int min_level, int max_level)
         {
+            m_level     = level;
+            m_min_shift = min_level - max_level;
+            m_max_shift = max_level - min_level;
+            return *this;
         }
 
-        template <class Func>
+        template <std::size_t, class Func>
         inline auto start(const Func& f) const
         {
             auto new_f = [&, f](int, int i) -> decltype(auto)
@@ -48,7 +48,7 @@ namespace samurai
             return new_f;
         }
 
-        template <class Func>
+        template <std::size_t, class Func>
         inline auto end(const Func& f) const
         {
             auto new_f = [&, f](int, int i) -> decltype(auto)
@@ -59,41 +59,77 @@ namespace samurai
             return new_f;
         }
 
+        template <std::size_t, class Func>
+        inline auto goback(const Func& f) const
+        {
+            auto new_f = [&, f](int level, int i) -> decltype(auto)
+            {
+                // std::cout << "go_back previous i: " << i << std::endl;
+                // std::cout << "previous level: " << level << " current level: " << m_level << std::endl;
+                i = start_shift(f(m_level, i), level - m_level);
+                // std::cout << " next i " << i << std::endl << std::endl;
+                return i;
+            };
+            return new_f;
+        }
+
         int m_level;
         int m_min_shift;
         int m_max_shift;
     };
 
+    template <std::size_t dim>
     struct start_end_translate_function
     {
-        start_end_translate_function() = default;
+        using container_t = xt::xtensor_fixed<int, xt::xshape<dim>>;
 
-        start_end_translate_function(int level, int min_level, int max_level, int t)
-            : m_level(level)
-            , m_min_level(min_level)
-            , m_max_level(max_level)
-            , m_t(t)
+        start_end_translate_function(const container_t& t)
+            : m_t(t)
         {
         }
 
-        template <class Func>
+        auto& operator()(int level, int min_level, int max_level)
+        {
+            m_level     = level;
+            m_min_level = min_level;
+            m_max_level = max_level;
+            return *this;
+        }
+
+        template <std::size_t d, class Func>
         inline auto start(const Func& f) const
         {
             auto new_f = [&, f](int level, int i) -> decltype(auto)
             {
-                i = start_shift(start_shift(start_shift(i, level - m_max_level) + m_t, m_min_level - level), m_max_level - m_min_level);
+                i = start_shift(start_shift(start_shift(i, level - m_max_level) + m_t[d - 1], m_min_level - level),
+                                m_max_level - m_min_level);
                 return f(m_level, i);
             };
             return new_f;
         }
 
-        template <class Func>
+        template <std::size_t d, class Func>
         inline auto end(const Func& f) const
         {
             auto new_f = [&, f](int level, int i) -> decltype(auto)
             {
-                i = end_shift(end_shift(end_shift(i, level - m_max_level) + m_t, m_min_level - level), m_max_level - m_min_level);
+                i = end_shift(end_shift(end_shift(i, level - m_max_level) + m_t[d - 1], m_min_level - level), m_max_level - m_min_level);
                 return f(m_level, i);
+            };
+            return new_f;
+        }
+
+        template <std::size_t d, class Func>
+        inline auto goback(const Func& f) const
+        {
+            auto new_f = [&, f](int level, int i) -> decltype(auto)
+            {
+                // std::cout << "go_back translate previous i: " << i << " translation: " << m_t[d - 1] << " "
+                //           << start_shift(m_t[d - 1], m_level - level) << std::endl;
+                // std::cout << "previous level: " << level << " current level: " << m_level << std::endl;
+                i = start_shift(f(m_level, i - start_shift(m_t[d - 1], m_level - level)), level - m_level);
+                // std::cout << " translate next i " << i << std::endl << std::endl;
+                return i;
             };
             return new_f;
         }
@@ -101,21 +137,8 @@ namespace samurai
         int m_level;
         int m_min_level;
         int m_max_level;
-        int m_t;
+        xt::xtensor_fixed<int, xt::xshape<dim>> m_t;
     };
-
-    namespace detail
-
-    {
-        struct IntervalInfo
-        {
-            inline auto get_func(auto level, auto min_level, auto max_level, auto)
-            {
-                return start_end_function(level, min_level, max_level);
-            }
-        };
-
-    } // namespace detail
 
     template <class container_>
     class IntervalIterator
@@ -133,14 +156,22 @@ namespace samurai
         {
         }
 
+        IntervalIterator(const container_t& data, container_t&& w)
+            : m_data(data)
+            , m_start(0)
+            , m_end(0)
+            , m_work(std::move(w))
+        {
+        }
+
         auto begin()
         {
-            return m_data.cbegin() + m_start;
+            return (m_work.empty()) ? m_data.cbegin() + m_start : m_work.cbegin();
         }
 
         auto end()
         {
-            return m_data.cbegin() + m_end;
+            return (m_work.empty()) ? m_data.cbegin() + m_end : m_work.cend();
         }
 
       private:
@@ -227,6 +258,7 @@ namespace samurai
             if (m_current == std::numeric_limits<value_t>::min())
             {
                 m_current = start(m_first);
+                // std::cout << "first start " << m_current << std::endl;
                 return;
             }
 
@@ -241,8 +273,8 @@ namespace samurai
                         m_first++;
                         m_current = end(m_first);
                         // std::cout << "update end in while loop: " << m_current << std::endl;
-                        // std::cout << "next start: " << start(iop.start_op(m_lca_level, m_first + 1)) << std::boolalpha << " "
-                        //           << (m_first + 1 != m_last) << std::endl;
+                        // std::cout << "next start: " << start(m_first + 1) << std::boolalpha << " " << (m_first + 1 != m_last) <<
+                        // std::endl;
                     }
                     // std::cout << "update end: " << m_current << std::endl;
                 }
@@ -275,162 +307,4 @@ namespace samurai
         function_t m_start_fct;
         function_t m_end_fct;
     };
-
-    template <class const_iterator_t>
-    class offset_iterator
-    {
-      public:
-
-        static constexpr std::size_t max_size = 1;
-        using iterator_category               = std::forward_iterator_tag;
-        using const_iterator                  = const_iterator_t;
-        using value_type                      = typename const_iterator_t::value_type;
-        using const_reference                 = typename const_iterator_t::reference;
-        using pointer                         = typename const_iterator_t::pointer;
-        using const_pointer                   = const pointer;
-
-        offset_iterator()
-            : p_first({})
-            , p_last({})
-            , m_current({0, 0})
-            , m_size(0)
-        {
-        }
-
-        offset_iterator(const std::vector<const_iterator_t>& interval_it_begin, const std::vector<const_iterator_t>& interval_it_end)
-            : p_first(interval_it_begin)
-            , p_last(interval_it_end)
-            , m_current({0, 0})
-        {
-            if (p_first.size() != 1)
-            {
-                next();
-                // std::cout << "first m_current in iterator: " << m_current << std::endl;
-            }
-            else
-            {
-                m_current = (interval_it_begin == interval_it_end) ? value_type({0, 0}) : *interval_it_begin[0];
-            }
-        }
-
-        offset_iterator(const_iterator_t interval_it_begin, const_iterator_t interval_it_end)
-            : p_first({interval_it_begin})
-            , p_last({interval_it_end})
-            , m_current((interval_it_begin == interval_it_end) ? value_type({0, 0}) : *interval_it_begin)
-            , m_size(1)
-        {
-        }
-
-        void next()
-        {
-            if (m_size == 0)
-            {
-                return;
-            }
-            if (m_size == 1)
-            {
-                if (p_first[0] != p_last[0])
-                {
-                    p_first[0]++;
-                }
-                m_current = (p_first[0] != p_last[0]) ? *p_first[0] : value_type({0, 0});
-                return;
-            }
-
-            using value_t = typename value_type::value_t;
-
-            if (p_first != p_last)
-            {
-                auto start = std::numeric_limits<value_t>::max();
-                auto end   = std::numeric_limits<value_t>::min();
-
-                for (std::size_t i = 0; i < p_first.size(); ++i)
-                {
-                    if (p_first[i] != p_last[i])
-                    {
-                        if (start >= p_first[i]->start)
-                        {
-                            start = p_first[i]->start;
-                            end   = std::max(end, p_first[i]->end);
-                            p_first[i]++;
-                        }
-                    }
-                }
-
-                bool unchanged = false;
-                while (!unchanged)
-                {
-                    unchanged = true;
-                    for (std::size_t i = 0; i < p_first.size(); ++i)
-                    {
-                        if (p_first[i] != p_last[i] && p_first[i]->start <= end)
-                        {
-                            end = std::max(end, p_first[i]->end);
-                            p_first[i]++;
-                            unchanged = false;
-                        }
-                    }
-                }
-
-                m_current = {start, end};
-            }
-            else
-            {
-                m_current = {0, 0};
-            }
-        }
-
-        offset_iterator& operator++()
-        {
-            next();
-            return *this;
-        }
-
-        offset_iterator operator++(int)
-        {
-            offset_iterator temp = *this;
-            ++(*this);
-            return temp;
-        }
-
-        const_reference operator*() const
-        {
-            return m_current;
-        }
-
-        const_pointer operator->() const
-        {
-            return &m_current;
-        }
-
-        bool operator==(const offset_iterator& other) const
-        {
-            return p_first == other.p_first && m_current == other.m_current;
-        }
-
-        bool operator!=(const offset_iterator& other) const
-        {
-            return !(*this == other);
-        }
-
-      private:
-
-        // std::vector<const_iterator_t> p_first;
-        // std::vector<const_iterator_t> p_last;
-        std::array<const_iterator_t, max_size> p_first;
-        std::array<const_iterator_t, max_size> p_last;
-        value_type m_current;
-        std::size_t m_size;
-    };
-
-    template <class const_iterator_t>
-    auto operator+(const offset_iterator<const_iterator_t>& it, int i)
-    {
-        offset_iterator<const_iterator_t> temp = it;
-        for (int ii = 0; ii < i; ++ii)
-        {
-            temp++;
-        }
-        return temp;
-    }
 }
