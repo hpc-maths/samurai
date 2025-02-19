@@ -10,8 +10,11 @@ namespace samurai
         using value_t                    = typename Mesh::value_t;
 
         xt::xtensor_fixed<value_t, xt::xshape<dim>> coord;
-        std::copy(mesh_interval.index.cbegin(), mesh_interval.index.end(), coord.begin() + 1);
         coord[0] = mesh_interval.i.start;
+        for (std::size_t d = 1; d < dim; ++d)
+        {
+            coord[d] = mesh_interval.index[d - 1];
+        }
         return mesh.get_index(mesh_interval.level, coord);
     }
 
@@ -23,11 +26,10 @@ namespace samurai
         using value_t                    = typename Mesh::value_t;
 
         xt::xtensor_fixed<value_t, xt::xshape<dim>> coord;
-        std::copy(mesh_interval.index.cbegin(), mesh_interval.index.end(), coord.begin() + 1);
-        coord[0] = mesh_interval.i.start;
-        for (std::size_t d = 0; d < dim; ++d)
+        coord[0] = mesh_interval.i.start + translation_vect[0];
+        for (std::size_t d = 1; d < dim; ++d)
         {
-            coord[d] += translation_vect[d];
+            coord[d] = mesh_interval.index[d - 1] + translation_vect[d];
         }
         return mesh.get_index(mesh_interval.level, coord);
     }
