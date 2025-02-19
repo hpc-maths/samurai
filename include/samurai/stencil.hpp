@@ -636,8 +636,11 @@ namespace samurai
       public:
 
         static constexpr std::size_t dim = Mesh::dim;
-        using cell_t                     = Cell<dim, typename Mesh::interval_t>;
+        using interval_t                 = typename Mesh::interval_t;
+        using cell_t                     = Cell<dim, interval_t>;
         using mesh_interval_t            = typename Mesh::mesh_interval_t;
+        using interval_value_t           = typename interval_t::value_t;
+        using cell_index_t               = typename cell_t::index_t;
 
         static constexpr std::size_t coarse = index_coarse_cell;
         static constexpr std::size_t fine   = (index_coarse_cell + 1) % 2;
@@ -689,8 +692,8 @@ namespace samurai
             ++m_cells[fine].indices[0]; // increment x-coordinate
 
             // Move coarse cell only once every two iterations
-            m_cells[coarse].index += static_cast<std::size_t>(m_move_coarse_cell);
-            m_cells[coarse].indices[0] += static_cast<std::size_t>(m_move_coarse_cell);
+            m_cells[coarse].index += static_cast<cell_index_t>(m_move_coarse_cell);
+            m_cells[coarse].indices[0] += static_cast<interval_value_t>(m_move_coarse_cell);
             m_move_coarse_cell = !m_move_coarse_cell;
         }
     };
