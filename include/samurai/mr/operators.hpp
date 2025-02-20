@@ -123,10 +123,10 @@ namespace samurai
             apply_on_masked(!mask_coarsen,
                             [&](auto imask)
                             {
-                                field(level + 1, 2 * i, 2 * j)(imask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-                                field(level + 1, 2 * i + 1, 2 * j)(imask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-                                field(level + 1, 2 * i, 2 * j + 1)(imask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-                                field(level + 1, 2 * i + 1, 2 * j + 1)(imask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
+                                field(level + 1, 2 * i, 2 * j)(imask) &= ~static_cast<int>(CellFlag::coarsen);
+                                field(level + 1, 2 * i + 1, 2 * j)(imask) &= ~static_cast<int>(CellFlag::coarsen);
+                                field(level + 1, 2 * i, 2 * j + 1)(imask) &= ~static_cast<int>(CellFlag::coarsen);
+                                field(level + 1, 2 * i + 1, 2 * j + 1)(imask) &= ~static_cast<int>(CellFlag::coarsen);
                             });
             apply_on_masked(field(level, i, j),
                             mask_coarsen,
@@ -174,14 +174,14 @@ namespace samurai
             apply_on_masked(!mask2,
                             [&](auto imask)
                             {
-                                field(level + 1, 2 * i, 2 * j, 2 * k)(imask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-                                field(level + 1, 2 * i + 1, 2 * j, 2 * k)(imask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-                                field(level + 1, 2 * i, 2 * j + 1, 2 * k)(imask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-                                field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k)(imask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-                                field(level + 1, 2 * i, 2 * j, 2 * k + 1)(imask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-                                field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1)(imask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-                                field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1)(imask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-                                field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1)(imask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
+                                field(level + 1, 2 * i, 2 * j, 2 * k)(imask) &= ~static_cast<int>(CellFlag::coarsen);
+                                field(level + 1, 2 * i + 1, 2 * j, 2 * k)(imask) &= ~static_cast<int>(CellFlag::coarsen);
+                                field(level + 1, 2 * i, 2 * j + 1, 2 * k)(imask) &= ~static_cast<int>(CellFlag::coarsen);
+                                field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k)(imask) &= ~static_cast<int>(CellFlag::coarsen);
+                                field(level + 1, 2 * i, 2 * j, 2 * k + 1)(imask) &= ~static_cast<int>(CellFlag::coarsen);
+                                field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1)(imask) &= ~static_cast<int>(CellFlag::coarsen);
+                                field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1)(imask) &= ~static_cast<int>(CellFlag::coarsen);
+                                field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1)(imask) &= ~static_cast<int>(CellFlag::coarsen);
                             });
 
             apply_on_masked(field(level, i, j, k),
