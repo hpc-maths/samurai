@@ -9,9 +9,18 @@
 
 namespace samurai
 {
+		template<typename T, size_t size, T value>
+		constexpr std::array<T, size> make_const_array() 
+		{
+			std::array<T, size> temp{};
+			for (int i =0;i<size;++i) { temp[i] = value; }
+			return temp;
+		}
+	
     // Static loop with boundaries known at compile time
     namespace detail
     {
+			
         template <std::size_t nloops, int start, int end, int step, class Func>
         inline void
         static_nested_loop_impl(Func&& f, xt::xtensor_fixed<int, xt::xshape<nloops>>& index, std::integral_constant<std::size_t, nloops>)
@@ -32,7 +41,43 @@ namespace samurai
                                                                   std::integral_constant<std::size_t, iloop + 1>{});
             }
         }
+        
+			template<size_t nloops, size_t iloop, int start, int end, int step=1>
+			struct StaticNestedForLoop
+			{
+				static_assert(nloops >= iloop, "invalid nested for loop");
+				
+				template<typename Func, typename index_type>
+				inline static void run(Func&& func, index_type& index)
+				{					
+					if constexpr (nloops == iloop) { func(index); }
+					else
+					{
+						for (index[iloop]=start; index[iloop] < end; ++index[iloop])
+						{
+							StaticNestedForLoop<nloops,iloop+1,start,end,step>::run(std::forward<Func>(func), index);
+						}
+					}
+				}
+			};
+        
     } // namespace detail
+    
+    template<size_t nloops, int start, int end, int step, class Func>
+    inline void staticNestedForLoop(Func&& func)
+    {
+			//xt::xtensor_fixed<int, xt::xshape<nloops>> index;
+			std::array<int, nloops> index;
+			detail::StaticNestedForLoop<nloops, 0, start, end, step>::run(std::forward<Func>(func), index);
+		}
+		
+    template<size_t nloops, int start, int end, class Func>
+    inline void staticNestedForLoop(Func&& func)
+    {
+			//xt::xtensor_fixed<int, xt::xshape<nloops>> index;
+			std::array<int, nloops> index;
+			detail::StaticNestedForLoop<nloops, 0, start, end, 1>::run(std::forward<Func>(func), index);
+		}
 
     template <std::size_t nloops, int start, int end, int step, class Func>
     inline void static_nested_loop(Func&& f)
@@ -48,6 +93,22 @@ namespace samurai
         xt::xtensor_fixed<int, xt::xshape<nloops>> index;
 
         detail::static_nested_loop_impl<nloops, start, end, 1>(std::forward<Func>(f), index, std::integral_constant<std::size_t, 0>{});
+    }
+    
+    template <std::size_t nloops, std::array<int,nloops> start, std::array<int,nloops> end, std::array<int,nloops> step, class Func>
+    inline void static_nested_loop(Func&& f)
+    {
+        std::array<int,nloops> index{};
+
+				detail::StaticNestedForLoop<nloops,start,end,step>::run(f, index);
+    }
+    
+    template <std::size_t nloops, std::array<int,nloops> start, std::array<int,nloops> end, class Func>
+    inline void static_nested_loop(Func&& f)
+    {
+        std::array<int,nloops> index{};
+
+				detail::StaticNestedForLoop<nloops,start,end,make_const_array<int,nloops,1>()>::run(f, index);
     }
 
     // Static loop with boundaries known at runtime

@@ -93,27 +93,28 @@ class MyFixture : public ::benchmark::Fixture
     samurai::CellArray<dim_> mesh;
 };
 
-BENCHMARK_TEMPLATE_DEFINE_F(MyFixture, Search_1D, 1, 1000)
-
-(benchmark::State& state)
-{
-    bench(state);
-}
-
-BENCHMARK_REGISTER_F(MyFixture, Search_1D)->DenseRange(1, 10, 1);
-
-BENCHMARK_TEMPLATE_DEFINE_F(MyFixture, Search_2D, 2, 10)
-
-(benchmark::State& state)
-{
-    bench(state);
-}
-
-BENCHMARK_REGISTER_F(MyFixture, Search_2D)->DenseRange(1, 10, 1);
-
-BENCHMARK_TEMPLATE_DEFINE_F(MyFixture, Search_3D, 3, 1)(benchmark::State& state)
-{
-    bench(state);
-}
-
-BENCHMARK_REGISTER_F(MyFixture, Search_3D)->DenseRange(1, 10, 1);
+//BENCHMARK_TEMPLATE_DEFINE_F(MyFixture, Search_1D, 1, 1000)
+//
+//(benchmark::State& state)
+//{
+//    bench(state);
+//}
+//
+//BENCHMARK_REGISTER_F(MyFixture, Search_1D)->DenseRange(1, 10, 1);
+//
+//BENCHMARK_TEMPLATE_DEFINE_F(MyFixture, Search_2D, 2, 10)
+//
+//(benchmark::State& state)
+//{
+//    bench(state);
+//}
+//
+//BENCHMARK_REGISTER_F(MyFixture, Search_2D)->DenseRange(1, 10, 1);
+//
+//BENCHMARK_TEMPLATE_DEFINE_F(MyFixture, Search_3D, 3, 1)(benchmark::State& state)
+//{
+//    bench(state);
+//}
+//
+//BENCHMARK_REGISTER_F(MyFixture, Search_3D)->DenseRange(1, 10, 1);
+//

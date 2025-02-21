@@ -267,7 +267,14 @@ namespace samurai
 
         if (with_update_index)
         {
-            update_index();
+            //update_index();
+					for (std::size_t level = 0; level <= max_size; ++level)
+					{
+						for (std::size_t d=0;d<dim;++d)
+						{ 
+							m_cells[level].update_index(d);
+						}
+					}
         }
     }
 

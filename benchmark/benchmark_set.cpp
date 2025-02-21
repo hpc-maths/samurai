@@ -130,9 +130,9 @@ static void BM_BigDomain(benchmark::State& state)
     }
 }
 
-BENCHMARK(BM_SetCreation);
-BENCHMARK(BM_SetOP);
-BENCHMARK(BM_SetCreationWithOn);
-BENCHMARK(BM_SetOPWithOn);
-BENCHMARK(BM_SetOPWithOn2);
-BENCHMARK(BM_BigDomain);
+//BENCHMARK(BM_SetCreation);
+//BENCHMARK(BM_SetOP);
+//BENCHMARK(BM_SetCreationWithOn);
+//BENCHMARK(BM_SetOPWithOn);
+//BENCHMARK(BM_SetOPWithOn2);
+//BENCHMARK(BM_BigDomain);

@@ -67,6 +67,7 @@ namespace samurai::amr
         using lca_type = typename base_type::lca_type;
 
         Mesh() = default;
+        Mesh(const ca_type& ca, const self_type& ref_mesh);
         Mesh(const cl_type& cl, const self_type& ref_mesh);
         Mesh(const cl_type& cl, std::size_t min_level, std::size_t max_level);
         Mesh(const ca_type& ca, std::size_t min_level, std::size_t max_level);
@@ -78,6 +79,12 @@ namespace samurai::amr
     /////////////////////////////
     // AMR mesh implementation //
     /////////////////////////////
+
+    template <class Config>
+    inline Mesh<Config>::Mesh(const ca_type& ca, const self_type& ref_mesh)
+        : base_type(ca, ref_mesh)
+    {
+    }
 
     template <class Config>
     inline Mesh<Config>::Mesh(const cl_type& cl, const self_type& ref_mesh)

@@ -5,6 +5,7 @@
 
 #include <samurai/cell_array.hpp>
 #include <samurai/cell_list.hpp>
+#include <samurai/hdf5.hpp>
 
 int main()
 {
@@ -124,6 +125,29 @@ int main()
 	ca[2].add_interval({14, 16}, {15});
 
 	std::cout << ca << std::endl;
+
+	//samurai::Hdf5_CellArray initial_hdf5("", "initial_mesh", {true, true}, ca);
+	//initial_hdf5.save();
+	
+	ca[0].remove_interval({1, 3}, {0});
+	ca[1].add_interval({2, 6}, {0});
+	ca[1].add_interval({2, 6}, {1});
+	
+	std::cout << ca << std::endl;
+	
+	//samurai::Hdf5_CellArray intermediate_hdf5("", "intermediate_mesh", {true, true}, ca);
+	//intermediate_hdf5.save();
+
+	ca[0].remove_interval({0, 4}, {2});
+	ca[2].add_interval({0, 16}, {8});
+	ca[2].add_interval({0, 16}, {9});
+	ca[2].add_interval({0, 16}, {10});
+	ca[2].add_interval({0, 16}, {11});
+	
+	std::cout << ca << std::endl;
+	
+	//samurai::Hdf5_CellArray final_hdf5("", "final_mesh", {true, true}, ca);
+	//final_hdf5.save();
 
 	return 0;
 }
