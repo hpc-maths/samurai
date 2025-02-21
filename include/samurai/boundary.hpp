@@ -4,12 +4,12 @@
 namespace samurai
 {
     template <class Mesh, class Vector>
-    auto boundary_layer(const Mesh& mesh, std::size_t level, const Vector& direction, std::size_t layer_width)
+    auto
+    boundary_layer(const Mesh& mesh, const typename Mesh::lca_type& domain, std::size_t level, const Vector& direction, std::size_t layer_width)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
 
-        auto& cells  = mesh[mesh_id_t::cells][level];
-        auto& domain = mesh.subdomain();
+        auto& cells = mesh[mesh_id_t::cells][level];
 
         auto max_level    = domain.level(); // domain.level();//mesh[mesh_id_t::cells].max_level();
         auto one_interval = layer_width << (max_level - level);
@@ -18,9 +18,27 @@ namespace samurai
     }
 
     template <class Mesh, class Vector>
-    auto boundary(const Mesh& mesh, std::size_t level, const Vector& direction)
+    inline auto domain_boundary_layer(const Mesh& mesh, std::size_t level, const Vector& direction, std::size_t layer_width)
     {
-        return boundary_layer(mesh, level, direction, 1);
+        return boundary_layer(mesh, mesh.domain(), level, direction, layer_width);
+    }
+
+    template <class Mesh, class Vector>
+    inline auto subdomain_boundary_layer(const Mesh& mesh, std::size_t level, const Vector& direction, std::size_t layer_width)
+    {
+        return boundary_layer(mesh, mesh.subdomain(), level, direction, layer_width);
+    }
+
+    template <class Mesh, class Vector>
+    inline auto domain_boundary(const Mesh& mesh, std::size_t level, const Vector& direction)
+    {
+        return domain_boundary_layer(mesh, level, direction, 1);
+    }
+
+    template <class Mesh, class Vector>
+    inline auto subdomain_boundary(const Mesh& mesh, std::size_t level, const Vector& direction)
+    {
+        return subdomain_boundary_layer(mesh, level, direction, 1);
     }
 
     template <class Mesh, class Subset, std::size_t stencil_size, class GetCoeffsFunc, class Func>
