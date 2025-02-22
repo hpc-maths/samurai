@@ -2,6 +2,7 @@ include(FindPkgConfig)
 pkg_check_modules(PETSC PETSc)
 
 if(PETSC_FOUND)
+    include_directories(${PETSC_INCLUDE_DIRS})
     find_package(MPI)
 
     add_executable(finite-volume-heat heat.cpp)
