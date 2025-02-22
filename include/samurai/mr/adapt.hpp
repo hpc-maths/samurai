@@ -201,7 +201,7 @@ namespace samurai
     {
         // Since the adaptation process starts at max_level, we just need to flag to `keep` the boundary cells at max_level only.
         // There will never be boundary cells at lower levels.
-        auto bdry = boundary_layer(mesh, mesh.max_level(), direction, Mesh::config::max_stencil_width);
+        auto bdry = domain_boundary_layer(mesh, mesh.max_level(), direction, Mesh::config::max_stencil_width);
         for_each_cell(mesh,
                       bdry,
                       [&](auto& cell)
