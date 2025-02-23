@@ -822,6 +822,14 @@ namespace samurai
                               const StencilAnalyzer<stencil_size, Field::dim>& stencil,
                               const Vector& direction)
     {
+        // if (subset.level() == 3)
+        // {
+        //     subset(
+        //         [&](auto& interval, auto& index)
+        //         {
+        //             std::cout << "interval: " << interval << " index: " << index << std::endl;
+        //         });
+        // }
         auto apply_bc = bc.get_apply_function(std::integral_constant<std::size_t, stencil_size>(), direction);
         if (bc.get_value_type() == BCVType::constant)
         {
@@ -882,6 +890,7 @@ namespace samurai
             }
             if (!is_periodic)
             {
+                // std::cout << "apply_bc_impl direction: " << direction[d] << std::endl;
                 bool is_cartesian_direction = is_cartesian(direction[d]);
 
                 if (is_cartesian_direction)
@@ -946,6 +955,39 @@ namespace samurai
             auto inner_cells_and_ghosts = intersection(potential_inner_cells_and_ghosts, mesh[mesh_id_t::reference][level]).on(level);
             auto inner_ghosts_with_outer_nghbr = difference(inner_cells_and_ghosts, bdry_cells).on(level);
 
+            // if (level == 3)
+            // {
+            //     bdry_cells(
+            //         [&](auto& interval, auto& index)
+            //         {
+            //             std::cout << "bdry_cells interval: " << interval << " index: " << index << std::endl;
+            //         });
+            //     subset.on(level)(
+            //         [&](auto& interval, auto& index)
+            //         {
+            //             std::cout << "subset on level interval: " << interval << " index: " << index << std::endl;
+            //         });
+            //     translated_outer_nghbr(
+            //         [&](auto& interval, auto& index)
+            //         {
+            //             std::cout << "translated_outer_nghbr interval: " << interval << " index: " << index << std::endl;
+            //         });
+            //     potential_inner_cells_and_ghosts(
+            //         [&](auto& interval, auto& index)
+            //         {
+            //             std::cout << "potential_inner_cells_and_ghosts interval: " << interval << " index: " << index << std::endl;
+            //         });
+            //     inner_cells_and_ghosts(
+            //         [&](auto& interval, auto& index)
+            //         {
+            //             std::cout << "inner_cells_and_ghosts interval: " << interval << " index: " << index << std::endl;
+            //         });
+            //     inner_ghosts_with_outer_nghbr(
+            //         [&](auto& interval, auto& index)
+            //         {
+            //             std::cout << "inner_ghosts_with_outer_nghbr interval: " << interval << " index: " << index << std::endl;
+            //         });
+            // }
             __apply_bc_on_subset(bc, field, inner_ghosts_with_outer_nghbr, stencil_analyzer, direction);
         }
     }
@@ -957,8 +999,8 @@ namespace samurai
 
         using direction_t = DirectionVector<dim>;
 
-        auto& domain = field.mesh().domain();
-        // auto one_interval = 1 << (domain.level() - level);
+        auto& domain      = field.mesh().domain();
+        auto one_interval = 1 << (domain.level() - level);
 
         static_nested_loop<dim, -1, 2>(
             [&](auto& dir)
@@ -978,10 +1020,9 @@ namespace samurai
                     }
                     if (!is_periodic)
                     {
-                        bool is_cartesian_direction = is_cartesian(dir);
+                        // std::cout << "apply_extrapolation_bc_impl direction: " << dir << std::endl;
 
-                        std::cout << "level: " << level << " direction: " << dir << " " << std::boolalpha << is_cartesian_direction << " "
-                                  << diagonals_only << std::endl;
+                        bool is_cartesian_direction = is_cartesian(dir);
 
                         if (!diagonals_only || !is_cartesian_direction)
                         {
@@ -995,12 +1036,20 @@ namespace samurai
                             {
                                 if constexpr (dim == 2)
                                 {
-                                    // auto subset = difference(domain,
-                                    //                          union_(translate(domain, one_interval * direction_t{-dir[0], 0}),
-                                    //                                 translate(domain, one_interval * direction_t{0, -dir[1]})));
-                                    auto subset = difference(self(domain).on(ilevel),
-                                                             union_(translate(self(domain).on(ilevel), direction_t{-dir[0], 0}),
-                                                                    translate(self(domain).on(ilevel), direction_t{0, -dir[1]})));
+                                    auto subset = difference(domain,
+                                                             union_(translate(domain, one_interval * direction_t{-dir[0], 0}),
+                                                                    translate(domain, one_interval * direction_t{0, -dir[1]})));
+                                    // auto subset = difference(self(domain).on(ilevel),
+                                    //                          union_(translate(self(domain).on(ilevel), direction_t{-dir[0], 0}),
+                                    //
+                                    // if (level == 3)
+                                    // {
+                                    //     subset(
+                                    //         [&](auto& interval, auto& index)
+                                    //         {
+                                    //             std::cout << "difference interval: " << interval << " index: " << index << std::endl;
+                                    //         });
+                                    // }
                                     __apply_extrapolation_bc_on_subset<stencil_size>(bc, level, field, dir, subset, only_fill_ghost_neighbours);
                                 }
                                 else if constexpr (dim == 3)

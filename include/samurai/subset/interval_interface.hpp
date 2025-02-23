@@ -127,7 +127,8 @@ namespace samurai
                 // std::cout << "go_back translate previous i: " << i << " translation: " << m_t[d - 1] << " "
                 //           << start_shift(m_t[d - 1], m_level - level) << std::endl;
                 // std::cout << "previous level: " << level << " current level: " << m_level << std::endl;
-                i = start_shift(f(m_level, i - start_shift(m_t[d - 1], m_level - level)), level - m_level);
+                // i = start_shift(f(m_level, i - start_shift(m_t[d - 1], m_level - level)), level - m_level);
+                i = start_shift(f(m_level, i), level - m_level) - m_t[d - 1];
                 // std::cout << " translate next i " << i << std::endl << std::endl;
                 return i;
             };
