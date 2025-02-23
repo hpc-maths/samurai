@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <algorithm>
+#include <iterator>
 #include <limits>
 
 // namespace samurai::experimental
@@ -66,4 +68,28 @@ namespace samurai
 
     template <class... S>
     constexpr std::size_t get_set_dim_v = get_set_dim<std::decay_t<S>...>::value;
+
+    template <class ForwardIt, class T = typename std::iterator_traits<ForwardIt>::value_type::value_type>
+    ForwardIt lower_bound_interval(ForwardIt begin, ForwardIt end, const T& value)
+    {
+        return std::lower_bound(begin,
+                                end,
+                                value,
+                                [](const auto& interval, auto v)
+                                {
+                                    return interval.end <= v;
+                                });
+    }
+
+    template <class ForwardIt, class T = typename std::iterator_traits<ForwardIt>::value_type::value_type>
+    ForwardIt upper_bound_interval(ForwardIt begin, ForwardIt end, const T& value)
+    {
+        return std::upper_bound(begin,
+                                end,
+                                value,
+                                [](auto v, const auto& interval)
+                                {
+                                    return v < interval.start;
+                                });
+    }
 }

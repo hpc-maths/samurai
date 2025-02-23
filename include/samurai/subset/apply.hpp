@@ -17,7 +17,7 @@ namespace samurai
         void apply_impl(Set&& global_set, Func&& func, Container& index)
         {
             auto set = global_set.template get_local_set<dim>(global_set.level(), index);
-
+            // std::cout << "perform dim: " << dim << " with index: " << index << std::endl;
             if constexpr (dim != 1)
             {
                 auto func_int = [&](auto& interval)
@@ -73,12 +73,16 @@ namespace samurai
             }
             else if (!is_in && r_ipos == 1)
             {
-                result.end       = scan;
-                r_ipos           = 0;
+                result.end = scan;
+                r_ipos     = 0;
+
                 auto true_result = set.shift() >= 0 ? result >> static_cast<std::size_t>(set.shift())
                                                     : result << -static_cast<std::size_t>(set.shift());
-                // std::cout << result << " " << set.shift() << " " << true_result << std::endl;
+                // if (true_result.is_valid())
+                // {
+                // std::cout << "found " << result << " " << set.shift() << " " << true_result << std::endl;
                 func(true_result);
+                // }
             }
 
             set.next(scan);

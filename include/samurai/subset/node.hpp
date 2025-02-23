@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <ios>
 #include <limits>
 #include <memory>
 #include <tuple>
@@ -16,6 +17,7 @@
 #include "../algorithm.hpp"
 #include "concepts.hpp"
 #include "interval_interface.hpp"
+#include "samurai/list_of_intervals.hpp"
 
 // namespace samurai::experimental
 namespace samurai
@@ -293,6 +295,12 @@ namespace samurai
         {
         }
 
+        template <class Func>
+        void operator()(Func&& func)
+        {
+            apply(*this, std::forward<Func>(func));
+        }
+
         template <std::size_t d, class Func_start, class Func_end, class Func_goback>
         auto get_local_set(int level,
                            xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index,
@@ -370,114 +378,168 @@ namespace samurai
                     // tmp_lvl        = static_cast<int>(m_level);
                     // auto max_index = goback_fct(tmp_lvl, index[d - 1] + 1);
 
+                    // std::cout << "index " << index[d - 1] << std::endl;
                     auto min_index = start_shift(new_goback_fct(m_level, index[d - 1]), static_cast<int>(m_lca.level()) - m_level);
                     auto max_index = start_shift(new_goback_fct(m_level, index[d - 1] + 1), static_cast<int>(m_lca.level()) - m_level);
 
-                    // auto comp = [](const auto& interval, auto v)
-                    auto comp = [](auto v, const auto& interval)
-                    {
-                        // std::cout << "interval in comp " << interval << " " << v << " " << std::boolalpha << (interval.end < v) <<
-                        // std::endl;
-                        return (interval.end > v && v >= interval.start);
-                    };
+                    // auto comp = [](auto v, const auto& interval)
+                    // {
+                    //     // std::cout << "interval in comp " << interval << " " << v << " " << std::boolalpha << (interval.end < v) <<
+                    //     // std::endl;
+                    //     return (interval.end > v && v >= interval.start);
+                    // };
 
-                    auto j_min = std::upper_bound(m_lca[d].begin(), m_lca[d].end(), min_index, comp);
-                    auto j_max = std::upper_bound(j_min, m_lca[d].end(), max_index, comp);
+                    // auto j_min = std::upper_bound(m_lca[d].begin(), m_lca[d].end(), min_index, comp);
+                    // auto j_max = std::upper_bound(j_min, m_lca[d].end(), max_index, comp);
 
-                    if (j_max == m_lca[d].end())
-                    {
-                        j_max--;
-                    }
-                    // std::cout << min_index << " " << max_index << std::endl;
-                    // std::cout << "found intervals in j " << m_lca[d].size() << std::endl;
-                    // std::cout << *j_min << " " << *j_max << std::endl;
+                    // if (j_max == m_lca[d].end())
+                    // {
+                    //     j_max--;
+                    // }
+
+                    // // std::cout << min_index << " " << max_index << std::endl;
+                    // // std::cout << "found intervals in j " << m_lca[d].size() << std::endl;
+                    // // std::cout << *j_min << " " << *j_max << std::endl;
+                    // // std::cout << std::endl;
+
+                    // if (j_min != m_lca[d].end())
+                    // {
+                    //     // std::cout << *j_min << " " << *j_max << std::endl;
+                    //     std::size_t start_offset = std::numeric_limits<std::size_t>::max();
+                    //     auto ii                  = min_index;
+                    //     do
+                    //     {
+                    //         if (j_min->contains(ii))
+                    //         {
+                    //             start_offset = static_cast<std::size_t>(j_min->index + ii);
+                    //             break;
+                    //         }
+                    //         ii++;
+                    //     } while (ii < max_index);
+
+                    //     if (start_offset == std::numeric_limits<std::size_t>::max())
+                    //     {
+                    //         return IntervalVector(IntervalIterator(m_lca[d - 1], 0, 0));
+                    //     }
+
+                    //     std::size_t end_offset = 0;
+                    //     ii                     = max_index;
+                    //     do
+                    //     {
+                    //         if (j_max->contains(ii - 1))
+                    //         {
+                    //             end_offset = static_cast<std::size_t>(j_max->index + ii);
+                    //             break;
+                    //         }
+                    //         ii--;
+                    //     } while (ii > min_index);
+                    //     // std::cout << "offset " << start_offset << " " << end_offset << std::endl;
+
+                    //     using iterator_t = decltype(m_lca[d - 1].cbegin());
+                    //     std::vector<iterator_t> obegin(end_offset - start_offset);
+                    //     std::vector<iterator_t> oend(end_offset - start_offset);
+                    //     for (std::size_t o = start_offset; o < end_offset; ++o)
+                    //     {
+                    //         obegin.emplace_back(m_lca[d - 1].cbegin() + static_cast<std::ptrdiff_t>(m_lca.offsets(d)[o]));
+                    //         oend.emplace_back(m_lca[d - 1].cbegin() + static_cast<std::ptrdiff_t>(m_lca.offsets(d)[o + 1]));
+                    //     }
+
+                    //     std::vector<interval_t> intervals;
+
+                    //     while (obegin != oend)
+                    //     {
+                    //         auto start_v = std::numeric_limits<value_t>::max();
+                    //         auto end_v   = std::numeric_limits<value_t>::min();
+
+                    //         for (std::size_t i = 0; i < obegin.size(); ++i)
+                    //         {
+                    //             if (obegin[i] != oend[i])
+                    //             {
+                    //                 if (start_v >= obegin[i]->start)
+                    //                 {
+                    //                     start_v = obegin[i]->start;
+                    //                     end_v   = std::max(end_v, obegin[i]->end);
+                    //                     obegin[i]++;
+                    //                 }
+                    //             }
+                    //         }
+
+                    //         bool unchanged = false;
+                    //         while (!unchanged)
+                    //         {
+                    //             unchanged = true;
+                    //             for (std::size_t i = 0; i < obegin.size(); ++i)
+                    //             {
+                    //                 if (obegin[i] != oend[i] && obegin[i]->start <= end_v)
+                    //                 {
+                    //                     end_v = std::max(end_v, obegin[i]->end);
+                    //                     obegin[i]++;
+                    //                     unchanged = false;
+                    //                 }
+                    //             }
+                    //         }
+
+                    //         intervals.push_back({start_v, end_v});
+                    //     }
+
+                    //     // std::cout << "new intervals" << std::endl;
+                    //     // for (auto& i : intervals)
+                    //     // {
+                    //     //     std::cout << i << std::endl;
+                    //     // }
+                    //     // std::cout << std::endl;
+
+                    //     return IntervalVector(m_lca.level(),
+                    //                           m_level,
+                    //                           m_ref_level,
+                    //                           IntervalIterator(m_lca[d - 1], std::move(intervals)),
+                    //                           new_start_fct,
+                    //                           new_end_fct);
+                    // }
+
+                    auto j_min = lower_bound_interval(m_lca[d].begin(), m_lca[d].end(), min_index);
+                    auto j_max = upper_bound_interval(j_min, m_lca[d].end(), max_index) - 1;
+
+                    // std::cout << "min_index: " << min_index << " max_index: " << max_index << std::endl;
+                    // std::cout << "j_min: " << *j_min << " j_max: " << *j_max << std::endl;
+                    // std::cout << std::endl;
                     // std::cout << std::endl;
 
-                    if (j_min != m_lca[d].end())
+                    // std::cout << std::boolalpha << (j_min == m_lca[d].end()) << std::endl;
+                    if (j_min != m_lca[d].end() && j_min <= j_max)
                     {
-                        // std::cout << *j_min << " " << *j_max << std::endl;
-                        std::size_t start_offset = std::numeric_limits<std::size_t>::max();
-                        auto ii                  = min_index;
-                        do
+                        auto start_offset = static_cast<std::size_t>(j_min->index + j_min->start);
+                        if (j_min->contains(min_index))
                         {
-                            if (j_min->contains(ii))
-                            {
-                                start_offset = static_cast<std::size_t>(j_min->index + ii);
-                                break;
-                            }
-                            ii++;
-                        } while (ii < max_index);
-
-                        if (start_offset == std::numeric_limits<std::size_t>::max())
-                        {
-                            return IntervalVector(IntervalIterator(m_lca[d - 1], 0, 0));
+                            start_offset = static_cast<std::size_t>(j_min->index + min_index);
                         }
 
-                        std::size_t end_offset = 0;
-                        ii                     = max_index;
-                        do
+                        auto end_offset = static_cast<std::size_t>(j_max->index + j_max->end);
+                        if (j_max->contains(max_index))
                         {
-                            if (j_max->contains(ii - 1))
-                            {
-                                end_offset = static_cast<std::size_t>(j_max->index + ii);
-                                break;
-                            }
-                            ii--;
-                        } while (ii > min_index);
-                        // std::cout << "offset " << start_offset << " " << end_offset << std::endl;
+                            end_offset = static_cast<std::size_t>(j_max->index + max_index);
+                        }
 
-                        using iterator_t = decltype(m_lca[d - 1].cbegin());
-                        std::vector<iterator_t> obegin(end_offset - start_offset);
-                        std::vector<iterator_t> oend(end_offset - start_offset);
+                        if (start_offset == end_offset)
+                        {
+                            end_offset++;
+                            // return IntervalVector(IntervalIterator(m_lca[d - 1], 0, 0));
+                        }
+                        start_offset = m_lca.offsets(d)[start_offset];
+                        end_offset   = m_lca.offsets(d)[end_offset];
+                        ListOfIntervals<value_t> list_of_intervals;
                         for (std::size_t o = start_offset; o < end_offset; ++o)
                         {
-                            obegin.emplace_back(m_lca[d - 1].cbegin() + static_cast<std::ptrdiff_t>(m_lca.offsets(d)[o]));
-                            oend.emplace_back(m_lca[d - 1].cbegin() + static_cast<std::ptrdiff_t>(m_lca.offsets(d)[o + 1]));
+                            list_of_intervals.add_interval(m_lca[d - 1][o]);
                         }
 
+                        // std::cout << "offset " << start_offset << " " << end_offset << std::endl;
                         std::vector<interval_t> intervals;
-
-                        while (obegin != oend)
+                        for (auto& i : list_of_intervals)
                         {
-                            auto start_v = std::numeric_limits<value_t>::max();
-                            auto end_v   = std::numeric_limits<value_t>::min();
-
-                            for (std::size_t i = 0; i < obegin.size(); ++i)
-                            {
-                                if (obegin[i] != oend[i])
-                                {
-                                    if (start_v >= obegin[i]->start)
-                                    {
-                                        start_v = obegin[i]->start;
-                                        end_v   = std::max(end_v, obegin[i]->end);
-                                        obegin[i]++;
-                                    }
-                                }
-                            }
-
-                            bool unchanged = false;
-                            while (!unchanged)
-                            {
-                                unchanged = true;
-                                for (std::size_t i = 0; i < obegin.size(); ++i)
-                                {
-                                    if (obegin[i] != oend[i] && obegin[i]->start <= end_v)
-                                    {
-                                        end_v = std::max(end_v, obegin[i]->end);
-                                        obegin[i]++;
-                                        unchanged = false;
-                                    }
-                                }
-                            }
-
-                            intervals.push_back({start_v, end_v});
+                            intervals.push_back(i);
+                            // std::cout << i << " ";
                         }
-
-                        // std::cout << "new intervals" << std::endl;
-                        // for (auto& i : intervals)
-                        // {
-                        //     std::cout << i << std::endl;
-                        // }
                         // std::cout << std::endl;
 
                         return IntervalVector(m_lca.level(),
