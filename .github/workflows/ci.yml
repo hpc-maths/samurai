@@ -291,6 +291,7 @@ jobs:
               shell: bash -l {0}
               run: |
                   cd build
+                  set -e  # Stop on first failure
                   mpiexec -n 1 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.02 --nfiles 1 --max-level 7
                   mpiexec -n 2 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.02 --nfiles 1 --max-level 7
                   mpiexec -n 3 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.02 --nfiles 1 --max-level 7
