@@ -270,11 +270,13 @@ jobs:
               shell: bash -l {0}
               run: |
                   cmake --build build --target finite-volume-advection-2d --parallel 4
+                  cmake --build build --target finite-volume-burgers --parallel 4
 
-            - name: MPI test
+            - name: MPI test finite-volume-advection-2d
               shell: bash -l {0}
               run: |
                   cd build
+                  set -e  # Stop on first failure
                   mpiexec -n 1 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.02
                   mpiexec -n 2 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.02
                   mpiexec -n 3 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.02
@@ -285,6 +287,23 @@ jobs:
                   python ../python/compare.py FV_advection_2d_size_1 FV_advection_2d_size_3
                   python ../python/compare.py FV_advection_2d_size_1 FV_advection_2d_size_4
                   python ../python/compare.py FV_advection_2d_size_1 FV_advection_2d_size_9
+
+            - name: MPI test finite-volume-burgers
+              shell: bash -l {0}
+              run: |
+                  cd build
+                  set -e  # Stop on first failure
+                  mpiexec -n 1 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.02 --nfiles 1 --max-level 7
+                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.02 --nfiles 1 --max-level 7
+                  mpiexec -n 3 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.02 --nfiles 1 --max-level 7
+                  mpiexec -n 4 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.02 --nfiles 1 --max-level 7
+                  mpiexec -n 9 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.02 --nfiles 1 --max-level 7
+                  ls
+                  # Uncomment the following lines once mesh refinement is fixed
+                  # python ../python/compare.py burgers_2D_size_1 burgers_2D_size_2
+                  # python ../python/compare.py burgers_2D_size_1 burgers_2D_size_3
+                  # python ../python/compare.py burgers_2D_size_1 burgers_2D_size_4
+                  # python ../python/compare.py burgers_2D_size_1 burgers_2D_size_9
 
     macos-mamba:
         needs: [pre-commit, cppcheck]

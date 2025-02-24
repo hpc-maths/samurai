@@ -37,7 +37,12 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
                                level_[cell] = cell.level;
                            });
 
+#ifdef SAMURAI_WITH_MPI
+    mpi::communicator world;
+    samurai::save(path, fmt::format("{}_size_{}{}", filename, world.size(), suffix), mesh, u, level_);
+#else
     samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
+#endif
 }
 
 template <std::size_t dim, std::size_t field_size>
