@@ -276,6 +276,7 @@ jobs:
               shell: bash -l {0}
               run: |
                   cd build
+                  set -e  # Stop on first failure
                   mpiexec -n 1 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.02
                   mpiexec -n 2 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.02
                   mpiexec -n 3 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.02
