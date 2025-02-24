@@ -291,11 +291,11 @@ jobs:
               shell: bash -l {0}
               run: |
                   cd build
-                  mpiexec -n 1 ./demos/FiniteVolume/finite-burgers --Tf 0.02 --nfiles 1 --max-level 7
-                  mpiexec -n 2 ./demos/FiniteVolume/finite-burgers --Tf 0.02 --nfiles 1 --max-level 7
-                  mpiexec -n 3 ./demos/FiniteVolume/finite-burgers --Tf 0.02 --nfiles 1 --max-level 7
-                  mpiexec -n 4 ./demos/FiniteVolume/finite-burgers --Tf 0.02 --nfiles 1 --max-level 7
-                  mpiexec -n 9 ./demos/FiniteVolume/finite-burgers --Tf 0.02 --nfiles 1 --max-level 7
+                  mpiexec -n 1 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.02 --nfiles 1 --max-level 7
+                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.02 --nfiles 1 --max-level 7
+                  mpiexec -n 3 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.02 --nfiles 1 --max-level 7
+                  mpiexec -n 4 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.02 --nfiles 1 --max-level 7
+                  mpiexec -n 9 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.02 --nfiles 1 --max-level 7
                   ls
                   python ../python/compare.py burgers_2D_size_1 burgers_2D_size_2
                   python ../python/compare.py burgers_2D_size_1 burgers_2D_size_3
