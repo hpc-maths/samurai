@@ -16,7 +16,9 @@ namespace samurai
         template <std::size_t dim, class Set, class Func, class Container>
         void apply_impl(Set&& global_set, Func&& func, Container& index)
         {
-            auto set = global_set.template get_local_set<dim>(global_set.level(), index);
+            auto set            = global_set.template get_local_set<dim>(global_set.level(), index);
+            auto start_and_stop = global_set.template get_start_and_stop_function<dim>();
+
             // std::cout << "perform dim: " << dim << " with index: " << index << std::endl;
             if constexpr (dim != 1)
             {
@@ -28,7 +30,7 @@ namespace samurai
                         apply_impl<dim - 1>(std::forward<Set>(global_set), std::forward<Func>(func), index);
                     }
                 };
-                apply(set, func_int);
+                apply(set, start_and_stop, func_int);
             }
             else
             {
@@ -36,7 +38,7 @@ namespace samurai
                 {
                     func(interval, index);
                 };
-                apply(set, func_int);
+                apply(set, start_and_stop, func_int);
             }
         }
     }
@@ -49,16 +51,16 @@ namespace samurai
         detail::apply_impl<dim>(std::forward<Set>(global_set), std::forward<Func>(func), index);
     }
 
-    template <class Set, class Func>
+    template <class Set, class StartEnd, class Func>
         requires IsSetOp<Set> || IsIntervalVector<Set>
-    void apply(Set&& set, Func&& func)
+    void apply(Set&& set, StartEnd&& start_and_stop, Func&& func)
     {
         using interval_t = typename std::decay_t<Set>::interval_t;
         using value_t    = typename interval_t::value_t;
 
         interval_t result;
         int r_ipos = 0;
-        set.next(0);
+        set.next(0, start_and_stop);
         auto scan = set.min();
         // std::cout << "first scan " << scan << std::endl;
 
@@ -85,7 +87,7 @@ namespace samurai
                 // }
             }
 
-            set.next(scan);
+            set.next(scan, start_and_stop);
             scan = set.min();
             // std::cout << "scan " << scan << std::endl;
         }

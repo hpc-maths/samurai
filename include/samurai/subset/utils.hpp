@@ -92,4 +92,21 @@ namespace samurai
                                     return v < interval.start;
                                 });
     }
+
+    template <typename Tuple1, typename Tuple2, typename F, std::size_t... Is>
+    constexpr void zip_apply_impl(F&& f, Tuple1&& t1, Tuple2&& t2, std::index_sequence<Is...>)
+    {
+        (f(std::get<Is>(std::forward<Tuple1>(t1)), std::get<Is>(std::forward<Tuple2>(t2))), ...);
+    }
+
+    template <typename Tuple1, typename Tuple2, typename F>
+    constexpr void zip_apply(F&& f, Tuple1&& t1, Tuple2&& t2)
+    {
+        constexpr std::size_t size1 = std::tuple_size_v<std::remove_reference_t<Tuple1>>;
+        constexpr std::size_t size2 = std::tuple_size_v<std::remove_reference_t<Tuple2>>;
+
+        static_assert(size1 == size2, "Tuples must have the same size");
+
+        zip_apply_impl(std::forward<F>(f), std::forward<Tuple1>(t1), std::forward<Tuple2>(t2), std::make_index_sequence<size1>{});
+    }
 }

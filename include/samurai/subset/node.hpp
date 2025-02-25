@@ -77,14 +77,16 @@ namespace samurai
                 m_s);
         }
 
-        void next(auto scan)
+        template <class StartEnd>
+        void next(auto scan, StartEnd&& start_and_stop)
         {
-            std::apply(
-                [scan](auto&&... args)
+            zip_apply(
+                [scan](auto& arg, auto& start_end_fct)
                 {
-                    (args.next(scan), ...);
+                    arg.next(scan, start_end_fct);
                 },
-                m_s);
+                m_s,
+                std::forward<StartEnd>(start_and_stop));
         }
 
       private:
@@ -230,26 +232,20 @@ namespace samurai
             apply(*this, func);
         }
 
-        template <std::size_t d, class Func_start, class Func_end, class Func_goback>
-        auto get_local_set(int level,
-                           xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index,
-                           Func_start&& start_fct,
-                           Func_end&& end_fct,
-                           Func_goback&& goback_fct)
+        template <std::size_t d, class Func_goback>
+        auto get_local_set(int level, xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index, Func_goback&& goback_fct)
         {
             int shift = this->ref_level() - this->level();
             m_start_end_op(m_level, m_min_level, m_ref_level);
 
             return std::apply(
-                [this, &index, shift, level, &start_fct, &end_fct, &goback_fct](auto&&... args)
+                [this, &index, shift, level, &goback_fct](auto&&... args)
                 {
                     return SetOp(
                         shift,
                         get_operator<d>(m_operator),
                         args.template get_local_set<d>(level,
                                                        index,
-                                                       m_start_end_op.template start<d>(std::forward<Func_start>(start_fct)),
-                                                       m_start_end_op.template end<d>(std::forward<Func_end>(end_fct)),
                                                        m_start_end_op.template goback<d + 1>(std::forward<Func_goback>(goback_fct)))...);
                 },
                 m_s);
@@ -258,7 +254,28 @@ namespace samurai
         template <std::size_t d>
         auto get_local_set(int level, xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index)
         {
-            return get_local_set<d>(level, index, default_function(), default_function(), default_function());
+            return get_local_set<d>(level, index, default_function());
+        }
+
+        template <std::size_t d, class Func_start, class Func_end>
+        auto get_start_and_stop_function(Func_start&& start_fct, Func_end&& end_fct)
+        {
+            m_start_end_op(m_level, m_min_level, m_ref_level);
+
+            return std::apply(
+                [this, &start_fct, &end_fct](auto&&... args)
+                {
+                    return std::make_tuple(
+                        args.template get_start_and_stop_function<d>(m_start_end_op.template start<d>(std::forward<Func_start>(start_fct)),
+                                                                     m_start_end_op.template end<d>(std::forward<Func_end>(end_fct)))...);
+                },
+                m_s);
+        }
+
+        template <std::size_t d>
+        auto get_start_and_stop_function()
+        {
+            return get_start_and_stop_function<d>(default_function(), default_function());
         }
 
         int level() const
@@ -314,17 +331,9 @@ namespace samurai
             apply(*this, std::forward<Func>(func));
         }
 
-        template <std::size_t d, class Func_start, class Func_end, class Func_goback>
-        auto get_local_set(int level,
-                           xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index,
-                           Func_start&& start_fct,
-                           Func_end&& end_fct,
-                           Func_goback&& goback_fct)
+        template <std::size_t d, class Func_goback>
+        auto get_local_set(int level, xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index, Func_goback&& goback_fct)
         {
-            m_func(m_level, m_min_level, m_ref_level);
-            auto new_start_fct = m_func.template start<d>(std::forward<Func_start>(start_fct));
-            auto new_end_fct   = m_func.template end<d>(std::forward<Func_end>(end_fct));
-
             if (m_lca[d - 1].empty())
             {
                 return IntervalVector(IntervalIterator(m_lca[d - 1], 0, 0));
@@ -335,9 +344,7 @@ namespace samurai
                 return IntervalVector(m_lca.level(),
                                       m_level,
                                       m_ref_level,
-                                      IntervalIterator(m_lca[d - 1], 0, static_cast<std::ptrdiff_t>(m_lca[d - 1].size())),
-                                      new_start_fct,
-                                      new_end_fct);
+                                      IntervalIterator(m_lca[d - 1], 0, static_cast<std::ptrdiff_t>(m_lca[d - 1].size())));
             }
             else
             {
@@ -361,13 +368,12 @@ namespace samurai
                     auto io       = static_cast<std::size_t>(m_lca[d][j].index + current_index);
                     auto& offsets = m_lca.offsets(d);
 
-                    return IntervalVector(
-                        m_lca.level(),
-                        m_level,
-                        m_ref_level,
-                        IntervalIterator(m_lca[d - 1], static_cast<std::ptrdiff_t>(offsets[io]), static_cast<std::ptrdiff_t>(offsets[io + 1])),
-                        new_start_fct,
-                        new_end_fct);
+                    return IntervalVector(m_lca.level(),
+                                          m_level,
+                                          m_ref_level,
+                                          IntervalIterator(m_lca[d - 1],
+                                                           static_cast<std::ptrdiff_t>(offsets[io]),
+                                                           static_cast<std::ptrdiff_t>(offsets[io + 1])));
                 }
                 else
                 {
@@ -405,6 +411,7 @@ namespace samurai
 
                         // std::cout << "offset " << start_offset << " " << end_offset << std::endl;
                         std::vector<interval_t> intervals;
+                        intervals.reserve(list_of_intervals.size());
                         for (auto& i : list_of_intervals)
                         {
                             intervals.push_back(i);
@@ -412,12 +419,7 @@ namespace samurai
                         }
                         // std::cout << std::endl;
 
-                        return IntervalVector(m_lca.level(),
-                                              m_level,
-                                              m_ref_level,
-                                              IntervalIterator(m_lca[d - 1], std::move(intervals)),
-                                              new_start_fct,
-                                              new_end_fct);
+                        return IntervalVector(m_lca.level(), m_level, m_ref_level, IntervalIterator(m_lca[d - 1], std::move(intervals)));
                     }
                     return IntervalVector(IntervalIterator(m_lca[d - 1], 0, 0));
                 }
@@ -428,7 +430,23 @@ namespace samurai
         auto get_local_set(int level, xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index)
 
         {
-            return get_local_set<d>(level, index, default_function(), default_function(), default_function());
+            return get_local_set<d>(level, index, default_function());
+        }
+
+        template <std::size_t d, class Func_start, class Func_end>
+        auto get_start_and_stop_function(Func_start&& start_fct, Func_end&& end_fct)
+        {
+            m_func(m_level, m_min_level, m_ref_level);
+            auto new_start_fct = m_func.template start<d>(std::forward<Func_start>(start_fct));
+            auto new_end_fct   = m_func.template end<d>(std::forward<Func_end>(end_fct));
+            return std::make_tuple(new_start_fct, new_end_fct);
+        }
+
+        template <std::size_t d>
+        auto get_start_and_stop_function()
+
+        {
+            return get_start_and_stop_function<d>(default_function(), default_function());
         }
 
         auto ref_level() const

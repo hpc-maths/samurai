@@ -193,14 +193,8 @@ namespace samurai
         using iterator_t  = typename base_t::iterator_t;
         using interval_t  = typename base_t::value_t;
         using value_t     = typename interval_t::value_t;
-        using function_t  = std::function<int(int, int)>;
 
-        IntervalVector(auto lca_level,
-                       auto level,
-                       auto max_level,
-                       IntervalIterator<container_t>&& intervals,
-                       function_t&& start_fct,
-                       function_t&& end_fct)
+        IntervalVector(auto lca_level, auto level, auto max_level, IntervalIterator<container_t>&& intervals)
             : m_lca_level(static_cast<int>(lca_level))
             , m_shift2dest(max_level - level)
             , m_shift2ref(max_level - static_cast<int>(lca_level))
@@ -209,8 +203,6 @@ namespace samurai
             , m_last(m_intervals.end())
             , m_current(std::numeric_limits<value_t>::min())
             , m_is_start(true)
-            , m_start_fct(std::move(start_fct))
-            , m_end_fct(std::move(end_fct))
         {
         }
 
@@ -220,16 +212,18 @@ namespace samurai
         {
         }
 
-        auto start(const auto it) const
+        template <class Func>
+        auto start(const auto it, Func& start_fct) const
         {
             auto i = it->start << m_shift2ref;
-            return m_start_fct(m_lca_level, i);
+            return start_fct(m_lca_level, i);
         }
 
-        auto end(const auto it) const
+        template <class Func>
+        auto end(const auto it, Func& end_fct) const
         {
             auto i = it->end << m_shift2ref;
-            return m_end_fct(m_lca_level, i);
+            return end_fct(m_lca_level, i);
         }
 
         bool is_in(auto scan) const
@@ -252,13 +246,15 @@ namespace samurai
             return m_shift2dest;
         }
 
-        void next(auto scan)
+        template <class StartEnd>
+        void next(auto scan, StartEnd& start_and_stop)
         {
+            auto [start_fct, end_fct] = start_and_stop;
             // std::cout << std::endl;
             // std::cout << "m_current in next: " << m_current << " " << std::numeric_limits<value_t>::min() << std::endl;
             if (m_current == std::numeric_limits<value_t>::min())
             {
-                m_current = start(m_first);
+                m_current = start(m_first, start_fct);
                 // std::cout << "first start " << m_current << std::endl;
                 return;
             }
@@ -267,12 +263,12 @@ namespace samurai
             {
                 if (m_is_start)
                 {
-                    m_current = end(m_first);
+                    m_current = end(m_first, end_fct);
                     // std::cout << "change m_current: " << m_current << std::endl;
-                    while (m_first + 1 != m_last && m_current >= start(m_first + 1))
+                    while (m_first + 1 != m_last && m_current >= start(m_first + 1, start_fct))
                     {
                         m_first++;
-                        m_current = end(m_first);
+                        m_current = end(m_first, end_fct);
                         // std::cout << "update end in while loop: " << m_current << std::endl;
                         // std::cout << "next start: " << start(m_first + 1) << std::boolalpha << " " << (m_first + 1 != m_last) <<
                         // std::endl;
@@ -288,7 +284,7 @@ namespace samurai
                         m_current = sentinel<value_t>;
                         return;
                     }
-                    m_current = start(m_first);
+                    m_current = start(m_first, start_fct);
                     // std::cout << "update start: " << m_current << std::endl;
                 }
                 m_is_start = !m_is_start;
@@ -305,7 +301,5 @@ namespace samurai
         iterator_t m_last;
         value_t m_current;
         bool m_is_start;
-        function_t m_start_fct;
-        function_t m_end_fct;
     };
 }
