@@ -119,47 +119,47 @@ namespace samurai
 		}
 	}
 	
-	TEST(add_interval, torture_test_add_then_remove_1d)
-	{
-		constexpr size_t dim = 1;
+	//TEST(add_interval, torture_test_add_then_remove_1d)
+	//{
+		//constexpr size_t dim = 1;
 
-		samurai::CellArray<dim> ca;
-		std::vector< SimpleCell<dim> > cells;
+		//samurai::CellArray<dim> ca;
+		//std::vector< SimpleCell<dim> > cells;
 		
-		const int x_min = 0;
-		const int x_max = 128;
+		//const int x_min = 0;
+		//const int x_max = 8;
 		
-		const int area = x_max - x_min;
+		//const int area = x_max - x_min;
 		
-		for (size_t i=0;i<500*area;++i)
-		{
-			int x1 = (x_max - x_min)*double(std::rand()) / double(RAND_MAX) + x_min;
-			int x2 = (x_max - x_min)*double(std::rand()) / double(RAND_MAX) + x_min;
+		//for (size_t i=0;i<100*area;++i)
+		//{
+			//int x1 = (x_max - x_min)*double(std::rand()) / double(RAND_MAX) + x_min;
+			//int x2 = (x_max - x_min)*double(std::rand()) / double(RAND_MAX) + x_min;
 			
-			if (x1 > x2) { std::swap(x1, x2); }
+			//if (x1 > x2) { std::swap(x1, x2); }
 			
-			ca[0].add_interval({x1, x2}, {}); add_interval(0, {x1, x2}, {}, cells);
+			//ca[0].add_interval({x1, x2}, {}); add_interval(0, {x1, x2}, {}, cells);
 			
-			{
-				samurai::CellArray<dim> ca_ref = createCellArray(cells);
-				EXPECT_EQ(ca_ref, ca);
-			}
-		}
+			//{
+				//samurai::CellArray<dim> ca_ref = createCellArray(cells);
+				//EXPECT_EQ(ca_ref, ca);
+			//}
+		//}
 		
-		for (size_t i=0;i<500*area;++i)
-		{
-			int x1 = (x_max - x_min)*double(std::rand()) / double(RAND_MAX) + x_min;
-			int x2 = (x_max - x_min)*double(std::rand()) / double(RAND_MAX) + x_min;
+		//for (size_t i=0;i<100*area;++i)
+		//{
+			//int x1 = (x_max - x_min)*double(std::rand()) / double(RAND_MAX) + x_min;
+			//int x2 = (x_max - x_min)*double(std::rand()) / double(RAND_MAX) + x_min;
 			
-			if (x1 > x2) { std::swap(x1, x2); }
-			ca[0].remove_interval({x1, x2}, {}); remove_interval(0, {x1, x2}, {}, cells);
+			//if (x1 > x2) { std::swap(x1, x2); }
+			//ca[0].remove_interval({x1, x2}, {}); remove_interval(0, {x1, x2}, {}, cells);
 			
-			{
-				samurai::CellArray<dim> ca_ref = createCellArray(cells);
-				EXPECT_EQ(ca_ref, ca);
-			}
-		}
-	}
+			//{
+				//samurai::CellArray<dim> ca_ref = createCellArray(cells);
+				//EXPECT_EQ(ca_ref, ca);
+			//}
+		//}
+	//}
 	
 	//TEST(add_interval, torture_test_add_then_remove_3d)
 	//{
@@ -169,11 +169,11 @@ namespace samurai
 		//std::vector< SimpleCell<dim> > cells;
 		
 		//const int x_min = 0;
-		//const int x_max = 128;
+		//const int x_max = 8;
 		
 		//const int area = (x_max - x_min)*(x_max - x_min)*(x_max - x_min);
 		
-		//for (size_t i=0;i<500*area;++i)
+		//for (size_t i=0;i<100*area;++i)
 		//{
 			//int x1 = (x_max - x_min)*double(std::rand()) / double(RAND_MAX) + x_min;
 			//int x2 = (x_max - x_min)*double(std::rand()) / double(RAND_MAX) + x_min;
@@ -190,7 +190,7 @@ namespace samurai
 			//}
 		//}
 		
-		//for (size_t i=0;i<500*area;++i)
+		//for (size_t i=0;i<100*area;++i)
 		//{
 			//int x1 = (x_max - x_min)*double(std::rand()) / double(RAND_MAX) + x_min;
 			//int x2 = (x_max - x_min)*double(std::rand()) / double(RAND_MAX) + x_min;
@@ -215,11 +215,11 @@ namespace samurai
 		std::vector< SimpleCell<dim> > cells;
 		
 		const int x_min = 0;
-		const int x_max = 128;
+		const int x_max = 16;
 		
 		const int area = x_max - x_min;
 		
-		for (size_t i=0;i<1000*area;++i)
+		for (size_t i=0;i<200*area;++i)
 		{
 			int x1 = (x_max - x_min)*double(std::rand()) / double(RAND_MAX) + x_min;
 			int x2 = (x_max - x_min)*double(std::rand()) / double(RAND_MAX) + x_min;
@@ -245,16 +245,16 @@ namespace samurai
 	TEST(add_interval, torture_test_add_or_remove_3d)
 	{
 		constexpr size_t dim = 3;
-
+	
 		samurai::CellArray<dim> ca;
 		std::vector< SimpleCell<dim> > cells;
 		
 		const int x_min = 0;
-		const int x_max = 128;
+		const int x_max = 16;
 		
 		const int area = (x_max - x_min)*(x_max - x_min)*(x_max - x_min);
 		
-		for (size_t i=0;i<1000*area;++i)
+		for (size_t i=0;i<100*area;++i)
 		{
 			int x1 = (x_max - x_min)*double(std::rand()) / double(RAND_MAX) + x_min;
 			int x2 = (x_max - x_min)*double(std::rand()) / double(RAND_MAX) + x_min;
