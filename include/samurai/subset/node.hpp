@@ -107,6 +107,11 @@ namespace samurai
         {
             return (args.is_empty() || ...);
         }
+
+        bool exist(const auto&... args) const
+        {
+            return (args.exist() && ...);
+        }
     };
 
     struct UnionOp
@@ -119,6 +124,11 @@ namespace samurai
         bool is_empty(const auto&... args) const
         {
             return (args.is_empty() && ...);
+        }
+
+        bool exist(const auto&... args) const
+        {
+            return (args.exist() || ...);
         }
     };
 
@@ -133,6 +143,11 @@ namespace samurai
         {
             return arg.is_empty();
         }
+
+        bool exist(const auto& arg, const auto&...) const
+        {
+            return arg.exist();
+        }
     };
 
     struct Difference2Op
@@ -145,6 +160,11 @@ namespace samurai
         bool is_empty(const auto& arg, const auto&...) const
         {
             return arg.is_empty();
+        }
+
+        bool exist(const auto& arg, const auto&...) const
+        {
+            return arg.exist();
         }
     };
 
@@ -177,6 +197,11 @@ namespace samurai
         bool is_empty(const auto& arg) const
         {
             return arg.is_empty();
+        }
+
+        bool exist(const auto& arg) const
+        {
+            return arg.exist();
         }
     };
 
@@ -295,6 +320,16 @@ namespace samurai
                 [this](auto&&... args)
                 {
                     (args.ref_level(m_ref_level), ...);
+                },
+                m_s);
+        }
+
+        bool exist() const
+        {
+            return std::apply(
+                [this](auto&&... args)
+                {
+                    return m_operator.exist(args...);
                 },
                 m_s);
         }
@@ -471,10 +506,10 @@ namespace samurai
             return *this;
         }
 
-        // void on_parent(int level)
-        // {
-        //     m_min_level = std::min(m_min_level, level);
-        // }
+        bool exist() const
+        {
+            return !m_lca.empty();
+        }
 
         const lca_t& m_lca;
         int m_level;

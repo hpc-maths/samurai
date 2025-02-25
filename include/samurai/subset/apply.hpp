@@ -4,6 +4,7 @@
 #pragma once
 
 #include <array>
+#include <tuple>
 
 #include "concepts.hpp"
 #include "utils.hpp"
@@ -48,7 +49,10 @@ namespace samurai
     {
         constexpr std::size_t dim = std::decay_t<Set>::dim;
         xt::xtensor_fixed<int, xt::xshape<dim - 1>> index;
-        detail::apply_impl<dim>(std::forward<Set>(global_set), std::forward<Func>(func), index);
+        if (global_set.exist())
+        {
+            detail::apply_impl<dim>(std::forward<Set>(global_set), std::forward<Func>(func), index);
+        }
     }
 
     template <class Set, class StartEnd, class Func>
@@ -60,7 +64,7 @@ namespace samurai
 
         interval_t result;
         int r_ipos = 0;
-        set.next(0, start_and_stop);
+        set.next(0, std::forward<StartEnd>(start_and_stop));
         auto scan = set.min();
         // std::cout << "first scan " << scan << std::endl;
 
@@ -87,7 +91,7 @@ namespace samurai
                 // }
             }
 
-            set.next(scan, start_and_stop);
+            set.next(scan, std::forward<StartEnd>(start_and_stop));
             scan = set.min();
             // std::cout << "scan " << scan << std::endl;
         }
