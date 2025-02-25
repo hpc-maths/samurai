@@ -15,7 +15,7 @@
 #include "assertLogTrace.hpp"
 
 #include "load_balancing.hpp"
-
+#ifdef SAMURAI_WITH_MPI
 namespace Load_balancing{ 
 
     template <int dim, class SFC_type_t>
@@ -345,3 +345,4 @@ namespace Load_balancing{
     };
 
 }
+#endif

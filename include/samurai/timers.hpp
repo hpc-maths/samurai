@@ -29,10 +29,6 @@ namespace samurai
 #endif
         uint32_t ntimes;
     };
-struct Timer{
-    double start, elapsed;
-    uint32_t ntimes;
-};
 
     class Timers
     {

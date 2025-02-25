@@ -6,7 +6,7 @@
 
 // for std::sort
 #include <algorithm>
-
+#ifdef SAMURAI_WITH_MPI
 namespace Load_balancing{
 
     class Life : public samurai::LoadBalancer<Life> {
@@ -81,3 +81,4 @@ namespace Load_balancing{
 
     };
 }
+#endif

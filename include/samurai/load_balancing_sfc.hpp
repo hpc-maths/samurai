@@ -4,6 +4,7 @@
 
 #include "load_balancing.hpp"
 
+#ifdef SAMURAI_WITH_MPI
 template <int dim, class SFC_type_t>
 class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_interval<dim, SFC_type_t>>
 {
@@ -280,3 +281,4 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
     }
 
 };
+#endif

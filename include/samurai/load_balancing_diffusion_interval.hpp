@@ -3,6 +3,7 @@
 #include <map>
 #include "load_balancing.hpp"
 
+#ifdef SAMURAI_WITH_MP
 template<size_t dim>
 class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_LoadBalancer_interval<dim>> {
 
@@ -455,3 +456,4 @@ class Diffusion_LoadBalancer_interval : public samurai::LoadBalancer<Diffusion_L
         }
 
 };
+#endif

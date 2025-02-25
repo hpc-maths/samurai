@@ -3,6 +3,7 @@
 #include <map>
 #include "load_balancing.hpp"
 
+#ifdef SAMURAI_WITH_MPI
 namespace Load_balancing{
 
     class GlobalCriteria : public samurai::LoadBalancer<GlobalCriteria> {
@@ -507,3 +508,4 @@ namespace Load_balancing{
     };
 
 }
+#endif

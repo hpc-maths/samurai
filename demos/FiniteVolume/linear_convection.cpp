@@ -58,12 +58,12 @@ int main(int argc, char* argv[])
     //--------------------//
     // Program parameters //
     //--------------------//
+#ifdef SAMURAI_WITH_MPI    
     boost::mpi::communicator world;
-
+#endif
     // Simulation parameters
     double left_box  = -1;
     double right_box = 1;
->>>>>>> 7f2d425 (update linear convection with load balancing)
 
     // Time integration
     double Tf  = 3;
@@ -156,13 +156,14 @@ int main(int argc, char* argv[])
     // Convection operator
     samurai::VelocityVector<dim> velocity;
     velocity.fill(1);
+    velocity(1) = -1 ; 
 
     // origin weno5
     auto conv = samurai::make_convection_weno5<decltype(u)>(velocity);
 
     // SFC_LoadBalancer_interval<dim, Morton> balancer;
     // Load_balancing::Life balancer;
-    Load_balancing::GlobalCriteria balancer;
+//    Load_balancing::GlobalCriteria balancer;
     // Void_LoadBalancer<dim> balancer;
     // Diffusion_LoadBalancer_cell<dim> balancer;
     // Diffusion_LoadBalancer_interval<dim> balancer;
@@ -199,14 +200,15 @@ int main(int argc, char* argv[])
     while (t != Tf)
     {
 
-        if (nt % nt_loadbalance == 0 && nt > 1 )
+/**
+	if (nt % nt_loadbalance == 0 && nt > 1 )
         {
             samurai::times::timers.start("tloop.lb:"+balancer.getName());
             balancer.load_balance(mesh, u);
             samurai::times::timers.stop("tloop.lb:"+balancer.getName());
 
         }
-        
+ **/     
         // Move to next timestep
         t += dt;
         if (t > Tf)

@@ -8,6 +8,7 @@
 #include <map>
 #include "load_balancing.hpp"
 
+#ifdef SAMURAI_WITH_MPI
 template<int dim>
 class Void_LoadBalancer: public samurai::LoadBalancer<Void_LoadBalancer<dim>> {
 
@@ -48,3 +49,4 @@ class Void_LoadBalancer: public samurai::LoadBalancer<Void_LoadBalancer<dim>> {
         }
 
 };
+#endif

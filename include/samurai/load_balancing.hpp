@@ -6,18 +6,24 @@
 #include <fstream>
 #include <vector>
 
-#include <samurai/algorithm.hpp>
-#include <samurai/algorithm/utils.hpp>
-#include <samurai/hilbert.hpp>
-#include <samurai/mesh.hpp>
-#include <samurai/morton.hpp>
-#include <samurai/mr/mesh.hpp>
+#include "algorithm.hpp"
+#include "algorithm/utils.hpp"
+#include "hilbert.hpp"
+#include "mesh.hpp"
+#include "morton.hpp"
+#include "mr/mesh.hpp"
 
 // statistics
 #ifdef WITH_STATS
 #include <nlohmann/json.hpp>
 #endif
 
+#ifdef SAMURAI_WITH_MPI
+#include <boost/mpi.hpp>
+#endif
+
+
+#ifdef SAMURAI_WITH_MPI
 namespace samurai
 {
 
@@ -1589,6 +1595,8 @@ namespace samurai
     }
 
 } // namespace samurai
+#endif
+
 
 /**
  * This function perform a "fake" load-balancing by updating an integer scalar field containing the rank

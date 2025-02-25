@@ -2,11 +2,12 @@
 
 #include <map>
 #include "load_balancing.hpp"
-#include <samurai/field.hpp>
+#include "field.hpp"
 
 // for std::sort
 #include <algorithm>
 
+#ifdef SAMURAI_WITH_MPI
 namespace Load_balancing{
 
     class Diffusion : public samurai::LoadBalancer<Diffusion> {
@@ -394,3 +395,4 @@ namespace Load_balancing{
 
     };
 }
+#endif
