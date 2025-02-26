@@ -1,4 +1,6 @@
 #include <cstddef>
+#include <span>
+#include <tuple>
 #include <xtensor/xfixed.hpp>
 
 #include <gtest/gtest.h>
@@ -7,12 +9,141 @@
 #include <samurai/cell_list.hpp>
 #include <samurai/interval.hpp>
 #include <samurai/level_cell_array.hpp>
+#include <samurai/mr/mesh.hpp>
 #include <samurai/subset/apply.hpp>
 #include <samurai/subset/interval_interface.hpp>
 #include <samurai/subset/node.hpp>
 
-namespace samurai::experimental
+namespace samurai
 {
+    TEST(new_subset, lower_bound)
+    {
+        LevelCellList<1> lcl{1};
+        LevelCellArray<1> lca;
+        using interval_t = typename LevelCellArray<1>::interval_t;
+
+        lcl[{}].add_interval({0, 2});
+        lcl[{}].add_interval({9, 12});
+        lcl[{}].add_interval({14, 20});
+
+        lca = lcl;
+
+        auto it = lower_bound_interval(lca[0].begin(), lca[0].end(), -1);
+        EXPECT_EQ(it - lca[0].begin(), 0);
+
+        it = lower_bound_interval(lca[0].begin(), lca[0].end(), 1);
+        EXPECT_EQ(it - lca[0].begin(), 0);
+
+        it = lower_bound_interval(lca[0].begin(), lca[0].end(), 5);
+        EXPECT_EQ(it - lca[0].begin(), 1);
+
+        it = lower_bound_interval(lca[0].begin(), lca[0].end(), 12);
+        EXPECT_EQ(it - lca[0].begin(), 2);
+
+        it = lower_bound_interval(lca[0].begin(), lca[0].end(), 20);
+        EXPECT_TRUE(it == lca[0].end());
+
+        it = lower_bound_interval(lca[0].begin(), lca[0].end(), 25);
+        EXPECT_TRUE(it == lca[0].end());
+    }
+
+    TEST(new_subset, upper_bound)
+    {
+        LevelCellList<1> lcl{1};
+        LevelCellArray<1> lca;
+        using interval_t = typename LevelCellArray<1>::interval_t;
+
+        lcl[{}].add_interval({0, 2});
+        lcl[{}].add_interval({9, 12});
+        lcl[{}].add_interval({14, 20});
+
+        lca = lcl;
+
+        auto it = upper_bound_interval(lca[0].begin(), lca[0].end(), -1);
+        EXPECT_EQ(it - lca[0].begin(), 0);
+
+        it = upper_bound_interval(lca[0].begin(), lca[0].end(), 1);
+        EXPECT_EQ(it - lca[0].begin(), 1);
+
+        it = upper_bound_interval(lca[0].begin(), lca[0].end(), 5);
+        EXPECT_EQ(it - lca[0].begin(), 1);
+
+        it = upper_bound_interval(lca[0].begin(), lca[0].end(), 12);
+        EXPECT_EQ(it - lca[0].begin(), 2);
+
+        it = upper_bound_interval(lca[0].begin(), lca[0].end(), 20);
+        EXPECT_TRUE(it == lca[0].end());
+
+        it = upper_bound_interval(lca[0].begin(), lca[0].end(), 25);
+        EXPECT_TRUE(it == lca[0].end());
+    }
+
+    // TEST(utils, IntervalIterator)
+    // {
+    //     LevelCellList<2> lcl{1};
+    //     LevelCellArray<2> lca;
+    //     lcl[{1}].add_interval({0, 2});
+    //     lcl[{1}].add_interval({9, 12});
+    //     lcl[{1}].add_interval({14, 20});
+    //     lcl[{2}].add_interval({1, 4});
+    //     lcl[{2}].add_interval({10, 20});
+
+    //     // lcl[{1}].add_interval({0, 2});
+    //     // lcl[{2}].add_interval({0, 2});
+
+    //     lca            = lcl;
+    //     auto intervals = IntervalIterator(1,
+    //                                          0,
+    //                                          std::span(lca[0].begin() + static_cast<std::ptrdiff_t>(lca.offsets(1)[0]),
+    //                                                    lca[0].begin() + static_cast<std::ptrdiff_t>(lca.offsets(1).back())),
+    //                                          true);
+    //     // auto intervals = IntervalIteratorNew(2,
+    //     //                                      2,
+    //     //                                      std::span(lca[0].begin() + static_cast<std::ptrdiff_t>(lca.offsets(1)[0]),
+    //     //                                                lca[0].begin() + static_cast<std::ptrdiff_t>(lca.offsets(1)[1])),
+    //     //                                      false);
+
+    //     for (auto it = intervals.begin(); it != intervals.end(); ++it)
+    //     {
+    //         std::cout << "ici: " << *it << std::endl;
+    //     }
+    // }
+
+    TEST(utils, Self)
+    {
+        LevelCellList<2> lcl{1};
+        LevelCellArray<2> lca;
+        lcl[{1}].add_interval({0, 2});
+        lcl[{1}].add_interval({9, 12});
+        lcl[{1}].add_interval({14, 20});
+        lcl[{2}].add_interval({1, 4});
+        lcl[{2}].add_interval({10, 20});
+
+        lca = lcl;
+
+        self(lca)(
+            [](auto& i, auto& index)
+            {
+                std::cout << i << " " << index << std::endl;
+            });
+    }
+
+    TEST(utils, Self1d)
+    {
+        LevelCellList<1> lcl{1};
+        LevelCellArray<1> lca;
+        lcl[{}].add_interval({0, 2});
+        lcl[{}].add_interval({9, 12});
+
+        lca = lcl;
+
+        self(lca)(
+            [](auto& i, auto)
+            {
+                std::cout << i << " " << std::endl;
+            });
+    }
+
     TEST(new_subset, compute_min)
     {
         EXPECT_EQ(1, compute_min(3, 4, 1, 4));
@@ -22,12 +153,12 @@ namespace samurai::experimental
 
     TEST(new_subset, check_dim)
     {
-        samurai::LevelCellArray<1> lca_1d;
+        LevelCellArray<1> lca_1d;
         auto set_1d = self(lca_1d);
         static_assert(decltype(set_1d)::dim == 1);
         static_assert(decltype(intersection(set_1d, set_1d))::dim == 1);
 
-        samurai::LevelCellArray<2> lca_2d;
+        LevelCellArray<2> lca_2d;
         auto set_2d = self(lca_2d);
         static_assert(decltype(set_2d)::dim == 2);
         static_assert(decltype(intersection(set_2d, set_2d))::dim == 2);
@@ -35,9 +166,9 @@ namespace samurai::experimental
 
     TEST(new_subset, test1)
     {
-        samurai::CellList<1> cl;
-        samurai::CellArray<1> ca;
-        using interval_t = typename samurai::CellArray<1>::interval_t;
+        CellList<1> cl;
+        CellArray<1> ca;
+        using interval_t = typename CellArray<1>::interval_t;
 
         cl[1][{}].add_point(0);
         cl[1][{}].add_point(1);
@@ -94,17 +225,17 @@ namespace samurai::experimental
                   });
         }
 
-        samurai::LevelCellList<1> Al(3);
+        LevelCellList<1> Al(3);
         Al[{}].add_point(0);
-        samurai::LevelCellArray<1> A{Al};
+        LevelCellArray<1> A{Al};
 
-        samurai::LevelCellList<1> Bl(3);
+        LevelCellList<1> Bl(3);
         Bl[{}].add_interval({3, 5});
-        samurai::LevelCellArray<1> B{Bl};
+        LevelCellArray<1> B{Bl};
 
-        samurai::LevelCellList<1> Cl(1);
+        LevelCellList<1> Cl(1);
         Cl[{}].add_point(1);
-        samurai::LevelCellArray<1> C{Cl};
+        LevelCellArray<1> C{Cl};
 
         bool never_call = true;
         apply(intersection(intersection(self(A).on(1), self(B).on(1)).on(2), C),
@@ -273,63 +404,202 @@ namespace samurai::experimental
     //           });
     // }
 
-    TEST(new_subset, one_interval)
-    {
-        samurai::CellList<1> cl;
-        samurai::CellArray<1> ca;
-
-        cl[4][{}].add_interval({2, 4});
-        cl[4][{}].add_interval({5, 6});
-
-        ca = {cl, true};
-
-        auto func = [](int, int i)
-        {
-            return i;
-        };
-
-        auto set = IntervalVector(4, 4, 4, IntervalIterator(ca[4][0], 0, 1), func, func);
-        apply(set,
-              [](auto& i)
-              {
-                  std::cout << i << std::endl;
-              });
-    }
-
-    // TEST(new_subset, 2d_case)
+    // TEST(new_subset, one_interval)
     // {
-    //     samurai::CellList<2> cl;
-    //     samurai::CellArray<2> ca1, ca2;
+    //     CellList<1> cl;
+    //     CellArray<1> ca;
 
-    //     cl[4][{-1}].add_interval({2, 4});
-    //     cl[4][{0}].add_interval({3, 5});
-    //     cl[4][{1}].add_interval({4, 6});
+    //     cl[4][{}].add_interval({2, 4});
+    //     cl[4][{}].add_interval({5, 6});
 
-    //     ca1 = {cl, true};
+    //     ca = {cl, true};
 
-    //     cl.clear();
-    //     cl[5][{-1}].add_interval({5, 7});
-    //     cl[5][{0}].add_interval({3, 5});
-    //     cl[5][{1}].add_interval({4, 6});
-    //     ca2 = {cl, true};
-
-    //     apply(self(ca1[4]).on(3),
-    //           [](auto& i, auto index)
+    //     auto set = IntervalVector(4, 4, 4, IntervalIterator(ca[4][0], 0, 1));
+    //     apply(set,
+    //           std::make_tuple(func, func),
+    //           [](auto& i)
     //           {
-    //               std::cout << "solution: " << i << " " << index[0] << std::endl;
+    //               std::cout << i << std::endl;
     //           });
-
-    //     // apply(intersection(ca1[4], ca2[4]),
-    //     //       [](auto& i, auto index)
-    //     //       {
-    //     //           std::cout << i << " " << index[0] << std::endl;
-    //     //       });
     // }
+
+    TEST(new_subset, 2d_case)
+    {
+        CellList<2> cl;
+        CellArray<2> ca1, ca2;
+        using interval_t = typename CellArray<2>::interval_t;
+        using expected_t = std::vector<std::pair<int, interval_t>>;
+
+        cl[4][{-1}].add_interval({2, 4});
+        cl[4][{0}].add_interval({3, 5});
+        cl[4][{1}].add_interval({4, 6});
+
+        ca1 = {cl, true};
+
+        cl.clear();
+        cl[5][{-1}].add_interval({5, 7});
+        cl[5][{0}].add_interval({3, 5});
+        cl[5][{1}].add_interval({4, 6});
+        ca2 = {cl, true};
+
+        {
+            auto expected = expected_t{
+                {-1, {0, 1}},
+                {0,  {0, 2}}
+            };
+            std::size_t ie = 0;
+            apply(self(ca1[4]).on(2),
+                  [&](auto& i, auto& index)
+                  {
+                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+                  });
+        }
+
+        {
+            bool never_call = true;
+            apply(intersection(ca1[4], ca2[4]),
+                  [&never_call](auto&, auto)
+                  {
+                      never_call = false;
+                  });
+            EXPECT_TRUE(never_call);
+        }
+
+        {
+            auto expected = expected_t{
+                {-1, {5, 7}},
+                {0,  {3, 5}},
+                {1,  {4, 6}}
+            };
+            std::size_t ie = 0;
+            apply(intersection(ca1[4], ca2[5]),
+                  [&](auto& i, auto& index)
+                  {
+                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+                  });
+        }
+
+        {
+            auto expected = expected_t{
+                {0, {6, 7}}
+            };
+            std::size_t ie = 0;
+            apply(intersection(ca1[4], translate(ca2[5], xt::xtensor_fixed<int, xt::xshape<2>>{0, 1})),
+                  [&](auto& i, auto& index)
+                  {
+                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+                  });
+        }
+
+        {
+            auto expected = expected_t{
+                {-1, {2, 4}},
+                {0,  {3, 5}},
+                {1,  {4, 6}}
+            };
+            std::size_t ie = 0;
+            apply(union_(ca1[4], ca2[4]),
+                  [&](auto& i, auto& index)
+                  {
+                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+                  });
+        }
+
+        {
+            cl.clear();
+            cl[8][{32}].add_interval({36, 64});
+            cl[8][{32}].add_interval({88, 116});
+            cl[8][{33}].add_interval({36, 64});
+            cl[8][{33}].add_interval({88, 116});
+
+            CellArray<2> ca = {cl, true};
+
+            auto expected = expected_t{
+                {16, {18, 32}},
+                {16, {44, 58}}
+            };
+            std::size_t ie = 0;
+            apply(union_(ca[8], ca[7]).on(7),
+                  [&](auto& i, auto& index)
+                  {
+                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+                  });
+        }
+
+        {
+            cl.clear();
+            cl[7][{0}].add_interval({0, 128});
+            CellArray<2> ca_1 = {cl, true};
+            cl.clear();
+            cl[7][{10}].add_interval({10, 66});
+            CellArray<2> ca_2 = {cl, true};
+
+            auto expected = expected_t{
+                {0, {0, 64}},
+                {5, {5, 33}}
+            };
+            std::size_t ie = 0;
+            apply(union_(ca_1[7], ca_2[7]).on(6),
+                  [&](auto& i, auto& index)
+                  {
+                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+                  });
+        }
+
+        {
+            cl.clear();
+            cl[7][{0}].add_interval({0, 128});
+            CellArray<2> ca_1 = {cl, true};
+
+            auto expected = expected_t{
+                {-1, {0, 2}}
+            };
+            std::size_t ie = 0;
+
+            apply(translate(translate(self(ca_1[7]).on(5), xt::xtensor_fixed<int, xt::xshape<2>>{0, 2}).on(3),
+                            xt::xtensor_fixed<int, xt::xshape<2>>{0, -1})
+                      .on(1),
+                  [&](auto& i, auto& index)
+                  {
+                      EXPECT_EQ(ie, 0);
+                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+                  });
+        }
+
+        {
+            using Config = MRConfig<2>;
+            const Box<double, 2> box({0, 0}, {1, 1});
+            MRMesh<Config> mesh{box, 0, 3};
+            auto& domain                              = mesh.domain();
+            xt::xtensor_fixed<int, xt::xshape<2>> dir = {0, 1 << (3 - 1)};
+
+            auto expected = expected_t{
+                {0, {0, 2}}
+            };
+            std::size_t ie = 0;
+
+            apply(difference(domain, translate(domain, dir)).on(1),
+                  [&](auto& i, auto& index)
+                  {
+                      EXPECT_EQ(ie, 0);
+                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+                  });
+
+            dir = {0, 1};
+            ie  = 0;
+            apply(difference(self(domain).on(1), translate(self(domain).on(1), dir)),
+                  [&](auto& i, auto& index)
+                  {
+                      EXPECT_EQ(ie, 0);
+                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+                  });
+        }
+    }
 
     TEST(new_subset, translate)
     {
-        samurai::CellList<1> cl;
-        samurai::CellArray<1> ca;
+        CellList<1> cl;
+        CellArray<1> ca;
 
         cl[14][{}].add_interval({8612, 8620});
         cl[13][{}].add_interval({4279, 4325});
@@ -346,9 +616,9 @@ namespace samurai::experimental
 
     TEST(new_subset, translate_test)
     {
-        samurai::CellList<1> cl;
-        samurai::CellArray<1> ca;
-        using interval_t = typename samurai::CellArray<1>::interval_t;
+        CellList<1> cl;
+        CellArray<1> ca;
+        using interval_t = typename CellArray<1>::interval_t;
 
         cl[5][{}].add_interval({3, 17});
 

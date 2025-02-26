@@ -290,9 +290,9 @@ namespace samurai
             return std::apply(
                 [this, &start_fct, &end_fct](auto&&... args)
                 {
-                    return std::make_tuple(
+                    return std::make_tuple(std::move(
                         args.template get_start_and_stop_function<d>(m_start_end_op.template start<d>(std::forward<Func_start>(start_fct)),
-                                                                     m_start_end_op.template end<d>(std::forward<Func_end>(end_fct)))...);
+                                                                     m_start_end_op.template end<d>(std::forward<Func_end>(end_fct))))...);
                 },
                 m_s);
         }
@@ -439,10 +439,17 @@ namespace samurai
                         start_offset = m_lca.offsets(d)[start_offset];
                         end_offset   = m_lca.offsets(d)[end_offset];
                         ListOfIntervals<value_t> list_of_intervals;
+                        // for (std::size_t o = start_offset; o < end_offset; ++o)
+                        // {
+                        //     auto start = start_shift(m_lca[d - 1][o].start, m_level - static_cast<int>(m_lca.level()));
+                        //     auto end   = start_shift(m_lca[d - 1][o].end, m_level - static_cast<int>(m_lca.level()));
+                        //     list_of_intervals.add_interval({start, end});
+                        // }
+
                         for (std::size_t o = start_offset; o < end_offset; ++o)
                         {
-                            auto start = start_shift(m_lca[d - 1][o].start, m_level - static_cast<int>(m_lca.level()));
-                            auto end   = start_shift(m_lca[d - 1][o].end, m_level - static_cast<int>(m_lca.level()));
+                            auto start = m_lca[d - 1][o].start;
+                            auto end   = m_lca[d - 1][o].end;
                             list_of_intervals.add_interval({start, end});
                         }
 
@@ -457,7 +464,8 @@ namespace samurai
                         }
                         // std::cout << std::endl;
 
-                        return IntervalVector(m_level, m_level, m_ref_level, IntervalIterator(m_lca[d - 1], m_work));
+                        // return IntervalVector(m_level, m_level, m_ref_level, IntervalIterator(m_lca[d - 1], m_work));
+                        return IntervalVector(m_lca.level(), m_level, m_ref_level, IntervalIterator(m_lca[d - 1], m_work));
                     }
                     return IntervalVector(IntervalIterator(m_lca[d - 1], 0, 0));
                 }
@@ -477,7 +485,7 @@ namespace samurai
             m_func(m_level, m_min_level, m_ref_level);
             auto new_start_fct = m_func.template start<d>(std::forward<Func_start>(start_fct));
             auto new_end_fct   = m_func.template end<d>(std::forward<Func_end>(end_fct));
-            return std::make_tuple(new_start_fct, new_end_fct);
+            return std::make_tuple(std::move(new_start_fct), std::move(new_end_fct));
         }
 
         template <std::size_t d>
