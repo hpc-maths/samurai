@@ -441,20 +441,23 @@ namespace samurai
                         ListOfIntervals<value_t> list_of_intervals;
                         for (std::size_t o = start_offset; o < end_offset; ++o)
                         {
-                            list_of_intervals.add_interval(m_lca[d - 1][o]);
+                            auto start = start_shift(m_lca[d - 1][o].start, m_level - static_cast<int>(m_lca.level()));
+                            auto end   = start_shift(m_lca[d - 1][o].end, m_level - static_cast<int>(m_lca.level()));
+                            list_of_intervals.add_interval({start, end});
                         }
 
                         // std::cout << "offset " << start_offset << " " << end_offset << std::endl;
-                        std::vector<interval_t> intervals;
-                        intervals.reserve(list_of_intervals.size());
+                        // std::vector<interval_t> intervals;
+                        m_work.clear();
+                        // intervals.reserve(list_of_intervals.size());
                         for (auto& i : list_of_intervals)
                         {
-                            intervals.push_back(i);
+                            m_work.push_back(i);
                             // std::cout << i << " ";
                         }
                         // std::cout << std::endl;
 
-                        return IntervalVector(m_lca.level(), m_level, m_ref_level, IntervalIterator(m_lca[d - 1], std::move(intervals)));
+                        return IntervalVector(m_level, m_level, m_ref_level, IntervalIterator(m_lca[d - 1], m_work));
                     }
                     return IntervalVector(IntervalIterator(m_lca[d - 1], 0, 0));
                 }
@@ -516,6 +519,7 @@ namespace samurai
         int m_ref_level;
         int m_min_level;
         start_end_function<dim> m_func;
+        std::vector<interval_t> m_work;
     };
 
     namespace detail

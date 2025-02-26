@@ -154,25 +154,28 @@ namespace samurai
             : m_data(data)
             , m_start(start)
             , m_end(end)
+            , m_work(data)
+            , m_take_data(true)
         {
         }
 
-        IntervalIterator(const container_t& data, container_t&& w)
+        IntervalIterator(const container_t& data, const container_t& w)
             : m_data(data)
             , m_start(0)
             , m_end(0)
-            , m_work(std::move(w))
+            , m_work(w)
+            , m_take_data(false)
         {
         }
 
         auto begin()
         {
-            return (m_work.empty()) ? m_data.cbegin() + m_start : m_work.cbegin();
+            return (m_take_data) ? m_data.cbegin() + m_start : m_work.cbegin();
         }
 
         auto end()
         {
-            return (m_work.empty()) ? m_data.cbegin() + m_end : m_work.cend();
+            return (m_take_data) ? m_data.cbegin() + m_end : m_work.cend();
         }
 
       private:
@@ -180,7 +183,8 @@ namespace samurai
         const container_t& m_data;
         std::ptrdiff_t m_start;
         std::ptrdiff_t m_end;
-        container_t m_work;
+        const container_t& m_work;
+        bool m_take_data;
     };
 
     template <class container_>
@@ -249,7 +253,7 @@ namespace samurai
         template <class StartEnd>
         void next(auto scan, StartEnd& start_and_stop)
         {
-            auto [start_fct, end_fct] = start_and_stop;
+            auto& [start_fct, end_fct] = start_and_stop;
             // std::cout << std::endl;
             // std::cout << "m_current in next: " << m_current << " " << std::numeric_limits<value_t>::min() << std::endl;
             if (m_current == std::numeric_limits<value_t>::min())
