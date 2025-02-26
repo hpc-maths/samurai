@@ -8,6 +8,7 @@
 #include <limits>
 #include <vector>
 #include <type_traits> 
+#include <execution>
 
 #include <fstream> 
  
@@ -476,6 +477,7 @@ namespace samurai
 			
 			using dim_const_t               = std::integral_constant<size_t, d>;
 			using interval_iterator         = std::vector<interval_t>::iterator;
+			using interval_const_iterator   = std::vector<interval_t>::const_iterator;
 			using interval_reverse_iterator = std::vector<interval_t>::reverse_iterator;
 			
 			std::vector<interval_t>& intervals = m_cells[d];
@@ -498,83 +500,78 @@ namespace samurai
 			
 			++ncall;
 			#endif
-
-			const interval_reverse_iterator rbegin = std::make_reverse_iterator(end);
-			const interval_reverse_iterator rend   = std::make_reverse_iterator(begin);
 			
 			if constexpr (d == 0 and not isSingleton)
 			{
 				const value_t xmin = x_interval[0];
 				const value_t xmax = x_interval[1];
-				// we search for it_first-1 such that (it_first-1)->end < xmin.
-				// if it->end >= xmin for all it in [begin,end), then it_first == begin
-				interval_iterator it_first = std::find_if(rbegin, rend, [xmin](const interval_t& interval) -> bool
+				
+				interval_iterator it_first = std::find_if(begin, end, [xmin](const interval_t& interval) -> bool
 				{
-					return interval.end < xmin;
-				}).base(); // - 1 + 1; // -1 for conversion to iterator + 1 for next 
-				// now, we search the first interval after [xmin, xmax)
-				// we seacrh for it_next such that xmax < it_next->start.
-				// if it_next >= xmax for all it in [begin, end) then it_next == end
-				interval_iterator it_next = std::find_if(it_first, end, [xmax](const interval_t& interval) -> bool
-				{
-					return xmax < interval.start;
+					return xmin <= interval.end;
 				});
-				// we know that that xmin <= it_first->end and xmax < it_next->start
-				// either xmax < it_first->start -> [xmin,xmax) is inserted before *it_first
-				// or     it_first->start <= xmax 
-				if (it_first == end or xmax < it_first->start) // [xmin, xmax) must be inserted before it_first
-				{					
-					intervals.emplace(it_first, xmin, xmax);
+				
+				if (it_first == end or xmax < it_first->start)
+				{
 					increment_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
+					intervals.emplace(it_first, xmin, xmax);
 				}
-				else // modify it_first such that *it_first = *it_first U [xmin, xmax)
-				{    // remove other redundant intervals
+				else
+				{				
+					const interval_iterator it_last = std::find_if(it_first, end, [xmax](const interval_t& interval) -> bool
+					{
+						return xmax < interval.start;
+					});
 					it_first->start = std::min(xmin, it_first->start);
-					it_first->end   = std::max(xmax, it_first->end);
+					it_first->end   = std::max(xmax, (it_last-1)->end);
 					
-					if (it_first != it_next-1 and (it_next-1)->start <= it_first->end and it_first->end < (it_next-1)->end) { it_first->end = (it_next-1)->end; }
-					
-					decrement_offsets(dim_const_t{}, yz_point, z_interval_idx, static_cast<size_t>(std::distance(it_first + 1, it_next)));
-					intervals.erase(it_first + 1, it_next);
+					decrement_offsets(dim_const_t{}, yz_point, z_interval_idx, size_t(std::distance(it_first+1, it_last)));
+					intervals.erase(it_first+1, it_last);
 				}
 				update_index(d);
 			}
 			else if constexpr (d == 0 and isSingleton)
 			{
 				const value_t x = x_interval[0];
-				// we search for it_first-1 such that (it_first-1)->end < x.
-				// if it->end >= x for all it in [begin,end), then it_first == begin
+				
+				const interval_reverse_iterator rbegin = std::make_reverse_iterator(end);
+				const interval_reverse_iterator rend   = std::make_reverse_iterator(begin);
+
 				interval_iterator it_first = std::find_if(rbegin, rend, [x](const interval_t& interval) -> bool
 				{
 					return interval.end < x;
 				}).base(); // - 1 + 1; // -1 for conversion to iterator + 1 for next 
-				// we know that that x <= it_first->end < (it_first+)->start
-				if (it_first == end or x+1 < it_first->start) // [x, x+1) must be inserted after it_first-1
+				//  y <= it_first->end
+				if (it_first == end or x+1 < it_first->start)
 				{
-					intervals.emplace(it_first, x, x+1);
 					increment_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
+					intervals.emplace(it_first, x, x+1);
 					update_index(d);
-				} // we know it_first != end and it_first->start <= x+1
+				}
 				else if (x+1 == it_first->start)
 				{
 					--(it_first->start);
 					update_index(d);
-				}
+				}	
 				else if (x == it_first->end)
 				{
+					const interval_const_iterator it_next = it_first+1;
+						
 					++(it_first->end);
-					if (it_first+1 != end and (it_first->end == (it_first+1)->start))
+					if (it_next!=end and it_first->end == it_next->start)
 					{
-						it_first->end = (it_first+1)->end;
-						intervals.erase(it_first+1);
+						it_first->end = it_next->end;
 						decrement_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
+						intervals.erase(it_next);
 					}
 					update_index(d);
 				}
-				// else *it_first contains x
 			}
 			else 
 			{				
+				const interval_reverse_iterator rbegin = std::make_reverse_iterator(end);
+				const interval_reverse_iterator rend   = std::make_reverse_iterator(begin);
+				
 				const value_t y = yz_point[d-1];
 				
 				std::vector<size_t>& y_offsets = m_offsets[d-1];
