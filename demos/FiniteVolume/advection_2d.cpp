@@ -15,6 +15,16 @@
 #include <samurai/stencil_field.hpp>
 #include <samurai/subset/subset_op.hpp>
 
+#include <samurai/load_balancing.hpp>
+#include <samurai/load_balancing_sfc.hpp>
+#include <samurai/load_balancing_sfc_w.hpp>
+#include <samurai/load_balancing_diffusion.hpp>
+#include <samurai/load_balancing_force.hpp>
+#include <samurai/load_balancing_diffusion_interval.hpp>
+#include <samurai/load_balancing_void.hpp>
+
+#include <samurai/timers.hpp>
+
 #include <filesystem>
 namespace fs = std::filesystem;
 
@@ -23,11 +33,13 @@ auto init(Mesh& mesh)
 {
     auto u = samurai::make_field<double, 1>("u", mesh);
 
+    u.fill( 0. );
+
     samurai::for_each_cell(
         mesh,
         [&](auto& cell)
         {
-            auto center           = cell.center();
+            auto center = cell.center();
             const double radius   = .2;
             const double x_center = 0.3;
             const double y_center = 0.3;
@@ -38,7 +50,7 @@ auto init(Mesh& mesh)
             else
             {
                 u[cell] = 0;
-            }
+	    }
         });
 
     return u;
@@ -146,21 +158,26 @@ void flux_correction(double dt, const std::array<double, 2>& a, const Field& u, 
 template <class Field>
 void save(const fs::path& path, const std::string& filename, const Field& u, const std::string& suffix = "")
 {
-    auto mesh   = u.mesh();
-    auto level_ = samurai::make_field<std::size_t, 1>("level", mesh);
+    auto mesh    = u.mesh();
+    auto level_  = samurai::make_field<std::size_t, 1>("level", mesh);
+    auto domain_ = samurai::make_field<int, 1>("domain", mesh);
 
     if (!fs::exists(path))
     {
         fs::create_directory(path);
     }
 
+    int mrank = 0;
+
     samurai::for_each_cell(mesh,
                            [&](const auto& cell)
                            {
-                               level_[cell] = cell.level;
+                               level_[cell]  = cell.level;
+                               domain_[cell] = mrank;
                            });
 #ifdef SAMURAI_WITH_MPI
     mpi::communicator world;
+    mrank = world.rank();
     samurai::save(path, fmt::format("{}_size_{}{}", filename, world.size(), suffix), mesh, u, level_);
 #else
     samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
@@ -175,6 +192,7 @@ int main(int argc, char* argv[])
     using Config              = samurai::MRConfig<dim>;
 
     // Simulation parameters
+    double radius = 0.2, x_center = 0.3, y_center = 0.3;
     xt::xtensor_fixed<double, xt::xshape<dim>> min_corner = {0., 0.};
     xt::xtensor_fixed<double, xt::xshape<dim>> max_corner = {1., 1.};
     std::array<double, dim> a{
@@ -194,6 +212,7 @@ int main(int argc, char* argv[])
     fs::path path        = fs::current_path();
     std::string filename = "FV_advection_2d";
     std::size_t nfiles   = 1;
+    std::size_t nt_loadbalance = 1; // nombre d'iteration entre les equilibrages
 
     app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--max-corner", max_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
@@ -202,6 +221,7 @@ int main(int argc, char* argv[])
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
+    app.add_option("--nt-loadbalance", nt_loadbalance, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--mr-eps", mr_epsilon, "The epsilon used by the multiresolution to adapt the mesh")
         ->capture_default_str()
         ->group("Multiresolution");
@@ -227,19 +247,57 @@ int main(int argc, char* argv[])
     double t             = 0.;
 
     auto u = init(mesh);
+
+
     samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
     auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
 
     auto MRadaptation = samurai::make_MRAdapt(u);
+
+    samurai::times::timers.start("MRadaptation");
     MRadaptation(mr_epsilon, mr_regularity);
+    samurai::times::timers.stop("MRadaptation");
+
     save(path, filename, u, "_init");
 
     std::size_t nsave = 1;
     std::size_t nt    = 0;
 
+
+// For now, void_balancer is verified and works properly
+// Diffusion_LoadBalancer_cell not exist ???
+// Load_balancing::Diffusion donne de très mauvais resultats, peut-etre des parametres internes ? 
+
+    SFC_LoadBalancer_interval<dim, Morton> balancer;
+//    Void_LoadBalancer<dim> balancer;
+//    Diffusion_LoadBalancer_cell<dim> balancer;
+//     Diffusion_LoadBalancer_interval<dim> balancer;
+//     Load_balancing::Diffusion balancer;
+    // Load_balancing::SFCw<dim, Morton> balancer;
+
+    std::ofstream logs;
+#ifdef SAMURAI_WITH_MPI    
+    boost::mpi::communicator world;
+    logs.open( fmt::format("log_{}.dat", world.rank()), std::ofstream::app );
+#endif
     while (t != Tf)
     {
+        bool reqBalance = balancer.require_balance( mesh );
+
+        if( reqBalance ) std::cerr << "\t> Load Balancing required !!! " << std::endl;
+
+        // if ( ( nt % nt_loadbalance == 0 || reqBalance ) && nt > 1 )
+        if ( ( nt % nt_loadbalance == 0 ) && nt > 1 )
+        // if ( reqBalance && nt > 1 )
+        {
+            samurai::times::timers.start("load-balancing");
+            balancer.load_balance(mesh, u);
+            samurai::times::timers.stop("load-balancing");
+        }
+
+        samurai::times::timers.start("MRadaptation");
         MRadaptation(mr_epsilon, mr_regularity);
+        samurai::times::timers.stop("MRadaptation");
 
         t += dt;
         if (t > Tf)
@@ -251,8 +309,13 @@ int main(int argc, char* argv[])
         std::cout << fmt::format("iteration {}: t = {}, dt = {}", nt++, t, dt) << std::endl;
 
         samurai::update_ghost_mr(u);
+
         unp1.resize();
+
+        samurai::times::timers.start("upwind");
         unp1 = u - dt * samurai::upwind(a, u);
+        samurai::times::timers.stop("upwind");
+
         if (correction)
         {
             flux_correction(dt, a, u, unp1);
@@ -265,7 +328,9 @@ int main(int argc, char* argv[])
             const std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
             save(path, filename, u, suffix);
         }
+
     }
+
     samurai::finalize();
     return 0;
 }
