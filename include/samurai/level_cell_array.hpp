@@ -8,6 +8,8 @@
 #include <limits>
 #include <vector>
 #include <type_traits> 
+
+#include <fstream> 
  
 #ifdef SAMURAI_WITH_MPI
 #include <boost/serialization/serialization.hpp>
@@ -483,6 +485,13 @@ namespace samurai
 			
 			const interval_iterator begin = intervals.begin() + i0;
 			const interval_iterator end   = intervals.begin() + i1;
+
+			static size_t ncall = 1;
+		
+			#if defined(WITH_STATS)
+			std::ofstream out("add_interval_rec_stats.csv", std::ios_base::app);
+			out << d << ", " << isSingleton << ", " << std::distance(begin, end) << std::endl; 
+			#endif
 
 			const interval_reverse_iterator rbegin = std::make_reverse_iterator(end);
 			const interval_reverse_iterator rend   = std::make_reverse_iterator(begin);
