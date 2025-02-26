@@ -77,10 +77,10 @@ namespace samurai
             //                                          mesh[mesh_id_t::cells_and_ghosts][level])))
             //             .on(level);
 
-            auto expr = intersection(difference(mesh[mesh_id_t::all_cells][level],
-                                                union_(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::proj_cells][level])),
-                                     mesh.domain())
-                            .on(level);
+            auto expr = intersection(
+                difference(mesh[mesh_id_t::all_cells][level], union_(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::proj_cells][level])),
+                self(mesh.domain()).on(level));
+
             expr.apply_op(prediction<pred_order, false>(field));
             update_bc(level, field);
         }
@@ -506,7 +506,7 @@ namespace samurai
         xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> min_corner;
         xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> max_corner;
         auto& mesh       = field.mesh();
-        auto domain      = mesh.domain();
+        auto& domain      = mesh.domain();
         auto min_indices = domain.min_indices();
         auto max_indices = domain.max_indices();
 
