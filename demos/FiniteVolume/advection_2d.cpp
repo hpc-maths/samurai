@@ -29,7 +29,7 @@
 namespace fs = std::filesystem;
 
 template <class Mesh>
-auto init(Mesh& mesh, const double radius, const double x_center, const double y_center)
+auto init(Mesh& mesh)
 {
     auto u = samurai::make_field<double, 1>("u", mesh);
 
@@ -40,47 +40,17 @@ auto init(Mesh& mesh, const double radius, const double x_center, const double y
         [&](auto& cell)
         {
             auto center = cell.center();
-            // const double radius   = .2;
-            // const double x_center = 0.3;
-            // const double y_center = 0.3;
+            const double radius   = .2;
+            const double x_center = 0.3;
+            const double y_center = 0.3;
             if (((center[0] - x_center) * (center[0] - x_center) + (center[1] - y_center) * (center[1] - y_center)) <= radius * radius)
             {
-                u[cell] += 1;
+                u[cell] = 1;
             }
-
-        });
-
-    return u;
-}
-
-template <std::size_t dim, class Mesh>
-auto init(Mesh& mesh, const std::vector<double> & radius, const std::vector<double> & rcenters )
-{
-    auto u = samurai::make_field<double, 1>("u", mesh);
-
-    u.fill( 0. );
-
-    samurai::for_each_cell(
-        mesh,
-        [&](auto& cell)
-        {
-            auto center = cell.center();
-
-            for(std::size_t nc=0; nc<radius.size(); ++nc ){
-
-                double dist = 0;
-                for(size_t idim=0; idim<dim; ++idim) {
-                    size_t id = nc * dim + idim;
-                    dist += (center[ idim ] - rcenters[ id ]) * (center[ idim ] - rcenters[ id ]);
-                }
-
-                if ( dist <= radius[nc] * radius[nc] )
-                {
-                    u[cell] = 1.;
-                }
-
-            }
-
+            else
+            {
+                u[cell] = 0;
+	    }
         });
 
     return u;
@@ -224,16 +194,16 @@ int main(int argc, char* argv[])
     // Simulation parameters
     double radius = 0.2, x_center = 0.3, y_center = 0.3;
     xt::xtensor_fixed<double, xt::xshape<dim>> min_corner = {0., 0.};
-    xt::xtensor_fixed<double, xt::xshape<dim>> max_corner = {4., 4.};
+    xt::xtensor_fixed<double, xt::xshape<dim>> max_corner = {1., 1.};
     std::array<double, dim> a{
         {1, 1}
     };
-    double Tf  = .9;
+    double Tf  = .1;
     double cfl = 0.5;
 
     // Multiresolution parameters
     std::size_t min_level = 4;
-    std::size_t max_level = 6;
+    std::size_t max_level = 10;
     double mr_epsilon     = 2.e-4; // Threshold used by multiresolution
     double mr_regularity  = 1.;    // Regularity guess for multiresolution
     bool correction       = false;
@@ -241,8 +211,8 @@ int main(int argc, char* argv[])
     // Output parameters
     fs::path path        = fs::current_path();
     std::string filename = "FV_advection_2d";
-    std::size_t nfiles   = 10;
-    std::size_t nt_loadbalance = 10; // nombre d'iteratio entre les equilibrages
+    std::size_t nfiles   = 1;
+    std::size_t nt_loadbalance = 1; // nombre d'iteration entre les equilibrages
 
     app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--max-corner", max_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
@@ -276,17 +246,8 @@ int main(int argc, char* argv[])
     const double dt_save = Tf / static_cast<double>(nfiles);
     double t             = 0.;
 
-    std::vector<double> rcenters, radii;
-    rcenters.emplace_back( x_center );
-    rcenters.emplace_back( y_center );
-    radii.emplace_back( radius );
+    auto u = init(mesh);
 
-    rcenters = { 0.8, 0.8, 
-                 2., 2.,
-                 3., 1. };
-    radii    = { 0.8, 0.4, 0.2 };
-
-    auto u = init<dim>(mesh, radii, rcenters);
 
     samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
     auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
@@ -301,15 +262,17 @@ int main(int argc, char* argv[])
 
     std::size_t nsave = 1;
     std::size_t nt    = 0;
-    
-    const int iof = 1;
 
-//    SFC_LoadBalancer_interval<dim, Morton> ealancer;
 
-    // Void_LoadBalancer<dim> balancer;
-    // Diffusion_LoadBalancer_cell<dim> balancer;
-    // Diffusion_LoadBalancer_interval<dim> balancer;
-    // Load_balancing::Diffusion balancer;
+// For now, void_balancer is verified and works properly
+// Diffusion_LoadBalancer_cell not exist ???
+// Load_balancing::Diffusion donne de très mauvais resultats, peut-etre des parametres internes ? 
+
+    SFC_LoadBalancer_interval<dim, Morton> balancer;
+//    Void_LoadBalancer<dim> balancer;
+//    Diffusion_LoadBalancer_cell<dim> balancer;
+//     Diffusion_LoadBalancer_interval<dim> balancer;
+//     Load_balancing::Diffusion balancer;
     // Load_balancing::SFCw<dim, Morton> balancer;
 
     std::ofstream logs;
@@ -319,16 +282,16 @@ int main(int argc, char* argv[])
 #endif
     while (t != Tf)
     {
-//        bool reqBalance = balancer.require_balance( mesh );
+        bool reqBalance = balancer.require_balance( mesh );
 
-//        if( reqBalance ) std::cerr << "\t> Load Balancing required !!! " << std::endl;
+        if( reqBalance ) std::cerr << "\t> Load Balancing required !!! " << std::endl;
 
         // if ( ( nt % nt_loadbalance == 0 || reqBalance ) && nt > 1 )
         if ( ( nt % nt_loadbalance == 0 ) && nt > 1 )
         // if ( reqBalance && nt > 1 )
         {
             samurai::times::timers.start("load-balancing");
-//            balancer.load_balance(mesh, u);
+            balancer.load_balance(mesh, u);
             samurai::times::timers.stop("load-balancing");
         }
 
@@ -355,18 +318,16 @@ int main(int argc, char* argv[])
 
         if (correction)
         {
-            // flux_correction(dt, a, u, unp1);
+            flux_correction(dt, a, u, unp1);
         }
 
         std::swap(u.array(), unp1.array());
 
-        samurai::times::timers.start("I/O");
-        if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf || nt % iof == 0  )
+        if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
         {
             const std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
             save(path, filename, u, suffix);
         }
-        samurai::times::timers.stop("I/O");
 
     }
 
