@@ -78,39 +78,11 @@ namespace samurai
         EXPECT_TRUE(it == lca[0].end());
     }
 
-    // TEST(utils, IntervalIterator)
-    // {
-    //     LevelCellList<2> lcl{1};
-    //     LevelCellArray<2> lca;
-    //     lcl[{1}].add_interval({0, 2});
-    //     lcl[{1}].add_interval({9, 12});
-    //     lcl[{1}].add_interval({14, 20});
-    //     lcl[{2}].add_interval({1, 4});
-    //     lcl[{2}].add_interval({10, 20});
-
-    //     // lcl[{1}].add_interval({0, 2});
-    //     // lcl[{2}].add_interval({0, 2});
-
-    //     lca            = lcl;
-    //     auto intervals = IntervalIterator(1,
-    //                                          0,
-    //                                          std::span(lca[0].begin() + static_cast<std::ptrdiff_t>(lca.offsets(1)[0]),
-    //                                                    lca[0].begin() + static_cast<std::ptrdiff_t>(lca.offsets(1).back())),
-    //                                          true);
-    //     // auto intervals = IntervalIteratorNew(2,
-    //     //                                      2,
-    //     //                                      std::span(lca[0].begin() + static_cast<std::ptrdiff_t>(lca.offsets(1)[0]),
-    //     //                                                lca[0].begin() + static_cast<std::ptrdiff_t>(lca.offsets(1)[1])),
-    //     //                                      false);
-
-    //     for (auto it = intervals.begin(); it != intervals.end(); ++it)
-    //     {
-    //         std::cout << "ici: " << *it << std::endl;
-    //     }
-    // }
-
     TEST(utils, Self)
     {
+        using interval_t = typename LevelCellArray<2>::interval_t;
+        using expected_t = std::vector<std::pair<int, interval_t>>;
+
         LevelCellList<2> lcl{1};
         LevelCellArray<2> lca;
         lcl[{1}].add_interval({0, 2});
@@ -121,26 +93,54 @@ namespace samurai
 
         lca = lcl;
 
-        self(lca)(
-            [](auto& i, auto& index)
+        auto expected = expected_t{
+            {0, {0, 1} },
+            {0, {4, 6} },
+            {0, {7, 10}},
+            {1, {0, 2} },
+            {1, {5, 10}}
+        };
+        std::size_t ie = 0;
+        self(lca).on(0)(
+            [&](auto& i, auto& index)
             {
-                std::cout << i << " " << index << std::endl;
+                EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
             });
     }
 
     TEST(utils, Self1d)
     {
-        LevelCellList<1> lcl{1};
+        using interval_t = typename LevelCellArray<1>::interval_t;
+        using expected_t = std::vector<interval_t>;
+
+        LevelCellList<1> lcl{3};
         LevelCellArray<1> lca;
         lcl[{}].add_interval({0, 2});
         lcl[{}].add_interval({9, 12});
 
         lca = lcl;
 
+        expected_t expected{
+            {0, 2 },
+            {9, 12}
+        };
+        std::size_t ie = 0;
         self(lca)(
-            [](auto& i, auto)
+            [&](auto& i, auto)
             {
-                std::cout << i << " " << std::endl;
+                EXPECT_EQ(expected[ie++], i);
+            });
+
+        expected.clear();
+        expected = {
+            {0, 1},
+            {2, 3}
+        };
+        ie = 0;
+        self(lca).on(1)(
+            [&](auto& i, auto)
+            {
+                EXPECT_EQ(expected[ie++], i);
             });
     }
 
@@ -325,104 +325,6 @@ namespace samurai
               });
     }
 
-    // TEST(new_subset, offset_iterator)
-    // {
-    //     using interval_t          = Interval<int>;
-    //     std::vector<interval_t> x = {
-    //         {0, 2},
-    //         {4, 5},
-    //         {0, 1},
-    //         {2, 4},
-    //         {7, 9}
-    //     };
-    //     std::vector<std::size_t> offset = {0, 2, 4, 5};
-
-    //     auto begin = offset_iterator(x.cbegin(), x.cbegin() + 1);
-    //     auto end   = offset_iterator(x.cbegin() + 1, x.cbegin() + 1);
-    //     auto it    = begin;
-    //     EXPECT_EQ(interval_t(0, 2), *it);
-    //     it++;
-    //     EXPECT_EQ(interval_t(4, 5), *it);
-    //     it++;
-    //     it++;
-    //     EXPECT_TRUE(it == end);
-
-    //     std::vector<interval_t> y = {
-    //         {2, 4},
-    //         {3, 5},
-    //         {4, 6}
-    //     };
-    //     using iterator_t = decltype(y.cbegin());
-    //     std::vector<iterator_t> obegin{y.cbegin(), y.cbegin() + 1, y.cbegin() + 2};
-    //     std::vector<iterator_t> oend{y.cbegin() + 1, y.cbegin() + 2, y.cbegin() + 3};
-    //     auto ybegin = offset_iterator<iterator_t>(obegin, oend);
-    //     auto yend   = offset_iterator<iterator_t>(oend, oend);
-    //     auto yit    = ybegin;
-    //     EXPECT_EQ(interval_t(2, 6), *yit);
-    //     yit++;
-    //     yit++;
-    //     EXPECT_TRUE(yit == yend);
-    // }
-
-    // TEST(new_subset, union_of_offset)
-    // {
-    //     using interval_t          = Interval<int>;
-    //     int level                 = 0;
-    //     std::vector<interval_t> x = {
-    //         {0, 2},
-    //         {4, 5},
-    //         {0, 1},
-    //         {3, 4},
-    //         {7, 9}
-    //     };
-    //     std::vector<std::size_t> offset = {0, 2, 4, 5};
-
-    //     using iterator_t = decltype(x.cbegin());
-    //     std::vector<iterator_t> obegin{x.cbegin(), x.cbegin() + 2, x.cbegin() + 4};
-    //     std::vector<iterator_t> oend{x.cbegin() + 2, x.cbegin() + 4, x.cbegin() + 5};
-    //     auto begin = offset_iterator(obegin, oend);
-    //     auto end   = offset_iterator(oend, oend);
-    //     auto set_1 = IntervalVector(level + 2, level + 1, level + 1, level + 2, begin, end);
-
-    //     apply(set_1,
-    //           [](auto& i)
-    //           {
-    //               EXPECT_EQ(interval_t(0, 5), i);
-    //           });
-
-    //     obegin.erase(obegin.begin());
-    //     oend.erase(oend.begin());
-    //     begin = offset_iterator(obegin, oend);
-    //     end   = offset_iterator(oend, oend);
-
-    //     auto set_2 = IntervalVector(level + 2, level, level, level + 2, begin, end);
-
-    //     apply(set_2,
-    //           [](auto& i)
-    //           {
-    //               EXPECT_EQ(interval_t(0, 3), i);
-    //           });
-    // }
-
-    // TEST(new_subset, one_interval)
-    // {
-    //     CellList<1> cl;
-    //     CellArray<1> ca;
-
-    //     cl[4][{}].add_interval({2, 4});
-    //     cl[4][{}].add_interval({5, 6});
-
-    //     ca = {cl, true};
-
-    //     auto set = IntervalVector(4, 4, 4, IntervalIterator(ca[4][0], 0, 1));
-    //     apply(set,
-    //           std::make_tuple(func, func),
-    //           [](auto& i)
-    //           {
-    //               std::cout << i << std::endl;
-    //           });
-    // }
-
     TEST(new_subset, 2d_case)
     {
         CellList<2> cl;
@@ -600,6 +502,7 @@ namespace samurai
     {
         CellList<1> cl;
         CellArray<1> ca;
+        using interval_t = typename CellArray<1>::interval_t;
 
         cl[14][{}].add_interval({8612, 8620});
         cl[13][{}].add_interval({4279, 4325});
@@ -610,7 +513,7 @@ namespace samurai
                         xt::xtensor_fixed<int, xt::xshape<1>>{-2}),
               [](auto& i, auto)
               {
-                  std::cout << "solution: " << i << std::endl;
+                  EXPECT_EQ(interval_t(8609, 8617), i);
               });
     }
 
