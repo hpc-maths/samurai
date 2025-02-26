@@ -485,12 +485,18 @@ namespace samurai
 			
 			const interval_iterator begin = intervals.begin() + i0;
 			const interval_iterator end   = intervals.begin() + i1;
-
-			static size_t ncall = 1;
-		
+			
 			#if defined(WITH_STATS)
-			std::ofstream out("add_interval_rec_stats.csv", std::ios_base::app);
-			out << d << ", " << isSingleton << ", " << std::distance(begin, end) << std::endl; 
+			static size_t ncall = 1;
+			
+			std::ofstream out("add_interval_rec_stats.csv", (ncall > 1) ? std::ios_base::app : std::ios_base::out);
+			if (ncall == 1)
+			{
+				out << "#of calls, " << d << ", " << isSingleton << ", " << std::distance(begin, end) << std::endl; 	
+			}
+			out << ncall << ", " << d << ", " << isSingleton << ", " << std::distance(begin, end) << std::endl; 
+			
+			++ncall;
 			#endif
 
 			const interval_reverse_iterator rbegin = std::make_reverse_iterator(end);
@@ -502,10 +508,10 @@ namespace samurai
 				const value_t xmax = x_interval[1];
 				// we search for it_first-1 such that (it_first-1)->end < xmin.
 				// if it->end >= xmin for all it in [begin,end), then it_first == begin
-				interval_iterator it_first = std::next(std::find_if(rbegin, rend, [xmin](const interval_t& interval) -> bool
+				interval_iterator it_first = std::find_if(rbegin, rend, [xmin](const interval_t& interval) -> bool
 				{
 					return interval.end < xmin;
-				}).base() - 1); 
+				}).base(); // - 1 + 1; // -1 for conversion to iterator + 1 for next 
 				// now, we search the first interval after [xmin, xmax)
 				// we seacrh for it_next such that xmax < it_next->start.
 				// if it_next >= xmax for all it in [begin, end) then it_next == end
@@ -538,10 +544,10 @@ namespace samurai
 				const value_t x = x_interval[0];
 				// we search for it_first-1 such that (it_first-1)->end < x.
 				// if it->end >= x for all it in [begin,end), then it_first == begin
-				interval_iterator it_first = std::next(std::find_if(rbegin, rend, [x](const interval_t& interval) -> bool
+				interval_iterator it_first = std::find_if(rbegin, rend, [x](const interval_t& interval) -> bool
 				{
 					return interval.end < x;
-				}).base() - 1); 
+				}).base(); // - 1 + 1; // -1 for conversion to iterator + 1 for next 
 				// we know that that x <= it_first->end < (it_first+)->start
 				if (it_first == end or x+1 < it_first->start) // [x, x+1) must be inserted after it_first-1
 				{
@@ -575,10 +581,10 @@ namespace samurai
 				
 				// we search for it_first-1 such that (it_first-1)->end < y.
 				// if it->end >= y for all it in [begin,end), then it_first == begin
-				interval_iterator it_first = std::next(std::find_if(rbegin, rend, [y](const interval_t& interval) -> bool
+				interval_iterator it_first = std::find_if(rbegin, rend, [y](const interval_t& interval) -> bool
 				{
 					return interval.end < y;
-				}).base() - 1); 
+				}).base(); // - 1 + 1; // -1 for conversion to iterator + 1 for next 
 				
 				interval_iterator it_y_interval = it_first;
 				// we know that that y <= it_first->end < (it_first+)->start
