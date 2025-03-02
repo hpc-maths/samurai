@@ -15,10 +15,10 @@ namespace samurai
     // namespace samurai::experimental
     // {
     template <class Operator, class... S>
-    class SetOp;
+    class SetTraverser;
 
     template <class container_t>
-    class IntervalVector;
+    class IntervalTraverser;
 
     template <class T>
     struct is_setop : std::false_type
@@ -26,7 +26,7 @@ namespace samurai
     };
 
     template <class... T>
-    struct is_setop<SetOp<T...>> : std::true_type
+    struct is_setop<SetTraverser<T...>> : std::true_type
     {
     };
 
@@ -37,7 +37,7 @@ namespace samurai
     concept IsSetOp = is_setop_v<T>;
 
     template <typename T>
-    concept IsIntervalVector = std::is_base_of_v<IntervalVector<typename std::decay_t<T>::container_t>, std::decay_t<T>>;
+    concept IsIntervalTraverser = std::is_base_of_v<IntervalTraverser<typename std::decay_t<T>::container_t>, std::decay_t<T>>;
 
     template <typename T>
     concept IsLCA = std::same_as<LevelCellArray<T::dim, typename T::interval_t>, T>;

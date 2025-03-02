@@ -12,8 +12,6 @@
 #include <samurai/interval.hpp>
 #include <samurai/level_cell_array.hpp>
 #include <samurai/mr/mesh.hpp>
-#include <samurai/subset/apply.hpp>
-#include <samurai/subset/interval_interface.hpp>
 #include <samurai/subset/node.hpp>
 
 namespace samurai

@@ -56,7 +56,7 @@ namespace samurai
     }
 
     template <class Set, class StartEnd, class Func>
-        requires IsSetOp<Set> || IsIntervalVector<Set>
+        requires IsSetOp<Set> || IsIntervalTraverser<Set>
     void apply(Set&& set, StartEnd&& start_and_stop, Func&& func)
     {
         using interval_t = typename std::decay_t<Set>::interval_t;

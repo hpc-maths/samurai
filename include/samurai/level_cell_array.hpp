@@ -89,8 +89,8 @@ namespace samurai
         LevelCellArray() = default;
         LevelCellArray(const LevelCellList<Dim, TInterval>& lcl);
 
-        template <class Op, class... S>
-        LevelCellArray(subset<Op, S...> set);
+        template <class Op, class StartEndOp, class... S>
+        LevelCellArray(Subset<Op, StartEndOp, S...> set);
 
         LevelCellArray(std::size_t level, const Box<value_t, dim>& box);
         LevelCellArray(std::size_t level,
@@ -318,8 +318,8 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    template <class Op, class... S>
-    inline LevelCellArray<Dim, TInterval>::LevelCellArray(subset<Op, S...> set)
+    template <class Op, class StartEndOp, class... S>
+    inline LevelCellArray<Dim, TInterval>::LevelCellArray(Subset<Op, StartEndOp, S...> set)
     {
         LevelCellList<Dim, TInterval> lcl{static_cast<std::size_t>(set.level())};
 

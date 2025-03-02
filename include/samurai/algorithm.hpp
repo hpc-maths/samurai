@@ -119,10 +119,10 @@ namespace samurai
     }
 
     template <class Op, class StartEndOp, class... S>
-    class subset;
+    class Subset;
 
     template <class Func, class Op, class StartEndOp, class... S>
-    inline void for_each_interval(subset<Op, StartEndOp, S...>& set, Func&& f)
+    inline void for_each_interval(Subset<Op, StartEndOp, S...>& set, Func&& f)
     {
         set(
             [&](const auto& i, const auto& index)
