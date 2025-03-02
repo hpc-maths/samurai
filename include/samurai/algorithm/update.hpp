@@ -8,6 +8,7 @@
 #include <xtensor/xfixed.hpp>
 
 #include "../bc.hpp"
+#include "../field.hpp"
 #include "../numeric/prediction.hpp"
 #include "../numeric/projection.hpp"
 #include "../subset/node.hpp"
@@ -506,7 +507,7 @@ namespace samurai
         xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> min_corner;
         xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> max_corner;
         auto& mesh       = field.mesh();
-        auto& domain      = mesh.domain();
+        auto& domain     = mesh.domain();
         auto min_indices = domain.min_indices();
         auto max_indices = domain.max_indices();
 

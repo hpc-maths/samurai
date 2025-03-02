@@ -144,6 +144,70 @@ namespace samurai
         xt::xtensor_fixed<int, xt::xshape<dim>> m_t;
     };
 
+    template <std::size_t dim>
+    struct start_end_contraction_function
+    {
+        start_end_contraction_function(int c)
+            : m_c(c)
+        {
+        }
+
+        auto& operator()(auto level, auto min_level, auto max_level)
+        {
+            m_level     = level;
+            m_min_level = min_level;
+            m_max_level = max_level;
+            return *this;
+        }
+
+        template <std::size_t d, class Func>
+        inline auto start(const Func& f) const
+        {
+            auto new_f = [&, f](auto level, auto i)
+            {
+                i = start_shift(start_shift(start_shift(i, static_cast<int>(level) - static_cast<int>(m_max_level)) - m_c,
+                                            static_cast<int>(m_min_level) - static_cast<int>(level)),
+                                static_cast<int>(m_max_level) - static_cast<int>(m_min_level));
+                return f(m_level, i);
+            };
+            return new_f;
+        }
+
+        template <std::size_t d, class Func>
+        inline auto end(const Func& f) const
+        {
+            auto new_f = [&, f](auto level, auto i)
+            {
+                i = end_shift(end_shift(end_shift(i, static_cast<int>(level) - static_cast<int>(m_max_level)) - m_c,
+                                        static_cast<int>(m_min_level) - static_cast<int>(level)),
+                              static_cast<int>(m_max_level) - static_cast<int>(m_min_level));
+                return f(m_level, i);
+            };
+            return new_f;
+        }
+
+        template <std::size_t d, class Func>
+        inline auto goback(const Func& f) const
+        {
+            auto new_f = [&, f](auto level, auto i)
+            {
+                // std::cout << "go_back translate previous i: " << i << " translation: " << m_t[d - 1] << " "
+                //           << start_shift(m_t[d - 1], m_level - level) << std::endl;
+                // std::cout << "previous level: " << level << " current level: " << m_level << std::endl;
+                // i = start_shift(f(m_level, i - start_shift(m_t[d - 1], m_level - level)), level - m_level);
+                i = start_shift(f(m_level, i), static_cast<int>(level) - static_cast<int>(m_level)) + m_c;
+                // std::cout << " translate next i " << i << std::endl << std::endl;
+                return i;
+            };
+            return new_f;
+        }
+
+        std::size_t m_level;
+        std::size_t m_min_level;
+        std::size_t m_max_level;
+        int m_c;
+    };
+
     template <class container_>
     class IntervalIterator
     {

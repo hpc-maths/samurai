@@ -7,9 +7,9 @@
 
 #include "../algorithm.hpp"
 #include "../box.hpp"
-#include "../interval.hpp"
 #include "../mesh.hpp"
 #include "../samurai_config.hpp"
+#include "../subset/node.hpp"
 
 namespace samurai::amr
 {

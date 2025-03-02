@@ -8,9 +8,13 @@
 #endif
 #include <type_traits>
 
+#include <xtensor/xfixed.hpp>
+#include <xtensor/xview.hpp>
+
 #include "cell.hpp"
 #include "mesh_holder.hpp"
-#include "mesh_interval.hpp"
+
+using namespace xt::placeholders;
 
 namespace samurai
 {
@@ -114,11 +118,11 @@ namespace samurai
         for_each_interval(mesh[mesh_id_t::cells], std::forward<Func>(f));
     }
 
-    template <class F, class... CT>
-    class subset_operator;
+    template <class Op, class StartEndOp, class... S>
+    class subset;
 
-    template <class Func, class F, class... CT>
-    inline void for_each_interval(subset_operator<F, CT...>& set, Func&& f)
+    template <class Func, class Op, class StartEndOp, class... S>
+    inline void for_each_interval(subset<Op, StartEndOp, S...>& set, Func&& f)
     {
         set(
             [&](const auto& i, const auto& index)

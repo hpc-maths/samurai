@@ -1214,29 +1214,29 @@ namespace samurai
         }
     }
 
-    template <std::size_t dim>
-    void save_mesh(const fs::path& path, const std::string& filename, const CellArray<dim>& mesh)
-    {
-        std::size_t min_level = mesh.min_level();
-        std::size_t max_level = mesh.max_level();
+    // template <std::size_t dim>
+    // void save_mesh(const fs::path& path, const std::string& filename, const CellArray<dim>& mesh)
+    // {
+    //     std::size_t min_level = mesh.min_level();
+    //     std::size_t max_level = mesh.max_level();
 
-        HighFive::File file(fmt::format("{}_mesh.h5", (path / filename).string()), HighFive::File::Overwrite);
-        H5Easy::dump(file, "/mesh/dim", dim);
-        H5Easy::dump(file, "/mesh/min_level", min_level);
-        H5Easy::dump(file, "/mesh/max_level", max_level);
-        for (std::size_t level = min_level; level <= max_level; ++level)
-        {
-            for (std::size_t d = 0; d < dim; ++d)
-            {
-                H5Easy::dump(file, fmt::format("/mesh/level/{}/intervals/{}", level, d), mesh[level][d]);
-            }
+    //     HighFive::File file(fmt::format("{}_mesh.h5", (path / filename).string()), HighFive::File::Overwrite);
+    //     H5Easy::dump(file, "/mesh/dim", dim);
+    //     H5Easy::dump(file, "/mesh/min_level", min_level);
+    //     H5Easy::dump(file, "/mesh/max_level", max_level);
+    //     for (std::size_t level = min_level; level <= max_level; ++level)
+    //     {
+    //         for (std::size_t d = 0; d < dim; ++d)
+    //         {
+    //             H5Easy::dump(file, fmt::format("/mesh/level/{}/intervals/{}", level, d), mesh[level][d]);
+    //         }
 
-            for (std::size_t d = 1; d < dim; ++d)
-            {
-                H5Easy::dump(file, fmt::format("/mesh/level/{}/offsets/{}", level, d), mesh[level].offsets(d));
-            }
-        }
-    }
+    //         for (std::size_t d = 1; d < dim; ++d)
+    //         {
+    //             H5Easy::dump(file, fmt::format("/mesh/level/{}/offsets/{}", level, d), mesh[level].offsets(d));
+    //         }
+    //     }
+    // }
 
     template <class ca_type>
     ca_type load_mesh(const fs::path& path, const std::string& filename)

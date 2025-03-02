@@ -22,7 +22,6 @@ namespace samurai
     {
         LevelCellList<1> lcl{1};
         LevelCellArray<1> lca;
-        using interval_t = typename LevelCellArray<1>::interval_t;
 
         lcl[{}].add_interval({0, 2});
         lcl[{}].add_interval({9, 12});
@@ -53,7 +52,6 @@ namespace samurai
     {
         LevelCellList<1> lcl{1};
         LevelCellArray<1> lca;
-        using interval_t = typename LevelCellArray<1>::interval_t;
 
         lcl[{}].add_interval({0, 2});
         lcl[{}].add_interval({9, 12});
@@ -504,178 +502,6 @@ namespace samurai
                       EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
                   });
         }
-    }
-
-    TEST(new_subset, 3d_case)
-    {
-        CellArray<3> ca1, ca2;
-        using interval_t = typename CellArray<3>::interval_t;
-        using expected_t = std::vector<std::tuple<int, int, interval_t>>;
-
-        Box<double, 3> box({0, 0, 0}, {1, 1, 1});
-        ca1[4] = {4, box};
-        ca2[1] = {1, box};
-
-        self(ca1[4]).on(5)(
-            [](auto& i, auto& index)
-            {
-                std::cout << i << " " << index << std::endl;
-            });
-
-        // self(ca1[4]).on(1)(
-        //     [](auto& i, auto& index)
-        //     {
-        //         std::cout << i << " " << index << std::endl;
-        //     });
-
-        // intersection(self(ca1[4]).on(1), translate(ca2[1], xt::xtensor_fixed<int, xt::xshape<3>>{0, 1, 1}))(
-        //     [](auto& i, auto& index)
-        //     {
-        //         std::cout << i << " " << index << std::endl;
-        //     });
-    }
-
-    TEST(new_subset, 3d_union)
-    {
-        // auto ghosts = load_mesh<CellArray<3>>(fs::current_path(), "mesh_ghosts");
-        // auto union_ = load_mesh<CellArray<3>>(fs::current_path(), "mesh_union");
-
-        // std::cout << ghosts[4] << std::endl;
-        // std::cout << union_[4] << std::endl;
-
-        // LevelCellList<3> lcl{4};
-
-        // auto set = difference(ghosts[4], union_[4]);
-        // set(
-        //     [&](auto& i, auto& index)
-        //     {
-        //         lcl[index].add_interval(i);
-        //         std::cout << i << " " << index << std::endl;
-        //     });
-
-        // LevelCellArray<3> lca{lcl};
-
-        // save(fs::current_path(), "ghosts", ghosts[4]);
-        // save(fs::current_path(), "union", union_[4]);
-        // save(fs::current_path(), "difference", lca);
-
-        CellList<3> cl;
-        CellArray<3> union_mesh;
-        auto mesh = load_mesh<CellArray<3>>(fs::current_path(), "mesh_cells");
-        std::cout << mesh[5] << std::endl;
-        // self(mesh[5])(
-        //     [&](auto& i, auto& index)
-        //     {
-        //         cl[4][index >> 1].add_interval(i >> 1);
-        //     });
-        // union_mesh[4] = cl[4];
-        // save(fs::current_path(), "self_1_test", {true, true}, union_mesh);
-
-        cl.clear();
-        self(mesh[5]).on(4)(
-            [&](auto& i, auto& index)
-            {
-                cl[4][index].add_interval(i);
-            });
-        union_mesh[4] = cl[4];
-        save(fs::current_path(), "self_test", {true, true}, union_mesh);
-
-        cl.clear();
-        union_(mesh[5], union_mesh[5])
-            .on(4)(
-                [&](auto& i, auto& index)
-                {
-                    cl[4][index].add_interval(i);
-                });
-        union_mesh[4] = cl[4];
-        save(fs::current_path(), "union_test", {true, true}, union_mesh);
-
-        // std::cout << "start here" << std::endl;
-        // union_(mesh[4], union_mesh[4])
-        //     .on(3)(
-        //         [&](auto& i, auto& index)
-        //         {
-        //             cl[3][index].add_interval(i);
-        //         });
-        // union_mesh[3] = cl[3];
-        // std::cout << union_mesh << std::endl;
-    }
-
-    TEST(new_subset, 3d_case_union)
-    {
-        LevelCellList<3> lcl1{3}, lcl2{3}, lcl3{2};
-        LevelCellArray<3> lca1, lca2, lca3;
-
-        lcl1[{0, 0}].add_interval({0, 4});
-        lcl1[{1, 0}].add_interval({0, 4});
-        lcl1[{2, 0}].add_interval({0, 4});
-        lcl1[{3, 0}].add_interval({0, 4});
-        lcl1[{0, 1}].add_interval({0, 4});
-        lcl1[{1, 1}].add_interval({0, 1});
-        lcl1[{1, 1}].add_interval({3, 4});
-        lcl1[{2, 1}].add_interval({0, 1});
-        lcl1[{2, 1}].add_interval({3, 4});
-        lcl1[{3, 1}].add_interval({0, 4});
-        lcl1[{0, 2}].add_interval({0, 4});
-        lcl1[{1, 2}].add_interval({0, 1});
-        lcl1[{1, 2}].add_interval({3, 4});
-        lcl1[{2, 2}].add_interval({0, 1});
-        lcl1[{2, 2}].add_interval({3, 4});
-        lcl1[{3, 2}].add_interval({0, 4});
-        lcl1[{0, 3}].add_interval({0, 4});
-        lcl1[{1, 3}].add_interval({0, 4});
-        lcl1[{2, 3}].add_interval({0, 4});
-        lcl1[{3, 3}].add_interval({0, 4});
-
-        lcl2[{1, 1}].add_interval({1, 3});
-        lcl2[{2, 1}].add_interval({1, 3});
-        lcl2[{1, 2}].add_interval({1, 3});
-        lcl2[{2, 2}].add_interval({1, 3});
-
-        lca1 = lcl1;
-        lca2 = lcl2;
-
-        save("lca1", lca1);
-        save("lca2", lca2);
-
-        union_(lca1, lca2)
-            .on(2)(
-                [&](auto& i, auto& index)
-                {
-                    lcl3[index].add_interval(i);
-                    std::cout << i << " " << index << std::endl;
-                });
-        lca3 = lcl3;
-        save("lca3", lca3);
-    }
-
-    TEST(new_subset, 2d_case_union)
-    {
-        LevelCellList<2> lcl1{3}, lcl2{3};
-        LevelCellArray<2> lca1, lca2;
-
-        lcl1[{0}].add_interval({0, 4});
-        lcl1[{1}].add_interval({0, 1});
-        lcl1[{1}].add_interval({3, 4});
-        lcl1[{2}].add_interval({0, 1});
-        lcl1[{2}].add_interval({3, 4});
-        lcl1[{3}].add_interval({0, 4});
-
-        lcl2[{1}].add_interval({1, 3});
-        lcl2[{2}].add_interval({1, 3});
-
-        lca1 = lcl1;
-        lca2 = lcl2;
-
-        save("lca1", lca1);
-        save("lca2", lca2);
-
-        union_(lca1, lca2)
-            .on(2)(
-                [](auto& i, auto& index)
-                {
-                    std::cout << i << " " << index << std::endl;
-                });
     }
 
     TEST(new_subset, translate)

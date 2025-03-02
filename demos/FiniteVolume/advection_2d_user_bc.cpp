@@ -14,7 +14,7 @@
 #include <samurai/mr/mesh.hpp>
 #include <samurai/samurai.hpp>
 #include <samurai/stencil_field.hpp>
-#include <samurai/subset/subset_op.hpp>
+#include <samurai/subset/node.hpp>
 
 #include <filesystem>
 namespace fs = std::filesystem;

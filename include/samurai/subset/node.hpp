@@ -15,6 +15,7 @@
 #include <xtensor/xfixed.hpp>
 
 #include "../algorithm.hpp"
+#include "apply.hpp"
 #include "concepts.hpp"
 #include "interval_interface.hpp"
 #include "samurai/list_of_intervals.hpp"
@@ -187,7 +188,7 @@ namespace samurai
         }
     }
 
-    struct TranslationOp
+    struct SelfOp
     {
         bool is_in(auto scan, const auto& arg) const
         {
@@ -232,12 +233,13 @@ namespace samurai
 
         auto& on(auto level)
         {
-            if (level > m_ref_level)
+            auto ilevel = static_cast<std::size_t>(level);
+            if (ilevel > m_ref_level)
             {
-                ref_level(level);
+                ref_level(ilevel);
             }
-            m_min_level = std::min(m_min_level, level);
-            m_level     = level;
+            m_min_level = std::min(m_min_level, ilevel);
+            m_level     = ilevel;
             return *this;
         }
 
@@ -604,8 +606,8 @@ namespace samurai
 
         auto& on(auto level)
         {
-            m_min_level = std::min(m_min_level, level);
-            m_level     = level;
+            m_min_level = std::min(m_min_level, static_cast<std::size_t>(level));
+            m_level     = static_cast<std::size_t>(level);
             return *this;
         }
 
@@ -684,9 +686,16 @@ namespace samurai
     auto translate(set_t&& set, const stencil_t& stencil)
     {
         constexpr std::size_t dim = std::decay_t<set_t>::dim;
-        return subset(TranslationOp(),
+        return subset(SelfOp(),
                       start_end_translate_function<dim>(xt::xtensor_fixed<int, xt::xshape<dim>>(stencil)),
                       detail::transform(std::forward<set_t>(set)));
+    }
+
+    template <class set_t>
+    auto contraction(set_t&& set, int c)
+    {
+        constexpr std::size_t dim = std::decay_t<set_t>::dim;
+        return subset(SelfOp(), start_end_contraction_function<dim>(c), detail::transform(std::forward<set_t>(set)));
     }
 
     template <class lca_t>
