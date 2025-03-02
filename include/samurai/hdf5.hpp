@@ -1172,13 +1172,13 @@ namespace HighFive
 
         inline AtomicType()
             : DataType(CompoundType(
-                  {
-                      {"start", create_datatype<value_t>()},
-                      {"end", create_datatype<value_t>(), sizeof(value_t)},
-                      {"step", create_datatype<value_t>(), 2 * sizeof(value_t)},
-                      {"index", create_datatype<index_t>(), 4 * sizeof(value_t)}
+                {
+                    {"start", create_datatype<value_t>()},
+                    {"end", create_datatype<value_t>(), sizeof(value_t)},
+                    {"step", create_datatype<value_t>(), 2 * sizeof(value_t)},
+                    {"index", create_datatype<index_t>(), 4 * sizeof(value_t)}
         },
-                  sizeof(samurai::Interval<value_t, index_t>)))
+                sizeof(samurai::Interval<value_t, index_t>)))
         {
             // static_assert(std::is_arithmetic<T>::value, "std::complex accepts only floating point and integral numbers.");
         }

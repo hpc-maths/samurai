@@ -190,7 +190,7 @@ namespace samurai
             {
                 ar& m_offsets[d];
             }
-            ar & m_level;
+            ar& m_level;
         }
 #endif
 
