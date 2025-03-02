@@ -901,7 +901,7 @@ namespace samurai
                 {
                     os << fmt::format("({}: {}) ", io, m_offsets[d - 1][io]);
                 }
-                os << std::endl;
+                os << std::endl << std::endl;
             }
         }
     }

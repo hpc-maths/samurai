@@ -376,6 +376,9 @@ namespace samurai
 
             if constexpr (dim == d)
             {
+                m_offsets[d - 1].clear();
+                m_offsets[d - 1].push_back({0, m_lca[d - 1].size()});
+
                 return IntervalVector(m_lca.level(),
                                       m_level,
                                       m_ref_level,
@@ -383,8 +386,9 @@ namespace samurai
             }
             else
             {
-                if (m_lca[d].empty())
+                if (m_lca[d].empty() || m_offsets[d].empty())
                 {
+                    // std::cout << "empty " << std::boolalpha << m_lca[d].empty() << " " << m_offsets[d].empty() << std::endl;
                     return IntervalVector(IntervalIterator(m_lca[d - 1], 0, 0));
                 }
 
@@ -392,8 +396,12 @@ namespace samurai
 
                 if (static_cast<std::size_t>(level) >= m_lca.level())
                 {
+                    m_offsets[d - 1].clear();
+                    // std::cout << "dim: " << d << std::endl;
+                    // std::cout << m_offsets[d][0][0] << " " << m_offsets[d][0][1] << std::endl;
+
                     auto current_index = start_shift(new_goback_fct(m_level, index[d - 1]), static_cast<int>(m_lca.level()) - m_level);
-                    auto j             = find_on_dim(m_lca, d, 0, m_lca[d].size(), current_index);
+                    auto j             = find_on_dim(m_lca, d, m_offsets[d][0][0], m_offsets[d][0][1], current_index);
 
                     if (j == std::numeric_limits<std::size_t>::max())
                     {
@@ -402,7 +410,9 @@ namespace samurai
 
                     auto io       = static_cast<std::size_t>(m_lca[d][j].index + current_index);
                     auto& offsets = m_lca.offsets(d);
+                    m_offsets[d - 1].push_back({offsets[io], offsets[io + 1]});
 
+                    // std::cout << "offsets " << offsets[io] << " " << offsets[io + 1] << std::endl;
                     return IntervalVector(m_lca.level(),
                                           m_level,
                                           m_ref_level,
@@ -412,68 +422,131 @@ namespace samurai
                 }
                 else
                 {
+                    // std::cout << "dim: " << d << std::endl;
                     auto min_index = start_shift(new_goback_fct(m_level, index[d - 1]), static_cast<int>(m_lca.level()) - m_level);
                     auto max_index = start_shift(new_goback_fct(m_level, index[d - 1] + 1), static_cast<int>(m_lca.level()) - m_level);
+                    // std::cout << "min_index " << min_index << " max_index " << max_index << std::endl;
 
-                    auto j_min = lower_bound_interval(m_lca[d].begin(), m_lca[d].end(), min_index);
-                    auto j_max = upper_bound_interval(j_min, m_lca[d].end(), max_index) - 1;
+                    m_work[d - 1].clear();
+                    m_offsets[d - 1].clear();
 
-                    if (j_min != m_lca[d].end() && j_min <= j_max)
+                    if constexpr (d == dim - 1)
                     {
-                        auto start_offset = static_cast<std::size_t>(j_min->index + j_min->start);
-                        if (j_min->contains(min_index))
-                        {
-                            start_offset = static_cast<std::size_t>(j_min->index + min_index);
-                        }
+                        auto j_min = lower_bound_interval(m_lca[d].begin() + m_offsets[d][0][0],
+                                                          m_lca[d].begin() + m_offsets[d][0][1],
+                                                          min_index);
+                        auto j_max = upper_bound_interval(j_min, m_lca[d].begin() + m_offsets[d][0][1], max_index) - 1;
 
-                        auto end_offset = static_cast<std::size_t>(j_max->index + j_max->end);
-                        if (j_max->contains(max_index))
-                        {
-                            end_offset = static_cast<std::size_t>(j_max->index + max_index);
-                        }
+                        // std::cout << "j_min " << *j_min << " " << *j_max << std::endl;
 
-                        if (start_offset == end_offset)
+                        if (j_min != m_lca[d].end() && j_min <= j_max)
                         {
-                            return IntervalVector(IntervalIterator(m_lca[d - 1], 0, 0));
-                        }
-                        start_offset = m_lca.offsets(d)[start_offset];
-                        end_offset   = m_lca.offsets(d)[end_offset];
-                        ListOfIntervals<value_t> list_of_intervals;
-                        // for (std::size_t o = start_offset; o < end_offset; ++o)
-                        // {
-                        //     auto start = start_shift(m_lca[d - 1][o].start, m_level - static_cast<int>(m_lca.level()));
-                        //     auto end   = start_shift(m_lca[d - 1][o].end, m_level - static_cast<int>(m_lca.level()));
-                        //     list_of_intervals.add_interval({start, end});
-                        // }
+                            auto start_offset = static_cast<std::size_t>(j_min->index + j_min->start);
+                            if (j_min->contains(min_index))
+                            {
+                                start_offset = static_cast<std::size_t>(j_min->index + min_index);
+                            }
 
-                        for (std::size_t o = start_offset; o < end_offset; ++o)
-                        {
-                            auto start = m_lca[d - 1][o].start;
-                            auto end   = m_lca[d - 1][o].end;
-                            list_of_intervals.add_interval({start, end});
-                        }
+                            auto end_offset = static_cast<std::size_t>(j_max->index + j_max->end);
+                            if (j_max->contains(max_index))
+                            {
+                                end_offset = static_cast<std::size_t>(j_max->index + max_index);
+                            }
 
-                        // std::cout << "offset " << start_offset << " " << end_offset << std::endl;
-                        // std::vector<interval_t> intervals;
-                        m_work.clear();
-                        // intervals.reserve(list_of_intervals.size());
-                        for (auto& i : list_of_intervals)
-                        {
-                            m_work.push_back(i);
-                            // std::cout << i << " ";
-                        }
-                        // std::cout << std::endl;
+                            if (start_offset == end_offset)
+                            {
+                                return IntervalVector(IntervalIterator(m_lca[d - 1], 0, 0));
+                            }
 
-                        // return IntervalVector(m_level, m_level, m_ref_level, IntervalIterator(m_lca[d - 1], m_work));
-                        return IntervalVector(m_lca.level(), m_level, m_ref_level, IntervalIterator(m_lca[d - 1], m_work));
+                            m_offsets[d - 1].push_back({start_offset, end_offset});
+                            // std::cout << "start_offset " << start_offset << " end_offset " << end_offset << std::endl;
+
+                            ListOfIntervals<value_t> list_of_intervals;
+                            for (std::size_t o = m_lca.offsets(d)[start_offset]; o < m_lca.offsets(d)[end_offset]; ++o)
+                            {
+                                auto start = m_lca[d - 1][o].start;
+                                auto end   = m_lca[d - 1][o].end;
+                                list_of_intervals.add_interval({start, end});
+                            }
+
+                            // std::cout << "intervals for d = " << d - 1 << ": ";
+                            for (auto& i : list_of_intervals)
+                            {
+                                m_work[d - 1].push_back(i);
+                                // std::cout << i << " ";
+                            }
+                            // std::cout << std::endl;
+                        }
                     }
-                    return IntervalVector(IntervalIterator(m_lca[d - 1], 0, 0));
+                    else
+                    {
+                        ListOfIntervals<value_t> list_of_intervals;
+
+                        for (auto& offset : m_offsets[d])
+                        {
+                            for (std::size_t io = offset[0]; io < offset[1]; ++io)
+                            {
+                                auto j_min = lower_bound_interval(m_lca[d].begin() + m_lca.offsets(d + 1)[io],
+                                                                  m_lca[d].begin() + m_lca.offsets(d + 1)[io + 1],
+                                                                  min_index);
+                                auto j_max = upper_bound_interval(j_min, m_lca[d].begin() + m_lca.offsets(d + 1)[io + 1], max_index) - 1;
+
+                                // std::cout << "search in offset " << io << " " << m_lca.offsets(d + 1)[io] << " "
+                                //           << m_lca.offsets(d + 1)[io + 1] << std::endl;
+
+                                // std::cout << "j_min " << *j_min << " " << *j_max << std::endl;
+
+                                if (j_min != m_lca[d].begin() + m_lca.offsets(d + 1)[io + 1] && j_min <= j_max)
+                                {
+                                    auto start_offset = static_cast<std::size_t>(j_min->index + j_min->start);
+                                    if (j_min->contains(min_index))
+                                    {
+                                        start_offset = static_cast<std::size_t>(j_min->index + min_index);
+                                    }
+
+                                    auto end_offset = static_cast<std::size_t>(j_max->index + j_max->end);
+                                    if (j_max->contains(max_index))
+                                    {
+                                        end_offset = static_cast<std::size_t>(j_max->index + max_index);
+                                    }
+
+                                    // std::cout << "start_offset " << start_offset << " end_offset " << end_offset << std::endl;
+                                    if (start_offset == end_offset)
+                                    {
+                                        continue;
+                                    }
+
+                                    m_offsets[d - 1].push_back({start_offset, end_offset});
+
+                                    for (std::size_t o = m_lca.offsets(d)[start_offset]; o < m_lca.offsets(d)[end_offset]; ++o)
+                                    {
+                                        auto start = m_lca[d - 1][o].start;
+                                        auto end   = m_lca[d - 1][o].end;
+                                        list_of_intervals.add_interval({start, end});
+                                        // std::cout << "add interval " << start << " " << end << std::endl;
+                                    }
+                                }
+                            }
+                            // std::cout << "intervals for d = " << d - 1 << ": ";
+                            for (auto& i : list_of_intervals)
+                            {
+                                m_work[d - 1].push_back(i);
+                                // std::cout << i << " ";
+                            }
+                            // std::cout << std::endl;
+                        }
+                    }
+                    if (m_work[d - 1].empty())
+                    {
+                        return IntervalVector(IntervalIterator(m_lca[d - 1], 0, 0));
+                    }
+                    return IntervalVector(m_lca.level(), m_level, m_ref_level, IntervalIterator(m_lca[d - 1], m_work[d - 1]));
                 }
             }
         }
 
         template <std::size_t d>
-        auto get_local_set(int level, xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index)
+        auto get_local_set(int level, auto& index)
 
         {
             return get_local_set<d>(level, index, default_function());
@@ -527,7 +600,8 @@ namespace samurai
         int m_ref_level;
         int m_min_level;
         start_end_function<dim> m_func;
-        std::vector<interval_t> m_work;
+        std::array<std::vector<interval_t>, dim - 1> m_work;
+        std::array<std::vector<std::array<std::size_t, 2>>, dim> m_offsets;
     };
 
     namespace detail
@@ -594,7 +668,6 @@ namespace samurai
         return subset(TranslationOp(),
                       start_end_translate_function<dim>(xt::xtensor_fixed<int, xt::xshape<dim>>(stencil)),
                       detail::transform(std::forward<set_t>(set)));
-        // return subset(TranslationOp(xt::xtensor_fixed<int, xt::xshape<dim>>(stencil)), detail::transform(set));
     }
 
     template <class lca_t>

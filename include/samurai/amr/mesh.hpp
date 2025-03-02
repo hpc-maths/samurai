@@ -140,8 +140,7 @@ namespace samurai::amr
         {
             auto expr = intersection(difference(this->cells()[mesh_id_t::cells_and_ghosts][level],
                                                 union_(this->get_union()[level], this->cells()[mesh_id_t::cells][level])),
-                                     this->domain())
-                            .on(level);
+                                     self(this->domain()).on(level));
 
             lcl_type lcl{level};
             expr(

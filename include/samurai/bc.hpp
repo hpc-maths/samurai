@@ -999,8 +999,7 @@ namespace samurai
 
         using direction_t = DirectionVector<dim>;
 
-        auto& domain      = field.mesh().domain();
-        auto one_interval = 1 << (domain.level() - level);
+        auto& domain = field.mesh().domain();
 
         static_nested_loop<dim, -1, 2>(
             [&](auto& dir)
@@ -1020,8 +1019,6 @@ namespace samurai
                     }
                     if (!is_periodic)
                     {
-                        // std::cout << "apply_extrapolation_bc_impl direction: " << dir << std::endl;
-
                         bool is_cartesian_direction = is_cartesian(dir);
 
                         if (!diagonals_only || !is_cartesian_direction)
@@ -1036,20 +1033,9 @@ namespace samurai
                             {
                                 if constexpr (dim == 2)
                                 {
-                                    auto subset = difference(domain,
-                                                             union_(translate(domain, one_interval * direction_t{-dir[0], 0}),
-                                                                    translate(domain, one_interval * direction_t{0, -dir[1]})));
-                                    // auto subset = difference(self(domain).on(ilevel),
-                                    //                          union_(translate(self(domain).on(ilevel), direction_t{-dir[0], 0}),
-                                    //
-                                    // if (level == 3)
-                                    // {
-                                    //     subset(
-                                    //         [&](auto& interval, auto& index)
-                                    //         {
-                                    //             std::cout << "difference interval: " << interval << " index: " << index << std::endl;
-                                    //         });
-                                    // }
+                                    auto subset = difference(self(domain).on(ilevel),
+                                                             union_(translate(self(domain).on(ilevel), direction_t{-dir[0], 0}),
+                                                                    translate(self(domain).on(ilevel), direction_t{0, -dir[1]})));
                                     __apply_extrapolation_bc_on_subset<stencil_size>(bc, level, field, dir, subset, only_fill_ghost_neighbours);
                                 }
                                 else if constexpr (dim == 3)
