@@ -82,6 +82,9 @@ namespace samurai
 
         start_end_translate_function(const container_t& t)
             : m_t(t)
+            , m_level(0)
+            , m_min_level(0)
+            , m_max_level(0)
         {
         }
 
@@ -146,6 +149,9 @@ namespace samurai
     {
         start_end_contraction_function(int c)
             : m_c(c)
+            , m_level(0)
+            , m_min_level(0)
+            , m_max_level(0)
         {
         }
 
@@ -323,7 +329,7 @@ namespace samurai
         template <class StartEnd>
         inline void next(auto scan, StartEnd& start_and_stop)
         {
-            auto& [start_fct, end_fct] = start_and_stop; // cppcheck-supress variableScope
+            auto& [start_fct, end_fct] = start_and_stop; // cppcheck-suppress variableScope
             // std::cout << std::endl;
             // std::cout << "m_current in next: " << m_current << " " << std::numeric_limits<value_t>::min() << std::endl;
             if (m_current == std::numeric_limits<value_t>::min())
