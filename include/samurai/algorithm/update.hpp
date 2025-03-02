@@ -19,6 +19,7 @@ using namespace xt::placeholders;
 
 #ifdef SAMURAI_WITH_MPI
 #include <boost/mpi.hpp>
+#include <xtensor/xmasked_view.hpp>
 namespace mpi = boost::mpi;
 #endif
 
