@@ -23,7 +23,7 @@ namespace samurai
             // std::cout << "perform dim: " << dim << " with index: " << index << std::endl;
             if constexpr (dim != 1)
             {
-                auto func_int = [&](auto& interval)
+                auto func_int = [&](const auto& interval)
                 {
                     for (auto i = interval.start; i < interval.end; ++i)
                     {
@@ -35,7 +35,7 @@ namespace samurai
             }
             else
             {
-                auto func_int = [&](auto& interval)
+                auto func_int = [&](const auto& interval)
                 {
                     func(interval, index);
                 };

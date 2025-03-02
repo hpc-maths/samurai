@@ -19,7 +19,6 @@ namespace samurai
     {
         return [](auto, auto i)
         {
-            // std::cout << "default value " << i << std::endl;
             return i;
         };
     }
@@ -27,8 +26,6 @@ namespace samurai
     template <std::size_t dim>
     struct start_end_function
     {
-        start_end_function() = default;
-
         auto& operator()(std::size_t level, std::size_t min_level, std::size_t max_level)
         {
             m_level     = level;
@@ -278,8 +275,14 @@ namespace samurai
         }
 
         IntervalVector(IntervalIterator<container_t>&& intervals)
-            : m_intervals(std::move(intervals))
+            : m_lca_level(std::numeric_limits<std::size_t>::infinity())
+            , m_shift2dest(std::numeric_limits<std::size_t>::infinity())
+            , m_shift2ref(std::numeric_limits<std::size_t>::infinity())
+            , m_intervals(std::move(intervals))
+            , m_first(m_intervals.begin())
+            , m_last(m_intervals.end())
             , m_current(sentinel<value_t>)
+            , m_is_start(true)
         {
         }
 
@@ -299,7 +302,7 @@ namespace samurai
 
         inline bool is_in(auto scan) const
         {
-            return m_current != sentinel<value_t> && !((scan < m_current) ^ !m_is_start);
+            return m_current != sentinel<value_t> && !((scan < m_current) ^ (!m_is_start));
         }
 
         inline bool is_empty() const
@@ -320,7 +323,7 @@ namespace samurai
         template <class StartEnd>
         inline void next(auto scan, StartEnd& start_and_stop)
         {
-            auto& [start_fct, end_fct] = start_and_stop;
+            auto& [start_fct, end_fct] = start_and_stop; // cppcheck-supress variableScope
             // std::cout << std::endl;
             // std::cout << "m_current in next: " << m_current << " " << std::numeric_limits<value_t>::min() << std::endl;
             if (m_current == std::numeric_limits<value_t>::min())
@@ -338,7 +341,7 @@ namespace samurai
                     // std::cout << "change m_current: " << m_current << std::endl;
                     while (m_first + 1 != m_last && m_current >= start(m_first + 1, start_fct))
                     {
-                        m_first++;
+                        ++m_first;
                         m_current = end(m_first, end_fct);
                         // std::cout << "update end in while loop: " << m_current << std::endl;
                         // std::cout << "next start: " << start(m_first + 1, start_fct) << std::boolalpha << " " << (m_first + 1 != m_last)
@@ -348,7 +351,7 @@ namespace samurai
                 }
                 else
                 {
-                    m_first++;
+                    ++m_first;
 
                     if (m_first == m_last)
                     {
