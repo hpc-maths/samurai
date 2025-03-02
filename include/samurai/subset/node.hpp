@@ -42,12 +42,12 @@ namespace samurai
         {
         }
 
-        auto shift() const
+        inline auto shift() const
         {
             return m_shift;
         }
 
-        bool is_in(auto scan) const
+        inline bool is_in(auto scan) const
         {
             return std::apply(
                 [this, scan](auto&&... args)
@@ -57,7 +57,7 @@ namespace samurai
                 m_s);
         }
 
-        bool is_empty() const
+        inline bool is_empty() const
         {
             return std::apply(
                 [this](auto&&... args)
@@ -67,7 +67,7 @@ namespace samurai
                 m_s);
         }
 
-        auto min() const
+        inline auto min() const
         {
             return std::apply(
                 [](auto&&... args)
@@ -258,7 +258,7 @@ namespace samurai
         }
 
         template <std::size_t d, class Func_goback>
-        auto get_local_set(int level, xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index, Func_goback&& goback_fct)
+        auto get_local_set(int level, auto& index, Func_goback&& goback_fct)
         {
             int shift = this->ref_level() - this->level();
             m_start_end_op(m_level, m_min_level, m_ref_level);
@@ -277,7 +277,7 @@ namespace samurai
         }
 
         template <std::size_t d>
-        auto get_local_set(int level, xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index)
+        auto get_local_set(int level, auto& index)
         {
             return get_local_set<d>(level, index, default_function());
         }
@@ -366,8 +366,18 @@ namespace samurai
             apply(*this, std::forward<Func>(func));
         }
 
+        template <class... ApplyOp>
+        void apply_op(ApplyOp&&... op)
+        {
+            auto func = [&](auto& interval, auto& index)
+            {
+                (op(static_cast<std::size_t>(m_level), interval, index), ...);
+            };
+            apply(*this, func);
+        }
+
         template <std::size_t d, class Func_goback>
-        auto get_local_set(int level, xt::xtensor_fixed<int, xt::xshape<dim - 1>>& index, Func_goback&& goback_fct)
+        auto get_local_set(int level, auto& index, Func_goback&& goback_fct)
         {
             if (m_lca[d - 1].empty())
             {

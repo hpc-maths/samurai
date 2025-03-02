@@ -40,7 +40,7 @@ namespace samurai
         template <std::size_t, class Func>
         inline auto start(const Func& f) const
         {
-            auto new_f = [&, f](int, int i) -> decltype(auto)
+            auto new_f = [&, f](int, int i)
             {
                 i = start_shift(start_shift(i, m_min_shift), m_max_shift);
                 return f(m_level, i);
@@ -51,7 +51,7 @@ namespace samurai
         template <std::size_t, class Func>
         inline auto end(const Func& f) const
         {
-            auto new_f = [&, f](int, int i) -> decltype(auto)
+            auto new_f = [&, f](int, int i)
             {
                 i = end_shift(end_shift(i, m_min_shift), m_max_shift);
                 return f(m_level, i);
@@ -62,7 +62,7 @@ namespace samurai
         template <std::size_t, class Func>
         inline auto goback(const Func& f) const
         {
-            auto new_f = [&, f](int level, int i) -> decltype(auto)
+            auto new_f = [&, f](int level, int i)
             {
                 // std::cout << "go_back previous i: " << i << std::endl;
                 // std::cout << "previous level: " << level << " current level: " << m_level << std::endl;
@@ -99,7 +99,7 @@ namespace samurai
         template <std::size_t d, class Func>
         inline auto start(const Func& f) const
         {
-            auto new_f = [&, f](int level, int i) -> decltype(auto)
+            auto new_f = [&, f](int level, int i)
             {
                 i = start_shift(start_shift(start_shift(i, level - m_max_level) + m_t[d - 1], m_min_level - level),
                                 m_max_level - m_min_level);
@@ -111,7 +111,7 @@ namespace samurai
         template <std::size_t d, class Func>
         inline auto end(const Func& f) const
         {
-            auto new_f = [&, f](int level, int i) -> decltype(auto)
+            auto new_f = [&, f](int level, int i)
             {
                 i = end_shift(end_shift(end_shift(i, level - m_max_level) + m_t[d - 1], m_min_level - level), m_max_level - m_min_level);
                 return f(m_level, i);
@@ -122,7 +122,7 @@ namespace samurai
         template <std::size_t d, class Func>
         inline auto goback(const Func& f) const
         {
-            auto new_f = [&, f](int level, int i) -> decltype(auto)
+            auto new_f = [&, f](int level, int i)
             {
                 // std::cout << "go_back translate previous i: " << i << " translation: " << m_t[d - 1] << " "
                 //           << start_shift(m_t[d - 1], m_level - level) << std::endl;
@@ -168,12 +168,12 @@ namespace samurai
         {
         }
 
-        auto begin()
+        inline auto begin()
         {
             return (m_take_data) ? m_data.cbegin() + m_start : m_work.cbegin();
         }
 
-        auto end()
+        inline auto end()
         {
             return (m_take_data) ? m_data.cbegin() + m_end : m_work.cend();
         }
@@ -217,41 +217,41 @@ namespace samurai
         }
 
         template <class Func>
-        auto start(const auto it, Func& start_fct) const
+        inline auto start(const auto it, Func& start_fct) const
         {
             auto i = it->start << m_shift2ref;
             return start_fct(m_lca_level, i);
         }
 
         template <class Func>
-        auto end(const auto it, Func& end_fct) const
+        inline auto end(const auto it, Func& end_fct) const
         {
             auto i = it->end << m_shift2ref;
             return end_fct(m_lca_level, i);
         }
 
-        bool is_in(auto scan) const
+        inline bool is_in(auto scan) const
         {
             return m_current != sentinel<value_t> && !((scan < m_current) ^ !m_is_start);
         }
 
-        bool is_empty() const
+        inline bool is_empty() const
         {
             return m_current == sentinel<value_t>;
         }
 
-        auto min() const
+        inline auto min() const
         {
             return m_current;
         }
 
-        auto shift() const
+        inline auto shift() const
         {
             return m_shift2dest;
         }
 
         template <class StartEnd>
-        void next(auto scan, StartEnd& start_and_stop)
+        inline void next(auto scan, StartEnd& start_and_stop)
         {
             auto& [start_fct, end_fct] = start_and_stop;
             // std::cout << std::endl;
@@ -274,8 +274,8 @@ namespace samurai
                         m_first++;
                         m_current = end(m_first, end_fct);
                         // std::cout << "update end in while loop: " << m_current << std::endl;
-                        // std::cout << "next start: " << start(m_first + 1) << std::boolalpha << " " << (m_first + 1 != m_last) <<
-                        // std::endl;
+                        // std::cout << "next start: " << start(m_first + 1, start_fct) << std::boolalpha << " " << (m_first + 1 != m_last)
+                        //           << std::endl;
                     }
                     // std::cout << "update end: " << m_current << std::endl;
                 }
