@@ -373,7 +373,7 @@ namespace samurai
         {
             auto func = [&](auto& interval, auto& index)
             {
-                (op(static_cast<std::size_t>(m_level), interval, index), ...);
+                (op(m_level, interval, index), ...);
             };
             apply(*this, func);
         }
