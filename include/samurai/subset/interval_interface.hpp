@@ -17,7 +17,7 @@ namespace samurai
 
     inline auto default_function()
     {
-        return [](int, int i)
+        return [](auto, auto i)
         {
             // std::cout << "default value " << i << std::endl;
             return i;
@@ -29,18 +29,18 @@ namespace samurai
     {
         start_end_function() = default;
 
-        auto& operator()(int level, int min_level, int max_level)
+        auto& operator()(std::size_t level, std::size_t min_level, std::size_t max_level)
         {
             m_level     = level;
-            m_min_shift = min_level - max_level;
-            m_max_shift = max_level - min_level;
+            m_min_shift = static_cast<int>(min_level) - static_cast<int>(max_level);
+            m_max_shift = static_cast<int>(max_level) - static_cast<int>(min_level);
             return *this;
         }
 
         template <std::size_t, class Func>
         inline auto start(const Func& f) const
         {
-            auto new_f = [&, f](int, int i)
+            auto new_f = [&, f](auto, auto i)
             {
                 i = start_shift(start_shift(i, m_min_shift), m_max_shift);
                 return f(m_level, i);
@@ -51,7 +51,7 @@ namespace samurai
         template <std::size_t, class Func>
         inline auto end(const Func& f) const
         {
-            auto new_f = [&, f](int, int i)
+            auto new_f = [&, f](auto, auto i)
             {
                 i = end_shift(end_shift(i, m_min_shift), m_max_shift);
                 return f(m_level, i);
@@ -62,18 +62,18 @@ namespace samurai
         template <std::size_t, class Func>
         inline auto goback(const Func& f) const
         {
-            auto new_f = [&, f](int level, int i)
+            auto new_f = [&, f](auto level, auto i)
             {
                 // std::cout << "go_back previous i: " << i << std::endl;
                 // std::cout << "previous level: " << level << " current level: " << m_level << std::endl;
-                i = start_shift(f(m_level, i), level - m_level);
+                i = start_shift(f(m_level, i), static_cast<int>(level) - static_cast<int>(m_level));
                 // std::cout << " next i " << i << std::endl << std::endl;
                 return i;
             };
             return new_f;
         }
 
-        int m_level;
+        std::size_t m_level;
         int m_min_shift;
         int m_max_shift;
     };
@@ -88,7 +88,7 @@ namespace samurai
         {
         }
 
-        auto& operator()(int level, int min_level, int max_level)
+        auto& operator()(auto level, auto min_level, auto max_level)
         {
             m_level     = level;
             m_min_level = min_level;
@@ -99,10 +99,11 @@ namespace samurai
         template <std::size_t d, class Func>
         inline auto start(const Func& f) const
         {
-            auto new_f = [&, f](int level, int i)
+            auto new_f = [&, f](auto level, auto i)
             {
-                i = start_shift(start_shift(start_shift(i, level - m_max_level) + m_t[d - 1], m_min_level - level),
-                                m_max_level - m_min_level);
+                i = start_shift(start_shift(start_shift(i, static_cast<int>(level) - static_cast<int>(m_max_level)) + m_t[d - 1],
+                                            static_cast<int>(m_min_level) - static_cast<int>(level)),
+                                static_cast<int>(m_max_level) - static_cast<int>(m_min_level));
                 return f(m_level, i);
             };
             return new_f;
@@ -111,9 +112,11 @@ namespace samurai
         template <std::size_t d, class Func>
         inline auto end(const Func& f) const
         {
-            auto new_f = [&, f](int level, int i)
+            auto new_f = [&, f](auto level, auto i)
             {
-                i = end_shift(end_shift(end_shift(i, level - m_max_level) + m_t[d - 1], m_min_level - level), m_max_level - m_min_level);
+                i = end_shift(end_shift(end_shift(i, static_cast<int>(level) - static_cast<int>(m_max_level)) + m_t[d - 1],
+                                        static_cast<int>(m_min_level) - static_cast<int>(level)),
+                              static_cast<int>(m_max_level) - static_cast<int>(m_min_level));
                 return f(m_level, i);
             };
             return new_f;
@@ -122,22 +125,22 @@ namespace samurai
         template <std::size_t d, class Func>
         inline auto goback(const Func& f) const
         {
-            auto new_f = [&, f](int level, int i)
+            auto new_f = [&, f](auto level, auto i)
             {
                 // std::cout << "go_back translate previous i: " << i << " translation: " << m_t[d - 1] << " "
                 //           << start_shift(m_t[d - 1], m_level - level) << std::endl;
                 // std::cout << "previous level: " << level << " current level: " << m_level << std::endl;
                 // i = start_shift(f(m_level, i - start_shift(m_t[d - 1], m_level - level)), level - m_level);
-                i = start_shift(f(m_level, i), level - m_level) - m_t[d - 1];
+                i = start_shift(f(m_level, i), static_cast<int>(level) - static_cast<int>(m_level)) - m_t[d - 1];
                 // std::cout << " translate next i " << i << std::endl << std::endl;
                 return i;
             };
             return new_f;
         }
 
-        int m_level;
-        int m_min_level;
-        int m_max_level;
+        std::size_t m_level;
+        std::size_t m_min_level;
+        std::size_t m_max_level;
         xt::xtensor_fixed<int, xt::xshape<dim>> m_t;
     };
 
@@ -200,8 +203,8 @@ namespace samurai
 
         IntervalVector(auto lca_level, auto level, auto max_level, IntervalIterator<container_t>&& intervals)
             : m_lca_level(static_cast<int>(lca_level))
-            , m_shift2dest(max_level - level)
-            , m_shift2ref(max_level - static_cast<int>(lca_level))
+            , m_shift2dest(static_cast<int>(max_level) - static_cast<int>(level))
+            , m_shift2ref(static_cast<int>(max_level) - static_cast<int>(lca_level))
             , m_intervals(std::move(intervals))
             , m_first(m_intervals.begin())
             , m_last(m_intervals.end())

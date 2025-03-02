@@ -1023,27 +1023,26 @@ namespace samurai
 
                         if (!diagonals_only || !is_cartesian_direction)
                         {
-                            auto ilevel = static_cast<int>(level);
                             if (is_cartesian_direction)
                             {
-                                auto subset = difference(self(domain).on(ilevel), translate(self(domain).on(ilevel), -dir));
+                                auto subset = difference(self(domain).on(level), translate(self(domain).on(level), -dir));
                                 __apply_extrapolation_bc_on_subset<stencil_size>(bc, level, field, dir, subset, only_fill_ghost_neighbours);
                             }
                             else
                             {
                                 if constexpr (dim == 2)
                                 {
-                                    auto subset = difference(self(domain).on(ilevel),
-                                                             union_(translate(self(domain).on(ilevel), direction_t{-dir[0], 0}),
-                                                                    translate(self(domain).on(ilevel), direction_t{0, -dir[1]})));
+                                    auto subset = difference(self(domain).on(level),
+                                                             union_(translate(self(domain).on(level), direction_t{-dir[0], 0}),
+                                                                    translate(self(domain).on(level), direction_t{0, -dir[1]})));
                                     __apply_extrapolation_bc_on_subset<stencil_size>(bc, level, field, dir, subset, only_fill_ghost_neighbours);
                                 }
                                 else if constexpr (dim == 3)
                                 {
-                                    auto subset = difference(self(domain).on(ilevel),
-                                                             union_(translate(self(domain).on(ilevel), direction_t{-dir[0], 0, 0}),
-                                                                    translate(self(domain).on(ilevel), direction_t{0, -dir[1], 0}),
-                                                                    translate(self(domain).on(ilevel), direction_t{0, 0, -dir[2]})));
+                                    auto subset = difference(self(domain).on(level),
+                                                             union_(translate(self(domain).on(level), direction_t{-dir[0], 0, 0}),
+                                                                    translate(self(domain).on(level), direction_t{0, -dir[1], 0}),
+                                                                    translate(self(domain).on(level), direction_t{0, 0, -dir[2]})));
                                     __apply_extrapolation_bc_on_subset<stencil_size>(bc, level, field, dir, subset, only_fill_ghost_neighbours);
                                 }
                             }

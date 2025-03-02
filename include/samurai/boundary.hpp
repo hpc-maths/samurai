@@ -11,7 +11,7 @@ namespace samurai
 
         auto& cells = mesh[mesh_id_t::cells][level];
 
-        return difference(cells, translate(self(domain).on(level), -direction));
+        return difference(cells, translate(self(domain).on(level), -layer_width * direction));
     }
 
     template <class Mesh, class Vector>

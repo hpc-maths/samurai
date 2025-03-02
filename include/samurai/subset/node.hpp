@@ -232,12 +232,12 @@ namespace samurai
 
         auto& on(auto level)
         {
-            if (static_cast<int>(level) > m_ref_level)
+            if (level > m_ref_level)
             {
                 ref_level(level);
             }
-            m_min_level = std::min(m_min_level, static_cast<int>(level));
-            m_level     = static_cast<int>(level);
+            m_min_level = std::min(m_min_level, level);
+            m_level     = level;
             return *this;
         }
 
@@ -252,15 +252,15 @@ namespace samurai
         {
             auto func = [&](auto& interval, auto& index)
             {
-                (op(static_cast<std::size_t>(m_level), interval, index), ...);
+                (op(m_level, interval, index), ...);
             };
             apply(*this, func);
         }
 
         template <std::size_t d, class Func_goback>
-        auto get_local_set(int level, auto& index, Func_goback&& goback_fct)
+        auto get_local_set(auto level, auto& index, Func_goback&& goback_fct)
         {
-            int shift = this->ref_level() - this->level();
+            int shift = static_cast<int>(this->ref_level()) - static_cast<int>(this->level());
             m_start_end_op(m_level, m_min_level, m_ref_level);
 
             return std::apply(
@@ -277,7 +277,7 @@ namespace samurai
         }
 
         template <std::size_t d>
-        auto get_local_set(int level, auto& index)
+        auto get_local_set(auto level, auto& index)
         {
             return get_local_set<d>(level, index, default_function());
         }
@@ -303,19 +303,19 @@ namespace samurai
             return get_start_and_stop_function<d>(default_function(), default_function());
         }
 
-        int level() const
+        auto level() const
         {
             return m_level;
         }
 
-        int ref_level() const
+        auto ref_level() const
         {
             return m_ref_level;
         }
 
         void ref_level(auto level)
         {
-            m_ref_level = static_cast<int>(level);
+            m_ref_level = level;
             std::apply(
                 [this](auto&&... args)
                 {
@@ -339,9 +339,9 @@ namespace samurai
         Op m_operator;
         StartEndOp m_start_end_op;
         set_type m_s;
-        int m_ref_level;
-        int m_level;
-        int m_min_level;
+        std::size_t m_ref_level;
+        std::size_t m_level;
+        std::size_t m_min_level;
     };
 
     template <class lca_t>
@@ -354,7 +354,7 @@ namespace samurai
 
         Self(const lca_t& lca)
             : m_lca(lca)
-            , m_level(static_cast<int>(lca.level()))
+            , m_level(lca.level())
             , m_ref_level(m_level)
             , m_min_level(m_level)
         {
@@ -377,7 +377,7 @@ namespace samurai
         }
 
         template <std::size_t d, class Func_goback>
-        auto get_local_set(int level, auto& index, Func_goback&& goback_fct)
+        auto get_local_set(auto level, auto& index, Func_goback&& goback_fct)
         {
             if (m_lca[d - 1].empty())
             {
@@ -404,13 +404,14 @@ namespace samurai
 
                 auto new_goback_fct = m_func.template goback<d + 1>(std::forward<Func_goback>(goback_fct));
 
-                if (static_cast<std::size_t>(level) >= m_lca.level())
+                if (level >= m_lca.level())
                 {
                     m_offsets[d - 1].clear();
                     // std::cout << "dim: " << d << std::endl;
                     // std::cout << m_offsets[d][0][0] << " " << m_offsets[d][0][1] << std::endl;
 
-                    auto current_index = start_shift(new_goback_fct(m_level, index[d - 1]), static_cast<int>(m_lca.level()) - m_level);
+                    auto current_index = start_shift(new_goback_fct(m_level, index[d - 1]),
+                                                     static_cast<int>(m_lca.level()) - static_cast<int>(m_level));
                     auto j             = find_on_dim(m_lca, d, m_offsets[d][0][0], m_offsets[d][0][1], current_index);
 
                     if (j == std::numeric_limits<std::size_t>::max())
@@ -433,8 +434,10 @@ namespace samurai
                 else
                 {
                     // std::cout << "dim: " << d << std::endl;
-                    auto min_index = start_shift(new_goback_fct(m_level, index[d - 1]), static_cast<int>(m_lca.level()) - m_level);
-                    auto max_index = start_shift(new_goback_fct(m_level, index[d - 1] + 1), static_cast<int>(m_lca.level()) - m_level);
+                    auto min_index = start_shift(new_goback_fct(m_level, index[d - 1]),
+                                                 static_cast<int>(m_lca.level()) - static_cast<int>(m_level));
+                    auto max_index = start_shift(new_goback_fct(m_level, index[d - 1] + 1),
+                                                 static_cast<int>(m_lca.level()) - static_cast<int>(m_level));
                     // std::cout << "min_index " << min_index << " max_index " << max_index << std::endl;
 
                     m_work[d - 1].clear();
@@ -442,10 +445,11 @@ namespace samurai
 
                     if constexpr (d == dim - 1)
                     {
-                        auto j_min = lower_bound_interval(m_lca[d].begin() + m_offsets[d][0][0],
-                                                          m_lca[d].begin() + m_offsets[d][0][1],
+                        auto j_min = lower_bound_interval(m_lca[d].begin() + static_cast<std::ptrdiff_t>(m_offsets[d][0][0]),
+                                                          m_lca[d].begin() + static_cast<std::ptrdiff_t>(m_offsets[d][0][1]),
                                                           min_index);
-                        auto j_max = upper_bound_interval(j_min, m_lca[d].begin() + m_offsets[d][0][1], max_index) - 1;
+                        auto j_max = upper_bound_interval(j_min, m_lca[d].begin() + static_cast<std::ptrdiff_t>(m_offsets[d][0][1]), max_index)
+                                   - 1;
 
                         // std::cout << "j_min " << *j_min << " " << *j_max << std::endl;
 
@@ -496,17 +500,22 @@ namespace samurai
                         {
                             for (std::size_t io = offset[0]; io < offset[1]; ++io)
                             {
-                                auto j_min = lower_bound_interval(m_lca[d].begin() + m_lca.offsets(d + 1)[io],
-                                                                  m_lca[d].begin() + m_lca.offsets(d + 1)[io + 1],
-                                                                  min_index);
-                                auto j_max = upper_bound_interval(j_min, m_lca[d].begin() + m_lca.offsets(d + 1)[io + 1], max_index) - 1;
+                                auto j_min = lower_bound_interval(
+                                    m_lca[d].begin() + static_cast<std::ptrdiff_t>(m_lca.offsets(d + 1)[io]),
+                                    m_lca[d].begin() + static_cast<std::ptrdiff_t>(m_lca.offsets(d + 1)[io + 1]),
+                                    min_index);
+                                auto j_max = upper_bound_interval(
+                                                 j_min,
+                                                 m_lca[d].begin() + static_cast<std::ptrdiff_t>(m_lca.offsets(d + 1)[io + 1]),
+                                                 max_index)
+                                           - 1;
 
                                 // std::cout << "search in offset " << io << " " << m_lca.offsets(d + 1)[io] << " "
                                 //           << m_lca.offsets(d + 1)[io + 1] << std::endl;
 
                                 // std::cout << "j_min " << *j_min << " " << *j_max << std::endl;
 
-                                if (j_min != m_lca[d].begin() + m_lca.offsets(d + 1)[io + 1] && j_min <= j_max)
+                                if (j_min != m_lca[d].begin() + static_cast<std::ptrdiff_t>(m_lca.offsets(d + 1)[io + 1]) && j_min <= j_max)
                                 {
                                     auto start_offset = static_cast<std::size_t>(j_min->index + j_min->start);
                                     if (j_min->contains(min_index))
@@ -556,7 +565,7 @@ namespace samurai
         }
 
         template <std::size_t d>
-        auto get_local_set(int level, auto& index)
+        auto get_local_set(auto level, auto& index)
 
         {
             return get_local_set<d>(level, index, default_function());
@@ -593,7 +602,7 @@ namespace samurai
             return m_level;
         }
 
-        auto& on(int level)
+        auto& on(auto level)
         {
             m_min_level = std::min(m_min_level, level);
             m_level     = level;
@@ -606,9 +615,9 @@ namespace samurai
         }
 
         const lca_t& m_lca;
-        int m_level;
-        int m_ref_level;
-        int m_min_level;
+        std::size_t m_level;
+        std::size_t m_ref_level;
+        std::size_t m_min_level;
         start_end_function<dim> m_func;
         std::array<std::vector<interval_t>, dim - 1> m_work;
         std::array<std::vector<std::array<std::size_t, 2>>, dim> m_offsets;
