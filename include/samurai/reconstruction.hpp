@@ -9,7 +9,7 @@
 #include "field.hpp"
 #include "numeric/prediction.hpp"
 #include "samurai_config.hpp"
-#include "subset/subset_op.hpp"
+#include "subset/node.hpp"
 #include "utils.hpp"
 
 namespace samurai
