@@ -79,7 +79,7 @@ namespace samurai
         {
         }
 
-        IntervalTraverser(IntervalRange<container_t>&& intervals)
+        explicit IntervalTraverser(IntervalRange<container_t>&& intervals)
             : m_lca_level(std::numeric_limits<std::size_t>::infinity())
             , m_shift2dest(std::numeric_limits<std::size_t>::infinity())
             , m_shift2ref(std::numeric_limits<std::size_t>::infinity())

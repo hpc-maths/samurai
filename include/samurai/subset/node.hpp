@@ -173,7 +173,7 @@ namespace samurai
         using interval_t                 = typename lca_t::interval_t;
         using value_t                    = typename interval_t::value_t;
 
-        Self(const lca_t& lca)
+        explicit Self(const lca_t& lca)
             : m_lca(lca)
             , m_level(lca.level())
             , m_ref_level(m_level)

@@ -73,7 +73,7 @@ namespace samurai
     {
         using container_t = xt::xtensor_fixed<int, xt::xshape<dim>>;
 
-        start_end_translate_function(const container_t& t)
+        explicit start_end_translate_function(const container_t& t)
             : m_level(0)
             , m_min_level(0)
             , m_max_level(0)
@@ -140,7 +140,7 @@ namespace samurai
     template <std::size_t dim>
     struct start_end_contraction_function
     {
-        start_end_contraction_function(int c)
+        explicit start_end_contraction_function(int c)
             : m_level(0)
             , m_min_level(0)
             , m_max_level(0)
