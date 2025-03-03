@@ -10,7 +10,7 @@
 #include "../cell_list.hpp"
 #include "../field.hpp"
 #include "../graduation.hpp"
-#include "../subset/subset_op.hpp"
+#include "../subset/node.hpp"
 #include "util.hpp"
 
 namespace samurai

@@ -9,7 +9,7 @@ dependencies:
   - fmt
   - pugixml
   - cxxopts
-  - cli11
+  - cli11<2.5
   - pytest
   - h5py
   - libboost-mpi<1.87 # MPI seems broken with 1.87 with the error : symbol not found in flat namespace '_PyBaseObject_Type'

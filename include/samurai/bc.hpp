@@ -957,8 +957,7 @@ namespace samurai
 
         using direction_t = DirectionVector<dim>;
 
-        auto& domain      = field.mesh().domain();
-        auto one_interval = 1 << (domain.level() - level);
+        auto& domain = field.mesh().domain();
 
         static_nested_loop<dim, -1, 2>(
             [&](auto& dir)
@@ -984,24 +983,24 @@ namespace samurai
                         {
                             if (is_cartesian_direction)
                             {
-                                auto subset = difference(domain, translate(domain, -one_interval * dir));
+                                auto subset = difference(self(domain).on(level), translate(self(domain).on(level), -dir));
                                 __apply_extrapolation_bc_on_subset<stencil_size>(bc, level, field, dir, subset, only_fill_ghost_neighbours);
                             }
                             else
                             {
                                 if constexpr (dim == 2)
                                 {
-                                    auto subset = difference(domain,
-                                                             union_(translate(domain, one_interval * direction_t{-dir[0], 0}),
-                                                                    translate(domain, one_interval * direction_t{0, -dir[1]})));
+                                    auto subset = difference(self(domain).on(level),
+                                                             union_(translate(self(domain).on(level), direction_t{-dir[0], 0}),
+                                                                    translate(self(domain).on(level), direction_t{0, -dir[1]})));
                                     __apply_extrapolation_bc_on_subset<stencil_size>(bc, level, field, dir, subset, only_fill_ghost_neighbours);
                                 }
                                 else if constexpr (dim == 3)
                                 {
-                                    auto subset = difference(domain,
-                                                             union_(translate(domain, one_interval * direction_t{-dir[0], 0, 0}),
-                                                                    translate(domain, one_interval * direction_t{0, -dir[1], 0}),
-                                                                    translate(domain, one_interval * direction_t{0, 0, -dir[2]})));
+                                    auto subset = difference(self(domain).on(level),
+                                                             union_(translate(self(domain).on(level), direction_t{-dir[0], 0, 0}),
+                                                                    translate(self(domain).on(level), direction_t{0, -dir[1], 0}),
+                                                                    translate(self(domain).on(level), direction_t{0, 0, -dir[2]})));
                                     __apply_extrapolation_bc_on_subset<stencil_size>(bc, level, field, dir, subset, only_fill_ghost_neighbours);
                                 }
                             }

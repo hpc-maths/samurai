@@ -165,10 +165,10 @@ jobs:
                   environment-name: samurai-env
                   cache-environment: true
 
-            - name: Conda update
-              shell: bash -l {0}
-              run: |
-                  conda update --all
+            # - name: Conda update
+            #   shell: bash -l {0}
+            #   run: |
+            #       conda update --all
 
             - name: Petsc installation
               shell: bash -l {0}
@@ -238,10 +238,10 @@ jobs:
                   environment-name: samurai-env
                   cache-environment: true
 
-            - name: Conda update
-              shell: bash -l {0}
-              run: |
-                  conda update --all
+            # - name: Conda update
+            #   shell: bash -l {0}
+            #   run: |
+            #       conda update --all
 
             - name: Petsc installation
               shell: bash -l {0}

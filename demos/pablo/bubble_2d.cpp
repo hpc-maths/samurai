@@ -15,7 +15,7 @@
 #include <samurai/field.hpp>
 #include <samurai/hdf5.hpp>
 #include <samurai/samurai.hpp>
-#include <samurai/subset/subset_op.hpp>
+#include <samurai/subset/node.hpp>
 
 namespace fs = std::filesystem;
 

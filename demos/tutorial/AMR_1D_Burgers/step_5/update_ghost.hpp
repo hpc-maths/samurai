@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <samurai/subset/subset_op.hpp>
+#include <samurai/subset/node.hpp>
 
 template <class Field>
 void update_ghost(Field& phi)

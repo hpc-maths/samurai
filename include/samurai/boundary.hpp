@@ -14,10 +14,7 @@ namespace samurai
 	// REBASE FIXME : I don't know if we need to override domain 
         //auto& domain = mesh.subdomain();
 
-        auto max_level    = domain.level(); // domain.level();//mesh[mesh_id_t::cells].max_level();
-        auto one_interval = layer_width << (max_level - level);
-
-        return difference(cells, translate(domain, -one_interval * direction)).on(level);
+        return difference(cells, translate(self(domain).on(level), -layer_width * direction));
     }
 
     template <class Mesh, class Vector>

@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include <array>
-
 #include <fmt/format.h>
 
 #include "box.hpp"
@@ -12,7 +10,6 @@
 #include "level_cell_list.hpp"
 #include "mesh.hpp"
 #include "samurai_config.hpp"
-#include "subset/subset_op.hpp"
 
 namespace samurai
 {
