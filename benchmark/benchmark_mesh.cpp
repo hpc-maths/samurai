@@ -16,6 +16,11 @@
 #include <samurai/uniform_mesh.hpp>
 #include <samurai/amr/mesh.hpp>
 
+
+// TODO : 
+
+/////////////////////////////////////////////////////////////////////////////
+///utils
 template <unsigned int dim>
 auto unitary_box(){
 	using value_t = samurai::default_config::value_t ; 
@@ -40,7 +45,9 @@ auto unitary_box(){
 }
 
 
+////////////////////////////////////////////////////////////////////////////
 
+// Mesure : Création d'une Box uniforme de taille de coté n
 template <unsigned int dim>
 void MESH_uniform(benchmark::State& state){
 	samurai::Box<double, dim> box = unitary_box<dim>() ; 
@@ -50,7 +57,7 @@ void MESH_uniform(benchmark::State& state){
         }
 }
 
-
+// Mesure : Allocation d'un champ 1D d'un maillage uniforme de taille de coté n
 template <unsigned int dim>
 void FIELD_make_field_uniform(benchmark::State& state){
         samurai::Box<double, dim> box = unitary_box<dim>() ;
@@ -61,6 +68,7 @@ void FIELD_make_field_uniform(benchmark::State& state){
         }
 }
 
+// Mesure : Remplissage d'un champ 1D de taille de coté n
 template <unsigned int dim>
 void FIELD_fill_uniform(benchmark::State& state){
         samurai::Box<double, dim> box = unitary_box<dim>() ;
@@ -72,7 +80,7 @@ void FIELD_fill_uniform(benchmark::State& state){
         }
 }
 
-
+// Mesure ; Remplissage d'un champ 1D de taille de coté n ,en utilisant for_each_cell (mesure d'overhead)
 template <unsigned int dim>
 void FIELD_for_each_cell_uniform(benchmark::State& state){
         samurai::Box<double, dim> box = unitary_box<dim>() ;
@@ -88,7 +96,7 @@ void FIELD_for_each_cell_uniform(benchmark::State& state){
         }
 }
 
-
+// Mesure : Test d'égalité entre deux Fields
 template <unsigned int dim>
 void FIELD_equal_uniform(benchmark::State& state){
         samurai::Box<double, dim> box = unitary_box<dim>() ;
@@ -102,6 +110,7 @@ void FIELD_equal_uniform(benchmark::State& state){
         }
 }
 
+// Mesure : Ajout d'un scalaire à un champ par broadcasting
 template <unsigned int dim>
 void FIELD_add_scalar_uniform(benchmark::State& state){
         samurai::Box<double, dim> box = unitary_box<dim>() ;
@@ -116,7 +125,7 @@ void FIELD_add_scalar_uniform(benchmark::State& state){
         }
 }
 
-
+// Mesure : Ajout d'un scalaire à un champ par "for_each_cell"
 template <unsigned int dim>
 void FIELD_add_scalar_for_each_cell_uniform(benchmark::State& state){
         samurai::Box<double, dim> box = unitary_box<dim>() ;
@@ -156,7 +165,7 @@ void FIELD_add_scalar_for_each_interval_uniform(benchmark::State& state){
 }
 **/
 
-
+// Mesure : Somme de deux champs 1D par "for_each_cell"
 template <unsigned int dim>
 void FIELD_add_for_each_cell_uniform(benchmark::State& state){
         samurai::Box<double, dim> box = unitary_box<dim>() ;
@@ -180,7 +189,7 @@ void FIELD_add_for_each_cell_uniform(benchmark::State& state){
 
 
 
-
+// Mesure : Somme de deux champs 1D par expression
 template <unsigned int dim>
 void FIELD_add_uniform(benchmark::State& state){
         samurai::Box<double, dim> box = unitary_box<dim>() ;
@@ -228,25 +237,17 @@ BENCHMARK_TEMPLATE(FIELD_add_scalar_uniform,1)->DenseRange(1, 16);;
 BENCHMARK_TEMPLATE(FIELD_add_scalar_uniform,2)->DenseRange(1, 12);;
 BENCHMARK_TEMPLATE(FIELD_add_scalar_uniform,3)->DenseRange(1, 7);;
 
+BENCHMARK_TEMPLATE(FIELD_add_scalar_for_each_cell_uniform,1)->DenseRange(1, 16);;
+BENCHMARK_TEMPLATE(FIELD_add_scalar_for_each_cell_uniform,2)->DenseRange(1, 12);;
+BENCHMARK_TEMPLATE(FIELD_add_scalar_for_each_cell_uniform,3)->DenseRange(1, 7);;
+
 
 BENCHMARK_TEMPLATE(FIELD_add_uniform,1)->DenseRange(1, 16);;
 BENCHMARK_TEMPLATE(FIELD_add_uniform,2)->DenseRange(1, 12);;
 BENCHMARK_TEMPLATE(FIELD_add_uniform,3)->DenseRange(1, 7);;
 
-
-BENCHMARK_TEMPLATE(FIELD_add_scalar_for_each_cell_uniform,1)->DenseRange(1, 16);;
-BENCHMARK_TEMPLATE(FIELD_add_scalar_for_each_cell_uniform,2)->DenseRange(1, 12);;
-BENCHMARK_TEMPLATE(FIELD_add_scalar_for_each_cell_uniform,3)->DenseRange(1, 7);;
-
-//BENCHMARK_TEMPLATE(FIELD_add_scalar_for_each_interval_uniform,1)->DenseRange(1, 16);;
-//BENCHMARK_TEMPLATE(FIELD_add_scalar_for_each_interval_uniform,2)->DenseRange(1, 12);;
-//BENCHMARK_TEMPLATE(FIELD_add_scalar_for_each_interval_uniform,3)->DenseRange(1, 7);;
-
-
-
 BENCHMARK_TEMPLATE(FIELD_add_for_each_cell_uniform,1)->DenseRange(1, 16);;
 BENCHMARK_TEMPLATE(FIELD_add_for_each_cell_uniform,2)->DenseRange(1, 12);;
 BENCHMARK_TEMPLATE(FIELD_add_for_each_cell_uniform,3)->DenseRange(1, 7);;
-
 
 

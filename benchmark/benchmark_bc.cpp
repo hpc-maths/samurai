@@ -16,6 +16,10 @@
 #include <samurai/uniform_mesh.hpp>
 #include <samurai/amr/mesh.hpp>
 
+
+////////////////////////////////////////////////////////////////////////////////////
+/// utils
+
 template <unsigned int dim>
 auto unitary_box(){
 	using value_t = samurai::default_config::value_t ; 
@@ -42,7 +46,7 @@ auto unitary_box(){
 
 
 
-
+// Mesure : Création d'une condition limite scalaire par défaut sur un maillage uniforme
 template <unsigned int dim>
 void BC_scalar_homogeneous(benchmark::State& state){
         samurai::Box<double, dim> box = unitary_box<dim>() ;
@@ -54,7 +58,7 @@ void BC_scalar_homogeneous(benchmark::State& state){
         }
 }
 
-
+// Mesure : Création d'une condition limite vectorielle par défaut sur un maillage uniforme
 template <unsigned int dim>
 void BC_vec_homogeneous(benchmark::State& state){
         samurai::Box<double, dim> box = unitary_box<dim>() ;
@@ -68,10 +72,10 @@ void BC_vec_homogeneous(benchmark::State& state){
 
 
 
-BENCHMARK_TEMPLATE(BC_scalar_homogeneous,1)->DenseRange(1, 16);;
-//BENCHMARK_TEMPLATE(BC_scalar_homogeneous,2)->DenseRange(1, 12);; // not enough ghost cells
-//BENCHMARK_TEMPLATE(BC_scalar_homogeneous,3)->DenseRange(1, 7);;
+BENCHMARK_TEMPLATE(BC_scalar_homogeneous,1)->DenseRange(1, 1);;
+//BENCHMARK_TEMPLATE(BC_scalar_homogeneous,2)->DenseRange(1, 1);; // not enough ghost cells
+//BENCHMARK_TEMPLATE(BC_scalar_homogeneous,3)->DenseRange(1, 1);;
 
-BENCHMARK_TEMPLATE(BC_vec_homogeneous,1)->DenseRange(1, 16);;
+BENCHMARK_TEMPLATE(BC_vec_homogeneous,1)->DenseRange(1, 1);;
 
 

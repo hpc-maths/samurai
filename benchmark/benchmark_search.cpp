@@ -11,6 +11,10 @@
 #include <samurai/static_algorithm.hpp>
 
 
+
+////////////////////////////////////////////////////////////
+/// utils
+
 template <unsigned int dim>
 auto cell_list_with_n_intervals(int64_t size){
         samurai::CellList<dim> cl ;
@@ -29,6 +33,10 @@ auto cell_array_with_n_intervals(int64_t size){
 }
 
 
+//////////////////////////////////////////////////////////////
+
+
+// Mesure : recherche du premier intervale dans un CellArray nD de taille n en utilisant find
 template <unsigned int dim>
 void FIND_find_begin(benchmark::State& state){
 	auto ca = cell_array_with_n_intervals<dim>(state.range(0)) ;
@@ -39,6 +47,7 @@ void FIND_find_begin(benchmark::State& state){
 	}
 }
 
+// Mesure : recherche du dernier intervale dans un CellArray nD de taille n en utilisant find
 template <unsigned int dim>
 void FIND_find_end(benchmark::State& state){
         auto ca = cell_array_with_n_intervals<dim>(state.range(0)) ;
@@ -49,6 +58,8 @@ void FIND_find_end(benchmark::State& state){
         }
 }
 
+
+// Mesure : recherche du premier intervale dans un CellArray nD de taille n en utilisant find_impl
 template <unsigned int dim>
 void FIND_find_impl_begin(benchmark::State& state){
         auto ca = cell_array_with_n_intervals<dim>(state.range(0)) ;
@@ -62,6 +73,7 @@ void FIND_find_impl_begin(benchmark::State& state){
         }
 }
 
+// Mesure : recherche du dernier intervale dans un CellArray nD de taille n en utilisant find_impl
 template <unsigned int dim>
 void FIND_find_impl_end(benchmark::State& state){
         auto ca = cell_array_with_n_intervals<dim>(state.range(0)) ;
@@ -75,6 +87,7 @@ void FIND_find_impl_end(benchmark::State& state){
         }
 }
 
+// Mesure : recherche du premier intervale dans un CellArray nD de taille n en utilisant interval_search
 template <unsigned int dim>
 void FIND_interval_search_begin(benchmark::State& state){
 	using  TInterval = samurai::default_config::interval_t;
@@ -95,7 +108,7 @@ void FIND_interval_search_begin(benchmark::State& state){
         }
 }
 
-
+// Mesure : recherche du dernier intervale dans un CellArray nD de taille n en utilisant interval_search
 template <unsigned int dim>
 void FIND_interval_search_end(benchmark::State& state){
         using  TInterval = samurai::default_config::interval_t;

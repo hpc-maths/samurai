@@ -15,8 +15,11 @@
 #include <samurai/field.hpp>
 #include <samurai/uniform_mesh.hpp>
 
+// Observation : 
+// Pourquoi -default est plus lent que _empty_lcl_to_lca en 2D/3D ??
+// max_indices et min_indices très couteux : on peut pas faire mieux ??????
 
-
+// Mesure : Constructeur par défaut d'un LevelCellArray
 template <unsigned int dim>
 void LEVELCELLARRAY_default(benchmark::State& state){
 	using TInterval = samurai::default_config::interval_t;
@@ -26,6 +29,7 @@ void LEVELCELLARRAY_default(benchmark::State& state){
         }
 }
 
+// Mesure : Constructiuon d'un LevelCellArray à partir d'un LevelCellList vide
 template <unsigned int dim>
 void LEVELCELLARRAY_empty_lcl_to_lca(benchmark::State& state){
         using TInterval = samurai::default_config::interval_t;
@@ -37,6 +41,7 @@ void LEVELCELLARRAY_empty_lcl_to_lca(benchmark::State& state){
 }
 
 
+// Mesure : Construction d'un LevelCellArray à partir d'un LevelCellList composé de n intervalles dans une direction
 template <unsigned int dim>
 void LEVELCELLARRAY_lcl_to_lca(benchmark::State& state){
 	samurai::LevelCellList<dim> lcl;
@@ -51,7 +56,7 @@ void LEVELCELLARRAY_lcl_to_lca(benchmark::State& state){
         }
 }
 
-
+// Mesure : Récupération de l'intérateur begin d'un LevelCellArray
 template <unsigned int dim>
 void LEVELCELLARRAY_begin(benchmark::State& state){
         samurai::LevelCellList<dim> lcl;
@@ -67,6 +72,7 @@ void LEVELCELLARRAY_begin(benchmark::State& state){
         }
 }
 
+// Mesure : Récupération de l'itéateur end d'un LevelCellArray
 template <unsigned int dim>
 void LEVELCELLARRAY_end(benchmark::State& state){
         samurai::LevelCellList<dim> lcl;
@@ -82,7 +88,7 @@ void LEVELCELLARRAY_end(benchmark::State& state){
         }
 }
 
-
+// Mesure : Récupération de la taille d'un LevelCellArray
 template <unsigned int dim>
 void LEVELCELLARRAY_shape(benchmark::State& state){
         samurai::LevelCellList<dim> lcl;
@@ -98,7 +104,7 @@ void LEVELCELLARRAY_shape(benchmark::State& state){
         }
 }
 
-
+// Mesure : Récupération du nombre d'intervalles dans un LevelCellArray
 template <unsigned int dim>
 void LEVELCELLARRAY_nb_intervals(benchmark::State& state){
         samurai::LevelCellList<dim> lcl;
@@ -115,7 +121,7 @@ void LEVELCELLARRAY_nb_intervals(benchmark::State& state){
 }
 
 
-
+// Mesure : Récupération du nombre de cellules dans un LevelCellArray
 template <unsigned int dim>
 void LEVELCELLARRAY_nb_cells(benchmark::State& state){
         samurai::LevelCellList<dim> lcl;
@@ -131,6 +137,7 @@ void LEVELCELLARRAY_nb_cells(benchmark::State& state){
         }
 }
 
+// Mesure : Récupération de la taille de cellule d'un LevelCellArray
 template <unsigned int dim>
 void LEVELCELLARRAY_cell_length(benchmark::State& state){
         samurai::LevelCellList<dim> lcl;
@@ -146,7 +153,7 @@ void LEVELCELLARRAY_cell_length(benchmark::State& state){
         }
 }
 
-
+// Mesure : Récupération du max d'indice d'un LevelCellArray
 template <unsigned int dim>
 void LEVELCELLARRAY_max_indices(benchmark::State& state){
         samurai::LevelCellList<dim> lcl;
@@ -162,6 +169,7 @@ void LEVELCELLARRAY_max_indices(benchmark::State& state){
         }
 }
 
+// Mesure : Récupération du min d'indide d'un LevelCellArray
 template <unsigned int dim>
 void LEVELCELLARRAY_min_indices(benchmark::State& state){
         samurai::LevelCellList<dim> lcl;
@@ -177,6 +185,7 @@ void LEVELCELLARRAY_min_indices(benchmark::State& state){
         }
 }
 
+// Mesure : Récupération du minmax d'indice d'un LevelCellArray
 template <unsigned int dim>
 void LEVELCELLARRAY_minmax_indices(benchmark::State& state){
         samurai::LevelCellList<dim> lcl;
@@ -192,8 +201,7 @@ void LEVELCELLARRAY_minmax_indices(benchmark::State& state){
         }
 }
 
-
-
+// Mesure : Test d'égalité entre deux LevelCellArrays égaux de taille n
 template <unsigned int dim>
 void LEVELCELLARRAY_equal(benchmark::State& state){
         samurai::LevelCellList<dim> lcl;
@@ -211,12 +219,7 @@ void LEVELCELLARRAY_equal(benchmark::State& state){
 }
 
 
-
-
 // manque les LevelCellList_iterator 
-
-
-
 BENCHMARK_TEMPLATE(LEVELCELLARRAY_default, 1);
 BENCHMARK_TEMPLATE(LEVELCELLARRAY_default, 2);
 BENCHMARK_TEMPLATE(LEVELCELLARRAY_default, 3);
@@ -232,31 +235,31 @@ BENCHMARK_TEMPLATE(LEVELCELLARRAY_lcl_to_lca,2)->RangeMultiplier(2)->Range(1 << 
 BENCHMARK_TEMPLATE(LEVELCELLARRAY_lcl_to_lca,3)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
 
 
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_begin,1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_begin,2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_begin,3)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_begin,1)->RangeMultiplier(2)->Range(1,1);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_begin,2)->RangeMultiplier(2)->Range(1,1);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_begin,3)->RangeMultiplier(2)->Range(1,1);
 
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_end,1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_end,2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_end,3)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_end,1)->RangeMultiplier(2)->Range(1,1);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_end,2)->RangeMultiplier(2)->Range(1,1);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_end,3)->RangeMultiplier(2)->Range(1,1);
 
 
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_shape,1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_shape,2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_shape,3)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_shape,1)->RangeMultiplier(2)->Range(1,1);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_shape,2)->RangeMultiplier(2)->Range(1,1);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_shape,3)->RangeMultiplier(2)->Range(1,1);
 
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_nb_intervals,1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_nb_intervals,2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_nb_intervals,3)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_nb_intervals,1)->RangeMultiplier(2)->Range(1,1);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_nb_intervals,2)->RangeMultiplier(2)->Range(1,1);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_nb_intervals,3)->RangeMultiplier(2)->Range(1,1);
 
 BENCHMARK_TEMPLATE(LEVELCELLARRAY_nb_cells,1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
 BENCHMARK_TEMPLATE(LEVELCELLARRAY_nb_cells,2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
 BENCHMARK_TEMPLATE(LEVELCELLARRAY_nb_cells,3)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
 
 
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_cell_length,1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_cell_length,2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_cell_length,3)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_cell_length,1)->RangeMultiplier(2)->Range(1,1);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_cell_length,2)->RangeMultiplier(2)->Range(1,1);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_cell_length,3)->RangeMultiplier(2)->Range(1,1);
 
 BENCHMARK_TEMPLATE(LEVELCELLARRAY_max_indices,1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
 BENCHMARK_TEMPLATE(LEVELCELLARRAY_max_indices,2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);

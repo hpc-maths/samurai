@@ -16,6 +16,15 @@
 #include <samurai/uniform_mesh.hpp>
 
 
+// TODO : 
+// Eviter les maillages aléatoires (biais de répétabilité)
+
+
+
+///////////////////////////////////////////////////////////////////
+// utils
+
+
 template <unsigned int dim>
 auto cell_list_with_n_intervals(int64_t size){
         samurai::CellList<dim> cl ;
@@ -33,8 +42,10 @@ auto cell_array_with_n_intervals(int64_t size){
 	return ca;
 }
 
+//////////////////////////////////////////////////////////////////
 
 
+// Mesure : Création d'un CellArray par défaut
 template <unsigned int dim, unsigned int max_level>
 void CELLARRAY_default(benchmark::State& state){
         for (auto _ : state){
@@ -42,7 +53,7 @@ void CELLARRAY_default(benchmark::State& state){
         }
 }
 
-
+// Mesure : Création d'un CellArray à partir d'un CellList composé de n intervalles sur une dimension
 template <unsigned int dim>
 void CELLARRAY_cl_ca_multi(benchmark::State& state){
         auto cl = cell_list_with_n_intervals<dim>(state.range(0)) ;
@@ -52,6 +63,7 @@ void CELLARRAY_cl_ca_multi(benchmark::State& state){
         }
 }
 
+// Mesure : Récupération du niveau bas d'un CellList
 template <unsigned int dim>
 void CELLARRAY_min_level(benchmark::State& state){
         samurai::CellList<dim> cl ; 
@@ -63,7 +75,7 @@ void CELLARRAY_min_level(benchmark::State& state){
         }
 }
 
-
+// Mesure : Récupération de l'itérateur begin d'un CellArray
 template <unsigned int dim>
 void CELLARRAY_begin(benchmark::State& state){
         samurai::CellList<dim> cl ;
@@ -75,6 +87,7 @@ void CELLARRAY_begin(benchmark::State& state){
         }
 }
 
+// Mesure : Récupérayion de l'itérateur end d'un CellArray
 template <unsigned int dim>
 void CELLARRAY_end(benchmark::State& state){
         samurai::CellList<dim> cl ;
@@ -86,7 +99,7 @@ void CELLARRAY_end(benchmark::State& state){
         }
 }
 
-
+// Mesure : Récupération de l'itérateur reverse begin d'un CellArray
 template <unsigned int dim>
 void CELLARRAY_rbegin(benchmark::State& state){
         samurai::CellList<dim> cl ;
@@ -99,7 +112,8 @@ void CELLARRAY_rbegin(benchmark::State& state){
 }
 
 
-
+// Mesure : Création d'un CellArray 2D à partid d'un CellList composé de n intervalles aléatoires
+// Ressemble à CELLARRAY_cl_ca_multi
 static void CELLARRAY_CellList2CellArray_2D(benchmark::State& state)
 {
     constexpr std::size_t dim = 2;
@@ -127,7 +141,8 @@ static void CELLARRAY_CellList2CellArray_2D(benchmark::State& state)
 
 BENCHMARK(CELLARRAY_CellList2CellArray_2D)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
 
-
+// Mesure : Création d'un CellArray 3D à partid d'un CellList composé de n intervalles aléatoires
+// Ressemble à CELLARRAY_cl_ca_multi
 static void CELLARRAY_CellList2CellArray_3D(benchmark::State& state)
 {
     constexpr std::size_t dim = 3;
@@ -156,6 +171,8 @@ static void CELLARRAY_CellList2CellArray_3D(benchmark::State& state)
 
 BENCHMARK(CELLARRAY_CellList2CellArray_3D)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
 
+// Mesure : Comparaison "=" entre deux CellArray aléatoires
+// On ne devrait pas utiliser un CellArray aléatoire. 
 static void CELLARRAY_equal_2D(benchmark::State& state)
 {
     constexpr std::size_t dim = 2;

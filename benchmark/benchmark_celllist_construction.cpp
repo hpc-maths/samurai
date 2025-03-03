@@ -5,6 +5,8 @@
 #include <samurai/cell_list.hpp>
 
 
+
+// Utils : Créer un cell_list composé de n intervales dans une direction
 template <unsigned int dim>
 auto cell_list_with_n_intervals(int64_t size){
         samurai::CellList<dim> cl ;
@@ -17,6 +19,9 @@ auto cell_list_with_n_intervals(int64_t size){
 
 ///////////////////////////////////
 
+
+
+// Mesure : constructeur CellList par defaut
 template <unsigned int dim>
 void CELLLIST_default(benchmark::State& state){
         for (auto _ : state){
@@ -26,7 +31,7 @@ void CELLLIST_default(benchmark::State& state){
 }
 
 
-
+// Mesure : Création d'un CellList construit par n intervales croissants
 template <unsigned int dim>
 void CELLLIST_cl_add_interval_end(benchmark::State& state){
         samurai::CellList<dim> cl ;
@@ -38,6 +43,8 @@ void CELLLIST_cl_add_interval_end(benchmark::State& state){
         }
 }
 
+
+// Mesure : Création d'un CellList construit par n intervales décroissants 
 template <unsigned int dim>
 void CELLLIST_cl_add_interval_begin(benchmark::State& state){
         samurai::CellList<dim> cl ;
@@ -49,6 +56,7 @@ void CELLLIST_cl_add_interval_begin(benchmark::State& state){
         }
 }
 
+// Mesure : Création d'un CellList composé de n fois le même interval
 template <unsigned int dim>
 void CELLLIST_cl_add_interval_same(benchmark::State& state){
         samurai::CellList<dim> cl ;
@@ -59,6 +67,7 @@ void CELLLIST_cl_add_interval_same(benchmark::State& state){
         }
 }
 
+// Mesure : Création d'un CellList composé de n points (1 seul interval)
 template <unsigned int dim>
 void CELLLIST_cl_add_point_end(benchmark::State& state){
         samurai::CellList<dim> cl ;
@@ -71,6 +80,7 @@ void CELLLIST_cl_add_point_end(benchmark::State& state){
 }
 
 
+// Mesure : Création de n intervales aléatoires - permet de controler le cout du générateur d'aléatoire pour le prochain benchmark
 static void CELLLIST_CellListConstruction_2D_rand_control(benchmark::State& state)
 {
     constexpr std::size_t dim = 2;
@@ -97,6 +107,7 @@ static void CELLLIST_CellListConstruction_2D_rand_control(benchmark::State& stat
 
 BENCHMARK(CELLLIST_CellListConstruction_2D_rand_control)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
 
+// Mesure : Création d'un CellList composé de n intervales aléatoires en 2D
 static void CELLLIST_CellListConstruction_2D(benchmark::State& state)
 {
     constexpr std::size_t dim = 2;
@@ -120,6 +131,7 @@ static void CELLLIST_CellListConstruction_2D(benchmark::State& state)
 }
 BENCHMARK(CELLLIST_CellListConstruction_2D)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
 
+// Mesure : Création d'un CellList composé de n intervales aléaoires en 3D
 static void CELLLIST_CellListConstruction_3D(benchmark::State& state)
 {
     constexpr std::size_t dim = 3;

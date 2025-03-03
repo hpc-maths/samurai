@@ -16,6 +16,10 @@
 #include <samurai/uniform_mesh.hpp>
 #include <samurai/amr/mesh.hpp>
 
+
+//////////////////////////////////////////////////////////////////
+/// utils
+
 template <std::size_t dim>
 auto make_cell(){
         using value_t = samurai::default_config::value_t ;
@@ -42,6 +46,8 @@ auto make_cell(){
 	return c ; 
 }
 
+
+// Mesure : Construction d'une cellule par défaut
 template <unsigned int dim>
 void CELL_default(benchmark::State& state){
         for (auto _ : state){
@@ -50,17 +56,34 @@ void CELL_default(benchmark::State& state){
         }
 }
 
-
+// Mesure : Initialisation d'une cellule
 template <unsigned int dim>
 void CELL_init(benchmark::State& state){
-	auto indices = xt::xtensor_fixed<int, xt::xshape<2>>({1,1}) ;
+	xt::xtensor_fixed<int, xt::xshape<dim>> indices;
+        if constexpr (dim == 1)
+                indices = xt::xtensor_fixed<int, xt::xshape<1>>({1}) ;	
+	else if constexpr (dim == 2)
+		indices = xt::xtensor_fixed<int, xt::xshape<2>>({1,1}) ;
+	else if constexpr (dim == 3)
+		indices = xt::xtensor_fixed<int, xt::xshape<3>>({1,1,1}) ;
 	double scaling_factor = 1.0 ; 	
         for (auto _ : state){
-		auto c = samurai::Cell<2, samurai::Interval<int>>({0,0}, scaling_factor, 1, indices, 0);
-		benchmark::DoNotOptimize(c); 
+                if constexpr (dim == 1){
+                        auto c = samurai::Cell<1, samurai::Interval<int>>({0}, scaling_factor, 1, indices, 0);		
+			benchmark::DoNotOptimize(c);
+		}
+		else if constexpr (dim == 2){
+			auto c = samurai::Cell<2, samurai::Interval<int>>({0,0}, scaling_factor, 1, indices, 0);
+			benchmark::DoNotOptimize(c);
+		}
+		else if constexpr (dim == 3){
+                        auto c = samurai::Cell<3, samurai::Interval<int>>({0,0,0}, scaling_factor, 1, indices, 0);		
+			benchmark::DoNotOptimize(c);
+		}
 	}
 }
 
+// Mesure : Récupération du centre d'une cellule
 template <unsigned int dim>
 void CELL_center(benchmark::State& state){
 	auto c = make_cell<dim>();
@@ -70,6 +93,7 @@ void CELL_center(benchmark::State& state){
         }
 }
 
+// Mesure : Récupérayion du centre de la face d'une cellule
 template <unsigned int dim>
 void CELL_face_center(benchmark::State& state){
         auto c = make_cell<dim>();
@@ -79,7 +103,7 @@ void CELL_face_center(benchmark::State& state){
         }
 }
 
-
+// Mesure : Récupération de l'angle d'une cellule
 template <unsigned int dim>
 void CELL_corner(benchmark::State& state){
         auto c = make_cell<dim>();
@@ -89,6 +113,7 @@ void CELL_corner(benchmark::State& state){
         }
 }
 
+// Mesure : Test d'égalité entre deux cellules
 template <unsigned int dim>
 void CELL_equal(benchmark::State& state){
         auto c1 = make_cell<dim>();
@@ -99,6 +124,7 @@ void CELL_equal(benchmark::State& state){
         }
 }
 
+// Mesure : Test d'inégalité entre deux cellules
 template <unsigned int dim>
 void CELL_different(benchmark::State& state){
         auto c1 = make_cell<dim>();
@@ -116,8 +142,9 @@ BENCHMARK_TEMPLATE(CELL_default,2);
 BENCHMARK_TEMPLATE(CELL_default,3);
 BENCHMARK_TEMPLATE(CELL_default,4);
 
-
+BENCHMARK_TEMPLATE(CELL_init,1);
 BENCHMARK_TEMPLATE(CELL_init,2);
+BENCHMARK_TEMPLATE(CELL_init,3);
 
 BENCHMARK_TEMPLATE(CELL_center,1);
 BENCHMARK_TEMPLATE(CELL_center,2);

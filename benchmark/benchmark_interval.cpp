@@ -16,6 +16,11 @@
 #include <samurai/uniform_mesh.hpp>
 
 
+// Observation
+// - divide is coslty --> verify where and why we use it
+
+
+// Mesure : Création d'un intervalle
 void INTERVAL_default(benchmark::State& state){
         for (auto _ : state){
                 auto interval = samurai::Interval<int64_t, int64_t>(0, 1, 0) ;
@@ -23,6 +28,7 @@ void INTERVAL_default(benchmark::State& state){
         }
 }
 
+// Mesure : Récupération de la taille d'un intervalle
 void INTERVAL_size(benchmark::State& state){
 	auto interval = samurai::Interval<int64_t, int64_t>(0, 1, 0) ;
 	for (auto _ : state){
@@ -31,6 +37,7 @@ void INTERVAL_size(benchmark::State& state){
         }
 }
 
+// Mesure : Test de validité d'un intervalle
 void INTERVAL_is_valid(benchmark::State& state){
         auto interval = samurai::Interval<int64_t, int64_t>(0, 1, 0) ;
         for (auto _ : state){
@@ -39,7 +46,7 @@ void INTERVAL_is_valid(benchmark::State& state){
         }
 }
 
-
+// Mesure : Test de parité d'un intervalle
 void INTERVAL_even_elements(benchmark::State& state){
         auto interval = samurai::Interval<int64_t, int64_t>(0, 1, 0) ;
         for (auto _ : state){
@@ -48,6 +55,7 @@ void INTERVAL_even_elements(benchmark::State& state){
         }
 }
 
+// Mesure : Test de parité d'un intervalle
 void INTERVAL_odd_elements(benchmark::State& state){
         auto interval = samurai::Interval<int64_t, int64_t>(0, 1, 0) ;
         for (auto _ : state){
@@ -56,6 +64,7 @@ void INTERVAL_odd_elements(benchmark::State& state){
         }
 }
 
+// Mesure : Multiplication d'un intervalle
 void INTERVAL_multiply(benchmark::State& state){
         auto interval = samurai::Interval<int64_t, int64_t>(0, 1, 0) ;
         for (auto _ : state){
@@ -64,6 +73,7 @@ void INTERVAL_multiply(benchmark::State& state){
         }
 }
 
+// Mesure : divsion d'un intervalle
 void INTERVAL_divide(benchmark::State& state){
         auto interval = samurai::Interval<int64_t, int64_t>(0, 1, 0) ;
         for (auto _ : state){
@@ -82,9 +92,7 @@ void INTERVAL_multiply_divide(benchmark::State& state){
         }
 }
 
-
-
-
+// Mesure : Addition sur un intervalle
 void INTERVAL_add(benchmark::State& state){
         auto interval = samurai::Interval<int64_t, int64_t>(0, 1, 0) ;
         for (auto _ : state){
@@ -93,6 +101,7 @@ void INTERVAL_add(benchmark::State& state){
         }
 }
 
+// Mesure : Soustraction sur un intervalle
 void INTERVAL_sub(benchmark::State& state){
         auto interval = samurai::Interval<int64_t, int64_t>(0, 1, 0) ;
         for (auto _ : state){
@@ -101,7 +110,7 @@ void INTERVAL_sub(benchmark::State& state){
         }
 }
 
-
+// Mesure : Shift sur un intervalle
 void INTERVAL_shift_increase(benchmark::State& state){
         auto interval = samurai::Interval<int64_t, int64_t>(0, 1, 0) ;
         for (auto _ : state){
@@ -110,6 +119,7 @@ void INTERVAL_shift_increase(benchmark::State& state){
         }
 }
 
+// Mesure : Shift sur un intervalle
 void INTERVAL_shift_decrease(benchmark::State& state){
         auto interval = samurai::Interval<int64_t, int64_t>(0, 1, 0) ;
         for (auto _ : state){
@@ -118,7 +128,7 @@ void INTERVAL_shift_decrease(benchmark::State& state){
         }
 }
 
-
+// Mesure : Test d'egalité d'un intervalle
 void INTERVAL_equal(benchmark::State& state){
         auto interval1 = samurai::Interval<int64_t, int64_t>(0, 1, 0) ;
         auto interval2 = samurai::Interval<int64_t, int64_t>(0, 1, 0) ;	
@@ -128,6 +138,7 @@ void INTERVAL_equal(benchmark::State& state){
         }
 }
 
+// Mesure : Test d'inégalité sur un intervalle
 void INTERVAL_inequal(benchmark::State& state){
         auto interval1 = samurai::Interval<int64_t, int64_t>(0, 1, 0) ;
         auto interval2 = samurai::Interval<int64_t, int64_t>(0, 1, 0) ;
@@ -137,6 +148,7 @@ void INTERVAL_inequal(benchmark::State& state){
         }
 }
 
+// Mesure : Comparaison sur un intervalle
 void INTERVAL_less(benchmark::State& state){
         auto interval1 = samurai::Interval<int64_t, int64_t>(0, 1, 0) ;
         auto interval2 = samurai::Interval<int64_t, int64_t>(0, 1, 0) ;
