@@ -20,7 +20,6 @@ namespace samurai
             auto set            = global_set.template get_local_set<dim>(global_set.level(), index);
             auto start_and_stop = global_set.template get_start_and_stop_function<dim>();
 
-            // std::cout << "perform dim: " << dim << " with index: " << index << std::endl;
             if constexpr (dim != 1)
             {
                 auto func_int = [&](const auto& interval)
@@ -66,7 +65,6 @@ namespace samurai
         int r_ipos = 0;
         set.next(0, std::forward<StartEnd>(start_and_stop));
         auto scan = set.min();
-        // std::cout << "first scan " << scan << std::endl;
 
         while (scan < sentinel<value_t> && !set.is_empty())
         {
@@ -84,16 +82,11 @@ namespace samurai
 
                 auto true_result = set.shift() >= 0 ? result >> static_cast<std::size_t>(set.shift())
                                                     : result << -static_cast<std::size_t>(set.shift());
-                // if (true_result.is_valid())
-                // {
-                // std::cout << "found " << result << " " << set.shift() << " " << true_result << std::endl;
                 func(true_result);
-                // }
             }
 
             set.next(scan, std::forward<StartEnd>(start_and_stop));
             scan = set.min();
-            // std::cout << "scan " << scan << std::endl;
         }
     }
 }
