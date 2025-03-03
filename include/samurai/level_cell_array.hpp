@@ -22,7 +22,7 @@
 #include "level_cell_list.hpp"
 #include "mesh_interval.hpp"
 #include "samurai_config.hpp"
-#include "subset/subset_op_base.hpp"
+#include "subset/node.hpp"
 #include "utils.hpp"
 
 using namespace xt::placeholders;
@@ -89,8 +89,8 @@ namespace samurai
         LevelCellArray() = default;
         LevelCellArray(const LevelCellList<Dim, TInterval>& lcl);
 
-        template <class F, class... CT>
-        LevelCellArray(subset_operator<F, CT...> set);
+        template <class Op, class StartEndOp, class... S>
+        LevelCellArray(Subset<Op, StartEndOp, S...> set);
 
         LevelCellArray(std::size_t level, const Box<value_t, dim>& box);
         LevelCellArray(std::size_t level,
@@ -318,10 +318,10 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    template <class F, class... CT>
-    inline LevelCellArray<Dim, TInterval>::LevelCellArray(subset_operator<F, CT...> set)
+    template <class Op, class StartEndOp, class... S>
+    inline LevelCellArray<Dim, TInterval>::LevelCellArray(Subset<Op, StartEndOp, S...> set)
     {
-        LevelCellList<Dim, TInterval> lcl{set.level()};
+        LevelCellList<Dim, TInterval> lcl{static_cast<std::size_t>(set.level())};
 
         set(
             [&lcl](const auto& i, const auto& index)
@@ -901,7 +901,7 @@ namespace samurai
                 {
                     os << fmt::format("({}: {}) ", io, m_offsets[d - 1][io]);
                 }
-                os << std::endl;
+                os << std::endl << std::endl;
             }
         }
     }

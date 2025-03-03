@@ -10,7 +10,7 @@
 #include <samurai/mr/mesh.hpp>
 #include <samurai/samurai.hpp>
 #include <samurai/stencil_field.hpp>
-#include <samurai/subset/subset_op.hpp>
+#include <samurai/subset/node.hpp>
 
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -160,6 +160,7 @@ int main(int argc, char* argv[])
     SAMURAI_PARSE(argc, argv);
 
     const samurai::Box<double, dim> box({left_box}, {right_box});
+
     samurai::MRMesh<Config> mesh(box, min_level, max_level, std::array<bool, dim>{is_periodic});
 
     double dt            = cfl * mesh.cell_length(max_level);

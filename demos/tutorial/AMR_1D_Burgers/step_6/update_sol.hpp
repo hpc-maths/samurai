@@ -4,7 +4,7 @@
 #pragma once
 
 #include <samurai/algorithm.hpp>
-#include <samurai/subset/subset_op.hpp>
+#include <samurai/subset/node.hpp>
 
 template <class Field>
 void update_sol(double dt, Field& phi, Field& phi_np1)

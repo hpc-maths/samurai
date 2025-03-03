@@ -39,6 +39,8 @@ namespace samurai
         auto& origin_point() const;
         auto scaling_factor() const;
 
+        void clear();
+
       private:
 
         std::array<lcl_type, max_size + 1> m_cells;
@@ -102,6 +104,15 @@ namespace samurai
     inline auto CellList<dim_, TInterval, max_size_>::scaling_factor() const
     {
         return m_cells[0].scaling_factor();
+    }
+
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
+    inline void CellList<dim_, TInterval, max_size_>::clear()
+    {
+        for (std::size_t level = 0; level <= max_size; ++level)
+        {
+            m_cells[level].clear();
+        }
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>

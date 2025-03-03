@@ -10,8 +10,7 @@
 #include "../box.hpp"
 #include "../mesh.hpp"
 #include "../samurai_config.hpp"
-#include "../subset/node_op.hpp"
-#include "../subset/subset_op.hpp"
+#include "../subset/node.hpp"
 
 namespace samurai
 {

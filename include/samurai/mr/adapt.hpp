@@ -3,16 +3,13 @@
 
 #pragma once
 
-#include "../algorithm/graduation.hpp"
 #include "../algorithm/update.hpp"
 #include "../arguments.hpp"
 #include "../boundary.hpp"
 #include "../field.hpp"
-#include "../hdf5.hpp"
-#include "../static_algorithm.hpp"
 #include "../timers.hpp"
 #include "criteria.hpp"
-#include <type_traits>
+#include "operators.hpp"
 
 namespace samurai
 {
@@ -267,8 +264,8 @@ namespace samurai
 
             auto subset_1 = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
 
-            subset_1.apply_op(to_coarsen_mr(m_detail, m_tag, eps_l, min_level)); // Derefinement
-            subset_1.apply_op(to_refine_mr(m_detail,
+            subset_1.apply_op(to_coarsen_mr(m_detail, m_tag, eps_l, min_level),
+                              to_refine_mr(m_detail,
                                            m_tag,
                                            (pow(2.0, regularity_to_use)) * eps_l,
                                            max_level)); // Refinement according to Harten

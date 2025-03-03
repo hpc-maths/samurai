@@ -10,8 +10,8 @@
 #include "box.hpp"
 #include "cell_array.hpp"
 #include "cell_list.hpp"
-
-#include "subset/subset_op.hpp"
+#include "static_algorithm.hpp"
+#include "subset/node.hpp"
 
 #ifdef SAMURAI_WITH_MPI
 #include <boost/serialization/vector.hpp>
@@ -108,21 +108,21 @@ namespace samurai
 
         void swap(Mesh_base& mesh) noexcept;
 
-        template <typename... T>
+        template <typename... T, typename = std::enable_if_t<std::conjunction_v<std::is_convertible<T, value_t>...>, void>>
         const interval_t& get_interval(std::size_t level, const interval_t& interval, T... index) const;
         template <class E>
         const interval_t& get_interval(std::size_t level, const interval_t& interval, const xt::xexpression<E>& index) const;
         template <class E>
         const interval_t& get_interval(std::size_t level, const xt::xexpression<E>& coord) const;
 
-        template <typename... T>
+        template <typename... T, typename = std::enable_if_t<std::conjunction_v<std::is_convertible<T, value_t>...>, void>>
         index_t get_index(std::size_t level, value_t i, T... index) const;
         template <class E>
         index_t get_index(std::size_t level, value_t i, const xt::xexpression<E>& others) const;
         template <class E>
         index_t get_index(std::size_t level, const xt::xexpression<E>& coord) const;
 
-        template <typename... T>
+        template <typename... T, typename = std::enable_if_t<std::conjunction_v<std::is_convertible<T, value_t>...>, void>>
         cell_t get_cell(std::size_t level, value_t i, T... index) const;
         template <class E>
         cell_t get_cell(std::size_t level, value_t i, const xt::xexpression<E>& index) const;
@@ -431,7 +431,7 @@ namespace samurai
     }
 
     template <class D, class Config>
-    template <typename... T>
+    template <typename... T, typename U>
     inline auto Mesh_base<D, Config>::get_interval(std::size_t level, const interval_t& interval, T... index) const -> const interval_t&
     {
         return m_cells[mesh_id_t::reference].get_interval(level, interval, index...);
@@ -453,7 +453,7 @@ namespace samurai
     }
 
     template <class D, class Config>
-    template <typename... T>
+    template <typename... T, typename U>
     inline auto Mesh_base<D, Config>::get_index(std::size_t level, value_t i, T... index) const -> index_t
     {
         return m_cells[mesh_id_t::reference].get_index(level, i, index...);
@@ -474,7 +474,7 @@ namespace samurai
     }
 
     template <class D, class Config>
-    template <typename... T>
+    template <typename... T, typename U>
     inline auto Mesh_base<D, Config>::get_cell(std::size_t level, value_t i, T... index) const -> cell_t
     {
         return m_cells[mesh_id_t::reference].get_cell(level, i, index...);

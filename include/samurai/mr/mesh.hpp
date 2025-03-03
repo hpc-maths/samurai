@@ -11,8 +11,8 @@
 #include "../box.hpp"
 #include "../mesh.hpp"
 #include "../samurai_config.hpp"
-#include "../subset/node_op.hpp"
-#include "../subset/subset_op.hpp"
+#include "../subset/apply.hpp"
+#include "../subset/node.hpp"
 
 using namespace xt::placeholders;
 

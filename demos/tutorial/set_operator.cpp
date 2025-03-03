@@ -8,7 +8,7 @@
 #include <samurai/field.hpp>
 #include <samurai/operators_base.hpp>
 #include <samurai/samurai.hpp>
-#include <samurai/subset/subset_op.hpp>
+#include <samurai/subset/node.hpp>
 
 template <std::size_t dim, class TInterval>
 class projection_op : public samurai::field_operator_base<dim, TInterval>

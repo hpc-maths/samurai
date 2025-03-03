@@ -4,7 +4,7 @@
 #include <samurai/interval.hpp>
 #include <samurai/level_cell_array.hpp>
 #include <samurai/level_cell_list.hpp>
-#include <samurai/subset/subset_op.hpp>
+#include <samurai/subset/node.hpp>
 
 #include "test_common.hpp"
 
