@@ -11,7 +11,7 @@
 namespace samurai
 {
     template <class container_>
-    class IntervalRange
+    class IntervalListRange
     {
       public:
 
@@ -19,7 +19,7 @@ namespace samurai
         using value_t     = typename container_t::value_type;
         using iterator_t  = typename container_t::const_iterator;
 
-        IntervalRange(const container_t& data, std::ptrdiff_t start, std::ptrdiff_t end)
+        IntervalListRange(const container_t& data, std::ptrdiff_t start, std::ptrdiff_t end)
             : m_data(data)
             , m_start(start)
             , m_end(end)
@@ -28,7 +28,7 @@ namespace samurai
         {
         }
 
-        IntervalRange(const container_t& data, const container_t& w)
+        IntervalListRange(const container_t& data, const container_t& w)
             : m_data(data)
             , m_start(0)
             , m_end(0)
@@ -57,17 +57,17 @@ namespace samurai
     };
 
     template <class container_>
-    class IntervalTraverser
+    class IntervalListVisitor
     {
       public:
 
         using container_t = container_;
-        using base_t      = IntervalRange<container_t>;
+        using base_t      = IntervalListRange<container_t>;
         using iterator_t  = typename base_t::iterator_t;
         using interval_t  = typename base_t::value_t;
         using value_t     = typename interval_t::value_t;
 
-        IntervalTraverser(auto lca_level, auto level, auto max_level, IntervalRange<container_t>&& intervals)
+        IntervalListVisitor(auto lca_level, auto level, auto max_level, IntervalListRange<container_t>&& intervals)
             : m_lca_level(static_cast<int>(lca_level))
             , m_shift2dest(static_cast<int>(max_level) - static_cast<int>(level))
             , m_shift2ref(static_cast<int>(max_level) - static_cast<int>(lca_level))
@@ -79,7 +79,7 @@ namespace samurai
         {
         }
 
-        explicit IntervalTraverser(IntervalRange<container_t>&& intervals)
+        explicit IntervalListVisitor(IntervalListRange<container_t>&& intervals)
             : m_lca_level(std::numeric_limits<std::size_t>::infinity())
             , m_shift2dest(std::numeric_limits<std::size_t>::infinity())
             , m_shift2ref(std::numeric_limits<std::size_t>::infinity())
@@ -166,7 +166,7 @@ namespace samurai
         int m_lca_level;
         int m_shift2dest;
         int m_shift2ref;
-        IntervalRange<container_t> m_intervals;
+        IntervalListRange<container_t> m_intervals;
         iterator_t m_first;
         iterator_t m_last;
         value_t m_current;

@@ -17,7 +17,7 @@
 #include "concepts.hpp"
 #include "samurai/list_of_intervals.hpp"
 #include "start_end_fct.hpp"
-#include "traverser.hpp"
+#include "visitor.hpp"
 
 namespace samurai
 {
@@ -202,7 +202,7 @@ namespace samurai
         {
             if (m_lca[d - 1].empty())
             {
-                return IntervalTraverser(IntervalRange(m_lca[d - 1], 0, 0));
+                return IntervalListVisitor(IntervalListRange(m_lca[d - 1], 0, 0));
             }
 
             if constexpr (dim == d)
@@ -210,16 +210,16 @@ namespace samurai
                 m_offsets[d - 1].clear();
                 m_offsets[d - 1].push_back({0, m_lca[d - 1].size()});
 
-                return IntervalTraverser(m_lca.level(),
-                                         m_level,
-                                         m_ref_level,
-                                         IntervalRange(m_lca[d - 1], 0, static_cast<std::ptrdiff_t>(m_lca[d - 1].size())));
+                return IntervalListVisitor(m_lca.level(),
+                                           m_level,
+                                           m_ref_level,
+                                           IntervalListRange(m_lca[d - 1], 0, static_cast<std::ptrdiff_t>(m_lca[d - 1].size())));
             }
             else
             {
                 if (m_lca[d].empty() || m_offsets[d].empty())
                 {
-                    return IntervalTraverser(IntervalRange(m_lca[d - 1], 0, 0));
+                    return IntervalListVisitor(IntervalListRange(m_lca[d - 1], 0, 0));
                 }
 
                 auto new_goback_fct = m_func.template goback<d + 1>(std::forward<Func_goback>(goback_fct));
@@ -234,18 +234,19 @@ namespace samurai
 
                     if (j == std::numeric_limits<std::size_t>::max())
                     {
-                        return IntervalTraverser(IntervalRange(m_lca[d - 1], 0, 0));
+                        return IntervalListVisitor(IntervalListRange(m_lca[d - 1], 0, 0));
                     }
 
                     auto io       = static_cast<std::size_t>(m_lca[d][j].index + current_index);
                     auto& offsets = m_lca.offsets(d);
                     m_offsets[d - 1].push_back({offsets[io], offsets[io + 1]});
 
-                    return IntervalTraverser(
-                        m_lca.level(),
-                        m_level,
-                        m_ref_level,
-                        IntervalRange(m_lca[d - 1], static_cast<std::ptrdiff_t>(offsets[io]), static_cast<std::ptrdiff_t>(offsets[io + 1])));
+                    return IntervalListVisitor(m_lca.level(),
+                                               m_level,
+                                               m_ref_level,
+                                               IntervalListRange(m_lca[d - 1],
+                                                                 static_cast<std::ptrdiff_t>(offsets[io]),
+                                                                 static_cast<std::ptrdiff_t>(offsets[io + 1])));
                 }
                 else
                 {
@@ -281,7 +282,7 @@ namespace samurai
 
                             if (start_offset == end_offset)
                             {
-                                return IntervalTraverser(IntervalRange(m_lca[d - 1], 0, 0));
+                                return IntervalListVisitor(IntervalListRange(m_lca[d - 1], 0, 0));
                             }
 
                             m_offsets[d - 1].push_back({start_offset, end_offset});
@@ -356,9 +357,9 @@ namespace samurai
                     }
                     if (m_work[d - 1].empty())
                     {
-                        return IntervalTraverser(IntervalRange(m_lca[d - 1], 0, 0));
+                        return IntervalListVisitor(IntervalListRange(m_lca[d - 1], 0, 0));
                     }
-                    return IntervalTraverser(m_lca.level(), m_level, m_ref_level, IntervalRange(m_lca[d - 1], m_work[d - 1]));
+                    return IntervalListVisitor(m_lca.level(), m_level, m_ref_level, IntervalListRange(m_lca[d - 1], m_work[d - 1]));
                 }
             }
         }

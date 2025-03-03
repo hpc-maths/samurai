@@ -18,7 +18,7 @@ namespace samurai
     class SetTraverser;
 
     template <class container_t>
-    class IntervalTraverser;
+    class IntervalListVisitor;
 
     template <class T>
     struct is_setop : std::false_type
@@ -37,7 +37,7 @@ namespace samurai
     concept IsSetOp = is_setop_v<T>;
 
     template <typename T>
-    concept IsIntervalTraverser = std::is_base_of_v<IntervalTraverser<typename std::decay_t<T>::container_t>, std::decay_t<T>>;
+    concept IsIntervalListVisitor = std::is_base_of_v<IntervalListVisitor<typename std::decay_t<T>::container_t>, std::decay_t<T>>;
 
     template <typename T>
     concept IsLCA = std::same_as<LevelCellArray<T::dim, typename T::interval_t>, T>;
