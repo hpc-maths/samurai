@@ -107,6 +107,15 @@ namespace samurai
 
         inline bool is_in(auto scan) const
         {
+            // Recall that we check if scan is inside an interval defined as [start,
+            // end[. The end of the interval is not included.
+            //
+            // if the m_current value is the start of the interval which means m_is_start =
+            // true then if scan is lower than m_current, scan is not in the
+            // interval.
+            //
+            // if the m_current value is the end of the interval which means m_is_start = false
+            // then if scan is lower than m_current, scan is in the interval.
             return m_current != sentinel<value_t> && !((scan < m_current) ^ (!m_is_start));
         }
 
