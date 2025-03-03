@@ -31,6 +31,7 @@ set(SAMURAI_BENCHMARKS
     benchmark_field.cpp
     benchmark_bc.cpp
     benchmark_cell.cpp
+    benchmark_subset.cpp
     main.cpp
 )
 
