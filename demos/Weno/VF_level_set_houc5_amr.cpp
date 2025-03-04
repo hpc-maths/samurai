@@ -10,7 +10,7 @@
 #include <samurai/box.hpp>
 #include <samurai/field.hpp>
 #include <samurai/field_expression.hpp>
-#include <samurai/hdf5.hpp>
+#include <samurai/io/hdf5.hpp>
 #include <samurai/operators_base.hpp>
 #include <samurai/stencil_field.hpp>
 

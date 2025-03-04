@@ -7,7 +7,7 @@
 #include <samurai/bc.hpp>
 #include <samurai/box.hpp>
 #include <samurai/field.hpp>
-#include <samurai/hdf5.hpp>
+#include <samurai/io/hdf5.hpp>
 #include <samurai/samurai.hpp>
 
 #include "stencil_field.hpp"

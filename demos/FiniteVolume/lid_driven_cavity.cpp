@@ -2,7 +2,7 @@
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #include <iostream>
-#include <samurai/hdf5.hpp>
+#include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/petsc.hpp>

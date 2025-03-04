@@ -8,7 +8,7 @@
 #include <samurai/algorithm.hpp>
 #include <samurai/bc.hpp>
 #include <samurai/field.hpp>
-#include <samurai/hdf5.hpp>
+#include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/samurai.hpp>

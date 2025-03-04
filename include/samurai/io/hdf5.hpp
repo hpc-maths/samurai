@@ -5,8 +5,7 @@
 
 #include <algorithm>
 #include <array>
-#include <fstream>
-#include <functional>
+
 #include <string>
 #include <type_traits>
 
@@ -36,7 +35,7 @@ namespace mpi = boost::mpi;
 #endif
 
 #include "algorithm.hpp"
-#include "cell.hpp"
+#include "interval.hpp"
 #include "timers.hpp"
 #include "utils.hpp"
 
@@ -395,6 +394,10 @@ namespace samurai
             auto min_level = this->mesh().min_level();
             auto max_level = this->mesh().max_level();
 #endif
+            if (min_level > 0)
+            {
+                min_level--;
+            }
             if (min_level > 0)
             {
                 min_level--;
