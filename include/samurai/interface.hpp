@@ -60,8 +60,8 @@ namespace samurai
             comput_stencil_its.push_back(make_stencil_iterator(mesh, comput_stencil));
         }
 #else
-        auto interface_it            = make_stencil_iterator(mesh, interface_stencil);
-        auto comput_stencil_it       = make_stencil_iterator(mesh, comput_stencil);
+        auto interface_it      = make_stencil_iterator(mesh, interface_stencil);
+        auto comput_stencil_it = make_stencil_iterator(mesh, comput_stencil);
 #endif
 
         for_each_meshinterval<mesh_interval_t, run_type>(
@@ -125,8 +125,8 @@ namespace samurai
             interface_its.emplace_back(comput_stencil_its[i], direction_index);
         }
 #else
-        auto comput_stencil_it       = make_stencil_iterator(mesh, comput_stencil);
-        auto interface_it            = make_leveljump_iterator<0>(comput_stencil_it, direction_index);
+        auto comput_stencil_it = make_stencil_iterator(mesh, comput_stencil);
+        auto interface_it      = make_leveljump_iterator<0>(comput_stencil_it, direction_index);
 #endif
 
         for_each_meshinterval<mesh_interval_t, run_type>(
@@ -348,8 +348,8 @@ namespace samurai
             comput_stencil_its.push_back(make_stencil_iterator(mesh, comput_stencil));
         }
 #else
-        auto interface_it            = make_stencil_iterator(mesh, interface_stencil);
-        auto comput_stencil_it       = make_stencil_iterator(mesh, comput_stencil);
+        auto interface_it      = make_stencil_iterator(mesh, interface_stencil);
+        auto comput_stencil_it = make_stencil_iterator(mesh, comput_stencil);
 #endif
 
         auto bdry = subdomain_boundary(mesh, level, direction);
