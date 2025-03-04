@@ -142,6 +142,7 @@ namespace samurai
         Mesh_base() = default; // cppcheck-suppress uninitMemberVar
         Mesh_base(const cl_type& cl, const self_type& ref_mesh);
         Mesh_base(const cl_type& cl, std::size_t min_level, std::size_t max_level);
+        Mesh_base(const ca_type& ca, std::size_t min_level, std::size_t max_level);
         Mesh_base(const samurai::Box<double, dim>& b,
                   std::size_t start_level,
                   std::size_t min_level,
@@ -301,6 +302,27 @@ namespace samurai
 
         set_origin_point(cl.origin_point());
         set_scaling_factor(cl.scaling_factor());
+    }
+
+    template <class D, class Config>
+    inline Mesh_base<D, Config>::Mesh_base(const ca_type& ca, std::size_t min_level, std::size_t max_level)
+        : m_min_level{min_level}
+        , m_max_level{max_level}
+    {
+        m_periodic.fill(false);
+        assert(min_level <= max_level);
+
+        this->m_cells[mesh_id_t::cells] = ca;
+
+        construct_subdomain();
+        m_domain = m_subdomain;
+        construct_union();
+        update_sub_mesh();
+        renumbering();
+        update_mesh_neighbour();
+
+        set_origin_point(ca.origin_point());
+        set_scaling_factor(ca.scaling_factor());
     }
 
     template <class D, class Config>

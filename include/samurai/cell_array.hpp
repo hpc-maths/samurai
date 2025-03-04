@@ -123,6 +123,8 @@ namespace samurai
         std::size_t max_level() const;
         std::size_t min_level() const;
 
+        void clear();
+
         auto& origin_point() const;
         void set_origin_point(const coords_t& origin_point);
         double scaling_factor() const;
@@ -413,6 +415,15 @@ namespace samurai
             }
         }
         return max_size + 1;
+    }
+
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
+    inline void CellArray<dim_, TInterval, max_size_>::clear()
+    {
+        for (std::size_t level = 0; level <= max_size; ++level)
+        {
+            m_cells[level].clear();
+        }
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
