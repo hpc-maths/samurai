@@ -23,28 +23,27 @@ auto generate_mesh(int bound, std::size_t start_level, std::size_t max_level)
     {
         samurai::CellList<dim> cl;
 
-        samurai::for_each_interval(
-            ca,
-            [&](std::size_t level, const auto& interval, const auto& index)
-            {
-                auto choice = xt::random::choice(xt::xtensor_fixed<bool, xt::xshape<2>>{true, false}, interval.size());
-                for (int i = interval.start, ic = 0; i < interval.end; ++i, ++ic)
-                {
-                    if (choice[ic])
-                    {
-                        samurai::static_nested_loop<dim - 1, 0, 2>(
-                            [&](auto stencil)
-                            {
-                                auto new_index = 2 * index + stencil;
-                                cl[level + 1][new_index].add_interval({2 * i, 2 * i + 2});
-                            });
-                    }
-                    else
-                    {
-                        cl[level][index].add_point(i);
-                    }
-                }
-            });
+        samurai::for_each_interval(ca,
+                                   [&](std::size_t level, const auto& interval, const auto& index)
+                                   {
+                                       auto choice = xt::random::choice(xt::xtensor_fixed<bool, xt::xshape<2>>{true, false}, interval.size());
+                                       for (int i = interval.start, ic = 0; i < interval.end; ++i, ++ic)
+                                       {
+                                           if (choice[ic])
+                                           {
+                                               samurai::static_nested_loop<dim - 1, 0, 2>(
+                                                   [&](auto stencil)
+                                                   {
+                                                       auto new_index = 2 * index + stencil;
+                                                       cl[level + 1][new_index].add_interval({2 * i, 2 * i + 2});
+                                                   });
+                                           }
+                                           else
+                                           {
+                                               cl[level][index].add_point(i);
+                                           }
+                                       }
+                                   });
 
         ca = {cl, true};
     }

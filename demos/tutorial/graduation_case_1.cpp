@@ -31,25 +31,24 @@ auto generate_mesh(std::size_t start_level, std::size_t max_level)
     {
         samurai::CellList<dim> cl;
 
-        samurai::for_each_interval(
-            ca,
-            [&](std::size_t level, const auto& interval, const auto& index)
-            {
-                auto choice    = xt::random::choice(xt::xtensor_fixed<bool, xt::xshape<2>>{true, false}, interval.size());
-                std::size_t ic = 0;
-                for (int i = interval.start; i < interval.end; ++i, ++ic)
-                {
-                    if (choice[ic])
-                    {
-                        cl[level + 1][2 * index].add_interval({2 * i, 2 * i + 2});
-                        cl[level + 1][2 * index + 1].add_interval({2 * i, 2 * i + 2});
-                    }
-                    else
-                    {
-                        cl[level][index].add_point(i);
-                    }
-                }
-            });
+        samurai::for_each_interval(ca,
+                                   [&](std::size_t level, const auto& interval, const auto& index)
+                                   {
+                                       auto choice = xt::random::choice(xt::xtensor_fixed<bool, xt::xshape<2>>{true, false}, interval.size());
+                                       std::size_t ic = 0;
+                                       for (int i = interval.start; i < interval.end; ++i, ++ic)
+                                       {
+                                           if (choice[ic])
+                                           {
+                                               cl[level + 1][2 * index].add_interval({2 * i, 2 * i + 2});
+                                               cl[level + 1][2 * index + 1].add_interval({2 * i, 2 * i + 2});
+                                           }
+                                           else
+                                           {
+                                               cl[level][index].add_point(i);
+                                           }
+                                       }
+                                   });
 
         ca = {cl, true};
     }
