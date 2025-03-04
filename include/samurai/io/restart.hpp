@@ -16,6 +16,7 @@ namespace fs = std::filesystem;
 #include "../level_cell_array.hpp"
 #include "../mesh.hpp"
 #include "../uniform_mesh.hpp"
+#include "util.hpp"
 
 namespace HighFive
 {
@@ -41,7 +42,7 @@ namespace HighFive
 namespace samurai
 {
     template <std::size_t dim, class interval_t>
-    void dump_mesh(HighFive::File& file, const LevelCellArray<dim, interval_t>& lca)
+    void dump(HighFive::File& file, const LevelCellArray<dim, interval_t>& lca)
     {
         H5Easy::dump(file, "/mesh/dim", dim);
         H5Easy::dump(file, "/mesh/min_level", lca.level());
@@ -61,7 +62,7 @@ namespace samurai
     }
 
     template <std::size_t dim, class interval_t, std::size_t max_size>
-    void dump_mesh(HighFive::File& file, const CellArray<dim, interval_t, max_size>& ca)
+    void dump(HighFive::File& file, const CellArray<dim, interval_t, max_size>& ca)
     {
         std::size_t min_level = ca.min_level();
         std::size_t max_level = ca.max_level();
@@ -87,38 +88,54 @@ namespace samurai
     }
 
     template <class Config>
-    void dump_mesh(HighFive::File& file, const UniformMesh<Config>& mesh)
+    void dump(HighFive::File& file, const UniformMesh<Config>& mesh)
     {
         using Mesh      = UniformMesh<Config>;
         using mesh_id_t = typename Mesh::mesh_id_t;
-        dump_mesh(file, mesh[mesh_id_t::cells]);
+        dump(file, mesh[mesh_id_t::cells]);
+    }
+
+    void dump_field(HighFive::File& file, const auto& mesh, const auto& field)
+    {
+        auto data = extract_data(field, mesh);
+        H5Easy::dump(file, fmt::format("/fields/{}", field.name()), data);
+    }
+
+    template <class... Fields>
+    void dump_fields(HighFive::File& file, const auto& mesh, const Fields&... fields)
+    {
+        if (sizeof...(Fields) > 0)
+        {
+            (dump_field(file, mesh, fields), ...);
+        }
     }
 
     template <class D, class Config>
-    void dump_mesh(HighFive::File& file, const Mesh_base<D, Config>& mesh)
+    void dump(HighFive::File& file, const Mesh_base<D, Config>& mesh, const auto&... fields)
     {
         using Mesh      = Mesh_base<D, Config>;
         using mesh_id_t = typename Mesh::mesh_id_t;
-        dump_mesh(file, mesh[mesh_id_t::cells]);
+        dump(file, mesh[mesh_id_t::cells]);
         H5Easy::dump(file, "/mesh/min_level", mesh.min_level(), H5Easy::DumpMode::Overwrite);
         H5Easy::dump(file, "/mesh/max_level", mesh.max_level(), H5Easy::DumpMode::Overwrite);
+        dump_fields(file, mesh[mesh_id_t::cells], fields...);
     }
 
-    template <class Mesh>
-    void dump_mesh(const fs::path& path, const std::string& filename, const Mesh& mesh)
+    template <class Mesh, class... Fields>
+    void dump(const fs::path& path, const std::string& filename, const Mesh& mesh, const Fields&... fields)
     {
         HighFive::File file(fmt::format("{}.h5", (path / filename).string()), HighFive::File::Overwrite);
-        dump_mesh(file, mesh);
+        dump(file, mesh, fields...);
     }
 
-    template <class Mesh>
-    void dump_mesh(const std::string& filename, const Mesh& mesh)
+    template <class Mesh, class... Fields>
+    void dump(const std::string& filename, const Mesh& mesh, const Fields&... fields)
     {
-        dump_mesh(fs::current_path(), filename, mesh);
+        dump(fs::current_path(), filename, mesh, fields...);
     }
 
     template <std::size_t dim_, class interval_t>
-    void load_mesh(const HighFive::File& file, LevelCellArray<dim_, interval_t>& lca)
+    void load(const HighFive::File& file, LevelCellArray<dim_, interval_t>& lca)
     {
         using lca_type = LevelCellArray<dim_, interval_t>;
 
@@ -161,7 +178,7 @@ namespace samurai
     }
 
     template <std::size_t dim_, class interval_t, std::size_t max_size>
-    void load_mesh(const HighFive::File& file, CellArray<dim_, interval_t, max_size>& ca)
+    void load(const HighFive::File& file, CellArray<dim_, interval_t, max_size>& ca)
     {
         using ca_type = CellArray<dim_, interval_t, max_size>;
 
@@ -197,50 +214,102 @@ namespace samurai
         }
     }
 
-    template <std::size_t dim, class interval_t, class lca_t = LevelCellArray<dim, interval_t>>
-    void load_mesh(const HighFive::File& file, lca_t& lca)
+    void load_field(const HighFive::File& file, const auto& mesh, auto& field)
     {
-        lca = load_mesh<lca_t>(file);
+        using Field     = std::decay_t<decltype(field)>;
+        using size_type = typename Field::size_type;
+
+        if (field.name().empty())
+        {
+            throw std::runtime_error("The field has no name.");
+        }
+
+        if (!file.exist(fmt::format("/fields/{}", field.name())))
+        {
+            throw std::runtime_error(fmt::format("The field {} does not exist in the file.", field.name()));
+        }
+
+        using data_t = xt::xtensor<typename Field::value_type, 2>;
+        auto data    = H5Easy::load<data_t>(file, fmt::format("/fields/{}", field.name()));
+
+        field.resize();
+
+        std::size_t index = 0;
+        for_each_cell(mesh,
+                      [&](auto cell)
+                      {
+                          if constexpr (Field::size == 1)
+                          {
+                              field[cell] = data(index, 0);
+                          }
+                          else
+                          {
+                              for (size_type i = 0; i < field.size; ++i)
+                              {
+                                  field[cell][i] = data(index, i);
+                              }
+                          }
+                          index++;
+                      });
+    }
+
+    template <class... Fields>
+    void load_fields(const HighFive::File& file, auto& mesh, Fields&... fields)
+    {
+        if (sizeof...(Fields) > 0)
+        {
+            (load_field(file, mesh, fields), ...);
+        }
+    }
+
+    template <std::size_t dim, class interval_t, class lca_t = LevelCellArray<dim, interval_t>>
+    void load(const HighFive::File& file, lca_t& lca)
+    {
+        lca = load<lca_t>(file);
     }
 
     template <std::size_t dim, class interval_t, std::size_t max_size, class ca_t = CellArray<dim, interval_t, max_size>>
-    void load_mesh(const HighFive::File& file, ca_t& ca)
+    void load(const HighFive::File& file, ca_t& ca)
     {
-        ca = load_mesh<ca_t>(file);
+        ca = load<ca_t>(file);
     }
 
-    template <class Config>
-    void load_mesh(const HighFive::File& file, UniformMesh<Config>& mesh)
+    template <class Config, class... Fields>
+    void load(const HighFive::File& file, UniformMesh<Config>& mesh, Fields&... fields)
     {
         using ca_type = typename UniformMesh<Config>::ca_type;
 
         ca_type ca;
-        load_mesh(file, ca);
-        mesh = {ca};
+        load(file, ca);
+        UniformMesh<Config> new_mesh{ca};
+        std::swap(mesh, new_mesh);
+        load_fields(file, mesh, fields...);
     }
 
-    template <class Mesh>
-    void load_mesh(const HighFive::File& file, Mesh& mesh)
+    template <class Mesh, class... Fields>
+    void load(const HighFive::File& file, Mesh& mesh, Fields&... fields)
     {
         using ca_type  = typename Mesh::ca_type;
         auto min_level = H5Easy::load<std::size_t>(file, "/mesh/min_level");
         auto max_level = H5Easy::load<std::size_t>(file, "/mesh/max_level");
 
         ca_type ca;
-        load_mesh(file, ca);
-        mesh = {ca, min_level, max_level};
+        load(file, ca);
+        Mesh new_mesh{ca, min_level, max_level};
+        std::swap(mesh, new_mesh);
+        load_fields(file, mesh, fields...);
     }
 
-    template <class Mesh>
-    void load_mesh(const fs::path& path, const std::string& filename, Mesh& mesh)
+    template <class Mesh, class... Fields>
+    void load(const fs::path& path, const std::string& filename, Mesh& mesh, Fields&... fields)
     {
         HighFive::File file(fmt::format("{}.h5", (path / filename).string()), HighFive::File::ReadOnly);
-        load_mesh(file, mesh);
+        load(file, mesh, fields...);
     }
 
-    template <class Mesh>
-    void load_mesh(const std::string& filename, Mesh& mesh)
+    template <class Mesh, class... Fields>
+    void load(const std::string& filename, Mesh& mesh, Fields&... fields)
     {
-        load_mesh(fs::current_path(), filename, mesh);
+        load(fs::current_path(), filename, mesh, fields...);
     }
 }

@@ -925,9 +925,19 @@ namespace samurai
         for_each_cell(mesh[mesh_id_t::cells],
                       [&](const auto& cell)
                       {
-                          if (std::abs(field1[cell] - field2[cell]) > 1e-15)
+                          if constexpr (std::is_integral_v<value_t>)
                           {
-                              is_same = false;
+                              if (field1[cell] != field2[cell])
+                              {
+                                  is_same = false;
+                              }
+                          }
+                          else
+                          {
+                              if (std::abs(field1[cell] - field2[cell]) > 1e-15)
+                              {
+                                  is_same = false;
+                              }
                           }
                       });
 
