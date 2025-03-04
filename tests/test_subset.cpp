@@ -8,7 +8,6 @@
 
 #include <samurai/cell_array.hpp>
 #include <samurai/cell_list.hpp>
-#include <samurai/hdf5.hpp>
 #include <samurai/interval.hpp>
 #include <samurai/level_cell_array.hpp>
 #include <samurai/mr/mesh.hpp>
