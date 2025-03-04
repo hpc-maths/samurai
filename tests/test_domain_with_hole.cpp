@@ -4,21 +4,6 @@
 
 namespace samurai
 {
-    template <std::size_t dim>
-    auto create_mesh(double box_boundary, std::size_t level)
-    {
-        using Config  = samurai::MRConfig<dim>;
-        using Mesh    = samurai::MRMesh<Config>;
-        using Box     = samurai::Box<double, dim>;
-        using point_t = typename Box::point_t;
-
-        point_t box_corner1, box_corner2;
-        box_corner1.fill(0);
-        box_corner2.fill(box_boundary);
-        Box box(box_corner1, box_corner2);
-
-        return Mesh(box, level, level);
-    }
 
     TEST(domain_with_hole, substract_box)
     {
