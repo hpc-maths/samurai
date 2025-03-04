@@ -120,6 +120,6 @@ namespace samurai
 
 #else
     template <class Mesh>
-    void statistics(const std::string& test_case, const Mesh& mesh){};
+    void statistics(const std::string& test_case, const Mesh& mesh) {};
 #endif
 }

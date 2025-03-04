@@ -86,10 +86,10 @@ namespace samurai
         template <class Archive>
         void serialize(Archive& ar, const unsigned int)
         {
-            ar& start;
-            ar& end;
-            ar& step;
-            ar& index;
+            ar & start;
+            ar & end;
+            ar & step;
+            ar & index;
         }
 #endif
     };
