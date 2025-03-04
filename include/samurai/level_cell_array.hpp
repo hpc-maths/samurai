@@ -535,11 +535,13 @@ namespace samurai
         {
             current_index[d] = m_cells[d].cbegin();
         }
-
-        for (std::size_t d = 0; d < dim - 1; ++d)
+        if (!empty())
         {
-            offset_index[d] = m_offsets[d].cbegin();
-            index[d]        = current_index[d + 1]->start;
+            for (std::size_t d = 0; d < dim - 1; ++d)
+            {
+                offset_index[d] = m_offsets[d].cbegin();
+                index[d]        = current_index[d + 1]->start;
+            }
         }
         return const_iterator(this, std::move(offset_index), std::move(current_index), std::move(index));
     }
@@ -557,10 +559,13 @@ namespace samurai
         }
         ++current_index[0];
 
-        for (std::size_t d = 0; d < dim - 1; ++d)
+        if (!empty())
         {
-            offset_index[d] = m_offsets[d].cend() - 2;
-            index[d]        = current_index[d + 1]->end - 1;
+            for (std::size_t d = 0; d < dim - 1; ++d)
+            {
+                offset_index[d] = m_offsets[d].cend() - 2;
+                index[d]        = current_index[d + 1]->end - 1;
+            }
         }
 
         return const_iterator(this, std::move(offset_index), std::move(current_index), std::move(index));
@@ -1081,8 +1086,8 @@ namespace samurai
 
         auto shift_origin = (approx_box.min_corner() - m_origin_point);
 
-        point_t start_pt = shift_origin / cell_length();
-        point_t end_pt   = (shift_origin + approx_box.length()) / cell_length();
+        point_t start_pt = xt::round(shift_origin / cell_length());
+        point_t end_pt   = xt::round((shift_origin + approx_box.length()) / cell_length());
         init_from_box(index_box_t{start_pt, end_pt});
     }
 
