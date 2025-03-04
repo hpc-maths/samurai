@@ -91,7 +91,10 @@ namespace samurai
         const ca_type& operator[](mesh_id_t mesh_id) const;
 
         std::size_t max_level() const;
+        std::size_t& max_level();
         std::size_t min_level() const;
+        std::size_t& min_level();
+
         auto& origin_point() const;
         void set_origin_point(const coords_t& origin_point);
         double scaling_factor() const;
@@ -359,7 +362,19 @@ namespace samurai
     }
 
     template <class D, class Config>
+    inline std::size_t& Mesh_base<D, Config>::max_level()
+    {
+        return m_max_level;
+    }
+
+    template <class D, class Config>
     inline std::size_t Mesh_base<D, Config>::min_level() const
+    {
+        return m_min_level;
+    }
+
+    template <class D, class Config>
+    inline std::size_t& Mesh_base<D, Config>::min_level()
     {
         return m_min_level;
     }
