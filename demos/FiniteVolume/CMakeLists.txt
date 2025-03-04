@@ -19,6 +19,7 @@ advection_2d.cpp:finite-volume-advection-2d
 advection_2d_user_bc.cpp:finite-volume-advection-2d-user-bc
 scalar_burgers_2d.cpp:finite-volume-scalar-burgers-2d
 linear_convection.cpp:finite-volume-linear-convection
+linear_convection_obstacle.cpp:finite-volume-linear-convection-obstacle
 burgers.cpp:finite-volume-burgers
 burgers_mra.cpp:finite-volume-burgers-mra
 burgers_os.cpp:finite-volume-burgers-os

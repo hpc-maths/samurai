@@ -169,7 +169,7 @@ namespace samurai
                     // In this case, of size n_comp x n_comp.
                     FluxStencilCoeffs<cfg> coeffs;
 
-                    auto velocity = velocity_field[cells[left]];
+                    auto velocity = 0.5 * (velocity_field[cells[left]] + velocity_field[cells[right]]);
                     if (velocity(d) >= 0) // use the left values
                     {
                         if constexpr (output_n_comp == 1)
