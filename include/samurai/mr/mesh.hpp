@@ -74,6 +74,7 @@ namespace samurai
         MRMesh() = default;
         MRMesh(const cl_type& cl, const self_type& ref_mesh);
         MRMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level);
+        MRMesh(const ca_type& ca, std::size_t min_level, std::size_t max_level);
         MRMesh(const samurai::Box<double, dim>& b,
                std::size_t min_level,
                std::size_t max_level,
@@ -101,6 +102,12 @@ namespace samurai
     template <class Config>
     inline MRMesh<Config>::MRMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level)
         : base_type(cl, min_level, max_level)
+    {
+    }
+
+    template <class Config>
+    inline MRMesh<Config>::MRMesh(const ca_type& ca, std::size_t min_level, std::size_t max_level)
+        : base_type(ca, min_level, max_level)
     {
     }
 

@@ -5,8 +5,7 @@
 
 #include <algorithm>
 #include <array>
-#include <fstream>
-#include <functional>
+
 #include <string>
 #include <type_traits>
 
@@ -35,10 +34,11 @@ namespace fs = std::filesystem;
 namespace mpi = boost::mpi;
 #endif
 
-#include "algorithm.hpp"
-#include "cell.hpp"
-#include "timers.hpp"
-#include "utils.hpp"
+#include "../algorithm.hpp"
+#include "../interval.hpp"
+#include "../timers.hpp"
+#include "../utils.hpp"
+#include "util.hpp"
 
 namespace samurai
 {
@@ -80,36 +80,6 @@ namespace samurai
         return std::array<xt::xtensor_fixed<std::size_t, xt::xshape<3>>, 8>{
             {{0, 0, 0}, {1, 0, 0}, {1, 1, 0}, {0, 1, 0}, {0, 0, 1}, {1, 0, 1}, {1, 1, 1}, {0, 1, 1}}
         };
-    }
-
-    template <class Field, class SubMesh>
-    auto extract_data(const Field& field, const SubMesh& submesh)
-    {
-        using size_type                       = typename Field::inner_types::size_type;
-        std::array<std::size_t, 2> data_shape = {submesh.nb_cells(), static_cast<std::size_t>(field.size)};
-        xt::xtensor<typename Field::value_type, 2> data(data_shape);
-
-        if (submesh.nb_cells() != 0)
-        {
-            std::size_t index = 0;
-            for_each_cell(submesh,
-                          [&](auto cell)
-                          {
-                              if constexpr (Field::size == 1)
-                              {
-                                  data(index, 0) = field[cell];
-                              }
-                              else
-                              {
-                                  for (size_type i = 0; i < field.size; ++i)
-                                  {
-                                      data(index, i) = field[cell][i];
-                                  }
-                              }
-                              index++;
-                          });
-        }
-        return data;
     }
 
     template <class Mesh>
@@ -395,6 +365,10 @@ namespace samurai
             auto min_level = this->mesh().min_level();
             auto max_level = this->mesh().max_level();
 #endif
+            if (min_level > 0)
+            {
+                min_level--;
+            }
             if (min_level > 0)
             {
                 min_level--;
