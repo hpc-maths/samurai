@@ -34,10 +34,10 @@ namespace fs = std::filesystem;
 namespace mpi = boost::mpi;
 #endif
 
-#include "algorithm.hpp"
-#include "interval.hpp"
-#include "timers.hpp"
-#include "utils.hpp"
+#include "../algorithm.hpp"
+#include "../interval.hpp"
+#include "../timers.hpp"
+#include "../utils.hpp"
 
 namespace samurai
 {
