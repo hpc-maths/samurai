@@ -114,6 +114,69 @@ namespace samurai
         EXPECT_STREQ(ss.str().data(), "Box({-1, -1}, {1, 1})");
     }
 
+    TEST(box, approximate_box_exact)
+    {
+        Box<double, 2> box{
+            {-1., -1.},
+            {1.,  1. }
+        };
+        // The approximation should be exact
+        double tol                = 0.5; // even with a large tolerance
+        double subdivision_length = -1;
+        auto approx_box           = approximate_box(box, tol, subdivision_length);
+        EXPECT_EQ(approx_box, box); // exact approximation
+        EXPECT_EQ(subdivision_length, 2.);
+    }
+
+    TEST(box, approximate_box_exact_with_gcd)
+    {
+        Box<double, 2> box{
+            {0.,   0. },
+            {1.25, 0.5}
+        };
+        // The approximation should be exact
+        double tol                = 0.2; // even with a tolerance
+        double subdivision_length = -1;
+        auto approx_box           = approximate_box(box, tol, subdivision_length);
+        EXPECT_EQ(approx_box, box);          // exact approximation
+        EXPECT_EQ(subdivision_length, 0.25); // Greatest Common Divisor (GCD) of 1.25 and 0.5
+    }
+
+    TEST(box, approximate_box_with_tolerance)
+    {
+        Box<double, 2> box{
+            {0.,  0.  },
+            {0.8, 1.61}
+        };
+        // With no tolerance, the approximation should be exact.
+        double tol                = 0.;
+        double subdivision_length = -1;
+        auto approx_box           = approximate_box(box, tol, subdivision_length);
+        EXPECT_EQ(approx_box, box);          // exact approximation
+        EXPECT_EQ(subdivision_length, 0.01); // Greatest Common Divisor (GCD) of 0.8 and 1.61
+
+        // With a tolerance, the algorithm finds the largest subdivision that fits the tolerance.
+        tol                        = 0.05;
+        double subdivision_length2 = -1;
+        approx_box                 = approximate_box(box, tol, subdivision_length2);
+        EXPECT_GT(subdivision_length2, subdivision_length);                                      // subdivision_length2 > subdivision_length
+        EXPECT_TRUE(xt::all(xt::abs(approx_box.length() - box.length()) <= tol * box.length())); // the approximation fits the tolerance
+    }
+
+    TEST(box, approximate_box_exact_no_admissible_gcd)
+    {
+        Box<double, 2> box{
+            {0.,   0.              },
+            {1.25, 0.55551111111111}
+        };
+        // The GCD of the lengths is too small to be not admissible.
+        // A tolerance is required to approximate the box.
+        double tol                = 0.02;
+        double subdivision_length = -1;
+        auto approx_box           = approximate_box(box, tol, subdivision_length);
+        EXPECT_TRUE(xt::all(xt::abs(approx_box.length() - box.length()) <= tol * box.length())); // the approximation fits the tolerance
+    }
+
     /**
      * The box to remove is fully inside the box.
      */

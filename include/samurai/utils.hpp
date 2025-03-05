@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "assert_log_trace.hpp"
 #include <algorithm>
 #include <cmath>
 #include <functional>
