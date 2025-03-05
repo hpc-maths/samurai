@@ -114,4 +114,96 @@ namespace samurai
         EXPECT_STREQ(ss.str().data(), "Box({-1, -1}, {1, 1})");
     }
 
+    /**
+     * The box to remove is fully inside the box.
+     */
+    TEST(box, difference_inside_2D)
+    {
+        static constexpr std::size_t dim = 2;
+        Box<double, dim> box{
+            {-1., -1.},
+            {1.,  1. }
+        };
+        Box<double, dim> box_to_remove{
+            {-0.5, -0.5},
+            {0.5,  0.5 }
+        };
+        auto boxes = box.difference(box_to_remove);
+        EXPECT_EQ(boxes.size(), std::pow(3, dim) - 1);
+    }
+
+    /**
+     * The box to remove is fully inside the box.
+     * Same test in 3D.
+     */
+    TEST(box, difference_inside_3D)
+    {
+        static constexpr std::size_t dim = 3;
+        Box<double, dim> box{
+            {-1., -1., -1.},
+            {1.,  1.,  1. }
+        };
+        Box<double, dim> box_to_remove{
+            {-0.5, -0.5, -0.5},
+            {0.5,  0.5,  0.5 }
+        };
+        auto boxes = box.difference(box_to_remove);
+        EXPECT_EQ(boxes.size(), std::pow(3, dim) - 1);
+    }
+
+    /**
+     * The box to remove is at a corner of the box.
+     */
+    TEST(box, difference_in_corner)
+    {
+        static constexpr std::size_t dim = 2;
+        Box<double, dim> box{
+            {-1., -1.},
+            {1.,  1. }
+        };
+        Box<double, dim> box_to_remove{
+            {-1., -1.},
+            {0.5, 0.5}
+        };
+        auto boxes = box.difference(box_to_remove);
+        EXPECT_EQ(boxes.size(), 3);
+    }
+
+    /***
+     * The box to remove is partly inside and partly outside the box.
+     */
+    TEST(box, difference_overlap)
+    {
+        static constexpr std::size_t dim = 2;
+        Box<double, dim> box{
+            {-1., -1.},
+            {1.,  1. }
+        };
+        Box<double, dim> box_to_remove{
+            {-2., -2.},
+            {0.5, 0.5}
+        };
+        auto boxes = box.difference(box_to_remove);
+        EXPECT_EQ(boxes.size(), 3);
+    }
+
+    /**
+     * The box to remove has no intersection with the box.
+     */
+    TEST(box, difference_outside)
+    {
+        static constexpr std::size_t dim = 2;
+        Box<double, dim> box{
+            {-1., -1.},
+            {1.,  1. }
+        };
+        Box<double, dim> box_to_remove{
+            {-2., -2.},
+            {-1., -1.}
+        };
+        auto boxes = box.difference(box_to_remove);
+        EXPECT_EQ(boxes.size(), 1);
+        EXPECT_EQ(boxes[0], box);
+    }
+
 }

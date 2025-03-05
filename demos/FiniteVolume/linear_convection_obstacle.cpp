@@ -1,6 +1,7 @@
 // Copyright 2018-2024 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
+#include <samurai/domain_builder.hpp>
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
@@ -91,8 +92,12 @@ int main(int argc, char* argv[])
     const Box domain_box({-1., -1.}, {1., 1.});
     const Box obstacle_box({0.0, 0.0}, {0.4, 0.4});
 
+    samurai::DomainBuilder<dim> domain(domain_box);
+    domain.remove(obstacle_box);
+    auto largest_subdivision = domain.largest_subdivision();
+
     auto origin_point     = domain_box.min_corner();
-    double scaling_factor = 0.2; // this value ensures that the hole is representable at level 0
+    double scaling_factor = largest_subdivision; // this value ensures that the hole is representable at level 0
     LevelCellArray domain_lca(max_level, domain_box, origin_point, -1, scaling_factor);
     LevelCellArray obstacle_lca(max_level, obstacle_box, origin_point, -1, scaling_factor);
 
