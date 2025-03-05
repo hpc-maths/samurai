@@ -1,7 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-test_case = "D2Q4444_Euler_Lax_Liu"
+test_case = "linear_convection_2D"
 
 data = pd.read_json('stats.json')
 data = pd.json_normalize(data[test_case])

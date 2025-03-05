@@ -110,6 +110,10 @@ namespace samurai
         LevelCellArray(std::size_t level);
         LevelCellArray(std::size_t level, const coords_t& origin_point, double scaling_factor);
 				
+				// assumes the point is placed AFTER all the points in this array.
+				void add_point_back    (const value_t x, const fixed_array<value_t, Dim-1>& yz_point) { add_interval_back_rec(std::integral_constant<size_t,Dim-1>{}, std::bool_constant<true>{},  {x, x+1}, yz_point, 0); }
+				void add_interval_back (const fixed_array<value_t, 2>& x_interval, const fixed_array<value_t, Dim-1>& yz_point) { add_interval_back_rec(std::integral_constant<size_t,Dim-1>{}, std::bool_constant<false>{}, x_interval, yz_point, 0); }
+				
 				void add_point    (const value_t x, const fixed_array<value_t, Dim-1>& yz_point) {    add_interval_rec(std::integral_constant<size_t,Dim-1>{}, std::bool_constant<true>{}, {x, x+1}, yz_point, 0); }
 				void remove_point (const value_t x, const fixed_array<value_t, Dim-1>& yz_point) { remove_interval_rec(std::integral_constant<size_t,Dim-1>{}, std::bool_constant<true>{}, {x, x+1}, yz_point, 0); }
 				
@@ -186,6 +190,9 @@ namespace samurai
         std::vector<std::size_t>& offsets(std::size_t d);
 
         std::size_t level() const;
+        std::size_t& level();
+
+        void clear();
 
         void clear();
 
@@ -217,6 +224,9 @@ namespace samurai
             ar & m_level;
         }
 #endif
+				template<size_t d, bool isSingleton>
+				void add_interval_back_rec(std::integral_constant<size_t, d>, std::bool_constant<isSingleton>, const fixed_array<value_t, 2>& x_interval, const fixed_array<value_t, Dim-1>& yz_point, const index_t z_interval_idx);
+				
 				template<size_t d, bool isSingleton>
 				void add_interval_rec(std::integral_constant<size_t, d>, std::bool_constant<isSingleton>, const fixed_array<value_t, 2>& x_interval, const fixed_array<value_t, Dim-1>& yz_point, const index_t z_interval_idx);
 				
@@ -465,7 +475,7 @@ namespace samurai
 		}
 		
 		/**
-		 * if d == 0, ad the x_interval
+		 * if d == 0, add the x_interval
 		 * if d > 0 add the point y and return the offset increment or decrement for z
 		 */
 		template <std::size_t Dim, class TInterval> template<size_t d, bool isSingleton>
@@ -477,7 +487,6 @@ namespace samurai
 			
 			using dim_const_t               = std::integral_constant<size_t, d>;
 			using interval_iterator         = std::vector<interval_t>::iterator;
-			using interval_const_iterator   = std::vector<interval_t>::const_iterator;
 			using interval_reverse_iterator = std::vector<interval_t>::reverse_iterator;
 			
 			std::vector<interval_t>& intervals = m_cells[d];
@@ -488,28 +497,22 @@ namespace samurai
 			const interval_iterator begin = intervals.begin() + i0;
 			const interval_iterator end   = intervals.begin() + i1;
 			
-			#if defined(WITH_STATS)
-			static size_t ncall = 1;
-			
-			std::ofstream out("add_interval_rec_stats.csv", (ncall > 1) ? std::ios_base::app : std::ios_base::out);
-			if (ncall == 1)
-			{
-				out << "#of calls, " << d << ", " << isSingleton << ", " << std::distance(begin, end) << std::endl; 	
-			}
-			out << ncall << ", " << d << ", " << isSingleton << ", " << std::distance(begin, end) << std::endl; 
-			
-			++ncall;
-			#endif
-			
 			if constexpr (d == 0 and not isSingleton)
 			{
 				const value_t xmin = x_interval[0];
 				const value_t xmax = x_interval[1];
 				
-				interval_iterator it_first = std::find_if(begin, end, [xmin](const interval_t& interval) -> bool
+				const interval_reverse_iterator rbegin = std::make_reverse_iterator(end);
+				const interval_reverse_iterator rend   = std::make_reverse_iterator(begin);
+				
+				interval_iterator it_first = std::find_if(rbegin, rend, [xmin](const interval_t& interval) -> bool
 				{
-					return xmin <= interval.end;
-				});
+					return interval.end < xmin;
+				}).base(); // - 1 + 1; // -1 for conversion to iterator + 1 for next 
+				// interval_iterator it_first = std::find_if(begin, end, [xmin](const interval_t& interval) -> bool
+				// {
+				// 	return xmin <= interval.end;
+				// });
 				
 				if (it_first == end or xmax < it_first->start)
 				{
@@ -528,10 +531,12 @@ namespace samurai
 					decrement_offsets(dim_const_t{}, yz_point, z_interval_idx, size_t(std::distance(it_first+1, it_last)));
 					intervals.erase(it_first+1, it_last);
 				}
-				update_index(d);
+				//update_index(d);
 			}
 			else if constexpr (d == 0 and isSingleton)
 			{
+				using interval_const_iterator = std::vector<interval_t>::const_iterator;
+				
 				const value_t x = x_interval[0];
 				
 				const interval_reverse_iterator rbegin = std::make_reverse_iterator(end);
@@ -546,12 +551,12 @@ namespace samurai
 				{
 					increment_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
 					intervals.emplace(it_first, x, x+1);
-					update_index(d);
+					//update_index(d);
 				}
 				else if (x+1 == it_first->start)
 				{
 					--(it_first->start);
-					update_index(d);
+					//update_index(d);
 				}	
 				else if (x == it_first->end)
 				{
@@ -564,7 +569,7 @@ namespace samurai
 						decrement_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
 						intervals.erase(it_next);
 					}
-					update_index(d);
+					//update_index(d);
 				}
 			}
 			else 
@@ -626,6 +631,84 @@ namespace samurai
 			}
 		}
 		
+		/**
+		 * if d == 0, add the x_interval
+		 * if d > 0 add the point y and return the offset increment or decrement for z
+		 */
+		template <std::size_t Dim, class TInterval> template<size_t d, bool isSingleton>
+		inline void LevelCellArray<Dim, TInterval>::add_interval_back_rec(std::integral_constant<size_t, d>, std::bool_constant<isSingleton>, const fixed_array<value_t, 2>& x_interval, const fixed_array<value_t, Dim-1>& yz_point, const index_t z_interval_idx)
+		{
+			static_assert(d <= Dim-1);
+			
+			using dim_const_t = std::integral_constant<size_t, d>;
+			
+			std::vector<interval_t>& intervals = m_cells[d];
+			
+			if constexpr (d == Dim-1) { if (x_interval[1] <= x_interval[0]) { return; } }
+			
+			const size_t i0 = (d == Dim-1) ? 0u : m_offsets[d].data()[yz_point[d] + z_interval_idx];
+			
+			assert(d < Dim-1 and m_offsets[d].data()[yz_point[d] + z_interval_idx + 1] == intervals.size());
+				
+			if constexpr (d == 0 and not isSingleton)
+			{			
+				const value_t xmin = x_interval[0];
+				const value_t xmax = x_interval[1];
+				
+				if (i0 == intervals.size() or intervals.back().end < xmin) 
+				{ 
+					intervals.emplace_back(xmin, xmax); 
+					increment_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
+				}
+				else 
+				{
+					assert(intervals.back().end < xmax);
+					intervals.back().end = xmax;
+				}
+			}
+			else if constexpr (d == 0 and isSingleton)
+			{
+				const value_t x = x_interval[0];
+				if (i0 == intervals.size() or intervals.back().end < x) 
+				{ 
+					intervals.emplace_back(x, x+1); 
+					increment_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
+				}
+				else if (intervals.back().end == x)
+				{
+					++intervals.back().end;
+				}
+				// else last interval contains x
+			}
+			else
+			{
+				const value_t y = yz_point[d-1];
+				
+				std::vector<size_t>& y_offsets = m_offsets[d-1];
+				
+				if (i0 == intervals.size() or intervals.back().end < y)
+				{		
+					y_offsets.push_back(y_offsets.back());
+					intervals.emplace_back(y, y+1); 
+					
+					increment_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
+					update_index(d);
+				}
+				else if (intervals.back().end == y)
+				{
+					y_offsets.push_back(y_offsets.back());
+					++intervals.back().end;
+					update_index(d);
+				}
+				// else last interval contains y
+				using next_dim_const_t     = std::integral_constant<size_t, d-1>;
+				using is_singleton_const_t = std::bool_constant<isSingleton>;
+				
+				add_interval_back_rec(next_dim_const_t{}, is_singleton_const_t{}, x_interval, yz_point, intervals.back().index);
+			}
+		}
+
+		
 		template <std::size_t Dim, class TInterval> template<size_t d, bool isSingleton>
 		inline void LevelCellArray<Dim, TInterval>::remove_interval_rec(std::integral_constant<size_t, d>, std::bool_constant<isSingleton>, const fixed_array<value_t, 2>& x_interval, const fixed_array<value_t, Dim-1>& yz_point, const index_t z_interval_idx)
 		{
@@ -647,8 +730,7 @@ namespace samurai
 
 			const interval_reverse_iterator rbegin = std::make_reverse_iterator(end);
 			const interval_reverse_iterator rend   = std::make_reverse_iterator(begin);
-			
-			
+						
 			if constexpr (d == 0 and not isSingleton)
 			{
 				const value_t xmin = x_interval[0];
@@ -688,7 +770,7 @@ namespace samurai
 						
 						intervals.erase(begin_del, end_del);
 					}
-					update_index(d);
+					//update_index(d);
 				}
 			}
 			else if constexpr (d == 0 and isSingleton)
@@ -721,7 +803,7 @@ namespace samurai
 						
 						increment_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
 					}
-					update_index(d);
+					//update_index(d);
 				}
 			}
 			else
@@ -1058,12 +1140,21 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
+    inline std::size_t& LevelCellArray<Dim, TInterval>::level()
+    {
+        return m_level;
+    }
+
+    template <std::size_t Dim, class TInterval>
     inline void LevelCellArray<Dim, TInterval>::clear()
     {
-        for (std::size_t d = 0; d < dim; ++d)
-        {
-            m_cells[d].clear();
-        }
+			for (std::size_t d=0; d<dim-1; ++d)
+			{
+				m_cells[d].clear();
+				m_offsets[d].clear();
+				m_offsets[d].push_back(0);
+			}
+			m_cells[dim-1].clear();
     }
 
     template <std::size_t Dim, class TInterval>

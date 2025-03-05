@@ -98,6 +98,11 @@ namespace samurai
 		
 		ca[0].remove_interval({1, 3}, {0}); remove_interval(0, {1, 3}, {0}, cells);
 		
+		{
+			samurai::CellArray<dim> ca_ref = createCellArray(cells);
+			EXPECT_EQ(ca_ref, ca);
+		}
+		
 		ca[1].add_interval({2, 6}, {0}); add_interval(1, {2,6}, {0}, cells);
 		ca[1].add_interval({2, 6}, {1}); add_interval(1, {2,6}, {1}, cells);
 		

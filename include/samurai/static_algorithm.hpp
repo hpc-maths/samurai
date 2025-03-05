@@ -66,16 +66,16 @@ namespace samurai
     template<size_t nloops, int start, int end, int step, class Func>
     inline void staticNestedForLoop(Func&& func)
     {
-			//xt::xtensor_fixed<int, xt::xshape<nloops>> index;
-			std::array<int, nloops> index;
+			xt::xtensor_fixed<int, xt::xshape<nloops>> index;
+			//std::array<int, nloops> index;
 			detail::StaticNestedForLoop<nloops, 0, start, end, step>::run(std::forward<Func>(func), index);
 		}
 		
     template<size_t nloops, int start, int end, class Func>
     inline void staticNestedForLoop(Func&& func)
     {
-			//xt::xtensor_fixed<int, xt::xshape<nloops>> index;
-			std::array<int, nloops> index;
+			xt::xtensor_fixed<int, xt::xshape<nloops>> index;
+			//std::array<int, nloops> index;
 			detail::StaticNestedForLoop<nloops, 0, start, end, 1>::run(std::forward<Func>(func), index);
 		}
 

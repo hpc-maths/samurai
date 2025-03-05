@@ -815,7 +815,7 @@ namespace samurai
         tag.mesh().swap(new_mesh);
         return false;
     }
-    
+
     template <class Tag, class Field, class... Fields>
     bool update_field_mr(const Tag& tag, Field& field, Fields&... other_fields)
     {
@@ -825,51 +825,156 @@ namespace samurai
         using size_type                  = typename Field::size_type;
         using interval_t                 = typename mesh_t::interval_t;
         using value_t                    = typename interval_t::value_t;
+        using unsigned_value_t           = typename std::make_unsigned_t<value_t>;
+        using lca_type                   = typename Field::mesh_t::lca_type;
+        using lca_const_iterator         = typename lca_type::const_iterator;
         using ca_type                    = typename Field::mesh_t::ca_type;
-        using unsigned_value_t           = std::make_unsigned_t<value_t>;
+        using coord_type                 = typename lca_type::coord_type;  
+        
+        const auto& mesh = tag.mesh();
+        
+        ca_type ca_add_m;
+        ca_add_m.set_origin_point(mesh.origin_point());
+        ca_add_m.set_scaling_factor(mesh.scaling_factor());
+        ca_type ca_add_p;
+        ca_add_p.set_origin_point(mesh.origin_point());
+        ca_add_p.set_scaling_factor(mesh.scaling_factor());
+        ca_type ca_remove_m;
+        ca_remove_m.set_origin_point(mesh.origin_point());
+        ca_remove_m.set_scaling_factor(mesh.scaling_factor());
+        ca_type ca_remove_p;
+        ca_remove_p.set_origin_point(mesh.origin_point());
+        ca_remove_p.set_scaling_factor(mesh.scaling_factor());
+        
+        ca_type new_ca;
 
-        auto& mesh = field.mesh();
-				
-				ca_type ca = mesh[mesh_id_t::cells];
-
-				bool hasMeshBeenModified = false;
-
-        for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level, const auto& interval, const auto& index)
-				{
-					for (value_t i = interval.start; i < interval.end; ++i)
+				std::array< std::vector<value_t>, dim-1> add_p_x;
+				std::array< std::vector<value_t>, dim-1> remove_m_x;
+        
+        for(std::size_t level = mesh[mesh_id_t::cells].min_level(); level <= mesh[mesh_id_t::cells].max_level(); ++level)
+        {
+					const lca_const_iterator begin = mesh[mesh_id_t::cells][level].cbegin();
+					const lca_const_iterator end   = mesh[mesh_id_t::cells][level].cend();
+					
+					for (lca_const_iterator it = begin; it != end; ++it)
 					{
-						const size_type itag = static_cast<size_type>(interval.index) + static_cast<unsigned_value_t>(i);
+						const interval_t& x_interval = *it;
+						const coord_type& yz_point   = it.index();
 						
-						if (tag[itag] & static_cast<int>(CellFlag::refine) and level < mesh.max_level())
+						const bool is_yz_even = dim == 1 or xt::all(not xt::eval(yz_point % 2));
+						
+						for (value_t x = x_interval.start; x < x_interval.end; ++x)
 						{
-							ca[level].remove_point(i, index);
-							static_nested_loop<dim - 1, 0, 2>([&](const auto& stencil)
+							const size_type itag = static_cast<size_type>(x_interval.index) + static_cast<unsigned_value_t>(x);
+							const bool refine            = tag[itag] & static_cast<int>(CellFlag::refine);
+							const bool coarsenAndNotKeep = tag[itag] & static_cast<int>(CellFlag::coarsen) and not (tag[itag] & static_cast<int>(CellFlag::keep));
+
+							if (refine and level < mesh.max_level())
 							{
-								const auto new_index = 2*index + stencil;
-								ca[level + 1].add_interval({2 * i, 2 * i + 2}, new_index);
-							});
-							hasMeshBeenModified = true;
+								ca_remove_p[level].add_point_back(x, yz_point);
+								if constexpr (dim == 1) { ca_add_p[level+1].add_interval_back({2*x, 2*x + 2}, {}); }
+								else                    { for (size_t d=0; d!=dim-1;++d) { add_p_x[d].push_back(x); } }
+							}
+							else if (coarsenAndNotKeep and x%2 == 0 and is_yz_even and level > mesh.min_level())
+							{
+								ca_add_m[level-1].add_point_back(x >> 1, yz_point >> 1); // add cell / 2 at level-1
+								if constexpr (dim == 1) { ca_remove_m[level].add_interval_back({x, x + 2}, {}); }
+								else                    { for (size_t d=0; d!=dim-1;++d) { remove_m_x[d].push_back(x); } }
+							}
 						}
-						if (i%2 == 0 and xt::all(not xt::eval(index % 2)) and tag[itag] & static_cast<int>(CellFlag::coarsen) and level > mesh.min_level())
+						if constexpr (dim > 1)
 						{
-							ca[level - 1].add_point(i >> 1, index >> 1); // add cell / 2 at level-1
-							static_nested_loop<dim - 1, 0, 2>([&](const auto& stencil)
+							for (size_t d=0; d!=dim-1; ++d)
 							{
-								const auto new_index = index + stencil;
-								ca[level].remove_interval({i, i + 2}, new_index);
-							});
-							hasMeshBeenModified = true;
+								if ((it+1 == end) or  xt::all(xt::not_equal(xt::view((it+1).index(), xt::range(d, dim-1)), xt::view(yz_point, xt::range(d, dim-1)))))
+								{	
+									const size_t i2 = add_p_x[d].size();
+									const size_t i3 = remove_m_x[d].size();
+									const size_t i1 = std::min(i2, i3);
+									
+									static_nested_loop<dim-1, 0, 2>([&](const coord_type& stencil)
+									{
+										if (d+1 == dim-1 or xt::all(xt::equal(xt::view(stencil, xt::range(d+1, dim-1)), 0)) )
+										{
+											if (d+1 != dim-1)
+											{
+												std::cout << yz_point + stencil << " " << xt::view((it+1).index(), xt::range(d, dim-1)) << " " << xt::view(yz_point, xt::range(d, dim-1)) << std::endl;
+											}
+											else
+											{
+												std::cout << yz_point + stencil << " " << std::endl;
+											}
+											for (size_t i=0; i!=i1; ++i)
+											{
+												ca_add_p[level+1].add_interval_back({2*add_p_x[d][i], 2*add_p_x[d][i] + 2}, 2*yz_point + stencil);
+												ca_remove_m[level].add_interval_back({remove_m_x[d][i], remove_m_x[d][i] + 2}, yz_point + stencil);
+											}
+											for (size_t i=i1; i!=i2; ++i) { ca_add_p[level+1].add_interval_back({2*add_p_x[d][i], 2*add_p_x[d][i] + 2}, 2*yz_point + stencil);  }
+											for (size_t i=i1; i!=i3; ++i) { ca_remove_m[level].add_interval_back({remove_m_x[d][i], remove_m_x[d][i] + 2}, yz_point + stencil); }
+										}
+									});
+									//std::cout << "done" << std::endl;
+									add_p_x[d].clear();
+									remove_m_x[d].clear();
+								}
+							}
 						}
+						//std::cout << "done." << std::endl;
+						//if constexpr (dim > 1) 
+						//{ 
+						//	if ((it+1).index() != yz_point)
+						//	{
+						//		const size_t i2 = add_p_x.size();
+						//		const size_t i3 = remove_m_x.size();
+						//		const size_t i1 = std::min(i2, i3);
+						//		static_nested_loop<dim-1, 0, 2>([&](const coord_type& stencil)
+						//		{
+						//			const xt::xtensor_fixed< bool, xt::xshape<dim-1> > isLowerThanNext = (it+1 == end) or (yz_point + stencil <= (it+1).index());
+						//			std::cout << yz_point + stencil << " " << isLowerThanNext << std::endl;
+						//			for (size_t i=0; i!=i1; ++i)
+						//			{
+						//				ca_add_p[level+1].add_interval_back({2*add_p_x[i], 2*add_p_x[i] + 2}, 2*yz_point + stencil);
+						//				ca_remove_m[level].add_interval_back({remove_m_x[i], remove_m_x[i] + 2}, yz_point + stencil);
+						//			}
+						//			for (size_t i=i1; i!=i2; ++i) { ca_add_p[level+1].add_interval_back({2*add_p_x[i], 2*add_p_x[i] + 2}, 2*yz_point + stencil);  }
+						//			for (size_t i=i1; i!=i3; ++i) { ca_remove_m[level].add_interval_back({remove_m_x[i], remove_m_x[i] + 2}, yz_point + stencil); }
+						//		});
+				    //    std::cout << "done" << std::endl;
+						//		add_p_x.clear();
+						//		remove_m_x.clear();
+						//	}
+						//}
+						
 					}
-				});
-				
-         mesh_t new_mesh(ca, mesh);
+        }
+        if constexpr (dim > 2)
+        {
+					static size_t ncalls = 1;
+					if (not ca_remove_p.empty()) { save("ca_remove_p_" + std::to_string(ncalls), ca_remove_p); }
+					if (not    ca_add_p.empty()) { save(   "ca_add_p_" + std::to_string(ncalls),    ca_add_p); }
+					if (not ca_remove_m.empty()) { save("ca_remove_m_" + std::to_string(ncalls), ca_remove_m); }
+					if (not    ca_add_m.empty()) { save(   "ca_add_m_" + std::to_string(ncalls),    ca_add_m); }
+					++ncalls;
+					std::exit(0);
+				}
+        //std::cout << "ca_remove_p" << std::endl << ca_remove_p << std::endl;
+        //std::cout << "ca_add_p"    << std::endl << ca_add_p    << std::endl;
+        //std::cout << "ca_remove_m" << std::endl << ca_remove_m << std::endl;
+        //std::cout << "ca_add_m"    << std::endl << ca_add_m    << std::endl;
+        
+        for(std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
+        {
+					auto set = difference(union_(mesh[mesh_id_t::cells][level], ca_add_m[level], ca_add_p[level]), union_(ca_remove_m[level], ca_remove_p[level]));
+					set([&](auto& i, auto& index) { new_ca[level].add_interval_back({i.start, i.end}, index); });
+        }
+        mesh_t new_mesh{new_ca, mesh};
+
 
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
-        if (mpi::all_reduce(world, not hasMeshBeenModified, std::logical_and()))
+        if (mpi::all_reduce(world, mesh == new_mesh, std::logical_and()))
 #else
-				if (not hasMeshBeenModified)
+        if (mesh == new_mesh)
 #endif
         {
             return true;
@@ -938,6 +1043,7 @@ namespace samurai
                           });
 
         mesh_t new_mesh = {cl, mesh};
+        
 
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;

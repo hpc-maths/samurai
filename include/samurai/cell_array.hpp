@@ -120,6 +120,10 @@ namespace samurai
         std::size_t nb_cells() const;
         std::size_t nb_cells(std::size_t level) const;
 
+				void clear();
+				
+				bool empty() const;
+
         std::size_t max_level() const;
         std::size_t min_level() const;
 
@@ -267,16 +271,36 @@ namespace samurai
 
         if (with_update_index)
         {
-            //update_index();
-					for (std::size_t level = 0; level <= max_size; ++level)
-					{
-						for (std::size_t d=0;d<dim;++d)
-						{ 
-							m_cells[level].update_index(d);
-						}
-					}
+					update_index();
+					//for (std::size_t level = 0; level <= max_size; ++level)
+					//{
+					//	for (std::size_t d=0;d<dim;++d)
+					//	{ 
+					//		m_cells[level].update_index(d);
+					//	}
+					//}
         }
     }
+    
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
+    inline bool CellArray<dim_, TInterval, max_size_>::empty() const
+    {
+			bool isEmpty = true;
+			for (std::size_t level = 0; level <= max_size; ++level)
+			{
+				isEmpty = isEmpty and m_cells[level].empty();
+			}
+			return isEmpty;
+		}
+    
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
+    inline void CellArray<dim_, TInterval, max_size_>::clear()
+    {
+			for (std::size_t level = 0; level <= max_size; ++level)
+			{
+				m_cells[level].clear();
+			}
+		}
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
     inline auto CellArray<dim_, TInterval, max_size_>::operator[](std::size_t i) const -> const lca_type&
