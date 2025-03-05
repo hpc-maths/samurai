@@ -8,9 +8,9 @@
 
 #include <fmt/format.h>
 
-#include "box.hpp"
 #include "cell_array.hpp"
 #include "cell_list.hpp"
+#include "domain_builder.hpp"
 #include "static_algorithm.hpp"
 #include "subset/node.hpp"
 
@@ -156,6 +156,12 @@ namespace samurai
                   std::size_t max_level,
                   double approx_box_tol = lca_type::default_approx_box_tol,
                   double scaling_factor = 0);
+        Mesh_base(const samurai::DomainBuilder<dim>& domain_builder,
+                  std::size_t start_level,
+                  std::size_t min_level,
+                  std::size_t max_level,
+                  double approx_box_tol = lca_type::default_approx_box_tol,
+                  double scaling_factor = 0);
         Mesh_base(const samurai::Box<double, dim>& b,
                   std::size_t start_level,
                   std::size_t min_level,
@@ -260,6 +266,80 @@ namespace samurai
 
         set_origin_point(origin_point());
         set_scaling_factor(scaling_factor());
+    }
+
+    template <class D, class Config>
+    Mesh_base<D, Config>::Mesh_base(const samurai::DomainBuilder<dim>& domain_builder,
+                                    std::size_t start_level,
+                                    std::size_t min_level,
+                                    std::size_t max_level,
+                                    double approx_box_tol,
+                                    double scaling_factor_)
+        : m_min_level{min_level}
+        , m_max_level{max_level}
+    {
+        assert(min_level <= max_level);
+        m_periodic.fill(false);
+
+#ifdef SAMURAI_WITH_MPI
+        std::cerr << "MPI is not implemented with DomainBuilder." << std::endl;
+        std::exit(1);
+        // partition_mesh(start_level, b);
+        //  load_balancing();
+#else
+        auto origin_point_ = domain_builder.origin_point();
+        scaling_factor_    = scaling_factor_ > 0 ? scaling_factor_ : domain_builder.largest_subdivision();
+
+        cl_type domain_cl(origin_point_, scaling_factor_);
+
+        for (const auto& box : domain_builder.added_boxes())
+        {
+            lca_type box_lca(start_level, box, origin_point_, approx_box_tol, scaling_factor_);
+            // Put back this code when we have add_interval in LevelCellArray
+            // for_each_interval(box_lca,
+            //                   [&](const auto& i, const auto& index)
+            //                   {
+            //                       domain_lca.add_interval(i, index);
+            //                   });
+            lca_type current_domain_lca(domain_cl[start_level]);
+            auto new_domain_set = union_(current_domain_lca, box_lca);
+            domain_cl           = cl_type(origin_point_, scaling_factor_);
+            new_domain_set(
+                [&](const auto& i, const auto& index)
+                {
+                    domain_cl[start_level][index].add_interval({i});
+                });
+        }
+        for (const auto& box : domain_builder.removed_boxes())
+        {
+            lca_type hole_lca(start_level, box, origin_point_, approx_box_tol, scaling_factor_);
+            // Put back this code when we have remove_interval in LevelCellArray
+            // for_each_interval(hole_lca,
+            //                   [&](const auto& i, const auto& index)
+            //                   {
+            //                       domain_lca.remove_interval(i, index);
+            //                   });
+            lca_type current_domain_lca(domain_cl[start_level]);
+            auto new_domain_set = difference(current_domain_lca, hole_lca);
+            domain_cl           = cl_type(origin_point_, scaling_factor_);
+            new_domain_set(
+                [&](const auto& i, const auto& index)
+                {
+                    domain_cl[start_level][index].add_interval({i});
+                });
+        }
+
+        this->m_cells[mesh_id_t::cells] = {domain_cl, false};
+#endif
+        construct_subdomain();
+        m_domain = m_subdomain;
+        construct_union();
+        update_sub_mesh();
+        renumbering();
+        update_mesh_neighbour();
+
+        set_origin_point(origin_point_);
+        set_scaling_factor(scaling_factor_);
     }
 
     template <class D, class Config>

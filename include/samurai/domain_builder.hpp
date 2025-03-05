@@ -1,3 +1,8 @@
+// Copyright 2018-2024 the samurai's authors
+// SPDX-License-Identifier:  BSD-3-Clause
+
+#pragma once
+
 #include "box.hpp"
 
 namespace samurai
@@ -10,25 +15,45 @@ namespace samurai
 
       private:
 
-        point_t m_origin_point;
-
         std::vector<Box> m_added_boxes;
         std::vector<Box> m_removed_boxes;
 
       public:
 
-        DomainBuilder(const Box& box, bool fill_domain = true)
-            : m_origin_point(box.min_corner())
+        DomainBuilder() = default;
+
+        DomainBuilder(const Box& box)
         {
-            if (fill_domain)
-            {
-                add(box);
-            }
+            add(box);
         }
 
-        auto& origin_point() const
+        DomainBuilder(const point_t& min_corner, const point_t& max_corner)
         {
-            return m_origin_point;
+            add(Box(min_corner, max_corner));
+        }
+
+        auto& added_boxes() const
+        {
+            return m_added_boxes;
+        }
+
+        auto& removed_boxes() const
+        {
+            return m_removed_boxes;
+        }
+
+        point_t origin_point() const
+        {
+            point_t origin;
+            for (const auto& box : m_added_boxes)
+            {
+                origin = xt::minimum(origin, box.min_corner());
+            }
+            for (const auto& box : m_removed_boxes)
+            {
+                origin = xt::minimum(origin, box.min_corner());
+            }
+            return origin;
         }
 
         void add(const Box& box)
@@ -36,9 +61,19 @@ namespace samurai
             m_added_boxes.push_back(box);
         }
 
+        void add(const point_t& min_corner, const point_t& max_corner)
+        {
+            add(Box(min_corner, max_corner));
+        }
+
         void remove(const Box& box)
         {
             m_removed_boxes.push_back(box);
+        }
+
+        void remove(const point_t& min_corner, const point_t& max_corner)
+        {
+            remove(Box(min_corner, max_corner));
         }
 
         double largest_subdivision() const
@@ -49,12 +84,10 @@ namespace samurai
             for (const auto& box : m_added_boxes)
             {
                 largest_subdivision = gcd_double(largest_subdivision, box.min_length());
-                std::cout << largest_subdivision << std::endl;
             }
             for (const auto& box : m_removed_boxes)
             {
                 largest_subdivision = gcd_double(largest_subdivision, box.min_length());
-                std::cout << largest_subdivision << std::endl;
             }
 
             // The largest subdivision must be smaller than the smallest length of all differences
@@ -67,11 +100,7 @@ namespace samurai
                         std::vector<Box> diff = box.difference(rbox);
                         for (const auto& dbox : diff)
                         {
-                            std::cout << "***********" << std::endl;
-                            std::cout << dbox << std::endl;
-                            // std::cout << dbox.min_length() << std::endl;
                             largest_subdivision = gcd_float(largest_subdivision, dbox.min_length());
-                            std::cout << largest_subdivision << std::endl;
                         }
                     }
                 }

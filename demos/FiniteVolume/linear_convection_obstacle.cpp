@@ -38,10 +38,6 @@ int main(int argc, char* argv[])
     static constexpr std::size_t dim = 2;
     using Config                     = samurai::MRConfig<dim, 1>;
     using Mesh                       = samurai::MRMesh<Config>;
-    using CellList                   = Mesh::cl_type;
-    using LevelCellArray             = Mesh::lca_type;
-    using Box                        = samurai::Box<double, dim>;
-    // using mesh_id_t                  = typename Mesh::mesh_id_t;
 
     std::cout << "------------------------- Linear convection -------------------------" << std::endl;
 
@@ -89,28 +85,11 @@ int main(int argc, char* argv[])
     // Problem definition //
     //--------------------//
 
-    const Box domain_box({-1., -1.}, {1., 1.});
-    const Box obstacle_box({0.0, 0.0}, {0.4, 0.4});
+    samurai::DomainBuilder<dim> domain({-1., -1.}, {1., 1.});
+    domain.remove({0.0, 0.0}, {0.4, 0.4});
 
-    samurai::DomainBuilder<dim> domain(domain_box);
-    domain.remove(obstacle_box);
-    auto largest_subdivision = domain.largest_subdivision();
-
-    auto origin_point     = domain_box.min_corner();
-    double scaling_factor = largest_subdivision; // this value ensures that the hole is representable at level 0
-    LevelCellArray domain_lca(max_level, domain_box, origin_point, -1, scaling_factor);
-    LevelCellArray obstacle_lca(max_level, obstacle_box, origin_point, -1, scaling_factor);
-
-    auto domain_with_hole_set = samurai::difference(domain_lca, obstacle_lca);
-
-    CellList domain_with_hole_cl(origin_point, scaling_factor);
-    domain_with_hole_set(
-        [&](const auto& interval, const auto& index_yz)
-        {
-            domain_with_hole_cl[max_level][index_yz].add_interval({interval});
-        });
-
-    Mesh mesh(domain_with_hole_cl, min_level, max_level);
+    Mesh mesh(domain, min_level, max_level);
+    std::cout << mesh.cell_length(min_level) << std::endl;
 
     // Initial solution
     auto u = samurai::make_field<1>("u",
@@ -193,14 +172,14 @@ int main(int argc, char* argv[])
         u1.resize();
         u2.resize();
 
-        // unp1 = u - dt * conv(u);
+        unp1 = u - dt * conv(u);
 
         // TVD-RK3 (SSPRK3)
-        u1 = u - dt * conv(u);
-        samurai::update_ghost_mr(u1);
-        u2 = 3. / 4 * u + 1. / 4 * (u1 - dt * conv(u1));
-        samurai::update_ghost_mr(u2);
-        unp1 = 1. / 3 * u + 2. / 3 * (u2 - dt * conv(u2));
+        // u1 = u - dt * conv(u);
+        // samurai::update_ghost_mr(u1);
+        // u2 = 3. / 4 * u + 1. / 4 * (u1 - dt * conv(u1));
+        // samurai::update_ghost_mr(u2);
+        // unp1 = 1. / 3 * u + 2. / 3 * (u2 - dt * conv(u2));
 
         // u <-- unp1
         std::swap(u.array(), unp1.array());
