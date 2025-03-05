@@ -217,7 +217,7 @@ namespace samurai
             }
             else
             {
-                if (m_lca[d].empty() || m_offsets[d].empty())
+                if (m_offsets[d].empty() || m_lca[d].empty())
                 {
                     return IntervalListVisitor(IntervalListRange(m_lca[d - 1], 0, 0));
                 }

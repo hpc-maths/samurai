@@ -89,14 +89,14 @@ namespace samurai
         }
 
         template <class Func>
-        inline auto start(const auto it, Func& start_fct) const
+        inline auto start(const auto& it, Func& start_fct) const
         {
             auto i = it->start << m_shift2ref;
             return start_fct(m_lca_level, i);
         }
 
         template <class Func>
-        inline auto end(const auto it, Func& end_fct) const
+        inline auto end(const auto& it, Func& end_fct) const
         {
             auto i = it->end << m_shift2ref;
             return end_fct(m_lca_level, i);
