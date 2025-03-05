@@ -82,6 +82,11 @@ namespace samurai
                std::size_t max_level,
                double approx_box_tol = lca_type::default_approx_box_tol,
                double scaling_factor = 0);
+        MRMesh(const samurai::DomainBuilder<dim>& domain_builder,
+               std::size_t min_level,
+               std::size_t max_level,
+               double approx_box_tol = lca_type::default_approx_box_tol,
+               double scaling_factor = 0);
         MRMesh(const samurai::Box<double, dim>& b,
                std::size_t min_level,
                std::size_t max_level,
@@ -126,6 +131,16 @@ namespace samurai
                                   double approx_box_tol,
                                   double scaling_factor_)
         : base_type(b, max_level, min_level, max_level, approx_box_tol, scaling_factor_)
+    {
+    }
+
+    template <class Config>
+    inline MRMesh<Config>::MRMesh(const samurai::DomainBuilder<dim>& domain_builder,
+                                  std::size_t min_level,
+                                  std::size_t max_level,
+                                  double approx_box_tol,
+                                  double scaling_factor_)
+        : base_type(domain_builder, max_level, min_level, max_level, approx_box_tol, scaling_factor_)
     {
     }
 
