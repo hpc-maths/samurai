@@ -21,39 +21,36 @@ namespace samurai
 
         IntervalListRange(const container_t& data, std::ptrdiff_t start, std::ptrdiff_t end)
             : m_data(data)
-            , m_start(start)
-            , m_end(end)
             , m_work(data)
-            , m_take_data(true)
+            , m_begin(data.cbegin() + start)
+            , m_end(data.cbegin() + end)
         {
         }
 
         IntervalListRange(const container_t& data, const container_t& w)
             : m_data(data)
-            , m_start(0)
-            , m_end(0)
             , m_work(w)
-            , m_take_data(false)
+            , m_begin(w.cbegin())
+            , m_end(w.cend())
         {
         }
 
-        inline auto begin()
+        inline auto begin() const
         {
-            return (m_take_data) ? m_data.cbegin() + m_start : m_work.cbegin();
+            return m_begin;
         }
 
-        inline auto end()
+        inline auto end() const
         {
-            return (m_take_data) ? m_data.cbegin() + m_end : m_work.cend();
+            return m_end;
         }
 
       private:
 
         const container_t& m_data;
-        std::ptrdiff_t m_start;
-        std::ptrdiff_t m_end;
         const container_t& m_work;
-        bool m_take_data;
+        iterator_t m_begin;
+        iterator_t m_end;
     };
 
     template <class container_>
@@ -67,13 +64,13 @@ namespace samurai
         using interval_t  = typename base_t::value_t;
         using value_t     = typename interval_t::value_t;
 
-        IntervalListVisitor(auto lca_level, auto level, auto max_level, IntervalListRange<container_t>&& intervals)
+        IntervalListVisitor(auto lca_level, auto level, auto max_level, const IntervalListRange<container_t>& intervals)
             : m_lca_level(static_cast<int>(lca_level))
             , m_shift2dest(static_cast<int>(max_level) - static_cast<int>(level))
             , m_shift2ref(static_cast<int>(max_level) - static_cast<int>(lca_level))
-            , m_intervals(std::move(intervals))
-            , m_first(m_intervals.begin())
-            , m_last(m_intervals.end())
+            , m_intervals(intervals)
+            , m_first(intervals.begin())
+            , m_last(intervals.end())
             , m_current(std::numeric_limits<value_t>::min())
             , m_is_start(true)
         {
@@ -92,14 +89,14 @@ namespace samurai
         }
 
         template <class Func>
-        inline auto start(const auto it, Func& start_fct) const
+        inline auto start(const auto& it, Func& start_fct) const
         {
             auto i = it->start << m_shift2ref;
             return start_fct(m_lca_level, i);
         }
 
         template <class Func>
-        inline auto end(const auto it, Func& end_fct) const
+        inline auto end(const auto& it, Func& end_fct) const
         {
             auto i = it->end << m_shift2ref;
             return end_fct(m_lca_level, i);

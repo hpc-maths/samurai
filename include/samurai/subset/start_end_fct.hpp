@@ -21,9 +21,8 @@ namespace samurai
     {
         auto& operator()(std::size_t level, std::size_t min_level, std::size_t max_level)
         {
-            m_level     = level;
-            m_min_shift = static_cast<int>(min_level) - static_cast<int>(max_level);
-            m_max_shift = static_cast<int>(max_level) - static_cast<int>(min_level);
+            m_level = level;
+            m_shift = static_cast<int>(max_level) - static_cast<int>(min_level);
             return *this;
         }
 
@@ -32,8 +31,7 @@ namespace samurai
         {
             auto new_f = [&, f](auto, auto i)
             {
-                i = start_shift(start_shift(i, m_min_shift), m_max_shift);
-                return f(m_level, i);
+                return f(m_level, (i >> m_shift) << m_shift);
             };
             return new_f;
         }
@@ -43,8 +41,7 @@ namespace samurai
         {
             auto new_f = [&, f](auto, auto i)
             {
-                i = end_shift(end_shift(i, m_min_shift), m_max_shift);
-                return f(m_level, i);
+                return f(m_level, (((i - 1) >> m_shift) + 1) << m_shift);
             };
             return new_f;
         }
@@ -61,8 +58,7 @@ namespace samurai
         }
 
         std::size_t m_level;
-        int m_min_shift;
-        int m_max_shift;
+        int m_shift;
     };
 
     template <std::size_t dim>
@@ -91,10 +87,11 @@ namespace samurai
         {
             auto new_f = [&, f](auto level, auto i)
             {
-                i = start_shift(start_shift(start_shift(i, static_cast<int>(level) - static_cast<int>(m_max_level)) + m_t[d - 1],
-                                            static_cast<int>(m_min_level) - static_cast<int>(level)),
-                                static_cast<int>(m_max_level) - static_cast<int>(m_min_level));
-                return f(m_level, i);
+                int max2curr = static_cast<int>(m_max_level) - static_cast<int>(level);
+                int curr2min = static_cast<int>(level) - static_cast<int>(m_min_level);
+                int min2max  = static_cast<int>(m_max_level) - static_cast<int>(m_min_level);
+
+                return f(m_level, (((i >> max2curr) + m_t[d - 1]) >> curr2min) << min2max);
             };
             return new_f;
         }
@@ -104,10 +101,11 @@ namespace samurai
         {
             auto new_f = [&, f](auto level, auto i)
             {
-                i = end_shift(end_shift(end_shift(i, static_cast<int>(level) - static_cast<int>(m_max_level)) + m_t[d - 1],
-                                        static_cast<int>(m_min_level) - static_cast<int>(level)),
-                              static_cast<int>(m_max_level) - static_cast<int>(m_min_level));
-                return f(m_level, i);
+                int max2curr = static_cast<int>(m_max_level) - static_cast<int>(level);
+                int curr2min = static_cast<int>(level) - static_cast<int>(m_min_level);
+                int min2max  = static_cast<int>(m_max_level) - static_cast<int>(m_min_level);
+
+                return f(m_level, (((((i - 1) >> max2curr) + m_t[d - 1]) >> curr2min) + 1) << min2max);
             };
             return new_f;
         }
@@ -153,10 +151,11 @@ namespace samurai
         {
             auto new_f = [&, f](auto level, auto i)
             {
-                i = start_shift(start_shift(start_shift(i, static_cast<int>(level) - static_cast<int>(m_max_level)) - m_c,
-                                            static_cast<int>(m_min_level) - static_cast<int>(level)),
-                                static_cast<int>(m_max_level) - static_cast<int>(m_min_level));
-                return f(m_level, i);
+                int max2curr = static_cast<int>(m_max_level) - static_cast<int>(level);
+                int curr2min = static_cast<int>(level) - static_cast<int>(m_min_level);
+                int min2max  = static_cast<int>(m_max_level) - static_cast<int>(m_min_level);
+
+                return f(m_level, (((i >> max2curr) - m_c) >> curr2min) << min2max);
             };
             return new_f;
         }
@@ -166,10 +165,11 @@ namespace samurai
         {
             auto new_f = [&, f](auto level, auto i)
             {
-                i = end_shift(end_shift(end_shift(i, static_cast<int>(level) - static_cast<int>(m_max_level)) - m_c,
-                                        static_cast<int>(m_min_level) - static_cast<int>(level)),
-                              static_cast<int>(m_max_level) - static_cast<int>(m_min_level));
-                return f(m_level, i);
+                int max2curr = static_cast<int>(m_max_level) - static_cast<int>(level);
+                int curr2min = static_cast<int>(level) - static_cast<int>(m_min_level);
+                int min2max  = static_cast<int>(m_max_level) - static_cast<int>(m_min_level);
+
+                return f(m_level, (((((i - 1) >> max2curr) - m_c) >> curr2min) + 1) << min2max);
             };
             return new_f;
         }
