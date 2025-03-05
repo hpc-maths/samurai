@@ -1064,7 +1064,7 @@ namespace samurai
         using index_box_t = Box<value_t, dim>;
         using point_t     = typename index_box_t::point_t;
 
-        assert(approx_box_tol > 0 || scaling_factor > 0);
+        assert(approx_box_tol >= 0 || scaling_factor > 0);
 
         m_origin_point = origin_point;
 

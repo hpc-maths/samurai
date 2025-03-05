@@ -326,20 +326,80 @@ namespace samurai
     template <class value_t, std::size_t dim>
     Box<value_t, dim> approximate_box(const Box<value_t, dim>& box, double tol, double& subdivision_length)
     {
-        bool given_subdivision_length = subdivision_length > 0;
-        if (!given_subdivision_length)
+        using length_t = typename Box<value_t, dim>::point_t;
+
+        assert(tol >= 0 || subdivision_length > 0);
+
+        // bool given_subdivision_length = subdivision_length > 0;
+        length_t approx_length;
+        if (subdivision_length > 0)
         {
-            subdivision_length = box.min_length(); // / 2;
+            approx_length = xt::ceil(box.length() / subdivision_length) * subdivision_length;
         }
-
-        auto approx_length = xt::eval(xt::ceil(box.length() / subdivision_length) * subdivision_length);
-
-        if (!given_subdivision_length)
+        else
         {
-            while (xt::any(xt::abs(approx_length - box.length()) > tol * box.length()))
+            // The largest possible subdivision length to exactly approximate the box
+            // is the Greatest Common Divisor (GCD) of the box's lengths.
+            subdivision_length = box.length()[0];
+            for (std::size_t d = 1; d < dim; ++d)
             {
-                subdivision_length /= 2;
-                approx_length = xt::eval(xt::ceil(box.length() / subdivision_length) * subdivision_length);
+                subdivision_length = gcd_float(subdivision_length, box.length()[d]);
+            }
+
+            approx_length = xt::ceil(box.length() / subdivision_length) * subdivision_length;
+
+            length_t error        = xt::abs(approx_length - box.length());
+            length_t relative_tol = tol * box.length();
+
+            // If the subdivision length is really too small...
+            const double small_subdivision_length_tol = 1e-5;
+            if (xt::any(subdivision_length < small_subdivision_length_tol * box.length()))
+            {
+                // ... and no tolerance is allowed, we raise an error.
+                if (tol == 0)
+                {
+                    std::cerr << "The box " << box << " cannot be exactly represented with a reasonable cell length. ";
+                    std::cerr << "You can modify the box's dimensions or you can set a tolerance so it can be approximately represented."
+                              << std::endl;
+                    std::exit(1);
+                }
+
+                // ... we set it to the smallest length of the box...
+                subdivision_length = box.min_length();
+                approx_length      = xt::ceil(box.length() / subdivision_length) * subdivision_length;
+                error              = xt::abs(approx_length - box.length());
+                // ... and reduce it to fit the tolerance.
+                while (xt::any(error > relative_tol))
+                {
+                    subdivision_length /= 2;
+                    approx_length = xt::ceil(box.length() / subdivision_length) * subdivision_length;
+                    error         = xt::abs(approx_length - box.length());
+                    // std::cout << "Approximation error: " << error << std::endl;
+                }
+            }
+            else if (tol > 0)
+            {
+                // Since a tolerance is allowed, we try to find a larger subdivision within that tolerance.
+                // To do so, we successively double the subdivision length until the approximation error exceeds the tolerance.
+
+                if (xt::all(error < relative_tol))
+                {
+                    while (xt::all(error < relative_tol))
+                    {
+                        subdivision_length *= 2;
+                        approx_length = xt::ceil(box.length() / subdivision_length) * subdivision_length;
+                        error         = xt::abs(approx_length - box.length());
+                        // std::cout << "Approximation error: " << error << std::endl;
+                    }
+                    subdivision_length /= 2;
+                    approx_length = xt::ceil(box.length() / subdivision_length) * subdivision_length;
+                    error         = xt::abs(approx_length - box.length());
+                }
+            }
+
+            if (subdivision_length == 0)
+            {
+                SAMURAI_ASSERT(subdivision_length > 0, "An error occurred while approximating the box.");
             }
         }
 
