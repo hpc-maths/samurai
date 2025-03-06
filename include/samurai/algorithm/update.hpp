@@ -875,9 +875,9 @@ namespace samurai
 					for (lca_const_iterator it = begin; it != end; ++it)
 					{
 						const interval_t& x_interval = *it;
-						const coord_type& yz_point   = it.index();
+						const coord_type& yz   = it.index();
 						
-						const bool is_yz_even = dim == 1 or xt::all(not xt::eval(yz_point % 2));
+						const bool is_yz_even = dim == 1 or xt::all(not xt::eval(yz % 2));
 						
 						for (value_t x = x_interval.start; x < x_interval.end; ++x)
 						{
@@ -887,36 +887,36 @@ namespace samurai
 
 							if (refine and level < mesh.max_level())
 							{
-								ca_remove_p[level].add_point_back(x, yz_point);
+								ca_remove_p[level].add_point_back(x, yz);
 								if constexpr      (dim == 1) { ca_add_p[level+1].add_interval_back({2*x, 2*x + 2}, {}); }
-								else if constexpr (dim == 2) { add_p_x.push_back(x); add_p_yz.emplace_back(yz_point);   }
+								else if constexpr (dim == 2) { add_p_x.push_back(x); add_p_yz.emplace_back(yz);   }
 								else
 								{
 									static_nested_loop<dim - 1, 0, 2>([&](const coord_type& stencil)
 									{
 										add_p_x.push_back(2*x);
-										add_p_yz.emplace_back(2*yz_point + stencil);
+										add_p_yz.emplace_back(2*yz + stencil);
 									});
 								}
 							}
 							else if (coarsenAndNotKeep and x%2 == 0 and is_yz_even and level > mesh.min_level())
 							{
-								ca_add_m[level-1].add_point_back(x >> 1, yz_point >> 1); // add cell / 2 at level-1
+								ca_add_m[level-1].add_point_back(x >> 1, yz >> 1); // add cell / 2 at level-1
 								if constexpr      (dim == 1) { ca_remove_m[level].add_interval_back({x, x + 2}, {});        }
-								else if constexpr (dim == 2) { remove_m_x.push_back(x); remove_m_yz.emplace_back(yz_point); }
+								else if constexpr (dim == 2) { remove_m_x.push_back(x); remove_m_yz.emplace_back(yz); }
 								else
 								{
 									static_nested_loop<dim - 1, 0, 2>([&](const coord_type& stencil)
 									{
 										remove_m_x.push_back(x);
-										remove_m_yz.emplace_back(yz_point + stencil);
+										remove_m_yz.emplace_back(yz + stencil);
 									});
 								}
 							}
 						}
 						if constexpr (dim == 2)
 						{
-							if ((it+1 == end) or  (it+1).index()[dim-2] != yz_point[dim-2])
+							if ((it+1 == end) or  (it+1).index()[dim-2] != yz[dim-2])
 							{	
 								const size_t i2 = add_p_x.size();
 								const size_t i3 = remove_m_x.size();
@@ -945,7 +945,7 @@ namespace samurai
 						}
 						else if constexpr (dim > 2)
 						{
-							if ((it+1 == end) or  (it+1).index()[dim-2] != yz_point[dim-2])
+							if ((it+1 == end) or  (it+1).index()[dim-2] != yz[dim-2])
 							{
 								sort_indexes(add_p_yz, [](const coord_type& lhs, const coord_type& rhs) -> bool
 								{
@@ -991,7 +991,7 @@ namespace samurai
         for(std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
         {
 					auto set = difference(union_(mesh[mesh_id_t::cells][level], ca_add_m[level], ca_add_p[level]), union_(ca_remove_m[level], ca_remove_p[level]));
-					set([&](auto& i, auto& index) { new_ca[level].add_interval_back({i.start, i.end}, index); });
+					set([&](const interval_t& x_interval, const coord_type& yz) { new_ca[level].add_interval_back({x_interval.start, x_interval.end}, yz); });
         }
         mesh_t new_mesh{new_ca, mesh};
 

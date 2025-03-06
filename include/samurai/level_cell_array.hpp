@@ -531,7 +531,6 @@ namespace samurai
 					decrement_offsets(dim_const_t{}, yz_point, z_interval_idx, size_t(std::distance(it_first+1, it_last)));
 					intervals.erase(it_first+1, it_last);
 				}
-				//update_index(d);
 			}
 			else if constexpr (d == 0 and isSingleton)
 			{
@@ -551,12 +550,10 @@ namespace samurai
 				{
 					increment_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
 					intervals.emplace(it_first, x, x+1);
-					//update_index(d);
 				}
 				else if (x+1 == it_first->start)
 				{
 					--(it_first->start);
-					//update_index(d);
 				}	
 				else if (x == it_first->end)
 				{
@@ -569,7 +566,6 @@ namespace samurai
 						decrement_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
 						intervals.erase(it_next);
 					}
-					//update_index(d);
 				}
 			}
 			else 
@@ -687,18 +683,19 @@ namespace samurai
 				std::vector<size_t>& y_offsets = m_offsets[d-1];
 				
 				if (i0 == intervals.size() or intervals.back().end < y)
-				{		
+				{
+					const index_t new_interval_index = (intervals.size() == 0) ? -y : intervals.back().index + intervals.back().end - y;
 					y_offsets.push_back(y_offsets.back());
-					intervals.emplace_back(y, y+1); 
+					intervals.emplace_back(y, y+1, new_interval_index); 
+					//intervals.emplace_back(y, y+1); 
 					
 					increment_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
-					update_index(d);
+					//update_index(d);
 				}
 				else if (intervals.back().end == y)
 				{
 					y_offsets.push_back(y_offsets.back());
 					++intervals.back().end;
-					update_index(d);
 				}
 				// else last interval contains y
 				using next_dim_const_t     = std::integral_constant<size_t, d-1>;
@@ -770,7 +767,6 @@ namespace samurai
 						
 						intervals.erase(begin_del, end_del);
 					}
-					//update_index(d);
 				}
 			}
 			else if constexpr (d == 0 and isSingleton)
@@ -803,7 +799,6 @@ namespace samurai
 						
 						increment_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
 					}
-					//update_index(d);
 				}
 			}
 			else
