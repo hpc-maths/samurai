@@ -77,7 +77,10 @@ def test_finite_volume_demo(exec, Tf, config):
 
 
 @pytest.mark.h5diff()
-# @pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+@pytest.mark.skipif(
+    sys.platform == "darwin",
+    reason="skipped on macos because libpthread is missing on github worker",
+)
 def test_finite_volume_demo_heat_explicit(config):
     cmd = [
         get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-heat"),
@@ -102,7 +105,10 @@ def test_finite_volume_demo_heat_explicit(config):
 
 
 @pytest.mark.h5diff()
-# @pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+@pytest.mark.skipif(
+    sys.platform == "darwin",
+    reason="skipped on macos because libpthread is missing on github worker",
+)
 def test_finite_volume_demo_heat_implicit(config):
     cmd = [
         get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-heat"),
@@ -128,7 +134,10 @@ def test_finite_volume_demo_heat_implicit(config):
 
 
 @pytest.mark.h5diff()
-# @pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+@pytest.mark.skipif(
+    sys.platform == "darwin",
+    reason="skipped on macos because libpthread is missing on github worker",
+)
 def test_finite_volume_demo_heat_heterogeneous_explicit(config):
     cmd = [
         get_executable(
@@ -153,7 +162,10 @@ def test_finite_volume_demo_heat_heterogeneous_explicit(config):
 
 
 @pytest.mark.h5diff()
-# @pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+@pytest.mark.skipif(
+    sys.platform == "darwin",
+    reason="skipped on macos because libpthread is missing on github worker",
+)
 def test_finite_volume_demo_heat_heterogeneous_implicit(config):
     cmd = [
         get_executable(
@@ -179,7 +191,10 @@ def test_finite_volume_demo_heat_heterogeneous_implicit(config):
 
 
 @pytest.mark.h5diff()
-# @pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+@pytest.mark.skipif(
+    sys.platform == "darwin",
+    reason="skipped on macos because libpthread is missing on github worker",
+)
 def test_finite_volume_demo_stokes_stationary(config):
     cmd = [
         get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-stokes-2d"),
@@ -198,7 +213,10 @@ def test_finite_volume_demo_stokes_stationary(config):
 
 
 @pytest.mark.h5diff()
-# @pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+@pytest.mark.skipif(
+    sys.platform == "darwin",
+    reason="skipped on macos because libpthread is missing on github worker",
+)
 def test_finite_volume_demo_stokes_nonstationary(config):
     cmd = [
         get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-stokes-2d"),
@@ -221,7 +239,10 @@ def test_finite_volume_demo_stokes_nonstationary(config):
 
 
 @pytest.mark.h5diff()
-# @pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+@pytest.mark.skipif(
+    sys.platform == "darwin",
+    reason="skipped on macos because libpthread is missing on github worker",
+)
 def test_finite_volume_demo_burgers(config):
     cmd = [
         get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-burgers"),
@@ -244,7 +265,10 @@ def test_finite_volume_demo_burgers(config):
 
 
 @pytest.mark.h5diff()
-# @pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+@pytest.mark.skipif(
+    sys.platform == "darwin",
+    reason="skipped on macos because libpthread is missing on github worker",
+)
 def test_finite_volume_demo_mra_burgers(config):
     cmd = [
         get_executable(
@@ -269,7 +293,10 @@ def test_finite_volume_demo_mra_burgers(config):
 
 
 @pytest.mark.h5diff()
-# @pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+@pytest.mark.skipif(
+    sys.platform == "darwin",
+    reason="skipped on macos because libpthread is missing on github worker",
+)
 def test_finite_volume_demo_nagumo_imp_diff_imp_react(config):
     cmd = [
         get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-nagumo"),
@@ -295,7 +322,10 @@ def test_finite_volume_demo_nagumo_imp_diff_imp_react(config):
 
 
 @pytest.mark.h5diff()
-# @pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+@pytest.mark.skipif(
+    sys.platform == "darwin",
+    reason="skipped on macos because libpthread is missing on github worker",
+)
 def test_finite_volume_demo_nagumo_exp_diff_imp_react(config):
     cmd = [
         get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-nagumo"),
@@ -320,7 +350,10 @@ def test_finite_volume_demo_nagumo_exp_diff_imp_react(config):
 
 
 @pytest.mark.h5diff()
-# @pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+@pytest.mark.skipif(
+    sys.platform == "darwin",
+    reason="skipped on macos because libpthread is missing on github worker",
+)
 def test_finite_volume_demo_nagumo_imp_diff_exp_react(config):
     cmd = [
         get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-nagumo"),
@@ -347,7 +380,10 @@ def test_finite_volume_demo_nagumo_imp_diff_exp_react(config):
 
 
 @pytest.mark.h5diff()
-# @pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+@pytest.mark.skipif(
+    sys.platform == "darwin",
+    reason="skipped on macos because libpthread is missing on github worker",
+)
 def test_finite_volume_demo_nagumo_exp_diff_exp_react(config):
     cmd = [
         get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-nagumo"),
@@ -369,7 +405,10 @@ def test_finite_volume_demo_nagumo_exp_diff_exp_react(config):
 
 
 @pytest.mark.h5diff()
-# @pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+@pytest.mark.skipif(
+    sys.platform == "darwin",
+    reason="skipped on macos because libpthread is missing on github worker",
+)
 def test_finite_volume_demo_lid_driven_cavity(config):
     cmd = [
         get_executable(
@@ -392,7 +431,10 @@ def test_finite_volume_demo_lid_driven_cavity(config):
 
 
 @pytest.mark.h5diff()
-# @pytest.mark.skipif(sys.platform == "darwin", reason = "skipped on macos because libpthread is missing on github worker")
+@pytest.mark.skipif(
+    sys.platform == "darwin",
+    reason="skipped on macos because libpthread is missing on github worker",
+)
 def test_finite_volume_demo_linear_convection(config):
     cmd = [
         get_executable(
