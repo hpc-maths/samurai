@@ -11,7 +11,7 @@
 #include "../field.hpp"
 #include "../graduation.hpp"
 #include "../subset/node.hpp"
-#include "util.hpp"
+#include "cgal.hpp"
 
 namespace samurai
 {

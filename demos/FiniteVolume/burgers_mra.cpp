@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 #include <CLI/CLI.hpp>
 
-#include <samurai/hdf5.hpp>
+#include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/samurai.hpp>

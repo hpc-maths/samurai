@@ -4,7 +4,7 @@
 #include <samurai/algorithm.hpp>
 #include <samurai/cell_flag.hpp>
 #include <samurai/field.hpp>
-#include <samurai/hdf5.hpp>
+#include <samurai/io/hdf5.hpp>
 #include <samurai/mesh.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/operators.hpp>

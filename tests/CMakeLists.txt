@@ -24,10 +24,11 @@ set(SAMURAI_TESTS
     test_interval.cpp
     test_level_cell_list.cpp
     test_list_of_intervals.cpp
-    test_subset.cpp
     test_periodic.cpp
     test_portion.cpp
+    test_restart.cpp
     test_scaling.cpp
+    test_subset.cpp
     test_utils.cpp
 )
 

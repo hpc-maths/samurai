@@ -5,7 +5,8 @@
 #include <samurai/algorithm.hpp>
 #include <samurai/bc.hpp>
 #include <samurai/field.hpp>
-#include <samurai/hdf5.hpp>
+#include <samurai/io/hdf5.hpp>
+#include <samurai/io/restart.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/samurai.hpp>
@@ -15,11 +16,11 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
-template <class Mesh>
-auto init(Mesh& mesh)
+template <class Field>
+void init(Field& u)
 {
-    auto u = samurai::make_field<double, 1>("u", mesh);
-    u.fill(0.);
+    auto& mesh = u.mesh();
+    u.resize();
 
     samurai::for_each_cell(mesh,
                            [&](auto& cell)
@@ -33,8 +34,6 @@ auto init(Mesh& mesh)
                                    u[cell] = 1;
                                }
                            });
-
-    return u;
 }
 
 template <class Field>
@@ -105,6 +104,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
                            });
 
     samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
+    samurai::dump(path, fmt::format("{}_restart{}", filename, suffix), mesh, u);
 }
 
 int main(int argc, char* argv[])
@@ -121,6 +121,8 @@ int main(int argc, char* argv[])
     double a         = 1.;
     double Tf        = 1.;
     double cfl       = 0.95;
+    double t         = 0.;
+    std::string restart_file;
 
     // Multiresolution parameters
     std::size_t min_level = 6;
@@ -139,7 +141,9 @@ int main(int argc, char* argv[])
     app.add_flag("--periodic", is_periodic, "Set the domain periodic")->capture_default_str()->group("Simulation parameters");
     app.add_option("--velocity", a, "The velocity of the advection equation")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--Ti", t, "Initial time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--mr-eps", mr_epsilon, "The epsilon used by the multiresolution to adapt the mesh")
@@ -160,14 +164,22 @@ int main(int argc, char* argv[])
     SAMURAI_PARSE(argc, argv);
 
     const samurai::Box<double, dim> box({left_box}, {right_box});
+    samurai::MRMesh<Config> mesh;
+    auto u = samurai::make_field<double, 1>("u", mesh);
 
-    samurai::MRMesh<Config> mesh(box, min_level, max_level, std::array<bool, dim>{is_periodic});
+    if (restart_file.empty())
+    {
+        mesh = {box, min_level, max_level, std::array<bool, dim>{is_periodic}};
+        init(u);
+    }
+    else
+    {
+        samurai::load(restart_file, mesh, u);
+    }
 
     double dt            = cfl * mesh.cell_length(max_level);
     const double dt_save = Tf / static_cast<double>(nfiles);
-    double t             = 0.;
 
-    auto u = init(mesh);
     if (!is_periodic)
     {
         const xt::xtensor_fixed<int, xt::xshape<1>> left{-1};

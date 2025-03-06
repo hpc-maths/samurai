@@ -1,7 +1,8 @@
 // Copyright 2018-2024 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-#include <samurai/hdf5.hpp>
+#include <samurai/io/hdf5.hpp>
+#include <samurai/io/restart.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/samurai.hpp>
@@ -28,6 +29,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
                            });
 
     samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
+    samurai::dump(path, fmt::format("{}_restart{}", filename, suffix), mesh, u);
 }
 
 int main(int argc, char* argv[])
@@ -53,6 +55,8 @@ int main(int argc, char* argv[])
     double Tf  = 3;
     double dt  = 0;
     double cfl = 0.95;
+    double t   = 0.;
+    std::string restart_file;
 
     // Multiresolution parameters
     std::size_t min_level = 1;
@@ -67,7 +71,9 @@ int main(int argc, char* argv[])
 
     app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--right", right_box, "The right border of the box")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--Ti", t, "Initial time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
@@ -97,25 +103,34 @@ int main(int argc, char* argv[])
     Box box(box_corner1, box_corner2);
     std::array<bool, dim> periodic;
     periodic.fill(true);
-    samurai::MRMesh<Config> mesh{box, min_level, max_level, periodic};
+    samurai::MRMesh<Config> mesh;
+    auto u = samurai::make_field<1>("u", mesh);
 
-    // Initial solution
-    auto u = samurai::make_field<1>("u",
-                                    mesh,
-                                    [](const auto& coords)
-                                    {
-                                        if constexpr (dim == 1)
-                                        {
-                                            const auto& x = coords(0);
-                                            return (x >= -0.8 && x <= -0.3) ? 1. : 0.;
-                                        }
-                                        else
-                                        {
-                                            const auto& x = coords(0);
-                                            const auto& y = coords(1);
-                                            return (x >= -0.8 && x <= -0.3 && y >= 0.3 && y <= 0.8) ? 1. : 0.;
-                                        }
-                                    });
+    if (restart_file.empty())
+    {
+        mesh = {box, min_level, max_level, periodic};
+        // Initial solution
+        u = samurai::make_field<1>("u",
+                                   mesh,
+                                   [](const auto& coords)
+                                   {
+                                       if constexpr (dim == 1)
+                                       {
+                                           const auto& x = coords(0);
+                                           return (x >= -0.8 && x <= -0.3) ? 1. : 0.;
+                                       }
+                                       else
+                                       {
+                                           const auto& x = coords(0);
+                                           const auto& y = coords(1);
+                                           return (x >= -0.8 && x <= -0.3 && y >= 0.3 && y <= 0.8) ? 1. : 0.;
+                                       }
+                                   });
+    }
+    else
+    {
+        samurai::load(restart_file, mesh, u);
+    }
 
     auto unp1 = samurai::make_field<1>("unp1", mesh);
     // Intermediary fields for the RK3 scheme
@@ -158,7 +173,7 @@ int main(int argc, char* argv[])
         save(path, filename, u, suffix);
     }
 
-    double t = 0;
+#include <samurai/io/restart.hpp>
     while (t != Tf)
     {
         // Move to next timestep

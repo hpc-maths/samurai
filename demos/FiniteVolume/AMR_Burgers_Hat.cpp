@@ -10,7 +10,8 @@
 #include <samurai/bc.hpp>
 #include <samurai/box.hpp>
 #include <samurai/field.hpp>
-#include <samurai/hdf5.hpp>
+#include <samurai/io/hdf5.hpp>
+#include <samurai/io/restart.hpp>
 #include <samurai/samurai.hpp>
 
 #include "stencil_field.hpp"
@@ -20,12 +21,13 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
-template <class Mesh>
-auto init_solution(Mesh& mesh)
+template <class Field>
+void init_solution(Field& phi)
 {
-    using mesh_id_t = typename Mesh::mesh_id_t;
+    using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
-    auto phi = samurai::make_field<double, 1>("phi", mesh);
+    auto& mesh = phi.mesh();
+    phi.resize();
     phi.fill(0);
 
     samurai::for_each_cell(mesh[mesh_id_t::cells],
@@ -47,8 +49,6 @@ auto init_solution(Mesh& mesh)
                                // phi[cell] = u;
                                phi[cell] = std::exp(-20. * x * x);
                            });
-
-    return phi;
 }
 
 template <class Field, class Tag>
@@ -140,6 +140,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
                            });
 
     samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
+    samurai::dump(path, fmt::format("{}_restart{}", filename, suffix), mesh, u);
 }
 
 template <class Field>
@@ -203,6 +204,8 @@ int main(int argc, char* argv[])
     double right_box = 3;
     double Tf        = 1.5; // We have blowup at t = 1
     double cfl       = 0.99;
+    double t         = 0.;
+    std::string restart_file;
 
     // AMR parameters
     std::size_t start_level = 7;
@@ -218,7 +221,9 @@ int main(int argc, char* argv[])
     app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--right", right_box, "The right border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--Ti", t, "Initial time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
     app.add_option("--start-level", start_level, "Start level of AMR")->capture_default_str()->group("AMR parameters");
     app.add_option("--min-level", min_level, "Minimum level of AMR")->capture_default_str()->group("AMR parameters");
     app.add_option("--max-level", max_level, "Maximum level of AMR")->capture_default_str()->group("AMR parameters");
@@ -231,9 +236,19 @@ int main(int argc, char* argv[])
     SAMURAI_PARSE(argc, argv);
 
     const samurai::Box<double, dim> box({left_box}, {right_box});
-    samurai::amr::Mesh<Config> mesh(box, start_level, min_level, max_level);
+    samurai::amr::Mesh<Config> mesh;
+    auto phi = samurai::make_field<double, 1>("phi", mesh);
 
-    auto phi = init_solution(mesh);
+    if (restart_file.empty())
+    {
+        mesh = {box, start_level, min_level, max_level};
+        init_solution(phi);
+    }
+    else
+    {
+        samurai::load(restart_file, mesh, phi);
+    }
+
     samurai::make_bc<samurai::Neumann<1>>(phi, 0.);
 
     auto phinp1 = samurai::make_field<double, 1>("phi", mesh);
@@ -244,7 +259,6 @@ int main(int argc, char* argv[])
     const double dx      = mesh.cell_length(max_level);
     double dt            = 0.99 * dx;
     const double dt_save = Tf / static_cast<double>(nfiles);
-    double t             = 0.;
 
     std::size_t nsave = 1;
     std::size_t nt    = 0;

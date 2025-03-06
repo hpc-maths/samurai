@@ -69,6 +69,7 @@ namespace samurai::amr
         Mesh() = default;
         Mesh(const cl_type& cl, const self_type& ref_mesh);
         Mesh(const cl_type& cl, std::size_t min_level, std::size_t max_level);
+        Mesh(const ca_type& ca, std::size_t min_level, std::size_t max_level);
         Mesh(const Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level);
 
         void update_sub_mesh_impl();
@@ -87,6 +88,12 @@ namespace samurai::amr
     template <class Config>
     inline Mesh<Config>::Mesh(const cl_type& cl, std::size_t min_level, std::size_t max_level)
         : base_type(cl, min_level, max_level)
+    {
+    }
+
+    template <class Config>
+    inline Mesh<Config>::Mesh(const ca_type& ca, std::size_t min_level, std::size_t max_level)
+        : base_type(ca, min_level, max_level)
     {
     }
 
