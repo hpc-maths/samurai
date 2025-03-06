@@ -6,7 +6,8 @@
 #include <samurai/bc.hpp>
 #include <samurai/cell_flag.hpp>
 #include <samurai/field.hpp>
-#include <samurai/hdf5.hpp>
+#include <samurai/io/hdf5.hpp>
+#include <samurai/io/restart.hpp>
 #include <samurai/mesh.hpp>
 #include <samurai/mr/operators.hpp>
 #include <samurai/samurai.hpp>
@@ -90,6 +91,11 @@ class AMRMesh : public samurai::Mesh_base<AMRMesh<Config>, Config>
     {
     }
 
+    inline AMRMesh(const ca_type& ca, std::size_t min_level, std::size_t max_level)
+        : base_type(ca, min_level, max_level)
+    {
+    }
+
     inline AMRMesh(const samurai::Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level)
         : base_type(b, start_level, min_level, max_level)
     {
@@ -135,12 +141,13 @@ inline auto projection(T&& new_field, T&& field)
     return samurai::make_field_operator_function<projection_op_>(std::forward<T>(new_field), std::forward<T>(field));
 }
 
-template <class Mesh>
-auto init_level_set(Mesh& mesh)
+template <class Field>
+auto init_level_set(Field& phi)
 {
-    using mesh_id_t = typename Mesh::mesh_id_t;
+    using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
-    auto phi = samurai::make_field<double, 1>("phi", mesh);
+    auto& mesh = phi.mesh();
+    phi.resize();
     phi.fill(0);
 
     samurai::for_each_cell(mesh[mesh_id_t::cells],
@@ -582,6 +589,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
                            });
 
     samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, phi, u, level_);
+    samurai::dump(path, fmt::format("{}_restart{}", filename, suffix), mesh, phi);
 }
 
 int main(int argc, char* argv[])
@@ -596,6 +604,8 @@ int main(int argc, char* argv[])
     xt::xtensor_fixed<double, xt::xshape<dim>> max_corner = {1., 1.};
     double Tf                                             = 3.14;
     double cfl                                            = 5. / 8;
+    double t                                              = 0.;
+    std::string restart_file;
 
     // AMR parameters
     std::size_t start_level = 8;
@@ -611,7 +621,9 @@ int main(int argc, char* argv[])
     app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--max-corner", max_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--Ti", t, "Initial time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
     app.add_option("--start-level", start_level, "Start level of AMR")->capture_default_str()->group("AMR parameters");
     app.add_option("--min-level", min_level, "Minimum level of AMR")->capture_default_str()->group("AMR parameters");
     app.add_option("--max-level", max_level, "Maximum level of AMR")->capture_default_str()->group("AMR parameters");
@@ -624,16 +636,26 @@ int main(int argc, char* argv[])
     SAMURAI_PARSE(argc, argv);
 
     const samurai::Box<double, dim> box(min_corner, max_corner);
-    AMRMesh<Config> mesh{box, max_level, min_level, max_level};
+    AMRMesh<Config> mesh;
+
+    auto phi = samurai::make_field<double, 1>("phi", mesh);
+
+    if (restart_file.empty())
+    {
+        mesh = {box, max_level, min_level, max_level};
+        init_level_set(phi);
+    }
+    else
+    {
+        samurai::load(restart_file, mesh, phi);
+    }
 
     double dt            = cfl * mesh.cell_length(max_level);
     const double dt_save = Tf / static_cast<double>(nfiles);
-    double t             = 0.;
 
     // We initialize the level set function
     // We initialize the velocity field
 
-    auto phi    = init_level_set(mesh);
     auto phinp1 = samurai::make_field<double, 1>("phi", mesh);
 
     auto u = init_velocity(mesh);

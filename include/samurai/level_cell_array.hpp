@@ -175,6 +175,8 @@ namespace samurai
 
         std::size_t level() const;
 
+        void clear();
+
         auto min_indices() const;
         auto max_indices() const;
         auto minmax_indices() const;
@@ -704,6 +706,15 @@ namespace samurai
     inline std::size_t LevelCellArray<Dim, TInterval>::level() const
     {
         return m_level;
+    }
+
+    template <std::size_t Dim, class TInterval>
+    inline void LevelCellArray<Dim, TInterval>::clear()
+    {
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            m_cells[d].clear();
+        }
     }
 
     template <std::size_t Dim, class TInterval>

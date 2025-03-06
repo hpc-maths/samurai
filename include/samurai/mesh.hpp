@@ -148,6 +148,7 @@ namespace samurai
         Mesh_base(const cl_type& cl, const self_type& ref_mesh);
         Mesh_base(const ca_type& ca, const self_type& ref_mesh);
         Mesh_base(const cl_type& cl, std::size_t min_level, std::size_t max_level);
+        Mesh_base(const ca_type& ca, std::size_t min_level, std::size_t max_level);
         Mesh_base(const samurai::Box<double, dim>& b,
                   std::size_t start_level,
                   std::size_t min_level,
@@ -314,6 +315,27 @@ namespace samurai
     }
 
     template <class D, class Config>
+    inline Mesh_base<D, Config>::Mesh_base(const ca_type& ca, std::size_t min_level, std::size_t max_level)
+        : m_min_level{min_level}
+        , m_max_level{max_level}
+    {
+        m_periodic.fill(false);
+        assert(min_level <= max_level);
+
+        this->m_cells[mesh_id_t::cells] = ca;
+
+        construct_subdomain();
+        m_domain = m_subdomain;
+        construct_union();
+        update_sub_mesh();
+        renumbering();
+        update_mesh_neighbour();
+
+        set_origin_point(ca.origin_point());
+        set_scaling_factor(ca.scaling_factor());
+    }
+
+    template <class D, class Config>
     inline Mesh_base<D, Config>::Mesh_base(const cl_type& cl, const self_type& ref_mesh)
         : m_domain(ref_mesh.m_domain)
         , m_min_level(ref_mesh.m_min_level)
@@ -385,6 +407,10 @@ namespace samurai
     template <class D, class Config>
     inline std::size_t Mesh_base<D, Config>::max_nb_cells(std::size_t level) const
     {
+        if (m_cells[mesh_id_t::reference][level][0].empty())
+        {
+            return 0;
+        }
         auto last_xinterval = m_cells[mesh_id_t::reference][level][0].back();
         return static_cast<std::size_t>(static_cast<index_t>(last_xinterval.start) + last_xinterval.index) + last_xinterval.size();
     }

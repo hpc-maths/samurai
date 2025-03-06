@@ -5,8 +5,8 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
-#include <samurai/hdf5.hpp>
 #include <samurai/io/from_geometry.hpp>
+#include <samurai/io/hdf5.hpp>
 
 template <class Mesh>
 void save_mesh(const fs::path& path, const std::string& filename, const Mesh& mesh)

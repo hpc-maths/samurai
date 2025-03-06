@@ -7,7 +7,7 @@
 #include <cxxopts.hpp>
 
 #include <samurai/field.hpp>
-#include <samurai/hdf5.hpp>
+#include <samurai/io/hdf5.hpp>
 #include <samurai/samurai.hpp>
 #include <samurai/statistics.hpp>
 #include <samurai/uniform_mesh.hpp>
