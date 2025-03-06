@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.22.0](https://github.com/hpc-maths/samurai/compare/v0.21.1...v0.22.0) (2025-03-06)
+
+
+### Features
+
+* finest level flux computation for non-linear schemes ([#268](https://github.com/hpc-maths/samurai/issues/268)) ([780a0ba](https://github.com/hpc-maths/samurai/commit/780a0ba38d53089596f2193003ceaf1a526b582a))
+* min and max level can be changed ([#277](https://github.com/hpc-maths/samurai/issues/277)) ([fa9c15d](https://github.com/hpc-maths/samurai/commit/fa9c15d9882ea89eb6f02a5760c195d6e0097550))
+* new set algebra ([#275](https://github.com/hpc-maths/samurai/issues/275)) ([c184c7f](https://github.com/hpc-maths/samurai/commit/c184c7f3cd36d7d88cde243f9ea35bad92081545))
+* Refine boundary ([#269](https://github.com/hpc-maths/samurai/issues/269)) ([daad5ac](https://github.com/hpc-maths/samurai/commit/daad5ac9ece6ee022404367ec424c8991a414793))
+* restart ([#278](https://github.com/hpc-maths/samurai/issues/278)) ([f287f14](https://github.com/hpc-maths/samurai/commit/f287f140c412c13011700d5cd9e088e5ffae6194))
+
+
+### Bug Fixes
+
+* MPI for vector fields ([#273](https://github.com/hpc-maths/samurai/issues/273)) ([adcb4d8](https://github.com/hpc-maths/samurai/commit/adcb4d8029a231684a6086095a784c49c8d8c0bd))
+
+
+### Performance Improvements
+
+* minor improvement in algebra of sets ([#279](https://github.com/hpc-maths/samurai/issues/279)) ([9958484](https://github.com/hpc-maths/samurai/commit/9958484407bbed763157cddcf6374d3743492adb))
+
 ## [0.21.1](https://github.com/hpc-maths/samurai/compare/v0.21.0...v0.21.1) (2025-02-06)
 
 
