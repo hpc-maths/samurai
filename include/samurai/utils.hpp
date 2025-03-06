@@ -14,6 +14,29 @@ namespace samurai
     struct Interval;
 }
 
+template <typename T, typename Compare>
+inline void sort_indexes(const std::vector<T> &v, Compare cmp, std::vector<size_t>& idx) 
+{	
+  // initialize original index locations
+  idx.resize(v.size());
+  std::iota(idx.begin(), idx.end(), 0);
+
+  // sort indexes based on comparing values in v
+  // using std::stable_sort instead of std::sort
+  // to avoid unnecessary index re-orderings
+  // when v contains elements of equal values 
+  std::stable_sort(idx.begin(), idx.end(), [&v, &cmp] (const size_t i1, const size_t i2) -> bool 
+  {
+		return cmp(v[i1], v[i2]);
+	});
+}
+
+template <typename T, typename Compare>
+inline void sort_indexes(const std::vector<T> &v, std::vector<size_t>& idx)
+{
+	sort_indexes(v, std::less{}, idx);
+} 
+
 template <class T>
 inline void hash_combine(std::size_t& seed, const T& v)
 {

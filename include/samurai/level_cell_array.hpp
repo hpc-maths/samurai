@@ -648,7 +648,7 @@ namespace samurai
 			
 			const size_t i0 = (d == Dim-1) ? 0u : m_offsets[d].data()[yz_point[d] + z_interval_idx];
 			
-			assert(d < Dim-1 and m_offsets[d].data()[yz_point[d] + z_interval_idx + 1] == intervals.size());
+			if constexpr (d < Dim-1) { assert(m_offsets[d].data()[yz_point[d] + z_interval_idx + 1] == intervals.size()); }
 				
 			if constexpr (d == 0 and not isSingleton)
 			{			
