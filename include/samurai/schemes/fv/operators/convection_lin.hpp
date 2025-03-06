@@ -241,9 +241,10 @@ namespace samurai
                 weno5[d].cons_flux_function =
                     [&velocity_field](FluxValue<cfg>& flux, const StencilData<cfg>& data, const StencilValues<cfg>& u)
                 {
-                    static constexpr std::size_t stencil_center = 2;
+                    static constexpr std::size_t left  = 2;
+                    static constexpr std::size_t right = 3;
 
-                    auto v = velocity_field[data.cells[stencil_center]](d);
+                    auto v = 0.5 * (velocity_field[data.cells[left]](d) + velocity_field[data.cells[right]](d));
 
                     if (v >= 0)
                     {
