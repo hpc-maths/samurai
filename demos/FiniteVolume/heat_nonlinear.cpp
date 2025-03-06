@@ -2,6 +2,7 @@
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #include <samurai/io/hdf5.hpp>
+#include <samurai/io/restart.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/petsc.hpp>
@@ -27,6 +28,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
                            });
 
     samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
+    samurai::dump(path, fmt::format("{}_restart{}", filename, suffix), mesh, u);
 }
 
 template <std::size_t dim>
@@ -130,6 +132,8 @@ int main(int argc, char* argv[])
     double dt            = 1e-4;
     bool explicit_scheme = false;
     double cfl           = 0.95;
+    double t             = 0.;
+    std::string restart_file;
 
     // Multiresolution parameters
     std::size_t min_level = 4;
@@ -143,7 +147,9 @@ int main(int argc, char* argv[])
     bool save_final_state_only = false;
 
     app.add_flag("--explicit", explicit_scheme, "Explicit scheme instead of implicit")->group("Simulation parameters");
+    app.add_option("--Ti", t, "Initial time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
@@ -179,14 +185,23 @@ int main(int argc, char* argv[])
     box_corner1.fill(left_box);
     box_corner2.fill(right_box);
     Box box(box_corner1, box_corner2);
-    samurai::MRMesh<Config> mesh{box, min_level, max_level};
+    samurai::MRMesh<Config> mesh;
+    auto u = samurai::make_field<1>("u", mesh);
 
-    auto u = samurai::make_field<1>("u",
-                                    mesh,
-                                    [&](const auto& coords)
-                                    {
-                                        return exact_solution(coords, 0);
-                                    });
+    if (restart_file.empty())
+    {
+        mesh = {box, min_level, max_level};
+        u    = samurai::make_field<1>("u",
+                                   mesh,
+                                   [&](const auto& coords)
+                                   {
+                                       return exact_solution(coords, 0);
+                                   });
+    }
+    else
+    {
+        samurai::load(restart_file, mesh, u);
+    }
 
     auto unp1 = samurai::make_field<1>("unp1", mesh);
 
@@ -219,7 +234,6 @@ int main(int argc, char* argv[])
         save(path, filename, u, fmt::format("_ite_{}", nsave++));
     }
 
-    double t = 0;
     while (t != Tf)
     {
         // Move to next timestep

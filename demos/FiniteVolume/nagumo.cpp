@@ -1,6 +1,7 @@
 // Copyright 2018-2024 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 #include <samurai/io/hdf5.hpp>
+#include <samurai/io/restart.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/petsc.hpp>
@@ -27,6 +28,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
                            });
 
     samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
+    samurai::dump(path, fmt::format("{}_restart{}", filename, suffix), mesh, u);
 }
 
 int main(int argc, char* argv[])
@@ -65,6 +67,8 @@ int main(int argc, char* argv[])
     double Tf  = 1.;
     double dt  = 0;
     double cfl = 0.95;
+    double t   = 0.;
+    std::string restart_file;
 
     // Multiresolution parameters
     std::size_t min_level = 4;
@@ -81,7 +85,9 @@ int main(int argc, char* argv[])
     app.add_option("--right", right_box, "The right border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--D", D, "Diffusion coefficient")->capture_default_str()->group("Simulation parameters");
     app.add_option("--k", k, "Parameter of the reaction operator")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--Ti", t, "Initial time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
     app.add_flag("--explicit-reaction", explicit_reaction, "Explicit the reaction term")->capture_default_str()->group("Simulation parameters");
@@ -143,12 +149,21 @@ int main(int argc, char* argv[])
         return beta(x - c * t);
     };
 
-    // Initial solution
-    samurai::for_each_cell(mesh,
-                           [&](auto& cell)
-                           {
-                               u[cell] = exact_solution(cell.center(0), 0);
-                           });
+    if (restart_file.empty())
+    {
+        mesh = {box, min_level, max_level};
+        u.resize();
+        // Initial solution
+        samurai::for_each_cell(mesh,
+                               [&](auto& cell)
+                               {
+                                   u[cell] = exact_solution(cell.center(0), 0);
+                               });
+    }
+    else
+    {
+        samurai::load(restart_file, mesh, u);
+    }
 
     auto unp1 = samurai::make_field<field_size>("unp1", mesh);
 
@@ -200,7 +215,6 @@ int main(int argc, char* argv[])
 
     auto rhs = samurai::make_field<field_size>("rhs", mesh);
 
-    double t = 0;
     while (t != Tf)
     {
         // Move to next timestep

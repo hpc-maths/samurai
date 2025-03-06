@@ -9,6 +9,7 @@
 #include <samurai/bc.hpp>
 #include <samurai/field.hpp>
 #include <samurai/io/hdf5.hpp>
+#include <samurai/io/restart.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/samurai.hpp>
@@ -18,10 +19,11 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
-template <class Mesh>
-auto init(Mesh& mesh)
+template <class Field>
+void init(Field& u)
 {
-    auto u = samurai::make_field<double, 1>("u", mesh);
+    auto& mesh = u.mesh();
+    u.resize();
 
     samurai::for_each_cell(
         mesh,
@@ -40,8 +42,6 @@ auto init(Mesh& mesh)
                 u[cell] = 0;
             }
         });
-
-    return u;
 }
 
 template <class Field>
@@ -164,6 +164,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
     samurai::save(path, fmt::format("{}_size_{}{}", filename, world.size(), suffix), mesh, u, level_);
 #else
     samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
+    samurai::dump(path, fmt::format("{}_restart{}", filename, suffix), mesh, u);
 #endif
 }
 
@@ -182,6 +183,8 @@ int main(int argc, char* argv[])
     };
     double Tf  = .1;
     double cfl = 0.5;
+    double t   = 0.;
+    std::string restart_file;
 
     // Multiresolution parameters
     std::size_t min_level = 4;
@@ -199,7 +202,9 @@ int main(int argc, char* argv[])
     app.add_option("--max-corner", max_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--velocity", a, "The velocity of the advection equation")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--Ti", t, "Initial time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--mr-eps", mr_epsilon, "The epsilon used by the multiresolution to adapt the mesh")
@@ -220,14 +225,23 @@ int main(int argc, char* argv[])
     SAMURAI_PARSE(argc, argv);
 
     const samurai::Box<double, dim> box(min_corner, max_corner);
-    samurai::MRMesh<Config> mesh{box, min_level, max_level};
+    samurai::MRMesh<Config> mesh;
+    auto u = samurai::make_field<double, 1>("u", mesh);
+
+    if (restart_file.empty())
+    {
+        mesh = {box, min_level, max_level};
+        init(u);
+    }
+    else
+    {
+        samurai::load(restart_file, mesh, u);
+    }
+    samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
 
     double dt            = cfl * mesh.cell_length(max_level);
     const double dt_save = Tf / static_cast<double>(nfiles);
-    double t             = 0.;
 
-    auto u = init(mesh);
-    samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
     auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
 
     auto MRadaptation = samurai::make_MRAdapt(u);
