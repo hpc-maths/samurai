@@ -860,7 +860,7 @@ namespace samurai
     }
 
     template <class Field, std::size_t stencil_size>
-    void apply_bc_impl(Bc<Field>& bc, std::size_t level, Field& field)
+    void apply_bc_impl(Bc<Field>& bc, std::size_t level, const DirectionVector<Field::dim>& direction, Field& field)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
@@ -868,17 +868,22 @@ namespace samurai
 
         auto& mesh = field.mesh();
 
-        auto& region    = bc.get_region();
-        auto& direction = region.first;
-        auto& lca       = region.second;
-        auto stencil_0  = bc.get_stencil(std::integral_constant<std::size_t, stencil_size>());
+        auto& region            = bc.get_region();
+        auto& region_directions = region.first;
+        auto& region_lca        = region.second;
+        auto stencil_0          = bc.get_stencil(std::integral_constant<std::size_t, stencil_size>());
 
-        for (std::size_t d = 0; d < direction.size(); ++d)
+        for (std::size_t d = 0; d < region_directions.size(); ++d)
         {
+            if (region_directions[d] != direction)
+            {
+                continue;
+            }
+
             bool is_periodic = false;
             for (std::size_t i = 0; i < dim; ++i)
             {
-                if (direction[d](i) != 0 && field.mesh().is_periodic(i))
+                if (direction(i) != 0 && field.mesh().is_periodic(i))
                 {
                     is_periodic = true;
                     break;
@@ -886,33 +891,46 @@ namespace samurai
             }
             if (!is_periodic)
             {
-                bool is_cartesian_direction = is_cartesian(direction[d]);
+                bool is_cartesian_direction = is_cartesian(direction);
 
                 if (is_cartesian_direction)
                 {
-                    auto stencil          = convert_for_direction(stencil_0, direction[d]);
+                    auto stencil          = convert_for_direction(stencil_0, direction);
                     auto stencil_analyzer = make_stencil_analyzer(stencil);
 
                     // 1. Inner cells in the boundary region
-                    auto bdry_cells = intersection(mesh[mesh_id_t::cells][level], lca[d]).on(level);
+                    auto bdry_cells = intersection(mesh[mesh_id_t::cells][level], region_lca[d]).on(level);
                     if (level >= mesh.min_level()) // otherwise there is no cells
                     {
-                        __apply_bc_on_subset(bc, field, bdry_cells, stencil_analyzer, direction[d]);
+                        __apply_bc_on_subset(bc, field, bdry_cells, stencil_analyzer, direction);
                     }
 
                     // 2. Inner ghosts in the boundary region that have a neighbouring ghost outside the domain
                     if (mesh.min_level() != mesh.max_level())
                     {
-                        auto translated_outer_nghbr = translate(mesh[mesh_id_t::reference][level], -(stencil_size / 2) * direction[d]);
-                        auto potential_inner_cells_and_ghosts = intersection(translated_outer_nghbr, lca[d]);
+                        auto translated_outer_nghbr = translate(mesh[mesh_id_t::reference][level], -(stencil_size / 2) * direction);
+                        auto potential_inner_cells_and_ghosts = intersection(translated_outer_nghbr, region_lca[d]);
                         auto inner_cells_and_ghosts = intersection(potential_inner_cells_and_ghosts, mesh[mesh_id_t::reference][level]).on(level);
                         auto inner_ghosts_with_outer_nghbr = difference(inner_cells_and_ghosts, bdry_cells).on(level);
 
-                        __apply_bc_on_subset(bc, field, inner_ghosts_with_outer_nghbr, stencil_analyzer, direction[d]);
+                        __apply_bc_on_subset(bc, field, inner_ghosts_with_outer_nghbr, stencil_analyzer, direction);
                     }
                 }
             }
         }
+    }
+
+    template <class Field, std::size_t stencil_size>
+    void apply_bc_impl(Bc<Field>& bc, std::size_t level, Field& field)
+    {
+        static_nested_loop<Field::dim, -1, 2>(
+            [&](auto& direction)
+            {
+                if (xt::any(xt::not_equal(direction, 0))) // direction != {0, ..., 0}
+                {
+                    apply_bc_impl<Field, stencil_size>(bc, level, direction, field);
+                }
+            });
     }
 
     template <std::size_t stencil_size, class Field, class Subset>
@@ -1209,6 +1227,51 @@ namespace samurai
             };
         }
     };
+
+    template <class Field>
+    void update_bc_for_scheme(std::size_t level, const DirectionVector<Field::dim>& direction, Field& field)
+    {
+        static constexpr std::size_t max_stencil_size_implemented_BC = Bc<Field>::max_stencil_size_implemented;
+
+        for (auto& bc : field.get_bc())
+        {
+            static_for<1, max_stencil_size_implemented_BC + 1>::apply( // for (int i=1; i<=max_stencil_size_implemented; i++)
+                [&](auto integral_constant_i)
+                {
+                    static constexpr std::size_t i = decltype(integral_constant_i)::value;
+
+                    if (bc->stencil_size() == i)
+                    {
+                        apply_bc_impl<Field, i>(*bc.get(), level, direction, field);
+                    }
+                });
+        }
+    }
+
+    template <class Field>
+    void update_bc_for_scheme(Field& field, const DirectionVector<Field::dim>& direction)
+    {
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        auto& mesh      = field.mesh()[mesh_id_t::reference];
+
+        for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
+        {
+            update_bc_for_scheme(level, direction, field);
+        }
+    }
+
+    template <class Field>
+    void update_bc_for_scheme(Field& field, std::size_t direction_index)
+    {
+        DirectionVector<Field::dim> direction;
+        direction.fill(0);
+
+        direction[direction_index] = 1;
+        update_bc_for_scheme(field, direction);
+
+        direction[direction_index] = -1;
+        update_bc_for_scheme(field, direction);
+    }
 
     template <class Field>
     void update_bc(std::size_t level, Field& field)
