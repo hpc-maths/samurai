@@ -173,7 +173,6 @@ int main(int argc, char* argv[])
         save(path, filename, u, suffix);
     }
 
-#include <samurai/io/restart.hpp>
     while (t != Tf)
     {
         // Move to next timestep
