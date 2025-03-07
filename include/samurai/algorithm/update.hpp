@@ -862,9 +862,12 @@ namespace samurai
 				if constexpr (dim > 1)
 				{					
 					add_p_x.reserve(add_p_max_size);
-					add_p_yz.reserve(add_p_max_size);
 					remove_m_x.reserve(remove_m_max_size);
-					remove_m_yz.reserve(remove_m_max_size);
+					if constexpr (dim > 2)
+					{
+						add_p_yz.reserve(add_p_max_size);
+						remove_m_yz.reserve(remove_m_max_size);
+					}
         }
         
         for(std::size_t level = mesh[mesh_id_t::cells].min_level(); level <= mesh[mesh_id_t::cells].max_level(); ++level)
@@ -889,7 +892,7 @@ namespace samurai
 							{
 								ca_remove_p[level].add_point_back(x, yz);
 								if constexpr      (dim == 1) { ca_add_p[level+1].add_interval_back({2*x, 2*x + 2}, {}); }
-								else if constexpr (dim == 2) { add_p_x.push_back(x); add_p_yz.emplace_back(yz);   }
+								else if constexpr (dim == 2) { add_p_x.push_back(x); }
 								else
 								{
 									static_nested_loop<dim - 1, 0, 2>([&](const coord_type& stencil)
@@ -902,8 +905,8 @@ namespace samurai
 							else if (coarsenAndNotKeep and x%2 == 0 and is_yz_even and level > mesh.min_level())
 							{
 								ca_add_m[level-1].add_point_back(x >> 1, yz >> 1); // add cell / 2 at level-1
-								if constexpr      (dim == 1) { ca_remove_m[level].add_interval_back({x, x + 2}, {});        }
-								else if constexpr (dim == 2) { remove_m_x.push_back(x); remove_m_yz.emplace_back(yz); }
+								if constexpr      (dim == 1) { ca_remove_m[level].add_interval_back({x, x + 2}, {}); }
+								else if constexpr (dim == 2) { remove_m_x.push_back(x); }
 								else
 								{
 									static_nested_loop<dim - 1, 0, 2>([&](const coord_type& stencil)
@@ -927,20 +930,18 @@ namespace samurai
 								{
 									for (size_t i=0; i!=i1; ++i)
 									{
-										ca_add_p[level+1].add_interval_back( {2*add_p_x[i],  2*add_p_x[i] + 2},   2*add_p_yz[i] + stencil);
-										ca_remove_m[level].add_interval_back({remove_m_x[i], remove_m_x[i] + 2}, remove_m_yz[i] + stencil);
+										ca_add_p[level+1].add_interval_back( {2*add_p_x[i],  2*add_p_x[i] + 2},  2*yz + stencil);
+										ca_remove_m[level].add_interval_back({remove_m_x[i], remove_m_x[i] + 2},   yz + stencil);
 									}
-									for (size_t i=i1; i!=i2; ++i) { ca_add_p[level+1].add_interval_back( {2*add_p_x[i],  2*add_p_x[i] + 2},   2*add_p_yz[i] + stencil); }
-									for (size_t i=i1; i!=i3; ++i) { ca_remove_m[level].add_interval_back({remove_m_x[i], remove_m_x[i] + 2}, remove_m_yz[i] + stencil); }
+									for (size_t i=i1; i!=i2; ++i) { ca_add_p[level+1].add_interval_back( {2*add_p_x[i],  2*add_p_x[i] + 2},  2*yz + stencil); }
+									for (size_t i=i1; i!=i3; ++i) { ca_remove_m[level].add_interval_back({remove_m_x[i], remove_m_x[i] + 2},   yz + stencil); }
 								}
 								
 								add_p_max_size    = std::max(add_p_max_size, add_p_x.size());
 								remove_m_max_size = std::max(remove_m_max_size, remove_m_x.size());
 								
 								add_p_x.clear();
-								add_p_yz.clear();
 								remove_m_x.clear();
-								remove_m_yz.clear();
 							}
 						}
 						else if constexpr (dim > 2)
