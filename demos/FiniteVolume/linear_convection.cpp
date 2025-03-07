@@ -208,12 +208,10 @@ int main(int argc, char* argv[])
         save(path, filename, u, suffix);
     }
 
-<<<<<<< HEAD
-    samurai::times::timers.start("tloop");
-    double t = 0;
-=======
+    // TODO : from strafella : why this include here ? git rebase bug
+    //
 #include <samurai/io/restart.hpp>
->>>>>>> f287f14 (feat: restart (#278))
+
     while (t != Tf)
     {
 
