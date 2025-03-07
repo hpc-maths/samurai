@@ -1,4 +1,4 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #pragma once
@@ -267,7 +267,7 @@ namespace samurai
             subset_1.apply_op(to_coarsen_mr(m_detail, m_tag, eps_l, min_level),
                               to_refine_mr(m_detail,
                                            m_tag,
-                                           (pow(2.0, regularity_to_use)) * eps_l,
+                                           (pow(2.0, regularity_to_use))*eps_l,
                                            max_level)); // Refinement according to Harten
             update_tag_subdomains(level, m_tag, true);
         }
