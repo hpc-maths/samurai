@@ -13,19 +13,14 @@ namespace samurai
     {
       public:
 
-        static MrFieldUpdator& getInstance();
+        MrFieldUpdator()
+        {
+        }
 
         template <class... Fields>
         bool update(const Tag& tag, Field& field, Fields&... other_fields);
 
       private:
-
-        MrFieldUpdator()
-        {
-        }
-
-        MrFieldUpdator(const MrFieldUpdator&)            = delete;
-        MrFieldUpdator& operator=(const MrFieldUpdator&) = delete;
 
         using raw_field_t                = std::decay_t<Field>;
         using mesh_t                     = typename raw_field_t::mesh_t;
@@ -46,19 +41,9 @@ namespace samurai
 
         std::vector<value_t> m_add_p_x;
         std::vector<coord_type> m_add_p_yz;
-        std::vector<value_t> m_remove_m_x;
-        std::vector<coord_type> m_remove_m_yz;
 
         std::vector<size_t> m_add_p_idx;
-        std::vector<size_t> m_remove_m_idx;
     };
-
-    template <class Tag, class Field>
-    MrFieldUpdator<Tag, Field>& MrFieldUpdator<Tag, Field>::getInstance()
-    {
-        static MrFieldUpdator instance;
-        return instance;
-    }
 
     template <class Tag, class Field>
     template <class... Fields>
@@ -71,11 +56,9 @@ namespace samurai
         if constexpr (dim > 1)
         {
             m_add_p_x.clear();
-            m_remove_m_x.clear();
             if constexpr (dim > 2)
             {
                 m_add_p_yz.clear();
-                m_remove_m_yz.clear();
             }
         }
 
@@ -127,26 +110,13 @@ namespace samurai
                                 });
                         }
                     }
-                    else if (coarsenAndNotKeep and x % 2 == 0 and is_yz_even and level > mesh.min_level())
+                    else if ((coarsenAndNotKeep and level > mesh.min_level())
                     {
-                        m_ca_add_m[level - 1].add_point_back(x >> 1, yz >> 1); // add cell / 2 at level-1
-                        if constexpr (dim == 1)
+                        if (x % 2 == 0 and is_yz_even) // should be modified when using load balencing.
                         {
-                            m_ca_remove_m[level].add_interval_back({x, x + 2}, {});
+                            m_ca_add_m[level - 1].add_point_back(x >> 1, yz >> 1); // add cell / 2 at level-1
                         }
-                        else if constexpr (dim == 2)
-                        {
-                            m_remove_m_x.push_back(x);
-                        }
-                        else
-                        {
-                            static_nested_loop<dim - 1, 0, 2>(
-                                [this, &x, &yz](const coord_type& stencil)
-                                {
-                                    m_remove_m_x.push_back(x);
-                                    m_remove_m_yz.emplace_back(yz + stencil);
-                                });
-                        }
+                        m_ca_remove_m[level].add_point_back(x, yz);
                     }
 
                 } // end for x
@@ -154,29 +124,15 @@ namespace samurai
                 {
                     if ((it + 1 == end) or (it + 1).index()[dim - 2] != yz[dim - 2])
                     {
-                        const size_t i2 = m_add_p_x.size();
-                        const size_t i3 = m_remove_m_x.size();
-                        const size_t i1 = std::min(i2, i3);
-
                         coord_type stencil;
                         for (stencil[dim - 2] = 0; stencil[dim - 2] != 2; ++stencil[dim - 2])
                         {
-                            for (size_t i = 0; i != i1; ++i)
+                            for (const auto& x : m_add_p_x)
                             {
-                                m_ca_add_p[level + 1].add_interval_back({2 * m_add_p_x[i], 2 * m_add_p_x[i] + 2}, 2 * yz + stencil);
-                                m_ca_remove_m[level].add_interval_back({m_remove_m_x[i], m_remove_m_x[i] + 2}, yz + stencil);
-                            }
-                            for (size_t i = i1; i != i2; ++i)
-                            {
-                                m_ca_add_p[level + 1].add_interval_back({2 * m_add_p_x[i], 2 * m_add_p_x[i] + 2}, 2 * yz + stencil);
-                            }
-                            for (size_t i = i1; i != i3; ++i)
-                            {
-                                m_ca_remove_m[level].add_interval_back({m_remove_m_x[i], m_remove_m_x[i] + 2}, yz + stencil);
+                                m_ca_add_p[level + 1].add_interval_back({2 * x, 2 * x + 2}, 2 * yz + stencil);
                             }
                         }
                         m_add_p_x.clear();
-                        m_remove_m_x.clear();
                     }
                 }
                 else if constexpr (dim > 2)
@@ -201,51 +157,12 @@ namespace samurai
                                 return lhs[0] < rhs[0];
                             },
                             m_add_p_idx);
-                        sort_indexes(
-                            m_remove_m_yz,
-                            [](const coord_type& lhs, const coord_type& rhs) -> bool
-                            {
-                                for (size_t i = dim - 2; i != 0; --i)
-                                {
-                                    if (lhs[i] < rhs[i])
-                                    {
-                                        return true;
-                                    }
-                                    else if (lhs[i] > rhs[i])
-                                    {
-                                        return false;
-                                    }
-                                }
-                                return lhs[0] < rhs[0];
-                            },
-                            m_remove_m_idx);
-
-                        const size_t i2 = m_add_p_x.size();
-                        const size_t i3 = m_remove_m_x.size();
-                        const size_t i1 = std::min(i2, i3);
-
-                        for (size_t i = 0; i != i1; ++i)
+                        for (const auto i : m_add_p_idx)
                         {
-                            m_ca_add_p[level + 1].add_interval_back({m_add_p_x[m_add_p_idx[i]], m_add_p_x[m_add_p_idx[i]] + 2},
-                                                                    m_add_p_yz[m_add_p_idx[i]]);
-                            m_ca_remove_m[level].add_interval_back({m_remove_m_x[m_remove_m_idx[i]], m_remove_m_x[m_remove_m_idx[i]] + 2},
-                                                                   m_remove_m_yz[m_remove_m_idx[i]]);
+                            m_ca_add_p[level + 1].add_interval_back({m_add_p_x[i], m_add_p_x[i] + 2}, m_add_p_yz[i]);
                         }
-                        for (size_t i = i1; i != i2; ++i)
-                        {
-                            m_ca_add_p[level + 1].add_interval_back({m_add_p_x[m_add_p_idx[i]], m_add_p_x[m_add_p_idx[i]] + 2},
-                                                                    m_add_p_yz[m_add_p_idx[i]]);
-                        }
-                        for (size_t i = i1; i != i3; ++i)
-                        {
-                            m_ca_remove_m[level].add_interval_back({m_remove_m_x[m_remove_m_idx[i]], m_remove_m_x[m_remove_m_idx[i]] + 2},
-                                                                   m_remove_m_yz[m_remove_m_idx[i]]);
-                        }
-
                         m_add_p_x.clear();
                         m_add_p_yz.clear();
-                        m_remove_m_x.clear();
-                        m_remove_m_yz.clear();
                     }
                 }
             }

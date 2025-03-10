@@ -115,6 +115,8 @@ namespace samurai
         fields_t m_fields; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
         detail_t m_detail;
         tag_t m_tag;
+
+        MrFieldUpdator<tag_t, TField> m_mrFieldUpdator;
     };
 
     template <bool enlarge_, class TField, class... TFields>
@@ -391,8 +393,8 @@ namespace samurai
 
         keep_only_one_coarse_tag(m_tag);
 
-        bool isUpdated = update_field_mr(m_tag, m_fields, other_fields...);
-        // bool isUpdated = MrFieldUpdator<tag_t, fields_t>::getInstance().update(m_tag, m_fields, other_fields...);
+        // bool isUpdated = update_field_mr(m_tag, m_fields, other_fields...);
+        bool isUpdated = m_mrFieldUpdator.update(m_tag, m_fields, other_fields...);
 
         // save(fmt::format("lca_mesh_{}", ite), mesh, m_fields);
 
