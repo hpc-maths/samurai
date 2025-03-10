@@ -53,6 +53,12 @@ namespace samurai
 
         const auto& mesh = tag.mesh();
 
+#ifdef SAMURAI_WITH_MPI
+        constexpr bool useMPI = true;
+#else
+        constexpr bool useMPI = false;
+#endif // SAMURAI_WITH_MPI
+
         if constexpr (dim > 1)
         {
             m_add_p_x.clear();
@@ -110,12 +116,16 @@ namespace samurai
                                 });
                         }
                     }
-                    else if ((coarsenAndNotKeep and level > mesh.min_level())
+                    else if (coarsenAndNotKeep and level > mesh.min_level())
                     {
                         if (x % 2 == 0 and is_yz_even) // should be modified when using load balencing.
                         {
                             m_ca_add_m[level - 1].add_point_back(x >> 1, yz >> 1); // add cell / 2 at level-1
                         }
+                        m_ca_remove_m[level].add_point_back(x, yz);
+                    }
+                    else if (useMPI and tag[itag] == 0)
+                    {
                         m_ca_remove_m[level].add_point_back(x, yz);
                     }
 

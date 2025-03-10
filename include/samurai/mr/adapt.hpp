@@ -393,8 +393,8 @@ namespace samurai
 
         keep_only_one_coarse_tag(m_tag);
 
-        // bool isUpdated = update_field_mr(m_tag, m_fields, other_fields...);
-        bool isUpdated = m_mrFieldUpdator.update(m_tag, m_fields, other_fields...);
+        bool isUpdated = update_field_mr(m_tag, m_fields, other_fields...);
+        // bool isUpdated = m_mrFieldUpdator.update(m_tag, m_fields, other_fields...);
 
         // save(fmt::format("lca_mesh_{}", ite), mesh, m_fields);
 
