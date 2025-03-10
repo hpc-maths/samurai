@@ -839,25 +839,19 @@ namespace samurai
         ca_type ca_remove_p;
         ca_type new_ca;
 
-        static size_t add_p_max_size    = 0;
-        static size_t remove_m_max_size = 0;
+        static size_t add_p_max_size = 0;
 
         std::vector<value_t> add_p_x;
         std::vector<coord_type> add_p_yz;
-        std::vector<value_t> remove_m_x;
-        std::vector<coord_type> remove_m_yz;
 
         std::vector<size_t> add_p_idx;
-        std::vector<size_t> remove_m_idx;
 
         if constexpr (dim > 1)
         {
             add_p_x.reserve(add_p_max_size);
-            remove_m_x.reserve(remove_m_max_size);
             if constexpr (dim > 2)
             {
                 add_p_yz.reserve(add_p_max_size);
-                remove_m_yz.reserve(remove_m_max_size);
             }
         }
 
@@ -901,59 +895,30 @@ namespace samurai
                                 });
                         }
                     }
-                    else if (coarsenAndNotKeep and x % 2 == 0 and is_yz_even and level > mesh.min_level())
+                    else if (coarsenAndNotKeep and level > mesh.min_level())
                     {
-                        ca_add_m[level - 1].add_point_back(x >> 1, yz >> 1); // add cell / 2 at level-1
-                        if constexpr (dim == 1)
+                        if (x % 2 == 0 and is_yz_even)
                         {
-                            ca_remove_m[level].add_interval_back({x, x + 2}, {});
+                            ca_add_m[level - 1].add_point_back(x >> 1, yz >> 1);
                         }
-                        else if constexpr (dim == 2)
-                        {
-                            remove_m_x.push_back(x);
-                        }
-                        else
-                        {
-                            static_nested_loop<dim - 1, 0, 2>(
-                                [&](const coord_type& stencil)
-                                {
-                                    remove_m_x.push_back(x);
-                                    remove_m_yz.emplace_back(yz + stencil);
-                                });
-                        }
+                        ca_remove_m[level].add_point_back(x, yz);
                     }
                 }
                 if constexpr (dim == 2)
                 {
                     if ((it + 1 == end) or (it + 1).index()[dim - 2] != yz[dim - 2])
                     {
-                        const size_t i2 = add_p_x.size();
-                        const size_t i3 = remove_m_x.size();
-                        const size_t i1 = std::min(i2, i3);
-
                         coord_type stencil;
                         for (stencil[dim - 2] = 0; stencil[dim - 2] != 2; ++stencil[dim - 2])
                         {
-                            for (size_t i = 0; i != i1; ++i)
+                            for (const auto& x : add_p_x)
                             {
-                                ca_add_p[level + 1].add_interval_back({2 * add_p_x[i], 2 * add_p_x[i] + 2}, 2 * yz + stencil);
-                                ca_remove_m[level].add_interval_back({remove_m_x[i], remove_m_x[i] + 2}, yz + stencil);
-                            }
-                            for (size_t i = i1; i != i2; ++i)
-                            {
-                                ca_add_p[level + 1].add_interval_back({2 * add_p_x[i], 2 * add_p_x[i] + 2}, 2 * yz + stencil);
-                            }
-                            for (size_t i = i1; i != i3; ++i)
-                            {
-                                ca_remove_m[level].add_interval_back({remove_m_x[i], remove_m_x[i] + 2}, yz + stencil);
+                                ca_add_p[level + 1].add_interval_back({2 * x, 2 * x + 2}, 2 * yz + stencil);
                             }
                         }
 
-                        add_p_max_size    = std::max(add_p_max_size, add_p_x.size());
-                        remove_m_max_size = std::max(remove_m_max_size, remove_m_x.size());
-
+                        add_p_max_size = std::max(add_p_max_size, add_p_x.size());
                         add_p_x.clear();
-                        remove_m_x.clear();
                     }
                 }
                 else if constexpr (dim > 2)
@@ -978,50 +943,15 @@ namespace samurai
                                 return lhs[0] < rhs[0];
                             },
                             add_p_idx);
-                        sort_indexes(
-                            remove_m_yz,
-                            [](const coord_type& lhs, const coord_type& rhs) -> bool
-                            {
-                                for (size_t i = dim - 2; i != 0; --i)
-                                {
-                                    if (lhs[i] < rhs[i])
-                                    {
-                                        return true;
-                                    }
-                                    else if (lhs[i] > rhs[i])
-                                    {
-                                        return false;
-                                    }
-                                }
-                                return lhs[0] < rhs[0];
-                            },
-                            remove_m_idx);
-                        const size_t i2 = add_p_x.size();
-                        const size_t i3 = remove_m_x.size();
-                        const size_t i1 = std::min(i2, i3);
-                        for (size_t i = 0; i != i1; ++i)
+                        for (const auto i : add_p_idx)
                         {
-                            ca_add_p[level + 1].add_interval_back({add_p_x[add_p_idx[i]], add_p_x[add_p_idx[i]] + 2}, add_p_yz[add_p_idx[i]]);
-                            ca_remove_m[level].add_interval_back({remove_m_x[remove_m_idx[i]], remove_m_x[remove_m_idx[i]] + 2},
-                                                                 remove_m_yz[remove_m_idx[i]]);
-                        }
-                        for (size_t i = i1; i != i2; ++i)
-                        {
-                            ca_add_p[level + 1].add_interval_back({add_p_x[add_p_idx[i]], add_p_x[add_p_idx[i]] + 2}, add_p_yz[add_p_idx[i]]);
-                        }
-                        for (size_t i = i1; i != i3; ++i)
-                        {
-                            ca_remove_m[level].add_interval_back({remove_m_x[remove_m_idx[i]], remove_m_x[remove_m_idx[i]] + 2},
-                                                                 remove_m_yz[remove_m_idx[i]]);
+                            ca_add_p[level + 1].add_interval_back({add_p_x[i], add_p_x[i] + 2}, add_p_yz[i]);
                         }
 
-                        add_p_max_size    = std::max(add_p_max_size, add_p_x.size());
-                        remove_m_max_size = std::max(remove_m_max_size, remove_m_x.size());
+                        add_p_max_size = std::max(add_p_max_size, add_p_x.size());
 
                         add_p_x.clear();
                         add_p_yz.clear();
-                        remove_m_x.clear();
-                        remove_m_yz.clear();
                     }
                 }
             }

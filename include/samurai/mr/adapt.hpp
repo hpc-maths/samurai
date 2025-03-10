@@ -11,6 +11,8 @@
 #include "criteria.hpp"
 #include "operators.hpp"
 
+#include "../algorithm/mr_field_updator.hpp"
+
 namespace samurai
 {
     struct stencil_graduation
@@ -390,6 +392,7 @@ namespace samurai
         keep_only_one_coarse_tag(m_tag);
 
         bool isUpdated = update_field_mr(m_tag, m_fields, other_fields...);
+        // bool isUpdated = MrFieldUpdator<tag_t, fields_t>::getInstance().update(m_tag, m_fields, other_fields...);
 
         // save(fmt::format("lca_mesh_{}", ite), mesh, m_fields);
 

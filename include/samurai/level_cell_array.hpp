@@ -494,9 +494,16 @@ namespace samurai
             const auto& y   = yz[d - 1];
             auto& y_offsets = m_offsets[d - 1];
 
-            if (isIntervalListEmpty or isParentPointNew or intervals.back().end < y)
+            if constexpr (isIntervalListEmpty)
             {
-                const auto new_interval_index = (isIntervalListEmpty) ? -y : intervals.back().index + intervals.back().end - y;
+                intervals.emplace_back(y, y + 1, -y);
+                y_offsets.push_back(1);
+                add_interval_back_rec<isIntervalListEmpty, true, d - 1>(x_interval, yz);
+                return 1;
+            }
+            else if (isParentPointNew or intervals.back().end < y)
+            {
+                const auto new_interval_index = intervals.back().index + intervals.back().end - y;
                 intervals.emplace_back(y, y + 1, new_interval_index);
                 y_offsets.push_back(y_offsets.back() + add_interval_back_rec<isIntervalListEmpty, true, d - 1>(x_interval, yz));
                 return 1;
@@ -509,6 +516,7 @@ namespace samurai
             }
             else // interval contains y
             {
+                assert(intervals.back().start <= y);
                 y_offsets.data()[y + intervals.back().index + 1] += add_interval_back_rec<isIntervalListEmpty, false, d - 1>(x_interval, yz);
                 return 0;
             }
