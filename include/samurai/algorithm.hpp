@@ -42,19 +42,27 @@ namespace samurai
         Intervals
     };
 
-		/////////////////////////////
-		// helper for making point //
-		/////////////////////////////
-		
-		template<typename T, std::size_t N, std::size_t... I>
-		constexpr auto create_array_impl(const T& first_value, const T* next_values, std::index_sequence<I...>) { return std::array<T, N>{ first_value, next_values[I]...}; }
+    /////////////////////////////
+    // helper for making point //
+    /////////////////////////////
 
-		template<typename T, std::size_t N>
-		constexpr auto create_array(const T& first_value, const T* next_values) { return create_array_impl<T, N>(first_value, next_values, std::make_index_sequence<N-1>{}); }
-	
-		template<std::size_t dim, typename value_t, typename index_t>
-		std::array<value_t, dim> create_point(const value_t& x, const index_t& yz) { return create_array<value_t, dim>(x, yz.data()); }
+    template <typename T, std::size_t N, std::size_t... I>
+    constexpr auto create_array_impl(const T& first_value, const T* next_values, std::index_sequence<I...>)
+    {
+        return std::array<T, N>{first_value, next_values[I]...};
+    }
 
+    template <typename T, std::size_t N>
+    constexpr auto create_array(const T& first_value, const T* next_values)
+    {
+        return create_array_impl<T, N>(first_value, next_values, std::make_index_sequence<N - 1>{});
+    }
+
+    template <std::size_t dim, typename value_t, typename index_t>
+    std::array<value_t, dim> create_point(const value_t& x, const index_t& yz)
+    {
+        return create_array<value_t, dim>(x, yz.data());
+    }
 
     ///////////////////////////////////
     // for_each_level implementation //

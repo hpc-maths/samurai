@@ -335,8 +335,7 @@ namespace samurai
         , m_mpi_neighbourhood(ref_mesh.m_mpi_neighbourhood)
 
     {
-			m_periodic.fill(false);
-      m_cells[mesh_id_t::cells] = ca;
+        m_cells[mesh_id_t::cells] = ca;
 
         construct_subdomain();
         construct_union();

@@ -175,7 +175,7 @@ int main(int argc, char* argv[])
     }
     while (t != Tf)
     {
-				samurai::statistics("linear_convection_2D", mesh);
+        samurai::statistics("linear_convection_2D", mesh);
         // Move to next timestep
         t += dt;
         if (t > Tf)

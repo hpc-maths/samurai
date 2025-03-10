@@ -1,4 +1,4 @@
-// Copyright 2018-2025 the samurai's authors
+// Copyright 2018-2024 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #pragma once
@@ -28,7 +28,6 @@
 #include "level_cell_list.hpp"
 #include "mesh_interval.hpp"
 #include "samurai_config.hpp"
-// #include "subset/subset_op_base.hpp"
 #include "subset/node.hpp"
 #include "utils.hpp"
 
@@ -113,8 +112,35 @@ namespace samurai
         LevelCellArray(std::size_t level, const coords_t& origin_point, double scaling_factor);
 
         // assumes the point is placed AFTER all the points in this array.
-        void add_point_back(const value_t& x, const fixed_array<value_t, Dim - 1>& yz_point);
-        void add_interval_back(const fixed_array<value_t, 2>& x_interval, const fixed_array<value_t, Dim - 1>& yz_point);
+        void add_point_back(const value_t x, const fixed_array<value_t, Dim - 1>& yz_point)
+        {
+            add_interval_back_rec(std::integral_constant<size_t, Dim - 1>{}, std::bool_constant<true>{}, {x, x + 1}, yz_point, 0);
+        }
+
+        void add_interval_back(const fixed_array<value_t, 2>& x_interval, const fixed_array<value_t, Dim - 1>& yz_point)
+        {
+            add_interval_back_rec(std::integral_constant<size_t, Dim - 1>{}, std::bool_constant<false>{}, x_interval, yz_point, 0);
+        }
+
+        void add_point(const value_t x, const fixed_array<value_t, Dim - 1>& yz_point)
+        {
+            add_interval_rec(std::integral_constant<size_t, Dim - 1>{}, std::bool_constant<true>{}, {x, x + 1}, yz_point, 0);
+        }
+
+        void remove_point(const value_t x, const fixed_array<value_t, Dim - 1>& yz_point)
+        {
+            remove_interval_rec(std::integral_constant<size_t, Dim - 1>{}, std::bool_constant<true>{}, {x, x + 1}, yz_point, 0);
+        }
+
+        void add_interval(const fixed_array<value_t, 2>& x_interval, const fixed_array<value_t, Dim - 1>& yz_point)
+        {
+            add_interval_rec(std::integral_constant<size_t, Dim - 1>{}, std::bool_constant<false>{}, x_interval, yz_point, 0);
+        }
+
+        void remove_interval(const fixed_array<value_t, 2>& x_interval, const fixed_array<value_t, Dim - 1>& yz_point)
+        {
+            remove_interval_rec(std::integral_constant<size_t, Dim - 1>{}, std::bool_constant<false>{}, x_interval, yz_point, 0);
+        }
 
         iterator begin();
         iterator end();
@@ -219,8 +245,37 @@ namespace samurai
             ar & m_level;
         }
 #endif
-        template <bool isIntervalListEmpty, bool isParentPointNew, size_t d>
-        size_t add_interval_back_rec(const fixed_array<value_t, 2>& x_interval, const fixed_array<value_t, Dim - 1>& yz);
+        template <size_t d, bool isSingleton>
+        void add_interval_back_rec(std::integral_constant<size_t, d>,
+                                   std::bool_constant<isSingleton>,
+                                   const fixed_array<value_t, 2>& x_interval,
+                                   const fixed_array<value_t, Dim - 1>& yz_point,
+                                   const index_t z_interval_idx);
+
+        template <size_t d, bool isSingleton>
+        void add_interval_rec(std::integral_constant<size_t, d>,
+                              std::bool_constant<isSingleton>,
+                              const fixed_array<value_t, 2>& x_interval,
+                              const fixed_array<value_t, Dim - 1>& yz_point,
+                              const index_t z_interval_idx);
+
+        template <size_t d, bool isSingleton>
+        void remove_interval_rec(std::integral_constant<size_t, d>,
+                                 std::bool_constant<isSingleton>,
+                                 const fixed_array<value_t, 2>& x_interval,
+                                 const fixed_array<value_t, Dim - 1>& yz_point,
+                                 const index_t z_interval_idx);
+
+        template <size_t d>
+        void increment_offsets(std::integral_constant<size_t, d>,
+                               const fixed_array<value_t, Dim - 1>& yz_point,
+                               const index_t z_interval_idx,
+                               const size_t delta_offsets);
+        template <size_t d>
+        void decrement_offsets(std::integral_constant<size_t, d>,
+                               const fixed_array<value_t, Dim - 1>& yz_point,
+                               const index_t z_interval_idx,
+                               const size_t delta_offsets);
 
         /// Recursive construction from a level cell list along dimension > 0
         template <typename TGrid, std::size_t N>
@@ -440,22 +495,40 @@ namespace samurai
     ////////////////////////////////////////////////////////////////////
 
     template <std::size_t Dim, class TInterval>
-    inline void LevelCellArray<Dim, TInterval>::add_point_back(const value_t& x, const fixed_array<value_t, Dim - 1>& yz)
+    template <size_t d>
+    inline void LevelCellArray<Dim, TInterval>::increment_offsets(std::integral_constant<size_t, d>,
+                                                                  const fixed_array<value_t, Dim - 1>& yz_point,
+                                                                  const index_t z_interval_idx,
+                                                                  const size_t delta_offsets)
     {
-        add_interval_back({x, x + 1}, yz);
+        if constexpr (d < Dim - 1)
+        {
+            const value_t z                = yz_point[d];
+            std::vector<size_t>& z_offsets = m_offsets[d];
+
+            for (size_t j = static_cast<size_t>(z + z_interval_idx + 1); j < z_offsets.size(); ++j)
+            {
+                z_offsets[j] += delta_offsets;
+            }
+        }
     }
 
     template <std::size_t Dim, class TInterval>
-    inline void
-    LevelCellArray<Dim, TInterval>::add_interval_back(const fixed_array<value_t, 2>& x_interval, const fixed_array<value_t, Dim - 1>& yz)
+    template <size_t d>
+    inline void LevelCellArray<Dim, TInterval>::decrement_offsets(std::integral_constant<size_t, d>,
+                                                                  const fixed_array<value_t, Dim - 1>& yz_point,
+                                                                  const index_t z_interval_idx,
+                                                                  const size_t delta_offsets)
     {
-        if (m_cells[Dim - 1].empty())
+        if constexpr (d < Dim - 1)
         {
-            add_interval_back_rec<true, false, Dim - 1>(x_interval, yz);
-        }
-        else
-        {
-            add_interval_back_rec<false, false, Dim - 1>(x_interval, yz);
+            const value_t z                = yz_point[d];
+            std::vector<size_t>& z_offsets = m_offsets[d];
+
+            for (size_t j = static_cast<size_t>(z + z_interval_idx + 1); j < z_offsets.size(); ++j)
+            {
+                z_offsets[j] -= delta_offsets;
+            }
         }
     }
 
@@ -464,53 +537,457 @@ namespace samurai
      * if d > 0 add the point y and return the offset increment or decrement for z
      */
     template <std::size_t Dim, class TInterval>
-    template <bool isIntervalListEmpty, bool isParentPointNew, size_t d>
-    inline size_t
-    LevelCellArray<Dim, TInterval>::add_interval_back_rec(const fixed_array<value_t, 2>& x_interval, const fixed_array<value_t, Dim - 1>& yz)
+    template <size_t d, bool isSingleton>
+    inline void LevelCellArray<Dim, TInterval>::add_interval_rec(std::integral_constant<size_t, d>,
+                                                                 std::bool_constant<isSingleton>,
+                                                                 const fixed_array<value_t, 2>& x_interval,
+                                                                 const fixed_array<value_t, Dim - 1>& yz_point,
+                                                                 const index_t z_interval_idx)
     {
         static_assert(d <= Dim - 1);
 
-        auto& intervals = m_cells[d];
+        if constexpr (d == Dim - 1)
+        {
+            if (x_interval[1] <= x_interval[0])
+            {
+                return;
+            }
+        }
 
-        if constexpr (d == 0)
+        using dim_const_t               = std::integral_constant<size_t, d>;
+        using interval_iterator         = std::vector<interval_t>::iterator;
+        using interval_reverse_iterator = std::vector<interval_t>::reverse_iterator;
+
+        std::vector<interval_t>& intervals = m_cells[d];
+
+        const ptrdiff_t i0 = static_cast<ptrdiff_t>((d == Dim - 1) ? 0u : m_offsets[d].data()[yz_point[d] + z_interval_idx]);
+        const ptrdiff_t i1 = static_cast<ptrdiff_t>((d == Dim - 1) ? intervals.size()
+                                                                   : m_offsets[d].data()[yz_point[d] + z_interval_idx + 1]);
+
+        const interval_iterator begin = intervals.begin() + i0;
+        const interval_iterator end   = intervals.begin() + i1;
+
+        if constexpr (d == 0 and not isSingleton)
         {
             const value_t xmin = x_interval[0];
             const value_t xmax = x_interval[1];
 
-            if (isIntervalListEmpty or isParentPointNew or intervals.back().end < xmin)
+            const interval_reverse_iterator rbegin = std::make_reverse_iterator(end);
+            const interval_reverse_iterator rend   = std::make_reverse_iterator(begin);
+
+            interval_iterator it_first = std::find_if(rbegin,
+                                                      rend,
+                                                      [xmin](const interval_t& interval) -> bool
+                                                      {
+                                                          return interval.end < xmin;
+                                                      })
+                                             .base(); // - 1 + 1; // -1 for conversion to iterator + 1 for next
+            // interval_iterator it_first = std::find_if(begin, end, [xmin](const interval_t& interval) -> bool
+            // {
+            //  return xmin <= interval.end;
+            // });
+
+            if (it_first == end or xmax < it_first->start)
             {
-                intervals.emplace_back(xmin, xmax);
-                return 1;
+                increment_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
+                intervals.emplace(it_first, xmin, xmax);
             }
-            else // we assume intervals.back().end == xmin and
+            else
             {
-                assert(intervals.back().end == xmin);
-                intervals.back().end = xmax;
-                return 0;
+                const interval_iterator it_last = std::find_if(it_first,
+                                                               end,
+                                                               [xmax](const interval_t& interval) -> bool
+                                                               {
+                                                                   return xmax < interval.start;
+                                                               });
+                it_first->start                 = std::min(xmin, it_first->start);
+                it_first->end                   = std::max(xmax, (it_last - 1)->end);
+
+                decrement_offsets(dim_const_t{}, yz_point, z_interval_idx, size_t(std::distance(it_first + 1, it_last)));
+                intervals.erase(it_first + 1, it_last);
+            }
+        }
+        else if constexpr (d == 0 and isSingleton)
+        {
+            using interval_const_iterator = std::vector<interval_t>::const_iterator;
+
+            const value_t x = x_interval[0];
+
+            const interval_reverse_iterator rbegin = std::make_reverse_iterator(end);
+            const interval_reverse_iterator rend   = std::make_reverse_iterator(begin);
+
+            interval_iterator it_first = std::find_if(rbegin,
+                                                      rend,
+                                                      [x](const interval_t& interval) -> bool
+                                                      {
+                                                          return interval.end < x;
+                                                      })
+                                             .base(); // - 1 + 1; // -1 for conversion to iterator + 1 for next
+            //  y <= it_first->end
+            if (it_first == end or x + 1 < it_first->start)
+            {
+                increment_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
+                intervals.emplace(it_first, x, x + 1);
+            }
+            else if (x + 1 == it_first->start)
+            {
+                --(it_first->start);
+            }
+            else if (x == it_first->end)
+            {
+                const interval_const_iterator it_next = it_first + 1;
+
+                ++(it_first->end);
+                if (it_next != end and it_first->end == it_next->start)
+                {
+                    it_first->end = it_next->end;
+                    decrement_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
+                    intervals.erase(it_next);
+                }
             }
         }
         else
         {
-            const auto& y   = yz[d - 1];
-            auto& y_offsets = m_offsets[d - 1];
+            const interval_reverse_iterator rbegin = std::make_reverse_iterator(end);
+            const interval_reverse_iterator rend   = std::make_reverse_iterator(begin);
 
-            if (isIntervalListEmpty or isParentPointNew or intervals.back().end < y)
+            const value_t y = yz_point[d - 1];
+
+            std::vector<size_t>& y_offsets = m_offsets[d - 1];
+
+            // we search for it_first-1 such that (it_first-1)->end < y.
+            // if it->end >= y for all it in [begin,end), then it_first == begin
+            interval_iterator it_first = std::find_if(rbegin,
+                                                      rend,
+                                                      [y](const interval_t& interval) -> bool
+                                                      {
+                                                          return interval.end < y;
+                                                      })
+                                             .base(); // - 1 + 1; // -1 for conversion to iterator + 1 for next
+
+            interval_iterator it_y_interval = it_first;
+            // we know that that y <= it_first->end < (it_first+)->start
+            // at worst, it_first->end + 1 == (it_first+)->start
+            if (it_first == end or y + 1 < it_first->start) // [y, y+1) must be inserted after it_first-1
             {
-                const auto new_interval_index = (isIntervalListEmpty) ? -y : intervals.back().index + intervals.back().end - y;
+                const ptrdiff_t y_offset_index = (it_first != intervals.begin()) ? (it_first - 1)->end + (it_first - 1)->index : 0;
+                y_offsets.insert(y_offsets.begin() + y_offset_index, y_offsets.data()[y_offset_index]);
+
+                it_y_interval = intervals.emplace(it_first, y, y + 1);
+                increment_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
+                update_index(d);
+            }                                  // here we know it_first != end and it_first->start <= y+1.
+            else if (y + 1 == it_first->start) // If it_first->start <= y+1, extend the interval
+            {
+                const ptrdiff_t y_offset_index = it_first->start + it_first->index;
+                y_offsets.insert(y_offsets.begin() + y_offset_index, y_offsets.data()[y_offset_index]);
+
+                --(it_first->start);
+                update_index(d);
+            }
+            else if (y == it_first->end)
+            {
+                const ptrdiff_t y_offset_index = it_first->end + it_first->index;
+                y_offsets.insert(y_offsets.begin() + y_offset_index, y_offsets.data()[y_offset_index]);
+
+                ++(it_first->end);
+                if (it_first + 1 != end and (it_first->end == (it_first + 1)->start))
+                {
+                    it_first->end = (it_first + 1)->end;
+                    intervals.erase(it_first + 1);
+                    decrement_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
+                }
+                update_index(d);
+            }
+            // else *it_first contains y
+
+            using next_dim_const_t     = std::integral_constant<size_t, d - 1>;
+            using is_singleton_const_t = std::bool_constant<isSingleton>;
+
+            add_interval_rec(next_dim_const_t{}, is_singleton_const_t{}, x_interval, yz_point, it_y_interval->index);
+        }
+    }
+
+    /**
+     * if d == 0, add the x_interval
+     * if d > 0 add the point y and return the offset increment or decrement for z
+     */
+    template <std::size_t Dim, class TInterval>
+    template <size_t d, bool isSingleton>
+    inline void LevelCellArray<Dim, TInterval>::add_interval_back_rec(std::integral_constant<size_t, d>,
+                                                                      std::bool_constant<isSingleton>,
+                                                                      const fixed_array<value_t, 2>& x_interval,
+                                                                      const fixed_array<value_t, Dim - 1>& yz_point,
+                                                                      const index_t z_interval_idx)
+    {
+        static_assert(d <= Dim - 1);
+
+        using dim_const_t = std::integral_constant<size_t, d>;
+
+        std::vector<interval_t>& intervals = m_cells[d];
+
+        if constexpr (d == Dim - 1)
+        {
+            if (x_interval[1] <= x_interval[0])
+            {
+                return;
+            }
+        }
+
+        const size_t i0 = (d == Dim - 1) ? 0u : m_offsets[d].data()[yz_point[d] + z_interval_idx];
+
+        if constexpr (d < Dim - 1)
+        {
+            assert(m_offsets[d].data()[yz_point[d] + z_interval_idx + 1] == intervals.size());
+        }
+
+        if constexpr (d == 0 and not isSingleton)
+        {
+            const value_t xmin = x_interval[0];
+            const value_t xmax = x_interval[1];
+
+            if (i0 == intervals.size() or intervals.back().end < xmin)
+            {
+                intervals.emplace_back(xmin, xmax);
+                increment_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
+            }
+            else
+            {
+                assert(intervals.back().end < xmax);
+                intervals.back().end = xmax;
+            }
+        }
+        else if constexpr (d == 0 and isSingleton)
+        {
+            const value_t x = x_interval[0];
+            if (i0 == intervals.size() or intervals.back().end < x)
+            {
+                intervals.emplace_back(x, x + 1);
+                increment_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
+            }
+            else if (intervals.back().end == x)
+            {
+                ++intervals.back().end;
+            }
+            // else last interval contains x
+        }
+        else
+        {
+            const value_t y = yz_point[d - 1];
+
+            std::vector<size_t>& y_offsets = m_offsets[d - 1];
+
+            if (i0 == intervals.size() or intervals.back().end < y)
+            {
+                const index_t new_interval_index = (intervals.size() == 0) ? -y : intervals.back().index + intervals.back().end - y;
+                y_offsets.push_back(y_offsets.back());
                 intervals.emplace_back(y, y + 1, new_interval_index);
-                y_offsets.push_back(y_offsets.back() + add_interval_back_rec<isIntervalListEmpty, true, d - 1>(x_interval, yz));
-                return 1;
+                // intervals.emplace_back(y, y+1);
+
+                increment_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
+                // update_index(d);
             }
             else if (intervals.back().end == y)
             {
+                y_offsets.push_back(y_offsets.back());
                 ++intervals.back().end;
-                y_offsets.push_back(y_offsets.back() + add_interval_back_rec<isIntervalListEmpty, true, d - 1>(x_interval, yz));
-                return 0;
             }
-            else // interval contains y
+            // else last interval contains y
+            using next_dim_const_t     = std::integral_constant<size_t, d - 1>;
+            using is_singleton_const_t = std::bool_constant<isSingleton>;
+
+            add_interval_back_rec(next_dim_const_t{}, is_singleton_const_t{}, x_interval, yz_point, intervals.back().index);
+        }
+    }
+
+    template <std::size_t Dim, class TInterval>
+    template <size_t d, bool isSingleton>
+    inline void LevelCellArray<Dim, TInterval>::remove_interval_rec(std::integral_constant<size_t, d>,
+                                                                    std::bool_constant<isSingleton>,
+                                                                    const fixed_array<value_t, 2>& x_interval,
+                                                                    const fixed_array<value_t, Dim - 1>& yz_point,
+                                                                    const index_t z_interval_idx)
+    {
+        static_assert(d <= Dim - 1);
+
+        if constexpr (d == Dim - 1)
+        {
+            if (x_interval[1] <= x_interval[0])
             {
-                y_offsets.data()[y + intervals.back().index + 1] += add_interval_back_rec<isIntervalListEmpty, false, d - 1>(x_interval, yz);
-                return 0;
+                return;
+            }
+        }
+
+        using dim_const_t               = std::integral_constant<size_t, d>;
+        using interval_iterator         = std::vector<interval_t>::iterator;
+        using interval_reverse_iterator = std::vector<interval_t>::reverse_iterator;
+
+        std::vector<interval_t>& intervals = m_cells[d];
+
+        const ptrdiff_t i0 = static_cast<ptrdiff_t>((d == Dim - 1) ? 0u : m_offsets[d].data()[yz_point[d] + z_interval_idx]);
+        const ptrdiff_t i1 = static_cast<ptrdiff_t>((d == Dim - 1) ? intervals.size()
+                                                                   : m_offsets[d].data()[yz_point[d] + z_interval_idx + 1]);
+
+        const interval_iterator begin = intervals.begin() + i0;
+        const interval_iterator end   = intervals.begin() + i1;
+
+        const interval_reverse_iterator rbegin = std::make_reverse_iterator(end);
+        const interval_reverse_iterator rend   = std::make_reverse_iterator(begin);
+
+        if constexpr (d == 0 and not isSingleton)
+        {
+            const value_t xmin = x_interval[0];
+            const value_t xmax = x_interval[1];
+
+            const interval_iterator prev_it_first = std::find_if(rbegin,
+                                                                 rend,
+                                                                 [xmin](const interval_t& interval) -> bool
+                                                                 {
+                                                                     return interval.end < xmin;
+                                                                 })
+                                                        .base()
+                                                  - 1;
+            const interval_iterator next_it_last = std::find_if((prev_it_first != begin - 1) ? prev_it_first : begin,
+                                                                end,
+                                                                [xmax](const interval_t& interval) -> bool
+                                                                {
+                                                                    return xmax < interval.start;
+                                                                });
+            interval_iterator it_first = std::next(prev_it_first);
+            interval_iterator it_last  = std::prev(next_it_last);
+            // We have two intervals it_first and it_last such that xmin <= it_first->end and it_last->start <= xmax
+            if (std::distance(it_first, it_last) >= 0) // if flase, x_interval is not in our list of intervals
+            {
+                if (it_first == it_last) // it_first->start <= xmax and it_first->end <= xmin
+                {                        // x_interval is included in an it_first
+                    const value_t old_it_first_end = it_first->end;
+                    it_first->end                  = xmin;
+                    interval_iterator it_inert_to  = it_first + 1;
+                    if (not it_first->is_valid())
+                    {
+                        it_inert_to = intervals.erase(it_first);
+                        decrement_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
+                    }
+                    if (old_it_first_end > xmax)
+                    {
+                        intervals.emplace(it_inert_to, xmax, old_it_first_end);
+                        increment_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
+                    }
+                }
+                else // it_first->end => xmin and it_last->start <= xmax
+                {
+                    it_first->end  = xmin;
+                    it_last->start = xmax;
+
+                    const interval_iterator begin_del = (it_first->is_valid()) ? it_first + 1 : it_first;
+                    const interval_iterator end_del   = (it_last->is_valid()) ? it_last : next_it_last;
+
+                    const size_t delta_offsets = static_cast<size_t>(std::distance(begin_del, end_del));
+                    decrement_offsets(dim_const_t{}, yz_point, z_interval_idx, delta_offsets);
+
+                    intervals.erase(begin_del, end_del);
+                }
+            }
+        }
+        else if constexpr (d == 0 and isSingleton)
+        {
+            const value_t x = x_interval[0];
+
+            interval_iterator it_first = std::find_if(rbegin,
+                                                      rend,
+                                                      [x](const interval_t& interval) -> bool
+                                                      {
+                                                          return interval.contains(x);
+                                                      })
+                                             .base()
+                                       - 1;
+
+            if (it_first != begin - 1 and it_first->contains(x))
+            {
+                if (x == it_first->end - 1)
+                {
+                    --(it_first->end);
+                    if (it_first->start == it_first->end)
+                    {
+                        intervals.erase(it_first);
+                        decrement_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
+                    }
+                }
+                else if (x == it_first->start)
+                {
+                    ++(it_first->start);
+                    if (it_first->start == it_first->end)
+                    {
+                        intervals.erase(it_first);
+                        decrement_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
+                    }
+                }
+                else // it first is splitted into two
+                {
+                    const value_t old_it_first_end = it_first->end;
+
+                    it_first->end = x;
+                    intervals.emplace(it_first + 1, x + 1, old_it_first_end);
+
+                    increment_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
+                }
+            }
+        }
+        else
+        {
+            using next_dim_const_t     = std::integral_constant<size_t, d - 1>;
+            using is_singleton_const_t = std::bool_constant<isSingleton>;
+
+            const value_t y = yz_point[d - 1];
+
+            std::vector<size_t>& y_offsets = m_offsets[d - 1];
+
+            interval_iterator it_first = std::find_if(rbegin,
+                                                      rend,
+                                                      [y](const interval_t& interval) -> bool
+                                                      {
+                                                          return interval.contains(y);
+                                                      })
+                                             .base()
+                                       - 1;
+
+            if (it_first != end and it_first != begin - 1)
+            {
+                remove_interval_rec(next_dim_const_t{}, is_singleton_const_t{}, x_interval, yz_point, it_first->index);
+                if (y_offsets.data()[y + it_first->index] == y_offsets.data()[y + it_first->index + 1]) // there is no interval for y,
+                                                                                                        // shrink or split
+                {
+                    y_offsets.erase(y_offsets.begin() + y + it_first->index + 1);
+                    if (y == it_first->end - 1)
+                    {
+                        --(it_first->end);
+                        if (it_first->start == it_first->end)
+                        {
+                            intervals.erase(it_first);
+                            decrement_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
+                        }
+                    }
+                    else if (y == it_first->start)
+                    {
+                        ++(it_first->start);
+                        if (it_first->start == it_first->end)
+                        {
+                            intervals.erase(it_first);
+                            decrement_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
+                        }
+                    }
+                    else // it first is splitted into two
+                    {
+                        const value_t old_it_first_end = it_first->end;
+
+                        it_first->end = y;
+
+                        intervals.emplace(it_first + 1, y + 1, old_it_first_end);
+
+                        increment_offsets(dim_const_t{}, yz_point, z_interval_idx, 1);
+                    }
+                    update_index(d);
+                }
             }
         }
     }
@@ -1065,7 +1542,7 @@ namespace samurai
                 {
                     os << fmt::format("({}: {}) ", io, m_offsets[d - 1][io]);
                 }
-                os << std::endl;
+                os << std::endl << std::endl;
             }
         }
     }
