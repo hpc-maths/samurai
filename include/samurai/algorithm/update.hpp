@@ -845,21 +845,10 @@ namespace samurai
         ca_type ca_remove_p;
         ca_type new_ca;
 
-        static size_t add_p_max_size = 0;
-
         std::vector<value_t> add_p_x;
         std::vector<coord_type> add_p_yz;
 
         std::vector<size_t> add_p_idx;
-
-        if constexpr (dim > 1)
-        {
-            add_p_x.reserve(add_p_max_size);
-            if constexpr (dim > 2)
-            {
-                add_p_yz.reserve(add_p_max_size);
-            }
-        }
 
         for (std::size_t level = mesh[mesh_id_t::cells].min_level(); level <= mesh[mesh_id_t::cells].max_level(); ++level)
         {
@@ -926,8 +915,6 @@ namespace samurai
                                 ca_add_p[level + 1].add_interval_back({2 * x, 2 * x + 2}, 2 * yz + stencil);
                             }
                         }
-
-                        add_p_max_size = std::max(add_p_max_size, add_p_x.size());
                         add_p_x.clear();
                     }
                 }
@@ -957,9 +944,6 @@ namespace samurai
                         {
                             ca_add_p[level + 1].add_interval_back({add_p_x[i], add_p_x[i] + 2}, add_p_yz[i]);
                         }
-
-                        add_p_max_size = std::max(add_p_max_size, add_p_x.size());
-
                         add_p_x.clear();
                         add_p_yz.clear();
                     }
