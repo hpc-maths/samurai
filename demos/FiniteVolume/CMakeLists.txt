@@ -12,7 +12,7 @@ if(PETSC_FOUND)
     target_link_libraries(finite-volume-heat-heterogeneous samurai CLI11::CLI11 ${PETSC_LINK_LIBRARIES} ${MPI_LIBRARIES})
 
     add_executable(finite-volume-heat-nonlinear heat_nonlinear.cpp)
-    target_link_libraries(finite-volume-heat-nonlinear samurai CLI11::CLI11 ${PETSC_LIBRARIES} ${MPI_LIBRARIES})
+    target_link_libraries(finite-volume-heat-nonlinear samurai CLI11::CLI11 ${PETSC_LINK_LIBRARIES} ${MPI_LIBRARIES})
 
     add_executable(finite-volume-stokes-2d stokes_2d.cpp)
     target_link_libraries(finite-volume-stokes-2d samurai CLI11::CLI11 ${PETSC_LINK_LIBRARIES} ${MPI_LIBRARIES})
