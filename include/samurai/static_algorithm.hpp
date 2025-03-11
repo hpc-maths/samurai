@@ -12,7 +12,6 @@ namespace samurai
     // Static loop with boundaries known at compile time
     namespace detail
     {
-
         template <std::size_t nloops, int start, int end, int step, class Func>
         inline void
         static_nested_loop_impl(Func&& f, xt::xtensor_fixed<int, xt::xshape<nloops>>& index, std::integral_constant<std::size_t, nloops>)

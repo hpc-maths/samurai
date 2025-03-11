@@ -827,7 +827,6 @@ namespace samurai
         using value_t                    = typename interval_t::value_t;
         using unsigned_value_t           = typename std::make_unsigned_t<value_t>;
         using lca_type                   = typename Field::mesh_t::lca_type;
-        using lca_const_iterator         = typename lca_type::const_iterator;
         using ca_type                    = typename Field::mesh_t::ca_type;
         using coord_type                 = typename lca_type::coord_type;
 
@@ -852,15 +851,16 @@ namespace samurai
 
         for (std::size_t level = mesh[mesh_id_t::cells].min_level(); level <= mesh[mesh_id_t::cells].max_level(); ++level)
         {
-            const lca_const_iterator begin = mesh[mesh_id_t::cells][level].cbegin();
-            const lca_const_iterator end   = mesh[mesh_id_t::cells][level].cend();
+            const auto begin = mesh[mesh_id_t::cells][level].cbegin();
+            const auto end   = mesh[mesh_id_t::cells][level].cend();
 
-            for (lca_const_iterator it = begin; it != end; ++it)
+            for (auto it = begin; it != end; ++it)
             {
-                const interval_t& x_interval = *it;
-                const coord_type& yz         = it.index();
+                const auto& x_interval = *it;
+                const auto& yz         = it.index();
 
-                const bool is_yz_even = dim == 1 or xt::all(not xt::eval(yz % 2));
+                // const bool is_yz_even = dim == 1 or xt::all(not xt::eval(yz % 2));
+                const bool is_yz_even = dim == 1 or xt::all(xt::equal(yz % 2, 0));
 
                 for (value_t x = x_interval.start; x < x_interval.end; ++x)
                 {
@@ -883,7 +883,7 @@ namespace samurai
                         else
                         {
                             static_nested_loop<dim - 1, 0, 2>(
-                                [&](const coord_type& stencil)
+                                [&](const auto& stencil)
                                 {
                                     add_p_x.push_back(2 * x);
                                     add_p_yz.emplace_back(2 * yz + stencil);
@@ -892,7 +892,7 @@ namespace samurai
                     }
                     else if (coarsenAndNotKeep and level > mesh.min_level())
                     {
-                        if (x % 2 == 0 and is_yz_even) // should be modified when using load balencing.
+                        if (x % 2 == 0 and is_yz_even) // should be modified when using load balancing.
                         {
                             ca_add_m[level - 1].add_point_back(x >> 1, yz >> 1);
                         }
@@ -924,7 +924,7 @@ namespace samurai
                     {
                         sort_indexes(
                             add_p_yz,
-                            [](const coord_type& lhs, const coord_type& rhs) -> bool
+                            [](const auto& lhs, const auto& rhs) -> bool
                             {
                                 for (size_t i = dim - 2; i != 0; --i)
                                 {
@@ -956,7 +956,7 @@ namespace samurai
             auto set = difference(union_(mesh[mesh_id_t::cells][level], ca_add_m[level], ca_add_p[level]),
                                   union_(ca_remove_m[level], ca_remove_p[level]));
             set(
-                [&](const interval_t& x_interval, const coord_type& yz)
+                [&](const auto& x_interval, const auto& yz)
                 {
                     new_ca[level].add_interval_back({x_interval.start, x_interval.end}, yz);
                 });

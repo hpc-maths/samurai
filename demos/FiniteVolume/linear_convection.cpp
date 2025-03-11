@@ -7,7 +7,6 @@
 #include <samurai/mr/mesh.hpp>
 #include <samurai/samurai.hpp>
 #include <samurai/schemes/fv.hpp>
-#include <samurai/statistics.hpp>
 
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -175,7 +174,6 @@ int main(int argc, char* argv[])
     }
     while (t != Tf)
     {
-        samurai::statistics("linear_convection_2D", mesh);
         // Move to next timestep
         t += dt;
         if (t > Tf)

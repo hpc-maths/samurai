@@ -28,7 +28,6 @@
 #include "level_cell_list.hpp"
 #include "mesh_interval.hpp"
 #include "samurai_config.hpp"
-// #include "subset/subset_op_base.hpp"
 #include "subset/node.hpp"
 #include "utils.hpp"
 
@@ -171,9 +170,6 @@ namespace samurai
 
         //// Gives the number of cells
         std::size_t nb_cells() const;
-
-        // return the number of cells in the mesh
-        size_t nb_cells(const size_t d) const;
 
         //
 
@@ -423,18 +419,6 @@ namespace samurai
         , m_origin_point(origin_point)
         , m_scaling_factor(scaling_factor)
     {
-    }
-
-    template <std::size_t Dim, class TInterval>
-    inline size_t LevelCellArray<Dim, TInterval>::nb_cells(const size_t d) const
-    {
-        return std::accumulate(m_cells[d].cbegin(),
-                               m_cells[d].cend(),
-                               0u,
-                               [](const size_t& value, const interval_t& interval) -> size_t
-                               {
-                                   return value + interval.size();
-                               });
     }
 
     ////////////////////////////////////////////////////////////////////
@@ -997,7 +981,6 @@ namespace samurai
             else
             {
                 // If there is no current interval (at the beginning of the
-
                 // loop) we create a new one.
                 curr_interval = interval_t(i, i + 1, static_cast<index_t>(m_offsets[N - 1].size()) - i);
             }
@@ -1076,7 +1059,7 @@ namespace samurai
                 {
                     os << fmt::format("({}: {}) ", io, m_offsets[d - 1][io]);
                 }
-                os << std::endl;
+                os << std::endl << std::endl;
             }
         }
     }

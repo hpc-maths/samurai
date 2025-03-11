@@ -70,11 +70,6 @@ namespace samurai
         std::size_t size() const;
         bool is_valid() const;
 
-        bool is_singleton() const
-        {
-            return start + 1 == end;
-        }
-
         bool is_empty() const
         {
             return start == end;
