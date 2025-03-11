@@ -387,9 +387,7 @@ namespace samurai
 
         keep_only_one_coarse_tag(m_tag);
 
-        bool isUpdated = update_field_mr(m_tag, m_fields, other_fields...);
-
-        return isUpdated;
+        return update_field_mr(m_tag, m_fields, other_fields...);
     }
 
     template <class... TFields>

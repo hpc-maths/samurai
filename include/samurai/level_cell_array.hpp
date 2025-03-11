@@ -668,6 +668,7 @@ namespace samurai
     inline auto LevelCellArray<Dim, TInterval>::get_interval(const interval_t& interval, T... index) const -> const interval_t&
     {
         auto offset = find(*this, {interval.start, index...});
+        assert(offset >= 0 && "Interval not found");
         return m_cells[0][static_cast<std::size_t>(offset)];
     }
 
@@ -681,6 +682,7 @@ namespace samurai
             point[d] = index[d - 1];
         }
         auto offset = find(*this, point);
+        assert(offset >= 0 && "Interval not found");
         return m_cells[0][static_cast<std::size_t>(offset)];
     }
 
@@ -688,6 +690,7 @@ namespace samurai
     inline auto LevelCellArray<Dim, TInterval>::get_interval(const all_coord_type& coord) const -> const interval_t&
     {
         auto offset = find(*this, coord);
+        assert(offset >= 0 && "Interval not found");
         return m_cells[0][static_cast<std::size_t>(offset)];
     }
 
