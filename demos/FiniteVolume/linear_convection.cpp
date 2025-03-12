@@ -172,7 +172,6 @@ int main(int argc, char* argv[])
         std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
         save(path, filename, u, suffix);
     }
-
     while (t != Tf)
     {
         // Move to next timestep

@@ -70,6 +70,11 @@ namespace samurai
         std::size_t size() const;
         bool is_valid() const;
 
+        bool is_empty() const
+        {
+            return start == end;
+        }
+
         Interval even_elements() const;
         Interval odd_elements() const;
 

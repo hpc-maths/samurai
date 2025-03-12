@@ -6,6 +6,7 @@
 #include <array>
 #include <iterator>
 #include <limits>
+#include <type_traits>
 #include <vector>
 
 #ifdef SAMURAI_WITH_MPI
@@ -72,8 +73,12 @@ namespace samurai
         using cell_t              = Cell<dim, interval_t>;
         using index_t             = typename interval_t::index_t;
         using value_t             = typename interval_t::value_t;
-        using mesh_interval_t     = MeshInterval<Dim, TInterval>;
-        using coords_t            = typename cell_t::coords_t;
+        // using coord_index_t       = typename interval_t::coord_index_t;
+        using mesh_interval_t = MeshInterval<Dim, TInterval>;
+        using coords_t        = typename cell_t::coords_t;
+
+        template <typename T, size_t dim>
+        using fixed_array = xt::xtensor_fixed<T, xt::xshape<dim>>;
 
         using iterator               = LevelCellArray_iterator<LevelCellArray<Dim, TInterval>, false>;
         using reverse_iterator       = LevelCellArray_reverse_iterator<iterator>;
@@ -86,7 +91,7 @@ namespace samurai
 
         static constexpr double default_approx_box_tol = 0.05;
 
-        LevelCellArray() = default;
+        LevelCellArray();
         LevelCellArray(const LevelCellList<Dim, TInterval>& lcl);
 
         template <class Op, class StartEndOp, class... S>
@@ -99,6 +104,10 @@ namespace samurai
                        double scaling_factor = 0);
         LevelCellArray(std::size_t level);
         LevelCellArray(std::size_t level, const coords_t& origin_point, double scaling_factor);
+
+        // assumes the point is placed AFTER all the points in this array.
+        void add_point_back(const value_t& x, const fixed_array<value_t, Dim - 1>& yz_point);
+        void add_interval_back(const fixed_array<value_t, 2>& x_interval, const fixed_array<value_t, Dim - 1>& yz_point);
 
         iterator begin();
         iterator end();
@@ -154,6 +163,7 @@ namespace samurai
         //// Gives the number of cells
         std::size_t nb_cells() const;
 
+        //
         double cell_length() const;
 
         const std::vector<interval_t>& operator[](std::size_t d) const;
@@ -195,6 +205,8 @@ namespace samurai
             ar & m_level;
         }
 #endif
+        template <bool isIntervalListEmpty, bool isParentPointNew, size_t d>
+        size_t add_interval_back_rec(const fixed_array<value_t, 2>& x_interval, const fixed_array<value_t, Dim - 1>& yz);
 
         /// Recursive construction from a level cell list along dimension > 0
         template <typename TGrid, std::size_t N>
@@ -289,6 +301,17 @@ namespace samurai
     // LevelCellArray implementation //
     ///////////////////////////////////
     template <std::size_t Dim, class TInterval>
+    inline LevelCellArray<Dim, TInterval>::LevelCellArray() // ensures m_offsets size is 1
+        : m_level(0)
+        , m_scaling_factor(1)
+    {
+        for (std::size_t d = 0; d < dim - 1; ++d)
+        {
+            m_offsets[d].push_back(0);
+        }
+    }
+
+    template <std::size_t Dim, class TInterval>
     inline LevelCellArray<Dim, TInterval>::LevelCellArray(const LevelCellList<Dim, TInterval>& lcl)
         : m_level(lcl.level())
         , m_origin_point(lcl.origin_point())
@@ -374,6 +397,10 @@ namespace samurai
         : m_level{level}
     {
         m_origin_point.fill(0);
+        for (std::size_t d = 0; d < dim - 1; ++d)
+        {
+            m_offsets[d].push_back(0);
+        }
     }
 
     template <std::size_t Dim, class TInterval>
@@ -383,6 +410,94 @@ namespace samurai
         , m_scaling_factor(scaling_factor)
     {
     }
+
+    ////////////////////////////////////////////////////////////////////
+
+    template <std::size_t Dim, class TInterval>
+    inline void LevelCellArray<Dim, TInterval>::add_point_back(const value_t& x, const fixed_array<value_t, Dim - 1>& yz)
+    {
+        add_interval_back({x, x + 1}, yz);
+    }
+
+    template <std::size_t Dim, class TInterval>
+    inline void
+    LevelCellArray<Dim, TInterval>::add_interval_back(const fixed_array<value_t, 2>& x_interval, const fixed_array<value_t, Dim - 1>& yz)
+    {
+        if (m_cells[Dim - 1].empty())
+        {
+            add_interval_back_rec<true, true, Dim - 1>(x_interval, yz);
+        }
+        else
+        {
+            add_interval_back_rec<false, false, Dim - 1>(x_interval, yz);
+        }
+    }
+
+    /**
+     * if d == 0, add the x_interval
+     * if d > 0 add the point y and return the offset increment or decrement for z
+     */
+    template <std::size_t Dim, class TInterval>
+    template <bool isIntervalListEmpty, bool isParentPointNew, size_t d>
+    inline size_t
+    LevelCellArray<Dim, TInterval>::add_interval_back_rec(const fixed_array<value_t, 2>& x_interval, const fixed_array<value_t, Dim - 1>& yz)
+    {
+        static_assert(d <= Dim - 1);
+
+        auto& intervals = m_cells[d];
+
+        if constexpr (d == 0)
+        {
+            const value_t xmin = x_interval[0];
+            const value_t xmax = x_interval[1];
+
+            if (isIntervalListEmpty or isParentPointNew or intervals.back().end < xmin)
+            {
+                intervals.emplace_back(xmin, xmax);
+                return 1;
+            }
+            else // we assume intervals.back().end == xmin and
+            {
+                assert(intervals.back().end == xmin);
+                intervals.back().end = xmax;
+                return 0;
+            }
+        }
+        else
+        {
+            const auto& y   = yz[d - 1];
+            auto& y_offsets = m_offsets[d - 1];
+
+            if constexpr (isIntervalListEmpty)
+            {
+                intervals.emplace_back(y, y + 1, -y);
+                y_offsets.push_back(1);
+                add_interval_back_rec<isIntervalListEmpty, true, d - 1>(x_interval, yz);
+                return 1;
+            }
+            else if (isParentPointNew or intervals.back().end < y)
+            {
+                const auto new_interval_index = intervals.back().index + intervals.back().end - y;
+                intervals.emplace_back(y, y + 1, new_interval_index);
+                y_offsets.push_back(y_offsets.back() + add_interval_back_rec<isIntervalListEmpty, true, d - 1>(x_interval, yz));
+                return 1;
+            }
+            else if (intervals.back().end == y)
+            {
+                ++intervals.back().end;
+                y_offsets.push_back(y_offsets.back() + add_interval_back_rec<isIntervalListEmpty, true, d - 1>(x_interval, yz));
+                return 0;
+            }
+            else // interval contains y
+            {
+                assert(intervals.back().start <= y);
+                y_offsets.data()[y + intervals.back().index + 1] += add_interval_back_rec<isIntervalListEmpty, false, d - 1>(x_interval, yz);
+                return 0;
+            }
+        }
+    }
+
+    ////////////////////////////////////////////////////////////////////
 
     template <std::size_t Dim, class TInterval>
     inline auto LevelCellArray<Dim, TInterval>::begin() -> iterator
@@ -662,10 +777,13 @@ namespace samurai
     template <std::size_t Dim, class TInterval>
     inline void LevelCellArray<Dim, TInterval>::clear()
     {
-        for (std::size_t d = 0; d < dim; ++d)
+        for (std::size_t d = 0; d < dim - 1; ++d)
         {
             m_cells[d].clear();
+            m_offsets[d].clear();
+            m_offsets[d].push_back(0);
         }
+        m_cells[dim - 1].clear();
     }
 
     template <std::size_t Dim, class TInterval>
