@@ -118,13 +118,16 @@ namespace samurai
         std::size_t nb_cells() const;
         std::size_t nb_cells(std::size_t level) const;
 
+	// from strafella : could be useful for load balancing
         std::size_t nb_intervals(std::size_t dim) const;
         std::size_t nb_intervals(std::size_t dim, std::size_t level) const;
 
+        void clear();
+
+        bool empty() const;
+
         std::size_t max_level() const;
         std::size_t min_level() const;
-
-        void clear();
 
         auto& origin_point() const;
         void set_origin_point(const coords_t& origin_point);
@@ -269,6 +272,26 @@ namespace samurai
         if (with_update_index)
         {
             update_index();
+        }
+    }
+
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
+    inline bool CellArray<dim_, TInterval, max_size_>::empty() const
+    {
+        bool isEmpty = true;
+        for (std::size_t level = 0; level <= max_size; ++level)
+        {
+            isEmpty = isEmpty and m_cells[level].empty();
+        }
+        return isEmpty;
+    }
+
+    template <std::size_t dim_, class TInterval, std::size_t max_size_>
+    inline void CellArray<dim_, TInterval, max_size_>::clear()
+    {
+        for (std::size_t level = 0; level <= max_size; ++level)
+        {
+            m_cells[level].clear();
         }
     }
 
@@ -448,15 +471,6 @@ namespace samurai
             }
         }
         return max_size + 1;
-    }
-
-    template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline void CellArray<dim_, TInterval, max_size_>::clear()
-    {
-        for (std::size_t level = 0; level <= max_size; ++level)
-        {
-            m_cells[level].clear();
-        }
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>

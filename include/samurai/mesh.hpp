@@ -145,6 +145,7 @@ namespace samurai
         using derived_type = D;
 
         Mesh_base() = default; // cppcheck-suppress uninitMemberVar
+        Mesh_base(const ca_type& ca, const self_type& ref_mesh);
         Mesh_base(const cl_type& cl, const self_type& ref_mesh);
         Mesh_base(const ca_type& ca, const self_type& ref_mesh);
         Mesh_base(const cl_type& cl, std::size_t min_level, std::size_t max_level);
@@ -333,6 +334,27 @@ namespace samurai
 
         set_origin_point(ca.origin_point());
         set_scaling_factor(ca.scaling_factor());
+    }
+
+    template <class D, class Config>
+    inline Mesh_base<D, Config>::Mesh_base(const ca_type& ca, const self_type& ref_mesh)
+        : m_domain(ref_mesh.m_domain)
+        , m_min_level(ref_mesh.m_min_level)
+        , m_max_level(ref_mesh.m_max_level)
+        , m_periodic(ref_mesh.m_periodic)
+        , m_mpi_neighbourhood(ref_mesh.m_mpi_neighbourhood)
+
+    {
+        m_cells[mesh_id_t::cells] = ca;
+
+        construct_subdomain();
+        construct_union();
+        update_sub_mesh();
+        renumbering();
+        update_mesh_neighbour();
+
+        set_origin_point(ref_mesh.origin_point());
+        set_scaling_factor(ref_mesh.scaling_factor());
     }
 
     template <class D, class Config>

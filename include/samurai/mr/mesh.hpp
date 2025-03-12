@@ -72,6 +72,7 @@ namespace samurai
         using lca_type = typename base_type::lca_type;
 
         MRMesh() = default;
+        MRMesh(const ca_type& ca, const self_type& ref_mesh);
         MRMesh(const cl_type& cl, const self_type& ref_mesh);
         MRMesh(const ca_type& ca, const self_type& ref_mesh);
         MRMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level);
@@ -100,6 +101,12 @@ namespace samurai
         template <typename... T>
         xt::xtensor<bool, 1> exists(mesh_id_t type, std::size_t level, interval_t interval, T... index) const;
     };
+
+    template <class Config>
+    inline MRMesh<Config>::MRMesh(const ca_type& ca, const self_type& ref_mesh)
+        : base_type(ca, ref_mesh)
+    {
+    }
 
     template <class Config>
     inline MRMesh<Config>::MRMesh(const cl_type& cl, const self_type& ref_mesh)

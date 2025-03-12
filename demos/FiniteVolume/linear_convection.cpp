@@ -207,11 +207,6 @@ int main(int argc, char* argv[])
         std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
         save(path, filename, u, suffix);
     }
-
-    // TODO : from strafella : why this include here ? git rebase bug
-    //
-#include <samurai/io/restart.hpp>
-
     while (t != Tf)
     {
 
