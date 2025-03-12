@@ -425,7 +425,7 @@ namespace samurai
     {
         if (m_cells[Dim - 1].empty())
         {
-            add_interval_back_rec<true, false, Dim - 1>(x_interval, yz);
+            add_interval_back_rec<true, true, Dim - 1>(x_interval, yz);
         }
         else
         {
