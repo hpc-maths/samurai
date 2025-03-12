@@ -4,13 +4,10 @@
 #pragma once
 
 #include <array>
-#include <execution>
 #include <iterator>
 #include <limits>
 #include <type_traits>
 #include <vector>
-
-#include <fstream>
 
 #ifdef SAMURAI_WITH_MPI
 #include <boost/serialization/serialization.hpp>
@@ -19,8 +16,6 @@
 
 #include <fmt/color.h>
 #include <fmt/format.h>
-
-#include <ranges>
 
 #include "algorithm.hpp"
 #include "box.hpp"
@@ -78,10 +73,9 @@ namespace samurai
         using cell_t              = Cell<dim, interval_t>;
         using index_t             = typename interval_t::index_t;
         using value_t             = typename interval_t::value_t;
-        using coord_index_t       = typename interval_t::coord_index_t;
-        using mesh_interval_t     = MeshInterval<Dim, TInterval>;
-        using indices_t           = typename cell_t::indices_t;
-        using coords_t            = typename cell_t::coords_t;
+        // using coord_index_t       = typename interval_t::coord_index_t;
+        using mesh_interval_t = MeshInterval<Dim, TInterval>;
+        using coords_t        = typename cell_t::coords_t;
 
         template <typename T, size_t dim>
         using fixed_array = xt::xtensor_fixed<T, xt::xshape<dim>>;
@@ -157,8 +151,6 @@ namespace samurai
 
         void update_index();
 
-        void update_index(const size_t d); // update index allong dimension d
-
         //// checks whether the container is empty
         bool empty() const;
 
@@ -172,7 +164,6 @@ namespace samurai
         std::size_t nb_cells() const;
 
         //
-
         double cell_length() const;
 
         const std::vector<interval_t>& operator[](std::size_t d) const;
@@ -182,7 +173,6 @@ namespace samurai
         std::vector<std::size_t>& offsets(std::size_t d);
 
         std::size_t level() const;
-        std::size_t& level();
 
         void clear();
 
@@ -740,19 +730,6 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    void LevelCellArray<Dim, TInterval>::update_index(const size_t d)
-    {
-        assert(d < m_cells.size());
-
-        size_t acc_size = 0;
-        for (interval_t& interval : m_cells[d])
-        {
-            interval.index = safe_subs<index_t>(acc_size, interval.start);
-            acc_size += interval.size();
-        }
-    }
-
-    template <std::size_t Dim, class TInterval>
     inline bool LevelCellArray<Dim, TInterval>::empty() const
     {
         return m_cells[0].empty();
@@ -793,12 +770,6 @@ namespace samurai
 
     template <std::size_t Dim, class TInterval>
     inline std::size_t LevelCellArray<Dim, TInterval>::level() const
-    {
-        return m_level;
-    }
-
-    template <std::size_t Dim, class TInterval>
-    inline std::size_t& LevelCellArray<Dim, TInterval>::level()
     {
         return m_level;
     }
