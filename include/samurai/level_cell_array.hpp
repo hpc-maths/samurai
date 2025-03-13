@@ -350,7 +350,7 @@ namespace samurai
         set(
             [this](const auto& i, const auto& index)
             {
-                add_interval_back({i.start, i.end}, index);
+                add_interval_back(i, index);
             });
     }
 
