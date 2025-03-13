@@ -972,65 +972,69 @@ namespace samurai
         // }
     }
 
-    template <class Field, std::size_t stencil_size>
-    void apply_extrapolation_bc_impl(Bc<Field>& bc, std::size_t level, Field& field, bool diagonals_only, bool only_fill_ghost_neighbours)
-    {
-        static constexpr std::size_t dim = Field::dim;
+    // template <class Field, std::size_t stencil_size>
+    // void apply_extrapolation_bc_impl(Bc<Field>& bc, std::size_t level, Field& field, bool diagonals_only, bool
+    // only_fill_ghost_neighbours)
+    // {
+    //     static constexpr std::size_t dim = Field::dim;
 
-        using direction_t = DirectionVector<dim>;
+    //     using direction_t = DirectionVector<dim>;
 
-        auto domain = self(field.mesh().domain()).on(level);
+    //     auto domain = self(field.mesh().domain()).on(level);
 
-        static_nested_loop<dim, -1, 2>(
-            [&](auto& dir)
-            {
-                int number_of_one = xt::sum(xt::abs(dir))[0];
+    //     static_nested_loop<dim, -1, 2>(
+    //         [&](auto& dir)
+    //         {
+    //             int number_of_one = xt::sum(xt::abs(dir))[0];
 
-                if (number_of_one > 0)
-                {
-                    bool is_periodic = false;
-                    for (std::size_t i = 0; i < dim; ++i)
-                    {
-                        if (dir(i) != 0 && field.mesh().is_periodic(i))
-                        {
-                            is_periodic = true;
-                            break;
-                        }
-                    }
-                    if (!is_periodic)
-                    {
-                        bool is_cartesian_direction = is_cartesian(dir);
+    //             if (number_of_one > 0)
+    //             {
+    //                 bool is_periodic = false;
+    //                 for (std::size_t i = 0; i < dim; ++i)
+    //                 {
+    //                     if (dir(i) != 0 && field.mesh().is_periodic(i))
+    //                     {
+    //                         is_periodic = true;
+    //                         break;
+    //                     }
+    //                 }
+    //                 if (!is_periodic)
+    //                 {
+    //                     bool is_cartesian_direction = is_cartesian(dir);
 
-                        if (!diagonals_only || !is_cartesian_direction)
-                        {
-                            if (is_cartesian_direction)
-                            {
-                                auto subset = difference(domain, translate(domain, -dir));
-                                __apply_extrapolation_bc_on_subset<stencil_size>(bc, level, field, dir, subset, only_fill_ghost_neighbours);
-                            }
-                            else
-                            {
-                                if constexpr (dim == 2)
-                                {
-                                    auto subset = difference(
-                                        domain,
-                                        union_(translate(domain, direction_t{-dir[0], 0}), translate(domain, direction_t{0, -dir[1]})));
-                                    __apply_extrapolation_bc_on_subset<stencil_size>(bc, level, field, dir, subset, only_fill_ghost_neighbours);
-                                }
-                                else if constexpr (dim == 3)
-                                {
-                                    auto subset = difference(domain,
-                                                             union_(translate(domain, direction_t{-dir[0], 0, 0}),
-                                                                    translate(domain, direction_t{0, -dir[1], 0}),
-                                                                    translate(domain, direction_t{0, 0, -dir[2]})));
-                                    __apply_extrapolation_bc_on_subset<stencil_size>(bc, level, field, dir, subset, only_fill_ghost_neighbours);
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-    }
+    //                     if (!diagonals_only || !is_cartesian_direction)
+    //                     {
+    //                         if (is_cartesian_direction)
+    //                         {
+    //                             auto subset = difference(domain, translate(domain, -dir));
+    //                             __apply_extrapolation_bc_on_subset<stencil_size>(bc, level, field, dir, subset,
+    //                             only_fill_ghost_neighbours);
+    //                         }
+    //                         else
+    //                         {
+    //                             if constexpr (dim == 2)
+    //                             {
+    //                                 auto subset = difference(
+    //                                     domain,
+    //                                     union_(translate(domain, direction_t{-dir[0], 0}), translate(domain, direction_t{0, -dir[1]})));
+    //                                 __apply_extrapolation_bc_on_subset<stencil_size>(bc, level, field, dir, subset,
+    //                                 only_fill_ghost_neighbours);
+    //                             }
+    //                             else if constexpr (dim == 3)
+    //                             {
+    //                                 auto subset = difference(domain,
+    //                                                          union_(translate(domain, direction_t{-dir[0], 0, 0}),
+    //                                                                 translate(domain, direction_t{0, -dir[1], 0}),
+    //                                                                 translate(domain, direction_t{0, 0, -dir[2]})));
+    //                                 __apply_extrapolation_bc_on_subset<stencil_size>(bc, level, field, dir, subset,
+    //                                 only_fill_ghost_neighbours);
+    //                             }
+    //                         }
+    //                     }
+    //                 }
+    //             }
+    //         });
+    // }
 
     template <std::size_t order, class Field>
     struct DirichletImpl : public Bc<Field>
@@ -1273,6 +1277,16 @@ namespace samurai
         update_bc_for_scheme(field, direction);
     }
 
+    template <class Field>
+    void update_bc_for_scheme(Field& field)
+    {
+        for_each_cartesian_direction<Field::dim>(
+            [&](const auto& direction)
+            {
+                update_bc_for_scheme(field, direction);
+            });
+    }
+
     template <class Mesh>
     auto get_corner(const Mesh& mesh, std::size_t level, const DirectionVector<Mesh::dim>& direction)
     {
@@ -1312,7 +1326,6 @@ namespace samurai
         PolynomialExtrapolation<Field, extrap_stencil_size> bc(domain, ConstantBc<Field>(), true);
 
         auto corner = get_corner(field.mesh(), level, direction);
-        // apply_extrapolation_bc_impl<Field, extrap_stencil_size>(bc, level, field);
 
         __apply_extrapolation_bc_on_subset<extrap_stencil_size>(bc, level, field, direction, corner);
     }
@@ -1460,30 +1473,30 @@ namespace samurai
     //     }
     // }
 
-    template <class Field, class... Fields>
-    void update_bc(std::size_t level, Field& field, Fields&... fields)
-    {
-        update_bc(level, field);
-        update_bc(level, fields...);
-    }
+    // template <class Field, class... Fields>
+    // void update_bc(std::size_t level, Field& field, Fields&... fields)
+    // {
+    //     update_bc(level, field);
+    //     update_bc(level, fields...);
+    // }
 
-    template <class Field>
-    void update_bc(Field& field)
-    {
-        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
-        auto& mesh      = field.mesh()[mesh_id_t::reference];
+    // template <class Field>
+    // void update_bc(Field& field)
+    // {
+    //     using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+    //     auto& mesh      = field.mesh()[mesh_id_t::reference];
 
-        for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
-        {
-            update_bc(level, field);
-        }
-    }
+    //     for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
+    //     {
+    //         update_bc(level, field);
+    //     }
+    // }
 
-    template <class Field, class... Fields>
-    void update_bc(Field& field, Fields&... fields)
-    {
-        update_bc(field);
-        update_bc(fields...);
-    }
+    // template <class Field, class... Fields>
+    // void update_bc(Field& field, Fields&... fields)
+    // {
+    //     update_bc(field);
+    //     update_bc(fields...);
+    // }
 
 } // namespace samurai

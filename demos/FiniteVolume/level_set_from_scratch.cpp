@@ -438,8 +438,8 @@ inline void amr_prediction(Field& field)
 
     const std::size_t max_level = mesh[mesh_id_t::cells].max_level();
 
-    samurai::update_bc(0, field);
-
+    // samurai::update_bc(0, field);
+    samurai::update_outer_ghosts(field);
     for (std::size_t level = 1; level <= max_level; ++level)
     {
         auto expr = samurai::intersection(mesh.domain(),
@@ -447,7 +447,7 @@ inline void amr_prediction(Field& field)
                         .on(level);
 
         expr.apply_op(samurai::prediction<1, false>(field));
-        samurai::update_bc(level, field);
+        // samurai::update_bc(level, field);
     }
 }
 
