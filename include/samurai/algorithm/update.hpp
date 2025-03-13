@@ -90,8 +90,9 @@ namespace samurai
         }
     }
 
-    template <class Field, class... Fields>
-    void project_bc(std::size_t level, const DirectionVector<Field::dim>& direction, Field& field, Fields&... other_fields)
+    template <class Field>
+    void
+    project_bc(std::size_t proj_level, std::size_t data_level, const DirectionVector<Field::dim>& direction, int layer_width, Field& field)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
@@ -99,203 +100,191 @@ namespace samurai
         constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
 
         static_assert(pred_order == 1);
+        assert(proj_level < data_level);
+
+        std::size_t delta_l = data_level - proj_level;
 
         auto& mesh              = field.mesh();
-        auto domain             = self(mesh.domain()).on(level);
-        auto& cells             = mesh[mesh_id_t::cells][level];
-        auto& all               = mesh[mesh_id_t::reference][level];
-        auto& inner_proj_ghosts = mesh[mesh_id_t::proj_cells][level];
+        auto domain             = self(mesh.domain()).on(data_level);
+        auto& cells             = mesh[mesh_id_t::cells][data_level];
+        auto& inner_proj_ghosts = mesh[mesh_id_t::proj_cells][data_level];
 
         auto d                  = find_direction_index(direction);
         bool positive_direction = direction[d] == 1;
 
-        std::cout << "================================================= direction = " << direction << ", level = " << level << std::endl;
+        // std::cout << "=========================================== direction = " << direction << ", data_level = " << data_level <<
+        // std::endl;
 
-        for (std::size_t lower = 1; lower <= 1; ++lower) // lower level
+        // auto possible_outside_layer = difference(translate(cells, layer_width * direction), domain);
+        // auto outside_layer          = intersection(possible_outside_layer, mesh[mesh_id_t::reference][level]);
+
+        //-- with cells
+        // auto outside_layer = difference(translate(cells, layer_width * direction), domain);
+
+        //-- with all
+        auto inner_all     = layer_width == 1 ? union_(inner_proj_ghosts, cells) : union_(cells, cells);
+        auto outside_layer = difference(translate(inner_all, layer_width * direction), domain);
+
+        auto projection_ghosts = intersection(outside_layer, mesh[mesh_id_t::reference][proj_level]).on(proj_level);
+
+        // Projection of 2^(dim-1) children
+        std::size_t n_children           = static_cast<std::size_t>(layer_width) * (1 << delta_l); // layer_width * 2^(dim-1)
+        std::size_t n_children_per_layer = n_children / static_cast<std::size_t>(layer_width);
+        double avg_factor                = 1. / static_cast<double>(n_children);
+
+        // std::cout << "\tlower = " << delta_l << ", layer_width = " << layer_width << ", n_children = " << n_children << std::endl;
+
+        if constexpr (dim == 1)
         {
-            auto proj_level = level - lower;
-            for (int layer_width = 1; layer_width <= 1; layer_width++) // number of fine cell layers to project
+            // Projection of 1 child
+            if (positive_direction) // right
             {
-                // auto possible_outside_layer = difference(translate(cells, layer_width * direction), domain);
-                // auto outside_layer          = intersection(possible_outside_layer, mesh[mesh_id_t::reference][level]);
+                projection_ghosts(
+                    [&](const auto& i, const auto&)
+                    {
+                        auto i_child         = layer_width * (1 << delta_l) * i; // 2i if delta_l == 1, 4i if delta_l == 2
+                        field(proj_level, i) = field(data_level, i_child);
+                    });
+            }
+            else // left
+            {
+                projection_ghosts(
+                    [&](const auto& i, const auto&)
+                    {
+                        auto i_child         = layer_width * (1 << delta_l) * i;           // (2i+1) if delta_l == 1, 4i if delta_l == 2
+                        field(proj_level, i) = field(data_level, layer_width * 2 * i + 1); // 2i+1 fixed
+                    });
+            }
+        }
+        else
+        {
+            // Projection of 2 children
+            if (d == 0) // x-direction
+            {
+                projection_ghosts(
+                    [&](const auto& i, const auto& index)
+                    {
+                        using index_t = std::decay_t<decltype(index)>;
 
-                //-- with cells
-                // auto outside_layer = difference(translate(cells, layer_width * direction), domain);
+                        // std::cout << "--------------------------------" << std::endl;
+                        // std::cout << "field(" << proj_level << "," << i << "," << index << ") = " << field(proj_level, i, index) <<
+                        // std::endl;
 
-                //-- with all
-                auto inner_all     = layer_width == 1 ? intersection(union_(inner_proj_ghosts, cells), domain)
-                                                      : intersection(union_(cells, cells), cells);
-                auto outside_layer = difference(translate(inner_all, layer_width * direction), domain);
+                        field(proj_level, i, index) = 0;
 
-                auto projection_ghosts = intersection(outside_layer, mesh[mesh_id_t::reference][proj_level]).on(proj_level);
-
-                // Projection of 2^(dim-1) children
-                std::size_t n_children           = static_cast<std::size_t>(layer_width) * (1 << lower); // layer_width * 2^(dim-1)
-                std::size_t n_children_per_layer = n_children / static_cast<std::size_t>(layer_width);
-                double avg_factor                = 1. / static_cast<double>(n_children);
-
-                std::cout << "\tlower = " << lower << ", layer_width = " << layer_width << ", n_children = " << n_children << std::endl;
-                if (lower == 3)
-                {
-                    // std::cout << "n_children = " << n_children << std::endl;
-                    // std::cout << "avg_factor = " << avg_factor << std::endl;
-
-                    std::cout << "outside_layer = " << std::endl;
-                    outside_layer(
-                        [&](const auto& i, const auto& index)
+                        // if positive direction, right --> 2i   fixed
+                        //                   else left  --> 2i+1 fixed
+                        auto i_child = (1 << delta_l) * i;
+                        if (!positive_direction)
                         {
-                            std::cout << "i = " << i << ", index = " << index << std::endl;
-                        });
-                }
+                            i_child.start += (1 << delta_l) - 1;
+                        }
+                        i_child.end = i_child.start + 1;
 
-                if constexpr (dim == 1)
-                {
-                    // Projection of 1 child
-                    if (positive_direction) // right
-                    {
-                        projection_ghosts(
-                            [&](const auto& i, const auto&)
+                        index_t index_child = (1 << delta_l) * index;
+
+                        for (std::size_t layer = 0; layer < static_cast<std::size_t>(layer_width); ++layer)
+                        {
+                            for (std::size_t d1 = 0; d1 < dim - 1; ++d1) // next direction
                             {
-                                auto i_child         = layer_width * (1 << lower) * i; // 2i if lower == 1, 4i if lower == 2
-                                field(proj_level, i) = field(level, i_child);
-                            });
-                    }
-                    else // left
-                    {
-                        projection_ghosts(
-                            [&](const auto& i, const auto&)
-                            {
-                                auto i_child         = layer_width * (1 << lower) * i;        // (2i+1) if lower == 1, 4i if lower == 2
-                                field(proj_level, i) = field(level, layer_width * 2 * i + 1); // 2i+1 fixed
-                            });
-                    }
-                }
-                else
-                {
-                    // Projection of 2 children
-                    if (d == 0) // x-direction
-                    {
-                        projection_ghosts(
-                            [&](const auto& i, const auto& index)
-                            {
-                                using index_t = std::decay_t<decltype(index)>;
-
-                                std::cout << "--------------------------------" << std::endl;
-                                std::cout << "field(" << proj_level << "," << i << "," << index << ") = " << field(proj_level, i, index)
-                                          << std::endl;
-
-                                field(proj_level, i, index) = 0;
-
-                                // if positive direction, right --> 2i   fixed
-                                //                   else left  --> 2i+1 fixed
-                                auto i_child = (1 << lower) * i;
-                                if (!positive_direction)
+                                for (std::size_t dummy1 = 0; dummy1 < n_children_per_layer; ++dummy1, ++index_child[d1])
                                 {
-                                    i_child.start += (1 << lower) - 1;
-                                }
-                                i_child.end = i_child.start + 1;
-                                // i_child.step = 1;
-
-                                index_t index_child = (1 << lower) * index;
-
-                                for (std::size_t layer = 0; layer < static_cast<std::size_t>(layer_width); ++layer)
-                                {
-                                    for (std::size_t d1 = 0; d1 < dim - 1; ++d1) // next direction
+                                    if constexpr (dim == 2)
                                     {
-                                        for (std::size_t dummy1 = 0; dummy1 < n_children_per_layer; ++dummy1, ++index_child[d1])
+                                    // std::cout << "field(" << proj_level << "," << i << "," << index << ") += " << avg_factor
+                                    //           << " * field(" << data_level << "," << i_child << "," << index_child << ")"
+                                    //           << " = " << field(data_level, i_child, index_child) << std::endl;
+
+#ifdef SAMURAI_CHECK_NAN
+                                        if (xt::any(xt::isnan(field(data_level, i_child, index_child))))
                                         {
-                                            if constexpr (dim == 2)
-                                            {
-                                                std::cout << "field(" << proj_level << "," << i << "," << index << ") += " << avg_factor
-                                                          << " * field(" << level << "," << i_child << "," << index_child << ")" << " = "
-                                                          << field(level, i_child, index_child) << std::endl;
-                                                if (xt::any(xt::isnan(field(level, i_child, index_child))))
-                                                {
-                                                    std::cout << "NaN in field(" << level << "," << i_child << "," << index_child << ")"
-                                                              << std::endl;
-                                                    // std::exit(1);
-                                                }
-                                                field(proj_level, i, index) += avg_factor * field(level, i_child, index_child);
-                                            }
-                                            else if constexpr (dim == 3)
-                                            {
-                                                for (std::size_t d2 = d1 + 1; d2 < dim - 1; ++d2)
-                                                {
-                                                    for (std::size_t dummy2 = 0; dummy2 < n_children_per_layer; ++dummy2, ++index_child[d2])
-                                                    {
-                                                        field(proj_level, i, index) += avg_factor * field(level, i_child, index_child);
-                                                    }
-                                                    index_child[d2] -= n_children_per_layer; // reset index_child[d2]
-                                                }
-                                            }
+                                            std::cerr << "NaN in field(" << data_level << "," << i_child << "," << index_child << ")"
+                                                      << std::endl;
+                                            std::exit(1);
                                         }
-                                        index_child[d1] -= n_children_per_layer; // reset index_child[d1]
+#endif
+                                        field(proj_level, i, index) += avg_factor * field(data_level, i_child, index_child);
                                     }
-                                    i_child += positive_direction ? 1 : -1; // next layer
-                                }
-                            });
-                    }
-                    else // other directions
-                    {
-                        projection_ghosts(
-                            [&](const auto& i, const auto& index)
-                            {
-                                using index_t = std::decay_t<decltype(index)>;
-
-                                field(proj_level, i, index) = 0;
-
-                                // std::cout << "--------------------------------" << std::endl;
-                                // std::cout << "field(" << proj_level << "," << i << "," << index << ") = " << field(proj_level, i, index)
-                                //           << std::endl;
-
-                                // if positive direction, top     --> 2j   fixed (=index[d-1])
-                                //                   else bottom  --> 2j+1 fixed
-                                auto i_child        = (1 << lower) * i;
-                                index_t index_child = (1 << lower) * index;
-                                // i_child.step        = 1;
-                                if (!positive_direction)
-                                {
-                                    index_child[d - 1] += (1 << lower) - 1;
-                                }
-
-                                for (std::size_t layer = 0; layer < static_cast<std::size_t>(layer_width); ++layer)
-                                {
-                                    for (std::size_t dummy1 = 0; dummy1 < n_children_per_layer; ++dummy1, i_child += 1) // i loop
+                                    else if constexpr (dim == 3)
                                     {
-                                        if constexpr (dim == 2)
+                                        for (std::size_t d2 = d1 + 1; d2 < dim - 1; ++d2)
                                         {
-                                            // std::cout << "field(" << proj_level << "," << i << "," << index << ") += " << avg_factor
-                                            //           << " * field(" << level << "," << i_child << "," << index_child << ")" << " = "
-                                            //           << field(level, i_child, index_child) << std::endl;
-                                            if (xt::any(xt::isnan(field(level, i_child, index_child))))
+                                            for (std::size_t dummy2 = 0; dummy2 < n_children_per_layer; ++dummy2, ++index_child[d2])
                                             {
-                                                std::cout << "NaN in field(" << level << "," << i_child << "," << index_child << ")"
-                                                          << std::endl;
-                                                // std::exit(1);
+                                                field(proj_level, i, index) += avg_factor * field(data_level, i_child, index_child);
                                             }
-                                            field(proj_level, i, index) = avg_factor * field(level, i_child, index_child);
-                                        }
-                                        else if constexpr (dim == 3)
-                                        {
-                                            for (std::size_t d2 = 0; d2 < dim - 1; ++d2)
-                                            {
-                                                if (d2 != d - 1)
-                                                {
-                                                    for (std::size_t dummy2 = 0; dummy2 < n_children_per_layer; ++dummy2, ++index_child[d2])
-                                                    {
-                                                        field(proj_level, i, index) += avg_factor * field(level, i_child, index_child);
-                                                    }
-                                                    index_child[d2] -= n_children_per_layer; // reset index_child[d2]
-                                                }
-                                            }
+                                            index_child[d2] -= n_children_per_layer; // reset index_child[d2]
                                         }
                                     }
-                                    i_child -= static_cast<int>(n_children_per_layer); // reset i_child
-                                    index_child[d - 1] += positive_direction ? 1 : -1; // next layer
                                 }
-                            });
-                    }
-                }
+                                index_child[d1] -= n_children_per_layer; // reset index_child[d1]
+                            }
+                            i_child += positive_direction ? 1 : -1; // next layer
+                        }
+                    });
+            }
+            else // other directions
+            {
+                projection_ghosts(
+                    [&](const auto& i, const auto& index)
+                    {
+                        using index_t = std::decay_t<decltype(index)>;
+
+                        field(proj_level, i, index) = 0;
+
+                        // std::cout << "--------------------------------" << std::endl;
+                        // std::cout << "field(" << proj_level << "," << i << "," << index << ") = " << field(proj_level, i, index)
+                        //           << std::endl;
+
+                        // if positive direction, top     --> 2j   fixed (=index[d-1])
+                        //                   else bottom  --> 2j+1 fixed
+                        auto i_child        = (1 << delta_l) * i;
+                        index_t index_child = (1 << delta_l) * index;
+                        if (!positive_direction)
+                        {
+                            index_child[d - 1] += (1 << delta_l) - 1;
+                        }
+
+                        for (std::size_t layer = 0; layer < static_cast<std::size_t>(layer_width); ++layer)
+                        {
+                            for (std::size_t dummy1 = 0; dummy1 < n_children_per_layer; ++dummy1, i_child += 1) // i loop
+                            {
+                                if constexpr (dim == 2)
+                                {
+                                // std::cout << "field(" << proj_level << "," << i << "," << index << ") += " << avg_factor
+                                //           << " * field(" << data_level << "," << i_child << "," << index_child << ")" << " =
+                                //           "
+                                //           << field(data_level, i_child, index_child) << std::endl;
+
+#ifdef SAMURAI_CHECK_NAN
+                                    if (xt::any(xt::isnan(field(data_level, i_child, index_child))))
+                                    {
+                                        std::cerr << "NaN found in field(" << data_level << "," << i_child << "," << index_child
+                                                  << ") during projection of the B.C." << std::endl;
+                                        // std::exit(1);
+                                    }
+#endif
+                                    field(proj_level, i, index) = avg_factor * field(data_level, i_child, index_child);
+                                }
+                                else if constexpr (dim == 3)
+                                {
+                                    for (std::size_t d2 = 0; d2 < dim - 1; ++d2)
+                                    {
+                                        if (d2 != d - 1)
+                                        {
+                                            for (std::size_t dummy2 = 0; dummy2 < n_children_per_layer; ++dummy2, ++index_child[d2])
+                                            {
+                                                field(proj_level, i, index) += avg_factor * field(data_level, i_child, index_child);
+                                            }
+                                            index_child[d2] -= n_children_per_layer; // reset index_child[d2]
+                                        }
+                                    }
+                                }
+                            }
+                            i_child -= static_cast<int>(n_children_per_layer); // reset i_child
+                            index_child[d - 1] += positive_direction ? 1 : -1; // next layer
+                        }
+                    });
             }
         }
     }
@@ -309,10 +298,10 @@ namespace samurai
 
         auto& mesh = field.mesh();
 
-        for (std::size_t lower = 1; lower <= 2; ++lower) // lower level (1 or 2)
+        for (std::size_t delta_l = 1; delta_l <= 2; ++delta_l) // lower level (1 or 2)
         {
-            // std::cout << "lower = " << lower << std::endl;
-            auto proj_level = level - lower;
+            // std::cout << "delta_l = " << delta_l << std::endl;
+            auto proj_level = level - delta_l;
 
             auto fine_inner_corner = get_corner(mesh, level, direction);
             auto fine_outer_corner = intersection(translate(fine_inner_corner, direction), mesh[mesh_id_t::reference][level]);
@@ -325,14 +314,14 @@ namespace samurai
 
                     // std::cout << "-------------------" << std::endl;
 
-                    auto i_child = (1 << lower) * i;
-                    i_child.start += direction[0] == -1 ? ((1 << lower) - 1) : 0;
+                    auto i_child = (1 << delta_l) * i;
+                    i_child.start += direction[0] == -1 ? ((1 << delta_l) - 1) : 0;
                     i_child.end         = i_child.start + 1;
                     i_child.step        = 1;
-                    index_t index_child = (1 << lower) * index;
+                    index_t index_child = (1 << delta_l) * index;
                     for (std::size_t d = 0; d < dim - 1; ++d)
                     {
-                        index_child[d] += direction[d + 1] == -1 ? ((1 << lower) - 1) : 0;
+                        index_child[d] += direction[d + 1] == -1 ? ((1 << delta_l) - 1) : 0;
                     }
                     // std::cout << "field(" << proj_level << "," << i << "," << index << ") = field(" << level << "," << i_child << ","
                     //           << index_child << ")"
@@ -390,8 +379,8 @@ namespace samurai
     //     }
     // }
 
-    template <class Field, class... Fields>
-    void update_outer_ghosts(Field& field, Fields&... other_fields)
+    template <class Field>
+    void update_outer_ghosts(Field& field)
     {
         // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, mesh, field);
         constexpr std::size_t dim = Field::dim;
@@ -406,7 +395,7 @@ namespace samurai
                 {
                     update_outer_corners_by_polynomial_extrapolation(level, direction, field);
                     // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
-                    project_corner_below(level, direction, field, other_fields...);
+                    project_corner_below(level, direction, field);
                     // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
                 });
         }
@@ -420,18 +409,26 @@ namespace samurai
                 {
                     if (level < mesh.max_level())
                     {
-                        // Project the B.C. onto the level below
-                        project_bc(level + 1, direction, field, other_fields...);
+                        // Project the B.C. from level+1 to level
+                        int layer_width = 1;
+                        project_bc(level, level + 1, direction, layer_width, field);
                     }
                     if (level >= mesh.min_level())
                     {
                         // Apply the B.C. at the same level as the cells
-                        update_bc_for_scheme(level, direction, field, other_fields...);
+                        update_bc_for_scheme(level, direction, field);
                     }
                 });
         }
 
         // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, mesh, field);
+    }
+
+    template <class Field, class... Fields>
+    void update_outer_ghosts(Field& field, Fields&... fields)
+    {
+        update_outer_ghosts(field);
+        update_outer_ghosts(fields...);
     }
 
     template <class Field, class... Fields>
