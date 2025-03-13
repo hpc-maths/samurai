@@ -345,11 +345,12 @@ namespace samurai
     template <std::size_t Dim, class TInterval>
     template <class Op, class StartEndOp, class... S>
     inline LevelCellArray<Dim, TInterval>::LevelCellArray(Subset<Op, StartEndOp, S...> set)
+        : m_level(set.level())
     {
         set(
             [this](const auto& i, const auto& index)
             {
-                add_interval_back(i, index);
+                add_interval_back({i.start, i.end}, index);
             });
     }
 
@@ -468,7 +469,9 @@ namespace samurai
             if constexpr (isIntervalListEmpty)
             {
                 intervals.emplace_back(y, y + 1, -y);
-                y_offsets.push_back(1);
+                y_offsets.resize(2);
+                y_offsets[0] = 0;
+                y_offsets[1] = 1;
                 add_interval_back_rec<isIntervalListEmpty, true, d - 1>(x_interval, yz);
                 return 1;
             }
