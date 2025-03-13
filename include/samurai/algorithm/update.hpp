@@ -388,40 +388,55 @@ namespace samurai
         auto& mesh = field.mesh();
 
         // Outer corners
-        for (std::size_t level = mesh.max_level(); level >= mesh.min_level(); --level)
-        {
-            for_each_diagonal_direction<dim>(
-                [&](auto& direction)
+        for_each_diagonal_direction<dim>(
+            [&](auto& direction)
+            {
+                auto d = find_direction_index(direction);
+                if (!mesh.is_periodic(d))
                 {
-                    update_outer_corners_by_polynomial_extrapolation(level, direction, field);
-                    // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
-                    project_corner_below(level, direction, field);
-                    // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
-                });
-        }
+                    for (std::size_t level = mesh.max_level(); level >= mesh.min_level(); --level)
+                    {
+                        update_outer_corners_by_polynomial_extrapolation(level, direction, field);
+                        // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
+                        project_corner_below(level, direction, field);
+                        // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
+                    }
+                }
+            });
 
-        for (std::size_t level = mesh.max_level(); level >= mesh.min_level() - 2; --level)
-        {
-            samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
-
-            for_each_cartesian_direction<dim>(
-                [&](auto& direction)
+        // Apply the B.C. at the same level as the cells and project below
+        for_each_cartesian_direction<dim>(
+            [&](auto& direction)
+            {
+                auto d = find_direction_index(direction);
+                if (!mesh.is_periodic(d))
                 {
-                    if (level < mesh.max_level())
+                    // std::size_t min_level_minus_2 = mesh.min_level() >= 2 ? mesh.min_level() - 2 : 0;
+                    for (std::size_t level = mesh.max_level(); level >= mesh.min_level() - 2; --level)
                     {
-                        // Project the B.C. from level+1 to level
-                        int layer_width = 1;
-                        project_bc(level, level + 1, direction, layer_width, field);
-                    }
-                    if (level >= mesh.min_level())
-                    {
-                        // Apply the B.C. at the same level as the cells
-                        update_bc_for_scheme(level, direction, field);
-                    }
-                });
-        }
+                        // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
 
-        // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, mesh, field);
+                        if (level < mesh.max_level())
+                        {
+                            // Project the B.C. from level+1 to level
+                            int layer_width = 1;
+                            project_bc(level, level + 1, direction, layer_width, field);
+                        }
+                        if (level >= mesh.min_level())
+                        {
+                            // Apply the B.C. at the same level as the cells
+                            update_bc_for_scheme(level, direction, field);
+                        }
+
+                        if (level == 0)
+                        {
+                            break;
+                        }
+                    }
+                }
+            });
+
+        samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, mesh, field);
     }
 
     template <class Field, class... Fields>
@@ -480,7 +495,7 @@ namespace samurai
             // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, mesh, field);
             //  update_bc(level, field, other_fields...);
         }
-        samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, mesh, field);
+        // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, mesh, field);
 
         times::timers.stop("ghost update");
     }
