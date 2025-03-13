@@ -107,7 +107,7 @@ namespace samurai
 
         // assumes the point is placed AFTER all the points in this array.
         void add_point_back(const value_t& x, const fixed_array<value_t, Dim - 1>& yz_point);
-        void add_interval_back(const fixed_array<value_t, 2>& x_interval, const fixed_array<value_t, Dim - 1>& yz_point);
+        void add_interval_back(const interval_t& x_interval, const fixed_array<value_t, Dim - 1>& yz_point);
 
         iterator begin();
         iterator end();
@@ -206,7 +206,7 @@ namespace samurai
         }
 #endif
         template <bool isIntervalListEmpty, bool isParentPointNew, size_t d>
-        size_t add_interval_back_rec(const fixed_array<value_t, 2>& x_interval, const fixed_array<value_t, Dim - 1>& yz);
+        size_t add_interval_back_rec(const interval_t& x_interval, const fixed_array<value_t, Dim - 1>& yz);
 
         /// Recursive construction from a level cell list along dimension > 0
         template <typename TGrid, std::size_t N>
@@ -418,8 +418,7 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline void
-    LevelCellArray<Dim, TInterval>::add_interval_back(const fixed_array<value_t, 2>& x_interval, const fixed_array<value_t, Dim - 1>& yz)
+    inline void LevelCellArray<Dim, TInterval>::add_interval_back(const interval_t& x_interval, const fixed_array<value_t, Dim - 1>& yz)
     {
         if (m_cells[Dim - 1].empty())
         {
@@ -437,8 +436,7 @@ namespace samurai
      */
     template <std::size_t Dim, class TInterval>
     template <bool isIntervalListEmpty, bool isParentPointNew, size_t d>
-    inline size_t
-    LevelCellArray<Dim, TInterval>::add_interval_back_rec(const fixed_array<value_t, 2>& x_interval, const fixed_array<value_t, Dim - 1>& yz)
+    inline size_t LevelCellArray<Dim, TInterval>::add_interval_back_rec(const interval_t& x_interval, const fixed_array<value_t, Dim - 1>& yz)
     {
         static_assert(d <= Dim - 1);
 
@@ -446,8 +444,8 @@ namespace samurai
 
         if constexpr (d == 0)
         {
-            const value_t xmin = x_interval[0];
-            const value_t xmax = x_interval[1];
+            const value_t xmin = x_interval.start;
+            const value_t xmax = x_interval.end;
 
             if (isIntervalListEmpty or isParentPointNew or intervals.back().end < xmin)
             {
