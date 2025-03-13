@@ -91,9 +91,310 @@ namespace samurai
     }
 
     template <class Field, class... Fields>
+    void project_bc(std::size_t level, const DirectionVector<Field::dim>& direction, Field& field, Fields&... other_fields)
+    {
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+
+        constexpr std::size_t dim        = Field::dim;
+        constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
+
+        static_assert(pred_order == 1);
+
+        auto& mesh              = field.mesh();
+        auto domain             = self(mesh.domain()).on(level);
+        auto& cells             = mesh[mesh_id_t::cells][level];
+        auto& all               = mesh[mesh_id_t::reference][level];
+        auto& inner_proj_ghosts = mesh[mesh_id_t::proj_cells][level];
+
+        auto d                  = find_direction_index(direction);
+        bool positive_direction = direction[d] == 1;
+
+        std::cout << "================================================= direction = " << direction << ", level = " << level << std::endl;
+
+        for (std::size_t lower = 1; lower <= 1; ++lower) // lower level
+        {
+            auto proj_level = level - lower;
+            for (int layer_width = 1; layer_width <= 1; layer_width++) // number of fine cell layers to project
+            {
+                // auto possible_outside_layer = difference(translate(cells, layer_width * direction), domain);
+                // auto outside_layer          = intersection(possible_outside_layer, mesh[mesh_id_t::reference][level]);
+
+                //-- with cells
+                // auto outside_layer = difference(translate(cells, layer_width * direction), domain);
+
+                //-- with all
+                auto inner_all     = layer_width == 1 ? intersection(union_(inner_proj_ghosts, cells), domain)
+                                                      : intersection(union_(cells, cells), cells);
+                auto outside_layer = difference(translate(inner_all, layer_width * direction), domain);
+
+                auto projection_ghosts = intersection(outside_layer, mesh[mesh_id_t::reference][proj_level]).on(proj_level);
+
+                // Projection of 2^(dim-1) children
+                std::size_t n_children           = static_cast<std::size_t>(layer_width) * (1 << lower); // layer_width * 2^(dim-1)
+                std::size_t n_children_per_layer = n_children / static_cast<std::size_t>(layer_width);
+                double avg_factor                = 1. / static_cast<double>(n_children);
+
+                std::cout << "\tlower = " << lower << ", layer_width = " << layer_width << ", n_children = " << n_children << std::endl;
+                if (lower == 3)
+                {
+                    // std::cout << "n_children = " << n_children << std::endl;
+                    // std::cout << "avg_factor = " << avg_factor << std::endl;
+
+                    std::cout << "outside_layer = " << std::endl;
+                    outside_layer(
+                        [&](const auto& i, const auto& index)
+                        {
+                            std::cout << "i = " << i << ", index = " << index << std::endl;
+                        });
+                }
+
+                if constexpr (dim == 1)
+                {
+                    // Projection of 1 child
+                    if (positive_direction) // right
+                    {
+                        projection_ghosts(
+                            [&](const auto& i, const auto&)
+                            {
+                                auto i_child         = layer_width * (1 << lower) * i; // 2i if lower == 1, 4i if lower == 2
+                                field(proj_level, i) = field(level, i_child);
+                            });
+                    }
+                    else // left
+                    {
+                        projection_ghosts(
+                            [&](const auto& i, const auto&)
+                            {
+                                auto i_child         = layer_width * (1 << lower) * i;        // (2i+1) if lower == 1, 4i if lower == 2
+                                field(proj_level, i) = field(level, layer_width * 2 * i + 1); // 2i+1 fixed
+                            });
+                    }
+                }
+                else
+                {
+                    // Projection of 2 children
+                    if (d == 0) // x-direction
+                    {
+                        projection_ghosts(
+                            [&](const auto& i, const auto& index)
+                            {
+                                using index_t = std::decay_t<decltype(index)>;
+
+                                std::cout << "--------------------------------" << std::endl;
+                                std::cout << "field(" << proj_level << "," << i << "," << index << ") = " << field(proj_level, i, index)
+                                          << std::endl;
+
+                                field(proj_level, i, index) = 0;
+
+                                // if positive direction, right --> 2i   fixed
+                                //                   else left  --> 2i+1 fixed
+                                auto i_child = (1 << lower) * i;
+                                if (!positive_direction)
+                                {
+                                    i_child.start += (1 << lower) - 1;
+                                }
+                                i_child.end = i_child.start + 1;
+                                // i_child.step = 1;
+
+                                index_t index_child = (1 << lower) * index;
+
+                                for (std::size_t layer = 0; layer < static_cast<std::size_t>(layer_width); ++layer)
+                                {
+                                    for (std::size_t d1 = 0; d1 < dim - 1; ++d1) // next direction
+                                    {
+                                        for (std::size_t dummy1 = 0; dummy1 < n_children_per_layer; ++dummy1, ++index_child[d1])
+                                        {
+                                            if constexpr (dim == 2)
+                                            {
+                                                std::cout << "field(" << proj_level << "," << i << "," << index << ") += " << avg_factor
+                                                          << " * field(" << level << "," << i_child << "," << index_child << ")" << " = "
+                                                          << field(level, i_child, index_child) << std::endl;
+                                                if (xt::any(xt::isnan(field(level, i_child, index_child))))
+                                                {
+                                                    std::cout << "NaN in field(" << level << "," << i_child << "," << index_child << ")"
+                                                              << std::endl;
+                                                    // std::exit(1);
+                                                }
+                                                field(proj_level, i, index) += avg_factor * field(level, i_child, index_child);
+                                            }
+                                            else if constexpr (dim == 3)
+                                            {
+                                                for (std::size_t d2 = d1 + 1; d2 < dim - 1; ++d2)
+                                                {
+                                                    for (std::size_t dummy2 = 0; dummy2 < n_children_per_layer; ++dummy2, ++index_child[d2])
+                                                    {
+                                                        field(proj_level, i, index) += avg_factor * field(level, i_child, index_child);
+                                                    }
+                                                    index_child[d2] -= n_children_per_layer; // reset index_child[d2]
+                                                }
+                                            }
+                                        }
+                                        index_child[d1] -= n_children_per_layer; // reset index_child[d1]
+                                    }
+                                    i_child += positive_direction ? 1 : -1; // next layer
+                                }
+                            });
+                    }
+                    else // other directions
+                    {
+                        projection_ghosts(
+                            [&](const auto& i, const auto& index)
+                            {
+                                using index_t = std::decay_t<decltype(index)>;
+
+                                field(proj_level, i, index) = 0;
+
+                                // std::cout << "--------------------------------" << std::endl;
+                                // std::cout << "field(" << proj_level << "," << i << "," << index << ") = " << field(proj_level, i, index)
+                                //           << std::endl;
+
+                                // if positive direction, top     --> 2j   fixed (=index[d-1])
+                                //                   else bottom  --> 2j+1 fixed
+                                auto i_child        = (1 << lower) * i;
+                                index_t index_child = (1 << lower) * index;
+                                // i_child.step        = 1;
+                                if (!positive_direction)
+                                {
+                                    index_child[d - 1] += (1 << lower) - 1;
+                                }
+
+                                for (std::size_t layer = 0; layer < static_cast<std::size_t>(layer_width); ++layer)
+                                {
+                                    for (std::size_t dummy1 = 0; dummy1 < n_children_per_layer; ++dummy1, i_child += 1) // i loop
+                                    {
+                                        if constexpr (dim == 2)
+                                        {
+                                            // std::cout << "field(" << proj_level << "," << i << "," << index << ") += " << avg_factor
+                                            //           << " * field(" << level << "," << i_child << "," << index_child << ")" << " = "
+                                            //           << field(level, i_child, index_child) << std::endl;
+                                            if (xt::any(xt::isnan(field(level, i_child, index_child))))
+                                            {
+                                                std::cout << "NaN in field(" << level << "," << i_child << "," << index_child << ")"
+                                                          << std::endl;
+                                                // std::exit(1);
+                                            }
+                                            field(proj_level, i, index) = avg_factor * field(level, i_child, index_child);
+                                        }
+                                        else if constexpr (dim == 3)
+                                        {
+                                            for (std::size_t d2 = 0; d2 < dim - 1; ++d2)
+                                            {
+                                                if (d2 != d - 1)
+                                                {
+                                                    for (std::size_t dummy2 = 0; dummy2 < n_children_per_layer; ++dummy2, ++index_child[d2])
+                                                    {
+                                                        field(proj_level, i, index) += avg_factor * field(level, i_child, index_child);
+                                                    }
+                                                    index_child[d2] -= n_children_per_layer; // reset index_child[d2]
+                                                }
+                                            }
+                                        }
+                                    }
+                                    i_child -= static_cast<int>(n_children_per_layer); // reset i_child
+                                    index_child[d - 1] += positive_direction ? 1 : -1; // next layer
+                                }
+                            });
+                    }
+                }
+            }
+        }
+    }
+
+    template <class Field>
+    void project_corner(std::size_t level, const DirectionVector<Field::dim>& direction, Field& field)
+    {
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+
+        static constexpr std::size_t dim = Field::dim;
+
+        auto& mesh = field.mesh();
+
+        for (std::size_t lower = 1; lower <= 2; ++lower) // lower level (1 or 2)
+        {
+            // std::cout << "lower = " << lower << std::endl;
+            auto proj_level = level - lower;
+
+            auto fine_inner_corner = get_corner(mesh, level, direction);
+            auto fine_outer_corner = intersection(translate(fine_inner_corner, direction), mesh[mesh_id_t::reference][level]);
+            auto projection_ghost  = intersection(fine_outer_corner.on(proj_level), mesh[mesh_id_t::reference][proj_level]);
+
+            projection_ghost(
+                [&](const auto& i, const auto& index)
+                {
+                    using index_t = std::decay_t<decltype(index)>;
+
+                    // std::cout << "-------------------" << std::endl;
+
+                    auto i_child = (1 << lower) * i;
+                    i_child.start += direction[0] == -1 ? ((1 << lower) - 1) : 0;
+                    i_child.end         = i_child.start + 1;
+                    i_child.step        = 1;
+                    index_t index_child = (1 << lower) * index;
+                    for (std::size_t d = 0; d < dim - 1; ++d)
+                    {
+                        index_child[d] += direction[d + 1] == -1 ? ((1 << lower) - 1) : 0;
+                    }
+                    // std::cout << "field(" << proj_level << "," << i << "," << index << ") = field(" << level << "," << i_child << ","
+                    //           << index_child << ")"
+                    //           << " = ";
+                    // std::cout << field(level, i_child, index_child) << std::endl;
+                    field(proj_level, i, index) = field(level, i_child, index_child);
+                });
+        }
+    }
+
+    template <class Field, class... Fields>
+    void apply_bc_and_project_below(std::size_t level, Field& field, Fields&... other_fields)
+    {
+        static constexpr std::size_t dim = Field::dim;
+
+        // Corners
+        static_nested_loop<dim, -1, 2>(
+            [&](auto& direction)
+            {
+                int number_of_ones = xt::sum(xt::abs(direction))[0];
+                if (number_of_ones > 1) // corner
+                {
+                    update_outer_corners_by_polynomial_extrapolation(level, direction, field);
+                    // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
+                    project_corner(level, direction, field, other_fields...);
+                    // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
+                }
+            });
+
+        DirectionVector<dim> direction;
+        direction.fill(0);
+
+        // Apply the B.C. at the same level as the cells
+        for (std::size_t d = 0; d < dim; ++d) // for all Cartesian direction
+        {
+            direction[d] = 1;
+            update_bc_for_scheme(level, direction, field, other_fields...);
+            // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
+            direction[d] = -1;
+            update_bc_for_scheme(level, direction, field, other_fields...);
+            // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
+            direction[d] = 0;
+        }
+
+        // Project the B.C. onto the two levels below
+        for (std::size_t d = 0; d < dim; ++d) // for all Cartesian direction
+        {
+            direction[d] = 1;
+            project_bc(level, direction, field, other_fields...);
+            // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
+            direction[d] = -1;
+            project_bc(level, direction, field, other_fields...);
+            // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
+            direction[d] = 0;
+        }
+    }
+
+    template <class Field, class... Fields>
     void update_ghost_mr(Field& field, Fields&... other_fields)
     {
         using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
+        constexpr std::size_t dim        = Field::dim;
         constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
 
         times::timers.start("ghost update");
@@ -111,15 +412,76 @@ namespace samurai
             set_at_levelm1.apply_op(variadic_projection(field, other_fields...));
         }
 
+        // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, mesh, field);
+
+        for (std::size_t level = mesh.max_level(); level >= mesh.min_level() - 2; --level)
+        {
+            // apply_bc_and_project_below(level, field, other_fields...);
+            if (level >= mesh.min_level())
+            {
+                //  Corners
+                static_nested_loop<dim, -1, 2>(
+                    [&](auto& direction)
+                    {
+                        int number_of_ones = xt::sum(xt::abs(direction))[0];
+                        if (number_of_ones > 1) // corner
+                        {
+                            update_outer_corners_by_polynomial_extrapolation(level, direction, field);
+                            // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
+                            project_corner(level, direction, field, other_fields...);
+                            // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
+                        }
+                    });
+            }
+
+            samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
+
+            DirectionVector<dim> direction;
+            direction.fill(0);
+
+            if (level < mesh.max_level())
+            {
+                // Project the B.C. from level+1 to level
+                for (std::size_t d = 0; d < dim; ++d) // for all Cartesian direction
+                {
+                    direction[d] = 1;
+                    project_bc(level + 1, direction, field, other_fields...);
+                    // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
+                    direction[d] = -1;
+                    project_bc(level + 1, direction, field, other_fields...);
+                    samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
+                    direction[d] = 0;
+                }
+            }
+            if (level >= mesh.min_level())
+            {
+                // Apply the B.C. at the same level as the cells
+                for (std::size_t d = 0; d < dim; ++d) // for all Cartesian direction
+                {
+                    direction[d] = 1;
+                    update_bc_for_scheme(level, direction, field, other_fields...);
+                    // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
+                    direction[d] = -1;
+                    update_bc_for_scheme(level, direction, field, other_fields...);
+                    // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
+                    direction[d] = 0;
+                }
+            }
+        }
+
+        // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, mesh, field);
+
         if (min_level > 0 && min_level != max_level)
         {
-            update_bc(min_level - 1, field, other_fields...);
+            // update_bc(min_level - 1, field, other_fields...);
             update_ghost_periodic(min_level - 1, field, other_fields...);
             update_ghost_subdomains(min_level - 1, field, other_fields...);
         }
-        update_bc(min_level, field, other_fields...);
+        // update_bc(min_level, field, other_fields...);
         update_ghost_periodic(min_level, field, other_fields...);
         update_ghost_subdomains(min_level, field, other_fields...);
+
+        // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, mesh, field);
 
         for (std::size_t level = min_level + 1; level <= max_level; ++level)
         {
@@ -132,8 +494,10 @@ namespace samurai
             expr.apply_op(variadic_prediction<pred_order, false>(field, other_fields...));
             update_ghost_periodic(level, field, other_fields...);
             update_ghost_subdomains(level, field, other_fields...);
-            update_bc(level, field, other_fields...);
+            // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, mesh, field);
+            //  update_bc(level, field, other_fields...);
         }
+        samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, mesh, field);
 
         times::timers.stop("ghost update");
     }
