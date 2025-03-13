@@ -346,14 +346,11 @@ namespace samurai
     template <class Op, class StartEndOp, class... S>
     inline LevelCellArray<Dim, TInterval>::LevelCellArray(Subset<Op, StartEndOp, S...> set)
     {
-        LevelCellList<Dim, TInterval> lcl{static_cast<std::size_t>(set.level())};
-
         set(
-            [&lcl](const auto& i, const auto& index)
+            [this](const auto& i, const auto& index)
             {
-                lcl[index].add_interval(i);
+                add_interval(i, index);
             });
-        *this = {lcl};
     }
 
     template <std::size_t Dim, class TInterval>
