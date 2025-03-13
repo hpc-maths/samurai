@@ -328,6 +328,20 @@ namespace samurai
         }
     }
 
+    template <std::size_t dim, class Func>
+    void for_each_diagonal_direction(Func&& f)
+    {
+        static_nested_loop<dim, -1, 2>(
+            [&](auto& direction)
+            {
+                int number_of_ones = xt::sum(xt::abs(direction))[0];
+                if (number_of_ones > 1)
+                {
+                    f(direction);
+                }
+            });
+    }
+
     /**
      * Returns a table of the form
      *      dir_stencils[i].direction = {direction};
