@@ -42,12 +42,13 @@ namespace samurai
             set_at_levelm1.apply_op(variadic_projection(field, fields...));
         }
 
-        update_bc(0, field, fields...);
+        // update_bc(0, field, fields...);
+        update_outer_ghosts(field, fields...);
         for (std::size_t level = mesh[mesh_id_t::reference].min_level(); level <= max_level; ++level)
         {
             auto set_at_level = intersection(mesh[mesh_id_t::pred_cells][level], mesh[mesh_id_t::reference][level - 1]).on(level);
             set_at_level.apply_op(variadic_prediction<pred_order, false>(field, fields...));
-            update_bc(level, field, fields...);
+            // update_bc(level, field, fields...);
         }
     }
 
@@ -66,7 +67,8 @@ namespace samurai
             set_at_levelm1.apply_op(projection(field));
         }
 
-        update_bc(0, field);
+        // update_bc(0, field);
+        update_outer_ghosts(field);
         for (std::size_t level = mesh[mesh_id_t::reference].min_level(); level <= max_level; ++level)
         {
             // We eliminate the overleaves from the computation since they
@@ -86,7 +88,7 @@ namespace samurai
                 self(mesh.domain()).on(level));
 
             expr.apply_op(prediction<pred_order, false>(field));
-            update_bc(level, field);
+            // update_bc(level, field);
         }
     }
 
@@ -101,6 +103,7 @@ namespace samurai
 
         static_assert(pred_order == 1);
         assert(proj_level < data_level);
+        assert(layer_width > 0 && layer_width <= Field::mesh_t::config::max_stencil_width);
 
         std::size_t delta_l = data_level - proj_level;
 
@@ -136,13 +139,14 @@ namespace samurai
 
         if constexpr (dim == 1)
         {
+            assert(layer_width == 1 && "Not implemented for dim == 1 and layer_width > 1");
             // Projection of 1 child
             if (positive_direction) // right
             {
                 projection_ghosts(
                     [&](const auto& i, const auto&)
                     {
-                        auto i_child         = layer_width * (1 << delta_l) * i; // 2i if delta_l == 1, 4i if delta_l == 2
+                        auto i_child         = (1 << delta_l) * i; // 2i if delta_l == 1, 4i if delta_l == 2
                         field(proj_level, i) = field(data_level, i_child);
                     });
             }
@@ -151,8 +155,8 @@ namespace samurai
                 projection_ghosts(
                     [&](const auto& i, const auto&)
                     {
-                        auto i_child         = layer_width * (1 << delta_l) * i;           // (2i+1) if delta_l == 1, 4i if delta_l == 2
-                        field(proj_level, i) = field(data_level, layer_width * 2 * i + 1); // 2i+1 fixed
+                        auto i_child         = (1 << delta_l) * i;         // (2i+1) if delta_l == 1, 4i if delta_l == 2
+                        field(proj_level, i) = field(data_level, i_child); // 2i+1 fixed
                     });
             }
         }
@@ -332,77 +336,33 @@ namespace samurai
         }
     }
 
-    // template <class Field, class... Fields>
-    // void apply_bc_and_project_below(std::size_t level, Field& field, Fields&... other_fields)
-    // {
-    //     static constexpr std::size_t dim = Field::dim;
-
-    //     // Corners
-    //     static_nested_loop<dim, -1, 2>(
-    //         [&](auto& direction)
-    //         {
-    //             int number_of_ones = xt::sum(xt::abs(direction))[0];
-    //             if (number_of_ones > 1) // corner
-    //             {
-    //                 update_outer_corners_by_polynomial_extrapolation(level, direction, field);
-    //                 // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
-    //                 project_corner(level, direction, field, other_fields...);
-    //                 // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
-    //             }
-    //         });
-
-    //     DirectionVector<dim> direction;
-    //     direction.fill(0);
-
-    //     // Apply the B.C. at the same level as the cells
-    //     for (std::size_t d = 0; d < dim; ++d) // for all Cartesian direction
-    //     {
-    //         direction[d] = 1;
-    //         update_bc_for_scheme(level, direction, field, other_fields...);
-    //         // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
-    //         direction[d] = -1;
-    //         update_bc_for_scheme(level, direction, field, other_fields...);
-    //         // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
-    //         direction[d] = 0;
-    //     }
-
-    //     // Project the B.C. onto the two levels below
-    //     for (std::size_t d = 0; d < dim; ++d) // for all Cartesian direction
-    //     {
-    //         direction[d] = 1;
-    //         project_bc(level, direction, field, other_fields...);
-    //         // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
-    //         direction[d] = -1;
-    //         project_bc(level, direction, field, other_fields...);
-    //         // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
-    //         direction[d] = 0;
-    //     }
-    // }
-
     template <class Field>
     void update_outer_ghosts(Field& field)
     {
-        // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, mesh, field);
         constexpr std::size_t dim = Field::dim;
 
         auto& mesh = field.mesh();
+        // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, mesh, field);
 
         // Outer corners
-        for_each_diagonal_direction<dim>(
-            [&](auto& direction)
-            {
-                auto d = find_direction_index(direction);
-                if (!mesh.is_periodic(d))
+        if constexpr (dim > 1)
+        {
+            for_each_diagonal_direction<dim>(
+                [&](auto& direction)
                 {
-                    for (std::size_t level = mesh.max_level(); level >= mesh.min_level(); --level)
+                    auto d = find_direction_index(direction);
+                    if (!mesh.is_periodic(d))
                     {
-                        update_outer_corners_by_polynomial_extrapolation(level, direction, field);
-                        // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
-                        project_corner_below(level, direction, field);
-                        // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
+                        for (std::size_t level = mesh.max_level(); level >= mesh.min_level(); --level)
+                        {
+                            update_outer_corners_by_polynomial_extrapolation(level, direction, field);
+                            // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
+                            project_corner_below(level, direction, field);
+                            // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
+                        }
                     }
-                }
-            });
+                });
+        }
 
         // Apply the B.C. at the same level as the cells and project below
         for_each_cartesian_direction<dim>(
@@ -436,7 +396,7 @@ namespace samurai
                 }
             });
 
-        samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, mesh, field);
+        // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, mesh, field);
     }
 
     template <class Field, class... Fields>
@@ -1178,7 +1138,8 @@ namespace samurai
         std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
 
-        update_bc(min_level, field);
+        // update_bc(min_level, field);
+        update_outer_ghosts(field);
         for (std::size_t level = min_level + 1; level <= max_level; ++level)
         {
             // These are the overleaves which are nothing else
@@ -1188,7 +1149,7 @@ namespace samurai
                                                     mesh[mesh_id_t::proj_cells][level]);
 
             overleaves_to_predict.apply_op(prediction<1, false>(field));
-            update_bc(level, field);
+            // update_bc(level, field);
         }
     }
 
