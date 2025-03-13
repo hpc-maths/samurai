@@ -301,7 +301,7 @@ namespace samurai
     }
 
     template <class Field>
-    void project_corner(std::size_t level, const DirectionVector<Field::dim>& direction, Field& field)
+    void project_corner_below(std::size_t level, const DirectionVector<Field::dim>& direction, Field& field)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
@@ -343,58 +343,101 @@ namespace samurai
         }
     }
 
-    template <class Field, class... Fields>
-    void apply_bc_and_project_below(std::size_t level, Field& field, Fields&... other_fields)
-    {
-        static constexpr std::size_t dim = Field::dim;
+    // template <class Field, class... Fields>
+    // void apply_bc_and_project_below(std::size_t level, Field& field, Fields&... other_fields)
+    // {
+    //     static constexpr std::size_t dim = Field::dim;
 
-        // Corners
-        static_nested_loop<dim, -1, 2>(
-            [&](auto& direction)
-            {
-                int number_of_ones = xt::sum(xt::abs(direction))[0];
-                if (number_of_ones > 1) // corner
+    //     // Corners
+    //     static_nested_loop<dim, -1, 2>(
+    //         [&](auto& direction)
+    //         {
+    //             int number_of_ones = xt::sum(xt::abs(direction))[0];
+    //             if (number_of_ones > 1) // corner
+    //             {
+    //                 update_outer_corners_by_polynomial_extrapolation(level, direction, field);
+    //                 // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
+    //                 project_corner(level, direction, field, other_fields...);
+    //                 // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
+    //             }
+    //         });
+
+    //     DirectionVector<dim> direction;
+    //     direction.fill(0);
+
+    //     // Apply the B.C. at the same level as the cells
+    //     for (std::size_t d = 0; d < dim; ++d) // for all Cartesian direction
+    //     {
+    //         direction[d] = 1;
+    //         update_bc_for_scheme(level, direction, field, other_fields...);
+    //         // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
+    //         direction[d] = -1;
+    //         update_bc_for_scheme(level, direction, field, other_fields...);
+    //         // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
+    //         direction[d] = 0;
+    //     }
+
+    //     // Project the B.C. onto the two levels below
+    //     for (std::size_t d = 0; d < dim; ++d) // for all Cartesian direction
+    //     {
+    //         direction[d] = 1;
+    //         project_bc(level, direction, field, other_fields...);
+    //         // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
+    //         direction[d] = -1;
+    //         project_bc(level, direction, field, other_fields...);
+    //         // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
+    //         direction[d] = 0;
+    //     }
+    // }
+
+    template <class Field, class... Fields>
+    void update_outer_ghosts(Field& field, Fields&... other_fields)
+    {
+        // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, mesh, field);
+        constexpr std::size_t dim = Field::dim;
+
+        auto& mesh = field.mesh();
+
+        // Outer corners
+        for (std::size_t level = mesh.max_level(); level >= mesh.min_level(); --level)
+        {
+            for_each_diagonal_direction<dim>(
+                [&](auto& direction)
                 {
                     update_outer_corners_by_polynomial_extrapolation(level, direction, field);
                     // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
-                    project_corner(level, direction, field, other_fields...);
+                    project_corner_below(level, direction, field, other_fields...);
                     // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
-                }
-            });
-
-        DirectionVector<dim> direction;
-        direction.fill(0);
-
-        // Apply the B.C. at the same level as the cells
-        for (std::size_t d = 0; d < dim; ++d) // for all Cartesian direction
-        {
-            direction[d] = 1;
-            update_bc_for_scheme(level, direction, field, other_fields...);
-            // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
-            direction[d] = -1;
-            update_bc_for_scheme(level, direction, field, other_fields...);
-            // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
-            direction[d] = 0;
+                });
         }
 
-        // Project the B.C. onto the two levels below
-        for (std::size_t d = 0; d < dim; ++d) // for all Cartesian direction
+        for (std::size_t level = mesh.max_level(); level >= mesh.min_level() - 2; --level)
         {
-            direction[d] = 1;
-            project_bc(level, direction, field, other_fields...);
-            // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
-            direction[d] = -1;
-            project_bc(level, direction, field, other_fields...);
-            // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
-            direction[d] = 0;
+            samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
+
+            for_each_cartesian_direction<dim>(
+                [&](auto& direction)
+                {
+                    if (level < mesh.max_level())
+                    {
+                        // Project the B.C. onto the level below
+                        project_bc(level + 1, direction, field, other_fields...);
+                    }
+                    if (level >= mesh.min_level())
+                    {
+                        // Apply the B.C. at the same level as the cells
+                        update_bc_for_scheme(level, direction, field, other_fields...);
+                    }
+                });
         }
+
+        // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, mesh, field);
     }
 
     template <class Field, class... Fields>
     void update_ghost_mr(Field& field, Fields&... other_fields)
     {
         using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
-        constexpr std::size_t dim        = Field::dim;
         constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
 
         times::timers.start("ghost update");
@@ -412,64 +455,7 @@ namespace samurai
             set_at_levelm1.apply_op(variadic_projection(field, other_fields...));
         }
 
-        // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, mesh, field);
-
-        for (std::size_t level = mesh.max_level(); level >= mesh.min_level() - 2; --level)
-        {
-            // apply_bc_and_project_below(level, field, other_fields...);
-            if (level >= mesh.min_level())
-            {
-                //  Corners
-                static_nested_loop<dim, -1, 2>(
-                    [&](auto& direction)
-                    {
-                        int number_of_ones = xt::sum(xt::abs(direction))[0];
-                        if (number_of_ones > 1) // corner
-                        {
-                            update_outer_corners_by_polynomial_extrapolation(level, direction, field);
-                            // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
-                            project_corner(level, direction, field, other_fields...);
-                            // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
-                        }
-                    });
-            }
-
-            samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
-
-            DirectionVector<dim> direction;
-            direction.fill(0);
-
-            if (level < mesh.max_level())
-            {
-                // Project the B.C. from level+1 to level
-                for (std::size_t d = 0; d < dim; ++d) // for all Cartesian direction
-                {
-                    direction[d] = 1;
-                    project_bc(level + 1, direction, field, other_fields...);
-                    // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
-                    direction[d] = -1;
-                    project_bc(level + 1, direction, field, other_fields...);
-                    samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
-                    direction[d] = 0;
-                }
-            }
-            if (level >= mesh.min_level())
-            {
-                // Apply the B.C. at the same level as the cells
-                for (std::size_t d = 0; d < dim; ++d) // for all Cartesian direction
-                {
-                    direction[d] = 1;
-                    update_bc_for_scheme(level, direction, field, other_fields...);
-                    // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
-                    direction[d] = -1;
-                    update_bc_for_scheme(level, direction, field, other_fields...);
-                    // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
-                    direction[d] = 0;
-                }
-            }
-        }
-
-        // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, mesh, field);
+        update_outer_ghosts(field, other_fields...);
 
         if (min_level > 0 && min_level != max_level)
         {
