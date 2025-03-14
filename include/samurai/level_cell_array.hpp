@@ -444,18 +444,15 @@ namespace samurai
 
         if constexpr (d == 0)
         {
-            const value_t xmin = x_interval.start;
-            const value_t xmax = x_interval.end;
-
-            if (isIntervalListEmpty or isParentPointNew or intervals.back().end < xmin)
+            if (isIntervalListEmpty or isParentPointNew or intervals.back().end < x_interval.start)
             {
-                intervals.emplace_back(xmin, xmax);
+                intervals.emplace_back(x_interval.start, x_interval.end);
                 return 1;
             }
             else // we assume intervals.back().end == xmin and
             {
-                assert(intervals.back().end == xmin);
-                intervals.back().end = xmax;
+                assert(intervals.back().end == x_interval.start);
+                intervals.back().end = x_interval.end;
                 return 0;
             }
         }
