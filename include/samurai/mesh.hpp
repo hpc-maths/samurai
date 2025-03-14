@@ -623,12 +623,16 @@ namespace samurai
         mpi::communicator world;
         std::vector<mpi::request> req;
 
+        boost::mpi::packed_oarchive::buffer_type buffer;
+        boost::mpi::packed_oarchive oa(world, buffer);
+        oa << derived_cast();
+
         std::transform(m_mpi_neighbourhood.cbegin(),
                        m_mpi_neighbourhood.cend(),
                        std::back_inserter(req),
                        [&](const auto& neighbour)
                        {
-                           return world.isend(neighbour.rank, neighbour.rank, derived_cast());
+                           return world.isend(neighbour.rank, neighbour.rank, buffer);
                        });
 
         for (auto& neighbour : m_mpi_neighbourhood)
