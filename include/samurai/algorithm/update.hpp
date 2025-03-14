@@ -958,7 +958,7 @@ namespace samurai
             set(
                 [&](const auto& x_interval, const auto& yz)
                 {
-                    new_ca[level].add_interval_back({x_interval.start, x_interval.end}, yz);
+                    new_ca[level].add_interval_back(x_interval, yz);
                 });
         }
         mesh_t new_mesh{new_ca, mesh};
