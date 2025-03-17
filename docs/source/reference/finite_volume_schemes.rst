@@ -88,7 +88,7 @@ First of all, the structural information about the scheme must be declared.
 It contains:
 
 - the :code:`input_field_type`: the C++ type of the field :math:`u`.
-- the :code:`output_field_size`: the field size of the resulting field :math:`v`.
+- the :code:`output_field_components`: the number of components of field of the resulting field :math:`v`.
   For instance, the size of :math:`\nabla u`, if :math:`u` is a scalar field, is the space dimension.
 - the :code:`stencil_size`: the size of the stencil required to compute the flux.
   A typical low-order scheme requires a stencil of two cells.
@@ -108,12 +108,12 @@ Here is an example for the vectorial Laplace operator:
 
 .. code-block:: c++
 
-    // Creation of a field 'u' of size 2
+    // Creation of a field 'u' with 2 components
     auto u = samurai::make_field<2>("u", mesh);
 
     // Configuration for the Laplace operator
     using cfg = samurai::FluxConfig<SchemeType::LinearHomogeneous, // scheme_type
-                                    decltype(u)::size,             // output_field_size (here identical to the input field size)
+                                    decltype(u)::nb_components,    // output_field_components (here identical to the input field size)
                                     2,                             // stencil_size (for the Laplacian of order 2)
                                     decltype(u)>;                  // input_field_type
 
@@ -308,15 +308,15 @@ Its implementation looks like
 
 The :code:`FluxStencilCoeffs<cfg>` object is an array-like structure of fixed-size.
 Its size is the :code:`stencil_size` declared in :code:`cfg`.
-Each :code:`c[i]` is a matrix of size :code:`output_field_size x input_field_size`,
-where :code:`output_field_size` is set in :code:`cfg`,
-and :code:`input_field_size` corresponds to the size of the field type set in :code:`cfg` as :code:`input_field_type`.
+Each :code:`c[i]` is a matrix of size :code:`output_field_components x input_field_components`,
+where :code:`output_field_components` is set in :code:`cfg`,
+and :code:`input_field_components` corresponds to the size of the field type set in :code:`cfg` as :code:`input_field_type`.
 The matrix type is in fact an :code:`xtensor` object.
 You can then, among other things, access the :math:`k`-th row of :code:`c[0]` via :code:`xt::row(c[0], k)`,
 its :math:`l`-th column via :code:`xt::col(c[0], l)`, or its coefficient at indices :math:`(k, l)` via :code:`c[0](k, l)`.
 
 .. note::
-    When both :code:`output_field_size` and :code:`input_field_size` equal 1,
+    When both :code:`output_field_components` and :code:`input_field_components` equal 1,
     the matrix type employed to store the coefficients reduces to a scalar type (typically :code:`double`).
     In particular, no accessor or :code:`xtensor` function is available.
     To write an :math:`n`-dimensional program, a separate code for the special case where the matrix reduces to a scalar is usually necessary.
@@ -352,7 +352,7 @@ This is enough to write the static configuration:
     auto u = samurai::make_field<1>("u", mesh); // scalar field
 
     using cfg = samurai::FluxConfig<SchemeType::LinearHomogeneous,
-                                    1,            // output_field_size
+                                    1,            // output_field_components
                                     2,            // stencil_size
                                     decltype(u)>; // input_field_type
 
@@ -408,14 +408,14 @@ the function :code:`make_divergence` is simply an alias of :code:`make_flux_base
 Vector laplacian
 ++++++++++++++++
 
-Formula :eq:`linear_comb` straightforwardly generalizes to a vectorial field :math:`\mathbf{u}_h` of size :code:`field_size`:
+Formula :eq:`linear_comb` straightforwardly generalizes to a vectorial field :math:`\mathbf{u}_h` of size :code:`field_components`:
 
 .. math::
     \mathcal{F}_h(\mathbf{u}_h)_{|F} := \sum_i \mathbf{c}_i*\mathbf{u}_i, \qquad \text{ where } \mathbf{u}_i := (\mathbf{u}_h)_{|V_i}
 
 
-:math:`(\mathbf{u}_i)_i` are now vectors of size :code:`field_size` and :math:`(\mathbf{c}_i)_i` are now matrices of size :code:`field_size`:math:`\times`:code:`field_size`.
-For :code:`field_size = 2`, the same scheme as the scalar laplacian writes,
+:math:`(\mathbf{u}_i)_i` are now vectors of size :code:`field_components` and :math:`(\mathbf{c}_i)_i` are now matrices of size :code:`field_components`:math:`\times`:code:`field_components`.
+For :code:`field_components = 2`, the same scheme as the scalar laplacian writes,
 
 .. math::
     \mathcal{F}_h(\mathbf{u}_h)_{|F} :=
@@ -428,13 +428,13 @@ The implementation of the vector laplacian operator then writes
 
 .. code-block:: c++
 
-    static constexpr std::size_t field_size = 3;
-    auto u = samurai::make_field<field_size>("u", mesh); // vector field
+    static constexpr std::size_t field_components = 3;
+    auto u = samurai::make_field<field_components>("u", mesh); // vector field
 
     using cfg = samurai::FluxConfig<SchemeType::LinearHomogeneous,
-                                    field_size,   // output_field_size
-                                    2,            // stencil_size
-                                    decltype(u)>; // input_field_type
+                                    field_components, // output_field_components
+                                    2,                // stencil_size
+                                    decltype(u)>;     // input_field_type
 
     samurai::FluxDefinition<cfg> gradient([](double h)
         {
@@ -444,7 +444,7 @@ The implementation of the vector laplacian operator then writes
             samurai::FluxStencilCoeffs<cfg> c;
             c[L].fill(0);
             c[R].fill(0);
-            for (std::size_t i = 0; i < field_size; ++i)
+            for (std::size_t i = 0; i < field_components; ++i)
             {
                 c[L](i, i) = -1/h;
                 c[R](i, i) =  1/h;
@@ -456,16 +456,16 @@ The implementation of the vector laplacian operator then writes
 
 Compared to the scalar laplacian code:
 
-- in the configuration, the :code:`output_field_size` now equals the :code:`field_size`,
+- in the configuration, the :code:`output_field_components` now equals the :code:`field_components`,
 - in the flux function, the coefficients for each cell of the stencil are now matrices.
   Specifically, they are diagonal matrices with the same coefficients as in the scalar laplacian.
 
-When :code:`field_size = 1`, the matrix type actually reduces to a scalar type, thus forbidding instructions such as :code:`c[L](i, i)`.
+When :code:`field_components = 1`, the matrix type actually reduces to a scalar type, thus forbidding instructions such as :code:`c[L](i, i)`.
 In order to manage all cases with one code, you must write
 
 .. code-block:: c++
 
-    if constexpr (field_size == 1)
+    if constexpr (field_components == 1)
     {
         c[L] = -1/h;
         c[R] =  1/h;
@@ -474,7 +474,7 @@ In order to manage all cases with one code, you must write
     {
         c[L].fill(0);
         c[R].fill(0);
-        for (std::size_t i = 0; i < field_size; ++i)
+        for (std::size_t i = 0; i < field_components; ++i)
         {
             c[L](i, i) = -1/h;
             c[R](i, i) =  1/h;
@@ -513,7 +513,7 @@ in all directions, i.e., in 2D
 where :math:`B` and :math:`T` refer to bottom and top cells.
 
 
-In the configuration, :code:`output_field_size` is set to the space dimension:
+In the configuration, :code:`output_field_components` is set to the space dimension:
 
 .. code-block:: c++
 
@@ -522,7 +522,7 @@ In the configuration, :code:`output_field_size` is set to the space dimension:
     auto u = samurai::make_field<1>("u", mesh); // scalar field
 
     using cfg = samurai::FluxConfig<SchemeType::LinearHomogeneous,
-                                    dim,          // output_field_size
+                                    dim,          // output_field_components
                                     2,            // stencil_size
                                     decltype(u)>; // input_field_type
 
@@ -666,7 +666,7 @@ The following code corresponds directly to the :math:`n`-dimensional version:
     auto u = samurai::make_field<dim>("u", mesh); // vector field
 
     using cfg = samurai::FluxConfig<SchemeType::LinearHomogeneous,
-                                    1,            // output_field_size
+                                    1,            // output_field_components
                                     2,            // stencil_size
                                     decltype(u)>; // input_field_type
 
@@ -816,7 +816,7 @@ The construction of the operator now reads
     auto u = samurai::make_field<1>("u", mesh); // scalar field
 
     using cfg = samurai::FluxConfig<SchemeType::LinearHeterogeneous,
-                                    1,            // output_field_size
+                                    1,            // output_field_components
                                     2,            // stencil_size
                                     decltype(u)>; // input_field_type
 
@@ -870,8 +870,8 @@ The flux function is
         return flux_value;
     };
 
-Here, :code:`FluxValue<cfg>` is an array-like structure of size :code:`cfg::output_field_size`.
-If :code:`cfg::output_field_size = 1`, it collapses to a simple scalar.
+Here, :code:`FluxValue<cfg>` is an array-like structure of size :code:`cfg::output_field_components`.
+If :code:`cfg::output_field_components = 1`, it collapses to a simple scalar.
 
 .. warning::
 

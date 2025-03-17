@@ -11,14 +11,14 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
-template <std::size_t field_size, std::size_t dim>
+template <std::size_t field_components, std::size_t dim>
 auto exact_solution(xt::xtensor_fixed<double, xt::xshape<dim>> coords, double t)
 {
     const double a  = 1;
     const double b  = 0;
     const double& x = coords(0);
     auto value      = (a * x + b) / (a * t + 1);
-    return samurai::CollapsArray<double, field_size, false>(value);
+    return samurai::CollapsArray<double, field_components, false>(value);
 }
 
 template <class Field>
@@ -47,7 +47,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 #endif
 }
 
-template <std::size_t dim, std::size_t field_size>
+template <std::size_t dim, std::size_t field_components>
 int main_dim(int argc, char* argv[])
 {
     auto& app = samurai::initialize("Finite volume example for the Burgers equation", argc, argv);
@@ -120,10 +120,10 @@ int main_dim(int argc, char* argv[])
     Box box(box_corner1, box_corner2);
     samurai::MRMesh<Config> mesh;
 
-    auto u    = samurai::make_field<field_size>("u", mesh);
-    auto u1   = samurai::make_field<field_size>("u1", mesh);
-    auto u2   = samurai::make_field<field_size>("u2", mesh);
-    auto unp1 = samurai::make_field<field_size>("unp1", mesh);
+    auto u    = samurai::make_field<field_components>("u", mesh);
+    auto u1   = samurai::make_field<field_components>("u1", mesh);
+    auto u2   = samurai::make_field<field_components>("u2", mesh);
+    auto unp1 = samurai::make_field<field_components>("unp1", mesh);
 
     if (restart_file.empty())
     {
@@ -136,7 +136,7 @@ int main_dim(int argc, char* argv[])
             samurai::for_each_cell(mesh,
                                    [&](auto& cell)
                                    {
-                                       u[cell] = exact_solution<field_size>(cell.center(), 0);
+                                       u[cell] = exact_solution<field_components>(cell.center(), 0);
                                    });
         }
         else if (init_sol == "hat")
@@ -158,9 +158,9 @@ int main_dim(int argc, char* argv[])
                                        u[cell]      = value;
                                    });
         }
-        else if (dim > 1 && field_size > 1 && init_sol == "bands")
+        else if (dim > 1 && field_components > 1 && init_sol == "bands")
         {
-            if constexpr (dim > 1 && field_size > 1)
+            if constexpr (dim > 1 && field_components > 1)
             {
                 samurai::for_each_cell(mesh,
                                        [&](auto& cell)
@@ -202,20 +202,20 @@ int main_dim(int argc, char* argv[])
         samurai::make_bc<samurai::Dirichlet<3>>(u,
                                                 [&](const auto&, const auto&, const auto& coord)
                                                 {
-                                                    return exact_solution<field_size>(coord, 0);
+                                                    return exact_solution<field_components>(coord, 0);
                                                 });
     }
     else
     {
-        if constexpr (field_size == 1)
+        if constexpr (field_components == 1)
         {
             samurai::make_bc<samurai::Dirichlet<3>>(u, 0.0);
         }
-        else if constexpr (field_size == 2)
+        else if constexpr (field_components == 2)
         {
             samurai::make_bc<samurai::Dirichlet<3>>(u, 0.0, 0.0);
         }
-        else if constexpr (field_size == 3)
+        else if constexpr (field_components == 3)
         {
             samurai::make_bc<samurai::Dirichlet<3>>(u, 0.0, 0.0, 0.0);
         }
@@ -269,7 +269,7 @@ int main_dim(int argc, char* argv[])
             samurai::make_bc<samurai::Dirichlet<3>>(u,
                                                     [&](const auto&, const auto&, const auto& coord)
                                                     {
-                                                        return exact_solution<field_size>(coord, t - dt);
+                                                        return exact_solution<field_components>(coord, t - dt);
                                                     });
         }
 
@@ -297,7 +297,7 @@ int main_dim(int argc, char* argv[])
             double error = samurai::L2_error(u,
                                              [&](const auto& coord)
                                              {
-                                                 return exact_solution<field_size>(coord, t);
+                                                 return exact_solution<field_components>(coord, t);
                                              });
             std::cout << ", L2-error: " << std::scientific << std::setprecision(2) << error;
 
@@ -309,7 +309,7 @@ int main_dim(int argc, char* argv[])
                 error         = samurai::L2_error(u_recons,
                                           [&](const auto& coord)
                                           {
-                                              return exact_solution<field_size>(coord, t);
+                                              return exact_solution<field_components>(coord, t);
                                           });
                 std::cout << ", L2-error (recons): " << std::scientific << std::setprecision(2) << error;
             }
@@ -336,6 +336,6 @@ int main(int argc, char* argv[])
 
     // 1  : scalar equation
     // dim: vector equation
-    static constexpr std::size_t field_size = 2;
-    return main_dim<dim, field_size>(argc, argv);
+    static constexpr std::size_t field_components = 2;
+    return main_dim<dim, field_components>(argc, argv);
 }

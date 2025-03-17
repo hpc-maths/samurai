@@ -10,7 +10,7 @@ namespace samurai
         Vec create_petsc_vector_from(Field& f)
         {
             Vec v;
-            auto n = static_cast<PetscInt>(f.mesh().nb_cells() * Field::size);
+            auto n = static_cast<PetscInt>(f.mesh().nb_cells() * Field::nb_components);
             VecCreateSeqWithArray(MPI_COMM_SELF, 1, n, f.array().data(), &v);
             PetscObjectSetName(reinterpret_cast<PetscObject>(v), f.name().data());
             return v;
@@ -30,7 +30,7 @@ namespace samurai
         {
             PetscInt n_vec;
             VecGetSize(v, &n_vec);
-            assert(static_cast<PetscInt>(f.mesh().nb_cells() * Field::size) == n_vec);
+            assert(static_cast<PetscInt>(f.mesh().nb_cells() * Field::nb_components) == n_vec);
 
             double* v_data;
             VecGetArray(v, &v_data);
@@ -41,7 +41,7 @@ namespace samurai
         template <class Field>
         void copy(const Field& f, Vec& v, PetscInt shift)
         {
-            auto n = static_cast<PetscInt>(f.mesh().nb_cells() * Field::size);
+            auto n = static_cast<PetscInt>(f.mesh().nb_cells() * Field::nb_components);
 
             PetscInt n_vec;
             VecGetSize(v, &n_vec);
@@ -73,7 +73,7 @@ namespace samurai
         template <class Field>
         void copy(Vec& v, Field& f)
         {
-            std::size_t n = f.mesh().nb_cells() * Field::size;
+            std::size_t n = f.mesh().nb_cells() * Field::nb_components;
 
             PetscInt n_vec;
             VecGetSize(v, &n_vec);
@@ -93,7 +93,7 @@ namespace samurai
         template <class Field>
         void copy(PetscInt shift, Vec& v, Field& f)
         {
-            std::size_t n = f.mesh().nb_cells() * Field::size;
+            std::size_t n = f.mesh().nb_cells() * Field::nb_components;
 
             PetscInt n_vec;
             VecGetSize(v, &n_vec);
@@ -137,18 +137,18 @@ namespace samurai
         {
             PetscInt n_vec;
             VecGetSize(v, &n_vec);
-            assert(static_cast<PetscInt>(Field::size) == n_vec);
+            assert(static_cast<PetscInt>(Field::nb_components) == n_vec);
 
             double* v_data;
             VecGetArray(v, &v_data);
 
-            if constexpr (Field::size == 1)
+            if constexpr (Field::nb_components == 1)
             {
                 v_data[0] = f[cell];
             }
             else
             {
-                for (std::size_t i = 0; i < Field::size; ++i)
+                for (std::size_t i = 0; i < Field::nb_components; ++i)
                 {
                     v_data[i] = f[cell](i);
                 }
@@ -160,11 +160,11 @@ namespace samurai
         template <class Field>
         Vec create_petsc_vector_from(Field& f, const typename Field::cell_t& cell)
         {
-            static_assert(Field::size == 1 || !Field::is_soa);
+            static_assert(Field::nb_components == 1 || !Field::is_soa);
 
             Vec v;
-            auto vec_size        = static_cast<PetscInt>(Field::size);
-            auto cell_data_index = Field::size * static_cast<std::size_t>(cell.index);
+            auto vec_size        = static_cast<PetscInt>(Field::nb_components);
+            auto cell_data_index = Field::nb_components * static_cast<std::size_t>(cell.index);
             VecCreateSeqWithArray(MPI_COMM_SELF, 1, vec_size, &f.array().data()[cell_data_index], &v);
             return v;
         }
@@ -174,18 +174,18 @@ namespace samurai
         {
             PetscInt n_vec;
             VecGetSize(v, &n_vec);
-            assert(static_cast<PetscInt>(Field::size) == n_vec);
+            assert(static_cast<PetscInt>(Field::nb_components) == n_vec);
 
             const double* v_data;
             VecGetArrayRead(v, &v_data);
 
-            if constexpr (Field::size == 1)
+            if constexpr (Field::nb_components == 1)
             {
                 f[cell] = v_data[0];
             }
             else
             {
-                for (std::size_t i = 0; i < Field::size; ++i)
+                for (std::size_t i = 0; i < Field::nb_components; ++i)
                 {
                     f[cell][i] = v_data[i];
                 }

@@ -240,9 +240,9 @@ namespace samurai
         }
 
         template <class... T>
-        constexpr std::size_t compute_size()
+        constexpr std::size_t compute_nb_components()
         {
-            return (0 + ... + T::size);
+            return (0 + ... + T::nb_components);
         }
 
         template <class... T>
@@ -321,7 +321,7 @@ namespace samurai
     inline auto& field_value(Field& f, const typename Field::index_t& cell_index, [[maybe_unused]] index_t field_i)
     {
         using size_type = typename Field::size_type;
-        if constexpr (Field::size == 1)
+        if constexpr (Field::nb_components == 1)
         {
             return f[static_cast<size_type>(cell_index)];
         }
@@ -335,18 +335,18 @@ namespace samurai
     // inline auto&
     // field_value(typename Field::value_type* data, const typename Field::index_t& cell_index, [[maybe_unused]] std::size_t field_i)
     // {
-    //     if constexpr (Field::size == 1)
+    //     if constexpr (Field::nb_components == 1)
     //     {
     //         return *data[cell_index];
     //     }
     //     else if constexpr (Field::is_soa)
     //     {
-    //         static_assert(Field::size == 1 || !Field::is_soa, "field_value() is not implemented for SOA fields");
+    //         static_assert(Field::nb_components == 1 || !Field::is_soa, "field_value() is not implemented for SOA fields");
     //         return *data[field_i /*  *n_cells */ + cell_index];
     //     }
     //     else
     //     {
-    //         return *data[cell_index * Field::size + field_i];
+    //         return *data[cell_index * Field::nb_components + field_i];
     //     }
     // }
 

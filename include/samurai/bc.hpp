@@ -91,7 +91,7 @@ namespace samurai
     struct BcValue
     {
         static constexpr std::size_t dim = Field::dim;
-        using value_t                    = CollapsArray<typename Field::value_type, Field::size, Field::is_soa>;
+        using value_t                    = CollapsArray<typename Field::value_type, Field::nb_components, Field::is_soa>;
         using coords_t                   = xt::xtensor_fixed<double, xt::xshape<dim>>;
         using direction_t                = DirectionVector<dim>;
         using cell_t                     = typename Field::cell_t;
@@ -560,10 +560,10 @@ namespace samurai
     {
       public:
 
-        static constexpr std::size_t dim  = Field::dim;
-        static constexpr std::size_t size = Field::size;
-        using mesh_t                      = typename Field::mesh_t;
-        using interval_t                  = typename Field::interval_t;
+        static constexpr std::size_t dim           = Field::dim;
+        static constexpr std::size_t nb_components = Field::nb_components;
+        using mesh_t                               = typename Field::mesh_t;
+        using interval_t                           = typename Field::interval_t;
 
         using bcvalue_t    = BcValue<Field>;
         using bcvalue_impl = std::unique_ptr<bcvalue_t>;
@@ -620,7 +620,7 @@ namespace samurai
         bcvalue_impl p_bcvalue;
         const lca_t& m_domain; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
         region_t m_region;
-        // xt::xtensor<typename Field::value_type, detail::return_type<typename Field::value_type, size>::dim> m_value;
+        // xt::xtensor<typename Field::value_type, detail::return_type<typename Field::value_type, nb_components>::dim> m_value;
     };
 
     ///////////////////
@@ -789,9 +789,9 @@ namespace samurai
     {
         static_assert(std::is_same_v<typename Field::value_type, std::common_type_t<typename Field::value_type, T...>>,
                       "The constant value type must be the same as the field value_type");
-        static_assert(Field::size == sizeof...(T) + 1,
+        static_assert(Field::nb_components == sizeof...(T) + 1,
                       "The number of constant values should be equal to the "
-                      "number of element in the field");
+                      "number of components in the field");
 
         auto& mesh = detail::get_mesh(field.mesh());
         return field.attach_bc(bc_type<Field>(mesh, ConstantBc<Field>(v1, v...)));
@@ -802,9 +802,9 @@ namespace samurai
     {
         static_assert(std::is_same_v<typename Field::value_type, std::common_type_t<typename Field::value_type, T...>>,
                       "The constant value type must be the same as the field value_type");
-        static_assert(Field::size == sizeof...(T) + 1,
+        static_assert(Field::nb_components == sizeof...(T) + 1,
                       "The number of constant values should be equal to the "
-                      "number of element in the field");
+                      "number of components in the field");
 
         using bc_impl = typename bc_type::template impl_t<Field>;
 
@@ -1175,7 +1175,7 @@ namespace samurai
                 const auto& ghost = cells[stencil_size_ - 1];
 
 #ifdef SAMURAI_CHECK_NAN
-                for (std::size_t field_i = 0; field_i < Field::size; field_i++)
+                for (std::size_t field_i = 0; field_i < Field::nb_components; field_i++)
                 {
                     for (std::size_t c = 0; c < stencil_size_ - 1; ++c)
                     {

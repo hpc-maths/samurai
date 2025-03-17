@@ -21,9 +21,9 @@ namespace samurai
         using size_type      = typename base_class::size_type;
         using base_class::scheme;
 
-        static constexpr size_type field_size        = input_field_t::size;
-        static constexpr size_type output_field_size = scheme_t::output_field_size;
-        static constexpr std::size_t stencil_size    = cfg::stencil_size;
+        static constexpr size_type field_components        = input_field_t::nb_components;
+        static constexpr size_type output_field_components = scheme_t::output_field_components;
+        static constexpr std::size_t stencil_size          = cfg::stencil_size;
 
       public:
 
@@ -53,9 +53,9 @@ namespace samurai
 
             using index_t = decltype(left_cell_index_init);
 
-            for (size_type field_i = 0; field_i < output_field_size; ++field_i)
+            for (size_type field_i = 0; field_i < output_field_components; ++field_i)
             {
-                for (size_type field_j = 0; field_j < field_size; ++field_j)
+                for (size_type field_j = 0; field_j < field_components; ++field_j)
                 {
                     for (std::size_t c = 0; c < stencil_size; ++c)
                     {
@@ -141,7 +141,7 @@ namespace samurai
             std::vector<value_t> left_contributions(n_left_cells, 0);
             std::vector<value_t> right_contributions(n_right_cells, 0);
 
-            for (std::size_t field_i = 0; field_i < output_field_size; ++field_i)
+            for (std::size_t field_i = 0; field_i < output_field_components; ++field_i)
             {
                 // We first accumulate the contributions in a SIMD fashion into local vectors,
                 // and then we add the results to the field in an atomic fashion.
@@ -149,7 +149,7 @@ namespace samurai
                 std::fill(left_contributions.begin(), left_contributions.end(), 0);
                 std::fill(right_contributions.begin(), right_contributions.end(), 0);
 
-                for (std::size_t field_j = 0; field_j < field_size; ++field_j)
+                for (std::size_t field_j = 0; field_j < field_components; ++field_j)
                 {
                     for (std::size_t c = 0; c < stencil_size; ++c)
                     {
@@ -276,9 +276,9 @@ namespace samurai
                     input_field,
                     [&](auto& cell, auto& stencil, auto& coeffs)
                     {
-                        for (size_type field_i = 0; field_i < output_field_size; ++field_i)
+                        for (size_type field_i = 0; field_i < output_field_components; ++field_i)
                         {
-                            for (size_type field_j = 0; field_j < field_size; ++field_j)
+                            for (size_type field_j = 0; field_j < field_components; ++field_j)
                             {
                                 for (std::size_t c = 0; c < stencil_size; ++c)
                                 {

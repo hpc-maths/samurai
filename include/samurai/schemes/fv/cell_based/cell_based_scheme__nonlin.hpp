@@ -12,8 +12,8 @@ namespace samurai
       public:
 
         using base_class::dim;
-        using base_class::field_size;
-        using base_class::output_field_size;
+        using base_class::field_components;
+        using base_class::output_field_components;
         using size_type = typename base_class::size_type;
 
         using cfg_t            = cfg;
@@ -134,7 +134,7 @@ namespace samurai
 
         inline field_value_type contrib_cmpnent(const SchemeValue<cfg>& coeffs, [[maybe_unused]] size_type field_i) const
         {
-            if constexpr (cfg::output_field_size == 1)
+            if constexpr (cfg::output_field_components == 1)
             {
                 return coeffs;
             }

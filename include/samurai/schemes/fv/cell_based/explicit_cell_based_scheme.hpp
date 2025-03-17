@@ -21,10 +21,10 @@ namespace samurai
 
         using base_class::scheme;
 
-        static constexpr size_type field_size        = input_field_t::size;
-        static constexpr size_type output_field_size = cfg::output_field_size;
-        static constexpr std::size_t stencil_size    = cfg::stencil_size;
-        static constexpr std::size_t center_index    = cfg::center_index;
+        static constexpr size_type field_components        = input_field_t::nb_components;
+        static constexpr size_type output_field_components = cfg::output_field_components;
+        static constexpr std::size_t stencil_size          = cfg::stencil_size;
+        static constexpr std::size_t center_index          = cfg::center_index;
 
       public:
 
@@ -41,9 +41,9 @@ namespace samurai
                 input_field,
                 [&](const auto& cells, const auto& coeffs)
                 {
-                    for (size_type field_i = 0; field_i < output_field_size; ++field_i)
+                    for (size_type field_i = 0; field_i < output_field_components; ++field_i)
                     {
-                        for (size_type field_j = 0; field_j < field_size; ++field_j)
+                        for (size_type field_j = 0; field_j < field_components; ++field_j)
                         {
                             for (std::size_t c = 0; c < stencil_size; ++c)
                             {
@@ -73,7 +73,7 @@ namespace samurai
 
         using base_class::scheme;
 
-        static constexpr size_type output_field_size = cfg::output_field_size;
+        static constexpr size_type output_field_components = cfg::output_field_components;
 
       public:
 
@@ -90,7 +90,7 @@ namespace samurai
                 input_field,
                 [&](const auto& stencil_center, auto& contrib)
                 {
-                    for (size_type field_i = 0; field_i < output_field_size; ++field_i)
+                    for (size_type field_i = 0; field_i < output_field_components; ++field_i)
                     {
                         field_value(output_field, stencil_center, field_i) += this->scheme().contrib_cmpnent(contrib, field_i);
                     }

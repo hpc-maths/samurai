@@ -214,9 +214,9 @@ namespace samurai
                     [&](const auto& i, const auto& index)
                     {
                         std::copy(to_recv.begin() + count,
-                                  to_recv.begin() + count + static_cast<ptrdiff_t>(i.size() * Field::size),
+                                  to_recv.begin() + count + static_cast<ptrdiff_t>(i.size() * Field::nb_components),
                                   field(level, i, index).begin());
-                        count += static_cast<ptrdiff_t>(i.size() * Field::size);
+                        count += static_cast<ptrdiff_t>(i.size() * Field::nb_components);
                     });
             }
         }

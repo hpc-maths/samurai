@@ -3,21 +3,21 @@
 
 namespace samurai
 {
-    template <std::size_t output_field_size, class Field>
+    template <std::size_t output_field_components, class Field>
     auto make_zero_operator()
     {
-        static constexpr std::size_t field_size = Field::size;
-        using field_value_type                  = typename Field::value_type;
+        static constexpr std::size_t field_components = Field::nb_components;
+        using field_value_type                        = typename Field::value_type;
 
-        using cfg = LocalCellSchemeConfig<SchemeType::LinearHomogeneous, output_field_size, Field>;
+        using cfg = LocalCellSchemeConfig<SchemeType::LinearHomogeneous, output_field_components, Field>;
 
         auto zero = make_cell_based_scheme<cfg>("Zero");
 
         zero.coefficients_func() = [](double) -> StencilCoeffs<cfg>
         {
-            // return {zeros<field_value_type, output_field_size, field_size>()};
+            // return {zeros<field_value_type, output_field_components, field_components>()};
             StencilCoeffs<cfg> sc;
-            sc(0) = zeros<field_value_type, output_field_size, field_size>();
+            sc(0) = zeros<field_value_type, output_field_components, field_components>();
             return sc;
         };
         zero.is_symmetric(true);
@@ -27,8 +27,8 @@ namespace samurai
     template <class Field>
     auto make_zero_operator()
     {
-        static constexpr std::size_t default_output_field_size = Field::size;
-        return make_zero_operator<default_output_field_size, Field>();
+        static constexpr std::size_t default_output_field_components = Field::nb_components;
+        return make_zero_operator<default_output_field_components, Field>();
     }
 
     template <class Field>

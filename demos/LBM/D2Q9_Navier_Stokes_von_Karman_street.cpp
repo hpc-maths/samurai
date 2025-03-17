@@ -371,7 +371,7 @@ std::pair<double, double> one_time_step(Field& f,
                                         double radius,
                                         std::string& momenti)
 {
-    constexpr std::size_t nvel = Field::size;
+    constexpr std::size_t nvel = Field::nb_components;
     using coord_index_t        = typename Field::interval_t::coord_index_t;
 
     double Fx = 0.; // Force on the obstacle along x
