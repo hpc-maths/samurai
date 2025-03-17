@@ -68,8 +68,7 @@ namespace samurai
             using fields_t = Field_tuple<TFields...>;
             using mesh_t   = typename fields_t::mesh_t;
             using common_t = typename fields_t::common_t;
-            using detail_t = Field < mesh_t, common_t, detail::compute_nb_components<TField, TFields...>();
-            > ;
+            using detail_t = Field<mesh_t, common_t, detail::compute_nb_components<TFields...>()>;
         };
 
         template <class TField>
