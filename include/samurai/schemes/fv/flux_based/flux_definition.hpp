@@ -64,7 +64,7 @@ namespace samurai
 
     template <class cfg>
     using FluxValue = CollapsFluxArray<typename cfg::input_field_t::value_type, cfg::output_field_components>; //,
-                                                                                                               //cfg::input_field_t::is_soa>;
+                                                                                                               // cfg::input_field_t::is_soa>;
 
     template <class cfg>
     using FluxValuePair = StdArrayWrapper<FluxValue<cfg>, 2>;

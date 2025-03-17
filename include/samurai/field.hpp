@@ -596,9 +596,9 @@ namespace samurai
 
     template <class mesh_t, class value_t, std::size_t nb_components_, bool SOA>
     template <class... T>
-    inline auto
-    Field<mesh_t, value_t, nb_components_, SOA>::get_interval(std::size_t level, const interval_t& interval, const T... index) const
-        -> const interval_t&
+    inline auto Field<mesh_t, value_t, nb_components_, SOA>::get_interval(std::size_t level,
+                                                                          const interval_t& interval,
+                                                                          const T... index) const -> const interval_t&
     {
         const interval_t& interval_tmp = this->mesh().get_interval(level, interval, index...);
 
