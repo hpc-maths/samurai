@@ -955,13 +955,12 @@ namespace samurai
     {
       public:
 
-        using tuple_type                   = std::tuple<TField&, TFields&...>;
-        using tuple_type_without_ref       = std::tuple<TField, TFields...>;
-        static constexpr std::size_t nelem = ;
-        using common_t                     = detail::common_type_t<TField, TFields...>;
-        using mesh_t                       = typename TField::mesh_t;
-        using mesh_id_t                    = typename mesh_t::mesh_id_t;
-        using size_type                    = typename TField::size_type;
+        using tuple_type             = std::tuple<TField&, TFields&...>;
+        using tuple_type_without_ref = std::tuple<TField, TFields...>;
+        using common_t               = detail::common_type_t<TField, TFields...>;
+        using mesh_t                 = typename TField::mesh_t;
+        using mesh_id_t              = typename mesh_t::mesh_id_t;
+        using size_type              = typename TField::size_type;
 
         Field_tuple(TField& field, TFields&... fields)
             : m_fields(field, fields...)
