@@ -184,7 +184,7 @@ auto init_f(samurai::MROMesh<Config>& mesh, const double lambda)
 template <class Field, class Pred, class Func>
 void one_time_step(Field& f, const Pred& pred_coeff, Func&& update_bc_for_level, double s_rel, const double lambda)
 {
-    constexpr std::size_t nvel = Field::nb_components;
+    constexpr std::size_t nvel = Field::n_comp;
     double gamma               = 1.4;
 
     auto mesh           = f.mesh();

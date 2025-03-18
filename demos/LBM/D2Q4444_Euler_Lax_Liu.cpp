@@ -273,7 +273,7 @@ void one_time_step(Field& f,
                    const double sq_e,
                    const double sxy_e)
 {
-    constexpr std::size_t nvel = Field::nb_components;
+    constexpr std::size_t nvel = Field::n_comp;
     using coord_index_t        = typename Field::interval_t::coord_index_t;
 
     auto mesh       = f.mesh();
@@ -592,7 +592,7 @@ prediction_all(const Field& f,
 template <class Field, class FieldFull, class Func>
 double compute_error(Field& f, FieldFull& f_full, Func&& update_bc_for_level)
 {
-    constexpr std::size_t nvel = Field::nb_components;
+    constexpr std::size_t nvel = Field::n_comp;
     using value_t              = typename Field::value_type;
 
     auto mesh       = f.mesh();
@@ -645,7 +645,7 @@ double compute_error(Field& f, FieldFull& f_full, Func&& update_bc_for_level)
 template <class Field, class FieldFull, class Func>
 void save_reconstructed(Field& f, FieldFull& f_full, Func&& update_bc_for_level, double eps, std::size_t ite, std::string ext = "")
 {
-    constexpr std::size_t nvel = Field::nb_components;
+    constexpr std::size_t nvel = Field::n_comp;
     using value_t              = typename Field::value_type;
 
     auto mesh       = f.mesh();

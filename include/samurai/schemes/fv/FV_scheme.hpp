@@ -26,12 +26,12 @@ namespace samurai
     /**
      * Definition of one ghost equation to enforce the boundary condition.
      */
-    template <class Field, std::size_t output_field_components, std::size_t bdry_stencil_size>
+    template <class Field, std::size_t output_n_comp, std::size_t bdry_stencil_size>
     struct BoundaryEquationCoeffs
     {
-        static constexpr std::size_t field_components = Field::nb_components;
-        using field_value_type                        = typename Field::value_type;
-        using coeffs_t                                = CollapsMatrix<field_value_type, output_field_components, field_components>;
+        static constexpr std::size_t n_comp = Field::n_comp;
+        using field_value_type              = typename Field::value_type;
+        using coeffs_t                      = CollapsMatrix<field_value_type, output_n_comp, n_comp>;
 
         using stencil_coeffs_t = std::array<coeffs_t, bdry_stencil_size>;
         using rhs_coeffs_t     = coeffs_t;
@@ -48,10 +48,10 @@ namespace samurai
      * Definition of one ghost equation to enforce the boundary condition.
      * It contains functions depending on h to get the equation coefficients.
      */
-    template <class Field, std::size_t output_field_components, std::size_t bdry_stencil_size>
+    template <class Field, std::size_t output_n_comp, std::size_t bdry_stencil_size>
     struct BoundaryEquationConfig
     {
-        using equation_coeffs_t         = BoundaryEquationCoeffs<Field, output_field_components, bdry_stencil_size>;
+        using equation_coeffs_t         = BoundaryEquationCoeffs<Field, output_n_comp, bdry_stencil_size>;
         using stencil_coeffs_t          = typename equation_coeffs_t::stencil_coeffs_t;
         using rhs_coeffs_t              = typename equation_coeffs_t::rhs_coeffs_t;
         using get_stencil_coeffs_func_t = std::function<stencil_coeffs_t(double)>;
@@ -68,11 +68,11 @@ namespace samurai
     /**
      * For a boundary direction, defines one equation per boundary ghost.
      */
-    template <class Field, std::size_t output_field_components, std::size_t bdry_stencil_size, std::size_t nb_bdry_ghosts>
+    template <class Field, std::size_t output_n_comp, std::size_t bdry_stencil_size, std::size_t nb_bdry_ghosts>
     struct DirectionalBoundaryConfig
     {
         static constexpr std::size_t dim = Field::dim;
-        using bdry_equation_config_t     = BoundaryEquationConfig<Field, output_field_components, bdry_stencil_size>;
+        using bdry_equation_config_t     = BoundaryEquationConfig<Field, output_n_comp, bdry_stencil_size>;
 
         // Direction of the boundary and stencil for the computation of the boundary condition
         DirectionalStencil<bdry_stencil_size, dim> directional_stencil;
@@ -104,18 +104,18 @@ namespace samurai
         using cfg                                             = cfg_;
         using bdry_cfg                                        = bdry_cfg_;
         static constexpr std::size_t dim                      = field_t::dim;
-        static constexpr std::size_t field_components         = field_t::nb_components;
-        static constexpr std::size_t output_field_components  = cfg::output_field_components;
+        static constexpr std::size_t n_comp                   = field_t::n_comp;
+        static constexpr std::size_t output_n_comp            = cfg::output_n_comp;
         static constexpr std::size_t bdry_neighbourhood_width = bdry_cfg::neighbourhood_width;
         static constexpr std::size_t bdry_stencil_size        = bdry_cfg::stencil_size;
         static constexpr std::size_t nb_bdry_ghosts           = bdry_cfg::nb_ghosts;
 
-        using output_field_t = Field<mesh_t, field_value_type, output_field_components, input_field_t::is_soa>;
+        using output_field_t = Field<mesh_t, field_value_type, output_n_comp, input_field_t::is_soa>;
 
         using dirichlet_t = DirichletImpl<nb_bdry_ghosts, field_t>;
         using neumann_t   = NeumannImpl<nb_bdry_ghosts, field_t>;
 
-        using directional_bdry_config_t = DirectionalBoundaryConfig<field_t, output_field_components, bdry_stencil_size, nb_bdry_ghosts>;
+        using directional_bdry_config_t = DirectionalBoundaryConfig<field_t, output_n_comp, bdry_stencil_size, nb_bdry_ghosts>;
         using bdry_stencil_coeffs_t     = typename directional_bdry_config_t::bdry_equation_config_t::stencil_coeffs_t;
 
       private:
@@ -210,7 +210,7 @@ namespace samurai
                                            [[maybe_unused]] size_type field_i,
                                            [[maybe_unused]] size_type field_j) const
         {
-            if constexpr (field_components == 1 && output_field_components == 1)
+            if constexpr (n_comp == 1 && output_n_comp == 1)
             {
                 return coeffs[cell_number_in_stencil];
             }
@@ -225,7 +225,7 @@ namespace samurai
                                                 [[maybe_unused]] size_type field_i,
                                                 [[maybe_unused]] size_type field_j) const
         {
-            if constexpr (field_components == 1 && output_field_components == 1)
+            if constexpr (n_comp == 1 && output_n_comp == 1)
             {
                 return coeffs[cell_number_in_stencil];
             }

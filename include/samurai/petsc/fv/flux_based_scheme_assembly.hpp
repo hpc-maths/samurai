@@ -18,7 +18,7 @@ namespace samurai
             using base_class = FVSchemeAssembly<Scheme>;
             using base_class::col_index;
             using base_class::dim;
-            using base_class::field_components;
+            using base_class::n_comp;
             using base_class::row_index;
             using base_class::set_is_row_not_empty;
 
@@ -30,12 +30,12 @@ namespace samurai
             using base_class::set_current_insert_mode;
             using base_class::unknown;
 
-            using scheme_t                                       = Scheme;
-            using cfg_t                                          = typename Scheme::cfg_t;
-            using bdry_cfg_t                                     = typename Scheme::bdry_cfg;
-            using field_t                                        = typename Scheme::field_t;
-            static constexpr std::size_t output_field_components = cfg_t::output_field_components;
-            static constexpr std::size_t stencil_size            = cfg_t::stencil_size;
+            using scheme_t                             = Scheme;
+            using cfg_t                                = typename Scheme::cfg_t;
+            using bdry_cfg_t                           = typename Scheme::bdry_cfg;
+            using field_t                              = typename Scheme::field_t;
+            static constexpr std::size_t output_n_comp = cfg_t::output_n_comp;
+            static constexpr std::size_t stencil_size  = cfg_t::stencil_size;
 
           private:
 
@@ -70,9 +70,9 @@ namespace samurai
                         flux_def[d].stencil,
                         [&](auto& interface_cells, auto& comput_cells)
                         {
-                            for (unsigned int field_i = 0; field_i < output_field_components; ++field_i)
+                            for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                             {
-                                for (unsigned int field_j = 0; field_j < field_components; ++field_j)
+                                for (unsigned int field_j = 0; field_j < n_comp; ++field_j)
                                 {
                                     if constexpr (ghost_elimination_enabled)
                                     {
@@ -82,26 +82,26 @@ namespace samurai
                                             if (it_ghost == this->m_ghost_recursion.end())
                                             {
                                                 nnz[static_cast<std::size_t>(
-                                                    this->row_index(interface_cells[0], field_i))] += static_cast<PetscInt>(field_components);
+                                                    this->row_index(interface_cells[0], field_i))] += static_cast<PetscInt>(n_comp);
                                                 nnz[static_cast<std::size_t>(
-                                                    this->row_index(interface_cells[1], field_i))] += static_cast<PetscInt>(field_components);
+                                                    this->row_index(interface_cells[1], field_i))] += static_cast<PetscInt>(n_comp);
                                             }
                                             else
                                             {
                                                 auto& linear_comb = it_ghost->second;
                                                 nnz[static_cast<std::size_t>(this->row_index(interface_cells[0], field_i))] += static_cast<PetscInt>(
-                                                    linear_comb.size() * field_components);
+                                                    linear_comb.size() * n_comp);
                                                 nnz[static_cast<std::size_t>(this->row_index(interface_cells[1], field_i))] += static_cast<PetscInt>(
-                                                    linear_comb.size() * field_components);
+                                                    linear_comb.size() * n_comp);
                                             }
                                         }
                                     }
                                     else
                                     {
                                         nnz[static_cast<std::size_t>(this->row_index(interface_cells[0], field_i))] += static_cast<PetscInt>(
-                                            stencil_size * field_components);
+                                            stencil_size * n_comp);
                                         nnz[static_cast<std::size_t>(this->row_index(interface_cells[1], field_i))] += static_cast<PetscInt>(
-                                            stencil_size * field_components);
+                                            stencil_size * n_comp);
                                     }
                                 }
                             }
@@ -115,12 +115,12 @@ namespace samurai
                             flux_def[d].stencil,
                             [&](auto& cell, auto&)
                             {
-                                for (unsigned int field_i = 0; field_i < output_field_components; ++field_i)
+                                for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                                 {
-                                    for (unsigned int field_j = 0; field_j < field_components; ++field_j)
+                                    for (unsigned int field_j = 0; field_j < n_comp; ++field_j)
                                     {
-                                        nnz[static_cast<std::size_t>(this->row_index(cell, field_i))] += static_cast<PetscInt>(
-                                            stencil_size * field_components);
+                                        nnz[static_cast<std::size_t>(this->row_index(cell, field_i))] += static_cast<PetscInt>(stencil_size
+                                                                                                                               * n_comp);
                                     }
                                 }
                             });
@@ -149,11 +149,11 @@ namespace samurai
                     unknown(),
                     [&](auto& interface_cells, auto& comput_cells, auto& left_cell_coeffs, auto& right_cell_coeffs)
                     {
-                        for (unsigned int field_i = 0; field_i < output_field_components; ++field_i)
+                        for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                         {
                             auto left_cell_row  = this->row_index(interface_cells[0], field_i);
                             auto right_cell_row = this->row_index(interface_cells[1], field_i);
-                            for (unsigned int field_j = 0; field_j < field_components; ++field_j)
+                            for (unsigned int field_j = 0; field_j < n_comp; ++field_j)
                             {
                                 for (std::size_t c = 0; c < stencil_size; ++c)
                                 {
@@ -200,10 +200,10 @@ namespace samurai
                         unknown(),
                         [&](auto& cell, auto& comput_cells, auto& coeffs)
                         {
-                            for (unsigned int field_i = 0; field_i < output_field_components; ++field_i)
+                            for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                             {
                                 auto cell_row = this->row_index(cell, field_i);
-                                for (unsigned int field_j = 0; field_j < field_components; ++field_j)
+                                for (unsigned int field_j = 0; field_j < n_comp; ++field_j)
                                 {
                                     for (std::size_t c = 0; c < stencil_size; ++c)
                                     {

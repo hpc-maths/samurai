@@ -118,9 +118,9 @@ namespace samurai
                     assert(false && "Undefined unknown");
                     exit(EXIT_FAILURE);
                 }
-                static_assert(scheme_t::cfg_t::output_field_components == field_t::nb_components);
+                static_assert(scheme_t::cfg_t::output_n_comp == field_t::n_comp);
 
-                static constexpr PetscInt n = field_t::nb_components;
+                static constexpr PetscInt n = field_t::n_comp;
 
 #ifdef ENABLE_PARALLEL_NONLINEAR_SOLVES
                 static constexpr Run run_type = Run::Parallel;
@@ -238,15 +238,15 @@ namespace samurai
                 // In this case, jac = B, but Petsc recommends we assemble B for more general cases.
                 auto jac_stencil_coeffs = scheme.scheme_definition().local_jacobian_function(cell, x_field);
                 auto& jac_coeffs        = jac_stencil_coeffs[0]; // local stencil (of size 1)
-                if constexpr (field_t::nb_components == 1)
+                if constexpr (field_t::n_comp == 1)
                 {
                     MatSetValue(B, 0, 0, jac_coeffs, INSERT_VALUES);
                 }
                 else
                 {
-                    for (PetscInt i = 0; i < static_cast<PetscInt>(field_t::nb_components); ++i)
+                    for (PetscInt i = 0; i < static_cast<PetscInt>(field_t::n_comp); ++i)
                     {
-                        for (PetscInt j = 0; j < static_cast<PetscInt>(field_t::nb_components); ++j)
+                        for (PetscInt j = 0; j < static_cast<PetscInt>(field_t::n_comp); ++j)
                         {
                             MatSetValue(B, i, j, jac_coeffs(i, j), INSERT_VALUES);
                         }

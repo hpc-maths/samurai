@@ -128,13 +128,13 @@ namespace samurai
     template <class Field, DirichletEnforcement dirichlet_enfcmt = Equation>
     auto make_diffusion_order2(const DiffCoeff<Field::dim>& K)
     {
-        using size_type                                      = typename Field::size_type;
-        static constexpr std::size_t dim                     = Field::dim;
-        static constexpr size_type field_components          = Field::nb_components;
-        static constexpr std::size_t output_field_components = field_components;
-        static constexpr std::size_t stencil_size            = 2;
+        using size_type                            = typename Field::size_type;
+        static constexpr std::size_t dim           = Field::dim;
+        static constexpr size_type n_comp          = Field::n_comp;
+        static constexpr std::size_t output_n_comp = n_comp;
+        static constexpr std::size_t stencil_size  = 2;
 
-        using cfg = FluxConfig<SchemeType::LinearHomogeneous, output_field_components, stencil_size, Field>;
+        using cfg = FluxConfig<SchemeType::LinearHomogeneous, output_n_comp, stencil_size, Field>;
 
         FluxDefinition<cfg> K_grad;
 
@@ -148,10 +148,10 @@ namespace samurai
                     static constexpr std::size_t left  = 0;
                     static constexpr std::size_t right = 1;
 
-                    // Return value: 2 matrices (left, right) of size output_field_components x field_components.
-                    // In this case, of size field_components x field_components.
+                    // Return value: 2 matrices (left, right) of size output_n_comp x n_comp.
+                    // In this case, of size n_comp x n_comp.
                     FluxStencilCoeffs<cfg> coeffs;
-                    if constexpr (field_components == 1)
+                    if constexpr (n_comp == 1)
                     {
                         coeffs[left]  = -1 / h;
                         coeffs[right] = 1 / h;
@@ -160,7 +160,7 @@ namespace samurai
                     {
                         coeffs[left].fill(0);
                         coeffs[right].fill(0);
-                        for (size_type i = 0; i < field_components; ++i)
+                        for (size_type i = 0; i < n_comp; ++i)
                         {
                             coeffs[left](i, i)  = -1 / h;
                             coeffs[right](i, i) = 1 / h;
@@ -181,14 +181,14 @@ namespace samurai
      * Diffusion operator with a different coefficient for each field component
      */
     template <class Field, DirichletEnforcement dirichlet_enfcmt = Equation>
-    auto make_multi_diffusion_order2(const DiffCoeff<Field::nb_components>& K)
+    auto make_multi_diffusion_order2(const DiffCoeff<Field::n_comp>& K)
     {
-        static constexpr std::size_t dim                     = Field::dim;
-        static constexpr std::size_t field_components        = Field::nb_components;
-        static constexpr std::size_t output_field_components = field_components;
-        static constexpr std::size_t stencil_size            = 2;
+        static constexpr std::size_t dim           = Field::dim;
+        static constexpr std::size_t n_comp        = Field::n_comp;
+        static constexpr std::size_t output_n_comp = n_comp;
+        static constexpr std::size_t stencil_size  = 2;
 
-        using cfg = FluxConfig<SchemeType::LinearHomogeneous, output_field_components, stencil_size, Field>;
+        using cfg = FluxConfig<SchemeType::LinearHomogeneous, output_n_comp, stencil_size, Field>;
 
         FluxDefinition<cfg> K_grad;
 
@@ -202,10 +202,10 @@ namespace samurai
                     static constexpr std::size_t left  = 0;
                     static constexpr std::size_t right = 1;
 
-                    // Return value: 2 matrices (left, right) of size output_field_components x field_components.
-                    // In this case, of size field_components x field_components.
+                    // Return value: 2 matrices (left, right) of size output_n_comp x n_comp.
+                    // In this case, of size n_comp x n_comp.
                     FluxStencilCoeffs<cfg> coeffs;
-                    if constexpr (field_components == 1)
+                    if constexpr (n_comp == 1)
                     {
                         coeffs[left]  = -1 / h;
                         coeffs[right] = 1 / h;
@@ -214,21 +214,21 @@ namespace samurai
                     {
                         coeffs[left].fill(0);
                         coeffs[right].fill(0);
-                        for (std::size_t i = 0; i < field_components; ++i)
+                        for (std::size_t i = 0; i < n_comp; ++i)
                         {
                             coeffs[left](i, i)  = -1 / h;
                             coeffs[right](i, i) = 1 / h;
                         }
                     }
                     // Minus sign because we want -Laplacian
-                    if constexpr (field_components == 1)
+                    if constexpr (n_comp == 1)
                     {
                         coeffs[left] *= -K(0);
                         coeffs[right] *= -K(0);
                     }
                     else
                     {
-                        for (std::size_t i = 0; i < field_components; ++i)
+                        for (std::size_t i = 0; i < n_comp; ++i)
                         {
                             coeffs[left](i, i) *= -K(i);
                             coeffs[right](i, i) *= -K(i);
@@ -268,16 +268,15 @@ namespace samurai
 
     template <class field_t,
               class DiffTensorField,
-              std::enable_if_t<DiffTensorField::nb_components == 1 && std::is_same_v<typename DiffTensorField::value_type, DiffCoeff<field_t::dim>>,
-                               bool> = true>
+              std::enable_if_t<DiffTensorField::n_comp == 1 && std::is_same_v<typename DiffTensorField::value_type, DiffCoeff<field_t::dim>>, bool> = true>
     auto make_diffusion_order2(const DiffTensorField& K)
     {
-        static constexpr std::size_t dim                     = field_t::dim;
-        static constexpr std::size_t field_components        = field_t::nb_components;
-        static constexpr std::size_t output_field_components = field_components;
-        static constexpr std::size_t stencil_size            = 2;
+        static constexpr std::size_t dim           = field_t::dim;
+        static constexpr std::size_t n_comp        = field_t::n_comp;
+        static constexpr std::size_t output_n_comp = n_comp;
+        static constexpr std::size_t stencil_size  = 2;
 
-        using cfg = FluxConfig<SchemeType::LinearHeterogeneous, output_field_components, stencil_size, field_t>;
+        using cfg = FluxConfig<SchemeType::LinearHeterogeneous, output_n_comp, stencil_size, field_t>;
 
         FluxDefinition<cfg> K_grad;
 
@@ -296,10 +295,10 @@ namespace samurai
                     auto k_left  = K[cells[left]];
                     auto k_right = K[cells[left]];
 
-                    // Return value: 2 matrices (left, right) of size output_field_components x field_components.
-                    // In this case, of size field_components x field_components.
+                    // Return value: 2 matrices (left, right) of size output_n_comp x n_comp.
+                    // In this case, of size n_comp x n_comp.
                     FluxStencilCoeffs<cfg> coeffs;
-                    if constexpr (field_components == 1)
+                    if constexpr (n_comp == 1)
                     {
                         coeffs[left]  = -k_left(d) / h;
                         coeffs[right] = k_left(d) / h;
@@ -308,7 +307,7 @@ namespace samurai
                     {
                         coeffs[left].fill(0);
                         coeffs[right].fill(0);
-                        for (std::size_t i = 0; i < field_components; ++i)
+                        for (std::size_t i = 0; i < n_comp; ++i)
                         {
                             coeffs[left](i, i)  = -k_left(d) / h;
                             coeffs[right](i, i) = k_left(d) / h;

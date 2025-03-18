@@ -47,12 +47,12 @@ double exact_solution(xt::xtensor_fixed<double, xt::xshape<dim>> coords, double 
 template <class Field>
 auto make_nonlinear_diffusion()
 {
-    static constexpr std::size_t dim                     = Field::dim;
-    static constexpr std::size_t field_components        = Field::nb_components;
-    static constexpr std::size_t output_field_components = field_components;
-    static constexpr std::size_t stencil_size            = 2;
+    static constexpr std::size_t dim           = Field::dim;
+    static constexpr std::size_t n_comp        = Field::n_comp;
+    static constexpr std::size_t output_n_comp = n_comp;
+    static constexpr std::size_t stencil_size  = 2;
 
-    using cfg = samurai::FluxConfig<samurai::SchemeType::NonLinear, output_field_components, stencil_size, Field>;
+    using cfg = samurai::FluxConfig<samurai::SchemeType::NonLinear, output_n_comp, stencil_size, Field>;
 
     samurai::FluxDefinition<cfg> flux;
 

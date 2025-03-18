@@ -125,9 +125,9 @@ int main(int argc, char* argv[])
     using Mesh                = samurai::amr::Mesh<Config>;
     // using Config = samurai::MRConfig<dim>;
     // using Mesh = samurai::MRMesh<Config>;
-    constexpr unsigned int field_components = 1;
-    constexpr bool is_soa                   = true;
-    using Field                             = samurai::Field<Mesh, double, field_components, is_soa>;
+    constexpr unsigned int n_comp = 1;
+    constexpr bool is_soa         = true;
+    using Field                   = samurai::Field<Mesh, double, n_comp, is_soa>;
 
     //------------------//
     // Petsc initialize //
@@ -212,14 +212,14 @@ int main(int argc, char* argv[])
         samurai::save(path, "mesh", mesh);
     }
 
-    std::cout << "Unknowns: " << (mesh.nb_cells() * field_components) << std::endl;
+    std::cout << "Unknowns: " << (mesh.nb_cells() * n_comp) << std::endl;
 
     //----------------//
     // Create problem //
     //----------------//
 
-    auto source   = samurai::make_field<double, field_components, is_soa>("source", mesh, test_case->source());
-    auto solution = samurai::make_field<double, field_components, is_soa>("solution", mesh);
+    auto source   = samurai::make_field<double, n_comp, is_soa>("source", mesh, test_case->source());
+    auto solution = samurai::make_field<double, n_comp, is_soa>("solution", mesh);
 
     // Boundary conditions
     samurai::make_bc<samurai::Dirichlet<1>>(solution, test_case->dirichlet());
@@ -277,7 +277,7 @@ int main(int argc, char* argv[])
     std::cout << "Elapsed time: " << total_timer.Elapsed() << std::endl;
     std::cout << std::endl;
 
-    /*auto right_fluxes = samurai::make_field<double, field_components, is_soa>("fluxes", mesh);
+    /*auto right_fluxes = samurai::make_field<double, n_comp, is_soa>("fluxes", mesh);
     samurai::DirectionVector<dim> right = {1, 0};
     samurai::Stencil<2, dim> comput_stencil = {{0, 0}, {1, 0}};
     samurai::for_each_interface(mesh, right, comput_stencil,
@@ -305,7 +305,7 @@ int main(int argc, char* argv[])
             static constexpr std::size_t order = 2;
             double h                           = mesh.cell_length(mesh.min_level());
             double hidden_constant             = 5e-2;
-            double theoretical_bound           = samurai::theoretical_error_bound<order>(field_components * hidden_constant, h);
+            double theoretical_bound           = samurai::theoretical_error_bound<order>(n_comp * hidden_constant, h);
             // std::cout << "theoretical_bound: " << theoretical_bound << std::endl;
             if (error > theoretical_bound)
             {

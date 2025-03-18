@@ -13,13 +13,13 @@ namespace samurai
               // scheme config
               std::size_t dim                 = Field::dim,
               std::size_t neighbourhood_width = 1,
-              class cfg      = StarStencilSchemeConfig<SchemeType::LinearHomogeneous, Field::nb_components, neighbourhood_width, Field>,
+              class cfg      = StarStencilSchemeConfig<SchemeType::LinearHomogeneous, Field::n_comp, neighbourhood_width, Field>,
               class bdry_cfg = BoundaryConfigFV<neighbourhood_width, dirichlet_enfcmt>>
     class DiffusionFV_old : public CellBasedScheme<cfg, bdry_cfg>
     {
         using base_class = CellBasedScheme<cfg, bdry_cfg>;
         using base_class::bdry_stencil_size;
-        using base_class::field_components;
+        using base_class::n_comp;
 
       public:
 
@@ -33,7 +33,7 @@ namespace samurai
             this->stencil()           = star_stencil<dim>();
             this->coefficients_func() = [](double h)
             {
-                auto Identity = eye<field_value_type, field_components, field_components>();
+                auto Identity = eye<field_value_type, n_comp, n_comp>();
                 StencilCoeffs<cfg> coeffs;
                 for (unsigned int i = 0; i < cfg::stencil_size; ++i)
                 {

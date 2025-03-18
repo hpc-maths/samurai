@@ -9,7 +9,7 @@ namespace samurai
     auto extract_data(const Field& field, const SubMesh& submesh)
     {
         using size_type                       = typename Field::inner_types::size_type;
-        std::array<std::size_t, 2> data_shape = {submesh.nb_cells(), static_cast<std::size_t>(field.nb_components)};
+        std::array<std::size_t, 2> data_shape = {submesh.nb_cells(), static_cast<std::size_t>(field.n_comp)};
         xt::xtensor<typename Field::value_type, 2> data(data_shape);
 
         if (submesh.nb_cells() != 0)
@@ -18,13 +18,13 @@ namespace samurai
             for_each_cell(submesh,
                           [&](auto cell)
                           {
-                              if constexpr (Field::nb_components == 1)
+                              if constexpr (Field::n_comp == 1)
                               {
                                   data(index, 0) = field[cell];
                               }
                               else
                               {
-                                  for (size_type i = 0; i < field.nb_components; ++i)
+                                  for (size_type i = 0; i < field.n_comp; ++i)
                                   {
                                       data(index, i) = field[cell][i];
                                   }

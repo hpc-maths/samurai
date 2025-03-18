@@ -191,7 +191,7 @@ xt::xtensor<double, 1> prediction(const Field& f,
 template <class Field, class Pred, class Func>
 void one_time_step_overleaves(Field& f, const Pred& pred_coeff, Func&& update_bc_for_level, double s_rel, double lambda)
 {
-    constexpr std::size_t nvel = Field::nb_components;
+    constexpr std::size_t nvel = Field::n_comp;
 
     auto mesh           = f.mesh();
     using mesh_t        = typename Field::mesh_t;
@@ -317,7 +317,7 @@ void one_time_step_overleaves(Field& f, const Pred& pred_coeff, Func&& update_bc
 template <class Field, class Func>
 void one_time_step(Field& f, Func&& update_bc_for_level, double s)
 {
-    constexpr std::size_t nvel = Field::nb_components;
+    constexpr std::size_t nvel = Field::n_comp;
     using mesh_id_t            = typename Field::mesh_t::mesh_id_t;
 
     double lambda  = 1.; //, s = 1.0;
@@ -409,7 +409,7 @@ void save_solution(Field& f, double eps, std::size_t ite, std::string ext = "")
 template <class Field, class FullField, class Func>
 void save_reconstructed(Field& f, FullField& f_full, Func&& update_bc_for_level, double eps, std::size_t ite, std::string ext = "")
 {
-    constexpr std::size_t nvel = Field::nb_components;
+    constexpr std::size_t nvel = Field::n_comp;
     using value_t              = typename Field::value_type;
     auto mesh                  = f.mesh();
     using mesh_id_t            = typename decltype(mesh)::mesh_id_t;

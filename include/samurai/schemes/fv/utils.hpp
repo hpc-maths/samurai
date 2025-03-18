@@ -18,7 +18,7 @@ namespace samurai
     using StencilValues = CollapsStdArray<typename cfg::input_field_t::local_data_type, cfg::stencil_size>;
 
     template <class cfg>
-    using JacobianMatrix = CollapsMatrix<typename cfg::input_field_t::value_type, cfg::output_field_components, cfg::input_field_t::nb_components>;
+    using JacobianMatrix = CollapsMatrix<typename cfg::input_field_t::value_type, cfg::output_n_comp, cfg::input_field_t::n_comp>;
 
     template <class cfg>
     using StencilJacobian = StdArrayWrapper<JacobianMatrix<cfg>, cfg::stencil_size>;

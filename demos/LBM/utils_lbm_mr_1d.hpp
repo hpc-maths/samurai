@@ -12,7 +12,7 @@ xt::xtensor<double, 2> prediction_all(const Field& f,
                                       const interval_t& k,
                                       std::map<std::tuple<std::size_t, std::size_t, interval_t>, xt::xtensor<double, 2>>& mem_map)
 {
-    constexpr std::size_t nvel = Field::nb_components; // Number of velocities
+    constexpr std::size_t nvel = Field::n_comp; // Number of velocities
     // That is used to employ _ with xtensor
     using namespace xt::placeholders;
 

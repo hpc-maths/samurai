@@ -4,14 +4,14 @@
 
 namespace samurai
 {
-    template <SchemeType scheme_type_, std::size_t output_field_components_, std::size_t stencil_size_, class InputField_>
+    template <SchemeType scheme_type_, std::size_t output_n_comp_, std::size_t stencil_size_, class InputField_>
     struct FluxConfig
     {
-        static constexpr SchemeType scheme_type              = scheme_type_;
-        static constexpr std::size_t output_field_components = output_field_components_;
-        static constexpr std::size_t stencil_size            = stencil_size_;
-        using input_field_t                                  = std::decay_t<InputField_>;
-        static constexpr std::size_t dim                     = input_field_t::dim;
+        static constexpr SchemeType scheme_type    = scheme_type_;
+        static constexpr std::size_t output_n_comp = output_n_comp_;
+        static constexpr std::size_t stencil_size  = stencil_size_;
+        using input_field_t                        = std::decay_t<InputField_>;
+        static constexpr std::size_t dim           = input_field_t::dim;
     };
 
     template <class cfg>
@@ -63,8 +63,8 @@ namespace samurai
     //----------------------------------//
 
     template <class cfg>
-    using FluxValue = CollapsFluxArray<typename cfg::input_field_t::value_type, cfg::output_field_components>; //,
-                                                                                                               // cfg::input_field_t::is_soa>;
+    using FluxValue = CollapsFluxArray<typename cfg::input_field_t::value_type, cfg::output_n_comp>; //,
+                                                                                                     // cfg::input_field_t::is_soa>;
 
     template <class cfg>
     using FluxValuePair = StdArrayWrapper<FluxValue<cfg>, 2>;

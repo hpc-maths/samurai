@@ -13,7 +13,7 @@ namespace fs = std::filesystem;
 template <class Field,
           // scheme config
           std::size_t neighbourhood_width = 2,
-          class cfg = samurai::StarStencilSchemeConfig<samurai::SchemeType::LinearHomogeneous, Field::nb_components, neighbourhood_width, Field>,
+          class cfg = samurai::StarStencilSchemeConfig<samurai::SchemeType::LinearHomogeneous, Field::n_comp, neighbourhood_width, Field>,
           class bdry_cfg = samurai::BoundaryConfigFV<neighbourhood_width>>
 class HighOrderDiffusion : public samurai::CellBasedScheme<cfg, bdry_cfg>
 {

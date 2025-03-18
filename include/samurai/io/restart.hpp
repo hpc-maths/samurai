@@ -238,13 +238,13 @@ namespace samurai
         for_each_cell(mesh,
                       [&](auto cell)
                       {
-                          if constexpr (Field::nb_components == 1)
+                          if constexpr (Field::n_comp == 1)
                           {
                               field[cell] = data(index, 0);
                           }
                           else
                           {
-                              for (size_type i = 0; i < field.nb_components; ++i)
+                              for (size_type i = 0; i < field.n_comp; ++i)
                               {
                                   field[cell][i] = data(index, i);
                               }

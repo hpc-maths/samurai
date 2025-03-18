@@ -15,7 +15,7 @@ template <class Field>
 {
     std::size_t n      = f.mesh().nb_cells();
     bool is_nan_or_inf = false;
-    for (std::size_t i = 0; i < n * Field::nb_components; ++i)
+    for (std::size_t i = 0; i < n * Field::n_comp; ++i)
     {
         double value = f.array().data()[i];
         if (std::isnan(value) || std::isinf(value) || (abs(value) < 1e-300 && abs(value) != 0))
