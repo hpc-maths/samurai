@@ -132,7 +132,7 @@ void diffusion_rock4(Field & field, const double t,
 
 
     int info[8]; // TODO: vérifier la taille
-    const int neq = field.size() ?
+    const int neq = field.n_comp() ?
 
 
     rock4_integration(t1, t2, neq, field.data()???,

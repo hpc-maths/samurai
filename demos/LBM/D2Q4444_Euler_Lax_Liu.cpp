@@ -190,9 +190,8 @@ void one_time_step(Field& f,
                    const double sq_e,
                    const double sxy_e)
 {
-    constexpr std::size_t dim = Field::dim;
-    auto& mesh                = f.mesh();
-    using mesh_id_t           = typename Field::mesh_t::mesh_id_t;
+    constexpr std::size_t nvel = Field::n_comp;
+    using coord_index_t        = typename Field::interval_t::coord_index_t;
 
     std::size_t max_level = mesh.max_level();
 
@@ -361,10 +360,283 @@ void save_solution(Field& f, double eps, std::size_t ite, std::size_t freq_out, 
                                s[cell] = std::log(p / std::pow(rho[cell], gm));
                            });
 
+<<<<<<< HEAD
     std::size_t min_level = mesh.min_level();
     std::size_t max_level = mesh.max_level();
     std::string filename  = fmt::format("LBM_D2Q4_3_Euler_{}_lmin-{}_lmax-{}_eps-{}_ite-{}", ext, min_level, max_level, eps, ite);
     samurai::save(filename, mesh, rho, qx, qy, e, s, f, level);
+=======
+    samurai::save(str.str().data(), mesh, rho, qx, qy, e, s, f, level);
+}
+
+// Attention : the number 2 as second template parameter does not mean
+// that we are dealing with two fields!!!!
+template <class Field, class interval_t, class ordinates_t, class ordinates_t_bis>
+xt::xtensor<double, 2>
+prediction_all(const Field& f,
+               std::size_t level_g,
+               std::size_t level,
+               const interval_t& k,
+               const ordinates_t& h,
+               std::map<std::tuple<std::size_t, std::size_t, interval_t, ordinates_t_bis>, xt::xtensor<double, 2>>& mem_map)
+{
+    // That is used to employ _ with xtensor
+    using namespace xt::placeholders;
+
+    // mem_map.clear(); // To be activated if we want to avoid memoization
+    auto it = mem_map.find({level_g, level, k, h});
+
+    if (it != mem_map.end() && k.size() == (std::get<2>(it->first)).size())
+    {
+        return it->second;
+    }
+    else
+    {
+        auto mesh       = f.mesh();
+        using mesh_id_t = typename decltype(mesh)::mesh_id_t;
+
+        // We put only the size in x (k.size()) because in y we only have slices
+        // of size 1. The second term (1) should be adapted according to the
+        // number of fields that we have.
+        std::vector<std::size_t> shape_x = {k.size(), 16};
+        xt::xtensor<double, 2> out       = xt::empty<double>(shape_x);
+        auto mask                        = mesh.exists(mesh_id_t::cells_and_ghosts,
+                                level_g + level,
+                                k,
+                                h); // Check if we are on a leaf or a ghost (CHECK IF IT IS OK)
+        xt::xtensor<double, 2> mask_all  = xt::empty<double>(shape_x);
+
+        for (int h_field = 0; h_field < 16; ++h_field)
+        {
+            xt::view(mask_all, xt::all(), h_field) = mask;
+        }
+
+        if (xt::all(mask)) // Recursion finished
+        {
+            return xt::eval(f(0, 16, level_g + level, k, h));
+        }
+
+        // If we cannot stop here
+        auto kg                    = k >> 1;
+        kg.step                    = 1;
+        xt::xtensor<double, 2> val = xt::empty<double>(shape_x);
+        /*
+        --------------------
+        NW   |   N   |   NE
+        --------------------
+         W   | EARTH |   E
+        --------------------
+        SW   |   S   |   SE
+        --------------------
+        */
+
+        auto earth = xt::eval(prediction_all(f, level_g, level - 1, kg, (h >> 1), mem_map));
+        auto W     = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, (h >> 1), mem_map));
+        auto E     = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, (h >> 1), mem_map));
+        auto S     = xt::eval(prediction_all(f, level_g, level - 1, kg, (h >> 1) - 1, mem_map));
+        auto N     = xt::eval(prediction_all(f, level_g, level - 1, kg, (h >> 1) + 1, mem_map));
+        auto SW    = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, (h >> 1) - 1, mem_map));
+        auto SE    = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, (h >> 1) - 1, mem_map));
+        auto NW    = xt::eval(prediction_all(f, level_g, level - 1, kg - 1, (h >> 1) + 1, mem_map));
+        auto NE    = xt::eval(prediction_all(f, level_g, level - 1, kg + 1, (h >> 1) + 1, mem_map));
+
+        // This is to deal with odd/even indices in the x direction
+        std::size_t start_even = (k.start & 1) ? 1 : 0;
+        std::size_t start_odd  = (k.start & 1) ? 0 : 1;
+        std::size_t end_even   = (k.end & 1) ? kg.size() : kg.size() - 1;
+        std::size_t end_odd    = (k.end & 1) ? kg.size() - 1 : kg.size();
+
+        int delta_y    = (h & 1) ? 1 : 0;
+        int m1_delta_y = (delta_y == 0) ? 1 : -1; // (-1)^(delta_y)
+
+        xt::view(val, xt::range(start_even, _, 2)) = xt::view(
+            earth + 1. / 8 * (W - E) + 1. / 8 * m1_delta_y * (S - N) - 1. / 64 * m1_delta_y * (NE - NW - SE + SW),
+            xt::range(start_even, _));
+        xt::view(val, xt::range(start_odd, _, 2)) = xt::view(
+            earth - 1. / 8 * (W - E) + 1. / 8 * m1_delta_y * (S - N) + 1. / 64 * m1_delta_y * (NE - NW - SE + SW),
+            xt::range(_, end_odd));
+
+        xt::masked_view(out, !mask_all) = xt::masked_view(val, !mask_all);
+
+        for (int k_mask = 0, k_int = k.start; k_int < k.end; ++k_mask, ++k_int)
+        {
+            if (mask[k_mask])
+            {
+                xt::view(out, k_mask) = xt::view(f(0, 16, level_g + level, {k_int, k_int + 1}, h), 0);
+            }
+        }
+
+        // It is crucial to use insert and not [] in order not to update the
+        // value in case of duplicated (same key)
+        mem_map.insert(std::make_pair(std::tuple<std::size_t, std::size_t, interval_t, ordinates_t_bis>{level_g, level, k, h}, out));
+        return out;
+    }
+}
+
+template <class Field, class FieldFull, class Func>
+double compute_error(Field& f, FieldFull& f_full, Func&& update_bc_for_level)
+{
+    constexpr std::size_t nvel = Field::n_comp;
+    using value_t              = typename Field::value_type;
+
+    auto mesh       = f.mesh();
+    using mesh_id_t = typename decltype(mesh)::mesh_id_t;
+
+    auto min_level = mesh.min_level();
+    auto max_level = mesh.max_level();
+
+    auto init_mesh = f_full.mesh();
+
+    samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
+
+    auto f_reconstructed = samurai::make_field<value_t, nvel>("f_reconstructed", init_mesh);
+    f_reconstructed.fill(0.);
+
+    // For memoization
+    using interval_t  = typename Field::interval_t;   // Type in X
+    using ordinates_t = typename interval_t::index_t; // Type in Y
+    std::map<std::tuple<std::size_t, std::size_t, interval_t, ordinates_t>, xt::xtensor<double, 2>> memoization_map;
+    memoization_map.clear();
+
+    double error = 0.;
+    double norm  = 0.;
+    double dx    = 1. / (1 << max_level);
+
+    for (std::size_t level = 0; level <= max_level; ++level)
+    {
+        auto leaves_on_finest = samurai::intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level]);
+
+        leaves_on_finest.on(max_level)(
+            [&](auto& interval, auto& index)
+            {
+                auto k = interval;
+                auto h = index[0];
+
+                f_reconstructed(max_level, k, h) = prediction_all(f, level, max_level - level, k, h, memoization_map);
+
+                auto rho_reconstructed = f_reconstructed(0, max_level, k, h) + f_reconstructed(1, max_level, k, h)
+                                       + f_reconstructed(2, max_level, k, h) + f_reconstructed(3, max_level, k, h);
+                auto rho_full = f_full(0, max_level, k, h) + f_full(1, max_level, k, h) + f_full(2, max_level, k, h)
+                              + f_full(3, max_level, k, h);
+
+                error += xt::sum(xt::abs(rho_reconstructed - rho_full))[0];
+                norm += xt::sum(xt::abs(rho_full))[0];
+            });
+    }
+    return (error / norm);
+}
+
+template <class Field, class FieldFull, class Func>
+void save_reconstructed(Field& f, FieldFull& f_full, Func&& update_bc_for_level, double eps, std::size_t ite, std::string ext = "")
+{
+    constexpr std::size_t nvel = Field::n_comp;
+    using value_t              = typename Field::value_type;
+
+    auto mesh       = f.mesh();
+    using mesh_id_t = typename decltype(mesh)::mesh_id_t;
+
+    auto min_level = mesh.min_level();
+    auto max_level = mesh.max_level();
+
+    auto init_mesh = f_full.mesh();
+
+    samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
+
+    auto f_reconstructed = samurai::make_field<value_t, nvel>("f_reconstructed", init_mesh); // To reconstruct all and
+                                                                                             // see entropy
+    f_reconstructed.fill(0.);
+
+    auto rho_reconstructed = samurai::make_field<value_t, 1>("rho_reconstructed", init_mesh);
+    auto qx_reconstructed  = samurai::make_field<value_t, 1>("qx_reconstructed", init_mesh);
+    auto qy_reconstructed  = samurai::make_field<value_t, 1>("qy_reconstructed", init_mesh);
+    auto E_reconstructed   = samurai::make_field<value_t, 1>("E_reconstructed", init_mesh);
+    auto s_reconstructed   = samurai::make_field<value_t, 1>("s_reconstructed", init_mesh);
+    auto level_            = samurai::make_field<std::size_t, 1>("level", init_mesh);
+
+    auto rho = samurai::make_field<value_t, 1>("rho", init_mesh);
+    auto qx  = samurai::make_field<value_t, 1>("qx", init_mesh);
+    auto qy  = samurai::make_field<value_t, 1>("qy", init_mesh);
+    auto E   = samurai::make_field<value_t, 1>("E", init_mesh);
+    auto s   = samurai::make_field<value_t, 1>("s", init_mesh);
+
+    // For memoization
+    using interval_t  = typename Field::interval_t;   // Type in X
+    using ordinates_t = typename interval_t::index_t; // Type in Y
+    std::map<std::tuple<std::size_t, std::size_t, interval_t, ordinates_t>, xt::xtensor<double, 2>> memoization_map;
+
+    memoization_map.clear();
+
+    for (std::size_t level = 0; level <= max_level; ++level)
+    {
+        auto number_leaves = mesh.nb_cells(level, mesh_id_t::cells);
+
+        auto leaves_on_finest = samurai::intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level]);
+
+        leaves_on_finest.on(max_level)(
+            [&](auto& interval, auto& index)
+            {
+                auto k = interval;
+                auto h = index[0];
+
+                f_reconstructed(max_level, k, h) = prediction_all(f, level, max_level - level, k, h, memoization_map);
+
+                level_(max_level, k, h) = level;
+
+                rho_reconstructed(max_level, k, h) = f_reconstructed(0, max_level, k, h) + f_reconstructed(1, max_level, k, h)
+                                                   + f_reconstructed(2, max_level, k, h) + f_reconstructed(3, max_level, k, h);
+
+                qx_reconstructed(max_level, k, h) = f_reconstructed(4, max_level, k, h) + f_reconstructed(5, max_level, k, h)
+                                                  + f_reconstructed(6, max_level, k, h) + f_reconstructed(7, max_level, k, h);
+
+                qy_reconstructed(max_level, k, h) = f_reconstructed(8, max_level, k, h) + f_reconstructed(9, max_level, k, h)
+                                                  + f_reconstructed(10, max_level, k, h) + f_reconstructed(11, max_level, k, h);
+
+                E_reconstructed(max_level, k, h) = f_reconstructed(12, max_level, k, h) + f_reconstructed(13, max_level, k, h)
+                                                 + f_reconstructed(14, max_level, k, h) + f_reconstructed(15, max_level, k, h);
+
+                s_reconstructed(max_level, k, h) = xt::log(
+                    ((gm - 1.)
+                     * (E_reconstructed(max_level, k, h)
+                        - .5 * (xt::pow(qx_reconstructed(max_level, k, h), 2.) + xt::pow(qy_reconstructed(max_level, k, h), 2.))
+                              / rho_reconstructed(max_level, k, h)))
+                    / xt::pow(rho_reconstructed(max_level, k, h), gm));
+
+                rho(max_level, k, h) = f_full(0, max_level, k, h) + f_full(1, max_level, k, h) + f_full(2, max_level, k, h)
+                                     + f_full(3, max_level, k, h);
+
+                qx(max_level, k, h) = f_full(4, max_level, k, h) + f_full(5, max_level, k, h) + f_full(6, max_level, k, h)
+                                    + f_full(7, max_level, k, h);
+
+                qy(max_level, k, h) = f_full(8, max_level, k, h) + f_full(9, max_level, k, h) + f_full(10, max_level, k, h)
+                                    + f_full(11, max_level, k, h);
+
+                E(max_level, k, h) = f_full(12, max_level, k, h) + f_full(13, max_level, k, h) + f_full(14, max_level, k, h)
+                                   + f_full(15, max_level, k, h);
+
+                s(max_level, k, h) = xt::log(
+                    ((gm - 1.)
+                     * (E(max_level, k, h) - .5 * (xt::pow(qx(max_level, k, h), 2.) + xt::pow(qy(max_level, k, h), 2.)) / rho(max_level, k, h)))
+                    / xt::pow(rho(max_level, k, h), gm));
+            });
+    }
+
+    std::stringstream str;
+    str << "LBM_D2Q4_3_Euler_Reconstruction_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-" << eps << "_ite-" << ite;
+
+    samurai::save(str.str().data(),
+                  init_mesh,
+                  rho_reconstructed,
+                  qx_reconstructed,
+                  qy_reconstructed,
+                  E_reconstructed,
+                  s_reconstructed,
+                  rho,
+                  qx,
+                  qy,
+                  E,
+                  s,
+                  level_);
+>>>>>>> a897435 (style: change Field::size into Field::n_comp (#289))
 }
 
 int main(int argc, char* argv[])

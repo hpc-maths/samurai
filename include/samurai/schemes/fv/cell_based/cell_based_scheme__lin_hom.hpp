@@ -12,8 +12,8 @@ namespace samurai
       public:
 
         using base_class::dim;
-        using base_class::field_size;
-        using base_class::output_field_size;
+        using base_class::n_comp;
+        using base_class::output_n_comp;
 
         using cfg_t            = cfg;
         using bdry_cfg_t       = bdry_cfg;

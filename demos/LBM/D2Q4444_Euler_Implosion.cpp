@@ -193,7 +193,7 @@ void one_time_step(Field& f,
                    const double s_p_x        = 1.9,
                    const double s_p_xy       = 1.)
 {
-    constexpr std::size_t nvel = Field::size;
+    constexpr std::size_t nvel = Field::n_comp;
     using coord_index_t        = typename Field::interval_t::coord_index_t;
 
     auto mesh       = f.mesh();

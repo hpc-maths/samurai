@@ -735,10 +735,10 @@ namespace samurai
             field_cumsum[i + 1] += field_cumsum[i] + field_sizes[i];
         }
 
-        for (std::size_t i = 0; i < field.size; ++i)
+        for (std::size_t i = 0; i < field.n_comp; ++i)
         {
             std::string field_name;
-            if constexpr (Field::size == 1)
+            if constexpr (Field::n_comp == 1)
             {
                 field_name = field.name();
             }

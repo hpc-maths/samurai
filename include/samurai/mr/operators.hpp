@@ -288,7 +288,7 @@ namespace samurai
                 auto qs_ij = Qs_ij<order>(field, level, i, j);
 
 #ifdef SAMURAI_CHECK_NAN
-                if constexpr (T1::size == 1)
+                if constexpr (T1::n_comp == 1)
                 {
                     for (std::size_t ii = 0; ii < i.size(); ++ii)
                     {
@@ -381,9 +381,9 @@ namespace samurai
         {
           public:
 
-            static constexpr std::size_t dim  = Field::dim;
-            static constexpr std::size_t size = Field::size;
-            static constexpr bool is_soa      = Field::is_soa;
+            static constexpr std::size_t dim    = Field::dim;
+            static constexpr std::size_t n_comp = Field::n_comp;
+            static constexpr bool is_soa        = Field::is_soa;
 
             using interval_t    = typename Field::interval_t;
             using coord_index_t = typename interval_t::coord_index_t;
@@ -471,7 +471,7 @@ namespace samurai
             (
                 [&]()
                 {
-                    ranges[ir] = ranges[ir - 1] + std::get<Is>(fields).size;
+                    ranges[ir] = ranges[ir - 1] + std::get<Is>(fields).n_comp;
                     ++ir;
                 }(),
                 ...);
