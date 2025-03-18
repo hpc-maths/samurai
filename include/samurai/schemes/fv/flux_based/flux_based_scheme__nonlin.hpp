@@ -16,8 +16,8 @@ namespace samurai
         using base_class = FVScheme<FluxBasedScheme<cfg, bdry_cfg>, cfg, bdry_cfg>;
 
         using base_class::dim;
-        using base_class::field_size;
-        using base_class::output_field_size;
+        using base_class::n_comp;
+        using base_class::output_n_comp;
         using size_type = typename base_class::size_type;
 
         using typename base_class::field_value_type;
@@ -101,7 +101,7 @@ namespace samurai
 
         inline field_value_type flux_value_cmpnent(const FluxValue<cfg>& flux_value, [[maybe_unused]] size_type field_i) const
         {
-            if constexpr (output_field_size == 1)
+            if constexpr (output_n_comp == 1)
             {
                 return flux_value;
             }
@@ -160,7 +160,7 @@ namespace samurai
                                   const std::size_t delta_l,
                                   const cell_indices_t& fine_cell_indices)
         {
-            if constexpr (field_size == 1)
+            if constexpr (n_comp == 1)
             {
                 predicted_value = portion(field, level, coarse_cell_indices, delta_l, fine_cell_indices)[0];
             }

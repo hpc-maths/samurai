@@ -196,7 +196,7 @@ xt::xtensor<double, 1> prediction(const Field& f,
 template <class Field, class Func>
 void one_time_step(Field& f, Func&& update_bc_for_level, double s, const double lambda, const double g)
 {
-    constexpr std::size_t nvel = Field::size;
+    constexpr std::size_t nvel = Field::n_comp;
     using mesh_id_t            = typename Field::mesh_t::mesh_id_t;
 
     auto mesh           = f.mesh();
@@ -285,7 +285,7 @@ void one_time_step(Field& f, Func&& update_bc_for_level, double s, const double 
 template <class Field, class Pred, class Func>
 void one_time_step_overleaves(Field& f, const Pred& pred_coeff, Func&& update_bc_for_level, double s_rel, const double lambda, const double g)
 {
-    constexpr std::size_t nvel = Field::size;
+    constexpr std::size_t nvel = Field::n_comp;
     auto mesh                  = f.mesh();
     using mesh_t               = typename Field::mesh_t;
     using mesh_id_t            = typename mesh_t::mesh_id_t;

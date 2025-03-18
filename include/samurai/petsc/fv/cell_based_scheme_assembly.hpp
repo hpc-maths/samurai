@@ -14,7 +14,7 @@ namespace samurai
             using base_class = FVSchemeAssembly<Scheme>;
             using base_class::col_index;
             using base_class::dim;
-            using base_class::field_size;
+            using base_class::n_comp;
             using base_class::row_index;
             using base_class::set_is_row_not_empty;
 
@@ -27,14 +27,14 @@ namespace samurai
 
           public:
 
-            using scheme_t                                 = Scheme;
-            using cfg_t                                    = typename Scheme::cfg_t;
-            using bdry_cfg_t                               = typename Scheme::bdry_cfg;
-            using field_t                                  = typename Scheme::field_t;
-            using field_value_type                         = typename field_t::value_type; // double
-            static constexpr std::size_t output_field_size = cfg_t::output_field_size;
-            static constexpr std::size_t stencil_size      = cfg_t::stencil_size;
-            using local_matrix_t                           = CollapsMatrix<field_value_type, output_field_size, field_size>;
+            using scheme_t                             = Scheme;
+            using cfg_t                                = typename Scheme::cfg_t;
+            using bdry_cfg_t                           = typename Scheme::bdry_cfg;
+            using field_t                              = typename Scheme::field_t;
+            using field_value_type                     = typename field_t::value_type; // double
+            static constexpr std::size_t output_n_comp = cfg_t::output_n_comp;
+            static constexpr std::size_t stencil_size  = cfg_t::stencil_size;
+            using local_matrix_t                       = CollapsMatrix<field_value_type, output_n_comp, n_comp>;
 
             using stencil_t         = Stencil<stencil_size, dim>;
             using get_coeffs_func_t = std::function<std::array<local_matrix_t, stencil_size>(double)>;
@@ -49,7 +49,7 @@ namespace samurai
             // Data index in the given stencil
             inline auto local_col_index(unsigned int cell_local_index, [[maybe_unused]] unsigned int field_j) const
             {
-                if constexpr (field_size == 1)
+                if constexpr (n_comp == 1)
                 {
                     return cell_local_index;
                 }
@@ -59,13 +59,13 @@ namespace samurai
                 }
                 else
                 {
-                    return cell_local_index * field_size + field_j;
+                    return cell_local_index * n_comp + field_j;
                 }
             }
 
             inline auto local_row_index(unsigned int cell_local_index, [[maybe_unused]] unsigned int field_i) const
             {
-                if constexpr (output_field_size == 1)
+                if constexpr (output_n_comp == 1)
                 {
                     return cell_local_index;
                 }
@@ -75,7 +75,7 @@ namespace samurai
                 }
                 else
                 {
-                    return cell_local_index * output_field_size + field_i;
+                    return cell_local_index * output_n_comp + field_i;
                 }
             }
 
@@ -92,9 +92,9 @@ namespace samurai
                     return;
                 }
 
-                for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                 {
-                    PetscInt scheme_nnz_i = stencil_size * field_size;
+                    PetscInt scheme_nnz_i = stencil_size * n_comp;
 
                     // If LinearHomogeneous, take only the non-zero coefficients into account.
                     // Not sure if this optimization really makes a difference though...
@@ -102,7 +102,7 @@ namespace samurai
                     {
                         auto coeffs  = scheme().coefficients(cell_length(1., 0));
                         scheme_nnz_i = 0;
-                        for (unsigned int field_j = 0; field_j < field_size; ++field_j)
+                        for (unsigned int field_j = 0; field_j < n_comp; ++field_j)
                         {
                             if constexpr (cfg_t::contiguous_indices_start > 0)
                             {
@@ -176,18 +176,18 @@ namespace samurai
                         //     std::cout << i << ": " << coeffs[i] << std::endl;
 
                         // Global rows and columns
-                        std::array<PetscInt, cfg_t::stencil_size * output_field_size> rows;
+                        std::array<PetscInt, cfg_t::stencil_size * output_n_comp> rows;
                         for (unsigned int c = 0; c < cfg_t::stencil_size; ++c)
                         {
-                            for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                            for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                             {
                                 rows[local_row_index(c, field_i)] = static_cast<PetscInt>(row_index(cells[c], field_i));
                             }
                         }
-                        std::array<PetscInt, cfg_t::stencil_size * field_size> cols;
+                        std::array<PetscInt, cfg_t::stencil_size * n_comp> cols;
                         for (unsigned int c = 0; c < cfg_t::stencil_size; ++c)
                         {
-                            for (unsigned int field_j = 0; field_j < field_size; ++field_j)
+                            for (unsigned int field_j = 0; field_j < n_comp; ++field_j)
                             {
                                 cols[local_col_index(c, field_j)] = static_cast<PetscInt>(col_index(cells[c], field_j));
                             }
@@ -207,7 +207,7 @@ namespace samurai
                         //     field_j (Grad_y) |  |  |  |-1| 1|
 
                         // Coefficient insertion
-                        if constexpr (field_size == 1 || field_t::is_soa)
+                        if constexpr (n_comp == 1 || field_t::is_soa)
                         {
                             // In SOA, the indices are ordered in field_i for
                             // all cells, then field_j for all cells:
@@ -229,10 +229,10 @@ namespace samurai
                             //                |_______|              |_______|
                             //               contiguous              contiguous
                             //
-                            for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                            for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                             {
                                 auto stencil_center_row = static_cast<PetscInt>(row_index(cells[cfg_t::center_index], field_i));
-                                for (unsigned int field_j = 0; field_j < field_size; ++field_j)
+                                for (unsigned int field_j = 0; field_j < n_comp; ++field_j)
                                 {
                                     if constexpr (cfg_t::contiguous_indices_start > 0)
                                     {
@@ -300,20 +300,20 @@ namespace samurai
 
                             for (unsigned int c = 0; c < stencil_size; ++c)
                             {
-                                // Insert a coefficient block of size <output_field_size x field_size>:
-                                // - in 'rows', for each cell, <output_field_size> rows are contiguous.
-                                // - in 'cols', for each cell, <field_size> cols are contiguous.
+                                // Insert a coefficient block of size <output_n_comp x n_comp>:
+                                // - in 'rows', for each cell, <output_n_comp> rows are contiguous.
+                                // - in 'cols', for each cell, <n_comp> cols are contiguous.
                                 // - coeffs[c] is a row-major matrix (xtensor), as requested by PETSc.
                                 MatSetValues(A,
-                                             static_cast<PetscInt>(output_field_size),
+                                             static_cast<PetscInt>(output_n_comp),
                                              &rows[local_row_index(cfg_t::center_index, 0)],
-                                             static_cast<PetscInt>(field_size),
+                                             static_cast<PetscInt>(n_comp),
                                              &cols[local_col_index(c, 0)],
                                              coeffs[c].data(),
                                              ADD_VALUES);
                             }
 
-                            for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                            for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                             {
                                 auto row = rows[local_row_index(cfg_t::center_index, field_i)];
                                 set_is_row_not_empty(row);
