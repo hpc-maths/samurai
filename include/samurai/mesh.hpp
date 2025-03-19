@@ -783,14 +783,14 @@ namespace samurai
         this->m_cells[mesh_id_t::cells][start_level] = {start_level, subdomain_box};
         */
 
-        // in 1D
         int subdomain_start = -1;
         int subdomain_end   = -1;
         lcl_type subdomain_cells(start_level, m_domain.origin_point(), m_domain.scaling_factor());
+        // in 1D MPI, we need a specific partitioning
         if (dim == 1)
         {
             auto n_cells              = m_domain.nb_cells();
-            int n_cells_per_subdomain = (int)(n_cells / size);
+            int n_cells_per_subdomain = static_cast<int>(n_cells / size);
             subdomain_start           = n_cells_per_subdomain * rank;
             subdomain_end             = n_cells_per_subdomain * (rank + 1);
             // for the last rank, we have to take all the last cells;
@@ -801,9 +801,12 @@ namespace samurai
         }
         else
         {
-            auto subdomain_nb_intervals = m_domain.nb_intervals() / static_cast<std::size_t>(size);
-            subdomain_start             = static_cast<std::size_t>(rank) * subdomain_nb_intervals;
-            subdomain_end               = (static_cast<std::size_t>(rank) + 1) * subdomain_nb_intervals;
+            (dim > 1)
+            {
+                auto subdomain_nb_intervals = m_domain.nb_intervals() / static_cast<std::size_t>(size);
+                subdomain_start             = static_cast<std::size_t>(rank) * subdomain_nb_intervals;
+                subdomain_end               = (static_cast<std::size_t>(rank) + 1) * subdomain_nb_intervals;
+            }
         }
         std::size_t k = 0;
         for_each_meshinterval(m_domain,
