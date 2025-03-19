@@ -799,14 +799,11 @@ namespace samurai
                 subdomain_end = n_cells_per_subdomain;
             }
         }
-        else
+        else if (dim >= 2)
         {
-            (dim > 1)
-            {
-                auto subdomain_nb_intervals = m_domain.nb_intervals() / static_cast<std::size_t>(size);
-                subdomain_start             = static_cast<std::size_t>(rank) * subdomain_nb_intervals;
-                subdomain_end               = (static_cast<std::size_t>(rank) + 1) * subdomain_nb_intervals;
-            }
+            auto subdomain_nb_intervals = m_domain.nb_intervals() / static_cast<std::size_t>(size);
+            subdomain_start             = static_cast<std::size_t>(rank) * subdomain_nb_intervals;
+            subdomain_end               = (static_cast<std::size_t>(rank) + 1) * subdomain_nb_intervals;
         }
         std::size_t k = 0;
         for_each_meshinterval(m_domain,
