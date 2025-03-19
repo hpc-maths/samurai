@@ -789,16 +789,15 @@ namespace samurai
         // in 1D MPI, we need a specific partitioning
         if (dim == 1)
         {
-            auto n_cells              = m_domain.nb_cells();
-            int n_cells_per_subdomain = static_cast<int>(n_cells / size);
-            subdomain_start           = n_cells_per_subdomain * rank;
-            subdomain_end             = n_cells_per_subdomain * (rank + 1);
+            std::size_t n_cells               = m_domain.nb_cells();
+            std::size_t n_cells_per_subdomain = n_cells / static_cast<std::size_t>(size);
+            subdomain_start                   = n_cells_per_subdomain * static_cast<std::size_t>(rank);
+            subdomain_end                     = n_cells_per_subdomain * (static_cast<std::size_t>(rank) + 1);
             // for the last rank, we have to take all the last cells;
             if (rank == size - 1)
             {
                 subdomain_end = n_cells;
             }
-            std::size_t k = 0;
             for_each_meshinterval(m_domain,
                                   [&](auto mi)
                                   {
