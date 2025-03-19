@@ -796,7 +796,7 @@ namespace samurai
             // for the last rank, we have to take all the last cells;
             if (rank == size - 1)
             {
-                subdomain_end = n_cells_per_subdomain;
+                subdomain_end = n_cells;
             }
         }
         else if (dim >= 2)
