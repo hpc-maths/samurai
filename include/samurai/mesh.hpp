@@ -833,15 +833,76 @@ namespace samurai
 
         this->m_cells[mesh_id_t::cells][start_level] = subdomain_cells;
 
+        // std::vector<mpi_subdomain_t> m_mpi_neighbourhood_temp;
         m_mpi_neighbourhood.reserve(static_cast<std::size_t>(size) - 1);
+        // This code find the neighbourhood of each mpi rank
+        // 1) we have to exchange the local mesh with all the neighbourhood. It is costly and not scalable but is it a easy way to do it
+        // 2) we find intersection between each subdomain cells_and_ghosts.
+        // 3) be careful : for periodic conditions, how to treat neighbourhood ?? maybe in another mpi neighbourhood.
+
         for (int ir = 0; ir < size; ++ir)
         {
             if (ir != rank)
             {
                 m_mpi_neighbourhood.push_back(ir);
+                ;
+            }
+        }
+        std::cout << " nombre voisins du rank " << rank << " before better neighbour : " << m_mpi_neighbourhood.size() << std::endl;
+        // send
+
+        // Please think about if they are all necessary
+        construct_subdomain();
+        construct_union();
+        update_sub_mesh();
+        renumbering();
+        update_mesh_neighbour();
+
+        std::vector<mpi_subdomain_t> m_mpi_neighbourhood_temp;
+        // std::swap(m_mpi_neighbourhood_temp, m_mpi_neighbourhood);
+
+        // m_mpi_neighboor is empty lol...
+
+        for (auto& neighbour : m_mpi_neighbourhood)
+        {
+            int est_voisin_global = 0;
+            for (int level = this->min_level(); level < this->max_level(); level++)
+            {
+                // I use cells and ghosts becose cell only is not enough
+                // in contrary, cells and ghost are overkill
+                // maybe we can do cells for mesh 1 and cells_and_ghosts for mesh 2
+
+                // We need a kind of ""expand"" operator.
+                auto overlap = intersection(this->m_cells[mesh_id_t::reference][level], neighbour.mesh.m_cells[mesh_id_t::reference][level]
+                                            //,this->m_cells.subdomain()
+                                            )
+                                   .on(level);
+                // tester si voisin
+                int est_voisin_niveau = 0;
+                // maybe it exist a method like "overlap.is_empty() so we should use it"
+
+                overlap(
+                    [&](const auto& i, const auto& index)
+                    {
+                        est_voisin_niveau = 1;
+                    });
+
+                std::cout << " est voisin local : " << est_voisin_niveau << std::endl;
+
+                if (est_voisin_niveau == 1)
+                {
+                    est_voisin_global = 1;
+                }
+            }
+            if (est_voisin_global)
+            {
+                m_mpi_neighbourhood_temp.push_back(neighbour);
             }
         }
 
+        std::swap(m_mpi_neighbourhood_temp, m_mpi_neighbourhood);
+
+        std::cout << " nombre voisins du rank " << rank << " : " << m_mpi_neighbourhood.size() << std::endl;
         // // Neighbours
         // m_mpi_neighbourhood.reserve(static_cast<std::size_t>(pow(3, dim) - 1));
         // auto neighbour = [&](xt::xtensor_fixed<int, xt::xshape<dim>> shift)
