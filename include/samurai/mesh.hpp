@@ -860,38 +860,44 @@ namespace samurai
 
         std::vector<mpi_subdomain_t> m_mpi_neighbourhood_temp;
         // std::swap(m_mpi_neighbourhood_temp, m_mpi_neighbourhood);
-
         // m_mpi_neighboor is empty lol...
-
         for (auto& neighbour : m_mpi_neighbourhood)
         {
             int est_voisin_global = 0;
-            for (int level = this->min_level(); level < this->max_level(); level++)
             {
                 // I use cells and ghosts becose cell only is not enough
                 // in contrary, cells and ghost are overkill
                 // maybe we can do cells for mesh 1 and cells_and_ghosts for mesh 2
 
-                // We need a kind of ""expand"" operator.
-                auto overlap = intersection(this->m_cells[mesh_id_t::reference][level], neighbour.mesh.m_cells[mesh_id_t::reference][level]
-                                            //,this->m_cells.subdomain()
-                                            )
-                                   .on(level);
-                // tester si voisin
-                int est_voisin_niveau = 0;
-                // maybe it exist a method like "overlap.is_empty() so we should use it"
+                // We need a kind of ""expand"" operator. but for now we use bruteforce translation
+                xt::xtensor_fixed<int, xt::xshape<4, 2>> stencils{
+                    {-1, 0 },
+                    {1,  0 },
+                    {0,  -1},
+                    {0,  1 }
+                    {-1, 1 },
+                    {1,  1 },
+                    {-1, -1},
+                    {1,  1 }
+                };
 
-                overlap(
-                    [&](const auto& i, const auto& index)
-                    {
-                        est_voisin_niveau = 1;
-                    });
-
-                std::cout << " est voisin local : " << est_voisin_niveau << std::endl;
-
-                if (est_voisin_niveau == 1)
+                for (std::size_t is = 0; is < stencils.shape()[0]; ++is)
                 {
-                    est_voisin_global = 1;
+                    auto s           = xt::view(stencils, is);
+                    auto translation = translate(this->m_subdomain, s);
+                    auto overlap     = intersection(translation, neighbour.mesh.m_subdomain);
+                    // tester si voisin
+                    int est_voisin_niveau = 0;
+                    // maybe it exist a method like "overlap.is_empty() so we should use it"
+                    overlap(
+                        [&](const auto& i, const auto& index)
+                        {
+                            est_voisin_niveau = 1;
+                        });
+                    if (est_voisin_niveau == 1)
+                    {
+                        est_voisin_global = 1;
+                    }
                 }
             }
             if (est_voisin_global)
