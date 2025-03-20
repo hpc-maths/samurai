@@ -870,7 +870,7 @@ namespace samurai
                 // maybe we can do cells for mesh 1 and cells_and_ghosts for mesh 2
 
                 // We need a kind of ""expand"" operator. but for now we use bruteforce translation
-                xt::xtensor_fixed<int, xt::xshape<4, 2>> stencils{
+                xt::xtensor_fixed<int, xt::xshape<8, 2>> stencils{
                     {-1, 0 },
                     {1,  0 },
                     {0,  -1},
