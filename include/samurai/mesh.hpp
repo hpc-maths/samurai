@@ -844,7 +844,7 @@ namespace samurai
                 ;
             }
         }
-        std::cout << " nombre voisins du rank " << rank << " before better neighbour : " << m_mpi_neighbourhood.size() << std::endl;
+
         // send
 
         // Please think about if they are all necessary
@@ -904,7 +904,6 @@ namespace samurai
 
         std::swap(m_mpi_neighbourhood_temp, m_mpi_neighbourhood);
 
-        std::cout << " nombre voisins du rank " << rank << " : " << m_mpi_neighbourhood.size() << std::endl;
         // // Neighbours
         // m_mpi_neighbourhood.reserve(static_cast<std::size_t>(pow(3, dim) - 1));
         // auto neighbour = [&](xt::xtensor_fixed<int, xt::xshape<dim>> shift)
