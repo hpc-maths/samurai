@@ -46,16 +46,21 @@ class Plot:
                 ax = plt.subplot(1, len(args.field), i + 1)
                 mesh = read_mesh(filename)
 
-                unknown_field = next((f for f in args.field if f not in mesh['fields']), None)
-
-                if unknown_field is not None:
-                    keys = ' '.join(mesh['fields'].keys())
-                    raise ValueError(f"file:{filename}> field:{unknown_field} not in available fields values: {keys}")
-
                 if 'points' in mesh:
+                    unknown_field = next((f for f in args.field if f not in mesh['fields']), None)
+
+                    if unknown_field is not None:
+                        keys = ' '.join(mesh['fields'].keys())
+                        raise ValueError(f"file:{filename}> field:{unknown_field} not in available fields values: {keys}")
+
                     self.plot(ax, mesh, f)
                 else:
                     for rank in mesh.keys():
+                        unknown_field = next((f for f in args.field if f not in mesh[rank]['fields']), None)
+
+                        if unknown_field is not None:
+                            keys = ' '.join(mesh[rank]['fields'].keys())
+                            raise ValueError(f"file:{filename}> field:{unknown_field} not in available fields values: {keys}")
                         self.plot(ax, mesh[rank], f)
                 ax.set_title(f)
                 self.ax.append(ax)
