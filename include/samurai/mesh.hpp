@@ -783,32 +783,126 @@ namespace samurai
         this->m_cells[mesh_id_t::cells][start_level] = {start_level, subdomain_box};
         */
 
+        std::size_t subdomain_start = 0;
+        std::size_t subdomain_end   = 0;
         lcl_type subdomain_cells(start_level, m_domain.origin_point(), m_domain.scaling_factor());
-        auto subdomain_nb_intervals = m_domain.nb_intervals() / static_cast<std::size_t>(size);
-        auto subdomain_start        = static_cast<std::size_t>(rank) * subdomain_nb_intervals;
-        auto subdomain_end          = (static_cast<std::size_t>(rank) + 1) * subdomain_nb_intervals;
-
-        std::size_t k = 0;
-        for_each_meshinterval(m_domain,
-                              [&](auto mi)
-                              {
-                                  if (k >= subdomain_start && k < subdomain_end)
+        // in 1D MPI, we need a specific partitioning
+        if (dim == 1)
+        {
+            std::size_t n_cells               = m_domain.nb_cells();
+            std::size_t n_cells_per_subdomain = n_cells / static_cast<std::size_t>(size);
+            subdomain_start                   = n_cells_per_subdomain * static_cast<std::size_t>(rank);
+            subdomain_end                     = n_cells_per_subdomain * (static_cast<std::size_t>(rank) + 1);
+            // for the last rank, we have to take all the last cells;
+            if (rank == size - 1)
+            {
+                subdomain_end = n_cells;
+            }
+            for_each_meshinterval(m_domain,
+                                  [&](auto mi)
                                   {
-                                      subdomain_cells[mi.index].add_interval(mi.i);
-                                  }
-                                  ++k;
-                              });
+                                      for (auto i = mi.i.start; i < mi.i.end; ++i)
+                                      {
+                                          if (i >= subdomain_start && i < subdomain_end)
+                                          {
+                                              subdomain_cells[mi.index].add_point(i);
+                                          }
+                                      }
+                                  });
+        }
+        else if (dim >= 2)
+        {
+            auto subdomain_nb_intervals = m_domain.nb_intervals() / static_cast<std::size_t>(size);
+            subdomain_start             = static_cast<std::size_t>(rank) * subdomain_nb_intervals;
+            subdomain_end               = (static_cast<std::size_t>(rank) + 1) * subdomain_nb_intervals;
+            std::size_t k               = 0;
+            for_each_meshinterval(m_domain,
+                                  [&](auto mi)
+                                  {
+                                      if (k >= subdomain_start && k < subdomain_end)
+                                      {
+                                          subdomain_cells[mi.index].add_interval(mi.i);
+                                      }
+                                      ++k;
+                                  });
+        }
 
         this->m_cells[mesh_id_t::cells][start_level] = subdomain_cells;
 
+        // std::vector<mpi_subdomain_t> m_mpi_neighbourhood_temp;
         m_mpi_neighbourhood.reserve(static_cast<std::size_t>(size) - 1);
+        // This code find the neighbourhood of each mpi rank
+        // 1) we have to exchange the local mesh with all the neighbourhood. It is costly and not scalable but is it a easy way to do it
+        // 2) we find intersection between each subdomain cells_and_ghosts.
+        // 3) be careful : for periodic conditions, how to treat neighbourhood ?? maybe in another mpi neighbourhood.
+
         for (int ir = 0; ir < size; ++ir)
         {
             if (ir != rank)
             {
                 m_mpi_neighbourhood.push_back(ir);
+                ;
             }
         }
+
+        // send
+
+        // Please think about if they are all necessary
+        construct_subdomain();
+        construct_union();
+        update_sub_mesh();
+        renumbering();
+        update_mesh_neighbour();
+
+        std::vector<mpi_subdomain_t> m_mpi_neighbourhood_temp;
+        // std::swap(m_mpi_neighbourhood_temp, m_mpi_neighbourhood);
+        // m_mpi_neighboor is empty lol...
+        for (auto& neighbour : m_mpi_neighbourhood)
+        {
+            int est_voisin_global = 0;
+            {
+                // I use cells and ghosts becose cell only is not enough
+                // in contrary, cells and ghost are overkill
+                // maybe we can do cells for mesh 1 and cells_and_ghosts for mesh 2
+
+                // We need a kind of ""expand"" operator. but for now we use bruteforce translation
+                xt::xtensor_fixed<int, xt::xshape<8, 2>> stencils{
+                    {-1, 0 },
+                    {1,  0 },
+                    {0,  -1},
+                    {0,  1 },
+                    {-1, 1 },
+                    {1,  1 },
+                    {-1, -1},
+                    {1,  1 }
+                };
+
+                for (std::size_t is = 0; is < stencils.shape()[0]; ++is)
+                {
+                    auto s           = xt::view(stencils, is);
+                    auto translation = translate(this->m_subdomain, s);
+                    auto overlap     = intersection(translation, neighbour.mesh.m_subdomain);
+                    // tester si voisin
+                    int est_voisin_niveau = 0;
+                    // maybe it exist a method like "overlap.is_empty() so we should use it"
+                    overlap(
+                        [&](const auto& i, const auto& index)
+                        {
+                            est_voisin_niveau = 1;
+                        });
+                    if (est_voisin_niveau == 1)
+                    {
+                        est_voisin_global = 1;
+                    }
+                }
+            }
+            if (est_voisin_global)
+            {
+                m_mpi_neighbourhood_temp.push_back(neighbour);
+            }
+        }
+
+        std::swap(m_mpi_neighbourhood_temp, m_mpi_neighbourhood);
 
         // // Neighbours
         // m_mpi_neighbourhood.reserve(static_cast<std::size_t>(pow(3, dim) - 1));
