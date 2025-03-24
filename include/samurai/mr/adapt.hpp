@@ -65,11 +65,10 @@ namespace samurai
         template <class... TFields>
         struct get_fields_type
         {
-            using fields_t                     = Field_tuple<TFields...>;
-            using mesh_t                       = typename fields_t::mesh_t;
-            static constexpr std::size_t nelem = fields_t::nelem;
-            using common_t                     = typename fields_t::common_t;
-            using detail_t                     = Field<mesh_t, common_t, nelem>;
+            using fields_t = Field_tuple<TFields...>;
+            using mesh_t   = typename fields_t::mesh_t;
+            using common_t = typename fields_t::common_t;
+            using detail_t = Field<mesh_t, common_t, detail::compute_n_comp<TFields...>()>;
         };
 
         template <class TField>
@@ -77,7 +76,7 @@ namespace samurai
         {
             using fields_t = TField&;
             using mesh_t   = typename TField::mesh_t;
-            using detail_t = Field<mesh_t, typename TField::value_type, TField::size, TField::is_soa>;
+            using detail_t = Field<mesh_t, typename TField::value_type, TField::n_comp, TField::is_soa>;
         };
     }
 

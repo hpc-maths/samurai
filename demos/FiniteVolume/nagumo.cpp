@@ -35,11 +35,11 @@ int main(int argc, char* argv[])
 {
     auto& app = samurai::initialize("Finite volume example for the Nagumo equation", argc, argv);
 
-    static constexpr std::size_t dim        = 1;
-    static constexpr std::size_t field_size = 1;
-    using Config                            = samurai::MRConfig<dim>;
-    using Box                               = samurai::Box<double, dim>;
-    using point_t                           = typename Box::point_t;
+    static constexpr std::size_t dim    = 1;
+    static constexpr std::size_t n_comp = 1;
+    using Config                        = samurai::MRConfig<dim>;
+    using Box                           = samurai::Box<double, dim>;
+    using point_t                       = typename Box::point_t;
 
     std::cout << "------------------------- Nagumo -------------------------" << std::endl;
 
@@ -133,7 +133,7 @@ int main(int argc, char* argv[])
     Box box(box_corner1, box_corner2);
     samurai::MRMesh<Config> mesh{box, min_level, max_level};
 
-    auto u = samurai::make_field<field_size>("u", mesh);
+    auto u = samurai::make_field<n_comp>("u", mesh);
 
     double z0 = left_box / 5;    // wave initial position
     double c  = sqrt(k * D / 2); // wave velocity
@@ -165,7 +165,7 @@ int main(int argc, char* argv[])
         samurai::load(restart_file, mesh, u);
     }
 
-    auto unp1 = samurai::make_field<field_size>("unp1", mesh);
+    auto unp1 = samurai::make_field<n_comp>("unp1", mesh);
 
     samurai::make_bc<samurai::Neumann<1>>(u);
     samurai::make_bc<samurai::Neumann<1>>(unp1);
@@ -174,7 +174,7 @@ int main(int argc, char* argv[])
     auto id   = samurai::make_identity<decltype(u)>();
 
     // Reaction operator
-    using cfg  = samurai::LocalCellSchemeConfig<samurai::SchemeType::NonLinear, field_size, decltype(u)>;
+    using cfg  = samurai::LocalCellSchemeConfig<samurai::SchemeType::NonLinear, n_comp, decltype(u)>;
     auto react = samurai::make_cell_based_scheme<cfg>();
     react.set_name("Reaction");
     react.set_scheme_function(
@@ -213,7 +213,7 @@ int main(int argc, char* argv[])
         save(path, filename, u, fmt::format("_ite_{}", nsave++));
     }
 
-    auto rhs = samurai::make_field<field_size>("rhs", mesh);
+    auto rhs = samurai::make_field<n_comp>("rhs", mesh);
 
     while (t != Tf)
     {

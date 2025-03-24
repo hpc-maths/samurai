@@ -22,7 +22,7 @@ namespace samurai
         static_assert(detail::is_field_function<decltype(upwind(1, u))>::value);
     }
 
-    TEST(utils, compute_size)
+    TEST(utils, compute_n_comp)
     {
         Box<double, 1> box{{0}, {1}};
         using Config = UniformConfig<1>;
@@ -31,7 +31,7 @@ namespace samurai
         auto u1 = make_field<int, 1>("u", mesh);
         auto u2 = make_field<double, 3>("u", mesh);
 
-        static_assert(detail::compute_size<decltype(u1), decltype(u2)>() == 4);
+        static_assert(detail::compute_n_comp<decltype(u1), decltype(u2)>() == 4);
 
         static_assert(std::is_same<detail::common_type_t<decltype(u1), decltype(u2)>, double>::value);
     }

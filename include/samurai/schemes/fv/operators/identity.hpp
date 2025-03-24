@@ -6,18 +6,18 @@ namespace samurai
     template <class Field>
     auto make_identity()
     {
-        static constexpr std::size_t field_size = Field::size;
-        using field_value_type                  = typename Field::value_type;
+        static constexpr std::size_t n_comp = Field::n_comp;
+        using field_value_type              = typename Field::value_type;
 
-        using cfg = LocalCellSchemeConfig<SchemeType::LinearHomogeneous, Field::size, Field>;
+        using cfg = LocalCellSchemeConfig<SchemeType::LinearHomogeneous, Field::n_comp, Field>;
 
         auto identity = make_cell_based_scheme<cfg>("Identity");
 
         identity.coefficients_func() = [](double) -> StencilCoeffs<cfg>
         {
-            // return {eye<field_value_type, field_size, field_size>()};
+            // return {eye<field_value_type, n_comp, n_comp>()};
             StencilCoeffs<cfg> sc;
-            sc(0) = eye<field_value_type, field_size, field_size>();
+            sc(0) = eye<field_value_type, n_comp, n_comp>();
             return sc;
         };
         identity.is_symmetric(true);

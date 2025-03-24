@@ -154,7 +154,7 @@ auto init_f(Mesh& mesh, double t, double ad_vel, double lambda, int test_number)
 template <class Field, class Func>
 void one_time_step(Field& f, Func&& update_bc_for_level, double s_rel, double lambda, double ad_vel, int test_number, bool finest_collision = false)
 {
-    constexpr std::size_t nvel = Field::size;
+    constexpr std::size_t nvel = Field::n_comp;
 
     auto mesh           = f.mesh();
     using mesh_t        = typename Field::mesh_t;
