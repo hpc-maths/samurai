@@ -33,22 +33,6 @@ namespace samurai
             }
 
             template <typename Function>
-            static void run(index_type& idx, int i0, int i1, int step, Function&& func)
-            {
-                if constexpr (dim != dim_min - 1)
-                {
-                    for (idx[dim] = i0; idx[dim] < i1; idx[dim] += step)
-                    {
-                        NestedLoop<index_size, dim - 1, dim_min>::run(idx, i0, i1, step, std::forward<Function>(func));
-                    }
-                }
-                else
-                {
-                    func(idx);
-                }
-            }
-
-            template <typename Function>
             static void run(index_type& idx, int i0, int i1, Function&& func)
             {
                 if constexpr (dim != dim_min - 1)
@@ -71,8 +55,8 @@ namespace samurai
     inline void staticNestedLoop(std::integral_constant<int, i0>, std::integral_constant<int, I1>, Function&& func)
     {
         using index_type  = typename detail::NestedLoop<index_size, dim_max - 1, dim_min>::index_type;
-        using i0_constant = typename detail::NestedLoop<index_size, dim_max - 1, dim_min>::int_constant<i0>;
-        using i1_constant = typename detail::NestedLoop<index_size, dim_max - 1, dim_min>::int_constant<I1>;
+        using i0_constant = typename detail::NestedLoop<index_size, dim_max - 1, dim_min>::template int_constant<i0>;
+        using i1_constant = typename detail::NestedLoop<index_size, dim_max - 1, dim_min>::template int_constant<I1>;
         index_type idx;
         for (size_t i = 0; i != dim_min; ++i)
         {
@@ -87,22 +71,6 @@ namespace samurai
 
     template <size_t index_size, size_t dim_min, size_t dim_max, typename Function>
     inline void nestedLoop(int i0, int i1, Function&& func)
-    {
-        using index_type = typename detail::NestedLoop<index_size, dim_max - 1, dim_min>::index_type;
-        index_type idx;
-        for (size_t i = 0; i != dim_min; ++i)
-        {
-            idx[i] = i0;
-        }
-        for (size_t i = dim_max; i != index_size; ++i)
-        {
-            idx[i] = i0;
-        }
-        detail::NestedLoop<index_size, dim_max - 1, dim_min>::run(idx, i0, i1, std::forward<Function>(func));
-    }
-
-    template <size_t index_size, size_t dim_min, size_t dim_max, typename Function>
-    inline void nestedLoop(int i0, int i1, int step, Function&& func)
     {
         using index_type = typename detail::NestedLoop<index_size, dim_max - 1, dim_min>::index_type;
         index_type idx;

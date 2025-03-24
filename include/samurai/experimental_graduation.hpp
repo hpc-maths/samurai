@@ -32,38 +32,39 @@ namespace samurai
 
         namespace detail
         {
-
             template <size_t index_size, size_t dim, size_t dim_min>
             struct NestedExpand
             {
+                static_assert(dim >= dim_min);
                 using index_type = xt::xtensor_fixed<int, xt::xshape<index_size>>;
 
                 template <typename TInterval>
                 static auto run(index_type& idx, const LevelCellArray<index_size, TInterval>& lca, const int width)
                 {
-                    idx[dim]       = -width;
-                    auto subset_m1 = NestedExpand<index_size, dim - 1, dim_min>::run(idx, lca, width);
-                    idx[dim]       = 0;
-                    auto subset_0  = NestedExpand<index_size, dim - 1, dim_min>::run(idx, lca, width);
-                    idx[dim]       = width;
-                    auto subset_1  = NestedExpand<index_size, dim - 1, dim_min>::run(idx, lca, width);
+                    if constexpr (dim != dim_min)
+                    {
+                        idx[dim]       = -width;
+                        auto subset_m1 = NestedExpand<index_size, dim - 1, dim_min>::run(idx, lca, width);
+                        idx[dim]       = 0;
+                        auto subset_0  = NestedExpand<index_size, dim - 1, dim_min>::run(idx, lca, width);
+                        idx[dim]       = width;
+                        auto subset_1  = NestedExpand<index_size, dim - 1, dim_min>::run(idx, lca, width);
 
-                    return union_(subset_m1, subset_0, subset_1);
+                        return union_(subset_m1, subset_0, subset_1);
+                    }
+                    else
+                    {
+                        idx[dim]       = -width;
+                        auto subset_m1 = translate(lca, idx);
+                        idx[dim]       = 0;
+                        auto subset_0  = translate(lca, idx);
+                        idx[dim]       = width;
+                        auto subset_1  = translate(lca, idx);
+
+                        return union_(subset_m1, subset_0, subset_1);
+                    }
                 }
             };
-
-            template <size_t index_size, size_t dim_min>
-            struct NestedExpand<index_size, dim_min - 1, dim_min>
-            {
-                using index_type = xt::xtensor_fixed<int, xt::xshape<index_size>>;
-
-                template <typename TInterval>
-                static auto run(index_type& idx, const LevelCellArray<index_size, TInterval>& lca, const int width)
-                {
-                    return translate(lca, idx);
-                }
-            };
-
         }
 
         template <size_t index_size, typename TInterval, size_t dim_min = 0, size_t dim_max = index_size>
@@ -73,11 +74,11 @@ namespace samurai
             index_type idx;
             for (size_t i = 0; i != dim_min; ++i)
             {
-                idx[i] = -width;
+                idx[i] = 0;
             }
             for (size_t i = dim_max; i != index_size; ++i)
             {
-                idx[i] = -width;
+                idx[i] = 0;
             }
             return detail::NestedExpand<index_size, dim_max - 1, dim_min>::run(idx, lca, width);
         }
@@ -126,7 +127,7 @@ namespace samurai
                 {
                     for (size_t fine_level = max_level; fine_level > min_fine_level; --fine_level)
                     {
-                        const int delta_l = max_level - fine_level;
+                        const int delta_l = int(max_level - fine_level);
                         for (size_t coarse_level = fine_level - 2; coarse_level > min_level - 1; --coarse_level)
                         {
                             for (int width = 0; width != max_width; ++width)
@@ -249,7 +250,8 @@ namespace samurai
                     const size_t imax = remove_m_all[level].size();
                     for (size_t i = 0; i != imax; ++i)
                     {
-                        const auto& [x_interval, yz] = remove_m_all[level][i];
+                        const auto& x_interval = remove_m_all[level][i].first;
+                        const auto& yz         = remove_m_all[level][i].second;
                         ca_remove_p[level].add_interval_back(x_interval, yz);
                         if constexpr (dim == 1)
                         {
@@ -265,8 +267,8 @@ namespace samurai
                                                                       if constexpr (dim > 2)
                                                                       {
                                                                           add_p_inner_stencil.push_back(2 * yz + inner_stencil);
-                                                                          add_p_idx.push_back(add_p_interval.size() - 1); /* std::iota on
-                                                                                                                             the fly */
+                                                                          add_p_idx.push_back(add_p_interval.size() - 1); // std::iota on
+                                                                                                                          // the fly
                                                                       }
                                                                   });
                         }

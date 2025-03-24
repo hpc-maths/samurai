@@ -405,7 +405,7 @@ namespace samurai
         const auto& is_periodic = mesh.periodicity();
         const auto min_indices  = mesh.domain().min_indices();
         const auto max_indices  = mesh.domain().max_indices();
-        std::array<int, mesh.dim> nb_cells_finest_level;
+        std::array<int, mesh_t::dim> nb_cells_finest_level;
         for (size_t d = 0; d != max_indices.size(); ++d)
         {
             nb_cells_finest_level[d] = max_indices[d] - min_indices[d];
@@ -419,7 +419,7 @@ namespace samurai
         const bool hasMeshBeenUpdated = mpi::all_reduce(world, new_mesh != mesh, std::logical_and())
 #else
         const bool hasMeshBeenUpdated = (new_mesh != mesh);
-#endif
+#endif // SAMURAI_WITH_MPI
             if (not hasMeshBeenUpdated)
         {
             return true;
