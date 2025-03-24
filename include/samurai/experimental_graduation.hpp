@@ -38,19 +38,6 @@ namespace samurai
                     }
                 }
             };
-
-            // template <size_t index_size, size_t dim_min>
-            // struct NestedExpand<index_size, dim_min - 1, dim_min>
-            //{
-            //     using index_type = xt::xtensor_fixed<int, xt::xshape<index_size>>;
-            //
-            //    template <typename TInterval>
-            //    static auto run(index_type& idx, const LevelCellArray<index_size, TInterval>& lca, const int )
-            //    {
-            //        return translate(lca, idx);
-            //    }
-            //};
-
         }
 
         template <size_t index_size, typename TInterval, size_t dim_min = 0, size_t dim_max = index_size>
@@ -113,7 +100,7 @@ namespace samurai
                 {
                     for (size_t fine_level = max_level; fine_level > min_fine_level; --fine_level)
                     {
-                        const int delta_l = max_level - fine_level;
+                        const int delta_l = int(max_level - fine_level);
                         for (size_t coarse_level = fine_level - 2; coarse_level > min_level - 1; --coarse_level)
                         {
                             for (int width = 0; width != max_width; ++width)
