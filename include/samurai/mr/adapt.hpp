@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "../algorithm/graduation.hpp"
 #include "../algorithm/update.hpp"
 #include "../arguments.hpp"
 #include "../boundary.hpp"
@@ -10,6 +11,8 @@
 #include "../timers.hpp"
 #include "criteria.hpp"
 #include "operators.hpp"
+
+#include "../experimental_graduation.hpp"
 
 namespace samurai
 {
@@ -227,6 +230,8 @@ namespace samurai
     template <class... Fields>
     bool Adapt<enlarge_, TField, TFields...>::harten(std::size_t ite, double eps, double regularity, Fields&... other_fields)
     {
+        using ca_type = typename mesh_t::ca_type;
+
         auto& mesh = m_fields.mesh();
 
         std::size_t min_level = mesh.min_level();
@@ -297,96 +302,132 @@ namespace samurai
         // why? graduation(m_tag,
         // stencil_graduation::call(samurai::Dim<dim>{}));
 
-        // COARSENING GRADUATION
+        //// COARSENING GRADUATION
+        // for (std::size_t level = max_level; level > 0; --level)
+        //{
+        //     auto keep_subset = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
+        //
+        //    keep_subset.apply_op(maximum(m_tag));
+        //
+        //    int grad_width = static_cast<int>(mesh_t::config::graduation_width);
+        //    auto stencil   = detail::box_dir<dim>();
+        //
+        //    for (int ig = 1; ig <= grad_width; ++ig)
+        //    {
+        //        for (std::size_t is = 0; is < stencil.shape(0); ++is)
+        //        {
+        //            auto s = ig * xt::view(stencil, is);
+        //            auto subset = intersection(mesh[mesh_id_t::cells][level], translate(mesh[mesh_id_t::all_cells][level - 1],
+        //            s)).on(level - 1); subset.apply_op(balance_2to1(m_tag, s));
+        //        }
+        //    }
+        //
+        //    update_tag_periodic(level, m_tag);
+        //    update_tag_subdomains(level, m_tag);
+        //}
+        //
+        //// REFINEMENT GRADUATION
+        // for (std::size_t level = max_level; level > min_level; --level)
+        //{
+        //     auto subset_1 = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level]);
+        //
+        //    subset_1.apply_op(extend(m_tag));
+        //    update_tag_periodic(level, m_tag);
+        //    update_tag_subdomains<false>(level, m_tag);
+        //
+        //    int grad_width = static_cast<int>(mesh_t::config::graduation_width);
+        //    auto stencil   = detail::box_dir<dim>();
+        //
+        //    for (int ig = 1; ig <= grad_width; ++ig)
+        //    {
+        //        for (std::size_t is = 0; is < stencil.shape(0); ++is)
+        //        {
+        //            auto s = ig * xt::view(stencil, is);
+        //            auto subset = intersection(translate(mesh[mesh_id_t::cells][level], s), mesh[mesh_id_t::all_cells][level -
+        //            1]).on(level);
+        //
+        //            subset.apply_op(make_graduation(m_tag));
+        //        }
+        //    }
+        //
+        //    update_tag_periodic(level, m_tag);
+        //    update_tag_subdomains<false>(level, m_tag);
+        //}
+        // update_tag_subdomains<false>(min_level, m_tag);
+        //
+        //// Prevents the coarsening of child cells where the parent intersects the boundary.
+        ////
+        ////   outside           |   inside
+        ////   =======           |   ======
+        ////   tag this cell to  |
+        ////   keep to avoid     |
+        ////   coarsening        |
+        ////                     |
+        ////   level l+1   |-----|-----|
+        ////                     |
+        ////   level l     |-----------|
+        ////
+        //// for (std::size_t level = mesh[mesh_id_t::cells].min_level(); level <= mesh[mesh_id_t::cells].max_level(); ++level)
+        //// {
+        ////     auto set = difference(mesh[mesh_id_t::reference][level], mesh.domain()).on(level);
+        ////     set(
+        ////         [&](const auto& i, const auto& index)
+        ////         {
+        ////             m_tag(level, i, index) = static_cast<int>(CellFlag::keep);
+        ////         });
+        //// }
+        //
+        // for (std::size_t level = max_level; level > 0; --level)
+        //{
+        //     auto keep_subset = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
+        //
+        //    keep_subset.apply_op(maximum(m_tag));
+        //    update_tag_periodic(level, m_tag);
+        //    // update_tag_subdomains(level, m_tag);
+        //    update_tag_subdomains<false>(level, m_tag);
+        //}
+        // times::timers.stop("mesh adaptation");
+        // update_ghost_mr(other_fields...);
+        // times::timers.start("mesh adaptation");
+        //
+        // keep_only_one_coarse_tag(m_tag);
+        // return update_field_mr(m_tag, m_fields, other_fields...);
+
         for (std::size_t level = max_level; level > 0; --level)
         {
             auto keep_subset = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
 
             keep_subset.apply_op(maximum(m_tag));
-
-            int grad_width = static_cast<int>(mesh_t::config::graduation_width);
-            auto stencil   = detail::box_dir<dim>();
-
-            for (int ig = 1; ig <= grad_width; ++ig)
-            {
-                for (std::size_t is = 0; is < stencil.shape(0); ++is)
-                {
-                    auto s = ig * xt::view(stencil, is);
-                    auto subset = intersection(mesh[mesh_id_t::cells][level], translate(mesh[mesh_id_t::all_cells][level - 1], s)).on(level - 1);
-                    subset.apply_op(balance_2to1(m_tag, s));
-                }
-            }
 
             update_tag_periodic(level, m_tag);
             update_tag_subdomains(level, m_tag);
         }
-
-        // REFINEMENT GRADUATION
-        for (std::size_t level = max_level; level > min_level; --level)
+        const auto& is_periodic = mesh.periodicity();
+        const auto min_indices  = mesh.domain().min_indices();
+        const auto max_indices  = mesh.domain().max_indices();
+        std::array<int, mesh.dim> nb_cells_finest_level;
+        for (size_t d = 0; d != max_indices.size(); ++d)
         {
-            auto subset_1 = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level]);
-
-            subset_1.apply_op(extend(m_tag));
-            update_tag_periodic(level, m_tag);
-            update_tag_subdomains<false>(level, m_tag);
-
-            int grad_width = static_cast<int>(mesh_t::config::graduation_width);
-            auto stencil   = detail::box_dir<dim>();
-
-            for (int ig = 1; ig <= grad_width; ++ig)
-            {
-                for (std::size_t is = 0; is < stencil.shape(0); ++is)
-                {
-                    auto s = ig * xt::view(stencil, is);
-                    auto subset = intersection(translate(mesh[mesh_id_t::cells][level], s), mesh[mesh_id_t::all_cells][level - 1]).on(level);
-
-                    subset.apply_op(make_graduation(m_tag));
-                }
-            }
-
-            update_tag_periodic(level, m_tag);
-            update_tag_subdomains<false>(level, m_tag);
+            nb_cells_finest_level[d] = max_indices[d] - min_indices[d];
         }
-        update_tag_subdomains<false>(min_level, m_tag);
-
-        // Prevents the coarsening of child cells where the parent intersects the boundary.
-        //
-        //   outside           |   inside
-        //   =======           |   ======
-        //   tag this cell to  |
-        //   keep to avoid     |
-        //   coarsening        |
-        //                     |
-        //   level l+1   |-----|-----|
-        //                     |
-        //   level l     |-----------|
-        //
-        // for (std::size_t level = mesh[mesh_id_t::cells].min_level(); level <= mesh[mesh_id_t::cells].max_level(); ++level)
-        // {
-        //     auto set = difference(mesh[mesh_id_t::reference][level], mesh.domain()).on(level);
-        //     set(
-        //         [&](const auto& i, const auto& index)
-        //         {
-        //             m_tag(level, i, index) = static_cast<int>(CellFlag::keep);
-        //         });
-        // }
-
-        for (std::size_t level = max_level; level > 0; --level)
+        ca_type new_ca = experimental::update_cell_array_from_tag(mesh[mesh_id_t::cells], m_tag);
+        experimental::make_graduation(new_ca, is_periodic, nb_cells_finest_level, mesh_t::config::graduation_width);
+        mesh_t new_mesh{new_ca, mesh};
+// if n_graduation_it, the mesh hasn't changed.
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        const bool hasMeshBeenUpdated = mpi::all_reduce(world, new_mesh != mesh, std::logical_and())
+#else
+        const bool hasMeshBeenUpdated = (new_mesh != mesh);
+#endif
+            if (not hasMeshBeenUpdated)
         {
-            auto keep_subset = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
-
-            keep_subset.apply_op(maximum(m_tag));
-            update_tag_periodic(level, m_tag);
-            // update_tag_subdomains(level, m_tag);
-            update_tag_subdomains<false>(level, m_tag);
+            return true;
         }
-        times::timers.stop("mesh adaptation");
-        update_ghost_mr(other_fields...);
-        times::timers.start("mesh adaptation");
 
-        keep_only_one_coarse_tag(m_tag);
-
-        return update_field_mr(m_tag, m_fields, other_fields...);
+        detail::update_fields(new_mesh, m_fields, other_fields...);
+        m_fields.mesh().swap(new_mesh);
+        return false;
     }
 
     template <class... TFields>
