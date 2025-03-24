@@ -10,26 +10,6 @@ namespace samurai
 {
     namespace experimental
     {
-
-        // template<size_t dim>
-        // std::vector< xt::xtensor_fixed<int, xt::xshape< dim > > > initTranslations()
-        //{
-        //   using fixed_array = xt::xtensor_fixed<int, xt::xshape< dim > >;
-        //   std::vector< fixed_array > list_of_translations;
-        //
-        //   std::integral_constant<int, -1> ic_m1;
-        //   std::integral_constant<int,  2> ic_2;
-        //   staticNestedLoop<dim>(ic_m1, ic_2, [&](const auto& v)
-        //   {
-        //       // we keep only the vectors that are a) non-null and b) "goes in the same direction as" \vec{1} i.e. $(v, \vec{1}) \geq 0$
-        //       if (xt::any(xt::not_equal(v, 0)) and (std::reduce(v.begin(), v.end(), 0) >= 0))
-        //       {
-        //           list_of_translations.emplace_back(v);
-        //       }
-        //   });
-        //   return list_of_translations;
-        // }
-
         namespace detail
         {
 
@@ -73,11 +53,11 @@ namespace samurai
             index_type idx;
             for (size_t i = 0; i != dim_min; ++i)
             {
-                idx[i] = -width;
+                idx[i] = 0;
             }
             for (size_t i = dim_max; i != index_size; ++i)
             {
-                idx[i] = -width;
+                idx[i] = 0;
             }
             return detail::NestedExpand<index_size, dim_max - 1, dim_min>::run(idx, lca, width);
         }
@@ -232,9 +212,6 @@ namespace samurai
             size_t nit;
             for (nit = 0; new_ca != ca; ++nit)
             {
-                // test if mesh is correctly graduated.
-                // We first build a set of non-graduated cells
-                // Then, if the non-graduated is not taged as keep, we coarsen it
                 ca_add_p.clear();
                 ca_remove_p.clear();
                 list_intervals_to_remove(grad_width, ca, is_periodic, nb_cells_finest_level, remove_m_all);
@@ -277,9 +254,8 @@ namespace samurai
                             add_p_inner_stencil.clear();
                             add_p_idx.clear();
                         }
-                    } // end for remove_m_all
-                } // end for level
-                // We then create new_ca as ca U ca_add
+                    }
+                }
                 new_ca.clear();
                 for (std::size_t level = min_level; level != max_level + 1; ++level)
                 {
@@ -362,9 +338,7 @@ namespace samurai
                                                                           if constexpr (dim > 2)
                                                                           {
                                                                               add_p_inner_stencil.push_back(2 * yz + inner_stencil);
-                                                                              add_p_idx.push_back(add_p_interval.size() - 1); /* std::iota
-                                                                                                                                 on the fly
-                                                                                                                               */
+                                                                              add_p_idx.push_back(add_p_interval.size() - 1);
                                                                           }
                                                                       });
                             }
