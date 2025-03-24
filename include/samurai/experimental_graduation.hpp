@@ -232,7 +232,7 @@ namespace samurai
                                                                   ic_2,
                                                                   [&](const auto& inner_stencil)
                                                                   {
-                                                                      add_p_interval.push_back(2 * x_interval);
+                                                                      add_p_interval.emplace_back(2 * x_interval);
                                                                       if constexpr (dim > 2)
                                                                       {
                                                                           add_p_inner_stencil.push_back(2 * yz + inner_stencil);
