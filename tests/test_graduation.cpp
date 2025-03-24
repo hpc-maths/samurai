@@ -4,6 +4,7 @@
 
 #include <samurai/cell_array.hpp>
 #include <samurai/cell_list.hpp>
+#include <samurai/experimental_graduation.hpp>
 #include <samurai/graduation.hpp>
 
 namespace samurai
@@ -24,8 +25,6 @@ namespace samurai
     {
         constexpr size_t dim = 2;
         CellList<dim> cl;
-        cl[0][{1}].add_interval({1, 2});
-        cl[5][{0}].add_interval({0, 1});
         CellArray<dim> ca{cl};
 
         samurai::make_graduation(ca);
