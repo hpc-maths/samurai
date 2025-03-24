@@ -21,28 +21,35 @@ namespace samurai
                 template <typename TInterval>
                 static auto run(index_type& idx, const LevelCellArray<index_size, TInterval>& lca, const int width)
                 {
-                    idx[dim]       = -width;
-                    auto subset_m1 = NestedExpand<index_size, dim - 1, dim_min>::run(idx, lca, width);
-                    idx[dim]       = 0;
-                    auto subset_0  = NestedExpand<index_size, dim - 1, dim_min>::run(idx, lca, width);
-                    idx[dim]       = width;
-                    auto subset_1  = NestedExpand<index_size, dim - 1, dim_min>::run(idx, lca, width);
+                    if constexpr (dim != dim_min - 1)
+                    {
+                        idx[dim]       = -width;
+                        auto subset_m1 = NestedExpand<index_size, dim - 1, dim_min>::run(idx, lca, width);
+                        idx[dim]       = 0;
+                        auto subset_0  = NestedExpand<index_size, dim - 1, dim_min>::run(idx, lca, width);
+                        idx[dim]       = width;
+                        auto subset_1  = NestedExpand<index_size, dim - 1, dim_min>::run(idx, lca, width);
 
-                    return union_(subset_m1, subset_0, subset_1);
+                        return union_(subset_m1, subset_0, subset_1);
+                    }
+                    else
+                    {
+                        return translate(lca, idx);
+                    }
                 }
             };
 
-            template <size_t index_size, size_t dim_min>
-            struct NestedExpand<index_size, dim_min - 1, dim_min>
-            {
-                using index_type = xt::xtensor_fixed<int, xt::xshape<index_size>>;
-
-                template <typename TInterval>
-                static auto run(index_type& idx, const LevelCellArray<index_size, TInterval>& lca, const int width)
-                {
-                    return translate(lca, idx);
-                }
-            };
+            // template <size_t index_size, size_t dim_min>
+            // struct NestedExpand<index_size, dim_min - 1, dim_min>
+            //{
+            //     using index_type = xt::xtensor_fixed<int, xt::xshape<index_size>>;
+            //
+            //    template <typename TInterval>
+            //    static auto run(index_type& idx, const LevelCellArray<index_size, TInterval>& lca, const int )
+            //    {
+            //        return translate(lca, idx);
+            //    }
+            //};
 
         }
 
