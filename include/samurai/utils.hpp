@@ -118,7 +118,7 @@ inline Function forall_unit_vectors(size_t dim, Function&& func)
 {
     using vector = xt::xtensor<int, 1>;
 
-    vector v(dim);
+    vector v({dim});
     for (size_t i = 0; i != dim; ++i)
     {
         v[i] = 0;
