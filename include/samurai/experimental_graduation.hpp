@@ -197,7 +197,7 @@ namespace samurai
             std::vector<coord_type> add_p_inner_stencil;
             std::vector<size_t> add_p_idx;
 
-            std::array<ArrayOfIntervalAndPoint<TInterval, coord_type>, max_size> remove_m_all;
+            std::array<ArrayOfIntervalAndPoint<TInterval, coord_type>, max_size> remove_p_all;
 
             ca_type ca_add_p;
             ca_type ca_remove_p;
@@ -208,19 +208,20 @@ namespace samurai
             {
                 ca_add_p.clear();
                 ca_remove_p.clear();
-                list_intervals_to_remove(grad_width, ca, is_periodic, nb_cells_finest_level, remove_m_all);
+                list_intervals_to_remove(grad_width, ca, is_periodic, nb_cells_finest_level, remove_p_all);
 
                 add_p_interval.clear();
                 add_p_inner_stencil.clear();
                 add_p_idx.clear();
                 for (size_t level = min_level; level != max_level + 1; ++level)
                 {
-                    remove_m_all[level].sort_intervals();
+                    remove_p_all[level].sort_intervals();
 
-                    const size_t imax = remove_m_all[level].size();
+                    const size_t imax = remove_p_all[level].size();
                     for (size_t i = 0; i != imax; ++i)
                     {
-                        const auto& [x_interval, yz] = remove_m_all[level][i];
+                        const TInterval& x_interval = remove_p_all[level][i].first;
+                        const coord_type& yz        = remove_p_all[level][i].second;
                         ca_remove_p[level].add_interval_back(x_interval, yz);
                         if constexpr (dim == 1)
                         {
@@ -235,13 +236,12 @@ namespace samurai
                                                                       add_p_interval.emplace_back(2 * x_interval);
                                                                       if constexpr (dim > 2)
                                                                       {
-                                                                          add_p_inner_stencil.push_back(2 * yz + inner_stencil);
-                                                                          add_p_idx.push_back(add_p_interval.size() - 1); /* std::iota on
-                                                                                                                             the fly */
+                                                                          add_p_inner_stencil.emplace_back(2 * yz + inner_stencil);
+                                                                          add_p_idx.push_back(add_p_interval.size() - 1);
                                                                       }
                                                                   });
                         }
-                        if (dim != 1 and (i + 1 == imax or yz[dim - 2] != remove_m_all[level].get_coord(i + 1)[dim - 2]))
+                        if (dim != 1 and (i + 1 == imax or yz[dim - 2] != remove_p_all[level].get_coord(i + 1)[dim - 2]))
                         {
                             add_list_of_interval_back(add_p_interval, coord_type(2 * yz), add_p_inner_stencil, add_p_idx, ca_add_p[level + 1]);
                             add_p_interval.clear();
