@@ -844,21 +844,53 @@ namespace samurai
 
 	/** delete for git rebase
 	 **/
+        std::size_t subdomain_start = 0;
+        std::size_t subdomain_end   = 0;
         lcl_type subdomain_cells(start_level, m_domain.origin_point(), m_domain.scaling_factor());
-        auto subdomain_nb_intervals = m_domain.nb_intervals() / static_cast<std::size_t>(size);
-        auto subdomain_start        = static_cast<std::size_t>(rank) * subdomain_nb_intervals;
-        auto subdomain_end          = (static_cast<std::size_t>(rank) + 1) * subdomain_nb_intervals;
-
-        std::size_t k = 0;
-        for_each_meshinterval(m_domain,
-                              [&](auto mi)
-                              {
-                                  if (k >= subdomain_start && k < subdomain_end)
+        // in 1D MPI, we need a specific partitioning
+        if (dim == 1)
+        {
+            std::size_t n_cells               = m_domain.nb_cells();
+            std::size_t n_cells_per_subdomain = n_cells / static_cast<std::size_t>(size);
+            subdomain_start                   = n_cells_per_subdomain * static_cast<std::size_t>(rank);
+            subdomain_end                     = n_cells_per_subdomain * (static_cast<std::size_t>(rank) + 1);
+            // for the last rank, we have to take all the last cells;
+            if (rank == size - 1)
+            {
+                subdomain_end = n_cells;
+            }
+            for_each_meshinterval(m_domain,
+                                  [&](auto mi)
                                   {
-                                      subdomain_cells[mi.index].add_interval(mi.i);
-                                  }
-                                  ++k;
-                              });
+                                      for (auto i = mi.i.start; i < mi.i.end; ++i)
+                                      {
+                                          if (i >= subdomain_start && i < subdomain_end)
+                                          {
+                                              subdomain_cells[mi.index].add_point(i);
+                                          }
+                                      }
+                                  });
+        }
+        else if (dim >= 2)
+        {
+            auto subdomain_nb_intervals = m_domain.nb_intervals() / static_cast<std::size_t>(size);
+            subdomain_start             = static_cast<std::size_t>(rank) * subdomain_nb_intervals;
+            subdomain_end               = (static_cast<std::size_t>(rank) + 1) * subdomain_nb_intervals;
+            if (rank == size - 1)
+            {
+                subdomain_end = m_domain.nb_intervals();
+            }
+            std::size_t k = 0;
+            for_each_meshinterval(m_domain,
+                                  [&](auto mi)
+                                  {
+                                      if (k >= subdomain_start && k < subdomain_end)
+                                      {
+                                          subdomain_cells[mi.index].add_interval(mi.i);
+                                      }
+                                      ++k;
+                                  });
+        }
 
         this->m_cells[mesh_id_t::cells][start_level] = subdomain_cells;
 	// end comment for git rebase
