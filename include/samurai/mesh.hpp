@@ -182,7 +182,6 @@ namespace samurai
         std::array<bool, dim> m_periodic;
         mesh_t m_cells;
         ca_type m_union;
-        // std::vector<int> m_neighbouring_ranks;
         std::vector<mpi_subdomain_t> m_mpi_neighbourhood;
 
 #ifdef SAMURAI_WITH_MPI

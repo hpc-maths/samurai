@@ -403,16 +403,19 @@ namespace samurai
             update_tag_periodic(level, m_tag);
             update_tag_subdomains(level, m_tag);
         }
-        const auto& is_periodic = mesh.periodicity();
-        const auto min_indices  = mesh.domain().min_indices();
-        const auto max_indices  = mesh.domain().max_indices();
+        const auto min_indices = mesh.domain().min_indices();
+        const auto max_indices = mesh.domain().max_indices();
         std::array<int, mesh_t::dim> nb_cells_finest_level;
         for (size_t d = 0; d != max_indices.size(); ++d)
         {
             nb_cells_finest_level[d] = max_indices[d] - min_indices[d];
         }
         ca_type new_ca = experimental::update_cell_array_from_tag(mesh[mesh_id_t::cells], m_tag);
-        experimental::make_graduation(new_ca, is_periodic, nb_cells_finest_level, mesh_t::config::graduation_width);
+        experimental::make_graduation(new_ca,
+                                      mesh.mpi_neighbourhood(),
+                                      mesh.periodicity(),
+                                      nb_cells_finest_level,
+                                      mesh_t::config::graduation_width);
         mesh_t new_mesh{new_ca, mesh};
 // if n_graduation_it, the mesh hasn't changed.
 #ifdef SAMURAI_WITH_MPI

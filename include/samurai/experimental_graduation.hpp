@@ -16,26 +16,39 @@ namespace samurai
             template <size_t index_size, size_t dim, size_t dim_min>
             struct NestedExpand
             {
+                static_assert(dim > dim_min);
                 using index_type = xt::xtensor_fixed<int, xt::xshape<index_size>>;
 
                 template <typename TInterval>
                 static auto run(index_type& idx, const LevelCellArray<index_size, TInterval>& lca, const int width)
                 {
-                    if constexpr (dim != dim_min - 1)
-                    {
-                        idx[dim]       = -width;
-                        auto subset_m1 = NestedExpand<index_size, dim - 1, dim_min>::run(idx, lca, width);
-                        idx[dim]       = 0;
-                        auto subset_0  = NestedExpand<index_size, dim - 1, dim_min>::run(idx, lca, width);
-                        idx[dim]       = width;
-                        auto subset_1  = NestedExpand<index_size, dim - 1, dim_min>::run(idx, lca, width);
+                    idx[dim]       = -width;
+                    auto subset_m1 = NestedExpand<index_size, dim - 1, dim_min>::run(idx, lca, width);
+                    idx[dim]       = 0;
+                    auto subset_0  = NestedExpand<index_size, dim - 1, dim_min>::run(idx, lca, width);
+                    idx[dim]       = width;
+                    auto subset_1  = NestedExpand<index_size, dim - 1, dim_min>::run(idx, lca, width);
 
-                        return union_(subset_m1, subset_0, subset_1);
-                    }
-                    else
-                    {
-                        return translate(lca, idx);
-                    }
+                    return union_(subset_m1, subset_0, subset_1);
+                }
+            };
+
+            template <size_t index_size, size_t dim_min>
+            struct NestedExpand<index_size, dim_min, dim_min>
+            {
+                using index_type = xt::xtensor_fixed<int, xt::xshape<index_size>>;
+
+                template <typename TInterval>
+                static auto run(index_type& idx, const LevelCellArray<index_size, TInterval>& lca, const int width)
+                {
+                    idx[dim_min]   = -width;
+                    auto subset_m1 = translate(lca, idx);
+                    idx[dim_min]   = 0;
+                    auto subset_0  = translate(lca, idx);
+                    idx[dim_min]   = width;
+                    auto subset_1  = translate(lca, idx);
+
+                    return union_(subset_m1, subset_0, subset_1);
                 }
             };
         }
@@ -56,10 +69,11 @@ namespace samurai
             return detail::NestedExpand<index_size, dim_max - 1, dim_min>::run(idx, lca, width);
         }
 
-        template <size_t dim, typename TInterval, size_t max_size, typename TCoord>
+        template <size_t dim, typename TInterval, class MeshType, size_t max_size, typename TCoord>
         void
         list_intervals_to_remove(const size_t grad_width,
                                  const CellArray<dim, TInterval, max_size>& ca,
+                                 const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood,
                                  const std::array<bool, dim>& is_periodic,
                                  const std::array<int, dim>& nb_cells_finest_level,
                                  std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, CellArray<dim, TInterval, max_size>::max_size>& out)
@@ -69,7 +83,17 @@ namespace samurai
             const size_t min_fine_level = (min_level + 2) - 1; // fine_level =  max_level, max_level-1, ..., min_level+2. Thus fine_level !=
                                                                // min_level+2-1
             const int max_width = int(grad_width) + 1;
+#ifdef SAMURAI_WITH_MPI
+            CellArray<dim, TInterval, max_size> neighbour_ca;
 
+            mpi::communicator world;
+            std::vector<mpi::request> req;
+            req.reserve(mpi_neighbourhood.size());
+            for (const auto& mpi_neighbour : mpi_neighbourhood)
+            {
+                req.push_back(world.isend(mpi_neighbour.rank, mpi_neighbour.rank, ca));
+            }
+#endif // SAMURAI_WITH_MPI
             for (size_t i = 0; i != max_size; ++i)
             {
                 out[i].clear();
@@ -92,7 +116,6 @@ namespace samurai
                     }
                 }
             }
-
             xt::xtensor_fixed<int, xt::xshape<dim>> translation = xt::xscalar(0);
             for (size_t d = 0; d != dim; ++d)
             {
@@ -121,6 +144,32 @@ namespace samurai
                     translation[d] = 0;
                 }
             }
+#ifdef SAMURAI_WITH_MPI
+            for (const auto& mpi_neighbour : mpi_neighbourhood)
+            {
+                neighbour_ca.clear();
+                world.recv(mpi_neighbour.rank, world.rank(), neighbour_ca);
+                for (size_t fine_level = max_level; fine_level > min_fine_level; --fine_level)
+                {
+                    for (size_t coarse_level = fine_level - 2; coarse_level > min_level - 1; --coarse_level)
+                    {
+                        bool isIntersectionEmpty = true;
+                        for (int width = 1; isIntersectionEmpty and width != max_width; ++width)
+                        {
+                            auto refine_subset = intersection(nestedExpand(neighbour_ca[fine_level], 2 * width), ca[coarse_level])
+                                                     .on(coarse_level);
+                            refine_subset(
+                                [&](const auto& x_interval, const auto& yz)
+                                {
+                                    out[coarse_level].push_back(x_interval, yz);
+                                    isIntersectionEmpty = false;
+                                });
+                        }
+                    }
+                }
+            }
+            mpi::wait_all(req.begin(), req.end());
+#endif // SAMURAI_WITH_MPI
         }
 
         // if add the intervals in add_m_interval
@@ -178,8 +227,9 @@ namespace samurai
             } // end for
         }
 
-        template <std::size_t dim, class TInterval, size_t max_size>
+        template <std::size_t dim, class TInterval, class MeshType, size_t max_size>
         size_t make_graduation(CellArray<dim, TInterval, max_size>& ca,
+                               [[maybe_unused]] const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood,
                                const std::array<bool, dim>& is_periodic,
                                const std::array<int, dim>& nb_cells_finest_level,
                                const size_t grad_width = 1)
@@ -193,6 +243,10 @@ namespace samurai
             std::integral_constant<int, 0> ic_0;
             std::integral_constant<int, 2> ic_2;
 
+#ifdef SAMURAI_WITH_MPI
+            mpi::communicator world;
+#endif // SAMURAI_WITH_MPI
+
             std::vector<TInterval> add_p_interval;
             std::vector<coord_type> add_p_inner_stencil;
             std::vector<size_t> add_p_idx;
@@ -204,19 +258,22 @@ namespace samurai
             ca_type new_ca;
 
             size_t nit;
-            for (nit = 0; new_ca != ca; ++nit)
+            bool hasConverged = false;
+            for (nit = 0; !hasConverged; ++nit)
             {
                 ca_add_p.clear();
                 ca_remove_p.clear();
-                list_intervals_to_remove(grad_width, ca, is_periodic, nb_cells_finest_level, remove_p_all);
-
+                list_intervals_to_remove(grad_width, ca, mpi_neighbourhood, is_periodic, nb_cells_finest_level, remove_p_all);
                 add_p_interval.clear();
                 add_p_inner_stencil.clear();
                 add_p_idx.clear();
                 for (size_t level = min_level; level != max_level + 1; ++level)
                 {
+#ifdef SAMURAI_WITH_MPI
+                    remove_p_all[level].remove_overlapping_intervals();
+#else
                     remove_p_all[level].sort_intervals();
-
+#endif // SAMURAI_WITH_MPI
                     const size_t imax = remove_p_all[level].size();
                     for (size_t i = 0; i != imax; ++i)
                     {
@@ -262,8 +319,12 @@ namespace samurai
                 }
                 //
                 std::swap(new_ca, ca);
+#ifdef SAMURAI_WITH_MPI
+                hasConverged = mpi::all_reduce(world, new_ca == ca, std::logical_and());
+#else
+                hasConverged = (new_ca == ca);
+#endif // SAMURAI_WITH_MPI
             }
-
             return nit - 1;
         }
 
@@ -331,7 +392,7 @@ namespace samurai
                                                                           add_p_interval.push_back({2 * x, 2 * x + 2});
                                                                           if constexpr (dim > 2)
                                                                           {
-                                                                              add_p_inner_stencil.push_back(2 * yz + inner_stencil);
+                                                                              add_p_inner_stencil.emplace_back(2 * yz + inner_stencil);
                                                                               add_p_idx.push_back(add_p_interval.size() - 1);
                                                                           }
                                                                       });
