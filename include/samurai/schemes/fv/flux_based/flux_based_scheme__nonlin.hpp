@@ -176,9 +176,16 @@ namespace samurai
                                     const input_field_t& field,
                                     std::vector<StencilValues<cfg>>& stencil_values_list)
         {
-            if constexpr (!enable_max_level_flux || mesh_t::config::prediction_order == 0)
+            if constexpr (!enable_max_level_flux)
             {
                 copy_stencil_values(field, cells, stencil_values_list[0]);
+            }
+            else if constexpr (mesh_t::config::prediction_order == 0 && stencil_size <= 4)
+            {
+                for (std::size_t fine_flux_index = 0; fine_flux_index < flux_params.n_fine_fluxes; ++fine_flux_index)
+                {
+                    copy_stencil_values(field, cells, stencil_values_list[fine_flux_index]);
+                }
             }
             else
             {
