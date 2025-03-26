@@ -420,12 +420,12 @@ namespace samurai
 // if n_graduation_it, the mesh hasn't changed.
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
-        const bool hasMeshBeenUpdated = mpi::all_reduce(world, new_mesh != mesh, std::logical_and());
+        const bool hasConverged = mpi::all_reduce(world, new_mesh == mesh, std::logical_and());
 #else
-        const bool hasMeshBeenUpdated = (new_mesh != mesh);
+        const bool hasConverged = (new_mesh == mesh);
 #endif
 
-        if (not hasMeshBeenUpdated)
+        if (hasConverged)
         {
             return true;
         }

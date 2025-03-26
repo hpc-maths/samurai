@@ -4,6 +4,7 @@
 #include <samurai/mr/operators.hpp>
 
 #include <samurai/array_of_interval_and_point.hpp>
+#include <samurai/mesh.hpp>
 #include <samurai/nested_loop.hpp>
 
 namespace samurai
@@ -147,6 +148,7 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
             for (const auto& mpi_neighbour : mpi_neighbourhood)
             {
+                // non periodic
                 neighbour_ca.clear();
                 world.recv(mpi_neighbour.rank, world.rank(), neighbour_ca);
                 for (size_t fine_level = max_level; fine_level > min_fine_level; --fine_level)
@@ -165,6 +167,34 @@ namespace samurai
                                     isIntersectionEmpty = false;
                                 });
                         }
+                    }
+                }
+                // periodic
+                for (size_t d = 0; d != dim; ++d)
+                {
+                    if (is_periodic[d])
+                    {
+                        for (size_t fine_level = max_level; fine_level > min_fine_level; --fine_level)
+                        {
+                            const int delta_l = int(max_level - fine_level);
+                            for (size_t coarse_level = fine_level - 2; coarse_level > min_level - 1; --coarse_level)
+                            {
+                                for (int width = 0; width != max_width; ++width)
+                                {
+                                    translation[d]     = (nb_cells_finest_level[d] >> delta_l) + 2 * width - 1;
+                                    auto refine_subset = intersection(union_(translate(neighbour_ca[fine_level], -translation),
+                                                                             translate(neighbour_ca[fine_level], translation)),
+                                                                      ca[coarse_level])
+                                                             .on(coarse_level);
+                                    refine_subset(
+                                        [&](const auto& x_interval, const auto& yz)
+                                        {
+                                            out[coarse_level].push_back(x_interval, yz);
+                                        });
+                                }
+                            }
+                        }
+                        translation[d] = 0;
                     }
                 }
             }
