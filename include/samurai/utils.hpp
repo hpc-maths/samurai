@@ -94,6 +94,12 @@ namespace samurai
     template <template <std::size_t dim, class T> class OP, class... CT>
     class field_operator_function;
 
+    template <class mesh_t, class value_t, std::size_t n_comp = 1, bool SOA = false>
+    class VectorField;
+
+    template <class mesh_t, class value_t>
+    class ScalarField;
+
     namespace detail
     {
 
@@ -303,6 +309,19 @@ namespace samurai
         {
             return do_min(v0 < v1 ? v0 : v1, rest...);
         }
+
+        template <class T>
+        struct is_soa : std::false_type
+        {
+        };
+
+        template <class Mesh, class value_t, std::size_t n_comp, bool SOA>
+        struct is_soa<VectorField<Mesh, value_t, n_comp, SOA>> : std::bool_constant<SOA>
+        {
+        };
+
+        template <class T>
+        inline constexpr bool is_soa_v = is_soa<std::decay_t<T>>::value;
     } // namespace detail
 
     template <class R, class T1, class T2>
