@@ -4,32 +4,13 @@
 #include <samurai/mr/operators.hpp>
 
 #include <samurai/array_of_interval_and_point.hpp>
+#include <samurai/mesh.hpp>
 #include <samurai/nested_loop.hpp>
 
 namespace samurai
 {
     namespace experimental
     {
-
-        // template<size_t dim>
-        // std::vector< xt::xtensor_fixed<int, xt::xshape< dim > > > initTranslations()
-        //{
-        //   using fixed_array = xt::xtensor_fixed<int, xt::xshape< dim > >;
-        //   std::vector< fixed_array > list_of_translations;
-        //
-        //   std::integral_constant<int, -1> ic_m1;
-        //   std::integral_constant<int,  2> ic_2;
-        //   staticNestedLoop<dim>(ic_m1, ic_2, [&](const auto& v)
-        //   {
-        //       // we keep only the vectors that are a) non-null and b) "goes in the same direction as" \vec{1} i.e. $(v, \vec{1}) \geq 0$
-        //       if (xt::any(xt::not_equal(v, 0)) and (std::reduce(v.begin(), v.end(), 0) >= 0))
-        //       {
-        //           list_of_translations.emplace_back(v);
-        //       }
-        //   });
-        //   return list_of_translations;
-        // }
-
         namespace detail
         {
             template <size_t index_size, size_t dim, size_t dim_min>
@@ -83,10 +64,11 @@ namespace samurai
             return detail::NestedExpand<index_size, dim_max - 1, dim_min>::run(idx, lca, width);
         }
 
-        template <size_t dim, typename TInterval, size_t max_size, typename TCoord>
+        template <size_t dim, typename TInterval, typename MeshType, size_t max_size, typename TCoord>
         void
         list_intervals_to_remove(const size_t grad_width,
                                  const CellArray<dim, TInterval, max_size>& ca,
+                                 [[maybe_unused]] const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood,
                                  const std::array<bool, dim>& is_periodic,
                                  const std::array<int, dim>& nb_cells_finest_level,
                                  std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, CellArray<dim, TInterval, max_size>::max_size>& out)
@@ -101,7 +83,14 @@ namespace samurai
             {
                 out[i].clear();
             }
-
+#ifdef SAMURAI_WITH_MPI
+            mpi::communicator world;
+            std::vector<mpi::request> req;
+            for (const auto& mpi_neighbor : mpi_neighbourhood)
+            {
+                req.push_back(world.isend(mpi_neighbor.rank, mpi_neighbor.rank, ca));
+            }
+#endif // SAMURAI_WITH_MPI
             for (size_t fine_level = max_level; fine_level > min_fine_level; --fine_level)
             {
                 for (size_t coarse_level = fine_level - 2; coarse_level > min_level - 1; --coarse_level)
@@ -119,7 +108,6 @@ namespace samurai
                     }
                 }
             }
-
             xt::xtensor_fixed<int, xt::xshape<dim>> translation = xt::xscalar(0);
             for (size_t d = 0; d != dim; ++d)
             {
@@ -148,6 +136,58 @@ namespace samurai
                     translation[d] = 0;
                 }
             }
+#ifdef SAMURAI_WITH_MPI
+            CellArray<dim, TInterval, max_size> neighbor_ca;
+            for (const auto& mpi_neighbor : mpi_neighbourhood)
+            {
+                world.recv(mpi_neighbor.rank, world.rank(), neighbor_ca);
+                for (size_t fine_level = max_level; fine_level > min_fine_level; --fine_level)
+                {
+                    for (size_t coarse_level = fine_level - 2; coarse_level > min_level - 1; --coarse_level)
+                    {
+                        bool isIntersectionEmpty = true;
+                        for (int width = 1; isIntersectionEmpty and width != max_width; ++width)
+                        {
+                            auto refine_subset = intersection(nestedExpand(neighbor_ca[fine_level], 2 * width), ca[coarse_level]).on(coarse_level);
+                            refine_subset(
+                                [&](const auto& x_interval, const auto& yz)
+                                {
+                                    out[coarse_level].push_back(x_interval, yz);
+                                    isIntersectionEmpty = false;
+                                });
+                        }
+                    }
+                }
+                for (size_t d = 0; d != dim; ++d)
+                {
+                    if (is_periodic[d])
+                    {
+                        for (size_t fine_level = max_level; fine_level > min_fine_level; --fine_level)
+                        {
+                            const int delta_l = int(max_level - fine_level);
+                            for (size_t coarse_level = fine_level - 2; coarse_level > min_level - 1; --coarse_level)
+                            {
+                                for (int width = 0; width != max_width; ++width)
+                                {
+                                    translation[d]     = (nb_cells_finest_level[d] >> delta_l) + 2 * width - 1;
+                                    auto refine_subset = intersection(union_(translate(neighbor_ca[fine_level], -translation),
+                                                                             translate(neighbor_ca[fine_level], translation)),
+                                                                      ca[coarse_level])
+                                                             .on(coarse_level);
+                                    refine_subset(
+                                        [&](const auto& x_interval, const auto& yz)
+                                        {
+                                            out[coarse_level].push_back(x_interval, yz);
+                                        });
+                                }
+                            }
+                        }
+                        translation[d] = 0;
+                    }
+                }
+            }
+            mpi::wait_all(req.begin(), req.end());
+#endif // SAMURAI_WITH_MPI
         }
 
         // if add the intervals in add_m_interval
@@ -205,8 +245,9 @@ namespace samurai
             } // end for
         }
 
-        template <std::size_t dim, class TInterval, size_t max_size>
+        template <std::size_t dim, class TInterval, class MeshType, size_t max_size>
         size_t make_graduation(CellArray<dim, TInterval, max_size>& ca,
+                               [[maybe_unused]] const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood,
                                const std::array<bool, dim>& is_periodic,
                                const std::array<int, dim>& nb_cells_finest_level,
                                const size_t grad_width = 1)
@@ -231,21 +272,30 @@ namespace samurai
             ca_type new_ca;
 
             size_t nit;
+#ifdef SAMURAI_WITH_MPI
+            mpi::communicator world;
+            for (nit = 0; mpi::all_reduce(world, new_ca != ca, std::logical_or()); ++nit)
+#else
             for (nit = 0; new_ca != ca; ++nit)
+#endif // SAMURAI_WITH_MPI
             {
                 // test if mesh is correctly graduated.
                 // We first build a set of non-graduated cells
                 // Then, if the non-graduated is not taged as keep, we coarsen it
                 ca_add_p.clear();
                 ca_remove_p.clear();
-                list_intervals_to_remove(grad_width, ca, is_periodic, nb_cells_finest_level, remove_m_all);
+                list_intervals_to_remove(grad_width, ca, mpi_neighbourhood, is_periodic, nb_cells_finest_level, remove_m_all);
 
                 add_p_interval.clear();
                 add_p_inner_stencil.clear();
                 add_p_idx.clear();
                 for (size_t level = min_level; level != max_level + 1; ++level)
                 {
+#ifdef SAMURAI_WITH_MPI
+                    remove_m_all[level].remove_overlapping_intervals();
+#else
                     remove_m_all[level].sort_intervals();
+#endif // SAMURAI_WITH_MPI
 
                     const size_t imax = remove_m_all[level].size();
                     for (size_t i = 0; i != imax; ++i)
@@ -364,9 +414,8 @@ namespace samurai
                                                                           if constexpr (dim > 2)
                                                                           {
                                                                               add_p_inner_stencil.push_back(2 * yz + inner_stencil);
-                                                                              add_p_idx.push_back(add_p_interval.size() - 1); /* std::iota
-                                                                                                                                 on the fly
-                                                                                                                               */
+                                                                              add_p_idx.push_back(add_p_interval.size() - 1); // std::iota
+                                                                                                                              // on the fly
                                                                           }
                                                                       });
                             }
@@ -377,10 +426,6 @@ namespace samurai
                             {
                                 ca_add_m[level - 1].add_point_back(x >> 1, yz >> 1);
                             }
-                            ca_remove_m[level].add_point_back(x, yz);
-                        }
-                        else if (useMPI and tag[itag] == 0)
-                        {
                             ca_remove_m[level].add_point_back(x, yz);
                         }
                     } // end for each x

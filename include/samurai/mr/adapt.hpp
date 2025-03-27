@@ -397,34 +397,34 @@ namespace samurai
         {
             auto keep_subset = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
 
-            keep_subset.apply_op(maximum(m_tag));
-
             update_tag_periodic(level, m_tag);
             update_tag_subdomains(level, m_tag);
+
+            keep_subset.apply_op(maximum(m_tag));
         }
-        const auto& is_periodic = mesh.periodicity();
-        const auto min_indices  = mesh.domain().min_indices();
-        const auto max_indices  = mesh.domain().max_indices();
+        const auto min_indices = mesh.domain().min_indices();
+        const auto max_indices = mesh.domain().max_indices();
         std::array<int, mesh_t::dim> nb_cells_finest_level;
         for (size_t d = 0; d != max_indices.size(); ++d)
         {
             nb_cells_finest_level[d] = max_indices[d] - min_indices[d];
         }
         ca_type new_ca = experimental::update_cell_array_from_tag(mesh[mesh_id_t::cells], m_tag);
-        experimental::make_graduation(new_ca, is_periodic, nb_cells_finest_level, mesh_t::config::graduation_width);
+        experimental::make_graduation(new_ca,
+                                      mesh.mpi_neighbourhood(),
+                                      mesh.periodicity(),
+                                      nb_cells_finest_level,
+                                      mesh_t::config::graduation_width);
         mesh_t new_mesh{new_ca, mesh};
-// if n_graduation_it, the mesh hasn't changed.
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
-        const bool hasMeshBeenUpdated = mpi::all_reduce(world, new_mesh != mesh, std::logical_and())
+        if (mpi::all_reduce(world, mesh == new_mesh, std::logical_and()))
 #else
-        const bool hasMeshBeenUpdated = (new_mesh != mesh);
+        if (mesh == new_mesh)
 #endif // SAMURAI_WITH_MPI
-            if (not hasMeshBeenUpdated)
         {
             return true;
         }
-
         detail::update_fields(new_mesh, m_fields, other_fields...);
         m_fields.mesh().swap(new_mesh);
         return false;
