@@ -704,7 +704,8 @@ namespace samurai
 
             for (std::size_t level = min_level; level <= max_level; ++level)
             {
-                auto set = intersection(mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level]);
+                // auto set = intersection(mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level]);
+                auto set = intersection(mesh[mesh_id_t::reference][level], new_mesh[mesh_id_t::cells][level]);
                 set.apply_op(copy(new_field, field));
             }
 
