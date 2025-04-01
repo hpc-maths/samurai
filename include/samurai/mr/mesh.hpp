@@ -342,8 +342,8 @@ namespace samurai
                 this->cells()[mesh_id_t::proj_cells][level]    = lcl_proj;
             }
             //            this->update_mesh_neighbour();
-            this->update_mesh_neighbour_all_cells();  //
-            this->update_mesh_neighbour_proj_cells(); //
+            this->update_mesh_neighbour_all_cells(); //
+                                                     //            this->update_mesh_neighbour_proj_cells(); //
         }
         else
         {
