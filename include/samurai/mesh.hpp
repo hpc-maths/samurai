@@ -170,6 +170,7 @@ namespace samurai
         void construct_union();
         void update_sub_mesh();
         void renumbering();
+        void find_neighbour();
         void partition_mesh(std::size_t start_level, const Box<double, dim>& global_box);
         void load_balancing();
         void load_transfer(const std::vector<double>& load_fluxes);
@@ -717,9 +718,7 @@ namespace samurai
     template <std::size_t Dim>
     struct StencilProvider
     {
-        // Optionnel : Déclencher une erreur si une dimension non supportée est utilisée
         static_assert(Dim == 2 || Dim == 3, "Dimension non supportée pour les stencils");
-        // Ou laisser vide pour obtenir une erreur de symbole non défini si non spécialisé
     };
 
     // Spécialisation pour dim = 2
@@ -735,16 +734,15 @@ namespace samurai
             {-1, 1 },
             {1,  1 },
             {-1, -1},
-            {1,  -1}  // Corrigé
+            {1,  -1}
         };
-        // Autres constantes/types dépendant de dim=2 pourraient aller ici
     };
 
     // Spécialisation pour dim = 3
     template <>
     struct StencilProvider<3>
     {
-        static constexpr std::size_t stencil_size = 27; // Ou 26 si on exclut le centre
+        static constexpr std::size_t stencil_size = 27;
         inline static const xt::xtensor_fixed<int, xt::xshape<stencil_size, 3>> stencils{
             {-1, -1, -1},
             {-1, -1, 0 },
@@ -759,8 +757,7 @@ namespace samurai
             {0,  -1, 0 },
             {0,  -1, 1 },
             {0,  0,  -1},
-            {0,  0,  0 },
-            {0,  0,  1 }, // Inclut le centre
+            {0,  0,  1 },
             {0,  1,  -1},
             {0,  1,  0 },
             {0,  1,  1 },
@@ -774,8 +771,83 @@ namespace samurai
             {1,  1,  0 },
             {1,  1,  1 }
         };
-        // Autres constantes/types dépendant de dim=3 pourraient aller ici
     };
+
+    template <class D, class Config>
+    void Mesh_base<D, Config>::find_neighbour()
+    {
+        mpi::communicator world;
+        auto rank = world.rank();
+        auto size = world.size();
+
+        m_mpi_neighbourhood.reserve(static_cast<std::size_t>(size) - 1);
+        // This code find the neighbourhood of each mpi rank
+        // 1) we have to exchange the local mesh with all the neighbourhood. It is costly and not scalable but is it a easy way to do it
+        // 2) we find intersection between each subdomain cells_and_ghosts.
+        // 3) be careful : for periodic conditions, how to treat neighbourhood ?? maybe in another mpi neighbourhood.
+
+        for (int ir = 0; ir < size; ++ir)
+        {
+            if (ir != rank)
+            {
+                m_mpi_neighbourhood.push_back(ir);
+                ;
+            }
+        }
+
+        // send
+
+        // Please think about if they are all necessary
+        construct_subdomain();
+        construct_union();
+        update_sub_mesh();
+        renumbering();
+        update_mesh_neighbour();
+
+        std::vector<mpi_subdomain_t> m_mpi_neighbourhood_temp;
+        // std::swap(m_mpi_neighbourhood_temp, m_mpi_neighbourhood);
+        // m_mpi_neighboor is empty lol...
+        //
+        const auto& stencils = StencilProvider<dim>::stencils;
+
+        for (auto& neighbour : m_mpi_neighbourhood)
+        {
+            int est_voisin_global = 0;
+            {
+                // I use cells and ghosts becose cell only is not enough
+                // in contrary, cells and ghost are overkill
+                // maybe we can do cells for mesh 1 and cells_and_ghosts for mesh 2
+
+                // We need a kind of ""expand"" operator. but for now we use bruteforce translation
+
+                for (std::size_t is = 0; is < stencils.shape()[0]; ++is)
+                {
+                    auto s           = xt::view(stencils, is);
+                    auto translation = translate(this->m_subdomain, s);
+                    auto overlap     = intersection(translation, neighbour.mesh.m_subdomain);
+                    // tester si voisin
+                    int est_voisin_niveau = 0;
+                    // maybe it exist a method like "overlap.is_empty() so we should use it"
+                    overlap(
+                        [&](const auto& i, const auto& index)
+                        {
+                            est_voisin_niveau = 1;
+                        });
+                    if (est_voisin_niveau == 1)
+                    {
+                        est_voisin_global = 1;
+                        break;
+                    }
+                }
+            }
+            if (est_voisin_global)
+            {
+                m_mpi_neighbourhood_temp.push_back(neighbour);
+            }
+        }
+
+        std::swap(m_mpi_neighbourhood_temp, m_mpi_neighbourhood);
+    }
 
     template <class D, class Config>
     void Mesh_base<D, Config>::partition_mesh([[maybe_unused]] std::size_t start_level, [[maybe_unused]] const Box<double, dim>& global_box)
@@ -896,74 +968,7 @@ namespace samurai
 
         this->m_cells[mesh_id_t::cells][start_level] = subdomain_cells;
 
-        // std::vector<mpi_subdomain_t> m_mpi_neighbourhood_temp;
-        m_mpi_neighbourhood.reserve(static_cast<std::size_t>(size) - 1);
-        // This code find the neighbourhood of each mpi rank
-        // 1) we have to exchange the local mesh with all the neighbourhood. It is costly and not scalable but is it a easy way to do it
-        // 2) we find intersection between each subdomain cells_and_ghosts.
-        // 3) be careful : for periodic conditions, how to treat neighbourhood ?? maybe in another mpi neighbourhood.
-
-        for (int ir = 0; ir < size; ++ir)
-        {
-            if (ir != rank)
-            {
-                m_mpi_neighbourhood.push_back(ir);
-                ;
-            }
-        }
-
-        // send
-
-        // Please think about if they are all necessary
-        construct_subdomain();
-        construct_union();
-        update_sub_mesh();
-        renumbering();
-        update_mesh_neighbour();
-
-        std::vector<mpi_subdomain_t> m_mpi_neighbourhood_temp;
-        // std::swap(m_mpi_neighbourhood_temp, m_mpi_neighbourhood);
-        // m_mpi_neighboor is empty lol...
-        //
-        const auto& stencils = StencilProvider<dim>::stencils;
-
-        for (auto& neighbour : m_mpi_neighbourhood)
-        {
-            int est_voisin_global = 0;
-            {
-                // I use cells and ghosts becose cell only is not enough
-                // in contrary, cells and ghost are overkill
-                // maybe we can do cells for mesh 1 and cells_and_ghosts for mesh 2
-
-                // We need a kind of ""expand"" operator. but for now we use bruteforce translation
-
-                for (std::size_t is = 0; is < stencils.shape()[0]; ++is)
-                {
-                    auto s           = xt::view(stencils, is);
-                    auto translation = translate(this->m_subdomain, s);
-                    auto overlap     = intersection(translation, neighbour.mesh.m_subdomain);
-                    // tester si voisin
-                    int est_voisin_niveau = 0;
-                    // maybe it exist a method like "overlap.is_empty() so we should use it"
-                    overlap(
-                        [&](const auto& i, const auto& index)
-                        {
-                            est_voisin_niveau = 1;
-                        });
-                    if (est_voisin_niveau == 1)
-                    {
-                        est_voisin_global = 1;
-                        break;
-                    }
-                }
-            }
-            if (est_voisin_global)
-            {
-                m_mpi_neighbourhood_temp.push_back(neighbour);
-            }
-        }
-
-        std::swap(m_mpi_neighbourhood_temp, m_mpi_neighbourhood);
+        find_neighbour();
 
         // // Neighbours
         // m_mpi_neighbourhood.reserve(static_cast<std::size_t>(pow(3, dim) - 1));
