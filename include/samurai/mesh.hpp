@@ -805,11 +805,8 @@ namespace samurai
         update_mesh_neighbour();
 
         std::vector<mpi_subdomain_t> m_mpi_neighbourhood_temp;
-        // std::swap(m_mpi_neighbourhood_temp, m_mpi_neighbourhood);
-        // m_mpi_neighboor is empty lol...
-        //
-        const auto& stencils = StencilProvider<dim>::stencils;
 
+        const auto& stencils = StencilProvider<dim>::stencils;
         for (auto& neighbour : m_mpi_neighbourhood)
         {
             int est_voisin_global = 0;
@@ -968,6 +965,7 @@ namespace samurai
 
         this->m_cells[mesh_id_t::cells][start_level] = subdomain_cells;
 
+        // in theory, at this step, we can construct the neighbourhood by construction.
         find_neighbour();
 
         // // Neighbours
