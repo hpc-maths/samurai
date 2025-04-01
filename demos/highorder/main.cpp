@@ -254,7 +254,7 @@ int main(int argc, char* argv[])
         // samurai::save("test_pred", mesh, f, f_recons, error_f);
         // samurai::finalize();
 
-        auto u = samurai::make_field<double, 1>("u", mesh);
+        auto u = samurai::make_field<double>("u", mesh);
         samurai::make_bc<samurai::Dirichlet<2>>(u,
                                                 [](const auto&, const auto&, const auto& coord)
                                                 {

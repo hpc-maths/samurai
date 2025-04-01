@@ -30,7 +30,7 @@ namespace samurai
                     // Return value: 2 matrices (left, right) of size output_n_comp x n_comp.
                     // In this case, of size 1 x dim, i.e. a row vector of size dim.
                     FluxStencilCoeffs<cfg> coeffs;
-                    if constexpr (n_comp == 1)
+                    if constexpr (Field::is_scalar)
                     {
                         coeffs[left]  = 0.5;
                         coeffs[right] = 0.5;

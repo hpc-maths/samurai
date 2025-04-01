@@ -43,7 +43,7 @@ namespace samurai
 
                 auto f = [](auto u) -> FluxValue<cfg>
                 {
-                    if constexpr (n_comp == 1)
+                    if constexpr (Field::is_scalar)
                     {
                         return u * u;
                     }
@@ -59,7 +59,7 @@ namespace samurai
                     static constexpr std::size_t right = 1;
 
                     field_value_t v;
-                    if constexpr (n_comp == 1)
+                    if constexpr (Field::is_scalar)
                     {
                         v = field[left];
                     }
@@ -103,7 +103,7 @@ namespace samurai
 
                 auto f = [](auto u) -> FluxValue<cfg>
                 {
-                    if constexpr (n_comp == 1)
+                    if constexpr (Field::is_scalar)
                     {
                         return u * u;
                     }
@@ -120,7 +120,7 @@ namespace samurai
                     static constexpr std::size_t stencil_center = 2;
 
                     field_value_t v;
-                    if constexpr (n_comp == 1)
+                    if constexpr (Field::is_scalar)
                     {
                         v = u[stencil_center];
                     }

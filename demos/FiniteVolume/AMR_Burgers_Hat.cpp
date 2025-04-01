@@ -253,7 +253,7 @@ int main(int argc, char* argv[])
 
     auto phinp1 = samurai::make_field<double, 1>("phi", mesh);
 
-    auto tag = samurai::make_field<int, 1>("tag", mesh);
+    auto tag = samurai::make_field<int>("tag", mesh);
     const xt::xtensor_fixed<int, xt::xshape<2, 1>> stencil_grad{{1}, {-1}};
 
     const double dx      = mesh.cell_length(max_level);

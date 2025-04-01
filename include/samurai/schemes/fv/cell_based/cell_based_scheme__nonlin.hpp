@@ -134,7 +134,7 @@ namespace samurai
 
         inline field_value_type contrib_cmpnent(const SchemeValue<cfg>& coeffs, [[maybe_unused]] size_type field_i) const
         {
-            if constexpr (cfg::output_n_comp == 1)
+            if constexpr (input_field_t::is_scalar && cfg::output_n_comp == 1)
             {
                 return coeffs;
             }

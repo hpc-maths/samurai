@@ -313,7 +313,7 @@ int main(int argc, char* argv[])
     auto phinp1 = samurai::make_field<double, 1>("phi", mesh);
     auto phihat = samurai::make_field<double, 1>("phi", mesh);
     samurai::make_bc<samurai::Neumann<1>>(phihat, 0.);
-    auto tag = samurai::make_field<int, 1>("tag", mesh);
+    auto tag = samurai::make_field<int>("tag", mesh);
 
     const xt::xtensor_fixed<int, xt::xshape<4, 2>> stencil_grad{
         {1,  0 },

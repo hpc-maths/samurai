@@ -49,7 +49,7 @@ class TestCase
         }
         return [](const auto&, const cell_t&, const coords_t&)
         {
-            if constexpr (Field::n_comp == 1)
+            if constexpr (Field::is_scalar)
             {
                 return 0.;
             }
@@ -109,7 +109,7 @@ class PolynomialTestCase : public TestCase<Field>
                 const auto& x = coord[0];
                 const auto& y = coord[1];
                 double value  = x * (1 - x) * y * (1 - y);
-                if constexpr (Field::n_comp == 1)
+                if constexpr (Field::is_scalar)
                 {
                     return value;
                 }
@@ -129,7 +129,7 @@ class PolynomialTestCase : public TestCase<Field>
                 const auto& y = coord[1];
                 const auto& z = coord[2];
                 double value  = x * (1 - x) * y * (1 - y) * z * (1 - z);
-                if constexpr (Field::n_comp == 1)
+                if constexpr (Field::is_scalar)
                 {
                     return value;
                 }
@@ -152,7 +152,7 @@ class PolynomialTestCase : public TestCase<Field>
     {
         return [](const auto&, const cell_t&, const coords_t&)
         {
-            if constexpr (Field::n_comp == 1)
+            if constexpr (Field::is_scalar)
             {
                 return 0.;
             }
@@ -202,7 +202,7 @@ class PolynomialTestCase : public TestCase<Field>
                 {
                     assert(false);
                 }
-                if constexpr (Field::n_comp == 1)
+                if constexpr (Field::is_scalar)
                 {
                     return value;
                 }
@@ -237,7 +237,7 @@ class PolynomialTestCase : public TestCase<Field>
                 const auto& x = coord[0];
                 const auto& y = coord[1];
                 double value  = 2 * (y * (1 - y) + x * (1 - x));
-                if constexpr (Field::n_comp == 1)
+                if constexpr (Field::is_scalar)
                 {
                     return value;
                 }
@@ -257,7 +257,7 @@ class PolynomialTestCase : public TestCase<Field>
                 const auto& y = coord[1];
                 const auto& z = coord[2];
                 double value  = 2 * ((y * (1 - y) * z * (1 - z) + x * (1 - x) * z * (1 - z) + x * (1 - x) * y * (1 - y)));
-                if constexpr (Field::n_comp == 1)
+                if constexpr (Field::is_scalar)
                 {
                     return value;
                 }
@@ -306,7 +306,7 @@ class ExponentialTestCase : public TestCase<Field>
                 const auto& x = coord[0];
                 const auto& y = coord[1];
                 double value  = exp(x * y * y);
-                if constexpr (Field::n_comp == 1)
+                if constexpr (Field::is_scalar)
                 {
                     return value;
                 }
@@ -326,7 +326,7 @@ class ExponentialTestCase : public TestCase<Field>
                 const auto& y = coord[1];
                 const auto& z = coord[2];
                 double value  = exp(x * y * y * z * z * z);
-                if constexpr (Field::n_comp == 1)
+                if constexpr (Field::is_scalar)
                 {
                     return value;
                 }
@@ -357,7 +357,7 @@ class ExponentialTestCase : public TestCase<Field>
                 const auto& x = coord[0];
                 const auto& y = coord[1];
                 double value  = (-pow(y, 4) - 2 * x * (1 + 2 * x * y * y)) * exp(x * y * y);
-                if constexpr (Field::n_comp == 1)
+                if constexpr (Field::is_scalar)
                 {
                     return value;
                 }
@@ -379,7 +379,7 @@ class ExponentialTestCase : public TestCase<Field>
                 double value  = -(pow(y, 4) * pow(z, 6) + 2 * x * pow(z, 3) + 4 * x * x * y * y * pow(z, 6) + 6 * x * y * y * z
                                  + 9 * x * x * pow(y, 4) * pow(z, 4))
                              * exp(x * y * y * z * z * z);
-                if constexpr (Field::n_comp == 1)
+                if constexpr (Field::is_scalar)
                 {
                     return value;
                 }

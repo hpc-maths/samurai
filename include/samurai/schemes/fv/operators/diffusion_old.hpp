@@ -33,7 +33,7 @@ namespace samurai
             this->stencil()           = star_stencil<dim>();
             this->coefficients_func() = [](double h)
             {
-                auto Identity = eye<field_value_type, n_comp, n_comp>();
+                auto Identity = eye<field_value_type, n_comp, n_comp, Field::is_scalar>();
                 StencilCoeffs<cfg> coeffs;
                 for (unsigned int i = 0; i < cfg::stencil_size; ++i)
                 {

@@ -17,7 +17,7 @@ namespace samurai
         {
             // return {eye<field_value_type, n_comp, n_comp>()};
             StencilCoeffs<cfg> sc;
-            sc(0) = eye<field_value_type, n_comp, n_comp>();
+            sc(0) = eye<field_value_type, n_comp, n_comp, Field::is_scalar>();
             return sc;
         };
         identity.is_symmetric(true);

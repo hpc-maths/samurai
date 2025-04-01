@@ -94,7 +94,7 @@ namespace samurai
     template <template <std::size_t dim, class T> class OP, class... CT>
     class field_operator_function;
 
-    template <class mesh_t, class value_t, std::size_t n_comp = 1, bool SOA = false>
+    template <class mesh_t, class value_t, std::size_t n_comp, bool SOA = false>
     class VectorField;
 
     template <class mesh_t, class value_t>
@@ -310,18 +310,108 @@ namespace samurai
             return do_min(v0 < v1 ? v0 : v1, rest...);
         }
 
+        /**
+         * @brief test if template parameter is SOA of AOS Field (false by default like VectorField)
+         *
+         * @tparam T type to test
+         */
         template <class T>
         struct is_soa : std::false_type
         {
         };
 
+        // specialization for VectorField
         template <class Mesh, class value_t, std::size_t n_comp, bool SOA>
         struct is_soa<VectorField<Mesh, value_t, n_comp, SOA>> : std::bool_constant<SOA>
         {
         };
 
+        /**
+         * @brief helper to get value of is_soa
+         *
+         * @tparam T type to test
+         */
         template <class T>
         inline constexpr bool is_soa_v = is_soa<std::decay_t<T>>::value;
+
+        /**
+         * @brief test if template parameter is a samurai field (ScalarField or VectorField)
+         *
+         * @tparam T type to test
+         */
+        template <class T>
+        struct is_field_type : std::false_type
+        {
+        };
+
+        // specialization for VectorField
+        template <class Mesh, class value_t, std::size_t n_comp, bool SOA>
+        struct is_field_type<VectorField<Mesh, value_t, n_comp, SOA>> : std::true_type
+        {
+        };
+
+        // specialization for ScalarField
+        template <class Mesh, class value_t>
+        struct is_field_type<ScalarField<Mesh, value_t>> : std::true_type
+        {
+        };
+
+        /**
+         * @brief helper to get value of is_field_type
+         *
+         * @tparam T type to test
+         */
+        template <class T>
+        inline constexpr bool is_field_type_v = is_field_type<std::decay_t<T>>::value;
+
+        /**
+         * @brief test if template parameter is a VectorField
+         *
+         * @tparam T type to test
+         */
+        template <class T>
+        struct is_vector_field_type : std::false_type
+        {
+        };
+
+        // specialization for VectorField
+        template <class Mesh, class value_t, std::size_t n_comp, bool SOA>
+        struct is_vector_field_type<VectorField<Mesh, value_t, n_comp, SOA>> : std::true_type
+        {
+        };
+
+        /**
+         * @brief helper to get value of is_vector_field
+         *
+         * @tparam T type to test
+         */
+        template <class T>
+        inline constexpr bool is_vector_field_type_v = is_vector_field_type<std::decay_t<T>>::value;
+
+        /**
+         * @brief test if template parameter is a ScalarField
+         *
+         * @tparam T type to test
+         */
+        template <class T>
+        struct is_scalar_field_type : std::false_type
+        {
+        };
+
+        // specialization for ScalarField
+        template <class Mesh, class value_t>
+        struct is_scalar_field_type<ScalarField<Mesh, value_t>> : std::true_type
+        {
+        };
+
+        /**
+         * @brief helper to get value of is_scalar_field
+         *
+         * @tparam T type to test
+         */
+        template <class T>
+        inline constexpr bool is_scalar_field_type_v = is_scalar_field_type<std::decay_t<T>>::value;
+
     } // namespace detail
 
     template <class R, class T1, class T2>
@@ -340,7 +430,7 @@ namespace samurai
     inline auto& field_value(Field& f, const typename Field::index_t& cell_index, [[maybe_unused]] index_t field_i)
     {
         using size_type = typename Field::size_type;
-        if constexpr (Field::n_comp == 1)
+        if constexpr (Field::is_scalar)
         {
             return f[static_cast<size_type>(cell_index)];
         }
@@ -354,13 +444,13 @@ namespace samurai
     // inline auto&
     // field_value(typename Field::value_type* data, const typename Field::index_t& cell_index, [[maybe_unused]] std::size_t field_i)
     // {
-    //     if constexpr (Field::n_comp == 1)
+    //     if constexpr (Field::is_scalar)
     //     {
     //         return *data[cell_index];
     //     }
-    //     else if constexpr (Field::is_soa)
+    //     else if constexpr (detail::is_soa_v<Field>)
     //     {
-    //         static_assert(Field::n_comp == 1 || !Field::is_soa, "field_value() is not implemented for SOA fields");
+    //         static_assert(Field::is_scalar || !detail::is_soa_v<Field>, "field_value() is not implemented for SOA fields");
     //         return *data[field_i /*  *n_cells */ + cell_index];
     //     }
     //     else

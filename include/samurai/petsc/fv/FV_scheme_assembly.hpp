@@ -5,6 +5,8 @@
 #include "../../schemes/fv/scheme_operators.hpp"
 #include "../matrix_assembly.hpp"
 
+#include <type_traits>
+
 namespace samurai
 {
     namespace petsc
@@ -204,7 +206,7 @@ namespace samurai
             // Global data index
             inline PetscInt col_index(PetscInt cell_index, [[maybe_unused]] unsigned int field_j) const
             {
-                if constexpr (n_comp == 1)
+                if constexpr (field_t::is_scalar)
                 {
                     return m_col_shift + cell_index;
                 }
@@ -247,7 +249,7 @@ namespace samurai
             template <class Coeffs>
             inline double rhs_coeff(const Coeffs& coeffs, [[maybe_unused]] unsigned int field_i, [[maybe_unused]] unsigned int field_j) const
             {
-                if constexpr (n_comp == 1 && output_n_comp == 1)
+                if constexpr (field_t::is_scalar && output_n_comp == 1)
                 {
                     return coeffs;
                 }
@@ -569,7 +571,7 @@ namespace samurai
                         assert(coeff != 0);
 
                         double bc_value;
-                        if constexpr (n_comp == 1)
+                        if constexpr (field_t::is_scalar)
                         {
                             bc_value = bc->value({}, {}, boundary_point);
                         }
