@@ -929,7 +929,7 @@ namespace samurai
             for_each_meshinterval(m_domain,
                                   [&](auto mi)
                                   {
-                                      for (auto i = mi.i.start; i < mi.i.end; ++i)
+                                      for (auto i = static_cast<std::size_t>(mi.i.start); i < static_cast<std::size_t>(mi.i.end); ++i)
                                       {
                                           if (i >= subdomain_start && i < subdomain_end)
                                           {
