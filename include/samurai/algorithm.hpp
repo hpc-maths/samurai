@@ -59,7 +59,7 @@ namespace samurai
     }
 
     template <class Mesh, class Func>
-    inline void for_each_level(Mesh& mesh, Func&& f, bool include_empty_levels = false)
+    inline void for_each_level(const Mesh& mesh, Func&& f, bool include_empty_levels = false)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
         for_each_level(mesh[mesh_id_t::cells], std::forward<Func>(f), include_empty_levels);

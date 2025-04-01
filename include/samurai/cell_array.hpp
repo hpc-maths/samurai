@@ -15,6 +15,7 @@
 #include "utils.hpp"
 
 #ifdef SAMURAI_WITH_MPI
+#include <boost/serialization/array.hpp>
 #include <boost/serialization/serialization.hpp>
 #include <boost/serialization/vector.hpp>
 #endif
