@@ -139,6 +139,8 @@ namespace samurai
         void update_mesh_neighbour_all_cells();
         void update_mesh_neighbour_proj_cells();
 
+        void update_mesh_neighbour_subdomain();
+
         void to_stream(std::ostream& os) const;
 
       protected:
@@ -737,6 +739,35 @@ namespace samurai
         for (auto& neighbour : m_mpi_neighbourhood)
         {
             world.recv(neighbour.rank, world.rank(), neighbour.mesh[mesh_id_t::proj_cells]);
+        }
+
+        mpi::wait_all(req.begin(), req.end());
+#endif
+    }
+
+    template <class D, class Config>
+    inline void Mesh_base<D, Config>::update_mesh_neighbour_subdomain()
+    {
+#ifdef SAMURAI_WITH_MPI
+        // send/recv the meshes of the neighbouring subdomains
+        mpi::communicator world;
+        std::vector<mpi::request> req;
+
+        boost::mpi::packed_oarchive::buffer_type buffer;
+        boost::mpi::packed_oarchive oa(world, buffer);
+        oa << derived_cast().m_subdomain;
+
+        std::transform(m_mpi_neighbourhood.cbegin(),
+                       m_mpi_neighbourhood.cend(),
+                       std::back_inserter(req),
+                       [&](const auto& neighbour)
+                       {
+                           return world.isend(neighbour.rank, neighbour.rank, buffer);
+                       });
+
+        for (auto& neighbour : m_mpi_neighbourhood)
+        {
+            world.recv(neighbour.rank, world.rank(), neighbour.mesh.m_subdomain);
         }
 
         mpi::wait_all(req.begin(), req.end());
