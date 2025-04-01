@@ -714,6 +714,69 @@ namespace samurai
         }
     }
 
+    template <std::size_t Dim>
+    struct StencilProvider
+    {
+        // Optionnel : Déclencher une erreur si une dimension non supportée est utilisée
+        static_assert(Dim == 2 || Dim == 3, "Dimension non supportée pour les stencils");
+        // Ou laisser vide pour obtenir une erreur de symbole non défini si non spécialisé
+    };
+
+    // Spécialisation pour dim = 2
+    template <>
+    struct StencilProvider<2>
+    {
+        static constexpr std::size_t stencil_size = 8;
+        inline static const xt::xtensor_fixed<int, xt::xshape<stencil_size, 2>> stencils{
+            {-1, 0 },
+            {1,  0 },
+            {0,  -1},
+            {0,  1 },
+            {-1, 1 },
+            {1,  1 },
+            {-1, -1},
+            {1,  -1}  // Corrigé
+        };
+        // Autres constantes/types dépendant de dim=2 pourraient aller ici
+    };
+
+    // Spécialisation pour dim = 3
+    template <>
+    struct StencilProvider<3>
+    {
+        static constexpr std::size_t stencil_size = 27; // Ou 26 si on exclut le centre
+        inline static const xt::xtensor_fixed<int, xt::xshape<stencil_size, 3>> stencils{
+            {-1, -1, -1},
+            {-1, -1, 0 },
+            {-1, -1, 1 },
+            {-1, 0,  -1},
+            {-1, 0,  0 },
+            {-1, 0,  1 },
+            {-1, 1,  -1},
+            {-1, 1,  0 },
+            {-1, 1,  1 },
+            {0,  -1, -1},
+            {0,  -1, 0 },
+            {0,  -1, 1 },
+            {0,  0,  -1},
+            {0,  0,  0 },
+            {0,  0,  1 }, // Inclut le centre
+            {0,  1,  -1},
+            {0,  1,  0 },
+            {0,  1,  1 },
+            {1,  -1, -1},
+            {1,  -1, 0 },
+            {1,  -1, 1 },
+            {1,  0,  -1},
+            {1,  0,  0 },
+            {1,  0,  1 },
+            {1,  1,  -1},
+            {1,  1,  0 },
+            {1,  1,  1 }
+        };
+        // Autres constantes/types dépendant de dim=3 pourraient aller ici
+    };
+
     template <class D, class Config>
     void Mesh_base<D, Config>::partition_mesh([[maybe_unused]] std::size_t start_level, [[maybe_unused]] const Box<double, dim>& global_box)
     {
@@ -861,6 +924,9 @@ namespace samurai
         std::vector<mpi_subdomain_t> m_mpi_neighbourhood_temp;
         // std::swap(m_mpi_neighbourhood_temp, m_mpi_neighbourhood);
         // m_mpi_neighboor is empty lol...
+        //
+        const auto& stencils = StencilProvider<dim>::stencils;
+
         for (auto& neighbour : m_mpi_neighbourhood)
         {
             int est_voisin_global = 0;
@@ -870,16 +936,6 @@ namespace samurai
                 // maybe we can do cells for mesh 1 and cells_and_ghosts for mesh 2
 
                 // We need a kind of ""expand"" operator. but for now we use bruteforce translation
-                xt::xtensor_fixed<int, xt::xshape<8, 2>> stencils{
-                    {-1, 0 },
-                    {1,  0 },
-                    {0,  -1},
-                    {0,  1 },
-                    {-1, 1 },
-                    {1,  1 },
-                    {-1, -1},
-                    {1,  1 }
-                };
 
                 for (std::size_t is = 0; is < stencils.shape()[0]; ++is)
                 {
@@ -897,6 +953,7 @@ namespace samurai
                     if (est_voisin_niveau == 1)
                     {
                         est_voisin_global = 1;
+                        break;
                     }
                 }
             }
