@@ -35,84 +35,6 @@ namespace samurai
     template <class mesh_t, class value_t>
     class ScalarField;
 
-    /**
-     * @brief test if template parameter is a samurai field (ScalarField or VectorField)
-     *
-     * @tparam T type to test
-     */
-    template <class T>
-    struct is_field_type : std::false_type
-    {
-    };
-
-    // specialization for VectorField
-    template <class Mesh, class value_t, std::size_t n_comp, bool SOA>
-    struct is_field_type<VectorField<Mesh, value_t, n_comp, SOA>> : std::true_type
-    {
-    };
-
-    // specialization for ScalarField
-    template <class Mesh, class value_t>
-    struct is_field_type<ScalarField<Mesh, value_t>> : std::true_type
-    {
-    };
-
-    /**
-     * @brief helper to get value of is_field_type
-     *
-     * @tparam T type to test
-     */
-    template <class T>
-    inline constexpr bool is_field_type_v = is_field_type<std::decay_t<T>>::value;
-
-    /**
-     * @brief test if template parameter is a VectorField
-     *
-     * @tparam T type to test
-     */
-    template <class T>
-    struct is_vector_field_type : std::false_type
-    {
-    };
-
-    // specialization for VectorField
-    template <class Mesh, class value_t, std::size_t n_comp, bool SOA>
-    struct is_vector_field_type<VectorField<Mesh, value_t, n_comp, SOA>> : std::true_type
-    {
-    };
-
-    /**
-     * @brief helper to get value of is_vector_field
-     *
-     * @tparam T type to test
-     */
-    template <class T>
-    inline constexpr bool is_vector_field_type_v = is_vector_field_type<std::decay_t<T>>::value;
-
-    /**
-     * @brief test if template parameter is a ScalarField
-     *
-     * @tparam T type to test
-     */
-    template <class T>
-    struct is_scalar_field_type : std::false_type
-    {
-    };
-
-    // specialization for ScalarField
-    template <class Mesh, class value_t>
-    struct is_scalar_field_type<ScalarField<Mesh, value_t>> : std::true_type
-    {
-    };
-
-    /**
-     * @brief helper to get value of is_scalar_field
-     *
-     * @tparam T type to test
-     */
-    template <class T>
-    inline constexpr bool is_scalar_field_type_v = is_scalar_field_type<std::decay_t<T>>::value;
-
     template <class Field, bool is_const>
     class Field_iterator;
 
@@ -169,7 +91,7 @@ namespace samurai
             using interval_value_t              = typename interval_t::value_t;
             using cell_t                        = Cell<dim, interval_t>;
             using data_type                     = field_data_storage_t<value_t, 1>;
-            using local_data_type               = local_field_data_t<value_t, 1>;
+            using local_data_type               = local_field_data_t<value_t, 1, false, true>;
             using size_type                     = typename data_type::size_type;
             static constexpr auto static_layout = data_type::static_layout;
 
@@ -289,7 +211,7 @@ namespace samurai
             using index_t                    = typename interval_t::index_t;
             using cell_t                     = Cell<dim, interval_t>;
             using data_type                  = field_data_storage_t<value_t, n_comp, SOA>;
-            using local_data_type            = local_field_data_t<value_t, n_comp, SOA>;
+            using local_data_type            = local_field_data_t<value_t, n_comp, SOA, false>;
             using size_type                  = typename data_type::size_type;
 
             static constexpr auto static_layout = data_type::static_layout;
@@ -408,7 +330,7 @@ namespace samurai
     // class VectorField
     // ------------------------------------------------------------------------
 
-    template <class mesh_t_, class value_t = double, std::size_t n_comp_, bool SOA>
+    template <class mesh_t_, class value_t, std::size_t n_comp_, bool SOA>
     class VectorField : public field_expression<VectorField<mesh_t_, value_t, n_comp_, SOA>>,
                         public inner_mesh_type<mesh_t_>,
                         public detail::inner_field_types<VectorField<mesh_t_, value_t, n_comp_, SOA>>
@@ -438,6 +360,7 @@ namespace samurai
 
         static constexpr size_type n_comp = n_comp_;
         static constexpr bool is_soa      = SOA;
+        static constexpr bool is_scalar   = detail::is_scalar_field_type_v<self_type>;
         using inner_types::static_layout;
 
         VectorField() = default;
@@ -979,6 +902,7 @@ namespace samurai
 
         static constexpr size_type n_comp = 1;
         // static constexpr bool is_soa      = SOA;
+        static constexpr bool is_scalar = detail::is_scalar_field_type_v<self_type>;
         using inner_types::static_layout;
 
         ScalarField() = default;

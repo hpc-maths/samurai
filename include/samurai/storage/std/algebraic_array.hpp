@@ -360,7 +360,7 @@ namespace samurai
         return std::pow(base, exponent);
     }
 
-    template <class value_type, std::size_t size>
-    using collapsable_algebraic_std_array = CollapsableArray<StdArrayWrapper<value_type, size>, value_type, size>;
+    template <class value_type, std::size_t size, bool can_collapse>
+    using collapsable_algebraic_std_array = CollapsableArray<StdArrayWrapper<value_type, size>, value_type, size, can_collapse>;
 
 } // end namespace samurai

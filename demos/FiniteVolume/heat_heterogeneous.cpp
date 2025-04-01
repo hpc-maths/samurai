@@ -15,7 +15,7 @@ template <class Field>
 void save(const fs::path& path, const std::string& filename, const Field& u, const std::string& suffix = "")
 {
     auto mesh   = u.mesh();
-    auto level_ = samurai::make_field<std::size_t, 1>("level", mesh);
+    auto level_ = samurai::make_field<std::size_t>("level", mesh);
 
     if (!fs::exists(path))
     {
@@ -115,8 +115,8 @@ int main(int argc, char* argv[])
     Box box(box_corner1, box_corner2);
     samurai::MRMesh<Config> mesh;
 
-    auto u    = samurai::make_field<1>("u", mesh);
-    auto unp1 = samurai::make_field<1>("unp1", mesh);
+    auto u    = samurai::make_field<>("u", mesh);
+    auto unp1 = samurai::make_field<>("unp1", mesh);
 
     if (restart_file.empty())
     {
@@ -142,7 +142,7 @@ int main(int argc, char* argv[])
     samurai::make_bc<samurai::Neumann<1>>(u, 0.);
     samurai::make_bc<samurai::Neumann<1>>(unp1, 0.);
 
-    auto K = samurai::make_field<samurai::DiffCoeff<dim>, 1>("K", mesh);
+    auto K = samurai::make_field<samurai::DiffCoeff<dim>>("K", mesh);
 
     auto set_K_values = [&]()
     {

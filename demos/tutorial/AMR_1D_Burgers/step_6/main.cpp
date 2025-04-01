@@ -95,7 +95,7 @@ int main(int argc, char* argv[])
         std::size_t i_adapt = 0;
         while (i_adapt < (max_level - min_level + 1))
         {
-            auto tag = samurai::make_field<std::size_t, 1>("tag", mesh);
+            auto tag = samurai::make_field<std::size_t>("tag", mesh);
 
             fmt::print("adaptation iteration : {:4d}\n", i_adapt++);
             update_ghost(phi);

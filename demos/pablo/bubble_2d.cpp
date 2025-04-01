@@ -30,7 +30,7 @@ void update_mesh(Mesh& mesh,
     constexpr std::size_t dim = Mesh::dim;
     std::size_t nb_bubbles    = bb_xcenter.shape(0);
 
-    auto tag = samurai::make_field<int, 1>("tag", mesh);
+    auto tag = samurai::make_field<int>("tag", mesh);
     tag.fill(static_cast<int>(samurai::CellFlag::keep));
 
     samurai::for_each_cell(

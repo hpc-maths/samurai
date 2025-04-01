@@ -14,7 +14,7 @@ template <class Field>
 void save(const fs::path& path, const std::string& filename, const Field& u, const std::string& suffix = "")
 {
     auto mesh   = u.mesh();
-    auto level_ = samurai::make_field<std::size_t, 1>("level", mesh);
+    auto level_ = samurai::make_field<std::size_t>("level", mesh);
 
     if (!fs::exists(path))
     {
@@ -186,24 +186,24 @@ int main(int argc, char* argv[])
     box_corner2.fill(right_box);
     Box box(box_corner1, box_corner2);
     samurai::MRMesh<Config> mesh;
-    auto u = samurai::make_field<1>("u", mesh);
+    auto u = samurai::make_field<double>("u", mesh);
 
     if (restart_file.empty())
     {
         mesh = {box, min_level, max_level};
-        u    = samurai::make_field<1>("u",
-                                   mesh,
-                                   [&](const auto& coords)
-                                   {
-                                       return exact_solution(coords, 0);
-                                   });
+        u    = samurai::make_field<double>("u",
+                                        mesh,
+                                        [&](const auto& coords)
+                                        {
+                                            return exact_solution(coords, 0);
+                                        });
     }
     else
     {
         samurai::load(restart_file, mesh, u);
     }
 
-    auto unp1 = samurai::make_field<1>("unp1", mesh);
+    auto unp1 = samurai::make_field<double>("unp1", mesh);
 
     samurai::make_bc<samurai::Dirichlet<1>>(u,
                                             [&](const auto&, const auto&, const auto& coords)

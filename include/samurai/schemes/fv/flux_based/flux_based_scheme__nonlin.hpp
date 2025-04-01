@@ -24,6 +24,7 @@ namespace samurai
         using typename base_class::input_field_t;
         using typename base_class::mesh_id_t;
         using typename base_class::mesh_t;
+        using typename base_class::output_field_t;
 
         using interval_t       = typename mesh_t::interval_t;
         using interval_value_t = typename interval_t::value_t;
@@ -101,7 +102,7 @@ namespace samurai
 
         inline field_value_type flux_value_cmpnent(const FluxValue<cfg>& flux_value, [[maybe_unused]] size_type field_i) const
         {
-            if constexpr (output_n_comp == 1)
+            if constexpr (output_field_t::is_scalar)
             {
                 return flux_value;
             }
@@ -160,7 +161,7 @@ namespace samurai
                                   const std::size_t delta_l,
                                   const cell_indices_t& fine_cell_indices)
         {
-            if constexpr (n_comp == 1)
+            if constexpr (input_field_t::is_scalar)
             {
                 predicted_value = portion(field, level, coarse_cell_indices, delta_l, fine_cell_indices)[0];
             }

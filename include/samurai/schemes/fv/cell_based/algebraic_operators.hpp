@@ -144,6 +144,8 @@ namespace samurai
         using stencil_cells_t = typename CellBasedScheme<nonlin_cfg, bdry_cfg>::stencil_cells_t;
         using field_t         = typename CellBasedScheme<nonlin_cfg, bdry_cfg>::field_t;
 
+        static constexpr bool can_collapse = lin_cfg::input_field_t::is_scalar && lin_cfg::output_n_comp == 1;
+
         CellBasedScheme<nonlin_cfg, bdry_cfg> addition_scheme(nonlin_scheme); // copy
 
         addition_scheme.set_name(lin_scheme.name() + " + " + nonlin_scheme.name());
@@ -155,7 +157,7 @@ namespace samurai
 
                 auto h      = cell.length;
                 auto coeffs = lin_scheme.coefficients(h);
-                value += mat_vec<field_t::is_soa>(coeffs[0], field[cell]);
+                value += mat_vec<field_t::is_soa, can_collapse>(coeffs[0], field[cell]);
                 return value;
             };
 
@@ -168,7 +170,7 @@ namespace samurai
 
                     auto h      = cell.length;
                     auto coeffs = lin_scheme.coefficients(h);
-                    value += mat_vec<field_t::is_soa>(coeffs[0], field[cell]);
+                    value += mat_vec<field_t::is_soa, can_collapse>(coeffs[0], field[cell]);
                     return value;
                 };
             }

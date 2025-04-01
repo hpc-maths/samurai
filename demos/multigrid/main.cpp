@@ -127,7 +127,7 @@ int main(int argc, char* argv[])
     // using Mesh = samurai::MRMesh<Config>;
     constexpr unsigned int n_comp = 1;
     constexpr bool is_soa         = true;
-    using Field                   = samurai::Field<Mesh, double, n_comp, is_soa>;
+    using Field                   = samurai::VectorField<Mesh, double, n_comp, is_soa>;
 
     //------------------//
     // Petsc initialize //
@@ -238,7 +238,7 @@ int main(int argc, char* argv[])
     // Solve linear system //
     //---------------------//
 
-    auto diff   = samurai::make_diffusion_order2<decltype(solution), samurai::DirichletEnforcement::Equation>();
+    auto diff   = samurai::make_diffusion_old<decltype(solution), samurai::DirichletEnforcement::Equation>();
     auto solver = samurai::petsc::make_solver(diff);
     solver.set_unknown(solution);
 

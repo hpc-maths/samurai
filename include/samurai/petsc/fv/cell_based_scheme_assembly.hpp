@@ -1,5 +1,6 @@
 #pragma once
 #include "../../schemes/fv/cell_based/cell_based_scheme__lin_hom.hpp"
+#include "../../utils.hpp"
 #include "FV_scheme_assembly.hpp"
 
 namespace samurai
@@ -34,7 +35,7 @@ namespace samurai
             using field_value_type                     = typename field_t::value_type; // double
             static constexpr std::size_t output_n_comp = cfg_t::output_n_comp;
             static constexpr std::size_t stencil_size  = cfg_t::stencil_size;
-            using local_matrix_t                       = CollapsMatrix<field_value_type, output_n_comp, n_comp>;
+            using local_matrix_t                       = CollapsMatrix<field_value_type, output_n_comp, n_comp, field_t::is_scalar>;
 
             using stencil_t         = Stencil<stencil_size, dim>;
             using get_coeffs_func_t = std::function<std::array<local_matrix_t, stencil_size>(double)>;
@@ -49,7 +50,7 @@ namespace samurai
             // Data index in the given stencil
             inline auto local_col_index(unsigned int cell_local_index, [[maybe_unused]] unsigned int field_j) const
             {
-                if constexpr (n_comp == 1)
+                if constexpr (field_t::is_scalar)
                 {
                     return cell_local_index;
                 }
@@ -98,7 +99,7 @@ namespace samurai
 
                     // If LinearHomogeneous, take only the non-zero coefficients into account.
                     // Not sure if this optimization really makes a difference though...
-                    if constexpr (cfg_t::scheme_type == SchemeType::LinearHomogeneous && field_t::is_soa)
+                    if constexpr (cfg_t::scheme_type == SchemeType::LinearHomogeneous && detail::is_soa_v<field_t>)
                     {
                         auto coeffs  = scheme().coefficients(cell_length(1., 0));
                         scheme_nnz_i = 0;
@@ -207,7 +208,7 @@ namespace samurai
                         //     field_j (Grad_y) |  |  |  |-1| 1|
 
                         // Coefficient insertion
-                        if constexpr (n_comp == 1 || field_t::is_soa)
+                        if constexpr (field_t::is_scalar || detail::is_soa_v<field_t>)
                         {
                             // In SOA, the indices are ordered in field_i for
                             // all cells, then field_j for all cells:

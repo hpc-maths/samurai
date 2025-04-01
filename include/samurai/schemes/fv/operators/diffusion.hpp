@@ -2,6 +2,7 @@
 #include "../flux_based/flux_based_scheme__lin_het.hpp"
 #include "../flux_based/flux_based_scheme__lin_hom.hpp"
 #include "divergence.hpp"
+#
 
 namespace samurai
 {
@@ -151,7 +152,7 @@ namespace samurai
                     // Return value: 2 matrices (left, right) of size output_n_comp x n_comp.
                     // In this case, of size n_comp x n_comp.
                     FluxStencilCoeffs<cfg> coeffs;
-                    if constexpr (n_comp == 1)
+                    if constexpr (Field::is_scalar)
                     {
                         coeffs[left]  = -1 / h;
                         coeffs[right] = 1 / h;
@@ -205,7 +206,7 @@ namespace samurai
                     // Return value: 2 matrices (left, right) of size output_n_comp x n_comp.
                     // In this case, of size n_comp x n_comp.
                     FluxStencilCoeffs<cfg> coeffs;
-                    if constexpr (n_comp == 1)
+                    if constexpr (Field::is_scalar)
                     {
                         coeffs[left]  = -1 / h;
                         coeffs[right] = 1 / h;
@@ -221,7 +222,7 @@ namespace samurai
                         }
                     }
                     // Minus sign because we want -Laplacian
-                    if constexpr (n_comp == 1)
+                    if constexpr (Field::is_scalar)
                     {
                         coeffs[left] *= -K(0);
                         coeffs[right] *= -K(0);
@@ -268,7 +269,7 @@ namespace samurai
 
     template <class field_t,
               class DiffTensorField,
-              std::enable_if_t<DiffTensorField::n_comp == 1 && std::is_same_v<typename DiffTensorField::value_type, DiffCoeff<field_t::dim>>, bool> = true>
+              std::enable_if_t<DiffTensorField::is_scalar && std::is_same_v<typename DiffTensorField::value_type, DiffCoeff<field_t::dim>>, bool> = true>
     auto make_diffusion_order2(const DiffTensorField& K)
     {
         static constexpr std::size_t dim           = field_t::dim;
@@ -298,7 +299,7 @@ namespace samurai
                     // Return value: 2 matrices (left, right) of size output_n_comp x n_comp.
                     // In this case, of size n_comp x n_comp.
                     FluxStencilCoeffs<cfg> coeffs;
-                    if constexpr (n_comp == 1)
+                    if constexpr (field_t::is_scalar)
                     {
                         coeffs[left]  = -k_left(d) / h;
                         coeffs[right] = k_left(d) / h;
