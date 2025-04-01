@@ -89,6 +89,7 @@ namespace samurai
         std::size_t nb_cells(std::size_t level, mesh_id_t mesh_id = mesh_id_t::reference) const;
 
         const ca_type& operator[](mesh_id_t mesh_id) const;
+        ca_type& operator[](mesh_id_t mesh_id);
 
         std::size_t max_level() const;
         std::size_t& max_level();
@@ -133,6 +134,11 @@ namespace samurai
         cell_t get_cell(std::size_t level, const xt::xexpression<E>& coord) const;
 
         void update_mesh_neighbour();
+        void update_mesh_neighbour_cells_and_ghosts();
+        void update_mesh_neighbour_reference();
+        void update_mesh_neighbour_all_cells();
+        void update_mesh_neighbour_proj_cells();
+
         void to_stream(std::ostream& os) const;
 
       protected:
@@ -404,6 +410,12 @@ namespace samurai
     }
 
     template <class D, class Config>
+    inline auto Mesh_base<D, Config>::operator[](mesh_id_t mesh_id) -> ca_type&
+    {
+        return m_cells[mesh_id];
+    }
+
+    template <class D, class Config>
     inline std::size_t Mesh_base<D, Config>::max_level() const
     {
         return m_max_level;
@@ -613,6 +625,122 @@ namespace samurai
                                   });
             }
         }
+    }
+
+    template <class D, class Config>
+    inline void Mesh_base<D, Config>::update_mesh_neighbour_cells_and_ghosts()
+    {
+#ifdef SAMURAI_WITH_MPI
+        // send/recv the meshes of the neighbouring subdomains
+        mpi::communicator world;
+        std::vector<mpi::request> req;
+
+        boost::mpi::packed_oarchive::buffer_type buffer;
+        boost::mpi::packed_oarchive oa(world, buffer);
+        oa << derived_cast()[mesh_id_t::cells_and_ghosts];
+
+        std::transform(m_mpi_neighbourhood.cbegin(),
+                       m_mpi_neighbourhood.cend(),
+                       std::back_inserter(req),
+                       [&](const auto& neighbour)
+                       {
+                           return world.isend(neighbour.rank, neighbour.rank, buffer);
+                       });
+
+        for (auto& neighbour : m_mpi_neighbourhood)
+        {
+            world.recv(neighbour.rank, world.rank(), neighbour.mesh[mesh_id_t::cells_and_ghosts]);
+        }
+
+        mpi::wait_all(req.begin(), req.end());
+#endif
+    }
+
+    template <class D, class Config>
+    inline void Mesh_base<D, Config>::update_mesh_neighbour_reference()
+    {
+#ifdef SAMURAI_WITH_MPI
+        // send/recv the meshes of the neighbouring subdomains
+        mpi::communicator world;
+        std::vector<mpi::request> req;
+
+        boost::mpi::packed_oarchive::buffer_type buffer;
+        boost::mpi::packed_oarchive oa(world, buffer);
+        oa << derived_cast()[mesh_id_t::reference];
+
+        std::transform(m_mpi_neighbourhood.cbegin(),
+                       m_mpi_neighbourhood.cend(),
+                       std::back_inserter(req),
+                       [&](const auto& neighbour)
+                       {
+                           return world.isend(neighbour.rank, neighbour.rank, buffer);
+                       });
+
+        for (auto& neighbour : m_mpi_neighbourhood)
+        {
+            world.recv(neighbour.rank, world.rank(), neighbour.mesh[mesh_id_t::reference]);
+        }
+
+        mpi::wait_all(req.begin(), req.end());
+#endif
+    }
+
+    template <class D, class Config>
+    inline void Mesh_base<D, Config>::update_mesh_neighbour_all_cells()
+    {
+#ifdef SAMURAI_WITH_MPI
+        // send/recv the meshes of the neighbouring subdomains
+        mpi::communicator world;
+        std::vector<mpi::request> req;
+
+        boost::mpi::packed_oarchive::buffer_type buffer;
+        boost::mpi::packed_oarchive oa(world, buffer);
+        oa << derived_cast()[mesh_id_t::all_cells];
+
+        std::transform(m_mpi_neighbourhood.cbegin(),
+                       m_mpi_neighbourhood.cend(),
+                       std::back_inserter(req),
+                       [&](const auto& neighbour)
+                       {
+                           return world.isend(neighbour.rank, neighbour.rank, buffer);
+                       });
+
+        for (auto& neighbour : m_mpi_neighbourhood)
+        {
+            world.recv(neighbour.rank, world.rank(), neighbour.mesh[mesh_id_t::all_cells]);
+        }
+
+        mpi::wait_all(req.begin(), req.end());
+#endif
+    }
+
+    template <class D, class Config>
+    inline void Mesh_base<D, Config>::update_mesh_neighbour_proj_cells()
+    {
+#ifdef SAMURAI_WITH_MPI
+        // send/recv the meshes of the neighbouring subdomains
+        mpi::communicator world;
+        std::vector<mpi::request> req;
+
+        boost::mpi::packed_oarchive::buffer_type buffer;
+        boost::mpi::packed_oarchive oa(world, buffer);
+        oa << derived_cast()[mesh_id_t::proj_cells];
+
+        std::transform(m_mpi_neighbourhood.cbegin(),
+                       m_mpi_neighbourhood.cend(),
+                       std::back_inserter(req),
+                       [&](const auto& neighbour)
+                       {
+                           return world.isend(neighbour.rank, neighbour.rank, buffer);
+                       });
+
+        for (auto& neighbour : m_mpi_neighbourhood)
+        {
+            world.recv(neighbour.rank, world.rank(), neighbour.mesh[mesh_id_t::proj_cells]);
+        }
+
+        mpi::wait_all(req.begin(), req.end());
+#endif
     }
 
     template <class D, class Config>
