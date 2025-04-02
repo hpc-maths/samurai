@@ -718,7 +718,6 @@ namespace samurai
             }
 
             std::swap(field.array(), new_field.array());
-            // field.mesh().swap(new_mesh);
         }
 
         template <class Mesh, class Fields, std::size_t... Is>
@@ -819,6 +818,40 @@ namespace samurai
 
     template <class Tag, class Field, class... Fields>
     bool update_field_mr(const Tag& tag, Field& field, Fields&... other_fields)
+    {
+        using mesh_t    = typename Field::mesh_t;
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        using ca_type   = typename Field::mesh_t::ca_type;
+
+        auto& mesh = field.mesh();
+
+        const auto min_indices = mesh.domain().min_indices();
+        const auto max_indices = mesh.domain().max_indices();
+        std::array<int, mesh_t::dim> nb_cells_finest_level;
+        for (size_t d = 0; d != max_indices.size(); ++d)
+        {
+            nb_cells_finest_level[d] = max_indices[d] - min_indices[d];
+        }
+        // ca_type new_ca;
+        ca_type new_ca = update_cell_array_from_tag(mesh[mesh_id_t::cells], tag);
+        make_graduation_from(new_ca, mesh.mpi_neighbourhood(), mesh.periodicity(), nb_cells_finest_level, mesh_t::config::graduation_width);
+        mesh_t new_mesh{new_ca, mesh};
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        if (mpi::all_reduce(world, mesh == new_mesh, std::logical_and()))
+#else
+        if (mesh == new_mesh)
+#endif // SAMURAI_WITH_MPI
+        {
+            return true;
+        }
+        detail::update_fields(new_mesh, field, other_fields...);
+        field.mesh().swap(new_mesh);
+        return false;
+    }
+
+    template <class Tag, class Field, class... Fields>
+    bool update_field_mr_old(const Tag& tag, Field& field, Fields&... other_fields)
     {
         using mesh_t                     = typename Field::mesh_t;
         static constexpr std::size_t dim = mesh_t::dim;
@@ -982,7 +1015,7 @@ namespace samurai
     }
 
     template <class Tag, class Field, class... Fields>
-    bool update_field_mr_old(const Tag& tag, Field& field, Fields&... other_fields)
+    bool update_field_mr_older(const Tag& tag, Field& field, Fields&... other_fields)
     {
         using mesh_t                     = typename Field::mesh_t;
         static constexpr std::size_t dim = mesh_t::dim;

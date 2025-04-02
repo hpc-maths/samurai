@@ -54,7 +54,58 @@ namespace samurai
                 }
             }
         };
+
+        template <size_t index_size, size_t dim, size_t dim_min>
+        struct NestedExpand
+        {
+            static_assert(dim >= dim_min);
+            using index_type = xt::xtensor_fixed<int, xt::xshape<index_size>>;
+
+            template <typename TInterval>
+            static auto run(index_type& idx, const LevelCellArray<index_size, TInterval>& lca, const int width)
+            {
+                if constexpr (dim != dim_min)
+                {
+                    idx[dim]       = -width;
+                    auto subset_m1 = NestedExpand<index_size, dim - 1, dim_min>::run(idx, lca, width);
+                    idx[dim]       = 0;
+                    auto subset_0  = NestedExpand<index_size, dim - 1, dim_min>::run(idx, lca, width);
+                    idx[dim]       = width;
+                    auto subset_1  = NestedExpand<index_size, dim - 1, dim_min>::run(idx, lca, width);
+
+                    return union_(subset_m1, subset_0, subset_1);
+                }
+                else
+                {
+                    idx[dim]       = -width;
+                    auto subset_m1 = translate(lca, idx);
+                    idx[dim]       = 0;
+                    auto subset_0  = translate(lca, idx);
+                    idx[dim]       = width;
+                    auto subset_1  = translate(lca, idx);
+
+                    return union_(subset_m1, subset_0, subset_1);
+                }
+            }
+        };
+
     } // namespace detail
+
+    template <size_t index_size, typename TInterval, size_t dim_min = 0, size_t dim_max = index_size>
+    auto nestedExpand(const LevelCellArray<index_size, TInterval>& lca, const int width)
+    {
+        using index_type = typename detail::NestedExpand<index_size, dim_max - 1, dim_min>::index_type;
+        index_type idx;
+        for (size_t i = 0; i != dim_min; ++i)
+        {
+            idx[i] = 0;
+        }
+        for (size_t i = dim_max; i != index_size; ++i)
+        {
+            idx[i] = 0;
+        }
+        return detail::NestedExpand<index_size, dim_max - 1, dim_min>::run(idx, lca, width);
+    }
 
     template <size_t index_size, size_t dim_min, size_t dim_max, typename Function>
     inline void nestedLoop(int i0, int i1, Function&& func)

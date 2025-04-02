@@ -4,7 +4,6 @@
 
 #include <samurai/cell_array.hpp>
 #include <samurai/cell_list.hpp>
-#include <samurai/experimental_graduation.hpp>
 #include <samurai/graduation.hpp>
 
 namespace samurai

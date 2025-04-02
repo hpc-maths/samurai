@@ -12,7 +12,7 @@
 #include "criteria.hpp"
 #include "operators.hpp"
 
-#include "../experimental_graduation.hpp"
+#include "../graduation.hpp"
 
 namespace samurai
 {
@@ -230,8 +230,6 @@ namespace samurai
     template <class... Fields>
     bool Adapt<enlarge_, TField, TFields...>::harten(std::size_t ite, double eps, double regularity, Fields&... other_fields)
     {
-        using ca_type = typename mesh_t::ca_type;
-
         auto& mesh = m_fields.mesh();
 
         std::size_t min_level = mesh.min_level();
@@ -307,32 +305,8 @@ namespace samurai
 
             keep_subset.apply_op(maximum(m_tag));
         }
-        const auto min_indices = mesh.domain().min_indices();
-        const auto max_indices = mesh.domain().max_indices();
-        std::array<int, mesh_t::dim> nb_cells_finest_level;
-        for (size_t d = 0; d != max_indices.size(); ++d)
-        {
-            nb_cells_finest_level[d] = max_indices[d] - min_indices[d];
-        }
-        ca_type new_ca = experimental::update_cell_array_from_tag(mesh[mesh_id_t::cells], m_tag);
-        experimental::make_graduation(new_ca,
-                                      mesh.mpi_neighbourhood(),
-                                      mesh.periodicity(),
-                                      nb_cells_finest_level,
-                                      mesh_t::config::graduation_width);
-        mesh_t new_mesh{new_ca, mesh};
-#ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-        if (mpi::all_reduce(world, mesh == new_mesh, std::logical_and()))
-#else
-        if (mesh == new_mesh)
-#endif // SAMURAI_WITH_MPI
-        {
-            return true;
-        }
-        detail::update_fields(new_mesh, m_fields, other_fields...);
-        m_fields.mesh().swap(new_mesh);
-        return false;
+
+        return update_field_mr(m_tag, m_fields, other_fields...);
     }
 
     template <class... TFields>
