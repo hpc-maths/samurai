@@ -13,7 +13,7 @@ namespace samurai
         static constexpr std::size_t dim = 1;
         using config                     = UniformConfig<dim>;
         auto mesh                        = UniformMesh<config>({{0}, {1}}, 4);
-        auto u                           = make_field<double, 1>("u", mesh);
+        auto u                           = make_field<double>("u", mesh);
 
         make_bc<Dirichlet<1>>(u);
         EXPECT_EQ(u.get_bc()[0]->constant_value(), 0.);
@@ -35,7 +35,7 @@ namespace samurai
         static constexpr std::size_t dim = 1;
         using config                     = UniformConfig<dim>;
         auto mesh                        = UniformMesh<config>({{0}, {1}}, 4);
-        auto u                           = make_field<double, 1>("u", mesh);
+        auto u                           = make_field<double>("u", mesh);
 
         make_bc<Dirichlet<1>>(u, 2);
         EXPECT_EQ(u.get_bc()[0]->constant_value(), 2);
@@ -60,7 +60,7 @@ namespace samurai
 
         Box<double, dim> box = {{0}, {1}};
         auto mesh            = MRMesh<config>(box, 2, 4);
-        auto u               = make_field<double, 1>("u", mesh);
+        auto u               = make_field<double>("u", mesh);
 
         make_bc<Dirichlet<1>>(u,
                               [](const auto&, const auto&, const auto&)

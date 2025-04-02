@@ -24,7 +24,7 @@ namespace samurai
     auto init(Mesh& mesh)
     {
         double dx = mesh.cell_length(mesh.max_level());
-        auto u    = make_field<double, 1>("u", mesh);
+        auto u    = make_field<double>("u", mesh);
         u.fill(0.);
 
         for_each_cell(mesh,
@@ -68,7 +68,7 @@ namespace samurai
         double t  = 0.;
 
         auto u    = init(mesh);
-        auto unp1 = make_field<double, 1>("unp1", mesh);
+        auto unp1 = make_field<double>("unp1", mesh);
         unp1.fill(0);
 
         auto MRadaptation = make_MRAdapt(u);

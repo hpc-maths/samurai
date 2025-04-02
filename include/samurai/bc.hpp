@@ -14,6 +14,7 @@
 #include "static_algorithm.hpp"
 #include "stencil.hpp"
 #include "storage/containers.hpp"
+#include "utils.hpp"
 
 #define APPLY_AND_STENCIL_FUNCTIONS(STENCIL_SIZE)                                                                                         \
     using apply_function_##STENCIL_SIZE = std::function<void(Field&, const std::array<cell_t, STENCIL_SIZE>&, const value_t&)>;           \
@@ -82,7 +83,10 @@ namespace samurai
     class UniformMesh;
 
     template <class mesh_t, class value_t, std::size_t size, bool SOA>
-    class Field;
+    class VectorField;
+
+    template <class mesh_t, class value_t>
+    class ScalarField;
 
     ////////////////////////
     // BcValue definition //
@@ -91,10 +95,10 @@ namespace samurai
     struct BcValue
     {
         static constexpr std::size_t dim = Field::dim;
-        using value_t                    = CollapsArray<typename Field::value_type, Field::n_comp, Field::is_soa>;
-        using coords_t                   = xt::xtensor_fixed<double, xt::xshape<dim>>;
-        using direction_t                = DirectionVector<dim>;
-        using cell_t                     = typename Field::cell_t;
+        using value_t     = CollapsArray<typename Field::value_type, Field::n_comp, detail::is_soa_v<Field>, Field::is_scalar>;
+        using coords_t    = xt::xtensor_fixed<double, xt::xshape<dim>>;
+        using direction_t = DirectionVector<dim>;
+        using cell_t      = typename Field::cell_t;
 
         virtual ~BcValue()                 = default;
         BcValue(const BcValue&)            = delete;

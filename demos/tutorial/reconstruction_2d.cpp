@@ -30,7 +30,7 @@ auto init(Mesh& mesh, Case& c)
 {
     using mesh_id_t = typename Mesh::mesh_id_t;
 
-    auto u = samurai::make_field<double, 1>("u", mesh);
+    auto u = samurai::make_field<double>("u", mesh);
 
     samurai::for_each_interval(mesh[mesh_id_t::cells],
                                [&](std::size_t level, const auto& i, const auto& index)
@@ -146,7 +146,7 @@ int main(int argc, char* argv[])
     auto MRadaptation = samurai::make_MRAdapt(u);
     MRadaptation(mr_epsilon, mr_regularity);
 
-    auto level_ = samurai::make_field<std::size_t, 1>("level", mrmesh);
+    auto level_ = samurai::make_field<std::size_t>("level", mrmesh);
     samurai::for_each_cell(mrmesh[mrmesh_id_t::cells],
                            [&](const auto& cell)
                            {
@@ -159,7 +159,7 @@ int main(int argc, char* argv[])
     auto t2            = std::chrono::high_resolution_clock::now();
     std::cout << "execution time " << std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count() << std::endl;
 
-    auto error = samurai::make_field<double, 1>("error", u_reconstruct.mesh());
+    auto error = samurai::make_field<double>("error", u_reconstruct.mesh());
     samurai::for_each_interval(u_reconstruct.mesh(),
                                [&](std::size_t level, const auto& i, const auto& index)
                                {

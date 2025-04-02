@@ -77,7 +77,7 @@ namespace samurai
     };
 
     template <class cfg>
-    using SchemeValue = CollapsArray<typename cfg::input_field_t::value_type, cfg::output_n_comp, cfg::input_field_t::is_soa>;
+    using SchemeValue = CollapsArray<typename cfg::input_field_t::value_type, cfg::output_n_comp, cfg::input_field_t::is_soa, cfg::input_field_t::is_scalar>;
 
     /**
      * Specialization of @class CellBasedSchemeDefinition.

@@ -5,6 +5,7 @@
 
 #include "../cell_flag.hpp"
 #include "../operators_base.hpp"
+#include "../utils.hpp"
 
 namespace samurai
 {
@@ -20,17 +21,15 @@ namespace samurai
         // inline void operator()(Dim<1>, const T1& detail, const T3&
         // max_detail, T2 &tag, double eps, std::size_t min_lev) const
         inline void operator()(Dim<1>, const T1& detail, T2& tag, double eps, std::size_t min_lev) const
-
         {
             using namespace math;
-            constexpr auto n_comp  = T1::n_comp;
             std::size_t fine_level = level + 1;
 
             if (fine_level > min_lev)
             {
                 // auto maxd = xt::view(max_detail, level);
 
-                if constexpr (n_comp == 1)
+                if constexpr (T1::is_scalar)
                 {
                     // auto mask = abs(detail(level, 2*i))/maxd < eps;
                     auto mask = abs(detail(fine_level, 2 * i)) < eps; // NO normalization
@@ -44,6 +43,8 @@ namespace samurai
                 }
                 else
                 {
+                    constexpr auto n_comp = T1::n_comp;
+
                     // auto mask = xt::sum((abs(detail(level, 2*i))/maxd <
                     // eps), {1}) > (n_comp-1);
                     constexpr std::size_t axis = detail::static_size_first_v<n_comp, T1::is_soa, T1::static_layout> ? 0 : 1;
@@ -65,12 +66,11 @@ namespace samurai
         {
             using namespace math;
 
-            constexpr auto n_comp  = T1::n_comp;
             std::size_t fine_level = level + 1;
 
             if (fine_level > min_lev)
             {
-                if constexpr (n_comp == 1)
+                if constexpr (T1::is_scalar)
                 {
                     auto mask = (abs(detail(fine_level, 2 * i, 2 * j)) < eps) && (abs(detail(fine_level, 2 * i + 1, 2 * j)) < eps)
                              && (abs(detail(fine_level, 2 * i, 2 * j + 1)) < eps) && (abs(detail(fine_level, 2 * i + 1, 2 * j + 1)) < eps);
@@ -95,6 +95,8 @@ namespace samurai
                 }
                 else
                 {
+                    constexpr auto n_comp = T1::n_comp;
+
                     // auto mask = xt::sum((abs(detail(level, 2*i  ,
                     // 2*j))/maxd < eps) &&
                     //                     (abs(detail(level, 2*i+1,
@@ -135,14 +137,13 @@ namespace samurai
         {
             using namespace math;
 
-            constexpr auto n_comp  = T1::n_comp;
             std::size_t fine_level = level + 1;
 
             if (fine_level > min_lev)
             {
                 // auto maxd = xt::view(max_detail, level);
 
-                if constexpr (n_comp == 1)
+                if constexpr (T1::is_scalar)
                 {
                     // auto mask = (abs(detail(level, 2*i  ,   2*j))/maxd <
                     // eps) and
@@ -175,6 +176,8 @@ namespace samurai
                 }
                 else
                 {
+                    constexpr auto n_comp = T1::n_comp;
+
                     // auto mask = xt::sum((abs(detail(level, 2*i  ,
                     // 2*j))/maxd < eps) and
                     //                     (abs(detail(level, 2*i+1,

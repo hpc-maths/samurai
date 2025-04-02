@@ -10,7 +10,7 @@ template <class Mesh>
 auto init_sol(Mesh& mesh)
 {
     using mesh_id_t = typename Mesh::mesh_id_t; // <-----------------
-    auto phi        = samurai::make_field<double, 1>("phi", mesh);
+    auto phi        = samurai::make_field<double>("phi", mesh);
     phi.fill(0.);
 
     samurai::for_each_cell(mesh[mesh_id_t::cells_and_ghosts],
