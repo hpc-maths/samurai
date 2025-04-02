@@ -575,7 +575,7 @@ template <class Field, class Phi>
 void save(const fs::path& path, const std::string& filename, const Field& u, const Phi& phi, const std::string& suffix = "")
 {
     auto mesh   = u.mesh();
-    auto level_ = samurai::make_field<std::size_t, 1>("level", mesh);
+    auto level_ = samurai::make_field<std::size_t>("level", mesh);
 
     if (!fs::exists(path))
     {
@@ -638,7 +638,7 @@ int main(int argc, char* argv[])
     const samurai::Box<double, dim> box(min_corner, max_corner);
     AMRMesh<Config> mesh;
 
-    auto phi = samurai::make_field<double, 1>("phi", mesh);
+    auto phi = samurai::make_field<double>("phi", mesh);
 
     if (restart_file.empty())
     {
@@ -656,7 +656,7 @@ int main(int argc, char* argv[])
     // We initialize the level set function
     // We initialize the velocity field
 
-    auto phinp1 = samurai::make_field<double, 1>("phi", mesh);
+    auto phinp1 = samurai::make_field<double>("phi", mesh);
 
     auto u = init_velocity(mesh);
 
@@ -715,7 +715,7 @@ int main(int argc, char* argv[])
 
             // TVD-RK2
             update_ghosts(phi, u);
-            auto phihat = samurai::make_field<double, 1>("phi", mesh);
+            auto phihat = samurai::make_field<double>("phi", mesh);
             samurai::make_bc<samurai::Neumann<1>>(phihat, 0.);
             phihat = phi - dt_fict * H_wrap(phi, phi_0, max_level);
             update_ghosts(phihat, u);
