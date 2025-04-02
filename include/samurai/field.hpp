@@ -901,8 +901,8 @@ namespace samurai
         using const_reverse_iterator = Field_reverse_iterator<const_iterator>;
 
         static constexpr size_type n_comp = 1;
-        // static constexpr bool is_soa      = SOA;
-        static constexpr bool is_scalar = detail::is_scalar_field_type_v<self_type>;
+        static constexpr bool is_soa      = false;
+        static constexpr bool is_scalar   = detail::is_scalar_field_type_v<self_type>;
         using inner_types::static_layout;
 
         ScalarField() = default;
