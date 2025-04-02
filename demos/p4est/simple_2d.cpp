@@ -42,7 +42,7 @@ void refine_1(mesh_t& mesh, std::size_t max_level)
 
     for (std::size_t ite = 0; ite < max_level; ++ite)
     {
-        auto cell_tag = samurai::make_field<bool, 1>("tag", mesh);
+        auto cell_tag = samurai::make_field<bool>("tag", mesh);
         cell_tag.fill(false);
 
         samurai::for_each_cell(mesh,
