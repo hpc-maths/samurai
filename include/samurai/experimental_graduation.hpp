@@ -5,7 +5,7 @@
 
 #include <samurai/array_of_interval_and_point.hpp>
 #include <samurai/mesh.hpp>
-#include <samurai/nested_loop.hpp>
+#include <samurai/static_algorithm.hpp>
 
 namespace samurai
 {
@@ -91,56 +91,11 @@ namespace samurai
                 req.push_back(world.isend(mpi_neighbor.rank, mpi_neighbor.rank, ca));
             }
 #endif // SAMURAI_WITH_MPI
-            for (size_t fine_level = max_level; fine_level > min_fine_level; --fine_level)
+            const auto list_overlapping_intervals =
+                [min_level, min_fine_level, max_level, max_width, &nb_cells_finest_level, &is_periodic, &out](
+                    const CellArray<dim, TInterval, max_size>& lhs_ca,
+                    const CellArray<dim, TInterval, max_size>& rhs_ca) -> void
             {
-                for (size_t coarse_level = fine_level - 2; coarse_level > min_level - 1; --coarse_level)
-                {
-                    bool isIntersectionEmpty = true;
-                    for (int width = 1; isIntersectionEmpty and width != max_width; ++width)
-                    {
-                        auto refine_subset = intersection(nestedExpand(ca[fine_level], 2 * width), ca[coarse_level]).on(coarse_level);
-                        refine_subset(
-                            [&](const auto& x_interval, const auto& yz)
-                            {
-                                out[coarse_level].push_back(x_interval, yz);
-                                isIntersectionEmpty = false;
-                            });
-                    }
-                }
-            }
-            xt::xtensor_fixed<int, xt::xshape<dim>> translation = xt::xscalar(0);
-            for (size_t d = 0; d != dim; ++d)
-            {
-                if (is_periodic[d])
-                {
-                    for (size_t fine_level = max_level; fine_level > min_fine_level; --fine_level)
-                    {
-                        const int delta_l = int(max_level - fine_level);
-                        for (size_t coarse_level = fine_level - 2; coarse_level > min_level - 1; --coarse_level)
-                        {
-                            for (int width = 0; width != max_width; ++width)
-                            {
-                                translation[d]     = (nb_cells_finest_level[d] >> delta_l) + 2 * width - 1;
-                                auto refine_subset = intersection(union_(translate(ca[fine_level], -translation),
-                                                                         translate(ca[fine_level], translation)),
-                                                                  ca[coarse_level])
-                                                         .on(coarse_level);
-                                refine_subset(
-                                    [&](const auto& x_interval, const auto& yz)
-                                    {
-                                        out[coarse_level].push_back(x_interval, yz);
-                                    });
-                            }
-                        }
-                    }
-                    translation[d] = 0;
-                }
-            }
-#ifdef SAMURAI_WITH_MPI
-            CellArray<dim, TInterval, max_size> neighbor_ca;
-            for (const auto& mpi_neighbor : mpi_neighbourhood)
-            {
-                world.recv(mpi_neighbor.rank, world.rank(), neighbor_ca);
                 for (size_t fine_level = max_level; fine_level > min_fine_level; --fine_level)
                 {
                     for (size_t coarse_level = fine_level - 2; coarse_level > min_level - 1; --coarse_level)
@@ -148,7 +103,7 @@ namespace samurai
                         bool isIntersectionEmpty = true;
                         for (int width = 1; isIntersectionEmpty and width != max_width; ++width)
                         {
-                            auto refine_subset = intersection(nestedExpand(neighbor_ca[fine_level], 2 * width), ca[coarse_level]).on(coarse_level);
+                            auto refine_subset = intersection(nestedExpand(lhs_ca[fine_level], 2 * width), rhs_ca[coarse_level]).on(coarse_level);
                             refine_subset(
                                 [&](const auto& x_interval, const auto& yz)
                                 {
@@ -158,6 +113,7 @@ namespace samurai
                         }
                     }
                 }
+                xt::xtensor_fixed<int, xt::xshape<dim>> translation = xt::xscalar(0);
                 for (size_t d = 0; d != dim; ++d)
                 {
                     if (is_periodic[d])
@@ -170,9 +126,9 @@ namespace samurai
                                 for (int width = 0; width != max_width; ++width)
                                 {
                                     translation[d]     = (nb_cells_finest_level[d] >> delta_l) + 2 * width - 1;
-                                    auto refine_subset = intersection(union_(translate(neighbor_ca[fine_level], -translation),
-                                                                             translate(neighbor_ca[fine_level], translation)),
-                                                                      ca[coarse_level])
+                                    auto refine_subset = intersection(union_(translate(lhs_ca[fine_level], -translation),
+                                                                             translate(lhs_ca[fine_level], translation)),
+                                                                      rhs_ca[coarse_level])
                                                              .on(coarse_level);
                                     refine_subset(
                                         [&](const auto& x_interval, const auto& yz)
@@ -185,6 +141,15 @@ namespace samurai
                         translation[d] = 0;
                     }
                 }
+            };
+
+            list_overlapping_intervals(ca, ca);
+#ifdef SAMURAI_WITH_MPI
+            CellArray<dim, TInterval, max_size> neighbor_ca;
+            for (const auto& mpi_neighbor : mpi_neighbourhood)
+            {
+                world.recv(mpi_neighbor.rank, world.rank(), neighbor_ca);
+                list_overlapping_intervals(neighbor_ca, ca);
             }
             mpi::wait_all(req.begin(), req.end());
 #endif // SAMURAI_WITH_MPI
@@ -257,9 +222,6 @@ namespace samurai
 
             const size_t max_level = ca.max_level();
             const size_t min_level = ca.min_level();
-            //
-            std::integral_constant<int, 0> ic_0;
-            std::integral_constant<int, 2> ic_2;
 
             std::vector<TInterval> add_p_interval;
             std::vector<coord_type> add_p_inner_stencil;
@@ -296,7 +258,6 @@ namespace samurai
 #else
                     remove_m_all[level].sort_intervals();
 #endif // SAMURAI_WITH_MPI
-
                     const size_t imax = remove_m_all[level].size();
                     for (size_t i = 0; i != imax; ++i)
                     {
@@ -309,18 +270,18 @@ namespace samurai
                         }
                         else
                         {
-                            staticNestedLoop<dim - 1, 0, dim - 2>(ic_0,
-                                                                  ic_2,
-                                                                  [&](const auto& inner_stencil)
-                                                                  {
-                                                                      add_p_interval.push_back(2 * x_interval);
-                                                                      if constexpr (dim > 2)
-                                                                      {
-                                                                          add_p_inner_stencil.push_back(2 * yz + inner_stencil);
-                                                                          add_p_idx.push_back(add_p_interval.size() - 1); // std::iota on
-                                                                                                                          // the fly
-                                                                      }
-                                                                  });
+                            nestedLoop<dim - 1, 0, dim - 2>(0,
+                                                            2,
+                                                            [&](const auto& inner_stencil)
+                                                            {
+                                                                add_p_interval.push_back(2 * x_interval);
+                                                                if constexpr (dim > 2)
+                                                                {
+                                                                    add_p_inner_stencil.emplace_back(2 * yz + inner_stencil);
+                                                                    add_p_idx.push_back(add_p_interval.size() - 1); // std::iota on
+                                                                                                                    // the fly
+                                                                }
+                                                            });
                         }
                         if (dim != 1 and (i + 1 == imax or yz[dim - 2] != remove_m_all[level].get_coord(i + 1)[dim - 2]))
                         {
@@ -358,18 +319,10 @@ namespace samurai
             using ca_type          = CellArray<dim, TInterval, max_size>;
             using coord_type       = typename ca_type::lca_type::coord_type;
 
-#ifdef SAMURAI_WITH_MPI
-            constexpr bool useMPI = true;
-#else
-            constexpr bool useMPI = false;
-#endif // SAMURAI_WITH_MPI
             const auto& mesh = tag.mesh();
 
             const size_t start_level = old_ca.min_level();
             const size_t end_level   = old_ca.max_level() + 1;
-
-            std::integral_constant<int, 0> ic_0;
-            std::integral_constant<int, 2> ic_2;
 
             // create the ensemble of cells to coarsen
             ca_type ca_add_m;
@@ -406,18 +359,18 @@ namespace samurai
                             }
                             else
                             {
-                                staticNestedLoop<dim - 1, 0, dim - 2>(ic_0,
-                                                                      ic_2,
-                                                                      [&](const auto& inner_stencil)
-                                                                      {
-                                                                          add_p_interval.push_back({2 * x, 2 * x + 2});
-                                                                          if constexpr (dim > 2)
-                                                                          {
-                                                                              add_p_inner_stencil.push_back(2 * yz + inner_stencil);
-                                                                              add_p_idx.push_back(add_p_interval.size() - 1); // std::iota
-                                                                                                                              // on the fly
-                                                                          }
-                                                                      });
+                                nestedLoop<dim - 1, 0, dim - 2>(0,
+                                                                2,
+                                                                [&](const auto& inner_stencil)
+                                                                {
+                                                                    add_p_interval.push_back({2 * x, 2 * x + 2});
+                                                                    if constexpr (dim > 2)
+                                                                    {
+                                                                        add_p_inner_stencil.emplace_back(2 * yz + inner_stencil);
+                                                                        add_p_idx.push_back(add_p_interval.size() - 1); // std::iota
+                                                                                                                        // on the fly
+                                                                    }
+                                                                });
                             }
                         }
                         else if (coarsenAndNotKeep and level > mesh.min_level())

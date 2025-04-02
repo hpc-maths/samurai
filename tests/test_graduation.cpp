@@ -25,6 +25,8 @@ namespace samurai
     {
         constexpr size_t dim = 2;
         CellList<dim> cl;
+        cl[0][{}].add_interval({1, 2});
+        cl[5][{}].add_interval({0, 1});
         CellArray<dim> ca{cl};
 
         samurai::make_graduation(ca);

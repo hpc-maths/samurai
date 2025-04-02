@@ -110,7 +110,7 @@ namespace samurai
              */
 
             auto keep_subset = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level]).on(level - 1);
-            keep_subset.apply_op(keep_children_together(tag)); // equiv max
+            keep_subset.apply_op(keep_children_together(tag));
 
             /**
              * Case 1

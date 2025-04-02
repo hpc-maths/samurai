@@ -32,7 +32,51 @@ namespace samurai
                                                                   std::integral_constant<std::size_t, iloop + 1>{});
             }
         }
+
+        template <size_t index_size, size_t dim, size_t dim_min>
+        struct NestedLoop
+        {
+            using index_type = xt::xtensor_fixed<int, xt::xshape<index_size>>;
+
+            template <typename Function>
+            static constexpr void run(index_type& idx, int i0, int i1, Function&& func)
+            {
+                if constexpr (dim != dim_min - 1)
+                {
+                    for (idx[dim] = i0; idx[dim] != i1; ++idx[dim])
+                    {
+                        NestedLoop<index_size, dim - 1, dim_min>::run(idx, i0, i1, std::forward<Function>(func));
+                    }
+                }
+                else
+                {
+                    func(idx);
+                }
+            }
+        };
     } // namespace detail
+
+    template <size_t index_size, size_t dim_min, size_t dim_max, typename Function>
+    inline void nestedLoop(int i0, int i1, Function&& func)
+    {
+        using index_type = typename detail::NestedLoop<index_size, dim_max - 1, dim_min>::index_type;
+        index_type idx;
+        for (size_t i = 0; i != dim_min; ++i)
+        {
+            idx[i] = i0;
+        }
+        for (size_t i = dim_max; i != index_size; ++i)
+        {
+            idx[i] = i0;
+        }
+        detail::NestedLoop<index_size, dim_max - 1, dim_min>::run(idx, i0, i1, std::forward<Function>(func));
+    }
+
+    template <size_t index_size, typename Function>
+    inline void nestedLoop(int i0, int i1, Function&& func)
+    {
+        nestedLoop<index_size, 0, index_size>(i0, i1, std::forward<Function>(func));
+    }
 
     template <std::size_t nloops, int start, int end, int step, class Func>
     inline void static_nested_loop(Func&& f)
