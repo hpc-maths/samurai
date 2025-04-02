@@ -107,12 +107,12 @@ namespace samurai
     TEST(restart, restart_field)
     {
         auto mesh = create_mesh<2>(1);
-        auto u    = make_field<double, 1>("u", mesh);
+        auto u    = make_field<double>("u", mesh);
         u.fill(1.);
         dump("mesh", mesh, u);
 
         auto mesh2 = create_mesh<2>(10);
-        auto u2    = make_field<double, 1>("u", mesh2);
+        auto u2    = make_field<double>("u", mesh2);
         load("mesh", mesh2, u2);
         EXPECT_TRUE(u == u2);
     }
@@ -120,13 +120,13 @@ namespace samurai
     TEST(restart, restart_multiple_fields)
     {
         auto mesh = create_mesh<2>(1);
-        auto u    = make_field<double, 1>("u", mesh);
+        auto u    = make_field<double>("u", mesh);
         u.fill(1.);
         auto v = make_field<int, 2>("v", mesh);
         v.fill(2);
         dump("mesh", mesh, u, v);
         auto mesh2 = create_mesh<2>(10);
-        auto u2    = make_field<double, 1>("u", mesh2);
+        auto u2    = make_field<double>("u", mesh2);
         auto v2    = make_field<int, 2>("v", mesh2);
         load("mesh", mesh2, u2, v2);
         EXPECT_TRUE(u == u2);

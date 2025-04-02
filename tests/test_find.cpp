@@ -22,14 +22,14 @@ namespace samurai
 
         Mesh mesh{box, min_level, max_level};
 
-        auto u = samurai::make_field<1>("u",
-                                        mesh,
-                                        [](const auto& coords)
-                                        {
-                                            const auto& x = coords(0);
-                                            const auto& y = coords(1);
-                                            return (x >= -0.8 && x <= -0.3 && y >= 0.3 && y <= 0.8) ? 1. : 0.;
-                                        });
+        auto u = samurai::make_field<double>("u",
+                                             mesh,
+                                             [](const auto& coords)
+                                             {
+                                                 const auto& x = coords(0);
+                                                 const auto& y = coords(1);
+                                                 return (x >= -0.8 && x <= -0.3 && y >= 0.3 && y <= 0.8) ? 1. : 0.;
+                                             });
 
         auto MRadaptation = samurai::make_MRAdapt(u);
         MRadaptation(1e-3, 1);
