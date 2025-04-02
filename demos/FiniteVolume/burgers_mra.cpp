@@ -50,7 +50,7 @@ template <class Field>
 void save(const fs::path& path, const std::string& filename, const Field& u, const std::string& suffix = "")
 {
     auto mesh   = u.mesh();
-    auto level_ = samurai::make_field<std::size_t, 1>("level", mesh);
+    auto level_ = samurai::make_field<std::size_t>("level", mesh);
 
     if (!fs::exists(path))
     {
@@ -283,11 +283,11 @@ int main(int argc, char* argv[])
     samurai::MRMesh<Config> mesh{box, min_level, max_level};
     samurai::MRMesh<Config> max_level_mesh{box, max_level, max_level};
 
-    auto u    = samurai::make_field<1>("u", mesh);
-    auto unp1 = samurai::make_field<1>("unp1", mesh);
+    auto u    = samurai::make_field<double>("u", mesh);
+    auto unp1 = samurai::make_field<double>("unp1", mesh);
 
-    auto u_max    = samurai::make_field<1>("u", max_level_mesh);
-    auto unp1_max = samurai::make_field<1>("unp1", max_level_mesh);
+    auto u_max    = samurai::make_field<double>("u", max_level_mesh);
+    auto unp1_max = samurai::make_field<double>("unp1", max_level_mesh);
 
     filename += "_" + init_sol;
 

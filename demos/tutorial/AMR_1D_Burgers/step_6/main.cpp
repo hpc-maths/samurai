@@ -109,13 +109,13 @@ int main(int argc, char* argv[])
         }
 
         update_ghost(phi);
-        auto phi_np1 = samurai::make_field<double, 1>("phi", mesh);
+        auto phi_np1 = samurai::make_field<double>("phi", mesh);
 
         update_sol(dt, phi, phi_np1);
 
         if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
         {
-            auto level = samurai::make_field<std::size_t, 1>("level", mesh);
+            auto level = samurai::make_field<std::size_t>("level", mesh);
             samurai::for_each_interval(mesh[MeshID::cells],
                                        [&](std::size_t lvl, const auto& i, auto)
                                        {

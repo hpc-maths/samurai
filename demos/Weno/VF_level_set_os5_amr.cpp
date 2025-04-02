@@ -18,7 +18,7 @@ template <class Mesh>
 auto init_field(Mesh& mesh)
 {
     using mesh_id_t = typename Mesh::mesh_id_t;
-    auto field      = samurai::make_field<double, 1>("sol", mesh);
+    auto field      = samurai::make_field<double>("sol", mesh);
 
     samurai::for_each_cell(mesh[mesh_id_t::cells_and_ghosts],
                            [&](auto& cell)
@@ -293,8 +293,8 @@ int main()
 
     auto field = init_field(mesh);
 
-    auto field_np1 = samurai::make_field<double, 1>("sol", mesh);
-    auto tag       = samurai::make_field<int, 1>("tag", mesh);
+    auto field_np1 = samurai::make_field<double>("sol", mesh);
+    auto tag       = samurai::make_field<int>("tag", mesh);
 
     auto update_bc = [](std::size_t level, auto& field)
     {

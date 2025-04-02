@@ -358,10 +358,10 @@ void save_solution(Field& f, double eps, std::size_t ite, std::string ext = "")
     std::stringstream str;
     str << "LBM_D1Q2_Vectorial_Euler_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-" << eps << "_ite-" << ite;
 
-    auto level_ = samurai::make_field<std::size_t, 1>("level", mesh);
-    auto rho    = samurai::make_field<double, 1>("rho", mesh);
-    auto q      = samurai::make_field<double, 1>("q", mesh);
-    auto e      = samurai::make_field<double, 1>("e", mesh);
+    auto level_ = samurai::make_field<std::size_t>("level", mesh);
+    auto rho    = samurai::make_field<double>("rho", mesh);
+    auto q      = samurai::make_field<double>("q", mesh);
+    auto e      = samurai::make_field<double>("e", mesh);
 
     samurai::for_each_cell(mesh[mesh_id_t::cells],
                            [&](auto& cell)
