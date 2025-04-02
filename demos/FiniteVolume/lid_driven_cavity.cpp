@@ -178,7 +178,7 @@ int main(int argc, char* argv[])
     // Fields for the Navier-Stokes equations
     auto velocity     = samurai::make_field<dim, is_soa>("velocity", mesh);
     auto velocity_np1 = samurai::make_field<dim, is_soa>("velocity_np1", mesh);
-    auto pressure_np1 = samurai::make_field<1, is_soa>("pressure_np1", mesh);
+    auto pressure_np1 = samurai::make_field<>("pressure_np1", mesh);
 
     using VelocityField = decltype(velocity);
     using PressureField = decltype(pressure_np1);
@@ -235,7 +235,7 @@ int main(int argc, char* argv[])
 
     // Fields for the right-hand side of the system
     auto rhs  = samurai::make_field<dim, is_soa>("rhs", mesh);
-    auto zero = samurai::make_field<1, is_soa>("zero", mesh);
+    auto zero = samurai::make_field<>("zero", mesh);
 
     // Linear solver
     auto stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
@@ -252,8 +252,8 @@ int main(int argc, char* argv[])
     auto mesh2 = Mesh2(box, 1, max_level);
 
     // Ink data fields
-    auto ink     = samurai::make_field<1, is_soa>("ink", mesh2);
-    auto ink_np1 = samurai::make_field<1, is_soa>("ink_np1", mesh2);
+    auto ink     = samurai::make_field<>("ink", mesh2);
+    auto ink_np1 = samurai::make_field<>("ink_np1", mesh2);
     // Field to store the Navier-Stokes velocity transferred to the 2nd mesh
     auto velocity2 = samurai::make_field<dim, is_soa>("velocity2", mesh2);
 
