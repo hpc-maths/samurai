@@ -18,7 +18,7 @@ namespace samurai
         using Config = UniformConfig<1>;
         auto mesh    = UniformMesh<Config>(box, 3);
 
-        auto u = make_field<double, 1>("u", mesh);
+        auto u = make_field<double>("u", mesh);
         u.fill(1.);
         using field_t = decltype(u);
         field_t ue    = 5 + u;
@@ -35,7 +35,7 @@ namespace samurai
         Box<double, 1> box{{0}, {1}};
         using Config       = UniformConfig<1>;
         auto mesh          = UniformMesh<Config>(box, 3);
-        const auto u_const = make_field<double, 1>("uc", mesh, 1.);
+        const auto u_const = make_field<double>("uc", mesh, 1.);
 
         auto u = u_const;
         EXPECT_EQ(u.name(), u_const.name());
@@ -44,7 +44,7 @@ namespace samurai
         EXPECT_EQ(&(u.mesh()), &(u_const.mesh()));
 
         auto m              = holder(mesh);
-        const auto u_const1 = make_field<double, 1>("uc", m, 1.);
+        const auto u_const1 = make_field<double>("uc", m, 1.);
         auto u1             = u_const1;
         EXPECT_EQ(u1.name(), u_const1.name());
         EXPECT_TRUE(compare(u1.array(), u_const1.array()));
@@ -57,18 +57,18 @@ namespace samurai
         using Config       = UniformConfig<1>;
         auto mesh1         = UniformMesh<Config>(box, 5);
         auto mesh2         = UniformMesh<Config>(box, 3);
-        const auto u_const = make_field<double, 1>("uc",
-                                                   mesh1,
-                                                   [](const auto& coords)
-                                                   {
-                                                       return coords[0];
-                                                   });
-        auto u             = make_field<double, 1>("u",
-                                       mesh2,
-                                       [](const auto& coords)
-                                       {
-                                           return coords[0];
-                                       });
+        const auto u_const = make_field<double>("uc",
+                                                mesh1,
+                                                [](const auto& coords)
+                                                {
+                                                    return coords[0];
+                                                });
+        auto u             = make_field<double>("u",
+                                    mesh2,
+                                    [](const auto& coords)
+                                    {
+                                        return coords[0];
+                                    });
 
         u = u_const;
         EXPECT_EQ(u.name(), u_const.name());
@@ -78,18 +78,18 @@ namespace samurai
 
         auto m1             = holder(mesh1);
         auto m2             = holder(mesh2);
-        const auto u_const1 = make_field<double, 1>("uc",
-                                                    m1,
-                                                    [](const auto& coords)
-                                                    {
-                                                        return coords[0];
-                                                    });
-        auto u1             = make_field<double, 1>("u",
-                                        m2,
-                                        [](const auto& coords)
-                                        {
-                                            return coords[0];
-                                        });
+        const auto u_const1 = make_field<double>("uc",
+                                                 m1,
+                                                 [](const auto& coords)
+                                                 {
+                                                     return coords[0];
+                                                 });
+        auto u1             = make_field<double>("u",
+                                     m2,
+                                     [](const auto& coords)
+                                     {
+                                         return coords[0];
+                                     });
         u1                  = u_const1;
         EXPECT_EQ(u1.name(), u_const1.name());
         EXPECT_TRUE(compare(u1.array(), u_const1.array()));
@@ -105,7 +105,7 @@ namespace samurai
         cl[2][{0}].add_interval({4, 8});
 
         auto mesh  = MRMesh<config>(cl, 1, 2);
-        auto field = make_field<std::size_t, 1>("u", mesh);
+        auto field = make_field<std::size_t>("u", mesh);
 
         std::size_t index = 0;
         for_each_cell(mesh,
@@ -134,7 +134,7 @@ namespace samurai
         Box<double, 1> box{{0}, {1}};
         using Config = UniformConfig<1>;
         auto mesh    = UniformMesh<Config>(box, 5);
-        auto u       = make_field<double, 1>("u", mesh);
+        auto u       = make_field<double>("u", mesh);
 
         EXPECT_EQ(u.name(), "u");
         u.name() = "new_name";
