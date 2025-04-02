@@ -12,8 +12,6 @@
 #include "criteria.hpp"
 #include "operators.hpp"
 
-#include "../graduation.hpp"
-
 namespace samurai
 {
     struct stencil_graduation
@@ -305,7 +303,6 @@ namespace samurai
 
             keep_subset.apply_op(maximum(m_tag));
         }
-
         return update_field_mr(m_tag, m_fields, other_fields...);
     }
 

@@ -10,6 +10,7 @@
 #include "../algorithm.hpp"
 #include "../bc.hpp"
 #include "../field.hpp"
+#include "../graduation.hpp"
 #include "../numeric/prediction.hpp"
 #include "../numeric/projection.hpp"
 #include "../subset/node.hpp"

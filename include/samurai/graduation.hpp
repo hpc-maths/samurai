@@ -11,6 +11,7 @@
 
 namespace samurai
 {
+
     template <class Mesh, std::size_t neighbourhood_width = 1>
     bool is_graduated(const Mesh& mesh, const Stencil<1 + 2 * Mesh::dim * neighbourhood_width, Mesh::dim> stencil = star_stencil<Mesh::dim>())
     {
@@ -448,5 +449,4 @@ namespace samurai
         }
         return new_ca;
     }
-
 }
