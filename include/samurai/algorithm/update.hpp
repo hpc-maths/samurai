@@ -818,7 +818,7 @@ namespace samurai
     }
 
     template <class Tag, class Field, class... Fields>
-    bool update_field_mr_old(const Tag& tag, Field& field, Fields&... other_fields)
+    bool update_field_mr(const Tag& tag, Field& field, Fields&... other_fields)
     {
         using mesh_t    = typename Field::mesh_t;
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
@@ -852,7 +852,7 @@ namespace samurai
     }
 
     template <class Tag, class Field, class... Fields>
-    bool update_field_mr(const Tag& tag, Field& field, Fields&... other_fields)
+    bool update_field_mr_old(const Tag& tag, Field& field, Fields&... other_fields)
     {
         using mesh_t                     = typename Field::mesh_t;
         static constexpr std::size_t dim = mesh_t::dim;
