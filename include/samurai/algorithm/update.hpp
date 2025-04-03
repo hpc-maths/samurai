@@ -818,7 +818,7 @@ namespace samurai
     }
 
     template <class Tag, class Field, class... Fields>
-    bool update_field_mr(const Tag& tag, Field& field, Fields&... other_fields)
+    bool update_field_mr_old(const Tag& tag, Field& field, Fields&... other_fields)
     {
         using mesh_t    = typename Field::mesh_t;
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
@@ -835,7 +835,7 @@ namespace samurai
         }
         // ca_type new_ca;
         ca_type new_ca = update_cell_array_from_tag(mesh[mesh_id_t::cells], tag);
-        make_graduation_from(new_ca, mesh.mpi_neighbourhood(), mesh.periodicity(), nb_cells_finest_level, mesh_t::config::graduation_width);
+        make_graduation(new_ca, mesh.mpi_neighbourhood(), mesh.periodicity(), nb_cells_finest_level, mesh_t::config::graduation_width);
         mesh_t new_mesh{new_ca, mesh};
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
@@ -852,7 +852,7 @@ namespace samurai
     }
 
     template <class Tag, class Field, class... Fields>
-    bool update_field_mr_old(const Tag& tag, Field& field, Fields&... other_fields)
+    bool update_field_mr(const Tag& tag, Field& field, Fields&... other_fields)
     {
         using mesh_t                     = typename Field::mesh_t;
         static constexpr std::size_t dim = mesh_t::dim;

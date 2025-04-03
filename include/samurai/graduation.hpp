@@ -257,11 +257,11 @@ namespace samurai
     }
 
     template <std::size_t dim, class TInterval, class MeshType, size_t max_size>
-    size_t make_graduation_from(CellArray<dim, TInterval, max_size>& ca,
-                                [[maybe_unused]] const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood,
-                                const std::array<bool, dim>& is_periodic,
-                                const std::array<int, dim>& nb_cells_finest_level,
-                                const size_t grad_width = 1)
+    size_t make_graduation(CellArray<dim, TInterval, max_size>& ca,
+                           [[maybe_unused]] const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood,
+                           const std::array<bool, dim>& is_periodic,
+                           const std::array<int, dim>& nb_cells_finest_level,
+                           const size_t grad_width = 1)
     {
         using ca_type    = CellArray<dim, TInterval, max_size>;
         using coord_type = typename ca_type::lca_type::coord_type;
