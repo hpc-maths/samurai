@@ -1083,7 +1083,7 @@ namespace samurai
     };
 
     template <class... CT>
-    inline auto make_graduation(CT&&... e)
+    inline auto make_graduation_(CT&&... e)
     {
         return make_field_operator_function<make_graduation_op>(std::forward<CT>(e)...);
     }

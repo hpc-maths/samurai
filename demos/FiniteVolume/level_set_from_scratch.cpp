@@ -672,7 +672,7 @@ int main(int argc, char* argv[])
             std::cout << "Mesh adaptation iteration " << ite++ << std::endl;
             auto tag = samurai::make_field<int, 1>("tag", mesh);
             AMR_criteria(phi, tag);
-            make_graduation(tag);
+            ::make_graduation(tag);
             update_ghosts(phi, u);
 
             if (update_mesh(phi, u, tag))
