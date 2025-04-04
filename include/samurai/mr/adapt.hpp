@@ -307,7 +307,7 @@ namespace samurai
         }
         using ca_type = typename mesh_t::ca_type;
 
-        return update_field_mr(m_tag, m_fields, other_fields...);
+        return update_field_mr(m_tag, mesh, m_fields, other_fields...);
 
         // for some reason I do not understand the above code produces the following error :
         // C++ exception with description "Incompatible dimension of arrays, compile in DEBUG for more info" thrown in the test body
