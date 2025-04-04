@@ -817,12 +817,14 @@ namespace samurai
         return false;
     }
 
-    template <class Tag, class Mesh, class Field, class... Fields>
-    bool update_field_mr(const Tag& tag, Mesh& mesh, Field& field, Fields&... other_fields)
+    template <class Tag, class Field, class... Fields>
+    bool update_field_mr(const Tag& tag, Field& field, Fields&... other_fields)
     {
         using mesh_t    = typename Field::mesh_t;
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
         using ca_type   = typename Field::mesh_t::ca_type;
+
+        const auto& mesh = tag.mesh();
 
         const auto& min_indices = mesh.domain().min_indices();
         const auto& max_indices = mesh.domain().max_indices();
