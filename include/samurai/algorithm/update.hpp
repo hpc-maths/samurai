@@ -824,10 +824,10 @@ namespace samurai
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
         using ca_type   = typename Field::mesh_t::ca_type;
 
-        auto& mesh = field.mesh();
+        auto& mesh = tag.mesh();
 
-        const auto min_indices = mesh.domain().min_indices();
-        const auto max_indices = mesh.domain().max_indices();
+        const auto& min_indices = mesh.domain().min_indices();
+        const auto& max_indices = mesh.domain().max_indices();
 
         std::array<int, mesh_t::dim> nb_cells_finest_level;
 
