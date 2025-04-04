@@ -14,6 +14,7 @@
 #include "../numeric/projection.hpp"
 #include "../subset/node.hpp"
 #include "../timers.hpp"
+#include "graduation.hpp"
 #include "utils.hpp"
 
 using namespace xt::placeholders;
@@ -704,7 +705,7 @@ namespace samurai
 
             for (std::size_t level = min_level; level <= max_level; ++level)
             {
-                auto set = intersection(mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level]);
+                auto set = intersection(mesh[mesh_id_t::reference][level], new_mesh[mesh_id_t::cells][level]);
                 set.apply_op(copy(new_field, field));
             }
 
@@ -819,238 +820,36 @@ namespace samurai
     template <class Tag, class Field, class... Fields>
     bool update_field_mr(const Tag& tag, Field& field, Fields&... other_fields)
     {
-        using mesh_t                     = typename Field::mesh_t;
-        static constexpr std::size_t dim = mesh_t::dim;
-        using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
-        using size_type                  = typename Field::size_type;
-        using interval_t                 = typename mesh_t::interval_t;
-        using value_t                    = typename interval_t::value_t;
-        using unsigned_value_t           = typename std::make_unsigned_t<value_t>;
-        using lca_type                   = typename Field::mesh_t::lca_type;
-        using ca_type                    = typename Field::mesh_t::ca_type;
-        using coord_type                 = typename lca_type::coord_type;
+        using mesh_t    = typename Field::mesh_t;
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        using ca_type   = typename Field::mesh_t::ca_type;
 
         const auto& mesh = tag.mesh();
 
-#ifdef SAMURAI_WITH_MPI
-        constexpr bool useMPI = true;
-#else
-        constexpr bool useMPI = false;
-#endif // SAMURAI_WITH_MPI
+        const auto& min_indices = mesh.domain().min_indices();
+        const auto& max_indices = mesh.domain().max_indices();
 
-        ca_type ca_add_m;
-        ca_type ca_add_p;
-        ca_type ca_remove_m;
-        ca_type ca_remove_p;
-        ca_type new_ca;
+        std::array<int, mesh_t::dim> nb_cells_finest_level;
 
-        std::vector<value_t> add_p_x;
-        std::vector<coord_type> add_p_yz;
-
-        std::vector<size_t> add_p_idx;
-
-        for (std::size_t level = mesh[mesh_id_t::cells].min_level(); level <= mesh[mesh_id_t::cells].max_level(); ++level)
+        for (size_t d = 0; d != max_indices.size(); ++d)
         {
-            const auto begin = mesh[mesh_id_t::cells][level].cbegin();
-            const auto end   = mesh[mesh_id_t::cells][level].cend();
-
-            for (auto it = begin; it != end; ++it)
-            {
-                const auto& x_interval = *it;
-                const auto& yz         = it.index();
-
-                // const bool is_yz_even = dim == 1 or xt::all(not xt::eval(yz % 2));
-                const bool is_yz_even = dim == 1 or xt::all(xt::equal(yz % 2, 0));
-
-                for (value_t x = x_interval.start; x < x_interval.end; ++x)
-                {
-                    const size_type itag         = static_cast<size_type>(x_interval.index) + static_cast<unsigned_value_t>(x);
-                    const bool refine            = tag[itag] & static_cast<int>(CellFlag::refine);
-                    const bool coarsenAndNotKeep = tag[itag] & static_cast<int>(CellFlag::coarsen)
-                                               and not(tag[itag] & static_cast<int>(CellFlag::keep));
-
-                    if (refine and level < mesh.max_level())
-                    {
-                        ca_remove_p[level].add_point_back(x, yz);
-                        if constexpr (dim == 1)
-                        {
-                            ca_add_p[level + 1].add_interval_back({2 * x, 2 * x + 2}, {});
-                        }
-                        else if constexpr (dim == 2)
-                        {
-                            add_p_x.push_back(x);
-                        }
-                        else
-                        {
-                            static_nested_loop<dim - 1, 0, 2>(
-                                [&](const auto& stencil)
-                                {
-                                    add_p_x.push_back(2 * x);
-                                    add_p_yz.emplace_back(2 * yz + stencil);
-                                });
-                        }
-                    }
-                    else if (coarsenAndNotKeep and level > mesh.min_level())
-                    {
-                        if (x % 2 == 0 and is_yz_even) // should be modified when using load balancing.
-                        {
-                            ca_add_m[level - 1].add_point_back(x >> 1, yz >> 1);
-                        }
-                        ca_remove_m[level].add_point_back(x, yz);
-                    }
-                    else if (useMPI and tag[itag] == 0)
-                    {
-                        ca_remove_m[level].add_point_back(x, yz);
-                    }
-                }
-                if constexpr (dim == 2)
-                {
-                    if ((it + 1 == end) or (it + 1).index()[dim - 2] != yz[dim - 2])
-                    {
-                        coord_type stencil;
-                        for (stencil[dim - 2] = 0; stencil[dim - 2] != 2; ++stencil[dim - 2])
-                        {
-                            for (const auto& x : add_p_x)
-                            {
-                                ca_add_p[level + 1].add_interval_back({2 * x, 2 * x + 2}, 2 * yz + stencil);
-                            }
-                        }
-                        add_p_x.clear();
-                    }
-                }
-                else if constexpr (dim > 2)
-                {
-                    if ((it + 1 == end) or (it + 1).index()[dim - 2] != yz[dim - 2])
-                    {
-                        sort_indexes(
-                            add_p_yz,
-                            [](const auto& lhs, const auto& rhs) -> bool
-                            {
-                                for (size_t i = dim - 2; i != 0; --i)
-                                {
-                                    if (lhs[i] < rhs[i])
-                                    {
-                                        return true;
-                                    }
-                                    else if (lhs[i] > rhs[i])
-                                    {
-                                        return false;
-                                    }
-                                }
-                                return lhs[0] < rhs[0];
-                            },
-                            add_p_idx);
-                        for (const auto i : add_p_idx)
-                        {
-                            ca_add_p[level + 1].add_interval_back({add_p_x[i], add_p_x[i] + 2}, add_p_yz[i]);
-                        }
-                        add_p_x.clear();
-                        add_p_yz.clear();
-                    }
-                }
-            }
+            nb_cells_finest_level[d] = max_indices[d] - min_indices[d];
         }
+        ca_type new_ca = update_cell_array_from_tag(mesh[mesh_id_t::cells], tag);
+        make_graduation(new_ca, mesh.mpi_neighbourhood(), mesh.periodicity(), nb_cells_finest_level, mesh_t::config::graduation_width);
 
-        for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
-        {
-            auto set = difference(union_(mesh[mesh_id_t::cells][level], ca_add_m[level], ca_add_p[level]),
-                                  union_(ca_remove_m[level], ca_remove_p[level]));
-            set(
-                [&](const auto& x_interval, const auto& yz)
-                {
-                    new_ca[level].add_interval_back(x_interval, yz);
-                });
-        }
         mesh_t new_mesh{new_ca, mesh};
-
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
         if (mpi::all_reduce(world, mesh == new_mesh, std::logical_and()))
 #else
         if (mesh == new_mesh)
-#endif
+#endif // SAMURAI_WITH_MPI
         {
             return true;
         }
-
         detail::update_fields(new_mesh, field, other_fields...);
-
         field.mesh().swap(new_mesh);
-
-        return false;
-    }
-
-    template <class Tag, class Field, class... Fields>
-    bool update_field_mr_old(const Tag& tag, Field& field, Fields&... other_fields)
-    {
-        using mesh_t                     = typename Field::mesh_t;
-        static constexpr std::size_t dim = mesh_t::dim;
-        using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
-        using size_type                  = typename Field::size_type;
-        using interval_t                 = typename mesh_t::interval_t;
-        using value_t                    = typename interval_t::value_t;
-        using cl_type                    = typename Field::mesh_t::cl_type;
-
-        auto& mesh = field.mesh();
-        cl_type cl;
-
-        for_each_interval(mesh[mesh_id_t::cells],
-                          [&](std::size_t level, const auto& interval, const auto& index)
-                          {
-                              auto itag = static_cast<size_type>(interval.start + interval.index);
-                              for (value_t i = interval.start; i < interval.end; ++i)
-                              {
-                                  if (tag[itag] & static_cast<int>(CellFlag::refine))
-                                  {
-                                      if (level < mesh.max_level())
-                                      {
-                                          static_nested_loop<dim - 1, 0, 2>(
-                                              [&](const auto& stencil)
-                                              {
-                                                  auto new_index = 2 * index + stencil;
-                                                  cl[level + 1][new_index].add_interval({2 * i, 2 * i + 2});
-                                              });
-                                      }
-                                      else
-                                      {
-                                          cl[level][index].add_point(i);
-                                      }
-                                  }
-                                  else if (tag[itag] & static_cast<int>(CellFlag::keep))
-                                  {
-                                      cl[level][index].add_point(i);
-                                  }
-                                  else if (tag[itag] & static_cast<int>(CellFlag::coarsen))
-                                  {
-                                      if (level > mesh.min_level())
-                                      {
-                                          cl[level - 1][index >> 1].add_point(i >> 1);
-                                      }
-                                      else
-                                      {
-                                          cl[level][index].add_point(i);
-                                      }
-                                  }
-                                  itag++;
-                              }
-                          });
-
-        mesh_t new_mesh = {cl, mesh};
-
-#ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-        if (mpi::all_reduce(world, mesh == new_mesh, std::logical_and()))
-#else
-        if (mesh == new_mesh)
-#endif
-        {
-            return true;
-        }
-
-        detail::update_fields(new_mesh, field, other_fields...);
-
-        field.mesh().swap(new_mesh);
-
         return false;
     }
 }
