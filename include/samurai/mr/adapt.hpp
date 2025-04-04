@@ -12,8 +12,6 @@
 #include "criteria.hpp"
 #include "operators.hpp"
 
-#include "../graduation.hpp"
-
 namespace samurai
 {
     struct stencil_graduation

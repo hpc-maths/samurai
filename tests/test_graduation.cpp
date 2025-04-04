@@ -2,9 +2,9 @@
 
 #include <gtest/gtest.h>
 
+#include <samurai/algorithm/graduation.hpp>
 #include <samurai/cell_array.hpp>
 #include <samurai/cell_list.hpp>
-#include <samurai/graduation.hpp>
 
 namespace samurai
 {
