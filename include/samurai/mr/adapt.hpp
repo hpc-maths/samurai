@@ -308,10 +308,10 @@ namespace samurai
         using ca_type = typename mesh_t::ca_type;
 
         // return update_field_mr(m_tag, m_fields, other_fields...);
-        //  for some reason I do not understand the above code produces the following error :
-        //  C++ exception with description "Incompatible dimension of arrays, compile in DEBUG for more info" thrown in the test body
-        //  on test adapt_test/2.mutliple_fields with:
-        //  linux-mamba (clang-18, ubuntu-24.04, clang, clang-18, clang-18, clang++-18)
+        // for some reason I do not understand the above code produces the following error :
+        // C++ exception with description "Incompatible dimension of arrays, compile in DEBUG for more info" thrown in the test body
+        // on test adapt_test/2.mutliple_fields with:
+        // linux-mamba (clang-18, ubuntu-24.04, clang, clang-18, clang-18, clang++-18)
         // while the code bellow do not.
         const auto& min_indices = mesh.domain().min_indices();
         const auto& max_indices = mesh.domain().max_indices();
