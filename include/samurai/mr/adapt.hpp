@@ -267,7 +267,7 @@ namespace samurai
             subset_1.apply_op(to_coarsen_mr(m_detail, m_tag, eps_l, min_level),
                               to_refine_mr(m_detail,
                                            m_tag,
-                                           (pow(2.0, regularity_to_use)) * eps_l,
+                                           (pow(2.0, regularity_to_use))*eps_l,
                                            max_level)); // Refinement according to Harten
             update_tag_subdomains(level, m_tag, true);
         }
@@ -303,39 +303,8 @@ namespace samurai
 
             keep_subset.apply_op(maximum(m_tag));
         }
-        using ca_type = typename mesh_t::ca_type;
 
-        // return update_field_mr(m_tag, m_fields, other_fields...);
-        // for some reason I do not understand the above code produces the following error :
-        // C++ exception with description "Incompatible dimension of arrays, compile in DEBUG for more info" thrown in the test body
-        // on test adapt_test/2.mutliple_fields with:
-        // linux-mamba (clang-18, ubuntu-24.04, clang, clang-18, clang-18, clang++-18)
-        // while the code bellow do not.
-        const auto& min_indices = mesh.domain().min_indices();
-        const auto& max_indices = mesh.domain().max_indices();
-
-        std::array<int, mesh_t::dim> nb_cells_finest_level;
-
-        for (size_t d = 0; d != max_indices.size(); ++d)
-        {
-            nb_cells_finest_level[d] = max_indices[d] - min_indices[d];
-        }
-
-        ca_type new_ca = update_cell_array_from_tag(mesh[mesh_id_t::cells], m_tag);
-        make_graduation(new_ca, mesh.mpi_neighbourhood(), mesh.periodicity(), nb_cells_finest_level, mesh_t::config::graduation_width);
-        mesh_t new_mesh{new_ca, mesh};
-#ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-        if (mpi::all_reduce(world, mesh == new_mesh, std::logical_and()))
-#else
-        if (mesh == new_mesh)
-#endif // SAMURAI_WITH_MPI
-        {
-            return true;
-        }
-        detail::update_fields(new_mesh, m_fields, other_fields...);
-        m_fields.mesh().swap(new_mesh);
-        return false;
+        return update_field_mr(m_tag, m_fields, other_fields...);
     }
 
     template <class... TFields>
