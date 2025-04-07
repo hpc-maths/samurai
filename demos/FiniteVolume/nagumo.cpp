@@ -133,7 +133,7 @@ int main(int argc, char* argv[])
     Box box(box_corner1, box_corner2);
     samurai::MRMesh<Config> mesh{box, min_level, max_level};
 
-    auto u = samurai::make_field<n_comp>("u", mesh);
+    auto u = samurai::make_field<double, n_comp>("u", mesh);
 
     double z0 = left_box / 5;    // wave initial position
     double c  = sqrt(k * D / 2); // wave velocity
@@ -157,7 +157,10 @@ int main(int argc, char* argv[])
         samurai::for_each_cell(mesh,
                                [&](auto& cell)
                                {
-                                   u[cell] = exact_solution(cell.center(0), 0);
+                                   // static_assert(std::is_same_v<decltype(exact_solution(cell.center(0), 0)), void>);
+                                   // static_assert(std::is_same_v<decltype(u[cell]), void>);
+                                   std::cout << u[cell] << std::endl;
+                                   u[cell][0] = exact_solution(cell.center(0), 0);
                                });
     }
     else
@@ -165,7 +168,7 @@ int main(int argc, char* argv[])
         samurai::load(restart_file, mesh, u);
     }
 
-    auto unp1 = samurai::make_field<n_comp>("unp1", mesh);
+    auto unp1 = samurai::make_field<double, n_comp>("unp1", mesh);
 
     samurai::make_bc<samurai::Neumann<1>>(u);
     samurai::make_bc<samurai::Neumann<1>>(unp1);
@@ -213,7 +216,7 @@ int main(int argc, char* argv[])
         save(path, filename, u, fmt::format("_ite_{}", nsave++));
     }
 
-    auto rhs = samurai::make_field<n_comp>("rhs", mesh);
+    auto rhs = samurai::make_field<double, n_comp>("rhs", mesh);
 
     while (t != Tf)
     {

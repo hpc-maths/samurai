@@ -121,7 +121,7 @@ void remove_intersection(samurai::CellArray<dim>& ca)
 
     while (true)
     {
-        auto tag = samurai::make_field<bool, 1>("tag", ca);
+        auto tag = samurai::make_field<bool>("tag", ca);
         tag.fill(false);
 
         for (std::size_t level = min_level + 1; level <= max_level; ++level)
@@ -179,7 +179,7 @@ void make_graduation(samurai::CellArray<dim>& ca)
     };
     while (true)
     {
-        auto tag = samurai::make_field<bool, 1>("tag", ca);
+        auto tag = samurai::make_field<bool>("tag", ca);
         tag.fill(false);
 
         for (std::size_t level = min_level + 2; level <= max_level; ++level)
