@@ -1123,7 +1123,15 @@ namespace samurai
                     static constexpr std::size_t in  = 0;
                     static constexpr std::size_t out = 1;
 
-                    double dx     = f.mesh().cell_length(cells[out].level);
+                    double dx = f.mesh().cell_length(cells[out].level);
+                    // static_assert(std::is_same_v<decltype(f), void>);
+                    // static_assert(std::is_same_v<decltype(cells[out]), void>);
+                    // static_assert(std::is_same_v<decltype(f[cells[out]]), void>);
+                    // static_assert(std::is_same_v<decltype(f[cells[in]]), void>);
+                    // static_assert(std::is_same_v<decltype(value), void>);
+                    std::cout << "f[cells[out]] " << f[cells[out]] << std::endl;
+                    std::cout << "f[cells[in]]  " << f[cells[in]] << std::endl;
+                    std::cout << "value         " << value << std::endl;
                     f[cells[out]] = dx * value + f[cells[in]];
                 }
                 else

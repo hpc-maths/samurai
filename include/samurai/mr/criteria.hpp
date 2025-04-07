@@ -47,7 +47,7 @@ namespace samurai
 
                     // auto mask = xt::sum((abs(detail(level, 2*i))/maxd <
                     // eps), {1}) > (n_comp-1);
-                    constexpr std::size_t axis = detail::static_size_first_v<n_comp, T1::is_soa, T1::static_layout> ? 0 : 1;
+                    constexpr std::size_t axis = detail::static_size_first_v<n_comp, T1::is_soa, T1::is_scalar, T1::static_layout> ? 0 : 1;
 
                     auto mask = sum<axis>((abs(detail(fine_level, 2 * i)) < eps)) > (n_comp - 1); // No normalization
 
@@ -105,7 +105,7 @@ namespace samurai
                     //                     2*j+1))/maxd < eps) &&
                     //                     (abs(detail(level, 2*i+1,
                     //                     2*j+1))/maxd < eps), {1}) > (n_comp-1);
-                    constexpr std::size_t axis = detail::static_size_first_v<n_comp, T1::is_soa, T1::static_layout> ? 0 : 1;
+                    constexpr std::size_t axis = detail::static_size_first_v<n_comp, T1::is_soa, T1::is_scalar, T1::static_layout> ? 0 : 1;
 
                     auto mask = all_true<axis, n_comp>(
                         (abs(detail(fine_level, 2 * i, 2 * j)) < eps) && (abs(detail(fine_level, 2 * i + 1, 2 * j)) < eps)
@@ -187,7 +187,7 @@ namespace samurai
                     //                     (abs(detail(level, 2*i+1,
                     //                     2*j+1))/maxd < eps), {1}) > (n_comp-1);
 
-                    constexpr std::size_t axis = detail::static_size_first_v<n_comp, T1::is_soa, T1::static_layout> ? 0 : 1;
+                    constexpr std::size_t axis = detail::static_size_first_v<n_comp, T1::is_soa, T1::is_scalar, T1::static_layout> ? 0 : 1;
 
                     auto mask = sum<axis>((abs(detail(fine_level, 2 * i, 2 * j, 2 * k)) < eps)
                                           && (abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k)) < eps)
@@ -240,7 +240,7 @@ namespace samurai
             }
             else
             {
-                constexpr std::size_t axis = detail::static_size_first_v<n_comp, is_soa, SAMURAI_DEFAULT_LAYOUT> ? 0 : 1;
+                constexpr std::size_t axis = detail::static_size_first_v<n_comp, is_soa, false, SAMURAI_DEFAULT_LAYOUT> ? 0 : 1;
                 return eval(sum<axis>(abs(detail_view) > eps) > 0);
             }
         }

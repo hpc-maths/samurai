@@ -403,14 +403,27 @@ namespace samurai
         using mesh_id_t = typename mesh_t::mesh_id_t;
         using ca_type   = typename mesh_t::ca_type;
 
+        auto make_field_like = [](std::string const& name, auto& mesh)
+        {
+            if constexpr (Field::is_scalar)
+            {
+                return make_field<typename Field::value_type>(name, mesh);
+            }
+            else
+            {
+                return make_field<typename Field::value_type, Field::n_comp, detail::is_soa_v<Field>>(name, mesh);
+            }
+        };
+
         auto& mesh = field.mesh();
         ca_type reconstruct_mesh;
         std::size_t reconstruct_level       = mesh.domain().level();
         reconstruct_mesh[reconstruct_level] = mesh.domain();
         reconstruct_mesh.update_index();
 
-        auto m                 = holder(reconstruct_mesh);
-        auto reconstruct_field = make_field<typename Field::value_type, Field::n_comp, detail::is_soa_v<Field>>(field.name(), m);
+        auto m = holder(reconstruct_mesh);
+        // auto reconstruct_field = make_field<typename Field::value_type, Field::n_comp, detail::is_soa_v<Field>>(field.name(), m);
+        auto reconstruct_field = make_field_like(field.name(), m);
         reconstruct_field.fill(0.);
 
         std::size_t min_level = mesh[mesh_id_t::cells].min_level();

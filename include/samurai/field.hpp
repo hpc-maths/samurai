@@ -210,7 +210,7 @@ namespace samurai
             using interval_t                 = typename mesh_t::interval_t;
             using index_t                    = typename interval_t::index_t;
             using cell_t                     = Cell<dim, interval_t>;
-            using data_type                  = field_data_storage_t<value_t, n_comp, SOA>;
+            using data_type                  = field_data_storage_t<value_t, n_comp, SOA, false>;
             using local_data_type            = local_field_data_t<value_t, n_comp, SOA, false>;
             using size_type                  = typename data_type::size_type;
 
