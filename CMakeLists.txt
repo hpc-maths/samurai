@@ -21,7 +21,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
   cmake_policy(SET CMP0135 NEW)
 endif()
 
-
 # Add project_options v0.41.0
 # https://github.com/aminya/project_options
 include(FetchContent)
