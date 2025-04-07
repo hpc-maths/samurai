@@ -1,6 +1,7 @@
-find_package(CGAL)
+option(WITH_CGAL "Activate cgal demos" OFF)
 
-if(CGAL_FOUND)
+if(WITH_CGAL)
+    find_package(CGAL)
     find_package(Eigen3 3.1.0 REQUIRED) # (3.1.0 or greater)
     include(CGAL_Eigen3_support)
 
