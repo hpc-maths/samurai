@@ -157,9 +157,6 @@ int main(int argc, char* argv[])
         samurai::for_each_cell(mesh,
                                [&](auto& cell)
                                {
-                                   // static_assert(std::is_same_v<decltype(exact_solution(cell.center(0), 0)), void>);
-                                   // static_assert(std::is_same_v<decltype(u[cell]), void>);
-                                   std::cout << u[cell] << std::endl;
                                    u[cell][0] = exact_solution(cell.center(0), 0);
                                });
     }
