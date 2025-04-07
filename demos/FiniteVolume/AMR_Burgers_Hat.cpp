@@ -274,7 +274,7 @@ int main(int argc, char* argv[])
             tag.resize();
             AMR_criteria(phi, tag);
             samurai::graduation(tag, stencil_grad);
-            if (samurai::update_field(tag, phi))
+            if (samurai::update_field_mr(tag, phi))
             {
                 break;
             }

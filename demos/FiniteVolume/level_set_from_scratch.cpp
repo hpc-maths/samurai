@@ -58,6 +58,7 @@ struct AMRConfig
     static constexpr std::size_t max_refinement_level = 20;
     static constexpr int max_stencil_width            = 2;
     static constexpr int ghost_width                  = 2;
+    static constexpr int graduation_width             = 2;
     static constexpr std::size_t prediction_order     = 1;
     using interval_t                                  = samurai::Interval<int>;
     using mesh_id_t                                   = SimpleID;
@@ -83,6 +84,11 @@ class AMRMesh : public samurai::Mesh_base<AMRMesh<Config>, Config>
 
     inline AMRMesh(const cl_type& cl, const self_type& ref_mesh)
         : base_type(cl, ref_mesh)
+    {
+    }
+
+    inline AMRMesh(const ca_type& ca, const self_type& ref_mesh)
+        : base_type(ca, ref_mesh)
     {
     }
 
@@ -408,7 +414,7 @@ bool update_mesh(Field& f, Field_u& u, Tag& tag)
         return true;
     }
 
-    samurai::update_field(tag, f, u);
+    samurai::update_field_mr(tag, f, u);
 
     tag.mesh().swap(new_mesh);
     return false;

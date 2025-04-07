@@ -336,7 +336,7 @@ int main(int argc, char* argv[])
             AMR_criteria(phi, tag);
             samurai::graduation(tag, stencil_grad);
             samurai::update_ghost(phi, u);
-            if ((samurai::update_field(tag, phi, u)))
+            if ((samurai::update_field_mr(tag, phi, u)))
             {
                 break;
             }

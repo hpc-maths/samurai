@@ -315,9 +315,9 @@ namespace samurai
         } // end for
     }
 
-    template <std::size_t dim, class TInterval, class MeshType, size_t max_size>
+    template <std::size_t dim, class TInterval, size_t max_size, class Subdomains>
     size_t make_graduation(CellArray<dim, TInterval, max_size>& ca,
-                           [[maybe_unused]] const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood,
+                           [[maybe_unused]] const Subdomains& mpi_neighbourhood,
                            const std::array<bool, dim>& is_periodic,
                            const std::array<int, dim>& nb_cells_finest_level,
                            const size_t grad_width = 1)
