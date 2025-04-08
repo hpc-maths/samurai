@@ -54,7 +54,7 @@ namespace samurai
                 {
                     return cell_local_index;
                 }
-                else if constexpr (field_t::is_soa)
+                else if constexpr (detail::is_soa_v<field_t>)
                 {
                     return field_j * stencil_size + cell_local_index;
                 }
@@ -70,7 +70,7 @@ namespace samurai
                 {
                     return cell_local_index;
                 }
-                else if constexpr (field_t::is_soa)
+                else if constexpr (detail::is_soa_v<field_t>)
                 {
                     return field_i * stencil_size + cell_local_index;
                 }

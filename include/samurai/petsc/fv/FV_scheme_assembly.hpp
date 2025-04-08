@@ -210,7 +210,7 @@ namespace samurai
                 {
                     return m_col_shift + cell_index;
                 }
-                else if constexpr (field_t::is_soa)
+                else if constexpr (detail::is_soa_v<field_t>)
                 {
                     return m_col_shift + static_cast<PetscInt>(field_j * m_n_cells) + cell_index;
                 }
@@ -226,7 +226,7 @@ namespace samurai
                 {
                     return m_row_shift + cell_index;
                 }
-                else if constexpr (field_t::is_soa)
+                else if constexpr (detail::is_soa_v<field_t>)
                 {
                     return m_row_shift + static_cast<PetscInt>(field_i * m_n_cells) + cell_index;
                 }

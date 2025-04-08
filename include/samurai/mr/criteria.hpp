@@ -47,7 +47,9 @@ namespace samurai
 
                     // auto mask = xt::sum((abs(detail(level, 2*i))/maxd <
                     // eps), {1}) > (n_comp-1);
-                    constexpr std::size_t axis = detail::static_size_first_v<n_comp, T1::is_soa, T1::is_scalar, T1::static_layout> ? 0 : 1;
+                    constexpr std::size_t axis = detail::static_size_first_v<n_comp, detail::is_soa_v<T1>, T1::is_scalar, T1::static_layout>
+                                                   ? 0
+                                                   : 1;
 
                     auto mask = sum<axis>((abs(detail(fine_level, 2 * i)) < eps)) > (n_comp - 1); // No normalization
 
@@ -105,7 +107,9 @@ namespace samurai
                     //                     2*j+1))/maxd < eps) &&
                     //                     (abs(detail(level, 2*i+1,
                     //                     2*j+1))/maxd < eps), {1}) > (n_comp-1);
-                    constexpr std::size_t axis = detail::static_size_first_v<n_comp, T1::is_soa, T1::is_scalar, T1::static_layout> ? 0 : 1;
+                    constexpr std::size_t axis = detail::static_size_first_v<n_comp, detail::is_soa_v<T1>, T1::is_scalar, T1::static_layout>
+                                                   ? 0
+                                                   : 1;
 
                     auto mask = all_true<axis, n_comp>(
                         (abs(detail(fine_level, 2 * i, 2 * j)) < eps) && (abs(detail(fine_level, 2 * i + 1, 2 * j)) < eps)
@@ -187,7 +191,9 @@ namespace samurai
                     //                     (abs(detail(level, 2*i+1,
                     //                     2*j+1))/maxd < eps), {1}) > (n_comp-1);
 
-                    constexpr std::size_t axis = detail::static_size_first_v<n_comp, T1::is_soa, T1::is_scalar, T1::static_layout> ? 0 : 1;
+                    constexpr std::size_t axis = detail::static_size_first_v<n_comp, detail::is_soa_v<T1>, T1::is_scalar, T1::static_layout>
+                                                   ? 0
+                                                   : 1;
 
                     auto mask = sum<axis>((abs(detail(fine_level, 2 * i, 2 * j, 2 * k)) < eps)
                                           && (abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k)) < eps)
@@ -252,7 +258,7 @@ namespace samurai
             constexpr auto n_comp  = T1::n_comp;
             std::size_t fine_level = level + 1;
 
-            auto mask_ghost = get_mask<n_comp, T1::is_soa>(detail(fine_level - 1, i, index), eps / (1 << dim));
+            auto mask_ghost = get_mask<n_comp, detail::is_soa_v<T1>>(detail(fine_level - 1, i, index), eps / (1 << dim));
 
             apply_on_masked(mask_ghost,
                             [&](auto imask)
@@ -272,7 +278,7 @@ namespace samurai
                     {
                         for (int ii = 0; ii < 2; ++ii)
                         {
-                            auto mask = get_mask<n_comp, T1::is_soa>(detail(fine_level, 2 * i + ii, 2 * index + stencil), eps);
+                            auto mask = get_mask<n_comp, detail::is_soa_v<T1>>(detail(fine_level, 2 * i + ii, 2 * index + stencil), eps);
 
                             apply_on_masked(tag(fine_level, 2 * i + ii, 2 * index + stencil),
                                             mask,

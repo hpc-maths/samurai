@@ -384,7 +384,7 @@ namespace samurai
 
             static constexpr std::size_t dim    = Field::dim;
             static constexpr std::size_t n_comp = Field::n_comp;
-            static constexpr bool is_soa        = Field::is_soa;
+            static constexpr bool is_soa        = detail::is_soa_v<Field>;
 
             using interval_t    = typename Field::interval_t;
             using coord_index_t = typename interval_t::coord_index_t;

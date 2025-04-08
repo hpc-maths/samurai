@@ -155,7 +155,7 @@ namespace samurai
                                             Vec x;
                                             Vec b;
 
-                                            if constexpr (n > 1 && field_t::is_soa)
+                                            if constexpr (n > 1 && detail::is_soa_v<field_t>)
                                             {
                                                 VecCreateSeq(PETSC_COMM_SELF, n, &x);
                                                 copy(unknown(), cell, x);
@@ -176,7 +176,7 @@ namespace samurai
 
                                             solve_system(snes, b, x);
 
-                                            if constexpr (n > 1 && field_t::is_soa)
+                                            if constexpr (n > 1 && detail::is_soa_v<field_t>)
                                             {
                                                 copy(x, unknown(), cell);
                                             }
