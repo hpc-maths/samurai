@@ -145,7 +145,7 @@ int main(int argc, char* argv[])
     Box box(box_corner1, box_corner2);
     samurai::MRMesh<Config> mesh;
 
-    auto u = samurai::make_scalar_field("u", mesh);
+    auto u = samurai::make_scalar_field<double>("u", mesh);
 
     if (restart_file.empty())
     {
@@ -180,7 +180,7 @@ int main(int argc, char* argv[])
         samurai::load(restart_file, mesh, u);
     }
 
-    auto unp1 = samurai::make_scalar_field("unp1", mesh);
+    auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);
 
     samurai::make_bc<samurai::Neumann<1>>(u, 0.);
     samurai::make_bc<samurai::Neumann<1>>(unp1, 0.);

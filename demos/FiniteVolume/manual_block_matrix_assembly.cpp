@@ -206,8 +206,8 @@ int main(int argc, char* argv[])
     // Fields and auxiliary unknowns //
     //-------------------------------//
 
-    auto u_e = samurai::make_vector_field<1>("u_e", mesh_e, 0);
-    auto u_s = samurai::make_vector_field<1>("u_s", mesh_s, 1);
+    auto u_e = samurai::make_scalar_field<double>("u_e", mesh_e, 0);
+    auto u_s = samurai::make_scalar_field<double>("u_s", mesh_s, 1);
 
     // Count the number of cells at the interface between mesh_e and mesh_s
     std::size_t n_interface_cells = 0;

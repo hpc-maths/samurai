@@ -104,7 +104,7 @@ int main(int argc, char* argv[])
     std::array<bool, dim> periodic;
     periodic.fill(true);
     samurai::MRMesh<Config> mesh;
-    auto u = samurai::make_scalar_field("u", mesh);
+    auto u = samurai::make_scalar_field<double>("u", mesh);
 
     if (restart_file.empty())
     {

@@ -157,7 +157,7 @@ int main(int argc, char* argv[])
         samurai::for_each_cell(mesh,
                                [&](auto& cell)
                                {
-                                   u[cell][0] = exact_solution(cell.center(0), 0);
+                                   u[cell] = exact_solution(cell.center(0), 0);
                                });
     }
     else

@@ -115,8 +115,8 @@ int main(int argc, char* argv[])
     Box box(box_corner1, box_corner2);
     samurai::MRMesh<Config> mesh;
 
-    auto u    = samurai::make_scalar_field("u", mesh);
-    auto unp1 = samurai::make_scalar_field("unp1", mesh);
+    auto u    = samurai::make_scalar_field<double>("u", mesh);
+    auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);
 
     if (restart_file.empty())
     {
