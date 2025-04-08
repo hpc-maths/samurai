@@ -53,7 +53,7 @@ namespace samurai
         std::size_t current_level = start_level;
         while (current_level != max_level + 1)
         {
-            auto tag = make_field<int>("tag", mesh);
+            auto tag = make_scalar_field<int>("tag", mesh);
             tag.fill(0);
 
             for (std::size_t level = mesh.min_level(); level < current_level; ++level)

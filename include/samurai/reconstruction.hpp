@@ -407,11 +407,11 @@ namespace samurai
         {
             if constexpr (Field::is_scalar)
             {
-                return make_field<typename Field::value_type>(name, mesh);
+                return make_scalar_field<typename Field::value_type>(name, mesh);
             }
             else
             {
-                return make_field<typename Field::value_type, Field::n_comp, detail::is_soa_v<Field>>(name, mesh);
+                return make_vector_field<typename Field::value_type, Field::n_comp, detail::is_soa_v<Field>>(name, mesh);
             }
         };
 
