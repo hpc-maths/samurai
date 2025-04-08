@@ -42,7 +42,7 @@ void refine_1(mesh_t& mesh, std::size_t max_level)
 
     for (std::size_t ite = 0; ite < max_level; ++ite)
     {
-        auto cell_tag = samurai::make_field<bool>("tag", mesh);
+        auto cell_tag = samurai::make_scalar_field<bool>("tag", mesh);
         cell_tag.fill(false);
 
         samurai::for_each_cell(mesh,
@@ -100,7 +100,7 @@ void refine_2(mesh_t& mesh, std::size_t max_level)
 
     for (std::size_t ite = 0; ite < max_level; ++ite)
     {
-        auto cell_tag = samurai::make_field<int>("tag", mesh);
+        auto cell_tag = samurai::make_scalar_field<int>("tag", mesh);
         cell_tag.fill(0);
 
         samurai::for_each_cell(mesh,
@@ -253,7 +253,7 @@ int main(int argc, char* argv[])
     auto mem = samurai::memory_usage(mesh_2, /*verbose*/ true);
     std::cout << "Total: " << mem << std::endl;
 
-    auto level = samurai::make_field<std::size_t>("level", mesh_2);
+    auto level = samurai::make_scalar_field<std::size_t>("level", mesh_2);
     samurai::for_each_cell(mesh_2,
                            [&](auto cell)
                            {

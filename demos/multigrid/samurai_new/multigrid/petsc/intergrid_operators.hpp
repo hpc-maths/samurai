@@ -497,7 +497,7 @@ namespace samurai_new
                 auto& cm = coarse_mesh[mesh_id_t::cells];
                 auto& fm = fine_mesh[mesh_id_t::cells];
 
-                auto fine_field = samurai::make_field<double, 1>("fine", fine_mesh);
+                auto fine_field = samurai::make_scalar_field<double>("fine", fine_mesh);
                 fine_field.fill(0);
 
                 for (std::size_t level = fine_mesh.min_level(); level <= fine_mesh.max_level(); ++level)
@@ -936,7 +936,7 @@ namespace samurai_new
                 auto& cm = coarse_mesh[mesh_id_t::cells];
                 auto& fm = fine_mesh[mesh_id_t::cells];
 
-                auto coarse_field = samurai::make_field<double, 1>("coarse", coarse_mesh);
+                auto coarse_field = samurai::make_scalar_field<double>("coarse", coarse_mesh);
                 coarse_field.fill(0);
 
                 for (std::size_t level = coarse_mesh.min_level(); level <= coarse_mesh.max_level(); ++level)

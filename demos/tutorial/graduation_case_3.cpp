@@ -61,7 +61,7 @@ int main(int argc, char* argv[])
     {
         std::cout << "Iteration for remove intersection: " << ite++ << "\n";
 
-        auto tag = samurai::make_field<bool>("tag", ca);
+        auto tag = samurai::make_scalar_field<bool>("tag", ca);
         tag.fill(false);
 
         samurai::for_each_cell(ca,

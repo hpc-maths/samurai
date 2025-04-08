@@ -49,7 +49,7 @@ auto init_field(Mesh& mesh, const double f = 1.6, const double q = 2.e-3)
     field[0] : 'b' in the model
     field[1] : 'c' in the model
     */
-    auto field = samurai::make_field<double, 2>("solution", mesh);
+    auto field = samurai::make_vector_field<double, 2>("solution", mesh);
 
     samurai::for_each_cell(mesh[mesh_id_t::reference],
                            [&](auto cell)

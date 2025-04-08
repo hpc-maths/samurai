@@ -16,7 +16,7 @@ namespace samurai
         using Config = UniformConfig<1>;
         auto mesh    = UniformMesh<Config>(box, 3);
 
-        auto u = make_field<double>("u", mesh);
+        auto u = make_scalar_field<double>("u", mesh);
 
         static_assert(detail::is_field_function<decltype(5 + u)>::value);
         static_assert(detail::is_field_function<decltype(upwind(1, u))>::value);
@@ -28,8 +28,8 @@ namespace samurai
         using Config = UniformConfig<1>;
         auto mesh    = UniformMesh<Config>(box, 3);
 
-        auto u1 = make_field<int>("u", mesh);
-        auto u2 = make_field<double, 3>("u", mesh);
+        auto u1 = make_scalar_field<int>("u", mesh);
+        auto u2 = make_vector_field<double, 3>("u", mesh);
 
         static_assert(detail::compute_n_comp<decltype(u1), decltype(u2)>() == 4);
 

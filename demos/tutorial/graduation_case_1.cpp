@@ -110,7 +110,7 @@ int main(int argc, char* argv[])
 
     while (true)
     {
-        auto tag = samurai::make_field<bool>("tag", ca);
+        auto tag = samurai::make_scalar_field<bool>("tag", ca);
         tag.fill(false);
 
         for (std::size_t level = min_level + 2; level <= max_level; ++level)

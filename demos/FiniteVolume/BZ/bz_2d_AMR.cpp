@@ -138,7 +138,7 @@ auto init_field(Mesh& mesh, const double f = 1.6, const double q = 2.e-3)
     field[0] : 'b' in the model
     field[1] : 'c' in the model
     */
-    auto field = samurai::make_field<double, 2>("solution", mesh);
+    auto field = samurai::make_vector_field<double, 2>("solution", mesh);
 
     samurai::for_each_cell(mesh[mesh_id_t::reference],
                            [&](auto cell)
@@ -468,7 +468,7 @@ void AMR_criterion(Field& f, Func&& update_bc_for_level, Tag& tag, std::size_t i
     // which is then used to decide where to enlarge.
     // This problem was solved in multiresolution by adding the choice of
     // the flag enlarge, but to do this we should change other parts of the code
-    auto tag_tmp = samurai::make_field<int, 1>("tag", mesh);
+    auto tag_tmp = samurai::make_scalar_field<int>("tag", mesh);
     tag_tmp.fill(static_cast<int>(samurai::CellFlag::keep));
 
     for (std::size_t level = min_level; level <= max_level; ++level)
@@ -697,7 +697,7 @@ int main()
 
         while (true)
         {
-            auto tag = samurai::make_field<int, 1>("tag", mesh);
+            auto tag = samurai::make_scalar_field<int>("tag", mesh);
             AMR_criterion(field, update_bc_for_level, tag, idx);
             make_graduation(tag);
             if (update_mesh(field, tag))

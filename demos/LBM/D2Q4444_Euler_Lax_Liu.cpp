@@ -43,7 +43,7 @@ auto init_f(samurai::MROMesh<Config>& mesh, int config, double lambda)
     constexpr std::size_t nvel = 16;
     using mesh_id_t            = typename samurai::MROMesh<Config>::mesh_id_t;
 
-    auto f = samurai::make_field<double, nvel>("f", mesh);
+    auto f = samurai::make_vector_field<double, nvel>("f", mesh);
     f.fill(0);
 
     samurai::for_each_cell(
@@ -460,12 +460,12 @@ void save_solution(Field& f, double eps, std::size_t ite, std::string ext = "")
     std::stringstream str;
     str << "LBM_D2Q4_3_Euler_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-" << eps << "_ite-" << ite;
 
-    auto level = samurai::make_field<std::size_t, 1>("level", mesh);
-    auto rho   = samurai::make_field<value_t, 1>("rho", mesh);
-    auto qx    = samurai::make_field<value_t, 1>("qx", mesh);
-    auto qy    = samurai::make_field<value_t, 1>("qy", mesh);
-    auto e     = samurai::make_field<value_t, 1>("e", mesh);
-    auto s     = samurai::make_field<value_t, 1>("entropy", mesh);
+    auto level = samurai::make_scalar_field<std::size_t>("level", mesh);
+    auto rho   = samurai::make_scalar_field<value_t>("rho", mesh);
+    auto qx    = samurai::make_scalar_field<value_t>("qx", mesh);
+    auto qy    = samurai::make_scalar_field<value_t>("qy", mesh);
+    auto e     = samurai::make_scalar_field<value_t>("e", mesh);
+    auto s     = samurai::make_scalar_field<value_t>("entropy", mesh);
 
     samurai::for_each_cell(mesh[mesh_id_t::cells],
                            [&](auto& cell)
@@ -605,7 +605,7 @@ double compute_error(Field& f, FieldFull& f_full, Func&& update_bc_for_level)
 
     samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
 
-    auto f_reconstructed = samurai::make_field<value_t, nvel>("f_reconstructed", init_mesh);
+    auto f_reconstructed = samurai::make_vector_field<value_t, nvel>("f_reconstructed", init_mesh);
     f_reconstructed.fill(0.);
 
     // For memoization
@@ -658,22 +658,22 @@ void save_reconstructed(Field& f, FieldFull& f_full, Func&& update_bc_for_level,
 
     samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
 
-    auto f_reconstructed = samurai::make_field<value_t, nvel>("f_reconstructed", init_mesh); // To reconstruct all and
-                                                                                             // see entropy
+    auto f_reconstructed = samurai::make_vector_field<value_t, nvel>("f_reconstructed", init_mesh); // To reconstruct all and
+                                                                                                    // see entropy
     f_reconstructed.fill(0.);
 
-    auto rho_reconstructed = samurai::make_field<value_t, 1>("rho_reconstructed", init_mesh);
-    auto qx_reconstructed  = samurai::make_field<value_t, 1>("qx_reconstructed", init_mesh);
-    auto qy_reconstructed  = samurai::make_field<value_t, 1>("qy_reconstructed", init_mesh);
-    auto E_reconstructed   = samurai::make_field<value_t, 1>("E_reconstructed", init_mesh);
-    auto s_reconstructed   = samurai::make_field<value_t, 1>("s_reconstructed", init_mesh);
-    auto level_            = samurai::make_field<std::size_t, 1>("level", init_mesh);
+    auto rho_reconstructed = samurai::make_scalar_field<value_t>("rho_reconstructed", init_mesh);
+    auto qx_reconstructed  = samurai::make_scalar_field<value_t>("qx_reconstructed", init_mesh);
+    auto qy_reconstructed  = samurai::make_scalar_field<value_t>("qy_reconstructed", init_mesh);
+    auto E_reconstructed   = samurai::make_scalar_field<value_t>("E_reconstructed", init_mesh);
+    auto s_reconstructed   = samurai::make_scalar_field<value_t>("s_reconstructed", init_mesh);
+    auto level_            = samurai::make_scalar_field<std::size_t>("level", init_mesh);
 
-    auto rho = samurai::make_field<value_t, 1>("rho", init_mesh);
-    auto qx  = samurai::make_field<value_t, 1>("qx", init_mesh);
-    auto qy  = samurai::make_field<value_t, 1>("qy", init_mesh);
-    auto E   = samurai::make_field<value_t, 1>("E", init_mesh);
-    auto s   = samurai::make_field<value_t, 1>("s", init_mesh);
+    auto rho = samurai::make_scalar_field<value_t>("rho", init_mesh);
+    auto qx  = samurai::make_scalar_field<value_t>("qx", init_mesh);
+    auto qy  = samurai::make_scalar_field<value_t>("qy", init_mesh);
+    auto E   = samurai::make_scalar_field<value_t>("E", init_mesh);
+    auto s   = samurai::make_scalar_field<value_t>("s", init_mesh);
 
     // For memoization
     using interval_t  = typename Field::interval_t;   // Type in X
