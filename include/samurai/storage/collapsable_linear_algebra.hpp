@@ -112,7 +112,7 @@ namespace samurai
         // 'vector_type' can be an xt::view or a CollapsArray
 
         CollapsArray<value_type, rows, SOA, can_collapse> res = zeros<CollapsMatrix<value_type, rows, cols, can_collapse>>();
-        if constexpr (rows == 1 && cols == 1)
+        if constexpr (rows == 1 && cols == 1 && can_collapse)
         {
             res = A * x;
         }
