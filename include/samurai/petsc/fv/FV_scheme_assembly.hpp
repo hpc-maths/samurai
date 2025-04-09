@@ -5,8 +5,6 @@
 #include "../../schemes/fv/scheme_operators.hpp"
 #include "../matrix_assembly.hpp"
 
-#include <type_traits>
-
 namespace samurai
 {
     namespace petsc
