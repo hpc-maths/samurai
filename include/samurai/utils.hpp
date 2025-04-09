@@ -364,54 +364,6 @@ namespace samurai
         template <class T>
         inline constexpr bool is_field_type_v = is_field_type<std::decay_t<T>>::value;
 
-        /**
-         * @brief test if template parameter is a VectorField
-         *
-         * @tparam T type to test
-         */
-        template <class T>
-        struct is_vector_field_type : std::false_type
-        {
-        };
-
-        // specialization for VectorField
-        template <class Mesh, class value_t, std::size_t n_comp, bool SOA>
-        struct is_vector_field_type<VectorField<Mesh, value_t, n_comp, SOA>> : std::true_type
-        {
-        };
-
-        /**
-         * @brief helper to get value of is_vector_field
-         *
-         * @tparam T type to test
-         */
-        template <class T>
-        inline constexpr bool is_vector_field_type_v = is_vector_field_type<std::decay_t<T>>::value;
-
-        /**
-         * @brief test if template parameter is a ScalarField
-         *
-         * @tparam T type to test
-         */
-        template <class T>
-        struct is_scalar_field_type : std::false_type
-        {
-        };
-
-        // specialization for ScalarField
-        template <class Mesh, class value_t>
-        struct is_scalar_field_type<ScalarField<Mesh, value_t>> : std::true_type
-        {
-        };
-
-        /**
-         * @brief helper to get value of is_scalar_field
-         *
-         * @tparam T type to test
-         */
-        template <class T>
-        inline constexpr bool is_scalar_field_type_v = is_scalar_field_type<std::decay_t<T>>::value;
-
     } // namespace detail
 
     template <class R, class T1, class T2>

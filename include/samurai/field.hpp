@@ -360,7 +360,7 @@ namespace samurai
 
         static constexpr size_type n_comp = n_comp_;
         static constexpr bool is_soa      = SOA;
-        static constexpr bool is_scalar   = detail::is_scalar_field_type_v<self_type>;
+        static constexpr bool is_scalar   = false;
         using inner_types::static_layout;
 
         VectorField() = default;
@@ -971,7 +971,7 @@ namespace samurai
         using const_reverse_iterator = Field_reverse_iterator<const_iterator>;
 
         static constexpr size_type n_comp = 1;
-        static constexpr bool is_scalar   = detail::is_scalar_field_type_v<self_type>;
+        static constexpr bool is_scalar   = true;
         using inner_types::static_layout;
 
         ScalarField() = default;
