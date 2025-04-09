@@ -2,7 +2,6 @@
 #include "../flux_based/flux_based_scheme__lin_het.hpp"
 #include "../flux_based/flux_based_scheme__lin_hom.hpp"
 #include "divergence.hpp"
-#
 
 namespace samurai
 {
