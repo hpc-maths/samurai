@@ -130,6 +130,21 @@ namespace samurai
         return 0;
     }
 
+    template <std::size_t dim, class Func>
+    void for_each_cartesian_direction(Func&& f)
+    {
+        DirectionVector<dim> direction;
+        direction.fill(0);
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            direction[d] = 1;
+            f(d, direction);
+            direction[d] = -1;
+            f(d, direction);
+            direction[d] = 0;
+        }
+    }
+
     //-----------------------//
     //    Useful stencils    //
     //-----------------------//

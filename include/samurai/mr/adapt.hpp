@@ -311,18 +311,15 @@ namespace samurai
         // on test adapt_test/2.mutliple_fields with:
         // linux-mamba (clang-18, ubuntu-24.04, clang, clang-18, clang-18, clang++-18)
         // while the code bellow do not.
-        const auto& min_indices = mesh.domain().min_indices();
-        const auto& max_indices = mesh.domain().max_indices();
-
-        std::array<int, mesh_t::dim> nb_cells_finest_level;
-
-        for (size_t d = 0; d != max_indices.size(); ++d)
-        {
-            nb_cells_finest_level[d] = max_indices[d] - min_indices[d];
-        }
 
         ca_type new_ca = update_cell_array_from_tag(mesh[mesh_id_t::cells], m_tag);
-        make_graduation(new_ca, mesh.mpi_neighbourhood(), mesh.periodicity(), nb_cells_finest_level, mesh_t::config::graduation_width);
+        make_graduation(new_ca,
+                        mesh.domain(),
+                        mesh.mpi_neighbourhood(),
+                        mesh.periodicity(),
+                        mesh_t::config::graduation_width,
+                        mesh_t::config::max_stencil_width);
+
         mesh_t new_mesh{new_ca, mesh};
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
