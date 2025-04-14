@@ -1,6 +1,5 @@
 Cell class
 ==========
 
-.. doxygenclass:: samurai::Cell
+.. doxygenfile:: cell.hpp
    :project: samurai
-   :members:
