@@ -2,8 +2,10 @@
 #include <benchmark/benchmark.h>
 #include <experimental/random>
 
-#include <xtensor/xfixed.hpp>
-#include <xtensor/xrandom.hpp>
+// #include <xtensor/xfixed.hpp>
+// #include <xtensor/xrandom.hpp>
+#include <xtensor/containers/xfixed.hpp>
+#include <xtensor/generators/xrandom.hpp>
 
 #include <samurai/algorithm.hpp>
 #include <samurai/cell_array.hpp>
