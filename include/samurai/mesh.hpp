@@ -133,6 +133,16 @@ namespace samurai
         cell_t get_cell(std::size_t level, const xt::xexpression<E>& coord) const;
 
         void update_mesh_neighbour();
+
+        void update_neighbour_subdomain();
+        template <mesh_id_t MeshID>
+        void update_meshid_neighbour();
+
+        void update_neighbour_cells();
+        void update_neighbour_cells_and_ghosts();
+        void update_neighbour_all_cells();
+        void update_neighbour_reference();
+
         void to_stream(std::ostream& os) const;
 
       protected:
@@ -648,7 +658,7 @@ namespace samurai
 
     // This function is to only send m_subdomain instead of the whole mesh data
     template <class D, class Config>
-    inline void Mesh_base<D, Config>::update_subdomain_neighbour()
+    inline void Mesh_base<D, Config>::update_neighbour_subdomain()
     {
 #ifdef SAMURAI_WITH_MPI
         // send/recv the meshes of the neighbouring subdomains
@@ -657,7 +667,7 @@ namespace samurai
 
         boost::mpi::packed_oarchive::buffer_type buffer;
         boost::mpi::packed_oarchive oa(world, buffer);
-        oa << derived_cast().subdomain;
+        oa << derived_cast().m_subdomain;
 
         std::transform(m_mpi_neighbourhood.cbegin(),
                        m_mpi_neighbourhood.cend(),
@@ -669,7 +679,7 @@ namespace samurai
 
         for (auto& neighbour : m_mpi_neighbourhood)
         {
-            world.recv(neighbour.rank, world.rank(), neighbour.mesh.subdomain);
+            world.recv(neighbour.rank, world.rank(), neighbour.mesh.m_subdomain);
         }
 
         mpi::wait_all(req.begin(), req.end());
@@ -677,7 +687,8 @@ namespace samurai
     }
 
     // This function is to only send cells[i] instead of the whole mesh
-    template <class D, class Config, class mesh_id_t MeshID>
+    template <class D, class Config>
+    template <typename Mesh_base<D, Config>::mesh_id_t MeshID>
     inline void Mesh_base<D, Config>::update_meshid_neighbour()
     {
 #ifdef SAMURAI_WITH_MPI
