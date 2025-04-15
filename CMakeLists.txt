@@ -133,7 +133,7 @@ if(SAMURAI_FIELD_CONTAINER MATCHES xtensor)
   list(APPEND DEPENDENCIES_CONFIGURED xtensor)
   find_package(xtensor CONFIG REQUIRED)
 
-  if(DEFINED xtensor_VERSION_MINOR)
+  #  if(DEFINED xtensor_VERSION_MINOR)
       #      message(STATUS "xtensor version detected by find_package: ${xtensor_VERSION}")
       #      message(STATUS "xtensor minor version: ${xtensor_VERSION_MINOR}")
 
@@ -144,7 +144,7 @@ if(SAMURAI_FIELD_CONTAINER MATCHES xtensor)
           XTENSOR_VERSION_PATCH=${xtensor_VERSION_PATCH}
       )
 
-  endif()
+      #  endif()
 
   target_link_system_libraries(
     samurai
