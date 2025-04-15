@@ -28,7 +28,7 @@ namespace samurai
     };
 
     template <class... E>
-    struct field_comparable : xtl::conjunction<is_field_expression<E>...>
+    struct field_comparable : std::conjunction<is_field_expression<E>...>
     {
     };
 
