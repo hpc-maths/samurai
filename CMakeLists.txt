@@ -134,8 +134,8 @@ if(SAMURAI_FIELD_CONTAINER MATCHES xtensor)
   find_package(xtensor CONFIG REQUIRED)
 
   #  if(DEFINED xtensor_VERSION_MINOR)
-      #      message(STATUS "xtensor version detected by find_package: ${xtensor_VERSION}")
-      #      message(STATUS "xtensor minor version: ${xtensor_VERSION_MINOR}")
+       message(STATUS "xtensor version detected by find_package: ${xtensor_VERSION}")
+       message(STATUS "xtensor minor version: ${xtensor_VERSION_MINOR}")
 
       # Add the definitions to the samurai target
       target_compile_definitions(samurai INTERFACE
