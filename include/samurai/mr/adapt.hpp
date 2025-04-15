@@ -69,7 +69,7 @@ namespace samurai
             using fields_t = Field_tuple<TFields...>;
             using mesh_t   = typename fields_t::mesh_t;
             using common_t = typename fields_t::common_t;
-            using detail_t = Field<mesh_t, common_t, detail::compute_n_comp<TFields...>()>;
+            using detail_t = VectorField<mesh_t, common_t, detail::compute_n_comp<TFields...>()>;
         };
 
         template <class TField>
@@ -77,7 +77,9 @@ namespace samurai
         {
             using fields_t = TField&;
             using mesh_t   = typename TField::mesh_t;
-            using detail_t = Field<mesh_t, typename TField::value_type, TField::n_comp, TField::is_soa>;
+            using detail_t = std::conditional_t<TField::is_scalar,
+                                                ScalarField<mesh_t, typename TField::value_type>,
+                                                VectorField<mesh_t, typename TField::value_type, TField::n_comp, detail::is_soa_v<TField>>>;
         };
     }
 
@@ -98,7 +100,7 @@ namespace samurai
         using mesh_t            = typename inner_fields_type::mesh_t;
         using mesh_id_t         = typename mesh_t::mesh_id_t;
         using detail_t          = typename inner_fields_type::detail_t;
-        using tag_t             = Field<mesh_t, int, 1>;
+        using tag_t             = ScalarField<mesh_t, int>;
 
         static constexpr std::size_t dim = mesh_t::dim;
         static constexpr bool enlarge_v  = enlarge_;
@@ -194,7 +196,7 @@ namespace samurai
     }
 
     template <class Mesh>
-    void keep_boundary_refined(const Mesh& mesh, Field<Mesh, int, 1>& tag, const DirectionVector<Mesh::dim>& direction)
+    void keep_boundary_refined(const Mesh& mesh, ScalarField<Mesh, int>& tag, const DirectionVector<Mesh::dim>& direction)
     {
         // Since the adaptation process starts at max_level, we just need to flag to `keep` the boundary cells at max_level only.
         // There will never be boundary cells at lower levels.
@@ -208,7 +210,7 @@ namespace samurai
     }
 
     template <class Mesh>
-    void keep_boundary_refined(const Mesh& mesh, Field<Mesh, int, 1>& tag)
+    void keep_boundary_refined(const Mesh& mesh, ScalarField<Mesh, int>& tag)
     {
         constexpr std::size_t dim = Mesh::dim;
 

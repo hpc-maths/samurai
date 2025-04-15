@@ -18,7 +18,7 @@ template <class Mesh>
 auto init_field(Mesh& mesh)
 {
     using mesh_id_t = typename Mesh::mesh_id_t;
-    auto field      = samurai::make_field<double, 1>("sol", mesh);
+    auto field      = samurai::make_scalar_field<double>("sol", mesh);
 
     samurai::for_each_cell(mesh[mesh_id_t::cells_and_ghosts],
                            [&](auto& cell)
@@ -36,7 +36,7 @@ auto init_velocity(Mesh& mesh)
 {
     using mesh_id_t = typename Mesh::mesh_id_t;
 
-    auto u = samurai::make_field<double, 2>("u", mesh);
+    auto u = samurai::make_vector_field<double, 2>("u", mesh);
     u.fill(0);
 
     samurai::for_each_cell(mesh[mesh_id_t::cells_and_ghosts],
@@ -297,7 +297,7 @@ int main()
         {
             std::cout << "\tmesh adaptation: " << ite_adapt++ << std::endl;
             samurai::update_ghost(update_bc, field);
-            auto tag = samurai::make_field<int, 1>("tag", mesh);
+            auto tag = samurai::make_scalar_field<int>("tag", mesh);
             AMR_criteria(field, tag);
             samurai::graduation(tag, stencil_graduation::call(samurai::Dim<dim>{}));
             if (samurai::update_field(tag, field))
@@ -307,7 +307,7 @@ int main()
         }
 
         auto vel       = init_velocity(mesh);
-        auto field_np1 = samurai::make_field<double, 1>("sol", mesh);
+        auto field_np1 = samurai::make_scalar_field<double>("sol", mesh);
         field_np1.fill(0.);
 
         // Euler --> unstable on uniform mesh
@@ -315,9 +315,9 @@ int main()
         // field_np1 = field - dt*houc5(field, vel);
 
         // TVD-RK3 (SSPRK3)
-        auto field1 = samurai::make_field<double, 1>("sol", mesh);
+        auto field1 = samurai::make_scalar_field<double>("sol", mesh);
         field1.fill(0.);
-        auto field2 = samurai::make_field<double, 1>("sol", mesh);
+        auto field2 = samurai::make_scalar_field<double>("sol", mesh);
         field2.fill(0.);
 
         samurai::update_ghost(update_bc, field);

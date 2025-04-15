@@ -11,7 +11,7 @@ namespace fs = std::filesystem;
 template <class Mesh>
 void save_mesh(const fs::path& path, const std::string& filename, const Mesh& mesh)
 {
-    auto level = samurai::make_field<std::size_t, 1>("level", mesh);
+    auto level = samurai::make_scalar_field<std::size_t>("level", mesh);
 
     if (!fs::exists(path))
     {

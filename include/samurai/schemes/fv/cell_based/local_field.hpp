@@ -12,7 +12,7 @@ namespace samurai
      * Implementation when number of components of field = 1
      */
     template <class field_t>
-    class LocalField<field_t, std::enable_if_t<field_t::n_comp == 1>>
+    class LocalField<field_t, std::enable_if_t<field_t::is_scalar>>
     {
         using field_value_type = typename field_t::value_type;
         using cell_t           = typename field_t::cell_t;
@@ -41,7 +41,7 @@ namespace samurai
      * Implementation when number of components of field > 1
      */
     template <class field_t>
-    class LocalField<field_t, std::enable_if_t<field_t::n_comp != 1>>
+    class LocalField<field_t, std::enable_if_t<!field_t::is_scalar>>
     {
         using field_value_type    = typename field_t::value_type;
         using cell_t              = typename field_t::cell_t;

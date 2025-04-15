@@ -37,10 +37,10 @@ namespace samurai
         }
     }
 
-    template <class value_type, std::size_t rows, std::size_t cols>
+    template <class value_type, std::size_t rows, std::size_t cols, bool can_collapse>
     auto zeros()
     {
-        using matrix_type = CollapsMatrix<value_type, rows, cols>;
+        using matrix_type = CollapsMatrix<value_type, rows, cols, can_collapse>;
         return zeros<matrix_type>();
     }
 
@@ -80,10 +80,10 @@ namespace samurai
     //     return xt::eye(s[0]);
     // }
 
-    template <class value_type, std::size_t rows, std::size_t cols>
+    template <class value_type, std::size_t rows, std::size_t cols, bool can_collapse>
     auto eye()
     {
-        using matrix_type = CollapsMatrix<value_type, rows, cols>;
+        using matrix_type = CollapsMatrix<value_type, rows, cols, can_collapse>;
         return eye<matrix_type>();
         // matrix_type e;
         // if constexpr (rows == 1 && cols == 1)
@@ -106,13 +106,13 @@ namespace samurai
         return A * x;
     }
 
-    template <bool SOA, class value_type, std::size_t rows, std::size_t cols, class vector_type>
+    template <bool SOA, bool can_collapse, class value_type, std::size_t rows, std::size_t cols, class vector_type>
     auto mat_vec(const Matrix<value_type, rows, cols>& A, const vector_type& x)
     {
         // 'vector_type' can be an xt::view or a CollapsArray
 
-        CollapsArray<value_type, rows, SOA> res = zeros<CollapsMatrix<value_type, rows, cols>>();
-        if constexpr (rows == 1 && cols == 1)
+        CollapsArray<value_type, rows, SOA, can_collapse> res = zeros<CollapsMatrix<value_type, rows, cols, can_collapse>>();
+        if constexpr (rows == 1 && cols == 1 && can_collapse)
         {
             res = A * x;
         }

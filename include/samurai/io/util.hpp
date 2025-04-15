@@ -18,7 +18,7 @@ namespace samurai
             for_each_cell(submesh,
                           [&](auto cell)
                           {
-                              if constexpr (Field::n_comp == 1)
+                              if constexpr (Field::is_scalar)
                               {
                                   data(index, 0) = field[cell];
                               }

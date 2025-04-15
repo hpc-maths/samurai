@@ -70,7 +70,7 @@ int main(int argc, char* argv[])
     while (true)
     {
         std::cout << "Iteration for remove intersection: " << ite++ << "\n";
-        auto tag = samurai::make_field<bool, 1>("tag", ca);
+        auto tag = samurai::make_scalar_field<bool>("tag", ca);
         tag.fill(false);
 
         for (std::size_t level = ca.min_level() + 1; level <= ca.max_level(); ++level)
@@ -138,7 +138,7 @@ int main(int argc, char* argv[])
     while (true)
     {
         std::cout << "Iteration for graduation: " << ite++ << "\n";
-        auto tag = samurai::make_field<bool, 1>("tag", ca);
+        auto tag = samurai::make_scalar_field<bool>("tag", ca);
         tag.fill(false);
 
         for (std::size_t level = ca.min_level() + 2; level <= ca.max_level(); ++level)

@@ -25,7 +25,7 @@ template <class Field>
 void save(const fs::path& path, const std::string& filename, const Field& u, const std::string& suffix = "")
 {
     auto mesh   = u.mesh();
-    auto level_ = samurai::make_field<std::size_t, 1>("level", mesh);
+    auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
 
     if (!fs::exists(path))
     {
@@ -120,10 +120,10 @@ int main_dim(int argc, char* argv[])
     Box box(box_corner1, box_corner2);
     samurai::MRMesh<Config> mesh;
 
-    auto u    = samurai::make_field<n_comp>("u", mesh);
-    auto u1   = samurai::make_field<n_comp>("u1", mesh);
-    auto u2   = samurai::make_field<n_comp>("u2", mesh);
-    auto unp1 = samurai::make_field<n_comp>("unp1", mesh);
+    auto u    = samurai::make_vector_field<n_comp>("u", mesh);
+    auto u1   = samurai::make_vector_field<n_comp>("u1", mesh);
+    auto u2   = samurai::make_vector_field<n_comp>("u2", mesh);
+    auto unp1 = samurai::make_vector_field<n_comp>("unp1", mesh);
 
     if (restart_file.empty())
     {

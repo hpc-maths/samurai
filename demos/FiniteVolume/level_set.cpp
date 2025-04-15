@@ -50,7 +50,7 @@ auto init_velocity(Mesh& mesh)
     using mesh_id_t = typename Mesh::mesh_id_t;
     const double PI = xt::numeric_constants<double>::PI;
 
-    auto u = samurai::make_field<double, 2>("u", mesh);
+    auto u = samurai::make_vector_field<double, 2>("u", mesh);
     u.fill(0);
 
     samurai::for_each_cell(mesh[mesh_id_t::cells_and_ghosts],
@@ -231,7 +231,7 @@ template <class Field, class Phi>
 void save(const fs::path& path, const std::string& filename, const Field& u, const Phi& phi, const std::string& suffix = "")
 {
     auto mesh   = u.mesh();
-    auto level_ = samurai::make_field<std::size_t, 1>("level", mesh);
+    auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
 
     if (!fs::exists(path))
     {
@@ -293,7 +293,7 @@ int main(int argc, char* argv[])
 
     const samurai::Box<double, dim> box(min_corner, max_corner);
     samurai::amr::Mesh<Config> mesh;
-    auto phi = samurai::make_field<double, 1>("phi", mesh);
+    auto phi = samurai::make_scalar_field<double>("phi", mesh);
 
     if (restart_file.empty())
     {
@@ -310,10 +310,10 @@ int main(int argc, char* argv[])
 
     auto u = init_velocity(mesh);
 
-    auto phinp1 = samurai::make_field<double, 1>("phi", mesh);
-    auto phihat = samurai::make_field<double, 1>("phi", mesh);
+    auto phinp1 = samurai::make_scalar_field<double>("phi", mesh);
+    auto phihat = samurai::make_scalar_field<double>("phi", mesh);
     samurai::make_bc<samurai::Neumann<1>>(phihat, 0.);
-    auto tag = samurai::make_field<int, 1>("tag", mesh);
+    auto tag = samurai::make_scalar_field<int>("tag", mesh);
 
     const xt::xtensor_fixed<int, xt::xshape<4, 2>> stencil_grad{
         {1,  0 },

@@ -142,7 +142,7 @@ namespace samurai
             double* v_data;
             VecGetArray(v, &v_data);
 
-            if constexpr (Field::n_comp == 1)
+            if constexpr (Field::is_scalar)
             {
                 v_data[0] = f[cell];
             }
@@ -160,7 +160,7 @@ namespace samurai
         template <class Field>
         Vec create_petsc_vector_from(Field& f, const typename Field::cell_t& cell)
         {
-            static_assert(Field::n_comp == 1 || !Field::is_soa);
+            static_assert(Field::is_scalar || !detail::is_soa_v<Field>);
 
             Vec v;
             auto vec_size        = static_cast<PetscInt>(Field::n_comp);
@@ -179,7 +179,7 @@ namespace samurai
             const double* v_data;
             VecGetArrayRead(v, &v_data);
 
-            if constexpr (Field::n_comp == 1)
+            if constexpr (Field::is_scalar)
             {
                 f[cell] = v_data[0];
             }

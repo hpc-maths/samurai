@@ -90,7 +90,7 @@ int main()
             std::cout << "difference found in " << i << std::endl;
         });
 
-    auto u = samurai::make_field<double, 1>("u", ca);
+    auto u = samurai::make_scalar_field<double>("u", ca);
     u.fill(0);
     samurai::for_each_cell(ca[1],
                            [&](auto cell)

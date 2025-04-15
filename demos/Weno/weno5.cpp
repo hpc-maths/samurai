@@ -100,7 +100,7 @@ template <class Mesh>
 auto init_field(Mesh& mesh)
 {
     using mesh_id_t = typename Mesh::mesh_id_t;
-    auto field      = samurai::make_field<double, 1>("sol", mesh);
+    auto field      = samurai::make_scalar_field<double>("sol", mesh);
 
     samurai::for_each_cell(mesh[mesh_id_t::cells_and_ghosts],
                            [&](auto& cell)
@@ -118,7 +118,7 @@ auto init_velocity(Mesh& mesh)
 {
     using mesh_id_t = typename Mesh::mesh_id_t;
 
-    auto u = samurai::make_field<double, 2>("u", mesh);
+    auto u = samurai::make_vector_field<double, 2>("u", mesh);
     u.fill(0);
 
     samurai::for_each_cell(mesh[mesh_id_t::cells_and_ghosts],
@@ -371,7 +371,7 @@ int main()
     auto field = init_field(mesh);
     auto vel   = init_velocity(mesh);
 
-    auto field_np1 = samurai::make_field<double, 1>("sol", mesh);
+    auto field_np1 = samurai::make_scalar_field<double>("sol", mesh);
 
     double dt           = 0.5 / (1 << start_level);
     std::size_t max_ite = 50;

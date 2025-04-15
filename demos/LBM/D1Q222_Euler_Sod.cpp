@@ -147,7 +147,7 @@ auto init_f(samurai::MROMesh<Config>& mesh, const double lambda)
     using mesh_id_t            = typename samurai::MROMesh<Config>::mesh_id_t;
     constexpr std::size_t nvel = 6;
 
-    auto f = samurai::make_field<double, nvel>("f", mesh);
+    auto f = samurai::make_vector_field<double, nvel>("f", mesh);
     f.fill(0);
 
     double gamma = 1.4;
@@ -199,11 +199,11 @@ void one_time_step(Field& f, const Pred& pred_coeff, Func&& update_bc_for_level,
     samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
     samurai::update_overleaves_mr(f, std::forward<Func>(update_bc_for_level));
 
-    auto new_f = samurai::make_field<double, nvel>("new_f", mesh);
+    auto new_f = samurai::make_vector_field<double, nvel>("new_f", mesh);
     new_f.fill(0.);
-    auto advected_f = samurai::make_field<double, nvel>("advected_f", mesh);
+    auto advected_f = samurai::make_vector_field<double, nvel>("advected_f", mesh);
     advected_f.fill(0.);
-    auto help_f = samurai::make_field<double, nvel>("help_f", mesh);
+    auto help_f = samurai::make_vector_field<double, nvel>("help_f", mesh);
     help_f.fill(0.);
 
     for (std::size_t level = 0; level <= max_level; ++level)
@@ -358,10 +358,10 @@ void save_solution(Field& f, double eps, std::size_t ite, std::string ext = "")
     std::stringstream str;
     str << "LBM_D1Q2_Vectorial_Euler_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-" << eps << "_ite-" << ite;
 
-    auto level_ = samurai::make_field<std::size_t, 1>("level", mesh);
-    auto rho    = samurai::make_field<double, 1>("rho", mesh);
-    auto q      = samurai::make_field<double, 1>("q", mesh);
-    auto e      = samurai::make_field<double, 1>("e", mesh);
+    auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
+    auto rho    = samurai::make_scalar_field<double>("rho", mesh);
+    auto q      = samurai::make_scalar_field<double>("q", mesh);
+    auto e      = samurai::make_scalar_field<double>("e", mesh);
 
     samurai::for_each_cell(mesh[mesh_id_t::cells],
                            [&](auto& cell)

@@ -155,7 +155,7 @@ namespace samurai
                                             Vec x;
                                             Vec b;
 
-                                            if constexpr (n > 1 && field_t::is_soa)
+                                            if constexpr (n > 1 && detail::is_soa_v<field_t>)
                                             {
                                                 VecCreateSeq(PETSC_COMM_SELF, n, &x);
                                                 copy(unknown(), cell, x);
@@ -176,7 +176,7 @@ namespace samurai
 
                                             solve_system(snes, b, x);
 
-                                            if constexpr (n > 1 && field_t::is_soa)
+                                            if constexpr (n > 1 && detail::is_soa_v<field_t>)
                                             {
                                                 copy(x, unknown(), cell);
                                             }
@@ -238,7 +238,7 @@ namespace samurai
                 // In this case, jac = B, but Petsc recommends we assemble B for more general cases.
                 auto jac_stencil_coeffs = scheme.scheme_definition().local_jacobian_function(cell, x_field);
                 auto& jac_coeffs        = jac_stencil_coeffs[0]; // local stencil (of size 1)
-                if constexpr (field_t::n_comp == 1)
+                if constexpr (field_t::is_scalar)
                 {
                     MatSetValue(B, 0, 0, jac_coeffs, INSERT_VALUES);
                 }
