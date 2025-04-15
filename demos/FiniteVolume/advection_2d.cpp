@@ -158,9 +158,9 @@ void flux_correction(double dt, const std::array<double, 2>& a, const Field& u, 
 template <class Field>
 void save(const fs::path& path, const std::string& filename, const Field& u, const std::string& suffix = "")
 {
-    auto mesh    = u.mesh();
-    auto level_  = samurai::make_field<std::size_t, 1>("level", mesh);
-    auto domain_ = samurai::make_field<int, 1>("domain", mesh);
+    auto mesh   = u.mesh();
+    auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
+    auto domain_ = samurai::make_scalar_field<int>("domain", mesh);    
 
     if (!fs::exists(path))
     {
@@ -246,7 +246,7 @@ int main(int argc, char* argv[])
 
     const samurai::Box<double, dim> box(min_corner, max_corner);
     samurai::MRMesh<Config> mesh;
-    auto u = samurai::make_field<double, 1>("u", mesh);
+    auto u = samurai::make_scalar_field<double>("u", mesh);
 
     if (restart_file.empty())
     {
@@ -262,7 +262,7 @@ int main(int argc, char* argv[])
     double dt            = cfl * mesh.cell_length(max_level);
     const double dt_save = Tf / static_cast<double>(nfiles);
 
-    auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
+    auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);
 
     auto MRadaptation = samurai::make_MRAdapt(u);
 

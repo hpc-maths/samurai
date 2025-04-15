@@ -204,11 +204,11 @@ namespace samurai
             // Global data index
             inline PetscInt col_index(PetscInt cell_index, [[maybe_unused]] unsigned int field_j) const
             {
-                if constexpr (n_comp == 1)
+                if constexpr (field_t::is_scalar)
                 {
                     return m_col_shift + cell_index;
                 }
-                else if constexpr (field_t::is_soa)
+                else if constexpr (detail::is_soa_v<field_t>)
                 {
                     return m_col_shift + static_cast<PetscInt>(field_j * m_n_cells) + cell_index;
                 }
@@ -224,7 +224,7 @@ namespace samurai
                 {
                     return m_row_shift + cell_index;
                 }
-                else if constexpr (field_t::is_soa)
+                else if constexpr (detail::is_soa_v<field_t>)
                 {
                     return m_row_shift + static_cast<PetscInt>(field_i * m_n_cells) + cell_index;
                 }
@@ -247,7 +247,7 @@ namespace samurai
             template <class Coeffs>
             inline double rhs_coeff(const Coeffs& coeffs, [[maybe_unused]] unsigned int field_i, [[maybe_unused]] unsigned int field_j) const
             {
-                if constexpr (n_comp == 1 && output_n_comp == 1)
+                if constexpr (field_t::is_scalar && output_n_comp == 1)
                 {
                     return coeffs;
                 }
@@ -569,7 +569,7 @@ namespace samurai
                         assert(coeff != 0);
 
                         double bc_value;
-                        if constexpr (n_comp == 1)
+                        if constexpr (field_t::is_scalar)
                         {
                             bc_value = bc->value({}, {}, boundary_point);
                         }

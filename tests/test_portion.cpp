@@ -11,7 +11,7 @@ namespace samurai
     auto init(Mesh& mesh)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
-        auto u          = make_field<double, 1>("u", mesh);
+        auto u          = make_scalar_field<double>("u", mesh);
         for_each_cell(mesh[mesh_id_t::cells],
                       [&](const auto& cell)
                       {

@@ -17,7 +17,7 @@ int main()
     samurai::CellArray<dim> ca{cl};
 
     // Initialize field u on this mesh
-    auto u = samurai::make_field<double, 1>("u", ca);
+    auto u = samurai::make_scalar_field<double>("u", ca);
     samurai::for_each_cell(ca,
                            [&](auto cell)
                            {

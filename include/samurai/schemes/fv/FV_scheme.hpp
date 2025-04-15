@@ -31,7 +31,7 @@ namespace samurai
     {
         static constexpr std::size_t n_comp = Field::n_comp;
         using field_value_type              = typename Field::value_type;
-        using coeffs_t                      = CollapsMatrix<field_value_type, output_n_comp, n_comp>;
+        using coeffs_t                      = CollapsMatrix<field_value_type, output_n_comp, n_comp, Field::is_scalar>;
 
         using stencil_coeffs_t = std::array<coeffs_t, bdry_stencil_size>;
         using rhs_coeffs_t     = coeffs_t;
@@ -110,7 +110,9 @@ namespace samurai
         static constexpr std::size_t bdry_stencil_size        = bdry_cfg::stencil_size;
         static constexpr std::size_t nb_bdry_ghosts           = bdry_cfg::nb_ghosts;
 
-        using output_field_t = Field<mesh_t, field_value_type, output_n_comp, input_field_t::is_soa>;
+        using output_field_t = std::conditional_t<input_field_t::is_scalar && output_n_comp == 1,
+                                                  ScalarField<mesh_t, field_value_type>,
+                                                  VectorField<mesh_t, field_value_type, output_n_comp, detail::is_soa_v<input_field_t>>>;
 
         using dirichlet_t = DirichletImpl<nb_bdry_ghosts, field_t>;
         using neumann_t   = NeumannImpl<nb_bdry_ghosts, field_t>;
@@ -210,7 +212,7 @@ namespace samurai
                                            [[maybe_unused]] size_type field_i,
                                            [[maybe_unused]] size_type field_j) const
         {
-            if constexpr (n_comp == 1 && output_n_comp == 1)
+            if constexpr (field_t::is_scalar && output_n_comp == 1)
             {
                 return coeffs[cell_number_in_stencil];
             }
@@ -225,7 +227,7 @@ namespace samurai
                                                 [[maybe_unused]] size_type field_i,
                                                 [[maybe_unused]] size_type field_j) const
         {
-            if constexpr (n_comp == 1 && output_n_comp == 1)
+            if constexpr (field_t::is_scalar && output_n_comp == 1)
             {
                 return coeffs[cell_number_in_stencil];
             }

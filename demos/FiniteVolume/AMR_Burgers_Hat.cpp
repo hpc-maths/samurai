@@ -126,7 +126,7 @@ template <class Field>
 void save(const fs::path& path, const std::string& filename, const Field& u, const std::string& suffix = "")
 {
     auto mesh   = u.mesh();
-    auto level_ = samurai::make_field<std::size_t, 1>("level", mesh);
+    auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
 
     if (!fs::exists(path))
     {
@@ -237,7 +237,7 @@ int main(int argc, char* argv[])
 
     const samurai::Box<double, dim> box({left_box}, {right_box});
     samurai::amr::Mesh<Config> mesh;
-    auto phi = samurai::make_field<double, 1>("phi", mesh);
+    auto phi = samurai::make_scalar_field<double>("phi", mesh);
 
     if (restart_file.empty())
     {
@@ -251,9 +251,9 @@ int main(int argc, char* argv[])
 
     samurai::make_bc<samurai::Neumann<1>>(phi, 0.);
 
-    auto phinp1 = samurai::make_field<double, 1>("phi", mesh);
+    auto phinp1 = samurai::make_scalar_field<double>("phi", mesh);
 
-    auto tag = samurai::make_field<int, 1>("tag", mesh);
+    auto tag = samurai::make_scalar_field<int>("tag", mesh);
     const xt::xtensor_fixed<int, xt::xshape<2, 1>> stencil_grad{{1}, {-1}};
 
     const double dx      = mesh.cell_length(max_level);

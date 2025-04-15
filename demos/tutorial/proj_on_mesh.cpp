@@ -12,7 +12,7 @@ template <class Mesh>
 auto init_field(Mesh& mesh, double dec)
 {
     static constexpr std::size_t dim = Mesh::dim;
-    auto f                           = samurai::make_field<double, 1>("u", mesh);
+    auto f                           = samurai::make_scalar_field<double>("u", mesh);
     f.fill(0.);
     samurai::for_each_cell(
         mesh,

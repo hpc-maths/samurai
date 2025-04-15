@@ -39,7 +39,7 @@ auto init_f(Mesh& mesh, int config, double lambda)
     constexpr std::size_t nvel = 16;
     using mesh_id_t            = typename Mesh::mesh_id_t;
 
-    auto f = samurai::make_field<double, nvel>("f", mesh);
+    auto f = samurai::make_vector_field<double, nvel>("f", mesh);
     f.fill(0);
 
     samurai::for_each_cell(
@@ -312,11 +312,11 @@ void save_solution(Field& f, std::size_t ite, std::string ext = "")
     std::stringstream str;
     str << "LBM_D2Q4_3_Euler_Uniform_ite-" << ite;
 
-    auto rho = samurai::make_field<value_t, 1>("rho", mesh);
-    auto qx  = samurai::make_field<value_t, 1>("qx", mesh);
-    auto qy  = samurai::make_field<value_t, 1>("qy", mesh);
-    auto e   = samurai::make_field<value_t, 1>("e", mesh);
-    auto s   = samurai::make_field<value_t, 1>("entropy", mesh);
+    auto rho = samurai::make_scalar_field<value_t>("rho", mesh);
+    auto qx  = samurai::make_scalar_field<value_t>("qx", mesh);
+    auto qy  = samurai::make_scalar_field<value_t>("qy", mesh);
+    auto e   = samurai::make_scalar_field<value_t>("e", mesh);
+    auto s   = samurai::make_scalar_field<value_t>("entropy", mesh);
 
     samurai::for_each_cell(mesh[mesh_id_t::cells],
                            [&](auto& cell)

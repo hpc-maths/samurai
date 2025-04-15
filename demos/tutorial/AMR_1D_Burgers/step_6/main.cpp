@@ -95,7 +95,7 @@ int main(int argc, char* argv[])
         std::size_t i_adapt = 0;
         while (i_adapt < (max_level - min_level + 1))
         {
-            auto tag = samurai::make_field<std::size_t, 1>("tag", mesh);
+            auto tag = samurai::make_scalar_field<std::size_t>("tag", mesh);
 
             fmt::print("adaptation iteration : {:4d}\n", i_adapt++);
             update_ghost(phi);
@@ -109,13 +109,13 @@ int main(int argc, char* argv[])
         }
 
         update_ghost(phi);
-        auto phi_np1 = samurai::make_field<double, 1>("phi", mesh);
+        auto phi_np1 = samurai::make_scalar_field<double>("phi", mesh);
 
         update_sol(dt, phi, phi_np1);
 
         if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
         {
-            auto level = samurai::make_field<std::size_t, 1>("level", mesh);
+            auto level = samurai::make_scalar_field<std::size_t>("level", mesh);
             samurai::for_each_interval(mesh[MeshID::cells],
                                        [&](std::size_t lvl, const auto& i, auto)
                                        {

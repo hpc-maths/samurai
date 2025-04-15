@@ -29,7 +29,7 @@ template <class Field>
 void save(const fs::path& path, const std::string& filename, const Field& u, const std::string& suffix = "")
 {
     auto mesh   = u.mesh();
-    auto level_ = samurai::make_field<std::size_t, 1>("level", mesh);
+    auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
 
     if (!fs::exists(path))
     {
@@ -122,45 +122,38 @@ int main(int argc, char* argv[])
     std::array<bool, dim> periodic;
     periodic.fill(true);
     samurai::MRMesh<Config> mesh;
-    auto u = samurai::make_field<1>("u", mesh);
+    auto u = samurai::make_scalar_field<double>("u", mesh);
 
     if (restart_file.empty())
     {
         mesh = {box, min_level, max_level, periodic};
         // Initial solution
-        u = samurai::make_field<1>("u",
-                                   mesh,
-                                   [](const auto& coords)
-                                   {
-                                       if constexpr (dim == 1)
-                                       {
-                                           const auto& x = coords(0);
-                                           return (x >= -0.8 && x <= -0.3) ? 1. : 0.;
-                                       }
-                                       else
-                                       {
-                                           const auto& x = coords(0);
-                                           const auto& y = coords(1);
-                                           return (x >= -0.8 && x <= -0.3 && y >= 0.3 && y <= 0.8) ? 1. : 0.;
-                                       }
-                                   });
+        u = samurai::make_scalar_field<double>("u",
+                                               mesh,
+                                               [](const auto& coords)
+                                               {
+                                                   if constexpr (dim == 1)
+                                                   {
+                                                       const auto& x = coords(0);
+                                                       return (x >= -0.8 && x <= -0.3) ? 1. : 0.;
+                                                   }
+                                                   else
+                                                   {
+                                                       const auto& x = coords(0);
+                                                       const auto& y = coords(1);
+                                                       return (x >= -0.8 && x <= -0.3 && y >= 0.3 && y <= 0.8) ? 1. : 0.;
+                                                   }
+                                               });
     }
     else
     {
         samurai::load(restart_file, mesh, u);
     }
 
-    samurai::times::timers.stop("init");
-
-    auto unp1 = samurai::make_field<double, 1>("unp1", mesh);
+    auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);
     // Intermediary fields for the RK3 scheme
-    auto u1 = samurai::make_field<double, 1>("u1", mesh);
-    auto u2 = samurai::make_field<double, 1>("u2", mesh);
-
-    samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
-    samurai::make_bc<samurai::Dirichlet<1>>(unp1, 0.);
-    samurai::make_bc<samurai::Dirichlet<1>>(u1, 0.);
-    samurai::make_bc<samurai::Dirichlet<1>>(u2, 0.); 
+    auto u1 = samurai::make_scalar_field<double>("u1", mesh);
+    auto u2 = samurai::make_scalar_field<double>("u2", mesh);
 
     unp1.fill(0);
     u1.fill(0);

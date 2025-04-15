@@ -92,7 +92,7 @@ namespace samurai
 
         static constexpr std::size_t dim           = Field::dim;
         static constexpr std::size_t n_comp        = Field::n_comp;
-        static constexpr bool is_soa               = Field::is_soa;
+        static constexpr bool is_soa               = detail::is_soa_v<Field>;
         static constexpr std::size_t output_n_comp = n_comp;
         static constexpr std::size_t stencil_size  = 6;
 
@@ -220,7 +220,7 @@ namespace samurai
 
         static constexpr std::size_t dim           = Field::dim;
         static constexpr std::size_t n_comp        = Field::n_comp;
-        static constexpr bool is_soa               = Field::is_soa;
+        static constexpr bool is_soa               = detail::is_soa_v<Field>;
         static constexpr std::size_t output_n_comp = n_comp;
         static constexpr std::size_t stencil_size  = 6;
 

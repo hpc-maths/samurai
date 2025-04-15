@@ -135,7 +135,7 @@ template <class Mesh>
 auto init_f(Mesh& mesh, double t, double ad_vel, double lambda, int test_number)
 {
     using mesh_id_t = typename Mesh::mesh_id_t;
-    auto f          = samurai::make_field<double, 2>("f", mesh);
+    auto f          = samurai::make_vector_field<double, 2>("f", mesh);
 
     samurai::for_each_cell(mesh[mesh_id_t::cells],
                            [&](auto& cell)
@@ -167,7 +167,7 @@ void one_time_step(Field& f, Func&& update_bc_for_level, double s_rel, double la
 
     samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
 
-    auto new_f = samurai::make_field<double, nvel>("new_f", mesh);
+    auto new_f = samurai::make_vector_field<double, nvel>("new_f", mesh);
     samurai::for_each_interval(mesh[mesh_id_t::cells][max_level],
                                [&](std::size_t level, auto& i, auto&)
                                {

@@ -169,7 +169,7 @@ auto init_f(samurai::MROMesh<Config>& mesh, const double radius, double rho0, do
     using mesh_id_t            = typename samurai::MROMesh<Config>::mesh_id_t;
     constexpr std::size_t nvel = 9;
 
-    auto f = samurai::make_field<double, nvel>("f", mesh);
+    auto f = samurai::make_vector_field<double, nvel>("f", mesh);
     f.fill(0);
 
     samurai::for_each_cell(mesh[mesh_id_t::cells],
@@ -1317,11 +1317,11 @@ void save_solution(Field& f, double eps, std::size_t ite, double lambda, std::st
     std::stringstream str;
     str << "LBM_D2Q9_von_Karman_street_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-" << eps << "_ite-" << ite;
 
-    auto level_  = samurai::make_field<std::size_t, 1>("level", mesh);
-    auto rho     = samurai::make_field<value_t, 1>("rho", mesh);
-    auto qx      = samurai::make_field<value_t, 1>("qx", mesh);
-    auto qy      = samurai::make_field<value_t, 1>("qy", mesh);
-    auto vel_mod = samurai::make_field<value_t, 1>("vel_modulus", mesh);
+    auto level_  = samurai::make_scalar_field<std::size_t>("level", mesh);
+    auto rho     = samurai::make_scalar_field<value_t>("rho", mesh);
+    auto qx      = samurai::make_scalar_field<value_t>("qx", mesh);
+    auto qy      = samurai::make_scalar_field<value_t>("qy", mesh);
+    auto vel_mod = samurai::make_scalar_field<value_t>("vel_modulus", mesh);
 
     samurai::for_each_cell(mesh[mesh_id_t::cells],
                            [&](auto& cell)
