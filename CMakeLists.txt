@@ -111,7 +111,7 @@ endif()
 
 # Force HIGHFIVE_USE_INSTALL_DEPS option to be true
 option(HIGHFIVE_USE_INSTALL_DEPS "End applications by default use detected dependencies here" OFF)
-option(HIGHFIVE_USE_XTENSOR OFF)
+option(HIGHFIVE_USE_XTENSOR OFF CACHE BOOL FORCE)
 
 
 foreach(DEPENDENCY ${DEPENDENCIES_CONFIGURED})
