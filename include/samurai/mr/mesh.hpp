@@ -226,7 +226,9 @@ namespace samurai
             }
             this->cells()[mesh_id_t::all_cells] = {cell_list, false};
 
-            this->update_mesh_neighbour();
+            // this->update_mesh_neighbour();
+            this->update_neighbour_cells_and_ghosts();
+            this->update_neighbour_reference();
 
             for (auto& neighbour : this->mpi_neighbourhood())
             {
@@ -339,11 +341,14 @@ namespace samurai
                 this->cells()[mesh_id_t::all_cells][level + 1] = lcl;
                 this->cells()[mesh_id_t::proj_cells][level]    = lcl_proj;
             }
-            this->update_mesh_neighbour();
+            // this->update_mesh_neighbour();
+            this->update_neighbour_subdomain();
+            this->update_neighbour_all_cells();
         }
         else
         {
             this->cells()[mesh_id_t::all_cells] = {cell_list, false};
+            // TODO : what to send here ?
             this->update_mesh_neighbour();
         }
     }
