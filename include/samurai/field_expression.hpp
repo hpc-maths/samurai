@@ -11,8 +11,7 @@
 #else
 #include <xtensor/core/xexpression.hpp>
 #include <xtensor/core/xmath.hpp>
-#endif
-
+#end
 #include "cell.hpp"
 #include "interval.hpp"
 #include "samurai_config.hpp"
@@ -31,7 +30,11 @@ namespace samurai
     };
 
     template <class... E>
+#if XTENSOR_VERSION_MINOR < 26
+    struct field_comparable : xtl::conjunction<is_field_expression<E>...>
+#else
     struct field_comparable : std::conjunction<is_field_expression<E>...>
+#endif
     {
     };
 
