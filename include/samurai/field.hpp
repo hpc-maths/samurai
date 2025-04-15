@@ -14,8 +14,6 @@ namespace fs = std::filesystem;
 
 #include <fmt/format.h>
 
-#include <xtensor/core/xtensor_config.hpp>
-
 #if XTENSOR_VERSION_MINOR < 26
 #include <xtensor/xtensor.hpp>
 #include <xtensor/xview.hpp>
