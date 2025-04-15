@@ -3,10 +3,14 @@
 
 #include <filesystem>
 
-#include <xtensor/xfixed.hpp>
-#include <xtensor/xmasked_view.hpp>
-#include <xtensor/xrandom.hpp>
-#include <xtensor/xview.hpp>
+// #include <xtensor/xfixed.hpp>
+// #include <xtensor/xmasked_view.hpp>
+// #include <xtensor/xrandom.hpp>
+// #include <xtensor/xview.hpp>
+#include <xtensor/containers/xfixed.hpp>
+#include <xtensor/generators/xrandom.hpp>
+#include <xtensor/views/xmasked_view.hpp>
+#include <xtensor/views/xview.hpp>
 
 #include <samurai/box.hpp>
 #include <samurai/cell_array.hpp>
