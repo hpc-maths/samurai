@@ -8,8 +8,10 @@
 #endif
 #include <type_traits>
 
-#include <xtensor/xfixed.hpp>
-#include <xtensor/xview.hpp>
+// #include <xtensor/xfixed.hpp>
+// #include <xtensor/xview.hpp>
+#include <xtensor/containers/xfixed.hpp>
+#include <xtensor/views/xview.hpp>
 
 #include "cell.hpp"
 #include "mesh_holder.hpp"

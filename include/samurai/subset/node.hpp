@@ -10,7 +10,8 @@
 #include <type_traits>
 #include <utility>
 
-#include <xtensor/xfixed.hpp>
+// #include <xtensor/xfixed.hpp>
+#include <xtensor/containers/xfixed.hpp>
 
 #include "../algorithm.hpp"
 #include "apply.hpp"

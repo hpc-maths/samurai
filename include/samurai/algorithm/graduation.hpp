@@ -3,8 +3,10 @@
 
 #pragma once
 
-#include <xtensor/xmasked_view.hpp>
-#include <xtensor/xtensor.hpp>
+// #include <xtensor/xmasked_view.hpp>
+// #include <xtensor/xtensor.hpp>
+#include <xtensor/containers/xtensor.hpp>
+#include <xtensor/views/xmasked_view.hpp>
 
 #include "../array_of_interval_and_point.hpp"
 #include "../cell_flag.hpp"

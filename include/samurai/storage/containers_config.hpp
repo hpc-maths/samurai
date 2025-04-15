@@ -14,7 +14,8 @@
     // #define EIGEN_DEFAULT_DENSE_INDEX_TYPE int64_t
     #include "eigen/eigen.hpp"
 #else
-    #include "xtensor/xtensor.hpp"
+//    #include "xtensor/xtensor.hpp"
+    #include "xtensor/containers/xtensor.hpp"
 #endif
 #include "xtensor/xtensor_static.hpp"
 

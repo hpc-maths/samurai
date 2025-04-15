@@ -4,9 +4,13 @@
 #pragma once
 
 // #include <xtensor/xlayout.hpp>
-#include <xtensor/xnoalias.hpp>
-#include <xtensor/xtensor.hpp>
-#include <xtensor/xview.hpp>
+
+// #include <xtensor/xnoalias.hpp>
+// #include <xtensor/xtensor.hpp>
+// #include <xtensor/xview.hpp>
+#include <xtensor/containers/xtensor.hpp>
+#include <xtensor/core/xnoalias.hpp>
+#include <xtensor/views/xview.hpp>
 
 #include "../utils.hpp"
 

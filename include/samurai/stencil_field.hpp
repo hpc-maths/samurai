@@ -3,9 +3,12 @@
 
 #pragma once
 
-#include <xtensor/xadapt.hpp>
-#include <xtensor/xfunction.hpp>
-#include <xtensor/xmasked_view.hpp>
+// #include <xtensor/xadapt.hpp>
+// #include <xtensor/xfunction.hpp>
+// #include <xtensor/xmasked_view.hpp>
+#include <xtensor/containers/xadapt.hpp>
+#include <xtensor/core/xfunction.hpp>
+#include <xtensor/views/xmasked_view.hpp>
 
 #include "cell.hpp"
 #include "field_expression.hpp"

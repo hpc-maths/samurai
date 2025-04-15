@@ -22,9 +22,13 @@ namespace fs = std::filesystem;
 #include <highfive/H5Easy.hpp>
 #include <highfive/H5PropertyList.hpp>
 #include <pugixml.hpp>
-#include <xtensor/xadapt.hpp>
-#include <xtensor/xarray.hpp>
-#include <xtensor/xview.hpp>
+
+// #include <xtensor/xadapt.hpp>
+// #include <xtensor/xarray.hpp>
+// #include <xtensor/xview.hpp>
+#include <xtensor/containers/xadapt.hpp>
+#include <xtensor/containers/xarray.hpp>
+#include <xtensor/views/xview.hpp>
 
 #include <fmt/core.h>
 
