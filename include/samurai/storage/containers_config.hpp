@@ -28,7 +28,10 @@
 
 // clang-format on
 
+#if XTENSOR_VERSION_MINOR < 26
+#else
 using namespace xt;
+#endif
 
 namespace samurai
 {
