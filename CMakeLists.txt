@@ -138,17 +138,6 @@ if(SAMURAI_FIELD_CONTAINER MATCHES xtensor)
     xtensor
   )
 
-file(STRINGS "/home/sbstndbs/xtensor/include/xtensor/core/xtensor_config.hpp" xtensor_version_defines
-     REGEX "#define XTENSOR_VERSION_(MAJOR|MINOR|PATCH)")
-foreach(ver ${xtensor_version_defines})
-    if(ver MATCHES "#define XTENSOR_VERSION_(MAJOR|MINOR|PATCH) +([^ ]+)$")
-        set(XTENSOR_VERSION_${CMAKE_MATCH_1} "${CMAKE_MATCH_2}" CACHE INTERNAL "")
-    endif()
-endforeach()
-set(${PROJECT_NAME}_VERSION
-    ${XTENSOR_VERSION_MAJOR}.${XTENSOR_VERSION_MINOR}.${XTENSOR_VERSION_PATCH})
-message(STATUS "Building xtensor v${${PROJECT_NAME}_VERSION}")
-add_definitions(-DXTENSOR_VERSION_MINOR=${XTENSOR_VERSION_MINOR})
 
 
 endif()
