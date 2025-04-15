@@ -5,12 +5,15 @@
 
 // #include <xtensor/xlayout.hpp>
 
-// #include <xtensor/xnoalias.hpp>
-// #include <xtensor/xtensor.hpp>
-// #include <xtensor/xview.hpp>
+#if XTENSOR_VERSION_MINOR < 26
+#include <xtensor/xnoalias.hpp>
+#include <xtensor/xtensor.hpp>
+#include <xtensor/xview.hpp>
+#else
 #include <xtensor/containers/xtensor.hpp>
 #include <xtensor/core/xnoalias.hpp>
 #include <xtensor/views/xview.hpp>
+#endif
 
 #include "../utils.hpp"
 
