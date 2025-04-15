@@ -11,7 +11,7 @@
 #else
 #include <xtensor/core/xexpression.hpp>
 #include <xtensor/core/xmath.hpp>
-#end
+#endif
 #include "cell.hpp"
 #include "interval.hpp"
 #include "samurai_config.hpp"
