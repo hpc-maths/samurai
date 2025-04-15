@@ -3,8 +3,11 @@
 #include <gtest/gtest.h>
 // #include <rapidcheck/gtest.h>
 
-// #include <xtensor/xarray.hpp>
+#if XTENSOR_VERSION_MINOR < 26
+#include <xtensor/xarray.hpp>
+#else
 #include <xtensor/containers/xarray.hpp>
+#endif
 
 #include <samurai/box.hpp>
 

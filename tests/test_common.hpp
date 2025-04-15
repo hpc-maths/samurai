@@ -1,7 +1,10 @@
 #pragma once
 
-// #include <xtensor/xarray.hpp>
+#if XTENSOR_VERSION_MINOR < 26
+#include <xtensor/xarray.hpp>
+#else
 #include <xtensor/containers/xarray.hpp>
+#endif
 
 #include <samurai/interval.hpp>
 #include <samurai/list_of_intervals.hpp>

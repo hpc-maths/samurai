@@ -1,7 +1,10 @@
 #include <gtest/gtest.h>
 
-// #include <xtensor/xfixed.hpp>
+#if XTENSOR_VERSION_MINOR < 26
+#include <xtensor/xfixed.hpp>
+#else
 #include <xtensor/containers/xfixed.hpp>
+#endif
 
 #include <samurai/algorithm.hpp>
 #include <samurai/field.hpp>

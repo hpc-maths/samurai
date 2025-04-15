@@ -1,8 +1,12 @@
 #include <gtest/gtest.h>
-// #include <xtensor/xarray.hpp>
-// #include <xtensor/xrandom.hpp>
+
+#if XTENSOR_VERSION_MINOR < 26
+#include <xtensor/xarray.hpp>
+#include <xtensor/xrandom.hpp>
+#else
 #include <xtensor/containers/xarray.hpp>
 #include <xtensor/generators/xrandom.hpp>
+#endif
 
 #include <samurai/interval.hpp>
 #include <samurai/list_of_intervals.hpp>

@@ -1,10 +1,14 @@
 #include <gtest/gtest.h>
-// #include <xtensor/xarray.hpp>
-#include <xtensor/containers/xarray.hpp>
 
+#if XTENSOR_VERSION_MINOR < 26
+#include <xtensor/xarray.hpp>
+#else
+#include <xtensor/containers/xarray.hpp>
+#endif
+x
 #include <samurai/level_cell_list.hpp>
 
-namespace samurai
+    namespace samurai
 {
     TEST(level_cell_list, add_interval)
     {
