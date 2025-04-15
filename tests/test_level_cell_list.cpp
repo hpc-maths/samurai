@@ -5,10 +5,10 @@
 #else
 #include <xtensor/containers/xarray.hpp>
 #endif
-x
+
 #include <samurai/level_cell_list.hpp>
 
-    namespace samurai
+namespace samurai
 {
     TEST(level_cell_list, add_interval)
     {
