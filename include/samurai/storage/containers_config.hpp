@@ -28,6 +28,8 @@
 
 // clang-format on
 
+using namespace xt;
+
 namespace samurai
 {
     //-----------------//
