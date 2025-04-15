@@ -1,6 +1,10 @@
 #pragma once
-// #include <xtensor/xadapt.hpp>
+
+#if XTENSOR_VERSION_MINOR < 26
+#include <xtensor/xadapt.hpp>
+#else
 #include <xtensor/conatiners/xadapt.hpp>
+#endif
 
 namespace samurai
 {

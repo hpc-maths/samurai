@@ -5,8 +5,11 @@
 
 #include <fmt/format.h>
 
-// #include <xtensor/xtensor.hpp>
+#if XTENSOR_VERSION_MINOR < 26
+#include <xtensor/xtensor.hpp>
+#else
 #include <xtensor/containers/xtensor.hpp>
+#endif
 
 #include "../box.hpp"
 #include "../mesh.hpp"
