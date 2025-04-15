@@ -132,15 +132,29 @@ if(SAMURAI_FIELD_CONTAINER MATCHES xtensor)
   message(STATUS "Using xtensor as field container")
   list(APPEND DEPENDENCIES_CONFIGURED xtensor)
   find_package(xtensor CONFIG REQUIRED)
+
+  if(DEFINED xtensor_VERSION_MINOR)
+      #      message(STATUS "xtensor version detected by find_package: ${xtensor_VERSION}")
+      #      message(STATUS "xtensor minor version: ${xtensor_VERSION_MINOR}")
+
+      # Add the definitions to the samurai target
+      target_compile_definitions(samurai INTERFACE
+          XTENSOR_VERSION_MAJOR=${xtensor_VERSION_MAJOR}
+          XTENSOR_VERSION_MINOR=${xtensor_VERSION_MINOR}
+          XTENSOR_VERSION_PATCH=${xtensor_VERSION_PATCH}
+      )
+
+  endif()
+
   target_link_system_libraries(
     samurai
     INTERFACE
     xtensor
   )
 
-
-
 endif()
+
+
 if(SAMURAI_FIELD_CONTAINER MATCHES eigen3)
   message(STATUS "Using Eigen3 as field container")
 endif()
