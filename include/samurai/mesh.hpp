@@ -644,6 +644,93 @@ namespace samurai
 #endif
     }
 
+    // TODO : find a clever way to factorize the two next functions. For new, I have to duplicate the code 2 times.
+
+    // This function is to only send m_subdomain instead of the whole mesh data
+    template <class D, class Config>
+    inline void Mesh_base<D, Config>::update_subdomain_neighbour()
+    {
+#ifdef SAMURAI_WITH_MPI
+        // send/recv the meshes of the neighbouring subdomains
+        mpi::communicator world;
+        std::vector<mpi::request> req;
+
+        boost::mpi::packed_oarchive::buffer_type buffer;
+        boost::mpi::packed_oarchive oa(world, buffer);
+        oa << derived_cast().subdomain;
+
+        std::transform(m_mpi_neighbourhood.cbegin(),
+                       m_mpi_neighbourhood.cend(),
+                       std::back_inserter(req),
+                       [&](const auto& neighbour)
+                       {
+                           return world.isend(neighbour.rank, neighbour.rank, buffer);
+                       });
+
+        for (auto& neighbour : m_mpi_neighbourhood)
+        {
+            world.recv(neighbour.rank, world.rank(), neighbour.mesh.subdomain);
+        }
+
+        mpi::wait_all(req.begin(), req.end());
+#endif
+    }
+
+    // This function is to only send cells[i] instead of the whole mesh
+    template <class D, class Config, class mesh_id_t MeshID>
+    inline void Mesh_base<D, Config>::update_meshid_neighbour()
+    {
+#ifdef SAMURAI_WITH_MPI
+        // send/recv the meshes of the neighbouring subdomains
+        mpi::communicator world;
+        std::vector<mpi::request> req;
+
+        boost::mpi::packed_oarchive::buffer_type buffer;
+        boost::mpi::packed_oarchive oa(world, buffer);
+        oa << derived_cast()[MeshID];
+
+        std::transform(m_mpi_neighbourhood.cbegin(),
+                       m_mpi_neighbourhood.cend(),
+                       std::back_inserter(req),
+                       [&](const auto& neighbour)
+                       {
+                           return world.isend(neighbour.rank, neighbour.rank, buffer);
+                       });
+
+        for (auto& neighbour : m_mpi_neighbourhood)
+        {
+            world.recv(neighbour.rank, world.rank(), neighbour.mesh[MeshID]);
+        }
+
+        mpi::wait_all(req.begin(), req.end());
+#endif
+    }
+
+    // These are helper functions to send a specific cells[i]
+    template <class D, class Config>
+    inline void Mesh_base<D, Config>::update_neighbour_cells()
+    {
+        update_meshid_neighbour<mesh_id_t::cells>();
+    }
+
+    template <class D, class Config>
+    inline void Mesh_base<D, Config>::update_neighbour_cells_and_ghosts()
+    {
+        update_meshid_neighbour<mesh_id_t::cells_and_ghosts>();
+    }
+
+    template <class D, class Config>
+    inline void Mesh_base<D, Config>::update_neighbour_all_cells()
+    {
+        update_meshid_neighbour<mesh_id_t::all_cells>();
+    }
+
+    template <class D, class Config>
+    inline void Mesh_base<D, Config>::update_neighbour_reference()
+    {
+        update_meshid_neighbour<mesh_id_t::reference>();
+    }
+
     template <class D, class Config>
     inline void Mesh_base<D, Config>::construct_subdomain()
     {
