@@ -89,6 +89,7 @@ namespace samurai
         std::size_t nb_cells(std::size_t level, mesh_id_t mesh_id = mesh_id_t::reference) const;
 
         const ca_type& operator[](mesh_id_t mesh_id) const;
+        ca_type& operator[](mesh_id_t mesh_id);
 
         std::size_t max_level() const;
         std::size_t& max_level();
@@ -409,6 +410,12 @@ namespace samurai
 
     template <class D, class Config>
     inline auto Mesh_base<D, Config>::operator[](mesh_id_t mesh_id) const -> const ca_type&
+    {
+        return m_cells[mesh_id];
+    }
+
+    template <class D, class Config>
+    inline auto Mesh_base<D, Config>::operator[](mesh_id_t mesh_id) -> ca_type&
     {
         return m_cells[mesh_id];
     }
