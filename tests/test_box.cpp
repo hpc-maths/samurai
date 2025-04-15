@@ -3,7 +3,8 @@
 #include <gtest/gtest.h>
 // #include <rapidcheck/gtest.h>
 
-#include <xtensor/xarray.hpp>
+// #include <xtensor/xarray.hpp>
+#include <xtensor/containers/xarray.hpp>
 
 #include <samurai/box.hpp>
 

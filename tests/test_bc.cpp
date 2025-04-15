@@ -4,7 +4,8 @@
 #include <samurai/mr/mesh.hpp>
 #include <samurai/uniform_mesh.hpp>
 
-#include <xtensor/xtensor.hpp>
+// #include <xtensor/xtensor.hpp>
+#include <xtensor/containers/xtensor.hpp>
 
 namespace samurai
 {

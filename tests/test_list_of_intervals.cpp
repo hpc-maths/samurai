@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
-#include <xtensor/xarray.hpp>
-#include <xtensor/xrandom.hpp>
+// #include <xtensor/xarray.hpp>
+// #include <xtensor/xrandom.hpp>
+#include <xtensor/containers/xarray.hpp>
+#include <xtensor/generators/xrandom.hpp>
 
 #include <samurai/interval.hpp>
 #include <samurai/list_of_intervals.hpp>

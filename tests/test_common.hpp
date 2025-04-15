@@ -1,6 +1,7 @@
 #pragma once
 
-#include <xtensor/xarray.hpp>
+// #include <xtensor/xarray.hpp>
+#include <xtensor/containers/xarray.hpp>
 
 #include <samurai/interval.hpp>
 #include <samurai/list_of_intervals.hpp>
