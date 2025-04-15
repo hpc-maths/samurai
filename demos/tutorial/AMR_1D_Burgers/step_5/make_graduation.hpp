@@ -5,8 +5,11 @@
 
 #include <array>
 
-// #include <xtensor/xmasked_view.hpp>
+#if XTENSOR_VERSION_MINOR < 26
+#include <xtensor/xmasked_view.hpp>
+#else
 #include <xtensor/views/xmasked_view.hpp>
+#endif
 
 #include <samurai/algorithm.hpp>
 #include <samurai/cell_flag.hpp>

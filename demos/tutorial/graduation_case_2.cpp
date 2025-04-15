@@ -3,14 +3,17 @@
 
 #include <filesystem>
 
-// #include <xtensor/xfixed.hpp>
-// #include <xtensor/xmasked_view.hpp>
-// #include <xtensor/xrandom.hpp>
-// #include <xtensor/xview.hpp>
+#if XTENSOR_VERSION_MINOR < 26
+#include <xtensor/xfixed.hpp>
+#include <xtensor/xmasked_view.hpp>
+#include <xtensor/xrandom.hpp>
+#include <xtensor/xview.hpp>
+#else
 #include <xtensor/containers/xfixed.hpp>
 #include <xtensor/generators/xrandom.hpp>
 #include <xtensor/views/xmasked_view.hpp>
 #include <xtensor/views/xview.hpp>
+#endif
 
 #include <samurai/box.hpp>
 #include <samurai/cell_array.hpp>
