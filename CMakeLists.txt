@@ -112,6 +112,7 @@ endif()
 # Force HIGHFIVE_USE_INSTALL_DEPS option to be true
 option(HIGHFIVE_USE_INSTALL_DEPS "End applications by default use detected dependencies here" OFF)
 option(H5_USE_XTENSOR OFF)
+option(HIGHFIVE_USE_XTENSOR OFF)
 
 
 foreach(DEPENDENCY ${DEPENDENCIES_CONFIGURED})
@@ -136,6 +137,20 @@ if(SAMURAI_FIELD_CONTAINER MATCHES xtensor)
     INTERFACE
     xtensor
   )
+
+file(STRINGS "/home/sbstndbs/xtensor/include/xtensor/core/xtensor_config.hpp" xtensor_version_defines
+     REGEX "#define XTENSOR_VERSION_(MAJOR|MINOR|PATCH)")
+foreach(ver ${xtensor_version_defines})
+    if(ver MATCHES "#define XTENSOR_VERSION_(MAJOR|MINOR|PATCH) +([^ ]+)$")
+        set(XTENSOR_VERSION_${CMAKE_MATCH_1} "${CMAKE_MATCH_2}" CACHE INTERNAL "")
+    endif()
+endforeach()
+set(${PROJECT_NAME}_VERSION
+    ${XTENSOR_VERSION_MAJOR}.${XTENSOR_VERSION_MINOR}.${XTENSOR_VERSION_PATCH})
+message(STATUS "Building xtensor v${${PROJECT_NAME}_VERSION}")
+add_definitions(-DXTENSOR_VERSION_MINOR=${XTENSOR_VERSION_MINOR})
+
+
 endif()
 if(SAMURAI_FIELD_CONTAINER MATCHES eigen3)
   message(STATUS "Using Eigen3 as field container")
