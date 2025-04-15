@@ -5,13 +5,15 @@
 
 #include <array>
 
-// #include <xtensor/xfixed.hpp>
-// #include <xtensor/xio.hpp>
-// #include <xtensor/xview.hpp>
+#if XTENSOR_VERSION_MINOR < 26
+#include <xtensor/xfixed.hpp>
+#include <xtensor/xio.hpp>
+#include <xtensor/xview.hpp>
+#else
 #include <xtensor/containers/xfixed.hpp>
 #include <xtensor/io/xio.hpp>
 #include <xtensor/views/xview.hpp>
-
+#endif
 namespace samurai
 {
     template <typename LevelType, std::enable_if_t<std::is_integral<LevelType>::value, bool> = true>

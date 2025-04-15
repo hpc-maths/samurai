@@ -7,10 +7,13 @@
 #include <map>
 #include <type_traits>
 
-// #include <xtensor/xfixed.hpp>
-// #include <xtensor/xview.hpp>
+#if XTENSOR_VERSION_MINOR < 26
+#include <xtensor/xfixed.hpp>
+#include <xtensor/xview.hpp>
+#else
 #include <xtensor/containers/xfixed.hpp>
 #include <xtensor/views/xview.hpp>
+#endif
 
 #include "cell.hpp"
 #include "list_of_intervals.hpp"

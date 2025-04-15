@@ -14,10 +14,13 @@ namespace fs = std::filesystem;
 
 #include <fmt/format.h>
 
-// include <xtensor/xtensor.hpp>
-// #include <xtensor/xview.hpp>
+#if XTENSOR_VERSION_MINOR < 26
+#include <xtensor/xtensor.hpp>
+#include <xtensor/xview.hpp>
+#else
 #include <xtensor/containers/xfixed.hpp>
 #include <xtensor/views/xview.hpp>
+#endif
 
 #include "algorithm.hpp"
 #include "bc.hpp"

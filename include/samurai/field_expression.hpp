@@ -5,10 +5,13 @@
 
 #include <xtl/xtype_traits.hpp>
 
-// #include <xtensor/xexpression.hpp>
-// #include <xtensor/xmath.hpp>
+#if XTENSOR_VERSION_MINOR < 26
+#include <xtensor/xexpression.hpp>
+#include <xtensor/xmath.hpp>
+#else
 #include <xtensor/core/xexpression.hpp>
 #include <xtensor/core/xmath.hpp>
+#endif
 
 #include "cell.hpp"
 #include "interval.hpp"

@@ -1,8 +1,12 @@
 #pragma once
-// #include <xtensor/xfixed.hpp>
-// #include <xtensor/xview.hpp>
+
+#if XTENSOR_VERSION_MINOR < 26
+#include <xtensor/xfixed.hpp>
+#include <xtensor/xview.hpp>
+#else
 #include <xtensor/containers/xfixed.hpp>
 #include <xtensor/views/xview.hpp>
+#endif
 
 using namespace xt::placeholders;
 

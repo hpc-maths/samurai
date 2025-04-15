@@ -3,12 +3,15 @@
 
 #pragma once
 
-// #include <xtensor/xadapt.hpp>
-// #include <xtensor/xfunction.hpp>
-// #include <xtensor/xmasked_view.hpp>
+#if XTENSOR_VERSION_MINOR < 26
+#include <xtensor/xadapt.hpp>
+#include <xtensor/xfunction.hpp>
+#include <xtensor/xmasked_view.hpp>
+#else
 #include <xtensor/containers/xadapt.hpp>
 #include <xtensor/core/xfunction.hpp>
 #include <xtensor/views/xmasked_view.hpp>
+#endif
 
 #include "cell.hpp"
 #include "field_expression.hpp"
