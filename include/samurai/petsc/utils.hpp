@@ -110,6 +110,42 @@ namespace samurai
             VecRestoreArrayRead(v, &arr);
         }
 
+        template <class T, std::size_t N, xt::layout_type L, class A>
+        void copy(Vec& v, xt::xtensor<T, N, L, A>& f)
+        {
+            std::size_t n = f.size();
+
+            PetscInt n_vec;
+            VecGetSize(v, &n_vec);
+            assert(static_cast<PetscInt>(n) == n_vec);
+
+            const double* arr;
+            VecGetArrayRead(v, &arr);
+
+            for (std::size_t i = 0; i < n; ++i)
+            {
+                f.data()[i] = arr[i];
+            }
+        }
+
+        template <class T, std::size_t N, xt::layout_type L, class A>
+        void copy(PetscInt shift, Vec& v, xt::xtensor<T, N, L, A>& f)
+        {
+            std::size_t n = f.size();
+
+            PetscInt n_vec;
+            VecGetSize(v, &n_vec);
+            assert(shift + static_cast<PetscInt>(n) <= n_vec);
+
+            const double* arr;
+            VecGetArrayRead(v, &arr);
+
+            for (std::size_t i = 0; i < n; ++i)
+            {
+                f.data()[i] = arr[static_cast<std::size_t>(shift) + i];
+            }
+        }
+
         bool check_nan_or_inf(const Vec& v)
         {
             PetscInt n;
