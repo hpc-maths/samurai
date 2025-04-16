@@ -292,29 +292,31 @@ namespace samurai
         // We need to be able to apply the BC at all levels (including those under the min_level set by the user).
         // If there is a hole that isn't large enough to have enough ghosts to apply the BC, we need to refine the mesh.
         // (Otherwise, some ghosts at the end of the stencil will infact be cells on the other side of the hole.)
-        std::size_t min_constructed_level = min_level > 1 ? min_level - 2 : 0;
+
+        // min_level where the BC can be applied
+        std::size_t min_level_bc = min_level; // min_level > 1 ? min_level - 2 : 0;
         if (scaling_factor_ <= 0)
         {
             scaling_factor_ = domain_builder.largest_subdivision();
 
-            auto largest_cell_length = samurai::cell_length(scaling_factor_, min_constructed_level);
+            auto largest_cell_length = samurai::cell_length(scaling_factor_, min_level_bc);
             for (const auto& box : domain_builder.removed_boxes())
             {
                 while (box.min_length() < largest_cell_length * config::max_stencil_width)
                 {
                     scaling_factor_ /= 2;
-                    largest_cell_length *= 2;
+                    largest_cell_length /= 2;
                 }
             }
         }
         else
         {
-            auto largest_cell_length = samurai::cell_length(scaling_factor_, min_constructed_level);
+            auto largest_cell_length = samurai::cell_length(scaling_factor_, min_level_bc);
             for (const auto& box : domain_builder.removed_boxes())
             {
                 if (box.min_length() < largest_cell_length * config::max_stencil_width)
                 {
-                    std::cerr << "The hole " << box << " is too small to apply the BC at level " << min_constructed_level
+                    std::cerr << "The hole " << box << " is too small to apply the BC at level " << min_level_bc
                               << " with the given scaling factor. We need to be able to construct " << config::max_stencil_width
                               << " ghosts in each direction inside the hole." << std::endl;
                     std::cerr << "Please choose a smaller scaling factor or enlarge the hole." << std::endl;
@@ -322,6 +324,8 @@ namespace samurai
                 }
             }
         }
+
+        // Build the domain by adding and removing boxes
 
         cl_type domain_cl(origin_point_, scaling_factor_);
 
