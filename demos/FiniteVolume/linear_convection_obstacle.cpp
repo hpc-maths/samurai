@@ -15,7 +15,7 @@ template <class Field>
 void save(const fs::path& path, const std::string& filename, const Field& u, const std::string& suffix = "")
 {
     auto mesh   = u.mesh();
-    auto level_ = samurai::make_field<std::size_t, 1>("level", mesh);
+    auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
 
     if (!fs::exists(path))
     {
@@ -91,29 +91,29 @@ int main(int argc, char* argv[])
     Mesh mesh(domain, min_level, max_level);
 
     // Initial solution
-    auto u = samurai::make_field<1>("u",
-                                    mesh,
-                                    [](const auto& coords)
-                                    {
-                                        const auto& x = coords(0);
-                                        const auto& y = coords(1);
-                                        return (x >= -0.8 && x <= -0.3 && y >= 0.3 && y <= 0.8) ? 1. : 0.;
-                                    });
+    auto u = samurai::make_scalar_field<double>("u",
+                                                mesh,
+                                                [](const auto& coords)
+                                                {
+                                                    const auto& x = coords(0);
+                                                    const auto& y = coords(1);
+                                                    return (x >= -0.8 && x <= -0.3 && y >= 0.3 && y <= 0.8) ? 1. : 0.;
+                                                });
 
-    auto unp1 = samurai::make_field<1>("unp1", mesh);
+    auto unp1 = samurai::make_scalar_field<>("unp1", mesh);
     // Intermediary fields for the RK3 scheme
-    auto u1 = samurai::make_field<1>("u1", mesh);
-    auto u2 = samurai::make_field<1>("u2", mesh);
+    auto u1 = samurai::make_scalar_field<>("u1", mesh);
+    auto u2 = samurai::make_scalar_field<>("u2", mesh);
 
     // Convection operator
     samurai::VelocityVector<dim> constant_velocity = {1, -1};
 
-    auto velocity = samurai::make_field<dim>("velocity",
-                                             mesh,
-                                             [&](const auto&)
-                                             {
-                                                 return constant_velocity;
-                                             });
+    auto velocity = samurai::make_vector_field<dim>("velocity",
+                                                    mesh,
+                                                    [&](const auto&)
+                                                    {
+                                                        return constant_velocity;
+                                                    });
 
     samurai::make_bc<samurai::Dirichlet<1>>(velocity, 0., 0.); // Wall boundary condition
     samurai::make_bc<samurai::Dirichlet<3>>(u, 0.);
