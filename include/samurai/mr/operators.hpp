@@ -264,7 +264,7 @@ namespace samurai
                 detail(level + 1, 2 * i + 1) = field(level + 1, 2 * i + 1) - (field(level, i) - qs_i);
             }
 
-            if (level >= 1)
+            if (level >= field.mesh().min_level())
             {
                 prediction_op<dim, TInterval> pred(level, i);
                 pred(Dim<1>{}, detail, field, std::integral_constant<std::size_t, order>{}, std::integral_constant<bool, false>{});
@@ -308,7 +308,7 @@ namespace samurai
                 detail(level + 1, 2 * i + 1, 2 * j + 1) = field(level + 1, 2 * i + 1, 2 * j + 1) - (field(level, i, j) - qs_i - qs_j - qs_ij);
             }
 
-            if (level >= 1)
+            if (level >= field.mesh().min_level())
             {
                 prediction_op<dim, TInterval> pred(level, i, j);
                 pred(Dim<2>{}, detail, field, std::integral_constant<std::size_t, order>{}, std::integral_constant<bool, false>{});
@@ -360,7 +360,7 @@ namespace samurai
                                                                       - qs_ijk);
             }
 
-            if (level >= 1)
+            if (level >= field.mesh().min_level())
             {
                 prediction_op<dim, TInterval> pred(level, i, j, k);
                 pred(Dim<3>{}, detail, field, std::integral_constant<std::size_t, order>{}, std::integral_constant<bool, false>{});
