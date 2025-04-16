@@ -3,7 +3,7 @@
 #if XTENSOR_VERSION_MINOR < 26
 #include <xtensor/xadapt.hpp>
 #else
-#include <xtensor/conatiners/xadapt.hpp>
+#include <xtensor/containers/xadapt.hpp>
 #endif
 
 namespace samurai
