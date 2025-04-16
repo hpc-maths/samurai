@@ -4,7 +4,12 @@
 #pragma once
 
 #include "../collapsable.hpp"
+
+#if XTENSOR_VERSION_MINOR < 26
 #include <xtensor/xfixed.hpp>
+#else
+#include <xtensor/containers/xfixed.hpp>
+#endif
 
 namespace samurai
 {

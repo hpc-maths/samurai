@@ -2,7 +2,11 @@
 // SPDX-License-Identifier:  BSD-3-Clause
 #include <array>
 
+#if XTENSOR_VERSION_MINOR < 26
 #include <xtensor/xfixed.hpp>
+#else
+#include <xtensor/containers/xfixed.hpp>
+#endif
 
 // -----------------------------
 

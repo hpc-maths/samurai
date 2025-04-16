@@ -7,10 +7,13 @@
 #include <omp.h>
 #endif
 #include <type_traits>
-
+#if XTENSOR_VERSION_MINOR < 26
 #include <xtensor/xfixed.hpp>
 #include <xtensor/xview.hpp>
-
+#else
+#include <xtensor/containers/xfixed.hpp>
+#include <xtensor/views/xview.hpp>
+#endif
 #include "cell.hpp"
 #include "mesh_holder.hpp"
 

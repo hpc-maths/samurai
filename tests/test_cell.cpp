@@ -1,6 +1,12 @@
 #include <gtest/gtest.h>
+
+#if XTENSOR_VERSION_MINOR < 26
 #include <xtensor/xarray.hpp>
 #include <xtensor/xfixed.hpp>
+#else
+#include <xtensor/containers/xarray.hpp>
+#include <xtensor/containers/xfixed.hpp>
+#endif
 
 #include <samurai/cell.hpp>
 #include <samurai/interval.hpp>

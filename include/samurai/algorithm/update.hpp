@@ -5,7 +5,11 @@
 
 #include <algorithm>
 
+#if XTENSOR_VERSION_MINOR < 26
 #include <xtensor/xfixed.hpp>
+#else
+#include <xtensor/containers/xfixed.hpp>
+#endif
 
 #include "../algorithm.hpp"
 #include "../bc.hpp"
@@ -21,7 +25,11 @@ using namespace xt::placeholders;
 
 #ifdef SAMURAI_WITH_MPI
 #include <boost/mpi.hpp>
+#if XTENSOR_VERSION_MINOR < 26
 #include <xtensor/xmasked_view.hpp>
+#else
+#include <xtensor/views/xmasked_view.hpp>
+#endif
 namespace mpi = boost::mpi;
 #endif
 

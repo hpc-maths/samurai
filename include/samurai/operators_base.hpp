@@ -3,7 +3,11 @@
 
 #pragma once
 
+#if XTENSOR_VERSION_MINOR < 26
 #include <xtensor/xfixed.hpp>
+#else
+#include <xtensor/containers/xfixed.hpp>
+#endif
 
 #include "field_expression.hpp"
 #include "utils.hpp"

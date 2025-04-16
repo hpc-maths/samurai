@@ -3,8 +3,13 @@
 
 #pragma once
 
+#if XTENSOR_VERSION_MINOR < 26
 #include <xtensor/xfixed.hpp>
 #include <xtensor/xio.hpp>
+#else
+#include <xtensor/containers/xfixed.hpp>
+#include <xtensor/io/xio.hpp>
+#endif
 
 namespace samurai
 {

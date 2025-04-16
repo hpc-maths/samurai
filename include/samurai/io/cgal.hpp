@@ -13,7 +13,11 @@
 #include <CGAL/box_intersection_d.h>
 #include <CGAL/optimal_bounding_box.h>
 
+#if XTENSOR_VERSION_MINOR < 26
 #include <xtensor/xfixed.hpp>
+#else
+#include <xtensor/containers/xfixed.hpp>
+#endif
 
 #include "../box.hpp"
 #include "../cell_array.hpp"

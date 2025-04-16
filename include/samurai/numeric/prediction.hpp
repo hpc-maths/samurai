@@ -6,8 +6,13 @@
 #include <array>
 #include <type_traits>
 
+#if XTENSOR_VERSION_MINOR < 26
 #include <xtensor/xadapt.hpp>
 #include <xtensor/xview.hpp>
+#else
+#include <xtensor/containers/xadapt.hpp>
+#include <xtensor/views/xview.hpp>
+#endif
 
 #include "../operators_base.hpp"
 #include "../storage/utils.hpp"
