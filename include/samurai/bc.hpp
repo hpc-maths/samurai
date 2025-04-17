@@ -826,7 +826,7 @@ namespace samurai
                               const StencilAnalyzer<stencil_size, Field::dim>& stencil,
                               const Vector& direction)
     {
-        auto apply_bc = bc.get_apply_function(std::integral_constant<std::size_t, stencil_size>(), direction);
+        auto bc_function = bc.get_apply_function(std::integral_constant<std::size_t, stencil_size>(), direction);
         if (bc.get_value_type() == BCVType::constant)
         {
             auto value = bc.constant_value();
@@ -835,7 +835,7 @@ namespace samurai
                              stencil,
                              [&, value](auto& cells)
                              {
-                                 apply_bc(field, cells, value);
+                                 bc_function(field, cells, value);
                              });
         }
         else if (bc.get_value_type() == BCVType::function)
@@ -849,7 +849,7 @@ namespace samurai
                                  auto& cell_in    = cells[stencil.origin_index];
                                  auto face_coords = cell_in.face_center(direction);
                                  auto value       = bc.value(direction, cell_in, face_coords);
-                                 apply_bc(field, cells, value);
+                                 bc_function(field, cells, value);
                              });
         }
         else
@@ -1342,25 +1342,21 @@ namespace samurai
 
         auto domain = self(field.mesh().domain()).on(level);
 
-        static_nested_loop<dim, -1, 2>(
-            [&](auto& dir)
+        for_each_diagonal_direction<dim>(
+            [&](auto& direction)
             {
-                int number_of_one = xt::sum(xt::abs(dir))[0];
-                if (number_of_one > 1)
+                bool is_periodic = false;
+                for (std::size_t i = 0; i < dim; ++i)
                 {
-                    bool is_periodic = false;
-                    for (std::size_t i = 0; i < dim; ++i)
+                    if (direction(i) != 0 && field.mesh().is_periodic(i))
                     {
-                        if (dir(i) != 0 && field.mesh().is_periodic(i))
-                        {
-                            is_periodic = true;
-                            break;
-                        }
+                        is_periodic = true;
+                        break;
                     }
-                    if (!is_periodic)
-                    {
-                        update_outer_corners_by_polynomial_extrapolation(level, dir, field);
-                    }
+                }
+                if (!is_periodic)
+                {
+                    update_outer_corners_by_polynomial_extrapolation(level, direction, field);
                 }
             });
     }
