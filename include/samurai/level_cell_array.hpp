@@ -102,6 +102,11 @@ namespace samurai
                        const Box<double, dim>& box,
                        double approx_box_tol = default_approx_box_tol,
                        double scaling_factor = 0);
+        LevelCellArray(std::size_t level,
+                       const Box<double, dim>& box,
+                       const coords_t& origin_point,
+                       double approx_box_tol,
+                       double scaling_factor);
         LevelCellArray(std::size_t level);
         LevelCellArray(std::size_t level, const coords_t& origin_point, double scaling_factor);
 
@@ -191,6 +196,9 @@ namespace samurai
         auto max_indices() const;
         auto minmax_indices() const;
 
+        coords_t min_corner() const;
+        coords_t max_corner() const;
+
         auto& origin_point() const;
         void set_origin_point(const coords_t& origin_point);
 
@@ -230,6 +238,7 @@ namespace samurai
                                        std::integral_constant<std::size_t, 0>);
 
         void init_from_box(const Box<value_t, dim>& box);
+        void init_from_box(const Box<double, dim>& box, const coords_t& origin_point, double approx_box_tol, double scaling_factor);
 
         std::array<std::vector<interval_t>, dim> m_cells;        ///< All intervals in every direction
         std::array<std::vector<std::size_t>, dim - 1> m_offsets; ///< Offsets in interval list for each dim >
@@ -370,24 +379,18 @@ namespace samurai
                                                           double scaling_factor)
         : m_level(level)
     {
-        using box_t   = Box<value_t, dim>;
-        using point_t = typename box_t::point_t;
+        init_from_box(box, box.min_corner(), approx_box_tol, scaling_factor);
+    }
 
-        assert(approx_box_tol > 0 || scaling_factor > 0);
-
-        // The computational domain is an approximation of the desired box.
-        // If `scaling_factor` is given (i.e. > 0), we take it;
-        // otherwise we choose the scaling factor dynamically in order to approximate the desired box
-        // up to the tolerance `approx_box_tol`.
-
-        m_origin_point   = box.min_corner();
-        auto approx_box  = approximate_box(box, approx_box_tol, scaling_factor);
-        m_scaling_factor = scaling_factor;
-
-        point_t start_pt;
-        start_pt.fill(0);
-        point_t end_pt = approx_box.length() / cell_length();
-        init_from_box(box_t{start_pt, end_pt});
+    template <std::size_t Dim, class TInterval>
+    inline LevelCellArray<Dim, TInterval>::LevelCellArray(std::size_t level,
+                                                          const Box<double, dim>& box,
+                                                          const coords_t& origin_point,
+                                                          double approx_box_tol,
+                                                          double scaling_factor)
+        : m_level(level)
+    {
+        init_from_box(box, origin_point, approx_box_tol, scaling_factor);
     }
 
     template <std::size_t Dim, class TInterval>
@@ -882,6 +885,39 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
+    inline auto LevelCellArray<Dim, TInterval>::min_corner() const -> coords_t
+    {
+        typename cell_t::indices_t index;
+
+        auto it = this->cbegin();
+
+        index[0] = it->start;
+        for (std::size_t d = 0; d < dim - 1; ++d)
+        {
+            index[d + 1] = it.index()[d];
+        }
+        cell_t min_corner_cell{m_origin_point, m_scaling_factor, m_level, index, it->index};
+        return min_corner_cell.corner();
+    }
+
+    template <std::size_t Dim, class TInterval>
+    inline auto LevelCellArray<Dim, TInterval>::max_corner() const -> coords_t
+    {
+        typename cell_t::indices_t index;
+
+        auto it = this->cend();
+        --it;
+
+        index[0] = it->end - 1;
+        for (std::size_t d = 0; d < dim - 1; ++d)
+        {
+            index[d + 1] = it.index()[d];
+        }
+        cell_t max_corner_cell{m_origin_point, m_scaling_factor, m_level, index, it->index + it->end - 1};
+        return max_corner_cell.corner() + max_corner_cell.length;
+    }
+
+    template <std::size_t Dim, class TInterval>
     inline auto& LevelCellArray<Dim, TInterval>::origin_point() const
     {
         return m_origin_point;
@@ -1034,6 +1070,42 @@ namespace samurai
         {
             m_cells[0][i] = {start_pt[0], end_pt[0], static_cast<index_t>(i * dimensions[0]) - start_pt[0]};
         }
+    }
+
+    template <std::size_t Dim, class TInterval>
+    void LevelCellArray<Dim, TInterval>::init_from_box(const Box<double, dim>& box,
+                                                       const coords_t& origin_point,
+                                                       double approx_box_tol,
+                                                       double scaling_factor)
+    {
+        using index_box_t = Box<value_t, dim>;
+        using point_t     = typename index_box_t::point_t;
+
+        assert(approx_box_tol > 0 || scaling_factor > 0);
+
+        m_origin_point = origin_point;
+
+        // The computational domain is an approximation of the desired box.
+        // If `scaling_factor` is given (i.e. > 0), we take it;
+        // otherwise we choose the scaling factor dynamically in order to approximate the desired box
+        // up to the tolerance `approx_box_tol`.
+
+        auto approx_box = approximate_box(box, approx_box_tol, scaling_factor);
+
+        const double warning_tol = 0.5;
+        if (scaling_factor > 0 && xt::any(xt::abs(approx_box.length() - box.length()) >= warning_tol * box.length()))
+        {
+            std::cerr << "Warning: the box " << box << " is poorly approximated by " << approx_box << ". ";
+            std::cerr << "This is due to a too large scaling factor (" << scaling_factor
+                      << "). Choose a smaller value for a better approximation." << std::endl;
+        }
+        m_scaling_factor = scaling_factor;
+
+        auto shift_origin = (approx_box.min_corner() - m_origin_point);
+
+        point_t start_pt = shift_origin / cell_length();
+        point_t end_pt   = (shift_origin + approx_box.length()) / cell_length();
+        init_from_box(index_box_t{start_pt, end_pt});
     }
 
     template <std::size_t Dim, class TInterval>
