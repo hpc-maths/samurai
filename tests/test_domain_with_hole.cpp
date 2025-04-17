@@ -20,9 +20,6 @@ namespace samurai
         return Mesh(box, level, level);
     }
 
-    /**
-     * Tests if the scaling factor corresponds to length of the domain.
-     */
     TEST(domain_with_hole, substract_box)
     {
         static constexpr std::size_t dim = 2;
