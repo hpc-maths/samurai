@@ -175,11 +175,14 @@ namespace samurai
             [&](std::size_t level, const auto& interval, const auto& index_yz)
             {
                 lcl_type& lcl = cell_list[level];
-                static_nested_loop<dim - 1, -config::max_stencil_width, config::max_stencil_width + 1>(
-                    [&](auto stencil)
+                for_each_cartesian_direction<dim>(
+                    [&](auto& direction)
                     {
-                        auto index = xt::eval(index_yz + stencil);
-                        lcl[index].add_interval({interval.start - config::max_stencil_width, interval.end + config::max_stencil_width});
+                        for (int width = 1; width <= config::max_stencil_width; ++width)
+                        {
+                            auto index = xt::eval(index_yz + width * direction);
+                            lcl[index].add_interval({interval.start - config::max_stencil_width, interval.end + config::max_stencil_width});
+                        }
                     });
             });
         this->cells()[mesh_id_t::cells_and_ghosts] = {cell_list, false};
@@ -189,7 +192,9 @@ namespace samurai
         {
             for (std::size_t level = max_level; level >= ((min_level == 0) ? 1 : min_level); --level)
             {
-                auto expr = difference(this->cells()[mesh_id_t::cells_and_ghosts][level], this->get_union()[level]).on(level);
+                auto expr = difference(intersection(this->cells()[mesh_id_t::cells_and_ghosts][level], self(this->domain()).on(level)),
+                                       this->get_union()[level])
+                                .on(level);
 
                 expr(
                     [&](const auto& interval, const auto& index_yz)
