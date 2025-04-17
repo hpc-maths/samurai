@@ -93,206 +93,72 @@ namespace samurai
     }
 
     template <class Field>
-    void
-    project_bc(std::size_t proj_level, std::size_t data_level, const DirectionVector<Field::dim>& direction, int layer_width, Field& field)
+    void project_bc(std::size_t proj_level, const DirectionVector<Field::dim>& direction, int layer, Field& field)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
-        constexpr std::size_t dim        = Field::dim;
-        constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
+        assert(layer > 0 && layer <= Field::mesh_t::config::max_stencil_width);
 
-        static_assert(pred_order == 1);
-        assert(proj_level < data_level);
-        assert(layer_width > 0 && layer_width <= Field::mesh_t::config::max_stencil_width);
+        auto& mesh  = field.mesh();
+        auto domain = self(mesh.domain()).on(proj_level);
 
-        std::size_t delta_l = data_level - proj_level;
-
-        auto& mesh              = field.mesh();
-        auto domain             = self(mesh.domain()).on(data_level);
-        auto& cells             = mesh[mesh_id_t::cells][data_level];
-        auto& inner_proj_ghosts = mesh[mesh_id_t::proj_cells][data_level];
-
-        auto d                  = find_direction_index(direction);
-        bool positive_direction = direction[d] == 1;
-
-        // std::cout << "=========================================== direction = " << direction << ", data_level = " << data_level <<
-        // std::endl;
-
-        // auto possible_outside_layer = difference(translate(cells, layer_width * direction), domain);
-        // auto outside_layer          = intersection(possible_outside_layer, mesh[mesh_id_t::reference][level]);
-
-        //-- with cells
-        // auto outside_layer = difference(translate(cells, layer_width * direction), domain);
-
-        //-- with all
-        auto inner_all     = layer_width == 1 ? union_(inner_proj_ghosts, cells) : union_(cells, cells);
-        auto outside_layer = difference(translate(inner_all, layer_width * direction), domain);
-
+        auto& inner = mesh.get_union()[proj_level];
+        // We want only 1 layer (the further one),
+        // so we remove all closer layers by making the difference with the domain translated by (layer - 1) * direction
+        auto outside_layer     = difference(translate(inner, layer * direction), translate(domain, (layer - 1) * direction));
         auto projection_ghosts = intersection(outside_layer, mesh[mesh_id_t::reference][proj_level]).on(proj_level);
 
-        // Projection of 2^(dim-1) children
-        std::size_t n_children           = static_cast<std::size_t>(layer_width) * (1 << delta_l); // layer_width * 2^(dim-1)
-        std::size_t n_children_per_layer = n_children / static_cast<std::size_t>(layer_width);
-        double avg_factor                = 1. / static_cast<double>(n_children);
+        using lca_t = typename Field::mesh_t::lca_type;
+        lca_t proj_ghost_lca(proj_level, mesh.origin_point(), mesh.scaling_factor());
 
-        // std::cout << "\tlower = " << delta_l << ", layer_width = " << layer_width << ", n_children = " << n_children << std::endl;
-
-        if constexpr (dim == 1)
-        {
-            assert(layer_width == 1 && "Not implemented for dim == 1 and layer_width > 1");
-            // Projection of 1 child
-            if (positive_direction) // right
+        projection_ghosts(
+            [&](const auto& i, const auto& index)
             {
-                projection_ghosts(
-                    [&](const auto& i, const auto&)
-                    {
-                        auto i_child         = (1 << delta_l) * i; // 2i if delta_l == 1, 4i if delta_l == 2
-                        field(proj_level, i) = field(data_level, i_child);
-                    });
-            }
-            else // left
-            {
-                projection_ghosts(
-                    [&](const auto& i, const auto&)
-                    {
-                        auto i_child         = (1 << delta_l) * i;         // (2i+1) if delta_l == 1, 4i if delta_l == 2
-                        field(proj_level, i) = field(data_level, i_child); // 2i+1 fixed
-                    });
-            }
-        }
-        else
-        {
-            // Projection of 2 children
-            if (d == 0) // x-direction
-            {
-                projection_ghosts(
-                    [&](const auto& i, const auto& index)
-                    {
-                        using index_t = std::decay_t<decltype(index)>;
+                field(proj_level, i, index) = 0; // Initialize the sums to 0 to compute the average
 
-                        // std::cout << "--------------------------------" << std::endl;
-                        // std::cout << "field(" << proj_level << "," << i << "," << index << ") = " << field(proj_level, i, index) <<
-                        // std::endl;
-
-                        field(proj_level, i, index) = 0;
-
-                        // if positive direction, right --> 2i   fixed
-                        //                   else left  --> 2i+1 fixed
-                        auto i_child = (1 << delta_l) * i;
-                        if (!positive_direction)
+                for (auto ii = i.start; ii < i.end; ++ii)
+                {
+                    proj_ghost_lca.add_point_back(ii, index); // this LCA stores only the current ghost we need to fill
+                    int n_children = 0;
+                    // We retrieve the children of the current ghost by intersecting it with the upper level
+                    auto children = intersection(self(proj_ghost_lca).on(proj_level + 1), mesh[mesh_id_t::reference][proj_level + 1])
+                                        .on(proj_level + 1);
+                    // We iterate over the children and add their values to the current ghost...
+                    children(
+                        [&](const auto& i_child, const auto& index_child)
                         {
-                            i_child.start += (1 << delta_l) - 1;
-                        }
-                        i_child.end = i_child.start + 1;
-
-                        index_t index_child = (1 << delta_l) * index;
-
-                        for (std::size_t layer = 0; layer < static_cast<std::size_t>(layer_width); ++layer)
-                        {
-                            for (std::size_t d1 = 0; d1 < dim - 1; ++d1) // next direction
+                            for (auto ii_child = i_child.start; ii_child < i_child.end; ++ii_child)
                             {
-                                for (std::size_t dummy1 = 0; dummy1 < n_children_per_layer; ++dummy1, ++index_child[d1])
-                                {
-                                    if constexpr (dim == 2)
-                                    {
-                                    // std::cout << "field(" << proj_level << "," << i << "," << index << ") += " << avg_factor
-                                    //           << " * field(" << data_level << "," << i_child << "," << index_child << ")"
-                                    //           << " = " << field(data_level, i_child, index_child) << std::endl;
-
 #ifdef SAMURAI_CHECK_NAN
-                                        if (xt::any(xt::isnan(field(data_level, i_child, index_child))))
-                                        {
-                                            std::cerr << "NaN in field(" << data_level << "," << i_child << "," << index_child << ")"
-                                                      << std::endl;
-                                            std::exit(1);
-                                        }
-#endif
-                                        field(proj_level, i, index) += avg_factor * field(data_level, i_child, index_child);
-                                    }
-                                    else if constexpr (dim == 3)
-                                    {
-                                        for (std::size_t d2 = d1 + 1; d2 < dim - 1; ++d2)
-                                        {
-                                            for (std::size_t dummy2 = 0; dummy2 < n_children_per_layer; ++dummy2, ++index_child[d2])
-                                            {
-                                                field(proj_level, i, index) += avg_factor * field(data_level, i_child, index_child);
-                                            }
-                                            index_child[d2] -= n_children_per_layer; // reset index_child[d2]
-                                        }
-                                    }
+                                if (xt::any(xt::isnan(field(proj_level + 1, {ii_child, ii_child + 1}, index_child))))
+                                {
+                                    std::cerr << std::endl
+                                              << "NaN found in field(" << proj_level + 1 << "," << ii_child << "," << index_child
+                                              << ") during projection of the B.C." << std::endl;
+                                    samurai::save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
+                                    std::exit(1);
                                 }
-                                index_child[d1] -= n_children_per_layer; // reset index_child[d1]
+#endif
+                                field(proj_level, i, index) += field(proj_level + 1, {ii_child, ii_child + 1}, index_child);
+                                n_children++;
                             }
-                            i_child += positive_direction ? 1 : -1; // next layer
-                        }
-                    });
-            }
-            else // other directions
-            {
-                projection_ghosts(
-                    [&](const auto& i, const auto& index)
+                        });
+                    if (n_children == 0)
                     {
-                        using index_t = std::decay_t<decltype(index)>;
-
-                        field(proj_level, i, index) = 0;
-
-                        // std::cout << "--------------------------------" << std::endl;
-                        // std::cout << "field(" << proj_level << "," << i << "," << index << ") = " << field(proj_level, i, index)
-                        //           << std::endl;
-
-                        // if positive direction, top     --> 2j   fixed (=index[d-1])
-                        //                   else bottom  --> 2j+1 fixed
-                        auto i_child        = (1 << delta_l) * i;
-                        index_t index_child = (1 << delta_l) * index;
-                        if (!positive_direction)
-                        {
-                            index_child[d - 1] += (1 << delta_l) - 1;
-                        }
-
-                        for (std::size_t layer = 0; layer < static_cast<std::size_t>(layer_width); ++layer)
-                        {
-                            for (std::size_t dummy1 = 0; dummy1 < n_children_per_layer; ++dummy1, i_child += 1) // i loop
-                            {
-                                if constexpr (dim == 2)
-                                {
-                                // std::cout << "field(" << proj_level << "," << i << "," << index << ") += " << avg_factor
-                                //           << " * field(" << data_level << "," << i_child << "," << index_child << ")" << " =
-                                //           "
-                                //           << field(data_level, i_child, index_child) << std::endl;
-
-#ifdef SAMURAI_CHECK_NAN
-                                    if (xt::any(xt::isnan(field(data_level, i_child, index_child))))
-                                    {
-                                        std::cerr << "NaN found in field(" << data_level << "," << i_child << "," << index_child
-                                                  << ") during projection of the B.C." << std::endl;
-                                        // std::exit(1);
-                                    }
-#endif
-                                    field(proj_level, i, index) = avg_factor * field(data_level, i_child, index_child);
-                                }
-                                else if constexpr (dim == 3)
-                                {
-                                    for (std::size_t d2 = 0; d2 < dim - 1; ++d2)
-                                    {
-                                        if (d2 != d - 1)
-                                        {
-                                            for (std::size_t dummy2 = 0; dummy2 < n_children_per_layer; ++dummy2, ++index_child[d2])
-                                            {
-                                                field(proj_level, i, index) += avg_factor * field(data_level, i_child, index_child);
-                                            }
-                                            index_child[d2] -= n_children_per_layer; // reset index_child[d2]
-                                        }
-                                    }
-                                }
-                            }
-                            i_child -= static_cast<int>(n_children_per_layer); // reset i_child
-                            index_child[d - 1] += positive_direction ? 1 : -1; // next layer
-                        }
-                    });
-            }
-        }
+                        std::cerr << "No children found for the ghost at level " << proj_level << ", i = " << ii << ", index = " << index
+                                  << " during projection of the B.C." << std::endl;
+                        std::exit(1);
+                    }
+                    // ... then we divide the sum by the number of children to get the average
+                    field(proj_level, i, index) /= n_children;
+                    proj_ghost_lca.clear();
+                }
+            });
     }
 
+    /**
+     * This function projects the outer corner two level down.
+     */
     template <class Field>
     void project_corner_below(std::size_t level, const DirectionVector<Field::dim>& direction, Field& field)
     {
@@ -304,7 +170,6 @@ namespace samurai
 
         for (std::size_t delta_l = 1; delta_l <= 2; ++delta_l) // lower level (1 or 2)
         {
-            // std::cout << "delta_l = " << delta_l << std::endl;
             auto proj_level = level - delta_l;
 
             auto fine_inner_corner = get_corner(mesh, level, direction);
@@ -316,8 +181,6 @@ namespace samurai
                 {
                     using index_t = std::decay_t<decltype(index)>;
 
-                    // std::cout << "-------------------" << std::endl;
-
                     auto i_child = (1 << delta_l) * i;
                     i_child.start += direction[0] == -1 ? ((1 << delta_l) - 1) : 0;
                     i_child.end         = i_child.start + 1;
@@ -327,22 +190,24 @@ namespace samurai
                     {
                         index_child[d] += direction[d + 1] == -1 ? ((1 << delta_l) - 1) : 0;
                     }
-                    // std::cout << "field(" << proj_level << "," << i << "," << index << ") = field(" << level << "," << i_child << ","
-                    //           << index_child << ")"
-                    //           << " = ";
-                    // std::cout << field(level, i_child, index_child) << std::endl;
                     field(proj_level, i, index) = field(level, i_child, index_child);
                 });
         }
     }
 
+    /**
+     * Updates the outer ghosts:
+     * - The outer corners are updated by polynomial extrapolation (and projected below)
+     * - The B.C. are applied at the same level as the cells (and projected below)
+     */
     template <class Field>
     void update_outer_ghosts(Field& field)
     {
+        static_assert(Field::mesh_t::config::prediction_order <= 1);
+
         constexpr std::size_t dim = Field::dim;
 
         auto& mesh = field.mesh();
-        // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, mesh, field);
 
         // Outer corners
         if constexpr (dim > 1)
@@ -356,9 +221,7 @@ namespace samurai
                         for (std::size_t level = mesh.max_level(); level >= mesh.min_level(); --level)
                         {
                             update_outer_corners_by_polynomial_extrapolation(level, direction, field);
-                            // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
                             project_corner_below(level, direction, field);
-                            // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
                         }
                     }
                 });
@@ -371,16 +234,27 @@ namespace samurai
                 auto d = find_direction_index(direction);
                 if (!mesh.is_periodic(d))
                 {
-                    // std::size_t min_level_minus_2 = mesh.min_level() >= 2 ? mesh.min_level() - 2 : 0;
-                    for (std::size_t level = mesh.max_level(); level >= mesh.min_level() - 2; --level)
+                    // We only project down to level-1 (not level-2), because we don't need to compute the detail at level-1,
+                    // since we can't coarsen lower than level anyway.
+                    for (std::size_t level = mesh.max_level(); level >= mesh.min_level() - 1; --level)
                     {
-                        // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, field.mesh(), field);
-
                         if (level < mesh.max_level())
                         {
-                            // Project the B.C. from level+1 to level
-                            int layer_width = 1;
-                            project_bc(level, level + 1, direction, layer_width, field);
+                            // Project the B.C. from level+1 to level:
+                            // For projection ghost, we compute the average of its children,
+                            // and we do that layer by layer.
+                            // For instance, if max_stencil_width = 3, then 3 fine boundary ghosts overlap 2 coarse ghosts.
+                            // Note that since we want to project the B.C. two level down, it is done in two steps:
+                            // - the B.C. is projected onto the lower ghosts
+                            // - those lower ghosts are projected onto the even lower ghosts
+
+                            static constexpr std::size_t max_stencil_width = Field::mesh_t::config::max_stencil_width;
+                            int max_coarse_layer = static_cast<int>(max_stencil_width % 2 == 0 ? max_stencil_width / 2
+                                                                                               : (max_stencil_width + 1) / 2);
+                            for (int layer = 1; layer <= max_coarse_layer; ++layer)
+                            {
+                                project_bc(level, direction, layer, field);
+                            }
                         }
                         if (level >= mesh.min_level())
                         {
@@ -439,7 +313,7 @@ namespace samurai
         update_ghost_periodic(min_level, field, other_fields...);
         update_ghost_subdomains(min_level, field, other_fields...);
 
-        // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, mesh, field);
+        // samurai::save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
 
         for (std::size_t level = min_level + 1; level <= max_level; ++level)
         {
