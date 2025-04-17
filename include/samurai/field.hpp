@@ -664,7 +664,7 @@ namespace samurai
         os << "Field " << m_name << "\n";
 
 #ifdef SAMURAI_CHECK_NAN
-        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        using mesh_id_t = typename VectorField::mesh_t::mesh_id_t;
         for_each_cell(this->mesh()[mesh_id_t::reference],
 #else
         for_each_cell(this->mesh(),
@@ -1274,7 +1274,7 @@ namespace samurai
         os << "Field " << m_name << "\n";
 
 #ifdef SAMURAI_CHECK_NAN
-        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        using mesh_id_t = typename ScalarField::mesh_t::mesh_id_t;
         for_each_cell(this->mesh()[mesh_id_t::reference],
 #else
         for_each_cell(this->mesh(),
