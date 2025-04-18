@@ -89,6 +89,7 @@ namespace samurai
         std::size_t nb_cells(std::size_t level, mesh_id_t mesh_id = mesh_id_t::reference) const;
 
         const ca_type& operator[](mesh_id_t mesh_id) const;
+        ca_type& operator[](mesh_id_t mesh_id);
 
         std::size_t max_level() const;
         std::size_t& max_level();
@@ -133,6 +134,16 @@ namespace samurai
         cell_t get_cell(std::size_t level, const xt::xexpression<E>& coord) const;
 
         void update_mesh_neighbour();
+
+        void update_neighbour_subdomain();
+        template <mesh_id_t MeshID>
+        void update_meshid_neighbour();
+
+        void update_neighbour_cells();
+        void update_neighbour_cells_and_ghosts();
+        void update_neighbour_all_cells();
+        void update_neighbour_reference();
+
         void to_stream(std::ostream& os) const;
 
       protected:
@@ -404,6 +415,12 @@ namespace samurai
     }
 
     template <class D, class Config>
+    inline auto Mesh_base<D, Config>::operator[](mesh_id_t mesh_id) -> ca_type&
+    {
+        return m_cells[mesh_id];
+    }
+
+    template <class D, class Config>
     inline std::size_t Mesh_base<D, Config>::max_level() const
     {
         return m_max_level;
@@ -642,6 +659,94 @@ namespace samurai
 
         mpi::wait_all(req.begin(), req.end());
 #endif
+    }
+
+    // TODO : find a clever way to factorize the two next functions. For new, I have to duplicate the code 2 times.
+
+    // This function is to only send m_subdomain instead of the whole mesh data
+    template <class D, class Config>
+    inline void Mesh_base<D, Config>::update_neighbour_subdomain()
+    {
+#ifdef SAMURAI_WITH_MPI
+        // send/recv the meshes of the neighbouring subdomains
+        mpi::communicator world;
+        std::vector<mpi::request> req;
+
+        boost::mpi::packed_oarchive::buffer_type buffer;
+        boost::mpi::packed_oarchive oa(world, buffer);
+        oa << derived_cast().m_subdomain;
+
+        std::transform(m_mpi_neighbourhood.cbegin(),
+                       m_mpi_neighbourhood.cend(),
+                       std::back_inserter(req),
+                       [&](const auto& neighbour)
+                       {
+                           return world.isend(neighbour.rank, neighbour.rank, buffer);
+                       });
+
+        for (auto& neighbour : m_mpi_neighbourhood)
+        {
+            world.recv(neighbour.rank, world.rank(), neighbour.mesh.m_subdomain);
+        }
+
+        mpi::wait_all(req.begin(), req.end());
+#endif
+    }
+
+    // This function is to only send cells[i] instead of the whole mesh
+    template <class D, class Config>
+    template <typename Mesh_base<D, Config>::mesh_id_t MeshID>
+    inline void Mesh_base<D, Config>::update_meshid_neighbour()
+    {
+#ifdef SAMURAI_WITH_MPI
+        // send/recv the meshes of the neighbouring subdomains
+        mpi::communicator world;
+        std::vector<mpi::request> req;
+
+        boost::mpi::packed_oarchive::buffer_type buffer;
+        boost::mpi::packed_oarchive oa(world, buffer);
+        oa << derived_cast()[MeshID];
+
+        std::transform(m_mpi_neighbourhood.cbegin(),
+                       m_mpi_neighbourhood.cend(),
+                       std::back_inserter(req),
+                       [&](const auto& neighbour)
+                       {
+                           return world.isend(neighbour.rank, neighbour.rank, buffer);
+                       });
+
+        for (auto& neighbour : m_mpi_neighbourhood)
+        {
+            world.recv(neighbour.rank, world.rank(), neighbour.mesh[MeshID]);
+        }
+
+        mpi::wait_all(req.begin(), req.end());
+#endif
+    }
+
+    // These are helper functions to send a specific cells[i]
+    template <class D, class Config>
+    inline void Mesh_base<D, Config>::update_neighbour_cells()
+    {
+        update_meshid_neighbour<mesh_id_t::cells>();
+    }
+
+    template <class D, class Config>
+    inline void Mesh_base<D, Config>::update_neighbour_cells_and_ghosts()
+    {
+        update_meshid_neighbour<mesh_id_t::cells_and_ghosts>();
+    }
+
+    template <class D, class Config>
+    inline void Mesh_base<D, Config>::update_neighbour_all_cells()
+    {
+        update_meshid_neighbour<mesh_id_t::all_cells>();
+    }
+
+    template <class D, class Config>
+    inline void Mesh_base<D, Config>::update_neighbour_reference()
+    {
+        update_meshid_neighbour<mesh_id_t::reference>();
     }
 
     template <class D, class Config>
