@@ -90,6 +90,14 @@ namespace samurai
 
         void update_sub_mesh_impl();
 
+        template <class MeshT>
+        void construct_ghost_cells(MeshT& mesh, cl_type& cell_list, std::size_t max_stencil_width);
+
+        template <class MeshT>
+        void construct_mra_cells(MeshT& mesh, cl_type& cell_list);
+        void construct_periodic_cells();
+        void construct_projection_cells();
+
         template <typename... T>
         xt::xtensor<bool, 1> exists(mesh_id_t type, std::size_t level, interval_t interval, T... index) const;
     };
@@ -140,6 +148,73 @@ namespace samurai
     }
 
     template <class Config>
+    template <class MeshT>
+    void MRMesh<Config>::construct_ghost_cells(MeshT& mesh, cl_type& cell_list, std::size_t max_stencil_width)
+    {
+        for_each_interval(
+            mesh[mesh_id_t::cells],
+            [&](std::size_t level, const auto& interval, const auto& index_yz)
+            {
+                lcl_type& lcl = cell_list[level];
+                static_nested_loop<dim - 1, -config::max_stencil_width, config::max_stencil_width + 1>(
+                    [&](auto stencil)
+                    {
+                        auto index = xt::eval(index_yz + stencil);
+                        lcl[index].add_interval({interval.start - config::max_stencil_width, interval.end + config::max_stencil_width});
+                    });
+            });
+        mesh[mesh_id_t::cells_and_ghosts] = {cell_list, false};
+    }
+
+    template <class Config>
+    template <class MeshT>
+    void MRMesh<Config>::construct_mra_cells(MeshT& mesh, cl_type& cell_list)
+    {
+        mpi::communicator world;
+        // cppcheck-suppress redundantInitialization
+        auto max_level = mpi::all_reduce(world, this->cells()[mesh_id_t::cells].max_level(), mpi::maximum<std::size_t>());
+        // cppcheck-suppress redundantInitialization
+        auto min_level = mpi::all_reduce(world, this->cells()[mesh_id_t::cells].min_level(), mpi::minimum<std::size_t>());
+
+        for (std::size_t level = max_level; level >= ((min_level == 0) ? 1 : min_level); --level)
+        {
+            auto expr = difference(mesh[mesh_id_t::cells_and_ghosts][level], this->get_union()[level]).on(level); // TODO : change this->
+            expr(
+                [&](const auto& interval, const auto& index_yz)
+                {
+                    lcl_type& lcl = cell_list[level - 1];
+                    static_nested_loop<dim - 1, -config::prediction_order, config::prediction_order + 1>(
+                        [&](auto stencil)
+                        {
+                            auto new_interval = interval >> 1;
+                            lcl[(index_yz >> 1) + stencil].add_interval(
+                                {new_interval.start - config::prediction_order, new_interval.end + config::prediction_order});
+                        });
+                });
+
+            auto expr_2 = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level]);
+
+            expr_2(
+                [&](const auto& interval, const auto& index_yz)
+                {
+                    if (level - 1 > 0)
+                    {
+                        lcl_type& lcl = cell_list[level - 2];
+
+                        static_nested_loop<dim - 1, -config::prediction_order, config::prediction_order + 1>(
+                            [&](auto stencil)
+                            {
+                                auto new_interval = interval >> 2;
+                                lcl[(index_yz >> 2) + stencil].add_interval(
+                                    {new_interval.start - config::prediction_order, new_interval.end + config::prediction_order});
+                            });
+                    }
+                });
+        }
+        mesh[mesh_id_t::all_cells] = {cell_list, false};
+    }
+
+    template <class Config>
     inline void MRMesh<Config>::update_sub_mesh_impl()
     {
 #ifdef SAMURAI_WITH_MPI
@@ -149,6 +224,7 @@ namespace samurai
         // cppcheck-suppress redundantInitialization
         auto min_level = mpi::all_reduce(world, this->cells()[mesh_id_t::cells].min_level(), mpi::minimum<std::size_t>());
         cl_type cell_list;
+        std::vector<cl_type> neighbour_cell_list(this->mpi_neighbourhood().size());
 #else
         // cppcheck-suppress redundantInitialization
         auto max_level = this->cells()[mesh_id_t::cells].max_level();
@@ -170,67 +246,22 @@ namespace samurai
         //
         // level 0 |.......|-------|.......|       |.......|-------|.......|
         //
-        for_each_interval(
-            this->cells()[mesh_id_t::cells],
-            [&](std::size_t level, const auto& interval, const auto& index_yz)
-            {
-                lcl_type& lcl = cell_list[level];
-                static_nested_loop<dim - 1, -config::max_stencil_width, config::max_stencil_width + 1>(
-                    [&](auto stencil)
-                    {
-                        auto index = xt::eval(index_yz + stencil);
-                        lcl[index].add_interval({interval.start - config::max_stencil_width, interval.end + config::max_stencil_width});
-                    });
-            });
-        this->cells()[mesh_id_t::cells_and_ghosts] = {cell_list, false};
+        //
+        //
+
+        construct_ghost_cells(this->cells(), cell_list, config::max_stencil_width);
+        // reconstruct ghost cells for neighbourhood
+        for (int i = 0; i < this->mpi_neighbourhood().size(); i++)
+        {
+            auto& neighbour = this->mpi_neighbourhood()[i];
+            construct_ghost_cells(neighbour.mesh, neighbour_cell_list[i], config::max_stencil_width);
+        }
 
         // Add cells for the MRA
         if (this->max_level() != this->min_level())
         {
-            for (std::size_t level = max_level; level >= ((min_level == 0) ? 1 : min_level); --level)
-            {
-                auto expr = difference(this->cells()[mesh_id_t::cells_and_ghosts][level], this->get_union()[level]).on(level);
-
-                expr(
-                    [&](const auto& interval, const auto& index_yz)
-                    {
-                        lcl_type& lcl = cell_list[level - 1];
-
-                        static_nested_loop<dim - 1, -config::prediction_order, config::prediction_order + 1>(
-                            [&](auto stencil)
-                            {
-                                auto new_interval = interval >> 1;
-                                lcl[(index_yz >> 1) + stencil].add_interval(
-                                    {new_interval.start - config::prediction_order, new_interval.end + config::prediction_order});
-                            });
-                    });
-
-                auto expr_2 = intersection(this->cells()[mesh_id_t::cells][level], this->cells()[mesh_id_t::cells][level]);
-
-                expr_2(
-                    [&](const auto& interval, const auto& index_yz)
-                    {
-                        if (level - 1 > 0)
-                        {
-                            lcl_type& lcl = cell_list[level - 2];
-
-                            static_nested_loop<dim - 1, -config::prediction_order, config::prediction_order + 1>(
-                                [&](auto stencil)
-                                {
-                                    auto new_interval = interval >> 2;
-                                    lcl[(index_yz >> 2) + stencil].add_interval(
-                                        {new_interval.start - config::prediction_order, new_interval.end + config::prediction_order});
-                                });
-                        }
-                    });
-            }
-            this->cells()[mesh_id_t::all_cells] = {cell_list, false};
-
-            // this->update_mesh_neighbour();
-
-            //      this->update_neighbour_cells_and_ghosts();
+            construct_mra_cells(this->cells(), cell_list);
             this->update_neighbour_reference();
-
             // Here we want to reconstruct cells_and_ghosts and reference
             for (auto& neighbour : this->mpi_neighbourhood())
             {
