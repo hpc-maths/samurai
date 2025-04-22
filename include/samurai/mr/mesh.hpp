@@ -227,10 +227,9 @@ namespace samurai
             this->cells()[mesh_id_t::all_cells] = {cell_list, false};
 
             // this->update_mesh_neighbour();
-            this->update_neighbour_cells_and_ghosts();
-            this->update_neighbour_reference();
+            update_meshid_neighbour<mesh_id_t::cells_and_ghosts>() update_meshid_neighbour<mesh_id_t::reference>()
 
-            for (auto& neighbour : this->mpi_neighbourhood())
+                for (auto& neighbour : this->mpi_neighbourhood())
             {
                 for (std::size_t level = 0; level <= max_level; ++level)
                 {
@@ -343,7 +342,7 @@ namespace samurai
             }
             // this->update_mesh_neighbour();
             this->update_neighbour_subdomain();
-            this->update_neighbour_all_cells();
+            update_meshid_neighbour<mesh_id_t::all_cells>()
         }
         else
         {
