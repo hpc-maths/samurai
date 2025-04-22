@@ -227,8 +227,29 @@ namespace samurai
             this->cells()[mesh_id_t::all_cells] = {cell_list, false};
 
             // this->update_mesh_neighbour();
-            this->update_neighbour_cells_and_ghosts();
+
+            //      this->update_neighbour_cells_and_ghosts();
             this->update_neighbour_reference();
+
+            // Here we want to reconstruct cells_and_ghosts and reference
+            for (auto& neighbour : this->mpi_neighbourhood())
+            {
+                // reconstruct cells_and_ghosts
+                cl_type cell_list_neighbour;
+                for_each_interval(this->cells()[mesh_id_t::cells],
+                                  [&](std::size_t level, const auto& interval, const auto& index_yz)
+                                  {
+                                      lcl_type& lcl = cell_list_neighbour[level];
+                                      static_nested_loop<dim - 1, -config::max_stencil_width, config::max_stencil_width + 1>(
+                                          [&](auto stencil)
+                                          {
+                                              auto index = xt::eval(index_yz + stencil);
+                                              lcl[index].add_interval(
+                                                  {interval.start - config::max_stencil_width, interval.end + config::max_stencil_width});
+                                          });
+                                  });
+                neighbour.mesh[mesh_id_t::cells_and_ghosts] = {cell_list, false};
+            }
 
             for (auto& neighbour : this->mpi_neighbourhood())
             {
