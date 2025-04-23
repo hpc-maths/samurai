@@ -429,52 +429,58 @@ namespace samurai
 
         construct_ghost_cells(*this, cell_list);
         // reconstruct ghost cells for neighbourhood
+#ifdef SAMURAI_WITH_MPI
         for (std::size_t i = 0; i < this->mpi_neighbourhood().size(); i++)
         {
             auto& neighbour = this->mpi_neighbourhood()[i];
             construct_ghost_cells((neighbour.mesh), neighbour_cell_list[i]);
         }
-
+#endif
         // Add cells for the MRA
         if (this->max_level() != this->min_level())
         {
             construct_mra_cells(*this, cell_list);
             // this->update_neighbour_reference();
+#ifdef SAMURAI_WITH_MPI
             for (std::size_t i = 0; i < this->mpi_neighbourhood().size(); i++)
             {
                 auto& neighbour = this->mpi_neighbourhood()[i];
                 construct_mra_cells((neighbour.mesh), neighbour_cell_list[i]);
             }
-
+#endif
             construct_neighbour_cells(*this, cell_list);
+#ifdef SAMURAI_WITH_MPI
             for (std::size_t i = 0; i < this->mpi_neighbourhood().size(); i++)
             {
                 auto& neighbour = this->mpi_neighbourhood()[i];
                 construct_neighbour_cells(neighbour.mesh, neighbour_cell_list[i]);
             }
+#endif
             this->cells()[mesh_id_t::all_cells] = {cell_list, false};
-
+#ifdef SAMURAI_WITH_MPI
             for (std::size_t i = 0; i < this->mpi_neighbourhood().size(); i++)
             {
                 auto& neighbour                              = this->mpi_neighbourhood()[i];
                 neighbour.mesh.cells()[mesh_id_t::all_cells] = {neighbour_cell_list[i], false};
             }
-
+#endif
             // For now, this leads to a segfault.
             //          construct_periodic_cells(*this, cell_list);
+#ifdef SAMURAI_WITH_MPI
             //          for (std::size_t i = 0; i < this->mpi_neighbourhood().size(); i++)
             //          {
             //              auto& neighbour = this->mpi_neighbourhood()[i];
             //              construct_periodic_cells(neighbour.mesh, neighbour_cell_list[i]);
             //          }
-
+#endif
             construct_projection_cells(*this, cell_list);
+#ifdef SAMURAI_WITH_MPI
             for (std::size_t i = 0; i < this->mpi_neighbourhood().size(); i++)
             {
                 auto& neighbour = this->mpi_neighbourhood()[i];
                 construct_projection_cells(neighbour.mesh, neighbour_cell_list[i]);
             }
-
+#endif
             //
             // this->update_mesh_neighbour();
             this->update_neighbour_subdomain();
