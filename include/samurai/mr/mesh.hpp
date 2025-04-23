@@ -227,8 +227,6 @@ namespace samurai
             this->cells()[mesh_id_t::all_cells] = {cell_list, false};
 
             // this->update_mesh_neighbour();
-            //            this->template update_meshid_neighbour<mesh_id_t::cells_and_ghosts>();
-            //            this->template update_meshid_neighbour<mesh_id_t::reference>();
             this->update_meshid_neighbour(mesh_id_t::cells_and_ghosts);
             this->update_meshid_neighbour(mesh_id_t::reference);
 
