@@ -173,18 +173,10 @@ namespace samurai
     template <class MeshT>
     void MRMesh<Config>::construct_mra_cells(MeshT& mesh, cl_type& cell_list)
     {
-#ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-        // cppcheck-suppress redundantInitialization
-        auto max_level = mpi::all_reduce(world, mesh.cells()[mesh_id_t::cells].max_level(), mpi::maximum<std::size_t>());
-        // cppcheck-suppress redundantInitialization
-        auto min_level = mpi::all_reduce(world, mesh.cells()[mesh_id_t::cells].min_level(), mpi::minimum<std::size_t>());
-#else
         // cppcheck-suppress redundantInitialization
         auto max_level = mesh.cells()[mesh_id_t::cells].max_level();
         // cppcheck-suppress redundantInitialization
         auto min_level = mesh.cells()[mesh_id_t::cells].min_level();
-#endif
 
         for (std::size_t level = max_level; level >= ((min_level == 0) ? 1 : min_level); --level)
         {
@@ -228,18 +220,10 @@ namespace samurai
     template <class MeshT>
     void MRMesh<Config>::construct_periodic_cells(MeshT& mesh, cl_type& cell_list)
     {
-#ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-        // cppcheck-suppress redundantInitialization
-        auto max_level = mpi::all_reduce(world, mesh.cells()[mesh_id_t::cells].max_level(), mpi::maximum<std::size_t>());
-        // cppcheck-suppress redundantInitialization
-        auto min_level = mpi::all_reduce(world, mesh.cells()[mesh_id_t::cells].min_level(), mpi::minimum<std::size_t>());
-#else
         // cppcheck-suppress redundantInitialization
         auto max_level = mesh.cells()[mesh_id_t::cells].max_level();
         // cppcheck-suppress redundantInitialization
         auto min_level = mesh.cells()[mesh_id_t::cells].min_level();
-#endif
 
         xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> stencil;
         xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> min_corner;
@@ -250,8 +234,7 @@ namespace samurai
         auto max_indices = domain.max_indices();
 
         // cppcheck-suppress constStatement
-        for (std::size_t level = mesh.cells()[mesh_id_t::reference].min_level(); level <= mesh.cells()[mesh_id_t::reference].max_level();
-             ++level)
+        for (std::size_t level = min_level; level <= max_level; ++level)
         {
             std::size_t delta_l = domain.level() - level;
             lcl_type& lcl       = cell_list[level];
@@ -309,18 +292,8 @@ namespace samurai
     template <class MeshT>
     void MRMesh<Config>::construct_projection_cells(MeshT& mesh, cl_type& cell_list)
     {
-#ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-        // cppcheck-suppress redundantInitialization
-        auto max_level = mpi::all_reduce(world, mesh.cells()[mesh_id_t::cells].max_level(), mpi::maximum<std::size_t>());
-        // cppcheck-suppress redundantInitialization
-        auto min_level = mpi::all_reduce(world, mesh.cells()[mesh_id_t::cells].min_level(), mpi::minimum<std::size_t>());
-#else
         // cppcheck-suppress redundantInitialization
         auto max_level = mesh.cells()[mesh_id_t::cells].max_level();
-        // cppcheck-suppress redundantInitialization
-        auto min_level = mesh.cells()[mesh_id_t::cells].min_level();
-#endif
 
         for (std::size_t level = 0; level < max_level; ++level)
         {
@@ -347,18 +320,8 @@ namespace samurai
     template <class MeshT>
     void MRMesh<Config>::construct_neighbour_cells(MeshT& mesh, cl_type& cell_list)
     {
-#ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-        // cppcheck-suppress redundantInitialization
-        auto max_level = mpi::all_reduce(world, mesh.cells()[mesh_id_t::cells].max_level(), mpi::maximum<std::size_t>());
-        // cppcheck-suppress redundantInitialization
-        auto min_level = mpi::all_reduce(world, mesh.cells()[mesh_id_t::cells].min_level(), mpi::minimum<std::size_t>());
-#else
         // cppcheck-suppress redundantInitialization
         auto max_level = mesh.cells()[mesh_id_t::cells].max_level();
-        // cppcheck-suppress redundantInitialization
-        auto min_level = mesh.cells()[mesh_id_t::cells].min_level();
-#endif
 
         for (auto& neighbour : mesh.mpi_neighbourhood())
         {
@@ -392,21 +355,9 @@ namespace samurai
     template <class Config>
     inline void MRMesh<Config>::update_sub_mesh_impl()
     {
-#ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-        // cppcheck-suppress redundantInitialization
-        auto max_level = mpi::all_reduce(world, this->cells()[mesh_id_t::cells].max_level(), mpi::maximum<std::size_t>());
-        // cppcheck-suppress redundantInitialization
-        auto min_level = mpi::all_reduce(world, this->cells()[mesh_id_t::cells].min_level(), mpi::minimum<std::size_t>());
         cl_type cell_list;
         std::vector<cl_type> neighbour_cell_list(this->mpi_neighbourhood().size());
-#else
-        // cppcheck-suppress redundantInitialization
-        auto max_level = this->cells()[mesh_id_t::cells].max_level();
-        // cppcheck-suppress redundantInitialization
-        auto min_level = this->cells()[mesh_id_t::cells].min_level();
-        cl_type cell_list;
-#endif
+
         // Construction of ghost cells
         // ===========================
         //
