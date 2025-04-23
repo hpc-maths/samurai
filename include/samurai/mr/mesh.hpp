@@ -407,7 +407,7 @@ namespace samurai
         if (this->max_level() != this->min_level())
         {
             construct_mra_cells(*this, cell_list);
-            this->update_neighbour_reference();
+            // this->update_neighbour_reference();
             for (std::size_t i = 0; i < this->mpi_neighbourhood().size(); i++)
             {
                 auto& neighbour = this->mpi_neighbourhood()[i];
@@ -428,12 +428,14 @@ namespace samurai
                 neighbour.mesh.cells()[mesh_id_t::all_cells] = {neighbour_cell_list[i], false};
             }
 
-            construct_periodic_cells(*this, cell_list);
-            for (std::size_t i = 0; i < this->mpi_neighbourhood().size(); i++)
-            {
-                auto& neighbour = this->mpi_neighbourhood()[i];
-                construct_periodic_cells(neighbour.mesh, neighbour_cell_list[i]);
-            }
+            // For now, this leads to a segfault.
+            //          construct_periodic_cells(*this, cell_list);
+            //          for (std::size_t i = 0; i < this->mpi_neighbourhood().size(); i++)
+            //          {
+            //              auto& neighbour = this->mpi_neighbourhood()[i];
+            //              construct_periodic_cells(neighbour.mesh, neighbour_cell_list[i]);
+            //          }
+
             construct_projection_cells(*this, cell_list);
             for (std::size_t i = 0; i < this->mpi_neighbourhood().size(); i++)
             {
@@ -444,7 +446,7 @@ namespace samurai
             //
             // this->update_mesh_neighbour();
             this->update_neighbour_subdomain();
-            this->update_neighbour_all_cells();
+            //            this->update_neighbour_all_cells();
         }
         else
         {
