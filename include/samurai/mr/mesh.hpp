@@ -221,6 +221,7 @@ namespace samurai
     template <class MeshT>
     void MRMesh<Config>::construct_periodic_cells(MeshT& mesh, cl_type& cell_list)
     {
+        /**
         mpi::communicator world;
         // cppcheck-suppress redundantInitialization
         auto max_level = mpi::all_reduce(world, mesh.cells()[mesh_id_t::cells].max_level(), mpi::maximum<std::size_t>());
@@ -288,6 +289,7 @@ namespace samurai
                 }
             }
         }
+    **/
     }
 
     template <class Config>
