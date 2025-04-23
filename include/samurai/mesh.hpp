@@ -135,7 +135,7 @@ namespace samurai
 
         void update_mesh_neighbour();
         void update_neighbour_subdomain();
-        void update_meshid_neighbour(typename Mesh_base<D, Config>::mesh_id_t mesh_id);
+        void update_meshid_neighbour(const typename Mesh_base<D, Config>::mesh_id_t& mesh_id);
 
         void to_stream(std::ostream& os) const;
 
@@ -688,7 +688,7 @@ namespace samurai
 
     // Modified function definition
     template <class D, class Config>
-    inline void Mesh_base<D, Config>::update_meshid_neighbour(typename Mesh_base<D, Config>::mesh_id_t mesh_id)
+    inline void Mesh_base<D, Config>::update_meshid_neighbour(const typename Mesh_base<D, Config>::mesh_id_t& mesh_id)
     {
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
