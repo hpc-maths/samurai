@@ -222,7 +222,7 @@ namespace samurai
     void MRMesh<Config>::construct_periodic_cells(MeshT& mesh, cl_type& cell_list)
     {
         mpi::communicator world;
-
+        // cppcheck-suppress redundantInitialization
         auto max_level = mpi::all_reduce(world, mesh.cells()[mesh_id_t::cells].max_level(), mpi::maximum<std::size_t>());
         // cppcheck-suppress redundantInitialization
         auto min_level = mpi::all_reduce(world, mesh.cells()[mesh_id_t::cells].min_level(), mpi::minimum<std::size_t>());
@@ -295,6 +295,7 @@ namespace samurai
     void MRMesh<Config>::construct_projection_cells(MeshT& mesh, cl_type& cell_list)
     {
         mpi::communicator world;
+        // cppcheck-suppress redundantInitialization
         auto max_level = mpi::all_reduce(world, mesh.cells()[mesh_id_t::cells].max_level(), mpi::maximum<std::size_t>());
         // cppcheck-suppress redundantInitialization
         auto min_level = mpi::all_reduce(world, mesh.cells()[mesh_id_t::cells].min_level(), mpi::minimum<std::size_t>());
@@ -325,6 +326,7 @@ namespace samurai
     void MRMesh<Config>::construct_neighbour_cells(MeshT& mesh, cl_type& cell_list)
     {
         mpi::communicator world;
+        // cppcheck-suppress redundantInitialization
         auto max_level = mpi::all_reduce(world, mesh.cells()[mesh_id_t::cells].max_level(), mpi::maximum<std::size_t>());
         // cppcheck-suppress redundantInitialization
         auto min_level = mpi::all_reduce(world, mesh.cells()[mesh_id_t::cells].min_level(), mpi::minimum<std::size_t>());
@@ -413,14 +415,32 @@ namespace samurai
             }
 
             construct_neighbour_cells(*this, cell_list);
-            // TODO : add reconstruction
+            for (std::size_t i = 0; i < this->mpi_neighbourhood().size(); i++)
+            {
+                auto& neighbour = this->mpi_neighbourhood()[i];
+                construct_neighbour_cells(neighbour.mesh, neighbour_cell_list[i]);
+            }
             this->cells()[mesh_id_t::all_cells] = {cell_list, false};
 
-            construct_periodic_cells(*this, cell_list);
-            // TODO : add reconstruction
+            for (std::size_t i = 0; i < this->mpi_neighbourhood().size(); i++)
+            {
+                auto& neighbour                              = this->mpi_neighbourhood()[i];
+                neighbour.mesh.cells()[mesh_id_t::all_cells] = {neighbour_cell_list[i], false};
+            }
 
+            construct_periodic_cells(*this, cell_list);
+            for (std::size_t i = 0; i < this->mpi_neighbourhood().size(); i++)
+            {
+                auto& neighbour = this->mpi_neighbourhood()[i];
+                construct_periodic_cells(neighbour.mesh, neighbour_cell_list[i]);
+            }
             construct_projection_cells(*this, cell_list);
-            // TODO : add reconstruction
+            for (std::size_t i = 0; i < this->mpi_neighbourhood().size(); i++)
+            {
+                auto& neighbour = this->mpi_neighbourhood()[i];
+                construct_projection_cells(neighbour.mesh, neighbour_cell_list[i]);
+            }
+
             //
             // this->update_mesh_neighbour();
             this->update_neighbour_subdomain();
