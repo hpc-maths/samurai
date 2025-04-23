@@ -347,7 +347,7 @@ namespace samurai
         {
             this->cells()[mesh_id_t::all_cells] = {cell_list, false};
             // TODO : I think we do not want to update subdomain in this case, it remains the same iteration after iteration.
-            this > update_neighbour_subdomain();
+            this->update_neighbour_subdomain();
             this->update_meshid_neighbour(mesh_id_t::cells_and_ghosts);
             this->update_meshid_neighbour(mesh_id_t::reference);
         }
