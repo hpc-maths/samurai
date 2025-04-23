@@ -462,7 +462,7 @@ namespace samurai
             }
 #endif
             // For now, this leads to a segfault.
-            //          construct_periodic_cells(*this, cell_list);
+            construct_periodic_cells(*this, cell_list);
 #ifdef SAMURAI_WITH_MPI
             //          for (std::size_t i = 0; i < this->mpi_neighbourhood().size(); i++)
             //          {
