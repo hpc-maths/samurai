@@ -249,6 +249,7 @@ namespace samurai
         auto min_indices = domain.min_indices();
         auto max_indices = domain.max_indices();
 
+        // cppcheck-suppress constStatement
         for (std::size_t level = mesh.cells()[mesh_id_t::reference].min_level(); level <= mesh.cells()[mesh_id_t::reference].max_level();
              ++level)
         {
