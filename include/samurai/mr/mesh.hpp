@@ -228,8 +228,6 @@ namespace samurai
     template <class MeshT>
     void MRMesh<Config>::construct_periodic_cells(MeshT& mesh, cl_type& cell_list)
     {
-        /**
-
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
         // cppcheck-suppress redundantInitialization
@@ -242,7 +240,6 @@ namespace samurai
         // cppcheck-suppress redundantInitialization
         auto min_level = mesh.cells()[mesh_id_t::cells].min_level();
 #endif
-
 
         xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> stencil;
         xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> min_corner;
@@ -305,7 +302,6 @@ namespace samurai
                 }
             }
         }
-    **/
     }
 
     template <class Config>
