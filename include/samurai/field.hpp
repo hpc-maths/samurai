@@ -1188,7 +1188,6 @@ namespace samurai
     inline auto ScalarField<mesh_t, value_t>::begin() -> iterator
     {
         using mesh_id_t = typename mesh_t::mesh_id_t;
-        // add comment : the CI is buggy ahahaha
         return iterator(this, this->mesh()[mesh_id_t::cells].cbegin());
     }
 

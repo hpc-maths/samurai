@@ -226,7 +226,6 @@ namespace samurai
             }
             this->cells()[mesh_id_t::all_cells] = {cell_list, false};
 
-            // this->update_mesh_neighbour();
             this->update_meshid_neighbour(mesh_id_t::cells_and_ghosts);
             this->update_meshid_neighbour(mesh_id_t::reference);
 
@@ -341,15 +340,16 @@ namespace samurai
                 this->cells()[mesh_id_t::all_cells][level + 1] = lcl;
                 this->cells()[mesh_id_t::proj_cells][level]    = lcl_proj;
             }
-            // this->update_mesh_neighbour();
             this->update_neighbour_subdomain();
             this->update_meshid_neighbour(mesh_id_t::all_cells);
         }
         else
         {
             this->cells()[mesh_id_t::all_cells] = {cell_list, false};
-            // TODO : what to send here ?
-            this->update_mesh_neighbour();
+            // TODO : I think we do not want to update subdomain in this case, it remains the same iteration after iteration.
+            this > update_neighbour_subdomain();
+            this->update_meshid_neighbour(mesh_id_t::cells_and_ghosts);
+            this->update_meshid_neighbour(mesh_id_t::reference);
         }
     }
 
