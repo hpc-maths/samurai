@@ -139,6 +139,8 @@ namespace samurai
         template <mesh_id_t MeshID>
         void update_meshid_neighbour();
 
+        void update_meshid_neighbour(typename Mesh_base<D, Config>::mesh_id_t mesh_id); // Pass mesh_id as parameter
+
         void update_neighbour_cells();
         void update_neighbour_cells_and_ghosts();
         void update_neighbour_all_cells();
@@ -722,6 +724,44 @@ namespace samurai
 
         mpi::wait_all(req.begin(), req.end());
 #endif
+    }
+
+    // Modified function definition
+    template <class D, class Config>
+    inline void Mesh_base<D, Config>::update_meshid_neighbour(typename Mesh_base<D, Config>::mesh_id_t mesh_id) // Pass mesh_id as parameter
+    {
+#ifdef SAMURAI_WITH_MPI
+        // send/recv the meshes of the neighbouring subdomains
+        mpi::communicator world;
+        std::vector<mpi::request> req;
+
+        boost::mpi::packed_oarchive::buffer_type buffer;
+        boost::mpi::packed_oarchive oa(world, buffer);
+        // Use the function parameter 'mesh_id' to access the correct mesh data
+        oa << derived_cast()[mesh_id]; // Use mesh_id parameter
+
+        std::transform(m_mpi_neighbourhood.cbegin(),
+                       m_mpi_neighbourhood.cend(),
+                       std::back_inserter(req),
+                       [&](const auto& neighbour)
+                       {
+                           // The tag could remain the rank, or potentially include mesh_id if needed,
+                           // but sending the same buffer doesn't require changing the tag here.
+                           return world.isend(neighbour.rank, neighbour.rank, buffer);
+                       });
+
+        for (auto& neighbour : m_mpi_neighbourhood)
+        {
+            // Use the function parameter 'mesh_id' to store the received data
+            // Assuming neighbour.mesh can be indexed by mesh_id
+            world.recv(neighbour.rank, world.rank(), neighbour.mesh[mesh_id]); // Use mesh_id parameter
+        }
+
+        mpi::wait_all(req.begin(), req.end());
+#else
+        // Avoid unused parameter warning when MPI is disabled
+        (void)mesh_id;
+#endif // SAMURAI_WITH_MPI
     }
 
     // These are helper functions to send a specific cells[i]
