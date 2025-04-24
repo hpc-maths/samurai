@@ -356,8 +356,9 @@ namespace samurai
     inline void MRMesh<Config>::update_sub_mesh_impl()
     {
         cl_type cell_list;
+#ifdef SAMURAI_WITH_MPI
         std::vector<cl_type> neighbour_cell_list(this->mpi_neighbourhood().size());
-
+#endif
         // Construction of ghost cells
         // ===========================
         //
