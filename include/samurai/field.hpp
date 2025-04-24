@@ -578,14 +578,14 @@ namespace samurai
     inline auto VectorField<mesh_t, value_t, n_comp_, SOA>::begin() -> iterator
     {
         using mesh_id_t = typename mesh_t::mesh_id_t;
-        return iterator(this, this->mesh()[mesh_id_t::cells].begin());
+        return iterator(this, this->mesh()[mesh_id_t::cells].cbegin());
     }
 
     template <class mesh_t, class value_t, std::size_t n_comp_, bool SOA>
     inline auto VectorField<mesh_t, value_t, n_comp_, SOA>::end() -> iterator
     {
         using mesh_id_t = typename mesh_t::mesh_id_t;
-        return iterator(this, this->mesh()[mesh_id_t::cells].end());
+        return iterator(this, this->mesh()[mesh_id_t::cells].cend());
     }
 
     template <class mesh_t, class value_t, std::size_t n_comp_, bool SOA>
@@ -1188,14 +1188,14 @@ namespace samurai
     inline auto ScalarField<mesh_t, value_t>::begin() -> iterator
     {
         using mesh_id_t = typename mesh_t::mesh_id_t;
-        return iterator(this, this->mesh()[mesh_id_t::cells].begin());
+        return iterator(this, this->mesh()[mesh_id_t::cells].cbegin());
     }
 
     template <class mesh_t, class value_t>
     inline auto ScalarField<mesh_t, value_t>::end() -> iterator
     {
         using mesh_id_t = typename mesh_t::mesh_id_t;
-        return iterator(this, this->mesh()[mesh_id_t::cells].end());
+        return iterator(this, this->mesh()[mesh_id_t::cells].cend());
     }
 
     template <class mesh_t, class value_t>
