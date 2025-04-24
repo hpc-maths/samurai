@@ -174,6 +174,9 @@ namespace samurai
         void construct_union();
         void update_sub_mesh();
         void renumbering();
+
+        void find_neighbourhood_naive();
+
         void partition_mesh(std::size_t start_level, const Box<double, dim>& global_box);
         void load_balancing();
         void load_transfer(const std::vector<double>& load_fluxes);
@@ -786,6 +789,29 @@ namespace samurai
     }
 
     template <class D, class Config>
+    void Mesh_base<D, Config>::find_neighbour_naive()
+    {
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        auto rank = world.rank();
+        auto size = world.size();
+        if (rank == 0)
+        {
+            m_mpi_neighbourhood.push_back(1);
+        }
+        else if (rank == size - 1)
+        {
+            m_mpi_neighbourhoof(size - 2);
+        }
+        else
+        {
+            m_mpi_neighbourhood(rank - 1);
+            m_mpi_neighbourhoof(rank + 1);
+        }
+#endif
+    }
+
+    template <class D, class Config>
     void Mesh_base<D, Config>::partition_mesh([[maybe_unused]] std::size_t start_level, [[maybe_unused]] const Box<double, dim>& global_box)
     {
 #ifdef SAMURAI_WITH_MPI
@@ -912,6 +938,8 @@ namespace samurai
                 m_mpi_neighbourhood.push_back(ir);
             }
         }
+
+        find_neighbourhood_naive();
 
         // // Neighbours
         // m_mpi_neighbourhood.reserve(static_cast<std::size_t>(pow(3, dim) - 1));
