@@ -160,20 +160,21 @@ void LINEAR_CONVECTION(benchmark::State& state)
 BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 5, 8)->Unit(benchmark::kMillisecond)->Iterations(1);
 BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 5, 10)->Unit(benchmark::kMillisecond)->Iterations(1);
 BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 5, 12)->Unit(benchmark::kMillisecond)->Iterations(1);
-BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 5, 14)->Unit(benchmark::kMillisecond)->Iterations(1);
+// BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 5, 14)->Unit(benchmark::kMillisecond)->Iterations(1);
 
 // MRA with max_level - min-level = 2
 BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 6, 8)->Unit(benchmark::kMillisecond)->Iterations(1);
 BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 8, 10)->Unit(benchmark::kMillisecond)->Iterations(1);
 BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 10, 12)->Unit(benchmark::kMillisecond)->Iterations(1);
-BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 12, 14)->Unit(benchmark::kMillisecond)->Iterations(1);
+// BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 12, 14)->Unit(benchmark::kMillisecond)->Iterations(1);
 
 // Uniform
 BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 6, 6)->Unit(benchmark::kMillisecond)->Iterations(1);
 BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 8, 8)->Unit(benchmark::kMillisecond)->Iterations(1);
 BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 10, 10)->Unit(benchmark::kMillisecond)->Iterations(1);
 BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 12, 12)->Unit(benchmark::kMillisecond)->Iterations(1);
-BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 14, 14)->Unit(benchmark::kMillisecond)->Iterations(1);
+
+// BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 14, 14)->Unit(benchmark::kMillisecond)->Iterations(1);
 
 /** SOURCE : https://gist.github.com/mdavezac/eb16de7e8fc08e522ff0d420516094f5
  **/
