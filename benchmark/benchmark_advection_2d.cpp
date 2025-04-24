@@ -189,7 +189,9 @@ void ADVECTION_2D(benchmark::State& state)
 
         std::size_t nt = 0;
 
+#ifdef SAMURAI_WITH_MPI
         MPI_Barrier(MPI_COMM_WORLD);
+#endif
         state.ResumeTiming();
         for (int i = 0; i < 10; i++)
         {
@@ -209,7 +211,9 @@ void ADVECTION_2D(benchmark::State& state)
             }
             std::swap(u.array(), unp1.array());
         }
+#ifdef SAMURAI_WITH_MPI
         MPI_Barrier(MPI_COMM_WORLD);
+#endif
     }
 }
 
@@ -262,10 +266,13 @@ class NullReporter : public ::benchmark::BenchmarkReporter
 
 int main(int argc, char** argv)
 {
+#ifdef SAMURAI_WITH_MPI
     MPI_Init(&argc, &argv);
-
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+#else
+    int rank = 0;
+#endif
 
     ::benchmark::Initialize(&argc, argv);
     if (rank == 0)
@@ -278,6 +285,8 @@ int main(int argc, char** argv)
         ::benchmark::RunSpecifiedBenchmarks(&null);
     }
 
+#ifdef SAMURAI_WITH_MPI
     MPI_Finalize();
+#endif
     return 0;
 }
