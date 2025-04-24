@@ -27,7 +27,7 @@ void init(Field& u)
                                auto center           = cell.center();
                                const double radius   = .2;
                                const double x_center = 0.3;
-                               const double y_center = 0.3;
+                               // const double y_center = 0.3;
                                if (std::abs(center[0] - x_center) <= radius * radius)
                                {
                                    u[cell] = 1;
@@ -163,21 +163,15 @@ void ADVECTION_2D(benchmark::State& state)
         // Multiresolution parameters
         double mr_epsilon    = 2.e-4; // Threshold used by multiresolution
         double mr_regularity = 1.;    // Regularity guess for multiresolution
-        bool correction      = false;
+        // bool correction      = false;
 
         const samurai::Box<double, dim> box(min_corner, max_corner);
         samurai::MRMesh<Config> mesh;
         auto u = samurai::make_scalar_field<double>("u", mesh);
 
-        if (restart_file.empty())
-        {
-            mesh = {box, min_level, max_level};
-            init(u);
-        }
-        else
-        {
-            samurai::load(restart_file, mesh, u);
-        }
+        mesh = {box, min_level, max_level};
+        init(u);
+
         samurai::make_bc<samurai::Neumann<1>>(u, 0.);
 
         double dt = cfl * mesh.cell_length(max_level);
@@ -186,8 +180,6 @@ void ADVECTION_2D(benchmark::State& state)
 
         auto MRadaptation = samurai::make_MRAdapt(u);
         MRadaptation(mr_epsilon, mr_regularity);
-
-        std::size_t nt = 0;
 
 #ifdef SAMURAI_WITH_MPI
         MPI_Barrier(MPI_COMM_WORLD);
@@ -206,10 +198,10 @@ void ADVECTION_2D(benchmark::State& state)
             samurai::update_ghost_mr(u);
             unp1.resize();
             unp1 = u - dt * samurai::upwind(a, u);
-            if (correction)
-            {
-                flux_correction(dt, a, u, unp1);
-            }
+            // if (correction)
+            // {
+            //     flux_correction(dt, a, u, unp1);
+            // }
             std::swap(u.array(), unp1.array());
         }
 #ifdef SAMURAI_WITH_MPI
