@@ -10,6 +10,7 @@
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/samurai.hpp>
+#include <samurai/schemes/fv.hpp>
 #include <samurai/stencil_field.hpp>
 #include <samurai/subset/node.hpp>
 
@@ -26,8 +27,6 @@ void LINEAR_CONVECTION(benchmark::State& state)
         using Config                     = samurai::MRConfig<dim, 3>;
         using Box                        = samurai::Box<double, dim>;
         using point_t                    = typename Box::point_t;
-
-        std::cout << "------------------------- Linear convection -------------------------" << std::endl;
 
         //--------------------//
         // Program parameters //
@@ -116,7 +115,7 @@ void LINEAR_CONVECTION(benchmark::State& state)
 #ifdef SAMURAI_WITH_MPI
         MPI_Barrier(MPI_COMM_WORLD);
 #endif
-        state.RestartTiming();
+        state.ResumeTiming();
         int ITER_STEPS = 10;
         for (int i = 0; i < ITER_STEPS; i++)
         {
