@@ -18,13 +18,16 @@ include(addGoogleTest)
 include(addGoogleBench)
 
 find_package(Threads)
+find_package(CLI11)
 
 set(SAMURAI_BENCHMARKS
     benchmark_celllist_construction.cpp
     benchmark_search.cpp
-    benchmark_set.cpp
+    #    benchmark_set.cpp # buggy for now.
     main.cpp
 )
+
+
 
 # foreach(filename IN LISTS SAMURAI_BENCHMARKS)
 #     string(REPLACE ".cpp" "" targetname ${filename})
@@ -35,8 +38,15 @@ set(SAMURAI_BENCHMARKS
 # endforeach()
 
 add_executable(bench_samurai ${SAMURAI_BENCHMARKS})
+
+add_executable(bench_advection_2d benchmark_advection_2d.cpp)
+
+
+
 # target_include_directories(bench_samurai PRIVATE ${SAMURAI_INCLUDE_DIR})
-target_link_libraries(bench_samurai samurai benchmark::benchmark)
+target_link_libraries(bench_samurai samurai CLI11::CLI11 benchmark::benchmark)
+target_link_libraries(bench_advection_2d samurai CLI11::CLI11 benchmark::benchmark)
+
 
 # target_include_directories(bench_samurai_lib PRIVATE ${SAMURAI_INCLUDE_DIR})
 # # if(DOWNLOAD_GTEST OR GTEST_SRC_DIR)
