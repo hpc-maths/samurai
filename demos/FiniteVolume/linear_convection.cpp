@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
 {
     auto& app = samurai::initialize("Finite volume example for the linear convection equation", argc, argv);
 
-    static constexpr std::size_t dim = 3;
+    static constexpr std::size_t dim = 2;
     using Config                     = samurai::MRConfig<dim, 3>;
     using Box                        = samurai::Box<double, dim>;
     using point_t                    = typename Box::point_t;
