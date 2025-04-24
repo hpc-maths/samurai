@@ -56,9 +56,11 @@ void LINEAR_CONVECTION(benchmark::State& state)
         box_corner2.fill(right_box);
         Box box(box_corner1, box_corner2);
         std::array<bool, dim> periodic;
-        periodic.fill(true);
+        periodic.fill(false);
         samurai::MRMesh<Config> mesh;
         auto u = samurai::make_scalar_field<double>("u", mesh);
+
+        samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
 
         mesh = {box, min_level, max_level, periodic};
         // Initial solution
