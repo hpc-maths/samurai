@@ -214,35 +214,22 @@ void ADVECTION_2D(benchmark::State& state)
 
 // MRA with min_level = 5
 BENCHMARK_TEMPLATE(ADVECTION_2D, 5, 8)->Unit(benchmark::kMillisecond)->Iterations(1);
-;
 BENCHMARK_TEMPLATE(ADVECTION_2D, 5, 10)->Unit(benchmark::kMillisecond)->Iterations(1);
-;
 BENCHMARK_TEMPLATE(ADVECTION_2D, 5, 12)->Unit(benchmark::kMillisecond)->Iterations(1);
-;
 BENCHMARK_TEMPLATE(ADVECTION_2D, 5, 14)->Unit(benchmark::kMillisecond)->Iterations(1);
-;
 
 // MRA with max_level - min-level = 2
 BENCHMARK_TEMPLATE(ADVECTION_2D, 6, 8)->Unit(benchmark::kMillisecond)->Iterations(1);
-;
 BENCHMARK_TEMPLATE(ADVECTION_2D, 8, 10)->Unit(benchmark::kMillisecond)->Iterations(1);
-;
 BENCHMARK_TEMPLATE(ADVECTION_2D, 10, 12)->Unit(benchmark::kMillisecond)->Iterations(1);
-;
 BENCHMARK_TEMPLATE(ADVECTION_2D, 12, 14)->Unit(benchmark::kMillisecond)->Iterations(1);
-;
 
 // Uniform
 BENCHMARK_TEMPLATE(ADVECTION_2D, 6, 6)->Unit(benchmark::kMillisecond)->Iterations(1);
-;
 BENCHMARK_TEMPLATE(ADVECTION_2D, 8, 8)->Unit(benchmark::kMillisecond)->Iterations(1);
-;
 BENCHMARK_TEMPLATE(ADVECTION_2D, 10, 10)->Unit(benchmark::kMillisecond)->Iterations(1);
-;
 BENCHMARK_TEMPLATE(ADVECTION_2D, 12, 12)->Unit(benchmark::kMillisecond)->Iterations(1);
-;
 BENCHMARK_TEMPLATE(ADVECTION_2D, 14, 14)->Unit(benchmark::kMillisecond)->Iterations(1);
-;
 
 /** SOURCE : https://gist.github.com/mdavezac/eb16de7e8fc08e522ff0d420516094f5
  **/
