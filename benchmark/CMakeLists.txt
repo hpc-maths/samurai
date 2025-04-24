@@ -40,13 +40,14 @@ set(SAMURAI_BENCHMARKS
 add_executable(bench_samurai ${SAMURAI_BENCHMARKS})
 
 add_executable(bench_advection_2d benchmark_advection_2d.cpp)
+add_executable(bench_linear_convection benchmark_linear_convection.cpp)
 
 
 
 # target_include_directories(bench_samurai PRIVATE ${SAMURAI_INCLUDE_DIR})
 target_link_libraries(bench_samurai samurai CLI11::CLI11 benchmark::benchmark)
 target_link_libraries(bench_advection_2d samurai CLI11::CLI11 benchmark::benchmark)
-
+target_link_libraries(bench_linear_convection samurai CLI11::CLI11 benchmark::benchmark)
 
 # target_include_directories(bench_samurai_lib PRIVATE ${SAMURAI_INCLUDE_DIR})
 # # if(DOWNLOAD_GTEST OR GTEST_SRC_DIR)
