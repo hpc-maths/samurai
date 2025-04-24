@@ -239,20 +239,19 @@ int main(int argc, char** argv)
     MPI_Init(&argc, &argv);
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-#else
-    int rank = 0;
-#endif
-
     ::benchmark::Initialize(&argc, argv);
     if (rank == 0)
     {
+#endif
         ::benchmark::RunSpecifiedBenchmarks();
+#ifdef SAMURAI_WITH_MPI
     }
     else
     {
         NullReporter null;
         ::benchmark::RunSpecifiedBenchmarks(&null);
     }
+#endif
 
 #ifdef SAMURAI_WITH_MPI
     MPI_Finalize();
