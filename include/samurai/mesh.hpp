@@ -789,24 +789,28 @@ namespace samurai
     }
 
     template <class D, class Config>
-    void Mesh_base<D, Config>::find_neighbour_naive()
+    void Mesh_base<D, Config>::find_neighbourhood_naive()
     {
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
         auto rank = world.rank();
         auto size = world.size();
-        if (rank == 0)
+        m_mpi_neighbourhood.reserve(0);
+        if (size > 1)
         {
-            m_mpi_neighbourhood.push_back(1);
-        }
-        else if (rank == size - 1)
-        {
-            m_mpi_neighbourhoof(size - 2);
-        }
-        else
-        {
-            m_mpi_neighbourhood(rank - 1);
-            m_mpi_neighbourhoof(rank + 1);
+            if (rank == 0)
+            {
+                m_mpi_neighbourhood.push_back(1);
+            }
+            else if (rank == size - 1)
+            {
+                m_mpi_neighbourhood.push_back(size - 2);
+            }
+            else
+            {
+                m_mpi_neighbourhood.push_back(rank - 1);
+                m_mpi_neighbourhood.push_back(rank + 1);
+            }
         }
 #endif
     }
@@ -930,14 +934,14 @@ namespace samurai
 
         this->m_cells[mesh_id_t::cells][start_level] = subdomain_cells;
 
-        m_mpi_neighbourhood.reserve(static_cast<std::size_t>(size) - 1);
-        for (int ir = 0; ir < size; ++ir)
-        {
-            if (ir != rank)
-            {
-                m_mpi_neighbourhood.push_back(ir);
-            }
-        }
+        //        m_mpi_neighbourhood.reserve(static_cast<std::size_t>(size) - 1);
+        //        for (int ir = 0; ir < size; ++ir)
+        //        {
+        //            if (ir != rank)
+        //            {
+        //                m_mpi_neighbourhood.push_back(ir);
+        //            }
+        //        }
 
         find_neighbourhood_naive();
 
