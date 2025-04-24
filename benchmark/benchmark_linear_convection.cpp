@@ -16,17 +16,17 @@
 
 #include <benchmark/benchmark.h>
 
-template <std::size_t min_level, std::size_t max_level>
+template <std::size_t min_level, std::size_t max_level, std::size_t dim>
 void LINEAR_CONVECTION(benchmark::State& state)
 {
     for (auto _ : state)
     {
         state.PauseTiming();
 
-        static constexpr std::size_t dim = 2;
-        using Config                     = samurai::MRConfig<dim, 3>;
-        using Box                        = samurai::Box<double, dim>;
-        using point_t                    = typename Box::point_t;
+        //        static constexpr std::size_t dim = 2;
+        using Config  = samurai::MRConfig<dim, 3>;
+        using Box     = samurai::Box<double, dim>;
+        using point_t = typename Box::point_t;
 
         //--------------------//
         // Program parameters //
@@ -62,22 +62,30 @@ void LINEAR_CONVECTION(benchmark::State& state)
 
         mesh = {box, min_level, max_level, periodic};
         // Initial solution
-        u = samurai::make_scalar_field<double>("u",
-                                               mesh,
-                                               [](const auto& coords)
-                                               {
-                                                   if constexpr (dim == 1)
-                                                   {
-                                                       const auto& x = coords(0);
-                                                       return (x >= -0.8 && x <= -0.3) ? 1. : 0.;
-                                                   }
-                                                   else
-                                                   {
-                                                       const auto& x = coords(0);
-                                                       const auto& y = coords(1);
-                                                       return (x >= -0.8 && x <= -0.3 && y >= 0.3 && y <= 0.8) ? 1. : 0.;
-                                                   }
-                                               });
+        u = samurai::make_scalar_field<double>(
+            "u",
+            mesh,
+            [](const auto& coords)
+            {
+                if constexpr (dim == 1)
+                {
+                    const auto& x = coords(0);
+                    return (x >= -0.8 && x <= -0.3) ? 1. : 0.;
+                }
+                else if constexpr (dim == 2)
+                {
+                    const auto& x = coords(0);
+                    const auto& y = coords(1);
+                    return (x >= -0.8 && x <= -0.3 && y >= 0.3 && y <= 0.8) ? 1. : 0.;
+                }
+                else
+                {
+                    const auto& x = coords(0);
+                    const auto& y = coords(1);
+                    const auto& z = coords(2);
+                    return (x >= -0.8 && x <= -0.3 && y >= 0.3 && y <= 0.8 && z >= -0.8 && z <= -0.3) ? 1. : 0.;
+                }
+            });
 
         auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);
         // Intermediary fields for the RK3 scheme
@@ -95,6 +103,12 @@ void LINEAR_CONVECTION(benchmark::State& state)
         {
             velocity(1) = -1;
         }
+        if constexpr (dim == 3)
+        {
+            velocity(1) = -1;
+            velocity(2) = 1;
+        }
+
         auto conv = samurai::make_convection_weno5<decltype(u)>(velocity);
 
         //--------------------//
@@ -154,27 +168,41 @@ void LINEAR_CONVECTION(benchmark::State& state)
     }
 }
 
-// BENCHMARK(ADVECTION_2D);
+//// 2D
 
 // MRA with min_level = 5
-BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 5, 8)->Unit(benchmark::kMillisecond)->Iterations(1);
-BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 5, 10)->Unit(benchmark::kMillisecond)->Iterations(1);
-BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 5, 12)->Unit(benchmark::kMillisecond)->Iterations(1);
-// BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 5, 14)->Unit(benchmark::kMillisecond)->Iterations(1);
+BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 5, 8, 2)->Unit(benchmark::kMillisecond)->Iterations(1);
+BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 5, 10, 2)->Unit(benchmark::kMillisecond)->Iterations(1);
+BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 5, 12, 2)->Unit(benchmark::kMillisecond)->Iterations(1);
+// BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 5, 14, 2)->Unit(benchmark::kMillisecond)->Iterations(1);
 
 // MRA with max_level - min-level = 2
-BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 6, 8)->Unit(benchmark::kMillisecond)->Iterations(1);
-BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 8, 10)->Unit(benchmark::kMillisecond)->Iterations(1);
-BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 10, 12)->Unit(benchmark::kMillisecond)->Iterations(1);
-// BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 12, 14)->Unit(benchmark::kMillisecond)->Iterations(1);
+BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 6, 8, 2)->Unit(benchmark::kMillisecond)->Iterations(1);
+BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 8, 10, 2)->Unit(benchmark::kMillisecond)->Iterations(1);
+BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 10, 12, 2)->Unit(benchmark::kMillisecond)->Iterations(1);
+// BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 12, 14, 2)->Unit(benchmark::kMillisecond)->Iterations(1);
 
 // Uniform
-BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 6, 6)->Unit(benchmark::kMillisecond)->Iterations(1);
-BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 8, 8)->Unit(benchmark::kMillisecond)->Iterations(1);
-BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 10, 10)->Unit(benchmark::kMillisecond)->Iterations(1);
-BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 12, 12)->Unit(benchmark::kMillisecond)->Iterations(1);
+BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 6, 6, 2)->Unit(benchmark::kMillisecond)->Iterations(1);
+BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 8, 8, 2)->Unit(benchmark::kMillisecond)->Iterations(1);
+BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 10, 10, 2)->Unit(benchmark::kMillisecond)->Iterations(1);
+BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 12, 12, 2)->Unit(benchmark::kMillisecond)->Iterations(1);
+// BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 14, 14, 2)->Unit(benchmark::kMillisecond)->Iterations(1);
 
-// BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 14, 14)->Unit(benchmark::kMillisecond)->Iterations(1);
+//// 3D
+
+// MRA with min_level =
+BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 3, 5, 3)->Unit(benchmark::kMillisecond)->Iterations(1);
+BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 3, 6, 3)->Unit(benchmark::kMillisecond)->Iterations(1);
+BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 3, 7, 3)->Unit(benchmark::kMillisecond)->Iterations(1);
+BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 3, 8, 3)->Unit(benchmark::kMillisecond)->Iterations(1);
+
+// Uniform
+BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 4, 4, 3)->Unit(benchmark::kMillisecond)->Iterations(1);
+BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 5, 5, 3)->Unit(benchmark::kMillisecond)->Iterations(1);
+BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 6, 6, 3)->Unit(benchmark::kMillisecond)->Iterations(1);
+BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 7, 7, 3)->Unit(benchmark::kMillisecond)->Iterations(1);
+BENCHMARK_TEMPLATE(LINEAR_CONVECTION, 8, 8, 3)->Unit(benchmark::kMillisecond)->Iterations(1);
 
 /** SOURCE : https://gist.github.com/mdavezac/eb16de7e8fc08e522ff0d420516094f5
  **/
