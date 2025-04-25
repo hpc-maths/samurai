@@ -935,7 +935,7 @@ namespace samurai
                                   {
                                       for (auto i = mi.i.start; i < mi.i.end; ++i)
                                       {
-                                          if (i >= subdomain_start && i < subdomain_end)
+                                          if (static_cast<std::size_t>(i) >= subdomain_start && static_cast<std::size_t>(i) < subdomain_end)
                                           {
                                               subdomain_cells[mi.index].add_point(i);
                                           }
