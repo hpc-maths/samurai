@@ -106,9 +106,9 @@ namespace samurai
         const lca_type& subdomain() const;
         const ca_type& get_union() const;
         bool is_periodic(std::size_t d) const;
-        const std::array<bool, dim>& periodicity() const;
+        const auto& periodicity() const;
         // std::vector<int>& neighbouring_ranks();
-        std::vector<mpi_subdomain_t>& mpi_neighbourhood();
+        const auto& mpi_neighbourhood() const;
 
         void swap(Mesh_base& mesh) noexcept;
 
@@ -578,13 +578,13 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline auto Mesh_base<D, Config>::periodicity() const -> const std::array<bool, dim>&
+    inline const auto& Mesh_base<D, Config>::periodicity() const
     {
         return m_periodic;
     }
 
     template <class D, class Config>
-    inline auto Mesh_base<D, Config>::mpi_neighbourhood() -> std::vector<mpi_subdomain_t>&
+    inline const auto& Mesh_base<D, Config>::mpi_neighbourhood() const
     {
         return m_mpi_neighbourhood;
     }
