@@ -172,8 +172,10 @@ namespace samurai
     }
 
     template <size_t dim, typename TInterval, typename MeshType, size_t max_size, typename TCoord>
-    void list_intervals_to_remove(const size_t grad_width,
+    void list_intervals_to_refine(const size_t grad_width,
+                                  const size_t half_stencil_width,
                                   const CellArray<dim, TInterval, max_size>& ca,
+                                  const LevelCellArray<dim, TInterval>& domain,
                                   [[maybe_unused]] const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood,
                                   const std::array<bool, dim>& is_periodic,
                                   const std::array<int, dim>& nb_cells_finest_level,
@@ -218,7 +220,7 @@ namespace samurai
                     }
                 }
             }
-            xt::xtensor_fixed<int, xt::xshape<dim>> translation = xt::xscalar(0);
+            DirectionVector<dim> translation = xt::xscalar(0);
             for (size_t d = 0; d != dim; ++d)
             {
                 if (is_periodic[d])
@@ -258,6 +260,45 @@ namespace samurai
         }
         mpi::wait_all(req.begin(), req.end());
 #endif // SAMURAI_WITH_MPI
+        for_each_cartesian_direction<dim>(
+            [&](const auto& translation)
+            {
+                // compute boundar layer
+                for (size_t level = max_level; level != min_level; --level)
+                {
+                    auto boundaryCells = difference(ca[level], translate(self(domain).on(level), -translation)).on(level);
+                    for (size_t i = 2; i <= half_stencil_width; i += 2)
+                    {
+                        // Here, the set algebra doesn't work, so we put the translation in a LevelCellArray before computing the
+                        // intersection.
+                        // When the problem is fixed, remove the two following lines and uncomment the line below.
+                        LevelCellArray<dim, TInterval> translated_boundary(translate(boundaryCells, -i * translation));
+                        auto refine_subset = intersection(translated_boundary, ca[level - 1]).on(level - 1);
+                        // auto refine_subset = intersection(translate(boundaryCells, -i*translation), ca[level-1]).on(level-1);
+                        refine_subset(
+                            [&](const auto& x_interval, const auto& yz)
+                            {
+                                out[level - 1].push_back(x_interval, yz);
+                            });
+                    }
+                }
+                // compute boundar layer
+                for (size_t level = max_level - 1; level != min_level - 1; --level)
+                {
+                    auto boundaryCells = difference(ca[level], translate(self(domain).on(level), -translation));
+                    for (size_t i = 1; i != half_stencil_width; ++i)
+                    {
+                        auto refine_subset = translate(intersection(translate(boundaryCells, -i * translation), ca[level + 1]).on(level),
+                                                       i * translation)
+                                                 .on(level);
+                        refine_subset(
+                            [&](const auto& x_interval, const auto& yz)
+                            {
+                                out[level].push_back(x_interval, yz);
+                            });
+                    }
+                }
+            });
     }
 
     // if add the intervals in add_m_interval
@@ -317,16 +358,28 @@ namespace samurai
 
     template <std::size_t dim, class TInterval, class MeshType, size_t max_size>
     size_t make_graduation(CellArray<dim, TInterval, max_size>& ca,
+                           const LevelCellArray<dim, TInterval>& domain,
                            [[maybe_unused]] const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood,
                            const std::array<bool, dim>& is_periodic,
-                           const std::array<int, dim>& nb_cells_finest_level,
-                           const size_t grad_width = 1)
+                           const size_t grad_width         = 1,
+                           const size_t half_stencil_width = 1 // half of width of the numerical scheme's stencil.
+    )
     {
         using ca_type    = CellArray<dim, TInterval, max_size>;
         using coord_type = typename ca_type::lca_type::coord_type;
 
         const size_t max_level = ca.max_level();
         const size_t min_level = ca.min_level();
+
+        const auto& min_indices = domain.min_indices();
+        const auto& max_indices = domain.max_indices();
+
+        std::array<int, dim> nb_cells_finest_level;
+
+        for (size_t d = 0; d != max_indices.size(); ++d)
+        {
+            nb_cells_finest_level[d] = max_indices[d] - min_indices[d];
+        }
 
         std::vector<TInterval> add_p_interval;
         std::vector<coord_type> add_p_inner_stencil;
@@ -351,18 +404,14 @@ namespace samurai
             // Then, if the non-graduated is not taged as keep, we coarsen it
             ca_add_p.clear();
             ca_remove_p.clear();
-            list_intervals_to_remove(grad_width, ca, mpi_neighbourhood, is_periodic, nb_cells_finest_level, remove_m_all);
+            list_intervals_to_refine(grad_width, half_stencil_width, ca, domain, mpi_neighbourhood, is_periodic, nb_cells_finest_level, remove_m_all);
 
             add_p_interval.clear();
             add_p_inner_stencil.clear();
             add_p_idx.clear();
             for (size_t level = min_level; level != max_level + 1; ++level)
             {
-#ifdef SAMURAI_WITH_MPI
                 remove_m_all[level].remove_overlapping_intervals();
-#else
-                remove_m_all[level].sort_intervals();
-#endif // SAMURAI_WITH_MPI
                 const size_t imax = remove_m_all[level].size();
                 for (size_t i = 0; i != imax; ++i)
                 {
@@ -424,10 +473,10 @@ namespace samurai
 
         std::vector<MPI_Subdomain<DummyMesh>> mpi_neighbourhood;
         std::array<bool, dim> is_periodic;
-        std::array<int, dim> nb_cells_finest_level;
+        LevelCellArray<dim, TInterval> domain;
 
         is_periodic.fill(false);
-        return make_graduation(ca, mpi_neighbourhood, is_periodic, nb_cells_finest_level, grad_width);
+        return make_graduation(ca, domain, mpi_neighbourhood, is_periodic, grad_width);
     }
 
     template <std::size_t dim, class TInterval, size_t max_size, class Tag>
