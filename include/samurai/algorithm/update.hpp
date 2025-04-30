@@ -453,65 +453,93 @@ namespace samurai
     template <class Field>
     void update_ghost_periodic(std::size_t level, Field& field)
     {
+        using field_value_t       = typename Field::value_type;
         using mesh_id_t           = typename Field::mesh_t::mesh_id_t;
         using config              = typename Field::mesh_t::config;
         using lca_type            = typename Field::mesh_t::lca_type;
         using interval_value_t    = typename Field::interval_t::value_t;
         constexpr std::size_t dim = Field::dim;
 
-        xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> stencil;
+        auto& mesh = field.mesh();
+
+        const auto& domain      = mesh.domain();
+        const auto& min_indices = domain.min_indices();
+        const auto& max_indices = domain.max_indices();
+
+        const std::size_t delta_l = domain.level() - level;
+
         xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> min_corner;
         xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> max_corner;
-        auto& mesh       = field.mesh();
-        auto& domain     = mesh.domain();
-        auto min_indices = domain.min_indices();
-        auto max_indices = domain.max_indices();
+        xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> shift;
 
-        std::size_t delta_l = domain.level() - level;
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
+            max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
+            shift[d]      = 0;
+        }
+
+        std::vector<field_value_t> field_data_out;
+
         for (std::size_t d = 0; d < dim; ++d)
         {
             if (mesh.is_periodic(d))
             {
-                stencil.fill(0);
-                stencil[d] = (max_indices[d] - min_indices[d]) >> delta_l;
-
+                shift[d]             = (max_indices[d] - min_indices[d]) >> delta_l;
+                const auto& shift_x  = shift[0];
+                const auto& shift_yz = xt::view(shift, xt::range(1, _));
+                /* transfers data from left to right */
                 min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
                 max_corner[d] = (min_indices[d] >> delta_l);
-                for (std::size_t dd = 0; dd < dim; ++dd)
-                {
-                    if (dd != d)
-                    {
-                        min_corner[dd] = (min_indices[dd] >> delta_l) - config::ghost_width;
-                        max_corner[dd] = (max_indices[dd] >> delta_l) + config::ghost_width;
-                    }
-                }
-
-                lca_type lca1{
+                const lca_type lca_in1{
                     level,
                     Box<interval_value_t, dim>{min_corner, max_corner}
                 };
+                auto set_in1  = intersection(mesh[mesh_id_t::reference][level], lca_in1);
+                auto set_out1 = translate(intersection(mesh[mesh_id_t::reference][level], lca_in1), shift);
 
-                auto set1 = intersection(mesh[mesh_id_t::reference][level], lca1);
-                set1(
+                field_data_out.clear();
+                set_out1(
                     [&](const auto& i, const auto& index)
                     {
-                        field(level, i, index) = field(level, i + stencil[0], index + xt::view(stencil, xt::range(1, _)));
+                        const auto f = field(level, i, index);
+                        std::copy(f.begin(), f.end(), std::back_inserter(field_data_out));
                     });
-
+                auto in1_data_it = field_data_out.cbegin();
+                set_in1(
+                    [&](const auto& i, const auto& index)
+                    {
+                        std::copy(in1_data_it, in1_data_it + std::ssize(field(level, i, index)), field(level, i, index).begin());
+                        in1_data_it += std::ssize(field(level, i, index));
+                    });
+                /* transfers data from right to left */
                 min_corner[d] = (max_indices[d] >> delta_l);
                 max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
-                lca_type lca2{
+                const lca_type lca_in2{
                     level,
                     Box<interval_value_t, dim>{min_corner, max_corner}
                 };
+                auto set_in2  = intersection(mesh[mesh_id_t::reference][level], lca_in2);
+                auto set_out2 = translate(intersection(mesh[mesh_id_t::reference][level], lca_in2), -shift);
 
-                auto set2 = intersection(mesh[mesh_id_t::reference][level], lca2);
-
-                set2(
+                field_data_out.clear();
+                set_out2(
                     [&](const auto& i, const auto& index)
                     {
-                        field(level, i, index) = field(level, i - stencil[0], index - xt::view(stencil, xt::range(1, _)));
+                        const auto f = field(level, i, index);
+                        std::copy(f.begin(), f.end(), std::back_inserter(field_data_out));
                     });
+                auto in2_data_it = field_data_out.cbegin();
+                set_in2(
+                    [&](const auto& i, const auto& index)
+                    {
+                        std::copy(in2_data_it, in2_data_it + std::ssize(field(level, i, index)), field(level, i, index).begin());
+                        in2_data_it += std::ssize(field(level, i, index));
+                    });
+                /* reset variables for next iterations. */
+                shift[d]      = 0;
+                min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
+                max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
             }
         }
     }

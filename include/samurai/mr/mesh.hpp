@@ -257,70 +257,100 @@ namespace samurai
             }
             this->cells()[mesh_id_t::all_cells] = {cell_list, false};
 
+            auto& domain     = this->domain();
+            auto min_indices = domain.min_indices();
+            auto max_indices = domain.max_indices();
+
             // add ghosts for periodicity
             xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> stencil;
             xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> min_corner;
             xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> max_corner;
 
-            auto& domain     = this->domain();
-            auto min_indices = domain.min_indices();
-            auto max_indices = domain.max_indices();
+            stencil.fill(0);
+#ifdef SAMURAI_WITH_MPI
+            std::vector<mpi::request> req;
+            req.reserve(this->mpi_neighbourhood().size());
 
-            for (std::size_t level = this->cells()[mesh_id_t::reference].min_level();
-                 level <= this->cells()[mesh_id_t::reference].max_level();
-                 ++level)
+            std::size_t reference_max_level = mpi::all_reduce(world,
+                                                              this->cells()[mesh_id_t::reference].max_level(),
+                                                              mpi::maximum<std::size_t>());
+            std::size_t reference_min_level = mpi::all_reduce(world,
+                                                              this->cells()[mesh_id_t::reference].min_level(),
+                                                              mpi::minimum<std::size_t>());
+#else
+            std::size_t reference_max_level = this->cells()[mesh_id_t::reference].max_level();
+            std::size_t reference_min_level = this->cells()[mesh_id_t::reference].min_level();
+#endif // SAMURAI_WITH_MPI
+            for (std::size_t level = reference_min_level; level <= reference_max_level; ++level)
             {
                 std::size_t delta_l = domain.level() - level;
                 lcl_type& lcl       = cell_list[level];
 
                 for (std::size_t d = 0; d < dim; ++d)
                 {
+                    min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
+                    max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
+                }
+
+                for (std::size_t d = 0; d < dim; ++d)
+                {
                     if (this->is_periodic(d))
                     {
-                        stencil.fill(0);
                         stencil[d] = (max_indices[d] - min_indices[d]) >> delta_l;
 
                         min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
                         max_corner[d] = (min_indices[d] >> delta_l) + config::ghost_width;
-                        for (std::size_t dd = 0; dd < dim; ++dd)
-                        {
-                            if (dd != d)
-                            {
-                                min_corner[dd] = (min_indices[dd] >> delta_l) - config::ghost_width;
-                                max_corner[dd] = (max_indices[dd] >> delta_l) + config::ghost_width;
-                            }
-                        }
 
                         lca_type lca1{
                             level,
                             Box<typename interval_t::value_t, dim>{min_corner, max_corner}
                         };
-
                         auto set1 = intersection(this->cells()[mesh_id_t::reference][level], lca1);
                         set1(
                             [&](const auto& i, const auto& index_yz)
                             {
                                 lcl[index_yz + xt::view(stencil, xt::range(1, _))].add_interval(i + stencil[0]);
                             });
-
                         min_corner[d] = (max_indices[d] >> delta_l) - config::ghost_width;
                         max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
                         lca_type lca2{
                             level,
                             Box<typename interval_t::value_t, dim>{min_corner, max_corner}
                         };
-
                         auto set2 = intersection(this->cells()[mesh_id_t::reference][level], lca2);
                         set2(
                             [&](const auto& i, const auto& index_yz)
                             {
                                 lcl[index_yz - xt::view(stencil, xt::range(1, _))].add_interval(i - stencil[0]);
                             });
+#ifdef SAMURAI_WITH_MPI
+                        lca_type lca_out(union_(lca1, lca2));
+                        for (const auto& mpi_neighbor : this->mpi_neighbourhood())
+                        {
+                            req.push_back(world.isend(mpi_neighbor.rank, mpi_neighbor.rank, lca_out));
+                        }
+                        for (const auto& mpi_neighbor : this->mpi_neighbourhood())
+                        {
+                            lca_type lca_in;
+                            world.recv(mpi_neighbor.rank, world.rank(), lca_in);
+                            for_each_interval(lca_in,
+                                              [&](std::size_t, const auto& i, const auto& index_yz)
+                                              {
+                                                  lcl[index_yz].add_interval(i);
+                                              });
+                        }
+                        mpi::wait_all(req.begin(), req.end());
+                        req.clear();
+#endif // SAMURAI_WITH_MPI
                         this->cells()[mesh_id_t::all_cells][level] = {lcl};
+
+                        /* reset variables for next iterations. */
+                        stencil[d]    = 0;
+                        min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
+                        max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
                     }
                 }
             }
-
             for (std::size_t level = 0; level < max_level; ++level)
             {
                 lcl_type& lcl = cell_list[level + 1];
