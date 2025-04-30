@@ -2,20 +2,20 @@
 <Xdmf>
     <Domain>
         <Grid Name="mesh">
-            <Topology TopologyType="Quadrilateral" NumberOfElements="850">
-                <DataItem Dimensions="3400" Format="HDF">test_finite_volume_demo_burgers.h5:/mesh/connectivity</DataItem>
+            <Topology TopologyType="Quadrilateral" NumberOfElements="2056">
+                <DataItem Dimensions="8224" Format="HDF">test_finite_volume_demo_burgers.h5:/mesh/connectivity</DataItem>
             </Topology>
             <Geometry GeometryType="XYZ">
-                <DataItem Dimensions="2775" Format="HDF">test_finite_volume_demo_burgers.h5:/mesh/points</DataItem>
+                <DataItem Dimensions="6507" Format="HDF">test_finite_volume_demo_burgers.h5:/mesh/points</DataItem>
             </Geometry>
             <Attribute Name="u_0" Center="Cell">
-                <DataItem Dimensions="850" Format="HDF" Precision="8">test_finite_volume_demo_burgers.h5:/mesh/fields/u_0</DataItem>
+                <DataItem Dimensions="2056" Format="HDF" Precision="8">test_finite_volume_demo_burgers.h5:/mesh/fields/u_0</DataItem>
             </Attribute>
             <Attribute Name="u_1" Center="Cell">
-                <DataItem Dimensions="850" Format="HDF" Precision="8">test_finite_volume_demo_burgers.h5:/mesh/fields/u_1</DataItem>
+                <DataItem Dimensions="2056" Format="HDF" Precision="8">test_finite_volume_demo_burgers.h5:/mesh/fields/u_1</DataItem>
             </Attribute>
             <Attribute Name="level" Center="Cell">
-                <DataItem Dimensions="850" Format="HDF" Precision="8">test_finite_volume_demo_burgers.h5:/mesh/fields/level</DataItem>
+                <DataItem Dimensions="2056" Format="HDF" Precision="8">test_finite_volume_demo_burgers.h5:/mesh/fields/level</DataItem>
             </Attribute>
         </Grid>
     </Domain>
