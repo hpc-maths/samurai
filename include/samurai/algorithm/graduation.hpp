@@ -343,7 +343,10 @@ namespace samurai
                                   std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, CellArray<dim, TInterval, max_size>::max_size>& out)
     {
         list_interval_to_refine_for_graduation(grad_width, ca, mpi_neighbourhood, is_periodic, nb_cells_finest_level, out);
-        list_interval_to_refine_for_contiguous_boundary_cells(half_stencil_width, ca, domain, is_periodic, out);
+        if (!domain.empty())
+        {
+            list_interval_to_refine_for_contiguous_boundary_cells(half_stencil_width, ca, domain, is_periodic, out);
+        }
     }
 
     // if add the intervals in add_m_interval
@@ -416,14 +419,22 @@ namespace samurai
         const size_t max_level = ca.max_level();
         const size_t min_level = ca.min_level();
 
-        const auto& min_indices = domain.min_indices();
-        const auto& max_indices = domain.max_indices();
-
         std::array<int, dim> nb_cells_finest_level;
 
-        for (size_t d = 0; d != max_indices.size(); ++d)
+        if (std::any_of(is_periodic.begin(),
+                        is_periodic.end(),
+                        [](const bool& b)
+                        {
+                            return b;
+                        }))
         {
-            nb_cells_finest_level[d] = max_indices[d] - min_indices[d];
+            const auto& min_indices = domain.min_indices();
+            const auto& max_indices = domain.max_indices();
+
+            for (size_t d = 0; d != max_indices.size(); ++d)
+            {
+                nb_cells_finest_level[d] = max_indices[d] - min_indices[d];
+            }
         }
 
         std::vector<TInterval> add_p_interval;
