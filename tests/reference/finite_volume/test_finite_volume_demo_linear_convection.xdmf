@@ -2,17 +2,17 @@
 <Xdmf>
     <Domain>
         <Grid Name="mesh">
-            <Topology TopologyType="Quadrilateral" NumberOfElements="1408">
-                <DataItem Dimensions="5632" Format="HDF">test_finite_volume_demo_linear_convection.h5:/mesh/connectivity</DataItem>
+            <Topology TopologyType="Quadrilateral" NumberOfElements="1354">
+                <DataItem Dimensions="5416" Format="HDF">test_finite_volume_demo_linear_convection.h5:/mesh/connectivity</DataItem>
             </Topology>
             <Geometry GeometryType="XYZ">
-                <DataItem Dimensions="4557" Format="HDF">test_finite_volume_demo_linear_convection.h5:/mesh/points</DataItem>
+                <DataItem Dimensions="4401" Format="HDF">test_finite_volume_demo_linear_convection.h5:/mesh/points</DataItem>
             </Geometry>
             <Attribute Name="u" Center="Cell">
-                <DataItem Dimensions="1408" Format="HDF" Precision="8">test_finite_volume_demo_linear_convection.h5:/mesh/fields/u</DataItem>
+                <DataItem Dimensions="1354" Format="HDF" Precision="8">test_finite_volume_demo_linear_convection.h5:/mesh/fields/u</DataItem>
             </Attribute>
             <Attribute Name="level" Center="Cell">
-                <DataItem Dimensions="1408" Format="HDF" Precision="8">test_finite_volume_demo_linear_convection.h5:/mesh/fields/level</DataItem>
+                <DataItem Dimensions="1354" Format="HDF" Precision="8">test_finite_volume_demo_linear_convection.h5:/mesh/fields/level</DataItem>
             </Attribute>
         </Grid>
     </Domain>

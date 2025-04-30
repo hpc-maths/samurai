@@ -172,14 +172,13 @@ namespace samurai
     }
 
     template <size_t dim, typename TInterval, typename MeshType, size_t max_size, typename TCoord>
-    void list_intervals_to_refine(const size_t grad_width,
-                                  const size_t half_stencil_width,
-                                  const CellArray<dim, TInterval, max_size>& ca,
-                                  const LevelCellArray<dim, TInterval>& domain,
-                                  [[maybe_unused]] const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood,
-                                  const std::array<bool, dim>& is_periodic,
-                                  const std::array<int, dim>& nb_cells_finest_level,
-                                  std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, CellArray<dim, TInterval, max_size>::max_size>& out)
+    void list_interval_to_refine_for_graduation(
+        const size_t grad_width,
+        const CellArray<dim, TInterval, max_size>& ca,
+        [[maybe_unused]] const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood,
+        const std::array<bool, dim>& is_periodic,
+        const std::array<int, dim>& nb_cells_finest_level,
+        std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, CellArray<dim, TInterval, max_size>::max_size>& out)
     {
         const size_t max_level      = ca.max_level();
         const size_t min_level      = ca.min_level();
@@ -260,45 +259,91 @@ namespace samurai
         }
         mpi::wait_all(req.begin(), req.end());
 #endif // SAMURAI_WITH_MPI
+    }
+
+    template <size_t dim, typename TInterval, size_t max_size, typename TCoord>
+    void list_interval_to_refine_for_contiguous_boundary_cells(
+        const size_t half_stencil_width,
+        const CellArray<dim, TInterval, max_size>& ca,
+        const LevelCellArray<dim, TInterval>& domain,
+        const std::array<bool, dim>& is_periodic,
+        std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, CellArray<dim, TInterval, max_size>::max_size>& out)
+    {
+        const size_t max_level = ca.max_level();
+        const size_t min_level = ca.min_level();
+
+        // We want to avoid a flux being computed with ghosts outside of the domain if the cell doesn't touch the boundary,
+        // because we only want to apply the B.C. on the cells that touch the boundary.
+        // 1. Case where the boundary is at level L and the jump is going down to L-1:
+        //    We want to have enough contiguous boundary cells to ensure that the stencil at the lower level
+        //    won't go outside the domain.
+        //    To ensure half_stencil_width at L-1, we need 2*half_stencil_width at level L.
+        //    However, since we project the B.C. in the first outside ghost at level L-1, we can reduce the number of contiguous
+        //    cells by 1 at level L-1. This makes, at level L, 2*(half_stencil_width - 1) contiguous cells.
+        const int n_contiguous_boundary_cells = std::max(int(half_stencil_width), 2 * (int(half_stencil_width) - 2));
+
+        // 2. Case where the boundary is at level L and jump is going up:
+        //    Then ensuring half_stencil_width contiguous cells at level L automatically ensures half_stencil_width
+        //    at level L+1.
+
         for_each_cartesian_direction<dim>(
-            [&](const auto& translation)
+            [&](const auto direction_idx, const auto& translation)
             {
-                // compute boundar layer
-                for (size_t level = max_level; level != min_level; --level)
+                if (not is_periodic[direction_idx])
                 {
-                    auto boundaryCells = difference(ca[level], translate(self(domain).on(level), -translation)).on(level);
-                    for (size_t i = 2; i <= half_stencil_width; i += 2)
+                    // Jump level --> level-1
+                    for (size_t level = max_level; level != min_level; --level)
                     {
-                        // Here, the set algebra doesn't work, so we put the translation in a LevelCellArray before computing the
-                        // intersection.
-                        // When the problem is fixed, remove the two following lines and uncomment the line below.
-                        LevelCellArray<dim, TInterval> translated_boundary(translate(boundaryCells, -i * translation));
-                        auto refine_subset = intersection(translated_boundary, ca[level - 1]).on(level - 1);
-                        // auto refine_subset = intersection(translate(boundaryCells, -i*translation), ca[level-1]).on(level-1);
-                        refine_subset(
-                            [&](const auto& x_interval, const auto& yz)
-                            {
-                                out[level - 1].push_back(x_interval, yz);
-                            });
+                        auto boundaryCells = difference(ca[level], translate(self(domain).on(level), -translation)).on(level);
+
+                        for (int i = 2; i <= n_contiguous_boundary_cells; i += 2)
+                        {
+                            // Here, the set algebra doesn't work, so we put the translation in a LevelCellArray before computing the
+                            // intersection.
+                            // When the problem is fixed, remove the two following lines and uncomment the line below.
+                            LevelCellArray<dim, TInterval> translated_boundary(translate(boundaryCells, -i * translation));
+                            auto refine_subset = intersection(translated_boundary, ca[level - 1]).on(level - 1);
+                            // auto refine_subset = intersection(translate(boundaryCells, -i*translation), ca[level-1]).on(level-1);
+
+                            refine_subset(
+                                [&](const auto& x_interval, const auto& yz)
+                                {
+                                    out[level - 1].push_back(x_interval, yz);
+                                });
+                        }
                     }
-                }
-                // compute boundar layer
-                for (size_t level = max_level - 1; level != min_level - 1; --level)
-                {
-                    auto boundaryCells = difference(ca[level], translate(self(domain).on(level), -translation));
-                    for (size_t i = 1; i != half_stencil_width; ++i)
+                    // Jump level --> level+1
+                    for (size_t level = max_level - 1; level != min_level - 1; --level)
                     {
-                        auto refine_subset = translate(intersection(translate(boundaryCells, -i * translation), ca[level + 1]).on(level),
-                                                       i * translation)
-                                                 .on(level);
-                        refine_subset(
-                            [&](const auto& x_interval, const auto& yz)
-                            {
-                                out[level].push_back(x_interval, yz);
-                            });
+                        auto boundaryCells = difference(ca[level], translate(self(domain).on(level), -translation));
+                        for (size_t i = 1; i != half_stencil_width; ++i)
+                        {
+                            auto refine_subset = translate(intersection(translate(boundaryCells, -i * translation), ca[level + 1]).on(level),
+                                                           i * translation)
+                                                     .on(level);
+                            refine_subset(
+                                [&](const auto& x_interval, const auto& yz)
+                                {
+                                    out[level].push_back(x_interval, yz);
+                                });
+                        }
                     }
                 }
             });
+    }
+
+    template <size_t dim, typename TInterval, typename MeshType, size_t max_size, typename TCoord>
+    void list_intervals_to_refine(const size_t grad_width,
+                                  const size_t half_stencil_width,
+                                  const CellArray<dim, TInterval, max_size>& ca,
+                                  const LevelCellArray<dim, TInterval>& domain,
+                                  [[maybe_unused]] const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood,
+                                  const std::array<bool, dim>& is_periodic,
+                                  const std::array<int, dim>& nb_cells_finest_level,
+                                  std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, CellArray<dim, TInterval, max_size>::max_size>& out)
+    {
+        list_interval_to_refine_for_graduation(grad_width, ca, mpi_neighbourhood, is_periodic, nb_cells_finest_level, out);
+        list_interval_to_refine_for_contiguous_boundary_cells(half_stencil_width, ca, domain, is_periodic, out);
     }
 
     // if add the intervals in add_m_interval
