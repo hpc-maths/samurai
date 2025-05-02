@@ -229,10 +229,10 @@ namespace samurai
 
         // Apply the B.C. at the same level as the cells and project below
         for_each_cartesian_direction<dim>(
-            [&](auto& direction)
+            [&](auto direction_index, auto& direction)
             {
-                auto d = find_direction_index(direction);
-                if (!mesh.is_periodic(d))
+                // auto d = find_direction_index(direction);
+                if (!mesh.is_periodic(direction_index))
                 {
                     // We only project down to level-1 (not level-2), because we don't need to compute the detail at level-1,
                     // since we can't coarsen lower than level anyway.
