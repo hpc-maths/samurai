@@ -296,6 +296,38 @@ namespace samurai
         return s;
     }
 
+    template <std::size_t dim, class Func>
+        requires std::invocable<Func, DirectionVector<dim>>
+    void for_each_cartesian_direction(Func&& f)
+    {
+        DirectionVector<dim> direction;
+        direction.fill(0);
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            direction[d] = 1;
+            f(direction);
+            direction[d] = -1;
+            f(direction);
+            direction[d] = 0;
+        }
+    }
+
+    template <std::size_t dim, class Func>
+        requires std::invocable<Func, std::size_t, DirectionVector<dim>>
+    void for_each_cartesian_direction(Func&& f)
+    {
+        DirectionVector<dim> direction;
+        direction.fill(0);
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            direction[d] = 1;
+            f(d, direction);
+            direction[d] = -1;
+            f(d, direction);
+            direction[d] = 0;
+        }
+    }
+
     /**
      * Returns a table of the form
      *      dir_stencils[i].direction = {direction};
