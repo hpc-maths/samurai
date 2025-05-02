@@ -269,63 +269,82 @@ namespace samurai
         const std::array<bool, dim>& is_periodic,
         std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, CellArray<dim, TInterval, max_size>::max_size>& out)
     {
+        if (half_stencil_width == 1)
+        {
+            return;
+        }
+
         const size_t max_level = ca.max_level();
         const size_t min_level = ca.min_level();
 
         // We want to avoid a flux being computed with ghosts outside of the domain if the cell doesn't touch the boundary,
         // because we only want to apply the B.C. on the cells that touch the boundary.
-        // 1. Case where the boundary is at level L and the jump is going down to L-1:
-        //    We want to have enough contiguous boundary cells to ensure that the stencil at the lower level
-        //    won't go outside the domain.
-        //    To ensure half_stencil_width at L-1, we need 2*half_stencil_width at level L.
-        //    However, since we project the B.C. in the first outside ghost at level L-1, we can reduce the number of contiguous
-        //    cells by 1 at level L-1. This makes, at level L, 2*(half_stencil_width - 1) contiguous cells.
-        const int n_contiguous_boundary_cells = std::max(int(half_stencil_width), 2 * (int(half_stencil_width) - 2));
-
-        // 2. Case where the boundary is at level L and jump is going up:
-        //    Then ensuring half_stencil_width contiguous cells at level L automatically ensures half_stencil_width
-        //    at level L+1.
+        // For details and figures, see https://github.com/hpc-maths/samurai/pull/320
 
         for_each_cartesian_direction<dim>(
             [&](const auto direction_idx, const auto& translation)
             {
                 if (not is_periodic[direction_idx])
                 {
-                    // Jump level --> level-1
-                    for (size_t level = max_level; level != min_level; --level)
+                    // 1. Jump level --> level-1
+                    // Case where the boundary is at level L and the jump is going down to L-1:
+                    //     We want to have enough contiguous boundary cells to ensure that the stencil at the lower level
+                    //     won't go outside the domain.
+                    //     To ensure half_stencil_width at L-1, we need 2*half_stencil_width at level L.
+                    //     However, since we project the B.C. in the first outside ghost at level L-1, we can reduce the number of
+                    //     contiguous cells by 1 at level L-1. This makes, at level L, 2*(half_stencil_width - 2) contiguous cells.
+                    //     (One cell is a real cell, the other is a ghost cell outside of the domain, which makes half_stencil_width - 2
+                    //     ghosts cells inside the domain).
+
+                    int n_contiguous_boundary_cells = std::max(int(half_stencil_width), 2 * (int(half_stencil_width) - 2));
+
+                    if (n_contiguous_boundary_cells > 1)
                     {
-                        auto boundaryCells = difference(ca[level], translate(self(domain).on(level), -translation)).on(level);
-
-                        for (int i = 2; i <= n_contiguous_boundary_cells; i += 2)
+                        for (size_t level = max_level; level != min_level; --level)
                         {
-                            // Here, the set algebra doesn't work, so we put the translation in a LevelCellArray before computing the
-                            // intersection.
-                            // When the problem is fixed, remove the two following lines and uncomment the line below.
-                            LevelCellArray<dim, TInterval> translated_boundary(translate(boundaryCells, -i * translation));
-                            auto refine_subset = intersection(translated_boundary, ca[level - 1]).on(level - 1);
-                            // auto refine_subset = intersection(translate(boundaryCells, -i*translation), ca[level-1]).on(level-1);
+                            auto boundaryCells = difference(ca[level], translate(self(domain).on(level), -translation)).on(level);
 
-                            refine_subset(
-                                [&](const auto& x_interval, const auto& yz)
-                                {
-                                    out[level - 1].push_back(x_interval, yz);
-                                });
+                            for (int i = 2; i <= n_contiguous_boundary_cells; i += 2)
+                            {
+                                // Here, the set algebra doesn't work, so we put the translation in a LevelCellArray before computing the
+                                // intersection.
+                                // When the problem is fixed, remove the two following lines and uncomment the line below.
+                                LevelCellArray<dim, TInterval> translated_boundary(translate(boundaryCells, -i * translation));
+                                auto refine_subset = intersection(translated_boundary, ca[level - 1]).on(level - 1);
+                                // auto refine_subset = intersection(translate(boundaryCells, -i*translation), ca[level-1]).on(level-1);
+
+                                refine_subset(
+                                    [&](const auto& x_interval, const auto& yz)
+                                    {
+                                        out[level - 1].push_back(x_interval, yz);
+                                    });
+                            }
                         }
                     }
-                    // Jump level --> level+1
-                    for (size_t level = max_level - 1; level != min_level - 1; --level)
+
+                    // 2. Jump level --> level+1
+                    // Case where the boundary is at level L and jump is going up:
+                    //    If the number of boundary contiguous cells is >= ceil(half_stencil_width/2), then there is nothing to do, since
+                    //    the half stencil at L+1 will not go out of the domain. Here, we just test if half_stencil_width > 2 by simplicity,
+                    //    but at some point it would be nice to implement the real test.
+                    //    Otherwise, ensuring half_stencil_width contiguous cells at level L+1 is enough.
+                    if (half_stencil_width > 2)
                     {
-                        auto boundaryCells = difference(ca[level], translate(self(domain).on(level), -translation));
-                        for (size_t i = 1; i != half_stencil_width; ++i)
+                        for (size_t level = max_level - 1; level != min_level - 1; --level)
                         {
-                            auto refine_subset = translate(intersection(translate(boundaryCells, -i * translation), ca[level + 1]).on(level),
-                                                           i * translation)
-                                                     .on(level);
-                            refine_subset(
-                                [&](const auto& x_interval, const auto& yz)
-                                {
-                                    out[level].push_back(x_interval, yz);
-                                });
+                            auto boundaryCells = difference(ca[level], translate(self(domain).on(level), -translation));
+                            for (size_t i = 1; i != half_stencil_width; ++i)
+                            {
+                                auto refine_subset = translate(
+                                                         intersection(translate(boundaryCells, -i * translation), ca[level + 1]).on(level),
+                                                         i * translation)
+                                                         .on(level);
+                                refine_subset(
+                                    [&](const auto& x_interval, const auto& yz)
+                                    {
+                                        out[level].push_back(x_interval, yz);
+                                    });
+                            }
                         }
                     }
                 }
