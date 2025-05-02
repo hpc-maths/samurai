@@ -297,7 +297,7 @@ namespace samurai
     }
 
     template <std::size_t dim, class Func>
-        requires std::invocable<Func, DirectionVector<dim>>
+        requires std::invocable<Func, DirectionVector<dim>&>
     void for_each_cartesian_direction(Func&& f)
     {
         DirectionVector<dim> direction;
@@ -313,7 +313,7 @@ namespace samurai
     }
 
     template <std::size_t dim, class Func>
-        requires std::invocable<Func, std::size_t, DirectionVector<dim>>
+        requires std::invocable<Func, std::size_t, DirectionVector<dim>&>
     void for_each_cartesian_direction(Func&& f)
     {
         DirectionVector<dim> direction;
