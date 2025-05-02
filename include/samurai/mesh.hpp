@@ -749,7 +749,7 @@ namespace samurai
 
     // Modified function definition
     template <class D, class Config>
-    inline void Mesh_base<D, Config>::update_meshid_neighbour(const mesh_id_t& mesh_id)
+    inline void Mesh_base<D, Config>::update_meshid_neighbour([[maybe_unused]] const mesh_id_t& mesh_id)
     {
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
