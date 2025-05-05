@@ -15,12 +15,12 @@
 #include <samurai/samurai.hpp>
 
 #include <samurai/load_balancing.hpp>
-#include <samurai/load_balancing_sfc.hpp>
 #include <samurai/load_balancing_diffusion.hpp>
-#include <samurai/load_balancing_force.hpp>
 #include <samurai/load_balancing_diffusion_interval.hpp>
-#include <samurai/load_balancing_void.hpp>
+#include <samurai/load_balancing_force.hpp>
 #include <samurai/load_balancing_life.hpp>
+#include <samurai/load_balancing_sfc.hpp>
+#include <samurai/load_balancing_void.hpp>
 #include <samurai/timers.hpp>
 
 double gm = 1.4; // Gas constant
@@ -216,40 +216,44 @@ void one_time_step(Field& f,
             double coef = 1. / (1 << (dim * jump));
             for (std::size_t scheme_n = 0; scheme_n < 4; ++scheme_n)
             { // We have 4 schemes
-                advected(0 + 4 * scheme_n, level, i, j) = f(0 + 4 * scheme_n, level, i-1, j);
-                advected(1 + 4 * scheme_n, level, i, j) = f(1 + 4 * scheme_n, level, i, j-1);
-                advected(2 + 4 * scheme_n, level, i, j) = f(2 + 4 * scheme_n, level, i+1, j);
-                advected(3 + 4 * scheme_n, level, i, j) = f(3 + 4 * scheme_n, level, i, j+1);
-            
-            //     advected(
-            //         0 + 4 * scheme_n,
-            //         level,
-            //         i,
-            //         j) = f(0 + 4 * scheme_n, level, i, j)
-            //            + coef * samurai::portion(f, 0 + 4 * scheme_n, level, i - 1, j, jump, {(1 << jump) - 1, (1 << jump)}, {0, (1 << jump)})
-            //            - coef * samurai::portion(f, 0 + 4 * scheme_n, level, i, j, jump, {(1 << jump) - 1, (1 << jump)}, {0, (1 << jump)});
+                advected(0 + 4 * scheme_n, level, i, j) = f(0 + 4 * scheme_n, level, i - 1, j);
+                advected(1 + 4 * scheme_n, level, i, j) = f(1 + 4 * scheme_n, level, i, j - 1);
+                advected(2 + 4 * scheme_n, level, i, j) = f(2 + 4 * scheme_n, level, i + 1, j);
+                advected(3 + 4 * scheme_n, level, i, j) = f(3 + 4 * scheme_n, level, i, j + 1);
 
-            //     advected(
-            //         1 + 4 * scheme_n,
-            //         level,
-            //         i,
-            //         j) = f(1 + 4 * scheme_n, level, i, j)
-            //            + coef * samurai::portion(f, 1 + 4 * scheme_n, level, i, j - 1, jump, {0, (1 << jump)}, {(1 << jump) - 1, (1 << jump)})
-            //            - coef * samurai::portion(f, 1 + 4 * scheme_n, level, i, j, jump, {0, (1 << jump)}, {(1 << jump) - 1, (1 << jump)});
+                //     advected(
+                //         0 + 4 * scheme_n,
+                //         level,
+                //         i,
+                //         j) = f(0 + 4 * scheme_n, level, i, j)
+                //            + coef * samurai::portion(f, 0 + 4 * scheme_n, level, i - 1, j, jump, {(1 << jump) - 1, (1 << jump)}, {0, (1
+                //            << jump)})
+                //            - coef * samurai::portion(f, 0 + 4 * scheme_n, level, i, j, jump, {(1 << jump) - 1, (1 << jump)}, {0, (1 <<
+                //            jump)});
 
-            //     advected(2 + 4 * scheme_n, level, i, j) = f(
-            //         2 + 4 * scheme_n,
-            //         level,
-            //         i,
-            //         j) = f(2 + 4 * scheme_n, level, i, j)
-            //            + coef * samurai::portion(f, 2 + 4 * scheme_n, level, i + 1, j, jump, {0, 1}, {0, (1 << jump)})
-            //            - coef * samurai::portion(f, 2 + 4 * scheme_n, level, i, j, jump, {0, 1}, {0, (1 << jump)});
-            //     advected(3 + 4 * scheme_n,
-            //              level,
-            //              i,
-            //              j) = f(3 + 4 * scheme_n, level, i, j)
-            //                 + coef * samurai::portion(f, 3 + 4 * scheme_n, level, i, j + 1, jump, {0, (1 << jump)}, {0, 1})
-            //                 - coef * samurai::portion(f, 3 + 4 * scheme_n, level, i, j, jump, {0, (1 << jump)}, {0, 1});
+                //     advected(
+                //         1 + 4 * scheme_n,
+                //         level,
+                //         i,
+                //         j) = f(1 + 4 * scheme_n, level, i, j)
+                //            + coef * samurai::portion(f, 1 + 4 * scheme_n, level, i, j - 1, jump, {0, (1 << jump)}, {(1 << jump) - 1, (1
+                //            << jump)})
+                //            - coef * samurai::portion(f, 1 + 4 * scheme_n, level, i, j, jump, {0, (1 << jump)}, {(1 << jump) - 1, (1 <<
+                //            jump)});
+
+                //     advected(2 + 4 * scheme_n, level, i, j) = f(
+                //         2 + 4 * scheme_n,
+                //         level,
+                //         i,
+                //         j) = f(2 + 4 * scheme_n, level, i, j)
+                //            + coef * samurai::portion(f, 2 + 4 * scheme_n, level, i + 1, j, jump, {0, 1}, {0, (1 << jump)})
+                //            - coef * samurai::portion(f, 2 + 4 * scheme_n, level, i, j, jump, {0, 1}, {0, (1 << jump)});
+                //     advected(3 + 4 * scheme_n,
+                //              level,
+                //              i,
+                //              j) = f(3 + 4 * scheme_n, level, i, j)
+                //                 + coef * samurai::portion(f, 3 + 4 * scheme_n, level, i, j + 1, jump, {0, (1 << jump)}, {0, 1})
+                //                 - coef * samurai::portion(f, 3 + 4 * scheme_n, level, i, j, jump, {0, (1 << jump)}, {0, 1});
             }
 
             // We compute the advected momenti
@@ -324,7 +328,7 @@ void one_time_step(Field& f,
             new_f(14, level, i, j) = .25 * m3_0 - .5 / lambda * (m3_1) + .25 / (lambda * lambda) * m3_3;
             new_f(15, level, i, j) = .25 * m3_0 - .5 / lambda * (m3_2)-.25 / (lambda * lambda) * m3_3;
         });
-    
+
     samurai::times::timers.stop("lbm-step");
 
     std::swap(f.array(), new_f.array());
@@ -335,7 +339,10 @@ void save_solution(Field& f, double eps, std::size_t ite, std::size_t freq_out, 
 {
     using value_t = typename Field::value_type;
 
-    if( ite % freq_out != 0 ) return; 
+    if (ite % freq_out != 0)
+    {
+        return;
+    }
 
     auto& mesh = f.mesh();
     auto level = samurai::make_scalar_field<std::size_t>("level", mesh);
@@ -630,7 +637,6 @@ void save_reconstructed(Field& f, FieldFull& f_full, Func&& update_bc_for_level,
                   E,
                   s,
                   level_);
->>>>>>> a897435 (style: change Field::size into Field::n_comp (#289))
 }
 
 int main(int argc, char* argv[])
@@ -639,7 +645,7 @@ int main(int argc, char* argv[])
 
     CLI::App app{"Multi resolution for a D2Q4 LBM scheme for the scalar advection equation"};
 
-    std::size_t freq_out = 1; // frequency for output in iteration
+    std::size_t freq_out     = 1; // frequency for output in iteration
     std::size_t total_nb_ite = 100;
     int configuration        = 12;
 
@@ -656,10 +662,12 @@ int main(int argc, char* argv[])
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--nt-loadbalance", nt_loadbalance, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
-    app.add_option("--mr-eps", mr_epsilon, "The epsilon used by the multiresolution to adapt the mesh")->capture_default_str()
-                   ->group("Multiresolution");
+    app.add_option("--mr-eps", mr_epsilon, "The epsilon used by the multiresolution to adapt the mesh")
+        ->capture_default_str()
+        ->group("Multiresolution");
     app.add_option("--mr-reg", mr_regularity, "The regularity criteria used by the multiresolution to adapt the mesh")
-                   ->capture_default_str()->group("Multiresolution");
+        ->capture_default_str()
+        ->group("Multiresolution");
     CLI11_PARSE(app, argc, argv);
 
     constexpr size_t dim = 2;
@@ -707,15 +715,13 @@ int main(int argc, char* argv[])
     // Diffusion_LoadBalancer_interval<dim> balancer;
     // Load_balancing::Diffusion balancer;
 
-
-
     auto MRadaptation = samurai::make_MRAdapt(f);
 
     double t = 0.;
     samurai::times::timers.start("tloop");
     for (std::size_t nt = 0; nt <= N && nt < total_nb_ite; ++nt)
     {
-        std::cout << fmt::format("\n\t> Iteration {}, t: {}, dt: {} ", nt, t, dt ) << std::endl;
+        std::cout << fmt::format("\n\t> Iteration {}, t: {}, dt: {} ", nt, t, dt) << std::endl;
 
         if (nt % nt_loadbalance == 0 && nt > 1)
         {
