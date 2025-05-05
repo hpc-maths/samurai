@@ -5,6 +5,8 @@ find_package(rapidcheck QUIET)
 message(STATUS "Found Rapidcheck: ${rapidcheck_FOUND}")
 
 find_package(Threads)
+find_package(CLI11)
+
 
 set(COMMON_BASE
     main.cpp
@@ -52,7 +54,7 @@ foreach(filename IN LISTS SAMURAI_TESTS)
     if(rapidcheck_FOUND)
         target_link_libraries(${targetname} samurai gtest_main gtest rapidcheck rapidcheck_gtest)
     else()
-        target_link_libraries(${targetname} samurai gtest_main gtest)
+        target_link_libraries(${targetname} samurai gtest_main gtest CLI11::CLI11)
     endif()
 endforeach()
 

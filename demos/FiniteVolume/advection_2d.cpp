@@ -278,12 +278,12 @@ int main(int argc, char* argv[])
     // Diffusion_LoadBalancer_cell not exist ???
     // Load_balancing::Diffusion donne de très mauvais resultats, peut-etre des parametres internes ?
 
-    SFC_LoadBalancer_interval<dim, Morton> balancer;
-    //    Void_LoadBalancer<dim> balancer;
-    //    Diffusion_LoadBalancer_cell<dim> balancer;
-    //     Diffusion_LoadBalancer_interval<dim> balancer;
-    //     Load_balancing::Diffusion balancer;
-    // Load_balancing::SFCw<dim, Morton> balancer;
+    // SFC_LoadBalancer_interval<dim, Morton> balancer;
+    //     Void_LoadBalancer<dim> balancer;
+    //     Diffusion_LoadBalancer_cell<dim> balancer;
+    //      Diffusion_LoadBalancer_interval<dim> balancer;
+    //      Load_balancing::Diffusion balancer;
+    //  Load_balancing::SFCw<dim, Morton> balancer;
 
     std::ofstream logs;
 #ifdef SAMURAI_WITH_MPI
@@ -292,7 +292,8 @@ int main(int argc, char* argv[])
 #endif
     while (t != Tf)
     {
-        bool reqBalance = balancer.require_balance(mesh);
+        bool reqBalance = 0;
+        //        bool reqBalance = balancer.require_balance(mesh);
 
         if (reqBalance)
         {
@@ -304,7 +305,7 @@ int main(int argc, char* argv[])
         // if ( reqBalance && nt > 1 )
         {
             samurai::times::timers.start("load-balancing");
-            balancer.load_balance(mesh, u);
+            // balancer.load_balance(mesh, u);
             samurai::times::timers.stop("load-balancing");
         }
 
