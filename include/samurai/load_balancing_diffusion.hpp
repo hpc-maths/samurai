@@ -74,7 +74,7 @@ namespace Load_balancing
         template <class Mesh_t>
         auto reordering_impl(Mesh_t& mesh)
         {
-            auto flags = samurai::make_field<int, 1>("diffusion_flag", mesh);
+            auto flags = samurai::make_scalar_field<int>("diffusion_flag", mesh);
             flags.fill(_rank);
 
             return flags;
@@ -199,7 +199,7 @@ namespace Load_balancing
             std::vector<CellList_t> cl_to_send(n_neighbours);
 
             // set field "flags" for each rank. Initialized to current for all cells (leaves only)
-            auto flags = samurai::make_field<int, 1>("diffusion_flag", mesh);
+            auto flags = samurai::make_scalar_field<int>("diffusion_flag", mesh);
             flags.fill(world.rank());
 
             // load balancing order
