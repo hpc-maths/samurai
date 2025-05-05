@@ -118,9 +118,11 @@ namespace samurai
         std::size_t nb_cells() const;
         std::size_t nb_cells(std::size_t level) const;
 
+
 	// from strafella : could be useful for load balancing
         std::size_t nb_intervals(std::size_t dim) const;
         std::size_t nb_intervals(std::size_t dim, std::size_t level) const;
+
 
         void clear();
 

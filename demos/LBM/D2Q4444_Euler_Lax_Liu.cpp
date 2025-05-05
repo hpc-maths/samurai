@@ -344,7 +344,9 @@ void save_solution(Field& f, double eps, std::size_t ite, std::size_t freq_out, 
         return;
     }
 
+
     auto& mesh = f.mesh();
+
     auto level = samurai::make_scalar_field<std::size_t>("level", mesh);
     auto rho   = samurai::make_scalar_field<value_t>("rho", mesh);
     auto qx    = samurai::make_scalar_field<value_t>("qx", mesh);

@@ -16,6 +16,7 @@
 #include <samurai/stencil_field.hpp>
 #include <samurai/subset/node.hpp>
 
+
 #include <samurai/load_balancing.hpp>
 #include <samurai/load_balancing_sfc.hpp>
 #include <samurai/load_balancing_sfc_w.hpp>
@@ -26,6 +27,7 @@
 
 #include <samurai/timers.hpp>
 
+
 #include <filesystem>
 namespace fs = std::filesystem;
 
@@ -35,7 +37,6 @@ void init(Field& u)
     auto& mesh = u.mesh();
     u.resize();
 
-    u.fill( 0. );
 
     samurai::for_each_cell(
         mesh,
@@ -160,7 +161,9 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 {
     auto mesh   = u.mesh();
     auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
+
     auto domain_ = samurai::make_scalar_field<int>("domain", mesh);    
+
 
     if (!fs::exists(path))
     {
