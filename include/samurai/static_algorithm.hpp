@@ -7,6 +7,8 @@
 
 #include <xtensor/xfixed.hpp>
 
+#include "level_cell_array.hpp"
+
 namespace samurai
 {
     // Static loop with boundaries known at compile time
