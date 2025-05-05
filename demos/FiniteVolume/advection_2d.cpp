@@ -16,17 +16,15 @@
 #include <samurai/stencil_field.hpp>
 #include <samurai/subset/node.hpp>
 
-
 #include <samurai/load_balancing.hpp>
+#include <samurai/load_balancing_diffusion.hpp>
+#include <samurai/load_balancing_diffusion_interval.hpp>
+#include <samurai/load_balancing_force.hpp>
 #include <samurai/load_balancing_sfc.hpp>
 #include <samurai/load_balancing_sfc_w.hpp>
-#include <samurai/load_balancing_diffusion.hpp>
-#include <samurai/load_balancing_force.hpp>
-#include <samurai/load_balancing_diffusion_interval.hpp>
 #include <samurai/load_balancing_void.hpp>
 
 #include <samurai/timers.hpp>
-
 
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -37,12 +35,11 @@ void init(Field& u)
     auto& mesh = u.mesh();
     u.resize();
 
-
     samurai::for_each_cell(
         mesh,
         [&](auto& cell)
         {
-            auto center = cell.center();
+            auto center           = cell.center();
             const double radius   = .2;
             const double x_center = 0.3;
             const double y_center = 0.3;
@@ -53,7 +50,7 @@ void init(Field& u)
             else
             {
                 u[cell] = 0;
-	    }
+            }
         });
 }
 
@@ -162,8 +159,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
     auto mesh   = u.mesh();
     auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
 
-    auto domain_ = samurai::make_scalar_field<int>("domain", mesh);    
-
+    auto domain_ = samurai::make_scalar_field<int>("domain", mesh);
 
     if (!fs::exists(path))
     {
@@ -215,9 +211,9 @@ int main(int argc, char* argv[])
     bool correction       = false;
 
     // Output parameters
-    fs::path path        = fs::current_path();
-    std::string filename = "FV_advection_2d";
-    std::size_t nfiles   = 1;
+    fs::path path              = fs::current_path();
+    std::string filename       = "FV_advection_2d";
+    std::size_t nfiles         = 1;
     std::size_t nt_loadbalance = 1; // nombre d'iteration entre les equilibrages
 
     app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
@@ -278,31 +274,33 @@ int main(int argc, char* argv[])
     std::size_t nsave = 1;
     std::size_t nt    = 0;
 
-
-// For now, void_balancer is verified and works properly
-// Diffusion_LoadBalancer_cell not exist ???
-// Load_balancing::Diffusion donne de très mauvais resultats, peut-etre des parametres internes ? 
+    // For now, void_balancer is verified and works properly
+    // Diffusion_LoadBalancer_cell not exist ???
+    // Load_balancing::Diffusion donne de très mauvais resultats, peut-etre des parametres internes ?
 
     SFC_LoadBalancer_interval<dim, Morton> balancer;
-//    Void_LoadBalancer<dim> balancer;
-//    Diffusion_LoadBalancer_cell<dim> balancer;
-//     Diffusion_LoadBalancer_interval<dim> balancer;
-//     Load_balancing::Diffusion balancer;
+    //    Void_LoadBalancer<dim> balancer;
+    //    Diffusion_LoadBalancer_cell<dim> balancer;
+    //     Diffusion_LoadBalancer_interval<dim> balancer;
+    //     Load_balancing::Diffusion balancer;
     // Load_balancing::SFCw<dim, Morton> balancer;
 
     std::ofstream logs;
-#ifdef SAMURAI_WITH_MPI    
+#ifdef SAMURAI_WITH_MPI
     boost::mpi::communicator world;
-    logs.open( fmt::format("log_{}.dat", world.rank()), std::ofstream::app );
+    logs.open(fmt::format("log_{}.dat", world.rank()), std::ofstream::app);
 #endif
     while (t != Tf)
     {
-        bool reqBalance = balancer.require_balance( mesh );
+        bool reqBalance = balancer.require_balance(mesh);
 
-        if( reqBalance ) std::cerr << "\t> Load Balancing required !!! " << std::endl;
+        if (reqBalance)
+        {
+            std::cerr << "\t> Load Balancing required !!! " << std::endl;
+        }
 
         // if ( ( nt % nt_loadbalance == 0 || reqBalance ) && nt > 1 )
-        if ( ( nt % nt_loadbalance == 0 ) && nt > 1 )
+        if ((nt % nt_loadbalance == 0) && nt > 1)
         // if ( reqBalance && nt > 1 )
         {
             samurai::times::timers.start("load-balancing");
@@ -343,7 +341,6 @@ int main(int argc, char* argv[])
             const std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
             save(path, filename, u, suffix);
         }
-
     }
 
     samurai::finalize();

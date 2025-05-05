@@ -82,8 +82,6 @@ namespace samurai
         };
     }
 
-
-
     // TODO : is this function useful ?  from rebase strafella
     template <class Field, class SubMesh>
     auto extract_data(const Field& field, const SubMesh& submesh)
@@ -96,7 +94,7 @@ namespace samurai
         {
             std::size_t index = 0;
             for_each_cell(submesh,
-                          [&](const auto & cell)
+                          [&](const auto& cell)
                           {
                               if constexpr (Field::size == 1)
                               {
@@ -114,7 +112,6 @@ namespace samurai
         }
         return data;
     }
-
 
     template <class Mesh>
     auto extract_coords_and_connectivity(const Mesh& mesh)

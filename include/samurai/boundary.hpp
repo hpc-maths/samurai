@@ -11,8 +11,8 @@ namespace samurai
 
         auto& cells = mesh[mesh_id_t::cells][level];
         // auto& domain = mesh.domain();
-	// REBASE FIXME : I don't know if we need to override domain 
-        //auto& domain = mesh.subdomain();
+        // REBASE FIXME : I don't know if we need to override domain
+        // auto& domain = mesh.subdomain();
 
         return difference(cells, translate(self(domain).on(level), -layer_width * direction));
     }

@@ -9,12 +9,12 @@
 #include <samurai/schemes/fv.hpp>
 
 #include <samurai/load_balancing.hpp>
-#include <samurai/load_balancing_sfc.hpp>
 #include <samurai/load_balancing_diffusion.hpp>
-#include <samurai/load_balancing_force.hpp>
 #include <samurai/load_balancing_diffusion_interval.hpp>
-#include <samurai/load_balancing_void.hpp>
+#include <samurai/load_balancing_force.hpp>
 #include <samurai/load_balancing_life.hpp>
+#include <samurai/load_balancing_sfc.hpp>
+#include <samurai/load_balancing_void.hpp>
 
 #include <samurai/timers.hpp>
 
@@ -60,7 +60,7 @@ int main(int argc, char* argv[])
     //--------------------//
     // Program parameters //
     //--------------------//
-#ifdef SAMURAI_WITH_MPI    
+#ifdef SAMURAI_WITH_MPI
     boost::mpi::communicator world;
 #endif
     // Simulation parameters
@@ -81,9 +81,9 @@ int main(int argc, char* argv[])
     double mr_regularity  = 1.;   // Regularity guess for multiresolution
 
     // Output parameters
-    fs::path path        = fs::current_path();
-    std::string filename = "linear_convection_" + std::to_string(dim) + "D";
-    std::size_t nfiles   = 0;
+    fs::path path              = fs::current_path();
+    std::string filename       = "linear_convection_" + std::to_string(dim) + "D";
+    std::size_t nfiles         = 0;
     std::size_t nt_loadbalance = 10;
 
     app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
@@ -162,14 +162,14 @@ int main(int argc, char* argv[])
     // Convection operator
     samurai::VelocityVector<dim> velocity;
     velocity.fill(1);
-    velocity(1) = -1 ; 
+    velocity(1) = -1;
 
     // origin weno5
     auto conv = samurai::make_convection_weno5<decltype(u)>(velocity);
 
     // SFC_LoadBalancer_interval<dim, Morton> balancer;
     // Load_balancing::Life balancer;
-//    Load_balancing::GlobalCriteria balancer;
+    //    Load_balancing::GlobalCriteria balancer;
     // Void_LoadBalancer<dim> balancer;
     // Diffusion_LoadBalancer_cell<dim> balancer;
     // Diffusion_LoadBalancer_interval<dim> balancer;
@@ -188,7 +188,7 @@ int main(int argc, char* argv[])
     }
 
     auto MRadaptation = samurai::make_MRAdapt(u);
-    
+
     samurai::times::timers.start("MRadaptation");
     MRadaptation(mr_epsilon, mr_regularity);
     samurai::times::timers.stop("MRadaptation");
@@ -202,16 +202,15 @@ int main(int argc, char* argv[])
     }
     while (t != Tf)
     {
+        /**
+            if (nt % nt_loadbalance == 0 && nt > 1 )
+                {
+                    samurai::times::timers.start("tloop.lb:"+balancer.getName());
+                    balancer.load_balance(mesh, u);
+                    samurai::times::timers.stop("tloop.lb:"+balancer.getName());
 
-/**
-	if (nt % nt_loadbalance == 0 && nt > 1 )
-        {
-            samurai::times::timers.start("tloop.lb:"+balancer.getName());
-            balancer.load_balance(mesh, u);
-            samurai::times::timers.stop("tloop.lb:"+balancer.getName());
-
-        }
- **/     
+                }
+         **/
         // Move to next timestep
         t += dt;
         if (t > Tf)
@@ -270,7 +269,6 @@ int main(int argc, char* argv[])
             }
         }
         samurai::times::timers.stop("tloop.io");
-
     }
     samurai::times::timers.stop("tloop");
 

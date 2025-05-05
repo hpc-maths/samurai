@@ -157,8 +157,8 @@ namespace samurai
     {
         constexpr int dim = 2;
 
-        using Config     = samurai::MRConfig<dim>;
-        using Mesh_t     = samurai::MRMesh<Config>;
+        using Config = samurai::MRConfig<dim>;
+        using Mesh_t = samurai::MRMesh<Config>;
 
         samurai::CellList<dim> cl;
         cl[0][{0}].add_interval({0, 4});
@@ -175,22 +175,27 @@ namespace samurai
         cl[1][{6}].add_interval({6, 8});
         cl[1][{7}].add_interval({6, 7});
 
-        Mesh_t mesh( cl, 0, 1);
+        Mesh_t mesh(cl, 0, 1);
 
         bool intersect_found = false;
-        const auto & subdom = mesh.subdomain();
-        for(std::size_t level=mesh.min_level(); level<mesh.max_level(); ++level ){
-            auto intersect = difference( mesh[Mesh_t::mesh_id_t::cells][level], subdom ).on(level);
-            size_t ninter = 0;
-            intersect( [&]([[maybe_unused]]const auto & interval, [[maybe_unused]]const auto & index ){
-                ninter += 1;
-            });
+        const auto& subdom   = mesh.subdomain();
+        for (std::size_t level = mesh.min_level(); level < mesh.max_level(); ++level)
+        {
+            auto intersect = difference(mesh[Mesh_t::mesh_id_t::cells][level], subdom).on(level);
+            size_t ninter  = 0;
+            intersect(
+                [&]([[maybe_unused]] const auto& interval, [[maybe_unused]] const auto& index)
+                {
+                    ninter += 1;
+                });
 
-            if( ninter >  0) { intersect_found = true; }
+            if (ninter > 0)
+            {
+                intersect_found = true;
+            }
         }
 
-        ASSERT_FALSE( intersect_found );
-
+        ASSERT_FALSE(intersect_found);
     }
 
     TEST(mrmesh, test_construct_union)
@@ -202,44 +207,46 @@ namespace samurai
         using cl_t   = Mesh_t::cl_type;
         using ca_t   = Mesh_t::ca_type;
 
-        Mesh_t mesh( getInitState<dim>(), 0, 2);
+        Mesh_t mesh(getInitState<dim>(), 0, 2);
 
         auto un = mesh.get_union();
 
-        ASSERT_EQ( un[ 0 ].nb_cells(), 5);
+        ASSERT_EQ(un[0].nb_cells(), 5);
         {
             cl_t cl;
-            cl[0][{1}].add_interval({1,3});
-            cl[0][{2}].add_interval({1,3});
-            cl[0][{3}].add_interval({3,4});
-            ca_t ca = { cl, false };
-            auto tmp_ = samurai::difference( ca[0], un[0] );
-            
+            cl[0][{1}].add_interval({1, 3});
+            cl[0][{2}].add_interval({1, 3});
+            cl[0][{3}].add_interval({3, 4});
+            ca_t ca   = {cl, false};
+            auto tmp_ = samurai::difference(ca[0], un[0]);
+
             size_t ni = 0;
-            tmp_( [&]([[maybe_unused]]const auto & interval, [[maybe_unused]]const auto & index){
-                ni +=1;
-            });
-            ASSERT_EQ( ni, 0);
+            tmp_(
+                [&]([[maybe_unused]] const auto& interval, [[maybe_unused]] const auto& index)
+                {
+                    ni += 1;
+                });
+            ASSERT_EQ(ni, 0);
         }
 
-        ASSERT_EQ( un[ 1 ].nb_cells(), 2);
+        ASSERT_EQ(un[1].nb_cells(), 2);
         {
             cl_t cl;
-            cl[1][{4}].add_interval({4,5});
-            cl[1][{7}].add_interval({7,8});
-            ca_t ca = { cl, false };
-            auto tmp_ = samurai::difference( ca[1], un[1] );
-            
+            cl[1][{4}].add_interval({4, 5});
+            cl[1][{7}].add_interval({7, 8});
+            ca_t ca   = {cl, false};
+            auto tmp_ = samurai::difference(ca[1], un[1]);
+
             size_t ni = 0;
-            tmp_( [&]([[maybe_unused]]const auto & interval, [[maybe_unused]]const auto & index){
-                ni +=1;
-            });
-            ASSERT_EQ( ni, 0);
+            tmp_(
+                [&]([[maybe_unused]] const auto& interval, [[maybe_unused]] const auto& index)
+                {
+                    ni += 1;
+                });
+            ASSERT_EQ(ni, 0);
         }
 
-        ASSERT_EQ( un[ 2 ].nb_cells(), 0);
-
-
+        ASSERT_EQ(un[2].nb_cells(), 0);
     }
 
 }

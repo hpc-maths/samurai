@@ -5,16 +5,16 @@
 #include <samurai/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
-#include <samurai/schemes/fv.hpp>
 #include <samurai/samurai.hpp>
+#include <samurai/schemes/fv.hpp>
 
 #include <samurai/load_balancing.hpp>
-#include <samurai/load_balancing_sfc.hpp>
 #include <samurai/load_balancing_diffusion.hpp>
-#include <samurai/load_balancing_force.hpp>
 #include <samurai/load_balancing_diffusion_interval.hpp>
-#include <samurai/load_balancing_void.hpp>
+#include <samurai/load_balancing_force.hpp>
 #include <samurai/load_balancing_life.hpp>
+#include <samurai/load_balancing_sfc.hpp>
+#include <samurai/load_balancing_void.hpp>
 
 #include <samurai/timers.hpp>
 
@@ -41,7 +41,7 @@ template <class Field>
 void save(const fs::path& path, const std::string& filename, Field& u, const std::string& suffix = "")
 {
     auto mesh   = u.mesh();
-    u.name()      = "u";
+    u.name()    = "u";
     auto level_ = samurai::make_field<std::size_t, 1>("level", mesh);
 
     if (!fs::exists(path))
@@ -91,9 +91,9 @@ int main(int argc, char* argv[])
     double mr_regularity  = 1.;   // Regularity guess for multiresolution
 
     // Output parameters
-    fs::path path        = fs::current_path();
-    std::string filename = "linear_convection_" + std::to_string(dim) + "D";
-    std::size_t nfiles   = 0;
+    fs::path path              = fs::current_path();
+    std::string filename       = "linear_convection_" + std::to_string(dim) + "D";
+    std::size_t nfiles         = 0;
     std::size_t nt_loadbalance = 10;
 
     CLI::App app{"Finite volume example for the heat equation in 1d"};
@@ -131,33 +131,34 @@ int main(int argc, char* argv[])
     Box box(box_corner1, box_corner2);
     std::array<bool, dim> periodic;
     periodic.fill(false);
-    
+
     samurai::times::timers.start("init");
     samurai::MRMesh<Config> mesh{box, min_level, max_level, periodic};
 
     // Initial solution
     auto u = samurai::make_field<double, 1>("u",
-                                    mesh,
-                                    [&](const auto& coords)
-                                    {
-                                        if constexpr (dim == 1)
-                                        {
-                                            auto& x = coords(0);
-                                            return (x >= -0.8 && x <= -0.3) ? 1. : 0.;
-                                        }
-                                        else if ( dim == 2 )
-                                        {
-                                            auto& x = coords(0);
-                                            auto& y = coords(1);
-                                            return (x <= 0.8 && x >= 0.3 && y >= 0.3 && y <= 0.8) ? 1. : 0.;
-                                        }else {
-                                            auto & x = coords( 0 );
-                                            auto & y = coords( 1 );
-                                            auto & z = coords( 2 );
-                                            return (x <= 0.8 && x >= 0.3 && y >= 0.3 && y <= 0.8 && z >= 0.3 && z <= 0.8 ) ? 1. : 0.;
-                                        }
-
-                                    });
+                                            mesh,
+                                            [&](const auto& coords)
+                                            {
+                                                if constexpr (dim == 1)
+                                                {
+                                                    auto& x = coords(0);
+                                                    return (x >= -0.8 && x <= -0.3) ? 1. : 0.;
+                                                }
+                                                else if (dim == 2)
+                                                {
+                                                    auto& x = coords(0);
+                                                    auto& y = coords(1);
+                                                    return (x <= 0.8 && x >= 0.3 && y >= 0.3 && y <= 0.8) ? 1. : 0.;
+                                                }
+                                                else
+                                                {
+                                                    auto& x = coords(0);
+                                                    auto& y = coords(1);
+                                                    auto& z = coords(2);
+                                                    return (x <= 0.8 && x >= 0.3 && y >= 0.3 && y <= 0.8 && z >= 0.3 && z <= 0.8) ? 1. : 0.;
+                                                }
+                                            });
     samurai::times::timers.stop("init");
 
     samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
@@ -169,10 +170,11 @@ int main(int argc, char* argv[])
     // origin weno5
     auto conv = samurai::make_convection_weno5<decltype(u)>(velocity);
 
-    auto ponio_f = [&]([[maybe_unused]]double t, auto && u){
+    auto ponio_f = [&]([[maybe_unused]] double t, auto&& u)
+    {
         samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
-        samurai::update_ghost_mr( u );
-        return - conv( u );
+        samurai::update_ghost_mr(u);
+        return -conv(u);
     };
 
     // SFC_LoadBalancer_interval<dim, Morton> balancer;
@@ -194,12 +196,12 @@ int main(int argc, char* argv[])
         dt                    = cfl * dx / sum_velocities;
     }
 
-    auto sol_range = ponio::make_solver_range( ponio_f, ponio::runge_kutta::rk_33(), u, {0.0, Tf}, dt );
+    auto sol_range = ponio::make_solver_range(ponio_f, ponio::runge_kutta::rk_33(), u, {0.0, Tf}, dt);
 
     auto it = sol_range.begin();
 
-    auto MRadaptation = samurai::make_MRAdapt( it->state );
-    
+    auto MRadaptation = samurai::make_MRAdapt(it->state);
+
     samurai::times::timers.start("MRadaptation");
     MRadaptation(mr_epsilon, mr_regularity);
     samurai::times::timers.stop("MRadaptation");
@@ -214,14 +216,13 @@ int main(int argc, char* argv[])
 
     samurai::times::timers.start("tloop");
 
-    while ( it->time != Tf)
+    while (it->time != Tf)
     {
-
-        if ( balancer.require_balance( mesh ) )
+        if (balancer.require_balance(mesh))
         {
-            samurai::times::timers.start("tloop.lb:"+balancer.getName());
+            samurai::times::timers.start("tloop.lb:" + balancer.getName());
             balancer.load_balance(mesh, it->state);
-            samurai::times::timers.stop("tloop.lb:"+balancer.getName());
+            samurai::times::timers.stop("tloop.lb:" + balancer.getName());
         }
         std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, it->time, it->time_step) << std::endl;
 
@@ -231,14 +232,14 @@ int main(int argc, char* argv[])
         samurai::times::timers.stop("tloop.MRadaptation");
 
         samurai::times::timers.start("tloop.ugm");
-        samurai::update_ghost_mr( it->state );
+        samurai::update_ghost_mr(it->state);
         samurai::times::timers.stop("tloop.ugm");
 
         samurai::times::timers.start("tloop.resize_fill");
-        for ( auto& ki : it.meth.kis )
+        for (auto& ki : it.meth.kis)
         {
             ki.resize();
-            ki.fill( 0. );
+            ki.fill(0.);
         }
         samurai::times::timers.stop("tloop.resize_fill");
 
@@ -261,7 +262,6 @@ int main(int argc, char* argv[])
             }
         }
         samurai::times::timers.stop("tloop.io");
-
     }
     samurai::times::timers.stop("tloop");
 

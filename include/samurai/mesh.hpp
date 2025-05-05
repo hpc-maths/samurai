@@ -298,7 +298,6 @@ namespace samurai
         set_origin_point(origin_point());
         set_scaling_factor(scaling_factor());
         update_mesh_neighbour();
-
     }
 
     template <class D, class Config>
@@ -943,8 +942,8 @@ namespace samurai
         this->m_cells[mesh_id_t::cells][start_level] = {start_level, subdomain_box};
         */
 
-	/** delete for git rebase
-	 **/
+        /** delete for git rebase
+         **/
 
         std::size_t subdomain_start = 0;
         std::size_t subdomain_end   = 0;
@@ -996,10 +995,8 @@ namespace samurai
 
         this->m_cells[mesh_id_t::cells][start_level] = subdomain_cells;
 
-	// end comment for git rebase
-        // this->m_cells[mesh_id_t::cells][start_level] = {start_level, subdomain_box}; 
-	
-
+        // end comment for git rebase
+        // this->m_cells[mesh_id_t::cells][start_level] = {start_level, subdomain_box};
 
         //        m_mpi_neighbourhood.reserve(static_cast<std::size_t>(size) - 1);
         //        for (int ir = 0; ir < size; ++ir)
@@ -1026,21 +1023,21 @@ namespace samurai
         //    return neighbour_rank;
         //};
 
-        //static_nested_loop<dim, -1, 2>(
-        //    [&](auto& shift)
-        //    {
-        //        if (xt::any(shift))
-        //        {
-        //            for (std::size_t d = 0; d < dim; ++d)
-        //            {
-        //                if (coords[d] + shift[d] < 0 || coords[d] + shift[d] >= sizes[d])
-        //                {
-        //                    return;
-        //                }
-        //            }
-        //            m_mpi_neighbourhood.push_back(neighbour(shift));
-        //        }
-         //   });
+        // static_nested_loop<dim, -1, 2>(
+        //     [&](auto& shift)
+        //     {
+        //         if (xt::any(shift))
+        //         {
+        //             for (std::size_t d = 0; d < dim; ++d)
+        //             {
+        //                 if (coords[d] + shift[d] < 0 || coords[d] + shift[d] >= sizes[d])
+        //                 {
+        //                     return;
+        //                 }
+        //             }
+        //             m_mpi_neighbourhood.push_back(neighbour(shift));
+        //         }
+        //    });
 #endif
     }
 

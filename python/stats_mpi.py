@@ -21,11 +21,11 @@ import matplotlib.pyplot as plt
 def plot_mma( data, suffix, ax, xlabel, ylabel, keys=None ):
     """
     """
-    
+
     # select specific domaine if not None
     if keys == None:
         keys = data.keys()
-    
+
     print("plot data for domaine {}".format(keys))
 
     for mprank in keys:
@@ -39,7 +39,7 @@ def plot_mma( data, suffix, ax, xlabel, ylabel, keys=None ):
     #     y = data[ mprank ][ fields ].to_numpy()[0]
 
     #     ax.plot( x, y, ls='None', markersize=5, marker='o' )
-    
+
     ax.set_xlabel( xlabel, fontsize=10 )
     ax.set_ylabel( ylabel, fontsize=10 )
 
@@ -47,11 +47,11 @@ def plot_by_level( data, suffix, ax, xlabel, ylabel, keys=None ):
     """
         Plot data level by level
     """
-    
+
     # select specific domaine if not None
     if keys == None:
         keys = data.keys()
-    
+
     print("plot data for domaine {}".format(keys))
 
     for mprank in keys:
@@ -62,7 +62,7 @@ def plot_by_level( data, suffix, ax, xlabel, ylabel, keys=None ):
         y = data[ mprank ][ fields ].to_numpy()[0]
 
         ax.plot( x, y, ls='None', markersize=5, marker='o' )
-    
+
     ax.set_xlabel( xlabel, fontsize=10 )
     ax.set_ylabel( ylabel, fontsize=10 )
 
@@ -71,7 +71,7 @@ def plot_single_quantity( data, suffix, ax, xlabel, ylabel, keys=None ):
     """
         Plot data level by level
     """
-    
+
     # select specific domaine if not None
     if keys == None:
         keys = list(data.keys())
@@ -89,7 +89,7 @@ def plot_single_quantity( data, suffix, ax, xlabel, ylabel, keys=None ):
         print("\t>[plot] Process # {}, data single: '{}'".format( mprank, data[ str(mprank)][suffix].values ))
 
     ax.plot( x, y, ls='None', markersize=5, marker='o' )
-    
+
     ax.set_xlabel( xlabel, fontsize=10 )
     ax.set_ylabel( ylabel, fontsize=10 )
 
@@ -115,7 +115,7 @@ for fin in args.files:
         rank = match.group(1)
     else:
         rank = 0
-    
+
     # compute min/max level overall datasets
     min_level = min( min_level, fdata.min_level.min() )
     max_level = max( max_level, fdata.max_level.max() )

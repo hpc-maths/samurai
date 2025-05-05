@@ -34,11 +34,12 @@ namespace samurai
         const lcl_type& operator[](std::size_t i) const;
         lcl_type& operator[](std::size_t i);
 
-        inline bool empty() const { 
-            
+        inline bool empty() const
+        {
             bool rst = true;
-            
-            for(const auto & lcl : m_cells ){ 
+
+            for (const auto& lcl : m_cells)
+            {
                 rst &= lcl.empty();
             }
 

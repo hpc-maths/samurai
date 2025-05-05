@@ -1,84 +1,88 @@
 #pragma once
 
-#include <map>
 #include "load_balancing.hpp"
+#include <map>
 #include <samurai/field.hpp>
 
 // for std::sort
 #include <algorithm>
 #ifdef SAMURAI_WITH_MPI
-namespace Load_balancing{
+namespace Load_balancing
+{
 
-    class Life : public samurai::LoadBalancer<Life> {
+    class Life : public samurai::LoadBalancer<Life>
+    {
+      private:
 
-        private:
+        int _ndomains;
+        int _rank;
 
-            int _ndomains;
-            int _rank;
+      public:
 
-        public:
+        Life()
+        {
+#ifdef SAMURAI_WITH_MPI
+            boost::mpi::communicator world;
+            _ndomains = world.size();
+            _rank     = world.rank();
+#else
+            _ndomains = 1;
+            _rank     = 0;
+#endif
+        }
 
-            Life() {
+        inline std::string getName() const
+        {
+            return "life";
+        }
 
-    #ifdef SAMURAI_WITH_MPI
-                boost::mpi::communicator world;
-                _ndomains = world.size();
-                _rank     = world.rank();
-    #else
-                _ndomains = 1;
-                _rank     = 0;
-    #endif
-            }
+        template <class Mesh_t>
+        auto reordering_impl(Mesh_t& mesh)
+        {
+            auto flags = samurai::make_field<int, 1>("ordering_flag", mesh);
+            flags.fill(_rank);
 
-            inline std::string getName() const { return "life"; }
+            return flags;
+        }
 
-            template<class Mesh_t>
-            auto reordering_impl( Mesh_t & mesh ) {
-                auto flags = samurai::make_field<int, 1>("ordering_flag", mesh);
-                flags.fill( _rank );
+        template <class Mesh_t>
+        auto load_balance_impl(Mesh_t& mesh)
+        {
+            using mpi_subdomain_t = typename Mesh_t::mpi_subdomain_t;
+            // using CellList_t      = typename Mesh_t::cl_type;
+            // using mesh_id_t       = typename Mesh_t::mesh_id_t;
 
-                return flags;
-            }
+            // using Coord_t = xt::xtensor_fixed<double, xt::xshape<Mesh_t::dim>>;
+            // using Stencil = xt::xtensor_fixed<int, xt::xshape<Mesh_t::dim>>;
 
-            template<class Mesh_t>
-            auto load_balance_impl( Mesh_t & mesh ){
+            boost::mpi::communicator world;
 
-                using mpi_subdomain_t = typename Mesh_t::mpi_subdomain_t;
-                // using CellList_t      = typename Mesh_t::cl_type;
-                // using mesh_id_t       = typename Mesh_t::mesh_id_t;
+            // For debug
+            // std::ofstream logs;
+            // logs.open( fmt::format("log_{}.dat", world.rank()), std::ofstream::app );
+            logs << fmt::format("> New load-balancing using {} ", getName()) << std::endl;
 
-                // using Coord_t = xt::xtensor_fixed<double, xt::xshape<Mesh_t::dim>>;
-                // using Stencil = xt::xtensor_fixed<int, xt::xshape<Mesh_t::dim>>;
+            auto flags = samurai::make_field<int, 1>("balancing_flags", mesh);
+            flags.fill(_rank);
 
-                boost::mpi::communicator world;
+            // neighbourhood
+            std::vector<mpi_subdomain_t>& neighbourhood = mesh.mpi_neighbourhood();
 
-                // For debug
-                // std::ofstream logs; 
-                // logs.open( fmt::format("log_{}.dat", world.rank()), std::ofstream::app );
-                logs << fmt::format("> New load-balancing using {} ", getName() ) << std::endl;
+            // fluxes to each neighbour
+            std::vector<int> fluxes = samurai::cmptFluxes<samurai::BalanceElement_t::CELL>(mesh, 5);
 
-                auto flags = samurai::make_field<int, 1>("balancing_flags", mesh);
-                flags.fill( _rank );
-                
-                // neighbourhood
-                std::vector<mpi_subdomain_t> & neighbourhood = mesh.mpi_neighbourhood();
+            // cpy that can be modified
+            std::vector<int> new_fluxes(fluxes);
 
-                // fluxes to each neighbour
-                std::vector<int> fluxes = samurai::cmptFluxes<samurai::BalanceElement_t::CELL>( mesh, 5 );
+            // Loads of each processes
+            std::vector<int> loads;
+            int my_load = static_cast<int>(samurai::cmptLoad<samurai::BalanceElement_t::CELL>(mesh));
+            boost::mpi::all_gather(world, my_load, loads);
 
-                // cpy that can be modified
-                std::vector<int> new_fluxes( fluxes );
+            // samurai::cellExists();
 
-                // Loads of each processes
-                std::vector<int> loads;
-                int my_load = static_cast<int>( samurai::cmptLoad<samurai::BalanceElement_t::CELL>( mesh ) );
-                boost::mpi::all_gather( world, my_load, loads );
-
-                // samurai::cellExists();
-
-                return flags;
-            }
-
+            return flags;
+        }
     };
 }
 #endif

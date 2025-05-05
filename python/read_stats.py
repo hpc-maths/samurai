@@ -51,12 +51,12 @@ def plot_minmax( suffix, title, xlabel, ylabel, ax, level_range, kind='box', leg
     _minmaxave = {}
     for elem in ["min", "max", "ave"]:
         _fields = [f'by_level.{l:02}.{suffix}.{elem}' for l in level_range]
-        
+
         _minmaxave[elem] =  data[ _fields ].to_numpy()[0]
 
         _tmp_fields.append( _fields )
         _tmp_name.append( {f: l for f, l in zip(_fields, levels)} )
-    
+
     # ax.set_xlabel(xlabel)
     # ax.set_ylabel(ylabel)
     ax.set_xlim( level_range.start-1, level_range.stop )
@@ -66,10 +66,10 @@ def plot_minmax( suffix, title, xlabel, ylabel, ax, level_range, kind='box', leg
     spacing = 0.3  # spacing between hat groups
     width = (1 - spacing) / x.shape[0]
     ax.set_xticks( x, labels=x )
-    
+
     ax.errorbar( x, _minmaxave["ave"], yerr=[_minmaxave["ave"]-_minmaxave["min"], _minmaxave["max"]-_minmaxave["ave"]], \
                  ls='None', marker='o', ms=6, capsize=5, c="b" )
-    
+
     # heights0 = values[0]
     # for i, (heights, group_label) in enumerate(zip(values, group_labels)):
     #     style = {'fill': False} if i == 0 else {'edgecolor': 'black'}

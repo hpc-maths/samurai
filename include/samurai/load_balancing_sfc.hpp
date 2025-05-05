@@ -38,15 +38,15 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
     }
 
     /**
-    * Re-order cells on MPI processes based on the given SFC curve. This need to be
-    * called once at the beginning (unless ordering is fixed in partition mesh).
-    * After, load balancing will exchange data based on SFC order and thus only
-    * boundaries will be moved.
-    *
-    */
-    template<class Mesh_t>
-    auto reordering_impl( Mesh_t & mesh ) {
-
+     * Re-order cells on MPI processes based on the given SFC curve. This need to be
+     * called once at the beginning (unless ordering is fixed in partition mesh).
+     * After, load balancing will exchange data based on SFC order and thus only
+     * boundaries will be moved.
+     *
+     */
+    template <class Mesh_t>
+    auto reordering_impl(Mesh_t& mesh)
+    {
         boost::mpi::communicator world;
 
         // For debug
@@ -55,230 +55,252 @@ class SFC_LoadBalancer_interval : public samurai::LoadBalancer<SFC_LoadBalancer_
         logs << "# [SFC_LoadBalancer_interval::Morton] Reordering cells using SFC" << std::endl;
 
         // SFC 1D key for cells
-        auto sfc_keys = samurai::make_field<SFC_key_t, 1>( "keys", mesh );
-        sfc_keys.fill( 0 );
+        auto sfc_keys = samurai::make_field<SFC_key_t, 1>("keys", mesh);
+        sfc_keys.fill(0);
 
         auto flags = samurai::make_field<int, 1>("rank", mesh);
-        flags.fill( world.rank() );
-         
-        logs << fmt::format("\t> Computing SFC ({}) 1D indices ( cell ) ... ", _sfc.getName() ) << std::endl;
+        flags.fill(world.rank());
+
+        logs << fmt::format("\t> Computing SFC ({}) 1D indices ( cell ) ... ", _sfc.getName()) << std::endl;
 
         SFC_key_t mink = std::numeric_limits<SFC_key_t>::max(), maxk = std::numeric_limits<SFC_key_t>::min();
 
-        samurai::for_each_cell(mesh[Mesh_t::mesh_id_t::cells], [&]( const auto & cell ) {
+        samurai::for_each_cell(mesh[Mesh_t::mesh_id_t::cells],
+                               [&](const auto& cell)
+                               {
+                                   // this is where things can get nasty, we expect indices to be positive values !!
+                                   xt::xtensor_fixed<uint32_t, xt::xshape<Mesh_t::dim>> ijk;
+                                   for (size_t idim = 0; idim < dim; ++idim)
+                                   {
+                                       // FIX need shift to get only positive index
+                                       assert(cell.indices(idim) >= 0);
+                                       ijk(idim) = static_cast<uint32_t>(cell.indices(idim)) << (mesh.max_level() - cell.level);
+                                   }
 
-            // this is where things can get nasty, we expect indices to be positive values !!
-            xt::xtensor_fixed<uint32_t, xt::xshape<Mesh_t::dim>> ijk;
-            for (size_t idim = 0; idim < dim; ++idim) {
+                                   auto key = _sfc.template getKey<dim>(ijk);
 
-                // FIX need shift to get only positive index
-                assert( cell.indices( idim ) >= 0 );
-                ijk( idim ) = static_cast<uint32_t>( cell.indices( idim ) ) << ( mesh.max_level() - cell.level );
-            }
+                                   sfc_keys[cell] = key;
 
-            auto key = _sfc.template getKey<dim>( ijk );
-
-            sfc_keys[ cell ] = key;
-            
-            mink = std::min( key, mink );
-            maxk = std::max( key, maxk );
-
-        });
+                                   mink = std::min(key, mink);
+                                   maxk = std::max(key, maxk);
+                               });
 
         // Key boundaries of current process - unused for now
-        std::vector<SFC_key_t> bounds = { mink, maxk };
-        logs << "\t\t> Local key bounds [" << bounds[ 0 ] << ", " << bounds[ 1 ] << "]" << std::endl;
+        std::vector<SFC_key_t> bounds = {mink, maxk};
+        logs << "\t\t> Local key bounds [" << bounds[0] << ", " << bounds[1] << "]" << std::endl;
 
         std::vector<SFC_key_t> boundaries;
-        boost::mpi::all_gather( world, bounds.data(), static_cast<int>( bounds.size() ), boundaries );
+        boost::mpi::all_gather(world, bounds.data(), static_cast<int>(bounds.size()), boundaries);
 
         logs << "\t\t> Global key boundaries [";
-        for(const auto & ik : boundaries )
+        for (const auto& ik : boundaries)
+        {
             logs << ik << ",";
+        }
         logs << "]" << std::endl;
 
         // Check overlap with previous/next process. Does not mean that there is no overlap, but at least between "adjacent"
         // (MPI-1), (MPI+1) there is not overlap found
-        std::vector<SFC_key_t> boundaries_new( static_cast<size_t>( world.size() + 1 ) );
+        std::vector<SFC_key_t> boundaries_new(static_cast<size_t>(world.size() + 1));
 
         // find max value for boundaries
-        SFC_key_t globalMax = boundaries[ 0 ];
-        for(size_t ip=0; ip<boundaries.size(); ++ip){
-            globalMax = std::max( boundaries[ ip ], globalMax );
+        SFC_key_t globalMax = boundaries[0];
+        for (size_t ip = 0; ip < boundaries.size(); ++ip)
+        {
+            globalMax = std::max(boundaries[ip], globalMax);
         }
 
         // cmpt max theoretical key
         globalMax += 1;
 
         // evenly spaced intervals
-        SFC_key_t ds = globalMax / static_cast<size_t>( world.size() );
-        boundaries_new[ 0 ] = 0;
-        for(size_t ip=1; ip<boundaries_new.size(); ++ip){
-            boundaries_new[ ip ] = boundaries_new[ ip - 1 ] + ds;
+        SFC_key_t ds      = globalMax / static_cast<size_t>(world.size());
+        boundaries_new[0] = 0;
+        for (size_t ip = 1; ip < boundaries_new.size(); ++ip)
+        {
+            boundaries_new[ip] = boundaries_new[ip - 1] + ds;
         }
 
         logs << "\t\t> Global key evenly distrib boundaries [";
-        for(const auto & ik : boundaries_new )
+        for (const auto& ik : boundaries_new)
+        {
             logs << ik << ",";
+        }
         logs << "]" << std::endl;
 
         // distribute cell based on boundaries & sfc key
         std::map<int, bool> comm;
-        samurai::for_each_cell( mesh[Mesh_t::mesh_id_t::cells], [&](const auto & cell ) {
-            auto key = sfc_keys[ cell ];
+        samurai::for_each_cell(mesh[Mesh_t::mesh_id_t::cells],
+                               [&](const auto& cell)
+                               {
+                                   auto key = sfc_keys[cell];
 
-            // optimize using bisect - find proc that should have this cell
-            for( size_t ip=0; ip< static_cast<size_t>( world.size() ); ++ip ){
-                if( key >= boundaries_new[ ip ] &&  key < boundaries_new[ ip + 1 ] ){
-                    flags[ cell ] = static_cast<int>( ip );
+                                   // optimize using bisect - find proc that should have this cell
+                                   for (size_t ip = 0; ip < static_cast<size_t>(world.size()); ++ip)
+                                   {
+                                       if (key >= boundaries_new[ip] && key < boundaries_new[ip + 1])
+                                       {
+                                           flags[cell] = static_cast<int>(ip);
 
-                    // unique list of process that should be contacted
-                    if( comm.find( static_cast<int>( ip ) ) == comm.end() ){
-                        comm[ static_cast<int>( ip ) ] = true;
-                    }
+                                           // unique list of process that should be contacted
+                                           if (comm.find(static_cast<int>(ip)) == comm.end())
+                                           {
+                                               comm[static_cast<int>(ip)] = true;
+                                           }
 
-                    break;
-                }
-            }
-
-        });
+                                           break;
+                                       }
+                                   }
+                               });
 
         return flags;
     }
 
     template <class Mesh_t>
-    bool require_balance_impl( Mesh_t & mesh ) {
-
+    bool require_balance_impl(Mesh_t& mesh)
+    {
         boost::mpi::communicator world;
 
         logs << fmt::format("\n# [SFC_LoadBalancer_interval::Morton] required_balance_impl ") << std::endl;
 
         double nbCells_tot = 0;
         std::vector<double> nbCellsPerProc;
-        boost::mpi::all_gather( world, static_cast<double>( mesh.nb_cells( Mesh_t::mesh_id_t::cells ) ), nbCellsPerProc );
+        boost::mpi::all_gather(world, static_cast<double>(mesh.nb_cells(Mesh_t::mesh_id_t::cells)), nbCellsPerProc);
 
-        for(size_t ip=0; ip<nbCellsPerProc.size(); ++ip ) {
-            nbCells_tot += nbCellsPerProc[ ip ];
+        for (size_t ip = 0; ip < nbCellsPerProc.size(); ++ip)
+        {
+            nbCells_tot += nbCellsPerProc[ip];
         }
 
-        // no weight while computing load 
-        double dc = nbCells_tot  / static_cast<double> ( world.size() );
+        // no weight while computing load
+        double dc = nbCells_tot / static_cast<double>(world.size());
 
-        for(size_t ip=0; ip<nbCellsPerProc.size(); ++ip ) {
-            double diff = std::abs( nbCellsPerProc[ ip ] - dc ) / dc;
+        for (size_t ip = 0; ip < nbCellsPerProc.size(); ++ip)
+        {
+            double diff = std::abs(nbCellsPerProc[ip] - dc) / dc;
 
-            if( diff > _unbalance_threshold ) return true;
+            if (diff > _unbalance_threshold)
+            {
+                return true;
+            }
         }
 
         return false;
     }
 
     template <class Mesh_t>
-    auto load_balance_impl( Mesh_t & mesh )
+    auto load_balance_impl(Mesh_t& mesh)
     {
-
         boost::mpi::communicator world;
-        
+
         // std::ofstream logs;
         // logs.open( "log_" + std::to_string( world.rank() ) + ".dat", std::ofstream::app );
         logs << fmt::format("\n# [SFC_LoadBalancer_interval::Morton] Load balancing cells ") << std::endl;
 
         // SFC 1D key for cells
         std::map<SFC_key_t, typename Mesh_t::cell_t> sfc_map;
-        auto sfc_keys = samurai::make_field<SFC_key_t, 1>( "keys", mesh );
-        sfc_keys.fill( 0 );
+        auto sfc_keys = samurai::make_field<SFC_key_t, 1>("keys", mesh);
+        sfc_keys.fill(0);
 
         auto flags = samurai::make_field<int, 1>("rank", mesh);
-        flags.fill( world.rank() );
-         
-        logs << fmt::format("\t> Computing SFC ({}) 1D indices ( cell ) ... ", _sfc.getName() ) << std::endl;
+        flags.fill(world.rank());
+
+        logs << fmt::format("\t> Computing SFC ({}) 1D indices ( cell ) ... ", _sfc.getName()) << std::endl;
 
         SFC_key_t mink = std::numeric_limits<SFC_key_t>::max(), maxk = std::numeric_limits<SFC_key_t>::min();
-        samurai::for_each_cell( mesh[ Mesh_t::mesh_id_t::cells ], [&]( const auto & cell ) {
+        samurai::for_each_cell(mesh[Mesh_t::mesh_id_t::cells],
+                               [&](const auto& cell)
+                               {
+                                   // this is where things can get nasty, we expect indices to be positive values !!
+                                   xt::xtensor_fixed<uint32_t, xt::xshape<Mesh_t::dim>> ijk;
+                                   for (size_t idim = 0; idim < Mesh_t::dim; ++idim)
+                                   {
+                                       // FIX need shift to get only positive index
+                                       assert(cell.indices(idim) >= 0);
+                                       ijk(idim) = static_cast<uint32_t>(cell.indices(idim)) << (mesh.max_level() - cell.level);
+                                   }
 
-            // this is where things can get nasty, we expect indices to be positive values !!
-            xt::xtensor_fixed<uint32_t, xt::xshape<Mesh_t::dim>> ijk;
-            for (size_t idim = 0; idim < Mesh_t::dim; ++idim) {
+                                   auto key = _sfc.template getKey<dim>(ijk);
 
-                // FIX need shift to get only positive index
-                assert( cell.indices( idim ) >= 0 );
-                ijk( idim ) = static_cast<uint32_t>( cell.indices( idim ) ) << ( mesh.max_level() - cell.level );
-            }
+                                   sfc_keys[cell] = key;
 
-            auto key = _sfc.template getKey<dim>( ijk );
+                                   if (sfc_map.find(key) != sfc_map.end())
+                                   {
+                                       assert(false);
+                                       std::cerr << fmt::format("Rank # {}, Error computing SFC, index not uniq ! ", world.rank())
+                                                 << std::endl;
+                                   }
 
-            sfc_keys[ cell ] = key;
+                                   sfc_map[key] = cell;
 
-            if( sfc_map.find( key ) != sfc_map.end() ) {
-                assert( false );
-                std::cerr << fmt::format("Rank # {}, Error computing SFC, index not uniq ! ", world.rank()) << std::endl;
-            }
+                                   mink = std::min(mink, key);
+                                   maxk = std::max(maxk, key);
+                               });
 
-            sfc_map[ key ] = cell;
-
-            mink = std::min( mink, key );
-            maxk = std::max( maxk, key ); 
-
-        });
-
-        assert( mesh.nb_cells( Mesh_t::mesh_id_t::cells ) == sfc_map.size() );
+        assert(mesh.nb_cells(Mesh_t::mesh_id_t::cells) == sfc_map.size());
 
         size_t ncells_tot = 0, dc = 0;
         std::vector<size_t> nbCellsPerProc;
-        std::vector<size_t> globIdx( static_cast<size_t>( world.size() + 1 ) );
-        std::vector<size_t> globIdxNew( static_cast<size_t>( world.size() + 1 ) );
-        boost::mpi::all_gather( world, mesh.nb_cells( Mesh_t::mesh_id_t::cells ), nbCellsPerProc );
+        std::vector<size_t> globIdx(static_cast<size_t>(world.size() + 1));
+        std::vector<size_t> globIdxNew(static_cast<size_t>(world.size() + 1));
+        boost::mpi::all_gather(world, mesh.nb_cells(Mesh_t::mesh_id_t::cells), nbCellsPerProc);
 
-        logs << "\t\t> Number of cells : " << mesh.nb_cells( Mesh_t::mesh_id_t::cells ) << std::endl;
+        logs << "\t\t> Number of cells : " << mesh.nb_cells(Mesh_t::mesh_id_t::cells) << std::endl;
 
-        for(size_t i=0; i<static_cast<size_t>( world.size() ); ++i){
-            globIdx[ i + 1 ] = globIdx[ i ] + nbCellsPerProc[ i ];
-            ncells_tot += nbCellsPerProc[ i ];
+        for (size_t i = 0; i < static_cast<size_t>(world.size()); ++i)
+        {
+            globIdx[i + 1] = globIdx[i] + nbCellsPerProc[i];
+            ncells_tot += nbCellsPerProc[i];
         }
-        dc = ncells_tot / static_cast<size_t>( world.size() );
+        dc = ncells_tot / static_cast<size_t>(world.size());
 
         // load balanced globIdx -> new theoretical key boundaries based on number of cells per proc
-        globIdxNew[ 0 ] = 0;
-        for(size_t i=0; i<static_cast<size_t>( world.size() ); ++i){
-            globIdxNew[ i + 1 ] = globIdxNew[ i ] + dc;
+        globIdxNew[0] = 0;
+        for (size_t i = 0; i < static_cast<size_t>(world.size()); ++i)
+        {
+            globIdxNew[i + 1] = globIdxNew[i] + dc;
         }
 
         {
             logs << "\t\t> GlobalIdx : ";
-            for(const auto & i : globIdx )
+            for (const auto& i : globIdx)
+            {
                 logs << i << ", ";
+            }
             logs << std::endl;
 
             logs << "\t\t> GlobalIdx balanced : ";
-            for(const auto & i : globIdxNew )
+            for (const auto& i : globIdxNew)
+            {
                 logs << i << ", ";
+            }
             logs << std::endl;
-            
-        }   
+        }
 
         size_t start = 0;
-        while( globIdx[ static_cast<size_t>( world.rank() ) ] >= ( start + 1 ) * dc ){
-            start ++;
+        while (globIdx[static_cast<size_t>(world.rank())] >= (start + 1) * dc)
+        {
+            start++;
         }
 
         logs << "\t\t> Start @ rank " << start << std::endl;
 
-        size_t count = globIdx[ static_cast<size_t>( world.rank() ) ];
-        for( auto & it : sfc_map ) {
-
-            if( count >= ( start + 1 ) * dc ){
-                start ++;
-                start = std::min( static_cast<size_t>( world.size() - 1 ) , start );
+        size_t count = globIdx[static_cast<size_t>(world.rank())];
+        for (auto& it : sfc_map)
+        {
+            if (count >= (start + 1) * dc)
+            {
+                start++;
+                start = std::min(static_cast<size_t>(world.size() - 1), start);
                 logs << "\t\t> Incrementing Start @ rank " << start << ", count " << count << std::endl;
             }
-            
-            flags[ it.second ] = static_cast<int>( start );
-            
-            count ++;
+
+            flags[it.second] = static_cast<int>(start);
+
+            count++;
         }
 
         return flags;
     }
-
 };
 #endif
