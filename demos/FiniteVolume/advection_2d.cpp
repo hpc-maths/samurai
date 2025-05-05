@@ -214,7 +214,7 @@ int main(int argc, char* argv[])
     fs::path path              = fs::current_path();
     std::string filename       = "FV_advection_2d";
     std::size_t nfiles         = 1;
-    std::size_t nt_loadbalance = 1; // nombre d'iteration entre les equilibrages
+    std::size_t nt_loadbalance = 20; // nombre d'iteration entre les equilibrages
 
     app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--max-corner", max_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
@@ -280,9 +280,9 @@ int main(int argc, char* argv[])
 
     // SFC_LoadBalancer_interval<dim, Morton> balancer;
     //     Void_LoadBalancer<dim> balancer;
-    //     Diffusion_LoadBalancer_cell<dim> balancer;
+    //         Diffusion_LoadBalancer_cell<dim> balancer;
     //      Diffusion_LoadBalancer_interval<dim> balancer;
-    //      Load_balancing::Diffusion balancer;
+    Load_balancing::Diffusion balancer;
     //  Load_balancing::SFCw<dim, Morton> balancer;
 
     std::ofstream logs;
@@ -292,8 +292,8 @@ int main(int argc, char* argv[])
 #endif
     while (t != Tf)
     {
-        bool reqBalance = 0;
-        //        bool reqBalance = balancer.require_balance(mesh);
+        //        bool reqBalance = 0;
+        bool reqBalance = balancer.require_balance(mesh);
 
         if (reqBalance)
         {
@@ -305,7 +305,7 @@ int main(int argc, char* argv[])
         // if ( reqBalance && nt > 1 )
         {
             samurai::times::timers.start("load-balancing");
-            // balancer.load_balance(mesh, u);
+            balancer.load_balance(mesh, u);
             samurai::times::timers.stop("load-balancing");
         }
 

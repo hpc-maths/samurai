@@ -43,7 +43,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
                            });
 
     samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
-    samurai::dump(path, fmt::format("{}_restart{}", filename, suffix), mesh, u);
+    //    samurai::dump(path, fmt::format("{}_restart{}", filename, suffix), mesh, u);
 }
 
 int main(int argc, char* argv[])
@@ -120,7 +120,7 @@ int main(int argc, char* argv[])
     box_corner2.fill(right_box);
     Box box(box_corner1, box_corner2);
     std::array<bool, dim> periodic;
-    periodic.fill(true);
+    periodic.fill(false);
     samurai::MRMesh<Config> mesh;
     auto u = samurai::make_scalar_field<double>("u", mesh);
 
@@ -150,6 +150,8 @@ int main(int argc, char* argv[])
         samurai::load(restart_file, mesh, u);
     }
 
+    samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
+
     auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);
     // Intermediary fields for the RK3 scheme
     auto u1 = samurai::make_scalar_field<double>("u1", mesh);
@@ -173,7 +175,7 @@ int main(int argc, char* argv[])
     // Void_LoadBalancer<dim> balancer;
     // Diffusion_LoadBalancer_cell<dim> balancer;
     // Diffusion_LoadBalancer_interval<dim> balancer;
-    // Load_balancing::Diffusion balancer;
+    Load_balancing::Diffusion balancer;
 
     //--------------------//
     //   Time iteration   //
@@ -202,15 +204,13 @@ int main(int argc, char* argv[])
     }
     while (t != Tf)
     {
-        /**
-            if (nt % nt_loadbalance == 0 && nt > 1 )
-                {
-                    samurai::times::timers.start("tloop.lb:"+balancer.getName());
-                    balancer.load_balance(mesh, u);
-                    samurai::times::timers.stop("tloop.lb:"+balancer.getName());
+        if (nt % nt_loadbalance == 0 && nt > 1)
+        {
+            //           samurai::times::timers.start("tloop.lb:"+balancer.getName());
+            balancer.load_balance(mesh, u);
+            //           samurai::times::timers.stop("tloop.lb:"+balancer.getName());
+        }
 
-                }
-         **/
         // Move to next timestep
         t += dt;
         if (t > Tf)
@@ -222,15 +222,15 @@ int main(int argc, char* argv[])
         std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt) << std::flush << std::endl;
 
         // Mesh adaptation
-        samurai::times::timers.start("tloop.MRadaptation");
+        //        samurai::times::timers.start("tloop.MRadaptation");
         MRadaptation(mr_epsilon, mr_regularity);
-        samurai::times::timers.stop("tloop.MRadaptation");
+        //        samurai::times::timers.stop("tloop.MRadaptation");
 
-        samurai::times::timers.start("tloop.ugm");
+        //        samurai::times::timers.start("tloop.ugm");
         samurai::update_ghost_mr(u);
-        samurai::times::timers.stop("tloop.ugm");
+        //        samurai::times::timers.stop("tloop.ugm");
 
-        samurai::times::timers.start("tloop.resize_fill");
+        //        samurai::times::timers.start("tloop.resize_fill");
         unp1.resize();
         unp1.fill(0);
 
@@ -238,18 +238,18 @@ int main(int argc, char* argv[])
         u2.resize();
         u1.fill(0);
         u2.fill(0);
-        samurai::times::timers.stop("tloop.resize_fill");
+        //        samurai::times::timers.stop("tloop.resize_fill");
 
         // unp1 = u - dt * conv(u);
 
         // TVD-RK3 (SSPRK3)
-        samurai::times::timers.start("tloop.RK3");
+        //        samurai::times::timers.start("tloop.RK3");
         u1 = u - dt * conv(u);
         samurai::update_ghost_mr(u1);
         u2 = 3. / 4 * u + 1. / 4 * (u1 - dt * conv(u1));
         samurai::update_ghost_mr(u2);
         unp1 = 1. / 3 * u + 2. / 3 * (u2 - dt * conv(u2));
-        samurai::times::timers.stop("tloop.RK3");
+        //        samurai::times::timers.stop("tloop.RK3");
 
         // u <-- unp1
         std::swap(u.array(), unp1.array());
@@ -268,9 +268,9 @@ int main(int argc, char* argv[])
                 save(path, filename, u);
             }
         }
-        samurai::times::timers.stop("tloop.io");
+        //        samurai::times::timers.stop("tloop.io");
     }
-    samurai::times::timers.stop("tloop");
+    //    samurai::times::timers.stop("tloop");
 
     if constexpr (dim == 1)
     {
