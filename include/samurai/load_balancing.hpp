@@ -174,44 +174,14 @@ namespace samurai
                 int neighbour_load         = loads[neighbour_rank];
                 double diff_load           = static_cast<double>(neighbour_load - my_load_new);
 
-                std::size_t nb_neighbours_neighbour = neighbourhood_n_neighbours[neighbour_rank];
-                double weight                       = 1. / static_cast<double>(std::max(n_neighbours, nb_neighbours_neighbour) + 1);
                 // if transferLoad < 0 -> need to send data, if transferLoad > 0 need to receive data
-                int transfertLoad = static_cast<int>(std::lround(weight * diff_load));
+                int transfertLoad = static_cast<int>(std::lround(0.5 * diff_load));
+                std::cout << "transfert load : " << transfertLoad << std::endl;
                 fluxes[n_i] += transfertLoad;
                 // my_load_new += transfertLoad;
                 my_load += transfertLoad;
             }
-
-            logs << fmt::format("\t> it {}, neighbours : ", nt);
-            for (size_t in = 0; in < neighbourhood.size(); ++in)
-            {
-                logs << neighbourhood[in].rank << "[" << loads[static_cast<size_t>(neighbourhood[in].rank)] << "], ";
-            }
-            logs << std::endl << "\t> fluxes : ";
-            for (size_t in = 0; in < neighbourhood.size(); ++in)
-            {
-                logs << fluxes[in] << ", ";
-            }
-            logs << std::endl;
-            logs << "\t> New theoretical load : " << my_load << std::endl;
-
             nt++;
-        }
-
-        // apply threshold, if the difference is smaller than #load_balancing_threshold of the number of cells,
-        // we do not load balance those processes
-        for (std::size_t n_i = 0; n_i < n_neighbours; ++n_i)
-        {
-            std::size_t neighbour_rank = static_cast<std::size_t>(neighbourhood[n_i].rank);
-            int abs_diff               = std::abs(fluxes[n_i]);
-            int threshold_neigh        = static_cast<int>(load_balancing_threshold * loads[neighbour_rank]);
-            int threshold_curr         = static_cast<int>(load_balancing_threshold * my_load);
-
-            if (abs_diff < threshold_curr && abs_diff < threshold_neigh)
-            {
-                fluxes[n_i] = 0;
-            }
         }
         return fluxes;
     }
