@@ -1,4 +1,3 @@
-#pragma once
 
 #include "field.hpp"
 #include "load_balancing.hpp"
@@ -37,38 +36,6 @@ namespace Load_balancing
         inline std::string getName() const
         {
             return "diffusion";
-        }
-
-        template <class Mesh_t>
-        bool require_balance_impl(Mesh_t& mesh)
-        {
-            boost::mpi::communicator world;
-
-            logs << fmt::format("\n# [Diffusion_LoadBalancer] required_balance_impl ") << std::endl;
-
-            double nbCells_tot = 0;
-            std::vector<double> nbCellsPerProc;
-            boost::mpi::all_gather(world, static_cast<double>(mesh.nb_cells(Mesh_t::mesh_id_t::cells)), nbCellsPerProc);
-
-            for (size_t ip = 0; ip < nbCellsPerProc.size(); ++ip)
-            {
-                nbCells_tot += nbCellsPerProc[ip];
-            }
-
-            // no weight while computing load
-            double dc = nbCells_tot / static_cast<double>(world.size());
-
-            for (size_t ip = 0; ip < nbCellsPerProc.size(); ++ip)
-            {
-                double diff = std::abs(nbCellsPerProc[ip] - dc) / dc;
-
-                if (diff > _unbalance_threshold)
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         template <class Mesh_t>
@@ -131,47 +98,16 @@ namespace Load_balancing
 
             boost::mpi::communicator world;
 
-            // For debug
-            // std::ofstream logs;
-            // logs.open( fmt::format("log_{}.dat", world.rank()), std::ofstream::app );
             logs << fmt::format("> New load-balancing using {} ", getName()) << std::endl;
 
             std::vector<mpi_subdomain_t>& neighbourhood = mesh.mpi_neighbourhood();
-
-            /*
-             * Correction of the list of neighbour process to take into account into the graph when computing
-             * fluxes that this load-balancing strategy does not exchange in diagonal. Might no longer be necessary
-             * if stencil are splitted by direction.
-             */
-            // std::vector<int> forceNeighbour;
-            // {
-            //     std::vector<mpi_subdomain_t> & neighbourhood_tmp = mesh.mpi_neighbourhood();
-
-            //     for( auto & neighbour : neighbourhood_tmp ){
-            //         auto interface = samurai::cmptInterface<Mesh_t::dim, samurai::Direction_t::FACE>( mesh, neighbour.mesh );
-            //         size_t nintervals = 0;
-            //         for_each_interval(interface, [&]( [[maybe_unused]] size_t level, [[maybe_unused]] const auto & i, [[maybe_unused]]
-            //         const auto & ii ){
-            //             nintervals ++;
-            //         });
-            //         if( nintervals > 0 ){
-            //             forceNeighbour.emplace_back( neighbour.rank );
-            //             neighbourhood.emplace_back( neighbour );
-            //         }
-            //     }
-
-            //     logs << "Corrected neighbours : ";
-            //     for(const auto & fn : forceNeighbour )
-            //         logs << fn << ", ";
-            //     logs << std::endl;
-            // }
 
             size_t n_neighbours = neighbourhood.size();
 
             // compute fluxes in terms of number of intervals to transfer/receive
             // by default, perform 5 iterations
             // std::vector<int> fluxes = samurai::cmptFluxes<samurai::BalanceElement_t::CELL>( mesh, forceNeighbour, 5 );
-            std::vector<int> fluxes = samurai::cmptFluxes<samurai::BalanceElement_t::CELL>(mesh, 5);
+            std::vector<int> fluxes = samurai::cmptFluxes<samurai::BalanceElement_t::CELL>(mesh, 20);
 
             std::vector<int> new_fluxes(fluxes);
 
@@ -221,7 +157,6 @@ namespace Load_balancing
 
             for (size_t neigh_i = 0; neigh_i < n_neighbours; ++neigh_i)
             {
-                // neighbour [0, n_neighbours[
                 auto neighbour_local_id = order[neigh_i];
 
                 // all cells have been given, neighbours that might left are "givers" (remember the fluxes were sorted)
@@ -243,58 +178,6 @@ namespace Load_balancing
                 // Compute normalized direction to neighbour
                 // Stencil dir_from_neighbour;
                 std::vector<Stencil> dirs = getStencilToNeighbour<Mesh_t::dim, Stencil>(bc_current, bc_neighbour);
-                // {
-                //     auto aa_ = getStencilToNeighbour<Mesh_t::dim, Stencil>( bc_current, bc_neighbour );
-
-                //     logs << fmt::format("\t> Number of stencils: {}", aa_.size()) << std::endl;
-                //     for( const auto & st : aa_ ) {
-                //         logs << fmt::format("\t\t> Stencil : ({},{})", st(0), st(1) ) << std::endl;
-                //     }
-
-                //     Coord_t tmp;
-                //     double n2 = 0.;
-                //     for( size_t idim = 0; idim<Mesh_t::dim; ++idim ){
-                //         tmp( idim ) = bc_current( idim ) - bc_neighbour( idim );
-                //         n2 += tmp( idim ) * tmp( idim );
-                //     }
-
-                //     n2 = std::sqrt( n2 );
-
-                //     for( size_t idim = 0; idim<Mesh_t::dim; ++idim ){
-                //         tmp( idim ) /= n2;
-                //         dir_from_neighbour( idim ) = static_cast<int>( tmp( idim ) / 0.5 );
-
-                //         // FIXME why needed ?
-                //         if( std::abs( dir_from_neighbour( idim ) ) > 1 ) {
-                //             dir_from_neighbour( idim ) < 0 ? dir_from_neighbour( idim ) = -1 : dir_from_neighbour( idim ) = 1;
-                //         }
-                //     }
-
-                //     // Avoid diagonals exchange, and emphaze x-axis. Maybe two phases propagation in case of diagonal ?
-                //     // i.e.: if (1, 1) -> (1, 0) then (0, 1) ?
-
-                //     if constexpr ( Mesh_t::dim == 2 ) {
-                //         if( std::abs(dir_from_neighbour[0]) == 1 && std::abs( dir_from_neighbour[1]) == 1 ){
-                //             // dir_from_neighbour[0] = 1;
-                //             dir_from_neighbour[1] = 0;
-                //         }
-                //     }
-
-                //     if constexpr ( Mesh_t::dim == 3 ) {
-                //         if( std::abs(dir_from_neighbour[0]) == 1 && std::abs( dir_from_neighbour[1]) == 1 &&
-                //         std::abs(dir_from_neighbour[2]) == 1){
-                //             dir_from_neighbour[1] = 0;
-                //             dir_from_neighbour[2] = 0;
-                //         }
-                //     }
-
-                //     logs << fmt::format("\t\t> (corrected) stencil for this neighbour # {} :", neighbourhood[ neighbour_local_id ].rank);
-                //     for(size_t idim=0; idim<Mesh_t::dim; ++idim ){
-                //         logs << dir_from_neighbour( idim ) << ",";
-                //     }
-                //     logs << std::endl;
-
-                // }
 
                 for (const auto& dir_from_neighbour : dirs)
                 {

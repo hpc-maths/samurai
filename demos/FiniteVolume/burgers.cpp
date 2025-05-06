@@ -8,6 +8,14 @@
 #include <samurai/samurai.hpp>
 #include <samurai/schemes/fv.hpp>
 
+#include <samurai/load_balancing.hpp>
+#include <samurai/load_balancing_diffusion.hpp>
+#include <samurai/load_balancing_diffusion_interval.hpp>
+// #include <samurai/load_balancing_force.hpp>
+#include <samurai/load_balancing_sfc.hpp>
+#include <samurai/load_balancing_sfc_w.hpp>
+#include <samurai/load_balancing_void.hpp>
+
 #include <filesystem>
 namespace fs = std::filesystem;
 
@@ -85,6 +93,8 @@ int main_dim(int argc, char* argv[])
     std::string filename = "burgers_" + std::to_string(dim) + "D";
     std::size_t nfiles   = 50;
 
+    std::size_t nt_loadbalance = 10; // nombre d'iteration entre les equilibrages
+
     app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--right", right_box, "The right border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--init-sol", init_sol, "Initial solution: hat/linear/bands")->capture_default_str()->group("Simulation parameters");
@@ -119,6 +129,8 @@ int main_dim(int argc, char* argv[])
     box_corner2.fill(right_box);
     Box box(box_corner1, box_corner2);
     samurai::MRMesh<Config> mesh;
+
+    Load_balancing::Diffusion balancer;
 
     auto u    = samurai::make_vector_field<n_comp>("u", mesh);
     auto u1   = samurai::make_vector_field<n_comp>("u1", mesh);
@@ -247,6 +259,13 @@ int main_dim(int argc, char* argv[])
 
     while (t != Tf)
     {
+#ifdef SAMURAI_WITH_MPI
+        if ((nt % nt_loadbalance == 0) && nt > 1)
+        {
+            balancer.load_balance(mesh, u);
+        }
+#endif
+
         // Move to next timestep
         t += dt;
         if (t > Tf)

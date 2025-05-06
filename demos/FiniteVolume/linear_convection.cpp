@@ -11,7 +11,7 @@
 #include <samurai/load_balancing.hpp>
 #include <samurai/load_balancing_diffusion.hpp>
 #include <samurai/load_balancing_diffusion_interval.hpp>
-#include <samurai/load_balancing_force.hpp>
+// #include <samurai/load_balancing_force.hpp>
 #include <samurai/load_balancing_life.hpp>
 #include <samurai/load_balancing_sfc.hpp>
 #include <samurai/load_balancing_void.hpp>
@@ -204,13 +204,12 @@ int main(int argc, char* argv[])
     }
     while (t != Tf)
     {
+#ifdef SAMURAI_WITH_MPI
         if (nt % nt_loadbalance == 0 && nt > 1)
         {
-            //           samurai::times::timers.start("tloop.lb:"+balancer.getName());
             balancer.load_balance(mesh, u);
-            //           samurai::times::timers.stop("tloop.lb:"+balancer.getName());
         }
-
+#endif
         // Move to next timestep
         t += dt;
         if (t > Tf)

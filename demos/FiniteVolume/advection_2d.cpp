@@ -214,7 +214,7 @@ int main(int argc, char* argv[])
     fs::path path              = fs::current_path();
     std::string filename       = "FV_advection_2d";
     std::size_t nfiles         = 1;
-    std::size_t nt_loadbalance = 20; // nombre d'iteration entre les equilibrages
+    std::size_t nt_loadbalance = 10; // nombre d'iteration entre les equilibrages
 
     app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--max-corner", max_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
@@ -292,26 +292,14 @@ int main(int argc, char* argv[])
 #endif
     while (t != Tf)
     {
-        //        bool reqBalance = 0;
-        bool reqBalance = balancer.require_balance(mesh);
-
-        if (reqBalance)
-        {
-            std::cerr << "\t> Load Balancing required !!! " << std::endl;
-        }
-
-        // if ( ( nt % nt_loadbalance == 0 || reqBalance ) && nt > 1 )
+#ifdef SAMURAI_WITH_MPI
         if ((nt % nt_loadbalance == 0) && nt > 1)
-        // if ( reqBalance && nt > 1 )
         {
-            samurai::times::timers.start("load-balancing");
             balancer.load_balance(mesh, u);
-            samurai::times::timers.stop("load-balancing");
         }
+#endif
 
-        samurai::times::timers.start("MRadaptation");
         MRadaptation(mr_epsilon, mr_regularity);
-        samurai::times::timers.stop("MRadaptation");
 
         t += dt;
         if (t > Tf)
