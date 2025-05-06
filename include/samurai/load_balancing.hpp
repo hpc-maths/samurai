@@ -203,7 +203,7 @@ namespace samurai
             using value_t   = typename Field_t::value_type;
             boost::mpi::communicator world;
 
-            logs << fmt::format("\n# [LoadBalancer]::update_field rank # {} -> '{}' ", world.rank(), field.name()) << std::endl;
+            // logs << fmt::format("\n# [LoadBalancer]::update_field rank # {} -> '{}' ", world.rank(), field.name()) << std::endl;
 
             Field_t new_field("new_f", new_mesh);
             new_field.fill(0);
@@ -265,11 +265,11 @@ namespace samurai
                     auto neighbour_rank = static_cast<int>(ni);
                     req.push_back(world.isend(neighbour_rank, neighbour_rank, to_send[ni]));
 
-                    logs << fmt::format("\t> [LoadBalancer]::update_field send data to rank # {}", neighbour_rank) << std::endl;
+                    //         logs << fmt::format("\t> [LoadBalancer]::update_field send data to rank # {}", neighbour_rank) << std::endl;
                 }
             }
 
-            logs << fmt::format("\t> [LoadBalancer]::update_field number of isend request: {}", req.size()) << std::endl;
+            //            logs << fmt::format("\t> [LoadBalancer]::update_field number of isend request: {}", req.size()) << std::endl;
 
             // build payload of field that I need to receive from neighbour, so compare NEW mesh with OLD neighbour mesh
             for (size_t ni = 0; ni < all_old_meshes.size(); ++ni)
@@ -321,7 +321,7 @@ namespace samurai
                                               new_field(level, i, index).begin());
                                     count += static_cast<ptrdiff_t>(i.size() * field.n_comp);
 
-                                    logs << fmt::format("Process {}, recv interval {}", world.rank(), i) << std::endl;
+                                    //    logs << fmt::format("Process {}, recv interval {}", world.rank(), i) << std::endl;
                                 });
                         }
                     }
@@ -372,15 +372,15 @@ namespace samurai
         {
             // new reordered mesh on current process + MPI exchange with others
             // auto new_mesh = static_cast<Flavor*>(this)->reordering_impl( mesh );
-            logs << "\t> Computing reordering flags ... " << std::endl;
+            // logs << "\t> Computing reordering flags ... " << std::endl;
             auto flags = static_cast<Flavor*>(this)->reordering_impl(mesh);
 
-            logs << "\t> Update mesh based on flags ... " << std::endl;
+            // logs << "\t> Update mesh based on flags ... " << std::endl;
             auto new_mesh = update_mesh(mesh, flags);
 
             // update each physical field on the new reordered mesh
             SAMURAI_TRACE("[Reordering::load_balance]::Updating fields ... ");
-            logs << "\t> Update fields based on flags ... " << std::endl;
+            // logs << "\t> Update fields based on flags ... " << std::endl;
             update_fields(new_mesh, field, kw...);
 
             // swap mesh reference.
@@ -454,12 +454,12 @@ namespace samurai
                     }
                 });
 
-            logs << "\t\t>[Load_balancer::update_mesh] Comm required with processes : [";
+            // logs << "\t\t>[Load_balancer::update_mesh] Comm required with processes : [";
             for (const auto& it : comm)
             {
-                logs << it.first << fmt::format(" ({} cells),", payload_size[static_cast<size_t>(it.first)]);
+                //    logs << it.first << fmt::format(" ({} cells),", payload_size[static_cast<size_t>(it.first)]);
             }
-            logs << "]" << std::endl;
+            // logs << "]" << std::endl;
 
             std::vector<int> req_send(static_cast<size_t>(world.size()), 0), req_recv(static_cast<size_t>(world.size()), 0);
 
@@ -495,11 +495,11 @@ namespace samurai
 
             for (int iproc = 0; iproc < world.size(); ++iproc)
             {
-                logs << fmt::format("Proc # {}, req_send : {}, req_recv: {} ",
-                                    iproc,
-                                    req_send[static_cast<size_t>(iproc)],
-                                    req_recv[static_cast<size_t>(iproc)])
-                     << std::endl;
+                //                logs << fmt::format("Proc # {}, req_send : {}, req_recv: {} ",
+                //                                  iproc,
+                //                                req_send[static_cast<size_t>(iproc)],
+                //                              req_recv[static_cast<size_t>(iproc)])
+                //             << std::endl;
                 ;
             }
 
@@ -519,7 +519,7 @@ namespace samurai
 
                     req.push_back(world.isend(iproc, 17, to_send));
 
-                    logs << fmt::format("\t> Sending to # {}", iproc) << std::endl;
+                    // logs << fmt::format("\t> Sending to # {}", iproc) << std::endl;
                 }
             }
 
@@ -533,7 +533,7 @@ namespace samurai
                 if (req_recv[static_cast<size_t>(iproc)] == 1)
                 {
                     CellArray_t to_rcv;
-                    logs << fmt::format("\t> Recving from # {}", iproc) << std::endl;
+                    // logs << fmt::format("\t> Recving from # {}", iproc) << std::endl;
                     world.recv(iproc, 17, to_rcv);
 
                     samurai::for_each_interval(to_rcv,
@@ -556,9 +556,9 @@ namespace samurai
         {
             std::string lbn = static_cast<Flavor*>(this)->getName();
 
-            logs << fmt::format("\n###################################################") << std::endl;
-            logs << fmt::format("> Load balancing ({}) mesh @ iteration {} ", lbn, nloadbalancing) << std::endl;
-            logs << fmt::format("###################################################\n") << std::endl;
+            // logs << fmt::format("\n###################################################") << std::endl;
+            // logs << fmt::format("> Load balancing ({}) mesh @ iteration {} ", lbn, nloadbalancing) << std::endl;
+            // logs << fmt::format("###################################################\n") << std::endl;
 
             auto p = lbn.find("SFC");
             if (nloadbalancing == 0 && p != std::string::npos)
@@ -889,13 +889,13 @@ namespace samurai
 
         boost::mpi::communicator world;
         std::ofstream logs;
-        logs.open(fmt::format("log_{}.dat", world.rank()), std::ofstream::app);
+        // logs.open(fmt::format("log_{}.dat", world.rank()), std::ofstream::app);
 
-        logs << fmt::format("\t\t\t> Allocating vector of size : max({}, {})+2 : {}",
-                            mesh.max_level(),
-                            omesh.max_level(),
-                            std::max(mesh.max_level(), otherMesh.max_level()) + 2)
-             << std::endl;
+        // logs << fmt::format("\t\t\t> Allocating vector of size : max({}, {})+2 : {}",
+        //                     mesh.max_level(),
+        //                    omesh.max_level(),
+        //                    std::max(mesh.max_level(), otherMesh.max_level()) + 2)
+        //     << std::endl;
 
         size_t msize = std::max(mesh.max_level(), otherMesh.max_level()) + 2;
         std::vector<MinMax> mm(msize);
@@ -938,21 +938,21 @@ namespace samurai
 
         if (minLevelAtInterface == 99)
         {
-            logs << "\t\t\t> No interface found ... " << std::endl;
+            // logs << "\t\t\t> No interface found ... " << std::endl;
 
             CellList_t tmp;
             CellArray_t ca_tmp = {tmp, false};
             return ca_tmp;
         }
 
-        logs << fmt::format("\t\t\t> minLevelAtInterface : {}", minLevelAtInterface) << std::endl;
-        logs << fmt::format("\t\t\t> Interface min, max : x ({},{});  min, max : y ({},{}) @ level : {}",
-                            mm[minLevelAtInterface].min_x,
-                            mm[minLevelAtInterface].max_x,
-                            mm[minLevelAtInterface].min_y,
-                            mm[minLevelAtInterface].max_y,
-                            minLevelAtInterface)
-             << std::endl;
+        //        logs << fmt::format("\t\t\t> minLevelAtInterface : {}", minLevelAtInterface) << std::endl;
+        //        logs << fmt::format("\t\t\t> Interface min, max : x ({},{});  min, max : y ({},{}) @ level : {}",
+        //                            mm[minLevelAtInterface].min_x,
+        //                            mm[minLevelAtInterface].max_x,
+        //                            mm[minLevelAtInterface].min_y,
+        //                            mm[minLevelAtInterface].max_y,
+        //                            minLevelAtInterface)
+        //             << std::endl;
 
         struct MinMax global;
         global.min_x = mm[minLevelAtInterface].min_x;
@@ -981,7 +981,7 @@ namespace samurai
         // +y, -y : horizontal propagation
         if (std::abs(dir[0]) == 0 && std::abs(dir[1]) == 1)
         {
-            logs << "\t> Horizontal propagation ! " << std::endl;
+            // logs << "\t> Horizontal propagation ! " << std::endl;
             if (dir[1] > 0)
             {
                 tmp[minLevelAtInterface][{global.min_y}].add_interval({global.min_x, global.max_x});
@@ -995,7 +995,7 @@ namespace samurai
         // +x, -x : vertical propagation
         if (std::abs(dir[0]) == 1 && std::abs(dir[1]) == 0)
         {
-            logs << "\t> Vertical propagation ! " << std::endl;
+            // logs << "\t> Vertical propagation ! " << std::endl;
             for (int y = global.min_y; y <= global.max_y; ++y)
             {
                 tmp[minLevelAtInterface][{y}].add_interval({global.min_x, global.max_x});
@@ -1004,9 +1004,9 @@ namespace samurai
 
         CellArray_t ca_tmp = {tmp, false};
 
-        logs << "Interface for propagation : " << std::endl;
-        logs << ca_tmp << std::endl;
-        logs << std::endl;
+        // logs << "Interface for propagation : " << std::endl;
+        // logs << ca_tmp << std::endl;
+        // logs << std::endl;
 
         return ca_tmp;
     }
@@ -1299,14 +1299,14 @@ namespace samurai
 
             if (!keepNeighbour[nbi])
             {
-                logs << fmt::format("\t> Loosing neighbour connection with {}", neighbourhood[nbi].rank) << std::endl;
+                // logs << fmt::format("\t> Loosing neighbour connection with {}", neighbourhood[nbi].rank) << std::endl;
             }
 
             // check neighbour - neighbour connection
             for (size_t nbj = nbi + 1; nbj < neighbourhood.size(); ++nbj)
             {
-                logs << fmt::format("\t> Checking neighbourhood connection {} <-> {}", neighbourhood[nbi].rank, neighbourhood[nbj].rank)
-                     << std::endl;
+                // logs << fmt::format("\t> Checking neighbourhood connection {} <-> {}", neighbourhood[nbi].rank, neighbourhood[nbj].rank)
+                //             << std::endl;
                 bool connected = intersectionExists<Direction_t::FACE_AND_DIAG>(neighbourhood[nbi].mesh, neighbourhood[nbj].mesh);
 
                 if (connected)
@@ -1321,13 +1321,13 @@ namespace samurai
         for (size_t nbi = 0; nbi < neighbourhood.size(); ++nbi)
         {
             // debug
-            logs << "\t> Sending computed neighbour: {";
+            // logs << "\t> Sending computed neighbour: {";
             for (const auto& i : neighbourConnection[nbi])
             {
-                logs << i << ", ";
+                //    logs << i << ", ";
             }
-            logs << "} to process " << neighbourhood[nbi].rank << std::endl;
-            // end debug
+            // logs << "} to process " << neighbourhood[nbi].rank << std::endl;
+            //  end debug
 
             world.send(neighbourhood[nbi].rank, 28, neighbourConnection[nbi]);
         }
@@ -1342,7 +1342,7 @@ namespace samurai
             }
         }
 
-        logs << "\t> Receiving computed neighbour connection list from neighbour processes " << std::endl;
+        // logs << "\t> Receiving computed neighbour connection list from neighbour processes " << std::endl;
         for (size_t nbi = 0; nbi < neighbourhood.size(); ++nbi)
         {
             std::vector<int> _rcv_neighbour_list;
@@ -1352,7 +1352,7 @@ namespace samurai
             {
                 if (_tmp.find(_rcv_neighbour_list[in]) == _tmp.end())
                 {
-                    logs << "\t\t> New neighbour detected : " << _rcv_neighbour_list[in] << std::endl;
+                    // logs << "\t\t> New neighbour detected : " << _rcv_neighbour_list[in] << std::endl;
 
                     _tmp[_rcv_neighbour_list[in]] = true;
                     // requireGeneralUpdate = requireGeneralUpdate || true;
@@ -1370,13 +1370,13 @@ namespace samurai
         }
 
         // debug
-        logs << "\t> New neighbourhood : {";
+        // logs << "\t> New neighbourhood : {";
         for (size_t nbi = 0; nbi < neighbourhood.size(); ++nbi)
         {
-            logs << neighbourhood[nbi].rank << ", ";
+            //   logs << neighbourhood[nbi].rank << ", ";
         }
-        logs << "}" << std::endl;
-        // end debug
+        // logs << "}" << std::endl;
+        //  end debug
 
         // gather neighbour mesh
         mesh.update_mesh_neighbour();
