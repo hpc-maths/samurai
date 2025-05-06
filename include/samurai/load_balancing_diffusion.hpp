@@ -157,7 +157,11 @@ namespace Load_balancing
                           }
                       });
 
-            int n = std::abs(fluxes[0]);
+            int n;
+            if (world.size() > 1)
+            {
+                n = std::abs(fluxes[0]);
+            }
 
             //    std::size_t n = 2000 ;
             //
@@ -165,15 +169,47 @@ namespace Load_balancing
             std::cout << "flux size : " << fluxes.size() << std::endl;
             std::cout << n << std::endl;
 
-            for (int i = 0; i < n && i < cells.size(); ++i)
+            if (world.size() > 1)
             {
-                if (world.rank() == 0 && fluxes[0] < 0)
+                if (world.rank() == 0)
                 {
-                    flags[cells[i]] = 1;
+                    for (int i = 0; i < n && i < cells.size(); ++i)
+                    {
+                        if (fluxes[0] < 0)
+                        {
+                            flags[cells[i]] = 1;
+                        }
+                    }
                 }
-                if (world.rank() == 1 && fluxes[0] < 0)
+                else if (world.rank() == world.size() - 1)
                 {
-                    flags[cells[cells.size() - 1 - i]] = 0;
+                    for (int i = 0; i < n && i < cells.size(); ++i)
+                    {
+                        if (fluxes[0] < 0)
+                        {
+                            flags[cells[cells.size() - 1 - i]] = world.rank() - 1;
+                        }
+                    }
+                }
+                else
+                {
+                    int n1 = std::abs(fluxes[0]);
+                    int n2 = std::abs(fluxes[1]);
+                    for (int i = 0; i < n1 && i < cells.size(); ++i)
+                    {
+                        if (fluxes[0] < 0)
+                        {
+                            flags[cells[cells.size() - 1 - i]] = world.rank() - 1;
+                        }
+                    }
+
+                    for (int i = 0; i < n2 && i < cells.size(); ++i)
+                    {
+                        if (fluxes[1] < 0)
+                        {
+                            flags[cells[i]] = world.rank() + 1;
+                        }
+                    }
                 }
             }
 
