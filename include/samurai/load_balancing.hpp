@@ -123,14 +123,6 @@ namespace samurai
 
     static const double load_balancing_threshold = 0.01; // 0.03141592; // 2.5 %
 
-    // static const std::vector<double> load_balancing_cell_weight = { 1., 0.5, 0.25, 0.125, 0.0625, 0.03125, 0.015625,
-    //                                                                 0.0078125, 0.00390625, 0.001953125, 0.0009765625,
-    //                                                                 0.00048828125, 0.000244140625, 0.0001220703125 };
-
-    /**
-     * Compute distance base on different norm.
-     */
-
     template <size_t dim, class Coord_t>
     static inline double distance_l2(const Coord_t& d1, const Coord_t& d2)
     {
@@ -172,12 +164,9 @@ namespace samurai
     template <BalanceElement_t elem, class Mesh_t>
     static std::size_t cmptLoad(const Mesh_t& mesh)
     {
-        using mesh_id_t = typename Mesh_t::mesh_id_t;
-
-        const auto& current_mesh = mesh[mesh_id_t::cells];
-
+        using mesh_id_t                  = typename Mesh_t::mesh_id_t;
+        const auto& current_mesh         = mesh[mesh_id_t::cells];
         std::size_t current_process_load = 0;
-
         if constexpr (elem == BalanceElement_t::CELL)
         {
             // cell-based load without weight.
@@ -195,106 +184,7 @@ namespace samurai
                 current_process_load += current_mesh[level].shape()[0]; // only in x-axis ;
             }
         }
-
         return current_process_load;
-    }
-
-    /**
-     * Compute fluxes based on load computing stategy based on graph with label
-     * propagation algorithm. Return, for the current process, the flux in term of
-     * load, i.e. the quantity of "load" to transfer to its neighbours. If the load
-     * is negative, it means that the process (current) must send load to neighbour,
-     * if positive it means that it must receive load.
-     *
-     * This function use 2 MPI all_gather calls.
-     *
-     */
-    template <BalanceElement_t elem, class Mesh_t>
-    std::vector<int> cmptFluxes(Mesh_t& mesh, const std::vector<int>& neighbourhood, int niterations)
-    {
-        boost::mpi::communicator world;
-
-        std::ofstream logs;
-        logs.open(fmt::format("log_{}.dat", world.rank()), std::ofstream::app);
-
-        size_t n_neighbours = neighbourhood.size();
-
-        // load of current process
-        int my_load = static_cast<int>(cmptLoad<elem>(mesh));
-        logs << "> Current process load : " << my_load << std::endl;
-
-        // fluxes between processes
-        std::vector<int> fluxes(n_neighbours, 0);
-
-        // load of each process (all processes not only neighbours)
-        std::vector<int> loads;
-
-        // numbers of neighbours processes for each process, used for weighting fluxes
-        std::vector<size_t> neighbourhood_n_neighbours;
-
-        // number of neighbours for each process
-        boost::mpi::all_gather(world, neighbourhood.size(), neighbourhood_n_neighbours);
-
-        // get "my_load" from other processes
-        int nt = 0;
-        while (nt < niterations)
-        {
-            boost::mpi::all_gather(world, my_load, loads);
-
-            // compute updated my_load for current process based on its neighbourhood
-            int my_load_new = my_load;
-            for (std::size_t n_i = 0; n_i < n_neighbours; ++n_i)
-            {
-                std::size_t neighbour_rank = static_cast<std::size_t>(neighbourhood[n_i]);
-                int neighbour_load         = loads[neighbour_rank];
-                double diff_load           = static_cast<double>(neighbour_load - my_load_new);
-
-                std::size_t nb_neighbours_neighbour = neighbourhood_n_neighbours[neighbour_rank];
-
-                double weight = 1. / static_cast<double>(std::max(n_neighbours, nb_neighbours_neighbour) + 1);
-
-                // if transferLoad < 0 -> need to send data, if transferLoad > 0 need to receive data
-                int transfertLoad = static_cast<int>(std::lround(weight * diff_load));
-
-                fluxes[n_i] += transfertLoad;
-
-                // my_load_new += transfertLoad;
-
-                my_load += transfertLoad;
-            }
-
-            logs << fmt::format("\t> it {}, neighbours : ", nt);
-            for (size_t in = 0; in < neighbourhood.size(); ++in)
-            {
-                logs << neighbourhood[in] << "[" << loads[static_cast<size_t>(neighbourhood[in])] << "], ";
-            }
-            logs << std::endl << "\t\t>fluxes : ";
-            for (size_t in = 0; in < neighbourhood.size(); ++in)
-            {
-                logs << fluxes[in] << ", ";
-            }
-            logs << std::endl;
-            logs << "New theoretical load : " << my_load << std::endl;
-
-            nt++;
-        }
-
-        // apply threshold, if the difference is smaller than #load_balancing_threshold of the number of cells,
-        // we do not load balance those processes
-        for (std::size_t n_i = 0; n_i < n_neighbours; ++n_i)
-        {
-            std::size_t neighbour_rank = static_cast<std::size_t>(neighbourhood[n_i]);
-            int abs_diff               = std::abs(fluxes[n_i]);
-            int threshold_neigh        = static_cast<int>(load_balancing_threshold * loads[neighbour_rank]);
-            int threshold_curr         = static_cast<int>(load_balancing_threshold * my_load);
-
-            if (abs_diff < threshold_curr && abs_diff < threshold_neigh)
-            {
-                fluxes[n_i] = 0;
-            }
-        }
-
-        return fluxes;
     }
 
     /**
@@ -311,33 +201,24 @@ namespace samurai
     std::vector<int> cmptFluxes(Mesh_t& mesh, int niterations)
     {
         using mpi_subdomain_t = typename Mesh_t::mpi_subdomain_t;
-
         boost::mpi::communicator world;
-
         std::ofstream logs;
         logs.open(fmt::format("log_{}.dat", world.rank()), std::ofstream::app);
-
         // give access to geometricaly neighbour process rank and mesh
         std::vector<mpi_subdomain_t>& neighbourhood = mesh.mpi_neighbourhood();
         size_t n_neighbours                         = neighbourhood.size();
 
         // load of current process
         int my_load = static_cast<int>(cmptLoad<elem>(mesh));
-
         logs << "> Current process load : " << my_load << std::endl;
-
         // fluxes between processes
         std::vector<int> fluxes(n_neighbours, 0);
-
         // load of each process (all processes not only neighbours)
         std::vector<int> loads;
-
         // numbers of neighbours processes for each process, used for weighting fluxes
         std::vector<size_t> neighbourhood_n_neighbours;
-
         // number of neighbours for each process
         boost::mpi::all_gather(world, neighbourhood.size(), neighbourhood_n_neighbours);
-
         // get "my_load" from other processes
         int nt = 0;
         while (nt < niterations)
@@ -353,16 +234,11 @@ namespace samurai
                 double diff_load           = static_cast<double>(neighbour_load - my_load_new);
 
                 std::size_t nb_neighbours_neighbour = neighbourhood_n_neighbours[neighbour_rank];
-
-                double weight = 1. / static_cast<double>(std::max(n_neighbours, nb_neighbours_neighbour) + 1);
-
+                double weight                       = 1. / static_cast<double>(std::max(n_neighbours, nb_neighbours_neighbour) + 1);
                 // if transferLoad < 0 -> need to send data, if transferLoad > 0 need to receive data
                 int transfertLoad = static_cast<int>(std::lround(weight * diff_load));
-
                 fluxes[n_i] += transfertLoad;
-
                 // my_load_new += transfertLoad;
-
                 my_load += transfertLoad;
             }
 
@@ -396,85 +272,7 @@ namespace samurai
                 fluxes[n_i] = 0;
             }
         }
-
         return fluxes;
-    }
-
-    /** Is gravity the key ? That would be awesome =)
-     * This is not a distance but well does not change anything to the algorithm
-     * - G m m' / R ?
-     *
-     * What should be m ? m' ? Let's G = 1.
-     *
-     **/
-    template <size_t dim, class Coord_t>
-    static inline double gravity(const Coord_t& d1, const Coord_t& d2)
-    {
-        double dist = distance_l2<dim>(d1, d2);
-
-        // makes high level ( smallest ) cells to be exchanged more easily. 10 here is max
-        // level, hardcoded for tests.
-        // double m = 1./ static_cast<double>( 1 << ( 10 - d1.level ) ) , m_p = 1.;
-
-        // makes bigger cells to be exchanged more easily
-        // double m = 1./ static_cast<double>( 1 << d1.level ) , m_p = 1.;
-        constexpr double G = 1.;
-        double m = 1., m_p = 1.;
-        double f = -G * m * m_p / (dist * dist);
-
-        return f;
-    }
-
-    // we are using Cell_t to allow ponderation using level;
-    template <size_t dim, Distance_t dist, class Coord_t>
-    inline constexpr double getDistance(const Coord_t& cc, const Coord_t& d)
-    {
-        static_assert(dim == 2 || dim == 3);
-        if constexpr (dist == Distance_t::L1)
-        {
-            return distance_l1<dim>(cc, d);
-        }
-        else if constexpr (dist == Distance_t::L2)
-        {
-            return distance_l2<dim>(cc, d);
-        }
-        else if constexpr (dist == Distance_t::LINF)
-        {
-            return distance_inf<dim>(cc, d);
-        }
-        else if constexpr (dist == Distance_t::GRAVITY)
-        {
-            return gravity<dim>(cc, d);
-        }
-    }
-
-    template <class Mesh_t, class Id_t, class Coord_t>
-    bool cellExists(const Mesh_t& mesh, Id_t mesh_id, std::size_t level, const Coord_t& lo)
-    {
-        using CellList_t  = typename Mesh_t::cl_type;
-        using CellArray_t = typename Mesh_t::ca_type;
-
-        CellList_t tmp;
-        if constexpr (Mesh_t::dim == 2)
-        {
-            tmp[level][{lo(1)}].add_point(lo(0));
-        }
-        if constexpr (Mesh_t::dim == 3)
-        {
-            tmp[level][{lo(1), lo(2)}].add_point(lo(0));
-        }
-
-        CellArray_t tmp_ = {tmp, false};
-        auto set         = intersection(mesh[mesh_id][level], tmp_[level]);
-
-        size_t ninterval = 0;
-        set(
-            [&]([[maybe_unused]] const auto& i, [[maybe_unused]] const auto& index)
-            {
-                ninterval++;
-            });
-
-        return ninterval > 0 ? true : false;
     }
 
     template <class Flavor>
@@ -612,7 +410,7 @@ namespace samurai
                                               new_field(level, i, index).begin());
                                     count += static_cast<ptrdiff_t>(i.size() * field.n_comp);
 
-                                    // std::cerr << fmt::format("Process {}, recv interval {}", world.rank(), i) << std::endl;
+                                    logs << fmt::format("Process {}, recv interval {}", world.rank(), i) << std::endl;
                                 });
                         }
                     }
@@ -1212,11 +1010,15 @@ namespace samurai
         logs << fmt::format("\t\t\t> Allocating vector of size : max({}, {})+2 : {}",
                             mesh.max_level(),
                             omesh.max_level(),
-                            std::max(mesh.max_level(), omesh.max_level()) + 2)
+                            std::max(mesh.max_level(), otherMesh.max_level()) + 2)
              << std::endl;
 
-        size_t msize = std::max(mesh.max_level(), omesh.max_level()) + 2;
+        size_t msize = std::max(mesh.max_level(), otherMesh.max_level()) + 2;
         std::vector<MinMax> mm(msize);
+        // issue : msize = 19389283982908 mdrr
+        // mesh.max_level() = 10
+        // issue is on omesh.max_level too big
+        // a contrario otherMesh.max_level() is correct !
 
         for (size_t level = minlevel; level <= maxlevel; ++level)
         {
