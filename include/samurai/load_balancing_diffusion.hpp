@@ -103,7 +103,7 @@ namespace Load_balancing
             // compute fluxes in terms of number of intervals to transfer/receive
             // by default, perform 5 iterations
             // std::vector<int> fluxes = samurai::cmptFluxes<samurai::BalanceElement_t::CELL>( mesh, forceNeighbour, 5 );
-            std::vector<int> fluxes = samurai::cmptFluxes<samurai::BalanceElement_t::CELL>(mesh, 20);
+            std::vector<int> fluxes = samurai::cmptFluxes<samurai::BalanceElement_t::CELL>(mesh, 5);
             std::vector<int> new_fluxes(fluxes);
             // get loads from everyone
             std::vector<int> loads;
