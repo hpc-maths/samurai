@@ -34,69 +34,11 @@ namespace samurai
         std::vector<int32_t> fluxes;
     };
 
-    enum Distance_t
-    {
-        L1,
-        L2,
-        LINF,
-        GRAVITY
-    };
-
-    enum Direction_t
-    {
-        FACE,
-        DIAG,
-        FACE_AND_DIAG
-    };
-
     enum BalanceElement_t
     {
         CELL,
         INTERVAL
     };
-
-    enum Weight
-    {
-        OnSmall,
-        OnLarge,
-        None
-    };
-
-    static const double load_balancing_threshold = 0.01; // 0.03141592; // 2.5 %
-
-    template <size_t dim, class Coord_t>
-    static inline double distance_l2(const Coord_t& d1, const Coord_t& d2)
-    {
-        double dist = 0.;
-        for (size_t idim = 0; idim < dim; ++idim)
-        {
-            double d = d1(idim) - d2(idim);
-            dist += d * d;
-        }
-        return std::sqrt(dist);
-    }
-
-    template <size_t dim, class Coord_t>
-    static inline double distance_inf(const Coord_t& d1, const Coord_t& d2)
-    {
-        double dist = 0.;
-        for (size_t idim = 0; idim < dim; ++idim)
-        {
-            dist = std::max(std::abs(d1(idim) - d2(idim)), dist);
-        }
-        return dist;
-    }
-
-    template <size_t dim, class Coord_t>
-    static inline double distance_l1(const Coord_t& d1, const Coord_t& d2)
-    {
-        double dist = 0.;
-        for (size_t idim = 0; idim < dim; ++idim)
-        {
-            dist += std::abs(d1(idim) - d2(idim));
-        }
-        return dist;
-    }
 
     /**
      * Compute the load of the current process based on intervals or cells. It uses the
@@ -108,23 +50,12 @@ namespace samurai
         using mesh_id_t                  = typename Mesh_t::mesh_id_t;
         const auto& current_mesh         = mesh[mesh_id_t::cells];
         std::size_t current_process_load = 0;
-        if constexpr (elem == BalanceElement_t::CELL)
-        {
-            // cell-based load without weight.
-            samurai::for_each_interval(current_mesh,
-                                       [&]([[maybe_unused]] std::size_t level, const auto& interval, [[maybe_unused]] const auto& index)
-                                       {
-                                           current_process_load += interval.size(); // * load_balancing_cell_weight[ level ];
-                                       });
-        }
-        else
-        {
-            // interval-based load without weight
-            for (std::size_t level = current_mesh.min_level(); level <= current_mesh.max_level(); ++level)
-            {
-                current_process_load += current_mesh[level].shape()[0]; // only in x-axis ;
-            }
-        }
+        // cell-based load without weight.
+        samurai::for_each_interval(current_mesh,
+                                   [&]([[maybe_unused]] std::size_t level, const auto& interval, [[maybe_unused]] const auto& index)
+                                   {
+                                       current_process_load += interval.size(); // * load_balancing_cell_weight[ level ];
+                                   });
         return current_process_load;
     }
 
@@ -144,23 +75,16 @@ namespace samurai
         using mpi_subdomain_t = typename Mesh_t::mpi_subdomain_t;
         boost::mpi::communicator world;
         std::ofstream logs;
-        logs.open(fmt::format("log_{}.dat", world.rank()), std::ofstream::app);
         // give access to geometricaly neighbour process rank and mesh
         std::vector<mpi_subdomain_t>& neighbourhood = mesh.mpi_neighbourhood();
         size_t n_neighbours                         = neighbourhood.size();
 
         // load of current process
         int my_load = static_cast<int>(cmptLoad<elem>(mesh));
-        logs << "> Current process load : " << my_load << std::endl;
         // fluxes between processes
         std::vector<int> fluxes(n_neighbours, 0);
         // load of each process (all processes not only neighbours)
         std::vector<int> loads;
-        // numbers of neighbours processes for each process, used for weighting fluxes
-        std::vector<size_t> neighbourhood_n_neighbours;
-        // number of neighbours for each process
-        boost::mpi::all_gather(world, neighbourhood.size(), neighbourhood_n_neighbours);
-        // get "my_load" from other processes
         int nt = 0;
         while (nt < niterations)
         {
@@ -169,13 +93,14 @@ namespace samurai
             // compute updated my_load for current process based on its neighbourhood
             int my_load_new = my_load;
             for (std::size_t n_i = 0; n_i < n_neighbours; ++n_i)
+            // get "my_load" from other processes
             {
                 std::size_t neighbour_rank = static_cast<std::size_t>(neighbourhood[n_i].rank);
                 int neighbour_load         = loads[neighbour_rank];
                 double diff_load           = static_cast<double>(neighbour_load - my_load_new);
 
                 // if transferLoad < 0 -> need to send data, if transferLoad > 0 need to receive data
-                int transfertLoad = static_cast<int>(std::lround(0.5 * diff_load));
+                int transfertLoad = static_cast<int>(std::trunc(0.5 * diff_load));
                 std::cout << "transfert load : " << transfertLoad << std::endl;
                 fluxes[n_i] += transfertLoad;
                 // my_load_new += transfertLoad;
@@ -203,16 +128,12 @@ namespace samurai
             using value_t   = typename Field_t::value_type;
             boost::mpi::communicator world;
 
-            // logs << fmt::format("\n# [LoadBalancer]::update_field rank # {} -> '{}' ", world.rank(), field.name()) << std::endl;
-
             Field_t new_field("new_f", new_mesh);
             new_field.fill(0);
 
             auto& old_mesh = field.mesh();
-
             // auto min_level = boost::mpi::all_reduce(world, mesh[mesh_id_t::cells].min_level(), boost::mpi::minimum<std::size_t>());
             // auto max_level = boost::mpi::all_reduce(world, mesh[mesh_id_t::cells].max_level(), boost::mpi::maximum<std::size_t>());
-
             auto min_level = old_mesh.min_level();
             auto max_level = old_mesh.max_level();
 
@@ -354,7 +275,6 @@ namespace samurai
         LoadBalancer()
         {
             boost::mpi::communicator world;
-            logs.open(fmt::format("log_{}.dat", world.rank()), std::ofstream::app);
             nloadbalancing = 0;
         }
 
@@ -379,13 +299,13 @@ namespace samurai
             auto new_mesh = update_mesh(mesh, flags);
 
             // update each physical field on the new reordered mesh
-            SAMURAI_TRACE("[Reordering::load_balance]::Updating fields ... ");
+            // SAMURAI_TRACE("[Reordering::load_balance]::Updating fields ... ");
             // logs << "\t> Update fields based on flags ... " << std::endl;
             update_fields(new_mesh, field, kw...);
 
             // swap mesh reference.
             // FIX: this is not clean
-            SAMURAI_TRACE("[Reordering::load_balance]::Swapping meshes ... ");
+            // SAMURAI_TRACE("[Reordering::load_balance]::Swapping meshes ... ");
             field.mesh().swap(new_mesh);
 
             // discover neighbours: add new neighbours if a new interface appears or remove old neighbours
@@ -554,563 +474,23 @@ namespace samurai
         template <class Mesh_t, class Field_t, class... Fields>
         void load_balance(Mesh_t& mesh, Field_t& field, Fields&... kw)
         {
-            auto p = lbn.find("SFC");
-            if (nloadbalancing == 0 && p != std::string::npos)
+            if (nloadbalancing == 0)
             {
                 reordering(mesh, field, kw...);
             }
 
-            // specific load balancing strategy
-            // auto new_mesh = static_cast<Flavor*>(this)->load_balance_impl( field.mesh() );
-
-            auto flags = static_cast<Flavor*>(this)->load_balance_impl(field.mesh());
-
+            auto flags    = static_cast<Flavor*>(this)->load_balance_impl(field.mesh());
             auto new_mesh = update_mesh(mesh, flags);
 
             // update each physical field on the new load balanced mesh
-            SAMURAI_TRACE("[LoadBalancer::load_balance]::Updating fields ... ");
+            //            SAMURAI_TRACE("[LoadBalancer::load_balance]::Updating fields ... ");
             update_fields(new_mesh, field, kw...);
-
             // swap mesh reference to new load balanced mesh. FIX: this is not clean
-            SAMURAI_TRACE("[LoadBalancer::load_balance]::Swapping meshes ... ");
+            //            SAMURAI_TRACE("[LoadBalancer::load_balance]::Swapping meshes ... ");
             field.mesh().swap(new_mesh);
-
-            // discover neighbours: add new neighbours if a new interface appears or remove old neighbours
-            // FIX: add boolean return to condition the need of another call, might save some MPI comm.
-            SAMURAI_TRACE("[LoadBalancer::load_balance]::discover neighbours ... ");
-            //            discover_neighbour(field.mesh());
-            //            discover_neighbour(field.mesh());
-
             nloadbalancing += 1;
         }
-
-        /*
-         * Call balancer function that evaluate if load balancing is required or not based on balncer internal strategy
-         *
-         */
-        template <class Mesh_t>
-        bool require_balance(Mesh_t& mesh)
-        {
-            return static_cast<Flavor*>(this)->require_balance_impl(mesh);
-        }
-
-        /**
-         * This function MUST be used for debug or analysis purposes of load balancing strategy,
-         * it involves a lots of MPI communications.
-         *
-         * Try to evaluate / compute a load balancing score. We expect from a good load
-         * balancing strategy to:
-         *   - optimize the number of neighbours   (reduce comm.)
-         *   - optimize the number of ghosts cells (reduce comm.)
-         *   - load balance charge between processes
-         *   - optimize the size of interval (samurai specific, expect better perf, better simd)
-         */
-        template <class Mesh>
-        void evaluate_balancing(Mesh& mesh) const
-        {
-            boost::mpi::communicator world;
-
-            if (world.rank() == 0)
-            {
-                SAMURAI_TRACE("[LoadBalancer::evaluate_balancing]::Entering function ... ");
-            }
-
-            std::vector<int> load_cells, load_interval;
-            {
-                int my_load_i = static_cast<int>(cmptLoad<samurai::BalanceElement_t::INTERVAL>(mesh));
-                boost::mpi::all_gather(world, my_load_i, load_interval);
-
-                int my_load_c = static_cast<int>(cmptLoad<samurai::BalanceElement_t::CELL>(mesh));
-                boost::mpi::all_gather(world, my_load_c, load_cells);
-            }
-        }
     };
-
-    /**
-     * Precomputed direction to face-to-face element for both 3D and 2D
-     */
-    template <size_t dim>
-    constexpr auto getDirectionFace()
-    {
-        using base_stencil = xt::xtensor_fixed<int, xt::xshape<dim>>;
-
-        constexpr size_t size_ = 2 * dim;
-        xt::xtensor_fixed<base_stencil, xt::xshape<size_>> stencils;
-        std::size_t nstencils = size_;
-        for (std::size_t ist = 0; ist < nstencils; ++ist)
-        {
-            stencils[ist].fill(0);
-            stencils[ist][ist / 2] = 1 - (ist % 2) * 2;
-        }
-
-        return stencils;
-    }
-
-    /**
-     * Precomputed direction to diagonal element for both 3D and 2D cases.
-     */
-    template <size_t dim>
-    constexpr auto getDirectionDiag()
-    {
-        using base_stencil = xt::xtensor_fixed<int, xt::xshape<dim>>;
-
-        static_assert(dim == 2 || dim == 3);
-
-        if constexpr (dim == 2)
-        {
-            return xt::xtensor_fixed<base_stencil, xt::xshape<4>>{
-                {{1, 1}, {1, -1}, {-1, 1}, {-1, -1}}
-            };
-        }
-
-        if constexpr (dim == 3)
-        {
-            return xt::xtensor_fixed<base_stencil, xt::xshape<20>>{
-                {{1, 1, -1},  {1, -1, -1}, {-1, 1, -1}, {-1, -1, -1}, {1, 0, -1},  {-1, 0, -1}, {0, 1, -1},
-                 {0, -1, -1}, {1, 1, 0},   {1, -1, 0},  {-1, 1, 0},   {-1, -1, 0}, {1, 1, 1},   {1, -1, 1},
-                 {-1, 1, 1},  {-1, -1, 1}, {1, 0, 1},   {-1, 0, 1},   {0, 1, 1},   {0, -1, 1}}
-            };
-        }
-    }
-
-    /**
-     * Precompute direction to element in all direction face + diagonals: 26 in 3D, 8 in 2D
-     */
-    template <size_t dim>
-    constexpr auto getDirectionFaceAndDiag()
-    {
-        using base_stencil = xt::xtensor_fixed<int, xt::xshape<dim>>;
-
-        static_assert(dim == 2 || dim == 3);
-
-        if constexpr (dim == 2)
-        {
-            return xt::xtensor_fixed<base_stencil, xt::xshape<8>>{
-                {{-1, 0}, {1, 0}, {1, 1}, {1, -1}, {0, -1}, {0, 1}, {-1, 1}, {-1, -1}}
-            };
-        }
-
-        if constexpr (dim == 3)
-        {
-            return xt::xtensor_fixed<base_stencil, xt::xshape<26>>{
-                {{1, 0, 0},    {-1, 0, 0}, {0, 1, 0},   {0, -1, 0},  {0, 0, 1},   {0, 0, -1}, {1, 1, -1}, {1, -1, -1}, {-1, 1, -1},
-                 {-1, -1, -1}, {1, 0, -1}, {-1, 0, -1}, {0, 1, -1},  {0, -1, -1}, {1, 1, 0},  {1, -1, 0}, {-1, 1, 0},  {-1, -1, 0},
-                 {1, 1, 1},    {1, -1, 1}, {-1, 1, 1},  {-1, -1, 1}, {1, 0, 1},   {-1, 0, 1}, {0, 1, 1},  {0, -1, 1}}
-            };
-        }
-    }
-
-    template <int dim, Direction_t dir>
-    inline auto getDirection()
-    {
-        static_assert(dim == 2 || dim == 3);
-        if constexpr (dir == Direction_t::FACE)
-        {
-            return getDirectionFace<dim>();
-        }
-        else if constexpr (dir == Direction_t::DIAG)
-        {
-            return getDirectionDiag<dim>();
-        }
-        else if constexpr (dir == Direction_t::FACE_AND_DIAG)
-        {
-            return getDirectionFaceAndDiag<dim>();
-        }
-    }
-
-    /**
-     * Compute the barycenter of the mesh given in parameter.
-     *
-     * Feat: adjust wght which is hardcoded to 1. for now.
-     *       by passing in parameters an array for example to modulate
-     *       weight according to level
-     */
-    template <size_t dim, Weight w = Weight::None, class Mesh_t>
-    xt::xtensor_fixed<double, xt::xshape<dim>> _cmpCellBarycenter(Mesh_t& mesh)
-    {
-        using Coord_t = xt::xtensor_fixed<double, xt::xshape<dim>>;
-
-        Coord_t bary;
-        bary.fill(0.);
-
-        double wght_tot = 0.;
-        samurai::for_each_cell(mesh,
-                               [&](auto& cell)
-                               {
-                                   double wght = 1.;
-
-                                   if constexpr (w == Weight::OnSmall)
-                                   {
-                                       wght = 1. / static_cast<double>(1 << (mesh.max_level() - cell.level));
-                                   }
-
-                                   if constexpr (w == Weight::OnLarge)
-                                   {
-                                       wght = 1. / static_cast<double>(1 << cell.level);
-                                   }
-
-                                   auto cc = cell.center();
-
-                                   for (size_t idim = 0; idim < dim; ++idim)
-                                   {
-                                       bary(idim) += cc(idim) * wght;
-                                   }
-
-                                   wght_tot += wght;
-                               });
-
-        wght_tot = std::max(wght_tot, 1e-12);
-        for (size_t idim = 0; idim < dim; ++idim)
-        {
-            bary(idim) /= wght_tot;
-        }
-
-        return bary;
-    }
-
-    /**
-     *
-     * Params:
-     *          leveldiff : max level difference. For 2:1 balance, leveldiff = 1
-     */
-    template <size_t dim, Direction_t dir, size_t leveldiff = 1, class Mesh_t>
-    static auto cmptInterface(const Mesh_t& mesh, const Mesh_t& omesh)
-    {
-        using CellList_t  = typename Mesh_t::cl_type;
-        using CellArray_t = typename Mesh_t::ca_type;
-        using mesh_id_t   = typename Mesh_t::mesh_id_t;
-
-        CellList_t interface;
-
-        // operation are on leaves only
-        auto& currentMesh = mesh[mesh_id_t::cells];
-        auto& otherMesh   = omesh[mesh_id_t::cells];
-
-        // direction for translation to cmpt interface
-        auto dirs = getDirection<dim, dir>();
-
-        for (size_t ist = 0; ist < dirs.size(); ++ist)
-        {
-            const auto& stencil = dirs[ist];
-
-            size_t minlevel = otherMesh.min_level();
-            size_t maxlevel = otherMesh.max_level();
-
-            for (size_t level = minlevel; level <= maxlevel; ++level)
-            {
-                // for each level we need to check level -1 / 0 / +1
-                std::size_t minlevel_check = static_cast<std::size_t>(
-                    std::max(static_cast<int>(currentMesh.min_level()), static_cast<int>(level) - static_cast<int>(leveldiff)));
-                std::size_t maxlevel_check = std::min(currentMesh.max_level(), level + leveldiff);
-
-                for (size_t projlevel = minlevel_check; projlevel <= maxlevel_check; ++projlevel)
-                {
-                    // translate neighbour from dir (hopefully to current) all direction are tested
-                    auto set       = translate(otherMesh[level], stencil);
-                    auto intersect = intersection(set, currentMesh[projlevel]).on(projlevel);
-
-                    size_t nbInter_ = 0, nbCells = 0;
-                    intersect(
-                        [&](auto& interval, [[maybe_unused]] auto& index)
-                        {
-                            nbInter_ += 1;
-                            nbCells += interval.size();
-                        });
-
-                    // we get more interval / cells, than wanted because neighbour has bigger cells
-                    // 2:1 balance required here if not, need another loop...
-                    if (nbInter_ > 0 && projlevel > level)
-                    {
-                        static_assert(leveldiff == 1); // for now at least
-                        auto set_  = translate(currentMesh[projlevel], stencil);
-                        auto diff_ = difference(intersect, set_);
-
-                        diff_(
-                            [&](auto& interval, auto& index)
-                            {
-                                interface[projlevel][index].add_interval(interval);
-                            });
-                    }
-                    else
-                    {
-                        if (nbInter_ > 0)
-                        {
-                            intersect(
-                                [&](auto& interval, auto& index)
-                                {
-                                    interface[projlevel][index].add_interval(interval);
-                                });
-                        }
-                    }
-                }
-            }
-        }
-
-        CellArray_t interface_ = {interface, false};
-
-        return interface_;
-    }
-
-    /**
-     *
-     */
-    template <size_t dim, class Mesh_t, class Dir_t>
-    static auto cmptInterfaceUniform(Mesh_t& mesh, Mesh_t& omesh, const Dir_t& dir)
-    {
-        // dim == 3 is not supported for the moment.
-        assert(dim == 2);
-
-        using CellList_t  = typename Mesh_t::cl_type;
-        using CellArray_t = typename Mesh_t::ca_type;
-        using mesh_id_t   = typename Mesh_t::mesh_id_t;
-
-        // operation are on leaves only
-        auto& currentMesh = mesh[mesh_id_t::cells];
-        auto& otherMesh   = omesh[mesh_id_t::cells];
-
-        size_t minlevel = otherMesh.min_level();
-        size_t maxlevel = otherMesh.max_level();
-
-        size_t minLevelAtInterface = 99;
-
-        struct MinMax
-        {
-            int min_x = std::numeric_limits<int>::max();
-            int max_x = std::numeric_limits<int>::min();
-            int min_y = std::numeric_limits<int>::max();
-            int max_y = std::numeric_limits<int>::min();
-        };
-
-        boost::mpi::communicator world;
-        std::ofstream logs;
-        // logs.open(fmt::format("log_{}.dat", world.rank()), std::ofstream::app);
-
-        // logs << fmt::format("\t\t\t> Allocating vector of size : max({}, {})+2 : {}",
-        //                     mesh.max_level(),
-        //                    omesh.max_level(),
-        //                    std::max(mesh.max_level(), otherMesh.max_level()) + 2)
-        //     << std::endl;
-
-        size_t msize = std::max(mesh.max_level(), otherMesh.max_level()) + 2;
-        std::vector<MinMax> mm(msize);
-        // issue : msize = 19389283982908 mdrr
-        // mesh.max_level() = 10
-        // issue is on omesh.max_level too big
-        // a contrario otherMesh.max_level() is correct !
-
-        for (size_t level = minlevel; level <= maxlevel; ++level)
-        {
-            // for each level we need to check level -1 / 0 / +1
-            std::size_t minlevel_check = static_cast<std::size_t>(
-                std::max(static_cast<int>(currentMesh.min_level()), static_cast<int>(level - 1)));
-            std::size_t maxlevel_check = std::min(currentMesh.max_level(), level + static_cast<size_t>(1));
-
-            for (size_t projlevel = minlevel_check; projlevel <= maxlevel_check; ++projlevel)
-            {
-                // translate neighbour from dir (hopefully to current)
-                auto set       = translate(otherMesh[level], dir);
-                auto intersect = intersection(set, currentMesh[projlevel]).on(projlevel);
-
-                size_t nbInter_ = 0;
-                intersect(
-                    [&](const auto& interval, const auto& index)
-                    {
-                        nbInter_ += 1;
-
-                        mm[projlevel].min_x = std::min(interval.start, mm[projlevel].min_x);
-                        mm[projlevel].max_x = std::max(interval.end, mm[projlevel].max_x);
-                        mm[projlevel].min_y = std::min(index(0), mm[projlevel].min_y);
-                        mm[projlevel].max_y = std::max(index(0), mm[projlevel].max_y);
-                    });
-
-                if (nbInter_ > 0)
-                {
-                    minLevelAtInterface = std::min(projlevel, minLevelAtInterface);
-                }
-            }
-        }
-
-        if (minLevelAtInterface == 99)
-        {
-            // logs << "\t\t\t> No interface found ... " << std::endl;
-
-            CellList_t tmp;
-            CellArray_t ca_tmp = {tmp, false};
-            return ca_tmp;
-        }
-
-        //        logs << fmt::format("\t\t\t> minLevelAtInterface : {}", minLevelAtInterface) << std::endl;
-        //        logs << fmt::format("\t\t\t> Interface min, max : x ({},{});  min, max : y ({},{}) @ level : {}",
-        //                            mm[minLevelAtInterface].min_x,
-        //                            mm[minLevelAtInterface].max_x,
-        //                            mm[minLevelAtInterface].min_y,
-        //                            mm[minLevelAtInterface].max_y,
-        //                            minLevelAtInterface)
-        //             << std::endl;
-
-        struct MinMax global;
-        global.min_x = mm[minLevelAtInterface].min_x;
-        global.max_x = mm[minLevelAtInterface].max_x;
-        global.min_y = mm[minLevelAtInterface].min_y;
-        global.max_y = mm[minLevelAtInterface].max_y;
-
-        for (size_t level = minLevelAtInterface + 1; level < mm.size(); ++level)
-        {
-            size_t diff_level = level - minLevelAtInterface;
-            // logs << fmt::format( "\t> At level {}, diff {}", level, diff_level ) << std::endl;
-            // logs << fmt::format( "\t\t\t> Origin min, max : x ({},{});  min, max : y ({},{})", mm[ level ].min_x,
-            //                   mm[ level ].max_x, mm[ level ].min_y, mm[ level ].max_y ) << std::endl;
-            // logs << fmt::format( "\t\t\t> Eq minlevel, min, max : x ({},{});  min, max : y ({},{}) ", mm[ level ].min_x >> diff_level,
-            //                   mm[ level ].max_x >> diff_level, mm[ level ].min_y >> diff_level, mm[ level ].max_y >> diff_level ) <<
-            //                   std::endl;
-
-            global.min_x = std::min(global.min_x, mm[level].min_x >> diff_level);
-            global.max_x = std::max(global.max_x, mm[level].max_x >> diff_level);
-            global.min_y = std::min(global.min_y, mm[level].min_y >> diff_level);
-            global.max_y = std::max(global.max_y, mm[level].max_y >> diff_level);
-        }
-
-        CellList_t tmp;
-
-        // +y, -y : horizontal propagation
-        if (std::abs(dir[0]) == 0 && std::abs(dir[1]) == 1)
-        {
-            // logs << "\t> Horizontal propagation ! " << std::endl;
-            if (dir[1] > 0)
-            {
-                tmp[minLevelAtInterface][{global.min_y}].add_interval({global.min_x, global.max_x});
-            }
-            else
-            {
-                tmp[minLevelAtInterface][{global.max_y}].add_interval({global.min_x, global.max_x});
-            }
-        }
-
-        // +x, -x : vertical propagation
-        if (std::abs(dir[0]) == 1 && std::abs(dir[1]) == 0)
-        {
-            // logs << "\t> Vertical propagation ! " << std::endl;
-            for (int y = global.min_y; y <= global.max_y; ++y)
-            {
-                tmp[minLevelAtInterface][{y}].add_interval({global.min_x, global.max_x});
-            }
-        }
-
-        CellArray_t ca_tmp = {tmp, false};
-
-        // logs << "Interface for propagation : " << std::endl;
-        // logs << ca_tmp << std::endl;
-        // logs << std::endl;
-
-        return ca_tmp;
-    }
-
-    /**
-     * Compute cells at the interface between geometricaly adjacent
-     * domains. It relies on neighbourhood mpi_subdomain_t data structure
-     * computed in Mesh_t.
-     *
-     * It returns a vector containing the number of cells (nc) and number of
-     * intervals (ni) for each neighbour (0 to n), in that order.
-     *
-     * Example: nc_0, ni_0, nc_1, ni_1, ...
-     *
-     */
-    // template<int dim, class Mesh_t, class Field_t>
-    // void _computeCartesianInterface( Mesh_t & mesh, Field_t & field ){
-    template <int dim, Direction_t dir, class Mesh_t>
-    static auto _computeCartesianInterface(Mesh_t& mesh)
-    {
-        using CellList_t      = typename Mesh_t::cl_type;
-        using CellArray_t     = typename Mesh_t::ca_type;
-        using mesh_id_t       = typename Mesh_t::mesh_id_t;
-        using mpi_subdomain_t = typename Mesh_t::mpi_subdomain_t;
-
-        // give access to geometricaly neighbour process rank and mesh
-        std::vector<mpi_subdomain_t>& neighbourhood = mesh.mpi_neighbourhood();
-        std::size_t n_neighbours                    = neighbourhood.size();
-
-        std::vector<CellList_t> interface(n_neighbours);
-
-        // operation are on leaves only
-        auto currentMesh = mesh[mesh_id_t::cells];
-
-        // looks like using only FACE is better than using DIAG or FACE_AND_DIAG
-        auto dirs = getDirection<dim, dir>();
-
-        for (std::size_t nbi = 0; nbi < n_neighbours; ++nbi)
-        {
-            auto neighbour_mesh = neighbourhood[nbi].mesh[mesh_id_t::cells];
-
-            for (size_t ist = 0; ist < dirs.size(); ++ist)
-            {
-                const auto& stencil = dirs[ist];
-
-                size_t minlevel = neighbour_mesh.min_level();
-                size_t maxlevel = neighbour_mesh.max_level();
-
-                for (size_t level = minlevel; level <= maxlevel; ++level)
-                {
-                    // for each level we need to check level -1 / 0 / +1
-                    std::size_t minlevel_check = static_cast<std::size_t>(
-                        std::max(static_cast<int>(currentMesh.min_level()), static_cast<int>(level) - 1));
-                    std::size_t maxlevel_check = std::min(currentMesh.max_level(), level + static_cast<std::size_t>(1));
-
-                    for (std::size_t projlevel = minlevel_check; projlevel <= maxlevel_check; ++projlevel)
-                    {
-                        // translate neighbour from dir (hopefully to current) all direction are tested
-                        auto set       = translate(neighbour_mesh[level], stencil);
-                        auto intersect = intersection(set, currentMesh[projlevel]).on(projlevel);
-
-                        size_t nbInter_ = 0, nbCells_ = 0;
-                        intersect(
-                            [&](auto& interval, [[maybe_unused]] auto& index)
-                            {
-                                nbInter_ += 1;
-                                nbCells_ += interval.size();
-                            });
-
-                        // we get more interval / cells, than wanted because neighbour has bigger cells
-                        if (nbInter_ > 0 && projlevel > level)
-                        {
-                            auto set_  = translate(currentMesh[projlevel], stencil);
-                            auto diff_ = difference(intersect, set_);
-
-                            nbInter_ = 0;
-                            nbCells_ = 0;
-                            diff_(
-                                [&](auto& interval, auto& index)
-                                {
-                                    nbInter_ += 1;
-                                    nbCells_ += interval.size();
-                                    // field( projlevel, i, index ) = world.rank() * 10;
-                                    interface[nbi][projlevel][index].add_interval(interval);
-                                });
-                        }
-                        else
-                        {
-                            if (nbInter_ > 0)
-                            {
-                                intersect(
-                                    [&](auto& interval, auto& index)
-                                    {
-                                        interface[nbi][projlevel][index].add_interval(interval);
-                                    });
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        std::vector<CellArray_t> interface_(n_neighbours);
-        for (std::size_t nbi = 0; nbi < n_neighbours; ++nbi)
-        {
-            interface_[nbi] = {interface[nbi], true};
-        }
-
-        return interface_;
-    }
 
     /**
      * Compute fluxes of cells between MPI processes. In -fake- MPI environment. To
@@ -1198,182 +578,6 @@ namespace samurai
                 load = load_np1;
             }
         }
-    }
-
-    /**
-     * Check if there is an intersection between two meshes. We move one mesh into the direction
-     * of the other based on "dir" stencils (template parameter). Here, we rely on the 2:1 balance.
-     * By default, stencils are "1" based, which means that we move the mesh by one unit element. This
-     * could be changed if necessary by multiplying the stencils by an integer value.
-     */
-    template <Direction_t dir, class Mesh_t>
-    bool intersectionExists(Mesh_t& meshA, Mesh_t& meshB)
-    {
-        using mesh_id_t = typename Mesh_t::mesh_id_t;
-
-        constexpr size_t dim = Mesh_t::dim;
-
-        // operation are on leaves cells only
-        auto& meshA_ = meshA[mesh_id_t::cells];
-        auto& meshB_ = meshB[mesh_id_t::cells];
-
-        // get stencils for direction
-        auto dirs = getDirection<dim, dir>();
-
-        for (size_t ist = 0; ist < dirs.size(); ++ist)
-        {
-            const auto& stencil = dirs[ist];
-
-            size_t minlevel = meshB_.min_level();
-            size_t maxlevel = meshB_.max_level();
-
-            for (size_t level = minlevel; level <= maxlevel; ++level)
-            {
-                // for each level we need to check level -1 / 0 / +1
-                std::size_t minlevel_check = static_cast<std::size_t>(
-                    std::max(static_cast<int>(meshA_.min_level()), static_cast<int>(level) - 1));
-                std::size_t maxlevel_check = std::min(meshA_.max_level(), level + static_cast<std::size_t>(1));
-
-                for (std::size_t projlevel = minlevel_check; projlevel <= maxlevel_check; ++projlevel)
-                {
-                    // translate meshB_ in "dir" direction
-                    auto set       = translate(meshB_[level], stencil);
-                    auto intersect = intersection(set, meshA_[projlevel]).on(projlevel);
-
-                    size_t nbInter_ = 0;
-                    intersect(
-                        [&]([[maybe_unused]] auto& interval, [[maybe_unused]] auto& index)
-                        {
-                            nbInter_ += 1;
-                        });
-
-                    if (nbInter_ > 0)
-                    {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Discover new neighbour connection that might arise during load balancing
-     */
-    template <class Mesh_t>
-    void discover_neighbour(Mesh_t& mesh)
-    {
-        using mpi_subdomain_t = typename Mesh_t::mpi_subdomain_t;
-
-        boost::mpi::communicator world;
-
-        // DEBUG
-        std::ofstream logs;
-        logs.open("log_" + std::to_string(world.rank()) + ".dat", std::ofstream::app);
-        logs << "\n# [LoadBalancer] discover_neighbour" << std::endl;
-
-        // give access to geometricaly neighbour process rank and mesh
-        std::vector<mpi_subdomain_t>& neighbourhood = mesh.mpi_neighbourhood();
-
-        // bool requireGeneralUpdate = false;
-
-        std::vector<bool> keepNeighbour(neighbourhood.size(), true);
-
-        std::vector<std::vector<int>> neighbourConnection(neighbourhood.size());
-
-        // for each neighbour we check if there is an intersection with another one.
-        for (size_t nbi = 0; nbi < neighbourhood.size(); ++nbi)
-        {
-            // check current - neighbour connection
-            keepNeighbour[nbi] = intersectionExists<Direction_t::FACE_AND_DIAG>(mesh, neighbourhood[nbi].mesh);
-
-            // require update if a connection is lost
-            // requireGeneralUpdate = requireGeneralUpdate || ( ! keepNeighbour[ nbi ] );
-
-            if (!keepNeighbour[nbi])
-            {
-                // logs << fmt::format("\t> Loosing neighbour connection with {}", neighbourhood[nbi].rank) << std::endl;
-            }
-
-            // check neighbour - neighbour connection
-            for (size_t nbj = nbi + 1; nbj < neighbourhood.size(); ++nbj)
-            {
-                // logs << fmt::format("\t> Checking neighbourhood connection {} <-> {}", neighbourhood[nbi].rank, neighbourhood[nbj].rank)
-                //             << std::endl;
-                bool connected = intersectionExists<Direction_t::FACE_AND_DIAG>(neighbourhood[nbi].mesh, neighbourhood[nbj].mesh);
-
-                if (connected)
-                {
-                    neighbourConnection[nbi].emplace_back(neighbourhood[nbj].rank);
-                    neighbourConnection[nbj].emplace_back(neighbourhood[nbi].rank);
-                }
-            }
-        }
-
-        // communicate to neighbours the list of connection they have
-        for (size_t nbi = 0; nbi < neighbourhood.size(); ++nbi)
-        {
-            // debug
-            // logs << "\t> Sending computed neighbour: {";
-            for (const auto& i : neighbourConnection[nbi])
-            {
-                //    logs << i << ", ";
-            }
-            // logs << "} to process " << neighbourhood[nbi].rank << std::endl;
-            //  end debug
-
-            world.send(neighbourhood[nbi].rank, 28, neighbourConnection[nbi]);
-        }
-
-        // map of current MPI neighbours processes rank
-        std::map<int, bool> _tmp; // key = rank, value = required
-        for (size_t nbi = 0; nbi < neighbourhood.size(); ++nbi)
-        {
-            if (keepNeighbour[nbi])
-            {
-                _tmp.emplace(std::make_pair(neighbourhood[nbi].rank, true));
-            }
-        }
-
-        // logs << "\t> Receiving computed neighbour connection list from neighbour processes " << std::endl;
-        for (size_t nbi = 0; nbi < neighbourhood.size(); ++nbi)
-        {
-            std::vector<int> _rcv_neighbour_list;
-            world.recv(neighbourhood[nbi].rank, 28, _rcv_neighbour_list);
-
-            for (size_t in = 0; in < _rcv_neighbour_list.size(); ++in)
-            {
-                if (_tmp.find(_rcv_neighbour_list[in]) == _tmp.end())
-                {
-                    // logs << "\t\t> New neighbour detected : " << _rcv_neighbour_list[in] << std::endl;
-
-                    _tmp[_rcv_neighbour_list[in]] = true;
-                    // requireGeneralUpdate = requireGeneralUpdate || true;
-                }
-            }
-        }
-
-        world.barrier();
-
-        // update neighbours ranks
-        neighbourhood.clear();
-        for (const auto& ni : _tmp)
-        {
-            neighbourhood.emplace_back(ni.first);
-        }
-
-        // debug
-        // logs << "\t> New neighbourhood : {";
-        for (size_t nbi = 0; nbi < neighbourhood.size(); ++nbi)
-        {
-            //   logs << neighbourhood[nbi].rank << ", ";
-        }
-        // logs << "}" << std::endl;
-        //  end debug
-
-        // gather neighbour mesh
-        mesh.update_mesh_neighbour();
     }
 
 } // namespace samurai

@@ -64,6 +64,7 @@ namespace Load_balancing
             auto flags = samurai::make_scalar_field<int>("diffusion_flag", mesh);
             flags.fill(world.rank());
             // load balancing order
+
             std::vector<size_t> order(n_neighbours);
             {
                 for (size_t i = 0; i < order.size(); ++i)
