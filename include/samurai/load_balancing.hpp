@@ -336,8 +336,6 @@ namespace samurai
                     }
                 });
 
-            std::vector<int> req_send(static_cast<size_t>(world.size()), 0), req_recv(static_cast<size_t>(world.size()), 0);
-
             std::vector<mpi::request> req;
 
             // actual data echange between processes that need to exchange data
@@ -347,11 +345,8 @@ namespace samurai
                 {
                     continue;
                 }
-                // if (req_send[static_cast<size_t>(iproc)] == 1)
-                {
-                    CellArray_t to_send = {payload[static_cast<size_t>(iproc)], false};
-                    req.push_back(world.isend(iproc, 17, to_send));
-                }
+                CellArray_t to_send = {payload[static_cast<size_t>(iproc)], false};
+                req.push_back(world.isend(iproc, 17, to_send));
             }
 
             for (int iproc = 0; iproc < world.size(); ++iproc)
@@ -360,25 +355,17 @@ namespace samurai
                 {
                     continue;
                 }
+                CellArray_t to_rcv;
+                world.recv(iproc, 17, to_rcv);
 
-                // if (req_recv[static_cast<size_t>(iproc)] == 1)
-                {
-                    CellArray_t to_rcv;
-                    // logs << fmt::format("\t> Recving from # {}", iproc) << std::endl;
-                    world.recv(iproc, 17, to_rcv);
-
-                    samurai::for_each_interval(to_rcv,
-                                               [&](std::size_t level, const auto& interval, const auto& index)
-                                               {
-                                                   new_cl[level][index].add_interval(interval);
-                                               });
-                }
+                samurai::for_each_interval(to_rcv,
+                                           [&](std::size_t level, const auto& interval, const auto& index)
+                                           {
+                                               new_cl[level][index].add_interval(interval);
+                                           });
             }
-
             boost::mpi::wait_all(req.begin(), req.end());
-
             Mesh_t new_mesh(new_cl, mesh);
-
             return new_mesh;
         }
 
