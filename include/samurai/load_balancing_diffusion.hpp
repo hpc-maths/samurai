@@ -17,8 +17,6 @@ namespace Load_balancing
         int _ndomains;
         int _rank;
 
-        const double _unbalance_threshold = 0.05; // 5 %
-
       public:
 
         Diffusion()
@@ -33,11 +31,6 @@ namespace Load_balancing
 #endif
         }
 
-        inline std::string getName() const
-        {
-            return "diffusion";
-        }
-
         template <class Mesh_t>
         auto reordering_impl(Mesh_t& mesh)
         {
@@ -45,45 +38,6 @@ namespace Load_balancing
             flags.fill(_rank);
 
             return flags;
-        }
-
-        template <size_t dim, typename Stencil_t, typename Coord_t>
-        std::vector<Stencil_t> getStencilToNeighbour(const Coord_t& bc_current, const Coord_t& bc_neigh) const
-        {
-            Stencil_t dir_from_neighbour;
-            std::vector<Stencil_t> stencils;
-
-            Coord_t tmp;
-            double n2 = 0.;
-            for (size_t idim = 0; idim < dim; ++idim)
-            {
-                tmp(idim) = bc_current(idim) - bc_neigh(idim);
-                n2 += tmp(idim) * tmp(idim);
-            }
-
-            n2 = std::sqrt(n2);
-
-            for (size_t idim = 0; idim < dim; ++idim)
-            {
-                tmp(idim) /= n2;
-                dir_from_neighbour(idim) = static_cast<int>(tmp(idim) / 0.5);
-
-                // FIXME why needed ?
-                if (std::abs(dir_from_neighbour(idim)) > 1)
-                {
-                    dir_from_neighbour(idim) < 0 ? dir_from_neighbour(idim) = -1 : dir_from_neighbour(idim) = 1;
-                }
-
-                if (dir_from_neighbour(idim) != 0)
-                {
-                    Stencil_t dd;
-                    dd.fill(0);
-                    dd(idim) = dir_from_neighbour(idim);
-                    stencils.emplace_back(dd);
-                }
-            }
-
-            return stencils;
         }
 
         template <class Mesh_t>
@@ -104,12 +58,6 @@ namespace Load_balancing
             // by default, perform 5 iterations
             // std::vector<int> fluxes = samurai::cmptFluxes<samurai::BalanceElement_t::CELL>( mesh, forceNeighbour, 5 );
             std::vector<int> fluxes = samurai::cmptFluxes<samurai::BalanceElement_t::CELL>(mesh, 5);
-            std::vector<int> new_fluxes(fluxes);
-            // get loads from everyone
-            std::vector<int> loads;
-            int my_load = static_cast<int>(samurai::cmptLoad<samurai::BalanceElement_t::CELL>(mesh));
-            boost::mpi::all_gather(world, my_load, loads);
-
             std::vector<CellList_t> cl_to_send(n_neighbours);
 
             // set field "flags" for each rank. Initialized to current for all cells (leaves only)
@@ -163,11 +111,8 @@ namespace Load_balancing
                 n = std::abs(fluxes[0]);
             }
 
-            //    std::size_t n = 2000 ;
-            //
-            //
-            std::cout << "flux size : " << fluxes.size() << std::endl;
-            std::cout << n << std::endl;
+            // std::cout << "flux size : " << fluxes.size() << std::endl;
+            // std::cout << n << std::endl;
 
             if (world.size() > 1)
             {

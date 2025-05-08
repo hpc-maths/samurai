@@ -554,12 +554,6 @@ namespace samurai
         template <class Mesh_t, class Field_t, class... Fields>
         void load_balance(Mesh_t& mesh, Field_t& field, Fields&... kw)
         {
-            std::string lbn = static_cast<Flavor*>(this)->getName();
-
-            // logs << fmt::format("\n###################################################") << std::endl;
-            // logs << fmt::format("> Load balancing ({}) mesh @ iteration {} ", lbn, nloadbalancing) << std::endl;
-            // logs << fmt::format("###################################################\n") << std::endl;
-
             auto p = lbn.find("SFC");
             if (nloadbalancing == 0 && p != std::string::npos)
             {
