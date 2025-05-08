@@ -74,7 +74,6 @@ namespace samurai
     {
         using mpi_subdomain_t = typename Mesh_t::mpi_subdomain_t;
         boost::mpi::communicator world;
-        std::ofstream logs;
         // give access to geometricaly neighbour process rank and mesh
         std::vector<mpi_subdomain_t>& neighbourhood = mesh.mpi_neighbourhood();
         size_t n_neighbours                         = neighbourhood.size();
@@ -118,7 +117,6 @@ namespace samurai
 
       public:
 
-        std::ofstream logs;
         int nloadbalancing;
 
         template <class Mesh_t, class Field_t>
@@ -276,11 +274,6 @@ namespace samurai
         {
             boost::mpi::communicator world;
             nloadbalancing = 0;
-        }
-
-        ~LoadBalancer()
-        {
-            logs.close();
         }
 
         /**
@@ -474,111 +467,16 @@ namespace samurai
         template <class Mesh_t, class Field_t, class... Fields>
         void load_balance(Mesh_t& mesh, Field_t& field, Fields&... kw)
         {
-            if (nloadbalancing == 0)
-            {
-                reordering(mesh, field, kw...);
-            }
-
             auto flags    = static_cast<Flavor*>(this)->load_balance_impl(field.mesh());
             auto new_mesh = update_mesh(mesh, flags);
 
             // update each physical field on the new load balanced mesh
-            //            SAMURAI_TRACE("[LoadBalancer::load_balance]::Updating fields ... ");
             update_fields(new_mesh, field, kw...);
             // swap mesh reference to new load balanced mesh. FIX: this is not clean
-            //            SAMURAI_TRACE("[LoadBalancer::load_balance]::Swapping meshes ... ");
             field.mesh().swap(new_mesh);
             nloadbalancing += 1;
         }
     };
-
-    /**
-     * Compute fluxes of cells between MPI processes. In -fake- MPI environment. To
-     * use it in true MPI juste remove the loop over "irank", and replace irank by myrank;
-     *
-     */
-    void compute_load_balancing_fluxes(std::vector<MPI_Load_Balance>& all)
-    {
-        for (size_t irank = 0; irank < all.size(); ++irank)
-        {
-            // number of cells
-            // supposing each cell has a cost of 1. ( no level dependency )
-            int32_t load = all[irank]._load;
-
-            std::size_t n_neighbours = all[irank].neighbour.size();
-
-            {
-                std::cerr << "[compute_load_balancing_fluxes] Process # " << irank << " load : " << load << std::endl;
-                std::cerr << "[compute_load_balancing_fluxes] Process # " << irank << " nneighbours : " << n_neighbours << std::endl;
-                std::cerr << "[compute_load_balancing_fluxes] Process # " << irank << " neighbours : ";
-                for (size_t in = 0; in < all[irank].neighbour.size(); ++in)
-                {
-                    std::cerr << all[irank].neighbour[in] << ", ";
-                }
-                std::cerr << std::endl;
-            }
-
-            // load of each process (all processes not only neighbour)
-            std::vector<int64_t> loads;
-
-            // data "load" to transfer to neighbour processes
-            all[irank].fluxes.resize(n_neighbours);
-            std::fill(all[irank].fluxes.begin(), all[irank].fluxes.end(), 0);
-
-            const std::size_t n_iterations = 1;
-
-            for (std::size_t k = 0; k < n_iterations; ++k)
-            {
-                // numbers of neighboors processes for each neighbour process
-                std::vector<std::size_t> nb_neighbours;
-
-                if (irank == 0)
-                {
-                    std::cerr << "[compute_load_balancing_fluxes] Fluxes iteration # " << k << std::endl;
-                }
-
-                // // get info from processes
-                // mpi::all_gather(world, load, loads);
-                // mpi::all_gather(world, m_mpi_neighbourhood.size(), nb_neighbours);
-
-                // load of current process
-                int32_t load_np1 = load;
-
-                // compute updated load for current process based on its neighbourhood
-                for (std::size_t j_rank = 0; j_rank < n_neighbours; ++j_rank)
-                {
-                    auto neighbour_rank = static_cast<std::size_t>(all[irank].neighbour[j_rank]);
-                    auto neighbour_load = all[irank].load[j_rank];
-                    auto diff_load      = neighbour_load - load;
-
-                    std::size_t nb_neighbours_neighbour = all[neighbour_rank].neighbour.size();
-
-                    double weight = 1. / static_cast<double>(std::max(n_neighbours, nb_neighbours_neighbour) + 1);
-
-                    int32_t transfertLoad = static_cast<int32_t>(std::lround(weight * static_cast<double>(diff_load)));
-
-                    all[irank].fluxes[j_rank] += transfertLoad;
-
-                    load_np1 += transfertLoad;
-                }
-
-                // do check on load & fluxes ?
-
-                {
-                    std::cerr << "fluxes : ";
-                    for (size_t in = 0; in < n_neighbours; ++in)
-                    {
-                        std::cerr << all[irank].fluxes[in] << ", ";
-                    }
-                    std::cerr << std::endl;
-                }
-
-                // load_transfer( load_fluxes );
-
-                load = load_np1;
-            }
-        }
-    }
 
 } // namespace samurai
 #endif
