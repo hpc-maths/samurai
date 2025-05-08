@@ -145,7 +145,8 @@ namespace samurai
             std::vector<boost::mpi::request> req;
             std::vector<std::vector<value_t>> to_send(static_cast<size_t>(world.size()));
 
-            // FIXME: this is overkill and will not scale
+            // TODO FIXME: this is overkill and will not scale
+            // here we have to define all_* at size n_neighbours...
             std::vector<Mesh_t> all_new_meshes, all_old_meshes;
             boost::mpi::all_gather(world, new_mesh, all_new_meshes);
             boost::mpi::all_gather(world, field.mesh(), all_old_meshes);
@@ -183,12 +184,8 @@ namespace samurai
                     // neighbour_rank = neighbour.rank;
                     auto neighbour_rank = static_cast<int>(ni);
                     req.push_back(world.isend(neighbour_rank, neighbour_rank, to_send[ni]));
-
-                    //         logs << fmt::format("\t> [LoadBalancer]::update_field send data to rank # {}", neighbour_rank) << std::endl;
                 }
             }
-
-            //            logs << fmt::format("\t> [LoadBalancer]::update_field number of isend request: {}", req.size()) << std::endl;
 
             // build payload of field that I need to receive from neighbour, so compare NEW mesh with OLD neighbour mesh
             for (size_t ni = 0; ni < all_old_meshes.size(); ++ni)
@@ -276,36 +273,6 @@ namespace samurai
             nloadbalancing = 0;
         }
 
-        /**
-         * This function reorder cells across MPI processes based on a
-         * Space Filling Curve. This is mandatory for load balancing using SFC.
-         */
-        template <class Mesh_t, class Field_t, class... Fields>
-        void reordering(Mesh_t& mesh, Field_t& field, Fields&... kw)
-        {
-            // new reordered mesh on current process + MPI exchange with others
-            // auto new_mesh = static_cast<Flavor*>(this)->reordering_impl( mesh );
-            // logs << "\t> Computing reordering flags ... " << std::endl;
-            auto flags = static_cast<Flavor*>(this)->reordering_impl(mesh);
-
-            // logs << "\t> Update mesh based on flags ... " << std::endl;
-            auto new_mesh = update_mesh(mesh, flags);
-
-            // update each physical field on the new reordered mesh
-            // SAMURAI_TRACE("[Reordering::load_balance]::Updating fields ... ");
-            // logs << "\t> Update fields based on flags ... " << std::endl;
-            update_fields(new_mesh, field, kw...);
-
-            // swap mesh reference.
-            // FIX: this is not clean
-            // SAMURAI_TRACE("[Reordering::load_balance]::Swapping meshes ... ");
-            field.mesh().swap(new_mesh);
-
-            // discover neighbours: add new neighbours if a new interface appears or remove old neighbours
-            // discover_neighbour(field.mesh());
-            // discover_neighbour(field.mesh());
-        }
-
         template <class Mesh_t, class Field_t>
         Mesh_t update_mesh(Mesh_t& mesh, const Field_t& flags)
         {
@@ -315,6 +282,7 @@ namespace samurai
             boost::mpi::communicator world;
 
             CellList_t new_cl;
+            // TODO why wolrd size ? scaliility ???
             std::vector<CellList_t> payload(static_cast<size_t>(world.size()));
             std::vector<size_t> payload_size(static_cast<size_t>(world.size()), 0);
 
@@ -337,6 +305,7 @@ namespace samurai
                         }
                         if constexpr (Mesh_t::dim == 3)
                         {
+                            // TODO : it works ??
                             new_cl[cell.level][{cell.indices[1], cell.indices[2]}].add_point(cell.indices[0]);
                         }
                     }
@@ -366,13 +335,6 @@ namespace samurai
                         payload_size[static_cast<size_t>(flags[cell])]++;
                     }
                 });
-
-            // logs << "\t\t>[Load_balancer::update_mesh] Comm required with processes : [";
-            for (const auto& it : comm)
-            {
-                //    logs << it.first << fmt::format(" ({} cells),", payload_size[static_cast<size_t>(it.first)]);
-            }
-            // logs << "]" << std::endl;
 
             std::vector<int> req_send(static_cast<size_t>(world.size()), 0), req_recv(static_cast<size_t>(world.size()), 0);
 
@@ -404,16 +366,6 @@ namespace samurai
                     continue;
                 }
                 world.recv(iproc, 42, req_recv[static_cast<size_t>(iproc)]);
-            }
-
-            for (int iproc = 0; iproc < world.size(); ++iproc)
-            {
-                //                logs << fmt::format("Proc # {}, req_send : {}, req_recv: {} ",
-                //                                  iproc,
-                //                                req_send[static_cast<size_t>(iproc)],
-                //                              req_recv[static_cast<size_t>(iproc)])
-                //             << std::endl;
-                ;
             }
 
             std::vector<mpi::request> req;
