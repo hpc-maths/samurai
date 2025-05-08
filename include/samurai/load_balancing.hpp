@@ -338,36 +338,6 @@ namespace samurai
 
             std::vector<int> req_send(static_cast<size_t>(world.size()), 0), req_recv(static_cast<size_t>(world.size()), 0);
 
-            // Required to know communication pattern
-            for (int iproc = 0; iproc < world.size(); ++iproc)
-            {
-                if (iproc == world.rank())
-                {
-                    continue;
-                }
-
-                int reqExchg;
-                comm.find(iproc) != comm.end() ? reqExchg = 1 : reqExchg = 0;
-
-                if (payload[static_cast<size_t>(iproc)].empty())
-                {
-                    reqExchg = 0;
-                }
-
-                req_send[static_cast<size_t>(iproc)] = reqExchg;
-
-                world.send(iproc, 42, reqExchg);
-            }
-
-            for (int iproc = 0; iproc < world.size(); ++iproc)
-            {
-                if (iproc == world.rank())
-                {
-                    continue;
-                }
-                world.recv(iproc, 42, req_recv[static_cast<size_t>(iproc)]);
-            }
-
             std::vector<mpi::request> req;
 
             // actual data echange between processes that need to exchange data
@@ -377,14 +347,10 @@ namespace samurai
                 {
                     continue;
                 }
-
-                if (req_send[static_cast<size_t>(iproc)] == 1)
+                // if (req_send[static_cast<size_t>(iproc)] == 1)
                 {
                     CellArray_t to_send = {payload[static_cast<size_t>(iproc)], false};
-
                     req.push_back(world.isend(iproc, 17, to_send));
-
-                    // logs << fmt::format("\t> Sending to # {}", iproc) << std::endl;
                 }
             }
 
@@ -395,7 +361,7 @@ namespace samurai
                     continue;
                 }
 
-                if (req_recv[static_cast<size_t>(iproc)] == 1)
+                // if (req_recv[static_cast<size_t>(iproc)] == 1)
                 {
                     CellArray_t to_rcv;
                     // logs << fmt::format("\t> Recving from # {}", iproc) << std::endl;
