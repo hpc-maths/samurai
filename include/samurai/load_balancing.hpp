@@ -389,8 +389,8 @@ namespace samurai
             field.mesh().swap(new_mesh);
 
             // discover neighbours: add new neighbours if a new interface appears or remove old neighbours
-            discover_neighbour(field.mesh());
-            discover_neighbour(field.mesh());
+            // discover_neighbour(field.mesh());
+            // discover_neighbour(field.mesh());
         }
 
         template <class Mesh_t, class Field_t>
@@ -584,8 +584,8 @@ namespace samurai
             // discover neighbours: add new neighbours if a new interface appears or remove old neighbours
             // FIX: add boolean return to condition the need of another call, might save some MPI comm.
             SAMURAI_TRACE("[LoadBalancer::load_balance]::discover neighbours ... ");
-            discover_neighbour(field.mesh());
-            discover_neighbour(field.mesh());
+            //            discover_neighbour(field.mesh());
+            //            discover_neighbour(field.mesh());
 
             nloadbalancing += 1;
         }

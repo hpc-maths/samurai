@@ -293,7 +293,7 @@ int main(int argc, char* argv[])
     while (t != Tf)
     {
 #ifdef SAMURAI_WITH_MPI
-        if ((nt % nt_loadbalance == 0) && nt > 1)
+        if (((nt % nt_loadbalance == 0) && nt > 1) || nt == 1)
         {
             balancer.load_balance(mesh, u);
         }
