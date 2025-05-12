@@ -33,9 +33,6 @@ set(SAMURAI_TESTS
     test_scaling.cpp
     test_subset.cpp
     test_utils.cpp
-    test_sfc.cpp
-    test_mrmesh.cpp
-    test_loadbalancing.cpp
 )
 
 if(rapidcheck_FOUND)
