@@ -152,7 +152,6 @@ int main(int argc, char* argv[])
     {
         velocity(1) = -1;
     }
-
     auto conv = samurai::make_convection_weno5<decltype(u)>(velocity);
 
     Load_balancing::Diffusion balancer;
@@ -230,8 +229,9 @@ int main(int argc, char* argv[])
                 save(path, filename, u);
             }
         }
+
+        std::cout << std::endl;
     }
-    std::cout << std::endl;
 
     if constexpr (dim == 1)
     {
