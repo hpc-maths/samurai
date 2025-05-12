@@ -297,9 +297,7 @@ int main(int argc, char* argv[])
 
         unp1.resize();
 
-        samurai::times::timers.start("upwind");
         unp1 = u - dt * samurai::upwind(a, u);
-        samurai::times::timers.stop("upwind");
 
         if (correction)
         {
