@@ -269,16 +269,7 @@ int main(int argc, char* argv[])
     std::size_t nsave = 1;
     std::size_t nt    = 0;
 
-    // For now, void_balancer is verified and works properly
-    // Diffusion_LoadBalancer_cell not exist ???
-    // Load_balancing::Diffusion donne de très mauvais resultats, peut-etre des parametres internes ?
-
-    // SFC_LoadBalancer_interval<dim, Morton> balancer;
-    //     Void_LoadBalancer<dim> balancer;
-    //         Diffusion_LoadBalancer_cell<dim> balancer;
-    //      Diffusion_LoadBalancer_interval<dim> balancer;
     Load_balancing::Diffusion balancer;
-    //  Load_balancing::SFCw<dim, Morton> balancer;
 
     std::ofstream logs;
 #ifdef SAMURAI_WITH_MPI
