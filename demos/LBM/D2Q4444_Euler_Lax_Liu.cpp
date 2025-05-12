@@ -193,7 +193,7 @@ void one_time_step(Field& f,
     constexpr std::size_t nvel = Field::n_comp;
     using coord_index_t        = typename Field::interval_t::coord_index_t;
 
-    std::size_t max_level = mesh.max_level();
+    // std::size_t max_level = mesh.max_level();
 
     samurai::times::timers.start("ugm-step");
     samurai::update_ghost_mr(f);
