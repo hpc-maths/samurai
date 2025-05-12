@@ -164,12 +164,6 @@ int main(int argc, char* argv[])
     // origin weno5
     auto conv = samurai::make_convection_weno5<decltype(u)>(velocity);
 
-    // SFC_LoadBalancer_interval<dim, Morton> balancer;
-    // Load_balancing::Life balancer;
-    //    Load_balancing::GlobalCriteria balancer;
-    // Void_LoadBalancer<dim> balancer;
-    // Diffusion_LoadBalancer_cell<dim> balancer;
-    // Diffusion_LoadBalancer_interval<dim> balancer;
     Load_balancing::Diffusion balancer;
 
     //--------------------//
