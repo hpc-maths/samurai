@@ -3,7 +3,6 @@ find_package(CLI11)
 
 add_subdirectory(from_obj)
 add_subdirectory(FiniteVolume)
-add_subdirectory(loadbalancing)
 # add_subdirectory(MPI)
 add_subdirectory(LBM)
 add_subdirectory(p4est)
