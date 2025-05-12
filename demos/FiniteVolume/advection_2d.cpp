@@ -262,7 +262,9 @@ int main(int argc, char* argv[])
     std::size_t nsave = 1;
     std::size_t nt    = 0;
 
+#ifdef SAMURAI_WITH_MPI
     Load_balancing::Diffusion balancer;
+#endif
 
     while (t != Tf)
     {

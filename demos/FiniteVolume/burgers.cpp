@@ -127,7 +127,9 @@ int main_dim(int argc, char* argv[])
     Box box(box_corner1, box_corner2);
     samurai::MRMesh<Config> mesh;
 
+#ifdef SAMURAI_WITH_MPI
     Load_balancing::Diffusion balancer;
+#endif
 
     auto u    = samurai::make_vector_field<n_comp>("u", mesh);
     auto u1   = samurai::make_vector_field<n_comp>("u1", mesh);

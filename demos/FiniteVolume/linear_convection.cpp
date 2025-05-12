@@ -67,11 +67,12 @@ int main(int argc, char* argv[])
     double mr_regularity  = 1.;   // Regularity guess for multiresolution
 
     // Output parameters
-    fs::path path              = fs::current_path();
-    std::string filename       = "linear_convection_" + std::to_string(dim) + "D";
-    std::size_t nfiles         = 0;
+    fs::path path        = fs::current_path();
+    std::string filename = "linear_convection_" + std::to_string(dim) + "D";
+    std::size_t nfiles   = 0;
+#ifdef SAMURAI_WITH_MPI
     std::size_t nt_loadbalance = 10;
-
+#endif
     app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--right", right_box, "The right border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Ti", t, "Initial time")->capture_default_str()->group("Simulation parameters");
@@ -154,7 +155,9 @@ int main(int argc, char* argv[])
     }
     auto conv = samurai::make_convection_weno5<decltype(u)>(velocity);
 
+#ifdef SAMURAI_WITH_MPI
     Load_balancing::Diffusion balancer;
+#endif
 
     //--------------------//
     //   Time iteration   //
