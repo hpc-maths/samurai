@@ -185,7 +185,6 @@ int main(int argc, char* argv[])
     using Config              = samurai::MRConfig<dim>;
 
     // Simulation parameters
-    double radius = 0.2, x_center = 0.3, y_center = 0.3;
     xt::xtensor_fixed<double, xt::xshape<dim>> min_corner = {0., 0.};
     xt::xtensor_fixed<double, xt::xshape<dim>> max_corner = {1., 1.};
     std::array<double, dim> a{
@@ -257,9 +256,7 @@ int main(int argc, char* argv[])
     auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);
 
     auto MRadaptation = samurai::make_MRAdapt(u);
-
     MRadaptation(mr_epsilon, mr_regularity);
-
     save(path, filename, u, "_init");
 
     std::size_t nsave = 1;
@@ -267,10 +264,6 @@ int main(int argc, char* argv[])
 
     Load_balancing::Diffusion balancer;
 
-#ifdef SAMURAI_WITH_MPI
-    boost::mpi::communicator world;
-    logs.open(fmt::format("log_{}.dat", world.rank()), std::ofstream::app);
-#endif
     while (t != Tf)
     {
 #ifdef SAMURAI_WITH_MPI

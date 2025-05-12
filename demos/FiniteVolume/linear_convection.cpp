@@ -11,10 +11,6 @@
 #include <samurai/load_balancing.hpp>
 #include <samurai/load_balancing_diffusion.hpp>
 
-#ifdef WITH_STATS
-#include "samurai/statistics.hpp"
-#endif
-
 #include <filesystem>
 namespace fs = std::filesystem;
 
@@ -53,9 +49,6 @@ int main(int argc, char* argv[])
     //--------------------//
     // Program parameters //
     //--------------------//
-#ifdef SAMURAI_WITH_MPI
-    boost::mpi::communicator world;
-#endif
     // Simulation parameters
     double left_box  = -1;
     double right_box = 1;
@@ -159,7 +152,7 @@ int main(int argc, char* argv[])
     {
         velocity(1) = -1;
     }
-    // origin weno5
+
     auto conv = samurai::make_convection_weno5<decltype(u)>(velocity);
 
     Load_balancing::Diffusion balancer;
@@ -177,7 +170,6 @@ int main(int argc, char* argv[])
     }
 
     auto MRadaptation = samurai::make_MRAdapt(u);
-
     MRadaptation(mr_epsilon, mr_regularity);
 
     double dt_save    = nfiles == 0 ? dt : Tf / static_cast<double>(nfiles);
@@ -202,16 +194,12 @@ int main(int argc, char* argv[])
             dt += Tf - t;
             t = Tf;
         }
-
         std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt) << std::flush;
-
+        // Mesh adaptation
         MRadaptation(mr_epsilon, mr_regularity);
-
         samurai::update_ghost_mr(u);
-
         unp1.resize();
         unp1.fill(0);
-
         u1.resize();
         u2.resize();
         u1.fill(0);
@@ -243,7 +231,6 @@ int main(int argc, char* argv[])
             }
         }
     }
-
     std::cout << std::endl;
 
     if constexpr (dim == 1)
