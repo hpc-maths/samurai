@@ -379,6 +379,7 @@ namespace samurai
         set_scaling_factor(ref_mesh.scaling_factor());
     }
 
+    /**
     template <class D, class Config>
     inline Mesh_base<D, Config>::Mesh_base(const cl_type& cl,
                                            std::size_t min_level,
@@ -402,6 +403,7 @@ namespace samurai
         renumbering();           // required ?
         update_mesh_neighbour(); // required to do that here ??
     }
+    **/
 
     template <class D, class Config>
     inline auto Mesh_base<D, Config>::cells() -> mesh_t&

@@ -198,7 +198,6 @@ int main(int argc, char* argv[])
         MRadaptation(mr_epsilon, mr_regularity);
         samurai::update_ghost_mr(u);
         unp1.resize();
-        unp1.fill(0);
         u1.resize();
         u2.resize();
         u1.fill(0);
