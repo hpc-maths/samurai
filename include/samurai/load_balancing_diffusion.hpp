@@ -107,13 +107,12 @@ namespace Load_balancing
                       });
 
             int n;
+
+            // at this point : works only for a horizontal partitioning
             if (world.size() > 1)
             {
                 n = std::abs(fluxes[0]);
             }
-
-            // std::cout << "flux size : " << fluxes.size() << std::endl;
-            // std::cout << n << std::endl;
 
             if (world.size() > 1)
             {
