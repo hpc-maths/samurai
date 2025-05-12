@@ -211,8 +211,8 @@ void one_time_step(Field& f,
         mesh[mesh_id_t::cells],
         [&](std::size_t level, auto& i, auto& index)
         {
-            auto j    = index[0];
-            auto jump = max_level - level;
+            auto j = index[0];
+            // auto jump = max_level - level;
             // double coef = 1. / (1 << (dim * jump));
             for (std::size_t scheme_n = 0; scheme_n < 4; ++scheme_n)
             { // We have 4 schemes
