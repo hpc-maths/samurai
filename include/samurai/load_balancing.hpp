@@ -8,15 +8,8 @@
 
 #include "algorithm.hpp"
 #include "algorithm/utils.hpp"
-#include "hilbert.hpp"
 #include "mesh.hpp"
-#include "morton.hpp"
 #include "mr/mesh.hpp"
-
-// statistics
-#ifdef WITH_STATS
-#include <nlohmann/json.hpp>
-#endif
 
 #ifdef SAMURAI_WITH_MPI
 #include <boost/mpi.hpp>
