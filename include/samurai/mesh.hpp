@@ -183,8 +183,6 @@ namespace samurai
         void find_neighbourhood_naive();
 
         void partition_mesh(std::size_t start_level, const Box<double, dim>& global_box);
-        void load_balancing();
-        void load_transfer(const std::vector<double>& load_fluxes);
         std::size_t max_nb_cells(std::size_t level) const;
 
         lca_type m_domain;
@@ -280,7 +278,6 @@ namespace samurai
 
 #ifdef SAMURAI_WITH_MPI
         partition_mesh(start_level, b);
-        // load_balancing();
 #else
         this->m_cells[mesh_id_t::cells][start_level] = {start_level, b, approx_box_tol, scaling_factor_};
 #endif
@@ -293,7 +290,7 @@ namespace samurai
 
         set_origin_point(origin_point());
         set_scaling_factor(scaling_factor());
-        update_mesh_neighbour();
+        // update_mesh_neighbour();
     }
 
     template <class D, class Config>
@@ -317,6 +314,7 @@ namespace samurai
         set_scaling_factor(cl.scaling_factor());
     }
 
+    /**
     template <class D, class Config>
     inline Mesh_base<D, Config>::Mesh_base(const ca_type& ca, std::size_t min_level, std::size_t max_level)
         : m_min_level{min_level}
@@ -337,6 +335,7 @@ namespace samurai
         set_origin_point(ca.origin_point());
         set_scaling_factor(ca.scaling_factor());
     }
+    **/
 
     template <class D, class Config>
     inline Mesh_base<D, Config>::Mesh_base(const ca_type& ca, const self_type& ref_mesh)
@@ -871,7 +870,7 @@ namespace samurai
         int product_of_sizes     = 1;
         for (std::size_t d = 0; d < dim - 1; ++d)
         {
-            sizes[d] = std::max(static_cast<int>(floor(pow(size, 1. / dim) * global_box.length()[d] / length_harmonic_avg)), 1);
+            sizes[d] = std::max(static_cast<int>(floor(pow(size, 1. / dim) * global_box.length()[d] / length_harmonic_avg));
 
             product_of_sizes *= sizes[d];
         }
@@ -985,15 +984,15 @@ namespace samurai
         // m_mpi_neighbourhood.reserve(static_cast<std::size_t>(pow(3, dim) - 1));
         // auto neighbour = [&](xt::xtensor_fixed<int, xt::xshape<dim>> shift)
         // {
-        //    auto neighbour_rank            = rank;
-        //    int product_of_preceding_sizes = 1;
-        //    for (std::size_t d = 0; d < dim; ++d)
-        //    {
-        //        neighbour_rank += product_of_preceding_sizes * shift[d];
-        //        product_of_preceding_sizes *= sizes[d];
-        //    }
-        //    return neighbour_rank;
-        //};
+        //     auto neighbour_rank            = rank;
+        //     int product_of_preceding_sizes = 1;
+        //     for (std::size_t d = 0; d < dim; ++d)
+        //     {
+        //         neighbour_rank += product_of_preceding_sizes * shift[d];
+        //         product_of_preceding_sizes *= sizes[d];
+        //     }
+        //     return neighbour_rank;
+        // };
 
         // static_nested_loop<dim, -1, 2>(
         //     [&](auto& shift)
