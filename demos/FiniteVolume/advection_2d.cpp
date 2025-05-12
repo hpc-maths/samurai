@@ -19,7 +19,6 @@
 #include <samurai/load_balancing.hpp>
 #include <samurai/load_balancing_diffusion.hpp>
 
-#include <samurai/timers.hpp>
 
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -260,9 +259,7 @@ int main(int argc, char* argv[])
 
     auto MRadaptation = samurai::make_MRAdapt(u);
 
-    samurai::times::timers.start("MRadaptation");
     MRadaptation(mr_epsilon, mr_regularity);
-    samurai::times::timers.stop("MRadaptation");
 
     save(path, filename, u, "_init");
 
