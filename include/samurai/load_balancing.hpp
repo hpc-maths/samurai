@@ -18,15 +18,6 @@
 #ifdef SAMURAI_WITH_MPI
 namespace samurai
 {
-
-    struct MPI_Load_Balance
-    {
-        int32_t _load;
-        std::vector<int> neighbour;
-        std::vector<int32_t> load;
-        std::vector<int32_t> fluxes;
-    };
-
     enum BalanceElement_t
     {
         CELL,

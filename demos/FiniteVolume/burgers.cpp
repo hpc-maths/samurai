@@ -88,7 +88,9 @@ int main_dim(int argc, char* argv[])
     std::string filename = "burgers_" + std::to_string(dim) + "D";
     std::size_t nfiles   = 50;
 
+#if SAMURAI_WITH_MPI
     std::size_t nt_loadbalance = 10; // nombre d'iteration entre les equilibrages
+#endif
 
     app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--right", right_box, "The right border of the box")->capture_default_str()->group("Simulation parameters");

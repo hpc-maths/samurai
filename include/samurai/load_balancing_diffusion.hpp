@@ -66,19 +66,17 @@ namespace Load_balancing
             // load balancing order
 
             std::vector<size_t> order(n_neighbours);
+            for (size_t i = 0; i < order.size(); ++i)
             {
-                for (size_t i = 0; i < order.size(); ++i)
-                {
-                    order[i] = i;
-                }
-                // order neighbour to echange data with, based on load
-                std::sort(order.begin(),
-                          order.end(),
-                          [&fluxes](size_t i, size_t j)
-                          {
-                              return fluxes[i] < fluxes[j];
-                          });
+                order[i] = i;
             }
+            // order neighbour to echange data with, based on load
+            std::sort(order.begin(),
+                      order.end(),
+                      [&fluxes](size_t i, size_t j)
+                      {
+                          return fluxes[i] < fluxes[j];
+                      });
 
             using cell_t = typename Mesh_t::cell_t;
             std::vector<cell_t> cells;
@@ -106,19 +104,19 @@ namespace Load_balancing
                           }
                       });
 
-            int n;
+            std::size_t n = 0;
 
             // at this point : works only for a horizontal partitioning
             if (world.size() > 1)
             {
-                n = std::abs(fluxes[0]);
+                n = static_cast<std::size_t>(std::abs(fluxes[0]));
             }
 
             if (world.size() > 1)
             {
                 if (world.rank() == 0)
                 {
-                    for (int i = 0; i < n && i < cells.size(); ++i)
+                    for (std::size_t i = 0; i < n && i < cells.size(); ++i)
                     {
                         if (fluxes[0] < 0)
                         {
@@ -128,7 +126,7 @@ namespace Load_balancing
                 }
                 else if (world.rank() == world.size() - 1)
                 {
-                    for (int i = 0; i < n && i < cells.size(); ++i)
+                    for (std::size_t i = 0; i < n && i < cells.size(); ++i)
                     {
                         if (fluxes[0] < 0)
                         {
@@ -138,9 +136,9 @@ namespace Load_balancing
                 }
                 else
                 {
-                    int n1 = std::abs(fluxes[0]);
-                    int n2 = std::abs(fluxes[1]);
-                    for (int i = 0; i < n1 && i < cells.size(); ++i)
+                    std::size_t n1 = static_cast<std::size_t>(std::abs(fluxes[0]));
+                    std::size_t n2 = static_cast<std::size_t>(std::abs(fluxes[1]));
+                    for (std::size_t i = 0; i < n1 && i < cells.size(); ++i)
                     {
                         if (fluxes[0] < 0)
                         {
@@ -148,7 +146,7 @@ namespace Load_balancing
                         }
                     }
 
-                    for (int i = 0; i < n2 && i < cells.size(); ++i)
+                    for (std::size_t i = 0; i < n2 && i < cells.size(); ++i)
                     {
                         if (fluxes[1] < 0)
                         {
