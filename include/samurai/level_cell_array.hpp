@@ -730,10 +730,14 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline std::size_t LevelCellArray<Dim, TInterval>::nb_intervals(std::size_t d) const
+    inline auto LevelCellArray<Dim, TInterval>::nb_intervals() const
     {
-        assert(d < dim);
-        return m_cells[d].size();
+        std::size_t s = 0;
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            s += m_cells[d].size();
+        }
+        return s;
     }
 
     template <std::size_t Dim, class TInterval>

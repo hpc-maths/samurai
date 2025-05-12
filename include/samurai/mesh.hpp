@@ -1014,55 +1014,6 @@ namespace samurai
     }
 
     template <class D, class Config>
-    void Mesh_base<D, Config>::merge(ca_type& lca)
-    {
-        // merge received cells
-
-        auto& refmesh = this->m_cells[mesh_id_t::cells];
-
-        auto minlevel = std::min(refmesh.min_level(), lca.min_level());
-        auto maxlevel = std::max(refmesh.max_level(), lca.max_level());
-
-        cl_type cl;
-        for (size_t ilvl = minlevel; ilvl <= maxlevel; ++ilvl)
-        {
-            auto un = samurai::union_(refmesh[ilvl], lca[ilvl]);
-
-            un(
-                [&](auto& interval, auto& indices)
-                {
-                    cl[ilvl][indices].add_interval(interval);
-                });
-        }
-
-        refmesh = {cl, false};
-    }
-
-    template <class D, class Config>
-    void Mesh_base<D, Config>::remove(ca_type& lca)
-    {
-        auto& refmesh = this->m_cells[mesh_id_t::cells];
-
-        // remove cells
-        cl_type cl;
-        size_t diff_ncells = 0;
-        for (size_t ilvl = refmesh.min_level(); ilvl <= refmesh.max_level(); ++ilvl)
-        {
-            auto diff = samurai::difference(refmesh[ilvl], lca[ilvl]);
-
-            diff(
-                [&](auto& interval, auto& index)
-                {
-                    cl[ilvl][index].add_interval(interval);
-                    diff_ncells += interval.size();
-                });
-        }
-
-        // new mesh for current process
-        refmesh = {cl, false};
-    }
-
-    template <class D, class Config>
     inline void Mesh_base<D, Config>::to_stream(std::ostream& os) const
     {
         for (std::size_t id = 0; id < static_cast<std::size_t>(mesh_id_t::count); ++id)
