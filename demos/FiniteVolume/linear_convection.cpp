@@ -11,7 +11,6 @@
 #include <samurai/load_balancing.hpp>
 #include <samurai/load_balancing_diffusion.hpp>
 
-#include <samurai/timers.hpp>
 
 #ifdef WITH_STATS
 #include "samurai/statistics.hpp"
@@ -180,9 +179,7 @@ int main(int argc, char* argv[])
 
     auto MRadaptation = samurai::make_MRAdapt(u);
 
-    samurai::times::timers.start("MRadaptation");
     MRadaptation(mr_epsilon, mr_regularity);
-    samurai::times::timers.stop("MRadaptation");
 
     double dt_save    = nfiles == 0 ? dt : Tf / static_cast<double>(nfiles);
     std::size_t nsave = 0, nt = 0;
@@ -209,16 +206,13 @@ int main(int argc, char* argv[])
 
         std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt) << std::flush << std::endl;
 
-        // Mesh adaptation
-        //        samurai::times::timers.start("tloop.MRadaptation");
+
         MRadaptation(mr_epsilon, mr_regularity);
-        //        samurai::times::timers.stop("tloop.MRadaptation");
 
-        //        samurai::times::timers.start("tloop.ugm");
+
+
         samurai::update_ghost_mr(u);
-        //        samurai::times::timers.stop("tloop.ugm");
 
-        //        samurai::times::timers.start("tloop.resize_fill");
         unp1.resize();
         unp1.fill(0);
 
@@ -226,24 +220,20 @@ int main(int argc, char* argv[])
         u2.resize();
         u1.fill(0);
         u2.fill(0);
-        //        samurai::times::timers.stop("tloop.resize_fill");
 
         // unp1 = u - dt * conv(u);
 
         // TVD-RK3 (SSPRK3)
-        //        samurai::times::timers.start("tloop.RK3");
         u1 = u - dt * conv(u);
         samurai::update_ghost_mr(u1);
         u2 = 3. / 4 * u + 1. / 4 * (u1 - dt * conv(u1));
         samurai::update_ghost_mr(u2);
         unp1 = 1. / 3 * u + 2. / 3 * (u2 - dt * conv(u2));
-        //        samurai::times::timers.stop("tloop.RK3");
 
         // u <-- unp1
         std::swap(u.array(), unp1.array());
 
         // Save the result
-        samurai::times::timers.start("tloop.io");
         if (nfiles == 0 || t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
         {
             if (nfiles != 1)
@@ -256,9 +246,7 @@ int main(int argc, char* argv[])
                 save(path, filename, u);
             }
         }
-        //        samurai::times::timers.stop("tloop.io");
     }
-    //    samurai::times::timers.stop("tloop");
 
     if constexpr (dim == 1)
     {
