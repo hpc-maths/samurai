@@ -133,14 +133,6 @@ namespace samurai
         /// Display to the given stream
         void to_stream(std::ostream& os) const;
 
-        // get_interval_location
-        template <typename... T, typename = std::enable_if_t<std::conjunction_v<std::is_convertible<T, value_t>...>, void>>
-        std::size_t get_interval_location(const interval_t& interval, T... index) const;
-        template <class E>
-        std::size_t get_interval_location(const interval_t& interval, const xt::xexpression<E>& index) const;
-        template <class E>
-        std::size_t get_interval_location(const xt::xexpression<E>& coord) const;
-
         // get_interval
         template <typename... T, typename = std::enable_if_t<std::conjunction_v<std::is_convertible<T, value_t>...>, void>>
         const interval_t& get_interval(const interval_t& interval, T... index) const;
@@ -172,9 +164,6 @@ namespace samurai
 
         //// Gives the total number of intervals
         auto nb_intervals() const;
-
-        //// Gives the number of intervals for a given dimension
-        std::size_t nb_intervals(std::size_t d) const;
 
         //// Gives the number of cells
         std::size_t nb_cells() const;
@@ -623,37 +612,6 @@ namespace samurai
     inline auto LevelCellArray<Dim, TInterval>::rcend() const -> const_reverse_iterator
     {
         return const_reverse_iterator(cbegin());
-    }
-
-    /**
-     * Return the index in the x-interval array satisfying the input parameters
-     *
-     * @param interval The desired x-interval.
-     * @param index The desired indices for the other dimensions.
-     */
-    template <std::size_t Dim, class TInterval>
-    template <typename... T, typename D>
-    inline std::size_t LevelCellArray<Dim, TInterval>::get_interval_location(const interval_t& interval, T... index) const
-    {
-        return static_cast<std::size_t>(find(*this, {interval.start, index...}));
-    }
-
-    template <std::size_t Dim, class TInterval>
-    template <class E>
-    inline std::size_t LevelCellArray<Dim, TInterval>::get_interval_location(const interval_t& interval, const xt::xexpression<E>& index) const
-    {
-        xt::xtensor_fixed<value_t, xt::xshape<dim>> point;
-        point[0]                         = interval.start;
-        xt::view(point, xt::range(1, _)) = index;
-        return static_cast<std::size_t>(find(*this, point));
-    }
-
-    template <std::size_t Dim, class TInterval>
-    template <class E>
-    inline std::size_t LevelCellArray<Dim, TInterval>::get_interval_location(const xt::xexpression<E>& coord) const
-    {
-        xt::xtensor_fixed<value_t, xt::xshape<dim>> coord_array = coord;
-        return static_cast<std::size_t>(find(*this, coord_array));
     }
 
     /**
