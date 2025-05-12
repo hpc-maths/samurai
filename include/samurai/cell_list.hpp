@@ -34,18 +34,6 @@ namespace samurai
         const lcl_type& operator[](std::size_t i) const;
         lcl_type& operator[](std::size_t i);
 
-        inline bool empty() const
-        {
-            bool rst = true;
-
-            for (const auto& lcl : m_cells)
-            {
-                rst &= lcl.empty();
-            }
-
-            return rst;
-        }
-
         void to_stream(std::ostream& os) const;
 
         auto& origin_point() const;

@@ -141,9 +141,6 @@ namespace samurai
 
         void to_stream(std::ostream& os) const;
 
-        void merge(ca_type& lca);
-        void remove(ca_type& lca);
-
       protected:
 
         using derived_type = D;
