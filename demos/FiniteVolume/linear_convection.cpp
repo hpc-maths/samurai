@@ -10,11 +10,6 @@
 
 #include <samurai/load_balancing.hpp>
 #include <samurai/load_balancing_diffusion.hpp>
-#include <samurai/load_balancing_diffusion_interval.hpp>
-// #include <samurai/load_balancing_force.hpp>
-#include <samurai/load_balancing_life.hpp>
-#include <samurai/load_balancing_sfc.hpp>
-#include <samurai/load_balancing_void.hpp>
 
 #include <samurai/timers.hpp>
 
