@@ -19,7 +19,6 @@
 #include <samurai/load_balancing.hpp>
 #include <samurai/load_balancing_diffusion.hpp>
 
-
 #include <filesystem>
 namespace fs = std::filesystem;
 
@@ -268,7 +267,6 @@ int main(int argc, char* argv[])
 
     Load_balancing::Diffusion balancer;
 
-    std::ofstream logs;
 #ifdef SAMURAI_WITH_MPI
     boost::mpi::communicator world;
     logs.open(fmt::format("log_{}.dat", world.rank()), std::ofstream::app);
@@ -294,11 +292,8 @@ int main(int argc, char* argv[])
         std::cout << fmt::format("iteration {}: t = {}, dt = {}", nt++, t, dt) << std::endl;
 
         samurai::update_ghost_mr(u);
-
         unp1.resize();
-
         unp1 = u - dt * samurai::upwind(a, u);
-
         if (correction)
         {
             flux_correction(dt, a, u, unp1);
@@ -312,7 +307,6 @@ int main(int argc, char* argv[])
             save(path, filename, u, suffix);
         }
     }
-
     samurai::finalize();
     return 0;
 }

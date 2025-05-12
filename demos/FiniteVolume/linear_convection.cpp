@@ -11,7 +11,6 @@
 #include <samurai/load_balancing.hpp>
 #include <samurai/load_balancing_diffusion.hpp>
 
-
 #ifdef WITH_STATS
 #include "samurai/statistics.hpp"
 #endif
@@ -37,7 +36,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
                            });
 
     samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
-    //    samurai::dump(path, fmt::format("{}_restart{}", filename, suffix), mesh, u);
+    samurai::dump(path, fmt::format("{}_restart{}", filename, suffix), mesh, u);
 }
 
 int main(int argc, char* argv[])
@@ -114,7 +113,7 @@ int main(int argc, char* argv[])
     box_corner2.fill(right_box);
     Box box(box_corner1, box_corner2);
     std::array<bool, dim> periodic;
-    periodic.fill(false);
+    periodic.fill(true);
     samurai::MRMesh<Config> mesh;
     auto u = samurai::make_scalar_field<double>("u", mesh);
 
@@ -144,8 +143,6 @@ int main(int argc, char* argv[])
         samurai::load(restart_file, mesh, u);
     }
 
-    samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
-
     auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);
     // Intermediary fields for the RK3 scheme
     auto u1 = samurai::make_scalar_field<double>("u1", mesh);
@@ -158,8 +155,10 @@ int main(int argc, char* argv[])
     // Convection operator
     samurai::VelocityVector<dim> velocity;
     velocity.fill(1);
-    velocity(1) = -1;
-
+    if constexpr (dim == 2)
+    {
+        velocity(1) = -1;
+    }
     // origin weno5
     auto conv = samurai::make_convection_weno5<decltype(u)>(velocity);
 
@@ -204,12 +203,9 @@ int main(int argc, char* argv[])
             t = Tf;
         }
 
-        std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt) << std::flush << std::endl;
-
+        std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt) << std::flush;
 
         MRadaptation(mr_epsilon, mr_regularity);
-
-
 
         samurai::update_ghost_mr(u);
 
@@ -247,6 +243,8 @@ int main(int argc, char* argv[])
             }
         }
     }
+
+    std::cout << std::endl;
 
     if constexpr (dim == 1)
     {
