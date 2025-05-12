@@ -38,7 +38,6 @@ namespace samurai
 
         auto adapt = make_MRAdapt(u_1, u_2, u_3);
         adapt(1e-4, 2);
-
         ::samurai::finalize();
     }
 }

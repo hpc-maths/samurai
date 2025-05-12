@@ -9,6 +9,5 @@ int main(int argc, char* argv[])
     boost::mpi::environment env(argc, argv);
 #endif
     ::testing::InitGoogleTest(&argc, argv);
-
-    int ret = RUN_ALL_TESTS();
+    return RUN_ALL_TESTS();
 }
