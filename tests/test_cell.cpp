@@ -50,7 +50,4 @@ namespace samurai
         xt::xarray<double> expected{.5, .5};
         EXPECT_EQ(c.corner(), expected);
     }
-
-
-
 }
