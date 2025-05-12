@@ -582,11 +582,6 @@ namespace samurai
         std::vector<coord_type> add_p_inner_stencil;
         std::vector<size_t> add_p_idx;
 
-        //  if (start_level == 21){
-        //      start_level = 0;
-        //      end_level = 21 ;
-        //  }
-
         for (size_t level = start_level; level != end_level; ++level)
         {
             const auto begin = old_ca[level].cbegin();
