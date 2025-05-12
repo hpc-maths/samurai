@@ -314,7 +314,7 @@ namespace samurai
         set_scaling_factor(cl.scaling_factor());
     }
 
-    /**
+    //    /**
     template <class D, class Config>
     inline Mesh_base<D, Config>::Mesh_base(const ca_type& ca, std::size_t min_level, std::size_t max_level)
         : m_min_level{min_level}
@@ -335,7 +335,8 @@ namespace samurai
         set_origin_point(ca.origin_point());
         set_scaling_factor(ca.scaling_factor());
     }
-    **/
+
+    //    **/
 
     template <class D, class Config>
     inline Mesh_base<D, Config>::Mesh_base(const ca_type& ca, const self_type& ref_mesh)
