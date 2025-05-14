@@ -126,24 +126,32 @@ namespace samurai
                 intersect_old_new.apply_op(samurai::copy(new_field, field));
             }
 
-            std::vector<boost::mpi::request> req;
+            std::vector<boost::mpi::request> req, reqs;
             std::vector<std::vector<value_t>> to_send(static_cast<size_t>(world.size()));
 
             // TODO FIXME: this is overkill and will not scale
             // here we have to define all_* at size n_neighbours...
             std::vector<Mesh_t> all_new_meshes, all_old_meshes;
-            boost::mpi::all_gather(world, new_mesh, all_new_meshes);
-            boost::mpi::all_gather(world, field.mesh(), all_old_meshes);
+            Mesh_t recv_old_mesh, recv_new_mesh;
+            for (auto& neighbour : new_mesh.mpi_neighbourhood())
+            {
+                std::cout << "rank ; " << neighbour.rank << std::endl;
+                reqs.push_back(world.isend(neighbour.rank, 0, new_mesh));
+                reqs.push_back(world.isend(neighbour.rank, 1, old_mesh));
+
+                world.recv(neighbour.rank, 0, recv_new_mesh);
+                world.recv(neighbour.rank, 1, recv_old_mesh);
+
+                all_new_meshes.push_back(recv_new_mesh);
+                all_old_meshes.push_back(recv_old_mesh);
+            }
+            boost::mpi::wait_all(reqs.begin(), reqs.end());
 
             // build payload of field that has been sent to neighbour, so compare old mesh with new neighbour mesh
             // for (auto& neighbour : new_mesh.mpi_neighbourhood())
+            //            for (auto& neighbour : new_mesh.mpi_neighbourhood()){
             for (size_t ni = 0; ni < all_new_meshes.size(); ++ni)
             {
-                if (static_cast<int>(ni) == world.rank())
-                {
-                    continue;
-                }
-
                 // auto & neighbour_new_mesh = neighbour.mesh;
                 auto& neighbour_new_mesh = all_new_meshes[ni];
 
@@ -166,7 +174,7 @@ namespace samurai
                 if (to_send[ni].size() != 0)
                 {
                     // neighbour_rank = neighbour.rank;
-                    auto neighbour_rank = static_cast<int>(ni);
+                    auto neighbour_rank = new_mesh.mpi_neighbourhood()[ni].rank;
                     req.push_back(world.isend(neighbour_rank, neighbour_rank, to_send[ni]));
                 }
             }
@@ -174,11 +182,6 @@ namespace samurai
             // build payload of field that I need to receive from neighbour, so compare NEW mesh with OLD neighbour mesh
             for (size_t ni = 0; ni < all_old_meshes.size(); ++ni)
             {
-                if (static_cast<int>(ni) == world.rank())
-                {
-                    continue;
-                }
-
                 bool isintersect = false;
                 for (std::size_t level = min_level; level <= max_level; ++level)
                 {
@@ -205,7 +208,7 @@ namespace samurai
                 {
                     std::ptrdiff_t count = 0;
                     std::vector<value_t> to_recv;
-                    world.recv(static_cast<int>(ni), world.rank(), to_recv);
+                    world.recv(new_mesh.mpi_neighbourhood()[ni].rank, world.rank(), to_recv);
 
                     for (std::size_t level = min_level; level <= max_level; ++level)
                     {
