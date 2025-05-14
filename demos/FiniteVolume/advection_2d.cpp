@@ -16,6 +16,9 @@
 #include <samurai/stencil_field.hpp>
 #include <samurai/subset/node.hpp>
 
+#include <samurai/load_balancing.hpp>
+#include <samurai/load_balancing_diffusion.hpp>
+
 #include <filesystem>
 namespace fs = std::filesystem;
 
@@ -149,18 +152,24 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
     auto mesh   = u.mesh();
     auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
 
+    auto domain_ = samurai::make_scalar_field<int>("domain", mesh);
+
     if (!fs::exists(path))
     {
         fs::create_directory(path);
     }
 
+    int mrank = 0;
+
     samurai::for_each_cell(mesh,
                            [&](const auto& cell)
                            {
-                               level_[cell] = cell.level;
+                               level_[cell]  = cell.level;
+                               domain_[cell] = mrank;
                            });
 #ifdef SAMURAI_WITH_MPI
     mpi::communicator world;
+    mrank = world.rank();
     samurai::save(path, fmt::format("{}_size_{}{}", filename, world.size(), suffix), mesh, u, level_);
 #else
     samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
@@ -194,9 +203,10 @@ int main(int argc, char* argv[])
     bool correction       = false;
 
     // Output parameters
-    fs::path path        = fs::current_path();
-    std::string filename = "FV_advection_2d";
-    std::size_t nfiles   = 1;
+    fs::path path              = fs::current_path();
+    std::string filename       = "FV_advection_2d";
+    std::size_t nfiles         = 1;
+    std::size_t nt_loadbalance = 10; // nombre d'iteration entre les equilibrages
 
     app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--max-corner", max_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
@@ -207,6 +217,7 @@ int main(int argc, char* argv[])
     app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
+    app.add_option("--nt-loadbalance", nt_loadbalance, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--mr-eps", mr_epsilon, "The epsilon used by the multiresolution to adapt the mesh")
         ->capture_default_str()
         ->group("Multiresolution");
@@ -251,8 +262,19 @@ int main(int argc, char* argv[])
     std::size_t nsave = 1;
     std::size_t nt    = 0;
 
+#ifdef SAMURAI_WITH_MPI
+    Load_balancing::Diffusion balancer;
+#endif
+
     while (t != Tf)
     {
+#ifdef SAMURAI_WITH_MPI
+        if (((nt % nt_loadbalance == 0) && nt > 1) || nt == 1)
+        {
+            balancer.load_balance(mesh, u);
+        }
+#endif
+
         MRadaptation(mr_epsilon, mr_regularity);
 
         t += dt;

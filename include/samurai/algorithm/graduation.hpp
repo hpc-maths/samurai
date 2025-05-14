@@ -436,7 +436,7 @@ namespace samurai
         using coord_type = typename ca_type::lca_type::coord_type;
 
         const size_t max_level = ca.max_level();
-        const size_t min_level = ca.min_level();
+        const size_t min_level = ca.min_level(); // if (min_level == max_size + 1) return 0 ;
 
         std::array<int, dim> nb_cells_finest_level;
 
@@ -565,8 +565,12 @@ namespace samurai
 
         const auto& mesh = tag.mesh();
 
-        const size_t start_level = old_ca.min_level();
-        const size_t end_level   = old_ca.max_level() + 1;
+        size_t start_level = old_ca.min_level();
+        if (start_level == max_size + 1)
+        {
+            return old_ca;
+        }
+        size_t end_level = old_ca.max_level() + 1;
 
         // create the ensemble of cells to coarsen
         ca_type ca_add_m;
