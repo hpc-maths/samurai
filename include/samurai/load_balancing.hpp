@@ -129,13 +129,11 @@ namespace samurai
             std::vector<boost::mpi::request> req, reqs;
             std::vector<std::vector<value_t>> to_send(static_cast<size_t>(world.size()));
 
-            // TODO FIXME: this is overkill and will not scale
             // here we have to define all_* at size n_neighbours...
             std::vector<Mesh_t> all_new_meshes, all_old_meshes;
             Mesh_t recv_old_mesh, recv_new_mesh;
             for (auto& neighbour : new_mesh.mpi_neighbourhood())
             {
-                std::cout << "rank ; " << neighbour.rank << std::endl;
                 reqs.push_back(world.isend(neighbour.rank, 0, new_mesh));
                 reqs.push_back(world.isend(neighbour.rank, 1, old_mesh));
 
