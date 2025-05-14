@@ -32,15 +32,6 @@ namespace Load_balancing
         }
 
         template <class Mesh_t>
-        auto reordering_impl(Mesh_t& mesh)
-        {
-            auto flags = samurai::make_scalar_field<int>("diffusion_flag", mesh);
-            flags.fill(_rank);
-
-            return flags;
-        }
-
-        template <class Mesh_t>
         auto load_balance_impl(Mesh_t& mesh)
         {
             using mpi_subdomain_t = typename Mesh_t::mpi_subdomain_t;
