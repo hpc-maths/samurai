@@ -570,6 +570,15 @@ namespace samurai
         auto qs_j  = Qs_j<order>(src, level - 1, i >> 1, j >> 1);
         auto qs_ij = Qs_ij<order>(src, level - 1, i >> 1, j >> 1);
 
+#ifdef SAMURAI_CHECK_NAN
+        if (xt::any(xt::isnan(qs_ij)))
+        {
+            std::cerr << "NaN detected in the prediction stencil (Qs_ij)." << std::endl;
+            std::cerr << qs_ij << std::endl;
+            // samurai::save(fs::current_path(), "update_ghosts", {true, true}, src.mesh(), src);
+        }
+#endif
+
         if (j & 1)
         {
             auto even_i = i.even_elements();
