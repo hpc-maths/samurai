@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "boundary.hpp"
 #include "samurai/cell.hpp"
 #include "samurai_config.hpp"
 #include "static_algorithm.hpp"
