@@ -159,7 +159,8 @@ namespace samurai
     template <class Field>
     void predict_bc(std::size_t pred_level, const DirectionVector<Field::dim>& direction, Field& field)
     {
-        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        using mesh_id_t  = typename Field::mesh_t::mesh_id_t;
+        using interval_t = typename Field::mesh_t::interval_t;
 
         auto& mesh = field.mesh();
 
@@ -170,8 +171,7 @@ namespace samurai
         // Here, the set algebra doesn't work, so we put the bc_ghosts into a LevelCellArray before computing the
         // intersection.
         // When the problem is fixed, remove the following line and uncomment the line below.
-        LevelCellArray<Field::dim, typename Field::mesh_t::interval_t> bc_ghosts = difference(translate(cells, direction),
-                                                                                              self(mesh.domain()).on(pred_level - 1));
+        LevelCellArray<Field::dim, interval_t> bc_ghosts = difference(translate(cells, direction), self(mesh.domain()).on(pred_level - 1));
         // auto bc_ghosts = difference(translate(cells, direction), self(mesh.domain()).on(pred_level - 1));
 
         auto outside_prediction_ghosts = intersection(bc_ghosts, mesh[mesh_id_t::reference][pred_level]).on(pred_level);
@@ -180,7 +180,12 @@ namespace samurai
             [&](const auto& i, const auto& index)
             {
                 // std::cout << "Predicting B.C. at level " << pred_level << " for i = " << i << ", index = " << index << std::endl;
-                field(pred_level, i, index) = field(pred_level - 1, i >> 1, index >> 1);
+                interval_t i_cell = {i.start, i.start + 1};
+                for (auto ii = i.start; ii < i.end; ++ii, i_cell += 1)
+                {
+                    field(pred_level, i_cell, index) = field(pred_level - 1, i_cell >> 1, index >> 1);
+                }
+                // field(pred_level, i, index) = field(pred_level - 1, i >> 1, index >> 1); // old
             });
     }
 
@@ -289,6 +294,9 @@ namespace samurai
                         {
                             // Apply the B.C. at the same level as the cells
                             update_bc_for_scheme(level, direction, field);
+                            // If the B.C. doesn't fill all the ghost layers, we use polynomial extrapolation
+                            // to fill the remaining layers
+                            update_further_ghosts_by_polynomial_extrapolation(level, direction, field);
                         }
                         if (level < mesh.max_level() && level >= mesh.min_level())
                         {
