@@ -264,7 +264,6 @@ namespace samurai
         for_each_cartesian_direction<dim>(
             [&](auto direction_index, auto& direction)
             {
-                // auto d = find_direction_index(direction);
                 if (!mesh.is_periodic(direction_index))
                 {
                     // We only project down to level-1 (not level-2), because we don't need to compute the detail at level-1,
@@ -286,7 +285,6 @@ namespace samurai
                                                                                                : (max_stencil_width + 1) / 2);
                             for (int layer = 1; layer <= max_coarse_layer; ++layer)
                             {
-                                // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, mesh, field);
                                 project_bc(level, direction, layer, field);
                             }
                         }
@@ -348,15 +346,11 @@ namespace samurai
 
         if (min_level > 0 && min_level != max_level)
         {
-            // update_bc(min_level - 1, field, other_fields...);
             update_ghost_periodic(min_level - 1, field, other_fields...);
             update_ghost_subdomains(min_level - 1, field, other_fields...);
         }
-        // update_bc(min_level, field, other_fields...);
         update_ghost_periodic(min_level, field, other_fields...);
         update_ghost_subdomains(min_level, field, other_fields...);
-
-        // samurai::save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
 
         for (std::size_t level = min_level + 1; level <= max_level; ++level)
         {
@@ -369,8 +363,6 @@ namespace samurai
             expr.apply_op(variadic_prediction<pred_order, false>(field, other_fields...));
             update_ghost_periodic(level, field, other_fields...);
             update_ghost_subdomains(level, field, other_fields...);
-            // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, mesh, field);
-            //  update_bc(level, field, other_fields...);
         }
         // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, mesh, field);
 
