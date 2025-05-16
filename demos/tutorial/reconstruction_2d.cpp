@@ -154,6 +154,8 @@ int main(int argc, char* argv[])
                            });
     samurai::save(path, filename, mrmesh, u, level_);
 
+    samurai::update_ghost_mr(u);
+
     auto t1            = std::chrono::high_resolution_clock::now();
     auto u_reconstruct = reconstruction(u);
     auto t2            = std::chrono::high_resolution_clock::now();
