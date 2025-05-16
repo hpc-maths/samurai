@@ -11,6 +11,7 @@
 #include "../box.hpp"
 #include "../mesh.hpp"
 #include "../samurai_config.hpp"
+#include "../stencil.hpp"
 #include "../subset/apply.hpp"
 #include "../subset/node.hpp"
 
