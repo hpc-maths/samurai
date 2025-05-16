@@ -453,11 +453,13 @@ namespace samurai
     template <class Field>
     void update_ghost_periodic(std::size_t level, Field& field)
     {
-        using field_value_t       = typename Field::value_type;
-        using mesh_id_t           = typename Field::mesh_t::mesh_id_t;
-        using config              = typename Field::mesh_t::config;
-        using lca_type            = typename Field::mesh_t::lca_type;
-        using interval_value_t    = typename Field::interval_t::value_t;
+        using field_value_t    = typename Field::value_type;
+        using mesh_id_t        = typename Field::mesh_t::mesh_id_t;
+        using config           = typename Field::mesh_t::config;
+        using lca_type         = typename Field::mesh_t::lca_type;
+        using interval_value_t = typename Field::interval_t::value_t;
+        using box_t            = Box<interval_value_t, Field::dim>;
+
         constexpr std::size_t dim = Field::dim;
 
         auto& mesh = field.mesh();
@@ -465,8 +467,6 @@ namespace samurai
         const auto& domain      = mesh.domain();
         const auto& min_indices = domain.min_indices();
         const auto& max_indices = domain.max_indices();
-
-        const lca_type& ghosts = mesh[mesh_id_t::reference][level];
 
         const std::size_t delta_l = domain.level() - level;
 
@@ -481,16 +481,12 @@ namespace samurai
             shift[d]      = 0;
         }
 #ifdef SAMURAI_WITH_MPI
-        std::vector<field_value_t> field_data_out;
-        std::vector<field_value_t> field_data_in;
-        mpi::communicator world;
         std::vector<mpi::request> req;
-        req.reserve((dim + 1) * mesh.mpi_neighbourhood().size());
+        req.reserve(mesh.mpi_neighbourhood().size());
+        mpi::communicator world;
 
-        for (const auto& mpi_neighbor : mesh.mpi_neighbourhood())
-        {
-            req.push_back(world.isend(mpi_neighbor.rank, mpi_neighbor.rank, ghosts));
-        }
+        std::vector<std::vector<field_value_t>> field_data_out(mesh.mpi_neighbourhood().size());
+        std::vector<field_value_t> field_data_in;
 #endif // SAMURAI_WITH_MPI
         for (std::size_t d = 0; d < dim; ++d)
         {
@@ -503,66 +499,86 @@ namespace samurai
                 min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
                 max_corner[d] = (min_indices[d] >> delta_l);
 
-                const lca_type lca_in_right{
-                    level,
-                    Box<interval_value_t, dim>{min_corner, max_corner}
-                };
-#ifdef SAMURAI_WITH_MPI
-                auto set_out_left = intersection(ghosts, translate(lca_in_right, shift));
-                auto set_in_right = intersection(ghosts, translate(set_out_left, -shift));
-                field_data_out.clear();
-                set_out_left(
-                    [&](const auto& i, const auto& index)
-                    {
-                        std::copy(field(level, i, index).begin(), field(level, i, index).end(), std::back_inserter(field_data_out));
-                    });
-                auto in_right_data_it = field_data_out.cbegin();
-                set_in_right(
-                    [&](const auto& i, const auto& index)
-                    {
-                        std::copy(in_right_data_it, in_right_data_it + std::ssize(field(level, i, index)), field(level, i, index).begin());
-                        in_right_data_it += std::ssize(field(level, i, index));
-                    });
-#else
-                auto set_in_right = intersection(ghosts, lca_in_right);
+                const lca_type lca_in_right(level, box_t(min_corner, max_corner));
 
+                auto set_in_right = intersection(mesh[mesh_id_t::reference][level], lca_in_right);
                 set_in_right(
                     [&](const auto& i, const auto& index)
                     {
                         field(level, i, index) = field(level, i + shift_interval, index + shift_index);
                     });
+#ifdef SAMURAI_WITH_MPI
+                size_t neighbor_id = 0;
+                for (const auto& mpi_neighbor : mesh.mpi_neighbourhood())
+                {
+                    field_data_out[neighbor_id].clear();
+                    auto set_neighbor_out_left = intersection(mpi_neighbor.mesh[mesh_id_t::reference][level], translate(set_in_right, shift));
+                    set_neighbor_out_left(
+                        [&](const auto& i, const auto& index)
+                        {
+                            const auto& field_data = field(level, i + shift_interval, index + shift_index);
+                            std::copy(field_data.begin(), field_data.end(), std::back_inserter(field_data_out[neighbor_id]));
+                        });
+                    req.push_back(world.isend(mpi_neighbor.rank, mpi_neighbor.rank, field_data_out[neighbor_id]));
+                    ++neighbor_id;
+                }
+                for (const auto& mpi_neighbor : mesh.mpi_neighbourhood())
+                {
+                    world.recv(mpi_neighbor.rank, world.rank(), field_data_in);
+                    auto it = field_data_in.cbegin();
+                    auto set_neighbor_out_left = intersection(mpi_neighbor.mesh[mesh_id_t::reference][level], translate(set_in_right, shift));
+                    auto set_neighbor_in_right = intersection(mesh[mesh_id_t::reference][level], translate(set_neighbor_out_left, -shift));
+                    set_neighbor_in_right(
+                        [&](const auto& i, const auto& index)
+                        {
+                            std::copy(it, it + std::ssize(field(level, i, index)), field(level, i, index).begin());
+                            it += std::ssize(field(level, i, index));
+                        });
+                }
+                mpi::wait_all(req.begin(), req.end());
 #endif // SAMURAI_WITH_MPI
                 /* transfers data from right to left */
                 min_corner[d] = (max_indices[d] >> delta_l);
                 max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
 
-                const lca_type lca_in_left{
-                    level,
-                    Box<interval_value_t, dim>{min_corner, max_corner}
-                };
-#ifdef SAMURAI_WITH_MPI
-                auto set_out_right = intersection(ghosts, translate(lca_in_left, -shift));
-                auto set_in_left   = intersection(ghosts, translate(set_out_right, shift));
-                field_data_out.clear();
-                set_out_right(
-                    [&](const auto& i, const auto& index)
-                    {
-                        std::copy(field(level, i, index).begin(), field(level, i, index).end(), std::back_inserter(field_data_out));
-                    });
-                auto in_left_data_it = field_data_out.cbegin();
-                set_in_left(
-                    [&](const auto& i, const auto& index)
-                    {
-                        std::copy(in_left_data_it, in_left_data_it + std::ssize(field(level, i, index)), field(level, i, index).begin());
-                        in_left_data_it += std::ssize(field(level, i, index));
-                    });
-#else
-                auto set_in_left = intersection(ghosts, lca_in_left);
+                const lca_type lca_in_left(level, box_t(min_corner, max_corner));
+                auto set_in_left = intersection(mesh[mesh_id_t::reference][level], lca_in_left);
                 set_in_left(
                     [&](const auto& i, const auto& index)
                     {
                         field(level, i, index) = field(level, i - shift_interval, index - shift_index);
                     });
+#ifdef SAMURAI_WITH_MPI
+                neighbor_id = 0;
+                for (const auto& mpi_neighbor : mesh.mpi_neighbourhood())
+                {
+                    field_data_out[neighbor_id].clear();
+                    auto set_neighbor_out_right = intersection(mpi_neighbor.mesh[mesh_id_t::reference][level],
+                                                               translate(set_in_left, -shift));
+                    set_neighbor_out_right(
+                        [&](const auto i, const auto& index)
+                        {
+                            const auto field_data = field(level, i - shift_interval, index - shift_index);
+                            std::copy(field_data.begin(), field_data.end(), std::back_inserter(field_data_out[neighbor_id]));
+                        });
+                    req.push_back(world.isend(mpi_neighbor.rank, mpi_neighbor.rank, field_data_out[neighbor_id]));
+                    ++neighbor_id;
+                }
+                for (const auto& mpi_neighbor : mesh.mpi_neighbourhood())
+                {
+                    world.recv(mpi_neighbor.rank, world.rank(), field_data_in);
+                    auto it                     = field_data_in.cbegin();
+                    auto set_neighbor_out_right = intersection(mpi_neighbor.mesh[mesh_id_t::reference][level],
+                                                               translate(set_in_left, -shift));
+                    auto set_neighbor_in_left   = intersection(mesh[mesh_id_t::reference][level], translate(set_neighbor_out_right, shift));
+                    set_neighbor_in_left(
+                        [&](const auto& i, const auto& index)
+                        {
+                            std::copy(it, it + std::ssize(field(level, i, index)), field(level, i, index).begin());
+                            it += std::ssize(field(level, i, index));
+                        });
+                }
+                mpi::wait_all(req.begin(), req.end());
 #endif // SAMURAI_WITH_MPI
                 /* reset variables for next iterations. */
                 shift[d]      = 0;
@@ -570,97 +586,6 @@ namespace samurai
                 max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
             }
         }
-#ifdef SAMURAI_WITH_MPI
-        lca_type neighbor_ghosts;
-        for (const auto& mpi_neighbor : mesh.mpi_neighbourhood())
-        {
-            world.recv(mpi_neighbor.rank, world.rank(), neighbor_ghosts);
-            for (std::size_t d = 0; d < dim; ++d)
-            {
-                if (mesh.is_periodic(d))
-                {
-                    shift[d] = (max_indices[d] - min_indices[d]) >> delta_l;
-                    /* transfers data from left to right */
-                    min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
-                    max_corner[d] = (min_indices[d] >> delta_l);
-
-                    const lca_type lca_in_right{
-                        level,
-                        Box<interval_value_t, dim>{min_corner, max_corner}
-                    };
-
-                    auto set_out_left = intersection(neighbor_ghosts, translate(intersection(ghosts, lca_in_right), shift));
-                    auto set_in_right = intersection(ghosts, translate(set_out_left, -shift));
-                    field_data_out.clear();
-                    set_out_left(
-                        [&](const auto& i, const auto& index)
-                        {
-                            std::copy(field(level, i, index).begin(), field(level, i, index).end(), std::back_inserter(field_data_out));
-                        });
-
-                    req.push_back(world.isend(mpi_neighbor.rank, mpi_neighbor.rank, field_data_out));
-                    world.recv(mpi_neighbor.rank, world.rank(), field_data_in);
-
-                    if (world.rank() == 1)
-                    {
-                        std::cout << "process " << world.rank() << " recieve " << field_data_in.size() << " doubles from process "
-                                  << mpi_neighbor.rank;
-                        if (field_data_in.size() != 0)
-                        {
-                            std::cout << " : (min/max/avg) : " << *std::min_element(field_data_in.begin(), field_data_in.end()) << "/"
-                                      << *std::max_element(field_data_in.begin(), field_data_in.end()) << "/"
-                                      << std::reduce(field_data_in.begin(), field_data_in.end()) / field_data_in.size() << std::endl;
-                        }
-                        else
-                        {
-                            std::cout << std::endl;
-                        }
-                    }
-
-                    auto in1_data_it = field_data_in.cbegin();
-                    set_in_right(
-                        [&](const auto& i, const auto& index)
-                        {
-                            std::copy(in1_data_it, in1_data_it + std::ssize(field(level, i, index)), field(level, i, index).begin());
-                            in1_data_it += std::ssize(field(level, i, index));
-                        });
-                    /* transfers data from right to left */
-                    min_corner[d] = (max_indices[d] >> delta_l);
-                    max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
-
-                    const lca_type lca_in_left{
-                        level,
-                        Box<interval_value_t, dim>{min_corner, max_corner}
-                    };
-
-                    auto set_out_right = intersection(neighbor_ghosts, translate(intersection(ghosts, lca_in_left), -shift));
-                    auto set_in_left   = intersection(ghosts, neighbor_ghosts, translate(set_out_right, shift));
-                    field_data_out.clear();
-                    set_out_right(
-                        [&](const auto& i, const auto& index)
-                        {
-                            std::copy(field(level, i, index).begin(), field(level, i, index).end(), std::back_inserter(field_data_out));
-                        });
-
-                    req.push_back(world.isend(mpi_neighbor.rank, mpi_neighbor.rank, field_data_out));
-                    world.recv(mpi_neighbor.rank, world.rank(), field_data_in);
-
-                    auto in2_data_it = field_data_in.cbegin();
-                    set_in_left(
-                        [&](const auto& i, const auto& index)
-                        {
-                            std::copy(in2_data_it, in2_data_it + std::ssize(field(level, i, index)), field(level, i, index).begin());
-                            in2_data_it += std::ssize(field(level, i, index));
-                        });
-                    /* reset variables for next iterations. */
-                    shift[d]      = 0;
-                    min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
-                    max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
-                }
-            }
-        }
-        mpi::wait_all(req.begin(), req.end());
-#endif // SAMURAI_WITH_MPI
     }
 
     template <class Field, class... Fields>
