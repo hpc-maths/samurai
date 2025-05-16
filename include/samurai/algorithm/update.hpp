@@ -95,7 +95,8 @@ namespace samurai
     template <class Field>
     void project_bc(std::size_t proj_level, const DirectionVector<Field::dim>& direction, int layer, Field& field)
     {
-        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        using mesh_id_t  = typename Field::mesh_t::mesh_id_t;
+        using interval_t = typename Field::mesh_t::interval_t;
 
         assert(layer > 0 && layer <= Field::mesh_t::config::max_stencil_width);
 
@@ -116,7 +117,9 @@ namespace samurai
             {
                 field(proj_level, i, index) = 0; // Initialize the sums to 0 to compute the average
 
-                for (auto ii = i.start; ii < i.end; ++ii)
+                interval_t i_cell = {i.start, i.start + 1};
+
+                for (auto ii = i.start; ii < i.end; ++ii, i_cell += 1)
                 {
                     proj_ghost_lca.add_point_back(ii, index); // this LCA stores only the current ghost we need to fill
                     int n_children = 0;
@@ -139,7 +142,7 @@ namespace samurai
                                     std::exit(1);
                                 }
 #endif
-                                field(proj_level, i, index) += field(proj_level + 1, {ii_child, ii_child + 1}, index_child);
+                                field(proj_level, i_cell, index) += field(proj_level + 1, {ii_child, ii_child + 1}, index_child);
                                 n_children++;
                             }
                         });
@@ -150,7 +153,7 @@ namespace samurai
                         std::exit(1);
                     }
                     // ... then we divide the sum by the number of children to get the average
-                    field(proj_level, i, index) /= n_children;
+                    field(proj_level, i_cell, index) /= n_children;
                     proj_ghost_lca.clear();
                 }
             });
