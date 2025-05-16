@@ -179,7 +179,7 @@ int main(int argc, char* argv[])
     xt::xtensor_fixed<double, xt::xshape<dim>> min_corner = {0., 0.};
     xt::xtensor_fixed<double, xt::xshape<dim>> max_corner = {1., 1.};
     std::array<double, dim> a{
-        {1, 1}
+        {-1, -1}
     };
     double Tf  = .1;
     double cfl = 0.5;
@@ -230,14 +230,19 @@ int main(int argc, char* argv[])
 
     if (restart_file.empty())
     {
-        mesh = {box, min_level, max_level};
+        mesh = {
+            box,
+            min_level,
+            max_level,
+            {true, true}
+        };
         init(u);
     }
     else
     {
         samurai::load(restart_file, mesh, u);
     }
-    samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
+    //~ samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
 
     double dt            = cfl * mesh.cell_length(max_level);
     const double dt_save = Tf / static_cast<double>(nfiles);
