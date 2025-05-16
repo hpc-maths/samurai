@@ -294,15 +294,16 @@ namespace samurai
                         {
                             // Apply the B.C. at the same level as the cells
                             update_bc_for_scheme(level, direction, field);
-                            // If the B.C. doesn't fill all the ghost layers, we use polynomial extrapolation
-                            // to fill the remaining layers
-                            update_further_ghosts_by_polynomial_extrapolation(level, direction, field);
                         }
                         if (level < mesh.max_level() && level >= mesh.min_level())
                         {
                             // Project the B.C. up to level+1 (prediction of order 0)
                             predict_bc(level + 1, direction, field);
                         }
+
+                        // If the B.C. doesn't fill all the ghost layers, we use polynomial extrapolation
+                        // to fill the remaining layers
+                        update_further_ghosts_by_polynomial_extrapolation(level, direction, field);
 
                         if (level == 0)
                         {
