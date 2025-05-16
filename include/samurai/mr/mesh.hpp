@@ -175,7 +175,8 @@ namespace samurai
             [&](std::size_t level, const auto& interval, const auto& index_yz)
             {
                 lcl_type& lcl = cell_list[level];
-                for_each_cartesian_direction<dim>(
+                lcl[index_yz].add_interval({interval.start - config::max_stencil_width, interval.end + config::max_stencil_width});
+                for_each_cartesian_direction<dim - 1>(
                     [&](auto& direction)
                     {
                         for (int width = 1; width <= config::max_stencil_width; ++width)
