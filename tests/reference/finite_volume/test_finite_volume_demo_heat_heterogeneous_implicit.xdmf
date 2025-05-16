@@ -2,17 +2,17 @@
 <Xdmf>
     <Domain>
         <Grid Name="mesh">
-            <Topology TopologyType="Quadrilateral" NumberOfElements="2866">
-                <DataItem Dimensions="11464" Format="HDF">test_finite_volume_demo_heat_heterogeneous_implicit.h5:/mesh/connectivity</DataItem>
+            <Topology TopologyType="Quadrilateral" NumberOfElements="2911">
+                <DataItem Dimensions="11644" Format="HDF">test_finite_volume_demo_heat_heterogeneous_implicit.h5:/mesh/connectivity</DataItem>
             </Topology>
             <Geometry GeometryType="XYZ">
-                <DataItem Dimensions="9075" Format="HDF">test_finite_volume_demo_heat_heterogeneous_implicit.h5:/mesh/points</DataItem>
+                <DataItem Dimensions="9258" Format="HDF">test_finite_volume_demo_heat_heterogeneous_implicit.h5:/mesh/points</DataItem>
             </Geometry>
             <Attribute Name="u" Center="Cell">
-                <DataItem Dimensions="2866" Format="HDF" Precision="8">test_finite_volume_demo_heat_heterogeneous_implicit.h5:/mesh/fields/u</DataItem>
+                <DataItem Dimensions="2911" Format="HDF" Precision="8">test_finite_volume_demo_heat_heterogeneous_implicit.h5:/mesh/fields/u</DataItem>
             </Attribute>
             <Attribute Name="level" Center="Cell">
-                <DataItem Dimensions="2866" Format="HDF" Precision="8">test_finite_volume_demo_heat_heterogeneous_implicit.h5:/mesh/fields/level</DataItem>
+                <DataItem Dimensions="2911" Format="HDF" Precision="8">test_finite_volume_demo_heat_heterogeneous_implicit.h5:/mesh/fields/level</DataItem>
             </Attribute>
         </Grid>
     </Domain>
