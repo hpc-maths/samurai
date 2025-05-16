@@ -946,8 +946,6 @@ namespace samurai
         auto stencil          = convert_for_direction(stencil_0, direction);
         auto stencil_analyzer = make_stencil_analyzer(stencil);
 
-        // auto bdry_cells = intersection(mesh[mesh_id_t::cells][level], subset); // I think this can be removed
-
         //  We need to check that the furthest ghost exists. It's not always the case for large stencils!
         auto translated_outer_nghbr = translate(mesh[mesh_id_t::reference][level], -(stencil_size / 2) * direction); // can be removed?
         auto cells                  = intersection(translated_outer_nghbr, bdry_cells).on(level);
