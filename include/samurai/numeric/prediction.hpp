@@ -11,6 +11,9 @@
 
 #include "../operators_base.hpp"
 #include "../storage/utils.hpp"
+#ifdef SAMURAI_CHECK_NAN
+#include "../io/hdf5.hpp"
+#endif
 
 namespace samurai
 {
@@ -575,7 +578,7 @@ namespace samurai
         {
             std::cerr << "NaN detected in the prediction stencil (Qs_ij)." << std::endl;
             std::cerr << qs_ij << std::endl;
-            // samurai::save(fs::current_path(), "update_ghosts", {true, true}, src.mesh(), src);
+            samurai::save(fs::current_path(), "prediction_error", {true, true}, src.mesh(), src);
         }
 #endif
 
