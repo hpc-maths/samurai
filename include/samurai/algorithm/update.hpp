@@ -10,6 +10,7 @@
 #include "../algorithm.hpp"
 #include "../bc.hpp"
 #include "../field.hpp"
+#include "../io/hdf5.hpp"
 #include "../numeric/prediction.hpp"
 #include "../numeric/projection.hpp"
 #include "../subset/node.hpp"
@@ -97,6 +98,7 @@ namespace samurai
     {
         using mesh_id_t  = typename Field::mesh_t::mesh_id_t;
         using interval_t = typename Field::mesh_t::interval_t;
+        using lca_t      = typename Field::mesh_t::lca_type;
 
         assert(layer > 0 && layer <= Field::mesh_t::config::max_stencil_width);
 
@@ -109,7 +111,6 @@ namespace samurai
         auto outside_layer     = difference(translate(inner, layer * direction), translate(domain, (layer - 1) * direction));
         auto projection_ghosts = intersection(outside_layer, mesh[mesh_id_t::reference][proj_level]).on(proj_level);
 
-        using lca_t = typename Field::mesh_t::lca_type;
         lca_t proj_ghost_lca(proj_level, mesh.origin_point(), mesh.scaling_factor());
 
         projection_ghosts(
@@ -123,36 +124,48 @@ namespace samurai
                 {
                     proj_ghost_lca.add_point_back(ii, index); // this LCA stores only the current ghost we need to fill
                     int n_children = 0;
-                    // We retrieve the children of the current ghost by intersecting it with the upper level
-                    auto children = intersection(self(proj_ghost_lca).on(proj_level + 1), mesh[mesh_id_t::reference][proj_level + 1])
-                                        .on(proj_level + 1);
-                    // We iterate over the children and add their values to the current ghost...
-                    children(
-                        [&](const auto& i_child, const auto& index_child)
-                        {
-                            for (auto ii_child = i_child.start; ii_child < i_child.end; ++ii_child)
+
+                    // We loop over the upper levels to find children.
+                    // 99% of the time, children are found at level+1, but if there is no children there, we search at level+2
+                    // (this can actually happen in the lid-driven cavity)
+                    for (auto children_level = proj_level + 1; children_level <= proj_level + 2; ++children_level)
+                    {
+                        // We retrieve the children of the current ghost by intersecting it with the upper level
+                        auto children = intersection(self(proj_ghost_lca).on(children_level), mesh[mesh_id_t::reference][children_level]);
+                        // We iterate over the children and add their values to the current ghost in ordrer to compute the average
+                        children(
+                            [&](const auto& i_child, const auto& index_child)
                             {
-#ifdef SAMURAI_CHECK_NAN
-                                if (xt::any(xt::isnan(field(proj_level + 1, {ii_child, ii_child + 1}, index_child))))
+                                for (auto ii_child = i_child.start; ii_child < i_child.end; ++ii_child)
                                 {
-                                    std::cerr << std::endl
-                                              << "NaN found in field(" << proj_level + 1 << "," << ii_child << "," << index_child
-                                              << ") during projection of the B.C." << std::endl;
-                                    // samurai::save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
-                                    std::exit(1);
-                                }
+#ifdef SAMURAI_CHECK_NAN
+                                    if (xt::any(xt::isnan(field(children_level, {ii_child, ii_child + 1}, index_child))))
+                                    {
+                                        std::cerr << std::endl
+                                                  << "NaN found in field(" << children_level << "," << ii_child << "," << index_child
+                                                  << ") during projection of the B.C." << std::endl;
+                                        // samurai::save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
+                                        std::exit(1);
+                                    }
 #endif
-                                field(proj_level, i_cell, index) += field(proj_level + 1, {ii_child, ii_child + 1}, index_child);
-                                n_children++;
-                            }
-                        });
+                                    field(proj_level, i_cell, index) += field(children_level, {ii_child, ii_child + 1}, index_child);
+                                    n_children++;
+                                }
+                            });
+                        // If we found children, we break the loop. Otherwise, we continue to search at the next level
+                        if (n_children > 0)
+                        {
+                            break;
+                        }
+                    }
                     if (n_children == 0)
                     {
                         std::cerr << "No children found for the ghost at level " << proj_level << ", i = " << ii << ", index = " << index
                                   << " during projection of the B.C." << std::endl;
+                        samurai::save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
                         std::exit(1);
                     }
-                    // ... then we divide the sum by the number of children to get the average
+                    // We divide the sum by the number of children to get the average
                     field(proj_level, i_cell, index) /= n_children;
                     proj_ghost_lca.clear();
                 }
