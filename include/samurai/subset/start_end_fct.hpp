@@ -155,7 +155,7 @@ namespace samurai
                 int curr2min = static_cast<int>(level) - static_cast<int>(m_min_level);
                 int min2max  = static_cast<int>(m_max_level) - static_cast<int>(m_min_level);
 
-                return f(m_level, (((i >> max2curr) - m_c) >> curr2min) << min2max);
+                return f(m_level, (((i >> max2curr) + m_c) >> curr2min) << min2max);
             };
             return new_f;
         }
