@@ -245,35 +245,10 @@ namespace samurai
         {
             update_tag_subdomains(level, m_tag, true);
         }
-        using mesh_id_t  = typename TField::mesh_t::mesh_id_t;
-        auto coords      = make_field<int, dim, false>("coordinates", mesh);
-        auto level_field = make_field<std::size_t, 1, false>("level", mesh);
-        for_each_cell(mesh[mesh_id_t::reference],
-                      [&](auto& cell)
-                      {
-                          if constexpr (dim == 1)
-                          {
-                              coords[cell] = cell.indices[0];
-                          }
-                          else
-                          {
-                              coords[cell] = cell.indices;
-                          }
-                          level_field[cell] = cell.level;
-                      });
-        {
-            mpi::communicator world;
 
-            save(std::filesystem::current_path(),
-                 "addapt_" + std::to_string(ite) + "_size_" + std::to_string(world.size()),
-                 {true, true},
-                 mesh,
-                 coords,
-                 level_field);
-            times::timers.stop("mesh adaptation");
-            update_ghost_mr(m_fields);
-            times::timers.start("mesh adaptation");
-        }
+        times::timers.stop("mesh adaptation");
+        update_ghost_mr(m_fields);
+        times::timers.start("mesh adaptation");
 
         for (std::size_t level = ((min_level > 0) ? min_level - 1 : 0); level < max_level - ite; ++level)
         {
