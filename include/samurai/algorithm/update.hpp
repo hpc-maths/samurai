@@ -17,8 +17,6 @@
 #include "graduation.hpp"
 #include "utils.hpp"
 
-#include <cstdio>
-
 using namespace xt::placeholders;
 
 #ifdef SAMURAI_WITH_MPI
