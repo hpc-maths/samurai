@@ -179,7 +179,7 @@ int main(int argc, char* argv[])
     xt::xtensor_fixed<double, xt::xshape<dim>> min_corner = {0., 0.};
     xt::xtensor_fixed<double, xt::xshape<dim>> max_corner = {1., 1.};
     std::array<double, dim> a{
-        {-1, -1}
+        {1, 1}
     };
     double Tf  = .1;
     double cfl = 0.5;
@@ -242,7 +242,7 @@ int main(int argc, char* argv[])
     {
         samurai::load(restart_file, mesh, u);
     }
-    //~ samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
+    samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
 
     double dt            = cfl * mesh.cell_length(max_level);
     const double dt_save = Tf / static_cast<double>(nfiles);
@@ -252,6 +252,9 @@ int main(int argc, char* argv[])
     auto MRadaptation = samurai::make_MRAdapt(u);
     MRadaptation(mr_epsilon, mr_regularity);
     save(path, filename, u, "_init");
+
+    //~ save(fs::current_path(), "mesh", {true, true}, mesh);
+    //~ std::exit(0);
 
     std::size_t nsave = 1;
     std::size_t nt    = 0;
