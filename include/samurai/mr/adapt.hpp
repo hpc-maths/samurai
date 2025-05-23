@@ -253,6 +253,16 @@ namespace samurai
         // Detail computation //
         //--------------------//
 
+        bool periodic = false;
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            if (mesh.is_periodic(d))
+            {
+                periodic = true;
+                break;
+            }
+        }
+
         for (std::size_t level = ((min_level > 0) ? min_level - 1 : 0); level < max_level - ite; ++level)
         {
             // 1. detail computation in the cells (at level+1)
@@ -262,48 +272,38 @@ namespace samurai
             // 2. detail computation in the ghosts below cells (at level)
             if (level >= min_level)
             {
-                // We don't want to compute the detail in the ghosts below the boundary cells. In those ghosts, we want to keep the detail
-                // to 0. We do taht because that detail would use the outer ghost cells at level L-2, which holds the BC projected 2 times,
-                // and this method actually does not work well.
-                // So we removing a layer of 4 boundary cells from the domain. This number of 4 ensures that the outer ghost at level L-2
-                // will not be used in the prediction stencil of interior ghosts.
-                auto domain_without_bdry         = contraction(self(mesh.domain()).on(level + 1), 4);
-                auto cells_without_bdry          = intersection(mesh[mesh_id_t::cells][level + 1], domain_without_bdry);
-                auto ghosts_below_cells2         = intersection(mesh[mesh_id_t::all_cells][level], cells_without_bdry).on(level);
-                auto ghosts_2_levels_below_cells = intersection(mesh[mesh_id_t::all_cells][level - 1], ghosts_below_cells2).on(level - 1);
-                ghosts_2_levels_below_cells.apply_op(compute_detail(m_detail, m_fields));
+                if (periodic)
+                {
+                    auto ghosts_2_levels_below_cells = intersection(mesh[mesh_id_t::all_cells][level - 1], ghosts_below_cells).on(level - 1);
+                    ghosts_2_levels_below_cells.apply_op(compute_detail(m_detail, m_fields));
+                }
+                else
+                {
+                    // We don't want to compute the detail in the ghosts below the boundary cells. In those ghosts, we want to keep the
+                    // detail to 0. We do taht because that detail would use the outer ghost cells at level L-2, which holds the BC
+                    // projected 2 times, and this method actually does not work well. So we removing a layer of 4 boundary cells from the
+                    // domain. This number of 4 ensures that the outer ghost at level L-2 will not be used in the prediction stencil of
+                    // interior ghosts.
+                    auto domain_without_bdry = contraction(self(mesh.domain()).on(level + 1), 4);
+                    auto cells_without_bdry  = intersection(mesh[mesh_id_t::cells][level + 1], domain_without_bdry);
+                    auto ghosts_below_cells2 = intersection(mesh[mesh_id_t::all_cells][level], cells_without_bdry).on(level);
+                    auto ghosts_2_levels_below_cells = intersection(mesh[mesh_id_t::all_cells][level - 1], ghosts_below_cells2).on(level - 1);
+                    ghosts_2_levels_below_cells.apply_op(compute_detail(m_detail, m_fields));
 
-                // The code below sets the detail to 0 in the ghosts near the boundary where we didn't compute the detail.
-                // Since the detail is initialized to 0, this code optional. We keep it commented for now, in case we need it.
+                    // The code below sets the detail to 0 in the ghosts near the boundary where we didn't compute the detail.
+                    // Since the detail is initialized to 0, this code optional. We keep it commented for now, in case we need it.
 
-                /*using lca_t     = typename mesh_t::lca_type;
-                auto bdry_cells = lca_t(difference(mesh[mesh_id_t::cells][level + 1], domain_without_bdry));
-                auto ghosts_below_bdry_cells = intersection(mesh[mesh_id_t::all_cells][level], bdry_cells).on(level);
-                ghosts_below_bdry_cells(
-                    [&](const auto& i, const auto& index)
-                    {
-                        m_detail(level, i, index) = 0;
-                    });*/
+                    /*using lca_t     = typename mesh_t::lca_type;
+                    auto bdry_cells = lca_t(difference(mesh[mesh_id_t::cells][level + 1], domain_without_bdry));
+                    auto ghosts_below_bdry_cells = intersection(mesh[mesh_id_t::all_cells][level], bdry_cells).on(level);
+                    ghosts_below_bdry_cells(
+                        [&](const auto& i, const auto& index)
+                        {
+                            m_detail(level, i, index) = 0;
+                        });*/
+                }
             }
         }
-
-        // For the boundary cells at level L, we don't want to compute the detail at level L-1
-        // (because that detail will use the outer ghost cells at level L-2, which is holds the BC projected 2 times,
-        // and this method actually does not work well.)
-        // for (std::size_t level = min_level + 1; level <= max_level; ++level)
-        // {
-        //     for_each_cartesian_direction<dim>(
-        //         [&](auto& direction)
-        //         {
-        //             auto bdry_cells       = domain_boundary_layer(mesh, level, direction, 4);
-        //             auto bdry_proj_ghosts = intersection(mesh[mesh_id_t::reference][level - 1], bdry_cells).on(level - 1);
-        //             bdry_proj_ghosts(
-        //                 [&](const auto& i, const auto& index)
-        //                 {
-        //                     m_detail(level - 1, i, index) = 0;
-        //                 });
-        //         });
-        // }
 
         update_ghost_subdomains(m_detail);
 

@@ -370,11 +370,9 @@ namespace samurai
 
         for (std::size_t level = min_level + 1; level <= max_level; ++level)
         {
-            auto expr = intersection(difference(mesh[mesh_id_t::all_cells][level],
-                                                union_(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::proj_cells][level])),
-                                     mesh.subdomain(),
-                                     mesh[mesh_id_t::all_cells][level - 1])
-                            .on(level);
+            auto pred_ghosts = difference(mesh[mesh_id_t::all_cells][level],
+                                          union_(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::proj_cells][level]));
+            auto expr        = intersection(pred_ghosts, mesh.subdomain(), mesh[mesh_id_t::all_cells][level - 1]).on(level);
 
             expr.apply_op(variadic_prediction<pred_order, false>(field, other_fields...));
             update_ghost_periodic(level, field, other_fields...);
