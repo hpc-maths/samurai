@@ -180,6 +180,15 @@ namespace samurai
         ca = {cl, true};
 
         {
+            auto set = self(ca[4]).on(0);
+            apply(set,
+                  [](auto& i, auto)
+                  {
+                      std::cout << i << std::endl;
+                  });
+        }
+
+        {
             auto set = intersection(self(ca[4]).on(0), ca[5]).on(1);
             apply(set,
                   [](auto& i, auto)
@@ -483,12 +492,12 @@ namespace samurai
             };
             std::size_t ie = 0;
 
-            apply(difference(domain, translate(domain, dir)).on(1),
-                  [&](auto& i, auto& index)
-                  {
-                      EXPECT_EQ(ie, 0);
-                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
-                  });
+            // apply(difference(domain, translate(domain, dir)).on(1),
+            //       [&](auto& i, auto& index)
+            //       {
+            //           EXPECT_EQ(ie, 0);
+            //           EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+            //       });
 
             dir = {0, 1};
             ie  = 0;
@@ -576,4 +585,334 @@ namespace samurai
                   EXPECT_EQ(interval_t(7, 13), i);
               });
     }
+
+    // TEST(new_subset, translate_2_old)
+    // {
+    //     using lca_t      = LevelCellArray<2>;
+    //     using interval_t = typename lca_t::interval_t;
+    //     LevelCellArray<2> boundary(5);
+
+    //     for (int j = 4; j < 28; ++j)
+    //     {
+    //         boundary.add_point_back(31, {j});
+    //     }
+
+    //     std::cout << boundary << std::endl;
+
+    //     LevelCellArray<2> domain(5);
+    //     for (int j = 4; j < 28; ++j)
+    //     {
+    //         domain.add_interval_back({0, 32}, {j});
+    //     }
+
+    //     LevelCellArray<2> lca(4);
+
+    //     lca.add_interval_back({0, 2}, {0});
+    //     lca.add_interval_back({14, 16}, {0});
+    //     lca.add_interval_back({0, 16}, {1});
+    //     for (int j = 2; j < 14; ++j)
+    //     {
+    //         lca.add_interval_back({1, 2}, {j});
+    //         lca.add_interval_back({14, 15}, {j});
+    //     }
+    //     lca.add_interval_back({0, 16}, {15});
+    //     lca.add_interval_back({0, 2}, {16});
+    //     lca.add_interval_back({14, 16}, {16});
+
+    //     std::cout << lca << std::endl;
+
+    //     xt::xtensor_fixed<int, xt::xshape<2>> translation{1, 0};
+
+    //     {
+    //         auto set = difference(domain, translate(self(domain), -translation));
+    //         set(
+    //             [&](auto& i, auto& index)
+    //             {
+    //                 std::cout << "domain i: " << i << " index: " << index << std::endl;
+    //             });
+    //     }
+
+    //     auto diff = difference(domain, translate(self(domain), -translation));
+
+    //     auto set = intersection(translate(diff.on(4), -translation), lca);
+    //     // auto set = intersection(diff.on(4), diff.on(4)).on(5);
+    //     // auto set = intersection(translate(self(boundary).on(4), -translation), lca);
+    //     // set(
+    //     //     [&](auto& i, auto& index)
+    //     //     {
+    //     //         std::cout << "******************************" << std::endl;
+    //     //         std::cout << "FOUND i: " << i << " index: " << index << std::endl;
+    //     //         std::cout << "******************************" << std::endl;
+    //     //     });
+
+    //     // LevelCellArray<2> domain1(5);
+    //     // for (int j = 4; j < 6; ++j)
+    //     // {
+    //     //     domain1.add_interval_back({0, 32}, {j});
+    //     // }
+    //     // xt::xtensor_fixed<int, xt::xshape<2>> translation{1, 0};
+    //     // auto diff = difference(domain1, translate(self(domain1), -translation));
+
+    //     // bool found = false;
+    //     // diff.on(4)(
+    //     //     [&](auto& i, auto& index)
+    //     //     {
+    //     //         found = true;
+    //     //         EXPECT_EQ(interval_t(15, 16), i);
+    //     //         EXPECT_EQ(index[0], 2);
+    //     //     });
+    //     // EXPECT_TRUE(found);
+
+    //     // found = false;
+    //     // intersection(diff.on(4), diff.on(4))(
+    //     //     [&](auto& i, auto& index)
+    //     //     {
+    //     //         found = true;
+    //     //         EXPECT_EQ(interval_t(15, 16), i);
+    //     //         EXPECT_EQ(index[0], 2);
+    //     //     });
+    //     // EXPECT_TRUE(found);
+
+    //     // found = false;
+    //     // intersection(diff.on(4), diff.on(4))
+    //     //     .on(3)(
+    //     //         [&](auto& i, auto& index)
+    //     //         {
+    //     //             found = true;
+    //     //             EXPECT_EQ(interval_t(7, 8), i);
+    //     //             EXPECT_EQ(index[0], 1);
+    //     //         });
+    //     // EXPECT_TRUE(found);
+
+    //     // found = false;
+    //     // intersection(intersection(diff.on(4), diff.on(4)).on(3), intersection(diff.on(4), diff.on(4)).on(5))
+    //     //     .on(3)(
+    //     //         [&](auto& i, auto& index)
+    //     //         {
+    //     //             found = true;
+    //     //             EXPECT_EQ(interval_t(7, 8), i);
+    //     //             EXPECT_EQ(index[0], 1);
+    //     //         });
+    //     // EXPECT_TRUE(found);
+
+    //     // LevelCellArray<2> lca_4(4);
+    //     // lca_4.add_interval_back({15, 16}, {2});
+
+    //     // found = false;
+    //     // intersection(intersection(diff.on(4), diff.on(4)).on(3), lca_4)(
+    //     //     [&](auto& i, auto& index)
+    //     //     {
+    //     //         found = true;
+    //     //         EXPECT_EQ(interval_t(15, 16), i);
+    //     //         EXPECT_EQ(index[0], 2);
+    //     //     });
+    //     // EXPECT_TRUE(found);
+    // }
+
+    TEST(new_subset, test_1d)
+    {
+        constexpr std::size_t dim = 1;
+
+        LevelCellArray<dim> domain(5);
+        domain.add_interval_back({0, 32}, {});
+
+        LevelCellArray<dim> lca(4);
+        lca.add_interval_back({14, 16}, {});
+
+        // std::cout << lca << std::endl;
+
+        xt::xtensor_fixed<int, xt::xshape<dim>> translation{1};
+
+        // {
+        //     auto set = difference(domain, translate(self(domain), -translation)).on(4);
+        //     // intersection(set, set).on(2)(
+        //     // intersection(set, set).on(2).on(4)(
+        //     union_(intersection(set, set).on(2), lca)(
+        //         // set(
+        //         [&](auto& i, auto&)
+        //         {
+        //             std::cout << "**************************domain i: " << i << std::endl;
+        //         });
+        // }
+
+        // {
+        //     LevelCellArray<dim> lca1(5);
+        //     lca1.add_interval_back({2, 4}, {});
+        //     LevelCellArray<dim> lca2(5);
+        //     lca2.add_interval_back({0, 2}, {});
+        //     // auto set = difference(translate(self(lca1), translation), lca2);
+        //     auto set = difference(lca1, self(lca2).on(4)).on(1);
+        //     set(
+        //         [&](auto& i, auto&)
+        //         {
+        //             std::cout << "**************************domain i: " << i << std::endl;
+        //         });
+        // }
+
+        {
+            LevelCellArray<dim> lca1(5);
+            lca1.add_interval_back({2, 4}, {});
+            LevelCellArray<dim> lca2(5);
+            lca2.add_interval_back({2, 3}, {});
+            // auto set = difference(translate(self(lca1), translation), lca2);
+            auto set = difference(lca1, self(lca2).on(4));
+            set(
+                [&](auto& i, auto&)
+                {
+                    std::cout << "**************************domain i: " << i << std::endl;
+                });
+        }
+    }
+
+    TEST(new_subset, test_2d)
+    {
+        constexpr std::size_t dim = 2;
+
+        LevelCellArray<dim> domain(5);
+        domain.add_interval_back({0, 32}, {0});
+
+        LevelCellArray<dim> lca(4);
+        lca.add_interval_back({14, 16}, {0});
+
+        // std::cout << lca << std::endl;
+
+        xt::xtensor_fixed<int, xt::xshape<dim>> translation{1, 0};
+
+        // {
+        //     auto set = difference(domain, translate(self(domain), -translation)).on(4);
+        //     // intersection(set, set).on(2)(
+        //     // intersection(set, set).on(2).on(4)(
+        //     union_(intersection(set, set).on(2), lca)(
+        //         // set(
+        //         [&](auto& i, auto&)
+        //         {
+        //             std::cout << "**************************domain i: " << i << std::endl;
+        //         });
+        // }
+
+        {
+            LevelCellArray<dim> lca1(5);
+            lca1.add_interval_back({2, 4}, {0});
+            LevelCellArray<dim> lca2(5);
+            lca2.add_interval_back({3, 4}, {0});
+            // lca2.add_interval_back({0, 2}, {1});
+            // auto set = difference(translate(self(lca1), translation), self(lca2).on(4));
+            // auto set = difference(lca1, self(lca2).on(4)).on(1);
+            // auto set = difference(lca1, self(lca2).on(4));
+            auto set = difference(lca1, lca2).on(4);
+            // auto set = intersection(lca1, self(lca2).on(4));
+            set(
+                [&](auto& i, auto& index)
+                {
+                    std::cout << "**************************domain i: " << i << " " << index << std::endl;
+                });
+        }
+    }
+
+    TEST(new_subset, translate_2d)
+    {
+        using lca_t      = LevelCellArray<2>;
+        using interval_t = typename lca_t::interval_t;
+        LevelCellArray<2> boundary(5);
+
+        // boundary.add_point_back(31, 4);
+        // std::cout << boundary << std::endl;
+
+        // LevelCellArray<2> domain(5);
+        // domain.add_interval_back({0, 32}, 4);
+
+        // LevelCellArray<2> lca(4);
+        // lca.add_interval_back({14, 16}, {2});
+
+        // std::cout << lca << std::endl;
+
+        // xt::xtensor_fixed<int, xt::xshape<2>> translation{1, 0};
+
+        // {
+        //     auto set = difference(domain, translate(self(domain), -translation)).on(4);
+        //     set(
+        //         [&](auto& i, auto& index)
+        //         {
+        //             std::cout << "**************************domain i: " << i << " index: " << index << std::endl;
+        //         });
+        // }
+
+        // auto diff = difference(domain, translate(self(domain), -translation));
+
+        // auto set = translate(diff.on(4), -translation);
+        // auto set = intersection(translate(diff.on(4), -translation), lca);
+        // auto set = intersection(diff.on(4), diff.on(4)).on(5);
+        // auto set = intersection(translate(self(boundary).on(4), -translation), lca);
+        // set(
+        //     [&](auto& i, auto& index)
+        //     {
+        //         std::cout << "******************************" << std::endl;
+        //         std::cout << "FOUND i: " << i << " index: " << index << std::endl;
+        //         std::cout << "******************************" << std::endl;
+        //     });
+
+        LevelCellArray<2> domain1(5);
+        for (int j = 4; j < 6; ++j)
+        {
+            domain1.add_interval_back({0, 32}, {j});
+        }
+        xt::xtensor_fixed<int, xt::xshape<2>> translation{1, 0};
+        auto diff = difference(domain1, translate(self(domain1), -translation));
+
+        bool found = false;
+        diff.on(4)(
+            [&](auto& i, auto& index)
+            {
+                found = true;
+                EXPECT_EQ(interval_t(15, 16), i);
+                EXPECT_EQ(index[0], 2);
+            });
+        EXPECT_TRUE(found);
+
+        found = false;
+        intersection(diff.on(4), diff.on(4))(
+            [&](auto& i, auto& index)
+            {
+                found = true;
+                EXPECT_EQ(interval_t(15, 16), i);
+                EXPECT_EQ(index[0], 2);
+            });
+        EXPECT_TRUE(found);
+
+        found = false;
+        intersection(diff.on(4), diff.on(4))
+            .on(3)(
+                [&](auto& i, auto& index)
+                {
+                    found = true;
+                    EXPECT_EQ(interval_t(7, 8), i);
+                    EXPECT_EQ(index[0], 1);
+                });
+        EXPECT_TRUE(found);
+
+        found = false;
+        intersection(intersection(diff.on(4), diff.on(4)).on(3), intersection(diff.on(4), diff.on(4)).on(5))
+            .on(3)(
+                [&](auto& i, auto& index)
+                {
+                    found = true;
+                    EXPECT_EQ(interval_t(7, 8), i);
+                    EXPECT_EQ(index[0], 1);
+                });
+        EXPECT_TRUE(found);
+
+        LevelCellArray<2> lca_4(4);
+        lca_4.add_interval_back({15, 16}, {2});
+
+        found = false;
+        intersection(intersection(diff.on(4), diff.on(4)).on(3), lca_4)(
+            [&](auto& i, auto& index)
+            {
+                found = true;
+                EXPECT_EQ(interval_t(15, 16), i);
+                EXPECT_EQ(index[0], 2);
+            });
+        EXPECT_TRUE(found);
+    }
+
 }

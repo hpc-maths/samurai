@@ -4,6 +4,7 @@
 #pragma once
 
 #include <array>
+#include <iostream>
 #include <tuple>
 
 #include "concepts.hpp"
@@ -24,6 +25,8 @@ namespace samurai
             {
                 auto func_int = [&](const auto& interval)
                 {
+                    // std::cout << fmt::format("[apply_impl - dim {}] ", dim) << "apply_impl interval: " << interval << " global_set level:
+                    // " << global_set.level() << std::endl;
                     for (auto i = interval.start; i < interval.end; ++i)
                     {
                         index[dim - 2] = i;
@@ -48,8 +51,10 @@ namespace samurai
     {
         constexpr std::size_t dim = std::decay_t<Set>::dim;
         xt::xtensor_fixed<int, xt::xshape<dim - 1>> index;
+        // std::cout << fmt::format("[apply - dim {}] ", dim) << global_set.level() << std::endl;
         if (global_set.exist())
         {
+            // std::cout << fmt::format("[apply - dim {}] ", dim) << "exist: " << std::endl;
             detail::apply_impl<dim>(std::forward<Set>(global_set), std::forward<Func>(func), index);
         }
     }
@@ -66,9 +71,12 @@ namespace samurai
         set.next(0, std::forward<StartEnd>(start_and_stop));
         auto scan = set.min();
 
+        // std::cout << "[local apply] " << "scan: " << scan << std::endl;
         while (scan < sentinel<value_t> && !set.is_empty())
         {
             bool is_in = set.is_in(scan);
+
+            // std::cout << "[local apply] " << "scan: " << scan << " is_in: " << is_in << std::endl;
 
             if (is_in && r_ipos == 0)
             {
@@ -80,13 +88,16 @@ namespace samurai
                 result.end = scan;
                 r_ipos     = 0;
 
+                // std::cout << "[local apply] " << "result: " << result << " ";
                 auto true_result = set.shift() >= 0 ? result >> static_cast<std::size_t>(set.shift())
                                                     : result << -static_cast<std::size_t>(set.shift());
+                // std::cout << "true_result: " << true_result << std::endl;
                 func(true_result);
             }
 
             set.next(scan, std::forward<StartEnd>(start_and_stop));
             scan = set.min();
+            // std::cout << "[local apply] " << "end scan: " << scan << std::endl;
         }
     }
 }

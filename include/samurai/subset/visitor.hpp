@@ -4,6 +4,7 @@
 #pragma once
 
 #include <algorithm>
+#include <iostream>
 #include <limits>
 
 #include "utils.hpp"
@@ -92,14 +93,14 @@ namespace samurai
         inline auto start(const auto& it, Func& start_fct) const
         {
             auto i = it->start << m_shift2ref;
-            return start_fct(m_lca_level, i);
+            return start_fct(m_lca_level, i, 0);
         }
 
         template <class Func>
         inline auto end(const auto& it, Func& end_fct) const
         {
             auto i = it->end << m_shift2ref;
-            return end_fct(m_lca_level, i);
+            return end_fct(m_lca_level, i, 1);
         }
 
         inline bool is_in(auto scan) const
@@ -132,12 +133,39 @@ namespace samurai
         }
 
         template <class StartEnd>
-        inline void next(auto scan, StartEnd& start_and_stop)
+        inline void next_interval(StartEnd& start_and_stop)
         {
             auto& [start_fct, end_fct] = start_and_stop; // cppcheck-suppress variableScope
+
+            auto i_start = start(m_first, start_fct);
+            auto i_end   = end(m_first, end_fct);
+            while (m_first + 1 != m_last && i_end >= start(m_first + 1, start_fct))
+            {
+                ++m_first;
+                i_end = end(m_first, end_fct);
+            }
+            m_current_interval = {i_start, i_end};
+
+            // std::cout << "[IntervalListVisitor::next_interval] " << m_id << " start: " << i_start << " end: " << i_end << std::endl;
+            if (m_current_interval.is_valid())
+            {
+                m_current = m_current_interval.start;
+            }
+            else
+            {
+                m_current = sentinel<value_t>;
+            }
+        }
+
+        template <class StartEnd>
+        inline void next(auto scan, StartEnd& start_and_stop)
+        {
+            // std::cout << "[IntervalListVisitor::next] " << m_id << " scan: " << scan << std::endl;
+
             if (m_current == std::numeric_limits<value_t>::min())
             {
-                m_current = start(m_first, start_fct);
+                next_interval(start_and_stop);
+                // std::cout << "[IntervalListVisitor::next] " << m_id << " start: " << m_current << std::endl;
                 return;
             }
 
@@ -145,12 +173,7 @@ namespace samurai
             {
                 if (m_is_start)
                 {
-                    m_current = end(m_first, end_fct);
-                    while (m_first + 1 != m_last && m_current >= start(m_first + 1, start_fct))
-                    {
-                        ++m_first;
-                        m_current = end(m_first, end_fct);
-                    }
+                    m_current = m_current_interval.end;
                 }
                 else
                 {
@@ -161,7 +184,7 @@ namespace samurai
                         m_current = sentinel<value_t>;
                         return;
                     }
-                    m_current = start(m_first, start_fct);
+                    next_interval(start_and_stop);
                 }
                 m_is_start = !m_is_start;
             }
@@ -176,6 +199,7 @@ namespace samurai
         iterator_t m_first;
         iterator_t m_last;
         value_t m_current;
+        interval_t m_current_interval;
         bool m_is_start;
     };
 
