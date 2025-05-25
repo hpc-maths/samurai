@@ -30,8 +30,9 @@ namespace samurai
         auto& operator()(std::size_t level, std::size_t min_level, std::size_t max_level)
         {
             // std::cout << "[start_end_function - operator()] " << level << " " << min_level << " " << max_level << std::endl;
-            m_level = level;
-            m_shift = static_cast<int>(max_level) - static_cast<int>(min_level);
+            m_level     = level;
+            m_min_level = min_level;
+            m_shift     = static_cast<int>(max_level) - static_cast<int>(min_level);
             return *this;
         }
 
@@ -75,16 +76,22 @@ namespace samurai
         {
             auto new_f = [&, f](auto level, auto i)
             {
+                // std::cout << "[start_end_function - goback()] call f(level, i) with " << level << " " << i << std::endl;
                 auto [prev_lev, v] = f(level, i);
-                // std::cout << "[start_end_function - goback()] i: " << i << " level: " << level << " prev_lev: " << prev_lev
+                // std::cout << "[start_end_function - goback()] i: " << v << " level: " << level << " prev_lev: " << prev_lev
                 //           << " m_level: " << m_level << std::endl;
+
+                int min_shift = static_cast<int>(m_min_level) - static_cast<int>(prev_lev);
+                int max_shift = static_cast<int>(m_level) - static_cast<int>(m_min_level);
+
+                // std::cout << "[start_end_function - goback()] min_shift: " << min_shift << " max_shift: " << max_shift << std::endl;
                 if constexpr (end)
                 {
-                    i = end_shift(v, static_cast<int>(m_level) - static_cast<int>(prev_lev));
+                    i = end_shift(end_shift(v, min_shift), max_shift);
                 }
                 else
                 {
-                    i = start_shift(v, static_cast<int>(m_level) - static_cast<int>(prev_lev));
+                    i = start_shift(start_shift(v, min_shift), max_shift);
                 }
                 // std::cout << "[start_end_function - goback()] next i: " << i << std::endl;
                 return std::make_pair(m_level, i);
@@ -94,6 +101,7 @@ namespace samurai
 
         std::size_t m_level;
         int m_shift;
+        std::size_t m_min_level;
     };
 
     template <std::size_t dim>
@@ -130,7 +138,7 @@ namespace samurai
                 {
                     dec = 1;
                 }
-                int value = ((((i >> max2curr) + m_t[d - 1]) >> curr2min) + dec) << min2max;
+                int value = (((((i - dec) >> max2curr) + m_t[d - 1]) >> curr2min) + dec) << min2max;
                 // std::cout << "[translate start] i: " << i << " max2curr: " << max2curr << " curr2min: " << curr2min
                 //           << " min2max: " << min2max << " m_t[d - 1]: " << m_t[d - 1] << " value: " << value << " dec: " << dec <<
                 //           std::endl;
@@ -166,16 +174,21 @@ namespace samurai
         {
             auto new_f = [&, f](auto level, auto i)
             {
+                // std::cout << "[start_end_translate_function - goback()] call f(level, i) with " << level << " " << i << std::endl;
                 auto [prev_lev, v] = f(level, i);
-                // std::cout << "[start_end_translate_function - goback()] i: " << i << " level: " << level << " prev_lev: " << prev_lev
+                // std::cout << "[start_end_translate_function - goback()] i: " << v << " level: " << level << " prev_lev: " << prev_lev
                 //           << " m_level: " << m_level << " m_t[d - 1]: " << m_t[d - 1] << std::endl;
+
+                auto min_shift = static_cast<int>(m_min_level) - static_cast<int>(prev_lev);
+                auto max_shift = static_cast<int>(m_level) - static_cast<int>(m_min_level);
+
                 if constexpr (end)
                 {
-                    i = end_shift(v, static_cast<int>(m_level) - static_cast<int>(prev_lev)) - m_t[d - 1];
+                    i = end_shift(end_shift(v, min_shift), max_shift) - m_t[d - 1];
                 }
                 else
                 {
-                    i = start_shift(v, static_cast<int>(m_level) - static_cast<int>(prev_lev)) - m_t[d - 1];
+                    i = start_shift(start_shift(v, min_shift), max_shift) - m_t[d - 1];
                 }
 
                 // std::cout << "[start_end_translate_function - goback()] next i: " << i << std::endl;
@@ -222,7 +235,7 @@ namespace samurai
                 {
                     dec = 1;
                 }
-                int value = ((((i >> max2curr) - m_c) >> curr2min) + dec) << min2max;
+                int value = (((((i - dec) >> max2curr) - m_c) >> curr2min) + dec) << min2max;
                 return f(m_level, value, dec);
             };
             return new_f;
@@ -242,9 +255,6 @@ namespace samurai
                     dec = 0;
                 }
                 int value = (((((i - dec) >> max2curr) - m_c) >> curr2min) + dec) << min2max;
-                // std::cout << "[start_end_translate_function - end()] i: " << i << " max2curr: " << max2curr << " curr2min: " << curr2min
-                //           << " min2max: " << min2max << " m_t[d - 1]: " << m_t[d - 1] << " value: " << value << " dec: " << dec <<
-                //           std::endl;
                 return f(m_level, value, dec);
             };
             return new_f;
@@ -256,16 +266,19 @@ namespace samurai
             auto new_f = [&, f](auto level, auto i)
             {
                 auto [prev_lev, v] = f(level, i);
-                // std::cout << "[start_end_translate_function - goback()] i: " << i << " level: " << level << " prev_lev: " << prev_lev
-                //           << " m_level: " << m_level << " m_t[d - 1]: " << m_t[d - 1] << std::endl;
+
+                auto min_shift = static_cast<int>(m_min_level) - static_cast<int>(prev_lev);
+                auto max_shift = static_cast<int>(m_level) - static_cast<int>(m_min_level);
+
                 if constexpr (end)
                 {
-                    i = end_shift(v, static_cast<int>(m_level) - static_cast<int>(prev_lev)) + m_c;
+                    i = end_shift(end_shift(v, min_shift), max_shift) + m_c;
                 }
                 else
                 {
-                    i = start_shift(v, static_cast<int>(m_level) - static_cast<int>(prev_lev)) + m_c;
+                    i = start_shift(start_shift(v, min_shift), max_shift) + m_c;
                 }
+
                 return std::make_pair(m_level, i);
             };
             return new_f;

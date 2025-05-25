@@ -12,6 +12,7 @@
 #include <samurai/level_cell_array.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/subset/node.hpp>
+#include <xtensor/xtensor_forward.hpp>
 
 namespace samurai
 {
@@ -184,7 +185,7 @@ namespace samurai
             apply(set,
                   [](auto& i, auto)
                   {
-                      std::cout << i << std::endl;
+                      EXPECT_EQ(interval_t(0, 2), i);
                   });
         }
 
@@ -915,4 +916,168 @@ namespace samurai
         EXPECT_TRUE(found);
     }
 
+    TEST(new_subset, union)
+    {
+        using interval_t = typename CellArray<2>::interval_t;
+        using expected_t = std::vector<std::pair<int, interval_t>>;
+        LevelCellList<2> lcl1(1);
+        LevelCellList<2> lcl2(1);
+        LevelCellArray<2> lca1;
+        LevelCellArray<2> lca2;
+
+        lcl1[{0}].add_interval({0, 1});
+        lcl2[{1}].add_interval({1, 2});
+
+        lca1 = lcl1;
+        lca2 = lcl2;
+
+        {
+            auto expected = expected_t{
+                {0, {0, 1}},
+                {1, {1, 2}}
+            };
+
+            auto set = union_(lca1, lca2);
+            EXPECT_EQ(set.level(), 1);
+
+            bool found     = false;
+            std::size_t ie = 0;
+            apply(set,
+                  [&](auto& i, auto& index)
+                  {
+                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+                      found = true;
+                  });
+            EXPECT_TRUE(found);
+        }
+
+        {
+            auto set = intersection(lca1, lca2);
+            EXPECT_EQ(set.level(), 1);
+
+            bool found = false;
+            apply(set,
+                  [&](auto&, auto&)
+                  {
+                      found = true;
+                  });
+            EXPECT_FALSE(found);
+        }
+
+        {
+            auto expected = expected_t{
+                {0, {0, 1}},
+            };
+
+            auto set = intersection(lca1, self(lca2).on(0));
+            EXPECT_EQ(set.level(), 1);
+
+            bool found     = false;
+            std::size_t ie = 0;
+            apply(set,
+                  [&](auto& i, auto& index)
+                  {
+                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+                      found = true;
+                  });
+            EXPECT_TRUE(found);
+        }
+
+        {
+            auto set = difference(lca1, self(lca2).on(0));
+            EXPECT_EQ(set.level(), 1);
+
+            bool found = false;
+            apply(set,
+                  [&](auto&, auto&)
+                  {
+                      found = true;
+                  });
+            EXPECT_FALSE(found);
+        }
+
+        {
+            auto expected = expected_t{
+                {0, {0, 1}},
+            };
+
+            auto set = difference(lca1, lca2);
+            EXPECT_EQ(set.level(), 1);
+
+            bool found     = false;
+            std::size_t ie = 0;
+            apply(set,
+                  [&](auto& i, auto& index)
+                  {
+                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+                      found = true;
+                  });
+            EXPECT_TRUE(found);
+        }
+
+        {
+            auto expected = expected_t{
+                {0, {0, 2}},
+                {1, {0, 2}},
+            };
+
+            auto set = self(lca1).on(0).on(1);
+            EXPECT_EQ(set.level(), 1);
+
+            bool found     = false;
+            std::size_t ie = 0;
+            apply(set,
+                  [&](auto& i, auto& index)
+                  {
+                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+                      found = true;
+                  });
+            EXPECT_TRUE(found);
+            EXPECT_EQ(ie, expected.size());
+        }
+
+        {
+            auto expected = expected_t{
+                {0, {0, 2}},
+                {1, {0, 1}},
+            };
+
+            auto set = difference(self(lca1).on(0).on(1), lca2);
+            EXPECT_EQ(set.level(), 1);
+
+            bool found     = false;
+            std::size_t ie = 0;
+            apply(set,
+                  [&](auto& i, auto& index)
+                  {
+                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+                      found = true;
+                  });
+            EXPECT_TRUE(found);
+            EXPECT_EQ(ie, expected.size());
+        }
+
+        {
+            xt::xtensor_fixed<int, xt::xshape<2>> translation{-1, -1};
+            auto expected = expected_t{
+                {-1, {-1, 1}},
+                {0,  {-1, 0}},
+            };
+
+            // auto set = difference(translate(difference(self(lca1).on(0), lca2), translation), translate(lca1, translation));
+            auto set = translate(difference(self(lca1).on(0), lca2), translation);
+            EXPECT_EQ(set.level(), 1);
+
+            bool found     = false;
+            std::size_t ie = 0;
+            apply(set,
+                  [&](auto& i, auto& index)
+                  {
+                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+                      found = true;
+                  });
+            EXPECT_TRUE(found);
+            EXPECT_EQ(ie, expected.size());
+        }
+    }
 }

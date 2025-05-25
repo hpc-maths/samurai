@@ -146,7 +146,7 @@ namespace samurai
             }
             m_current_interval = {i_start, i_end};
 
-            // std::cout << "[IntervalListVisitor::next_interval] " << m_id << " start: " << i_start << " end: " << i_end << std::endl;
+            // std::cout << "[IntervalListVisitor::next_interval] start: " << i_start << " end: " << i_end << std::endl;
             if (m_current_interval.is_valid())
             {
                 m_current = m_current_interval.start;

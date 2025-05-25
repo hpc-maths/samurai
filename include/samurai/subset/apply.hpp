@@ -25,11 +25,12 @@ namespace samurai
             {
                 auto func_int = [&](const auto& interval)
                 {
-                    // std::cout << fmt::format("[apply_impl - dim {}] ", dim) << "apply_impl interval: " << interval << " global_set level:
-                    // " << global_set.level() << std::endl;
+                    // std::cout << fmt::format("[apply_impl - dim {}] ", dim) << "apply_impl interval: " << interval
+                    //           << " global_set level: " << global_set.level() << std::endl;
                     for (auto i = interval.start; i < interval.end; ++i)
                     {
                         index[dim - 2] = i;
+                        // std::cout << fmt::format("[apply_impl - dim {}] ", dim) << "index: " << index << std::endl;
                         apply_impl<dim - 1>(std::forward<Set>(global_set), std::forward<Func>(func), index);
                     }
                 };

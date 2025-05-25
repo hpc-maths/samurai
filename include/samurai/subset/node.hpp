@@ -141,17 +141,6 @@ namespace samurai
         auto get_start_and_stop_function()
         {
             return get_start_and_stop_function<d>(default_function(), default_function());
-
-            // m_start_end_op(m_set_level, m_set_level, m_ref_level);
-
-            // return std::apply(
-            //     [this](auto&&... args)
-            //     {
-            //         return std::make_tuple(
-            //             std::move(args.template get_start_and_stop_function<d>(m_start_end_op.template start<d>(default_function()),
-            //                                                                    m_start_end_op.template end<d>(default_function())))...);
-            //     },
-            //     m_s);
         }
 
         auto level() const
@@ -174,23 +163,6 @@ namespace samurai
                 },
                 m_s);
         }
-
-        // auto min_level() const
-        // {
-        //     return m_min_level;
-        // }
-
-        // void min_level(auto level)
-        // {
-        //     m_min_level = std::min(m_min_level, static_cast<std::size_t>(level));
-        //     ;
-        //     std::apply(
-        //         [level](auto&&... args)
-        //         {
-        //             (args.min_level(level), ...);
-        //         },
-        //         m_s);
-        // }
 
         bool exist() const
         {
@@ -273,10 +245,7 @@ namespace samurai
 
                 auto new_goback_fct_beg = m_func.template goback<d + 1>(std::forward<Func_goback_beg>(goback_fct_beg));
 
-                // if (level >= m_lca.level())
                 if (level <= m_level && level >= m_lca.level())
-                // if (level > 500)
-                // if (level >= m_lca.level() && m_level >= m_lca.level())
                 {
                     m_offsets[d - 1].clear();
 
@@ -466,16 +435,6 @@ namespace samurai
         {
             return m_level;
         }
-
-        // auto min_level() const
-        // {
-        //     return m_min_level;
-        // }
-
-        // void min_level(auto level)
-        // {
-        //     m_min_level = std::min(m_min_level, static_cast<std::size_t>(level));
-        // }
 
         auto& on(auto level)
         {
