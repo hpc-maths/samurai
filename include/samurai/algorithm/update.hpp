@@ -808,30 +808,6 @@ namespace samurai
                 }
                 mpi::wait_all(req.begin(), req.end());
 #endif // SAMURAI_WITH_MPI
-       // min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
-       // max_corner[d] = (min_indices[d] >> delta_l);
-       //
-       // lca_type lca1(level, box_t(min_corner, max_corner));
-       //
-       // auto set1 = intersection(mesh[mesh_id_t::reference][level], lca1);
-       // set1(
-       //     [&](const auto& i, const auto& index)
-       //     {
-       //         tag(level, i, index) |= tag(level, i + stencil[0], index + xt::view(stencil, xt::range(1, _)));
-       //         tag(level, i + stencil[0], index + xt::view(stencil, xt::range(1, _))) |= tag(level, i, index);
-       //     });
-       //
-       // min_corner[d] = (max_indices[d] >> delta_l);
-       // max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
-       // lca_type lca2(level, box_t(min_corner, max_corner));
-       // auto set2 = intersection(mesh[mesh_id_t::reference][level], lca2);
-       //
-       // set2(
-       //     [&](const auto& i, const auto& index)
-       //     {
-       //         tag(level, i, index) |= tag(level, i - stencil[0], index - xt::view(stencil, xt::range(1, _)));
-       //         tag(level, i - stencil[0], index - xt::view(stencil, xt::range(1, _))) |= tag(level, i, index);
-       //     });
                 /* reset variables for next iterations. */
                 shift[d]      = 0;
                 min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
