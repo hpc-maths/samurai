@@ -10,9 +10,17 @@ namespace samurai
 
     inline auto default_function()
     {
-        return [](auto, auto i)
+        return [](auto, auto i, auto)
         {
             return i;
+        };
+    }
+
+    inline auto default_function_()
+    {
+        return [](auto level, auto i)
+        {
+            return std::make_pair(level, i);
         };
     }
 
@@ -21,44 +29,69 @@ namespace samurai
     {
         auto& operator()(std::size_t level, std::size_t min_level, std::size_t max_level)
         {
-            m_level = level;
-            m_shift = static_cast<int>(max_level) - static_cast<int>(min_level);
+            m_level     = level;
+            m_min_level = min_level;
+            m_shift     = static_cast<int>(max_level) - static_cast<int>(min_level);
             return *this;
         }
 
-        template <std::size_t, class Func>
+        template <std::size_t, bool from_diff_op = false, class Func>
         inline auto start(const Func& f) const
         {
-            auto new_f = [&, f](auto, auto i)
+            auto new_f = [&, f](auto, auto i, auto dec)
             {
-                return f(m_level, (i >> m_shift) << m_shift);
+                if constexpr (from_diff_op)
+                {
+                    dec = 1;
+                }
+                int value = (((i - dec) >> m_shift) << m_shift) + dec;
+                return f(m_level, value, dec);
             };
             return new_f;
         }
 
-        template <std::size_t, class Func>
+        template <std::size_t, bool from_diff_op = false, class Func>
         inline auto end(const Func& f) const
         {
-            auto new_f = [&, f](auto, auto i)
+            auto new_f = [&, f](auto, auto i, auto dec)
             {
-                return f(m_level, (((i - 1) >> m_shift) + 1) << m_shift);
+                if constexpr (from_diff_op)
+                {
+                    dec = 0;
+                }
+                int value = (((i - dec) >> m_shift) + dec) << m_shift;
+                return f(m_level, value, dec);
             };
             return new_f;
         }
 
-        template <std::size_t, class Func>
+        template <std::size_t, bool end = false, class Func>
         inline auto goback(const Func& f) const
         {
             auto new_f = [&, f](auto level, auto i)
             {
-                i = start_shift(f(m_level, i), static_cast<int>(level) - static_cast<int>(m_level));
-                return i;
+                auto [prev_lev, v] = f(level, i);
+
+                int min_shift = static_cast<int>(m_min_level) - static_cast<int>(prev_lev);
+                int max_shift = static_cast<int>(m_level) - static_cast<int>(m_min_level);
+
+                if constexpr (end)
+                {
+                    i = end_shift(end_shift(v, min_shift), max_shift);
+                }
+                else
+                {
+                    i = start_shift(start_shift(v, min_shift), max_shift);
+                }
+
+                return std::make_pair(m_level, i);
             };
             return new_f;
         }
 
         std::size_t m_level;
         int m_shift;
+        std::size_t m_min_level;
     };
 
     template <std::size_t dim>
@@ -82,41 +115,66 @@ namespace samurai
             return *this;
         }
 
-        template <std::size_t d, class Func>
+        template <std::size_t d, bool from_diff_op = false, class Func>
         inline auto start(const Func& f) const
         {
-            auto new_f = [&, f](auto level, auto i)
+            auto new_f = [&, f](auto level, auto i, auto dec)
             {
                 int max2curr = static_cast<int>(m_max_level) - static_cast<int>(level);
                 int curr2min = static_cast<int>(level) - static_cast<int>(m_min_level);
                 int min2max  = static_cast<int>(m_max_level) - static_cast<int>(m_min_level);
 
-                return f(m_level, (((i >> max2curr) + m_t[d - 1]) >> curr2min) << min2max);
+                if constexpr (from_diff_op)
+                {
+                    dec = 1;
+                }
+                int value = (((((i - dec) >> max2curr) + m_t[d - 1]) >> curr2min) + dec) << min2max;
+
+                return f(m_level, value, dec);
             };
             return new_f;
         }
 
-        template <std::size_t d, class Func>
+        template <std::size_t d, bool from_diff_op = false, class Func>
         inline auto end(const Func& f) const
         {
-            auto new_f = [&, f](auto level, auto i)
+            auto new_f = [&, f](auto level, auto i, auto dec)
             {
                 int max2curr = static_cast<int>(m_max_level) - static_cast<int>(level);
                 int curr2min = static_cast<int>(level) - static_cast<int>(m_min_level);
                 int min2max  = static_cast<int>(m_max_level) - static_cast<int>(m_min_level);
 
-                return f(m_level, (((((i - 1) >> max2curr) + m_t[d - 1]) >> curr2min) + 1) << min2max);
+                if constexpr (from_diff_op)
+                {
+                    dec = 0;
+                }
+                int value = (((((i - dec) >> max2curr) + m_t[d - 1]) >> curr2min) + dec) << min2max;
+
+                return f(m_level, value, dec);
             };
             return new_f;
         }
 
-        template <std::size_t d, class Func>
+        template <std::size_t d, bool end = false, class Func>
         inline auto goback(const Func& f) const
         {
             auto new_f = [&, f](auto level, auto i)
             {
-                i = start_shift(f(m_level, i), static_cast<int>(level) - static_cast<int>(m_level)) - m_t[d - 1];
-                return i;
+                auto [prev_lev, v] = f(level, i);
+
+                auto min_shift = static_cast<int>(m_min_level) - static_cast<int>(prev_lev);
+                auto max_shift = static_cast<int>(m_level) - static_cast<int>(m_min_level);
+
+                if constexpr (end)
+                {
+                    i = end_shift(end_shift(v, min_shift), max_shift) - m_t[d - 1];
+                }
+                else
+                {
+                    i = start_shift(start_shift(v, min_shift), max_shift) - m_t[d - 1];
+                }
+
+                return std::make_pair(m_level, i);
             };
             return new_f;
         }
@@ -146,41 +204,64 @@ namespace samurai
             return *this;
         }
 
-        template <std::size_t d, class Func>
+        template <std::size_t d, bool from_diff_op = false, class Func>
         inline auto start(const Func& f) const
         {
-            auto new_f = [&, f](auto level, auto i)
+            auto new_f = [&, f](auto level, auto i, auto dec)
             {
                 int max2curr = static_cast<int>(m_max_level) - static_cast<int>(level);
                 int curr2min = static_cast<int>(level) - static_cast<int>(m_min_level);
                 int min2max  = static_cast<int>(m_max_level) - static_cast<int>(m_min_level);
 
-                return f(m_level, (((i >> max2curr) - m_c) >> curr2min) << min2max);
+                if constexpr (from_diff_op)
+                {
+                    dec = 1;
+                }
+                int value = (((((i - dec) >> max2curr) - m_c) >> curr2min) + dec) << min2max;
+                return f(m_level, value, dec);
             };
             return new_f;
         }
 
-        template <std::size_t d, class Func>
+        template <std::size_t d, bool from_diff_op = false, class Func>
         inline auto end(const Func& f) const
         {
-            auto new_f = [&, f](auto level, auto i)
+            auto new_f = [&, f](auto level, auto i, auto dec)
             {
                 int max2curr = static_cast<int>(m_max_level) - static_cast<int>(level);
                 int curr2min = static_cast<int>(level) - static_cast<int>(m_min_level);
                 int min2max  = static_cast<int>(m_max_level) - static_cast<int>(m_min_level);
 
-                return f(m_level, (((((i - 1) >> max2curr) - m_c) >> curr2min) + 1) << min2max);
+                if constexpr (from_diff_op)
+                {
+                    dec = 0;
+                }
+                int value = (((((i - dec) >> max2curr) - m_c) >> curr2min) + dec) << min2max;
+                return f(m_level, value, dec);
             };
             return new_f;
         }
 
-        template <std::size_t d, class Func>
+        template <std::size_t d, bool end = false, class Func>
         inline auto goback(const Func& f) const
         {
             auto new_f = [&, f](auto level, auto i)
             {
-                i = start_shift(f(m_level, i), static_cast<int>(level) - static_cast<int>(m_level)) + m_c;
-                return i;
+                auto [prev_lev, v] = f(level, i);
+
+                auto min_shift = static_cast<int>(m_min_level) - static_cast<int>(prev_lev);
+                auto max_shift = static_cast<int>(m_level) - static_cast<int>(m_min_level);
+
+                if constexpr (end)
+                {
+                    i = end_shift(end_shift(v, min_shift), max_shift) + m_c;
+                }
+                else
+                {
+                    i = start_shift(start_shift(v, min_shift), max_shift) + m_c;
+                }
+
+                return std::make_pair(m_level, i);
             };
             return new_f;
         }

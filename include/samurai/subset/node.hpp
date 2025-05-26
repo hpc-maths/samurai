@@ -78,21 +78,22 @@ namespace samurai
             apply(*this, func);
         }
 
-        template <std::size_t d, class Func_goback>
-        auto get_local_set(auto level, auto& index, Func_goback&& goback_fct)
+        template <std::size_t d, class Func_goback_beg, class Func_goback_end>
+        auto get_local_set(auto level, auto& index, Func_goback_beg&& goback_fct_beg, Func_goback_end&& goback_fct_end)
         {
             int shift = static_cast<int>(this->ref_level()) - static_cast<int>(this->level());
             m_start_end_op(m_level, m_min_level, m_ref_level);
 
             return std::apply(
-                [this, &index, shift, level, &goback_fct](auto&&... args)
+                [this, &index, shift, level, &goback_fct_beg, &goback_fct_end](auto&&... args)
                 {
-                    return SetTraverser(
-                        shift,
-                        get_operator<d>(m_operator),
-                        args.template get_local_set<d>(level,
-                                                       index,
-                                                       m_start_end_op.template goback<d + 1>(std::forward<Func_goback>(goback_fct)))...);
+                    return SetTraverser(shift,
+                                        get_operator<d>(m_operator),
+                                        args.template get_local_set<d>(
+                                            level,
+                                            index,
+                                            m_start_end_op.template goback<d + 1>(std::forward<Func_goback_beg>(goback_fct_beg)),
+                                            m_start_end_op.template goback<d + 1, true>(std::forward<Func_goback_end>(goback_fct_end)))...);
                 },
                 m_s);
         }
@@ -100,7 +101,7 @@ namespace samurai
         template <std::size_t d>
         auto get_local_set(auto level, auto& index)
         {
-            return get_local_set<d>(level, index, default_function());
+            return get_local_set<d>(level, index, default_function_(), default_function_());
         }
 
         template <std::size_t d, class Func_start, class Func_end>
@@ -109,11 +110,26 @@ namespace samurai
             m_start_end_op(m_level, m_min_level, m_ref_level);
 
             return std::apply(
-                [this, &start_fct, &end_fct](auto&&... args)
+                [this, &start_fct, &end_fct](auto&& arg, auto&&... args)
                 {
-                    return std::make_tuple(std::move(
-                        args.template get_start_and_stop_function<d>(m_start_end_op.template start<d>(std::forward<Func_start>(start_fct)),
-                                                                     m_start_end_op.template end<d>(std::forward<Func_end>(end_fct))))...);
+                    if constexpr (std::is_same_v<Op, DifferenceOp>)
+                    {
+                        return std::make_tuple(std::move(arg.template get_start_and_stop_function<d>(
+                                                   m_start_end_op.template start<d>(std::forward<Func_start>(start_fct)),
+                                                   m_start_end_op.template end<d>(std::forward<Func_end>(end_fct)))),
+                                               std::move(args.template get_start_and_stop_function<d>(
+                                                   m_start_end_op.template start<d, true>(std::forward<Func_start>(start_fct)),
+                                                   m_start_end_op.template end<d, true>(std::forward<Func_end>(end_fct))))...);
+                    }
+                    else
+                    {
+                        return std::make_tuple(std::move(arg.template get_start_and_stop_function<d>(
+                                                   m_start_end_op.template start<d>(std::forward<Func_start>(start_fct)),
+                                                   m_start_end_op.template end<d>(std::forward<Func_end>(end_fct)))),
+                                               std::move(args.template get_start_and_stop_function<d>(
+                                                   m_start_end_op.template start<d>(std::forward<Func_start>(start_fct)),
+                                                   m_start_end_op.template end<d>(std::forward<Func_end>(end_fct))))...);
+                    }
                 },
                 m_s);
         }
@@ -197,8 +213,8 @@ namespace samurai
             apply(*this, func);
         }
 
-        template <std::size_t d, class Func_goback>
-        auto get_local_set(auto level, auto& index, Func_goback&& goback_fct)
+        template <std::size_t d, class Func_goback_beg, class Func_goback_end>
+        auto get_local_set(auto level, auto& index, Func_goback_beg&& goback_fct_beg, Func_goback_end&& goback_fct_end)
         {
             if (m_lca[d - 1].empty())
             {
@@ -222,13 +238,13 @@ namespace samurai
                     return IntervalListVisitor(IntervalListRange(m_lca[d - 1], 0, 0));
                 }
 
-                auto new_goback_fct = m_func.template goback<d + 1>(std::forward<Func_goback>(goback_fct));
+                auto new_goback_fct_beg = m_func.template goback<d + 1>(std::forward<Func_goback_beg>(goback_fct_beg));
 
-                if (level >= m_lca.level())
+                if (level <= m_level && level >= m_lca.level())
                 {
                     m_offsets[d - 1].clear();
 
-                    auto current_index = start_shift(new_goback_fct(m_level, index[d - 1]),
+                    auto current_index = start_shift(new_goback_fct_beg(level, index[d - 1]).second,
                                                      static_cast<int>(m_lca.level()) - static_cast<int>(m_level));
                     auto j             = find_on_dim(m_lca, d, m_offsets[d][0][0], m_offsets[d][0][1], current_index);
 
@@ -250,10 +266,13 @@ namespace samurai
                 }
                 else
                 {
-                    auto min_index = start_shift(new_goback_fct(m_level, index[d - 1]),
+                    auto new_goback_fct_end = m_func.template goback<d + 1, true>(std::forward<Func_goback_end>(goback_fct_end));
+
+                    auto min_index = start_shift(new_goback_fct_beg(level, index[d - 1]).second,
                                                  static_cast<int>(m_lca.level()) - static_cast<int>(m_level));
-                    auto max_index = start_shift(new_goback_fct(m_level, index[d - 1] + 1),
-                                                 static_cast<int>(m_lca.level()) - static_cast<int>(m_level));
+
+                    auto max_index = end_shift(new_goback_fct_end(level, index[d - 1] + 1).second,
+                                               static_cast<int>(m_lca.level()) - static_cast<int>(m_level));
 
                     m_work[d - 1].clear();
                     m_offsets[d - 1].clear();
@@ -368,7 +387,7 @@ namespace samurai
         auto get_local_set(auto level, auto& index)
 
         {
-            return get_local_set<d>(level, index, default_function());
+            return get_local_set<d>(level, index, default_function_(), default_function_());
         }
 
         template <std::size_t d, class Func_start, class Func_end>

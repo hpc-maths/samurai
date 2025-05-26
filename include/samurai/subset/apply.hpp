@@ -3,13 +3,9 @@
 
 #pragma once
 
-#include <array>
-#include <tuple>
-
 #include "concepts.hpp"
 #include "utils.hpp"
 
-// namespace samurai::experimental
 namespace samurai
 {
     namespace detail
