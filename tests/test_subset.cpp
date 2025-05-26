@@ -1278,4 +1278,28 @@ namespace samurai
               });
         EXPECT_TRUE(found);
     }
+
+    TEST(subset, diff_1d_translate)
+    {
+        LevelCellArray<1> lca(1);
+        lca.add_interval_back({0, 16}, {});
+        xt::xtensor_fixed<int, xt::xshape<1>> translation{-1};
+
+        bool never_call = true;
+        apply(difference(lca, translate(lca, translation)),
+              [&never_call](auto& i, auto)
+              {
+                  never_call = false;
+                  EXPECT_EQ(i, typename LevelCellArray<1>::interval_t(15, 16));
+              });
+        EXPECT_FALSE(never_call);
+
+        never_call = true;
+        apply(difference(lca, translate(lca, translation).on(0)),
+              [&never_call](auto&, auto)
+              {
+                  never_call = false;
+              });
+        EXPECT_TRUE(never_call);
+    }
 }
