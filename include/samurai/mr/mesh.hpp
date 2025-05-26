@@ -257,70 +257,132 @@ namespace samurai
             }
             this->cells()[mesh_id_t::all_cells] = {cell_list, false};
 
+            using box_t = Box<typename interval_t::value_t, dim>;
+
+            const auto& domain             = this->domain();
+            const auto& domain_min_indices = domain.min_indices();
+            const auto& domain_max_indices = domain.max_indices();
+
+            const auto& subdomain             = this->subdomain();
+            const auto& subdomain_min_indices = subdomain.min_indices();
+            const auto& subdomain_max_indices = subdomain.max_indices();
+
             // add ghosts for periodicity
-            xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> stencil;
+            xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> shift;
             xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> min_corner;
             xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim>> max_corner;
 
-            auto& domain     = this->domain();
-            auto min_indices = domain.min_indices();
-            auto max_indices = domain.max_indices();
+            shift.fill(0);
 
-            for (std::size_t level = this->cells()[mesh_id_t::reference].min_level();
-                 level <= this->cells()[mesh_id_t::reference].max_level();
-                 ++level)
+#ifdef SAMURAI_WITH_MPI
+            std::size_t reference_max_level = mpi::all_reduce(world,
+                                                              this->cells()[mesh_id_t::reference].max_level(),
+                                                              mpi::maximum<std::size_t>());
+            std::size_t reference_min_level = mpi::all_reduce(world,
+                                                              this->cells()[mesh_id_t::reference].min_level(),
+                                                              mpi::minimum<std::size_t>());
+
+            std::vector<ca_type> neighbourhood_extended_subdomain(this->mpi_neighbourhood().size());
+            for (size_t neighbor_id = 0; neighbor_id != neighbourhood_extended_subdomain.size(); ++neighbor_id)
             {
-                std::size_t delta_l = domain.level() - level;
-                lcl_type& lcl       = cell_list[level];
+                const auto& neighbor_subdomain = this->mpi_neighbourhood()[neighbor_id].mesh.subdomain();
+                if (not neighbor_subdomain.empty())
+                {
+                    const auto& neighbor_min_indices = neighbor_subdomain.min_indices();
+                    const auto& neighbor_max_indices = neighbor_subdomain.max_indices();
+                    for (std::size_t level = reference_min_level; level <= reference_max_level; ++level)
+                    {
+                        const std::size_t delta_l = subdomain.level() - level;
+                        box_t box;
+                        for (std::size_t d = 0; d < dim; ++d)
+                        {
+                            box.min_corner()[d] = (neighbor_min_indices[d] >> delta_l) - config::ghost_width;
+                            box.max_corner()[d] = (neighbor_max_indices[d] >> delta_l) + config::ghost_width;
+                        }
+                        neighbourhood_extended_subdomain[neighbor_id][level] = {level, box};
+                    }
+                }
+            }
+#else
+            std::size_t reference_max_level = this->cells()[mesh_id_t::reference].max_level();
+            std::size_t reference_min_level = this->cells()[mesh_id_t::reference].min_level();
 
+#endif // SAMURAI_WITH_MPI
+            const auto& mesh_ref = this->cells()[mesh_id_t::reference];
+            for (std::size_t level = reference_min_level; level <= reference_max_level; ++level)
+            {
+                const std::size_t delta_l = subdomain.level() - level;
+                lcl_type& lcl             = cell_list[level];
+
+                for (std::size_t d = 0; d < dim; ++d)
+                {
+                    min_corner[d] = (subdomain_min_indices[d] >> delta_l) - config::ghost_width;
+                    max_corner[d] = (subdomain_max_indices[d] >> delta_l) + config::ghost_width;
+                }
+                lca_type lca_extended_subdomain(level, box_t(min_corner, max_corner));
                 for (std::size_t d = 0; d < dim; ++d)
                 {
                     if (this->is_periodic(d))
                     {
-                        stencil.fill(0);
-                        stencil[d] = (max_indices[d] - min_indices[d]) >> delta_l;
+                        shift[d] = (domain_max_indices[d] - domain_min_indices[d]) >> delta_l;
 
-                        min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
-                        max_corner[d] = (min_indices[d] >> delta_l) + config::ghost_width;
-                        for (std::size_t dd = 0; dd < dim; ++dd)
-                        {
-                            if (dd != d)
-                            {
-                                min_corner[dd] = (min_indices[dd] >> delta_l) - config::ghost_width;
-                                max_corner[dd] = (max_indices[dd] >> delta_l) + config::ghost_width;
-                            }
-                        }
+                        min_corner[d] = (domain_min_indices[d] >> delta_l) - config::ghost_width;
+                        max_corner[d] = (domain_min_indices[d] >> delta_l) + config::ghost_width;
 
-                        lca_type lca1{
-                            level,
-                            Box<typename interval_t::value_t, dim>{min_corner, max_corner}
-                        };
+                        lca_type lca_min(level, box_t(min_corner, max_corner));
 
-                        auto set1 = intersection(this->cells()[mesh_id_t::reference][level], lca1);
+                        min_corner[d] = (domain_max_indices[d] >> delta_l) - config::ghost_width;
+                        max_corner[d] = (domain_max_indices[d] >> delta_l) + config::ghost_width;
+
+                        lca_type lca_max(level, box_t(min_corner, max_corner));
+
+                        auto set1 = intersection(translate(intersection(mesh_ref[level], lca_min), shift),
+                                                 intersection(lca_extended_subdomain, lca_max));
                         set1(
                             [&](const auto& i, const auto& index_yz)
                             {
-                                lcl[index_yz + xt::view(stencil, xt::range(1, _))].add_interval(i + stencil[0]);
+                                lcl[index_yz].add_interval(i);
                             });
-
-                        min_corner[d] = (max_indices[d] >> delta_l) - config::ghost_width;
-                        max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
-                        lca_type lca2{
-                            level,
-                            Box<typename interval_t::value_t, dim>{min_corner, max_corner}
-                        };
-
-                        auto set2 = intersection(this->cells()[mesh_id_t::reference][level], lca2);
+                        auto set2 = intersection(translate(intersection(mesh_ref[level], lca_max), -shift),
+                                                 intersection(lca_extended_subdomain, lca_min));
                         set2(
                             [&](const auto& i, const auto& index_yz)
                             {
-                                lcl[index_yz - xt::view(stencil, xt::range(1, _))].add_interval(i - stencil[0]);
+                                lcl[index_yz].add_interval(i);
                             });
+#ifdef SAMURAI_WITH_MPI
+                        //~ for (const auto& mpi_neighbor : this->mpi_neighbourhood())
+                        for (size_t neighbor_id = 0; neighbor_id != this->mpi_neighbourhood().size(); ++neighbor_id)
+                        {
+                            const auto& mpi_neighbor                = this->mpi_neighbourhood()[neighbor_id];
+                            const auto& neighbor_extended_subdomain = neighbourhood_extended_subdomain[neighbor_id][level];
+                            const auto& neighbor_mesh_ref           = mpi_neighbor.mesh[mesh_id_t::reference];
+
+                            auto set1_mpi = intersection(translate(intersection(neighbor_mesh_ref[level], lca_min), shift),
+                                                         intersection(lca_extended_subdomain, lca_max));
+                            set1_mpi(
+                                [&](const auto& i, const auto& index_yz)
+                                {
+                                    lcl[index_yz].add_interval(i);
+                                });
+                            auto set2_mpi = intersection(translate(intersection(neighbor_mesh_ref[level], lca_max), -shift),
+                                                         intersection(lca_extended_subdomain, lca_min));
+                            set2_mpi(
+                                [&](const auto& i, const auto& index_yz)
+                                {
+                                    lcl[index_yz].add_interval(i);
+                                });
+                        }
+#endif // SAMURAI_WITH_MPI
                         this->cells()[mesh_id_t::all_cells][level] = {lcl};
+
+                        /* reset variables for next iterations. */
+                        shift[d]      = 0;
+                        min_corner[d] = (subdomain_min_indices[d] >> delta_l) - config::ghost_width;
+                        max_corner[d] = (subdomain_max_indices[d] >> delta_l) + config::ghost_width;
                     }
                 }
             }
-
             for (std::size_t level = 0; level < max_level; ++level)
             {
                 lcl_type& lcl = cell_list[level + 1];
