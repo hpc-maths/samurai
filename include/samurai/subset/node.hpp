@@ -110,8 +110,6 @@ namespace samurai
         {
             m_start_end_op(m_level, m_min_level, m_ref_level);
 
-            // std::cout << "[get_start_and_stop_function] tuple_size " << std::tuple_size_v<set_type> << std::endl;
-
             return std::apply(
                 [this, &start_fct, &end_fct](auto&& arg, auto&&... args)
                 {
@@ -229,8 +227,6 @@ namespace samurai
                 m_offsets[d - 1].clear();
                 m_offsets[d - 1].push_back({0, m_lca[d - 1].size()});
 
-                // std::cout << "lca level: " << m_lca.level() << " m_level: " << m_level << " level: " << level
-                //           << " m_ref_level: " << m_ref_level << std::endl;
                 return IntervalListVisitor(m_lca.level(),
                                            m_level,
                                            m_ref_level,
@@ -253,8 +249,6 @@ namespace samurai
                                                      static_cast<int>(m_lca.level()) - static_cast<int>(m_level));
                     auto j             = find_on_dim(m_lca, d, m_offsets[d][0][0], m_offsets[d][0][1], current_index);
 
-                    // std::cout << "current_index: " << current_index << " j: " << j << " m_level: " << m_level << " level : " << level
-                    //           << std::endl;
                     if (j == std::numeric_limits<std::size_t>::max())
                     {
                         return IntervalListVisitor(IntervalListRange(m_lca[d - 1], 0, 0));
@@ -280,8 +274,6 @@ namespace samurai
 
                     auto max_index = end_shift(new_goback_fct_end(level, index[d - 1] + 1).second,
                                                static_cast<int>(m_lca.level()) - static_cast<int>(m_level));
-
-                    // std::cout << "index : " << index[d - 1] << " min_index: " << min_index << " max_index: " << max_index << std::endl;
 
                     m_work[d - 1].clear();
                     m_offsets[d - 1].clear();
@@ -323,13 +315,10 @@ namespace samurai
                                 list_of_intervals.add_interval({start, end});
                             }
 
-                            // std::cout << "m_work: ";
                             for (auto& i : list_of_intervals)
                             {
                                 m_work[d - 1].push_back(i);
-                                // std::cout << i << " ";
                             }
-                            // std::cout << std::endl;
                         }
                     }
                     else
@@ -380,13 +369,10 @@ namespace samurai
                                 }
                             }
 
-                            // std::cout << "m_work: ";
                             for (auto& i : list_of_intervals)
                             {
                                 m_work[d - 1].push_back(i);
-                                // std::cout << i << " ";
                             }
-                            // std::cout << std::endl;
                         }
                     }
                     if (m_work[d - 1].empty())

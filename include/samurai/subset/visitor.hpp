@@ -146,7 +146,6 @@ namespace samurai
             }
             m_current_interval = {i_start, i_end};
 
-            // std::cout << "[IntervalListVisitor::next_interval] start: " << i_start << " end: " << i_end << std::endl;
             if (m_current_interval.is_valid())
             {
                 m_current = m_current_interval.start;
@@ -160,12 +159,9 @@ namespace samurai
         template <class StartEnd>
         inline void next(auto scan, StartEnd& start_and_stop)
         {
-            // std::cout << "[IntervalListVisitor::next] " << m_id << " scan: " << scan << std::endl;
-
             if (m_current == std::numeric_limits<value_t>::min())
             {
                 next_interval(start_and_stop);
-                // std::cout << "[IntervalListVisitor::next] " << m_id << " start: " << m_current << std::endl;
                 return;
             }
 

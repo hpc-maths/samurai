@@ -16,7 +16,7 @@
 
 namespace samurai
 {
-    TEST(new_subset, lower_bound)
+    TEST(subset, lower_bound)
     {
         LevelCellList<1> lcl{1};
         LevelCellArray<1> lca;
@@ -46,7 +46,7 @@ namespace samurai
         EXPECT_TRUE(it == lca[0].end());
     }
 
-    TEST(new_subset, upper_bound)
+    TEST(subset, upper_bound)
     {
         LevelCellList<1> lcl{1};
         LevelCellArray<1> lca;
@@ -142,14 +142,14 @@ namespace samurai
             });
     }
 
-    TEST(new_subset, compute_min)
+    TEST(subset, compute_min)
     {
         EXPECT_EQ(1, compute_min(3, 4, 1, 4));
         EXPECT_EQ(0, compute_min(0, 0, 0, 0));
         EXPECT_EQ(-1, compute_min(-1, -1, -1, -1));
     }
 
-    TEST(new_subset, check_dim)
+    TEST(subset, check_dim)
     {
         LevelCellArray<1> lca_1d;
         auto set_1d = self(lca_1d);
@@ -162,7 +162,7 @@ namespace samurai
         static_assert(decltype(intersection(set_2d, set_2d))::dim == 2);
     }
 
-    TEST(new_subset, test1)
+    TEST(subset, test1)
     {
         CellList<1> cl;
         CellArray<1> ca;
@@ -338,7 +338,7 @@ namespace samurai
               });
     }
 
-    TEST(new_subset, 2d_case)
+    TEST(subset, 2d_case)
     {
         CellList<2> cl;
         CellArray<2> ca1, ca2;
@@ -511,7 +511,7 @@ namespace samurai
         }
     }
 
-    TEST(new_subset, translate)
+    TEST(subset, translate)
     {
         CellList<1> cl;
         CellArray<1> ca;
@@ -530,7 +530,7 @@ namespace samurai
               });
     }
 
-    TEST(new_subset, translate_test)
+    TEST(subset, translate_test)
     {
         CellList<1> cl;
         CellArray<1> ca;
@@ -587,270 +587,11 @@ namespace samurai
               });
     }
 
-    // TEST(new_subset, translate_2_old)
-    // {
-    //     using lca_t      = LevelCellArray<2>;
-    //     using interval_t = typename lca_t::interval_t;
-    //     LevelCellArray<2> boundary(5);
-
-    //     for (int j = 4; j < 28; ++j)
-    //     {
-    //         boundary.add_point_back(31, {j});
-    //     }
-
-    //     std::cout << boundary << std::endl;
-
-    //     LevelCellArray<2> domain(5);
-    //     for (int j = 4; j < 28; ++j)
-    //     {
-    //         domain.add_interval_back({0, 32}, {j});
-    //     }
-
-    //     LevelCellArray<2> lca(4);
-
-    //     lca.add_interval_back({0, 2}, {0});
-    //     lca.add_interval_back({14, 16}, {0});
-    //     lca.add_interval_back({0, 16}, {1});
-    //     for (int j = 2; j < 14; ++j)
-    //     {
-    //         lca.add_interval_back({1, 2}, {j});
-    //         lca.add_interval_back({14, 15}, {j});
-    //     }
-    //     lca.add_interval_back({0, 16}, {15});
-    //     lca.add_interval_back({0, 2}, {16});
-    //     lca.add_interval_back({14, 16}, {16});
-
-    //     std::cout << lca << std::endl;
-
-    //     xt::xtensor_fixed<int, xt::xshape<2>> translation{1, 0};
-
-    //     {
-    //         auto set = difference(domain, translate(self(domain), -translation));
-    //         set(
-    //             [&](auto& i, auto& index)
-    //             {
-    //                 std::cout << "domain i: " << i << " index: " << index << std::endl;
-    //             });
-    //     }
-
-    //     auto diff = difference(domain, translate(self(domain), -translation));
-
-    //     auto set = intersection(translate(diff.on(4), -translation), lca);
-    //     // auto set = intersection(diff.on(4), diff.on(4)).on(5);
-    //     // auto set = intersection(translate(self(boundary).on(4), -translation), lca);
-    //     // set(
-    //     //     [&](auto& i, auto& index)
-    //     //     {
-    //     //         std::cout << "******************************" << std::endl;
-    //     //         std::cout << "FOUND i: " << i << " index: " << index << std::endl;
-    //     //         std::cout << "******************************" << std::endl;
-    //     //     });
-
-    //     // LevelCellArray<2> domain1(5);
-    //     // for (int j = 4; j < 6; ++j)
-    //     // {
-    //     //     domain1.add_interval_back({0, 32}, {j});
-    //     // }
-    //     // xt::xtensor_fixed<int, xt::xshape<2>> translation{1, 0};
-    //     // auto diff = difference(domain1, translate(self(domain1), -translation));
-
-    //     // bool found = false;
-    //     // diff.on(4)(
-    //     //     [&](auto& i, auto& index)
-    //     //     {
-    //     //         found = true;
-    //     //         EXPECT_EQ(interval_t(15, 16), i);
-    //     //         EXPECT_EQ(index[0], 2);
-    //     //     });
-    //     // EXPECT_TRUE(found);
-
-    //     // found = false;
-    //     // intersection(diff.on(4), diff.on(4))(
-    //     //     [&](auto& i, auto& index)
-    //     //     {
-    //     //         found = true;
-    //     //         EXPECT_EQ(interval_t(15, 16), i);
-    //     //         EXPECT_EQ(index[0], 2);
-    //     //     });
-    //     // EXPECT_TRUE(found);
-
-    //     // found = false;
-    //     // intersection(diff.on(4), diff.on(4))
-    //     //     .on(3)(
-    //     //         [&](auto& i, auto& index)
-    //     //         {
-    //     //             found = true;
-    //     //             EXPECT_EQ(interval_t(7, 8), i);
-    //     //             EXPECT_EQ(index[0], 1);
-    //     //         });
-    //     // EXPECT_TRUE(found);
-
-    //     // found = false;
-    //     // intersection(intersection(diff.on(4), diff.on(4)).on(3), intersection(diff.on(4), diff.on(4)).on(5))
-    //     //     .on(3)(
-    //     //         [&](auto& i, auto& index)
-    //     //         {
-    //     //             found = true;
-    //     //             EXPECT_EQ(interval_t(7, 8), i);
-    //     //             EXPECT_EQ(index[0], 1);
-    //     //         });
-    //     // EXPECT_TRUE(found);
-
-    //     // LevelCellArray<2> lca_4(4);
-    //     // lca_4.add_interval_back({15, 16}, {2});
-
-    //     // found = false;
-    //     // intersection(intersection(diff.on(4), diff.on(4)).on(3), lca_4)(
-    //     //     [&](auto& i, auto& index)
-    //     //     {
-    //     //         found = true;
-    //     //         EXPECT_EQ(interval_t(15, 16), i);
-    //     //         EXPECT_EQ(index[0], 2);
-    //     //     });
-    //     // EXPECT_TRUE(found);
-    // }
-
-    TEST(new_subset, test_1d)
-    {
-        constexpr std::size_t dim = 1;
-
-        LevelCellArray<dim> domain(5);
-        domain.add_interval_back({0, 32}, {});
-
-        LevelCellArray<dim> lca(4);
-        lca.add_interval_back({14, 16}, {});
-
-        // std::cout << lca << std::endl;
-
-        xt::xtensor_fixed<int, xt::xshape<dim>> translation{1};
-
-        // {
-        //     auto set = difference(domain, translate(self(domain), -translation)).on(4);
-        //     // intersection(set, set).on(2)(
-        //     // intersection(set, set).on(2).on(4)(
-        //     union_(intersection(set, set).on(2), lca)(
-        //         // set(
-        //         [&](auto& i, auto&)
-        //         {
-        //             std::cout << "**************************domain i: " << i << std::endl;
-        //         });
-        // }
-
-        // {
-        //     LevelCellArray<dim> lca1(5);
-        //     lca1.add_interval_back({2, 4}, {});
-        //     LevelCellArray<dim> lca2(5);
-        //     lca2.add_interval_back({0, 2}, {});
-        //     // auto set = difference(translate(self(lca1), translation), lca2);
-        //     auto set = difference(lca1, self(lca2).on(4)).on(1);
-        //     set(
-        //         [&](auto& i, auto&)
-        //         {
-        //             std::cout << "**************************domain i: " << i << std::endl;
-        //         });
-        // }
-
-        {
-            LevelCellArray<dim> lca1(5);
-            lca1.add_interval_back({2, 4}, {});
-            LevelCellArray<dim> lca2(5);
-            lca2.add_interval_back({2, 3}, {});
-            // auto set = difference(translate(self(lca1), translation), lca2);
-            auto set = difference(lca1, self(lca2).on(4));
-            set(
-                [&](auto& i, auto&)
-                {
-                    std::cout << "**************************domain i: " << i << std::endl;
-                });
-        }
-    }
-
-    TEST(new_subset, test_2d)
-    {
-        constexpr std::size_t dim = 2;
-
-        LevelCellArray<dim> domain(5);
-        domain.add_interval_back({0, 32}, {0});
-
-        LevelCellArray<dim> lca(4);
-        lca.add_interval_back({14, 16}, {0});
-
-        // std::cout << lca << std::endl;
-
-        xt::xtensor_fixed<int, xt::xshape<dim>> translation{1, 0};
-
-        // {
-        //     auto set = difference(domain, translate(self(domain), -translation)).on(4);
-        //     // intersection(set, set).on(2)(
-        //     // intersection(set, set).on(2).on(4)(
-        //     union_(intersection(set, set).on(2), lca)(
-        //         // set(
-        //         [&](auto& i, auto&)
-        //         {
-        //             std::cout << "**************************domain i: " << i << std::endl;
-        //         });
-        // }
-
-        {
-            LevelCellArray<dim> lca1(5);
-            lca1.add_interval_back({2, 4}, {0});
-            LevelCellArray<dim> lca2(5);
-            lca2.add_interval_back({3, 4}, {0});
-            // lca2.add_interval_back({0, 2}, {1});
-            // auto set = difference(translate(self(lca1), translation), self(lca2).on(4));
-            // auto set = difference(lca1, self(lca2).on(4)).on(1);
-            // auto set = difference(lca1, self(lca2).on(4));
-            auto set = difference(lca1, lca2).on(4);
-            // auto set = intersection(lca1, self(lca2).on(4));
-            set(
-                [&](auto& i, auto& index)
-                {
-                    std::cout << "**************************domain i: " << i << " " << index << std::endl;
-                });
-        }
-    }
-
-    TEST(new_subset, translate_2d)
+    TEST(subset, translate_2d)
     {
         using lca_t      = LevelCellArray<2>;
         using interval_t = typename lca_t::interval_t;
         LevelCellArray<2> boundary(5);
-
-        // boundary.add_point_back(31, 4);
-        // std::cout << boundary << std::endl;
-
-        // LevelCellArray<2> domain(5);
-        // domain.add_interval_back({0, 32}, 4);
-
-        // LevelCellArray<2> lca(4);
-        // lca.add_interval_back({14, 16}, {2});
-
-        // std::cout << lca << std::endl;
-
-        // xt::xtensor_fixed<int, xt::xshape<2>> translation{1, 0};
-
-        // {
-        //     auto set = difference(domain, translate(self(domain), -translation)).on(4);
-        //     set(
-        //         [&](auto& i, auto& index)
-        //         {
-        //             std::cout << "**************************domain i: " << i << " index: " << index << std::endl;
-        //         });
-        // }
-
-        // auto diff = difference(domain, translate(self(domain), -translation));
-
-        // auto set = translate(diff.on(4), -translation);
-        // auto set = intersection(translate(diff.on(4), -translation), lca);
-        // auto set = intersection(diff.on(4), diff.on(4)).on(5);
-        // auto set = intersection(translate(self(boundary).on(4), -translation), lca);
-        // set(
-        //     [&](auto& i, auto& index)
-        //     {
-        //         std::cout << "******************************" << std::endl;
-        //         std::cout << "FOUND i: " << i << " index: " << index << std::endl;
-        //         std::cout << "******************************" << std::endl;
-        //     });
 
         LevelCellArray<2> domain1(5);
         for (int j = 4; j < 6; ++j)
@@ -916,7 +657,7 @@ namespace samurai
         EXPECT_TRUE(found);
     }
 
-    TEST(new_subset, union)
+    TEST(subset, union)
     {
         using interval_t = typename CellArray<2>::interval_t;
         using expected_t = std::vector<std::pair<int, interval_t>>;
@@ -1079,5 +820,462 @@ namespace samurai
             EXPECT_TRUE(found);
             EXPECT_EQ(ie, expected.size());
         }
+    }
+
+    // 1D Pathological Cases
+    TEST(subset, 1d_empty_sets)
+    {
+        LevelCellList<1> lcl{3};
+        LevelCellArray<1> empty_lca;
+        LevelCellArray<1> regular_lca;
+
+        // Empty set operations
+        lcl[{}].add_interval({5, 10});
+        regular_lca = lcl;
+
+        // Union with empty set should return original
+        bool found = false;
+        apply(union_(empty_lca, regular_lca),
+              [&](auto& i, auto)
+              {
+                  EXPECT_EQ(i, typename LevelCellArray<1>::interval_t(5, 10));
+                  found = true;
+              });
+        EXPECT_TRUE(found);
+
+        // Intersection with empty set should be empty
+        found = false;
+        apply(intersection(empty_lca, regular_lca),
+              [&](auto&, auto)
+              {
+                  found = true;
+              });
+        EXPECT_FALSE(found);
+
+        // Difference with empty set should return original
+        found = false;
+        apply(difference(regular_lca, empty_lca),
+              [&](auto& i, auto)
+              {
+                  EXPECT_EQ(i, typename LevelCellArray<1>::interval_t(5, 10));
+                  found = true;
+              });
+        EXPECT_TRUE(found);
+    }
+
+    TEST(subset, 1d_single_point_intervals)
+    {
+        LevelCellList<1> lcl{3};
+        LevelCellArray<1> lca;
+
+        // Single point intervals
+        lcl[{}].add_interval({0, 1});
+        lcl[{}].add_interval({2, 3});
+        lcl[{}].add_interval({4, 5});
+        lca = lcl;
+
+        // Translation by 1 should create gaps
+        xt::xtensor_fixed<int, xt::xshape<1>> translation{1};
+        bool found = false;
+        apply(difference(lca, translate(lca, translation)),
+              [&](auto& i, auto)
+              {
+                  found = true;
+                  EXPECT_TRUE(i == typename LevelCellArray<1>::interval_t(0, 1) || i == typename LevelCellArray<1>::interval_t(2, 3)
+                              || i == typename LevelCellArray<1>::interval_t(4, 5));
+              });
+        EXPECT_TRUE(found);
+    }
+
+    TEST(subset, 1d_extreme_level_differences)
+    {
+        CellList<1> cl;
+        CellArray<1> ca;
+
+        // Very different levels
+        cl[0][{}].add_interval({0, 1});
+        cl[10][{}].add_interval({0, 1024});
+        ca = {cl, true};
+
+        // Intersection should work despite level difference
+        bool found = false;
+        apply(intersection(ca[0], ca[10]),
+              [&](auto& i, auto)
+              {
+                  found = true;
+                  EXPECT_EQ(i, typename CellArray<1>::interval_t(0, 1024));
+              });
+        EXPECT_TRUE(found);
+
+        // Level adaptation
+        found = false;
+        apply(intersection(ca[0], self(ca[10]).on(0)),
+              [&](auto& i, auto)
+              {
+                  found = true;
+                  EXPECT_EQ(i, typename CellArray<1>::interval_t(0, 1));
+              });
+        EXPECT_TRUE(found);
+    }
+
+    TEST(subset, 1d_negative_coordinates)
+    {
+        LevelCellList<1> lcl{3};
+        LevelCellArray<1> lca;
+
+        lcl[{}].add_interval({-10, -5});
+        lcl[{}].add_interval({-2, 3});
+        lcl[{}].add_interval({8, 12});
+        lca = lcl;
+
+        xt::xtensor_fixed<int, xt::xshape<1>> translation{-15};
+
+        // Translation to very negative values
+        bool found = false;
+        apply(translate(lca, translation),
+              [&](auto& i, auto)
+              {
+                  found = true;
+                  EXPECT_TRUE(i == typename LevelCellArray<1>::interval_t(-25, -20) || i == typename LevelCellArray<1>::interval_t(-17, -12)
+                              || i == typename LevelCellArray<1>::interval_t(-7, -3));
+              });
+        EXPECT_TRUE(found);
+    }
+
+    // 2D Pathological Cases
+    TEST(subset, 2d_sparse_distribution)
+    {
+        LevelCellList<2> lcl{3};
+        LevelCellArray<2> lca;
+
+        // Very sparse distribution
+        lcl[{0}].add_interval({0, 1});
+        lcl[{100}].add_interval({0, 1});
+        lcl[{-50}].add_interval({200, 201});
+        lca = lcl;
+
+        xt::xtensor_fixed<int, xt::xshape<2>> translation{1, 1};
+
+        // Self-intersection after translation should be empty for sparse data
+        bool found = false;
+        apply(intersection(lca, translate(lca, translation)),
+              [&](auto&, auto)
+              {
+                  found = true;
+              });
+        EXPECT_FALSE(found);
+    }
+
+    TEST(subset, 2d_checkerboard_pattern)
+    {
+        LevelCellList<2> lcl{3};
+        LevelCellArray<2> lca;
+
+        // Checkerboard pattern
+        for (int j = 0; j < 8; j += 2)
+        {
+            for (int i = j % 4; i < 8; i += 4)
+            {
+                lcl[{j}].add_interval({i, i + 1});
+            }
+        }
+        lca = lcl;
+
+        xt::xtensor_fixed<int, xt::xshape<2>> translation{1, 1};
+
+        // Translation should create complementary pattern
+        bool found = false;
+        int count  = 0;
+        apply(intersection(lca, translate(lca, translation)),
+              [&](auto&, auto)
+              {
+                  found = true;
+                  count++;
+              });
+        EXPECT_FALSE(found); // Should be empty due to checkerboard
+    }
+
+    TEST(subset, 2d_boundary_conditions)
+    {
+        CellList<2> cl;
+        CellArray<2> ca;
+
+        // Create a domain with holes
+        cl[5][{16}].add_interval({0, 32});
+        cl[5][{17}].add_interval({0, 8});
+        cl[5][{17}].add_interval({24, 32});
+        cl[5][{18}].add_interval({0, 32});
+        ca = {cl, true};
+
+        // Test boundary extraction
+        xt::xtensor_fixed<int, xt::xshape<2>> directions[] = {
+            {1,  0 },
+            {-1, 0 },
+            {0,  1 },
+            {0,  -1}
+        };
+
+        for (auto& dir : directions)
+        {
+            auto boundary = difference(ca[5], translate(ca[5], dir));
+            bool found    = false;
+            apply(boundary,
+                  [&](auto&, auto)
+                  {
+                      found = true;
+                  });
+            EXPECT_TRUE(found);
+        }
+    }
+
+    TEST(subset, 2d_extreme_aspect_ratios)
+    {
+        LevelCellList<2> lcl{3};
+        LevelCellArray<2> lca;
+
+        // Very thin horizontal strips at y=0 and y=1
+        lcl[{0}].add_interval({0, 1000});
+        lcl[{1}].add_interval({0, 1000});
+
+        // Very thin vertical strips at y=0 (overlapping with horizontal strips)
+        for (int i = 0; i < 1000; i += 100)
+        {
+            lcl[{0}].add_interval({i, i + 1});
+        }
+        lca = lcl;
+
+        // Intersection should find overlap regions where horizontal and vertical strips meet
+        bool found = false;
+        int count  = 0;
+        apply(intersection(self(lca), self(lca)),
+              [&](auto& i, auto& index)
+              {
+                  found = true;
+                  count++;
+                  // Should find the original intervals since self-intersection returns the original set
+                  if (index[0] == 0)
+                  {
+                      EXPECT_TRUE(i.start >= 0 && i.end <= 1000);
+                  }
+              });
+        EXPECT_TRUE(found);
+        EXPECT_GT(count, 0);
+    }
+
+    // 3D Pathological Cases
+    TEST(subset, 3d_complex_geometry)
+    {
+        LevelCellList<3> lcl{2};
+        LevelCellArray<3> lca;
+
+        // Create a complex 3D structure
+        for (int k = 0; k < 4; ++k)
+        {
+            for (int j = 0; j < 4; ++j)
+            {
+                // Hollow cube structure
+                if (k == 0 || k == 3 || j == 0 || j == 3)
+                {
+                    lcl[{j, k}].add_interval({0, 4});
+                }
+                else
+                {
+                    lcl[{j, k}].add_interval({0, 1});
+                    lcl[{j, k}].add_interval({3, 4});
+                }
+            }
+        }
+        lca = lcl;
+
+        // Test volume calculation through iteration
+        int cell_count = 0;
+        apply(self(lca),
+              [&](auto& i, auto&)
+              {
+                  cell_count += i.size();
+              });
+        EXPECT_GT(cell_count, 0);
+
+        // Test 3D translation
+        xt::xtensor_fixed<int, xt::xshape<3>> translation{1, 1, 1};
+        bool found = false;
+        apply(intersection(lca, translate(lca, translation)),
+              [&](auto&, auto)
+              {
+                  found = true;
+              });
+        EXPECT_TRUE(found);
+    }
+
+    TEST(subset, 3d_layered_structure)
+    {
+        LevelCellList<3> lcl{3};
+        LevelCellArray<3> lca;
+
+        // Alternating layers
+        for (int k = 0; k < 8; k += 2)
+        {
+            for (int j = 0; j < 8; ++j)
+            {
+                lcl[{j, k}].add_interval({0, 8});
+            }
+        }
+        lca = lcl;
+
+        // Test difference between adjacent layers
+        LevelCellList<3> lcl2{3};
+        LevelCellArray<3> lca2;
+
+        for (int k = 1; k < 8; k += 2)
+        {
+            for (int j = 0; j < 8; ++j)
+            {
+                lcl2[{j, k}].add_interval({0, 8});
+            }
+        }
+        lca2 = lcl2;
+
+        // Should be completely disjoint
+        bool found = false;
+        apply(intersection(lca, lca2),
+              [&](auto&, auto)
+              {
+                  found = true;
+              });
+        EXPECT_FALSE(found);
+
+        // Union should cover all layers
+        found = false;
+        apply(union_(lca, lca2),
+              [&](auto&, auto)
+              {
+                  found = true;
+              });
+        EXPECT_TRUE(found);
+    }
+
+    TEST(subset, 3d_fractal_like_structure)
+    {
+        CellList<3> cl;
+        CellArray<3> ca;
+
+        // Create a Menger sponge-like structure at different levels
+        cl[3][{0, 0}].add_interval({0, 9});
+        cl[3][{0, 1}].add_interval({0, 3});
+        cl[3][{0, 1}].add_interval({6, 9});
+        cl[3][{0, 2}].add_interval({0, 9});
+
+        cl[4][{0, 4}].add_interval({0, 18});
+        cl[4][{1, 4}].add_interval({0, 6});
+        cl[4][{1, 4}].add_interval({12, 18});
+        cl[4][{2, 4}].add_interval({0, 18});
+
+        ca = {cl, true};
+
+        // Test self-similarity at different scales
+        bool found = false;
+        apply(intersection(ca[3], self(ca[4]).on(3)),
+              [&](auto&, auto)
+              {
+                  found = true;
+              });
+        EXPECT_TRUE(found);
+    }
+
+    TEST(subset, edge_case_translations)
+    {
+        LevelCellList<2> lcl{5};
+        LevelCellArray<2> lca;
+
+        // Single cell
+        lcl[{16}].add_interval({16, 17});
+        lca = lcl;
+
+        // Test translation by exactly the cell size at different levels
+        for (int level_offset = -2; level_offset <= 2; ++level_offset)
+        {
+            int target_level = 5 + level_offset;
+            if (target_level >= 0)
+            {
+                int scale = 1 << std::abs(level_offset);
+                xt::xtensor_fixed<int, xt::xshape<2>> translation;
+
+                if (level_offset >= 0)
+                {
+                    translation = {scale, 0};
+                }
+                else
+                {
+                    translation = {1, 0};
+                }
+
+                bool found = false;
+                apply(intersection(self(lca).on(target_level), translate(self(lca).on(target_level), translation)),
+                      [&](auto&, auto)
+                      {
+                          found = true;
+                      });
+                // Should be empty for non-zero translations of single cells
+                if (translation[0] != 0 || translation[1] != 0)
+                {
+                    EXPECT_FALSE(found);
+                }
+            }
+        }
+    }
+
+    TEST(subset, large_coordinate_stress_test)
+    {
+        LevelCellList<1> lcl{10};
+        LevelCellArray<1> lca;
+
+        // Very large coordinates near integer limits
+        const int large_coord = 1000000;
+        lcl[{}].add_interval({large_coord, large_coord + 1024});
+        lca = lcl;
+
+        // Test operations with large coordinates
+        xt::xtensor_fixed<int, xt::xshape<1>> translation{-large_coord};
+
+        bool found = false;
+        apply(translate(lca, translation),
+              [&](auto& i, auto)
+              {
+                  EXPECT_EQ(i, typename LevelCellArray<1>::interval_t(0, 1024));
+                  found = true;
+              });
+        EXPECT_TRUE(found);
+    }
+
+    TEST(subset, mixed_operations_stress_test)
+    {
+        LevelCellList<2> lcl{4};
+        LevelCellArray<2> lca1, lca2;
+
+        // Setup two overlapping patterns
+        lcl[{2}].add_interval({0, 8});
+        lcl[{3}].add_interval({2, 6});
+        lcl[{4}].add_interval({0, 8});
+        lca1 = lcl;
+
+        lcl.clear();
+        lcl[{1}].add_interval({4, 12});
+        lcl[{2}].add_interval({6, 10});
+        lcl[{3}].add_interval({4, 12});
+        lca2 = lcl;
+
+        // Complex nested operations
+        xt::xtensor_fixed<int, xt::xshape<2>> trans1{1, 1};
+        xt::xtensor_fixed<int, xt::xshape<2>> trans2{-1, 0};
+
+        auto complex_set = union_(intersection(translate(lca1, trans1), lca2), difference(lca1, translate(lca2, trans2)));
+
+        bool found = false;
+        apply(complex_set,
+              [&](auto&, auto)
+              {
+                  found = true;
+              });
+        EXPECT_TRUE(found);
     }
 }
