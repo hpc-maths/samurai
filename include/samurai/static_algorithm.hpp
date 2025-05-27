@@ -9,7 +9,7 @@
 
 namespace samurai
 {
-    template <std::size_t Dim, class TInterval = default_config::interval_t>
+    template <std::size_t Dim, class TInterval>
     class LevelCellArray;
 
     // Static loop with boundaries known at compile time
