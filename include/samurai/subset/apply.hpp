@@ -10,7 +10,7 @@ namespace samurai
 {
     namespace detail
     {
-        template <std::size_t dim, bool check = false, class Set, class Func, class Container>
+        template <std::size_t dim, class Set, class Func, class Container>
         bool apply_impl(Set&& global_set, Func&& func, Container& index)
         {
             auto set            = global_set.template get_local_set<dim>(global_set.level(), index);
@@ -23,14 +23,14 @@ namespace samurai
                     for (auto i = interval.start; i < interval.end; ++i)
                     {
                         index[dim - 2] = i;
-                        if (apply_impl<dim - 1, check>(std::forward<Set>(global_set), std::forward<Func>(func), index))
+                        if (apply_impl<dim - 1>(std::forward<Set>(global_set), std::forward<Func>(func), index))
                         {
                             return true;
                         }
                     }
                     return false;
                 };
-                return apply<check>(set, start_and_stop, func_int);
+                return apply(set, start_and_stop, func_int);
             }
             else
             {
@@ -38,7 +38,7 @@ namespace samurai
                 {
                     return func(interval, index);
                 };
-                return apply<check>(set, start_and_stop, func_int);
+                return apply(set, start_and_stop, func_int);
             }
         }
     }
@@ -62,7 +62,7 @@ namespace samurai
     }
 
     template <class Set>
-    bool exist(Set&& global_set)
+    bool empty_check(Set&& global_set)
     {
         constexpr std::size_t dim = std::decay_t<Set>::dim;
         xt::xtensor_fixed<int, xt::xshape<dim - 1>> index;
@@ -74,11 +74,12 @@ namespace samurai
 
         if (global_set.exist())
         {
-            detail::apply_impl<dim, true>(std::forward<Set>(global_set), func, index);
+            return !detail::apply_impl<dim>(std::forward<Set>(global_set), func, index);
         }
+        return true;
     }
 
-    template <bool check = false, class Set, class StartEnd, class Func>
+    template <class Set, class StartEnd, class Func>
         requires IsSetOp<Set> || IsIntervalListVisitor<Set>
     bool apply(Set&& set, StartEnd&& start_and_stop, Func&& func)
     {
