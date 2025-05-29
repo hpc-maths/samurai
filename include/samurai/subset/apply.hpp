@@ -49,9 +49,9 @@ namespace samurai
         constexpr std::size_t dim = std::decay_t<Set>::dim;
         xt::xtensor_fixed<int, xt::xshape<dim - 1>> index;
 
-        auto func = [&](const auto& interval, const auto& index)
+        auto func = [&](const auto& interval, const auto& yz)
         {
-            user_func(interval, index);
+            user_func(interval, yz);
             return false;
         };
 
