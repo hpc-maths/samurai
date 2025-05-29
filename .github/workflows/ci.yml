@@ -69,12 +69,6 @@ jobs:
             fail-fast: false
             matrix:
                 include:
-                    - cpp-version: gcc-10
-                      os: ubuntu-latest
-                      compiler: "gcc"
-                      package: "gcc-10 g++-10"
-                      cc: "gcc-10"
-                      cxx: "g++-10"
                     - cpp-version: gcc-11
                       os: ubuntu-latest
                       compiler: "gcc"
@@ -99,6 +93,12 @@ jobs:
                       package: "gcc-14 g++-14"
                       cc: "gcc-14"
                       cxx: "g++-14"
+                    - cpp-version: gcc-15
+                      os: ubuntu-latest
+                      compiler: "gcc"
+                      package: "gcc-15 g++-15"
+                      cc: "gcc-15"
+                      cxx: "g++-15"
                     - cpp-version: clang-13
                       os: ubuntu-22.04
                       compiler: "clang"
