@@ -38,11 +38,11 @@ namespace samurai
         template <std::size_t, bool from_diff_op = false, class Func>
         inline auto start(const Func& f) const
         {
-            auto new_f = [&, f](auto, auto i, auto dec)
+            auto new_f = [&, f](auto level, auto i, auto dec)
             {
                 if constexpr (from_diff_op)
                 {
-                    dec = 1;
+                    dec = (static_cast<std::size_t>(level) > m_level) ? 1 : 0;
                 }
                 int value = (((i - dec) >> m_shift) << m_shift) + dec;
                 return f(m_level, value, dec);
@@ -53,11 +53,11 @@ namespace samurai
         template <std::size_t, bool from_diff_op = false, class Func>
         inline auto end(const Func& f) const
         {
-            auto new_f = [&, f](auto, auto i, auto dec)
+            auto new_f = [&, f](auto level, auto i, auto dec)
             {
                 if constexpr (from_diff_op)
                 {
-                    dec = 0;
+                    dec = (static_cast<std::size_t>(level) > m_level) ? 0 : 1;
                 }
                 int value = (((i - dec) >> m_shift) + dec) << m_shift;
                 return f(m_level, value, dec);
@@ -126,7 +126,7 @@ namespace samurai
 
                 if constexpr (from_diff_op)
                 {
-                    dec = 1;
+                    dec = (static_cast<std::size_t>(level) > m_level) ? 1 : 0;
                 }
                 int value = (((((i - dec) >> max2curr) + m_t[d - 1]) >> curr2min) + dec) << min2max;
 
@@ -146,7 +146,7 @@ namespace samurai
 
                 if constexpr (from_diff_op)
                 {
-                    dec = 0;
+                    dec = (static_cast<std::size_t>(level) > m_level) ? 0 : 1;
                 }
                 int value = (((((i - dec) >> max2curr) + m_t[d - 1]) >> curr2min) + dec) << min2max;
 
@@ -215,9 +215,10 @@ namespace samurai
 
                 if constexpr (from_diff_op)
                 {
+                    dec = (static_cast<std::size_t>(level) > m_level) ? 1 : 0;
                     dec = 1;
                 }
-                int value = (((((i - dec) >> max2curr) - m_c) >> curr2min) + dec) << min2max;
+                int value = (((((i - dec) >> max2curr) + m_c) >> curr2min) + dec) << min2max;
                 return f(m_level, value, dec);
             };
             return new_f;
@@ -234,7 +235,7 @@ namespace samurai
 
                 if constexpr (from_diff_op)
                 {
-                    dec = 0;
+                    dec = (static_cast<std::size_t>(level) > m_level) ? 0 : 1;
                 }
                 int value = (((((i - dec) >> max2curr) - m_c) >> curr2min) + dec) << min2max;
                 return f(m_level, value, dec);
