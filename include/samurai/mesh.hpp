@@ -171,6 +171,7 @@ namespace samurai
       private:
 
         void construct_subdomain();
+        void construct_domain();
         void construct_union();
         void update_sub_mesh();
         void renumbering();
@@ -302,7 +303,7 @@ namespace samurai
         this->m_cells[mesh_id_t::cells] = {cl};
 
         construct_subdomain();
-        m_domain = m_subdomain;
+        construct_domain();
         construct_union();
         update_sub_mesh();
         renumbering();
@@ -323,10 +324,20 @@ namespace samurai
         this->m_cells[mesh_id_t::cells] = ca;
 
         construct_subdomain();
-        m_domain = m_subdomain;
+        construct_domain();
         construct_union();
         update_sub_mesh();
         renumbering();
+
+        mpi::communicator world;
+        m_mpi_neighbourhood.clear();
+        for (int i = 0; i < world.size(); ++i)
+        {
+            if (i != world.rank())
+            {
+                m_mpi_neighbourhood.emplace_back(i);
+            }
+        }
         update_mesh_neighbour();
 
         set_origin_point(ca.origin_point());
@@ -716,6 +727,30 @@ namespace samurai
 
         mpi::wait_all(req.begin(), req.end());
 #endif // SAMURAI_WITH_MPI
+    }
+
+    template <class D, class Config>
+    inline void Mesh_base<D, Config>::construct_domain()
+    {
+#ifdef SAMURAI_WITH_MPI
+        lcl_type lcl = {m_max_level};
+        mpi::communicator world;
+        std::vector<lca_type> all_subdomains(static_cast<std::size_t>(world.size()));
+        mpi::all_gather(world, m_subdomain, all_subdomains);
+
+        for (std::size_t i = 0; i < all_subdomains.size(); ++i)
+        {
+            for_each_interval(all_subdomains[i],
+                              [&](auto, const auto& i, const auto& index)
+                              {
+                                  lcl[index].add_interval(i);
+                              });
+        }
+
+        m_domain = {lcl};
+#else
+        m_domain = m_subdomain
+#endif
     }
 
     template <class D, class Config>
