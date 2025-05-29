@@ -808,17 +808,6 @@ namespace samurai
                     lcl[index_yz].add_interval(interval);
                 });
 
-            // for (auto& neighbour : m_mpi_neighbourhood)
-            // {
-            //     auto neigh_expr = intersection(m_subdomain, union_(neighbour.mesh.m_cells[mesh_id_t::cells][level], m_union[level]))
-            //                           .on(level - 1);
-
-            //     neigh_expr(
-            //         [&](const auto& interval, const auto& index_yz)
-            //         {
-            //             lcl[index_yz].add_interval(interval);
-            //         });
-            // }
             m_union[level - 1] = {lcl};
         }
     }
