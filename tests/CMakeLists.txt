@@ -17,6 +17,7 @@ set(SAMURAI_TESTS
     test_cell.cpp
     test_cell_array.cpp
     test_cell_list.cpp
+    test_corner_projection.cpp
     test_domain_with_hole.cpp
     test_field.cpp
     test_find.cpp
