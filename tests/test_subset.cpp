@@ -1088,7 +1088,7 @@ namespace samurai
         lca = lcl;
 
         // Test volume calculation through iteration
-        int cell_count = 0;
+        std::size_t cell_count = 0;
         apply(self(lca),
               [&](auto& i, auto&)
               {
