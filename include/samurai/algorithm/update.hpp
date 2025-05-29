@@ -482,6 +482,7 @@ namespace samurai
             shift[d]      = 0;
         }
 #ifdef SAMURAI_WITH_MPI
+        using field_value_t = typename Field::value_type;
         std::vector<mpi::request> req;
         req.reserve(mesh.mpi_neighbourhood().size());
         mpi::communicator world;
@@ -648,6 +649,7 @@ namespace samurai
             max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
         }
 #ifdef SAMURAI_WITH_MPI
+        using tag_value_type = typename Tag::value_type;
         std::vector<mpi::request> req;
         req.reserve(mesh.mpi_neighbourhood().size());
         mpi::communicator world;
