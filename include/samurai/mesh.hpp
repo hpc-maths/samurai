@@ -329,6 +329,7 @@ namespace samurai
         update_sub_mesh();
         renumbering();
 
+#ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
         m_mpi_neighbourhood.clear();
         for (int i = 0; i < world.size(); ++i)
@@ -338,6 +339,7 @@ namespace samurai
                 m_mpi_neighbourhood.emplace_back(i);
             }
         }
+#endif
         update_mesh_neighbour();
 
         set_origin_point(ca.origin_point());
@@ -749,7 +751,7 @@ namespace samurai
 
         m_domain = {lcl};
 #else
-        m_domain = m_subdomain
+        m_domain = m_subdomain;
 #endif
     }
 
