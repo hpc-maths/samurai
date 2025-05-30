@@ -423,6 +423,7 @@ namespace samurai
 
         auto& on(auto level)
         {
+            m_ref_level = std::max(m_ref_level, static_cast<std::size_t>(level));
             m_min_level = std::min(m_min_level, static_cast<std::size_t>(level));
             m_level     = static_cast<std::size_t>(level);
             return *this;
