@@ -354,9 +354,8 @@ namespace samurai
                         //~ for (const auto& mpi_neighbor : this->mpi_neighbourhood())
                         for (size_t neighbor_id = 0; neighbor_id != this->mpi_neighbourhood().size(); ++neighbor_id)
                         {
-                            const auto& mpi_neighbor                = this->mpi_neighbourhood()[neighbor_id];
-                            const auto& neighbor_extended_subdomain = neighbourhood_extended_subdomain[neighbor_id][level];
-                            const auto& neighbor_mesh_ref           = mpi_neighbor.mesh[mesh_id_t::reference];
+                            const auto& mpi_neighbor      = this->mpi_neighbourhood()[neighbor_id];
+                            const auto& neighbor_mesh_ref = mpi_neighbor.mesh[mesh_id_t::reference];
 
                             auto set1_mpi = intersection(translate(intersection(neighbor_mesh_ref[level], lca_min), shift),
                                                          intersection(lca_extended_subdomain, lca_max));
