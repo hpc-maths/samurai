@@ -89,8 +89,24 @@ namespace samurai
     }
 
     template <std::size_t dim, class interval_t>
-    void dump(HighFive::File& file, const LevelCellArray<dim, interval_t>& lca)
+    void dump(HighFive::File& file, const LevelCellArray<dim, interval_t>& lca, bool with_metadata = true)
     {
+        if (with_metadata)
+        {
+#ifdef SAMURAI_WITH_MPI
+            mpi::communicator world;
+            auto size = world.size();
+#else
+            std::size_t size = 1;
+#endif
+            H5Easy::dump(file, "/n_process", size);
+            H5Easy::dump(file, "/mesh/dim", dim);
+            H5Easy::dump(file, "/mesh/min_level", lca.level());
+            H5Easy::dump(file, "/mesh/max_level", lca.level());
+            H5Easy::dump(file, "/mesh/origin_point", lca.origin_point());
+            H5Easy::dump(file, "/mesh/scaling_factor", lca.scaling_factor());
+        }
+
         for (std::size_t d = 0; d < dim; ++d)
         {
             auto name = fmt::format("/mesh/level/{}/dim/{}/intervals", lca.level(), d);
@@ -126,7 +142,7 @@ namespace samurai
 
         for (std::size_t level = min_level; level <= max_level; ++level)
         {
-            dump(file, ca[level]);
+            dump(file, ca[level], false); // false to avoid dumping metadata for each level
         }
     }
 
@@ -162,6 +178,8 @@ namespace samurai
         using Mesh      = Mesh_base<D, Config>;
         using mesh_id_t = typename Mesh::mesh_id_t;
         dump(file, mesh[mesh_id_t::cells]);
+        H5Easy::dump(file, "/mesh/min_level", mesh.min_level(), H5Easy::DumpMode::Overwrite);
+        H5Easy::dump(file, "/mesh/max_level", mesh.max_level(), H5Easy::DumpMode::Overwrite);
         dump_fields(file, mesh[mesh_id_t::cells], fields...);
     }
 
