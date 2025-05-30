@@ -220,6 +220,11 @@ namespace samurai
 
         static constexpr std::size_t dim = Field::dim;
 
+        if (level == 0)
+        {
+            return;
+        }
+
         auto& mesh = field.mesh();
 
         for (std::size_t delta_l = 1; delta_l <= 2; ++delta_l) // lower level (1 or 2)
@@ -246,6 +251,10 @@ namespace samurai
                     }
                     field(proj_level, i, index) = field(level, i_child, index_child);
                 });
+            if (proj_level == 0)
+            {
+                break;
+            }
         }
     }
 
@@ -276,6 +285,10 @@ namespace samurai
                         {
                             update_outer_corners_by_polynomial_extrapolation(level, direction, field);
                             project_corner_below(level, direction, field);
+                            if (level == 0)
+                            {
+                                break;
+                            }
                         }
                     }
                 });
@@ -289,7 +302,7 @@ namespace samurai
                 {
                     // We only project down to level-1 (not level-2), because we don't need to compute the detail at level-1,
                     // since we can't coarsen lower than level anyway.
-                    for (std::size_t level = mesh.max_level(); level >= mesh.min_level() - 1; --level)
+                    for (std::size_t level = mesh.max_level(); level >= (mesh.min_level() > 0 ? mesh.min_level() - 1 : 0); --level)
                     {
                         if (level < mesh.max_level())
                         {
