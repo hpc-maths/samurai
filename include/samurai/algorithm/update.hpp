@@ -160,13 +160,18 @@ namespace samurai
                     }
                     if (n_children == 0)
                     {
+#ifndef SAMURAI_WITH_MPI
                         std::cerr << "No children found for the ghost at level " << proj_level << ", i = " << ii << ", index = " << index
                                   << " during projection of the B.C." << std::endl;
                         samurai::save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
                         std::exit(1);
+#endif
                     }
-                    // We divide the sum by the number of children to get the average
-                    field(proj_level, i_cell, index) /= n_children;
+                    else
+                    {
+                        // We divide the sum by the number of children to get the average
+                        field(proj_level, i_cell, index) /= n_children;
+                    }
                     proj_ghost_lca.clear();
                 }
             });
