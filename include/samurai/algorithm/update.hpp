@@ -352,7 +352,7 @@ namespace samurai
         for (std::size_t level = max_level; level > min_level; --level)
         {
             update_ghost_periodic(level, field, other_fields...);
-            update_ghost_subdomains(level, field, other_fields...);
+            update_ghost_subdomains(level, false, field, other_fields...);
 
             auto set_at_levelm1 = intersection(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::proj_cells][level - 1]).on(level - 1);
             set_at_levelm1.apply_op(variadic_projection(field, other_fields...));
@@ -363,10 +363,10 @@ namespace samurai
         if (min_level > 0 && min_level != max_level)
         {
             update_ghost_periodic(min_level - 1, field, other_fields...);
-            update_ghost_subdomains(min_level - 1, field, other_fields...);
+            update_ghost_subdomains(min_level - 1, true, field, other_fields...);
         }
         update_ghost_periodic(min_level, field, other_fields...);
-        update_ghost_subdomains(min_level, field, other_fields...);
+        update_ghost_subdomains(min_level, true, field, other_fields...);
 
         for (std::size_t level = min_level + 1; level <= max_level; ++level)
         {
@@ -376,7 +376,7 @@ namespace samurai
 
             expr.apply_op(variadic_prediction<pred_order, false>(field, other_fields...));
             update_ghost_periodic(level, field, other_fields...);
-            update_ghost_subdomains(level, field, other_fields...);
+            update_ghost_subdomains(level, true, field, other_fields...);
         }
         // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, mesh, field);
 
@@ -404,8 +404,58 @@ namespace samurai
         update_ghost_mr(fields.elements());
     }
 
+    template <bool to_send, class Field>
+    auto outer_subdomain_corner(std::size_t level, Field& field, const typename Field::mesh_t::mpi_subdomain_t& neighbour)
+    {
+        using mesh_id_t  = typename Field::mesh_t::mesh_id_t;
+        using lca_t      = typename Field::mesh_t::lca_type;
+        using interval_t = typename Field::mesh_t::interval_t;
+        using coord_t    = typename lca_t::coord_type;
+
+        static constexpr std::size_t ghost_width = Field::mesh_t::config::ghost_width;
+
+        ArrayOfIntervalAndPoint<interval_t, coord_t> interval_list;
+
+        mpi::communicator world;
+        auto& mesh = field.mesh();
+        for_each_cartesian_direction<Field::dim>(
+            [&](auto bdry_direction_index, const auto& bdry_direction)
+            {
+                if (!mesh.is_periodic(bdry_direction_index))
+                {
+                    auto domain = self(mesh.domain()).on(level);
+                    auto& mesh1 = to_send ? mesh : neighbour.mesh;
+                    auto& mesh2 = to_send ? neighbour.mesh : mesh;
+
+                    auto my_boundary_ghosts = difference(
+                        intersection(mesh1[mesh_id_t::reference][level],
+                                     translate(domain, ghost_width * bdry_direction),
+                                     translate(self(mesh1.subdomain()).on(level), ghost_width * bdry_direction)),
+                        domain);
+
+                    auto neighbour_outer_corner = intersection(my_boundary_ghosts, mesh2[mesh_id_t::reference][level]);
+                    neighbour_outer_corner(
+                        [&](const auto& i, const auto& index)
+                        {
+                            interval_list.push_back(i, index);
+                        });
+                }
+            });
+
+        interval_list.sort_intervals();
+
+        lca_t lca(level);
+        for (std::size_t k = 0; k < interval_list.size(); ++k)
+        {
+            const auto& [i, index] = interval_list[k];
+            lca.add_interval_back(i, index);
+        }
+        return lca;
+    }
+
     template <class Field>
-    void update_ghost_subdomains([[maybe_unused]] std::size_t level, [[maybe_unused]] Field& field)
+    void
+    update_ghost_subdomains([[maybe_unused]] std::size_t level, [[maybe_unused]] bool update_subdomain_corners, [[maybe_unused]] Field& field)
     {
 #ifdef SAMURAI_WITH_MPI
         // static constexpr std::size_t dim = Field::dim;
@@ -432,6 +482,16 @@ namespace samurai
                     {
                         std::copy(field(level, i, index).begin(), field(level, i, index).end(), std::back_inserter(to_send[i_neigh]));
                     });
+                if (update_subdomain_corners)
+                {
+                    auto subdomain_corners = outer_subdomain_corner<true>(level, field, neighbour);
+                    for_each_interval(
+                        subdomain_corners,
+                        [&](const auto, const auto& i, const auto& index)
+                        {
+                            std::copy(field(level, i, index).begin(), field(level, i, index).end(), std::back_inserter(to_send[i_neigh]));
+                        });
+                }
 
                 req.push_back(world.isend(neighbour.rank, neighbour.rank, to_send[i_neigh++]));
             }
@@ -457,6 +517,18 @@ namespace samurai
                                   field(level, i, index).begin());
                         count += static_cast<ptrdiff_t>(i.size() * Field::n_comp);
                     });
+                if (update_subdomain_corners)
+                {
+                    auto subdomain_corners = outer_subdomain_corner<false>(level, field, neighbour);
+                    for_each_interval(subdomain_corners,
+                                      [&](const auto, const auto& i, const auto& index)
+                                      {
+                                          std::copy(to_recv.begin() + count,
+                                                    to_recv.begin() + count + static_cast<ptrdiff_t>(i.size() * Field::n_comp),
+                                                    field(level, i, index).begin());
+                                          count += static_cast<ptrdiff_t>(i.size() * Field::n_comp);
+                                      });
+                }
             }
         }
         mpi::wait_all(req.begin(), req.end());
@@ -466,8 +538,8 @@ namespace samurai
     template <class Field, class... Fields>
     void update_ghost_subdomains(std::size_t level, Field& field, Fields&... other_fields)
     {
-        update_ghost_subdomains(level, field);
-        update_ghost_subdomains(level, other_fields...);
+        update_ghost_subdomains(level, true, field);
+        update_ghost_subdomains(level, true, other_fields...);
     }
 
     template <class Field>
@@ -479,7 +551,7 @@ namespace samurai
         auto max_level = mesh.max_level();
         for (std::size_t level = 0; level <= max_level; ++level)
         {
-            update_ghost_subdomains(level, field);
+            update_ghost_subdomains(level, true, field);
         }
 #endif
     }
