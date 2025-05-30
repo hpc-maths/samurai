@@ -11,6 +11,7 @@
 #include "../box.hpp"
 #include "../mesh.hpp"
 #include "../samurai_config.hpp"
+#include "../stencil.hpp"
 #include "../subset/apply.hpp"
 #include "../subset/node.hpp"
 
@@ -175,6 +176,17 @@ namespace samurai
             [&](std::size_t level, const auto& interval, const auto& index_yz)
             {
                 lcl_type& lcl = cell_list[level];
+                // lcl[index_yz].add_interval({interval.start - config::max_stencil_width, interval.end + config::max_stencil_width});
+                // for_each_cartesian_direction<dim - 1>(
+                //     [&](auto& direction)
+                //     {
+                //         for (int width = 1; width <= config::max_stencil_width; ++width)
+                //         {
+                //             auto index = xt::eval(index_yz + width * direction);
+                //             lcl[index].add_interval({interval.start - config::max_stencil_width, interval.end +
+                //             config::max_stencil_width});
+                //         }
+                //     });
                 static_nested_loop<dim - 1, -config::max_stencil_width, config::max_stencil_width + 1>(
                     [&](auto stencil)
                     {
@@ -189,7 +201,9 @@ namespace samurai
         {
             for (std::size_t level = max_level; level >= ((min_level == 0) ? 1 : min_level); --level)
             {
-                auto expr = difference(this->cells()[mesh_id_t::cells_and_ghosts][level], this->get_union()[level]).on(level);
+                auto expr = difference(intersection(this->cells()[mesh_id_t::cells_and_ghosts][level], self(this->domain()).on(level)),
+                                       this->get_union()[level])
+                                .on(level);
 
                 expr(
                     [&](const auto& interval, const auto& index_yz)
@@ -354,9 +368,9 @@ namespace samurai
                         //~ for (const auto& mpi_neighbor : this->mpi_neighbourhood())
                         for (size_t neighbor_id = 0; neighbor_id != this->mpi_neighbourhood().size(); ++neighbor_id)
                         {
-                            const auto& mpi_neighbor                = this->mpi_neighbourhood()[neighbor_id];
-                            const auto& neighbor_extended_subdomain = neighbourhood_extended_subdomain[neighbor_id][level];
-                            const auto& neighbor_mesh_ref           = mpi_neighbor.mesh[mesh_id_t::reference];
+                            const auto& mpi_neighbor = this->mpi_neighbourhood()[neighbor_id];
+                            // const auto& neighbor_extended_subdomain = neighbourhood_extended_subdomain[neighbor_id][level];
+                            const auto& neighbor_mesh_ref = mpi_neighbor.mesh[mesh_id_t::reference];
 
                             auto set1_mpi = intersection(translate(intersection(neighbor_mesh_ref[level], lca_min), shift),
                                                          intersection(lca_extended_subdomain, lca_max));
