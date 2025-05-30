@@ -416,7 +416,6 @@ namespace samurai
 
         ArrayOfIntervalAndPoint<interval_t, coord_t> interval_list;
 
-        mpi::communicator world;
         auto& mesh = field.mesh();
         for_each_cartesian_direction<Field::dim>(
             [&](auto bdry_direction_index, const auto& bdry_direction)
@@ -536,10 +535,10 @@ namespace samurai
     }
 
     template <class Field, class... Fields>
-    void update_ghost_subdomains(std::size_t level, Field& field, Fields&... other_fields)
+    void update_ghost_subdomains(std::size_t level, bool update_subdomain_corners, Field& field, Fields&... other_fields)
     {
-        update_ghost_subdomains(level, true, field);
-        update_ghost_subdomains(level, true, other_fields...);
+        update_ghost_subdomains(level, update_subdomain_corners, field);
+        update_ghost_subdomains(level, update_subdomain_corners, other_fields...);
     }
 
     template <class Field>
@@ -760,7 +759,7 @@ namespace samurai
     {
 #ifdef SAMURAI_WITH_MPI
         using field_value_t = typename Field::value_type;
-#endif // SAMURAI_WITH_MPI
+#endif
         using mesh_id_t        = typename Field::mesh_t::mesh_id_t;
         using config           = typename Field::mesh_t::config;
         using lca_type         = typename Field::mesh_t::lca_type;
@@ -929,6 +928,9 @@ namespace samurai
     template <class Tag>
     void update_tag_periodic(std::size_t level, Tag& tag)
     {
+#ifdef SAMURAI_WITH_MPI
+        using tag_value_type = typename Tag::value_type;
+#endif
         using mesh_id_t           = typename Tag::mesh_t::mesh_id_t;
         using config              = typename Tag::mesh_t::config;
         using lca_type            = typename Tag::mesh_t::lca_type;
