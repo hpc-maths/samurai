@@ -43,13 +43,11 @@ namespace samurai
             set_at_levelm1.apply_op(variadic_projection(field, fields...));
         }
 
-        // update_bc(0, field, fields...);
         update_outer_ghosts(field, fields...);
         for (std::size_t level = mesh[mesh_id_t::reference].min_level(); level <= max_level; ++level)
         {
             auto set_at_level = intersection(mesh[mesh_id_t::pred_cells][level], mesh[mesh_id_t::reference][level - 1]).on(level);
             set_at_level.apply_op(variadic_prediction<pred_order, false>(field, fields...));
-            // update_bc(level, field, fields...);
         }
     }
 
@@ -68,7 +66,6 @@ namespace samurai
             set_at_levelm1.apply_op(projection(field));
         }
 
-        // update_bc(0, field);
         update_outer_ghosts(field);
         for (std::size_t level = mesh[mesh_id_t::reference].min_level(); level <= max_level; ++level)
         {
@@ -89,7 +86,6 @@ namespace samurai
                 self(mesh.domain()).on(level));
 
             expr.apply_op(prediction<pred_order, false>(field));
-            // update_bc(level, field);
         }
     }
 
@@ -185,28 +181,18 @@ namespace samurai
 
         auto& mesh = field.mesh();
 
-        // auto boundary_cells            = domain_boundary(mesh, pred_level - 1, direction);
-        // auto bc_ghosts                 = translate(boundary_cells, direction);
-        auto& cells = mesh[mesh_id_t::cells][pred_level - 1];
-
-        // Here, the set algebra doesn't work, so we put the bc_ghosts into a LevelCellArray before computing the
-        // intersection.
-        // When the problem is fixed, remove the following line and uncomment the line below.
-        LevelCellArray<Field::dim, interval_t> bc_ghosts = difference(translate(cells, direction), self(mesh.domain()).on(pred_level - 1));
-        // auto bc_ghosts = difference(translate(cells, direction), self(mesh.domain()).on(pred_level - 1));
-
+        auto& cells                    = mesh[mesh_id_t::cells][pred_level - 1];
+        auto bc_ghosts                 = difference(translate(cells, direction), self(mesh.domain()).on(pred_level - 1));
         auto outside_prediction_ghosts = intersection(bc_ghosts, mesh[mesh_id_t::reference][pred_level]).on(pred_level);
 
         outside_prediction_ghosts(
             [&](const auto& i, const auto& index)
             {
-                // std::cout << "Predicting B.C. at level " << pred_level << " for i = " << i << ", index = " << index << std::endl;
                 interval_t i_cell = {i.start, i.start + 1};
                 for (auto ii = i.start; ii < i.end; ++ii, i_cell += 1)
                 {
                     field(pred_level, i_cell, index) = field(pred_level - 1, i_cell >> 1, index >> 1);
                 }
-                // field(pred_level, i, index) = field(pred_level - 1, i >> 1, index >> 1); // old
             });
     }
 
@@ -396,7 +382,7 @@ namespace samurai
             update_ghost_periodic(level, field, other_fields...);
             update_ghost_subdomains(level, true, field, other_fields...);
         }
-        // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, mesh, field);
+        // samurai::save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
 
         times::timers.stop("ghost update");
     }
@@ -1153,7 +1139,6 @@ namespace samurai
         std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
 
-        // update_bc(min_level, field);
         update_outer_ghosts(field);
         for (std::size_t level = min_level + 1; level <= max_level; ++level)
         {
@@ -1164,7 +1149,6 @@ namespace samurai
                                                     mesh[mesh_id_t::proj_cells][level]);
 
             overleaves_to_predict.apply_op(prediction<1, false>(field));
-            // update_bc(level, field);
         }
     }
 
