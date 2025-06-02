@@ -115,10 +115,9 @@ namespace samurai
         auto min_level = mesh[mesh_id_t::reference].min_level();
         auto max_level = mesh[mesh_id_t::reference].max_level();
 #endif // SAMURAI_WITH_MPI
+
         for (std::size_t level = max_level; level > min_level; --level)
         {
-#ifdef SAMURAI_WITH_MPI
-            // first we set field[cell \ reference] to 0
             auto set_ghosts = difference(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::cells][level]);
             set_ghosts(
                 [&](const auto& interval_x, const auto& index_yz)
@@ -126,6 +125,12 @@ namespace samurai
                     field(level, interval_x, index_yz).fill(0);
                     (other_fields(level, interval_x, index_yz).fill(0), ...);
                 });
+        }
+
+        for (std::size_t level = max_level; level > min_level; --level)
+        {
+#ifdef SAMURAI_WITH_MPI
+            // first we set field[cell \ reference] to 0
 #endif // SAMURAI_WITH_MPI
        //~ update_ghost_subdomains(level, field, other_fields...);
        //~ update_ghost_periodic(level, field, other_fields...);
@@ -153,13 +158,9 @@ namespace samurai
                 set_to_reduce(
                     [&](const auto& interval_x, const auto& index_yz)
                     {
-                        std::copy(field(level, interval_x, index_yz).cbegin(),
-                                  field(level, interval_x, index_yz).cend(),
+                        std::copy(field(level - 1, interval_x, index_yz).cbegin(),
+                                  field(level - 1, interval_x, index_yz).cend(),
                                   std::back_inserter(to_send[mpi_neighbor_id]));
-                        if (world.rank() == 1)
-                        {
-                            std::cout << "send field = " << field(level, interval_x, index_yz) << std::endl;
-                        }
                     });
             }
             req.push_back(world.isend(mpi_neighbor.rank, mpi_neighbor.rank, to_send[mpi_neighbor_id++]));
@@ -174,13 +175,9 @@ namespace samurai
                 set_to_reduce(
                     [&](const auto& interval_x, const auto& index_yz)
                     {
-                        auto dst_field = field(level, interval_x, index_yz);
+                        auto dst_field = field(level - 1, interval_x, index_yz);
                         for (auto dst_it = dst_field.begin(); dst_it != dst_field.end(); ++dst_it, ++src_it)
                         {
-                            if (world.rank() == 0)
-                            {
-                                std::cout << "recieve field value = " << *src_it << std::endl;
-                            }
                             *dst_it += *src_it;
                         }
                     });

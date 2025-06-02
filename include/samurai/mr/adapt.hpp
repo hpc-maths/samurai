@@ -245,10 +245,11 @@ namespace samurai
         {
             update_tag_subdomains(level, m_tag, true);
         }
-
+        //~ save(std::filesystem::current_path(), "ite_" + std::to_string(ite) + "_before_update_ghosts", {true, true}, mesh, m_fields);
         times::timers.stop("mesh adaptation");
         update_ghost_mr(m_fields);
         times::timers.start("mesh adaptation");
+        //~ save(std::filesystem::current_path(), "ite_" + std::to_string(ite) + "_after_update_ghosts", {true, true}, mesh, m_fields);
 
         for (std::size_t level = ((min_level > 0) ? min_level - 1 : 0); level < max_level - ite; ++level)
         {
