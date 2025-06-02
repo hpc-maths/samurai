@@ -136,18 +136,10 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
         const auto construct_set = [&](const auto& neighbor_mesh, const size_t level) -> auto
         {
-            const auto set_my_ghosts_level_m1 = difference(mesh[mesh_id_t::reference][level - 1], mesh[mesh_id_t::cells][level - 1]);
-            const auto set_my_ghosts_level_m2 = difference(mesh[mesh_id_t::reference][level - 2], mesh[mesh_id_t::cells][level - 2]);
-
-            const auto set_neighbor_ghosts_level_m1 = difference(neighbor_mesh[mesh_id_t::reference][level - 1],
-                                                                 neighbor_mesh[mesh_id_t::cells][level - 1]);
-            const auto set_neighbor_ghosts_level_m2 = difference(neighbor_mesh[mesh_id_t::reference][level - 2],
-                                                                 neighbor_mesh[mesh_id_t::cells][level - 2]);
-
-            const auto set_commun_ghosts_level_m1 = intersection(set_my_ghosts_level_m1, set_neighbor_ghosts_level_m1);
-            const auto set_commun_ghosts_level_m2 = intersection(set_my_ghosts_level_m2, set_neighbor_ghosts_level_m2);
-
-            return intersection(mesh[mesh_id_t::cells][level], union_(set_commun_ghosts_level_m1, set_commun_ghosts_level_m2)).on(level);
+            return intersection(mesh[mesh_id_t::reference][level],
+                                mesh[mesh_id_t::proj_cells][level - 1],
+                                neighbor_mesh[mesh_id_t::proj_cells][level - 1])
+                .on(level - 1);
         };
 
         size_t mpi_neighbor_id = 0;
@@ -182,9 +174,8 @@ namespace samurai
                 set_to_reduce(
                     [&](const auto& interval_x, const auto& index_yz)
                     {
-                        //~ auto& dst_field = field(level, interval_x, index_yz);
-                        for (auto dst_it = field(level, interval_x, index_yz).begin(); dst_it != field(level, interval_x, index_yz).end();
-                             ++dst_it, ++src_it)
+                        auto dst_field = field(level, interval_x, index_yz);
+                        for (auto dst_it = dst_field.begin(); dst_it != dst_field.end(); ++dst_it, ++src_it)
                         {
                             if (world.rank() == 0)
                             {

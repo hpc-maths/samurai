@@ -412,6 +412,7 @@ namespace samurai
             this->update_neighbour_subdomain();
             this->update_meshid_neighbour(mesh_id_t::cells_and_ghosts);
             this->update_meshid_neighbour(mesh_id_t::reference);
+            this->update_meshid_neighbour(mesh_id_t::proj_cells);
         }
     }
 
