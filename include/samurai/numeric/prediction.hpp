@@ -578,7 +578,7 @@ namespace samurai
         {
             std::cerr << "NaN detected in the prediction stencil (Qs_ij)." << std::endl;
             std::cerr << qs_ij << std::endl;
-            samurai::save(fs::current_path(), "prediction_error", {true, true}, src.mesh(), src);
+            samurai::save(fs::current_path(), "check_nan", {true, true}, src.mesh(), src);
         }
 #endif
 
