@@ -340,11 +340,16 @@ namespace samurai
                     {
                         for (size_t level = max_level; level != min_level; --level)
                         {
-                            auto boundary_cells = difference(ca[level], translate(self(domain).on(level), -translation)).on(level);
+                            auto boundaryCells = difference(ca[level], translate(self(domain).on(level), -translation)).on(level);
 
                             for (int i = 2; i <= n_contiguous_boundary_cells; i += 2)
                             {
-                                auto refine_subset = intersection(translate(boundary_cells, -i * translation), ca[level - 1]).on(level - 1);
+                                // Here, the set algebra doesn't work, so we put the translation in a LevelCellArray before computing the
+                                // intersection.
+                                // When the problem is fixed, remove the two following lines and uncomment the line below.
+                                LevelCellArray<dim, TInterval> translated_boundary(translate(boundaryCells, -i * translation));
+                                auto refine_subset = intersection(translated_boundary, ca[level - 1]).on(level - 1);
+                                // auto refine_subset = intersection(translate(boundaryCells, -i*translation), ca[level-1]).on(level-1);
 
                                 refine_subset(
                                     [&](const auto& x_interval, const auto& yz)
@@ -365,11 +370,11 @@ namespace samurai
                     {
                         for (size_t level = max_level - 1; level != min_level - 1; --level)
                         {
-                            auto boundary_cells = difference(ca[level], translate(self(domain).on(level), -translation));
+                            auto boundaryCells = difference(ca[level], translate(self(domain).on(level), -translation));
                             for (size_t i = 1; i != half_stencil_width; ++i)
                             {
                                 auto refine_subset = translate(
-                                                         intersection(translate(boundary_cells, -i * translation), ca[level + 1]).on(level),
+                                                         intersection(translate(boundaryCells, -i * translation), ca[level + 1]).on(level),
                                                          i * translation)
                                                          .on(level);
                                 refine_subset(
