@@ -127,7 +127,7 @@ namespace samurai
                         maxrank = static_cast<int>(iproc);
                     }
 
-                    ave += timer.second.elapsed;
+                    ave += all[iproc];
                 }
 
                 ave /= static_cast<double>(world.size());
