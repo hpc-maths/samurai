@@ -161,6 +161,11 @@ namespace samurai
                 m_s);
         }
 
+        bool empty()
+        {
+            return empty_check(*this);
+        }
+
         bool exist() const
         {
             return std::apply(
@@ -430,6 +435,11 @@ namespace samurai
         }
 
         bool exist() const
+        {
+            return !m_lca.empty();
+        }
+
+        bool empty() const
         {
             return !m_lca.empty();
         }
