@@ -153,7 +153,7 @@ namespace samurai
                 }
                 auto dec  = (in_diff_op && static_cast<std::size_t>(level) != m_level) ? 0 : 1;
                 int value = (((((i - dec) >> max2curr) + m_t[d - 1]) >> curr2min) + dec) << min2max;
-                return f(m_level, value, dec);
+                return f(m_level, value, in_diff_op);
             };
             return new_f;
         }
