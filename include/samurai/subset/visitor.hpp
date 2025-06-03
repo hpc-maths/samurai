@@ -92,14 +92,14 @@ namespace samurai
         inline auto start(const auto& it, Func& start_fct) const
         {
             auto i = it->start << m_shift2ref;
-            return start_fct(m_lca_level, i, 0);
+            return start_fct(m_lca_level, i, false);
         }
 
         template <class Func>
         inline auto end(const auto& it, Func& end_fct) const
         {
             auto i = it->end << m_shift2ref;
-            return end_fct(m_lca_level, i, 1);
+            return end_fct(m_lca_level, i, false);
         }
 
         inline bool is_in(auto scan) const

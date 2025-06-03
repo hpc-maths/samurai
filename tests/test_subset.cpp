@@ -1302,4 +1302,36 @@ namespace samurai
               });
         EXPECT_TRUE(never_call);
     }
+
+    TEST(subset, bc_detection_1d)
+    {
+        using interval_t = typename CellArray<1>::interval_t;
+        LevelCellArray<1> domain(5);
+        CellArray<1> ca;
+
+        domain.add_interval_back({0, 32}, {});
+        ca[5].add_interval_back({30, 32}, {});
+        ca[4].add_interval_back({14, 15}, {});
+
+        xt::xtensor_fixed<int, xt::xshape<1>> translation{1};
+
+        std::size_t level = 5;
+        int i             = 2;
+
+        auto boundaryCells       = difference(ca[level], translate(self(domain).on(level), -translation)).on(level);
+        auto translated_boundary = translate(boundaryCells, -i * translation);
+        auto refine_subset       = intersection(translated_boundary, ca[level - 1]).on(level - 1);
+
+        bool never_call = true;
+        auto ie         = 0;
+        refine_subset(
+            [&](auto& i, auto&)
+            {
+                ie++;
+                never_call = false;
+                EXPECT_EQ(i, interval_t(14, 15));
+            });
+        EXPECT_FALSE(never_call);
+        EXPECT_EQ(ie, 1);
+    }
 }
