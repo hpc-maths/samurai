@@ -112,7 +112,7 @@ namespace samurai
             return std::apply(
                 [this, &start_fct, &end_fct](auto&& arg, auto&&... args)
                 {
-                    if constexpr (std::is_same_v<Op, DifferenceOp>)
+                    if constexpr (std::is_same_v<Op, DifferenceOp> && d == 0)
                     {
                         return std::make_tuple(std::move(arg.template get_start_and_stop_function<d>(
                                                    m_start_end_op.template start<d>(std::forward<Func_start>(start_fct)),
