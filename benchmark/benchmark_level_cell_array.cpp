@@ -246,10 +246,10 @@ void LEVELCELLARRAY_equal(benchmark::State& state)
         lcl[{0}].add_interval({2 * index, 2 * index + 1});
     }
     auto lca  = samurai::LevelCellArray<dim, TInterval>(lcl);
-    auto lca2 = lca;
+    auto lca2 = samurai::LevelCellArray<dim, TInterval>(lcl);
     for (auto _ : state)
     {
-        auto is_equal = lca == lca2;
+        auto is_equal = (lca == lca2);
         benchmark::DoNotOptimize(is_equal);
     }
 }
