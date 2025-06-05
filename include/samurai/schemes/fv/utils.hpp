@@ -12,10 +12,13 @@ namespace samurai
     };
 
     template <class cfg>
-    using StencilCells = CollapsStdArray<typename cfg::input_field_t::cell_t, cfg::stencil_size>;
+    using StencilCells = CollapsStdArray<typename cfg::input_field_t::cell_t, cfg::stencil_size, true>;
 
     template <class cfg>
-    using JacobianMatrix = CollapsMatrix<typename cfg::input_field_t::value_type, cfg::output_field_size, cfg::input_field_t::size>;
+    using StencilValues = CollapsStdArray<typename cfg::input_field_t::local_data_type, cfg::stencil_size, cfg::input_field_t::is_scalar>;
+
+    template <class cfg>
+    using JacobianMatrix = CollapsMatrix<typename cfg::input_field_t::value_type, cfg::output_n_comp, cfg::input_field_t::n_comp, cfg::input_field_t::is_scalar>;
 
     template <class cfg>
     using StencilJacobian = StdArrayWrapper<JacobianMatrix<cfg>, cfg::stencil_size>;

@@ -1,4 +1,4 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #include <fstream>
@@ -10,7 +10,7 @@
 #include <xtensor/xio.hpp>
 
 #include <samurai/field.hpp>
-#include <samurai/hdf5.hpp>
+#include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh_with_overleaves.hpp>
 #include <samurai/samurai.hpp>
@@ -146,7 +146,7 @@ auto init_f(samurai::MROMesh<Config>& mesh, const double lambda)
     using mesh_id_t            = typename samurai::MROMesh<Config>::mesh_id_t;
     constexpr std::size_t nvel = 6;
 
-    auto f = samurai::make_field<double, nvel>("f", mesh);
+    auto f = samurai::make_vector_field<double, nvel>("f", mesh);
     f.fill(0);
 
     double gamma = 1.4;
@@ -183,7 +183,7 @@ auto init_f(samurai::MROMesh<Config>& mesh, const double lambda)
 template <class Field, class Pred, class Func>
 void one_time_step(Field& f, const Pred& pred_coeff, Func&& update_bc_for_level, double s_rel, const double lambda)
 {
-    constexpr std::size_t nvel = Field::size;
+    constexpr std::size_t nvel = Field::n_comp;
     double gamma               = 1.4;
 
     auto mesh           = f.mesh();
@@ -198,11 +198,11 @@ void one_time_step(Field& f, const Pred& pred_coeff, Func&& update_bc_for_level,
     samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
     samurai::update_overleaves_mr(f, std::forward<Func>(update_bc_for_level));
 
-    auto new_f = samurai::make_field<double, nvel>("new_f", mesh);
+    auto new_f = samurai::make_vector_field<double, nvel>("new_f", mesh);
     new_f.fill(0.);
-    auto advected_f = samurai::make_field<double, nvel>("advected_f", mesh);
+    auto advected_f = samurai::make_vector_field<double, nvel>("advected_f", mesh);
     advected_f.fill(0.);
-    auto help_f = samurai::make_field<double, nvel>("help_f", mesh);
+    auto help_f = samurai::make_vector_field<double, nvel>("help_f", mesh);
     help_f.fill(0.);
 
     for (std::size_t level = 0; level <= max_level; ++level)

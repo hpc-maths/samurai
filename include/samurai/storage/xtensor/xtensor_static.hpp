@@ -1,4 +1,4 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #pragma once
@@ -18,11 +18,11 @@ namespace samurai
     template <class value_type, std::size_t rows, std::size_t cols>
     using xtensor_static_matrix = xt::xtensor_fixed<value_type, xt::xshape<rows, cols>>;
 
-    template <class value_type, std::size_t size>
-    using xtensor_collapsable_static_array = CollapsableArray<xtensor_static_array<value_type, size>, value_type, size>;
+    template <class value_type, std::size_t size, bool can_collapse>
+    using xtensor_collapsable_static_array = CollapsableArray<xtensor_static_array<value_type, size>, value_type, size, can_collapse>;
 
-    template <class value_type, std::size_t rows, std::size_t cols>
-    using xtensor_collapsable_static_matrix = CollapsableMatrix<xtensor_static_matrix<value_type, rows, cols>, value_type, rows, cols>;
+    template <class value_type, std::size_t rows, std::size_t cols, bool can_collapse>
+    using xtensor_collapsable_static_matrix = CollapsableMatrix<xtensor_static_matrix<value_type, rows, cols>, value_type, rows, cols, can_collapse>;
 
     // is_xtensor_matrix //
     template <typename>

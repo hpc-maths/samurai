@@ -1,4 +1,4 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #pragma once
@@ -91,6 +91,8 @@ namespace samurai
 
         auto& origin_point() const;
         double scaling_factor() const;
+
+        void clear();
 
       private:
 
@@ -185,6 +187,12 @@ namespace samurai
     inline double LevelCellList<Dim, TInterval>::scaling_factor() const
     {
         return m_scaling_factor;
+    }
+
+    template <std::size_t Dim, class TInterval>
+    inline void LevelCellList<Dim, TInterval>::clear()
+    {
+        m_grid_yz.clear();
     }
 
     template <std::size_t Dim, class TInterval>

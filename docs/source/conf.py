@@ -12,20 +12,21 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+import os
 
 # -- Project information -----------------------------------------------------
 
-project = 'Samurai'
-author = 'samurai developers'
+project = 'samurai'
+author = 'samurai team'
+
+# Read version from version.txt
+with open(os.path.join(os.path.dirname(__file__), '../../version.txt')) as f:
+    full_version = f.read().strip()
 
 # The short X.Y version
-version = '0.0'
+version = '.'.join(full_version.split('.')[:2])
 # The full version, including alpha/beta/rc tags
-release = '0.0.0'
-
+release = full_version
 
 # -- General configuration ---------------------------------------------------
 

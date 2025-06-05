@@ -1,12 +1,11 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #include <iostream>
-#include <samurai/hdf5.hpp>
+#include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/petsc.hpp>
-#include <samurai/reconstruction.hpp>
 #include <samurai/samurai.hpp>
 
 template <class Solver>
@@ -177,9 +176,9 @@ int main(int argc, char* argv[])
     auto mesh = Mesh(box, min_level, max_level);
 
     // Fields for the Navier-Stokes equations
-    auto velocity     = samurai::make_field<dim, is_soa>("velocity", mesh);
-    auto velocity_np1 = samurai::make_field<dim, is_soa>("velocity_np1", mesh);
-    auto pressure_np1 = samurai::make_field<1, is_soa>("pressure_np1", mesh);
+    auto velocity     = samurai::make_vector_field<double, dim, is_soa>("velocity", mesh);
+    auto velocity_np1 = samurai::make_vector_field<double, dim, is_soa>("velocity_np1", mesh);
+    auto pressure_np1 = samurai::make_scalar_field<double>("pressure_np1", mesh);
 
     using VelocityField = decltype(velocity);
     using PressureField = decltype(pressure_np1);
@@ -235,8 +234,8 @@ int main(int argc, char* argv[])
     // clang-format on
 
     // Fields for the right-hand side of the system
-    auto rhs  = samurai::make_field<dim, is_soa>("rhs", mesh);
-    auto zero = samurai::make_field<1, is_soa>("zero", mesh);
+    auto rhs  = samurai::make_vector_field<double, dim, is_soa>("rhs", mesh);
+    auto zero = samurai::make_scalar_field<double>("zero", mesh);
 
     // Linear solver
     auto stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
@@ -253,10 +252,10 @@ int main(int argc, char* argv[])
     auto mesh2 = Mesh2(box, 1, max_level);
 
     // Ink data fields
-    auto ink     = samurai::make_field<1, is_soa>("ink", mesh2);
-    auto ink_np1 = samurai::make_field<1, is_soa>("ink_np1", mesh2);
+    auto ink     = samurai::make_scalar_field<double>("ink", mesh2);
+    auto ink_np1 = samurai::make_scalar_field<double>("ink_np1", mesh2);
     // Field to store the Navier-Stokes velocity transferred to the 2nd mesh
-    auto velocity2 = samurai::make_field<dim, is_soa>("velocity2", mesh2);
+    auto velocity2 = samurai::make_vector_field<dim, is_soa>("velocity2", mesh2);
 
     using InkField = decltype(ink);
 
@@ -432,8 +431,8 @@ int main(int argc, char* argv[])
         } // end time loop
 
         // srand(time(NULL));
-        // auto x_velocity = samurai::make_field<dim, is_soa>("x_velocity", mesh);
-        // auto x_pressure = samurai::make_field<1, is_soa>("x_pressure", mesh);
+        // auto x_velocity = samurai::make_vector_field<double, dim, is_soa>("x_velocity", mesh);
+        // auto x_pressure = samurai::make_scalar_field<double>("x_pressure", mesh);
         // samurai::for_each_cell(mesh[mesh_id_t::reference],
         //                        [&](auto cell)
         //                        {
@@ -447,8 +446,8 @@ int main(int argc, char* argv[])
         // monolithicAssembly.create_matrix(monolithicA);
         // monolithicAssembly.assemble_matrix(monolithicA);
         // Vec mono_x                = monolithicAssembly.create_applicable_vector(x); // copy
-        // auto result_velocity_mono = samurai::make_field<dim, is_soa>("result_velocity", mesh);
-        // auto result_pressure_mono = samurai::make_field<1, is_soa>("result_pressure", mesh);
+        // auto result_velocity_mono = samurai::make_vector_field<double, dim, is_soa>("result_velocity", mesh);
+        // auto result_pressure_mono = samurai::make_scalar_field<double>("result_pressure", mesh);
         // auto result_mono          = stokes.tie_rhs(result_velocity_mono, result_pressure_mono);
         // Vec mono_result           = monolithicAssembly.create_rhs_vector(result_mono); // copy
         // MatMult(monolithicA, mono_x, mono_result);
@@ -459,8 +458,8 @@ int main(int argc, char* argv[])
         // nestedAssembly.create_matrix(nestedA);
         // nestedAssembly.assemble_matrix(nestedA);
         // Vec nest_x                = nestedAssembly.create_applicable_vector(x);
-        // auto result_velocity_nest = samurai::make_field<dim, is_soa>("result_velocity", mesh);
-        // auto result_pressure_nest = samurai::make_field<1, is_soa>("result_pressure", mesh);
+        // auto result_velocity_nest = samurai::make_vector_field<double, dim, is_soa>("result_velocity", mesh);
+        // auto result_pressure_nest = samurai::make_scalar_field<double>("result_pressure", mesh);
         // auto result_nest          = stokes.tie_rhs(result_velocity_nest, result_pressure_nest);
         // Vec nest_result           = nestedAssembly.create_rhs_vector(result_nest);
         // MatMult(nestedA, nest_x, nest_result);

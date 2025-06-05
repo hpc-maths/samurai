@@ -1,4 +1,4 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #pragma once
@@ -10,8 +10,7 @@
 #include "../box.hpp"
 #include "../mesh.hpp"
 #include "../samurai_config.hpp"
-#include "../subset/node_op.hpp"
-#include "../subset/subset_op.hpp"
+#include "../subset/node.hpp"
 
 namespace samurai
 {

@@ -1,11 +1,10 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-#include <samurai/hdf5.hpp>
+#include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/petsc.hpp>
-#include <samurai/reconstruction.hpp>
 #include <samurai/samurai.hpp>
 
 #include <filesystem>
@@ -14,7 +13,7 @@ namespace fs = std::filesystem;
 template <class Field,
           // scheme config
           std::size_t neighbourhood_width = 2,
-          class cfg = samurai::StarStencilSchemeConfig<samurai::SchemeType::LinearHomogeneous, Field::size, neighbourhood_width, Field>,
+          class cfg = samurai::StarStencilSchemeConfig<samurai::SchemeType::LinearHomogeneous, Field::n_comp, neighbourhood_width, Field>,
           class bdry_cfg = samurai::BoundaryConfigFV<neighbourhood_width>>
 class HighOrderDiffusion : public samurai::CellBasedScheme<cfg, bdry_cfg>
 {
@@ -169,23 +168,23 @@ int main(int argc, char* argv[])
     PetscInitialize(&argc, &argv, 0, nullptr);
     PetscOptionsSetValue(NULL, "-options_left", "off");
 
-    auto adapt_field = samurai::make_field<double, 1>("adapt_field",
-                                                      init_mesh,
-                                                      [](const auto& coord)
-                                                      {
-                                                          const auto& x = coord[0];
-                                                          const auto& y = coord[1];
-                                                          double radius = 0.4;
-                                                          if ((x - 0.5) * (x - 0.5) + (y - 0.5) * (y - 0.5) < radius * radius)
+    auto adapt_field = samurai::make_scalar_field<double>("adapt_field",
+                                                          init_mesh,
+                                                          [](const auto& coord)
                                                           {
-                                                              samurai::finalize();
-                                                              return 0;
-                                                          }
-                                                          else
-                                                          {
-                                                              return 1;
-                                                          }
-                                                      });
+                                                              const auto& x = coord[0];
+                                                              const auto& y = coord[1];
+                                                              double radius = 0.4;
+                                                              if ((x - 0.5) * (x - 0.5) + (y - 0.5) * (y - 0.5) < radius * radius)
+                                                              {
+                                                                  samurai::finalize();
+                                                                  return 0;
+                                                              }
+                                                              else
+                                                              {
+                                                                  return 1;
+                                                              }
+                                                          });
 
     auto MRadaptation = samurai::make_MRAdapt(adapt_field);
     MRadaptation(mr_epsilon, mr_regularity);
@@ -219,17 +218,17 @@ int main(int argc, char* argv[])
 
         // Equation: -Lap u = f   in [0, 1]^2
         //            f(x,y) = 2(y(1-y) + x(1-x))
-        auto f = samurai::make_field<double, 1>("f",
-                                                mesh,
-                                                [](const auto& coord)
-                                                {
-                                                    const auto& x = coord[0];
-                                                    const auto& y = coord[1];
-                                                    // return 2 * (y*(1 - y) + x * (1 - x));
-                                                    // return 2 * pow(4 * M_PI, 2) * sin(4 * M_PI * x)*sin(4 * M_PI *
-                                                    // y);
-                                                    return (-pow(y, 4) - 2 * x * (1 + 2 * x * y * y)) * exp(x * y * y);
-                                                });
+        auto f = samurai::make_scalar_field<double>("f",
+                                                    mesh,
+                                                    [](const auto& coord)
+                                                    {
+                                                        const auto& x = coord[0];
+                                                        const auto& y = coord[1];
+                                                        // return 2 * (y*(1 - y) + x * (1 - x));
+                                                        // return 2 * pow(4 * M_PI, 2) * sin(4 * M_PI * x)*sin(4 * M_PI *
+                                                        // y);
+                                                        return (-pow(y, 4) - 2 * x * (1 + 2 * x * y * y)) * exp(x * y * y);
+                                                    });
 
         // samurai::for_each_cell(mesh[mesh_id_t::reference], [&](auto& cell)
         // {
@@ -242,8 +241,8 @@ int main(int argc, char* argv[])
         // auto set = samurai::intersection(mesh[mesh_id_t::cells][level],
         // mesh[mesh_id_t::reference][level-1]).on(level-1);
         // set.apply_op(samurai::projection(f));
-        // auto f_recons = samurai::make_field<double, 1>("f_recons", mesh);
-        // auto error_f = samurai::make_field<double, 1>("error", mesh);
+        // auto f_recons = samurai::make_scalar_field<double>("f_recons", mesh);
+        // auto error_f = samurai::make_scalar_field<double>("error", mesh);
         // set.apply_op(samurai::prediction<prediction_order, true>(f_recons, f));
         // samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level,
         // const auto& i, const auto& index)
@@ -255,7 +254,7 @@ int main(int argc, char* argv[])
         // samurai::save("test_pred", mesh, f, f_recons, error_f);
         // samurai::finalize();
 
-        auto u = samurai::make_field<double, 1>("u", mesh);
+        auto u = samurai::make_scalar_field<double>("u", mesh);
         samurai::make_bc<samurai::Dirichlet<2>>(u,
                                                 [](const auto&, const auto&, const auto& coord)
                                                 {
@@ -314,7 +313,7 @@ int main(int argc, char* argv[])
         }
         std::cout << std::endl;
 
-        auto error_field = samurai::make_field<double, 1>("error", mesh);
+        auto error_field = samurai::make_scalar_field<double>("error", mesh);
         samurai::for_each_cell(mesh,
                                [&](const auto& cell)
                                {

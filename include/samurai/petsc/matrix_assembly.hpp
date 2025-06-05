@@ -352,11 +352,11 @@ namespace samurai
         };
 
         template <class Scheme>
-        auto make_assembly(const Scheme& s)
+        auto make_assembly(Scheme& s)
         {
             if constexpr (std::is_base_of_v<MatrixAssembly, Scheme>)
             {
-                return *reinterpret_cast<const Assembly<Scheme>*>(&s);
+                return *reinterpret_cast<Assembly<Scheme>*>(&s);
             }
             else
             {

@@ -1,4 +1,4 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #include <iostream>
@@ -8,7 +8,7 @@
 #include <samurai/field.hpp>
 #include <samurai/operators_base.hpp>
 #include <samurai/samurai.hpp>
-#include <samurai/subset/subset_op.hpp>
+#include <samurai/subset/node.hpp>
 
 template <std::size_t dim, class TInterval>
 class projection_op : public samurai::field_operator_base<dim, TInterval>
@@ -90,7 +90,7 @@ int main()
             std::cout << "difference found in " << i << std::endl;
         });
 
-    auto u = samurai::make_field<double, 1>("u", ca);
+    auto u = samurai::make_scalar_field<double>("u", ca);
     u.fill(0);
     samurai::for_each_cell(ca[1],
                            [&](auto cell)

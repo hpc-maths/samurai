@@ -1,4 +1,4 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #include <cmath>
@@ -10,9 +10,9 @@
 #include <samurai/box.hpp>
 #include <samurai/cell_array.hpp>
 #include <samurai/field.hpp>
-#include <samurai/hdf5.hpp>
+#include <samurai/io/hdf5.hpp>
 #include <samurai/samurai.hpp>
-#include <samurai/subset/subset_op.hpp>
+#include <samurai/subset/node.hpp>
 
 namespace fs = std::filesystem;
 
@@ -61,7 +61,7 @@ int main(int argc, char* argv[])
     {
         std::cout << "Iteration for remove intersection: " << ite++ << "\n";
 
-        auto tag = samurai::make_field<bool, 1>("tag", ca);
+        auto tag = samurai::make_scalar_field<bool>("tag", ca);
         tag.fill(false);
 
         samurai::for_each_cell(ca,

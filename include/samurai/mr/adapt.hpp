@@ -1,16 +1,16 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #pragma once
 
 #include "../algorithm/graduation.hpp"
 #include "../algorithm/update.hpp"
+#include "../arguments.hpp"
+#include "../boundary.hpp"
 #include "../field.hpp"
-#include "../hdf5.hpp"
-#include "../static_algorithm.hpp"
 #include "../timers.hpp"
 #include "criteria.hpp"
-#include <type_traits>
+#include "operators.hpp"
 
 namespace samurai
 {
@@ -66,11 +66,10 @@ namespace samurai
         template <class... TFields>
         struct get_fields_type
         {
-            using fields_t                     = Field_tuple<TFields...>;
-            using mesh_t                       = typename fields_t::mesh_t;
-            static constexpr std::size_t nelem = fields_t::nelem;
-            using common_t                     = typename fields_t::common_t;
-            using detail_t                     = Field<mesh_t, common_t, nelem>;
+            using fields_t = Field_tuple<TFields...>;
+            using mesh_t   = typename fields_t::mesh_t;
+            using common_t = typename fields_t::common_t;
+            using detail_t = VectorField<mesh_t, common_t, detail::compute_n_comp<TFields...>()>;
         };
 
         template <class TField>
@@ -78,7 +77,9 @@ namespace samurai
         {
             using fields_t = TField&;
             using mesh_t   = typename TField::mesh_t;
-            using detail_t = Field<mesh_t, typename TField::value_type, TField::size, TField::is_soa>;
+            using detail_t = std::conditional_t<TField::is_scalar,
+                                                ScalarField<mesh_t, typename TField::value_type>,
+                                                VectorField<mesh_t, typename TField::value_type, TField::n_comp, detail::is_soa_v<TField>>>;
         };
     }
 
@@ -99,7 +100,7 @@ namespace samurai
         using mesh_t            = typename inner_fields_type::mesh_t;
         using mesh_id_t         = typename mesh_t::mesh_id_t;
         using detail_t          = typename inner_fields_type::detail_t;
-        using tag_t             = Field<mesh_t, int, 1>;
+        using tag_t             = ScalarField<mesh_t, int>;
 
         static constexpr std::size_t dim = mesh_t::dim;
         static constexpr bool enlarge_v  = enlarge_;
@@ -194,6 +195,37 @@ namespace samurai
         }
     }
 
+    template <class Mesh>
+    void keep_boundary_refined(const Mesh& mesh, ScalarField<Mesh, int>& tag, const DirectionVector<Mesh::dim>& direction)
+    {
+        // Since the adaptation process starts at max_level, we just need to flag to `keep` the boundary cells at max_level only.
+        // There will never be boundary cells at lower levels.
+        auto bdry = domain_boundary_layer(mesh, mesh.max_level(), direction, Mesh::config::max_stencil_width);
+        for_each_cell(mesh,
+                      bdry,
+                      [&](auto& cell)
+                      {
+                          tag[cell] = static_cast<int>(CellFlag::keep);
+                      });
+    }
+
+    template <class Mesh>
+    void keep_boundary_refined(const Mesh& mesh, ScalarField<Mesh, int>& tag)
+    {
+        constexpr std::size_t dim = Mesh::dim;
+
+        DirectionVector<dim> direction;
+        direction.fill(0);
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            direction(d) = 1;
+            keep_boundary_refined(mesh, tag, direction);
+            direction(d) = -1;
+            keep_boundary_refined(mesh, tag, direction);
+            direction(d) = 0;
+        }
+    }
+
     template <bool enlarge_, class TField, class... TFields>
     template <class... Fields>
     bool Adapt<enlarge_, TField, TFields...>::harten(std::size_t ite, double eps, double regularity, Fields&... other_fields)
@@ -234,12 +266,17 @@ namespace samurai
 
             auto subset_1 = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
 
-            subset_1.apply_op(to_coarsen_mr(m_detail, m_tag, eps_l, min_level)); // Derefinement
-            subset_1.apply_op(to_refine_mr(m_detail,
+            subset_1.apply_op(to_coarsen_mr(m_detail, m_tag, eps_l, min_level),
+                              to_refine_mr(m_detail,
                                            m_tag,
                                            (pow(2.0, regularity_to_use)) * eps_l,
                                            max_level)); // Refinement according to Harten
             update_tag_subdomains(level, m_tag, true);
+        }
+
+        if (args::refine_boundary) // cppcheck-suppress knownConditionTrueFalse
+        {
+            keep_boundary_refined(mesh, m_tag);
         }
 
         for (std::size_t level = min_level; level <= max_level - ite; ++level)
@@ -259,100 +296,44 @@ namespace samurai
             update_tag_subdomains(level, m_tag);
         }
 
-        // FIXME: this graduation doesn't make the same that the lines below:
-        // why? graduation(m_tag,
-        // stencil_graduation::call(samurai::Dim<dim>{}));
-
-        // COARSENING GRADUATION
         for (std::size_t level = max_level; level > 0; --level)
         {
             auto keep_subset = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
-
-            keep_subset.apply_op(maximum(m_tag));
-
-            int grad_width = static_cast<int>(mesh_t::config::graduation_width);
-            auto stencil   = detail::box_dir<dim>();
-
-            for (int ig = 1; ig <= grad_width; ++ig)
-            {
-                for (std::size_t is = 0; is < stencil.shape(0); ++is)
-                {
-                    auto s = ig * xt::view(stencil, is);
-                    auto subset = intersection(mesh[mesh_id_t::cells][level], translate(mesh[mesh_id_t::all_cells][level - 1], s)).on(level - 1);
-                    subset.apply_op(balance_2to1(m_tag, s));
-                }
-            }
 
             update_tag_periodic(level, m_tag);
             update_tag_subdomains(level, m_tag);
-        }
-
-        // REFINEMENT GRADUATION
-        for (std::size_t level = max_level; level > min_level; --level)
-        {
-            auto subset_1 = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level]);
-
-            subset_1.apply_op(extend(m_tag));
-            update_tag_periodic(level, m_tag);
-            update_tag_subdomains<false>(level, m_tag);
-
-            int grad_width = static_cast<int>(mesh_t::config::graduation_width);
-            auto stencil   = detail::box_dir<dim>();
-
-            for (int ig = 1; ig <= grad_width; ++ig)
-            {
-                for (std::size_t is = 0; is < stencil.shape(0); ++is)
-                {
-                    auto s = ig * xt::view(stencil, is);
-                    auto subset = intersection(translate(mesh[mesh_id_t::cells][level], s), mesh[mesh_id_t::all_cells][level - 1]).on(level);
-
-                    subset.apply_op(make_graduation(m_tag));
-                }
-            }
-
-            update_tag_periodic(level, m_tag);
-            update_tag_subdomains<false>(level, m_tag);
-        }
-        update_tag_subdomains<false>(min_level, m_tag);
-
-        // Prevents the coarsening of child cells where the parent intersects the boundary.
-        //
-        //   outside           |   inside
-        //   =======           |   ======
-        //   tag this cell to  |
-        //   keep to avoid     |
-        //   coarsening        |
-        //                     |
-        //   level l+1   |-----|-----|
-        //                     |
-        //   level l     |-----------|
-        //
-        // for (std::size_t level = mesh[mesh_id_t::cells].min_level(); level <= mesh[mesh_id_t::cells].max_level(); ++level)
-        // {
-        //     auto set = difference(mesh[mesh_id_t::reference][level], mesh.domain()).on(level);
-        //     set(
-        //         [&](const auto& i, const auto& index)
-        //         {
-        //             m_tag(level, i, index) = static_cast<int>(CellFlag::keep);
-        //         });
-        // }
-
-        for (std::size_t level = max_level; level > 0; --level)
-        {
-            auto keep_subset = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
 
             keep_subset.apply_op(maximum(m_tag));
-            update_tag_periodic(level, m_tag);
-            // update_tag_subdomains(level, m_tag);
-            update_tag_subdomains<false>(level, m_tag);
         }
-        times::timers.stop("mesh adaptation");
-        update_ghost_mr(other_fields...);
-        times::timers.start("mesh adaptation");
+        using ca_type = typename mesh_t::ca_type;
 
-        keep_only_one_coarse_tag(m_tag);
+        // return update_field_mr(m_tag, m_fields, other_fields...);
+        // for some reason I do not understand the above code produces the following error :
+        // C++ exception with description "Incompatible dimension of arrays, compile in DEBUG for more info" thrown in the test body
+        // on test adapt_test/2.mutliple_fields with:
+        // linux-mamba (clang-18, ubuntu-24.04, clang, clang-18, clang-18, clang++-18)
+        // while the code bellow do not.
 
-        return update_field_mr(m_tag, m_fields, other_fields...);
+        ca_type new_ca = update_cell_array_from_tag(mesh[mesh_id_t::cells], m_tag);
+        make_graduation(new_ca,
+                        mesh.domain(),
+                        mesh.mpi_neighbourhood(),
+                        mesh.periodicity(),
+                        mesh_t::config::graduation_width,
+                        mesh_t::config::max_stencil_width);
+        mesh_t new_mesh{new_ca, mesh};
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        if (mpi::all_reduce(world, mesh == new_mesh, std::logical_and()))
+#else
+        if (mesh == new_mesh)
+#endif // SAMURAI_WITH_MPI
+        {
+            return true;
+        }
+        detail::update_fields(new_mesh, m_fields, other_fields...);
+        m_fields.mesh().swap(new_mesh);
+        return false;
     }
 
     template <class... TFields>

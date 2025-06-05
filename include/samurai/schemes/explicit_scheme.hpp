@@ -13,7 +13,7 @@ namespace samurai
     };
 
     template <class Scheme>
-    auto make_explicit(const Scheme& s)
+    auto make_explicit(Scheme& s)
     {
         return Explicit<std::decay_t<Scheme>>(s);
     }

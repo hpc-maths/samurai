@@ -1,4 +1,4 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #pragma once
@@ -14,6 +14,7 @@
 #include "static_algorithm.hpp"
 #include "stencil.hpp"
 #include "storage/containers.hpp"
+#include "utils.hpp"
 
 #define APPLY_AND_STENCIL_FUNCTIONS(STENCIL_SIZE)                                                                                         \
     using apply_function_##STENCIL_SIZE = std::function<void(Field&, const std::array<cell_t, STENCIL_SIZE>&, const value_t&)>;           \
@@ -82,7 +83,10 @@ namespace samurai
     class UniformMesh;
 
     template <class mesh_t, class value_t, std::size_t size, bool SOA>
-    class Field;
+    class VectorField;
+
+    template <class mesh_t, class value_t>
+    class ScalarField;
 
     ////////////////////////
     // BcValue definition //
@@ -91,10 +95,10 @@ namespace samurai
     struct BcValue
     {
         static constexpr std::size_t dim = Field::dim;
-        using value_t                    = CollapsArray<typename Field::value_type, Field::size, Field::is_soa>;
-        using coords_t                   = xt::xtensor_fixed<double, xt::xshape<dim>>;
-        using direction_t                = DirectionVector<dim>;
-        using cell_t                     = typename Field::cell_t;
+        using value_t     = CollapsArray<typename Field::value_type, Field::n_comp, detail::is_soa_v<Field>, Field::is_scalar>;
+        using coords_t    = xt::xtensor_fixed<double, xt::xshape<dim>>;
+        using direction_t = DirectionVector<dim>;
+        using cell_t      = typename Field::cell_t;
 
         virtual ~BcValue()                 = default;
         BcValue(const BcValue&)            = delete;
@@ -560,10 +564,10 @@ namespace samurai
     {
       public:
 
-        static constexpr std::size_t dim  = Field::dim;
-        static constexpr std::size_t size = Field::size;
-        using mesh_t                      = typename Field::mesh_t;
-        using interval_t                  = typename Field::interval_t;
+        static constexpr std::size_t dim    = Field::dim;
+        static constexpr std::size_t n_comp = Field::n_comp;
+        using mesh_t                        = typename Field::mesh_t;
+        using interval_t                    = typename Field::interval_t;
 
         using bcvalue_t    = BcValue<Field>;
         using bcvalue_impl = std::unique_ptr<bcvalue_t>;
@@ -620,7 +624,7 @@ namespace samurai
         bcvalue_impl p_bcvalue;
         const lca_t& m_domain; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
         region_t m_region;
-        // xt::xtensor<typename Field::value_type, detail::return_type<typename Field::value_type, size>::dim> m_value;
+        // xt::xtensor<typename Field::value_type, detail::return_type<typename Field::value_type, n_comp>::dim> m_value;
     };
 
     ///////////////////
@@ -789,9 +793,9 @@ namespace samurai
     {
         static_assert(std::is_same_v<typename Field::value_type, std::common_type_t<typename Field::value_type, T...>>,
                       "The constant value type must be the same as the field value_type");
-        static_assert(Field::size == sizeof...(T) + 1,
+        static_assert(Field::n_comp == sizeof...(T) + 1,
                       "The number of constant values should be equal to the "
-                      "number of element in the field");
+                      "number of components in the field");
 
         auto& mesh = detail::get_mesh(field.mesh());
         return field.attach_bc(bc_type<Field>(mesh, ConstantBc<Field>(v1, v...)));
@@ -802,9 +806,9 @@ namespace samurai
     {
         static_assert(std::is_same_v<typename Field::value_type, std::common_type_t<typename Field::value_type, T...>>,
                       "The constant value type must be the same as the field value_type");
-        static_assert(Field::size == sizeof...(T) + 1,
+        static_assert(Field::n_comp == sizeof...(T) + 1,
                       "The number of constant values should be equal to the "
-                      "number of element in the field");
+                      "number of components in the field");
 
         using bc_impl = typename bc_type::template impl_t<Field>;
 
@@ -816,8 +820,11 @@ namespace samurai
     // BC Types //
     //////////////
     template <class Field, class Subset, std::size_t stencil_size, class Vector>
-    void
-    __apply_bc_on_subset(Bc<Field>& bc, Field& field, Subset& subset, const Stencil<stencil_size, Field::dim>& stencil, const Vector& direction)
+    void __apply_bc_on_subset(Bc<Field>& bc,
+                              Field& field,
+                              Subset& subset,
+                              const StencilAnalyzer<stencil_size, Field::dim>& stencil,
+                              const Vector& direction)
     {
         auto apply_bc = bc.get_apply_function(std::integral_constant<std::size_t, stencil_size>(), direction);
         if (bc.get_value_type() == BCVType::constant)
@@ -833,14 +840,13 @@ namespace samurai
         }
         else if (bc.get_value_type() == BCVType::function)
         {
-            int origin_index = find_stencil_origin(stencil);
-            assert(origin_index >= 0);
+            assert(stencil.has_origin);
             for_each_stencil(field.mesh(),
                              subset,
                              stencil,
-                             [&, origin_index](auto& cells)
+                             [&](auto& cells)
                              {
-                                 auto& cell_in    = cells[static_cast<std::size_t>(origin_index)];
+                                 auto& cell_in    = cells[stencil.origin_index];
                                  auto face_coords = cell_in.face_center(direction);
                                  auto value       = bc.value(direction, cell_in, face_coords);
                                  apply_bc(field, cells, value);
@@ -884,13 +890,14 @@ namespace samurai
 
                 if (is_cartesian_direction)
                 {
-                    auto stencil = convert_for_direction(stencil_0, direction[d]);
+                    auto stencil          = convert_for_direction(stencil_0, direction[d]);
+                    auto stencil_analyzer = make_stencil_analyzer(stencil);
 
                     // 1. Inner cells in the boundary region
                     auto bdry_cells = intersection(mesh[mesh_id_t::cells][level], lca[d]).on(level);
                     if (level >= mesh.min_level()) // otherwise there is no cells
                     {
-                        __apply_bc_on_subset(bc, field, bdry_cells, stencil, direction[d]);
+                        __apply_bc_on_subset(bc, field, bdry_cells, stencil_analyzer, direction[d]);
                     }
 
                     // 2. Inner ghosts in the boundary region that have a neighbouring ghost outside the domain
@@ -901,7 +908,7 @@ namespace samurai
                         auto inner_cells_and_ghosts = intersection(potential_inner_cells_and_ghosts, mesh[mesh_id_t::reference][level]).on(level);
                         auto inner_ghosts_with_outer_nghbr = difference(inner_cells_and_ghosts, bdry_cells).on(level);
 
-                        __apply_bc_on_subset(bc, field, inner_ghosts_with_outer_nghbr, stencil, direction[d]);
+                        __apply_bc_on_subset(bc, field, inner_ghosts_with_outer_nghbr, stencil_analyzer, direction[d]);
                     }
                 }
             }
@@ -920,8 +927,9 @@ namespace samurai
 
         auto& mesh = field.mesh();
 
-        auto stencil_0 = bc.get_stencil(std::integral_constant<std::size_t, stencil_size>());
-        auto stencil   = convert_for_direction(stencil_0, direction);
+        auto stencil_0        = bc.get_stencil(std::integral_constant<std::size_t, stencil_size>());
+        auto stencil          = convert_for_direction(stencil_0, direction);
+        auto stencil_analyzer = make_stencil_analyzer(stencil);
 
         // 1. Inner cells in the boundary region
         if (!only_fill_ghost_neighbours && level >= mesh.min_level())
@@ -931,7 +939,7 @@ namespace samurai
             auto translated_outer_nghbr = translate(mesh[mesh_id_t::reference][level], -(stencil_size / 2) * direction);
             auto cells                  = intersection(translated_outer_nghbr, bdry_cells).on(level);
 
-            __apply_bc_on_subset(bc, field, cells, stencil, direction);
+            __apply_bc_on_subset(bc, field, cells, stencil_analyzer, direction);
         }
 
         // 2. Inner ghosts in the boundary region that have a neighbouring ghost outside the domain
@@ -942,7 +950,7 @@ namespace samurai
             auto inner_cells_and_ghosts = intersection(potential_inner_cells_and_ghosts, mesh[mesh_id_t::reference][level]).on(level);
             auto inner_ghosts_with_outer_nghbr = difference(inner_cells_and_ghosts, bdry_cells).on(level);
 
-            __apply_bc_on_subset(bc, field, inner_ghosts_with_outer_nghbr, stencil, direction);
+            __apply_bc_on_subset(bc, field, inner_ghosts_with_outer_nghbr, stencil_analyzer, direction);
         }
     }
 
@@ -953,8 +961,7 @@ namespace samurai
 
         using direction_t = DirectionVector<dim>;
 
-        auto& domain      = field.mesh().domain();
-        auto one_interval = 1 << (domain.level() - level);
+        auto& domain = field.mesh().domain();
 
         static_nested_loop<dim, -1, 2>(
             [&](auto& dir)
@@ -980,24 +987,24 @@ namespace samurai
                         {
                             if (is_cartesian_direction)
                             {
-                                auto subset = difference(domain, translate(domain, -one_interval * dir));
+                                auto subset = difference(self(domain).on(level), translate(self(domain).on(level), -dir));
                                 __apply_extrapolation_bc_on_subset<stencil_size>(bc, level, field, dir, subset, only_fill_ghost_neighbours);
                             }
                             else
                             {
                                 if constexpr (dim == 2)
                                 {
-                                    auto subset = difference(domain,
-                                                             union_(translate(domain, one_interval * direction_t{-dir[0], 0}),
-                                                                    translate(domain, one_interval * direction_t{0, -dir[1]})));
+                                    auto subset = difference(self(domain).on(level),
+                                                             union_(translate(self(domain).on(level), direction_t{-dir[0], 0}),
+                                                                    translate(self(domain).on(level), direction_t{0, -dir[1]})));
                                     __apply_extrapolation_bc_on_subset<stencil_size>(bc, level, field, dir, subset, only_fill_ghost_neighbours);
                                 }
                                 else if constexpr (dim == 3)
                                 {
-                                    auto subset = difference(domain,
-                                                             union_(translate(domain, one_interval * direction_t{-dir[0], 0, 0}),
-                                                                    translate(domain, one_interval * direction_t{0, -dir[1], 0}),
-                                                                    translate(domain, one_interval * direction_t{0, 0, -dir[2]})));
+                                    auto subset = difference(self(domain).on(level),
+                                                             union_(translate(self(domain).on(level), direction_t{-dir[0], 0, 0}),
+                                                                    translate(self(domain).on(level), direction_t{0, -dir[1], 0}),
+                                                                    translate(self(domain).on(level), direction_t{0, 0, -dir[2]})));
                                     __apply_extrapolation_bc_on_subset<stencil_size>(bc, level, field, dir, subset, only_fill_ghost_neighbours);
                                 }
                             }
@@ -1172,13 +1179,14 @@ namespace samurai
                 const auto& ghost = cells[stencil_size_ - 1];
 
 #ifdef SAMURAI_CHECK_NAN
-                for (std::size_t field_i = 0; field_i < Field::size; field_i++)
+                for (std::size_t field_i = 0; field_i < Field::n_comp; field_i++)
                 {
                     for (std::size_t c = 0; c < stencil_size_ - 1; ++c)
                     {
                         if (std::isnan(field_value(u, cells[c], field_i)))
                         {
-                            std::cerr << "NaN detected when applying polynomial extrapolation on the outer ghosts: " << cells[c] << std::endl;
+                            std::cerr << "NaN detected in [" << cells[c]
+                                      << "] when applying polynomial extrapolation to fill the outer ghost [" << ghost << "]." << std::endl;
                             assert(false);
                         }
                     }

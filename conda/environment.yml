@@ -4,11 +4,11 @@ channels:
 dependencies:
   - cmake
   - ninja
-  - xtensor
+  - xtensor<0.26
   - highfive
   - fmt
   - pugixml
   - cxxopts
-  - cli11
+  - cli11<2.5
   - pytest
   - h5py

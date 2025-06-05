@@ -1,4 +1,4 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #pragma once
@@ -10,8 +10,8 @@
 #include "box.hpp"
 #include "cell_array.hpp"
 #include "cell_list.hpp"
-
-#include "subset/subset_op.hpp"
+#include "static_algorithm.hpp"
+#include "subset/node.hpp"
 
 #ifdef SAMURAI_WITH_MPI
 #include <boost/serialization/vector.hpp>
@@ -89,9 +89,13 @@ namespace samurai
         std::size_t nb_cells(std::size_t level, mesh_id_t mesh_id = mesh_id_t::reference) const;
 
         const ca_type& operator[](mesh_id_t mesh_id) const;
+        ca_type& operator[](mesh_id_t mesh_id);
 
         std::size_t max_level() const;
+        std::size_t& max_level();
         std::size_t min_level() const;
+        std::size_t& min_level();
+
         auto& origin_point() const;
         void set_origin_point(const coords_t& origin_point);
         double scaling_factor() const;
@@ -108,21 +112,21 @@ namespace samurai
 
         void swap(Mesh_base& mesh) noexcept;
 
-        template <typename... T>
+        template <typename... T, typename = std::enable_if_t<std::conjunction_v<std::is_convertible<T, value_t>...>, void>>
         const interval_t& get_interval(std::size_t level, const interval_t& interval, T... index) const;
         template <class E>
         const interval_t& get_interval(std::size_t level, const interval_t& interval, const xt::xexpression<E>& index) const;
         template <class E>
         const interval_t& get_interval(std::size_t level, const xt::xexpression<E>& coord) const;
 
-        template <typename... T>
+        template <typename... T, typename = std::enable_if_t<std::conjunction_v<std::is_convertible<T, value_t>...>, void>>
         index_t get_index(std::size_t level, value_t i, T... index) const;
         template <class E>
         index_t get_index(std::size_t level, value_t i, const xt::xexpression<E>& others) const;
         template <class E>
         index_t get_index(std::size_t level, const xt::xexpression<E>& coord) const;
 
-        template <typename... T>
+        template <typename... T, typename = std::enable_if_t<std::conjunction_v<std::is_convertible<T, value_t>...>, void>>
         cell_t get_cell(std::size_t level, value_t i, T... index) const;
         template <class E>
         cell_t get_cell(std::size_t level, value_t i, const xt::xexpression<E>& index) const;
@@ -130,6 +134,9 @@ namespace samurai
         cell_t get_cell(std::size_t level, const xt::xexpression<E>& coord) const;
 
         void update_mesh_neighbour();
+        void update_neighbour_subdomain();
+        void update_meshid_neighbour(const mesh_id_t& mesh_id);
+
         void to_stream(std::ostream& os) const;
 
       protected:
@@ -137,8 +144,10 @@ namespace samurai
         using derived_type = D;
 
         Mesh_base() = default; // cppcheck-suppress uninitMemberVar
+        Mesh_base(const ca_type& ca, const self_type& ref_mesh);
         Mesh_base(const cl_type& cl, const self_type& ref_mesh);
         Mesh_base(const cl_type& cl, std::size_t min_level, std::size_t max_level);
+        Mesh_base(const ca_type& ca, std::size_t min_level, std::size_t max_level);
         Mesh_base(const samurai::Box<double, dim>& b,
                   std::size_t start_level,
                   std::size_t min_level,
@@ -165,6 +174,9 @@ namespace samurai
         void construct_union();
         void update_sub_mesh();
         void renumbering();
+
+        void find_neighbourhood_naive();
+
         void partition_mesh(std::size_t start_level, const Box<double, dim>& global_box);
         void load_balancing();
         void load_transfer(const std::vector<double>& load_fluxes);
@@ -190,11 +202,11 @@ namespace samurai
             {
                 ar& m_cells[id];
             }
-            ar& m_domain;
-            ar& m_subdomain;
-            ar& m_union;
-            ar& m_min_level;
-            ar& m_min_level;
+            ar & m_domain;
+            ar & m_subdomain;
+            ar & m_union;
+            ar & m_min_level;
+            ar & m_min_level;
         }
 #endif
     };
@@ -301,6 +313,48 @@ namespace samurai
     }
 
     template <class D, class Config>
+    inline Mesh_base<D, Config>::Mesh_base(const ca_type& ca, std::size_t min_level, std::size_t max_level)
+        : m_min_level{min_level}
+        , m_max_level{max_level}
+    {
+        m_periodic.fill(false);
+        assert(min_level <= max_level);
+
+        this->m_cells[mesh_id_t::cells] = ca;
+
+        construct_subdomain();
+        m_domain = m_subdomain;
+        construct_union();
+        update_sub_mesh();
+        renumbering();
+        update_mesh_neighbour();
+
+        set_origin_point(ca.origin_point());
+        set_scaling_factor(ca.scaling_factor());
+    }
+
+    template <class D, class Config>
+    inline Mesh_base<D, Config>::Mesh_base(const ca_type& ca, const self_type& ref_mesh)
+        : m_domain(ref_mesh.m_domain)
+        , m_min_level(ref_mesh.m_min_level)
+        , m_max_level(ref_mesh.m_max_level)
+        , m_periodic(ref_mesh.m_periodic)
+        , m_mpi_neighbourhood(ref_mesh.m_mpi_neighbourhood)
+
+    {
+        m_cells[mesh_id_t::cells] = ca;
+
+        construct_subdomain();
+        construct_union();
+        update_sub_mesh();
+        renumbering();
+        update_mesh_neighbour();
+
+        set_origin_point(ref_mesh.origin_point());
+        set_scaling_factor(ref_mesh.scaling_factor());
+    }
+
+    template <class D, class Config>
     inline Mesh_base<D, Config>::Mesh_base(const cl_type& cl, const self_type& ref_mesh)
         : m_domain(ref_mesh.m_domain)
         , m_min_level(ref_mesh.m_min_level)
@@ -330,6 +384,10 @@ namespace samurai
     template <class D, class Config>
     inline std::size_t Mesh_base<D, Config>::max_nb_cells(std::size_t level) const
     {
+        if (m_cells[mesh_id_t::reference][level][0].empty())
+        {
+            return 0;
+        }
         auto last_xinterval = m_cells[mesh_id_t::reference][level][0].back();
         return static_cast<std::size_t>(static_cast<index_t>(last_xinterval.start) + last_xinterval.index) + last_xinterval.size();
     }
@@ -353,13 +411,31 @@ namespace samurai
     }
 
     template <class D, class Config>
+    inline auto Mesh_base<D, Config>::operator[](mesh_id_t mesh_id) -> ca_type&
+    {
+        return m_cells[mesh_id];
+    }
+
+    template <class D, class Config>
     inline std::size_t Mesh_base<D, Config>::max_level() const
     {
         return m_max_level;
     }
 
     template <class D, class Config>
+    inline std::size_t& Mesh_base<D, Config>::max_level()
+    {
+        return m_max_level;
+    }
+
+    template <class D, class Config>
     inline std::size_t Mesh_base<D, Config>::min_level() const
+    {
+        return m_min_level;
+    }
+
+    template <class D, class Config>
+    inline std::size_t& Mesh_base<D, Config>::min_level()
     {
         return m_min_level;
     }
@@ -431,7 +507,7 @@ namespace samurai
     }
 
     template <class D, class Config>
-    template <typename... T>
+    template <typename... T, typename U>
     inline auto Mesh_base<D, Config>::get_interval(std::size_t level, const interval_t& interval, T... index) const -> const interval_t&
     {
         return m_cells[mesh_id_t::reference].get_interval(level, interval, index...);
@@ -439,8 +515,9 @@ namespace samurai
 
     template <class D, class Config>
     template <class E>
-    inline auto Mesh_base<D, Config>::get_interval(std::size_t level, const interval_t& interval, const xt::xexpression<E>& index) const
-        -> const interval_t&
+    inline auto Mesh_base<D, Config>::get_interval(std::size_t level,
+                                                   const interval_t& interval,
+                                                   const xt::xexpression<E>& index) const -> const interval_t&
     {
         return m_cells[mesh_id_t::reference].get_interval(level, interval, index);
     }
@@ -453,7 +530,7 @@ namespace samurai
     }
 
     template <class D, class Config>
-    template <typename... T>
+    template <typename... T, typename U>
     inline auto Mesh_base<D, Config>::get_index(std::size_t level, value_t i, T... index) const -> index_t
     {
         return m_cells[mesh_id_t::reference].get_index(level, i, index...);
@@ -474,7 +551,7 @@ namespace samurai
     }
 
     template <class D, class Config>
-    template <typename... T>
+    template <typename... T, typename U>
     inline auto Mesh_base<D, Config>::get_cell(std::size_t level, value_t i, T... index) const -> cell_t
     {
         return m_cells[mesh_id_t::reference].get_cell(level, i, index...);
@@ -559,12 +636,16 @@ namespace samurai
         mpi::communicator world;
         std::vector<mpi::request> req;
 
+        boost::mpi::packed_oarchive::buffer_type buffer;
+        boost::mpi::packed_oarchive oa(world, buffer);
+        oa << derived_cast();
+
         std::transform(m_mpi_neighbourhood.cbegin(),
                        m_mpi_neighbourhood.cend(),
                        std::back_inserter(req),
                        [&](const auto& neighbour)
                        {
-                           return world.isend(neighbour.rank, neighbour.rank, derived_cast());
+                           return world.isend(neighbour.rank, neighbour.rank, buffer);
                        });
 
         for (auto& neighbour : m_mpi_neighbourhood)
@@ -574,6 +655,67 @@ namespace samurai
 
         mpi::wait_all(req.begin(), req.end());
 #endif
+    }
+
+    // TODO : find a clever way to factorize the two next functions. For new, I have to duplicate the code 2 times.
+
+    // This function is to only send m_subdomain instead of the whole mesh data
+    template <class D, class Config>
+    inline void Mesh_base<D, Config>::update_neighbour_subdomain()
+    {
+#ifdef SAMURAI_WITH_MPI
+        // send/recv the meshes of the neighbouring subdomains
+        mpi::communicator world;
+        std::vector<mpi::request> req;
+
+        boost::mpi::packed_oarchive::buffer_type buffer;
+        boost::mpi::packed_oarchive oa(world, buffer);
+        oa << derived_cast().m_subdomain;
+
+        std::transform(m_mpi_neighbourhood.cbegin(),
+                       m_mpi_neighbourhood.cend(),
+                       std::back_inserter(req),
+                       [&](const auto& neighbour)
+                       {
+                           return world.isend(neighbour.rank, neighbour.rank, buffer);
+                       });
+
+        for (auto& neighbour : m_mpi_neighbourhood)
+        {
+            world.recv(neighbour.rank, world.rank(), neighbour.mesh.m_subdomain);
+        }
+
+        mpi::wait_all(req.begin(), req.end());
+#endif
+    }
+
+    // Modified function definition
+    template <class D, class Config>
+    inline void Mesh_base<D, Config>::update_meshid_neighbour([[maybe_unused]] const mesh_id_t& mesh_id)
+    {
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        std::vector<mpi::request> req;
+
+        boost::mpi::packed_oarchive::buffer_type buffer;
+        boost::mpi::packed_oarchive oa(world, buffer);
+        oa << derived_cast()[mesh_id];
+
+        std::transform(m_mpi_neighbourhood.cbegin(),
+                       m_mpi_neighbourhood.cend(),
+                       std::back_inserter(req),
+                       [&](const auto& neighbour)
+                       {
+                           return world.isend(neighbour.rank, neighbour.rank, buffer);
+                       });
+
+        for (auto& neighbour : m_mpi_neighbourhood)
+        {
+            world.recv(neighbour.rank, world.rank(), neighbour.mesh[mesh_id]);
+        }
+
+        mpi::wait_all(req.begin(), req.end());
+#endif // SAMURAI_WITH_MPI
     }
 
     template <class D, class Config>
@@ -647,6 +789,33 @@ namespace samurai
     }
 
     template <class D, class Config>
+    void Mesh_base<D, Config>::find_neighbourhood_naive()
+    {
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        auto rank = world.rank();
+        auto size = world.size();
+        m_mpi_neighbourhood.reserve(0);
+        if (size > 1)
+        {
+            if (rank == 0)
+            {
+                m_mpi_neighbourhood.push_back(1);
+            }
+            else if (rank == size - 1)
+            {
+                m_mpi_neighbourhood.push_back(size - 2);
+            }
+            else
+            {
+                m_mpi_neighbourhood.push_back(rank - 1);
+                m_mpi_neighbourhood.push_back(rank + 1);
+            }
+        }
+#endif
+    }
+
+    template <class D, class Config>
     void Mesh_base<D, Config>::partition_mesh([[maybe_unused]] std::size_t start_level, [[maybe_unused]] const Box<double, dim>& global_box)
     {
 #ifdef SAMURAI_WITH_MPI
@@ -715,32 +884,66 @@ namespace samurai
         this->m_cells[mesh_id_t::cells][start_level] = {start_level, subdomain_box};
         */
 
+        std::size_t subdomain_start = 0;
+        std::size_t subdomain_end   = 0;
         lcl_type subdomain_cells(start_level, m_domain.origin_point(), m_domain.scaling_factor());
-        auto subdomain_nb_intervals = m_domain.nb_intervals() / static_cast<std::size_t>(size);
-        auto subdomain_start        = static_cast<std::size_t>(rank) * subdomain_nb_intervals;
-        auto subdomain_end          = (static_cast<std::size_t>(rank) + 1) * subdomain_nb_intervals;
-
-        std::size_t k = 0;
-        for_each_meshinterval(m_domain,
-                              [&](auto mi)
-                              {
-                                  if (k >= subdomain_start && k < subdomain_end)
+        // in 1D MPI, we need a specific partitioning
+        if (dim == 1)
+        {
+            std::size_t n_cells               = m_domain.nb_cells();
+            std::size_t n_cells_per_subdomain = n_cells / static_cast<std::size_t>(size);
+            subdomain_start                   = n_cells_per_subdomain * static_cast<std::size_t>(rank);
+            subdomain_end                     = n_cells_per_subdomain * (static_cast<std::size_t>(rank) + 1);
+            // for the last rank, we have to take all the last cells;
+            if (rank == size - 1)
+            {
+                subdomain_end = n_cells;
+            }
+            for_each_meshinterval(m_domain,
+                                  [&](auto mi)
                                   {
-                                      subdomain_cells[mi.index].add_interval(mi.i);
-                                  }
-                                  ++k;
-                              });
+                                      for (auto i = mi.i.start; i < mi.i.end; ++i)
+                                      {
+                                          if (static_cast<std::size_t>(i) >= subdomain_start && static_cast<std::size_t>(i) < subdomain_end)
+                                          {
+                                              subdomain_cells[mi.index].add_point(i);
+                                          }
+                                      }
+                                  });
+        }
+        else if (dim >= 2)
+        {
+            auto subdomain_nb_intervals = m_domain.nb_intervals() / static_cast<std::size_t>(size);
+            subdomain_start             = static_cast<std::size_t>(rank) * subdomain_nb_intervals;
+            subdomain_end               = (static_cast<std::size_t>(rank) + 1) * subdomain_nb_intervals;
+            if (rank == size - 1)
+            {
+                subdomain_end = m_domain.nb_intervals();
+            }
+            std::size_t k = 0;
+            for_each_meshinterval(m_domain,
+                                  [&](auto mi)
+                                  {
+                                      if (k >= subdomain_start && k < subdomain_end)
+                                      {
+                                          subdomain_cells[mi.index].add_interval(mi.i);
+                                      }
+                                      ++k;
+                                  });
+        }
 
         this->m_cells[mesh_id_t::cells][start_level] = subdomain_cells;
 
-        m_mpi_neighbourhood.reserve(static_cast<std::size_t>(size) - 1);
-        for (int ir = 0; ir < size; ++ir)
-        {
-            if (ir != rank)
-            {
-                m_mpi_neighbourhood.push_back(ir);
-            }
-        }
+        //        m_mpi_neighbourhood.reserve(static_cast<std::size_t>(size) - 1);
+        //        for (int ir = 0; ir < size; ++ir)
+        //        {
+        //            if (ir != rank)
+        //            {
+        //                m_mpi_neighbourhood.push_back(ir);
+        //            }
+        //        }
+
+        find_neighbourhood_naive();
 
         // // Neighbours
         // m_mpi_neighbourhood.reserve(static_cast<std::size_t>(pow(3, dim) - 1));

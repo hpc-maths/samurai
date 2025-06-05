@@ -37,8 +37,8 @@ namespace samurai
             using coord_index_t                                    = typename interval_t::coord_index_t;
             using index_t                                          = typename interval_t::index_t;
             static constexpr std::size_t dim                       = field_t::dim;
-            static constexpr std::size_t field_size                = field_t::size;
-            static constexpr std::size_t output_field_size         = cfg_t::output_field_size;
+            static constexpr std::size_t n_comp                    = field_t::n_comp;
+            static constexpr std::size_t output_n_comp             = cfg_t::output_n_comp;
             static constexpr std::size_t prediction_order          = mesh_t::config::prediction_order;
             static constexpr std::size_t bdry_neighbourhood_width  = bdry_cfg_t::neighbourhood_width;
             static constexpr std::size_t bdry_stencil_size         = bdry_cfg_t::stencil_size;
@@ -49,7 +49,7 @@ namespace samurai
             using dirichlet_t = DirichletImpl<nb_bdry_ghosts, field_t>;
             using neumann_t   = NeumannImpl<nb_bdry_ghosts, field_t>;
 
-            using directional_bdry_config_t = DirectionalBoundaryConfig<field_t, output_field_size, bdry_stencil_size, nb_bdry_ghosts>;
+            using directional_bdry_config_t = DirectionalBoundaryConfig<field_t, output_n_comp, bdry_stencil_size, nb_bdry_ghosts>;
 
             static constexpr bool ghost_elimination_enabled = true;
 
@@ -74,7 +74,12 @@ namespace samurai
                 this->set_name(scheme.name());
             }
 
-            auto& scheme() const
+            auto& scheme()
+            {
+                return m_scheme;
+            }
+
+            const auto& scheme() const
             {
                 return m_scheme;
             }
@@ -188,44 +193,44 @@ namespace samurai
 
             PetscInt matrix_rows() const override
             {
-                return static_cast<PetscInt>(m_n_cells * output_field_size);
+                return static_cast<PetscInt>(m_n_cells * output_n_comp);
             }
 
             PetscInt matrix_cols() const override
             {
-                return static_cast<PetscInt>(m_n_cells * field_size);
+                return static_cast<PetscInt>(m_n_cells * n_comp);
             }
 
             // Global data index
             inline PetscInt col_index(PetscInt cell_index, [[maybe_unused]] unsigned int field_j) const
             {
-                if constexpr (field_size == 1)
+                if constexpr (field_t::is_scalar)
                 {
                     return m_col_shift + cell_index;
                 }
-                else if constexpr (field_t::is_soa)
+                else if constexpr (detail::is_soa_v<field_t>)
                 {
                     return m_col_shift + static_cast<PetscInt>(field_j * m_n_cells) + cell_index;
                 }
                 else
                 {
-                    return m_col_shift + cell_index * static_cast<PetscInt>(field_size) + static_cast<PetscInt>(field_j);
+                    return m_col_shift + cell_index * static_cast<PetscInt>(n_comp) + static_cast<PetscInt>(field_j);
                 }
             }
 
             inline PetscInt row_index(PetscInt cell_index, [[maybe_unused]] unsigned int field_i) const
             {
-                if constexpr (output_field_size == 1)
+                if constexpr (output_n_comp == 1)
                 {
                     return m_row_shift + cell_index;
                 }
-                else if constexpr (field_t::is_soa)
+                else if constexpr (detail::is_soa_v<field_t>)
                 {
                     return m_row_shift + static_cast<PetscInt>(field_i * m_n_cells) + cell_index;
                 }
                 else
                 {
-                    return m_row_shift + cell_index * static_cast<PetscInt>(output_field_size) + static_cast<PetscInt>(field_i);
+                    return m_row_shift + cell_index * static_cast<PetscInt>(output_n_comp) + static_cast<PetscInt>(field_i);
                 }
             }
 
@@ -242,7 +247,7 @@ namespace samurai
             template <class Coeffs>
             inline double rhs_coeff(const Coeffs& coeffs, [[maybe_unused]] unsigned int field_i, [[maybe_unused]] unsigned int field_j) const
             {
-                if constexpr (field_size == 1 && output_field_size == 1)
+                if constexpr (field_t::is_scalar && output_n_comp == 1)
                 {
                     return coeffs;
                 }
@@ -334,7 +339,7 @@ namespace samurai
                 {
                     const auto& eq    = equations[e];
                     const auto& ghost = cells[eq.ghost_index];
-                    for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                    for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                     {
                         if constexpr (dirichlet_enfcmt == DirichletEnforcement::Elimination)
                         {
@@ -356,7 +361,7 @@ namespace samurai
                 {
                     const auto& eq    = equations[e];
                     const auto& ghost = cells[eq.ghost_index];
-                    for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                    for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                     {
                         nnz[static_cast<std::size_t>(row_index(ghost, field_i))] = bdry_stencil_size;
                     }
@@ -447,7 +452,7 @@ namespace samurai
                     const auto& equation_ghost = cells[eq.ghost_index];
                     for (std::size_t c = 0; c < bdry_stencil_size; ++c)
                     {
-                        for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                        for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                         {
                             PetscInt equation_row = col_index(equation_ghost, field_i);
                             PetscInt col          = col_index(cells[c], field_i);
@@ -556,7 +561,7 @@ namespace samurai
                 {
                     auto eq                    = equations[e];
                     const auto& equation_ghost = cells[eq.ghost_index];
-                    for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                    for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                     {
                         PetscInt equation_row = row_index(equation_ghost, field_i);
 
@@ -564,7 +569,7 @@ namespace samurai
                         assert(coeff != 0);
 
                         double bc_value;
-                        if constexpr (field_size == 1)
+                        if constexpr (field_t::is_scalar)
                         {
                             bc_value = bc->value({}, {}, boundary_point);
                         }
@@ -656,7 +661,7 @@ namespace samurai
                                   ghosts,
                                   [&](auto& ghost)
                                   {
-                                      for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                                      for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                                       {
                                           VecSetValue(b, row_index(ghost, field_i), 0, INSERT_VALUES);
                                       }
@@ -673,7 +678,7 @@ namespace samurai
                 for_each_projection_ghost(mesh(),
                                           [&](auto& ghost)
                                           {
-                                              for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                                              for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                                               {
                                                   if constexpr (ghost_elimination_enabled)
                                                   {
@@ -699,7 +704,7 @@ namespace samurai
                     mesh(),
                     [&](const auto& ghost)
                     {
-                        for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                        for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                         {
                             if constexpr (ghost_elimination_enabled)
                             {
@@ -727,7 +732,7 @@ namespace samurai
                 for_each_projection_ghost(mesh(),
                                           [&](auto& ghost)
                                           {
-                                              for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                                              for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                                               {
                                                   VecSetValue(b, row_index(ghost, field_i), 0, INSERT_VALUES);
                                               }
@@ -737,7 +742,7 @@ namespace samurai
                 for_each_prediction_ghost(mesh(),
                                           [&](auto& ghost)
                                           {
-                                              for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                                              for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                                               {
                                                   VecSetValue(b, row_index(ghost, field_i), 0, INSERT_VALUES);
                                               }
@@ -758,7 +763,7 @@ namespace samurai
                         {
                             double h       = mesh().cell_length(level);
                             double scaling = 1. / (h * h);
-                            for (unsigned int field_i = 0; field_i < output_field_size; ++field_i)
+                            for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                             {
                                 PetscInt ghost_index = row_index(ghost, field_i);
                                 MatSetValue(A, ghost_index, ghost_index, scaling, current_insert_mode());
@@ -837,7 +842,7 @@ namespace samurai
                     {
                         double h       = mesh().cell_length(ghost.level);
                         double scaling = 1. / (h * h);
-                        for (unsigned int field_i = 0; field_i < field_size; ++field_i)
+                        for (unsigned int field_i = 0; field_i < n_comp; ++field_i)
                         {
                             PetscInt ghost_index = this->row_index(ghost, field_i);
                             MatSetValue(A, ghost_index, ghost_index, scaling, current_insert_mode());
@@ -902,7 +907,7 @@ namespace samurai
                     {
                         double h       = mesh().cell_length(ghost.level);
                         double scaling = 1. / (h * h);
-                        for (unsigned int field_i = 0; field_i < field_size; ++field_i)
+                        for (unsigned int field_i = 0; field_i < n_comp; ++field_i)
                         {
                             PetscInt ghost_index = this->row_index(ghost, field_i);
                             MatSetValue(A, ghost_index, ghost_index, scaling, current_insert_mode());
@@ -984,7 +989,7 @@ namespace samurai
                     {
                         double h       = mesh().cell_length(ghost.level);
                         double scaling = 1. / (h * h);
-                        for (unsigned int field_i = 0; field_i < field_size; ++field_i)
+                        for (unsigned int field_i = 0; field_i < n_comp; ++field_i)
                         {
                             PetscInt ghost_index = this->row_index(ghost, field_i);
                             MatSetValue(A, ghost_index, ghost_index, scaling, current_insert_mode());

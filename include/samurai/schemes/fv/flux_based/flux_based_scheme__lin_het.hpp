@@ -16,8 +16,8 @@ namespace samurai
         using base_class = FVScheme<FluxBasedScheme<cfg, bdry_cfg>, cfg, bdry_cfg>;
 
         using base_class::dim;
-        using base_class::field_size;
-        using base_class::output_field_size;
+        using base_class::n_comp;
+        using base_class::output_n_comp;
         using typename base_class::input_field_t;
         using typename base_class::mesh_id_t;
         using typename base_class::mesh_t;

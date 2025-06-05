@@ -9,10 +9,10 @@ namespace samurai
     };
 
     /**
-     * Implementation when field size = 1
+     * Implementation when number of components of field = 1
      */
     template <class field_t>
-    class LocalField<field_t, std::enable_if_t<field_t::size == 1>>
+    class LocalField<field_t, std::enable_if_t<field_t::is_scalar>>
     {
         using field_value_type = typename field_t::value_type;
         using cell_t           = typename field_t::cell_t;
@@ -38,14 +38,14 @@ namespace samurai
     };
 
     /**
-     * Implementation when field size > 1
+     * Implementation when number of components of field > 1
      */
     template <class field_t>
-    class LocalField<field_t, std::enable_if_t<field_t::size != 1>>
+    class LocalField<field_t, std::enable_if_t<!field_t::is_scalar>>
     {
         using field_value_type    = typename field_t::value_type;
         using cell_t              = typename field_t::cell_t;
-        using container_t         = decltype(xt::adapt(std::declval<const field_value_type*>(), xt::xshape<field_t::size>()));
+        using container_t         = decltype(xt::adapt(std::declval<const field_value_type*>(), xt::xshape<field_t::n_comp>()));
         using container_closure_t = typename container_t::container_closure_type;
 
       private:
@@ -58,7 +58,7 @@ namespace samurai
         // cppcheck-suppress uninitMemberVar
         LocalField(const cell_t& cell, const field_value_type* data)
             : m_cell(cell)
-            , m_container(container_closure_t(data, xt::detail::fixed_compute_size<xt::xshape<field_t::size>>::value))
+            , m_container(container_closure_t(data, xt::detail::fixed_compute_size<xt::xshape<field_t::n_comp>>::value))
         {
         }
 

@@ -1,10 +1,10 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #pragma once
 
 #include <samurai/cell_flag.hpp>
-#include <samurai/subset/subset_op.hpp>
+#include <samurai/subset/node.hpp>
 
 template <class Field, class Tag, class Mesh>
 void update_field(Field& f, const Tag& tag, Mesh& new_mesh)

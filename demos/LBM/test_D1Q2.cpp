@@ -1,4 +1,4 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #include <fstream>
@@ -8,7 +8,7 @@
 #include <cxxopts.hpp>
 
 #include <samurai/field.hpp>
-#include <samurai/hdf5.hpp>
+#include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh_with_overleaves.hpp>
 #include <samurai/reconstruction.hpp>
@@ -135,7 +135,7 @@ template <class Mesh>
 auto init_f(Mesh& mesh, double t, double ad_vel, double lambda, int test_number)
 {
     using mesh_id_t = typename Mesh::mesh_id_t;
-    auto f          = samurai::make_field<double, 2>("f", mesh);
+    auto f          = samurai::make_vector_field<double, 2>("f", mesh);
 
     samurai::for_each_cell(mesh[mesh_id_t::cells],
                            [&](auto& cell)
@@ -154,7 +154,7 @@ auto init_f(Mesh& mesh, double t, double ad_vel, double lambda, int test_number)
 template <class Field, class Func>
 void one_time_step(Field& f, Func&& update_bc_for_level, double s_rel, double lambda, double ad_vel, int test_number, bool finest_collision = false)
 {
-    constexpr std::size_t nvel = Field::size;
+    constexpr std::size_t nvel = Field::n_comp;
 
     auto mesh           = f.mesh();
     using mesh_t        = typename Field::mesh_t;
@@ -167,7 +167,7 @@ void one_time_step(Field& f, Func&& update_bc_for_level, double s_rel, double la
 
     samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
 
-    auto new_f = samurai::make_field<double, nvel>("new_f", mesh);
+    auto new_f = samurai::make_vector_field<double, nvel>("new_f", mesh);
     samurai::for_each_interval(mesh[mesh_id_t::cells][max_level],
                                [&](std::size_t level, auto& i, auto&)
                                {

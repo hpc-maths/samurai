@@ -1,7 +1,8 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-#include <samurai/hdf5.hpp>
+#include <samurai/io/hdf5.hpp>
+#include <samurai/io/restart.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/petsc.hpp>
@@ -13,7 +14,7 @@ template <class Field>
 void save(const fs::path& path, const std::string& filename, const Field& u, const std::string& suffix = "")
 {
     auto mesh   = u.mesh();
-    auto level_ = samurai::make_field<std::size_t, 1>("level", mesh);
+    auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
 
     if (!fs::exists(path))
     {
@@ -27,6 +28,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
                            });
 
     samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
+    samurai::dump(path, fmt::format("{}_restart{}", filename, suffix), mesh, u);
 }
 
 template <std::size_t dim>
@@ -45,12 +47,12 @@ double exact_solution(xt::xtensor_fixed<double, xt::xshape<dim>> coords, double 
 template <class Field>
 auto make_nonlinear_diffusion()
 {
-    static constexpr std::size_t dim               = Field::dim;
-    static constexpr std::size_t field_size        = Field::size;
-    static constexpr std::size_t output_field_size = field_size;
-    static constexpr std::size_t stencil_size      = 2;
+    static constexpr std::size_t dim           = Field::dim;
+    static constexpr std::size_t n_comp        = Field::n_comp;
+    static constexpr std::size_t output_n_comp = n_comp;
+    static constexpr std::size_t stencil_size  = 2;
 
-    using cfg = samurai::FluxConfig<samurai::SchemeType::NonLinear, output_field_size, stencil_size, Field>;
+    using cfg = samurai::FluxConfig<samurai::SchemeType::NonLinear, output_n_comp, stencil_size, Field>;
 
     samurai::FluxDefinition<cfg> flux;
 
@@ -59,17 +61,18 @@ auto make_nonlinear_diffusion()
         {
             static constexpr std::size_t d = integral_constant_d();
 
-            flux[d].cons_flux_function = [](auto& cells, const Field& u)
+            flux[d].cons_flux_function =
+                [](samurai::FluxValue<cfg>& flux, const samurai::StencilData<cfg>& data, const samurai::StencilValues<cfg>& u)
             {
-                auto& L = cells[0];
-                auto& R = cells[1];
-                auto dx = L.length;
+                static constexpr std::size_t L = 0;
+                static constexpr std::size_t R = 1;
+
+                auto dx = data.cell_length;
 
                 auto _u     = (u[L] + u[R]) / 2;
                 auto grad_u = (u[L] - u[R]) / dx;
 
-                samurai::FluxValue<cfg> f = _u * grad_u; // (1)
-                return f;
+                flux = _u * grad_u; // (1)
             };
 
             flux[d].cons_jacobian_function = [](auto& cells, const Field& u)
@@ -129,6 +132,8 @@ int main(int argc, char* argv[])
     double dt            = 1e-4;
     bool explicit_scheme = false;
     double cfl           = 0.95;
+    double t             = 0.;
+    std::string restart_file;
 
     // Multiresolution parameters
     std::size_t min_level = 4;
@@ -142,7 +147,9 @@ int main(int argc, char* argv[])
     bool save_final_state_only = false;
 
     app.add_flag("--explicit", explicit_scheme, "Explicit scheme instead of implicit")->group("Simulation parameters");
+    app.add_option("--Ti", t, "Initial time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
@@ -178,16 +185,25 @@ int main(int argc, char* argv[])
     box_corner1.fill(left_box);
     box_corner2.fill(right_box);
     Box box(box_corner1, box_corner2);
-    samurai::MRMesh<Config> mesh{box, min_level, max_level};
+    samurai::MRMesh<Config> mesh;
+    auto u = samurai::make_scalar_field<double>("u", mesh);
 
-    auto u = samurai::make_field<1>("u",
-                                    mesh,
-                                    [&](const auto& coords)
-                                    {
-                                        return exact_solution(coords, 0);
-                                    });
+    if (restart_file.empty())
+    {
+        mesh = {box, min_level, max_level};
+        u    = samurai::make_scalar_field<double>("u",
+                                               mesh,
+                                               [&](const auto& coords)
+                                               {
+                                                   return exact_solution(coords, 0);
+                                               });
+    }
+    else
+    {
+        samurai::load(restart_file, mesh, u);
+    }
 
-    auto unp1 = samurai::make_field<1>("unp1", mesh);
+    auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);
 
     samurai::make_bc<samurai::Dirichlet<1>>(u,
                                             [&](const auto&, const auto&, const auto& coords)
@@ -218,7 +234,6 @@ int main(int argc, char* argv[])
         save(path, filename, u, fmt::format("_ite_{}", nsave++));
     }
 
-    double t = 0;
     while (t != Tf)
     {
         // Move to next timestep

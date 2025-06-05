@@ -1,5 +1,73 @@
 # Changelog
 
+## [0.23.0](https://github.com/hpc-maths/samurai/compare/v0.22.0...v0.23.0) (2025-04-18)
+
+
+### Features
+
+* add copy functions xtensor &lt;-&gt; Petsc Vec ([#309](https://github.com/hpc-maths/samurai/issues/309)) ([c28a2ed](https://github.com/hpc-maths/samurai/commit/c28a2edb0d59b186b9d491d99eb9de7337350969))
+* add ScalarField and VectorField ([#297](https://github.com/hpc-maths/samurai/issues/297)) ([b5816e7](https://github.com/hpc-maths/samurai/commit/b5816e7a8ec42390f9295270b09d4a8c91e419d1))
+* LevelCellArray with origin point ([#312](https://github.com/hpc-maths/samurai/issues/312)) ([0154c90](https://github.com/hpc-maths/samurai/commit/0154c90e662c250fba7c03c8e829968962557de8))
+
+
+### Bug Fixes
+
+* enforce xtensor version ([#310](https://github.com/hpc-maths/samurai/issues/310)) ([548819b](https://github.com/hpc-maths/samurai/commit/548819b9c7d95bbdd9ddae2b5d174cf9d10924d1))
+* Fix `enable_max_level_flux` for prediction 0 ([#298](https://github.com/hpc-maths/samurai/issues/298)) ([2240ebe](https://github.com/hpc-maths/samurai/commit/2240ebe93811c5ab6b5514bd584b81a66a041fcb))
+* Python script to read MPI meshes ([#294](https://github.com/hpc-maths/samurai/issues/294)) ([27bbd69](https://github.com/hpc-maths/samurai/commit/27bbd6911634c1956c1d1b4bd7193f9f2c1d5289))
+* remove include ([#281](https://github.com/hpc-maths/samurai/issues/281)) ([288273e](https://github.com/hpc-maths/samurai/commit/288273e16e96f84aba6a194e43ef3cff3cadc31a))
+* Repare MPI in 1D ([#293](https://github.com/hpc-maths/samurai/issues/293)) ([f502812](https://github.com/hpc-maths/samurai/commit/f502812cf2aa864917b9533ba45d1a40058405f0))
+* Update level_cell_array.hpp ([#286](https://github.com/hpc-maths/samurai/issues/286)) ([584527b](https://github.com/hpc-maths/samurai/commit/584527b977ea3633ffce834d5a21a752a097e06e))
+
+
+### Performance Improvements
+
+* Avoid multiple serialization ([#287](https://github.com/hpc-maths/samurai/issues/287)) ([79c48ee](https://github.com/hpc-maths/samurai/commit/79c48eef419fe1b50689c984764085c951711136))
+* changing graduation to a cell-based algorithm ([#299](https://github.com/hpc-maths/samurai/issues/299)) ([cf8793b](https://github.com/hpc-maths/samurai/commit/cf8793b6fab541e5d4dbb511b06fe76f8173a06c))
+* replaced CellList by CellArray in update_field_mr ([#283](https://github.com/hpc-maths/samurai/issues/283)) ([a55f11a](https://github.com/hpc-maths/samurai/commit/a55f11a5267ee885aa12e2f4981dbf3ce6582ae2))
+
+## [0.22.0](https://github.com/hpc-maths/samurai/compare/v0.21.1...v0.22.0) (2025-03-06)
+
+
+### Features
+
+* finest level flux computation for non-linear schemes ([#268](https://github.com/hpc-maths/samurai/issues/268)) ([780a0ba](https://github.com/hpc-maths/samurai/commit/780a0ba38d53089596f2193003ceaf1a526b582a))
+* min and max level can be changed ([#277](https://github.com/hpc-maths/samurai/issues/277)) ([fa9c15d](https://github.com/hpc-maths/samurai/commit/fa9c15d9882ea89eb6f02a5760c195d6e0097550))
+* new set algebra ([#275](https://github.com/hpc-maths/samurai/issues/275)) ([c184c7f](https://github.com/hpc-maths/samurai/commit/c184c7f3cd36d7d88cde243f9ea35bad92081545))
+* Refine boundary ([#269](https://github.com/hpc-maths/samurai/issues/269)) ([daad5ac](https://github.com/hpc-maths/samurai/commit/daad5ac9ece6ee022404367ec424c8991a414793))
+* restart ([#278](https://github.com/hpc-maths/samurai/issues/278)) ([f287f14](https://github.com/hpc-maths/samurai/commit/f287f140c412c13011700d5cd9e088e5ffae6194))
+
+
+### Bug Fixes
+
+* MPI for vector fields ([#273](https://github.com/hpc-maths/samurai/issues/273)) ([adcb4d8](https://github.com/hpc-maths/samurai/commit/adcb4d8029a231684a6086095a784c49c8d8c0bd))
+
+
+### Performance Improvements
+
+* minor improvement in algebra of sets ([#279](https://github.com/hpc-maths/samurai/issues/279)) ([9958484](https://github.com/hpc-maths/samurai/commit/9958484407bbed763157cddcf6374d3743492adb))
+
+## [0.21.1](https://github.com/hpc-maths/samurai/compare/v0.21.0...v0.21.1) (2025-02-06)
+
+
+### Bug Fixes
+
+* add make_field_function ([#266](https://github.com/hpc-maths/samurai/issues/266)) ([057bfbe](https://github.com/hpc-maths/samurai/commit/057bfbecba69d112318dea522d395c87967a9432))
+
+## [0.21.0](https://github.com/hpc-maths/samurai/compare/v0.20.0...v0.21.0) (2025-01-26)
+
+
+### Features
+
+* find cell from cartesian coordinates ([#259](https://github.com/hpc-maths/samurai/issues/259)) ([2432537](https://github.com/hpc-maths/samurai/commit/24325371dae7669931bde3282df614fdd6ce6236))
+
+
+### Bug Fixes
+
+* cmake samuraiConfig bug ([#255](https://github.com/hpc-maths/samurai/issues/255)) ([265ee64](https://github.com/hpc-maths/samurai/commit/265ee6431767ae38db349704c78a44209851be61))
+* default value for SOA in Array ([#258](https://github.com/hpc-maths/samurai/issues/258)) ([4bab319](https://github.com/hpc-maths/samurai/commit/4bab319b5802cc484f303ee5140d3ef196361ac3))
+* Fix type issue in Field.operator() ([#260](https://github.com/hpc-maths/samurai/issues/260)) ([df0115f](https://github.com/hpc-maths/samurai/commit/df0115feb475acbbb86163dceddd4d6ff310cc76))
+
 ## [0.20.0](https://github.com/hpc-maths/samurai/compare/v0.19.0...v0.20.0) (2025-01-10)
 
 

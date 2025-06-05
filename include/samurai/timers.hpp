@@ -127,7 +127,7 @@ namespace samurai
                         maxrank = static_cast<int>(iproc);
                     }
 
-                    ave += timer.second.elapsed;
+                    ave += all[iproc];
                 }
 
                 ave /= static_cast<double>(world.size());
@@ -243,10 +243,10 @@ namespace samurai
 
             if (!has_total_runtime)
             {
-                // std::cout << "\t";
+                auto totalInSeconds = std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1>>>(total_measured);
                 std::cout << std::setw(setwSizeName) << "Total";
-                std::cout << std::setw(setwSizeData) << total_measured.count();
-                std::cout << std::setw(setwSizeData) << total_perc;
+                std::cout << std::setw(setwSizeData) << std::setprecision(3) << totalInSeconds.count();
+                std::cout << std::setw(setwSizeData) << std::setprecision(1) << total_perc;
                 std::cout << std::endl;
             }
 

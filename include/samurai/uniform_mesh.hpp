@@ -1,9 +1,7 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #pragma once
-
-#include <array>
 
 #include <fmt/format.h>
 
@@ -12,7 +10,6 @@
 #include "level_cell_list.hpp"
 #include "mesh.hpp"
 #include "samurai_config.hpp"
-#include "subset/subset_op.hpp"
 
 namespace samurai
 {
@@ -52,7 +49,9 @@ namespace samurai
 
         using mesh_t = MeshIDArray<ca_type, mesh_id_t>;
 
+        UniformMesh() = default;
         UniformMesh(const cl_type& cl);
+        UniformMesh(const ca_type& ca);
         UniformMesh(const Box<double, dim>& b,
                     std::size_t level,
                     double approx_box_tol = ca_type::default_approx_box_tol,
@@ -108,6 +107,18 @@ namespace samurai
 
         set_origin_point(cl.origin_point());
         set_scaling_factor(cl.scaling_factor());
+    }
+
+    template <class Config>
+    inline UniformMesh<Config>::UniformMesh(const ca_type& ca)
+    {
+        m_cells[mesh_id_t::cells] = ca;
+
+        update_sub_mesh();
+        renumbering();
+
+        set_origin_point(ca.origin_point());
+        set_scaling_factor(ca.scaling_factor());
     }
 
     template <class Config>

@@ -1,7 +1,8 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-#include <samurai/hdf5.hpp>
+#include <samurai/io/hdf5.hpp>
+#include <samurai/io/restart.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/petsc.hpp>
@@ -26,7 +27,7 @@ template <class Field>
 void save(const fs::path& path, const std::string& filename, const Field& u, const std::string& suffix = "")
 {
     auto mesh   = u.mesh();
-    auto level_ = samurai::make_field<std::size_t, 1>("level", mesh);
+    auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
 
     if (!fs::exists(path))
     {
@@ -40,6 +41,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
                            });
 
     samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
+    samurai::dump(path, fmt::format("{}_restart{}", filename, suffix), mesh, u);
 }
 
 int main(int argc, char* argv[])
@@ -78,6 +80,8 @@ int main(int argc, char* argv[])
     double dt            = Tf / 100;
     bool explicit_scheme = false;
     double cfl           = 0.95;
+    double t0            = 0.;
+    std::string restart_file;
 
     // Multiresolution parameters
     std::size_t min_level = 3;
@@ -95,7 +99,9 @@ int main(int argc, char* argv[])
     app.add_option("--init-sol", init_sol, "Initial solution: dirac/crenel")->capture_default_str()->group("Simulation parameters");
     app.add_option("--diff-coeff", diff_coeff, "Diffusion coefficient")->capture_default_str()->group("Simulation parameters");
     app.add_flag("--explicit", explicit_scheme, "Explicit scheme instead of implicit")->group("Simulation parameters");
+    app.add_option("--Ti", t0, "Initial time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
@@ -137,36 +143,44 @@ int main(int argc, char* argv[])
     box_corner1.fill(left_box);
     box_corner2.fill(right_box);
     Box box(box_corner1, box_corner2);
-    samurai::MRMesh<Config> mesh{box, min_level, max_level};
+    samurai::MRMesh<Config> mesh;
 
-    auto u = samurai::make_field<1>("u", mesh);
+    auto u = samurai::make_scalar_field<double>("u", mesh);
 
-    // Initial solution
-    double t0 = 0;
-    if (init_sol == "dirac")
+    if (restart_file.empty())
     {
-        t0 = 1e-2; // in this particular case, the exact solution is not defined for t=0
-        samurai::for_each_cell(mesh,
-                               [&](auto& cell)
-                               {
-                                   u[cell] = exact_solution(cell.center(), t0, diff_coeff);
-                               });
-    }
-    else // crenel
-    {
-        samurai::for_each_cell(mesh,
-                               [&](auto& cell)
-                               {
-                                   bool is_in_crenel = true;
-                                   for (std::size_t d = 0; d < dim; ++d)
+        mesh = {box, min_level, max_level};
+        u.resize();
+        // Initial solution
+        if (init_sol == "dirac")
+        {
+            t0 = 1e-2; // in this particular case, the exact solution is not defined for t=0
+            samurai::for_each_cell(mesh,
+                                   [&](auto& cell)
                                    {
-                                       is_in_crenel = is_in_crenel && (abs(cell.center(d)) < right_box / 3);
-                                   }
-                                   u[cell] = is_in_crenel ? 1 : 0;
-                               });
+                                       u[cell] = exact_solution(cell.center(), t0, diff_coeff);
+                                   });
+        }
+        else // crenel
+        {
+            samurai::for_each_cell(mesh,
+                                   [&](auto& cell)
+                                   {
+                                       bool is_in_crenel = true;
+                                       for (std::size_t d = 0; d < dim; ++d)
+                                       {
+                                           is_in_crenel = is_in_crenel && (abs(cell.center(d)) < right_box / 3);
+                                       }
+                                       u[cell] = is_in_crenel ? 1 : 0;
+                                   });
+        }
+    }
+    else
+    {
+        samurai::load(restart_file, mesh, u);
     }
 
-    auto unp1 = samurai::make_field<1>("unp1", mesh);
+    auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);
 
     samurai::make_bc<samurai::Neumann<1>>(u, 0.);
     samurai::make_bc<samurai::Neumann<1>>(unp1, 0.);

@@ -1,4 +1,4 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #pragma once
@@ -7,18 +7,21 @@
 
 #include <xtensor/xfixed.hpp>
 
+#include "../algorithm.hpp"
 #include "../bc.hpp"
-#include "../mr/operators.hpp"
+#include "../field.hpp"
 #include "../numeric/prediction.hpp"
 #include "../numeric/projection.hpp"
-#include "../subset/subset_op.hpp"
+#include "../subset/node.hpp"
 #include "../timers.hpp"
+#include "graduation.hpp"
 #include "utils.hpp"
 
 using namespace xt::placeholders;
 
 #ifdef SAMURAI_WITH_MPI
 #include <boost/mpi.hpp>
+#include <xtensor/xmasked_view.hpp>
 namespace mpi = boost::mpi;
 #endif
 
@@ -78,10 +81,10 @@ namespace samurai
             //                                          mesh[mesh_id_t::cells_and_ghosts][level])))
             //             .on(level);
 
-            auto expr = intersection(difference(mesh[mesh_id_t::all_cells][level],
-                                                union_(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::proj_cells][level])),
-                                     mesh.domain())
-                            .on(level);
+            auto expr = intersection(
+                difference(mesh[mesh_id_t::all_cells][level], union_(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::proj_cells][level])),
+                self(mesh.domain()).on(level));
+
             expr.apply_op(prediction<pred_order, false>(field));
             update_bc(level, field);
         }
@@ -212,9 +215,9 @@ namespace samurai
                     [&](const auto& i, const auto& index)
                     {
                         std::copy(to_recv.begin() + count,
-                                  to_recv.begin() + count + static_cast<ptrdiff_t>(i.size()),
+                                  to_recv.begin() + count + static_cast<ptrdiff_t>(i.size() * Field::n_comp),
                                   field(level, i, index).begin());
-                        count += static_cast<ptrdiff_t>(i.size());
+                        count += static_cast<ptrdiff_t>(i.size() * Field::n_comp);
                     });
             }
         }
@@ -248,11 +251,8 @@ namespace samurai
 #endif
     }
 
-    template <bool out = true, class Field>
-    void update_tag_subdomains([[maybe_unused]] std::size_t level,
-                               [[maybe_unused]] Field& tag,
-                               [[maybe_unused]] bool erase      = false,
-                               [[maybe_unused]] bool in_and_out = false)
+    template <class Field>
+    void update_tag_subdomains([[maybe_unused]] std::size_t level, [[maybe_unused]] Field& tag, [[maybe_unused]] bool erase = false)
     {
 #ifdef SAMURAI_WITH_MPI
         //  constexpr std::size_t dim = Field::dim;
@@ -270,30 +270,15 @@ namespace samurai
         {
             if (!mesh[mesh_id_t::reference][level].empty() && !neighbour.mesh[mesh_id_t::reference][level].empty())
             {
-                if constexpr (out)
-                {
-                    auto out_interface = intersection(mesh[mesh_id_t::reference][level],
-                                                      neighbour.mesh[mesh_id_t::reference][level],
-                                                      mesh.subdomain())
-                                             .on(level);
-                    out_interface(
-                        [&](const auto& i, const auto& index)
-                        {
-                            std::copy(tag(level, i, index).begin(), tag(level, i, index).end(), std::back_inserter(to_send[i_neigh]));
-                        });
-                }
-                else
-                {
-                    auto out_interface = intersection(mesh[mesh_id_t::reference][level],
-                                                      neighbour.mesh[mesh_id_t::reference][level],
-                                                      neighbour.mesh.subdomain())
-                                             .on(level);
-                    out_interface(
-                        [&](const auto& i, const auto& index)
-                        {
-                            std::copy(tag(level, i, index).begin(), tag(level, i, index).end(), std::back_inserter(to_send[i_neigh]));
-                        });
-                }
+                auto out_interface = intersection(mesh[mesh_id_t::reference][level],
+                                                  neighbour.mesh[mesh_id_t::reference][level],
+                                                  mesh.subdomain())
+                                         .on(level);
+                out_interface(
+                    [&](const auto& i, const auto& index)
+                    {
+                        std::copy(tag(level, i, index).begin(), tag(level, i, index).end(), std::back_inserter(to_send[i_neigh]));
+                    });
 
                 req.push_back(world.isend(neighbour.rank, neighbour.rank, to_send[i_neigh++]));
             }
@@ -308,54 +293,25 @@ namespace samurai
 
                 world.recv(neighbour.rank, world.rank(), to_recv);
 
-                if (out)
-                {
-                    auto in_interface = intersection(mesh[mesh_id_t::reference][level],
-                                                     neighbour.mesh[mesh_id_t::reference][level],
-                                                     neighbour.mesh.subdomain())
-                                            .on(level);
-                    in_interface(
-                        [&](const auto& i, const auto& index)
+                auto in_interface = intersection(mesh[mesh_id_t::reference][level],
+                                                 neighbour.mesh[mesh_id_t::reference][level],
+                                                 neighbour.mesh.subdomain())
+                                        .on(level);
+                in_interface(
+                    [&](const auto& i, const auto& index)
+                    {
+                        xt::xtensor<value_t, 1> neigh_tag = xt::empty_like(tag(level, i, index));
+                        std::copy(to_recv.begin() + count, to_recv.begin() + count + static_cast<std::ptrdiff_t>(i.size()), neigh_tag.begin());
+                        if (erase)
                         {
-                            xt::xtensor<value_t, 1> neigh_tag = xt::empty_like(tag(level, i, index));
-                            std::copy(to_recv.begin() + count,
-                                      to_recv.begin() + count + static_cast<std::ptrdiff_t>(i.size()),
-                                      neigh_tag.begin());
-                            if (erase)
-                            {
-                                tag(level, i, index) = neigh_tag;
-                            }
-                            else
-                            {
-                                tag(level, i, index) |= neigh_tag;
-                            }
-                            count += static_cast<std::ptrdiff_t>(i.size());
-                        });
-                }
-                else
-                {
-                    auto in_interface = intersection(mesh[mesh_id_t::reference][level],
-                                                     neighbour.mesh[mesh_id_t::reference][level],
-                                                     mesh.subdomain())
-                                            .on(level);
-                    in_interface(
-                        [&](const auto& i, const auto& index)
+                            tag(level, i, index) = neigh_tag;
+                        }
+                        else
                         {
-                            xt::xtensor<value_t, 1> neigh_tag = xt::empty_like(tag(level, i, index));
-                            std::copy(to_recv.begin() + count,
-                                      to_recv.begin() + count + static_cast<std::ptrdiff_t>(i.size()),
-                                      neigh_tag.begin());
-                            if (erase)
-                            {
-                                tag(level, i, index) = neigh_tag;
-                            }
-                            else
-                            {
-                                tag(level, i, index) |= neigh_tag;
-                            }
-                            count += static_cast<std::ptrdiff_t>(i.size());
-                        });
-                }
+                            tag(level, i, index) |= neigh_tag;
+                        }
+                        count += static_cast<std::ptrdiff_t>(i.size());
+                    });
             }
         }
         mpi::wait_all(req.begin(), req.end());
@@ -497,65 +453,140 @@ namespace samurai
     template <class Field>
     void update_ghost_periodic(std::size_t level, Field& field)
     {
-        using mesh_id_t           = typename Field::mesh_t::mesh_id_t;
-        using config              = typename Field::mesh_t::config;
-        using lca_type            = typename Field::mesh_t::lca_type;
-        using interval_value_t    = typename Field::interval_t::value_t;
+        using field_value_t    = typename Field::value_type;
+        using mesh_id_t        = typename Field::mesh_t::mesh_id_t;
+        using config           = typename Field::mesh_t::config;
+        using lca_type         = typename Field::mesh_t::lca_type;
+        using interval_value_t = typename Field::interval_t::value_t;
+        using box_t            = Box<interval_value_t, Field::dim>;
+
         constexpr std::size_t dim = Field::dim;
 
-        xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> stencil;
+        auto& mesh = field.mesh();
+
+        const auto& domain      = mesh.domain();
+        const auto& min_indices = domain.min_indices();
+        const auto& max_indices = domain.max_indices();
+
+        const auto& mesh_ref = mesh[mesh_id_t::reference];
+
+        const std::size_t delta_l = domain.level() - level;
+
         xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> min_corner;
         xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> max_corner;
-        auto& mesh       = field.mesh();
-        auto domain      = mesh.domain();
-        auto min_indices = domain.min_indices();
-        auto max_indices = domain.max_indices();
+        xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> shift;
 
-        std::size_t delta_l = domain.level() - level;
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
+            max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
+            shift[d]      = 0;
+        }
+#ifdef SAMURAI_WITH_MPI
+        std::vector<mpi::request> req;
+        req.reserve(mesh.mpi_neighbourhood().size());
+        mpi::communicator world;
+
+        std::vector<std::vector<field_value_t>> field_data_out(mesh.mpi_neighbourhood().size());
+        std::vector<field_value_t> field_data_in;
+#endif // SAMURAI_WITH_MPI
         for (std::size_t d = 0; d < dim; ++d)
         {
             if (mesh.is_periodic(d))
             {
-                stencil.fill(0);
-                stencil[d] = (max_indices[d] - min_indices[d]) >> delta_l;
+                shift[d]                  = (max_indices[d] - min_indices[d]) >> delta_l;
+                const auto shift_interval = shift[0];
+                const auto shift_index    = xt::view(shift, xt::range(1, _));
 
                 min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
                 max_corner[d] = (min_indices[d] >> delta_l);
-                for (std::size_t dd = 0; dd < dim; ++dd)
-                {
-                    if (dd != d)
-                    {
-                        min_corner[dd] = (min_indices[dd] >> delta_l) - config::ghost_width;
-                        max_corner[dd] = (max_indices[dd] >> delta_l) + config::ghost_width;
-                    }
-                }
 
-                lca_type lca1{
-                    level,
-                    Box<interval_value_t, dim>{min_corner, max_corner}
-                };
+                lca_type lca_min_m(level, box_t(min_corner, max_corner));
 
-                auto set1 = intersection(mesh[mesh_id_t::reference][level], lca1);
-                set1(
-                    [&](const auto& i, const auto& index)
-                    {
-                        field(level, i, index) = field(level, i + stencil[0], index + xt::view(stencil, xt::range(1, _)));
-                    });
+                min_corner[d] = (max_indices[d] >> delta_l) - config::ghost_width;
+                max_corner[d] = (max_indices[d] >> delta_l);
+
+                lca_type lca_max_m(level, box_t(min_corner, max_corner));
+
+                min_corner[d] = (min_indices[d] >> delta_l);
+                max_corner[d] = (min_indices[d] >> delta_l) + config::ghost_width;
+
+                lca_type lca_min_p(level, box_t(min_corner, max_corner));
 
                 min_corner[d] = (max_indices[d] >> delta_l);
                 max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
-                lca_type lca2{
-                    level,
-                    Box<interval_value_t, dim>{min_corner, max_corner}
-                };
 
-                auto set2 = intersection(mesh[mesh_id_t::reference][level], lca2);
+                lca_type lca_max_p(level, box_t(min_corner, max_corner));
 
+                auto set1 = intersection(translate(intersection(mesh_ref[level], lca_min_p), shift),
+                                         intersection(mesh_ref[level], lca_max_p));
+                set1(
+                    [&](const auto& i, const auto& index)
+                    {
+                        field(level, i, index) = field(level, i - shift_interval, index - shift_index);
+                    });
+                auto set2 = intersection(translate(intersection(mesh_ref[level], lca_max_m), -shift),
+                                         intersection(mesh_ref[level], lca_min_m));
                 set2(
                     [&](const auto& i, const auto& index)
                     {
-                        field(level, i, index) = field(level, i - stencil[0], index - xt::view(stencil, xt::range(1, _)));
+                        field(level, i, index) = field(level, i + shift_interval, index + shift_index);
                     });
+#ifdef SAMURAI_WITH_MPI
+                size_t neighbor_id = 0;
+                for (const auto& mpi_neighbor : mesh.mpi_neighbourhood())
+                {
+                    const auto& neighbor_mesh_ref = mpi_neighbor.mesh[mesh_id_t::reference];
+
+                    field_data_out[neighbor_id].clear();
+                    auto set1_mpi = intersection(translate(intersection(mesh_ref[level], lca_min_p), shift),
+                                                 intersection(neighbor_mesh_ref[level], lca_max_p));
+                    set1_mpi(
+                        [&](const auto& i, const auto& index)
+                        {
+                            const auto& field_data = field(level, i - shift_interval, index - shift_index);
+                            std::copy(field_data.begin(), field_data.end(), std::back_inserter(field_data_out[neighbor_id]));
+                        });
+                    auto set2_mpi = intersection(translate(intersection(mesh_ref[level], lca_max_m), -shift),
+                                                 intersection(neighbor_mesh_ref[level], lca_min_m));
+                    set2_mpi(
+                        [&](const auto& i, const auto& index)
+                        {
+                            const auto& field_data = field(level, i + shift_interval, index + shift_index);
+                            std::copy(field_data.begin(), field_data.end(), std::back_inserter(field_data_out[neighbor_id]));
+                        });
+                    req.push_back(world.isend(mpi_neighbor.rank, mpi_neighbor.rank, field_data_out[neighbor_id]));
+                    ++neighbor_id;
+                }
+                for (const auto& mpi_neighbor : mesh.mpi_neighbourhood())
+                {
+                    const auto& neighbor_mesh_ref = mpi_neighbor.mesh[mesh_id_t::reference];
+
+                    world.recv(mpi_neighbor.rank, world.rank(), field_data_in);
+                    auto it       = field_data_in.cbegin();
+                    auto set1_mpi = intersection(translate(intersection(neighbor_mesh_ref[level], lca_min_p), shift),
+                                                 intersection(mesh_ref[level], lca_max_p));
+                    set1_mpi(
+                        [&](const auto& i, const auto& index)
+                        {
+                            std::copy(it, it + std::ssize(field(level, i, index)), field(level, i, index).begin());
+                            it += std::ssize(field(level, i, index));
+                        });
+                    auto set2_mpi = intersection(translate(intersection(neighbor_mesh_ref[level], lca_max_m), -shift),
+                                                 intersection(mesh_ref[level], lca_min_m));
+                    set2_mpi(
+                        [&](const auto& i, const auto& index)
+                        {
+                            std::copy(it, it + std::ssize(field(level, i, index)), field(level, i, index).begin());
+                            it += std::ssize(field(level, i, index));
+                        });
+                }
+                mpi::wait_all(req.begin(), req.end());
+#endif // SAMURAI_WITH_MPI
+                /* reset variables for next iterations. */
+                shift[d]      = 0;
+                min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
+                max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
             }
         }
     }
@@ -591,68 +622,196 @@ namespace samurai
     template <class Tag>
     void update_tag_periodic(std::size_t level, Tag& tag)
     {
+        using tag_value_type      = typename Tag::value_type;
         using mesh_id_t           = typename Tag::mesh_t::mesh_id_t;
         using config              = typename Tag::mesh_t::config;
         using lca_type            = typename Tag::mesh_t::lca_type;
         using interval_value_t    = typename Tag::interval_t::value_t;
+        using box_t               = Box<interval_value_t, Tag::dim>;
         constexpr std::size_t dim = Tag::dim;
 
-        xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> stencil;
+        xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> shift;
         xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> min_corner;
         xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> max_corner;
 
-        auto& mesh = tag.mesh();
+        auto& mesh           = tag.mesh();
+        const auto& mesh_ref = mesh[mesh_id_t::reference];
 
         auto& domain     = mesh.domain();
         auto min_indices = domain.min_indices();
         auto max_indices = domain.max_indices();
 
-        std::size_t delta_l = domain.level() - level;
+        const std::size_t delta_l = domain.level() - level;
+
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            shift[d]      = 0;
+            min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
+            max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
+        }
+#ifdef SAMURAI_WITH_MPI
+        std::vector<mpi::request> req;
+        req.reserve(mesh.mpi_neighbourhood().size());
+        mpi::communicator world;
+
+        std::vector<std::vector<tag_value_type>> tag_data_out(mesh.mpi_neighbourhood().size());
+        std::vector<tag_value_type> tag_data_in;
+#endif // SAMURAI_WITH_MPI
         for (std::size_t d = 0; d < dim; ++d)
         {
             if (mesh.is_periodic(d))
             {
-                stencil.fill(0);
-                stencil[d] = (max_indices[d] - min_indices[d]) >> delta_l;
+                shift[d]                  = (max_indices[d] - min_indices[d]) >> delta_l;
+                const auto shift_interval = shift[0];
+                const auto shift_index    = xt::view(shift, xt::range(1, _));
 
                 min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
                 max_corner[d] = (min_indices[d] >> delta_l);
-                for (std::size_t dd = 0; dd < dim; ++dd)
-                {
-                    if (dd != d)
-                    {
-                        min_corner[dd] = (min_indices[dd] >> delta_l) - config::ghost_width;
-                        max_corner[dd] = (max_indices[dd] >> delta_l) + config::ghost_width;
-                    }
-                }
 
-                lca_type lca1{
-                    level,
-                    Box<interval_value_t, dim>{min_corner, max_corner}
-                };
+                lca_type lca_min_m(level, box_t(min_corner, max_corner));
 
-                auto set1 = intersection(mesh[mesh_id_t::reference][level], lca1);
-                set1(
-                    [&](const auto& i, const auto& index)
-                    {
-                        tag(level, i, index) |= tag(level, i + stencil[0], index + xt::view(stencil, xt::range(1, _)));
-                        tag(level, i + stencil[0], index + xt::view(stencil, xt::range(1, _))) |= tag(level, i, index);
-                    });
+                min_corner[d] = (max_indices[d] >> delta_l) - config::ghost_width;
+                max_corner[d] = (max_indices[d] >> delta_l);
+
+                lca_type lca_max_m(level, box_t(min_corner, max_corner));
+
+                min_corner[d] = (min_indices[d] >> delta_l);
+                max_corner[d] = (min_indices[d] >> delta_l) + config::ghost_width;
+
+                lca_type lca_min_p(level, box_t(min_corner, max_corner));
 
                 min_corner[d] = (max_indices[d] >> delta_l);
                 max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
-                lca_type lca2{
-                    level,
-                    Box<interval_value_t, dim>{min_corner, max_corner}
-                };
-                auto set2 = intersection(mesh[mesh_id_t::reference][level], lca2);
 
+                lca_type lca_max_p(level, box_t(min_corner, max_corner));
+
+                auto set1 = intersection(translate(intersection(mesh_ref[level], lca_min_p), shift),
+                                         intersection(mesh_ref[level], lca_max_p));
+                set1(
+                    [&](const auto& i, const auto& index)
+                    {
+                        tag(level, i, index) |= tag(level, i - shift_interval, index - shift_index);
+                        tag(level, i - shift_interval, index - shift_index) |= tag(level, i, index);
+                    });
+                auto set2 = intersection(translate(intersection(mesh_ref[level], lca_max_m), -shift),
+                                         intersection(mesh_ref[level], lca_min_m));
                 set2(
                     [&](const auto& i, const auto& index)
                     {
-                        tag(level, i, index) |= tag(level, i - stencil[0], index - xt::view(stencil, xt::range(1, _)));
-                        tag(level, i - stencil[0], index - xt::view(stencil, xt::range(1, _))) |= tag(level, i, index);
+                        tag(level, i, index) |= tag(level, i + shift_interval, index + shift_index);
+                        tag(level, i + shift_interval, index + shift_index) |= tag(level, i, index);
                     });
+#ifdef SAMURAI_WITH_MPI
+                // first  pass tag(level, i, index) |= tag(level, i - shift_interval, index - shift_index);
+                size_t neighbor_id = 0;
+                for (const auto& mpi_neighbor : mesh.mpi_neighbourhood())
+                {
+                    const auto& neighbor_mesh_ref = mpi_neighbor.mesh[mesh_id_t::reference];
+                    tag_data_out[neighbor_id].clear();
+                    auto set1_mpi = intersection(translate(intersection(mesh_ref[level], lca_min_p), shift),
+                                                 intersection(neighbor_mesh_ref[level], lca_max_p));
+                    set1_mpi(
+                        [&](const auto& i, const auto& index)
+                        {
+                            const auto& tag_data = tag(level, i - shift_interval, index - shift_index);
+                            std::copy(tag_data.begin(), tag_data.end(), std::back_inserter(tag_data_out[neighbor_id]));
+                        });
+                    auto set2_mpi = intersection(translate(intersection(mesh_ref[level], lca_max_m), -shift),
+                                                 intersection(neighbor_mesh_ref[level], lca_min_m));
+                    set2_mpi(
+                        [&](const auto& i, const auto& index)
+                        {
+                            const auto& tag_data = tag(level, i + shift_interval, index + shift_index);
+                            std::copy(tag_data.begin(), tag_data.end(), std::back_inserter(tag_data_out[neighbor_id]));
+                        });
+                    req.push_back(world.isend(mpi_neighbor.rank, mpi_neighbor.rank, tag_data_out[neighbor_id]));
+                    ++neighbor_id;
+                }
+                for (const auto& mpi_neighbor : mesh.mpi_neighbourhood())
+                {
+                    const auto& neighbor_mesh_ref = mpi_neighbor.mesh[mesh_id_t::reference];
+                    world.recv(mpi_neighbor.rank, world.rank(), tag_data_in);
+                    auto it       = tag_data_in.cbegin();
+                    auto set1_mpi = intersection(translate(intersection(neighbor_mesh_ref[level], lca_min_p), shift),
+                                                 intersection(mesh_ref[level], lca_max_p));
+                    set1_mpi(
+                        [&](const auto& i, const auto& index)
+                        {
+                            for (tag_value_type& tag_xyz : tag(level, i, index))
+                            {
+                                tag_xyz |= *it;
+                                ++it;
+                            }
+                        });
+                    auto set2_mpi = intersection(translate(intersection(neighbor_mesh_ref[level], lca_max_m), -shift),
+                                                 intersection(mesh_ref[level], lca_min_m));
+                    set2_mpi(
+                        [&](const auto& i, const auto& index)
+                        {
+                            for (auto tag_it = tag(level, i, index).begin(); tag_it != tag(level, i, index).end(); ++tag_it, ++it)
+                            {
+                                *tag_it |= *it;
+                            }
+                        });
+                }
+                mpi::wait_all(req.begin(), req.end());
+                // second pass tag(level, i - shift_interval, index - shift_index) |= tag(level, i, index);
+                neighbor_id = 0;
+                for (const auto& mpi_neighbor : mesh.mpi_neighbourhood())
+                {
+                    const auto& neighbor_mesh_ref = mpi_neighbor.mesh[mesh_id_t::reference];
+                    tag_data_out[neighbor_id].clear();
+                    auto set1_mpi = intersection(translate(intersection(neighbor_mesh_ref[level], lca_min_p), shift),
+                                                 intersection(mesh_ref[level], lca_max_p));
+                    set1_mpi(
+                        [&](const auto& i, const auto& index)
+                        {
+                            std::copy(tag(level, i, index).begin(), tag(level, i, index).end(), std::back_inserter(tag_data_out[neighbor_id]));
+                        });
+                    auto set2_mpi = intersection(translate(intersection(neighbor_mesh_ref[level], lca_max_m), -shift),
+                                                 intersection(mesh_ref[level], lca_min_m));
+                    set2_mpi(
+                        [&](const auto& i, const auto& index)
+                        {
+                            std::copy(tag(level, i, index).begin(), tag(level, i, index).end(), std::back_inserter(tag_data_out[neighbor_id]));
+                        });
+                    req.push_back(world.isend(mpi_neighbor.rank, mpi_neighbor.rank, tag_data_out[neighbor_id]));
+                    ++neighbor_id;
+                }
+                for (const auto& mpi_neighbor : mesh.mpi_neighbourhood())
+                {
+                    const auto& neighbor_mesh_ref = mpi_neighbor.mesh[mesh_id_t::reference];
+                    world.recv(mpi_neighbor.rank, world.rank(), tag_data_in);
+                    auto it       = tag_data_in.cbegin();
+                    auto set1_mpi = intersection(translate(intersection(mesh_ref[level], lca_min_p), shift),
+                                                 intersection(neighbor_mesh_ref[level], lca_max_p));
+                    set1_mpi(
+                        [&](const auto& i, const auto& index)
+                        {
+                            auto tag_data = tag(level, i - shift_interval, index - shift_index);
+                            for (auto tag_it = tag_data.begin(); tag_it != tag_data.end(); ++tag_it, ++it)
+                            {
+                                *tag_it |= *it;
+                            }
+                        });
+                    auto set2_mpi = intersection(translate(intersection(mesh_ref[level], lca_max_m), -shift),
+                                                 intersection(neighbor_mesh_ref[level], lca_min_m));
+                    set2_mpi(
+                        [&](const auto& i, const auto& index)
+                        {
+                            auto tag_data = tag(level, i + shift_interval, index + shift_index);
+                            for (auto tag_it = tag_data.begin(); tag_it != tag_data.end(); ++tag_it, ++it)
+                            {
+                                *tag_it |= *it;
+                            }
+                        });
+                }
+                mpi::wait_all(req.begin(), req.end());
+#endif // SAMURAI_WITH_MPI
+                /* reset variables for next iterations. */
+                shift[d]      = 0;
+                min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
+                max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
             }
         }
     }
@@ -702,7 +861,7 @@ namespace samurai
 
             for (std::size_t level = min_level; level <= max_level; ++level)
             {
-                auto set = intersection(mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level]);
+                auto set = intersection(mesh[mesh_id_t::reference][level], new_mesh[mesh_id_t::cells][level]);
                 set.apply_op(copy(new_field, field));
             }
 
@@ -817,74 +976,36 @@ namespace samurai
     template <class Tag, class Field, class... Fields>
     bool update_field_mr(const Tag& tag, Field& field, Fields&... other_fields)
     {
-        using mesh_t                     = typename Field::mesh_t;
-        static constexpr std::size_t dim = mesh_t::dim;
-        using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
-        using size_type                  = typename Field::size_type;
-        using interval_t                 = typename mesh_t::interval_t;
-        using value_t                    = typename interval_t::value_t;
-        using cl_type                    = typename Field::mesh_t::cl_type;
+        using mesh_t    = typename Field::mesh_t;
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        using ca_type   = typename Field::mesh_t::ca_type;
 
-        auto& mesh = field.mesh();
-        cl_type cl;
+        const auto& mesh = tag.mesh();
 
-        for_each_interval(mesh[mesh_id_t::cells],
-                          [&](std::size_t level, const auto& interval, const auto& index)
-                          {
-                              auto itag = static_cast<size_type>(interval.start + interval.index);
-                              for (value_t i = interval.start; i < interval.end; ++i)
-                              {
-                                  if (tag[itag] & static_cast<int>(CellFlag::refine))
-                                  {
-                                      if (level < mesh.max_level())
-                                      {
-                                          static_nested_loop<dim - 1, 0, 2>(
-                                              [&](const auto& stencil)
-                                              {
-                                                  auto new_index = 2 * index + stencil;
-                                                  cl[level + 1][new_index].add_interval({2 * i, 2 * i + 2});
-                                              });
-                                      }
-                                      else
-                                      {
-                                          cl[level][index].add_point(i);
-                                      }
-                                  }
-                                  else if (tag[itag] & static_cast<int>(CellFlag::keep))
-                                  {
-                                      cl[level][index].add_point(i);
-                                  }
-                                  else if (tag[itag] & static_cast<int>(CellFlag::coarsen))
-                                  {
-                                      if (level > mesh.min_level())
-                                      {
-                                          cl[level - 1][index >> 1].add_point(i >> 1);
-                                      }
-                                      else
-                                      {
-                                          cl[level][index].add_point(i);
-                                      }
-                                  }
-                                  itag++;
-                              }
-                          });
+        const auto& min_indices = mesh.domain().min_indices();
+        const auto& max_indices = mesh.domain().max_indices();
 
-        mesh_t new_mesh = {cl, mesh};
+        std::array<int, mesh_t::dim> nb_cells_finest_level;
 
+        for (size_t d = 0; d != max_indices.size(); ++d)
+        {
+            nb_cells_finest_level[d] = max_indices[d] - min_indices[d];
+        }
+        ca_type new_ca = update_cell_array_from_tag(mesh[mesh_id_t::cells], tag);
+        make_graduation(new_ca, mesh.mpi_neighbourhood(), mesh.periodicity(), nb_cells_finest_level, mesh_t::config::graduation_width);
+
+        mesh_t new_mesh{new_ca, mesh};
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
         if (mpi::all_reduce(world, mesh == new_mesh, std::logical_and()))
 #else
         if (mesh == new_mesh)
-#endif
+#endif // SAMURAI_WITH_MPI
         {
             return true;
         }
-
         detail::update_fields(new_mesh, field, other_fields...);
-
         field.mesh().swap(new_mesh);
-
         return false;
     }
 }

@@ -21,7 +21,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
   cmake_policy(SET CMP0135 NEW)
 endif()
 
-
 # Add project_options v0.41.0
 # https://github.com/aminya/project_options
 include(FetchContent)
@@ -130,11 +129,17 @@ if(SAMURAI_FIELD_CONTAINER MATCHES xtensor)
   message(STATUS "Using xtensor as field container")
   list(APPEND DEPENDENCIES_CONFIGURED xtensor)
   find_package(xtensor CONFIG REQUIRED)
+
+  if (xtensor_VERSION VERSION_GREATER_EQUAL "0.26.0")
+    message(FATAL_ERROR "xtensor version ${xtensor_VERSION} is too new. Maximum allowed version is 0.25.")
+  endif()
+
   target_link_system_libraries(
     samurai
     INTERFACE
     xtensor
   )
+
 endif()
 if(SAMURAI_FIELD_CONTAINER MATCHES eigen3)
   message(STATUS "Using Eigen3 as field container")
@@ -178,8 +183,6 @@ endif()
 
 
 target_compile_features(samurai INTERFACE cxx_std_20)
-
-# target_compile_definitions(samurai INTERFACE _HAS_AUTO_PTR_ETC=0)
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 OPTION(BUILD_BENCHMARKS "samurai benchmark suite" OFF)
@@ -217,7 +220,7 @@ if(SAMURAI_CONTAINER_LAYOUT_COL_MAJOR)
 endif()
 
 if(NOT SAMURAI_FIELD_CONTAINER IN_LIST FIELD_CONTAINER_LIST)
-  message(FATAL_ERROR "SAMURAI_FIELD_CONTAINER must be one of: ${FLUX_CONTAINER_LIST}")
+  message(FATAL_ERROR "SAMURAI_FIELD_CONTAINER must be one of: ${FIELD_CONTAINER_LIST}")
 else()
   string(TOUPPER ${SAMURAI_FIELD_CONTAINER} SAMURAI_FIELD_CONTAINER)
   target_compile_definitions(samurai INTERFACE SAMURAI_FIELD_CONTAINER_${SAMURAI_FIELD_CONTAINER})

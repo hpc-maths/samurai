@@ -1,4 +1,4 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #include <chrono>
@@ -6,7 +6,7 @@
 #include <math.h>
 #include <samurai/algorithm.hpp>
 #include <samurai/field.hpp>
-#include <samurai/hdf5.hpp>
+#include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/stencil_field.hpp>
@@ -49,7 +49,7 @@ auto init_field(Mesh& mesh, const double f = 1.6, const double q = 2.e-3)
     field[0] : 'b' in the model
     field[1] : 'c' in the model
     */
-    auto field = samurai::make_field<double, 2>("solution", mesh);
+    auto field = samurai::make_vector_field<double, 2>("solution", mesh);
 
     samurai::for_each_cell(mesh[mesh_id_t::reference],
                            [&](auto cell)
@@ -132,7 +132,7 @@ void diffusion_rock4(Field & field, const double t,
 
 
     int info[8]; // TODO: vérifier la taille
-    const int neq = field.size() ?
+    const int neq = field.n_comp() ?
 
 
     rock4_integration(t1, t2, neq, field.data()???,

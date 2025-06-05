@@ -1,4 +1,4 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #pragma once
@@ -9,7 +9,7 @@
 
 #include <samurai/algorithm.hpp>
 #include <samurai/cell_flag.hpp>
-#include <samurai/subset/subset_op.hpp>
+#include <samurai/subset/node.hpp>
 
 template <class Field>
 void make_graduation(Field& tag)

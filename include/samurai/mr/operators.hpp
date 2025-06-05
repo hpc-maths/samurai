@@ -1,4 +1,4 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #pragma once
@@ -11,6 +11,7 @@
 #include "../field.hpp"
 #include "../numeric/prediction.hpp"
 #include "../operators_base.hpp"
+#include "../utils.hpp"
 
 namespace samurai
 {
@@ -123,10 +124,10 @@ namespace samurai
             apply_on_masked(!mask_coarsen,
                             [&](auto imask)
                             {
-                                field(level + 1, 2 * i, 2 * j)(imask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-                                field(level + 1, 2 * i + 1, 2 * j)(imask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-                                field(level + 1, 2 * i, 2 * j + 1)(imask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-                                field(level + 1, 2 * i + 1, 2 * j + 1)(imask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
+                                field(level + 1, 2 * i, 2 * j)(imask) &= ~static_cast<int>(CellFlag::coarsen);
+                                field(level + 1, 2 * i + 1, 2 * j)(imask) &= ~static_cast<int>(CellFlag::coarsen);
+                                field(level + 1, 2 * i, 2 * j + 1)(imask) &= ~static_cast<int>(CellFlag::coarsen);
+                                field(level + 1, 2 * i + 1, 2 * j + 1)(imask) &= ~static_cast<int>(CellFlag::coarsen);
                             });
             apply_on_masked(field(level, i, j),
                             mask_coarsen,
@@ -174,14 +175,14 @@ namespace samurai
             apply_on_masked(!mask2,
                             [&](auto imask)
                             {
-                                field(level + 1, 2 * i, 2 * j, 2 * k)(imask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-                                field(level + 1, 2 * i + 1, 2 * j, 2 * k)(imask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-                                field(level + 1, 2 * i, 2 * j + 1, 2 * k)(imask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-                                field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k)(imask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-                                field(level + 1, 2 * i, 2 * j, 2 * k + 1)(imask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-                                field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1)(imask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-                                field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1)(imask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
-                                field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1)(imask) &= ~static_cast<unsigned int>(CellFlag::coarsen);
+                                field(level + 1, 2 * i, 2 * j, 2 * k)(imask) &= ~static_cast<int>(CellFlag::coarsen);
+                                field(level + 1, 2 * i + 1, 2 * j, 2 * k)(imask) &= ~static_cast<int>(CellFlag::coarsen);
+                                field(level + 1, 2 * i, 2 * j + 1, 2 * k)(imask) &= ~static_cast<int>(CellFlag::coarsen);
+                                field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k)(imask) &= ~static_cast<int>(CellFlag::coarsen);
+                                field(level + 1, 2 * i, 2 * j, 2 * k + 1)(imask) &= ~static_cast<int>(CellFlag::coarsen);
+                                field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1)(imask) &= ~static_cast<int>(CellFlag::coarsen);
+                                field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1)(imask) &= ~static_cast<int>(CellFlag::coarsen);
+                                field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1)(imask) &= ~static_cast<int>(CellFlag::coarsen);
                             });
 
             apply_on_masked(field(level, i, j, k),
@@ -288,7 +289,7 @@ namespace samurai
                 auto qs_ij = Qs_ij<order>(field, level, i, j);
 
 #ifdef SAMURAI_CHECK_NAN
-                if constexpr (T1::size == 1)
+                if constexpr (T1::is_scalar)
                 {
                     for (std::size_t ii = 0; ii < i.size(); ++ii)
                     {
@@ -368,7 +369,7 @@ namespace samurai
         }
     };
 
-    template <class T1, class T2, std::enable_if_t<is_field_type_v<T2>, int> = 0>
+    template <class T1, class T2, std::enable_if_t<detail::is_field_type_v<T2>, int> = 0>
     inline auto compute_detail(T1&& detail, T2&& field)
     {
         return make_field_operator_function<compute_detail_op>(std::forward<T1>(detail), std::forward<T2>(field));
@@ -381,9 +382,9 @@ namespace samurai
         {
           public:
 
-            static constexpr std::size_t dim  = Field::dim;
-            static constexpr std::size_t size = Field::size;
-            static constexpr bool is_soa      = Field::is_soa;
+            static constexpr std::size_t dim    = Field::dim;
+            static constexpr std::size_t n_comp = Field::n_comp;
+            static constexpr bool is_soa        = detail::is_soa_v<Field>;
 
             using interval_t    = typename Field::interval_t;
             using coord_index_t = typename interval_t::coord_index_t;
@@ -471,7 +472,7 @@ namespace samurai
             (
                 [&]()
                 {
-                    ranges[ir] = ranges[ir - 1] + std::get<Is>(fields).size;
+                    ranges[ir] = ranges[ir - 1] + std::get<Is>(fields).n_comp;
                     ++ir;
                 }(),
                 ...);
@@ -1083,7 +1084,7 @@ namespace samurai
     };
 
     template <class... CT>
-    inline auto make_graduation(CT&&... e)
+    inline auto make_graduation_(CT&&... e)
     {
         return make_field_operator_function<make_graduation_op>(std::forward<CT>(e)...);
     }

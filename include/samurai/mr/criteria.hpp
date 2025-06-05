@@ -1,10 +1,11 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #pragma once
 
 #include "../cell_flag.hpp"
 #include "../operators_base.hpp"
+#include "../utils.hpp"
 
 namespace samurai
 {
@@ -20,17 +21,15 @@ namespace samurai
         // inline void operator()(Dim<1>, const T1& detail, const T3&
         // max_detail, T2 &tag, double eps, std::size_t min_lev) const
         inline void operator()(Dim<1>, const T1& detail, T2& tag, double eps, std::size_t min_lev) const
-
         {
             using namespace math;
-            constexpr auto size    = T1::size;
             std::size_t fine_level = level + 1;
 
             if (fine_level > min_lev)
             {
                 // auto maxd = xt::view(max_detail, level);
 
-                if constexpr (size == 1)
+                if constexpr (T1::is_scalar)
                 {
                     // auto mask = abs(detail(level, 2*i))/maxd < eps;
                     auto mask = abs(detail(fine_level, 2 * i)) < eps; // NO normalization
@@ -44,11 +43,15 @@ namespace samurai
                 }
                 else
                 {
-                    // auto mask = xt::sum((abs(detail(level, 2*i))/maxd <
-                    // eps), {1}) > (size-1);
-                    constexpr std::size_t axis = detail::static_size_first_v<size, T1::is_soa, T1::static_layout> ? 0 : 1;
+                    constexpr auto n_comp = T1::n_comp;
 
-                    auto mask = sum<axis>((abs(detail(fine_level, 2 * i)) < eps)) > (size - 1); // No normalization
+                    // auto mask = xt::sum((abs(detail(level, 2*i))/maxd <
+                    // eps), {1}) > (n_comp-1);
+                    constexpr std::size_t axis = detail::static_size_first_v<n_comp, detail::is_soa_v<T1>, T1::is_scalar, T1::static_layout>
+                                                   ? 0
+                                                   : 1;
+
+                    auto mask = sum<axis>((abs(detail(fine_level, 2 * i)) < eps)) > (n_comp - 1); // No normalization
 
                     apply_on_masked(mask,
                                     [&](auto imask)
@@ -65,12 +68,11 @@ namespace samurai
         {
             using namespace math;
 
-            constexpr auto size    = T1::size;
             std::size_t fine_level = level + 1;
 
             if (fine_level > min_lev)
             {
-                if constexpr (size == 1)
+                if constexpr (T1::is_scalar)
                 {
                     auto mask = (abs(detail(fine_level, 2 * i, 2 * j)) < eps) && (abs(detail(fine_level, 2 * i + 1, 2 * j)) < eps)
                              && (abs(detail(fine_level, 2 * i, 2 * j + 1)) < eps) && (abs(detail(fine_level, 2 * i + 1, 2 * j + 1)) < eps);
@@ -95,6 +97,8 @@ namespace samurai
                 }
                 else
                 {
+                    constexpr auto n_comp = T1::n_comp;
+
                     // auto mask = xt::sum((abs(detail(level, 2*i  ,
                     // 2*j))/maxd < eps) &&
                     //                     (abs(detail(level, 2*i+1,
@@ -102,10 +106,12 @@ namespace samurai
                     //                     (abs(detail(level, 2*i  ,
                     //                     2*j+1))/maxd < eps) &&
                     //                     (abs(detail(level, 2*i+1,
-                    //                     2*j+1))/maxd < eps), {1}) > (size-1);
-                    constexpr std::size_t axis = detail::static_size_first_v<size, T1::is_soa, T1::static_layout> ? 0 : 1;
+                    //                     2*j+1))/maxd < eps), {1}) > (n_comp-1);
+                    constexpr std::size_t axis = detail::static_size_first_v<n_comp, detail::is_soa_v<T1>, T1::is_scalar, T1::static_layout>
+                                                   ? 0
+                                                   : 1;
 
-                    auto mask = all_true<axis, size>(
+                    auto mask = all_true<axis, n_comp>(
                         (abs(detail(fine_level, 2 * i, 2 * j)) < eps) && (abs(detail(fine_level, 2 * i + 1, 2 * j)) < eps)
                         && (abs(detail(fine_level, 2 * i, 2 * j + 1)) < eps) && (abs(detail(fine_level, 2 * i + 1, 2 * j + 1)) < eps));
 
@@ -135,14 +141,13 @@ namespace samurai
         {
             using namespace math;
 
-            constexpr auto size    = T1::size;
             std::size_t fine_level = level + 1;
 
             if (fine_level > min_lev)
             {
                 // auto maxd = xt::view(max_detail, level);
 
-                if constexpr (size == 1)
+                if constexpr (T1::is_scalar)
                 {
                     // auto mask = (abs(detail(level, 2*i  ,   2*j))/maxd <
                     // eps) and
@@ -175,6 +180,8 @@ namespace samurai
                 }
                 else
                 {
+                    constexpr auto n_comp = T1::n_comp;
+
                     // auto mask = xt::sum((abs(detail(level, 2*i  ,
                     // 2*j))/maxd < eps) and
                     //                     (abs(detail(level, 2*i+1,
@@ -182,9 +189,11 @@ namespace samurai
                     //                     (abs(detail(level, 2*i  ,
                     //                     2*j+1))/maxd < eps) and
                     //                     (abs(detail(level, 2*i+1,
-                    //                     2*j+1))/maxd < eps), {1}) > (size-1);
+                    //                     2*j+1))/maxd < eps), {1}) > (n_comp-1);
 
-                    constexpr std::size_t axis = detail::static_size_first_v<size, T1::is_soa, T1::static_layout> ? 0 : 1;
+                    constexpr std::size_t axis = detail::static_size_first_v<n_comp, detail::is_soa_v<T1>, T1::is_scalar, T1::static_layout>
+                                                   ? 0
+                                                   : 1;
 
                     auto mask = sum<axis>((abs(detail(fine_level, 2 * i, 2 * j, 2 * k)) < eps)
                                           && (abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k)) < eps)
@@ -194,7 +203,7 @@ namespace samurai
                                           && (abs(detail(fine_level, 2 * i + 1, 2 * j, 2 * k + 1)) < eps)
                                           && (abs(detail(fine_level, 2 * i, 2 * j + 1, 2 * k + 1)) < eps)
                                           && (abs(detail(fine_level, 2 * i + 1, 2 * j + 1, 2 * k + 1)) < eps))
-                              > (size - 1);
+                              > (n_comp - 1);
 
                     apply_on_masked(mask,
                                     [&](auto imask)
@@ -226,18 +235,18 @@ namespace samurai
 
         INIT_OPERATOR(to_refine_mr_op)
 
-        template <std::size_t size, bool is_soa, class T1>
+        template <std::size_t n_comp, bool is_soa, class T1>
         inline auto get_mask(const T1& detail_view, double eps) const
         {
             using namespace math;
 
-            if constexpr (size == 1)
+            if constexpr (n_comp == 1)
             {
                 return eval(abs(detail_view) > eps); // No normalization
             }
             else
             {
-                constexpr std::size_t axis = detail::static_size_first_v<size, is_soa, SAMURAI_DEFAULT_LAYOUT> ? 0 : 1;
+                constexpr std::size_t axis = detail::static_size_first_v<n_comp, is_soa, false, SAMURAI_DEFAULT_LAYOUT> ? 0 : 1;
                 return eval(sum<axis>(abs(detail_view) > eps) > 0);
             }
         }
@@ -246,10 +255,10 @@ namespace samurai
         inline void operator()(Dim<dim>, const T1& detail, T2& tag, double eps, std::size_t max_level) const
         {
             using namespace math;
-            constexpr auto size    = T1::size;
+            constexpr auto n_comp  = T1::n_comp;
             std::size_t fine_level = level + 1;
 
-            auto mask_ghost = get_mask<size, T1::is_soa>(detail(fine_level - 1, i, index), eps / (1 << dim));
+            auto mask_ghost = get_mask<n_comp, detail::is_soa_v<T1>>(detail(fine_level - 1, i, index), eps / (1 << dim));
 
             apply_on_masked(mask_ghost,
                             [&](auto imask)
@@ -269,7 +278,7 @@ namespace samurai
                     {
                         for (int ii = 0; ii < 2; ++ii)
                         {
-                            auto mask = get_mask<size, T1::is_soa>(detail(fine_level, 2 * i + ii, 2 * index + stencil), eps);
+                            auto mask = get_mask<n_comp, detail::is_soa_v<T1>>(detail(fine_level, 2 * i + ii, 2 * index + stencil), eps);
 
                             apply_on_masked(tag(fine_level, 2 * i + ii, 2 * index + stencil),
                                             mask,

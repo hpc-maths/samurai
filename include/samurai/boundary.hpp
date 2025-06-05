@@ -4,23 +4,44 @@
 namespace samurai
 {
     template <class Mesh, class Vector>
-    auto boundary(const Mesh& mesh, std::size_t level, const Vector& direction)
+    auto
+    boundary_layer(const Mesh& mesh, const typename Mesh::lca_type& domain, std::size_t level, const Vector& direction, std::size_t layer_width)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
 
-        auto& cells  = mesh[mesh_id_t::cells][level];
-        auto& domain = mesh.subdomain();
+        auto& cells = mesh[mesh_id_t::cells][level];
 
-        auto max_level    = domain.level(); // domain.level();//mesh[mesh_id_t::cells].max_level();
-        auto one_interval = 1 << (max_level - level);
+        return difference(cells, translate(self(domain).on(level), -layer_width * direction));
+    }
 
-        return difference(cells, translate(domain, -one_interval * direction)).on(level);
+    template <class Mesh, class Vector>
+    inline auto domain_boundary_layer(const Mesh& mesh, std::size_t level, const Vector& direction, std::size_t layer_width)
+    {
+        return boundary_layer(mesh, mesh.domain(), level, direction, layer_width);
+    }
+
+    template <class Mesh, class Vector>
+    inline auto subdomain_boundary_layer(const Mesh& mesh, std::size_t level, const Vector& direction, std::size_t layer_width)
+    {
+        return boundary_layer(mesh, mesh.subdomain(), level, direction, layer_width);
+    }
+
+    template <class Mesh, class Vector>
+    inline auto domain_boundary(const Mesh& mesh, std::size_t level, const Vector& direction)
+    {
+        return domain_boundary_layer(mesh, level, direction, 1);
+    }
+
+    template <class Mesh, class Vector>
+    inline auto subdomain_boundary(const Mesh& mesh, std::size_t level, const Vector& direction)
+    {
+        return subdomain_boundary_layer(mesh, level, direction, 1);
     }
 
     template <class Mesh, class Subset, std::size_t stencil_size, class GetCoeffsFunc, class Func>
     void for_each_stencil_on_boundary(const Mesh& mesh,
                                       const Subset& boundary_region,
-                                      const Stencil<stencil_size, Mesh::dim>& stencil,
+                                      const StencilAnalyzer<stencil_size, Mesh::dim>& stencil,
                                       GetCoeffsFunc&& get_coefficients,
                                       Func&& func)
     {
@@ -44,7 +65,7 @@ namespace samurai
     template <class Mesh, class Subset, std::size_t stencil_size, class Equation, std::size_t nb_equations, class Func>
     void for_each_stencil_on_boundary(const Mesh& mesh,
                                       const Subset& boundary_region,
-                                      const Stencil<stencil_size, Mesh::dim>& stencil,
+                                      const StencilAnalyzer<stencil_size, Mesh::dim>& stencil,
                                       std::array<Equation, nb_equations> equations,
                                       Func&& func)
     {

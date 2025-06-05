@@ -28,7 +28,7 @@ namespace samurai
 
           public:
 
-            explicit LinearSolverBase(const scheme_t& scheme)
+            explicit LinearSolverBase(scheme_t& scheme)
                 : m_assembly(scheme)
             {
                 _configure_solver();
@@ -252,7 +252,7 @@ namespace samurai
 
           public:
 
-            explicit LinearSolver(const scheme_t& scheme)
+            explicit LinearSolver(scheme_t& scheme)
                 : base_class(scheme)
             {
                 _configure_solver();

@@ -10,7 +10,7 @@
 #include <samurai/box.hpp>
 #include <samurai/field.hpp>
 #include <samurai/field_expression.hpp>
-#include <samurai/hdf5.hpp>
+#include <samurai/io/hdf5.hpp>
 #include <samurai/operators_base.hpp>
 #include <samurai/stencil_field.hpp>
 
@@ -20,7 +20,7 @@ struct init_field
     static auto call(samurai::Dim<2>, Mesh& mesh)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
-        auto field      = samurai::make_field<double, 1>("sol", mesh);
+        auto field      = samurai::make_scalar_field<double>("sol", mesh);
 
         samurai::for_each_cell(mesh[mesh_id_t::cells_and_ghosts],
                                [&](auto& cell)
@@ -39,7 +39,7 @@ struct init_field
     static auto call(samurai::Dim<3>, Mesh& mesh)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
-        auto field      = samurai::make_field<double, 1>("sol", mesh);
+        auto field      = samurai::make_scalar_field<double>("sol", mesh);
 
         samurai::for_each_cell(mesh[mesh_id_t::cells_and_ghosts],
                                [&](auto& cell)
@@ -62,7 +62,7 @@ auto init_velocity(Mesh& mesh)
 {
     using mesh_id_t = typename Mesh::mesh_id_t;
 
-    auto u = samurai::make_field<double, dim>("u", mesh);
+    auto u = samurai::make_vector_field<double, dim>("u", mesh);
     u.fill(0);
 
     samurai::for_each_cell(mesh[mesh_id_t::cells_and_ghosts],
@@ -83,7 +83,7 @@ auto init_phys(Mesh& mesh)
 {
     using mesh_id_t = typename Mesh::mesh_id_t;
 
-    auto nu = samurai::make_field<double, 1>("nu", mesh);
+    auto nu = samurai::make_scalar_field<double>("nu", mesh);
     nu.fill(0);
 
     samurai::for_each_cell(mesh[mesh_id_t::cells_and_ghosts],
@@ -756,7 +756,7 @@ int main()
         {
             std::cout << "\tmesh adaptation: " << ite_adapt++ << std::endl;
             samurai::update_ghost(update_bc, field);
-            auto tag = samurai::make_field<int, 1>("tag", mesh);
+            auto tag = samurai::make_scalar_field<int>("tag", mesh);
             AMR_criteria(field, tag);
             samurai::graduation(tag, stencil_graduation::call(samurai::Dim<dim>{}));
             if (samurai::update_field(tag, field))
@@ -815,7 +815,7 @@ int main()
 
         /* Integration */
 
-        auto field_np1 = samurai::make_field<double, 1>("sol", mesh);
+        auto field_np1 = samurai::make_scalar_field<double>("sol", mesh);
         field_np1.fill(0.);
 
         /* Covection */

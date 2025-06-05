@@ -1,4 +1,4 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #include <iostream>
@@ -8,11 +8,11 @@
 #include <samurai/cell_array.hpp>
 #include <samurai/cell_list.hpp>
 #include <samurai/field.hpp>
-#include <samurai/hdf5.hpp>
+#include <samurai/io/hdf5.hpp>
 #include <samurai/memory.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/samurai.hpp>
-#include <samurai/subset/subset_op.hpp>
+#include <samurai/subset/node.hpp>
 
 namespace fs = std::filesystem;
 
@@ -42,7 +42,7 @@ void refine_1(mesh_t& mesh, std::size_t max_level)
 
     for (std::size_t ite = 0; ite < max_level; ++ite)
     {
-        auto cell_tag = samurai::make_field<bool, 1>("tag", mesh);
+        auto cell_tag = samurai::make_scalar_field<bool>("tag", mesh);
         cell_tag.fill(false);
 
         samurai::for_each_cell(mesh,
@@ -100,7 +100,7 @@ void refine_2(mesh_t& mesh, std::size_t max_level)
 
     for (std::size_t ite = 0; ite < max_level; ++ite)
     {
-        auto cell_tag = samurai::make_field<int, 1>("tag", mesh);
+        auto cell_tag = samurai::make_scalar_field<int>("tag", mesh);
         cell_tag.fill(0);
 
         samurai::for_each_cell(mesh,
@@ -253,7 +253,7 @@ int main(int argc, char* argv[])
     auto mem = samurai::memory_usage(mesh_2, /*verbose*/ true);
     std::cout << "Total: " << mem << std::endl;
 
-    auto level = samurai::make_field<std::size_t, 1>("level", mesh_2);
+    auto level = samurai::make_scalar_field<std::size_t>("level", mesh_2);
     samurai::for_each_cell(mesh_2,
                            [&](auto cell)
                            {

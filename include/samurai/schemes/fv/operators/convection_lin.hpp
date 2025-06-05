@@ -15,12 +15,12 @@ namespace samurai
     template <class Field>
     auto make_convection_upwind(const VelocityVector<Field::dim>& velocity)
     {
-        static constexpr std::size_t dim               = Field::dim;
-        static constexpr std::size_t field_size        = Field::size;
-        static constexpr std::size_t output_field_size = field_size;
-        static constexpr std::size_t stencil_size      = 2;
+        static constexpr std::size_t dim           = Field::dim;
+        static constexpr std::size_t n_comp        = Field::n_comp;
+        static constexpr std::size_t output_n_comp = n_comp;
+        static constexpr std::size_t stencil_size  = 2;
 
-        using cfg = FluxConfig<SchemeType::LinearHomogeneous, output_field_size, stencil_size, Field>;
+        using cfg = FluxConfig<SchemeType::LinearHomogeneous, output_n_comp, stencil_size, Field>;
 
         FluxDefinition<cfg> upwind;
 
@@ -36,10 +36,10 @@ namespace samurai
                 {
                     upwind[d].cons_flux_function = [&](double)
                     {
-                        // Return type: 2 matrices (left, right) of size output_field_size x field_size.
-                        // In this case, of size field_size x field_size.
+                        // Return type: 2 matrices (left, right) of size output_n_comp x n_comp.
+                        // In this case, of size n_comp x n_comp.
                         FluxStencilCoeffs<cfg> coeffs;
-                        if constexpr (output_field_size == 1)
+                        if constexpr (output_n_comp == 1)
                         {
                             coeffs[left]  = velocity(d);
                             coeffs[right] = 0;
@@ -59,7 +59,7 @@ namespace samurai
                     upwind[d].cons_flux_function = [&](double)
                     {
                         FluxStencilCoeffs<cfg> coeffs;
-                        if constexpr (output_field_size == 1)
+                        if constexpr (output_n_comp == 1)
                         {
                             coeffs[left]  = 0;
                             coeffs[right] = velocity(d);
@@ -90,13 +90,13 @@ namespace samurai
     {
         static_assert(Field::mesh_t::config::ghost_width >= 3, "WENO5 requires at least 3 ghosts.");
 
-        static constexpr std::size_t dim               = Field::dim;
-        static constexpr std::size_t field_size        = Field::size;
-        static constexpr bool is_soa                   = Field::is_soa;
-        static constexpr std::size_t output_field_size = field_size;
-        static constexpr std::size_t stencil_size      = 6;
+        static constexpr std::size_t dim           = Field::dim;
+        static constexpr std::size_t n_comp        = Field::n_comp;
+        static constexpr bool is_soa               = detail::is_soa_v<Field>;
+        static constexpr std::size_t output_n_comp = n_comp;
+        static constexpr std::size_t stencil_size  = 6;
 
-        using cfg = FluxConfig<SchemeType::NonLinear, output_field_size, stencil_size, Field>;
+        using cfg = FluxConfig<SchemeType::NonLinear, output_n_comp, stencil_size, Field>;
 
         FluxDefinition<cfg> weno5;
 
@@ -112,20 +112,22 @@ namespace samurai
 
                 if (velocity(d) >= 0)
                 {
-                    weno5[d].cons_flux_function = [&velocity](auto& cells, const Field& u) -> FluxValue<cfg>
+                    weno5[d].cons_flux_function =
+                        [&velocity](FluxValue<cfg>& flux, const StencilData<cfg>& /*data*/, const StencilValues<cfg>& u)
                     {
-                        Array<FluxValue<cfg>, 5, is_soa> f({u[cells[0]], u[cells[1]], u[cells[2]], u[cells[3]], u[cells[4]]});
+                        Array<FluxValue<cfg>, 5, is_soa> f({u[0], u[1], u[2], u[3], u[4]});
                         f *= velocity(d);
-                        return compute_weno5_flux(f);
+                        compute_weno5_flux(flux, f);
                     };
                 }
                 else
                 {
-                    weno5[d].cons_flux_function = [&velocity](auto& cells, const Field& u) -> FluxValue<cfg>
+                    weno5[d].cons_flux_function =
+                        [&velocity](FluxValue<cfg>& flux, const StencilData<cfg>& /*data*/, const StencilValues<cfg>& u)
                     {
-                        Array<FluxValue<cfg>, 5, is_soa> f({u[cells[5]], u[cells[4]], u[cells[3]], u[cells[2]], u[cells[1]]});
+                        Array<FluxValue<cfg>, 5, is_soa> f({u[5], u[4], u[3], u[2], u[1]});
                         f *= velocity(d);
-                        return compute_weno5_flux(f);
+                        compute_weno5_flux(flux, f);
                     };
                 }
             });
@@ -142,14 +144,14 @@ namespace samurai
     template <class Field, class VelocityField>
     auto make_convection_upwind(const VelocityField& velocity_field)
     {
-        static_assert(Field::dim == VelocityField::dim && VelocityField::size == VelocityField::dim);
+        static_assert(Field::dim == VelocityField::dim && VelocityField::n_comp == VelocityField::dim);
 
-        static constexpr std::size_t dim               = Field::dim;
-        static constexpr std::size_t field_size        = Field::size;
-        static constexpr std::size_t output_field_size = field_size;
-        static constexpr std::size_t stencil_size      = 2;
+        static constexpr std::size_t dim           = Field::dim;
+        static constexpr std::size_t n_comp        = Field::n_comp;
+        static constexpr std::size_t output_n_comp = n_comp;
+        static constexpr std::size_t stencil_size  = 2;
 
-        using cfg = FluxConfig<SchemeType::LinearHeterogeneous, output_field_size, stencil_size, Field>;
+        using cfg = FluxConfig<SchemeType::LinearHeterogeneous, output_n_comp, stencil_size, Field>;
 
         FluxDefinition<cfg> upwind;
 
@@ -163,14 +165,14 @@ namespace samurai
 
                 upwind[d].cons_flux_function = [&](const auto& cells)
                 {
-                    // Return type: 2 matrices (left, right) of size output_field_size x field_size.
-                    // In this case, of size field_size x field_size.
+                    // Return type: 2 matrices (left, right) of size output_n_comp x n_comp.
+                    // In this case, of size n_comp x n_comp.
                     FluxStencilCoeffs<cfg> coeffs;
 
                     auto velocity = velocity_field[cells[left]];
                     if (velocity(d) >= 0) // use the left values
                     {
-                        if constexpr (output_field_size == 1)
+                        if constexpr (output_n_comp == 1)
                         {
                             coeffs[left]  = velocity(d);
                             coeffs[right] = 0;
@@ -185,7 +187,7 @@ namespace samurai
                     }
                     else // use the right values
                     {
-                        if constexpr (output_field_size == 1)
+                        if constexpr (output_n_comp == 1)
                         {
                             coeffs[left]  = 0;
                             coeffs[right] = velocity(d);
@@ -216,13 +218,13 @@ namespace samurai
     {
         static_assert(Field::mesh_t::config::ghost_width >= 3, "WENO5 requires at least 3 ghosts.");
 
-        static constexpr std::size_t dim               = Field::dim;
-        static constexpr std::size_t field_size        = Field::size;
-        static constexpr bool is_soa                   = Field::is_soa;
-        static constexpr std::size_t output_field_size = field_size;
-        static constexpr std::size_t stencil_size      = 6;
+        static constexpr std::size_t dim           = Field::dim;
+        static constexpr std::size_t n_comp        = Field::n_comp;
+        static constexpr bool is_soa               = detail::is_soa_v<Field>;
+        static constexpr std::size_t output_n_comp = n_comp;
+        static constexpr std::size_t stencil_size  = 6;
 
-        using cfg = FluxConfig<SchemeType::NonLinear, output_field_size, stencil_size, Field>;
+        using cfg = FluxConfig<SchemeType::NonLinear, output_n_comp, stencil_size, Field>;
 
         FluxDefinition<cfg> weno5;
 
@@ -236,23 +238,24 @@ namespace samurai
                 //        weno5[1].stencil = {{ 0,-2}, { 0,-1}, {0,0}, {0,1}, {0,2}, {0,3}};
                 weno5[d].stencil = line_stencil<dim, d>(-2, -1, 0, 1, 2, 3);
 
-                weno5[d].cons_flux_function = [&velocity_field](auto& cells, const Field& u) -> FluxValue<cfg>
+                weno5[d].cons_flux_function =
+                    [&velocity_field](FluxValue<cfg>& flux, const StencilData<cfg>& data, const StencilValues<cfg>& u)
                 {
                     static constexpr std::size_t stencil_center = 2;
 
-                    auto v = velocity_field[cells[stencil_center]](d);
+                    auto v = velocity_field[data.cells[stencil_center]](d);
 
                     if (v >= 0)
                     {
-                        Array<FluxValue<cfg>, 5, is_soa> f({u[cells[0]], u[cells[1]], u[cells[2]], u[cells[3]], u[cells[4]]});
+                        Array<FluxValue<cfg>, 5, is_soa> f({u[0], u[1], u[2], u[3], u[4]});
                         f *= v;
-                        return compute_weno5_flux(f);
+                        compute_weno5_flux(flux, f);
                     }
                     else
                     {
-                        Array<FluxValue<cfg>, 5, is_soa> f({u[cells[5]], u[cells[4]], u[cells[3]], u[cells[2]], u[cells[1]]});
+                        Array<FluxValue<cfg>, 5, is_soa> f({u[5], u[4], u[3], u[2], u[1]});
                         f *= v;
-                        return compute_weno5_flux(f);
+                        compute_weno5_flux(flux, f);
                     }
                 };
             });

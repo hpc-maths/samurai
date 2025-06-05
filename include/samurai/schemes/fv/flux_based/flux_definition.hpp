@@ -4,14 +4,14 @@
 
 namespace samurai
 {
-    template <SchemeType scheme_type_, std::size_t output_field_size_, std::size_t stencil_size_, class InputField_>
+    template <SchemeType scheme_type_, std::size_t output_n_comp_, std::size_t stencil_size_, class InputField_>
     struct FluxConfig
     {
-        static constexpr SchemeType scheme_type        = scheme_type_;
-        static constexpr std::size_t output_field_size = output_field_size_;
-        static constexpr std::size_t stencil_size      = stencil_size_;
-        using input_field_t                            = std::decay_t<InputField_>;
-        static constexpr std::size_t dim               = input_field_t::dim;
+        static constexpr SchemeType scheme_type    = scheme_type_;
+        static constexpr std::size_t output_n_comp = output_n_comp_;
+        static constexpr std::size_t stencil_size  = stencil_size_;
+        using input_field_t                        = std::decay_t<InputField_>;
+        static constexpr std::size_t dim           = input_field_t::dim;
     };
 
     template <class cfg>
@@ -44,7 +44,7 @@ namespace samurai
          *                   normal flux
          *
          */
-        Stencil<cfg::stencil_size, cfg::dim> stencil;
+        StencilAnalyzer<cfg::stencil_size, cfg::dim> stencil;
     };
 
     /**
@@ -56,14 +56,32 @@ namespace samurai
     {
     };
 
+    //----------------------------------//
+    //                                  //
+    //            Non-linear            //
+    //                                  //
+    //----------------------------------//
+
     template <class cfg>
-    using FluxValue = CollapsFluxArray<typename cfg::input_field_t::value_type, cfg::output_field_size>; //, cfg::input_field_t::is_soa>;
+    using FluxValue = CollapsFluxArray<typename cfg::input_field_t::value_type, cfg::output_n_comp, cfg::input_field_t::is_scalar>;
 
     template <class cfg>
     using FluxValuePair = StdArrayWrapper<FluxValue<cfg>, 2>;
 
     template <class cfg>
     using StencilJacobianPair = StdArrayWrapper<StencilJacobian<cfg>, 2>;
+
+    template <class cfg>
+    struct StencilData
+    {
+        StencilCells<cfg>& cells;
+        double cell_length = 0;
+
+        explicit StencilData(StencilCells<cfg>& c)
+            : cells(c)
+        {
+        }
+    };
 
     /**
      * Specialization of @class NormalFluxDefinition.
@@ -74,13 +92,11 @@ namespace samurai
     {
         using field_t = typename cfg::input_field_t;
 
-        using stencil_cells_t = StencilCells<cfg>;
+        using flux_func = std::function<void(FluxValuePair<cfg>&, const StencilData<cfg>&, const StencilValues<cfg>&)>;  // non-conservative
+        using cons_flux_func = std::function<void(FluxValue<cfg>&, const StencilData<cfg>&, const StencilValues<cfg>&)>; // conservative
 
-        using flux_func      = std::function<FluxValuePair<cfg>(stencil_cells_t&, const field_t&)>; // non-conservative
-        using cons_flux_func = std::function<FluxValue<cfg>(stencil_cells_t&, const field_t&)>;     // conservative
-
-        using jacobian_func      = std::function<StencilJacobianPair<cfg>(stencil_cells_t&, const field_t&)>; // non-conservative
-        using cons_jacobian_func = std::function<StencilJacobian<cfg>(stencil_cells_t&, const field_t&)>;     // conservative
+        using jacobian_func      = std::function<StencilJacobianPair<cfg>(StencilCells<cfg>&, const field_t&)>; // non-conservative
+        using cons_jacobian_func = std::function<StencilJacobian<cfg>(StencilCells<cfg>&, const field_t&)>;     // conservative
 
         /**
          * Conservative flux function:
@@ -104,12 +120,10 @@ namespace samurai
          */
         flux_func flux_function_as_conservative() const
         {
-            return [&](auto& cells, const auto& field)
+            return [&](FluxValuePair<cfg>& fluxes, auto& data, const auto& field)
             {
-                FluxValuePair<cfg> fluxes;
-                fluxes[0] = cons_flux_function(cells, field);
+                cons_flux_function(fluxes[0], data, field);
                 fluxes[1] = -fluxes[0];
-                return fluxes;
             };
         }
 
@@ -143,6 +157,12 @@ namespace samurai
         }
     };
 
+    //----------------------------------//
+    //                                  //
+    //      Linear heterogeneous        //
+    //                                  //
+    //----------------------------------//
+
     template <class cfg>
     using FluxStencilCoeffs = StencilJacobian<cfg>;
 
@@ -162,6 +182,12 @@ namespace samurai
             cons_flux_function = nullptr;
         }
     };
+
+    //----------------------------------//
+    //                                  //
+    //       Linear homogeneous         //
+    //                                  //
+    //----------------------------------//
 
     /**
      * Specialization of @class NormalFluxDefinition.
@@ -197,6 +223,12 @@ namespace samurai
             cons_flux_function = nullptr;
         }
     };
+
+    //----------------------------------//
+    //                                  //
+    //         Flux definition          //
+    //                                  //
+    //----------------------------------//
 
     /**
      * @class FluxDefinition:

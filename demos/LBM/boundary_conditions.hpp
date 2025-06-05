@@ -1,4 +1,4 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #pragma once
@@ -6,7 +6,7 @@
 #include <xtensor/xfixed.hpp>
 
 #include <samurai/operators_base.hpp>
-#include <samurai/subset/subset_op.hpp>
+#include <samurai/subset/node.hpp>
 
 template <std::size_t dim, class TInterval>
 class update_boundary_D2Q4_flat_op : public samurai::field_operator_base<dim, TInterval>

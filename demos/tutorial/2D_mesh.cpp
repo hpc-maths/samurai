@@ -1,4 +1,4 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #include <iostream>
@@ -7,7 +7,7 @@
 
 #include <samurai/cell_array.hpp>
 #include <samurai/cell_list.hpp>
-#include <samurai/hdf5.hpp>
+#include <samurai/io/hdf5.hpp>
 #include <samurai/samurai.hpp>
 
 namespace fs = std::filesystem;

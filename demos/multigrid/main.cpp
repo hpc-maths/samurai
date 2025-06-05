@@ -1,11 +1,11 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #include <iostream>
 #include <samurai/amr/mesh.hpp>
 #include <samurai/box.hpp>
 #include <samurai/field.hpp>
-#include <samurai/hdf5.hpp>
+#include <samurai/io/hdf5.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/petsc.hpp>
 #include <samurai/samurai.hpp>
@@ -125,9 +125,9 @@ int main(int argc, char* argv[])
     using Mesh                = samurai::amr::Mesh<Config>;
     // using Config = samurai::MRConfig<dim>;
     // using Mesh = samurai::MRMesh<Config>;
-    constexpr unsigned int field_size = 1;
-    constexpr bool is_soa             = true;
-    using Field                       = samurai::Field<Mesh, double, field_size, is_soa>;
+    constexpr unsigned int n_comp = 1;
+    constexpr bool is_soa         = true;
+    using Field                   = samurai::VectorField<Mesh, double, n_comp, is_soa>;
 
     //------------------//
     // Petsc initialize //
@@ -212,14 +212,14 @@ int main(int argc, char* argv[])
         samurai::save(path, "mesh", mesh);
     }
 
-    std::cout << "Unknowns: " << (mesh.nb_cells() * field_size) << std::endl;
+    std::cout << "Unknowns: " << (mesh.nb_cells() * n_comp) << std::endl;
 
     //----------------//
     // Create problem //
     //----------------//
 
-    auto source   = samurai::make_field<double, field_size, is_soa>("source", mesh, test_case->source());
-    auto solution = samurai::make_field<double, field_size, is_soa>("solution", mesh);
+    auto source   = samurai::make_vector_field<double, n_comp, is_soa>("source", mesh, test_case->source());
+    auto solution = samurai::make_vector_field<double, n_comp, is_soa>("solution", mesh);
 
     // Boundary conditions
     samurai::make_bc<samurai::Dirichlet<1>>(solution, test_case->dirichlet());
@@ -238,7 +238,7 @@ int main(int argc, char* argv[])
     // Solve linear system //
     //---------------------//
 
-    auto diff   = samurai::make_diffusion_order2<decltype(solution), samurai::DirichletEnforcement::Equation>();
+    auto diff   = samurai::make_diffusion_old<decltype(solution), samurai::DirichletEnforcement::Equation>();
     auto solver = samurai::petsc::make_solver(diff);
     solver.set_unknown(solution);
 
@@ -277,7 +277,7 @@ int main(int argc, char* argv[])
     std::cout << "Elapsed time: " << total_timer.Elapsed() << std::endl;
     std::cout << std::endl;
 
-    /*auto right_fluxes = samurai::make_field<double, field_size, is_soa>("fluxes", mesh);
+    /*auto right_fluxes = samurai::make_vector_field<double, n_comp, is_soa>("fluxes", mesh);
     samurai::DirectionVector<dim> right = {1, 0};
     samurai::Stencil<2, dim> comput_stencil = {{0, 0}, {1, 0}};
     samurai::for_each_interface(mesh, right, comput_stencil,
@@ -305,7 +305,7 @@ int main(int argc, char* argv[])
             static constexpr std::size_t order = 2;
             double h                           = mesh.cell_length(mesh.min_level());
             double hidden_constant             = 5e-2;
-            double theoretical_bound           = samurai::theoretical_error_bound<order>(field_size * hidden_constant, h);
+            double theoretical_bound           = samurai::theoretical_error_bound<order>(n_comp * hidden_constant, h);
             // std::cout << "theoretical_bound: " << theoretical_bound << std::endl;
             if (error > theoretical_bound)
             {

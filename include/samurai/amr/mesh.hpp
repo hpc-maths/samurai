@@ -1,4 +1,4 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #pragma once
@@ -7,9 +7,9 @@
 
 #include "../algorithm.hpp"
 #include "../box.hpp"
-#include "../interval.hpp"
 #include "../mesh.hpp"
 #include "../samurai_config.hpp"
+#include "../subset/node.hpp"
 
 namespace samurai::amr
 {
@@ -67,8 +67,10 @@ namespace samurai::amr
         using lca_type = typename base_type::lca_type;
 
         Mesh() = default;
+        Mesh(const ca_type& ca, const self_type& ref_mesh);
         Mesh(const cl_type& cl, const self_type& ref_mesh);
         Mesh(const cl_type& cl, std::size_t min_level, std::size_t max_level);
+        Mesh(const ca_type& ca, std::size_t min_level, std::size_t max_level);
         Mesh(const Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level);
 
         void update_sub_mesh_impl();
@@ -79,6 +81,12 @@ namespace samurai::amr
     /////////////////////////////
 
     template <class Config>
+    inline Mesh<Config>::Mesh(const ca_type& ca, const self_type& ref_mesh)
+        : base_type(ca, ref_mesh)
+    {
+    }
+
+    template <class Config>
     inline Mesh<Config>::Mesh(const cl_type& cl, const self_type& ref_mesh)
         : base_type(cl, ref_mesh)
     {
@@ -87,6 +95,12 @@ namespace samurai::amr
     template <class Config>
     inline Mesh<Config>::Mesh(const cl_type& cl, std::size_t min_level, std::size_t max_level)
         : base_type(cl, min_level, max_level)
+    {
+    }
+
+    template <class Config>
+    inline Mesh<Config>::Mesh(const ca_type& ca, std::size_t min_level, std::size_t max_level)
+        : base_type(ca, min_level, max_level)
     {
     }
 
@@ -140,8 +154,7 @@ namespace samurai::amr
         {
             auto expr = intersection(difference(this->cells()[mesh_id_t::cells_and_ghosts][level],
                                                 union_(this->get_union()[level], this->cells()[mesh_id_t::cells][level])),
-                                     this->domain())
-                            .on(level);
+                                     self(this->domain()).on(level));
 
             lcl_type lcl{level};
             expr(

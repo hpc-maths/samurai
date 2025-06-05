@@ -9,7 +9,7 @@
 #include "field.hpp"
 #include "numeric/prediction.hpp"
 #include "samurai_config.hpp"
-#include "subset/subset_op.hpp"
+#include "subset/node.hpp"
 #include "utils.hpp"
 
 namespace samurai
@@ -403,14 +403,27 @@ namespace samurai
         using mesh_id_t = typename mesh_t::mesh_id_t;
         using ca_type   = typename mesh_t::ca_type;
 
+        auto make_field_like = [](std::string const& name, auto& mesh)
+        {
+            if constexpr (Field::is_scalar)
+            {
+                return make_scalar_field<typename Field::value_type>(name, mesh);
+            }
+            else
+            {
+                return make_vector_field<typename Field::value_type, Field::n_comp, detail::is_soa_v<Field>>(name, mesh);
+            }
+        };
+
         auto& mesh = field.mesh();
         ca_type reconstruct_mesh;
         std::size_t reconstruct_level       = mesh.domain().level();
         reconstruct_mesh[reconstruct_level] = mesh.domain();
         reconstruct_mesh.update_index();
 
-        auto m                 = holder(reconstruct_mesh);
-        auto reconstruct_field = make_field<typename Field::value_type, Field::size, Field::is_soa>(field.name(), m);
+        auto m = holder(reconstruct_mesh);
+        // auto reconstruct_field = make_field<typename Field::value_type, Field::n_comp, detail::is_soa_v<Field>>(field.name(), m);
+        auto reconstruct_field = make_field_like(field.name(), m);
         reconstruct_field.fill(0.);
 
         std::size_t min_level = mesh[mesh_id_t::cells].min_level();
@@ -609,6 +622,18 @@ namespace samurai
             {
                 // cppcheck-suppress useStlAlgorithm
                 result += kv.second * f(level, i + kv.first[0], j + kv.first[1]);
+#ifdef SAMURAI_CHECK_NAN
+                if (xt::any(xt::isnan(f(level, i + kv.first[0], j + kv.first[1]))))
+                {
+                    if (i.size() == 1)
+                    {
+                        auto cell = f.mesh().get_cell(level, i.start + kv.first[0], j + kv.first[1]);
+                        std::cerr << "NaN detected in [" << cell << "] when trying to predict a value at level " << (level + delta_l)
+                                  << ". NaN in position {" << kv.first[0] << "," << kv.first[1] << "} of the prediction stencil."
+                                  << std::endl;
+                    }
+                }
+#endif
             }
             return result;
         }
@@ -1044,6 +1069,52 @@ namespace samurai
         return detail::portion_impl<prediction_order>(f, level, i, j, k, delta_l, ii, jj, kk);
     }
 
+    // N-D
+    template <class Field>
+    auto portion(const Field& f,
+                 std::size_t level,
+                 const typename Field::cell_t::indices_t& src_indices,
+                 std::size_t delta_l,
+                 const typename Field::cell_t::indices_t& dst_indices)
+    {
+        static constexpr std::size_t dim = Field::dim;
+        static_assert(dim <= 3, "Not implemented for dim > 3");
+
+        typename Field::interval_t src_i{src_indices[0], src_indices[0] + 1};
+        if (dim == 1)
+        {
+            assert(dst_indices[0] <= (1 << delta_l));
+            return detail::portion_impl<Field::mesh_t::config::prediction_order>(f, level, src_i, delta_l, dst_indices[0]);
+        }
+        else if (dim == 2)
+        {
+            assert(dst_indices[0] <= (1 << delta_l));
+            assert(dst_indices[1] <= (1 << delta_l));
+            return detail::portion_impl<Field::mesh_t::config::prediction_order>(f,
+                                                                                 level,
+                                                                                 src_i,
+                                                                                 src_indices[1],
+                                                                                 delta_l,
+                                                                                 dst_indices[0],
+                                                                                 dst_indices[1]);
+        }
+        else if (dim == 3)
+        {
+            assert(dst_indices[0] <= (1 << delta_l));
+            assert(dst_indices[1] <= (1 << delta_l));
+            assert(dst_indices[3] <= (1 << delta_l));
+            return detail::portion_impl<Field::mesh_t::config::prediction_order>(f,
+                                                                                 level,
+                                                                                 src_i,
+                                                                                 src_indices[1],
+                                                                                 src_indices[2],
+                                                                                 delta_l,
+                                                                                 dst_indices[0],
+                                                                                 dst_indices[1],
+                                                                                 dst_indices[2]);
+        }
+    }
+
     template <class Field_src, class Field_dst>
     void transfer(Field_src& field_src, Field_dst& field_dst)
     {
@@ -1095,7 +1166,7 @@ namespace samurai
                         {
                             auto i_dst = static_cast<size_type>(((i.start + ii) >> static_cast<value_t>(shift))
                                                                 - (i.start >> static_cast<value_t>(shift)));
-                            if constexpr (Field_src::is_soa && Field_src::size > 1)
+                            if constexpr (detail::is_soa_v<Field_src> && !Field_src::is_scalar)
                             {
                                 view(dst, placeholders::all(), i_dst) += view(src, placeholders::all(), static_cast<size_type>(ii))
                                                                        / (1 << shift * dim);
@@ -1103,7 +1174,7 @@ namespace samurai
                             else
                             {
 #if defined(SAMURAI_FIELD_CONTAINER_EIGEN3)
-                                static_assert(Field_src::is_soa && Field_src::size > 1,
+                                static_assert(detail::is_soa_v<Field_src> && !Field_src::is_scalar,
                                               "transfer() is not implemented with Eigen for scalar fields and vectorial fields in AOS.");
                             // In the lid-driven-cavity demo, the following line of code does not compile with Eigen.
 #else

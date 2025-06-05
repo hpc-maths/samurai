@@ -1,12 +1,11 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #pragma once
 
 #include <algorithm>
 #include <array>
-#include <fstream>
-#include <functional>
+
 #include <string>
 #include <type_traits>
 
@@ -35,10 +34,11 @@ namespace fs = std::filesystem;
 namespace mpi = boost::mpi;
 #endif
 
-#include "algorithm.hpp"
-#include "cell.hpp"
-#include "timers.hpp"
-#include "utils.hpp"
+#include "../algorithm.hpp"
+#include "../interval.hpp"
+#include "../timers.hpp"
+#include "../utils.hpp"
+#include "util.hpp"
 
 namespace samurai
 {
@@ -80,36 +80,6 @@ namespace samurai
         return std::array<xt::xtensor_fixed<std::size_t, xt::xshape<3>>, 8>{
             {{0, 0, 0}, {1, 0, 0}, {1, 1, 0}, {0, 1, 0}, {0, 0, 1}, {1, 0, 1}, {1, 1, 1}, {0, 1, 1}}
         };
-    }
-
-    template <class Field, class SubMesh>
-    auto extract_data(const Field& field, const SubMesh& submesh)
-    {
-        using size_type                       = typename Field::inner_types::size_type;
-        std::array<std::size_t, 2> data_shape = {submesh.nb_cells(), static_cast<std::size_t>(field.size)};
-        xt::xtensor<typename Field::value_type, 2> data(data_shape);
-
-        if (submesh.nb_cells() != 0)
-        {
-            std::size_t index = 0;
-            for_each_cell(submesh,
-                          [&](auto cell)
-                          {
-                              if constexpr (Field::size == 1)
-                              {
-                                  data(index, 0) = field[cell];
-                              }
-                              else
-                              {
-                                  for (size_type i = 0; i < field.size; ++i)
-                                  {
-                                      data(index, i) = field[cell][i];
-                                  }
-                              }
-                              index++;
-                          });
-        }
-        return data;
     }
 
     template <class Mesh>
@@ -399,6 +369,10 @@ namespace samurai
             {
                 min_level--;
             }
+            if (min_level > 0)
+            {
+                min_level--;
+            }
 
             for (std::size_t level = min_level; level <= max_level; ++level)
             {
@@ -569,10 +543,10 @@ namespace samurai
         xt::xtensor<std::size_t, 1> coords_sizes = xt::empty<std::size_t>({size});
         mpi::all_gather(world, local_coords.shape(0), coords_sizes.begin());
 #else
-        std::size_t rank = 0;
-        std::size_t size = 1;
+        std::size_t rank                                                 = 0;
+        std::size_t size                                                 = 1;
         xt::xtensor_fixed<std::size_t, xt::xshape<1>> connectivity_sizes = {local_connectivity.shape(0)};
-        xt::xtensor_fixed<std::size_t, xt::xshape<1>> coords_sizes = {local_coords.shape(0)};
+        xt::xtensor_fixed<std::size_t, xt::xshape<1>> coords_sizes       = {local_coords.shape(0)};
 #endif
 
         std::vector<std::size_t> connectivity_cumsum(size + 1, 0);
@@ -719,8 +693,8 @@ namespace samurai
         xt::xtensor<std::size_t, 1> field_sizes = xt::empty<std::size_t>({size});
         mpi::all_gather(world, submesh.nb_cells(), field_sizes.begin());
 #else
-        std::size_t rank = 0;
-        std::size_t size = 1;
+        std::size_t rank                                          = 0;
+        std::size_t size                                          = 1;
         xt::xtensor_fixed<std::size_t, xt::xshape<1>> field_sizes = {submesh.nb_cells()};
 #endif
         std::vector<std::size_t> field_cumsum(size + 1, 0);
@@ -729,10 +703,10 @@ namespace samurai
             field_cumsum[i + 1] += field_cumsum[i] + field_sizes[i];
         }
 
-        for (std::size_t i = 0; i < field.size; ++i)
+        for (std::size_t i = 0; i < field.n_comp; ++i)
         {
             std::string field_name;
-            if constexpr (Field::size == 1)
+            if constexpr (Field::n_comp == 1)
             {
                 field_name = field.name();
             }

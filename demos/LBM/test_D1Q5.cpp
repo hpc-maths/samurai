@@ -1,4 +1,4 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #include <fstream>
@@ -10,7 +10,7 @@
 #include <xtensor/xio.hpp>
 
 #include <samurai/field.hpp>
-#include <samurai/hdf5.hpp>
+#include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh_with_overleaves.hpp>
 #include <samurai/samurai.hpp>
@@ -106,7 +106,7 @@ auto init_f(samurai::MROMesh<Config>& mesh, double t, const double lambda, const
 {
     using mesh_id_t            = typename samurai::MROMesh<Config>::mesh_id_t;
     constexpr std::size_t nvel = 5;
-    auto f                     = samurai::make_field<double, nvel>("f", mesh);
+    auto f                     = samurai::make_vector_field<double, nvel>("f", mesh);
     f.fill(0);
 
     samurai::for_each_cell(mesh[mesh_id_t::cells],
@@ -198,7 +198,7 @@ xt::xtensor<double, 1> prediction(const Field& f,
 template <class Field, class Func>
 void one_time_step(Field& f, Func&& update_bc_for_level, double s, const double lambda, const double g)
 {
-    constexpr std::size_t nvel = Field::size;
+    constexpr std::size_t nvel = Field::n_comp;
     using mesh_id_t            = typename Field::mesh_t::mesh_id_t;
     auto mesh                  = f.mesh();
     auto max_level             = mesh.max_level();
@@ -286,7 +286,7 @@ void one_time_step(Field& f, Func&& update_bc_for_level, double s, const double 
 template <class Field, class Pred, class Func>
 void one_time_step_overleaves(Field& f, const Pred& pred_coeff, Func&& update_bc_for_level, double s_rel, const double lambda, const double g)
 {
-    constexpr std::size_t nvel = Field::size;
+    constexpr std::size_t nvel = Field::n_comp;
     auto mesh                  = f.mesh();
     using mesh_t               = typename Field::mesh_t;
     using mesh_id_t            = typename mesh_t::mesh_id_t;
@@ -299,11 +299,11 @@ void one_time_step_overleaves(Field& f, const Pred& pred_coeff, Func&& update_bc
     samurai::update_ghost_mr(f, std::forward<Func>(update_bc_for_level));
     samurai::update_overleaves_mr(f, std::forward<Func>(update_bc_for_level));
 
-    auto new_f = samurai::make_field<double, nvel>("new_f", mesh);
+    auto new_f = samurai::make_vector_field<double, nvel>("new_f", mesh);
     new_f.fill(0.);
-    auto advected_f = samurai::make_field<double, nvel>("advected_f", mesh);
+    auto advected_f = samurai::make_vector_field<double, nvel>("advected_f", mesh);
     advected_f.fill(0.);
-    auto help_f = samurai::make_field<double, nvel>("help_f", mesh);
+    auto help_f = samurai::make_vector_field<double, nvel>("help_f", mesh);
     help_f.fill(0.);
 
     for (std::size_t level = 0; level <= max_level; ++level)

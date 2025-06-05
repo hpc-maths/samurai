@@ -1,17 +1,17 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 #include <CLI/CLI.hpp>
 
 #include <filesystem>
 namespace fs = std::filesystem;
 
-#include <samurai/hdf5.hpp>
 #include <samurai/io/from_geometry.hpp>
+#include <samurai/io/hdf5.hpp>
 
 template <class Mesh>
 void save_mesh(const fs::path& path, const std::string& filename, const Mesh& mesh)
 {
-    auto level = samurai::make_field<std::size_t, 1>("level", mesh);
+    auto level = samurai::make_scalar_field<std::size_t>("level", mesh);
 
     if (!fs::exists(path))
     {

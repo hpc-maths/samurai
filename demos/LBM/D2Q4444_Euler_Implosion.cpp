@@ -1,4 +1,4 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #include <math.h>
@@ -7,7 +7,7 @@
 #include <cxxopts.hpp>
 
 #include <samurai/field.hpp>
-#include <samurai/hdf5.hpp>
+#include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh_with_overleaves.hpp>
 #include <samurai/samurai.hpp>
@@ -45,7 +45,7 @@ auto init_f(samurai::MROMesh<Config>& mesh,
     constexpr std::size_t nvel = 16;
     using mesh_id_t            = typename samurai::MROMesh<Config>::mesh_id_t;
 
-    auto f = samurai::make_field<double, nvel>("f", mesh);
+    auto f = samurai::make_vector_field<double, nvel>("f", mesh);
     f.fill(0);
 
     samurai::for_each_cell(
@@ -193,7 +193,7 @@ void one_time_step(Field& f,
                    const double s_p_x        = 1.9,
                    const double s_p_xy       = 1.)
 {
-    constexpr std::size_t nvel = Field::size;
+    constexpr std::size_t nvel = Field::n_comp;
     using coord_index_t        = typename Field::interval_t::coord_index_t;
 
     auto mesh       = f.mesh();
@@ -874,12 +874,12 @@ void save_solution(Field& f, double eps, std::size_t ite, const double gas_const
     std::stringstream str;
     str << "LBM_D2Q4_4_Implosion_" << ext << "_lmin_" << min_level << "_lmax-" << max_level << "_eps-" << eps << "_ite-" << ite;
 
-    auto level = samurai::make_field<std::size_t, 1>("level", mesh);
-    auto rho   = samurai::make_field<value_t, 1>("rho", mesh);
-    auto qx    = samurai::make_field<value_t, 1>("qx", mesh);
-    auto qy    = samurai::make_field<value_t, 1>("qy", mesh);
-    auto e     = samurai::make_field<value_t, 1>("e", mesh);
-    auto s     = samurai::make_field<value_t, 1>("entropy", mesh);
+    auto level = samurai::make_scalar_field<std::size_t>("level", mesh);
+    auto rho   = samurai::make_scalar_field<value_t>("rho", mesh);
+    auto qx    = samurai::make_scalar_field<value_t>("qx", mesh);
+    auto qy    = samurai::make_scalar_field<value_t>("qy", mesh);
+    auto e     = samurai::make_scalar_field<value_t>("e", mesh);
+    auto s     = samurai::make_scalar_field<value_t>("entropy", mesh);
 
     samurai::for_each_cell(mesh[mesh_id_t::cells],
                            [&](auto& cell)

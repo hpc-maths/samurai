@@ -1,4 +1,4 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #pragma once
@@ -121,6 +121,13 @@ namespace samurai
         : m_e(std::forward<CTA>(e)...)
         , m_f(std::forward<Func>(f))
     {
+    }
+
+    template <class F, class... E>
+    inline auto make_field_function(E&&... e) noexcept
+    {
+        using type = field_function<F, E...>;
+        return type(F(), std::forward<E>(e)...);
     }
 } // namespace samurai
 

@@ -1,4 +1,4 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #pragma once
@@ -70,6 +70,11 @@ namespace samurai
         std::size_t size() const;
         bool is_valid() const;
 
+        bool is_empty() const
+        {
+            return start == end;
+        }
+
         Interval even_elements() const;
         Interval odd_elements() const;
 
@@ -86,10 +91,10 @@ namespace samurai
         template <class Archive>
         void serialize(Archive& ar, const unsigned int)
         {
-            ar& start;
-            ar& end;
-            ar& step;
-            ar& index;
+            ar & start;
+            ar & end;
+            ar & step;
+            ar & index;
         }
 #endif
     };

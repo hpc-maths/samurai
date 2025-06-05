@@ -1,4 +1,4 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #pragma once
@@ -12,7 +12,7 @@ xt::xtensor<double, 2> prediction_all(const Field& f,
                                       const interval_t& k,
                                       std::map<std::tuple<std::size_t, std::size_t, interval_t>, xt::xtensor<double, 2>>& mem_map)
 {
-    constexpr std::size_t nvel = Field::size; // Number of velocities
+    constexpr std::size_t nvel = Field::n_comp; // Number of velocities
     // That is used to employ _ with xtensor
     using namespace xt::placeholders;
 

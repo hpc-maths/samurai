@@ -1,4 +1,4 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #include <iostream>
@@ -13,9 +13,9 @@
 #include <samurai/cell_array.hpp>
 #include <samurai/cell_flag.hpp>
 #include <samurai/field.hpp>
-#include <samurai/hdf5.hpp>
+#include <samurai/io/hdf5.hpp>
 #include <samurai/samurai.hpp>
-#include <samurai/subset/subset_op.hpp>
+#include <samurai/subset/node.hpp>
 
 namespace fs = std::filesystem;
 
@@ -30,7 +30,7 @@ void update_mesh(Mesh& mesh,
     constexpr std::size_t dim = Mesh::dim;
     std::size_t nb_bubbles    = bb_xcenter.shape(0);
 
-    auto tag = samurai::make_field<int, 1>("tag", mesh);
+    auto tag = samurai::make_scalar_field<int>("tag", mesh);
     tag.fill(static_cast<int>(samurai::CellFlag::keep));
 
     samurai::for_each_cell(
@@ -121,7 +121,7 @@ void remove_intersection(samurai::CellArray<dim>& ca)
 
     while (true)
     {
-        auto tag = samurai::make_field<bool, 1>("tag", ca);
+        auto tag = samurai::make_scalar_field<bool>("tag", ca);
         tag.fill(false);
 
         for (std::size_t level = min_level + 1; level <= max_level; ++level)
@@ -179,7 +179,7 @@ void make_graduation(samurai::CellArray<dim>& ca)
     };
     while (true)
     {
-        auto tag = samurai::make_field<bool, 1>("tag", ca);
+        auto tag = samurai::make_scalar_field<bool>("tag", ca);
         tag.fill(false);
 
         for (std::size_t level = min_level + 2; level <= max_level; ++level)

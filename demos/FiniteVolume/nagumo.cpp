@@ -1,6 +1,7 @@
-// Copyright 2018-2024 the samurai's authors
+// Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
-#include <samurai/hdf5.hpp>
+#include <samurai/io/hdf5.hpp>
+#include <samurai/io/restart.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/petsc.hpp>
@@ -13,7 +14,7 @@ template <class Field>
 void save(const fs::path& path, const std::string& filename, const Field& u, const std::string& suffix = "")
 {
     auto mesh   = u.mesh();
-    auto level_ = samurai::make_field<std::size_t, 1>("level", mesh);
+    auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
 
     if (!fs::exists(path))
     {
@@ -27,17 +28,18 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
                            });
 
     samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
+    samurai::dump(path, fmt::format("{}_restart{}", filename, suffix), mesh, u);
 }
 
 int main(int argc, char* argv[])
 {
     auto& app = samurai::initialize("Finite volume example for the Nagumo equation", argc, argv);
 
-    static constexpr std::size_t dim        = 1;
-    static constexpr std::size_t field_size = 1;
-    using Config                            = samurai::MRConfig<dim>;
-    using Box                               = samurai::Box<double, dim>;
-    using point_t                           = typename Box::point_t;
+    static constexpr std::size_t dim    = 1;
+    static constexpr std::size_t n_comp = 1;
+    using Config                        = samurai::MRConfig<dim>;
+    using Box                           = samurai::Box<double, dim>;
+    using point_t                       = typename Box::point_t;
 
     std::cout << "------------------------- Nagumo -------------------------" << std::endl;
 
@@ -65,6 +67,8 @@ int main(int argc, char* argv[])
     double Tf  = 1.;
     double dt  = 0;
     double cfl = 0.95;
+    double t   = 0.;
+    std::string restart_file;
 
     // Multiresolution parameters
     std::size_t min_level = 4;
@@ -81,7 +85,9 @@ int main(int argc, char* argv[])
     app.add_option("--right", right_box, "The right border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--D", D, "Diffusion coefficient")->capture_default_str()->group("Simulation parameters");
     app.add_option("--k", k, "Parameter of the reaction operator")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--Ti", t, "Initial time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
     app.add_flag("--explicit-reaction", explicit_reaction, "Explicit the reaction term")->capture_default_str()->group("Simulation parameters");
@@ -127,7 +133,7 @@ int main(int argc, char* argv[])
     Box box(box_corner1, box_corner2);
     samurai::MRMesh<Config> mesh{box, min_level, max_level};
 
-    auto u = samurai::make_field<field_size>("u", mesh);
+    auto u = samurai::make_vector_field<double, n_comp>("u", mesh);
 
     double z0 = left_box / 5;    // wave initial position
     double c  = sqrt(k * D / 2); // wave velocity
@@ -143,14 +149,23 @@ int main(int argc, char* argv[])
         return beta(x - c * t);
     };
 
-    // Initial solution
-    samurai::for_each_cell(mesh,
-                           [&](auto& cell)
-                           {
-                               u[cell] = exact_solution(cell.center(0), 0);
-                           });
+    if (restart_file.empty())
+    {
+        mesh = {box, min_level, max_level};
+        u.resize();
+        // Initial solution
+        samurai::for_each_cell(mesh,
+                               [&](auto& cell)
+                               {
+                                   u[cell] = exact_solution(cell.center(0), 0);
+                               });
+    }
+    else
+    {
+        samurai::load(restart_file, mesh, u);
+    }
 
-    auto unp1 = samurai::make_field<field_size>("unp1", mesh);
+    auto unp1 = samurai::make_vector_field<double, n_comp>("unp1", mesh);
 
     samurai::make_bc<samurai::Neumann<1>>(u);
     samurai::make_bc<samurai::Neumann<1>>(unp1);
@@ -159,7 +174,7 @@ int main(int argc, char* argv[])
     auto id   = samurai::make_identity<decltype(u)>();
 
     // Reaction operator
-    using cfg  = samurai::LocalCellSchemeConfig<samurai::SchemeType::NonLinear, field_size, decltype(u)>;
+    using cfg  = samurai::LocalCellSchemeConfig<samurai::SchemeType::NonLinear, n_comp, decltype(u)>;
     auto react = samurai::make_cell_based_scheme<cfg>();
     react.set_name("Reaction");
     react.set_scheme_function(
@@ -198,9 +213,8 @@ int main(int argc, char* argv[])
         save(path, filename, u, fmt::format("_ite_{}", nsave++));
     }
 
-    auto rhs = samurai::make_field<field_size>("rhs", mesh);
+    auto rhs = samurai::make_vector_field<double, n_comp>("rhs", mesh);
 
-    double t = 0;
     while (t != Tf)
     {
         // Move to next timestep
