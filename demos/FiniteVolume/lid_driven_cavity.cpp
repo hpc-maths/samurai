@@ -407,7 +407,6 @@ int main(int argc, char* argv[])
 
             if (export_reconstruct)
             {
-                samurai::update_bc(ink);
                 samurai::update_ghost_mr(ink);
                 auto ink_recons = samurai::reconstruction(ink);
                 samurai::save(path, fmt::format("ldc_ink_recons_ite_{}", nsave), ink_recons.mesh(), ink_recons);
