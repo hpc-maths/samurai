@@ -23,7 +23,7 @@ namespace mpi = boost::mpi;
 
 // Résolution d'un bug : le découpage est rectangulaire. S'il y a trop de rangs MPI et un min_level trop faible, alors il est parfois
 // impossible de décomposer le problème. Il faut alors restreindre un min_level limite
-bool to_lot_rank(std::size_t min_level)
+bool check_size_min_level(std::size_t min_level)
 {
     boost::mpi::communicator world;
     int size = world.size(); // Nombre total de processus
@@ -43,9 +43,9 @@ bool to_lot_rank(std::size_t min_level)
     return true;
 }
 
-void error_on_to_lot_rank(std::size_t min_level)
+void error_on_min_level(std::size_t min_level)
 {
-    auto error = to_lot_rank(min_level);
+    auto error = check_size_min_level(min_level);
     if (error)
     {
         std::cout << "ERROR: to lot MPI rank for this value of min_level. Please reduce MPI Size or raise min_level according to the rule size <= 2^min_level. "
@@ -281,7 +281,7 @@ namespace samurai
         // load_balancing();
 
         // resolve MPI issue when too lot MPI rank for 2^min_level
-        error_on_to_lot_rank(min_level);
+        error_on_min_level(min_level);
 #else
         this->m_cells[mesh_id_t::cells][start_level] = {start_level, b, approx_box_tol, scaling_factor_};
 #endif
@@ -314,7 +314,7 @@ namespace samurai
         partition_mesh(start_level, b);
         // load_balancing();
 
-        error_on_to_lot_rank(min_level);
+        error_on_min_level(min_level);
 #else
         this->m_cells[mesh_id_t::cells][start_level] = {start_level, b, approx_box_tol, scaling_factor_};
 #endif
