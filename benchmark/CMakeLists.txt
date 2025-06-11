@@ -23,6 +23,15 @@ set(SAMURAI_BENCHMARKS
     benchmark_celllist_construction.cpp
     benchmark_search.cpp
     benchmark_set.cpp
+    benchmark_interval.cpp
+    benchmark_cellarray.cpp
+    benchmark_level_cell_array.cpp
+    benchmark_mesh.cpp
+    benchmark_stencil.cpp
+    benchmark_field.cpp
+    benchmark_bc.cpp
+    benchmark_cell.cpp
+    benchmark_subset.cpp
     main.cpp
 )
 
