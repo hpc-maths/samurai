@@ -1,4 +1,3 @@
-
 #include <array>
 #include <benchmark/benchmark.h>
 #include <experimental/random>
@@ -48,6 +47,20 @@ auto unitary_box()
     return box;
 }
 
+
+template <unsigned int dim>
+auto cell_list_with_n_intervals(int64_t size)
+{
+    samurai::CellList<dim> cl;
+    for (int64_t i = 0; i < size; i++)
+    {
+        int index = static_cast<int>(i);
+        cl[0][{}].add_interval({2 * index, 2 * index + 1});
+    }
+    return cl;
+}
+
+
 ////////////////////////////////////////////////////////////////////////////
 
 // Mesure : Création d'une Box uniforme de taille de coté n
@@ -61,6 +74,19 @@ void MESH_uniform(benchmark::State& state)
         auto mesh = samurai::UniformMesh<Config>(box, state.range(0));
     }
 }
+
+
+template <unsigned int dim>
+void MESH_default(benchmark::State& state)
+{
+    using Config = samurai::UniformConfig<dim>;
+    for (auto _ : state)
+    {
+        auto mesh = samurai::UniformMesh<Config>();
+        benchmark::DoNotOptimize(mesh);
+    }
+}
+
 
 // Mesure : Allocation d'un champ 1D d'un maillage uniforme de taille de coté n
 template <unsigned int dim>
@@ -91,7 +117,7 @@ void FIELD_fill_uniform(benchmark::State& state)
 
 // Mesure ; Remplissage d'un champ 1D de taille de coté n ,en utilisant for_each_cell (mesure d'overhead)
 template <unsigned int dim>
-void FIELD_for_each_cell_uniform(benchmark::State& state)
+void FIELD_fill_for_each_cell_uniform(benchmark::State& state)
 {
     samurai::Box<double, dim> box = unitary_box<dim>();
     using Config                  = samurai::UniformConfig<dim>;
@@ -108,7 +134,7 @@ void FIELD_for_each_cell_uniform(benchmark::State& state)
 }
 
 // Mesure : Test d'égalité entre deux Fields
-
+// TODO : change name from equal to fill_equal
 // Weird : MPI issue ??? wtf ???
 template <unsigned int dim>
 void FIELD_equal_uniform(benchmark::State& state)
@@ -143,6 +169,7 @@ void FIELD_add_scalar_uniform(benchmark::State& state)
 }
 
 // Mesure : Ajout d'un scalaire à un champ par "for_each_cell"
+// this is really slow 
 template <unsigned int dim>
 void FIELD_add_scalar_for_each_cell_uniform(benchmark::State& state)
 {
@@ -157,7 +184,7 @@ void FIELD_add_scalar_for_each_cell_uniform(benchmark::State& state)
         for_each_cell(mesh,
                       [&](auto cell)
                       {
-                          v[cell] = u[cell] + 1.0;
+                          v[cell] = u[cell] + 2.0;
                       });
     }
 }
@@ -229,64 +256,52 @@ void FIELD_add_uniform(benchmark::State& state)
 }
 
 BENCHMARK_TEMPLATE(MESH_uniform, 1)->DenseRange(1, 16);
-;
 BENCHMARK_TEMPLATE(MESH_uniform, 2)->DenseRange(1, 14);
-;
 BENCHMARK_TEMPLATE(MESH_uniform, 3)->DenseRange(1, 9);
-;
+
+
+BENCHMARK_TEMPLATE(MESH_default, 1);
+BENCHMARK_TEMPLATE(MESH_default, 2);
+BENCHMARK_TEMPLATE(MESH_default, 3);
+
+
 
 BENCHMARK_TEMPLATE(FIELD_make_field_uniform, 1)->DenseRange(1, 16);
-;
 BENCHMARK_TEMPLATE(FIELD_make_field_uniform, 2)->DenseRange(1, 12);
-;
 BENCHMARK_TEMPLATE(FIELD_make_field_uniform, 3)->DenseRange(1, 7);
-;
+
 
 BENCHMARK_TEMPLATE(FIELD_fill_uniform, 1)->DenseRange(1, 16);
-;
 BENCHMARK_TEMPLATE(FIELD_fill_uniform, 2)->DenseRange(1, 12);
-;
 BENCHMARK_TEMPLATE(FIELD_fill_uniform, 3)->DenseRange(1, 7);
-;
 
-BENCHMARK_TEMPLATE(FIELD_for_each_cell_uniform, 1)->DenseRange(1, 16);
-;
-BENCHMARK_TEMPLATE(FIELD_for_each_cell_uniform, 2)->DenseRange(1, 12);
-;
-BENCHMARK_TEMPLATE(FIELD_for_each_cell_uniform, 3)->DenseRange(1, 7);
-;
+
+BENCHMARK_TEMPLATE(FIELD_fill_for_each_cell_uniform, 1)->DenseRange(1, 16);
+BENCHMARK_TEMPLATE(FIELD_fill_for_each_cell_uniform, 2)->DenseRange(1, 12);
+BENCHMARK_TEMPLATE(FIELD_fill_for_each_cell_uniform, 3)->DenseRange(1, 7);
+
 
 BENCHMARK_TEMPLATE(FIELD_equal_uniform, 1)->DenseRange(1, 16);
-;
 BENCHMARK_TEMPLATE(FIELD_equal_uniform, 2)->DenseRange(1, 12);
-;
 BENCHMARK_TEMPLATE(FIELD_equal_uniform, 3)->DenseRange(1, 7);
-;
+
 
 BENCHMARK_TEMPLATE(FIELD_add_scalar_uniform, 1)->DenseRange(1, 16);
-;
 BENCHMARK_TEMPLATE(FIELD_add_scalar_uniform, 2)->DenseRange(1, 12);
-;
 BENCHMARK_TEMPLATE(FIELD_add_scalar_uniform, 3)->DenseRange(1, 7);
-;
+
 
 BENCHMARK_TEMPLATE(FIELD_add_scalar_for_each_cell_uniform, 1)->DenseRange(1, 16);
-;
 BENCHMARK_TEMPLATE(FIELD_add_scalar_for_each_cell_uniform, 2)->DenseRange(1, 12);
-;
 BENCHMARK_TEMPLATE(FIELD_add_scalar_for_each_cell_uniform, 3)->DenseRange(1, 7);
-;
+
 
 BENCHMARK_TEMPLATE(FIELD_add_uniform, 1)->DenseRange(1, 16);
-;
 BENCHMARK_TEMPLATE(FIELD_add_uniform, 2)->DenseRange(1, 12);
-;
 BENCHMARK_TEMPLATE(FIELD_add_uniform, 3)->DenseRange(1, 7);
-;
+
 
 BENCHMARK_TEMPLATE(FIELD_add_for_each_cell_uniform, 1)->DenseRange(1, 16);
-;
 BENCHMARK_TEMPLATE(FIELD_add_for_each_cell_uniform, 2)->DenseRange(1, 12);
-;
 BENCHMARK_TEMPLATE(FIELD_add_for_each_cell_uniform, 3)->DenseRange(1, 7);
-;
+
