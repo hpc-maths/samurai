@@ -1,4 +1,3 @@
-
 #include <array>
 #include <benchmark/benchmark.h>
 #include <experimental/random>
@@ -47,38 +46,38 @@ auto unitary_box()
     return box;
 }
 
-// Mesure : Création d'une condition limite scalaire par défaut sur un maillage uniforme
-template <unsigned int dim>
-void BC_scalar_homogeneous(benchmark::State& state)
+// Mesure : Création d'une condition limite sur un maillage uniforme
+template <unsigned int dim, unsigned int n_comp, typename BCType, unsigned int order>
+void BC_homogeneous(benchmark::State& state)
 {
     samurai::Box<double, dim> box = unitary_box<dim>();
-    using Config                  = samurai::UniformConfig<dim>;
-    auto mesh                     = samurai::UniformMesh<Config>(box, state.range(0));
-    auto u                        = make_field<double, 1>("u", mesh);
+    using Config = samurai::UniformConfig<dim, order>;  // Utilisation de l'ordre comme paramètre
+    auto mesh = samurai::UniformMesh<Config>(box, state.range(0));
+    auto u = make_field<double, n_comp>("u", mesh);
+    
+    u.fill(1.0);
+    
     for (auto _ : state)
     {
-        samurai::make_bc<samurai::Dirichlet<dim>>(u);
+        samurai::make_bc<BCType>(u);
     }
 }
 
-// Mesure : Création d'une condition limite vectorielle par défaut sur un maillage uniforme
-template <unsigned int dim>
-void BC_vec_homogeneous(benchmark::State& state)
-{
-    samurai::Box<double, dim> box = unitary_box<dim>();
-    using Config                  = samurai::UniformConfig<dim>;
-    auto mesh                     = samurai::UniformMesh<Config>(box, state.range(0));
-    auto u                        = make_field<double, 2>("u", mesh);
-    for (auto _ : state)
-    {
-        samurai::make_bc<samurai::Dirichlet<dim>>(u);
-    }
-}
+// Tests Dirichlet
+BENCHMARK_TEMPLATE(BC_homogeneous, 1, 1, samurai::Dirichlet<1>, 1)->DenseRange(1, 1);
+BENCHMARK_TEMPLATE(BC_homogeneous, 2, 1, samurai::Dirichlet<1>, 1)->DenseRange(1, 1);
+BENCHMARK_TEMPLATE(BC_homogeneous, 3, 1, samurai::Dirichlet<1>, 1)->DenseRange(1, 1);
+BENCHMARK_TEMPLATE(BC_homogeneous, 1, 100, samurai::Dirichlet<1>, 1)->DenseRange(1, 1);
 
-BENCHMARK_TEMPLATE(BC_scalar_homogeneous, 1)->DenseRange(1, 1);
-;
-// BENCHMARK_TEMPLATE(BC_scalar_homogeneous,2)->DenseRange(1, 1);; // not enough ghost cells
-// BENCHMARK_TEMPLATE(BC_scalar_homogeneous,3)->DenseRange(1, 1);;
+// Tests Neumann
+BENCHMARK_TEMPLATE(BC_homogeneous, 1, 1, samurai::Neumann<1>, 1)->DenseRange(1, 1);
+BENCHMARK_TEMPLATE(BC_homogeneous, 2, 1, samurai::Neumann<1>, 1)->DenseRange(1, 1);
+BENCHMARK_TEMPLATE(BC_homogeneous, 3, 1, samurai::Neumann<1>, 1)->DenseRange(1, 1);
+BENCHMARK_TEMPLATE(BC_homogeneous, 1, 100, samurai::Neumann<1>, 1)->DenseRange(1, 1);
 
-BENCHMARK_TEMPLATE(BC_vec_homogeneous, 1)->DenseRange(1, 1);
-;
+// Tests Dirichlet ordre 3
+BENCHMARK_TEMPLATE(BC_homogeneous, 1, 1, samurai::Dirichlet<2>, 3)->DenseRange(1, 1);
+BENCHMARK_TEMPLATE(BC_homogeneous, 2, 1, samurai::Dirichlet<2>, 3)->DenseRange(1, 1);
+BENCHMARK_TEMPLATE(BC_homogeneous, 3, 1, samurai::Dirichlet<2>, 3)->DenseRange(1, 1);
+BENCHMARK_TEMPLATE(BC_homogeneous, 1, 100, samurai::Dirichlet<2>, 3)->DenseRange(1, 1);
+
