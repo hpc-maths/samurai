@@ -24,47 +24,45 @@ namespace samurai
         };
     }
 
+    struct start_end_local_function
+    {
+        start_end_local_function(std::size_t min_level, std::size_t max_level)
+            : m_max2min(static_cast<int>(max_level) - static_cast<int>(min_level))
+        {
+        }
+
+        template <class interval_t>
+        inline auto start(const interval_t& i) const
+        {
+            using value_t = typename interval_t::value_t;
+            // std::cout << "start: i.start = " << i.start << ", m_max2min = " << m_max2min << std::endl;
+            return static_cast<value_t>((i.start >> m_max2min) << m_max2min);
+        }
+
+        template <class interval_t>
+        inline auto end(const interval_t& i) const
+        {
+            using value_t = typename interval_t::value_t;
+            // std::cout << "end: i.end = " << i.end << ", m_max2min = " << m_max2min << std::endl;
+            return static_cast<value_t>((((i.end - 1) >> m_max2min) + 1) << m_max2min);
+        }
+
+        template <class interval_t>
+        inline interval_t operator()(const interval_t& i) const
+        {
+            return {start(i), end(i)};
+        }
+
+        int m_max2min;
+    };
+
     template <std::size_t dim>
     struct start_end_function
     {
-        auto& operator()(std::size_t level, std::size_t min_level, std::size_t max_level)
+        template <std::size_t d>
+        auto get_local_function(std::size_t /*level*/, std::size_t min_level, std::size_t max_level)
         {
-            m_level     = level;
-            m_min_level = min_level;
-            m_shift     = static_cast<int>(max_level) - static_cast<int>(min_level);
-            return *this;
-        }
-
-        template <std::size_t, bool from_diff_op = false, class Func>
-        inline auto start(const Func& f) const
-        {
-            auto new_f = [&, f](auto level, auto i, auto in_diff_op)
-            {
-                if constexpr (from_diff_op)
-                {
-                    in_diff_op = true;
-                }
-                auto dec  = (in_diff_op && static_cast<std::size_t>(level) != m_level) ? 1 : 0;
-                int value = (((i - dec) >> m_shift) << m_shift) + dec;
-                return f(m_level, value, in_diff_op);
-            };
-            return new_f;
-        }
-
-        template <std::size_t, bool from_diff_op = false, class Func>
-        inline auto end(const Func& f) const
-        {
-            auto new_f = [&, f](auto level, auto i, auto in_diff_op)
-            {
-                if constexpr (from_diff_op)
-                {
-                    in_diff_op = true;
-                }
-                auto dec  = (in_diff_op && static_cast<std::size_t>(level) != m_level) ? 0 : 1;
-                int value = (((i - dec) >> m_shift) + dec) << m_shift;
-                return f(m_level, value, in_diff_op);
-            };
-            return new_f;
+            return start_end_local_function(min_level, max_level);
         }
 
         template <std::size_t, bool end = false, class Func>
@@ -83,7 +81,10 @@ namespace samurai
                 }
                 else
                 {
+                    // std::cout << "goback: level = " << level << ", i = " << i << ", prev_lev = " << prev_lev << ", v = " << v <<
+                    // std::endl;
                     i = start_shift(start_shift(v, min_shift), max_shift);
+                    // std::cout << "goback: after start_shift, i = " << i << std::endl;
                 }
 
                 return std::make_pair(m_level, i);
@@ -94,6 +95,51 @@ namespace samurai
         std::size_t m_level;
         int m_shift;
         std::size_t m_min_level;
+    };
+
+    struct start_end_translate_local_function
+    {
+        start_end_translate_local_function(std::size_t level, std::size_t min_level, std::size_t max_level, int translation)
+            : m_max2curr(static_cast<int>(max_level) - static_cast<int>(level))
+            , m_curr2min(static_cast<int>(level) - static_cast<int>(min_level))
+            , m_min2max(static_cast<int>(max_level) - static_cast<int>(min_level))
+            , m_translation(translation)
+        {
+        }
+
+        template <class interval_t>
+        inline auto start(const interval_t& i) const
+        {
+            using value_t = typename interval_t::value_t;
+            // std::cout << "start: i.start = " << i.start << ", m_max2curr = " << m_max2curr << ", m_translation = " << m_translation
+            //           << ", m_curr2min = " << m_curr2min << ", m_min2max = " << m_min2max
+            //           << " value: " << static_cast<value_t>((((i.start >> m_max2curr) + m_translation) >> m_curr2min) << m_min2max)
+            //           << std::endl;
+            return static_cast<value_t>((((i.start >> m_max2curr) + m_translation) >> m_curr2min) << m_min2max);
+        }
+
+        template <class interval_t>
+        inline auto end(const interval_t& i) const
+        {
+            using value_t = typename interval_t::value_t;
+            // std::cout << "end: i.end = " << i.end << ", m_max2curr = " << m_max2curr << ", m_translation = " << m_translation
+            //           << ", m_curr2min = " << m_curr2min << ", m_min2max = " << m_min2max
+            //           << " value: " << static_cast<value_t>((((((i.end - 1) >> m_max2curr) + m_translation) >> m_curr2min) + 1) <<
+            //           m_min2max)
+            //           << std::endl;
+            return static_cast<value_t>((((((i.end - 1) >> m_max2curr) + m_translation) >> m_curr2min) + 1) << m_min2max);
+        }
+
+        template <class interval_t>
+        inline interval_t operator()(const interval_t& i) const
+        {
+            return {start(i), end(i)};
+        }
+
+        int m_max2curr;
+        int m_curr2min;
+        int m_min2max;
+        int m_translation;
     };
 
     template <std::size_t dim>
@@ -109,53 +155,10 @@ namespace samurai
         {
         }
 
-        auto& operator()(auto level, auto min_level, auto max_level)
+        template <std::size_t d>
+        auto get_local_function(auto level, auto min_level, auto max_level)
         {
-            m_level     = level;
-            m_min_level = min_level;
-            m_max_level = max_level;
-            return *this;
-        }
-
-        template <std::size_t d, bool from_diff_op = false, class Func>
-        inline auto start(const Func& f) const
-        {
-            auto new_f = [&, f](auto level, auto i, auto in_diff_op)
-            {
-                int max2curr = static_cast<int>(m_max_level) - static_cast<int>(level);
-                int curr2min = static_cast<int>(level) - static_cast<int>(m_min_level);
-                int min2max  = static_cast<int>(m_max_level) - static_cast<int>(m_min_level);
-
-                if constexpr (from_diff_op)
-                {
-                    in_diff_op = true;
-                }
-
-                auto dec  = (in_diff_op && static_cast<std::size_t>(level) != m_level) ? 1 : 0;
-                int value = (((((i - dec) >> max2curr) + m_t[d - 1]) >> curr2min) + dec) << min2max;
-                return f(m_level, value, in_diff_op);
-            };
-            return new_f;
-        }
-
-        template <std::size_t d, bool from_diff_op = false, class Func>
-        inline auto end(const Func& f) const
-        {
-            auto new_f = [&, f](auto level, auto i, auto in_diff_op)
-            {
-                int max2curr = static_cast<int>(m_max_level) - static_cast<int>(level);
-                int curr2min = static_cast<int>(level) - static_cast<int>(m_min_level);
-                int min2max  = static_cast<int>(m_max_level) - static_cast<int>(m_min_level);
-
-                if constexpr (from_diff_op)
-                {
-                    in_diff_op = true;
-                }
-                auto dec  = (in_diff_op && static_cast<std::size_t>(level) != m_level) ? 0 : 1;
-                int value = (((((i - dec) >> max2curr) + m_t[d - 1]) >> curr2min) + dec) << min2max;
-                return f(m_level, value, in_diff_op);
-            };
-            return new_f;
+            return start_end_translate_local_function(level, min_level, max_level, m_t[d - 1]);
         }
 
         template <std::size_t d, bool end = false, class Func>
@@ -174,7 +177,10 @@ namespace samurai
                 }
                 else
                 {
+                    // std::cout << "translate goback: level = " << level << ", i = " << i << ", prev_lev = " << prev_lev << ", v = " << v
+                    //           << " m_t = " << m_t[d - 1] << std::endl;
                     i = start_shift(start_shift(v, min_shift), max_shift) - m_t[d - 1];
+                    // std::cout << "translate goback: after start_shift, i = " << i << std::endl;
                 }
 
                 return std::make_pair(m_level, i);
@@ -186,93 +192,5 @@ namespace samurai
         std::size_t m_min_level;
         std::size_t m_max_level;
         xt::xtensor_fixed<int, xt::xshape<dim>> m_t;
-    };
-
-    template <std::size_t dim>
-    struct start_end_contraction_function
-    {
-        explicit start_end_contraction_function(int c)
-            : m_level(0)
-            , m_min_level(0)
-            , m_max_level(0)
-            , m_c(c)
-        {
-        }
-
-        auto& operator()(auto level, auto min_level, auto max_level)
-        {
-            m_level     = level;
-            m_min_level = min_level;
-            m_max_level = max_level;
-            return *this;
-        }
-
-        template <std::size_t d, bool from_diff_op = false, class Func>
-        inline auto start(const Func& f) const
-        {
-            auto new_f = [&, f](auto level, auto i, auto dec)
-            {
-                int max2curr = static_cast<int>(m_max_level) - static_cast<int>(level);
-                int curr2min = static_cast<int>(level) - static_cast<int>(m_min_level);
-                int min2max  = static_cast<int>(m_max_level) - static_cast<int>(m_min_level);
-
-                if constexpr (from_diff_op)
-                {
-                    dec = (static_cast<std::size_t>(level) > m_level) ? 1 : 0;
-                    dec = 1;
-                }
-                int value = (((((i - dec) >> max2curr) + m_c) >> curr2min) + dec) << min2max;
-                return f(m_level, value, dec);
-            };
-            return new_f;
-        }
-
-        template <std::size_t d, bool from_diff_op = false, class Func>
-        inline auto end(const Func& f) const
-        {
-            auto new_f = [&, f](auto level, auto i, auto dec)
-            {
-                int max2curr = static_cast<int>(m_max_level) - static_cast<int>(level);
-                int curr2min = static_cast<int>(level) - static_cast<int>(m_min_level);
-                int min2max  = static_cast<int>(m_max_level) - static_cast<int>(m_min_level);
-
-                if constexpr (from_diff_op)
-                {
-                    dec = (static_cast<std::size_t>(level) > m_level) ? 0 : 1;
-                }
-                int value = (((((i - dec) >> max2curr) - m_c) >> curr2min) + dec) << min2max;
-                return f(m_level, value, dec);
-            };
-            return new_f;
-        }
-
-        template <std::size_t d, bool end = false, class Func>
-        inline auto goback(const Func& f) const
-        {
-            auto new_f = [&, f](auto level, auto i)
-            {
-                auto [prev_lev, v] = f(level, i);
-
-                auto min_shift = static_cast<int>(m_min_level) - static_cast<int>(prev_lev);
-                auto max_shift = static_cast<int>(m_level) - static_cast<int>(m_min_level);
-
-                if constexpr (end)
-                {
-                    i = end_shift(end_shift(v, min_shift), max_shift) + m_c;
-                }
-                else
-                {
-                    i = start_shift(start_shift(v, min_shift), max_shift) + m_c;
-                }
-
-                return std::make_pair(m_level, i);
-            };
-            return new_f;
-        }
-
-        std::size_t m_level;
-        std::size_t m_min_level;
-        std::size_t m_max_level;
-        int m_c;
     };
 }

@@ -14,7 +14,7 @@ namespace samurai
 
     // namespace samurai::experimental
     // {
-    template <class Operator, class... S>
+    template <class Operator, class StartAndStopOp, class... S>
     class SetTraverser;
 
     template <class container_t>

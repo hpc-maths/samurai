@@ -13,8 +13,7 @@ namespace samurai
         template <std::size_t dim, class Set, class Func, class Container>
         void apply_impl(Set&& global_set, Func&& func, Container& index)
         {
-            auto set            = global_set.template get_local_set<dim>(global_set.level(), index);
-            auto start_and_stop = global_set.template get_start_and_stop_function<dim>();
+            auto set = global_set.template get_local_set<dim>(global_set.level(), index);
 
             if constexpr (dim != 1)
             {
@@ -26,7 +25,7 @@ namespace samurai
                         apply_impl<dim - 1>(std::forward<Set>(global_set), std::forward<Func>(func), index);
                     }
                 };
-                apply(set, start_and_stop, func_int);
+                apply(set, func_int);
             }
             else
             {
@@ -34,7 +33,7 @@ namespace samurai
                 {
                     func(interval, index);
                 };
-                apply(set, start_and_stop, func_int);
+                apply(set, func_int);
             }
         }
     }
@@ -50,16 +49,17 @@ namespace samurai
         }
     }
 
-    template <class Set, class StartEnd, class Func>
+    template <class Set, class Func>
         requires IsSetOp<Set> || IsIntervalListVisitor<Set>
-    void apply(Set&& set, StartEnd&& start_and_stop, Func&& func)
+    void apply(Set&& set, Func&& func)
     {
         using interval_t = typename std::decay_t<Set>::interval_t;
         using value_t    = typename interval_t::value_t;
 
         interval_t result;
         int r_ipos = 0;
-        set.next(0, std::forward<StartEnd>(start_and_stop));
+        set.init();
+        set.next(0);
         auto scan = set.min();
 
         while (scan < sentinel<value_t> && !set.is_empty())
@@ -81,7 +81,7 @@ namespace samurai
                 func(true_result);
             }
 
-            set.next(scan, std::forward<StartEnd>(start_and_stop));
+            set.next(scan);
             scan = set.min();
         }
     }
