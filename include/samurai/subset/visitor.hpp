@@ -78,22 +78,17 @@ namespace samurai
         }
 
         explicit IntervalListVisitor(IntervalListRange<container_t>&& intervals)
-            : m_shift2min(std::numeric_limits<std::size_t>::infinity())
-            , m_shift2dest(std::numeric_limits<std::size_t>::infinity())
-            , m_shift2ref(std::numeric_limits<std::size_t>::infinity())
-            , m_intervals(std::move(intervals))
-            , m_first(m_intervals.begin())
-            , m_last(m_intervals.end())
+            // : m_shift2min(std::numeric_limits<std::size_t>::infinity())
+            // , m_shift2dest(std::numeric_limits<std::size_t>::infinity())
+            // , m_shift2ref(std::numeric_limits<std::size_t>::infinity())
+
+            : m_intervals(std::move(intervals))
+            // , m_first(m_intervals.begin())
+            // , m_last(m_intervals.end())
             , m_current(sentinel<value_t>)
-            , m_is_start(true)
+            // , m_is_start(true)
             , m_unvalid(true)
         {
-        }
-
-        inline void init()
-        {
-            m_current  = std::numeric_limits<value_t>::min();
-            m_is_start = true;
         }
 
         inline auto start(const auto& it) const
@@ -117,7 +112,7 @@ namespace samurai
             //
             // if the m_current value is the end of the interval which means m_is_start = false
             // then if scan is lower than m_current, scan is in the interval.
-            return m_current != sentinel<value_t> && !((scan < m_current) ^ (!m_is_start));
+            return m_current != sentinel<value_t> && m_current_interval.contains(scan); // !((scan < m_current) ^ (!m_is_start));
         }
 
         inline bool is_empty() const
@@ -137,6 +132,17 @@ namespace samurai
 
         inline void next_interval()
         {
+            if (m_current != std::numeric_limits<value_t>::min())
+            {
+                ++m_first;
+            }
+
+            if (m_first == m_last)
+            {
+                m_current = sentinel<value_t>;
+                return;
+            }
+
             auto i_start = start(m_first);
             auto i_end   = end(m_first);
             while (m_first + 1 != m_last && i_end >= start(m_first + 1))
@@ -152,8 +158,7 @@ namespace samurai
             }
             else
             {
-                m_current_interval = {0, 0};
-                m_current          = sentinel<value_t>;
+                m_current = sentinel<value_t>;
             }
             // std::cout << "next interval: " << m_current_interval << std::endl;
         }
@@ -162,7 +167,6 @@ namespace samurai
         {
             if (m_unvalid)
             {
-                m_current = sentinel<value_t>;
                 return;
             }
 
@@ -180,13 +184,6 @@ namespace samurai
                 }
                 else
                 {
-                    ++m_first;
-
-                    if (m_first == m_last)
-                    {
-                        m_current = sentinel<value_t>;
-                        return;
-                    }
                     next_interval();
                 }
                 m_is_start = !m_is_start;
@@ -232,20 +229,6 @@ namespace samurai
             , m_next_interval({std::numeric_limits<value_t>::min(), std::numeric_limits<value_t>::min()})
             , m_is_start(true)
         {
-            // init();
-        }
-
-        inline void init()
-        {
-            m_current  = std::numeric_limits<value_t>::min();
-            m_is_start = true;
-            std::apply(
-                [](auto&&... args)
-                {
-                    (args.init(), ...);
-                },
-                m_s);
-            // std::cout << "SetTraverser initialized with first scan: " << m_scan << std::endl;
         }
 
         inline auto shift() const
@@ -255,7 +238,7 @@ namespace samurai
 
         inline bool is_in(auto scan) const
         {
-            return m_current != sentinel<value_t> && !((scan < m_current) ^ (!m_is_start));
+            return m_current != sentinel<value_t> && m_current_interval.contains(scan); //!((scan < m_current) ^ (!m_is_start));
         }
 
         inline bool is_empty() const
@@ -294,7 +277,7 @@ namespace samurai
         inline bool child_is_in(auto scan) const
         {
             return std::apply(
-                [this, scan](auto&&... args)
+                [this, scan](auto&... args)
                 {
                     return m_operator.is_in(scan, args...);
                 },
@@ -304,7 +287,7 @@ namespace samurai
         inline auto child_min() const
         {
             return std::apply(
-                [](auto&&... args)
+                [](auto&... args)
                 {
                     return compute_min(args.min()...);
                 },
@@ -314,7 +297,7 @@ namespace samurai
         inline void child_next(auto scan)
         {
             std::apply(
-                [scan](auto&&... arg)
+                [scan](auto&... arg)
                 {
                     (arg.next(scan), ...);
                 },
@@ -324,74 +307,86 @@ namespace samurai
         inline bool child_is_empty() const
         {
             return std::apply(
-                [this](auto&&... args)
+                [this](auto&... args)
                 {
                     return m_operator.is_empty(args...);
                 },
                 m_s);
         }
 
-        interval_t find_next()
+        void find_next()
         {
             if (!child_is_empty())
             {
-                interval_t result;
-                int r_ipos = 0;
-
-                child_next(m_scan);
-                m_scan = child_min();
-
-                // std::cout << "SetTraverser: find_next with scan = " << m_scan << std::endl;
-                while (m_scan < sentinel<value_t> && !child_is_empty())
+                if constexpr (sizeof...(S) == 1)
                 {
-                    bool is_in = child_is_in(m_scan);
-
-                    if (is_in && r_ipos == 0)
-                    {
-                        result.start = m_scan;
-                        r_ipos       = 1;
-                    }
-                    else if (!is_in && r_ipos == 1)
-                    {
-                        result.end = m_scan;
-                        r_ipos     = 0;
-                        return result;
-                    }
+                    std::get<0>(m_s).next_interval();
+                    m_next_interval = std::get<0>(m_s).current_interval();
+                    return;
+                }
+                else
+                {
+                    int r_ipos = 0;
 
                     child_next(m_scan);
                     m_scan = child_min();
+
+                    // std::cout << "SetTraverser: find_next with scan = " << m_scan << std::endl;
+                    while (m_scan < sentinel<value_t> && !child_is_empty())
+                    {
+                        bool is_in = child_is_in(m_scan);
+
+                        if (is_in && r_ipos == 0)
+                        {
+                            m_next_interval.start = m_scan;
+                            r_ipos                = 1;
+                        }
+                        else if (!is_in && r_ipos == 1)
+                        {
+                            m_next_interval.end = m_scan;
+                            r_ipos              = 0;
+                            return;
+                        }
+
+                        child_next(m_scan);
+                        m_scan = child_min();
+                    }
                 }
             }
             // std::cout << "SetTraverser: find_next finished with scan = " << m_scan << std::endl;
-            return {0, 0};
+            m_next_interval = {0, 0};
         }
 
         inline void next_interval()
         {
-            interval_t itmp = m_next_interval;
-            if (m_next_interval.start == std::numeric_limits<value_t>::min())
+            if (m_current == sentinel<value_t>)
             {
-                itmp = find_next();
-            }
-            // std::cout << "SetTraverser: next_interval with itmp = " << itmp << std::endl;
-            if (!itmp.is_valid())
-            {
-                m_current          = sentinel<value_t>;
-                m_current_interval = {0, 0};
                 return;
             }
 
-            m_current_interval = m_start_and_stop_op(itmp);
+            if (m_next_interval.start == std::numeric_limits<value_t>::min())
+            {
+                find_next();
+            }
+            // std::cout << "SetTraverser: next_interval with itmp = " << itmp << std::endl;
+            if (!m_next_interval.is_valid())
+            {
+                m_current = sentinel<value_t>;
+                // m_current_interval = {0, 0};
+                return;
+            }
+
+            m_current_interval = m_next_interval;
+            m_start_and_stop_op(m_current_interval);
 
             // std::cout << "SetTraverser: next_interval with current interval = " << m_current_interval << std::endl;
-            itmp = find_next();
+            find_next();
             // std::cout << "SetTraverser: next_interval after find_next with itmp = " << itmp << std::endl;
-            while (itmp.is_valid() && m_current_interval.end >= m_start_and_stop_op.start(itmp))
+            while (m_next_interval.is_valid() && m_current_interval.end >= m_start_and_stop_op.start(m_next_interval))
             {
-                m_current_interval.end = m_start_and_stop_op.end(itmp);
-                itmp                   = find_next();
+                m_current_interval.end = m_start_and_stop_op.end(m_next_interval);
+                find_next();
             }
-            m_next_interval = itmp;
             if (m_current_interval.is_valid())
             {
                 m_current = m_current_interval.start;

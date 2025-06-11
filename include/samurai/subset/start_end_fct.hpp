@@ -48,9 +48,10 @@ namespace samurai
         }
 
         template <class interval_t>
-        inline interval_t operator()(const interval_t& i) const
+        inline void operator()(interval_t& i) const
         {
-            return {start(i), end(i)};
+            i.start = start(i);
+            i.end   = end(i);
         }
 
         int m_max2min;
@@ -131,9 +132,10 @@ namespace samurai
         }
 
         template <class interval_t>
-        inline interval_t operator()(const interval_t& i) const
+        inline void operator()(interval_t& i) const
         {
-            return {start(i), end(i)};
+            i.start = start(i);
+            i.end   = end(i);
         }
 
         int m_max2curr;

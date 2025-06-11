@@ -58,7 +58,6 @@ namespace samurai
 
         interval_t result;
         int r_ipos = 0;
-        set.init();
         set.next(0);
         auto scan = set.min();
 
