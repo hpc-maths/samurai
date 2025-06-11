@@ -94,26 +94,6 @@ void BC_directional(benchmark::State& state)
     }
 }
 
-// Test BC avec une fonction
-template <unsigned int dim, unsigned int n_comp, typename BCType, unsigned int order>
-void BC_functional(benchmark::State& state)
-{
-    samurai::Box<double, dim> box = unitary_box<dim>();
-    using Config = samurai::UniformConfig<dim, order>;
-    auto mesh = samurai::UniformMesh<Config>(box, state.range(0));
-    auto u = make_field<double, n_comp>("u", mesh);
-    
-    u.fill(1.0);
-    
-    for (auto _ : state)
-    {
-        auto func = [](const auto& d, const auto& cell, const auto& coords) {
-            return 1.0;
-        };
-        samurai::make_bc<BCType>(u, func);
-    }
-}
-
 // Tests Dirichlet
 BENCHMARK_TEMPLATE(BC_homogeneous, 1, 1, samurai::Dirichlet<1>, 1)->DenseRange(1, 1);
 BENCHMARK_TEMPLATE(BC_homogeneous, 2, 1, samurai::Dirichlet<1>, 1)->DenseRange(1, 1);
@@ -132,13 +112,11 @@ BENCHMARK_TEMPLATE(BC_homogeneous, 2, 1, samurai::Dirichlet<2>, 3)->DenseRange(1
 BENCHMARK_TEMPLATE(BC_homogeneous, 3, 1, samurai::Dirichlet<2>, 3)->DenseRange(1, 1);
 BENCHMARK_TEMPLATE(BC_homogeneous, 1, 100, samurai::Dirichlet<2>, 3)->DenseRange(1, 1);
 
-// Tests BC directionnels
+// BC directionnels
 BENCHMARK_TEMPLATE(BC_directional, 1, 1, samurai::Dirichlet<1>, 1)->DenseRange(1, 1);
 BENCHMARK_TEMPLATE(BC_directional, 2, 1, samurai::Dirichlet<1>, 1)->DenseRange(1, 1);
 BENCHMARK_TEMPLATE(BC_directional, 3, 1, samurai::Dirichlet<1>, 1)->DenseRange(1, 1);
 
-// Tests BC fonctionnels
-BENCHMARK_TEMPLATE(BC_functional, 1, 1, samurai::Dirichlet<1>, 1)->DenseRange(1, 1);
-BENCHMARK_TEMPLATE(BC_functional, 2, 1, samurai::Dirichlet<1>, 1)->DenseRange(1, 1);
-BENCHMARK_TEMPLATE(BC_functional, 3, 1, samurai::Dirichlet<1>, 1)->DenseRange(1, 1);
+
+
 
