@@ -23,33 +23,23 @@ namespace mpi = boost::mpi;
 
 #ifdef SAMURAI_WITH_MPI
 // Résolution d'un bug : S'il y a trop de rangs MPI et un min_level trop faible, alors il est parfois
-// impossible de décomposer le problème. Il faut alors imposer un min_level limite
-bool check_size_min_level(std::size_t min_level)
+// impossible de décomposer le problème (--> segfault). Il faut alors imposer un min_level limite le temps d'un fix
+bool is_invalid_mpi_size(std::size_t min_level)
 {
     boost::mpi::communicator world;
-    int size = world.size();
+    int mpi_size = world.size();
 
     // à vérifier :
     // - en 1d ?
-    // - inférieur ou égal ? i.e. si min_level est à 0 alors j'ai une seule case ?
-    // valable sur un domaine [0,1] mais quid sur [1, b] ?
-    if (size <= pow(2, min_level))
-    {
-        return false;
-    }
-    else
-    {
-        return true;
-    }
-    return true;
+    return (mpi_size > std::pow(2, min_level));
 }
 
-void error_on_mpi_min_level(std::size_t min_level)
+void validate_mpi_min_level(std::size_t min_level)
 {
-    auto error = check_size_min_level(min_level);
-    if (error)
+    if (is_invalid_mpi_size(min_level))
     {
-        std::cout << "ERROR: Please reduce MPI Size or increase min_value according to the rule mpi_size <= 2^min_level." << std::endl;
+        std::cerr << "ERROR: MPI size (" << boost::mpi::communicator().size() << ") is too large for min_level = " << min_level
+                  << ". Please ensure that mpi_size <= 2^min_level." << std::endl;
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
 }
@@ -280,9 +270,7 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
         partition_mesh(start_level, b);
         // load_balancing();
-
-        // resolve MPI issue when too lot MPI rank for 2^min_level
-        error_on_mpi_min_level(min_level);
+        validate_mpi_min_level(min_level);
 #else
         this->m_cells[mesh_id_t::cells][start_level] = {start_level, b, approx_box_tol, scaling_factor_};
 #endif
@@ -315,7 +303,7 @@ namespace samurai
         partition_mesh(start_level, b);
         // load_balancing();
 
-        error_on_mpi_min_level(min_level);
+        validate_mpi_min_level(min_level);
 #else
         this->m_cells[mesh_id_t::cells][start_level] = {start_level, b, approx_box_tol, scaling_factor_};
 #endif
