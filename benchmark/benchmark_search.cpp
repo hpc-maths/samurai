@@ -1,4 +1,3 @@
-
 #include <array>
 #include <benchmark/benchmark.h>
 #include <experimental/random>
@@ -36,63 +35,8 @@ auto cell_array_with_n_intervals(int64_t size)
 
 //////////////////////////////////////////////////////////////
 
-// Mesure : recherche du premier intervale dans un CellArray nD de taille n en utilisant find
-template <unsigned int dim>
-void FIND_find_begin(benchmark::State& state)
-{
-    auto ca                                       = cell_array_with_n_intervals<dim>(state.range(0));
-    xt::xtensor_fixed<int, xt::xshape<dim>> coord = {0};
-    for (auto _ : state)
-    {
-        auto index = find(ca[0], coord);
-        benchmark::DoNotOptimize(index);
-    }
-}
 
-// Mesure : recherche du dernier intervale dans un CellArray nD de taille n en utilisant find
-template <unsigned int dim>
-void FIND_find_end(benchmark::State& state)
-{
-    auto ca                                       = cell_array_with_n_intervals<dim>(state.range(0));
-    xt::xtensor_fixed<int, xt::xshape<dim>> coord = {2 * state.range(0)};
-    for (auto _ : state)
-    {
-        auto index = find(ca[0], coord);
-        benchmark::DoNotOptimize(index);
-    }
-}
 
-// Mesure : recherche du premier intervale dans un CellArray nD de taille n en utilisant find_impl
-template <unsigned int dim>
-void FIND_find_impl_begin(benchmark::State& state)
-{
-    auto ca                                       = cell_array_with_n_intervals<dim>(state.range(0));
-    auto lca                                      = ca[0];
-    xt::xtensor_fixed<int, xt::xshape<dim>> coord = {0};
-    auto size                                     = lca[dim - 1].size();
-    auto integral                                 = std::integral_constant<std::size_t, dim - 1>{};
-    for (auto _ : state)
-    {
-        auto index = samurai::detail::find_impl(lca, 0, size, coord, integral);
-        benchmark::DoNotOptimize(index);
-    }
-}
-
-// Mesure : recherche du dernier intervale dans un CellArray nD de taille n en utilisant find_impl
-template <unsigned int dim>
-void FIND_find_impl_end(benchmark::State& state)
-{
-    auto ca                                       = cell_array_with_n_intervals<dim>(state.range(0));
-    auto lca                                      = ca[0];
-    xt::xtensor_fixed<int, xt::xshape<dim>> coord = {2 * state.range(0)};
-    auto size                                     = lca[dim - 1].size();
-    auto integral                                 = std::integral_constant<std::size_t, dim - 1>{};
-    for (auto _ : state)
-    {
-        auto index = samurai::detail::find_impl(lca, 0, size, coord, integral);
-        benchmark::DoNotOptimize(index);
-    }
-}
 
 // Mesure : recherche du premier intervale dans un CellArray nD de taille n en utilisant interval_search
 template <unsigned int dim>
@@ -109,6 +53,7 @@ void FIND_interval_search_begin(benchmark::State& state)
     auto integral                                 = std::integral_constant<std::size_t, dim - 1>{};
     auto begin                                    = lca[0].cbegin() + static_cast<diff_t>(0);
     auto end                                      = lca[0].cend() + static_cast<diff_t>(size);
+
 
     for (auto _ : state)
     {
@@ -140,28 +85,41 @@ void FIND_interval_search_end(benchmark::State& state)
     }
 }
 
-BENCHMARK_TEMPLATE(FIND_find_begin, 1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(FIND_find_begin, 2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(FIND_find_begin, 3)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(FIND_find_end, 1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(FIND_find_end, 2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(FIND_find_end, 3)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+// Ajout d'un nouveau benchmark pour les cas intermédiaires
+template <unsigned int dim>
+void FIND_interval_search_middle(benchmark::State& state)
+{
+    using TInterval = samurai::default_config::interval_t;
+    using lca_t     = const samurai::LevelCellArray<dim, TInterval>;
+    using diff_t    = typename lca_t::const_iterator::difference_type;
 
-BENCHMARK_TEMPLATE(FIND_find_impl_begin, 1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(FIND_find_impl_begin, 2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(FIND_find_impl_begin, 3)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+    auto ca                                       = cell_array_with_n_intervals<dim>(state.range(0));
+    auto lca                                      = ca[0];
+    xt::xtensor_fixed<int, xt::xshape<dim>> coord = {state.range(0)}; // Point au milieu
+    auto size                                     = lca[dim - 1].size();
+    auto integral                                 = std::integral_constant<std::size_t, dim - 1>{};
+    auto begin                                    = lca[0].cbegin() + static_cast<diff_t>(0);
+    auto end                                      = lca[0].cend() + static_cast<diff_t>(size);
 
-BENCHMARK_TEMPLATE(FIND_find_impl_end, 1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(FIND_find_impl_end, 1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(FIND_find_impl_end, 2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
 
-BENCHMARK_TEMPLATE(FIND_interval_search_begin, 1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(FIND_interval_search_begin, 2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(FIND_interval_search_begin, 3)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+    for (auto _ : state)
+    {
+        auto index = samurai::detail::interval_search(begin, end, coord[0]);
+        benchmark::DoNotOptimize(index);
+    }
+}
 
-BENCHMARK_TEMPLATE(FIND_interval_search_end, 1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(FIND_interval_search_end, 2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(FIND_interval_search_end, 3)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(FIND_interval_search_begin, 1)->RangeMultiplier(2)->Range(1 << 1, 1 << 15);
+BENCHMARK_TEMPLATE(FIND_interval_search_begin, 2)->RangeMultiplier(2)->Range(1 << 1, 1 << 15);
+BENCHMARK_TEMPLATE(FIND_interval_search_begin, 3)->RangeMultiplier(2)->Range(1 << 1, 1 << 15);
+
+BENCHMARK_TEMPLATE(FIND_interval_search_end, 1)->RangeMultiplier(2)->Range(1 << 1, 1 << 15);
+BENCHMARK_TEMPLATE(FIND_interval_search_end, 2)->RangeMultiplier(2)->Range(1 << 1, 1 << 15);
+BENCHMARK_TEMPLATE(FIND_interval_search_end, 3)->RangeMultiplier(2)->Range(1 << 1, 1 << 15);
+
+BENCHMARK_TEMPLATE(FIND_interval_search_middle, 1)->RangeMultiplier(2)->Range(1 << 1, 1 << 15);
+BENCHMARK_TEMPLATE(FIND_interval_search_middle, 2)->RangeMultiplier(2)->Range(1 << 1, 1 << 15);
+BENCHMARK_TEMPLATE(FIND_interval_search_middle, 3)->RangeMultiplier(2)->Range(1 << 1, 1 << 15);
 
 /**
 template <std::size_t dim>
