@@ -112,7 +112,7 @@ namespace samurai
             //
             // if the m_current value is the end of the interval which means m_is_start = false
             // then if scan is lower than m_current, scan is in the interval.
-            return m_current != sentinel<value_t> && m_current_interval.contains(scan); // !((scan < m_current) ^ (!m_is_start));
+            return m_current != sentinel<value_t> && !((scan < m_current) ^ (!m_is_start));
         }
 
         inline bool is_empty() const
@@ -195,6 +195,11 @@ namespace samurai
             return m_current_interval;
         }
 
+        inline auto& current()
+        {
+            return m_current;
+        }
+
       private:
 
         int m_shift2min;
@@ -226,6 +231,7 @@ namespace samurai
             , m_start_and_stop_op(start_and_stop_op)
             , m_s(std::forward<S>(s)...)
             , m_current(std::numeric_limits<value_t>::min())
+            , m_next_current(std::numeric_limits<value_t>::min())
             , m_next_interval({std::numeric_limits<value_t>::min(), std::numeric_limits<value_t>::min()})
             , m_is_start(true)
         {
@@ -238,7 +244,7 @@ namespace samurai
 
         inline bool is_in(auto scan) const
         {
-            return m_current != sentinel<value_t> && m_current_interval.contains(scan); //!((scan < m_current) ^ (!m_is_start));
+            return m_current != sentinel<value_t> && !((scan < m_current) ^ (!m_is_start));
         }
 
         inline bool is_empty() const
@@ -316,11 +322,13 @@ namespace samurai
 
         void find_next()
         {
-            if (!child_is_empty())
+            // if (!child_is_empty())
+            if (m_next_current != sentinel<value_t>)
             {
                 if constexpr (sizeof...(S) == 1)
                 {
                     std::get<0>(m_s).next_interval();
+                    m_next_current = std::get<0>(m_s).current();
                     m_next_interval = std::get<0>(m_s).current_interval();
                     return;
                 }
@@ -354,27 +362,23 @@ namespace samurai
                 }
             }
             // std::cout << "SetTraverser: find_next finished with scan = " << m_scan << std::endl;
-            m_next_interval = {0, 0};
+            m_next_current = sentinel<value_t>;
         }
 
         inline void next_interval()
         {
-            if (m_current == sentinel<value_t>)
-            {
-                return;
-            }
 
             if (m_next_interval.start == std::numeric_limits<value_t>::min())
             {
                 find_next();
             }
-            // std::cout << "SetTraverser: next_interval with itmp = " << itmp << std::endl;
-            if (!m_next_interval.is_valid())
+
+            m_current = m_next_current;
+            if (m_current == sentinel<value_t>)
             {
-                m_current = sentinel<value_t>;
-                // m_current_interval = {0, 0};
                 return;
             }
+            // std::cout << "SetTraverser: next_interval with itmp = " << itmp << std::endl;
 
             m_current_interval = m_next_interval;
             m_start_and_stop_op(m_current_interval);
@@ -382,7 +386,7 @@ namespace samurai
             // std::cout << "SetTraverser: next_interval with current interval = " << m_current_interval << std::endl;
             find_next();
             // std::cout << "SetTraverser: next_interval after find_next with itmp = " << itmp << std::endl;
-            while (m_next_interval.is_valid() && m_current_interval.end >= m_start_and_stop_op.start(m_next_interval))
+            while (m_next_current != sentinel<value_t> && m_current_interval.end >= m_start_and_stop_op.start(m_next_interval))
             {
                 m_current_interval.end = m_start_and_stop_op.end(m_next_interval);
                 find_next();
@@ -403,6 +407,11 @@ namespace samurai
             return m_current_interval;
         }
 
+        inline auto& current()
+        {
+            return m_current;
+        }
+
       private:
 
         int m_shift;
@@ -410,6 +419,7 @@ namespace samurai
         StartAndStopOp m_start_and_stop_op;
         set_type m_s;
         value_t m_current;
+        value_t m_next_current;
         interval_t m_current_interval;
         interval_t m_next_interval;
         bool m_is_start;
