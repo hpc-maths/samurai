@@ -1,6 +1,7 @@
 
 #include <array>
 #include <benchmark/benchmark.h>
+#include <cmath>
 #include <experimental/random>
 
 #include <xtensor/xfixed.hpp>
@@ -23,21 +24,53 @@
 // utils
 
 template <unsigned int dim>
-auto cell_list_with_n_intervals(int64_t size)
+auto gen_regular_intervals = [](int64_t size, unsigned int level = 0)
 {
     samurai::CellList<dim> cl;
+
     for (int64_t i = 0; i < size; i++)
     {
         int index = static_cast<int>(i);
-        cl[0][{}].add_interval({2 * index, 2 * index + 1});
+
+        // Calcul des paramètres selon le niveau :
+        // Niveau L : taille = 2^L, espacement = 2^(L+1)
+        int interval_size = 1 << level;       // 2^level
+        int spacing       = 1 << (level + 1); // 2^(level+1)
+        int start         = index * spacing;
+        int end           = start + interval_size;
+
+        if constexpr (dim == 1)
+        {
+            cl[level][{}].add_interval({start, end});
+        }
+        else if constexpr (dim == 2)
+        {
+            for (int y = 0; y < size; ++y)
+            {
+                xt::xtensor_fixed<int, xt::xshape<1>> coord{y};
+                cl[level][coord].add_interval({start, end});
+            }
+        }
+        else if constexpr (dim == 3)
+        {
+            for (int y = 0; y < size; ++y)
+            {
+                for (int z = 0; z < size; ++z)
+                {
+                    xt::xtensor_fixed<int, xt::xshape<2>> coord{y, z};
+                    cl[level][coord].add_interval({start, end});
+                }
+            }
+        }
     }
+
     return cl;
-}
+};
 
 template <unsigned int dim>
 auto cell_array_with_n_intervals(int64_t size)
 {
-    auto cl = cell_list_with_n_intervals<dim>(size);
+    auto cl = gen_regular_intervals<dim>(size);
     samurai::CellArray<dim> ca(cl);
     return ca;
 }
@@ -58,12 +91,22 @@ void CELLARRAY_default(benchmark::State& state)
 template <unsigned int dim>
 void CELLARRAY_cl_ca_multi(benchmark::State& state)
 {
-    auto cl = cell_list_with_n_intervals<dim>(state.range(0));
+    auto cl = gen_regular_intervals<dim>(state.range(0));
+
+    // Le nombre d'intervalles est state.range(0)^dim
+    std::size_t nb_intervals = static_cast<std::size_t>(std::pow(state.range(0), dim));
+
     for (auto _ : state)
     {
         samurai::CellArray<dim> ca(cl);
         benchmark::DoNotOptimize(ca[0]);
     }
+
+    // Ajouter les compteurs
+    state.counters["nb_intervals"] = nb_intervals;
+    state.counters["ns/interval"]  = benchmark::Counter(nb_intervals,
+                                                       benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
+    state.counters["dim"]          = dim;
 }
 
 // Mesure : Récupération du niveau bas d'un CellList
@@ -71,6 +114,7 @@ template <unsigned int dim>
 void CELLARRAY_min_level(benchmark::State& state)
 {
     samurai::CellList<dim> cl;
+
     cl[state.range(0)][{}].add_interval({0, 1});
     samurai::CellArray<dim> ca(cl);
     for (auto _ : state)
@@ -85,7 +129,10 @@ template <unsigned int dim>
 void CELLARRAY_begin(benchmark::State& state)
 {
     samurai::CellList<dim> cl;
-    cl[state.range(0)][{}].add_interval({0, 1});
+    for (int level = 0; level <= state.range(0); ++level)
+    {
+        cl[level][{}].add_interval({0, 1});
+    }
     samurai::CellArray<dim> ca(cl);
     for (auto _ : state)
     {
@@ -99,7 +146,10 @@ template <unsigned int dim>
 void CELLARRAY_end(benchmark::State& state)
 {
     samurai::CellList<dim> cl;
-    cl[state.range(0)][{}].add_interval({0, 1});
+    for (int level = 0; level <= state.range(0); ++level)
+    {
+        cl[level][{}].add_interval({0, 1});
+    }
     samurai::CellArray<dim> ca(cl);
     for (auto _ : state)
     {
@@ -108,132 +158,22 @@ void CELLARRAY_end(benchmark::State& state)
     }
 }
 
-// Mesure : Récupération de l'itérateur reverse begin d'un CellArray
-template <unsigned int dim>
-void CELLARRAY_rbegin(benchmark::State& state)
-{
-    samurai::CellList<dim> cl;
-    cl[state.range(0)][{}].add_interval({0, 1});
-    samurai::CellArray<dim> ca(cl);
-    for (auto _ : state)
-    {
-        auto rbegin = ca.rbegin();
-        benchmark::DoNotOptimize(rbegin);
-    }
-}
-
-// Mesure : Création d'un CellArray 2D à partid d'un CellList composé de n intervalles aléatoires
-// Ressemble à CELLARRAY_cl_ca_multi
-static void CELLARRAY_CellList2CellArray_2D(benchmark::State& state)
-{
-    constexpr std::size_t dim = 2;
-
-    std::size_t min_level = 1;
-    std::size_t max_level = 12;
-
-    samurai::CellList<dim> cl;
-    samurai::CellArray<dim> ca;
-
-    for (std::size_t s = 0; s < state.range(0); ++s)
-    {
-        auto level = std::experimental::randint(min_level, max_level);
-        auto x     = std::experimental::randint(0, (100 << level) - 1);
-        auto y     = std::experimental::randint(0, (100 << level) - 1);
-
-        cl[level][{y}].add_point(x);
-    }
-
-    for (auto _ : state)
-    {
-        ca = {cl};
-    }
-}
-
-BENCHMARK(CELLARRAY_CellList2CellArray_2D)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-
-// Mesure : Création d'un CellArray 3D à partid d'un CellList composé de n intervalles aléatoires
-// Ressemble à CELLARRAY_cl_ca_multi
-static void CELLARRAY_CellList2CellArray_3D(benchmark::State& state)
-{
-    constexpr std::size_t dim = 3;
-
-    std::size_t min_level = 1;
-    std::size_t max_level = 12;
-
-    samurai::CellList<dim> cl;
-    samurai::CellArray<dim> ca;
-
-    for (std::size_t s = 0; s < state.range(0); ++s)
-    {
-        auto level = std::experimental::randint(min_level, max_level);
-        auto x     = std::experimental::randint(0, (100 << level) - 1);
-        auto y     = std::experimental::randint(0, (100 << level) - 1);
-        auto z     = std::experimental::randint(0, (100 << level) - 1);
-
-        cl[level][{y, z}].add_point(x);
-    }
-
-    for (auto _ : state)
-    {
-        ca = {cl};
-    }
-}
-
-BENCHMARK(CELLARRAY_CellList2CellArray_3D)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-
-// Mesure : Comparaison "=" entre deux CellArray aléatoires
-// On ne devrait pas utiliser un CellArray aléatoire.
-static void CELLARRAY_equal_2D(benchmark::State& state)
-{
-    constexpr std::size_t dim = 2;
-
-    std::size_t min_level = 1;
-    std::size_t max_level = 12;
-
-    samurai::CellList<dim> cl;
-    samurai::CellArray<dim> ca;
-    samurai::CellArray<dim> ca2;
-
-    for (std::size_t s = 0; s < state.range(0); ++s)
-    {
-        auto level = std::experimental::randint(min_level, max_level);
-        auto x     = std::experimental::randint(0, (100 << level) - 1);
-        auto y     = std::experimental::randint(0, (100 << level) - 1);
-
-        cl[level][{y}].add_point(x);
-    }
-    ca  = {cl};
-    ca2 = {cl};
-
-    for (auto _ : state)
-    {
-        auto equal = ca == ca2;
-        benchmark::DoNotOptimize(equal);
-    }
-}
-
-BENCHMARK(CELLARRAY_equal_2D)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-
 BENCHMARK_TEMPLATE(CELLARRAY_default, 1, 12);
 BENCHMARK_TEMPLATE(CELLARRAY_default, 2, 12);
 BENCHMARK_TEMPLATE(CELLARRAY_default, 3, 12);
 
-BENCHMARK_TEMPLATE(CELLARRAY_cl_ca_multi, 1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(CELLARRAY_cl_ca_multi, 2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(CELLARRAY_cl_ca_multi, 3)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(CELLARRAY_cl_ca_multi, 1)->RangeMultiplier(8)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(CELLARRAY_cl_ca_multi, 2)->RangeMultiplier(4)->Range(1 << 1, 1 << 6);
+BENCHMARK_TEMPLATE(CELLARRAY_cl_ca_multi, 3)->RangeMultiplier(2)->Range(1 << 1, 1 << 4);
 
-BENCHMARK_TEMPLATE(CELLARRAY_min_level, 1)->DenseRange(0, 15);
-BENCHMARK_TEMPLATE(CELLARRAY_min_level, 2)->DenseRange(0, 15);
-BENCHMARK_TEMPLATE(CELLARRAY_min_level, 3)->DenseRange(0, 15);
+BENCHMARK_TEMPLATE(CELLARRAY_min_level, 1)->Arg(15);
+BENCHMARK_TEMPLATE(CELLARRAY_min_level, 2)->Arg(15);
+BENCHMARK_TEMPLATE(CELLARRAY_min_level, 3)->Arg(15);
 
-BENCHMARK_TEMPLATE(CELLARRAY_begin, 1)->DenseRange(0, 15);
-BENCHMARK_TEMPLATE(CELLARRAY_begin, 2)->DenseRange(0, 15);
-BENCHMARK_TEMPLATE(CELLARRAY_begin, 3)->DenseRange(0, 15);
+BENCHMARK_TEMPLATE(CELLARRAY_begin, 1)->Arg(15);
+BENCHMARK_TEMPLATE(CELLARRAY_begin, 2)->Arg(15);
+BENCHMARK_TEMPLATE(CELLARRAY_begin, 3)->Arg(15);
 
-BENCHMARK_TEMPLATE(CELLARRAY_rbegin, 1)->DenseRange(0, 15);
-BENCHMARK_TEMPLATE(CELLARRAY_rbegin, 2)->DenseRange(0, 15);
-BENCHMARK_TEMPLATE(CELLARRAY_rbegin, 3)->DenseRange(0, 15);
-
-BENCHMARK_TEMPLATE(CELLARRAY_end, 1)->DenseRange(0, 15);
-BENCHMARK_TEMPLATE(CELLARRAY_end, 2)->DenseRange(0, 15);
-BENCHMARK_TEMPLATE(CELLARRAY_end, 3)->DenseRange(0, 15);
+BENCHMARK_TEMPLATE(CELLARRAY_end, 1)->Arg(15);
+BENCHMARK_TEMPLATE(CELLARRAY_end, 2)->Arg(15);
+BENCHMARK_TEMPLATE(CELLARRAY_end, 3)->Arg(15);

@@ -1,4 +1,3 @@
-
 #include <array>
 #include <benchmark/benchmark.h>
 #include <experimental/random>
@@ -16,25 +15,30 @@
 #include <samurai/mr/mesh.hpp>
 #include <samurai/static_algorithm.hpp>
 #include <samurai/stencil.hpp>
+#include <samurai/stencil_field.hpp>
 #include <samurai/uniform_mesh.hpp>
 
-/**
-template <std::size_t dim, std::size_t stencil_size>
-void STENCIL_find_stencil_origin(benchmark::State& state){
-    using Stencil = xt::xtensor_fixed<int, xt::xshape<stencil_size, dim>>;
-//tencil stencil = xt::zeros<int>({stencil_size, dim});
-    Stencil stencil = star_stencil() ;
-        for (auto _ : state){
-        auto origin = samurai::find_stencil_origin(stencil) ;
-        benchmark::DoNotOptimize(origin) ;
-        }
+//////////////////////////////////////////////////////////////////////////////
+// BENCHMARKS - CRÉATION DE STENCILS FONDAMENTAUX
+//////////////////////////////////////////////////////////////////////////////
+
+// Benchmark de création des stencils star (le plus fondamental)
+template <std::size_t dim, std::size_t neighbourhood_width>
+void STENCIL_star_creation(benchmark::State& state)
+{
+    for (auto _ : state)
+    {
+        auto stencil = samurai::star_stencil<dim, neighbourhood_width>();
+        benchmark::DoNotOptimize(stencil);
+    }
 }
 
+//////////////////////////////////////////////////////////////////////////////
+// REGISTRATIONS DES BENCHMARKS
+//////////////////////////////////////////////////////////////////////////////
 
-
-
-BENCHMARK_TEMPLATE(STENCIL_find_stencil_origin, 1, 1);
-BENCHMARK_TEMPLATE(STENCIL_find_stencil_origin, 2, 1);
-BENCHMARK_TEMPLATE(STENCIL_find_stencil_origin, 3, 1);
-
-**/
+// Benchmarks Star stencil - configurations essentielles
+BENCHMARK_TEMPLATE(STENCIL_star_creation, 2, 1); // 2D, largeur 1 (le plus courant)
+BENCHMARK_TEMPLATE(STENCIL_star_creation, 3, 1); // 3D, largeur 1 (le plus courant)
+BENCHMARK_TEMPLATE(STENCIL_star_creation, 2, 2); // 2D, largeur 2
+BENCHMARK_TEMPLATE(STENCIL_star_creation, 3, 2); // 3D, largeur 2

@@ -1,4 +1,3 @@
-
 #include <array>
 #include <benchmark/benchmark.h>
 #include <experimental/random>
@@ -19,6 +18,115 @@
 // Observation :
 // Pourquoi -default est plus lent que _empty_lcl_to_lca en 2D/3D ??
 // max_indices et min_indices très couteux : on peut pas faire mieux ??????
+
+///////////////////////////////////////////////////////////////////
+// utils
+
+template <unsigned int dim>
+auto gen_regular_intervals = [](auto& lcl, int index, unsigned int level)
+{
+    // Calcul des paramètres selon le niveau :
+    // Niveau L : taille = 2^L, espacement = 2^(L+1)
+    int interval_size = 1 << level;       // 2^level
+    int spacing       = 1 << (level + 1); // 2^(level+1)
+    int start         = index * spacing;
+    int end           = start + interval_size;
+
+    if constexpr (dim == 1)
+    {
+        lcl[{}].add_interval({start, end});
+    }
+    else if constexpr (dim == 2)
+    {
+        for (int y = 0; y < index; ++y)
+        {
+            lcl[{y}].add_interval({start, end});
+        }
+    }
+    else if constexpr (dim == 3)
+    {
+        for (int y = 0; y < index; ++y)
+        {
+            for (int z = 0; z < index; ++z)
+            {
+                lcl[{y, z}].add_interval({start, end});
+            }
+        }
+    }
+};
+
+template <unsigned int dim>
+auto gen_offset_intervals = [](auto& lcl, int index, unsigned int level)
+{
+    // Calcul des paramètres selon le niveau
+    int interval_size = 1 << level;                      // 2^level
+    int spacing       = 1 << (level + 1);                // 2^(level+1)
+    int start         = index * spacing + interval_size; // Décalage d'une taille pour être disjoint des "same"
+    int end           = start + interval_size;
+
+    if constexpr (dim == 1)
+    {
+        lcl[{}].add_interval({start, end});
+    }
+    else if constexpr (dim == 2)
+    {
+        for (int y = 0; y < index; ++y)
+        {
+            lcl[{y}].add_interval({start, end});
+        }
+    }
+    else if constexpr (dim == 3)
+    {
+        for (int y = 0; y < index; ++y)
+        {
+            for (int z = 0; z < index; ++z)
+            {
+                lcl[{y, z}].add_interval({start, end});
+            }
+        }
+    }
+};
+
+template <unsigned int dim>
+auto gen_unique_interval = [](auto& lcl, int index, unsigned int level)
+{
+    // Génère un seul grand intervalle qui grandit avec l'index
+    // Pour avoir une bounding box similaire aux autres générateurs,
+    // on crée un intervalle qui couvre plusieurs "espacements"
+
+    int spacing = 1 << (level + 1); // 2^(level+1)
+
+    // Créer un grand intervalle qui couvre (index+1) espacements complets
+    // Cela donne une taille proportionnelle à l'index, comme les autres générateurs
+    int interval_size = (index + 1) * spacing;
+
+    if constexpr (dim == 1)
+    {
+        if (index == 0)
+        {
+            lcl[{}].add_interval({0, interval_size});
+        }
+    }
+    else if constexpr (dim == 2)
+    {
+        for (int y = 0; y < index; ++y)
+        {
+            lcl[{y}].add_interval({0, interval_size});
+        }
+    }
+    else if constexpr (dim == 3)
+    {
+        for (int y = 0; y < index; ++y)
+        {
+            for (int z = 0; z < index; ++z)
+            {
+                lcl[{y, z}].add_interval({0, interval_size});
+            }
+        }
+    }
+};
+
+///////////////////////////////////////////////////////////////////
 
 // Mesure : Constructeur par défaut d'un LevelCellArray
 template <unsigned int dim>
@@ -54,8 +162,18 @@ void LEVELCELLARRAY_lcl_to_lca(benchmark::State& state)
     for (int64_t i = 0; i < state.range(0); i++)
     {
         int index = static_cast<int>(i);
-        lcl[{0}].add_interval({2 * index, 2 * index + 1});
+        gen_regular_intervals<dim>(lcl, index, 0);
     }
+
+    // Créer un LevelCellArray temporaire pour compter les intervalles
+    auto temp_lca        = samurai::LevelCellArray<dim, TInterval>(lcl);
+    auto total_intervals = temp_lca.nb_intervals();
+
+    state.counters["Dimension"]       = dim;
+    state.counters["Total_intervals"] = total_intervals;
+    state.counters["ns/interval"]     = benchmark::Counter(total_intervals,
+                                                       benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
+
     for (auto _ : state)
     {
         auto lca = samurai::LevelCellArray<dim, TInterval>(lcl);
@@ -72,9 +190,10 @@ void LEVELCELLARRAY_begin(benchmark::State& state)
     for (int64_t i = 0; i < state.range(0); i++)
     {
         int index = static_cast<int>(i);
-        lcl[{0}].add_interval({2 * index, 2 * index + 1});
+        gen_regular_intervals<dim>(lcl, index, 0);
     }
     auto lca = samurai::LevelCellArray<dim, TInterval>(lcl);
+
     for (auto _ : state)
     {
         auto begin = lca.begin();
@@ -91,9 +210,10 @@ void LEVELCELLARRAY_end(benchmark::State& state)
     for (int64_t i = 0; i < state.range(0); i++)
     {
         int index = static_cast<int>(i);
-        lcl[{0}].add_interval({2 * index, 2 * index + 1});
+        gen_regular_intervals<dim>(lcl, index, 0);
     }
     auto lca = samurai::LevelCellArray<dim, TInterval>(lcl);
+
     for (auto _ : state)
     {
         auto end = lca.end();
@@ -110,9 +230,10 @@ void LEVELCELLARRAY_shape(benchmark::State& state)
     for (int64_t i = 0; i < state.range(0); i++)
     {
         int index = static_cast<int>(i);
-        lcl[{0}].add_interval({2 * index, 2 * index + 1});
+        gen_regular_intervals<dim>(lcl, index, 0);
     }
     auto lca = samurai::LevelCellArray<dim, TInterval>(lcl);
+
     for (auto _ : state)
     {
         auto shape = lca.shape();
@@ -129,9 +250,10 @@ void LEVELCELLARRAY_nb_intervals(benchmark::State& state)
     for (int64_t i = 0; i < state.range(0); i++)
     {
         int index = static_cast<int>(i);
-        lcl[{0}].add_interval({2 * index, 2 * index + 1});
+        gen_regular_intervals<dim>(lcl, index, 0);
     }
     auto lca = samurai::LevelCellArray<dim, TInterval>(lcl);
+
     for (auto _ : state)
     {
         auto nb = lca.nb_intervals();
@@ -148,9 +270,16 @@ void LEVELCELLARRAY_nb_cells(benchmark::State& state)
     for (int64_t i = 0; i < state.range(0); i++)
     {
         int index = static_cast<int>(i);
-        lcl[{0}].add_interval({2 * index, 2 * index + 1});
+        gen_regular_intervals<dim>(lcl, index, 0);
     }
     auto lca = samurai::LevelCellArray<dim, TInterval>(lcl);
+
+    auto total_intervals              = lca.nb_intervals();
+    state.counters["Dimension"]       = dim;
+    state.counters["Total_intervals"] = total_intervals;
+    state.counters["ns/interval"]     = benchmark::Counter(total_intervals,
+                                                       benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
+
     for (auto _ : state)
     {
         auto nb = lca.nb_cells();
@@ -167,7 +296,7 @@ void LEVELCELLARRAY_cell_length(benchmark::State& state)
     for (int64_t i = 0; i < state.range(0); i++)
     {
         int index = static_cast<int>(i);
-        lcl[{0}].add_interval({2 * index, 2 * index + 1});
+        gen_regular_intervals<dim>(lcl, index, 0);
     }
     auto lca = samurai::LevelCellArray<dim, TInterval>(lcl);
     for (auto _ : state)
@@ -186,9 +315,16 @@ void LEVELCELLARRAY_max_indices(benchmark::State& state)
     for (int64_t i = 0; i < state.range(0); i++)
     {
         int index = static_cast<int>(i);
-        lcl[{0}].add_interval({2 * index, 2 * index + 1});
+        gen_regular_intervals<dim>(lcl, index, 0);
     }
     auto lca = samurai::LevelCellArray<dim, TInterval>(lcl);
+
+    auto total_intervals              = lca.nb_intervals();
+    state.counters["Dimension"]       = dim;
+    state.counters["Total_intervals"] = total_intervals;
+    state.counters["ns/interval"]     = benchmark::Counter(total_intervals,
+                                                       benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
+
     for (auto _ : state)
     {
         auto max = lca.max_indices();
@@ -205,9 +341,16 @@ void LEVELCELLARRAY_min_indices(benchmark::State& state)
     for (int64_t i = 0; i < state.range(0); i++)
     {
         int index = static_cast<int>(i);
-        lcl[{0}].add_interval({2 * index, 2 * index + 1});
+        gen_regular_intervals<dim>(lcl, index, 0);
     }
     auto lca = samurai::LevelCellArray<dim, TInterval>(lcl);
+
+    auto total_intervals              = lca.nb_intervals();
+    state.counters["Dimension"]       = dim;
+    state.counters["Total_intervals"] = total_intervals;
+    state.counters["ns/interval"]     = benchmark::Counter(total_intervals,
+                                                       benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
+
     for (auto _ : state)
     {
         auto min = lca.min_indices();
@@ -224,9 +367,16 @@ void LEVELCELLARRAY_minmax_indices(benchmark::State& state)
     for (int64_t i = 0; i < state.range(0); i++)
     {
         int index = static_cast<int>(i);
-        lcl[{0}].add_interval({2 * index, 2 * index + 1});
+        gen_regular_intervals<dim>(lcl, index, 0);
     }
     auto lca = samurai::LevelCellArray<dim, TInterval>(lcl);
+
+    auto total_intervals              = lca.nb_intervals();
+    state.counters["Dimension"]       = dim;
+    state.counters["Total_intervals"] = total_intervals;
+    state.counters["ns/interval"]     = benchmark::Counter(total_intervals,
+                                                       benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
+
     for (auto _ : state)
     {
         auto minmax = lca.minmax_indices();
@@ -243,14 +393,61 @@ void LEVELCELLARRAY_equal(benchmark::State& state)
     for (int64_t i = 0; i < state.range(0); i++)
     {
         int index = static_cast<int>(i);
-        lcl[{0}].add_interval({2 * index, 2 * index + 1});
+        gen_regular_intervals<dim>(lcl, index, 0);
     }
     auto lca  = samurai::LevelCellArray<dim, TInterval>(lcl);
     auto lca2 = samurai::LevelCellArray<dim, TInterval>(lcl);
+
+    auto total_intervals              = lca.nb_intervals() + lca2.nb_intervals();
+    state.counters["Dimension"]       = dim;
+    state.counters["Total_intervals"] = total_intervals;
+    state.counters["ns/interval"]     = benchmark::Counter(total_intervals,
+                                                       benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
+
     for (auto _ : state)
     {
         auto is_equal = (lca == lca2);
         benchmark::DoNotOptimize(is_equal);
+    }
+}
+
+// Mesure : Récupération du niveau bas d'un LevelCellArray
+template <unsigned int dim>
+void LEVELCELLARRAY_min_level(benchmark::State& state)
+{
+    samurai::LevelCellList<dim> lcl;
+    using TInterval = samurai::default_config::interval_t;
+    for (int64_t i = 0; i < state.range(0); i++)
+    {
+        int index = static_cast<int>(i);
+        gen_regular_intervals<dim>(lcl, index, 0);
+    }
+    auto lca = samurai::LevelCellArray<dim, TInterval>(lcl);
+
+    for (auto _ : state)
+    {
+        auto min = lca.level();
+        benchmark::DoNotOptimize(min);
+    }
+}
+
+// Mesure : Récupération de l'itérateur reverse begin d'un LevelCellArray
+template <unsigned int dim>
+void LEVELCELLARRAY_rbegin(benchmark::State& state)
+{
+    samurai::LevelCellList<dim> lcl;
+    using TInterval = samurai::default_config::interval_t;
+    for (int64_t i = 0; i < state.range(0); i++)
+    {
+        int index = static_cast<int>(i);
+        gen_regular_intervals<dim>(lcl, index, 0);
+    }
+    auto lca = samurai::LevelCellArray<dim, TInterval>(lcl);
+
+    for (auto _ : state)
+    {
+        auto rbegin = lca.rbegin();
+        benchmark::DoNotOptimize(rbegin);
     }
 }
 
@@ -263,46 +460,54 @@ BENCHMARK_TEMPLATE(LEVELCELLARRAY_empty_lcl_to_lca, 1);
 BENCHMARK_TEMPLATE(LEVELCELLARRAY_empty_lcl_to_lca, 2);
 BENCHMARK_TEMPLATE(LEVELCELLARRAY_empty_lcl_to_lca, 3);
 
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_lcl_to_lca, 1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_lcl_to_lca, 2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_lcl_to_lca, 3)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_lcl_to_lca, 1)->Arg(10000);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_lcl_to_lca, 2)->Arg(141);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_lcl_to_lca, 3)->Arg(32);
 
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_begin, 1)->RangeMultiplier(2)->Range(1, 1);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_begin, 2)->RangeMultiplier(2)->Range(1, 1);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_begin, 3)->RangeMultiplier(2)->Range(1, 1);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_begin, 1)->Arg(10000);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_begin, 2)->Arg(141);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_begin, 3)->Arg(32);
 
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_end, 1)->RangeMultiplier(2)->Range(1, 1);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_end, 2)->RangeMultiplier(2)->Range(1, 1);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_end, 3)->RangeMultiplier(2)->Range(1, 1);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_end, 1)->Arg(10000);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_end, 2)->Arg(141);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_end, 3)->Arg(32);
 
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_shape, 1)->RangeMultiplier(2)->Range(1, 1);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_shape, 2)->RangeMultiplier(2)->Range(1, 1);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_shape, 3)->RangeMultiplier(2)->Range(1, 1);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_shape, 1)->Arg(10000);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_shape, 2)->Arg(141);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_shape, 3)->Arg(32);
 
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_nb_intervals, 1)->RangeMultiplier(2)->Range(1, 1);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_nb_intervals, 2)->RangeMultiplier(2)->Range(1, 1);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_nb_intervals, 3)->RangeMultiplier(2)->Range(1, 1);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_nb_intervals, 1)->Arg(10000);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_nb_intervals, 2)->Arg(141);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_nb_intervals, 3)->Arg(32);
 
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_nb_cells, 1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_nb_cells, 2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_nb_cells, 3)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_nb_cells, 1)->Arg(10000);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_nb_cells, 2)->Arg(141);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_nb_cells, 3)->Arg(32);
 
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_cell_length, 1)->RangeMultiplier(2)->Range(1, 1);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_cell_length, 2)->RangeMultiplier(2)->Range(1, 1);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_cell_length, 3)->RangeMultiplier(2)->Range(1, 1);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_cell_length, 1)->Arg(10000);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_cell_length, 2)->Arg(141);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_cell_length, 3)->Arg(32);
 
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_max_indices, 1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_max_indices, 2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_max_indices, 3)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_max_indices, 1)->Arg(10000);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_max_indices, 2)->Arg(141);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_max_indices, 3)->Arg(32);
 
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_min_indices, 1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_min_indices, 2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_min_indices, 3)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_min_indices, 1)->Arg(10000);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_min_indices, 2)->Arg(141);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_min_indices, 3)->Arg(32);
 
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_minmax_indices, 1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_minmax_indices, 2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_minmax_indices, 3)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_minmax_indices, 1)->Arg(10000);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_minmax_indices, 2)->Arg(141);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_minmax_indices, 3)->Arg(32);
 
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_equal, 1)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_equal, 2)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
-BENCHMARK_TEMPLATE(LEVELCELLARRAY_equal, 3)->RangeMultiplier(2)->Range(1 << 1, 1 << 10);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_equal, 1)->Arg(10000);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_equal, 2)->Arg(141);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_equal, 3)->Arg(32);
+
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_min_level, 1)->Arg(10000);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_min_level, 2)->Arg(141);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_min_level, 3)->Arg(32);
+
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_rbegin, 1)->Arg(10000);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_rbegin, 2)->Arg(141);
+BENCHMARK_TEMPLATE(LEVELCELLARRAY_rbegin, 3)->Arg(32);
