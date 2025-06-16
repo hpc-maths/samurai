@@ -1,6 +1,7 @@
 #include <array>
 #include <benchmark/benchmark.h>
 #include <experimental/random>
+#include <functional>
 
 #include <xtensor/xfixed.hpp>
 #include <xtensor/xrandom.hpp>
@@ -14,112 +15,141 @@
 /// utils
 
 template <unsigned int dim>
-auto cell_list_with_n_intervals(int64_t size)
+auto gen_regular_intervals = [](int64_t size, unsigned int level = 0)
 {
     samurai::CellList<dim> cl;
+
     for (int64_t i = 0; i < size; i++)
     {
         int index = static_cast<int>(i);
-        cl[0][{}].add_interval({2 * index, 2 * index + 1});
+
+        // Calcul des paramètres selon le niveau :
+        // Niveau L : taille = 2^L, espacement = 2^(L+1)
+        int interval_size = 1 << level;       // 2^level
+        int spacing       = 1 << (level + 1); // 2^(level+1)
+        int start         = index * spacing;
+        int end           = start + interval_size;
+
+        if constexpr (dim == 1)
+        {
+            cl[level][{}].add_interval({start, end});
+        }
+        else if constexpr (dim == 2)
+        {
+            for (int y = 0; y < size; ++y)
+            {
+                xt::xtensor_fixed<int, xt::xshape<1>> coord{y};
+                cl[level][coord].add_interval({start, end});
+            }
+        }
+        else if constexpr (dim == 3)
+        {
+            for (int y = 0; y < size; ++y)
+            {
+                for (int z = 0; z < size; ++z)
+                {
+                    xt::xtensor_fixed<int, xt::xshape<2>> coord{y, z};
+                    cl[level][coord].add_interval({start, end});
+                }
+            }
+        }
     }
+
     return cl;
-}
+};
 
 template <unsigned int dim>
 auto cell_array_with_n_intervals(int64_t size)
 {
-    auto cl = cell_list_with_n_intervals<dim>(size);
+    auto cl = gen_regular_intervals<dim>(size);
     samurai::CellArray<dim> ca(cl);
     return ca;
 }
 
 //////////////////////////////////////////////////////////////
 
-
-
-
-// Mesure : recherche du premier intervale dans un CellArray nD de taille n en utilisant interval_search
+// Fonction unifiée pour les benchmarks de recherche
 template <unsigned int dim>
-void FIND_interval_search_begin(benchmark::State& state)
+void FIND_find_unified(benchmark::State& state, const std::function<xt::xtensor_fixed<int, xt::xshape<dim>>()>& coord_generator)
 {
-    using TInterval = samurai::default_config::interval_t;
-    using lca_t     = const samurai::LevelCellArray<dim, TInterval>;
-    using diff_t    = typename lca_t::const_iterator::difference_type;
+    auto ca = cell_array_with_n_intervals<dim>(state.range(0));
 
-    auto ca                                       = cell_array_with_n_intervals<dim>(state.range(0));
-    auto lca                                      = ca[0];
-    xt::xtensor_fixed<int, xt::xshape<dim>> coord = {0};
-    auto size                                     = lca[dim - 1].size();
-    auto integral                                 = std::integral_constant<std::size_t, dim - 1>{};
-    auto begin                                    = lca[0].cbegin() + static_cast<diff_t>(0);
-    auto end                                      = lca[0].cend() + static_cast<diff_t>(size);
+    // Compter le nombre d'intervalles
+    std::size_t nb_intervals = 0;
+    samurai::for_each_interval(ca,
+                               [&](std::size_t level, const auto& interval, const auto& index)
+                               {
+                                   nb_intervals++;
+                               });
 
-
+    // Compter le nombre d'intervalles dans la direction x
+    std::size_t nb_intervals_x = state.range(0);
+    auto coord                 = coord_generator();
     for (auto _ : state)
     {
-        auto index = samurai::detail::interval_search(begin, end, coord[0]);
+        auto index = find(ca[0], coord);
         benchmark::DoNotOptimize(index);
     }
+
+    state.counters["nb_intervals"]   = nb_intervals;
+    state.counters["nb_intervals_x"] = nb_intervals_x;
+    state.counters["dimension"]      = dim;
 }
 
-// Mesure : recherche du dernier intervale dans un CellArray nD de taille n en utilisant interval_search
+// Fonctions spécialisées pour chaque politique
 template <unsigned int dim>
-void FIND_interval_search_end(benchmark::State& state)
+void FIND_find_start(benchmark::State& state)
 {
-    using TInterval = samurai::default_config::interval_t;
-    using lca_t     = const samurai::LevelCellArray<dim, TInterval>;
-    using diff_t    = typename lca_t::const_iterator::difference_type;
-
-    auto ca                                       = cell_array_with_n_intervals<dim>(state.range(0));
-    auto lca                                      = ca[0];
-    xt::xtensor_fixed<int, xt::xshape<dim>> coord = {2 * state.range(0)};
-    auto size                                     = lca[dim - 1].size();
-    auto integral                                 = std::integral_constant<std::size_t, dim - 1>{};
-    auto begin                                    = lca[0].cbegin() + static_cast<diff_t>(0);
-    auto end                                      = lca[0].cend() + static_cast<diff_t>(size);
-
-    for (auto _ : state)
+    auto coord_generator = []()
     {
-        auto index = samurai::detail::interval_search(begin, end, coord[0]);
-        benchmark::DoNotOptimize(index);
-    }
+        xt::xtensor_fixed<int, xt::xshape<dim>> coord;
+        coord.fill(0);
+        return coord;
+    };
+    FIND_find_unified<dim>(state, coord_generator);
 }
 
-// Ajout d'un nouveau benchmark pour les cas intermédiaires
 template <unsigned int dim>
-void FIND_interval_search_middle(benchmark::State& state)
+void FIND_find_end(benchmark::State& state)
 {
-    using TInterval = samurai::default_config::interval_t;
-    using lca_t     = const samurai::LevelCellArray<dim, TInterval>;
-    using diff_t    = typename lca_t::const_iterator::difference_type;
-
-    auto ca                                       = cell_array_with_n_intervals<dim>(state.range(0));
-    auto lca                                      = ca[0];
-    xt::xtensor_fixed<int, xt::xshape<dim>> coord = {state.range(0)}; // Point au milieu
-    auto size                                     = lca[dim - 1].size();
-    auto integral                                 = std::integral_constant<std::size_t, dim - 1>{};
-    auto begin                                    = lca[0].cbegin() + static_cast<diff_t>(0);
-    auto end                                      = lca[0].cend() + static_cast<diff_t>(size);
-
-
-    for (auto _ : state)
+    auto coord_generator = [&state]()
     {
-        auto index = samurai::detail::interval_search(begin, end, coord[0]);
-        benchmark::DoNotOptimize(index);
-    }
+        xt::xtensor_fixed<int, xt::xshape<dim>> coord;
+        coord.fill(state.range(0) - 1);
+        coord[0] = 2 * state.range(0) - 2;
+        return coord;
+    };
+    FIND_find_unified<dim>(state, coord_generator);
 }
 
-BENCHMARK_TEMPLATE(FIND_interval_search_begin, 1)->RangeMultiplier(2)->Range(1 << 1, 1 << 15);
-BENCHMARK_TEMPLATE(FIND_interval_search_begin, 2)->RangeMultiplier(2)->Range(1 << 1, 1 << 15);
-BENCHMARK_TEMPLATE(FIND_interval_search_begin, 3)->RangeMultiplier(2)->Range(1 << 1, 1 << 15);
+template <unsigned int dim>
+void FIND_find_middle(benchmark::State& state)
+{
+    auto coord_generator = [&state]()
+    {
+        xt::xtensor_fixed<int, xt::xshape<dim>> coord;
+        // Coordonnées du milieu pour toutes les dimensions sauf x
+        for (std::size_t i = 1; i < dim; ++i)
+        {
+            coord[i] = (state.range(0) - 1) / 2;
+        }
+        // Coordonnée x au milieu, mais assurée d'être un multiple de 2
+        int middle_x = (2 * state.range(0) - 1) / 2; // Milieu de la plage [0, 2*state.range(0) - 1]
+        coord[0]     = (middle_x / 2) * 2;           // S'assurer que c'est un multiple de 2
+        return coord;
+    };
+    FIND_find_unified<dim>(state, coord_generator);
+}
 
-BENCHMARK_TEMPLATE(FIND_interval_search_end, 1)->RangeMultiplier(2)->Range(1 << 1, 1 << 15);
-BENCHMARK_TEMPLATE(FIND_interval_search_end, 2)->RangeMultiplier(2)->Range(1 << 1, 1 << 15);
-BENCHMARK_TEMPLATE(FIND_interval_search_end, 3)->RangeMultiplier(2)->Range(1 << 1, 1 << 15);
-
-BENCHMARK_TEMPLATE(FIND_interval_search_middle, 1)->RangeMultiplier(2)->Range(1 << 1, 1 << 15);
-BENCHMARK_TEMPLATE(FIND_interval_search_middle, 2)->RangeMultiplier(2)->Range(1 << 1, 1 << 15);
-BENCHMARK_TEMPLATE(FIND_interval_search_middle, 3)->RangeMultiplier(2)->Range(1 << 1, 1 << 15);
+BENCHMARK_TEMPLATE(FIND_find_start, 1)->Args({2})->Args({4})->Args({32})->Args({64});
+BENCHMARK_TEMPLATE(FIND_find_start, 2)->Args({2})->Args({4})->Args({32})->Args({64});
+BENCHMARK_TEMPLATE(FIND_find_start, 3)->Args({2})->Args({4})->Args({32})->Args({64});
+BENCHMARK_TEMPLATE(FIND_find_end, 1)->Args({2})->Args({4})->Args({32})->Args({64});
+BENCHMARK_TEMPLATE(FIND_find_end, 2)->Args({2})->Args({4})->Args({32})->Args({64});
+BENCHMARK_TEMPLATE(FIND_find_end, 3)->Args({2})->Args({4})->Args({32})->Args({64});
+BENCHMARK_TEMPLATE(FIND_find_middle, 1)->Args({2})->Args({4})->Args({32})->Args({64});
+BENCHMARK_TEMPLATE(FIND_find_middle, 2)->Args({2})->Args({4})->Args({32})->Args({64});
+BENCHMARK_TEMPLATE(FIND_find_middle, 3)->Args({2})->Args({4})->Args({32})->Args({64});
 
 /**
 template <std::size_t dim>
