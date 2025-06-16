@@ -94,6 +94,7 @@ namespace samurai
     void update_ghost_mr(Field& field, Fields&... other_fields)
     {
         using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
+        using Field_value_t              = typename Field::value_type;
         constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
 
         times::timers.start("ghost update");
@@ -104,20 +105,86 @@ namespace samurai
         mpi::communicator world;
         auto min_level = mpi::all_reduce(world, mesh[mesh_id_t::reference].min_level(), mpi::minimum<std::size_t>());
         auto max_level = mpi::all_reduce(world, mesh[mesh_id_t::reference].max_level(), mpi::maximum<std::size_t>());
+
+        std::vector<std::vector<Field_value_t>> to_send(size_t(world.size()));
+        std::vector<Field_value_t> to_recv;
+
+        std::vector<mpi::request> req;
+        req.reserve(world.size());
 #else
         auto min_level = mesh[mesh_id_t::reference].min_level();
         auto max_level = mesh[mesh_id_t::reference].max_level();
-#endif
+#endif // SAMURAI_WITH_MPI
 
         for (std::size_t level = max_level; level > min_level; --level)
         {
-            update_ghost_subdomains(level, field, other_fields...);
-            update_ghost_periodic(level, field, other_fields...);
+            auto set_ghosts = difference(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::cells][level]);
+            set_ghosts(
+                [&](const auto& interval_x, const auto& index_yz)
+                {
+                    field(level, interval_x, index_yz).fill(0);
+                    (other_fields(level, interval_x, index_yz).fill(0), ...);
+                });
+        }
+
+        for (std::size_t level = max_level; level > min_level; --level)
+        {
+#ifdef SAMURAI_WITH_MPI
+            // first we set field[cell \ reference] to 0
+#endif // SAMURAI_WITH_MPI
+       //~ update_ghost_subdomains(level, field, other_fields...);
+       //~ update_ghost_periodic(level, field, other_fields...);
 
             auto set_at_levelm1 = intersection(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::proj_cells][level - 1]).on(level - 1);
             set_at_levelm1.apply_op(variadic_projection(field, other_fields...));
         }
+#ifdef SAMURAI_WITH_MPI
+        const auto construct_set = [&](const auto& neighbor_mesh, const size_t level) -> auto
+        {
+            return intersection(mesh[mesh_id_t::reference][level],
+                                mesh[mesh_id_t::proj_cells][level - 1],
+                                neighbor_mesh[mesh_id_t::proj_cells][level - 1])
+                .on(level - 1);
+        };
 
+        size_t mpi_neighbor_id = 0;
+        req.clear();
+        for (const auto& mpi_neighbor : mesh.mpi_neighbourhood())
+        {
+            to_send[mpi_neighbor_id].clear();
+            for (std::size_t level = max_level; level > min_level; --level)
+            {
+                auto set_to_reduce = construct_set(mpi_neighbor.mesh, level);
+                set_to_reduce(
+                    [&](const auto& interval_x, const auto& index_yz)
+                    {
+                        std::copy(field(level - 1, interval_x, index_yz).cbegin(),
+                                  field(level - 1, interval_x, index_yz).cend(),
+                                  std::back_inserter(to_send[mpi_neighbor_id]));
+                    });
+            }
+            req.push_back(world.isend(mpi_neighbor.rank, mpi_neighbor.rank, to_send[mpi_neighbor_id++]));
+        }
+        for (const auto& mpi_neighbor : mesh.mpi_neighbourhood())
+        {
+            world.recv(mpi_neighbor.rank, world.rank(), to_recv);
+            auto src_it = to_recv.cbegin();
+            for (std::size_t level = max_level; level > min_level; --level)
+            {
+                auto set_to_reduce = construct_set(mpi_neighbor.mesh, level);
+                set_to_reduce(
+                    [&](const auto& interval_x, const auto& index_yz)
+                    {
+                        auto dst_field = field(level - 1, interval_x, index_yz);
+                        for (auto dst_it = dst_field.begin(); dst_it != dst_field.end(); ++dst_it, ++src_it)
+                        {
+                            *dst_it += *src_it;
+                        }
+                    });
+            }
+        }
+        mpi::wait_all(req.begin(), req.end());
+#endif // SAMURAI_WITH_MPI
         if (min_level > 0 && min_level != max_level)
         {
             update_bc(min_level - 1, field, other_fields...);

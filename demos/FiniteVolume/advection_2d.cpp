@@ -247,7 +247,6 @@ int main(int argc, char* argv[])
     auto MRadaptation = samurai::make_MRAdapt(u);
     MRadaptation(mr_epsilon, mr_regularity);
     save(path, filename, u, "_init");
-
     std::size_t nsave = 1;
     std::size_t nt    = 0;
 
