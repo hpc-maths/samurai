@@ -11,16 +11,16 @@ namespace samurai
     template <SetTraverser_concept... SetTraverser>
     class UnionTraverser;
 
-    template <SetTraverser_concept FirstSetTraveler, SetTraverser_concept... OtherSetTraversers>
-        struct SetTraverserTraits < UnionTraverser<Op, FirstSetTraveler, OtherSetTraversers...>
+    template <SetTraverser_concept... SetTraverser>
+        struct SetTraverserTraits < UnionTraverser<Op, SetTraverser>
     {
-        using interval_t = typename SetTraverserTraits<FirstSetTraveler>::interval_t;
+        using interval_t = typename std::tuple_element<0, SetTraverser...>::interval_t;
 
-        static constexpr std::size_t dim = SetTraverserTraits<FirstSetTraveler>::dim;
+        static constexpr std::size_t dim = std::tuple_element<0, SetTraverser...>::dim;
     };
 
     template <SetTraverser_concept... SetTraversers>
-    class UnionTraverser : public SetTraverserBase<UnionTraverser<Op, SetTraversers...>>
+    class UnionTraverser : public SetTraverserBase<UnionTraverser<SetTraversers...>>
     {
         using Self       = UnionTraverser<Op, SetTraversers...>;
         using interval_t = typename SetTraverserTraits<Self>::interval_t;
