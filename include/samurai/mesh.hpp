@@ -171,6 +171,7 @@ namespace samurai
       private:
 
         void construct_subdomain();
+        void construct_domain();
         void construct_union();
         void update_sub_mesh();
         void renumbering();
@@ -302,7 +303,7 @@ namespace samurai
         this->m_cells[mesh_id_t::cells] = {cl};
 
         construct_subdomain();
-        m_domain = m_subdomain;
+        construct_domain();
         construct_union();
         update_sub_mesh();
         renumbering();
@@ -323,10 +324,22 @@ namespace samurai
         this->m_cells[mesh_id_t::cells] = ca;
 
         construct_subdomain();
-        m_domain = m_subdomain;
+        construct_domain();
         construct_union();
         update_sub_mesh();
         renumbering();
+
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        m_mpi_neighbourhood.clear();
+        for (int i = 0; i < world.size(); ++i)
+        {
+            if (i != world.rank())
+            {
+                m_mpi_neighbourhood.emplace_back(i);
+            }
+        }
+#endif
         update_mesh_neighbour();
 
         set_origin_point(ca.origin_point());
@@ -719,6 +732,30 @@ namespace samurai
     }
 
     template <class D, class Config>
+    inline void Mesh_base<D, Config>::construct_domain()
+    {
+#ifdef SAMURAI_WITH_MPI
+        lcl_type lcl = {m_max_level};
+        mpi::communicator world;
+        std::vector<lca_type> all_subdomains(static_cast<std::size_t>(world.size()));
+        mpi::all_gather(world, m_subdomain, all_subdomains);
+
+        for (std::size_t i = 0; i < all_subdomains.size(); ++i)
+        {
+            for_each_interval(all_subdomains[i],
+                              [&](auto, const auto& i, const auto& index)
+                              {
+                                  lcl[index].add_interval(i);
+                              });
+        }
+
+        m_domain = {lcl};
+#else
+        m_domain = m_subdomain;
+#endif
+    }
+
+    template <class D, class Config>
     inline void Mesh_base<D, Config>::construct_subdomain()
     {
         // lcl_type lcl = {m_cells[mesh_id_t::cells].max_level()};
@@ -773,17 +810,6 @@ namespace samurai
                     lcl[index_yz].add_interval(interval);
                 });
 
-            // for (auto& neighbour : m_mpi_neighbourhood)
-            // {
-            //     auto neigh_expr = intersection(m_subdomain, union_(neighbour.mesh.m_cells[mesh_id_t::cells][level], m_union[level]))
-            //                           .on(level - 1);
-
-            //     neigh_expr(
-            //         [&](const auto& interval, const auto& index_yz)
-            //         {
-            //             lcl[index_yz].add_interval(interval);
-            //         });
-            // }
             m_union[level - 1] = {lcl};
         }
     }
