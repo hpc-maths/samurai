@@ -453,6 +453,9 @@ namespace samurai
     template <class Field>
     void update_ghost_periodic(std::size_t level, Field& field)
     {
+#ifdef SAMURAI_WITH_MPI
+        using field_value_t = typename Field::value_type;
+#endif // SAMURAI_WITH_MPI
         using mesh_id_t        = typename Field::mesh_t::mesh_id_t;
         using config           = typename Field::mesh_t::config;
         using lca_type         = typename Field::mesh_t::lca_type;
@@ -482,7 +485,6 @@ namespace samurai
             shift[d]      = 0;
         }
 #ifdef SAMURAI_WITH_MPI
-        using field_value_t = typename Field::value_type;
         std::vector<mpi::request> req;
         req.reserve(mesh.mpi_neighbourhood().size());
         mpi::communicator world;
