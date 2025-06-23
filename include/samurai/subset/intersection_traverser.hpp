@@ -53,7 +53,7 @@ namespace samurai
 
         inline void next_interval()
         {
-            while (m_current_interval.start <= m_current_interval.end)
+            while (m_current_interval.start >= m_current_interval.end)
             {
                 m_current_interval.start = std::apply(
                     [](const auto&... traversers) -> interval_t
