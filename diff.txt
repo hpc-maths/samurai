@@ -1,0 +1,1813 @@
+diff --git a/demos/FiniteVolume/advection_2d.cpp b/demos/FiniteVolume/advection_2d.cpp
+index c07d229..861d484 100644
+--- a/demos/FiniteVolume/advection_2d.cpp
++++ b/demos/FiniteVolume/advection_2d.cpp
+@@ -173,7 +173,7 @@ int main(int argc, char* argv[])
+     auto& app = samurai::initialize("Finite volume example for the advection equation in 2d using multiresolution", argc, argv);
+
+     constexpr std::size_t dim = 2;
+-    using Config              = samurai::MRConfig<dim>;
++    using Config              = samurai::MRConfig<dim, 2>;
+
+     // Simulation parameters
+     xt::xtensor_fixed<double, xt::xshape<dim>> min_corner = {0., 0.};
+@@ -230,7 +230,7 @@ int main(int argc, char* argv[])
+
+     if (restart_file.empty())
+     {
+-        mesh = {box, min_level, max_level};
++        mesh = {box, min_level, max_level, {true, true}};
+         init(u);
+     }
+     else
+diff --git a/include/samurai/algorithm/graduation.hpp b/include/samurai/algorithm/graduation.hpp
+index 1a7a88e..d749f32 100644
+--- a/include/samurai/algorithm/graduation.hpp
++++ b/include/samurai/algorithm/graduation.hpp
+@@ -172,13 +172,12 @@ namespace samurai
+     }
+
+     template <size_t dim, typename TInterval, typename MeshType, size_t max_size, typename TCoord>
+-    void list_interval_to_refine_for_graduation(
+-        const size_t grad_width,
+-        const CellArray<dim, TInterval, max_size>& ca,
+-        [[maybe_unused]] const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood,
+-        const std::array<bool, dim>& is_periodic,
+-        const std::array<int, dim>& nb_cells_finest_level,
+-        std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, CellArray<dim, TInterval, max_size>::max_size>& out)
++    void list_intervals_to_remove(const size_t grad_width,
++                                  const CellArray<dim, TInterval, max_size>& ca,
++                                  [[maybe_unused]] const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood,
++                                  const std::array<bool, dim>& is_periodic,
++                                  const std::array<int, dim>& nb_cells_finest_level,
++                                  std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, CellArray<dim, TInterval, max_size>::max_size>& out)
+     {
+         const size_t max_level      = ca.max_level();
+         const size_t min_level      = ca.min_level();
+@@ -219,7 +218,7 @@ namespace samurai
+                     }
+                 }
+             }
+-            DirectionVector<dim> translation = xt::xscalar(0);
++            xt::xtensor_fixed<int, xt::xshape<dim>> translation = xt::xscalar(0);
+             for (size_t d = 0; d != dim; ++d)
+             {
+                 if (is_periodic[d])
+@@ -261,113 +260,6 @@ namespace samurai
+ #endif // SAMURAI_WITH_MPI
+     }
+
+-    template <size_t dim, typename TInterval, size_t max_size, typename TCoord>
+-    void list_interval_to_refine_for_contiguous_boundary_cells(
+-        const size_t half_stencil_width,
+-        const CellArray<dim, TInterval, max_size>& ca,
+-        const LevelCellArray<dim, TInterval>& domain,
+-        const std::array<bool, dim>& is_periodic,
+-        std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, CellArray<dim, TInterval, max_size>::max_size>& out)
+-    {
+-        if (half_stencil_width == 1)
+-        {
+-            return;
+-        }
+-
+-        const size_t max_level = ca.max_level();
+-        const size_t min_level = ca.min_level();
+-
+-        // We want to avoid a flux being computed with ghosts outside of the domain if the cell doesn't touch the boundary,
+-        // because we only want to apply the B.C. on the cells that touch the boundary.
+-        // For details and figures, see https://github.com/hpc-maths/samurai/pull/320
+-
+-        for_each_cartesian_direction<dim>(
+-            [&](const auto direction_idx, const auto& translation)
+-            {
+-                if (not is_periodic[direction_idx])
+-                {
+-                    // 1. Jump level --> level-1
+-                    // Case where the boundary is at level L and the jump is going down to L-1:
+-                    //     We want to have enough contiguous boundary cells to ensure that the stencil at the lower level
+-                    //     won't go outside the domain.
+-                    //     To ensure half_stencil_width at L-1, we need 2*half_stencil_width at level L.
+-                    //     However, since we project the B.C. in the first outside ghost at level L-1, we can reduce the number of
+-                    //     contiguous cells by 1 at level L-1. This makes, at level L, 2*(half_stencil_width - 2) contiguous cells.
+-                    //     (One cell is a real cell, the other is a ghost cell outside of the domain, which makes half_stencil_width - 2
+-                    //     ghosts cells inside the domain).
+-
+-                    int n_contiguous_boundary_cells = std::max(int(half_stencil_width), 2 * (int(half_stencil_width) - 2));
+-
+-                    if (n_contiguous_boundary_cells > 1)
+-                    {
+-                        for (size_t level = max_level; level != min_level; --level)
+-                        {
+-                            auto boundaryCells = difference(ca[level], translate(self(domain).on(level), -translation)).on(level);
+-
+-                            for (int i = 2; i <= n_contiguous_boundary_cells; i += 2)
+-                            {
+-                                // Here, the set algebra doesn't work, so we put the translation in a LevelCellArray before computing the
+-                                // intersection.
+-                                // When the problem is fixed, remove the two following lines and uncomment the line below.
+-                                LevelCellArray<dim, TInterval> translated_boundary(translate(boundaryCells, -i * translation));
+-                                auto refine_subset = intersection(translated_boundary, ca[level - 1]).on(level - 1);
+-                                // auto refine_subset = intersection(translate(boundaryCells, -i*translation), ca[level-1]).on(level-1);
+-
+-                                refine_subset(
+-                                    [&](const auto& x_interval, const auto& yz)
+-                                    {
+-                                        out[level - 1].push_back(x_interval, yz);
+-                                    });
+-                            }
+-                        }
+-                    }
+-
+-                    // 2. Jump level --> level+1
+-                    // Case where the boundary is at level L and jump is going up:
+-                    //    If the number of boundary contiguous cells is >= ceil(half_stencil_width/2), then there is nothing to do, since
+-                    //    the half stencil at L+1 will not go out of the domain. Here, we just test if half_stencil_width > 2 by simplicity,
+-                    //    but at some point it would be nice to implement the real test.
+-                    //    Otherwise, ensuring half_stencil_width contiguous cells at level L+1 is enough.
+-                    if (half_stencil_width > 2)
+-                    {
+-                        for (size_t level = max_level - 1; level != min_level - 1; --level)
+-                        {
+-                            auto boundaryCells = difference(ca[level], translate(self(domain).on(level), -translation));
+-                            for (size_t i = 1; i != half_stencil_width; ++i)
+-                            {
+-                                auto refine_subset = translate(
+-                                                         intersection(translate(boundaryCells, -i * translation), ca[level + 1]).on(level),
+-                                                         i * translation)
+-                                                         .on(level);
+-                                refine_subset(
+-                                    [&](const auto& x_interval, const auto& yz)
+-                                    {
+-                                        out[level].push_back(x_interval, yz);
+-                                    });
+-                            }
+-                        }
+-                    }
+-                }
+-            });
+-    }
+-
+-    template <size_t dim, typename TInterval, typename MeshType, size_t max_size, typename TCoord>
+-    void list_intervals_to_refine(const size_t grad_width,
+-                                  const size_t half_stencil_width,
+-                                  const CellArray<dim, TInterval, max_size>& ca,
+-                                  const LevelCellArray<dim, TInterval>& domain,
+-                                  [[maybe_unused]] const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood,
+-                                  const std::array<bool, dim>& is_periodic,
+-                                  const std::array<int, dim>& nb_cells_finest_level,
+-                                  std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, CellArray<dim, TInterval, max_size>::max_size>& out)
+-    {
+-        list_interval_to_refine_for_graduation(grad_width, ca, mpi_neighbourhood, is_periodic, nb_cells_finest_level, out);
+-        if (!domain.empty())
+-        {
+-            list_interval_to_refine_for_contiguous_boundary_cells(half_stencil_width, ca, domain, is_periodic, out);
+-        }
+-    }
+-
+     // if add the intervals in add_m_interval
+     // if dim = 2 then add_m_interval stores the y coord
+     // if dim > 2 then add_intercal contains the 'inner_stencil' i.e. the coordinates y+s_x, z+s_z, etc.
+@@ -425,12 +317,10 @@ namespace samurai
+
+     template <std::size_t dim, class TInterval, class MeshType, size_t max_size>
+     size_t make_graduation(CellArray<dim, TInterval, max_size>& ca,
+-                           const LevelCellArray<dim, TInterval>& domain,
+                            [[maybe_unused]] const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood,
+                            const std::array<bool, dim>& is_periodic,
+-                           const size_t grad_width         = 1,
+-                           const size_t half_stencil_width = 1 // half of width of the numerical scheme's stencil.
+-    )
++                           const std::array<int, dim>& nb_cells_finest_level,
++                           const size_t grad_width = 1)
+     {
+         using ca_type    = CellArray<dim, TInterval, max_size>;
+         using coord_type = typename ca_type::lca_type::coord_type;
+@@ -438,24 +328,6 @@ namespace samurai
+         const size_t max_level = ca.max_level();
+         const size_t min_level = ca.min_level();
+
+-        std::array<int, dim> nb_cells_finest_level;
+-
+-        if (std::any_of(is_periodic.begin(),
+-                        is_periodic.end(),
+-                        [](const bool& b)
+-                        {
+-                            return b;
+-                        }))
+-        {
+-            const auto& min_indices = domain.min_indices();
+-            const auto& max_indices = domain.max_indices();
+-
+-            for (size_t d = 0; d != max_indices.size(); ++d)
+-            {
+-                nb_cells_finest_level[d] = max_indices[d] - min_indices[d];
+-            }
+-        }
+-
+         std::vector<TInterval> add_p_interval;
+         std::vector<coord_type> add_p_inner_stencil;
+         std::vector<size_t> add_p_idx;
+@@ -479,14 +351,18 @@ namespace samurai
+             // Then, if the non-graduated is not taged as keep, we coarsen it
+             ca_add_p.clear();
+             ca_remove_p.clear();
+-            list_intervals_to_refine(grad_width, half_stencil_width, ca, domain, mpi_neighbourhood, is_periodic, nb_cells_finest_level, remove_m_all);
++            list_intervals_to_remove(grad_width, ca, mpi_neighbourhood, is_periodic, nb_cells_finest_level, remove_m_all);
+
+             add_p_interval.clear();
+             add_p_inner_stencil.clear();
+             add_p_idx.clear();
+             for (size_t level = min_level; level != max_level + 1; ++level)
+             {
++#ifdef SAMURAI_WITH_MPI
+                 remove_m_all[level].remove_overlapping_intervals();
++#else
++                remove_m_all[level].sort_intervals();
++#endif // SAMURAI_WITH_MPI
+                 const size_t imax = remove_m_all[level].size();
+                 for (size_t i = 0; i != imax; ++i)
+                 {
+@@ -548,10 +424,10 @@ namespace samurai
+
+         std::vector<MPI_Subdomain<DummyMesh>> mpi_neighbourhood;
+         std::array<bool, dim> is_periodic;
+-        LevelCellArray<dim, TInterval> domain;
++        std::array<int, dim> nb_cells_finest_level;
+
+         is_periodic.fill(false);
+-        return make_graduation(ca, domain, mpi_neighbourhood, is_periodic, grad_width);
++        return make_graduation(ca, mpi_neighbourhood, is_periodic, nb_cells_finest_level, grad_width);
+     }
+
+     template <std::size_t dim, class TInterval, size_t max_size, class Tag>
+diff --git a/include/samurai/mesh.hpp b/include/samurai/mesh.hpp
+index 6c3329d..0815cc0 100644
+--- a/include/samurai/mesh.hpp
++++ b/include/samurai/mesh.hpp
+@@ -174,9 +174,6 @@ namespace samurai
+         void construct_union();
+         void update_sub_mesh();
+         void renumbering();
+-
+-        void find_neighbourhood_naive();
+-
+         void partition_mesh(std::size_t start_level, const Box<double, dim>& global_box);
+         void load_balancing();
+         void load_transfer(const std::vector<double>& load_fluxes);
+@@ -691,7 +688,7 @@ namespace samurai
+
+     // Modified function definition
+     template <class D, class Config>
+-    inline void Mesh_base<D, Config>::update_meshid_neighbour([[maybe_unused]] const mesh_id_t& mesh_id)
++    inline void Mesh_base<D, Config>::update_meshid_neighbour(const mesh_id_t& mesh_id)
+     {
+ #ifdef SAMURAI_WITH_MPI
+         mpi::communicator world;
+@@ -788,33 +785,6 @@ namespace samurai
+         }
+     }
+
+-    template <class D, class Config>
+-    void Mesh_base<D, Config>::find_neighbourhood_naive()
+-    {
+-#ifdef SAMURAI_WITH_MPI
+-        mpi::communicator world;
+-        auto rank = world.rank();
+-        auto size = world.size();
+-        m_mpi_neighbourhood.reserve(0);
+-        if (size > 1)
+-        {
+-            if (rank == 0)
+-            {
+-                m_mpi_neighbourhood.push_back(1);
+-            }
+-            else if (rank == size - 1)
+-            {
+-                m_mpi_neighbourhood.push_back(size - 2);
+-            }
+-            else
+-            {
+-                m_mpi_neighbourhood.push_back(rank - 1);
+-                m_mpi_neighbourhood.push_back(rank + 1);
+-            }
+-        }
+-#endif
+-    }
+-
+     template <class D, class Config>
+     void Mesh_base<D, Config>::partition_mesh([[maybe_unused]] std::size_t start_level, [[maybe_unused]] const Box<double, dim>& global_box)
+     {
+@@ -904,7 +874,7 @@ namespace samurai
+                                   {
+                                       for (auto i = mi.i.start; i < mi.i.end; ++i)
+                                       {
+-                                          if (static_cast<std::size_t>(i) >= subdomain_start && static_cast<std::size_t>(i) < subdomain_end)
++                                          if (i >= subdomain_start && i < subdomain_end)
+                                           {
+                                               subdomain_cells[mi.index].add_point(i);
+                                           }
+@@ -934,16 +904,14 @@ namespace samurai
+
+         this->m_cells[mesh_id_t::cells][start_level] = subdomain_cells;
+
+-        //        m_mpi_neighbourhood.reserve(static_cast<std::size_t>(size) - 1);
+-        //        for (int ir = 0; ir < size; ++ir)
+-        //        {
+-        //            if (ir != rank)
+-        //            {
+-        //                m_mpi_neighbourhood.push_back(ir);
+-        //            }
+-        //        }
+-
+-        find_neighbourhood_naive();
++        m_mpi_neighbourhood.reserve(static_cast<std::size_t>(size) - 1);
++        for (int ir = 0; ir < size; ++ir)
++        {
++            if (ir != rank)
++            {
++                m_mpi_neighbourhood.push_back(ir);
++            }
++        }
+
+         // // Neighbours
+         // m_mpi_neighbourhood.reserve(static_cast<std::size_t>(pow(3, dim) - 1));
+diff --git a/include/samurai/mr/adapt.hpp b/include/samurai/mr/adapt.hpp
+index cfd95a4..b80bcd4 100644
+--- a/include/samurai/mr/adapt.hpp
++++ b/include/samurai/mr/adapt.hpp
+@@ -313,14 +313,18 @@ namespace samurai
+         // on test adapt_test/2.mutliple_fields with:
+         // linux-mamba (clang-18, ubuntu-24.04, clang, clang-18, clang-18, clang++-18)
+         // while the code bellow do not.
++        const auto& min_indices = mesh.domain().min_indices();
++        const auto& max_indices = mesh.domain().max_indices();
++
++        std::array<int, mesh_t::dim> nb_cells_finest_level;
++
++        for (size_t d = 0; d != max_indices.size(); ++d)
++        {
++            nb_cells_finest_level[d] = max_indices[d] - min_indices[d];
++        }
+
+         ca_type new_ca = update_cell_array_from_tag(mesh[mesh_id_t::cells], m_tag);
+-        make_graduation(new_ca,
+-                        mesh.domain(),
+-                        mesh.mpi_neighbourhood(),
+-                        mesh.periodicity(),
+-                        mesh_t::config::graduation_width,
+-                        mesh_t::config::max_stencil_width);
++        make_graduation(new_ca, mesh.mpi_neighbourhood(), mesh.periodicity(), nb_cells_finest_level, mesh_t::config::graduation_width);
+         mesh_t new_mesh{new_ca, mesh};
+ #ifdef SAMURAI_WITH_MPI
+         mpi::communicator world;
+diff --git a/include/samurai/stencil.hpp b/include/samurai/stencil.hpp
+index 113ccf4..d7a5833 100644
+--- a/include/samurai/stencil.hpp
++++ b/include/samurai/stencil.hpp
+@@ -296,38 +296,6 @@ namespace samurai
+         return s;
+     }
+
+-    template <std::size_t dim, class Func>
+-        requires std::invocable<Func, DirectionVector<dim>>
+-    void for_each_cartesian_direction(Func&& f)
+-    {
+-        DirectionVector<dim> direction;
+-        direction.fill(0);
+-        for (std::size_t d = 0; d < dim; ++d)
+-        {
+-            direction[d] = 1;
+-            f(direction);
+-            direction[d] = -1;
+-            f(direction);
+-            direction[d] = 0;
+-        }
+-    }
+-
+-    template <std::size_t dim, class Func>
+-        requires std::invocable<Func, std::size_t, DirectionVector<dim>>
+-    void for_each_cartesian_direction(Func&& f)
+-    {
+-        DirectionVector<dim> direction;
+-        direction.fill(0);
+-        for (std::size_t d = 0; d < dim; ++d)
+-        {
+-            direction[d] = 1;
+-            f(d, direction);
+-            direction[d] = -1;
+-            f(d, direction);
+-            direction[d] = 0;
+-        }
+-    }
+-
+     /**
+      * Returns a table of the form
+      *      dir_stencils[i].direction = {direction};
+diff --git a/include/samurai/subset/apply.hpp b/include/samurai/subset/apply.hpp
+index 93b2cb4..7da19bb 100644
+--- a/include/samurai/subset/apply.hpp
++++ b/include/samurai/subset/apply.hpp
+@@ -3,9 +3,13 @@
+
+ #pragma once
+
++#include <array>
++#include <tuple>
++
+ #include "concepts.hpp"
+ #include "utils.hpp"
+
++// namespace samurai::experimental
+ namespace samurai
+ {
+     namespace detail
+diff --git a/include/samurai/subset/node.hpp b/include/samurai/subset/node.hpp
+index de2987f..c12ea1a 100644
+--- a/include/samurai/subset/node.hpp
++++ b/include/samurai/subset/node.hpp
+@@ -78,22 +78,21 @@ namespace samurai
+             apply(*this, func);
+         }
+
+-        template <std::size_t d, class Func_goback_beg, class Func_goback_end>
+-        auto get_local_set(auto level, auto& index, Func_goback_beg&& goback_fct_beg, Func_goback_end&& goback_fct_end)
++        template <std::size_t d, class Func_goback>
++        auto get_local_set(auto level, auto& index, Func_goback&& goback_fct)
+         {
+             int shift = static_cast<int>(this->ref_level()) - static_cast<int>(this->level());
+             m_start_end_op(m_level, m_min_level, m_ref_level);
+
+             return std::apply(
+-                [this, &index, shift, level, &goback_fct_beg, &goback_fct_end](auto&&... args)
++                [this, &index, shift, level, &goback_fct](auto&&... args)
+                 {
+-                    return SetTraverser(shift,
+-                                        get_operator<d>(m_operator),
+-                                        args.template get_local_set<d>(
+-                                            level,
+-                                            index,
+-                                            m_start_end_op.template goback<d + 1>(std::forward<Func_goback_beg>(goback_fct_beg)),
+-                                            m_start_end_op.template goback<d + 1, true>(std::forward<Func_goback_end>(goback_fct_end)))...);
++                    return SetTraverser(
++                        shift,
++                        get_operator<d>(m_operator),
++                        args.template get_local_set<d>(level,
++                                                       index,
++                                                       m_start_end_op.template goback<d + 1>(std::forward<Func_goback>(goback_fct)))...);
+                 },
+                 m_s);
+         }
+@@ -101,7 +100,7 @@ namespace samurai
+         template <std::size_t d>
+         auto get_local_set(auto level, auto& index)
+         {
+-            return get_local_set<d>(level, index, default_function_(), default_function_());
++            return get_local_set<d>(level, index, default_function());
+         }
+
+         template <std::size_t d, class Func_start, class Func_end>
+@@ -110,26 +109,11 @@ namespace samurai
+             m_start_end_op(m_level, m_min_level, m_ref_level);
+
+             return std::apply(
+-                [this, &start_fct, &end_fct](auto&& arg, auto&&... args)
++                [this, &start_fct, &end_fct](auto&&... args)
+                 {
+-                    if constexpr (std::is_same_v<Op, DifferenceOp>)
+-                    {
+-                        return std::make_tuple(std::move(arg.template get_start_and_stop_function<d>(
+-                                                   m_start_end_op.template start<d>(std::forward<Func_start>(start_fct)),
+-                                                   m_start_end_op.template end<d>(std::forward<Func_end>(end_fct)))),
+-                                               std::move(args.template get_start_and_stop_function<d>(
+-                                                   m_start_end_op.template start<d, true>(std::forward<Func_start>(start_fct)),
+-                                                   m_start_end_op.template end<d, true>(std::forward<Func_end>(end_fct))))...);
+-                    }
+-                    else
+-                    {
+-                        return std::make_tuple(std::move(arg.template get_start_and_stop_function<d>(
+-                                                   m_start_end_op.template start<d>(std::forward<Func_start>(start_fct)),
+-                                                   m_start_end_op.template end<d>(std::forward<Func_end>(end_fct)))),
+-                                               std::move(args.template get_start_and_stop_function<d>(
+-                                                   m_start_end_op.template start<d>(std::forward<Func_start>(start_fct)),
+-                                                   m_start_end_op.template end<d>(std::forward<Func_end>(end_fct))))...);
+-                    }
++                    return std::make_tuple(std::move(
++                        args.template get_start_and_stop_function<d>(m_start_end_op.template start<d>(std::forward<Func_start>(start_fct)),
++                                                                     m_start_end_op.template end<d>(std::forward<Func_end>(end_fct))))...);
+                 },
+                 m_s);
+         }
+@@ -213,8 +197,8 @@ namespace samurai
+             apply(*this, func);
+         }
+
+-        template <std::size_t d, class Func_goback_beg, class Func_goback_end>
+-        auto get_local_set(auto level, auto& index, Func_goback_beg&& goback_fct_beg, Func_goback_end&& goback_fct_end)
++        template <std::size_t d, class Func_goback>
++        auto get_local_set(auto level, auto& index, Func_goback&& goback_fct)
+         {
+             if (m_lca[d - 1].empty())
+             {
+@@ -238,13 +222,13 @@ namespace samurai
+                     return IntervalListVisitor(IntervalListRange(m_lca[d - 1], 0, 0));
+                 }
+
+-                auto new_goback_fct_beg = m_func.template goback<d + 1>(std::forward<Func_goback_beg>(goback_fct_beg));
++                auto new_goback_fct = m_func.template goback<d + 1>(std::forward<Func_goback>(goback_fct));
+
+-                if (level <= m_level && level >= m_lca.level())
++                if (level >= m_lca.level())
+                 {
+                     m_offsets[d - 1].clear();
+
+-                    auto current_index = start_shift(new_goback_fct_beg(level, index[d - 1]).second,
++                    auto current_index = start_shift(new_goback_fct(m_level, index[d - 1]),
+                                                      static_cast<int>(m_lca.level()) - static_cast<int>(m_level));
+                     auto j             = find_on_dim(m_lca, d, m_offsets[d][0][0], m_offsets[d][0][1], current_index);
+
+@@ -266,13 +250,10 @@ namespace samurai
+                 }
+                 else
+                 {
+-                    auto new_goback_fct_end = m_func.template goback<d + 1, true>(std::forward<Func_goback_end>(goback_fct_end));
+-
+-                    auto min_index = start_shift(new_goback_fct_beg(level, index[d - 1]).second,
++                    auto min_index = start_shift(new_goback_fct(m_level, index[d - 1]),
++                                                 static_cast<int>(m_lca.level()) - static_cast<int>(m_level));
++                    auto max_index = start_shift(new_goback_fct(m_level, index[d - 1] + 1),
+                                                  static_cast<int>(m_lca.level()) - static_cast<int>(m_level));
+-
+-                    auto max_index = end_shift(new_goback_fct_end(level, index[d - 1] + 1).second,
+-                                               static_cast<int>(m_lca.level()) - static_cast<int>(m_level));
+
+                     m_work[d - 1].clear();
+                     m_offsets[d - 1].clear();
+@@ -387,7 +368,7 @@ namespace samurai
+         auto get_local_set(auto level, auto& index)
+
+         {
+-            return get_local_set<d>(level, index, default_function_(), default_function_());
++            return get_local_set<d>(level, index, default_function());
+         }
+
+         template <std::size_t d, class Func_start, class Func_end>
+diff --git a/include/samurai/subset/start_end_fct.hpp b/include/samurai/subset/start_end_fct.hpp
+index 1074007..80137d9 100644
+--- a/include/samurai/subset/start_end_fct.hpp
++++ b/include/samurai/subset/start_end_fct.hpp
+@@ -10,88 +10,55 @@ namespace samurai
+
+     inline auto default_function()
+     {
+-        return [](auto, auto i, auto)
++        return [](auto, auto i)
+         {
+             return i;
+         };
+     }
+
+-    inline auto default_function_()
+-    {
+-        return [](auto level, auto i)
+-        {
+-            return std::make_pair(level, i);
+-        };
+-    }
+-
+     template <std::size_t dim>
+     struct start_end_function
+     {
+         auto& operator()(std::size_t level, std::size_t min_level, std::size_t max_level)
+         {
+-            m_level     = level;
+-            m_min_level = min_level;
+-            m_shift     = static_cast<int>(max_level) - static_cast<int>(min_level);
++            m_level = level;
++            m_shift = static_cast<int>(max_level) - static_cast<int>(min_level);
+             return *this;
+         }
+
+-        template <std::size_t, bool from_diff_op = false, class Func>
++        template <std::size_t, class Func>
+         inline auto start(const Func& f) const
+         {
+-            auto new_f = [&, f](auto, auto i, auto dec)
++            auto new_f = [&, f](auto, auto i)
+             {
+-                if constexpr (from_diff_op)
+-                {
+-                    dec = 1;
+-                }
+-                int value = (((i - dec) >> m_shift) << m_shift) + dec;
+-                return f(m_level, value, dec);
++                return f(m_level, (i >> m_shift) << m_shift);
+             };
+             return new_f;
+         }
+
+-        template <std::size_t, bool from_diff_op = false, class Func>
++        template <std::size_t, class Func>
+         inline auto end(const Func& f) const
+         {
+-            auto new_f = [&, f](auto, auto i, auto dec)
++            auto new_f = [&, f](auto, auto i)
+             {
+-                if constexpr (from_diff_op)
+-                {
+-                    dec = 0;
+-                }
+-                int value = (((i - dec) >> m_shift) + dec) << m_shift;
+-                return f(m_level, value, dec);
++                return f(m_level, (((i - 1) >> m_shift) + 1) << m_shift);
+             };
+             return new_f;
+         }
+
+-        template <std::size_t, bool end = false, class Func>
++        template <std::size_t, class Func>
+         inline auto goback(const Func& f) const
+         {
+             auto new_f = [&, f](auto level, auto i)
+             {
+-                auto [prev_lev, v] = f(level, i);
+-
+-                int min_shift = static_cast<int>(m_min_level) - static_cast<int>(prev_lev);
+-                int max_shift = static_cast<int>(m_level) - static_cast<int>(m_min_level);
+-
+-                if constexpr (end)
+-                {
+-                    i = end_shift(end_shift(v, min_shift), max_shift);
+-                }
+-                else
+-                {
+-                    i = start_shift(start_shift(v, min_shift), max_shift);
+-                }
+-
+-                return std::make_pair(m_level, i);
++                i = start_shift(f(m_level, i), static_cast<int>(level) - static_cast<int>(m_level));
++                return i;
+             };
+             return new_f;
+         }
+
+         std::size_t m_level;
+         int m_shift;
+-        std::size_t m_min_level;
+     };
+
+     template <std::size_t dim>
+@@ -115,66 +82,41 @@ namespace samurai
+             return *this;
+         }
+
+-        template <std::size_t d, bool from_diff_op = false, class Func>
++        template <std::size_t d, class Func>
+         inline auto start(const Func& f) const
+         {
+-            auto new_f = [&, f](auto level, auto i, auto dec)
++            auto new_f = [&, f](auto level, auto i)
+             {
+                 int max2curr = static_cast<int>(m_max_level) - static_cast<int>(level);
+                 int curr2min = static_cast<int>(level) - static_cast<int>(m_min_level);
+                 int min2max  = static_cast<int>(m_max_level) - static_cast<int>(m_min_level);
+
+-                if constexpr (from_diff_op)
+-                {
+-                    dec = 1;
+-                }
+-                int value = (((((i - dec) >> max2curr) + m_t[d - 1]) >> curr2min) + dec) << min2max;
+-
+-                return f(m_level, value, dec);
++                return f(m_level, (((i >> max2curr) + m_t[d - 1]) >> curr2min) << min2max);
+             };
+             return new_f;
+         }
+
+-        template <std::size_t d, bool from_diff_op = false, class Func>
++        template <std::size_t d, class Func>
+         inline auto end(const Func& f) const
+         {
+-            auto new_f = [&, f](auto level, auto i, auto dec)
++            auto new_f = [&, f](auto level, auto i)
+             {
+                 int max2curr = static_cast<int>(m_max_level) - static_cast<int>(level);
+                 int curr2min = static_cast<int>(level) - static_cast<int>(m_min_level);
+                 int min2max  = static_cast<int>(m_max_level) - static_cast<int>(m_min_level);
+
+-                if constexpr (from_diff_op)
+-                {
+-                    dec = 0;
+-                }
+-                int value = (((((i - dec) >> max2curr) + m_t[d - 1]) >> curr2min) + dec) << min2max;
+-
+-                return f(m_level, value, dec);
++                return f(m_level, (((((i - 1) >> max2curr) + m_t[d - 1]) >> curr2min) + 1) << min2max);
+             };
+             return new_f;
+         }
+
+-        template <std::size_t d, bool end = false, class Func>
++        template <std::size_t d, class Func>
+         inline auto goback(const Func& f) const
+         {
+             auto new_f = [&, f](auto level, auto i)
+             {
+-                auto [prev_lev, v] = f(level, i);
+-
+-                auto min_shift = static_cast<int>(m_min_level) - static_cast<int>(prev_lev);
+-                auto max_shift = static_cast<int>(m_level) - static_cast<int>(m_min_level);
+-
+-                if constexpr (end)
+-                {
+-                    i = end_shift(end_shift(v, min_shift), max_shift) - m_t[d - 1];
+-                }
+-                else
+-                {
+-                    i = start_shift(start_shift(v, min_shift), max_shift) - m_t[d - 1];
+-                }
+-
+-                return std::make_pair(m_level, i);
++                i = start_shift(f(m_level, i), static_cast<int>(level) - static_cast<int>(m_level)) - m_t[d - 1];
++                return i;
+             };
+             return new_f;
+         }
+@@ -204,64 +146,41 @@ namespace samurai
+             return *this;
+         }
+
+-        template <std::size_t d, bool from_diff_op = false, class Func>
++        template <std::size_t d, class Func>
+         inline auto start(const Func& f) const
+         {
+-            auto new_f = [&, f](auto level, auto i, auto dec)
++            auto new_f = [&, f](auto level, auto i)
+             {
+                 int max2curr = static_cast<int>(m_max_level) - static_cast<int>(level);
+                 int curr2min = static_cast<int>(level) - static_cast<int>(m_min_level);
+                 int min2max  = static_cast<int>(m_max_level) - static_cast<int>(m_min_level);
+
+-                if constexpr (from_diff_op)
+-                {
+-                    dec = 1;
+-                }
+-                int value = (((((i - dec) >> max2curr) - m_c) >> curr2min) + dec) << min2max;
+-                return f(m_level, value, dec);
++                return f(m_level, (((i >> max2curr) - m_c) >> curr2min) << min2max);
+             };
+             return new_f;
+         }
+
+-        template <std::size_t d, bool from_diff_op = false, class Func>
++        template <std::size_t d, class Func>
+         inline auto end(const Func& f) const
+         {
+-            auto new_f = [&, f](auto level, auto i, auto dec)
++            auto new_f = [&, f](auto level, auto i)
+             {
+                 int max2curr = static_cast<int>(m_max_level) - static_cast<int>(level);
+                 int curr2min = static_cast<int>(level) - static_cast<int>(m_min_level);
+                 int min2max  = static_cast<int>(m_max_level) - static_cast<int>(m_min_level);
+
+-                if constexpr (from_diff_op)
+-                {
+-                    dec = 0;
+-                }
+-                int value = (((((i - dec) >> max2curr) - m_c) >> curr2min) + dec) << min2max;
+-                return f(m_level, value, dec);
++                return f(m_level, (((((i - 1) >> max2curr) - m_c) >> curr2min) + 1) << min2max);
+             };
+             return new_f;
+         }
+
+-        template <std::size_t d, bool end = false, class Func>
++        template <std::size_t d, class Func>
+         inline auto goback(const Func& f) const
+         {
+             auto new_f = [&, f](auto level, auto i)
+             {
+-                auto [prev_lev, v] = f(level, i);
+-
+-                auto min_shift = static_cast<int>(m_min_level) - static_cast<int>(prev_lev);
+-                auto max_shift = static_cast<int>(m_level) - static_cast<int>(m_min_level);
+-
+-                if constexpr (end)
+-                {
+-                    i = end_shift(end_shift(v, min_shift), max_shift) + m_c;
+-                }
+-                else
+-                {
+-                    i = start_shift(start_shift(v, min_shift), max_shift) + m_c;
+-                }
+-
+-                return std::make_pair(m_level, i);
++                i = start_shift(f(m_level, i), static_cast<int>(level) - static_cast<int>(m_level)) + m_c;
++                return i;
+             };
+             return new_f;
+         }
+diff --git a/include/samurai/subset/visitor.hpp b/include/samurai/subset/visitor.hpp
+index 507c59f..6b23a82 100644
+--- a/include/samurai/subset/visitor.hpp
++++ b/include/samurai/subset/visitor.hpp
+@@ -92,14 +92,14 @@ namespace samurai
+         inline auto start(const auto& it, Func& start_fct) const
+         {
+             auto i = it->start << m_shift2ref;
+-            return start_fct(m_lca_level, i, 0);
++            return start_fct(m_lca_level, i);
+         }
+
+         template <class Func>
+         inline auto end(const auto& it, Func& end_fct) const
+         {
+             auto i = it->end << m_shift2ref;
+-            return end_fct(m_lca_level, i, 1);
++            return end_fct(m_lca_level, i);
+         }
+
+         inline bool is_in(auto scan) const
+@@ -131,36 +131,13 @@ namespace samurai
+             return m_shift2dest;
+         }
+
+-        template <class StartEnd>
+-        inline void next_interval(StartEnd& start_and_stop)
+-        {
+-            auto& [start_fct, end_fct] = start_and_stop; // cppcheck-suppress variableScope
+-
+-            auto i_start = start(m_first, start_fct);
+-            auto i_end   = end(m_first, end_fct);
+-            while (m_first + 1 != m_last && i_end >= start(m_first + 1, start_fct))
+-            {
+-                ++m_first;
+-                i_end = end(m_first, end_fct);
+-            }
+-            m_current_interval = {i_start, i_end};
+-
+-            if (m_current_interval.is_valid())
+-            {
+-                m_current = m_current_interval.start;
+-            }
+-            else
+-            {
+-                m_current = sentinel<value_t>;
+-            }
+-        }
+-
+         template <class StartEnd>
+         inline void next(auto scan, StartEnd& start_and_stop)
+         {
++            auto& [start_fct, end_fct] = start_and_stop; // cppcheck-suppress variableScope
+             if (m_current == std::numeric_limits<value_t>::min())
+             {
+-                next_interval(start_and_stop);
++                m_current = start(m_first, start_fct);
+                 return;
+             }
+
+@@ -168,7 +145,12 @@ namespace samurai
+             {
+                 if (m_is_start)
+                 {
+-                    m_current = m_current_interval.end;
++                    m_current = end(m_first, end_fct);
++                    while (m_first + 1 != m_last && m_current >= start(m_first + 1, start_fct))
++                    {
++                        ++m_first;
++                        m_current = end(m_first, end_fct);
++                    }
+                 }
+                 else
+                 {
+@@ -179,7 +161,7 @@ namespace samurai
+                         m_current = sentinel<value_t>;
+                         return;
+                     }
+-                    next_interval(start_and_stop);
++                    m_current = start(m_first, start_fct);
+                 }
+                 m_is_start = !m_is_start;
+             }
+@@ -194,7 +176,6 @@ namespace samurai
+         iterator_t m_first;
+         iterator_t m_last;
+         value_t m_current;
+-        interval_t m_current_interval;
+         bool m_is_start;
+     };
+
+diff --git a/tests/reference/finite_volume/test_finite_volume_demo_burgers.h5 b/tests/reference/finite_volume/test_finite_volume_demo_burgers.h5
+index 3f8a8ce..dc8ef5f 100644
+Binary files a/tests/reference/finite_volume/test_finite_volume_demo_burgers.h5 and b/tests/reference/finite_volume/test_finite_volume_demo_burgers.h5 differ
+diff --git a/tests/reference/finite_volume/test_finite_volume_demo_burgers.xdmf b/tests/reference/finite_volume/test_finite_volume_demo_burgers.xdmf
+index 1c8a057..811de66 100644
+--- a/tests/reference/finite_volume/test_finite_volume_demo_burgers.xdmf
++++ b/tests/reference/finite_volume/test_finite_volume_demo_burgers.xdmf
+@@ -2,20 +2,20 @@
+ <Xdmf>
+     <Domain>
+         <Grid Name="mesh">
+-            <Topology TopologyType="Quadrilateral" NumberOfElements="2056">
+-                <DataItem Dimensions="8224" Format="HDF">test_finite_volume_demo_burgers.h5:/mesh/connectivity</DataItem>
++            <Topology TopologyType="Quadrilateral" NumberOfElements="850">
++                <DataItem Dimensions="3400" Format="HDF">test_finite_volume_demo_burgers.h5:/mesh/connectivity</DataItem>
+             </Topology>
+             <Geometry GeometryType="XYZ">
+-                <DataItem Dimensions="6507" Format="HDF">test_finite_volume_demo_burgers.h5:/mesh/points</DataItem>
++                <DataItem Dimensions="2775" Format="HDF">test_finite_volume_demo_burgers.h5:/mesh/points</DataItem>
+             </Geometry>
+             <Attribute Name="u_0" Center="Cell">
+-                <DataItem Dimensions="2056" Format="HDF" Precision="8">test_finite_volume_demo_burgers.h5:/mesh/fields/u_0</DataItem>
++                <DataItem Dimensions="850" Format="HDF" Precision="8">test_finite_volume_demo_burgers.h5:/mesh/fields/u_0</DataItem>
+             </Attribute>
+             <Attribute Name="u_1" Center="Cell">
+-                <DataItem Dimensions="2056" Format="HDF" Precision="8">test_finite_volume_demo_burgers.h5:/mesh/fields/u_1</DataItem>
++                <DataItem Dimensions="850" Format="HDF" Precision="8">test_finite_volume_demo_burgers.h5:/mesh/fields/u_1</DataItem>
+             </Attribute>
+             <Attribute Name="level" Center="Cell">
+-                <DataItem Dimensions="2056" Format="HDF" Precision="8">test_finite_volume_demo_burgers.h5:/mesh/fields/level</DataItem>
++                <DataItem Dimensions="850" Format="HDF" Precision="8">test_finite_volume_demo_burgers.h5:/mesh/fields/level</DataItem>
+             </Attribute>
+         </Grid>
+     </Domain>
+diff --git a/tests/reference/finite_volume/test_finite_volume_demo_lid_driven_cavity.h5 b/tests/reference/finite_volume/test_finite_volume_demo_lid_driven_cavity.h5
+index 3d5745b..f712052 100644
+Binary files a/tests/reference/finite_volume/test_finite_volume_demo_lid_driven_cavity.h5 and b/tests/reference/finite_volume/test_finite_volume_demo_lid_driven_cavity.h5 differ
+diff --git a/tests/reference/finite_volume/test_finite_volume_demo_lid_driven_cavity.xdmf b/tests/reference/finite_volume/test_finite_volume_demo_lid_driven_cavity.xdmf
+index 83f5b28..1e69e61 100644
+--- a/tests/reference/finite_volume/test_finite_volume_demo_lid_driven_cavity.xdmf
++++ b/tests/reference/finite_volume/test_finite_volume_demo_lid_driven_cavity.xdmf
+@@ -2,14 +2,14 @@
+ <Xdmf>
+     <Domain>
+         <Grid Name="mesh">
+-            <Topology TopologyType="Quadrilateral" NumberOfElements="2560">
+-                <DataItem Dimensions="10240" Format="HDF">test_finite_volume_demo_lid_driven_cavity.h5:/mesh/connectivity</DataItem>
++            <Topology TopologyType="Quadrilateral" NumberOfElements="2104">
++                <DataItem Dimensions="8416" Format="HDF">test_finite_volume_demo_lid_driven_cavity.h5:/mesh/connectivity</DataItem>
+             </Topology>
+             <Geometry GeometryType="XYZ">
+-                <DataItem Dimensions="8463" Format="HDF">test_finite_volume_demo_lid_driven_cavity.h5:/mesh/points</DataItem>
++                <DataItem Dimensions="7023" Format="HDF">test_finite_volume_demo_lid_driven_cavity.h5:/mesh/points</DataItem>
+             </Geometry>
+             <Attribute Name="ink" Center="Cell">
+-                <DataItem Dimensions="2560" Format="HDF" Precision="8">test_finite_volume_demo_lid_driven_cavity.h5:/mesh/fields/ink</DataItem>
++                <DataItem Dimensions="2104" Format="HDF" Precision="8">test_finite_volume_demo_lid_driven_cavity.h5:/mesh/fields/ink</DataItem>
+             </Attribute>
+         </Grid>
+     </Domain>
+diff --git a/tests/reference/finite_volume/test_finite_volume_demo_linear_convection.h5 b/tests/reference/finite_volume/test_finite_volume_demo_linear_convection.h5
+index cdcf5e4..b26e15a 100644
+Binary files a/tests/reference/finite_volume/test_finite_volume_demo_linear_convection.h5 and b/tests/reference/finite_volume/test_finite_volume_demo_linear_convection.h5 differ
+diff --git a/tests/test_demo_finite_volume.py b/tests/test_demo_finite_volume.py
+index 4631c96..68f0d8d 100644
+--- a/tests/test_demo_finite_volume.py
++++ b/tests/test_demo_finite_volume.py
+@@ -253,9 +253,9 @@ def test_finite_volume_demo_burgers(config):
+         "--nfiles",
+         "1",
+         "--min-level",
+-        "3",
++        "2",
+         "--max-level",
+-        "6",
++        "5",
+         "--init-sol",
+         "hat",
+         "--Tf",
+diff --git a/tests/test_subset.cpp b/tests/test_subset.cpp
+index b54d2d2..04da53e 100644
+--- a/tests/test_subset.cpp
++++ b/tests/test_subset.cpp
+@@ -12,11 +12,10 @@
+ #include <samurai/level_cell_array.hpp>
+ #include <samurai/mr/mesh.hpp>
+ #include <samurai/subset/node.hpp>
+-#include <xtensor/xtensor_forward.hpp>
+
+ namespace samurai
+ {
+-    TEST(subset, lower_bound)
++    TEST(new_subset, lower_bound)
+     {
+         LevelCellList<1> lcl{1};
+         LevelCellArray<1> lca;
+@@ -46,7 +45,7 @@ namespace samurai
+         EXPECT_TRUE(it == lca[0].end());
+     }
+
+-    TEST(subset, upper_bound)
++    TEST(new_subset, upper_bound)
+     {
+         LevelCellList<1> lcl{1};
+         LevelCellArray<1> lca;
+@@ -142,14 +141,14 @@ namespace samurai
+             });
+     }
+
+-    TEST(subset, compute_min)
++    TEST(new_subset, compute_min)
+     {
+         EXPECT_EQ(1, compute_min(3, 4, 1, 4));
+         EXPECT_EQ(0, compute_min(0, 0, 0, 0));
+         EXPECT_EQ(-1, compute_min(-1, -1, -1, -1));
+     }
+
+-    TEST(subset, check_dim)
++    TEST(new_subset, check_dim)
+     {
+         LevelCellArray<1> lca_1d;
+         auto set_1d = self(lca_1d);
+@@ -162,7 +161,7 @@ namespace samurai
+         static_assert(decltype(intersection(set_2d, set_2d))::dim == 2);
+     }
+
+-    TEST(subset, test1)
++    TEST(new_subset, test1)
+     {
+         CellList<1> cl;
+         CellArray<1> ca;
+@@ -180,15 +179,6 @@ namespace samurai
+
+         ca = {cl, true};
+
+-        {
+-            auto set = self(ca[4]).on(0);
+-            apply(set,
+-                  [](auto& i, auto)
+-                  {
+-                      EXPECT_EQ(interval_t(0, 2), i);
+-                  });
+-        }
+-
+         {
+             auto set = intersection(self(ca[4]).on(0), ca[5]).on(1);
+             apply(set,
+@@ -338,7 +328,7 @@ namespace samurai
+               });
+     }
+
+-    TEST(subset, 2d_case)
++    TEST(new_subset, 2d_case)
+     {
+         CellList<2> cl;
+         CellArray<2> ca1, ca2;
+@@ -493,12 +483,12 @@ namespace samurai
+             };
+             std::size_t ie = 0;
+
+-            // apply(difference(domain, translate(domain, dir)).on(1),
+-            //       [&](auto& i, auto& index)
+-            //       {
+-            //           EXPECT_EQ(ie, 0);
+-            //           EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+-            //       });
++            apply(difference(domain, translate(domain, dir)).on(1),
++                  [&](auto& i, auto& index)
++                  {
++                      EXPECT_EQ(ie, 0);
++                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
++                  });
+
+             dir = {0, 1};
+             ie  = 0;
+@@ -511,7 +501,7 @@ namespace samurai
+         }
+     }
+
+-    TEST(subset, translate)
++    TEST(new_subset, translate)
+     {
+         CellList<1> cl;
+         CellArray<1> ca;
+@@ -530,7 +520,7 @@ namespace samurai
+               });
+     }
+
+-    TEST(subset, translate_test)
++    TEST(new_subset, translate_test)
+     {
+         CellList<1> cl;
+         CellArray<1> ca;
+@@ -586,720 +576,4 @@ namespace samurai
+                   EXPECT_EQ(interval_t(7, 13), i);
+               });
+     }
+-
+-    TEST(subset, translate_2d)
+-    {
+-        using lca_t      = LevelCellArray<2>;
+-        using interval_t = typename lca_t::interval_t;
+-        LevelCellArray<2> boundary(5);
+-
+-        LevelCellArray<2> domain1(5);
+-        for (int j = 4; j < 6; ++j)
+-        {
+-            domain1.add_interval_back({0, 32}, {j});
+-        }
+-        xt::xtensor_fixed<int, xt::xshape<2>> translation{1, 0};
+-        auto diff = difference(domain1, translate(self(domain1), -translation));
+-
+-        bool found = false;
+-        diff.on(4)(
+-            [&](auto& i, auto& index)
+-            {
+-                found = true;
+-                EXPECT_EQ(interval_t(15, 16), i);
+-                EXPECT_EQ(index[0], 2);
+-            });
+-        EXPECT_TRUE(found);
+-
+-        found = false;
+-        intersection(diff.on(4), diff.on(4))(
+-            [&](auto& i, auto& index)
+-            {
+-                found = true;
+-                EXPECT_EQ(interval_t(15, 16), i);
+-                EXPECT_EQ(index[0], 2);
+-            });
+-        EXPECT_TRUE(found);
+-
+-        found = false;
+-        intersection(diff.on(4), diff.on(4))
+-            .on(3)(
+-                [&](auto& i, auto& index)
+-                {
+-                    found = true;
+-                    EXPECT_EQ(interval_t(7, 8), i);
+-                    EXPECT_EQ(index[0], 1);
+-                });
+-        EXPECT_TRUE(found);
+-
+-        found = false;
+-        intersection(intersection(diff.on(4), diff.on(4)).on(3), intersection(diff.on(4), diff.on(4)).on(5))
+-            .on(3)(
+-                [&](auto& i, auto& index)
+-                {
+-                    found = true;
+-                    EXPECT_EQ(interval_t(7, 8), i);
+-                    EXPECT_EQ(index[0], 1);
+-                });
+-        EXPECT_TRUE(found);
+-
+-        LevelCellArray<2> lca_4(4);
+-        lca_4.add_interval_back({15, 16}, {2});
+-
+-        found = false;
+-        intersection(intersection(diff.on(4), diff.on(4)).on(3), lca_4)(
+-            [&](auto& i, auto& index)
+-            {
+-                found = true;
+-                EXPECT_EQ(interval_t(15, 16), i);
+-                EXPECT_EQ(index[0], 2);
+-            });
+-        EXPECT_TRUE(found);
+-    }
+-
+-    TEST(subset, union)
+-    {
+-        using interval_t = typename CellArray<2>::interval_t;
+-        using expected_t = std::vector<std::pair<int, interval_t>>;
+-        LevelCellList<2> lcl1(1);
+-        LevelCellList<2> lcl2(1);
+-        LevelCellArray<2> lca1;
+-        LevelCellArray<2> lca2;
+-
+-        lcl1[{0}].add_interval({0, 1});
+-        lcl2[{1}].add_interval({1, 2});
+-
+-        lca1 = lcl1;
+-        lca2 = lcl2;
+-
+-        {
+-            auto expected = expected_t{
+-                {0, {0, 1}},
+-                {1, {1, 2}}
+-            };
+-
+-            auto set = union_(lca1, lca2);
+-            EXPECT_EQ(set.level(), 1);
+-
+-            bool found     = false;
+-            std::size_t ie = 0;
+-            apply(set,
+-                  [&](auto& i, auto& index)
+-                  {
+-                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+-                      found = true;
+-                  });
+-            EXPECT_TRUE(found);
+-        }
+-
+-        {
+-            auto set = intersection(lca1, lca2);
+-            EXPECT_EQ(set.level(), 1);
+-
+-            bool found = false;
+-            apply(set,
+-                  [&](auto&, auto&)
+-                  {
+-                      found = true;
+-                  });
+-            EXPECT_FALSE(found);
+-        }
+-
+-        {
+-            auto expected = expected_t{
+-                {0, {0, 1}},
+-            };
+-
+-            auto set = intersection(lca1, self(lca2).on(0));
+-            EXPECT_EQ(set.level(), 1);
+-
+-            bool found     = false;
+-            std::size_t ie = 0;
+-            apply(set,
+-                  [&](auto& i, auto& index)
+-                  {
+-                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+-                      found = true;
+-                  });
+-            EXPECT_TRUE(found);
+-        }
+-
+-        {
+-            auto set = difference(lca1, self(lca2).on(0));
+-            EXPECT_EQ(set.level(), 1);
+-
+-            bool found = false;
+-            apply(set,
+-                  [&](auto&, auto&)
+-                  {
+-                      found = true;
+-                  });
+-            EXPECT_FALSE(found);
+-        }
+-
+-        {
+-            auto expected = expected_t{
+-                {0, {0, 1}},
+-            };
+-
+-            auto set = difference(lca1, lca2);
+-            EXPECT_EQ(set.level(), 1);
+-
+-            bool found     = false;
+-            std::size_t ie = 0;
+-            apply(set,
+-                  [&](auto& i, auto& index)
+-                  {
+-                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+-                      found = true;
+-                  });
+-            EXPECT_TRUE(found);
+-        }
+-
+-        {
+-            auto expected = expected_t{
+-                {0, {0, 2}},
+-                {1, {0, 2}},
+-            };
+-
+-            auto set = self(lca1).on(0).on(1);
+-            EXPECT_EQ(set.level(), 1);
+-
+-            bool found     = false;
+-            std::size_t ie = 0;
+-            apply(set,
+-                  [&](auto& i, auto& index)
+-                  {
+-                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+-                      found = true;
+-                  });
+-            EXPECT_TRUE(found);
+-            EXPECT_EQ(ie, expected.size());
+-        }
+-
+-        {
+-            auto expected = expected_t{
+-                {0, {0, 2}},
+-                {1, {0, 1}},
+-            };
+-
+-            auto set = difference(self(lca1).on(0).on(1), lca2);
+-            EXPECT_EQ(set.level(), 1);
+-
+-            bool found     = false;
+-            std::size_t ie = 0;
+-            apply(set,
+-                  [&](auto& i, auto& index)
+-                  {
+-                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+-                      found = true;
+-                  });
+-            EXPECT_TRUE(found);
+-            EXPECT_EQ(ie, expected.size());
+-        }
+-
+-        {
+-            xt::xtensor_fixed<int, xt::xshape<2>> translation{-1, -1};
+-            auto expected = expected_t{
+-                {-1, {-1, 1}},
+-                {0,  {-1, 0}},
+-            };
+-
+-            // auto set = difference(translate(difference(self(lca1).on(0), lca2), translation), translate(lca1, translation));
+-            auto set = translate(difference(self(lca1).on(0), lca2), translation);
+-            EXPECT_EQ(set.level(), 1);
+-
+-            bool found     = false;
+-            std::size_t ie = 0;
+-            apply(set,
+-                  [&](auto& i, auto& index)
+-                  {
+-                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+-                      found = true;
+-                  });
+-            EXPECT_TRUE(found);
+-            EXPECT_EQ(ie, expected.size());
+-        }
+-    }
+-
+-    // 1D Pathological Cases
+-    TEST(subset, 1d_empty_sets)
+-    {
+-        LevelCellList<1> lcl{3};
+-        LevelCellArray<1> empty_lca;
+-        LevelCellArray<1> regular_lca;
+-
+-        // Empty set operations
+-        lcl[{}].add_interval({5, 10});
+-        regular_lca = lcl;
+-
+-        // Union with empty set should return original
+-        bool found = false;
+-        apply(union_(empty_lca, regular_lca),
+-              [&](auto& i, auto)
+-              {
+-                  EXPECT_EQ(i, typename LevelCellArray<1>::interval_t(5, 10));
+-                  found = true;
+-              });
+-        EXPECT_TRUE(found);
+-
+-        // Intersection with empty set should be empty
+-        found = false;
+-        apply(intersection(empty_lca, regular_lca),
+-              [&](auto&, auto)
+-              {
+-                  found = true;
+-              });
+-        EXPECT_FALSE(found);
+-
+-        // Difference with empty set should return original
+-        found = false;
+-        apply(difference(regular_lca, empty_lca),
+-              [&](auto& i, auto)
+-              {
+-                  EXPECT_EQ(i, typename LevelCellArray<1>::interval_t(5, 10));
+-                  found = true;
+-              });
+-        EXPECT_TRUE(found);
+-    }
+-
+-    TEST(subset, 1d_single_point_intervals)
+-    {
+-        LevelCellList<1> lcl{3};
+-        LevelCellArray<1> lca;
+-
+-        // Single point intervals
+-        lcl[{}].add_interval({0, 1});
+-        lcl[{}].add_interval({2, 3});
+-        lcl[{}].add_interval({4, 5});
+-        lca = lcl;
+-
+-        // Translation by 1 should create gaps
+-        xt::xtensor_fixed<int, xt::xshape<1>> translation{1};
+-        bool found = false;
+-        apply(difference(lca, translate(lca, translation)),
+-              [&](auto& i, auto)
+-              {
+-                  found = true;
+-                  EXPECT_TRUE(i == typename LevelCellArray<1>::interval_t(0, 1) || i == typename LevelCellArray<1>::interval_t(2, 3)
+-                              || i == typename LevelCellArray<1>::interval_t(4, 5));
+-              });
+-        EXPECT_TRUE(found);
+-    }
+-
+-    TEST(subset, 1d_extreme_level_differences)
+-    {
+-        CellList<1> cl;
+-        CellArray<1> ca;
+-
+-        // Very different levels
+-        cl[0][{}].add_interval({0, 1});
+-        cl[10][{}].add_interval({0, 1024});
+-        ca = {cl, true};
+-
+-        // Intersection should work despite level difference
+-        bool found = false;
+-        apply(intersection(ca[0], ca[10]),
+-              [&](auto& i, auto)
+-              {
+-                  found = true;
+-                  EXPECT_EQ(i, typename CellArray<1>::interval_t(0, 1024));
+-              });
+-        EXPECT_TRUE(found);
+-
+-        // Level adaptation
+-        found = false;
+-        apply(intersection(ca[0], self(ca[10]).on(0)),
+-              [&](auto& i, auto)
+-              {
+-                  found = true;
+-                  EXPECT_EQ(i, typename CellArray<1>::interval_t(0, 1));
+-              });
+-        EXPECT_TRUE(found);
+-    }
+-
+-    TEST(subset, 1d_negative_coordinates)
+-    {
+-        LevelCellList<1> lcl{3};
+-        LevelCellArray<1> lca;
+-
+-        lcl[{}].add_interval({-10, -5});
+-        lcl[{}].add_interval({-2, 3});
+-        lcl[{}].add_interval({8, 12});
+-        lca = lcl;
+-
+-        xt::xtensor_fixed<int, xt::xshape<1>> translation{-15};
+-
+-        // Translation to very negative values
+-        bool found = false;
+-        apply(translate(lca, translation),
+-              [&](auto& i, auto)
+-              {
+-                  found = true;
+-                  EXPECT_TRUE(i == typename LevelCellArray<1>::interval_t(-25, -20) || i == typename LevelCellArray<1>::interval_t(-17, -12)
+-                              || i == typename LevelCellArray<1>::interval_t(-7, -3));
+-              });
+-        EXPECT_TRUE(found);
+-    }
+-
+-    // 2D Pathological Cases
+-    TEST(subset, 2d_sparse_distribution)
+-    {
+-        LevelCellList<2> lcl{3};
+-        LevelCellArray<2> lca;
+-
+-        // Very sparse distribution
+-        lcl[{0}].add_interval({0, 1});
+-        lcl[{100}].add_interval({0, 1});
+-        lcl[{-50}].add_interval({200, 201});
+-        lca = lcl;
+-
+-        xt::xtensor_fixed<int, xt::xshape<2>> translation{1, 1};
+-
+-        // Self-intersection after translation should be empty for sparse data
+-        bool found = false;
+-        apply(intersection(lca, translate(lca, translation)),
+-              [&](auto&, auto)
+-              {
+-                  found = true;
+-              });
+-        EXPECT_FALSE(found);
+-    }
+-
+-    TEST(subset, 2d_checkerboard_pattern)
+-    {
+-        LevelCellList<2> lcl{3};
+-        LevelCellArray<2> lca;
+-
+-        // Checkerboard pattern
+-        for (int j = 0; j < 8; j += 2)
+-        {
+-            for (int i = j % 4; i < 8; i += 4)
+-            {
+-                lcl[{j}].add_interval({i, i + 1});
+-            }
+-        }
+-        lca = lcl;
+-
+-        xt::xtensor_fixed<int, xt::xshape<2>> translation{1, 1};
+-
+-        // Translation should create complementary pattern
+-        bool found = false;
+-        int count  = 0;
+-        apply(intersection(lca, translate(lca, translation)),
+-              [&](auto&, auto)
+-              {
+-                  found = true;
+-                  count++;
+-              });
+-        EXPECT_FALSE(found); // Should be empty due to checkerboard
+-    }
+-
+-    TEST(subset, 2d_boundary_conditions)
+-    {
+-        CellList<2> cl;
+-        CellArray<2> ca;
+-
+-        // Create a domain with holes
+-        cl[5][{16}].add_interval({0, 32});
+-        cl[5][{17}].add_interval({0, 8});
+-        cl[5][{17}].add_interval({24, 32});
+-        cl[5][{18}].add_interval({0, 32});
+-        ca = {cl, true};
+-
+-        // Test boundary extraction
+-        xt::xtensor_fixed<int, xt::xshape<2>> directions[] = {
+-            {1,  0 },
+-            {-1, 0 },
+-            {0,  1 },
+-            {0,  -1}
+-        };
+-
+-        for (auto& dir : directions)
+-        {
+-            auto boundary = difference(ca[5], translate(ca[5], dir));
+-            bool found    = false;
+-            apply(boundary,
+-                  [&](auto&, auto)
+-                  {
+-                      found = true;
+-                  });
+-            EXPECT_TRUE(found);
+-        }
+-    }
+-
+-    TEST(subset, 2d_extreme_aspect_ratios)
+-    {
+-        LevelCellList<2> lcl{3};
+-        LevelCellArray<2> lca;
+-
+-        // Very thin horizontal strips at y=0 and y=1
+-        lcl[{0}].add_interval({0, 1000});
+-        lcl[{1}].add_interval({0, 1000});
+-
+-        // Very thin vertical strips at y=0 (overlapping with horizontal strips)
+-        for (int i = 0; i < 1000; i += 100)
+-        {
+-            lcl[{0}].add_interval({i, i + 1});
+-        }
+-        lca = lcl;
+-
+-        // Intersection should find overlap regions where horizontal and vertical strips meet
+-        bool found = false;
+-        int count  = 0;
+-        apply(intersection(self(lca), self(lca)),
+-              [&](auto& i, auto& index)
+-              {
+-                  found = true;
+-                  count++;
+-                  // Should find the original intervals since self-intersection returns the original set
+-                  if (index[0] == 0)
+-                  {
+-                      EXPECT_TRUE(i.start >= 0 && i.end <= 1000);
+-                  }
+-              });
+-        EXPECT_TRUE(found);
+-        EXPECT_GT(count, 0);
+-    }
+-
+-    // 3D Pathological Cases
+-    TEST(subset, 3d_complex_geometry)
+-    {
+-        LevelCellList<3> lcl{2};
+-        LevelCellArray<3> lca;
+-
+-        // Create a complex 3D structure
+-        for (int k = 0; k < 4; ++k)
+-        {
+-            for (int j = 0; j < 4; ++j)
+-            {
+-                // Hollow cube structure
+-                if (k == 0 || k == 3 || j == 0 || j == 3)
+-                {
+-                    lcl[{j, k}].add_interval({0, 4});
+-                }
+-                else
+-                {
+-                    lcl[{j, k}].add_interval({0, 1});
+-                    lcl[{j, k}].add_interval({3, 4});
+-                }
+-            }
+-        }
+-        lca = lcl;
+-
+-        // Test volume calculation through iteration
+-        int cell_count = 0;
+-        apply(self(lca),
+-              [&](auto& i, auto&)
+-              {
+-                  cell_count += i.size();
+-              });
+-        EXPECT_GT(cell_count, 0);
+-
+-        // Test 3D translation
+-        xt::xtensor_fixed<int, xt::xshape<3>> translation{1, 1, 1};
+-        bool found = false;
+-        apply(intersection(lca, translate(lca, translation)),
+-              [&](auto&, auto)
+-              {
+-                  found = true;
+-              });
+-        EXPECT_TRUE(found);
+-    }
+-
+-    TEST(subset, 3d_layered_structure)
+-    {
+-        LevelCellList<3> lcl{3};
+-        LevelCellArray<3> lca;
+-
+-        // Alternating layers
+-        for (int k = 0; k < 8; k += 2)
+-        {
+-            for (int j = 0; j < 8; ++j)
+-            {
+-                lcl[{j, k}].add_interval({0, 8});
+-            }
+-        }
+-        lca = lcl;
+-
+-        // Test difference between adjacent layers
+-        LevelCellList<3> lcl2{3};
+-        LevelCellArray<3> lca2;
+-
+-        for (int k = 1; k < 8; k += 2)
+-        {
+-            for (int j = 0; j < 8; ++j)
+-            {
+-                lcl2[{j, k}].add_interval({0, 8});
+-            }
+-        }
+-        lca2 = lcl2;
+-
+-        // Should be completely disjoint
+-        bool found = false;
+-        apply(intersection(lca, lca2),
+-              [&](auto&, auto)
+-              {
+-                  found = true;
+-              });
+-        EXPECT_FALSE(found);
+-
+-        // Union should cover all layers
+-        found = false;
+-        apply(union_(lca, lca2),
+-              [&](auto&, auto)
+-              {
+-                  found = true;
+-              });
+-        EXPECT_TRUE(found);
+-    }
+-
+-    TEST(subset, 3d_fractal_like_structure)
+-    {
+-        CellList<3> cl;
+-        CellArray<3> ca;
+-
+-        // Create a Menger sponge-like structure at different levels
+-        cl[3][{0, 0}].add_interval({0, 9});
+-        cl[3][{0, 1}].add_interval({0, 3});
+-        cl[3][{0, 1}].add_interval({6, 9});
+-        cl[3][{0, 2}].add_interval({0, 9});
+-
+-        cl[4][{0, 4}].add_interval({0, 18});
+-        cl[4][{1, 4}].add_interval({0, 6});
+-        cl[4][{1, 4}].add_interval({12, 18});
+-        cl[4][{2, 4}].add_interval({0, 18});
+-
+-        ca = {cl, true};
+-
+-        // Test self-similarity at different scales
+-        bool found = false;
+-        apply(intersection(ca[3], self(ca[4]).on(3)),
+-              [&](auto&, auto)
+-              {
+-                  found = true;
+-              });
+-        EXPECT_TRUE(found);
+-    }
+-
+-    TEST(subset, edge_case_translations)
+-    {
+-        LevelCellList<2> lcl{5};
+-        LevelCellArray<2> lca;
+-
+-        // Single cell
+-        lcl[{16}].add_interval({16, 17});
+-        lca = lcl;
+-
+-        // Test translation by exactly the cell size at different levels
+-        for (int level_offset = -2; level_offset <= 2; ++level_offset)
+-        {
+-            int target_level = 5 + level_offset;
+-            if (target_level >= 0)
+-            {
+-                int scale = 1 << std::abs(level_offset);
+-                xt::xtensor_fixed<int, xt::xshape<2>> translation;
+-
+-                if (level_offset >= 0)
+-                {
+-                    translation = {scale, 0};
+-                }
+-                else
+-                {
+-                    translation = {1, 0};
+-                }
+-
+-                bool found = false;
+-                apply(intersection(self(lca).on(target_level), translate(self(lca).on(target_level), translation)),
+-                      [&](auto&, auto)
+-                      {
+-                          found = true;
+-                      });
+-                // Should be empty for non-zero translations of single cells
+-                if (translation[0] != 0 || translation[1] != 0)
+-                {
+-                    EXPECT_FALSE(found);
+-                }
+-            }
+-        }
+-    }
+-
+-    TEST(subset, large_coordinate_stress_test)
+-    {
+-        LevelCellList<1> lcl{10};
+-        LevelCellArray<1> lca;
+-
+-        // Very large coordinates near integer limits
+-        const int large_coord = 1000000;
+-        lcl[{}].add_interval({large_coord, large_coord + 1024});
+-        lca = lcl;
+-
+-        // Test operations with large coordinates
+-        xt::xtensor_fixed<int, xt::xshape<1>> translation{-large_coord};
+-
+-        bool found = false;
+-        apply(translate(lca, translation),
+-              [&](auto& i, auto)
+-              {
+-                  EXPECT_EQ(i, typename LevelCellArray<1>::interval_t(0, 1024));
+-                  found = true;
+-              });
+-        EXPECT_TRUE(found);
+-    }
+-
+-    TEST(subset, mixed_operations_stress_test)
+-    {
+-        LevelCellList<2> lcl{4};
+-        LevelCellArray<2> lca1, lca2;
+-
+-        // Setup two overlapping patterns
+-        lcl[{2}].add_interval({0, 8});
+-        lcl[{3}].add_interval({2, 6});
+-        lcl[{4}].add_interval({0, 8});
+-        lca1 = lcl;
+-
+-        lcl.clear();
+-        lcl[{1}].add_interval({4, 12});
+-        lcl[{2}].add_interval({6, 10});
+-        lcl[{3}].add_interval({4, 12});
+-        lca2 = lcl;
+-
+-        // Complex nested operations
+-        xt::xtensor_fixed<int, xt::xshape<2>> trans1{1, 1};
+-        xt::xtensor_fixed<int, xt::xshape<2>> trans2{-1, 0};
+-
+-        auto complex_set = union_(intersection(translate(lca1, trans1), lca2), difference(lca1, translate(lca2, trans2)));
+-
+-        bool found = false;
+-        apply(complex_set,
+-              [&](auto&, auto)
+-              {
+-                  found = true;
+-              });
+-        EXPECT_TRUE(found);
+-    }
+-
+-    TEST(subset, diff_1d_translate)
+-    {
+-        LevelCellArray<1> lca(1);
+-        lca.add_interval_back({0, 16}, {});
+-        xt::xtensor_fixed<int, xt::xshape<1>> translation{-1};
+-
+-        bool never_call = true;
+-        apply(difference(lca, translate(lca, translation)),
+-              [&never_call](auto& i, auto)
+-              {
+-                  never_call = false;
+-                  EXPECT_EQ(i, typename LevelCellArray<1>::interval_t(15, 16));
+-              });
+-        EXPECT_FALSE(never_call);
+-
+-        never_call = true;
+-        apply(difference(lca, translate(lca, translation).on(0)),
+-              [&never_call](auto&, auto)
+-              {
+-                  never_call = false;
+-              });
+-        EXPECT_TRUE(never_call);
+-    }
+ }

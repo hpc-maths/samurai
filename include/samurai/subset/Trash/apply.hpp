@@ -3,13 +3,14 @@
 
 #pragma once
 
-#include "set_base.hpp"
+#include "concepts.hpp"
+#include "utils.hpp"
 
 namespace samurai
 {
     namespace detail
     {
-        template <std::size_t dim, Set_concept Set, class Func, class Container>
+        template <std::size_t dim, class Set, class Func, class Container>
         void apply_impl(Set&& global_set, Func&& func, Container& index)
         {
             auto set            = global_set.template get_local_set<dim>(global_set.level(), index);
@@ -19,8 +20,9 @@ namespace samurai
             {
                 auto func_int = [&](const auto& interval)
                 {
-                    for (index[dim - 2] = interval.start; index[dim - 2] != interval.end; ++index[dim - 2])
+                    for (auto i = interval.start; i < interval.end; ++i)
                     {
+                        index[dim - 2] = i;
                         apply_impl<dim - 1>(std::forward<Set>(global_set), std::forward<Func>(func), index);
                     }
                 };
@@ -37,7 +39,7 @@ namespace samurai
         }
     }
 
-    template <Set_concept Set, class Func>
+    template <class Set, class Func>
     void apply(Set&& global_set, Func&& func)
     {
         constexpr std::size_t dim = std::decay_t<Set>::dim;
@@ -48,7 +50,8 @@ namespace samurai
         }
     }
 
-    template <Set_concept Set, class StartEnd, class Func>
+    template <class Set, class StartEnd, class Func>
+        requires IsSetOp<Set> || IsIntervalListVisitor<Set>
     void apply(Set&& set, StartEnd&& start_and_stop, Func&& func)
     {
         using interval_t = typename std::decay_t<Set>::interval_t;

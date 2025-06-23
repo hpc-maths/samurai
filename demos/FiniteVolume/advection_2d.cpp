@@ -173,7 +173,7 @@ int main(int argc, char* argv[])
     auto& app = samurai::initialize("Finite volume example for the advection equation in 2d using multiresolution", argc, argv);
 
     constexpr std::size_t dim = 2;
-    using Config              = samurai::MRConfig<dim>;
+    using Config              = samurai::MRConfig<dim, 2>;
 
     // Simulation parameters
     xt::xtensor_fixed<double, xt::xshape<dim>> min_corner = {0., 0.};
@@ -230,7 +230,12 @@ int main(int argc, char* argv[])
 
     if (restart_file.empty())
     {
-        mesh = {box, min_level, max_level};
+        mesh = {
+            box,
+            min_level,
+            max_level,
+            {true, true}
+        };
         init(u);
     }
     else
