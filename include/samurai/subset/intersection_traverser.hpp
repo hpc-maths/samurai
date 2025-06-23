@@ -34,12 +34,8 @@ namespace samurai
 
       public:
 
-        IntersectionTraverser(const SetTraversers&... set_traversers)
-            : m_current_interval(0, 0)
-            , m_set_traversers(set_traversers)
+        IntersectionTraverser(const SetTraversers&... set_traversers), m_set_traversers(set_traversers)
         {
-            m_current_interval.start = 0;
-            m_current_interval.end   = 0;
             next_interval();
             Base::init_current();
         }
