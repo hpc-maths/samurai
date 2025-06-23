@@ -226,7 +226,7 @@ jobs:
                       linux-mpi
 
             - name: Mamba and samurai env installation
-              uses: mamba-org/setup-micromamba@v1
+              uses: mamba-org/setup-micromamba@v2
               with:
                   environment-file: conda/mpi-environment.yml
                   environment-name: samurai-env
