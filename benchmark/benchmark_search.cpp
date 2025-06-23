@@ -1,6 +1,7 @@
 #include <array>
 #include <benchmark/benchmark.h>
 #include <experimental/random>
+#include <functional>
 
 #include <xtensor/xfixed.hpp>
 #include <xtensor/xrandom.hpp>
@@ -10,6 +11,147 @@
 #include <samurai/cell_list.hpp>
 #include <samurai/static_algorithm.hpp>
 
+////////////////////////////////////////////////////////////
+/// utils
+
+template <unsigned int dim>
+auto gen_regular_intervals = [](int64_t size, unsigned int level = 0)
+{
+    samurai::CellList<dim> cl;
+
+    for (int64_t i = 0; i < size; i++)
+    {
+        int index = static_cast<int>(i);
+
+        // Calcul des paramètres selon le niveau :
+        // Niveau L : taille = 2^L, espacement = 2^(L+1)
+        int interval_size = 1 << level;       // 2^level
+        int spacing       = 1 << (level + 1); // 2^(level+1)
+        int start         = index * spacing;
+        int end           = start + interval_size;
+
+        if constexpr (dim == 1)
+        {
+            cl[level][{}].add_interval({start, end});
+        }
+        else if constexpr (dim == 2)
+        {
+            for (int y = 0; y < size; ++y)
+            {
+                xt::xtensor_fixed<int, xt::xshape<1>> coord{y};
+                cl[level][coord].add_interval({start, end});
+            }
+        }
+        else if constexpr (dim == 3)
+        {
+            for (int y = 0; y < size; ++y)
+            {
+                for (int z = 0; z < size; ++z)
+                {
+                    xt::xtensor_fixed<int, xt::xshape<2>> coord{y, z};
+                    cl[level][coord].add_interval({start, end});
+                }
+            }
+        }
+    }
+
+    return cl;
+};
+
+template <unsigned int dim>
+auto cell_array_with_n_intervals(int64_t size)
+{
+    auto cl = gen_regular_intervals<dim>(size);
+    samurai::CellArray<dim> ca(cl);
+    return ca;
+}
+
+//////////////////////////////////////////////////////////////
+
+// Fonction unifiée pour les benchmarks de recherche
+template <unsigned int dim>
+void FIND_find_unified(benchmark::State& state, const std::function<xt::xtensor_fixed<int, xt::xshape<dim>>()>& coord_generator)
+{
+    auto ca = cell_array_with_n_intervals<dim>(state.range(0));
+
+    // Compter le nombre d'intervalles
+    std::size_t nb_intervals = 0;
+    samurai::for_each_interval(ca,
+                               [&](std::size_t level, const auto& interval, const auto& index)
+                               {
+                                   nb_intervals++;
+                               });
+
+    // Compter le nombre d'intervalles dans la direction x
+    std::size_t nb_intervals_x = state.range(0);
+    auto coord                 = coord_generator();
+    for (auto _ : state)
+    {
+        auto index = find(ca[0], coord);
+        benchmark::DoNotOptimize(index);
+    }
+
+    state.counters["nb_intervals"]   = nb_intervals;
+    state.counters["nb_intervals_x"] = nb_intervals_x;
+    state.counters["dimension"]      = dim;
+}
+
+// Fonctions spécialisées pour chaque politique
+template <unsigned int dim>
+void FIND_find_start(benchmark::State& state)
+{
+    auto coord_generator = []()
+    {
+        xt::xtensor_fixed<int, xt::xshape<dim>> coord;
+        coord.fill(0);
+        return coord;
+    };
+    FIND_find_unified<dim>(state, coord_generator);
+}
+
+template <unsigned int dim>
+void FIND_find_end(benchmark::State& state)
+{
+    auto coord_generator = [&state]()
+    {
+        xt::xtensor_fixed<int, xt::xshape<dim>> coord;
+        coord.fill(state.range(0) - 1);
+        coord[0] = 2 * state.range(0) - 2;
+        return coord;
+    };
+    FIND_find_unified<dim>(state, coord_generator);
+}
+
+template <unsigned int dim>
+void FIND_find_middle(benchmark::State& state)
+{
+    auto coord_generator = [&state]()
+    {
+        xt::xtensor_fixed<int, xt::xshape<dim>> coord;
+        // Coordonnées du milieu pour toutes les dimensions sauf x
+        for (std::size_t i = 1; i < dim; ++i)
+        {
+            coord[i] = (state.range(0) - 1) / 2;
+        }
+        // Coordonnée x au milieu, mais assurée d'être un multiple de 2
+        int middle_x = (2 * state.range(0) - 1) / 2; // Milieu de la plage [0, 2*state.range(0) - 1]
+        coord[0]     = (middle_x / 2) * 2;           // S'assurer que c'est un multiple de 2
+        return coord;
+    };
+    FIND_find_unified<dim>(state, coord_generator);
+}
+
+BENCHMARK_TEMPLATE(FIND_find_start, 1)->Args({2})->Args({4})->Args({32})->Args({64});
+BENCHMARK_TEMPLATE(FIND_find_start, 2)->Args({2})->Args({4})->Args({32})->Args({64});
+BENCHMARK_TEMPLATE(FIND_find_start, 3)->Args({2})->Args({4})->Args({32})->Args({64});
+BENCHMARK_TEMPLATE(FIND_find_end, 1)->Args({2})->Args({4})->Args({32})->Args({64});
+BENCHMARK_TEMPLATE(FIND_find_end, 2)->Args({2})->Args({4})->Args({32})->Args({64});
+BENCHMARK_TEMPLATE(FIND_find_end, 3)->Args({2})->Args({4})->Args({32})->Args({64});
+BENCHMARK_TEMPLATE(FIND_find_middle, 1)->Args({2})->Args({4})->Args({32})->Args({64});
+BENCHMARK_TEMPLATE(FIND_find_middle, 2)->Args({2})->Args({4})->Args({32})->Args({64});
+BENCHMARK_TEMPLATE(FIND_find_middle, 3)->Args({2})->Args({4})->Args({32})->Args({64});
+
+/**
 template <std::size_t dim>
 auto generate_mesh(int bound, std::size_t start_level, std::size_t max_level)
 {
@@ -26,8 +168,8 @@ auto generate_mesh(int bound, std::size_t start_level, std::size_t max_level)
         samurai::for_each_interval(ca,
                                    [&](std::size_t level, const auto& interval, const auto& index)
                                    {
-                                       auto choice = xt::random::choice(xt::xtensor_fixed<bool, xt::xshape<2>>{true, false}, interval.size());
-                                       for (int i = interval.start, ic = 0; i < interval.end; ++i, ++ic)
+                                       auto choice = xt::random::choice(xt::xtensor_fixed<bool, xt::xshape<2>>{true, false},
+interval.size()); for (int i = interval.start, ic = 0; i < interval.end; ++i, ++ic)
                                        {
                                            if (choice[ic])
                                            {
@@ -51,6 +193,8 @@ auto generate_mesh(int bound, std::size_t start_level, std::size_t max_level)
     return ca;
 }
 
+
+
 template <std::size_t dim_, int bound>
 class MyFixture : public ::benchmark::Fixture
 {
@@ -69,11 +213,10 @@ class MyFixture : public ::benchmark::Fixture
     {
         std::size_t found = 0;
         for (auto _ : state)
-        {
-            for (std::size_t s = 0; s < state.range(0); ++s)
             {
                 auto level = std::experimental::randint(min_level, max_level);
-                std::array<int, dim> coord;
+//              std::array<int, dim> coord;
+        xt::xtensor_fixed<int, xt::xshape<dim>> coord ;
                 for (auto& c : coord)
                 {
                     c = std::experimental::randint(-bound << level, (bound << level) - 1);
@@ -99,6 +242,8 @@ BENCHMARK_TEMPLATE_DEFINE_F(MyFixture, Search_1D, 1, 1000)
     bench(state);
 }
 
+
+
 BENCHMARK_REGISTER_F(MyFixture, Search_1D)->DenseRange(1, 10, 1);
 
 BENCHMARK_TEMPLATE_DEFINE_F(MyFixture, Search_2D, 2, 10)
@@ -116,3 +261,5 @@ BENCHMARK_TEMPLATE_DEFINE_F(MyFixture, Search_3D, 3, 1)(benchmark::State& state)
 }
 
 BENCHMARK_REGISTER_F(MyFixture, Search_3D)->DenseRange(1, 10, 1);
+
+**/
