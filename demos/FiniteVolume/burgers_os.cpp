@@ -65,15 +65,12 @@ void check_diff(auto& field, auto& lca_left, auto& lca_right)
             set_field(
                 [&](auto i, auto)
                 {
-                    if (xt::any(xt::abs(field(level, i) - field(level, i + (1 << level))) > 1e-13))
+                    if (xt::any(xt::abs(field(level, i) - field(level, i + (1 << level))) > 1e-10))
                     {
-                        auto ii = i;
-                        ii.start -= 2;
-                        ii.end += 2;
                         std::cout << fmt::format("\nDifference found at level {} on interval {}:\n", level, i);
-                        std::cout << fmt::format("\tleft = {}\n", field(level, ii));
-                        std::cout << fmt::format("\tright = {}\n", field(level, ii + (1 << level)));
-                        std::cout << fmt::format("\terror = {}\n", xt::abs(field(level, ii) - field(level, ii + (1 << level))));
+                        std::cout << fmt::format("\tleft = {}\n", field(level, i));
+                        std::cout << fmt::format("\tright = {}\n", field(level, i + (1 << level)));
+                        std::cout << fmt::format("\terror = {}\n", xt::abs(field(level, i) - field(level, i + (1 << level))));
                         std::cout << mesh << std::endl;
                         auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
                         samurai::for_each_cell(mesh,

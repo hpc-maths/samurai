@@ -17,7 +17,7 @@ namespace samurai
         samurai::FluxDefinition<cfg> ostvd;
 
         samurai::static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
-            [&](auto integral_constant_d)
+            [&, dt](auto integral_constant_d)
             {
                 static constexpr int d = decltype(integral_constant_d)::value;
 
