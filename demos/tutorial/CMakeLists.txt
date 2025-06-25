@@ -1,35 +1,32 @@
 add_subdirectory(AMR_1D_Burgers)
 
-add_executable(tutorial-2d-mesh 2D_mesh.cpp)
-target_link_libraries(tutorial-2d-mesh PRIVATE samurai CLI11::CLI11)
+# List of tutorial demos with their corresponding executable names
+set(TUTORIAL_DEMOS
+    2D_mesh.cpp:tutorial-2d-mesh
+    interval.cpp:tutorial-interval
+    set_operator.cpp:tutorial-set-operator
+    graduation_case_1.cpp:tutorial-graduation-case-1
+    graduation_case_2.cpp:tutorial-graduation-case-2
+    graduation_case_3.cpp:tutorial-graduation-case-3
+    reconstruction_1d.cpp:tutorial-reconstruction-1d
+    reconstruction_2d.cpp:tutorial-reconstruction-2d
+    reconstruction_3d.cpp:tutorial-reconstruction-3d
+    proj_on_mesh.cpp:tutorial-proj-on-mesh
+    diff_nested.cpp:tutorial-diff-nested
+    translate.cpp:tutorial-translate
+)
 
-add_executable(tutorial-interval interval.cpp)
-target_link_libraries(tutorial-interval PRIVATE samurai CLI11::CLI11)
+# Create executables for all tutorial demos
+foreach(demo_entry ${TUTORIAL_DEMOS})
+    string(REPLACE ":" ";" demo_parts ${demo_entry})
+    list(GET demo_parts 0 source_file)
+    list(GET demo_parts 1 executable_name)
 
-add_executable(tutorial-set-operator set_operator.cpp)
-target_link_libraries(tutorial-set-operator PRIVATE samurai CLI11::CLI11)
+    add_executable(${executable_name} ${source_file})
+    target_link_libraries(${executable_name} PRIVATE samurai CLI11::CLI11)
+endforeach()
 
-add_executable(tutorial-graduation-case-1 graduation_case_1.cpp)
-target_link_libraries(tutorial-graduation-case-1 PRIVATE samurai CLI11::CLI11)
-
-add_executable(tutorial-graduation-case-2 graduation_case_2.cpp)
-target_link_libraries(tutorial-graduation-case-2 PRIVATE samurai CLI11::CLI11)
-
-add_executable(tutorial-graduation-case-3 graduation_case_3.cpp)
-target_link_libraries(tutorial-graduation-case-3 PRIVATE samurai CLI11::CLI11)
-
-add_executable(tutorial-reconstruction-1d reconstruction_1d.cpp)
-target_link_libraries(tutorial-reconstruction-1d PRIVATE samurai CLI11::CLI11)
-
-add_executable(tutorial-reconstruction-2d reconstruction_2d.cpp)
-target_link_libraries(tutorial-reconstruction-2d PRIVATE samurai CLI11::CLI11)
-
-add_executable(tutorial-reconstruction-3d reconstruction_3d.cpp)
-target_link_libraries(tutorial-reconstruction-3d PRIVATE samurai CLI11::CLI11)
-
-add_executable(tutorial-proj-on-mesh proj_on_mesh.cpp)
-target_link_libraries(tutorial-proj-on-mesh PRIVATE samurai CLI11::CLI11)
-
+# Specific options for MSVC
 if(MSVC)
     target_compile_options(tutorial-reconstruction-3d PUBLIC /bigobj)
 endif()
