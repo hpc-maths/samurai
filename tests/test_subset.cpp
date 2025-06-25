@@ -1088,7 +1088,7 @@ namespace samurai
         lca = lcl;
 
         // Test volume calculation through iteration
-        int cell_count = 0;
+        std::size_t cell_count = 0;
         apply(self(lca),
               [&](auto& i, auto&)
               {
@@ -1302,4 +1302,21 @@ namespace samurai
               });
         EXPECT_TRUE(never_call);
     }
+
+    TEST(subset, empty)
+    {
+        LevelCellArray<1> lca(1);
+        LevelCellArray<1> lca_empty(1);
+        lca.add_interval_back({0, 16}, {});
+        xt::xtensor_fixed<int, xt::xshape<1>> translation{16};
+
+        EXPECT_FALSE(lca.empty());
+        EXPECT_TRUE(lca_empty.empty());
+
+        EXPECT_TRUE(intersection(lca, lca_empty).empty());
+        EXPECT_FALSE(intersection(lca, lca).empty());
+        EXPECT_FALSE(difference(lca, lca_empty).empty());
+        EXPECT_TRUE(intersection(lca, translate(lca, translation)).empty());
+    }
+
 }

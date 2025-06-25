@@ -453,7 +453,9 @@ namespace samurai
     template <class Field>
     void update_ghost_periodic(std::size_t level, Field& field)
     {
-        using field_value_t    = typename Field::value_type;
+#ifdef SAMURAI_WITH_MPI
+        using field_value_t = typename Field::value_type;
+#endif // SAMURAI_WITH_MPI
         using mesh_id_t        = typename Field::mesh_t::mesh_id_t;
         using config           = typename Field::mesh_t::config;
         using lca_type         = typename Field::mesh_t::lca_type;
@@ -622,7 +624,6 @@ namespace samurai
     template <class Tag>
     void update_tag_periodic(std::size_t level, Tag& tag)
     {
-        using tag_value_type      = typename Tag::value_type;
         using mesh_id_t           = typename Tag::mesh_t::mesh_id_t;
         using config              = typename Tag::mesh_t::config;
         using lca_type            = typename Tag::mesh_t::lca_type;
@@ -650,6 +651,7 @@ namespace samurai
             max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
         }
 #ifdef SAMURAI_WITH_MPI
+        using tag_value_type = typename Tag::value_type;
         std::vector<mpi::request> req;
         req.reserve(mesh.mpi_neighbourhood().size());
         mpi::communicator world;
