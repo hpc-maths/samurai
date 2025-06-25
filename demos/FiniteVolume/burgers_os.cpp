@@ -65,7 +65,7 @@ void check_diff(auto& field, auto& lca_left, auto& lca_right)
             set_field(
                 [&](auto i, auto)
                 {
-                    if (xt::any(xt::abs(field(level, i) - field(level, i + (1 << level))) > 1e-10))
+                    if (xt::any(xt::abs(field(level, i) - field(level, i + (1 << level))) > 1e-13))
                     {
                         std::cout << fmt::format("\nDifference found at level {} on interval {}:\n", level, i);
                         std::cout << fmt::format("\tleft = {}\n", field(level, i));

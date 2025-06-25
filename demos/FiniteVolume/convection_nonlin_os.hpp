@@ -5,7 +5,7 @@ namespace samurai
 {
 
     template <class Field, std::size_t order>
-    auto make_convection_os(double dt)
+    auto make_convection_os(const double& dt)
     {
         static constexpr std::size_t dim           = Field::dim;
         static constexpr std::size_t n_comp        = Field::n_comp;
@@ -17,7 +17,7 @@ namespace samurai
         samurai::FluxDefinition<cfg> ostvd;
 
         samurai::static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
-            [&, dt](auto integral_constant_d)
+            [&](auto integral_constant_d)
             {
                 static constexpr int d = decltype(integral_constant_d)::value;
 
