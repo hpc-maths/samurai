@@ -12,8 +12,6 @@ set(TUTORIAL_DEMOS
     reconstruction_2d.cpp:tutorial-reconstruction-2d
     reconstruction_3d.cpp:tutorial-reconstruction-3d
     proj_on_mesh.cpp:tutorial-proj-on-mesh
-    diff_nested.cpp:tutorial-diff-nested
-    translate.cpp:tutorial-translate
 )
 
 # Create executables for all tutorial demos

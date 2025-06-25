@@ -454,3 +454,22 @@ def test_finite_volume_demo_linear_convection(config):
         "0.1",
     ]
     output = subprocess.run(cmd, check=True, capture_output=True)
+
+
+@pytest.mark.parametrize("max_level", range(8, 12))
+@pytest.mark.parametrize("enable_flux_reconstruction", [True, False])
+@pytest.mark.parametrize("eps", [1e-2, 1e-3, 1e-4])
+def test_finite_volume_burgers_os(max_level, enable_flux_reconstruction, eps, config):
+    cmd = [
+        get_executable(
+            Path("../build/demos/FiniteVolume/"), "finite-volume-burgers-os"
+        ),
+        "--Tf=0.6",
+        "--nfiles=1",
+        "--min-level=3",
+        f"--max-level={max_level}",
+        f"mr-eps={eps}",
+    ]
+    if enable_flux_reconstruction:
+        cmd.append("--enable-max-level-flux")
+    output = subprocess.run(cmd, check=True, capture_output=True)
