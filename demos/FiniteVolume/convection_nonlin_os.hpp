@@ -5,7 +5,7 @@ namespace samurai
 {
 
     template <class Field, std::size_t order>
-    auto make_convection_os(double& dt)
+    auto make_convection_os(double dt)
     {
         static constexpr std::size_t dim           = Field::dim;
         static constexpr std::size_t n_comp        = Field::n_comp;

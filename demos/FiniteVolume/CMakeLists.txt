@@ -57,4 +57,4 @@ if(MSVC)
     target_compile_options(finite-volume-level-set PUBLIC /bigobj)
 endif()
 
-add_subdirectory(BZ)
+# add_subdirectory(BZ)

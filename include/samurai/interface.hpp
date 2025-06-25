@@ -46,7 +46,7 @@ namespace samurai
         Stencil<2, dim> interface_stencil_ = in_out_stencil<dim>(direction);
         auto interface_stencil             = make_stencil_analyzer(interface_stencil_);
 
-        auto apply = [&](const auto& cells, const auto& shifted_cells)
+        auto apply_on_interface = [&](const auto& cells, const auto& shifted_cells)
         {
             auto intersect = intersection(cells, shifted_cells);
 
@@ -76,14 +76,14 @@ namespace samurai
                     apply_on_interval<get_type>(mesh_interval, interface_it, comput_stencil_it, std::forward<Func>(f));
                 });
         };
-        apply(mesh[mesh_id_t::cells][level], translate(mesh[mesh_id_t::cells][level], -direction));
+        apply_on_interface(mesh[mesh_id_t::cells][level], translate(mesh[mesh_id_t::cells][level], -direction));
         for (std::size_t d = 0; d < dim; ++d)
         {
             if (mesh.periodicity()[d])
             {
                 auto shift = get_periodic_shift(mesh.domain(), level, d);
-                apply(mesh[mesh_id_t::cells][level], translate(translate(mesh[mesh_id_t::cells][level], shift), -direction));
-                apply(translate(mesh[mesh_id_t::cells][level], -shift), translate(mesh[mesh_id_t::cells][level], -direction));
+                apply_on_interface(mesh[mesh_id_t::cells][level], translate(translate(mesh[mesh_id_t::cells][level], shift), -direction));
+                apply_on_interface(translate(mesh[mesh_id_t::cells][level], -shift), translate(mesh[mesh_id_t::cells][level], -direction));
             }
         }
     }
@@ -117,7 +117,7 @@ namespace samurai
             return;
         }
 
-        auto apply = [&](const auto& coarse_cells, const auto& fine_cells)
+        auto apply_on_interface = [&](const auto& coarse_cells, const auto& fine_cells)
         {
             auto shifted_fine_cells = translate(fine_cells, -direction);
             auto fine_intersect     = intersection(coarse_cells, shifted_fine_cells).on(level + 1);
@@ -152,15 +152,15 @@ namespace samurai
                     apply_on_interval<get_type>(fine_mesh_interval, interface_it, comput_stencil_it, std::forward<Func>(f));
                 });
         };
-        apply(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level + 1]);
+        apply_on_interface(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level + 1]);
         for (std::size_t d = 0; d < dim; ++d)
         {
             if (mesh.periodicity()[d])
             {
                 auto shift = get_periodic_shift(mesh.domain(), level + 1, d);
-                apply(mesh[mesh_id_t::cells][level], translate(mesh[mesh_id_t::cells][level + 1], shift));
+                apply_on_interface(mesh[mesh_id_t::cells][level], translate(mesh[mesh_id_t::cells][level + 1], shift));
                 shift = get_periodic_shift(mesh.domain(), level, d);
-                apply(translate(mesh[mesh_id_t::cells][level], -shift), mesh[mesh_id_t::cells][level + 1]);
+                apply_on_interface(translate(mesh[mesh_id_t::cells][level], -shift), mesh[mesh_id_t::cells][level + 1]);
             }
         }
     }
@@ -194,7 +194,7 @@ namespace samurai
             return;
         }
 
-        auto apply = [&](const auto& coarse_cells, const auto& fine_cells)
+        auto apply_on_interface = [&](const auto& coarse_cells, const auto& fine_cells)
         {
             auto shifted_fine_cells = translate(fine_cells, direction);
             auto fine_intersect     = intersection(coarse_cells, shifted_fine_cells).on(level + 1);
@@ -233,15 +233,15 @@ namespace samurai
                     apply_on_interval<get_type>(fine_mesh_interval, interface_it, minus_comput_stencil_it, std::forward<Func>(f));
                 });
         };
-        apply(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level + 1]);
+        apply_on_interface(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level + 1]);
         for (std::size_t d = 0; d < dim; ++d)
         {
             if (mesh.periodicity()[d])
             {
                 auto shift = get_periodic_shift(mesh.domain(), level + 1, d);
-                apply(mesh[mesh_id_t::cells][level], translate(mesh[mesh_id_t::cells][level + 1], -shift));
+                apply_on_interface(mesh[mesh_id_t::cells][level], translate(mesh[mesh_id_t::cells][level + 1], -shift));
                 shift = get_periodic_shift(mesh.domain(), level, d);
-                apply(translate(mesh[mesh_id_t::cells][level], shift), mesh[mesh_id_t::cells][level + 1]);
+                apply_on_interface(translate(mesh[mesh_id_t::cells][level], shift), mesh[mesh_id_t::cells][level + 1]);
             }
         }
 
