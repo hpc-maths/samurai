@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.24.0](https://github.com/hpc-maths/samurai/compare/v0.23.0...v0.24.0) (2025-06-25)
+
+
+### Features
+
+* check if a set is empty ([#332](https://github.com/hpc-maths/samurai/issues/332)) ([f0cf22d](https://github.com/hpc-maths/samurai/commit/f0cf22df3e2e95c08a5a1847a28f82ba5104fcd1))
+* parallel restart ([#331](https://github.com/hpc-maths/samurai/issues/331)) ([e7b7a1f](https://github.com/hpc-maths/samurai/commit/e7b7a1f4e02e9f8ee95128e673746769f64e95cd))
+* perdiodic mpi now works ([#328](https://github.com/hpc-maths/samurai/issues/328)) ([2e1320f](https://github.com/hpc-maths/samurai/commit/2e1320f331b53d75d952f749416bdf3fdcb4b7aa))
+* prevent level jumps near the boundary ([#320](https://github.com/hpc-maths/samurai/issues/320)) ([89236ca](https://github.com/hpc-maths/samurai/commit/89236cadf4716e7ae0c01de742b1bde20ce8f708))
+
+
+### Bug Fixes
+
+* correct timer ([#334](https://github.com/hpc-maths/samurai/issues/334)) ([934c17d](https://github.com/hpc-maths/samurai/commit/934c17dd1b2ebbd0122f6194dd4a117e4423ec71))
+* forward declare LevelCellArray in static_algorithm.hpp ([#330](https://github.com/hpc-maths/samurai/issues/330)) ([4d49633](https://github.com/hpc-maths/samurai/commit/4d4963374b49c698d9fc53888f2387e42bf9de78))
+* periodic ([#341](https://github.com/hpc-maths/samurai/issues/341)) ([d2dca87](https://github.com/hpc-maths/samurai/commit/d2dca873b5354e0ee5c38135894c3b96e5e589d4))
+* remove warning ([#319](https://github.com/hpc-maths/samurai/issues/319)) ([5ba1d3e](https://github.com/hpc-maths/samurai/commit/5ba1d3e9c38f93e33668bf7bbf9b685e40162ef6))
+* subset ([#329](https://github.com/hpc-maths/samurai/issues/329)) ([5c47f38](https://github.com/hpc-maths/samurai/commit/5c47f38cf01012d7a79de68b524110dd6fd4253c))
+* subset ([#333](https://github.com/hpc-maths/samurai/issues/333)) ([10e8422](https://github.com/hpc-maths/samurai/commit/10e8422fdbc98f9eb205c9ebeac35a9178b1033c))
+
+
+### Performance Improvements
+
+* Avoid useless MPI send ([#307](https://github.com/hpc-maths/samurai/issues/307)) ([07794ce](https://github.com/hpc-maths/samurai/commit/07794ce336d648889327943d07b208f8278c688b))
+* Naive neighbourhood ([#318](https://github.com/hpc-maths/samurai/issues/318)) ([35ea0e3](https://github.com/hpc-maths/samurai/commit/35ea0e35c50da62f4dacdca8f974fd0f6a49ee86))
+
 ## [0.23.0](https://github.com/hpc-maths/samurai/compare/v0.22.0...v0.23.0) (2025-04-18)
 
 
