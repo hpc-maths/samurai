@@ -497,6 +497,11 @@ namespace samurai
         {
             auto& mesh = field.mesh();
 
+            if (mesh.periodicity()[d])
+            {
+                return; // no boundary in this direction
+            }
+
             auto& flux_def = flux_definition()[d];
 
             auto flux_function = flux_def.flux_function ? flux_def.flux_function : flux_def.flux_function_as_conservative();
@@ -644,6 +649,11 @@ namespace samurai
             auto& mesh = field.mesh();
             for (std::size_t d = 0; d < dim; ++d)
             {
+                if (mesh.periodicity()[d])
+                {
+                    continue; // no boundary in this direction
+                }
+
                 auto& flux_def = flux_definition()[d];
 
                 auto jacobian_function = flux_def.jacobian_function ? flux_def.jacobian_function

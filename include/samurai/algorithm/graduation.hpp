@@ -175,6 +175,7 @@ namespace samurai
     void list_interval_to_refine_for_graduation(
         const size_t grad_width,
         const CellArray<dim, TInterval, max_size>& ca,
+        const LevelCellArray<dim, TInterval>& domain,
         [[maybe_unused]] const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood,
         const std::array<bool, dim>& is_periodic,
         const std::array<int, dim>& nb_cells_finest_level,
@@ -198,9 +199,10 @@ namespace samurai
             req.push_back(world.isend(mpi_neighbor.rank, mpi_neighbor.rank, ca));
         }
 #endif // SAMURAI_WITH_MPI
-        const auto list_overlapping_intervals = [min_level, min_fine_level, max_level, max_width, &nb_cells_finest_level, &is_periodic, &out](
-                                                    const CellArray<dim, TInterval, max_size>& lhs_ca,
-                                                    const CellArray<dim, TInterval, max_size>& rhs_ca) -> void
+        const auto list_overlapping_intervals =
+            [min_level, min_fine_level, max_level, max_width, &nb_cells_finest_level, &domain, &is_periodic, &out](
+                const CellArray<dim, TInterval, max_size>& lhs_ca,
+                const CellArray<dim, TInterval, max_size>& rhs_ca) -> void
         {
             for (size_t fine_level = max_level; fine_level > min_fine_level; --fine_level)
             {
@@ -224,14 +226,50 @@ namespace samurai
             {
                 if (is_periodic[d])
                 {
+                    // for (size_t fine_level = max_level; fine_level > min_fine_level; --fine_level)
+                    // {
+                    //     std::cout << fmt::format("fine level: {}", fine_level) << std::endl;
+                    //     const int delta_l = int(domain.level() - fine_level);
+                    //     translation[d]    = (nb_cells_finest_level[d] >> delta_l);
+                    //     std::cout << fmt::format("translation: {}", translation[d]) << std::endl;
+                    //     for (size_t coarse_level = fine_level - 2; coarse_level > min_level - 1; --coarse_level)
+                    //     {
+                    //         bool isIntersectionEmpty = true;
+                    //         for (int width = 1; isIntersectionEmpty and width != max_width; ++width)
+                    //         {
+                    //             LevelCellArray<dim> lca = translate(lhs_ca[fine_level], translation);
+                    //             auto refine_subset      = intersection(nestedExpand(lca, 2 * width),
+                    //             rhs_ca[coarse_level]).on(coarse_level); refine_subset(
+                    //                 [&](const auto& x_interval, const auto& yz)
+                    //                 {
+                    //                     std::cout << fmt::format("refine subset: {} {} {}", coarse_level, x_interval, yz[0]) <<
+                    //                     std::endl; out[coarse_level].push_back(x_interval, yz); isIntersectionEmpty = false;
+                    //                 });
+                    //         }
+                    //         isIntersectionEmpty = true;
+                    //         for (int width = 1; isIntersectionEmpty and width != max_width; ++width)
+                    //         {
+                    //             LevelCellArray<dim> lca = translate(lhs_ca[fine_level], -translation);
+                    //             auto refine_subset      = intersection(nestedExpand(lca, 2 * width),
+                    //             rhs_ca[coarse_level]).on(coarse_level); refine_subset(
+                    //                 [&](const auto& x_interval, const auto& yz)
+                    //                 {
+                    //                     out[coarse_level].push_back(x_interval, yz);
+                    //                     std::cout << fmt::format("refine subset: {} {} {}", coarse_level, x_interval, yz[0]) <<
+                    //                     std::endl; isIntersectionEmpty = false;
+                    //                 });
+                    //         }
+                    //     }
+                    // }
+
                     for (size_t fine_level = max_level; fine_level > min_fine_level; --fine_level)
                     {
-                        const int delta_l = int(max_level - fine_level);
+                        const int delta_l = int(domain.level() - fine_level);
                         for (size_t coarse_level = fine_level - 2; coarse_level > min_level - 1; --coarse_level)
                         {
-                            for (int width = 0; width != max_width; ++width)
+                            for (int width = 1; width != max_width; ++width)
                             {
-                                translation[d]     = (nb_cells_finest_level[d] >> delta_l) + 2 * width - 1;
+                                translation[d]     = (nb_cells_finest_level[d] >> delta_l) - 2 * width;
                                 auto refine_subset = intersection(union_(translate(lhs_ca[fine_level], -translation),
                                                                          translate(lhs_ca[fine_level], translation)),
                                                                   rhs_ca[coarse_level])
@@ -361,7 +399,7 @@ namespace samurai
                                   const std::array<int, dim>& nb_cells_finest_level,
                                   std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, CellArray<dim, TInterval, max_size>::max_size>& out)
     {
-        list_interval_to_refine_for_graduation(grad_width, ca, mpi_neighbourhood, is_periodic, nb_cells_finest_level, out);
+        list_interval_to_refine_for_graduation(grad_width, ca, domain, mpi_neighbourhood, is_periodic, nb_cells_finest_level, out);
         if (!domain.empty())
         {
             list_interval_to_refine_for_contiguous_boundary_cells(half_stencil_width, ca, domain, is_periodic, out);
@@ -476,7 +514,7 @@ namespace samurai
         {
             // test if mesh is correctly graduated.
             // We first build a set of non-graduated cells
-            // Then, if the non-graduated is not taged as keep, we coarsen it
+            // Then, if the non-graduated is not tagged as keep, we coarsen it
             ca_add_p.clear();
             ca_remove_p.clear();
             list_intervals_to_refine(grad_width, half_stencil_width, ca, domain, mpi_neighbourhood, is_periodic, nb_cells_finest_level, remove_m_all);
