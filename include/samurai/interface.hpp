@@ -42,7 +42,6 @@ namespace samurai
         static constexpr std::size_t dim = Mesh::dim;
         using mesh_id_t                  = typename Mesh::mesh_id_t;
         using mesh_interval_t            = typename Mesh::mesh_interval_t;
-        using interval_value_t           = typename Mesh::interval_t::value_t;
 
         Stencil<2, dim> interface_stencil_ = in_out_stencil<dim>(direction);
         auto interface_stencil             = make_stencil_analyzer(interface_stencil_);
@@ -82,13 +81,7 @@ namespace samurai
         {
             if (mesh.periodicity()[d])
             {
-                const auto& domain        = mesh.domain();
-                const auto& min_indices   = domain.min_indices();
-                const auto& max_indices   = domain.max_indices();
-                const std::size_t delta_l = domain.level() - level;
-                xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> shift;
-                shift.fill(0);
-                shift[d] = (max_indices[d] - min_indices[d]) >> delta_l;
+                auto shift = get_periodic_shift(mesh.domain(), level, d);
                 apply(mesh[mesh_id_t::cells][level], translate(translate(mesh[mesh_id_t::cells][level], shift), -direction));
                 apply(translate(mesh[mesh_id_t::cells][level], -shift), translate(mesh[mesh_id_t::cells][level], -direction));
             }
@@ -118,7 +111,6 @@ namespace samurai
         static constexpr std::size_t dim = Mesh::dim;
         using mesh_id_t                  = typename Mesh::mesh_id_t;
         using mesh_interval_t            = typename Mesh::mesh_interval_t;
-        using interval_value_t           = typename Mesh::interval_t::value_t;
 
         if (level >= mesh.max_level())
         {
@@ -165,16 +157,9 @@ namespace samurai
         {
             if (mesh.periodicity()[d])
             {
-                const auto& domain      = mesh.domain();
-                const auto& min_indices = domain.min_indices();
-                const auto& max_indices = domain.max_indices();
-                std::size_t delta_l     = domain.level() - (level + 1);
-                xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> shift;
-                shift.fill(0);
-                shift[d] = (max_indices[d] - min_indices[d]) >> delta_l;
+                auto shift = get_periodic_shift(mesh.domain(), level + 1, d);
                 apply(mesh[mesh_id_t::cells][level], translate(mesh[mesh_id_t::cells][level + 1], shift));
-                delta_l  = domain.level() - level;
-                shift[d] = (max_indices[d] - min_indices[d]) >> delta_l;
+                shift = get_periodic_shift(mesh.domain(), level, d);
                 apply(translate(mesh[mesh_id_t::cells][level], -shift), mesh[mesh_id_t::cells][level + 1]);
             }
         }
@@ -203,7 +188,6 @@ namespace samurai
         static constexpr std::size_t dim = Mesh::dim;
         using mesh_id_t                  = typename Mesh::mesh_id_t;
         using mesh_interval_t            = typename Mesh::mesh_interval_t;
-        using interval_value_t           = typename Mesh::interval_t::value_t;
 
         if (level >= mesh.max_level())
         {
@@ -254,16 +238,9 @@ namespace samurai
         {
             if (mesh.periodicity()[d])
             {
-                const auto& domain      = mesh.domain();
-                const auto& min_indices = domain.min_indices();
-                const auto& max_indices = domain.max_indices();
-                std::size_t delta_l     = domain.level() - (level + 1);
-                xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> shift;
-                shift.fill(0);
-                shift[d] = (max_indices[d] - min_indices[d]) >> delta_l;
+                auto shift = get_periodic_shift(mesh.domain(), level + 1, d);
                 apply(mesh[mesh_id_t::cells][level], translate(mesh[mesh_id_t::cells][level + 1], -shift));
-                delta_l  = domain.level() - level;
-                shift[d] = (max_indices[d] - min_indices[d]) >> delta_l;
+                shift = get_periodic_shift(mesh.domain(), level, d);
                 apply(translate(mesh[mesh_id_t::cells][level], shift), mesh[mesh_id_t::cells][level + 1]);
             }
         }
@@ -586,10 +563,13 @@ namespace samurai
 
         for (std::size_t d = 0; d < dim; ++d)
         {
-            DirectionVector<Mesh::dim> direction;
-            direction.fill(0);
-            direction[d] = 1;
-            for_each_boundary_interface__both_directions<run_type, get_type>(mesh, direction, std::forward<Func>(f));
+            if (!mesh.periodicity()[d])
+            {
+                DirectionVector<Mesh::dim> direction;
+                direction.fill(0);
+                direction[d] = 1;
+                for_each_boundary_interface__both_directions<run_type, get_type>(mesh, direction, std::forward<Func>(f));
+            }
         }
     }
 

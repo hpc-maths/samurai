@@ -8,6 +8,8 @@
 #include <tuple>
 #include <type_traits>
 
+#include <xtensor/xfixed.hpp>
+
 namespace samurai
 {
     template <class value_t, class index_t>
@@ -390,6 +392,21 @@ namespace samurai
         {
             return f[static_cast<size_type>(cell_index)][field_i];
         }
+    }
+
+    template <class LCA>
+    auto get_periodic_shift(const LCA& domain, std::size_t level, std::size_t d)
+    {
+        static constexpr std::size_t dim = LCA::dim;
+        using interval_value_t           = typename LCA::interval_t::value_t;
+
+        const auto& min_indices   = domain.min_indices();
+        const auto& max_indices   = domain.max_indices();
+        const std::size_t delta_l = domain.level() - level;
+        xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> shift;
+        shift.fill(0);
+        shift[d] = (max_indices[d] - min_indices[d]) >> delta_l;
+        return shift;
     }
 
     // template <class Field>

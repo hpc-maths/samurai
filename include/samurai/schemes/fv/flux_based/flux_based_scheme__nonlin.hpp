@@ -497,6 +497,11 @@ namespace samurai
         {
             auto& mesh = field.mesh();
 
+            if (mesh.periodicity()[d])
+            {
+                return; // no boundary in this direction
+            }
+
             auto& flux_def = flux_definition()[d];
 
             auto flux_function = flux_def.flux_function ? flux_def.flux_function : flux_def.flux_function_as_conservative();
