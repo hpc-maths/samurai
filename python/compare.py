@@ -38,18 +38,19 @@ def construct_cells(mesh):
 
 
 def construct_fields(mesh):
-    if "fields" not in mesh.keys():
-        return {}
     if "points" in mesh.keys():
+        if "fields" not in mesh.keys():
+            return {}
         return mesh["fields"]
     else:
         output = {}
         for k in mesh.keys():
-            for f in mesh[k]["fields"].keys():
-                if f not in output.keys():
-                    output[f] = mesh[k]["fields"][f][:]
-                else:
-                    output[f] = np.concatenate((output[f], mesh[k]["fields"][f][:]))
+            if "fields" in mesh[k]:
+                for f in mesh[k]["fields"].keys():
+                    if f not in output.keys():
+                        output[f] = mesh[k]["fields"][f][:]
+                    else:
+                        output[f] = np.concatenate((output[f], mesh[k]["fields"][f][:]))
         return output
 
 
@@ -65,11 +66,11 @@ def compare_meshes(file1, file2):
     if np.any(cells1.shape != cells2.shape):
         print("shape are not compatibles")
         print(f"{cells1.shape} vs {cells2.shape}")
-        sys.exit(f"files {file1}.h5 and {file2}.h5 are different")
+        sys.exit(f"files {file1} and {file2} are different")
 
     if np.any(cells1[index1] != cells2[index2]):
         print("cells are not the same")
-        sys.exit(f"files {file1}.h5 and {file2}.h5 are different")
+        sys.exit(f"files {file1} and {file2} are different")
 
     field1 = construct_fields(mesh1)
     field2 = construct_fields(mesh2)
@@ -78,7 +79,7 @@ def compare_meshes(file1, file2):
     for field in field1.keys():
         if not field in field2.keys():
             print(f"{field} is not in second file")
-            sys.exit(f"files {file1}.h5 and {file2}.h5 are different")
+            sys.exit(f"files {file1} and {file2} are different")
 
         if np.any(np.abs(field1[field][:][index1] - field2[field][:][index2]) > tol):
             # if np.any(field1[field][:][index1] != field2[field][:][index2]):
