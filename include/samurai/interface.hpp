@@ -354,11 +354,10 @@ namespace samurai
                                      const StencilAnalyzer<comput_stencil_size, Mesh::dim>& comput_stencil,
                                      Func&& f)
     {
-        for_each_level(mesh,
-                       [&](auto level)
-                       {
-                           for_each_interior_interface<run_type, get_type>(mesh, level, direction, comput_stencil, std::forward<Func>(f));
-                       });
+        for (std::size_t level = 0; level < mesh.max_level(); ++level)
+        {
+            for_each_interior_interface<run_type, get_type>(mesh, level, direction, comput_stencil, std::forward<Func>(f));
+        }
     }
 
     /**
