@@ -64,8 +64,8 @@ namespace samurai
             static_assert(dim >= dim_min);
             using index_type = xt::xtensor_fixed<int, xt::xshape<index_size>>;
 
-            template <typename TInterval>
-            static auto run(index_type& idx, const LevelCellArray<index_size, TInterval>& lca, const int width)
+            template <class LCA_OR_SET>
+            static auto run(index_type& idx, const LCA_OR_SET& lca, const int width)
             {
                 if constexpr (dim != dim_min)
                 {
@@ -94,10 +94,11 @@ namespace samurai
 
     } // namespace detail
 
-    template <size_t index_size, typename TInterval, size_t dim_min = 0, size_t dim_max = index_size>
-    auto nestedExpand(const LevelCellArray<index_size, TInterval>& lca, const int width)
+    template <class LCA_OR_SET, size_t dim_min = 0, size_t dim_max = LCA_OR_SET::dim>
+    auto nestedExpand(const LCA_OR_SET& lca, const int width)
     {
-        using index_type = typename detail::NestedExpand<index_size, dim_max - 1, dim_min>::index_type;
+        static constexpr std::size_t index_size = LCA_OR_SET::dim;
+        using index_type                        = typename detail::NestedExpand<index_size, dim_max - 1, dim_min>::index_type;
         index_type idx;
         for (size_t i = 0; i != dim_min; ++i)
         {
