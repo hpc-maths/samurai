@@ -98,21 +98,14 @@ namespace samurai
 
         times::timers.start("ghost update");
 
-        auto& mesh = field.mesh();
-
-#ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-        auto min_level = mpi::all_reduce(world, mesh[mesh_id_t::reference].min_level(), mpi::minimum<std::size_t>());
-        auto max_level = mpi::all_reduce(world, mesh[mesh_id_t::reference].max_level(), mpi::maximum<std::size_t>());
-#else
-        auto min_level = mesh[mesh_id_t::reference].min_level();
-        auto max_level = mesh[mesh_id_t::reference].max_level();
-#endif
+        auto& mesh            = field.mesh();
+        auto max_level        = mesh.max_level();
+        std::size_t min_level = 0;
 
         for (std::size_t level = max_level; level > min_level; --level)
         {
-            update_ghost_subdomains(level, field, other_fields...);
             update_ghost_periodic(level, field, other_fields...);
+            update_ghost_subdomains(level, field, other_fields...);
 
             auto set_at_levelm1 = intersection(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::proj_cells][level - 1]).on(level - 1);
             set_at_levelm1.apply_op(variadic_projection(field, other_fields...));
@@ -236,15 +229,10 @@ namespace samurai
     void update_ghost_subdomains([[maybe_unused]] Field& field)
     {
 #ifdef SAMURAI_WITH_MPI
-        using mesh_t    = typename Field::mesh_t;
-        using mesh_id_t = typename mesh_t::mesh_id_t;
         mpi::communicator world;
-
         auto& mesh     = field.mesh();
-        auto min_level = mpi::all_reduce(world, mesh[mesh_id_t::reference].min_level(), mpi::minimum<std::size_t>());
-        auto max_level = mpi::all_reduce(world, mesh[mesh_id_t::reference].max_level(), mpi::maximum<std::size_t>());
-
-        for (std::size_t level = min_level; level <= max_level; ++level)
+        auto max_level = mesh.max_level();
+        for (std::size_t level = 0; level <= max_level; ++level)
         {
             update_ghost_subdomains(level, field);
         }
@@ -750,9 +738,10 @@ namespace samurai
                     set2_mpi(
                         [&](const auto& i, const auto& index)
                         {
-                            for (auto tag_it = tag(level, i, index).begin(); tag_it != tag(level, i, index).end(); ++tag_it, ++it)
+                            for (tag_value_type& tag_xyz : tag(level, i, index))
                             {
-                                *tag_it |= *it;
+                                tag_xyz |= *it;
+                                ++it;
                             }
                         });
                 }

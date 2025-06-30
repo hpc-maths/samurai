@@ -31,6 +31,12 @@ namespace samurai
 
 #ifdef SAMURAI_WITH_MPI
         MPI_Init(&argc, &argv);
+        // redirect stdout to /dev/null for all ranks except rank 0
+        mpi::communicator world;
+        if (!args::dont_redirect && world.rank() != 0)
+        {
+            freopen("/dev/null", "w", stdout);
+        }
 #endif
         times::timers.start("total runtime");
         return app;

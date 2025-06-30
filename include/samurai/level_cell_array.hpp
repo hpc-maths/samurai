@@ -647,7 +647,7 @@ namespace samurai
     inline auto LevelCellArray<Dim, TInterval>::get_interval(const all_coord_type& coord) const -> const interval_t&
     {
         auto offset = find(*this, coord);
-        assert(offset >= 0 && "Interval not found");
+        assert((void(fmt::format("Interval not found -> coord: {}", coord)), offset >= 0));
         return m_cells[0][static_cast<std::size_t>(offset)];
     }
 

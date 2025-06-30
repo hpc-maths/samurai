@@ -181,7 +181,7 @@ namespace samurai
         const std::array<int, dim>& nb_cells_finest_level,
         std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, CellArray<dim, TInterval, max_size>::max_size>& out)
     {
-        const size_t max_level      = ca.max_level();
+        const size_t max_level      = ca.max_level() + 1;
         const size_t min_level      = ca.min_level();
         const size_t min_fine_level = (min_level + 2) - 1; // fine_level =  max_level, max_level-1, ..., min_level+2. Thus fine_level !=
                                                            // min_level+2-1

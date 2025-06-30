@@ -23,7 +23,7 @@ namespace samurai
     template <class Mesh, class Vector>
     inline auto subdomain_boundary_layer(const Mesh& mesh, std::size_t level, const Vector& direction, std::size_t layer_width)
     {
-        return boundary_layer(mesh, mesh.subdomain(), level, direction, layer_width);
+        return boundary_layer(mesh, mesh.domain(), level, direction, layer_width);
     }
 
     template <class Mesh, class Vector>
