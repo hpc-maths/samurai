@@ -72,8 +72,8 @@ namespace samurai
         {
             auto& mesh = field.mesh();
 
-            auto min_level = mesh[mesh_id_t::cells].min_level();
-            auto max_level = mesh[mesh_id_t::cells].max_level();
+            auto min_level = mesh.min_level();
+            auto max_level = mesh.max_level();
 
             auto& flux_def = flux_definition()[d];
 
@@ -160,6 +160,11 @@ namespace samurai
         void for_each_boundary_interface_and_coeffs(std::size_t d, input_field_t& field, Func&& apply_coeffs) const
         {
             auto& mesh = field.mesh();
+
+            if (mesh.periodicity()[d])
+            {
+                return; // no boundary in this direction
+            }
 
             auto& flux_def = flux_definition()[d];
 
