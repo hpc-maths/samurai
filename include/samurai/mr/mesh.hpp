@@ -309,7 +309,6 @@ namespace samurai
 
 #endif // SAMURAI_WITH_MPI
             const auto& mesh_ref = this->cells()[mesh_id_t::reference];
-            // for (std::size_t level = reference_min_level; level <= reference_max_level; ++level)
             for (std::size_t level = 0; level <= this->max_level(); ++level)
             {
                 const std::size_t delta_l = subdomain.level() - level;
