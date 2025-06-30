@@ -137,7 +137,6 @@ namespace samurai
         {
             return;
         }
-        update_ghost_mr(m_fields);
 
         times::timers.start("mesh adaptation");
         for (std::size_t i = 0; i < max_level - min_level; ++i)
