@@ -231,7 +231,7 @@ namespace samurai
 
             for (auto& neighbour : this->mpi_neighbourhood())
             {
-                for (std::size_t level = 0; level <= max_level; ++level)
+                for (std::size_t level = 0; level <= this->max_level(); ++level)
                 {
                     auto expr = intersection(this->subdomain(), neighbour.mesh[mesh_id_t::reference][level]).on(level);
                     expr(
@@ -309,7 +309,8 @@ namespace samurai
 
 #endif // SAMURAI_WITH_MPI
             const auto& mesh_ref = this->cells()[mesh_id_t::reference];
-            for (std::size_t level = reference_min_level; level <= reference_max_level; ++level)
+            // for (std::size_t level = reference_min_level; level <= reference_max_level; ++level)
+            for (std::size_t level = 0; level <= this->max_level(); ++level)
             {
                 const std::size_t delta_l = subdomain.level() - level;
                 lcl_type& lcl             = cell_list[level];
@@ -403,7 +404,50 @@ namespace samurai
             }
             this->update_neighbour_subdomain();
             this->update_meshid_neighbour(mesh_id_t::all_cells);
+
+            for (auto& neighbour : this->mpi_neighbourhood())
+            {
+                for (std::size_t level = 0; level <= this->max_level(); ++level)
+                {
+                    auto expr = intersection(nestedExpand(self(this->subdomain()).on(level), config::ghost_width),
+                                             neighbour.mesh[mesh_id_t::reference][level]);
+                    expr(
+                        [&](const auto& interval, const auto& index_yz)
+                        {
+                            lcl_type& lcl = cell_list[level];
+                            lcl[index_yz].add_interval(interval);
+                        });
+                    for (std::size_t d = 0; d < dim; ++d)
+                    {
+                        if (this->is_periodic(d))
+                        {
+                            auto domain_shift = get_periodic_shift(this->domain(), level, d);
+                            auto expr_left    = intersection(nestedExpand(self(this->subdomain()).on(level), config::ghost_width),
+                                                          translate(neighbour.mesh[mesh_id_t::reference][level], -domain_shift));
+                            expr_left(
+                                [&](const auto& interval, const auto& index_yz)
+                                {
+                                    lcl_type& lcl = cell_list[level];
+                                    lcl[index_yz].add_interval(interval);
+                                });
+
+                            auto expr_right = intersection(nestedExpand(self(this->subdomain()).on(level), config::ghost_width),
+                                                           translate(neighbour.mesh[mesh_id_t::reference][level], domain_shift));
+                            expr_right(
+                                [&](const auto& interval, const auto& index_yz)
+                                {
+                                    lcl_type& lcl = cell_list[level];
+                                    lcl[index_yz].add_interval(interval);
+                                });
+                        }
+                    }
+                }
+            }
+
+            this->cells()[mesh_id_t::all_cells] = {cell_list, false};
+            this->update_meshid_neighbour(mesh_id_t::all_cells);
         }
+
         else
         {
             this->cells()[mesh_id_t::all_cells] = {cell_list, false};
