@@ -124,7 +124,7 @@ void gen_offset_intervals(auto& cl, int max_index, unsigned int level, int x_int
 // Générateur « unique » : un intervalle englobant large
 // (utilisé pour les cas « single » dans les benchmarks)
 template <unsigned int dim>
-void gen_unique_interval(auto& cl, int max_index, unsigned int level, int /*x_intervals inutilisé*/ = DEFAULT_X_INTERVALS)
+void gen_unique_interval(auto& cl, int max_index, unsigned int level, int x_intervals = DEFAULT_X_INTERVALS)
 {
     int spacing       = 1 << (level + 1);    // 2^(level+1)
     int interval_size = (max_index)*spacing; // Grande taille proportionnelle à max_index
@@ -198,21 +198,21 @@ auto op_union = [](const auto& a, const auto& b)
 
 // Wrappers lambda pour les générateurs afin de permettre la déduction de type
 template <unsigned int dim>
-auto gen_regular_wrapper = [](auto& cl, int max_index, unsigned int level)
+auto gen_regular_wrapper = [](auto& cl, int max_index, unsigned int level, int x_intervals = DEFAULT_X_INTERVALS)
 {
-    gen_regular_intervals<dim>(cl, max_index, level);
+    gen_regular_intervals<dim>(cl, max_index, level, x_intervals);
 };
 
 template <unsigned int dim>
-auto gen_offset_wrapper = [](auto& cl, int max_index, unsigned int level)
+auto gen_offset_wrapper = [](auto& cl, int max_index, unsigned int level, int x_intervals = DEFAULT_X_INTERVALS)
 {
-    gen_offset_intervals<dim>(cl, max_index, level);
+    gen_offset_intervals<dim>(cl, max_index, level, x_intervals);
 };
 
 template <unsigned int dim>
-auto gen_unique_wrapper = [](auto& cl, int max_index, unsigned int level)
+auto gen_unique_wrapper = [](auto& cl, int max_index, unsigned int level, int x_intervals = DEFAULT_X_INTERVALS)
 {
-    gen_unique_interval<dim>(cl, max_index, level);
+    gen_unique_interval<dim>(cl, max_index, level, x_intervals);
 };
 
 template <unsigned int dim, unsigned int level1, unsigned int level2, typename Gen1, typename Gen2, typename Operation>
@@ -220,8 +220,8 @@ void SUBSET_unified_benchmark_mixed_levels(benchmark::State& state, Gen1&& gen1,
 {
     samurai::CellList<dim> cl1, cl2;
     int max_index = static_cast<int>(state.range(0));
-    gen1(cl1, max_index, level1);
-    gen2(cl2, max_index, level2);
+    gen1(cl1, max_index, level1, DEFAULT_X_INTERVALS);
+    gen2(cl2, max_index, level2, DEFAULT_X_INTERVALS);
     samurai::CellArray<dim> ca1(cl1);
     samurai::CellArray<dim> ca2(cl2);
 
@@ -320,7 +320,7 @@ void SUBSET_translate(benchmark::State& state)
 {
     samurai::CellList<dim> cl;
     int max_index = static_cast<int>(state.range(0));
-    gen_regular_intervals<dim>(cl, max_index, level);
+    gen_regular_intervals<dim>(cl, max_index, level, DEFAULT_X_INTERVALS);
     samurai::CellArray<dim> ca(cl);
 
     // Créer le stencil de translation
@@ -353,8 +353,8 @@ void SUBSET_translate_and_intersect(benchmark::State& state)
 {
     samurai::CellList<dim> cl1, cl2;
     int max_index = static_cast<int>(state.range(0));
-    gen_regular_intervals<dim>(cl1, max_index, level1);
-    gen_regular_intervals<dim>(cl2, max_index, level2);
+    gen_regular_intervals<dim>(cl1, max_index, level1, DEFAULT_X_INTERVALS);
+    gen_regular_intervals<dim>(cl2, max_index, level2, DEFAULT_X_INTERVALS);
     samurai::CellArray<dim> ca1(cl1);
     samurai::CellArray<dim> ca2(cl2);
 
@@ -391,8 +391,8 @@ void SUBSET_translate_and_intersect_and_project(benchmark::State& state)
 {
     samurai::CellList<dim> cl1, cl2;
     int max_index = static_cast<int>(state.range(0));
-    gen_regular_intervals<dim>(cl1, max_index, level1);
-    gen_regular_intervals<dim>(cl2, max_index, level2);
+    gen_regular_intervals<dim>(cl1, max_index, level1, DEFAULT_X_INTERVALS);
+    gen_regular_intervals<dim>(cl2, max_index, level2, DEFAULT_X_INTERVALS);
     samurai::CellArray<dim> ca1(cl1);
     samurai::CellArray<dim> ca2(cl2);
 
@@ -430,7 +430,7 @@ void SUBSET_translate_and_project(benchmark::State& state)
 {
     samurai::CellList<dim> cl;
     int max_index = static_cast<int>(state.range(0));
-    gen_regular_intervals<dim>(cl, max_index, level);
+    gen_regular_intervals<dim>(cl, max_index, level, DEFAULT_X_INTERVALS);
     samurai::CellArray<dim> ca(cl);
 
     // Créer le stencil de translation
@@ -464,7 +464,7 @@ void SUBSET_self(benchmark::State& state)
 {
     samurai::CellList<dim> cl;
     int max_index = static_cast<int>(state.range(0));
-    gen_regular_intervals<dim>(cl, max_index, level);
+    gen_regular_intervals<dim>(cl, max_index, level, DEFAULT_X_INTERVALS);
     samurai::CellArray<dim> ca(cl);
 
     // Ajouter les statistiques
@@ -494,7 +494,7 @@ void SUBSET_self_and_project(benchmark::State& state)
 {
     samurai::CellList<dim> cl;
     int max_index = static_cast<int>(state.range(0));
-    gen_regular_intervals<dim>(cl, max_index, level);
+    gen_regular_intervals<dim>(cl, max_index, level, DEFAULT_X_INTERVALS);
     samurai::CellArray<dim> ca(cl);
 
     // Ajouter les statistiques
@@ -524,122 +524,122 @@ void SUBSET_self_and_project(benchmark::State& state)
 // Enregistrement des benchmarks
 ///////////////////////////////////////////////////////////////////
 
-// Benchmarks pour les opérations ensemblistes en 1D (même niveau) - ~1000 intervalles
-BENCHMARK_TEMPLATE(SUBSET_set_diff_identical, 1, 0, 0)->Arg(1000);
-BENCHMARK_TEMPLATE(SUBSET_set_diff_disjoint, 1, 0, 0)->Arg(1000);
-// BENCHMARK_TEMPLATE(SUBSET_set_diff_single, 1, 0, 0)->Arg(1000);
-BENCHMARK_TEMPLATE(SUBSET_set_intersect_identical, 1, 0, 0)->Arg(1000);
-BENCHMARK_TEMPLATE(SUBSET_set_intersect_disjoint, 1, 0, 0)->Arg(1000);
-// BENCHMARK_TEMPLATE(SUBSET_set_intersect_single, 1, 0, 0)->Arg(1000);
-BENCHMARK_TEMPLATE(SUBSET_set_union_identical, 1, 0, 0)->Arg(1000);
-BENCHMARK_TEMPLATE(SUBSET_set_union_disjoint, 1, 0, 0)->Arg(1000);
-// BENCHMARK_TEMPLATE(SUBSET_set_union_single, 1, 0, 0)->Arg(1000);
+// Benchmarks pour les opérations ensemblistes en 1D (même niveau) - ~10k intervalles
+BENCHMARK_TEMPLATE(SUBSET_set_diff_identical, 1, 0, 0)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_set_diff_disjoint, 1, 0, 0)->Arg(10000);
+// BENCHMARK_TEMPLATE(SUBSET_set_diff_single, 1, 0, 0)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_set_intersect_identical, 1, 0, 0)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_set_intersect_disjoint, 1, 0, 0)->Arg(10000);
+// BENCHMARK_TEMPLATE(SUBSET_set_intersect_single, 1, 0, 0)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_set_union_identical, 1, 0, 0)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_set_union_disjoint, 1, 0, 0)->Arg(10000);
+// BENCHMARK_TEMPLATE(SUBSET_set_union_single, 1, 0, 0)->Arg(10000);
 
-BENCHMARK_TEMPLATE(SUBSET_set_diff_identical, 1, 0, 1)->Arg(1000);
-BENCHMARK_TEMPLATE(SUBSET_set_diff_disjoint, 1, 0, 1)->Arg(1000);
-// BENCHMARK_TEMPLATE(SUBSET_set_diff_single, 1, 0, 1)->Arg(1000);
-BENCHMARK_TEMPLATE(SUBSET_set_intersect_identical, 1, 0, 1)->Arg(1000);
-BENCHMARK_TEMPLATE(SUBSET_set_intersect_disjoint, 1, 0, 1)->Arg(1000);
-// BENCHMARK_TEMPLATE(SUBSET_set_intersect_single, 1, 0, 1)->Arg(1000);
-BENCHMARK_TEMPLATE(SUBSET_set_union_identical, 1, 0, 1)->Arg(1000);
-BENCHMARK_TEMPLATE(SUBSET_set_union_disjoint, 1, 0, 1)->Arg(1000);
-// BENCHMARK_TEMPLATE(SUBSET_set_union_single, 1, 0, 1)->Arg(1000);
+BENCHMARK_TEMPLATE(SUBSET_set_diff_identical, 1, 0, 1)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_set_diff_disjoint, 1, 0, 1)->Arg(10000);
+// BENCHMARK_TEMPLATE(SUBSET_set_diff_single, 1, 0, 1)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_set_intersect_identical, 1, 0, 1)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_set_intersect_disjoint, 1, 0, 1)->Arg(10000);
+// BENCHMARK_TEMPLATE(SUBSET_set_intersect_single, 1, 0, 1)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_set_union_identical, 1, 0, 1)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_set_union_disjoint, 1, 0, 1)->Arg(10000);
+// BENCHMARK_TEMPLATE(SUBSET_set_union_single, 1, 0, 1)->Arg(10000);
 
-// Benchmarks pour les opérations ensemblistes en 2D (même niveau) - ~1000 intervalles
-BENCHMARK_TEMPLATE(SUBSET_set_diff_identical, 2, 0, 0)->Arg(200);
-BENCHMARK_TEMPLATE(SUBSET_set_diff_disjoint, 2, 0, 0)->Arg(200);
-// BENCHMARK_TEMPLATE(SUBSET_set_diff_single, 2, 0, 0)->Arg(200);
-BENCHMARK_TEMPLATE(SUBSET_set_intersect_identical, 2, 0, 0)->Arg(200);
-BENCHMARK_TEMPLATE(SUBSET_set_intersect_disjoint, 2, 0, 0)->Arg(200);
-// BENCHMARK_TEMPLATE(SUBSET_set_intersect_single, 2, 0, 0)->Arg(200);
-BENCHMARK_TEMPLATE(SUBSET_set_union_identical, 2, 0, 0)->Arg(200);
-BENCHMARK_TEMPLATE(SUBSET_set_union_disjoint, 2, 0, 0)->Arg(200);
-// BENCHMARK_TEMPLATE(SUBSET_set_union_single, 2, 0, 0)->Arg(200);
+// Benchmarks pour les opérations ensemblistes en 2D (même niveau) - ~10k intervalles
+BENCHMARK_TEMPLATE(SUBSET_set_diff_identical, 2, 0, 0)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_set_diff_disjoint, 2, 0, 0)->Arg(2000);
+// BENCHMARK_TEMPLATE(SUBSET_set_diff_single, 2, 0, 0)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_set_intersect_identical, 2, 0, 0)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_set_intersect_disjoint, 2, 0, 0)->Arg(2000);
+// BENCHMARK_TEMPLATE(SUBSET_set_intersect_single, 2, 0, 0)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_set_union_identical, 2, 0, 0)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_set_union_disjoint, 2, 0, 0)->Arg(2000);
+// BENCHMARK_TEMPLATE(SUBSET_set_union_single, 2, 0, 0)->Arg(2000);
 
-BENCHMARK_TEMPLATE(SUBSET_set_diff_identical, 2, 0, 1)->Arg(200);
-BENCHMARK_TEMPLATE(SUBSET_set_diff_disjoint, 2, 0, 1)->Arg(200);
-// BENCHMARK_TEMPLATE(SUBSET_set_diff_single, 2, 0, 1)->Arg(200);
-BENCHMARK_TEMPLATE(SUBSET_set_intersect_identical, 2, 0, 1)->Arg(200);
-BENCHMARK_TEMPLATE(SUBSET_set_intersect_disjoint, 2, 0, 1)->Arg(200);
-// BENCHMARK_TEMPLATE(SUBSET_set_intersect_single, 2, 0, 1)->Arg(200);
-BENCHMARK_TEMPLATE(SUBSET_set_union_identical, 2, 0, 1)->Arg(200);
-BENCHMARK_TEMPLATE(SUBSET_set_union_disjoint, 2, 0, 1)->Arg(200);
-// BENCHMARK_TEMPLATE(SUBSET_set_union_single, 2, 0, 1)->Arg(200);
+BENCHMARK_TEMPLATE(SUBSET_set_diff_identical, 2, 0, 1)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_set_diff_disjoint, 2, 0, 1)->Arg(2000);
+// BENCHMARK_TEMPLATE(SUBSET_set_diff_single, 2, 0, 1)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_set_intersect_identical, 2, 0, 1)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_set_intersect_disjoint, 2, 0, 1)->Arg(2000);
+// BENCHMARK_TEMPLATE(SUBSET_set_intersect_single, 2, 0, 1)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_set_union_identical, 2, 0, 1)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_set_union_disjoint, 2, 0, 1)->Arg(2000);
+// BENCHMARK_TEMPLATE(SUBSET_set_union_single, 2, 0, 1)->Arg(2000);
 
-// Benchmarks pour les opérations ensemblistes en 3D (même niveau) - ~1000 intervalles
-BENCHMARK_TEMPLATE(SUBSET_set_diff_identical, 3, 0, 0)->Arg(14);
-BENCHMARK_TEMPLATE(SUBSET_set_diff_disjoint, 3, 0, 0)->Arg(14);
-// BENCHMARK_TEMPLATE(SUBSET_set_diff_single, 3, 0, 0)->Arg(14);
-BENCHMARK_TEMPLATE(SUBSET_set_intersect_identical, 3, 0, 0)->Arg(14);
-BENCHMARK_TEMPLATE(SUBSET_set_intersect_disjoint, 3, 0, 0)->Arg(14);
-// BENCHMARK_TEMPLATE(SUBSET_set_intersect_single, 3, 0, 0)->Arg(14);
-BENCHMARK_TEMPLATE(SUBSET_set_union_identical, 3, 0, 0)->Arg(14);
-BENCHMARK_TEMPLATE(SUBSET_set_union_disjoint, 3, 0, 0)->Arg(14);
-// BENCHMARK_TEMPLATE(SUBSET_set_union_single, 3, 0, 0)->Arg(14);
+// Benchmarks pour les opérations ensemblistes en 3D (même niveau) - ~10k intervalles
+BENCHMARK_TEMPLATE(SUBSET_set_diff_identical, 3, 0, 0)->Arg(45);
+BENCHMARK_TEMPLATE(SUBSET_set_diff_disjoint, 3, 0, 0)->Arg(45);
+// BENCHMARK_TEMPLATE(SUBSET_set_diff_single, 3, 0, 0)->Arg(45);
+BENCHMARK_TEMPLATE(SUBSET_set_intersect_identical, 3, 0, 0)->Arg(45);
+BENCHMARK_TEMPLATE(SUBSET_set_intersect_disjoint, 3, 0, 0)->Arg(45);
+// BENCHMARK_TEMPLATE(SUBSET_set_intersect_single, 3, 0, 0)->Arg(45);
+BENCHMARK_TEMPLATE(SUBSET_set_union_identical, 3, 0, 0)->Arg(45);
+BENCHMARK_TEMPLATE(SUBSET_set_union_disjoint, 3, 0, 0)->Arg(45);
+// BENCHMARK_TEMPLATE(SUBSET_set_union_single, 3, 0, 0)->Arg(45);
 
-BENCHMARK_TEMPLATE(SUBSET_set_diff_identical, 3, 0, 1)->Arg(14);
-BENCHMARK_TEMPLATE(SUBSET_set_diff_disjoint, 3, 0, 1)->Arg(14);
-// BENCHMARK_TEMPLATE(SUBSET_set_diff_single, 3, 0, 1)->Arg(14);
-BENCHMARK_TEMPLATE(SUBSET_set_intersect_identical, 3, 0, 1)->Arg(14);
-BENCHMARK_TEMPLATE(SUBSET_set_intersect_disjoint, 3, 0, 1)->Arg(14);
-// BENCHMARK_TEMPLATE(SUBSET_set_intersect_single, 3, 0, 1)->Arg(14);
-BENCHMARK_TEMPLATE(SUBSET_set_union_identical, 3, 0, 1)->Arg(14);
-BENCHMARK_TEMPLATE(SUBSET_set_union_disjoint, 3, 0, 1)->Arg(14);
-// BENCHMARK_TEMPLATE(SUBSET_set_union_single, 3, 0, 1)->Arg(14);
+BENCHMARK_TEMPLATE(SUBSET_set_diff_identical, 3, 0, 1)->Arg(45);
+BENCHMARK_TEMPLATE(SUBSET_set_diff_disjoint, 3, 0, 1)->Arg(45);
+// BENCHMARK_TEMPLATE(SUBSET_set_diff_single, 3, 0, 1)->Arg(45);
+BENCHMARK_TEMPLATE(SUBSET_set_intersect_identical, 3, 0, 1)->Arg(45);
+BENCHMARK_TEMPLATE(SUBSET_set_intersect_disjoint, 3, 0, 1)->Arg(45);
+// BENCHMARK_TEMPLATE(SUBSET_set_intersect_single, 3, 0, 1)->Arg(45);
+BENCHMARK_TEMPLATE(SUBSET_set_union_identical, 3, 0, 1)->Arg(45);
+BENCHMARK_TEMPLATE(SUBSET_set_union_disjoint, 3, 0, 1)->Arg(45);
+// BENCHMARK_TEMPLATE(SUBSET_set_union_single, 3, 0, 1)->Arg(45);
 
 // Benchmarks pour les opérations géométriques (niveau unique)
-BENCHMARK_TEMPLATE(SUBSET_translate, 1, 0)->Arg(1000); // ~1000 intervalles
-BENCHMARK_TEMPLATE(SUBSET_translate, 2, 0)->Arg(200);  // ~1000 intervalles
-BENCHMARK_TEMPLATE(SUBSET_translate, 3, 0)->Arg(14);   // ~1000 intervalles
+BENCHMARK_TEMPLATE(SUBSET_translate, 1, 0)->Arg(10000); // ~10k intervalles
+BENCHMARK_TEMPLATE(SUBSET_translate, 2, 0)->Arg(2000);  // ~10k intervalles
+BENCHMARK_TEMPLATE(SUBSET_translate, 3, 0)->Arg(45);    // ~10k intervalles
 
-BENCHMARK_TEMPLATE(SUBSET_translate_and_project, 1, 0)->Arg(1000);
-BENCHMARK_TEMPLATE(SUBSET_translate_and_project, 2, 0)->Arg(200);
-BENCHMARK_TEMPLATE(SUBSET_translate_and_project, 3, 0)->Arg(14);
+BENCHMARK_TEMPLATE(SUBSET_translate_and_project, 1, 0)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_translate_and_project, 2, 0)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_translate_and_project, 3, 0)->Arg(45);
 
-BENCHMARK_TEMPLATE(SUBSET_self, 1, 0)->Arg(1000); // ~1000 intervalles
-BENCHMARK_TEMPLATE(SUBSET_self, 2, 0)->Arg(200);  // ~1000 intervalles
-BENCHMARK_TEMPLATE(SUBSET_self, 3, 0)->Arg(14);   // ~1000 intervalles
+BENCHMARK_TEMPLATE(SUBSET_self, 1, 0)->Arg(10000); // ~10k intervalles
+BENCHMARK_TEMPLATE(SUBSET_self, 2, 0)->Arg(2000);  // ~10k intervalles
+BENCHMARK_TEMPLATE(SUBSET_self, 3, 0)->Arg(45);    // ~10k intervalles
 
-BENCHMARK_TEMPLATE(SUBSET_self_and_project, 1, 0)->Arg(1000);
-BENCHMARK_TEMPLATE(SUBSET_self_and_project, 2, 0)->Arg(200);
-BENCHMARK_TEMPLATE(SUBSET_self_and_project, 3, 0)->Arg(14);
+BENCHMARK_TEMPLATE(SUBSET_self_and_project, 1, 0)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_self_and_project, 2, 0)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_self_and_project, 3, 0)->Arg(45);
 
 // Benchmarks géométriques avec niveaux mixtes (niveau 0 vs autre niveau)
-BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect, 1, 0, 0)->Arg(1000);
-BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect, 2, 0, 0)->Arg(200);
-BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect, 3, 0, 0)->Arg(14);
+BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect, 1, 0, 0)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect, 2, 0, 0)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect, 3, 0, 0)->Arg(45);
 
-BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect, 1, 0, 1)->Arg(1000);
-BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect, 2, 0, 1)->Arg(200);
-BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect, 2, 0, 2)->Arg(200);
-BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect, 2, 0, 10)->Arg(200); // this bench is weird : the perf ??? maybe a bug.
+BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect, 1, 0, 1)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect, 2, 0, 1)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect, 2, 0, 2)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect, 2, 0, 10)->Arg(2000); // this bench is weird : the perf ??? maybe a bug.
 
-BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect_and_project, 1, 0, 0)->Arg(1000);
-BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect_and_project, 2, 0, 0)->Arg(200);
-BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect_and_project, 3, 0, 0)->Arg(14);
+BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect_and_project, 1, 0, 0)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect_and_project, 2, 0, 0)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect_and_project, 3, 0, 0)->Arg(45);
 
 ///////////////////////////////////////////////////////////////////
 // Benchmarks avec niveaux mixtes (intéressants pour comparer les niveaux)
 ///////////////////////////////////////////////////////////////////
 
 // Benchmarks 1D : niveau 0 vs niveau 1
-BENCHMARK_TEMPLATE(SUBSET_set_intersect_identical, 1, 0, 1)->Arg(1000);
-BENCHMARK_TEMPLATE(SUBSET_set_intersect_disjoint, 1, 0, 1)->Arg(1000);
-BENCHMARK_TEMPLATE(SUBSET_set_union_identical, 1, 0, 1)->Arg(1000);
+BENCHMARK_TEMPLATE(SUBSET_set_intersect_identical, 1, 0, 1)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_set_intersect_disjoint, 1, 0, 1)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_set_union_identical, 1, 0, 1)->Arg(10000);
 
 // Benchmarks 1D : niveau 0 vs niveau 2
-BENCHMARK_TEMPLATE(SUBSET_set_intersect_identical, 1, 0, 2)->Arg(1000);
-BENCHMARK_TEMPLATE(SUBSET_set_intersect_disjoint, 1, 0, 2)->Arg(1000);
-BENCHMARK_TEMPLATE(SUBSET_set_union_identical, 1, 0, 2)->Arg(1000);
+BENCHMARK_TEMPLATE(SUBSET_set_intersect_identical, 1, 0, 2)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_set_intersect_disjoint, 1, 0, 2)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_set_union_identical, 1, 0, 2)->Arg(10000);
 
 // Benchmarks 1D : niveau 1 vs niveau 2
-BENCHMARK_TEMPLATE(SUBSET_set_intersect_identical, 1, 1, 2)->Arg(1000);
-BENCHMARK_TEMPLATE(SUBSET_set_intersect_disjoint, 1, 1, 2)->Arg(1000);
-BENCHMARK_TEMPLATE(SUBSET_set_union_identical, 1, 1, 2)->Arg(1000);
+BENCHMARK_TEMPLATE(SUBSET_set_intersect_identical, 1, 1, 2)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_set_intersect_disjoint, 1, 1, 2)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_set_union_identical, 1, 1, 2)->Arg(10000);
 
 // Benchmarks 2D : niveau 0 vs niveau 1
-BENCHMARK_TEMPLATE(SUBSET_set_intersect_identical, 2, 0, 1)->Arg(200);
-BENCHMARK_TEMPLATE(SUBSET_set_intersect_disjoint, 2, 0, 1)->Arg(200);
-BENCHMARK_TEMPLATE(SUBSET_set_union_identical, 2, 0, 1)->Arg(200);
+BENCHMARK_TEMPLATE(SUBSET_set_intersect_identical, 2, 0, 1)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_set_intersect_disjoint, 2, 0, 1)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_set_union_identical, 2, 0, 1)->Arg(2000);
 
 // Benchmarks géométriques avec niveaux mixtes
