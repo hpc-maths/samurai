@@ -14,39 +14,49 @@
 ////////////////////////////////////////////////////////////
 /// utils
 
+constexpr int DEFAULT_X_INTERVALS = 5; // nombre d'intervalles en X pour les cas 2D/3D
+
 template <unsigned int dim>
-auto gen_regular_intervals = [](int64_t size, unsigned int level = 0)
+auto gen_regular_intervals = [](int max_index, unsigned int level = 0, int x_intervals = DEFAULT_X_INTERVALS)
 {
     samurai::CellList<dim> cl;
 
-    for (int64_t i = 0; i < size; i++)
+    int interval_size = 1 << level;       // 2^level
+    int spacing       = 1 << (level + 1); // 2^(level+1)
+
+    if constexpr (dim == 1)
     {
-        int index = static_cast<int>(i);
-
-        // Calcul des paramètres selon le niveau :
-        // Niveau L : taille = 2^L, espacement = 2^(L+1)
-        int interval_size = 1 << level;       // 2^level
-        int spacing       = 1 << (level + 1); // 2^(level+1)
-        int start         = index * spacing;
-        int end           = start + interval_size;
-
-        if constexpr (dim == 1)
+        // En 1D on garde le comportement précédent : un intervalle par abscisse.
+        for (int x = 0; x < max_index; ++x)
         {
-            cl[level][{}].add_interval({start, end});
+            int start = x * spacing;
+            cl[level][{}].add_interval({start, start + interval_size});
         }
-        else if constexpr (dim == 2)
+    }
+    else if constexpr (dim == 2)
+    {
+        int nx = x_intervals;
+        for (int x = 0; x < nx; ++x)
         {
-            for (int y = 0; y < size; ++y)
+            int start = x * spacing;
+            int end   = start + interval_size;
+            for (int y = 0; y < max_index; ++y)
             {
                 xt::xtensor_fixed<int, xt::xshape<1>> coord{y};
                 cl[level][coord].add_interval({start, end});
             }
         }
-        else if constexpr (dim == 3)
+    }
+    else if constexpr (dim == 3)
+    {
+        int nx = x_intervals;
+        for (int x = 0; x < nx; ++x)
         {
-            for (int y = 0; y < size; ++y)
+            int start = x * spacing;
+            int end   = start + interval_size;
+            for (int y = 0; y < max_index; ++y)
             {
-                for (int z = 0; z < size; ++z)
+                for (int z = 0; z < max_index; ++z)
                 {
                     xt::xtensor_fixed<int, xt::xshape<2>> coord{y, z};
                     cl[level][coord].add_interval({start, end});
@@ -59,9 +69,9 @@ auto gen_regular_intervals = [](int64_t size, unsigned int level = 0)
 };
 
 template <unsigned int dim>
-auto cell_array_with_n_intervals(int64_t size)
+auto cell_array_with_n_intervals(int max_index)
 {
-    auto cl = gen_regular_intervals<dim>(size);
+    auto cl = gen_regular_intervals<dim>(max_index, 0, DEFAULT_X_INTERVALS);
     samurai::CellArray<dim> ca(cl);
     return ca;
 }
@@ -141,15 +151,16 @@ void FIND_find_middle(benchmark::State& state)
     FIND_find_unified<dim>(state, coord_generator);
 }
 
-BENCHMARK_TEMPLATE(FIND_find_start, 1)->Args({2})->Args({4})->Args({32})->Args({64});
-BENCHMARK_TEMPLATE(FIND_find_start, 2)->Args({2})->Args({4})->Args({32})->Args({64});
-BENCHMARK_TEMPLATE(FIND_find_start, 3)->Args({2})->Args({4})->Args({32})->Args({64});
-BENCHMARK_TEMPLATE(FIND_find_end, 1)->Args({2})->Args({4})->Args({32})->Args({64});
-BENCHMARK_TEMPLATE(FIND_find_end, 2)->Args({2})->Args({4})->Args({32})->Args({64});
-BENCHMARK_TEMPLATE(FIND_find_end, 3)->Args({2})->Args({4})->Args({32})->Args({64});
-BENCHMARK_TEMPLATE(FIND_find_middle, 1)->Args({2})->Args({4})->Args({32})->Args({64});
-BENCHMARK_TEMPLATE(FIND_find_middle, 2)->Args({2})->Args({4})->Args({32})->Args({64});
-BENCHMARK_TEMPLATE(FIND_find_middle, 3)->Args({2})->Args({4})->Args({32})->Args({64});
+// Ajusté pour ~10k intervalles max : 1D=10000, 2D=2000, 3D=45
+BENCHMARK_TEMPLATE(FIND_find_start, 1)->Args({2})->Args({32})->Args({1000})->Args({10000});
+BENCHMARK_TEMPLATE(FIND_find_start, 2)->Args({2})->Args({32})->Args({200})->Args({2000});
+BENCHMARK_TEMPLATE(FIND_find_start, 3)->Args({2})->Args({8})->Args({20})->Args({45});
+BENCHMARK_TEMPLATE(FIND_find_end, 1)->Args({2})->Args({32})->Args({1000})->Args({10000});
+BENCHMARK_TEMPLATE(FIND_find_end, 2)->Args({2})->Args({32})->Args({200})->Args({2000});
+BENCHMARK_TEMPLATE(FIND_find_end, 3)->Args({2})->Args({8})->Args({20})->Args({45});
+BENCHMARK_TEMPLATE(FIND_find_middle, 1)->Args({2})->Args({32})->Args({1000})->Args({10000});
+BENCHMARK_TEMPLATE(FIND_find_middle, 2)->Args({2})->Args({32})->Args({200})->Args({2000});
+BENCHMARK_TEMPLATE(FIND_find_middle, 3)->Args({2})->Args({8})->Args({20})->Args({45});
 
 /**
 template <std::size_t dim>
