@@ -289,7 +289,7 @@ namespace samurai
                         if (std::isnan(qs_i(ii)) || std::isnan(qs_j(ii)) || std::isnan(qs_ij(ii)))
                         {
                             std::cerr << "NaN detected during the computation of details." << std::endl;
-                            samurai::save(fs::current_path(), "check_nan", {true, true}, field.mesh(), field);
+                            save(fs::current_path(), "check_nan", {true, true}, field.mesh(), field);
                             break;
                         }
                     }
@@ -299,7 +299,7 @@ namespace samurai
                     if (xt::any(xt::isnan(qs_ij)))
                     {
                         std::cerr << "NaN detected during the computation of details." << std::endl;
-                        samurai::save(fs::current_path(), "check_nan", {true, true}, field.mesh(), field);
+                        save(fs::current_path(), "check_nan", {true, true}, field.mesh(), field);
                     }
                 }
 #endif
