@@ -72,8 +72,8 @@ namespace samurai
         {
             auto& mesh = field.mesh();
 
-            auto min_level = mesh.min_level();
-            auto max_level = mesh.max_level();
+            auto min_level = mesh[mesh_id_t::cells].min_level();
+            auto max_level = mesh[mesh_id_t::cells].max_level();
 
             auto& flux_def = flux_definition()[d];
 
@@ -98,7 +98,7 @@ namespace samurai
             }
 
             // Level jumps (level -- level+1)
-            for (std::size_t level = min_level; level < max_level; ++level)
+            for (std::size_t level = min_level; level <= max_level; ++level)
             {
                 auto h_l                                = mesh.cell_length(level);
                 auto h_lp1                              = mesh.cell_length(level + 1);
