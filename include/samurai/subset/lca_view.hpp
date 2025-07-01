@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "lca_traverser.hpp"
 #include "set_base.hpp"
 
 namespace samurai
@@ -13,32 +14,25 @@ namespace samurai
     template <LCA_concept LCA>
     struct SetTraits<LCAView<LCA>>
     {
-        using interval_t = typename LCA::interval_t;
-
-        static constexpr std::size_t dim = LCA::dim;
+        using traverser_t = LCATraverser<LCA>;
     };
 
     template <LCA_concept LCA>
     class LCAView : public SetBase<LCAView<LCA>>
     {
+        using Base = SetBase<LCAView<LCA>>;
+
       public:
+
+        using index_t     = typename Base::index_t;
+        using traverser_t = typename Base::traverser_t;
 
         LCAView(const LCA& lca)
             : m_lca(lca)
         {
         }
 
-        std::size_t min_level() const
-        {
-            return m_lca.level();
-        }
-
         std::size_t level() const
-        {
-            return m_lca.level();
-        }
-
-        std::size_t ref_level() const
         {
             return m_lca.level();
         }
@@ -53,9 +47,41 @@ namespace samurai
             return m_lca.empty();
         }
 
+        template <std::size_t d>
+        traverser_t get_traverser(const index_t& index, std::integral_constant<std::size_t d>) const
+        {
+            if constexpr (d != Base::dim - 1)
+            {
+                const auto& y           = index[d];
+                const auto& y_intervals = m_lca[d + 1];
+                const auto& y_offsets   = m_lca.offsets(d + 1);
+                // we need to find an interval that contains y.
+                std::size_t offset_idx = 0;
+                auto y_interval_it     = y_intervals.cbegin();
+                for (; !y_interval_it->contains(y) and y_interval_it != y_intervals.cend(); ++y_interval_it)
+                {
+                    offset_idx += std::size_t(y_interval_it->size() - 1);
+                }
+                assert(y_interval_it != y_intervals.cend());
+                offset_idx += std::size_t(y - it->start);
+
+                return traverser_t(m_lca[d].cbegin() + y_offsets[offset_idx], m_lca[d].cend() + y_offsets[offset_idx + 1]);
+            }
+            else
+            {
+                return traverser_t(m_lca[d].cbegin(), m_lca[d].cend());
+            }
+        }
+
       private:
 
-        LCA& m_lca;
+        const LCA& m_lca;
     };
+
+    template <LCA_concept LCA>
+    LCAView<LCA> self(const LCA& lca)
+    {
+        return LCAView<LCA>(lca);
+    }
 
 }

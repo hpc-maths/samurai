@@ -40,61 +40,17 @@ namespace samurai
 
         inline bool is_empty() const
         {
-            return derived_cast()->is_empty();
+            return derived_cast().is_empty();
         }
 
         inline void next_interval()
         {
-            derived_cast()->next_interval();
+            derived_cast().next_interval();
         }
 
-        inline interval_t& current_interval()
+        inline const interval_t& current_interval() const
         {
-            derived_cast()->current_interval()
+            derived_cast().current_interval()
         }
-
-        inline void next(auto scan)
-        {
-            assert(!empty());
-
-            if (m_current == scan)
-            {
-                if (m_is_current_at_start)
-                {
-                    m_current = current_interval().end;
-                }
-                else
-                {
-                    next_interval();
-                }
-                m_is_current_at_start = !m_is_current_at_start;
-            }
-        }
-
-        inline bool is_in(auto scan) const
-        {
-            return (!is_empty()) && !((scan < m_current) ^ (!m_is_start));
-        }
-
-        inline value_t min() const
-        {
-            return m_current;
-        }
-
-        inline auto& current()
-        {
-            return m_current;
-        }
-
-      protected:
-
-        inline void init_current()
-        {
-            m_current             = current_interval().start;
-            m_is_current_at_start = true;
-        }
-
-        value_t m_current          = std::numeric_limits<value_t>::min();
-        bool m_is_current_at_start = true;
     };
 }

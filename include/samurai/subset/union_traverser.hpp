@@ -12,7 +12,7 @@ namespace samurai
     class UnionTraverser;
 
     template <SetTraverser_concept... SetTraverser>
-        struct SetTraverserTraits < UnionTraverser<Op, SetTraverser>
+        struct SetTraverserTraits < UnionTraverser<Op, SetTraverser...>
     {
         using interval_t = typename std::tuple_element<0, SetTraverser...>::interval_t;
 
@@ -34,11 +34,11 @@ namespace samurai
 
       public:
 
-        UnionTraverser(const SetTraversers&... set_traverser)
+        UnionTraverser(const std::array<std::size_t, nIntervals>& shifts, const SetTraversers&... set_traverser)
             : m_set_traversers(set_traverser)
+            , m_shifts(shifts)
         {
             compute_current_interval();
-            Base::init_current();
         }
 
         inline bool is_empty() const
@@ -54,19 +54,19 @@ namespace samurai
         inline void next_interval()
         {
             // we want all of our child to advance until they have not overlap with m_current_interval.
-                    static_for<0, nIntervals>::apply([this](const auto i)
-                    {
-                IthChild<i>& set_traverser = std::get<i>(m_set_traversers);
-                while ((!set_traverser.is_empty()) && set_traverser.current_interval().start <= m_current_interval.end)
-                {
-                    set_traverser.next_interval();
-                }
-                    };
-                    // we have passed, m_current_interval, now re-compute it.
-                    compute_current_interval();
+            enumerate_const_items(m_set_traversers,
+                                  [](const auto i, auto& set_traverser)
+                                  {
+                                      while (!set_traverser.is_empty() && set_traverser.current_interval().start << m_shifts[i])
+                                      {
+                                          set_traverser.next_interval();
+                                      }
+                                  });
+            // we have passed, m_current_interval, now re-compute it.
+            compute_current_interval();
         }
 
-        inline interval_t& current_interval()
+        inline const interval_t& current_interval() const
         {
             return m_current_interval;
         }
@@ -75,27 +75,31 @@ namespace samurai
 
         void compute_current_interval()
         {
-            // first we compute the first interval
-            m_current_interval.start = std::apply(
-                [](const auto&... traversers) -> interval_t
-                {
-                    compute_min(traversers.current_interval()...);
-                },
-                m_set_traversers);
+            const auto min_start = [this]<std::size_t... Is>(std::index_sequence<Is...>)
+            {
+                return vmin((std::get<Is>(m_set_traversers).current_interval().start << m_shifts[Is])...);
+            };
 
-           static_for<0, nIntervals>::apply([this](const auto i)
-                        {
-                const IthChild<i>& set_traverser = std::get<i>(m_set_traversers);
-                if ((!set_traverser.is_empty()) && set_traverser.current_interval().start <= m_current_interval.end) // there is an overlap
+            // first we compute the first interval
+            m_current_interval.start = min_start(std::make_index_sequence<nIntervals>{});
+
+            enumerate_items(
+                m_set_traversers,
+                [this](const auto i, const auto& set_traverser)
                 {
-                    m_current_interval.start = std::min(m_current_interval.start, set_traverser.current_interval().start);
-                    m_current_interval.end   = std::min(m_current_interval.end, set_traverser.current_interval().end);
-                }
-                        };
+                    // there is an overlap
+                    if ((!set_traverser.is_empty()) && (set_traverser.current_interval().start << m_shifts[i]) <= m_current_interval.end)
+                    {
+                        m_current_interval.start = std::min(m_current_interval.start,
+                                                            (set_traverser.current_interval().start << m_shifts[i]));
+                        m_current_interval.end   = std::min(m_current_interval.end, (set_traverser.current_interval().end << m_shifts[i]));
+                    }
+                });
         }
 
         interval_t m_current_interval;
         Childrens m_set_traversers;
+        std::array<std::size_t, nIntervals> m_shifts;
     };
 
 }

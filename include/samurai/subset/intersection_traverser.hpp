@@ -34,11 +34,11 @@ namespace samurai
 
       public:
 
-        IntersectionTraverser(const SetTraversers&... set_traversers)
+        IntersectionTraverser(const std::array<std::size_t, nIntervals> shifts, const SetTraversers&... set_traversers)
             : m_set_traversers(set_traversers)
+            , m_shifts(shifts)
         {
             next_interval();
-            Base::init_current();
         }
 
         inline bool is_empty() const
@@ -53,34 +53,32 @@ namespace samurai
 
         inline void next_interval()
         {
+            const auto max_start = [this]<std::size_t... Is>(std::index_sequence<Is...>)
+            {
+                return vmax((std::get<Is>(m_set_traversers).current_interval().start << m_shifts[Is])...);
+            };
+            const auto min_end = [this]<std::size_t... Is>(std::index_sequence<Is...>)
+            {
+                return vmin((std::get<Is>(m_set_traversers).current_interval().end << m_shifts[Is])...);
+            };
+
             while (m_current_interval.start >= m_current_interval.end)
             {
-                m_current_interval.start = std::apply(
-                    [](const auto&... traversers) -> interval_t
-                    {
-                        compute_max(traversers.current_interval().start...);
-                    },
-                    m_set_traversers);
-                m_current_interval.end = std::apply(
-                    [](const auto&... traversers) -> interval_t
-                    {
-                        compute_min(traversers.current_interval().end...);
-                    },
-                    m_set_traversers);
+                m_current_interval.start = max_start(std::make_index_sequence<nIntervals>{});
+                m_current_interval.end   = min_end(std::make_index_sequence<nIntervals>{});
 
-                static_for<0, nIntervals>::apply(
-                    [this](const auto i)
-                    {
-                        IthChild<i>& set_traverser = std::get<i>(m_set_traversers);
-                        if (set_traverser.current_interval().end == m_current_interval.end)
-                        {
-                            set_traverser.next_interval();
-                        }
-                    });
+                enumerate_items(m_set_traversers,
+                                [](const auto i, auto& set_traverser)
+                                {
+                                    if ((set_traverser.current_interval_end().end << m_shifts[i]) == m_current_interval.end)
+                                    {
+                                        set_traverser.next_interval();
+                                    }
+                                });
             }
         }
 
-        inline interval_t& current_interval()
+        inline interval_t& current_interval() const
         {
             return m_current_interval;
         }
@@ -89,5 +87,6 @@ namespace samurai
 
         interval_t m_current_interval;
         Childrens m_set_traversers;
+        std::array<std::size_t, nIntervals> m_shifts;
     };
 }

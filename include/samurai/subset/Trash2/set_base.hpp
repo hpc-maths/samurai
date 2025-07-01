@@ -24,7 +24,7 @@ namespace samurai
     concept Set_concept = std::is_base_of<SetBase<T>, T>::value;
 
     template <Set_concept Set, class Func>
-    void apply(const Set& set, Func&& func);
+    void apply(Set&& global_set, Func&& func);
 
     ////////////////////////////////////////////////////////////////////////
     //// Class definition
@@ -37,12 +37,10 @@ namespace samurai
 
       public:
 
-        static constexpr std::size_t dim = DerivedTraits::traverser_t::dim;
+        using interval_t = typename DerivedTraits::interval_t;
+        using value_t    = typename interval_t::value_t;
 
-        using traverser_t = typename DerivedTraits::traverser_t;
-        using interval_t  = typename traverser_t::interval_t;
-        using value_t     = typename interval_t::value_t;
-        using index_t     = xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>;
+        static constexpr std::size_t dim = DerivedTraits::dim;
 
         const Derived& derived_cast() const
         {
@@ -59,9 +57,19 @@ namespace samurai
             return static_cast<Derived&&>(*this);
         }
 
+        std::size_t min_level() const
+        {
+            return derived_cast().min_level();
+        }
+
         std::size_t level() const
         {
             return derived_cast().level();
+        }
+
+        std::size_t ref_level() const
+        {
+            return derived_cast().ref_level();
         }
 
         bool exists() const
@@ -74,34 +82,28 @@ namespace samurai
             return derived_cast().empty();
         }
 
-        template <std::size_t d>
-        traverser_t get_traverser(const index_t& index, std::integral_constant<std::size_t d> d_ic) const
-        {
-            return derived_cast().get_traverser(index, d_ic);
-        }
-
         inline Projection<Derived> on(const std::size_t level);
 
         template <class Func>
-        void operator()(Func&& func) const
+        void operator()(Func&& func)
         {
-            apply(derived_cast(), std::forward<Func>(func));
+            apply(derived_forward(), std::forward<Func>(func));
         }
 
         template <class... ApplyOp>
-        void apply_op(ApplyOp&&... op) const
+        void apply_op(ApplyOp&&... op)
         {
             auto func = [&](auto& interval, auto& index)
             {
                 (op(level(), interval, index), ...);
             };
-            apply(derived_cast(), func);
+            apply(derived_forward(), func);
         }
     };
 
 } // namespace samurai
 
-#include "projected_set.hpp"
+#include "projection.hpp"
 
 namespace samurai
 {

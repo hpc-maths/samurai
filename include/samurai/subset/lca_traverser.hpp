@@ -35,7 +35,6 @@ namespace samurai
             : m_first_interval(first)
             , m_end_interval(end)
         {
-            Base::init_current();
         }
 
         inline bool is_empty() const
