@@ -33,7 +33,7 @@ namespace samurai
         MPI_Init(&argc, &argv);
         // redirect stdout to /dev/null for all ranks except rank 0
         mpi::communicator world;
-        if (!args::dont_redirect && world.rank() != 0)
+        if (!args::dont_redirect_output && world.rank() != 0)
         {
             freopen("/dev/null", "w", stdout);
         }
