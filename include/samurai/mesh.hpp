@@ -851,6 +851,52 @@ namespace samurai
     }
 
     template <class D, class Config>
+    void Mesh_base<D, Config>::find_neighbourhood()
+    {
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+
+        std::vector<lca_type> neighbours(static_cast<std::size_t>(world.size()));
+        mpi::all_gather(world, m_subdomain, neighbours);
+        std::set<int> set_neighbours;
+        for (std::size_t i = 0; i < neighbours.size(); ++i)
+        {
+            std::cout << neighbours[i] << std::endl;
+            if (i != static_cast<std::size_t>(world.rank()))
+            {
+                auto set = intersection(nestedExpand(m_subdomain, 1), neighbours[i]);
+                if (!set.empty())
+                {
+                    set_neighbours.insert(static_cast<int>(i));
+                }
+                for (std::size_t d = 0; d < dim; ++d)
+                {
+                    if (m_periodic[d])
+                    {
+                        auto shift             = get_periodic_shift(m_domain, m_subdomain.level(), d);
+                        auto periodic_set_left = intersection(nestedExpand(m_subdomain, 1), translate(neighbours[i], -shift));
+                        if (!periodic_set_left.empty())
+                        {
+                            set_neighbours.insert(static_cast<int>(i));
+                        }
+                        auto periodic_set_right = intersection(nestedExpand(m_subdomain, 1), translate(neighbours[i], shift));
+                        if (!periodic_set_right.empty())
+                        {
+                            set_neighbours.insert(static_cast<int>(i));
+                        }
+                    }
+                }
+            }
+        }
+            }
+        for (const auto& neighbour : set_neighbours)
+        {
+            m_mpi_neighbourhood.emplace_back(neighbour);
+        }
+#endif
+    }
+
+    template <class D, class Config>
     void Mesh_base<D, Config>::partition_mesh([[maybe_unused]] std::size_t start_level, [[maybe_unused]] const Box<double, dim>& global_box)
     {
 #ifdef SAMURAI_WITH_MPI
