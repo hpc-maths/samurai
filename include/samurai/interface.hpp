@@ -444,7 +444,7 @@ namespace samurai
         auto comput_stencil_it = make_stencil_iterator(mesh, comput_stencil);
 #endif
 
-        auto bdry = subdomain_boundary(mesh, level, direction);
+        auto bdry = domain_boundary(mesh, level, direction);
         for_each_meshinterval<mesh_interval_t, run_type>(bdry,
                                                          [&](auto mesh_interval)
                                                          {
