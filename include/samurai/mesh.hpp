@@ -177,7 +177,6 @@ namespace samurai
         void update_sub_mesh();
         void renumbering();
 
-        void find_neighbourhood_naive();
         void find_neighbourhood();
 
         void partition_mesh(std::size_t start_level, const Box<double, dim>& global_box);
