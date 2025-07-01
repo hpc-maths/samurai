@@ -100,7 +100,7 @@ namespace samurai
         // return e;
     }
 
-    template <bool SOA, class value_type, std::enable_if_t<std::is_floating_point_v<value_type>, bool> = true>
+    template <bool SOA, bool can_collapse, class value_type, std::enable_if_t<std::is_floating_point_v<value_type>, bool> = true>
     auto mat_vec(value_type A, value_type x)
     {
         return A * x;
