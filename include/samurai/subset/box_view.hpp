@@ -51,6 +51,11 @@ namespace samurai
         template <std::size_t d>
         traverser_t get_traverser(const index_t& index, std::integral_constant<std::size_t d>) const
         {
+            if constexpr (d != Base::dim - 1)
+            {
+                assert(m_box.min_corner()[d + 1] <= index[d] && index[d] < m_box.max_corner()[d + 1]);
+            }
+
             return traverser_t(m_box.min_corner()[d], m_box.max_corner()[d]);
         }
 
