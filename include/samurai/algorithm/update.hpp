@@ -10,7 +10,6 @@
 #include "../algorithm.hpp"
 #include "../bc.hpp"
 #include "../field.hpp"
-#include "../io/hdf5.hpp"
 #include "../numeric/prediction.hpp"
 #include "../numeric/projection.hpp"
 #include "../subset/node.hpp"
@@ -159,7 +158,7 @@ namespace samurai
 #ifndef SAMURAI_WITH_MPI
                         std::cerr << "No children found for the ghost at level " << proj_level << ", i = " << ii << ", index = " << index
                                   << " during projection of the B.C." << std::endl;
-                        samurai::save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
+                        // samurai::save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
                         std::exit(1);
 #endif
                     }
