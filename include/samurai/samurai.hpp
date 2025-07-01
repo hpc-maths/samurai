@@ -3,8 +3,8 @@
 #pragma once
 
 #ifdef SAMURAI_WITH_MPI
-#include <fstream>
 #include <boost/mpi.hpp>
+#include <fstream>
 namespace mpi = boost::mpi;
 #endif
 
