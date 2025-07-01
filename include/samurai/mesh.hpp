@@ -4,6 +4,7 @@
 #pragma once
 
 #include <array>
+#include <set>
 
 #include <fmt/format.h>
 
@@ -177,6 +178,7 @@ namespace samurai
         void renumbering();
 
         void find_neighbourhood_naive();
+        void find_neighbourhood();
 
         void partition_mesh(std::size_t start_level, const Box<double, dim>& global_box);
         void load_balancing();
@@ -777,6 +779,13 @@ namespace samurai
                                                           });
                           });
         m_subdomain = {lcl};
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        if (m_mpi_neighbourhood.empty() && world.size() > 1)
+        {
+            find_neighbourhood();
+        }
+#endif
     }
 
     template <class D, class Config>
@@ -969,7 +978,7 @@ namespace samurai
         //            }
         //        }
 
-        find_neighbourhood_naive();
+        // find_neighbourhood_naive();
 
         // // Neighbours
         // m_mpi_neighbourhood.reserve(static_cast<std::size_t>(pow(3, dim) - 1));
