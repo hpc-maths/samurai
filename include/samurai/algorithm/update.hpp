@@ -128,7 +128,7 @@ namespace samurai
                     {
                         // We retrieve the children of the current ghost by intersecting it with the upper level
                         auto children = intersection(self(proj_ghost_lca).on(children_level), mesh[mesh_id_t::reference][children_level]);
-                        // We iterate over the children and add their values to the current ghost in ordrer to compute the average
+                        // We iterate over the children and add their values to the current ghost in order to compute the average
                         children(
                             [&](const auto& i_child, const auto& index_child)
                             {
@@ -296,7 +296,7 @@ namespace samurai
                             // For projection ghost, we compute the average of its children,
                             // and we do that layer by layer.
                             // For instance, if max_stencil_width = 3, then 3 fine boundary ghosts overlap 2 coarse ghosts.
-                            // Note that since we want to project the B.C. two level down, it is done in two steps:
+                            // Note that since we want to project the B.C. two levels down, it is done in two steps:
                             // - the B.C. is projected onto the lower ghosts
                             // - those lower ghosts are projected onto the even lower ghosts
 
@@ -315,7 +315,7 @@ namespace samurai
                         }
                         if (level < mesh.max_level() && level >= mesh.min_level())
                         {
-                            // Project the B.C. up to level+1 (prediction of order 0)
+                            // Predict the B.C. to level+1 (prediction of order 0, which is the same as a projection)
                             predict_bc(level + 1, direction, field);
                         }
 
