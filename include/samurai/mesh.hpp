@@ -4,6 +4,7 @@
 #pragma once
 
 #include <array>
+#include <set>
 
 #include <fmt/format.h>
 
@@ -177,7 +178,7 @@ namespace samurai
         void update_sub_mesh();
         void renumbering();
 
-        void find_neighbourhood_naive();
+        void find_neighbourhood();
 
         void partition_mesh(std::size_t start_level, const Box<double, dim>& global_box);
         void load_balancing();
@@ -784,6 +785,13 @@ namespace samurai
                                                           });
                           });
         m_subdomain = {lcl};
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        if (m_mpi_neighbourhood.empty() && world.size() > 1)
+        {
+            find_neighbourhood();
+        }
+#endif
     }
 
     template <class D, class Config>
@@ -822,28 +830,48 @@ namespace samurai
     }
 
     template <class D, class Config>
-    void Mesh_base<D, Config>::find_neighbourhood_naive()
+    void Mesh_base<D, Config>::find_neighbourhood()
     {
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
-        auto rank = world.rank();
-        auto size = world.size();
-        m_mpi_neighbourhood.reserve(0);
-        if (size > 1)
+
+        std::vector<lca_type> neighbours(static_cast<std::size_t>(world.size()));
+        mpi::all_gather(world, m_subdomain, neighbours);
+        std::set<int> set_neighbours;
+        for (std::size_t i = 0; i < neighbours.size(); ++i)
         {
-            if (rank == 0)
+            std::cout << neighbours[i] << std::endl;
+            if (i != static_cast<std::size_t>(world.rank()))
             {
-                m_mpi_neighbourhood.push_back(1);
+                auto set = intersection(nestedExpand(m_subdomain, 1), neighbours[i]);
+                if (!set.empty())
+                {
+                    set_neighbours.insert(static_cast<int>(i));
+                }
+                for (std::size_t d = 0; d < dim; ++d)
+                {
+                    if (m_periodic[d])
+                    {
+                        auto shift             = get_periodic_shift(m_domain, m_subdomain.level(), d);
+                        auto periodic_set_left = intersection(nestedExpand(m_subdomain, 1), translate(neighbours[i], -shift));
+                        if (!periodic_set_left.empty())
+                        {
+                            set_neighbours.insert(static_cast<int>(i));
+                        }
+                        auto periodic_set_right = intersection(nestedExpand(m_subdomain, 1), translate(neighbours[i], shift));
+                        if (!periodic_set_right.empty())
+                        {
+                            set_neighbours.insert(static_cast<int>(i));
+                        }
+                    }
+                }
             }
-            else if (rank == size - 1)
-            {
-                m_mpi_neighbourhood.push_back(size - 2);
-            }
-            else
-            {
-                m_mpi_neighbourhood.push_back(rank - 1);
-                m_mpi_neighbourhood.push_back(rank + 1);
-            }
+        }
+        m_mpi_neighbourhood.clear();
+        m_mpi_neighbourhood.reserve(set_neighbours.size());
+        for (const auto& neighbour : set_neighbours)
+        {
+            m_mpi_neighbourhood.emplace_back(neighbour);
         }
 #endif
     }
@@ -855,67 +883,6 @@ namespace samurai
         mpi::communicator world;
         auto rank = world.rank();
         auto size = world.size();
-
-        /*
-        using box_t   = Box<value_t, dim>;
-        using point_t = typename box_t::point_t;
-
-        double h = cell_length(start_level);
-
-        // Computes the number of subdomains in each Cartesian direction
-        std::array<int, dim> sizes;
-        auto product_of_length   = xt::prod(global_box.length())[0];
-        auto length_harmonic_avg = pow(product_of_length, 1. / dim);
-        int product_of_sizes     = 1;
-        for (std::size_t d = 0; d < dim - 1; ++d)
-        {
-            sizes[d] = static_cast<int>(floor(pow(size, 1. / dim) * global_box.length()[d] / length_harmonic_avg));
-            product_of_sizes *= sizes[d];
-        }
-        sizes[dim - 1] = size / product_of_sizes;
-        if (sizes[dim - 1] * product_of_sizes != size)
-        {
-            if (rank == 0)
-            {
-                std::cerr << "Impossible to perform a Cartesian partition of the domain in " << size << " subdomains." << std::endl;
-                std::cerr << "Suggested number: " << (sizes[dim - 1] * product_of_sizes) << "." << std::endl;
-            }
-            exit(1);
-        }
-
-        // Compute the Cartesian coordinates of the subdomain in the topology
-        int a = rank;
-        xt::xtensor_fixed<int, xt::xshape<dim>> coords;
-        for (std::size_t d = 0; d < dim; ++d)
-        {
-            coords[d] = a % sizes[d];
-            a         = a / sizes[d];
-        }
-
-        // Directional lengths of a standard subdomain
-        point_t start_pt = global_box.min_corner() / h;
-        point_t end_pt   = global_box.max_corner() / h;
-        xt::xtensor_fixed<double, xt::xshape<dim>> lengths;
-        for (std::size_t d = 0; d < dim; ++d)
-        {
-            lengths[d] = ceil((end_pt[d] - start_pt[d]) / static_cast<double>(sizes[d]));
-        }
-
-        // Create the box corresponding to the local subdomain
-        point_t min_corner, max_corner;
-        min_corner = start_pt + coords * lengths;
-        max_corner = min_corner + lengths;
-
-        for (std::size_t d = 0; d < dim; ++d)
-        {
-            if (coords[d] == sizes[d] - 1)
-            {
-                max_corner[d] = end_pt[d];
-            }
-        }
-        box_t subdomain_box                          = {min_corner, max_corner};
-        this->m_cells[mesh_id_t::cells][start_level] = {start_level, subdomain_box};
-        */
 
         std::size_t subdomain_start = 0;
         std::size_t subdomain_end   = 0;
@@ -966,48 +933,6 @@ namespace samurai
         }
 
         this->m_cells[mesh_id_t::cells][start_level] = subdomain_cells;
-
-        //        m_mpi_neighbourhood.reserve(static_cast<std::size_t>(size) - 1);
-        //        for (int ir = 0; ir < size; ++ir)
-        //        {
-        //            if (ir != rank)
-        //            {
-        //                m_mpi_neighbourhood.push_back(ir);
-        //            }
-        //        }
-
-        find_neighbourhood_naive();
-
-        // // Neighbours
-        // m_mpi_neighbourhood.reserve(static_cast<std::size_t>(pow(3, dim) - 1));
-        // auto neighbour = [&](xt::xtensor_fixed<int, xt::xshape<dim>> shift)
-        // {
-        //     auto neighbour_rank            = rank;
-        //     int product_of_preceding_sizes = 1;
-        //     for (std::size_t d = 0; d < dim; ++d)
-        //     {
-        //         neighbour_rank += product_of_preceding_sizes * shift[d];
-        //         product_of_preceding_sizes *= sizes[d];
-        //     }
-        //     return neighbour_rank;
-        // };
-
-        // static_nested_loop<dim, -1, 2>(
-        //     [&](auto& shift)
-        //     {
-        //         if (xt::any(shift))
-        //         {
-        //             for (std::size_t d = 0; d < dim; ++d)
-        //             {
-        //                 if (coords[d] + shift[d] < 0 || coords[d] + shift[d] >= sizes[d])
-        //                 {
-        //                     return;
-        //                 }
-        //             }
-        //             m_mpi_neighbourhood.push_back(neighbour(shift));
-        //         }
-        //     });
-
 #endif
     }
 
