@@ -217,7 +217,9 @@ int main(int argc, char* argv[])
     app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
+#ifdef SAMURAI_WITH_MPI
     app.add_option("--nt-loadbalance", nt_loadbalance, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
+#endif
     app.add_option("--mr-eps", mr_epsilon, "The epsilon used by the multiresolution to adapt the mesh")
         ->capture_default_str()
         ->group("Multiresolution");
