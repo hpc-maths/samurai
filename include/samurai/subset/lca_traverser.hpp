@@ -47,7 +47,7 @@ namespace samurai
             ++m_first_interval;
         }
 
-        inline interval_t& current_interval()
+        inline const interval_t& current_interval() const
         {
             return *m_first_interval;
         }
