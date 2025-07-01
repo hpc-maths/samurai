@@ -303,10 +303,6 @@ namespace samurai
                     }
                 }
             }
-#else
-            std::size_t reference_max_level = this->cells()[mesh_id_t::reference].max_level();
-            std::size_t reference_min_level = this->cells()[mesh_id_t::reference].min_level();
-
 #endif // SAMURAI_WITH_MPI
             const auto& mesh_ref = this->cells()[mesh_id_t::reference];
             for (std::size_t level = 0; level <= this->max_level(); ++level)
