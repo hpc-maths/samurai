@@ -8,6 +8,9 @@
 #include <samurai/samurai.hpp>
 #include <samurai/schemes/fv.hpp>
 
+#include <samurai/load_balancing.hpp>
+#include <samurai/load_balancing_diffusion.hpp>
+
 #include <filesystem>
 namespace fs = std::filesystem;
 
@@ -46,7 +49,6 @@ int main(int argc, char* argv[])
     //--------------------//
     // Program parameters //
     //--------------------//
-
     // Simulation parameters
     double left_box  = -1;
     double right_box = 1;
@@ -68,7 +70,9 @@ int main(int argc, char* argv[])
     fs::path path        = fs::current_path();
     std::string filename = "linear_convection_" + std::to_string(dim) + "D";
     std::size_t nfiles   = 0;
-
+#ifdef SAMURAI_WITH_MPI
+    std::size_t nt_loadbalance = 10;
+#endif
     app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--right", right_box, "The right border of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Ti", t, "Initial time")->capture_default_str()->group("Simulation parameters");
@@ -78,6 +82,9 @@ int main(int argc, char* argv[])
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
+#ifdef SAMURAI_WITH_MPI
+    app.add_option("--nt-loadbalance", nt_loadbalance, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
+#endif
     app.add_option("--mr-eps", mr_epsilon, "The epsilon used by the multiresolution to adapt the mesh")
         ->capture_default_str()
         ->group("Multiresolution");
@@ -150,6 +157,10 @@ int main(int argc, char* argv[])
     }
     auto conv = samurai::make_convection_weno5<decltype(u)>(velocity);
 
+#ifdef SAMURAI_WITH_MPI
+    Load_balancing::Diffusion balancer;
+#endif
+
     //--------------------//
     //   Time iteration   //
     //--------------------//
@@ -174,6 +185,12 @@ int main(int argc, char* argv[])
     }
     while (t != Tf)
     {
+#ifdef SAMURAI_WITH_MPI
+        if (nt % nt_loadbalance == 0 && nt > 1)
+        {
+            balancer.load_balance(mesh, u);
+        }
+#endif
         // Move to next timestep
         t += dt;
         if (t > Tf)
@@ -182,7 +199,6 @@ int main(int argc, char* argv[])
             t = Tf;
         }
         std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt) << std::flush;
-
         // Mesh adaptation
         MRadaptation(mr_epsilon, mr_regularity);
         samurai::update_ghost_mr(u);

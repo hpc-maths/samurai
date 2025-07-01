@@ -99,7 +99,6 @@ namespace samurai
 
         template <class E>
         const interval_t& get_interval(std::size_t level, const interval_t& interval, const xt::xexpression<E>& index) const;
-
         template <class E>
         const interval_t& get_interval(std::size_t level, const xt::xexpression<E>& coord) const;
 
@@ -420,7 +419,8 @@ namespace samurai
                 return level;
             }
         }
-        return 0;
+        //        return 0;
+        return max_size;
     }
 
     /**

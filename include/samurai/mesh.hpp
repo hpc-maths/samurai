@@ -108,6 +108,8 @@ namespace samurai
         bool is_periodic(std::size_t d) const;
         const std::array<bool, dim>& periodicity() const;
         // std::vector<int>& neighbouring_ranks();
+
+        const std::vector<mpi_subdomain_t>& mpi_neighbourhood() const;
         std::vector<mpi_subdomain_t>& mpi_neighbourhood();
 
         void swap(Mesh_base& mesh) noexcept;
@@ -162,6 +164,9 @@ namespace samurai
                   double approx_box_tol = lca_type::default_approx_box_tol,
                   double scaling_factor = 0);
 
+        // Used for load balancing
+        Mesh_base(const cl_type& cl, std::size_t min_level, std::size_t max_level, std::vector<mpi_subdomain_t>& neighbourhood);
+
         derived_type& derived_cast() & noexcept;
         const derived_type& derived_cast() const& noexcept;
         derived_type derived_cast() && noexcept;
@@ -179,8 +184,6 @@ namespace samurai
         void find_neighbourhood_naive();
 
         void partition_mesh(std::size_t start_level, const Box<double, dim>& global_box);
-        void load_balancing();
-        void load_transfer(const std::vector<double>& load_fluxes);
         std::size_t max_nb_cells(std::size_t level) const;
 
         lca_type m_domain;
@@ -246,7 +249,6 @@ namespace samurai
 
 #ifdef SAMURAI_WITH_MPI
         partition_mesh(start_level, b);
-        // load_balancing();
 #else
         this->m_cells[mesh_id_t::cells][start_level] = {start_level, b, approx_box_tol, scaling_factor_};
 #endif
@@ -277,7 +279,6 @@ namespace samurai
 
 #ifdef SAMURAI_WITH_MPI
         partition_mesh(start_level, b);
-        // load_balancing();
 #else
         this->m_cells[mesh_id_t::cells][start_level] = {start_level, b, approx_box_tol, scaling_factor_};
 #endif
@@ -290,6 +291,7 @@ namespace samurai
 
         set_origin_point(origin_point());
         set_scaling_factor(scaling_factor());
+        // update_mesh_neighbour();
     }
 
     template <class D, class Config>
@@ -305,7 +307,7 @@ namespace samurai
         construct_subdomain();
         construct_domain();
         construct_union();
-        update_sub_mesh();
+        update_sub_mesh(); // MPI AllReduce inside
         renumbering();
         update_mesh_neighbour();
 
@@ -313,6 +315,7 @@ namespace samurai
         set_scaling_factor(cl.scaling_factor());
     }
 
+    //    /**
     template <class D, class Config>
     inline Mesh_base<D, Config>::Mesh_base(const ca_type& ca, std::size_t min_level, std::size_t max_level)
         : m_min_level{min_level}
@@ -345,6 +348,8 @@ namespace samurai
         set_origin_point(ca.origin_point());
         set_scaling_factor(ca.scaling_factor());
     }
+
+    //    **/
 
     template <class D, class Config>
     inline Mesh_base<D, Config>::Mesh_base(const ca_type& ca, const self_type& ref_mesh)
@@ -387,6 +392,32 @@ namespace samurai
         set_origin_point(ref_mesh.origin_point());
         set_scaling_factor(ref_mesh.scaling_factor());
     }
+
+    /**
+    template <class D, class Config>
+    inline Mesh_base<D, Config>::Mesh_base(const cl_type& cl,
+                                           std::size_t min_level,
+                                           std::size_t max_level,
+                                           std::vector<mpi_subdomain_t>& neighbourhood)
+        : m_min_level(min_level)
+        , m_max_level(max_level)
+        , m_mpi_neighbourhood(neighbourhood)
+    {
+        m_periodic.fill(false);
+        assert(min_level <= max_level);
+
+        // what to do with m_domain ?
+        m_domain = m_subdomain;
+
+        m_cells[mesh_id_t::cells] = {cl, false};
+
+        construct_subdomain();   // required ?
+        construct_union();       // required ?
+        update_sub_mesh();       // perform MPI allReduce calls
+        renumbering();           // required ?
+        update_mesh_neighbour(); // required to do that here ??
+    }
+    **/
 
     template <class D, class Config>
     inline auto Mesh_base<D, Config>::cells() -> mesh_t&
@@ -594,6 +625,12 @@ namespace samurai
     inline auto Mesh_base<D, Config>::periodicity() const -> const std::array<bool, dim>&
     {
         return m_periodic;
+    }
+
+    template <class D, class Config>
+    inline auto Mesh_base<D, Config>::mpi_neighbourhood() const -> const std::vector<mpi_subdomain_t>&
+    {
+        return m_mpi_neighbourhood;
     }
 
     template <class D, class Config>
@@ -862,7 +899,8 @@ namespace samurai
         int product_of_sizes     = 1;
         for (std::size_t d = 0; d < dim - 1; ++d)
         {
-            sizes[d] = static_cast<int>(floor(pow(size, 1. / dim) * global_box.length()[d] / length_harmonic_avg));
+            sizes[d] = std::max(static_cast<int>(floor(pow(size, 1. / dim) * global_box.length()[d] / length_harmonic_avg));
+
             product_of_sizes *= sizes[d];
         }
         sizes[dim - 1] = size / product_of_sizes;
@@ -999,85 +1037,7 @@ namespace samurai
         //             }
         //             m_mpi_neighbourhood.push_back(neighbour(shift));
         //         }
-        //     });
-
-#endif
-    }
-
-    template <class D, class Config>
-    void Mesh_base<D, Config>::load_balancing()
-    {
-#ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-        auto rank = world.rank();
-
-        std::size_t load = nb_cells(mesh_id_t::cells);
-        std::vector<std::size_t> loads;
-
-        std::vector<double> load_fluxes(m_mpi_neighbourhood.size(), 0);
-
-        const std::size_t n_iterations = 1;
-
-        for (std::size_t k = 0; k < n_iterations; ++k)
-        {
-            world.barrier();
-            if (rank == 0)
-            {
-                std::cout << "---------------- k = " << k << " ----------------" << std::endl;
-            }
-            mpi::all_gather(world, load, loads);
-
-            std::vector<std::size_t> nb_neighbours;
-            mpi::all_gather(world, m_mpi_neighbourhood.size(), nb_neighbours);
-
-            double load_np1 = static_cast<double>(load);
-            for (std::size_t i_rank = 0; i_rank < m_mpi_neighbourhood.size(); ++i_rank)
-            {
-                auto neighbour = m_mpi_neighbourhood[i_rank];
-
-                auto neighbour_load = loads[static_cast<std::size_t>(neighbour.rank)];
-                int neighbour_load_minus_my_load;
-                if (load < neighbour_load)
-                {
-                    neighbour_load_minus_my_load = static_cast<int>(neighbour_load - load);
-                }
-                else
-                {
-                    neighbour_load_minus_my_load = -static_cast<int>(load - neighbour_load);
-                }
-                double weight       = 1. / std::max(m_mpi_neighbourhood.size(), nb_neighbours[neighbour.rank]);
-                load_fluxes[i_rank] = weight * neighbour_load_minus_my_load;
-                load_np1 += load_fluxes[i_rank];
-            }
-            load_np1 = floor(load_np1);
-
-            load_transfer(load_fluxes);
-
-            std::cout << rank << ": load = " << load << ", load_np1 = " << load_np1 << std::endl;
-
-            load = static_cast<std::size_t>(load_np1);
-        }
-#endif
-    }
-
-    template <class D, class Config>
-    void Mesh_base<D, Config>::load_transfer([[maybe_unused]] const std::vector<double>& load_fluxes)
-    {
-#ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-        std::cout << world.rank() << ": ";
-        for (std::size_t i_rank = 0; i_rank < m_mpi_neighbourhood.size(); ++i_rank)
-        {
-            auto neighbour = m_mpi_neighbourhood[i_rank];
-            if (load_fluxes[i_rank] < 0) // must tranfer load to the neighbour
-            {
-            }
-            else if (load_fluxes[i_rank] > 0) // must receive load from the neighbour
-            {
-            }
-            std::cout << "--> " << neighbour.rank << ": " << load_fluxes[i_rank] << ", ";
-        }
-        std::cout << std::endl;
+        //    });
 #endif
     }
 
