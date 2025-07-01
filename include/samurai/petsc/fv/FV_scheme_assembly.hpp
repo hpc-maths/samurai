@@ -571,12 +571,12 @@ namespace samurai
                         double bc_value;
                         if constexpr (field_t::is_scalar)
                         {
-                            bc_value = bc->value({}, {}, boundary_point);
+                            bc_value = bc->value(towards_out, cell, boundary_point);
                         }
                         else
                         {
-                            bc_value = bc->value({}, {}, boundary_point)(field_i); // TODO: call get_value() only once instead of
-                                                                                   // once per field_i
+                            bc_value = bc->value(towards_out, cell, boundary_point)(field_i); // TODO: call get_value() only once instead of
+                                                                                              // once per field_i
                         }
 
                         if constexpr (dirichlet_enfcmt == DirichletEnforcement::Elimination)
