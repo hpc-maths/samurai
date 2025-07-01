@@ -109,6 +109,7 @@ namespace samurai
         const std::array<bool, dim>& periodicity() const;
         // std::vector<int>& neighbouring_ranks();
         std::vector<mpi_subdomain_t>& mpi_neighbourhood();
+        const std::vector<mpi_subdomain_t>& mpi_neighbourhood() const;
 
         void swap(Mesh_base& mesh) noexcept;
 
@@ -207,7 +208,7 @@ namespace samurai
             ar & m_subdomain;
             ar & m_union;
             ar & m_min_level;
-            ar & m_min_level;
+            ar & m_max_level;
         }
 #endif
     };
@@ -598,6 +599,12 @@ namespace samurai
 
     template <class D, class Config>
     inline auto Mesh_base<D, Config>::mpi_neighbourhood() -> std::vector<mpi_subdomain_t>&
+    {
+        return m_mpi_neighbourhood;
+    }
+
+    template <class D, class Config>
+    inline auto Mesh_base<D, Config>::mpi_neighbourhood() const -> const std::vector<mpi_subdomain_t>&
     {
         return m_mpi_neighbourhood;
     }

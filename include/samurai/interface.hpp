@@ -86,6 +86,24 @@ namespace samurai
                 apply_on_interface(translate(mesh[mesh_id_t::cells][level], -shift), translate(mesh[mesh_id_t::cells][level], -direction));
             }
         }
+#ifdef SAMURAI_WITH_MPI
+        for (const auto& neigh : mesh.mpi_neighbourhood())
+        {
+            apply_on_interface(mesh[mesh_id_t::cells][level], translate(neigh.mesh[mesh_id_t::cells][level], -direction));
+            apply_on_interface(neigh.mesh[mesh_id_t::cells][level], translate(mesh[mesh_id_t::cells][level], -direction));
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                if (mesh.periodicity()[d])
+                {
+                    auto shift = get_periodic_shift(mesh.domain(), level, d);
+                    apply_on_interface(mesh[mesh_id_t::cells][level],
+                                       translate(translate(neigh.mesh[mesh_id_t::cells][level], shift), -direction));
+                    apply_on_interface(translate(neigh.mesh[mesh_id_t::cells][level], -shift),
+                                       translate(mesh[mesh_id_t::cells][level], -direction));
+                }
+            }
+        }
+#endif
     }
 
     /**
@@ -163,6 +181,23 @@ namespace samurai
                 apply_on_interface(translate(mesh[mesh_id_t::cells][level], -shift), mesh[mesh_id_t::cells][level + 1]);
             }
         }
+#ifdef SAMURAI_WITH_MPI
+        for (const auto& neigh : mesh.mpi_neighbourhood())
+        {
+            apply_on_interface(mesh[mesh_id_t::cells][level], neigh.mesh[mesh_id_t::cells][level + 1]);
+            apply_on_interface(neigh.mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level + 1]);
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                if (mesh.periodicity()[d])
+                {
+                    auto shift = get_periodic_shift(mesh.domain(), level + 1, d);
+                    apply_on_interface(mesh[mesh_id_t::cells][level], translate(neigh.mesh[mesh_id_t::cells][level + 1], shift));
+                    shift = get_periodic_shift(mesh.domain(), level, d);
+                    apply_on_interface(translate(neigh.mesh[mesh_id_t::cells][level], -shift), mesh[mesh_id_t::cells][level + 1]);
+                }
+            }
+        }
+#endif
     }
 
     /**
@@ -244,6 +279,23 @@ namespace samurai
                 apply_on_interface(translate(mesh[mesh_id_t::cells][level], shift), mesh[mesh_id_t::cells][level + 1]);
             }
         }
+#ifdef SAMURAI_WITH_MPI
+        for (const auto& neigh : mesh.mpi_neighbourhood())
+        {
+            apply_on_interface(mesh[mesh_id_t::cells][level], neigh.mesh[mesh_id_t::cells][level + 1]);
+            apply_on_interface(neigh.mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level + 1]);
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                if (mesh.periodicity()[d])
+                {
+                    auto shift = get_periodic_shift(mesh.domain(), level + 1, d);
+                    apply_on_interface(mesh[mesh_id_t::cells][level], translate(neigh.mesh[mesh_id_t::cells][level + 1], -shift));
+                    shift = get_periodic_shift(mesh.domain(), level, d);
+                    apply_on_interface(translate(neigh.mesh[mesh_id_t::cells][level], shift), mesh[mesh_id_t::cells][level + 1]);
+                }
+            }
+        }
+#endif
 
         // DirectionVector<Mesh::dim> opposite_direction    = -direction;
         // decltype(comput_stencil) opposite_comput_stencil = comput_stencil - direction;
@@ -307,6 +359,11 @@ namespace samurai
                        {
                            for_each_interior_interface<run_type, get_type>(mesh, level, direction, comput_stencil, std::forward<Func>(f));
                        });
+
+        // for (std::size_t level = 0; level < mesh.max_level(); ++level)
+        // {
+        //     for_each_interior_interface<run_type, get_type>(mesh, level, direction, comput_stencil, std::forward<Func>(f));
+        // }
     }
 
     /**
@@ -387,7 +444,7 @@ namespace samurai
         auto comput_stencil_it = make_stencil_iterator(mesh, comput_stencil);
 #endif
 
-        auto bdry = subdomain_boundary(mesh, level, direction);
+        auto bdry = domain_boundary(mesh, level, direction);
         for_each_meshinterval<mesh_interval_t, run_type>(bdry,
                                                          [&](auto mesh_interval)
                                                          {

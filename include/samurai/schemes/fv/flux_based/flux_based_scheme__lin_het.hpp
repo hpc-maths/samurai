@@ -97,7 +97,13 @@ namespace samurai
             }
 
             // Level jumps (level -- level+1)
+            // Using MPI the max_level of the subdomain can be lower than the global max_level.
+            // If a jump occurs with a neighbor subdomain, we have to check if max_level + 1 is reached.
+#ifdef SAMURAI_WITH_MPI
+            for (std::size_t level = min_level; level <= max_level; ++level)
+#else
             for (std::size_t level = min_level; level < max_level; ++level)
+#endif
             {
                 auto h_l   = mesh.cell_length(level);
                 auto h_lp1 = mesh.cell_length(level + 1);

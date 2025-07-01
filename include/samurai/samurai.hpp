@@ -4,6 +4,7 @@
 
 #ifdef SAMURAI_WITH_MPI
 #include <boost/mpi.hpp>
+#include <fstream>
 namespace mpi = boost::mpi;
 #endif
 
@@ -31,6 +32,13 @@ namespace samurai
 
 #ifdef SAMURAI_WITH_MPI
         MPI_Init(&argc, &argv);
+        // redirect stdout to /dev/null for all ranks except rank 0
+        mpi::communicator world;
+        if (!args::dont_redirect_output && world.rank() != 0) // cppcheck-suppress knownConditionTrueFalse
+        {
+            static std::ofstream null_stream("/dev/null");
+            std::cout.rdbuf(null_stream.rdbuf());
+        }
 #endif
         times::timers.start("total runtime");
         return app;
