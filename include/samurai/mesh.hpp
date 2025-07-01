@@ -888,7 +888,8 @@ namespace samurai
                 }
             }
         }
-            }
+        m_mpi_neighbourhood.clear();
+        m_mpi_neighbourhood.reserve(set_neighbours.size());
         for (const auto& neighbour : set_neighbours)
         {
             m_mpi_neighbourhood.emplace_back(neighbour);
