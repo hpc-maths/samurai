@@ -72,7 +72,7 @@ namespace samurai
         
         if (world.rank() == 0)
         {
-            std::cout << "[SAMURAI] Starting with " << world.size() << " MPI ranks" << std::endl;
+            std::cout << "[SAMURAI] MPI: ON (" << world.size() << " ranks)" << std::endl;
         }
         
         if (!args::dont_redirect_output && world.rank() != 0) // cppcheck-suppress knownConditionTrueFalse
@@ -80,6 +80,8 @@ namespace samurai
             static std::ofstream null_stream("/dev/null");
             std::cout.rdbuf(null_stream.rdbuf());
         }
+#else
+        std::cout << "[SAMURAI] MPI: OFF" << std::endl;
 #endif
         times::timers.start("total runtime");
 
@@ -102,8 +104,10 @@ namespace samurai
         mpi::communicator world;   
         if (world.rank() == 0)
         {
-            std::cout << "[SAMURAI] Starting with " << world.size() << " MPI ranks" << std::endl;
+            std::cout << "[SAMURAI] MPI: ON (" << world.size() << " ranks)" << std::endl;
         }
+#else
+        std::cout << "[SAMURAI] MPI: OFF" << std::endl;
 #endif
     }
 
