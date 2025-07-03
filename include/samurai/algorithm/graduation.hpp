@@ -15,6 +15,75 @@
 
 namespace samurai
 {
+    namespace detail
+    {
+        template <std::size_t dim, class Translation>
+        auto get_periodic_directions(const Translation& translation, int delta, const std::array<bool, dim>& is_periodic)
+        {
+            std::vector<DirectionVector<dim>> directions;
+
+            std::size_t num_periodic_dims = std::count_if(is_periodic.begin(),
+                                                          is_periodic.end(),
+                                                          [](bool b)
+                                                          {
+                                                              return b;
+                                                          });
+
+            if (num_periodic_dims == 0)
+            {
+                return directions; // No periodic direction, so no translation
+            }
+
+            // Calculate the total number of combinations
+            const std::size_t num_diagonal_combinations = 1 << num_periodic_dims; // 2^num_periodic_dims
+            const std::size_t num_pure_directions       = 2 * num_periodic_dims;  // 2*num_periodic_dims
+            const std::size_t total_combinations        = num_diagonal_combinations + num_pure_directions;
+
+            directions.reserve(total_combinations);
+
+            // Map the indices of periodic dimensions
+            std::vector<std::size_t> periodic_dim_indices;
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                if (is_periodic[d])
+                {
+                    periodic_dim_indices.push_back(d);
+                }
+            }
+
+            // Generate all diagonal combinations for periodic dimensions
+            for (std::size_t i = 0; i < num_diagonal_combinations; ++i)
+            {
+                DirectionVector<dim> dir{};
+                for (std::size_t pd = 0; pd < num_periodic_dims; ++pd)
+                {
+                    std::size_t actual_dim = periodic_dim_indices[pd];
+                    auto translation_value = translation[actual_dim] >> delta;
+                    dir[actual_dim]        = (i & (1 << pd)) ? translation_value : -translation_value;
+                }
+                directions.push_back(dir);
+            }
+
+            // Generate pure directions for periodic dimensions
+            for (std::size_t pd = 0; pd < num_periodic_dims; ++pd)
+            {
+                std::size_t actual_dim = periodic_dim_indices[pd];
+
+                // Negative direction
+                DirectionVector<dim> dir_neg{};
+                dir_neg[actual_dim] = -translation[actual_dim] >> delta;
+                directions.push_back(dir_neg);
+
+                // Positive direction
+                DirectionVector<dim> dir_pos{};
+                dir_pos[actual_dim] = translation[actual_dim] >> delta;
+                directions.push_back(dir_pos);
+            }
+
+            return directions;
+        }
+    }
+
     ///////////////////////
     // graduate operator //
     ///////////////////////
@@ -199,90 +268,87 @@ namespace samurai
             req.push_back(world.isend(mpi_neighbor.rank, mpi_neighbor.rank, ca));
         }
 #endif // SAMURAI_WITH_MPI
-        const auto list_overlapping_intervals =
-            [min_level, min_fine_level, max_level, max_width, &nb_cells_finest_level, &domain, &is_periodic, &out](
-                const CellArray<dim, TInterval, max_size>& lhs_ca,
-                const CellArray<dim, TInterval, max_size>& rhs_ca) -> void
+        const auto list_overlapping_intervals = [&](const auto& lhs_ca, const auto& rhs_ca)
         {
+            auto apply_refine = [&](const auto& union_func, auto coarse_level, auto& isIntersectionEmpty)
+            {
+                for (int width = 1; isIntersectionEmpty and width != max_width; ++width)
+                {
+                    auto refine_subset = intersection(nestedExpand(union_func, 2 * width), rhs_ca[coarse_level]).on(coarse_level);
+                    refine_subset(
+                        [&](const auto& x_interval, const auto& yz)
+                        {
+                            out[coarse_level].push_back(x_interval, yz);
+                            isIntersectionEmpty = false;
+                        });
+                }
+            };
+
             for (size_t fine_level = max_level; fine_level > min_fine_level; --fine_level)
             {
+                const int delta_l = int(domain.level() - fine_level);
+                auto directions   = detail::get_periodic_directions(nb_cells_finest_level, delta_l, is_periodic);
+                auto& ca          = lhs_ca[fine_level];
                 for (size_t coarse_level = fine_level - 2; coarse_level > min_level - 1; --coarse_level)
                 {
                     bool isIntersectionEmpty = true;
-                    for (int width = 1; isIntersectionEmpty and width != max_width; ++width)
+                    switch (directions.size())
                     {
-                        auto refine_subset = intersection(nestedExpand(lhs_ca[fine_level], 2 * width), rhs_ca[coarse_level]).on(coarse_level);
-                        refine_subset(
-                            [&](const auto& x_interval, const auto& yz)
-                            {
-                                out[coarse_level].push_back(x_interval, yz);
-                                isIntersectionEmpty = false;
-                            });
+                        case 0:
+                            apply_refine(ca, coarse_level, isIntersectionEmpty);
+                            break;
+                        case 2:
+                            apply_refine(union_(ca, translate(ca, directions[0]), translate(ca, directions[1])),
+                                         coarse_level,
+                                         isIntersectionEmpty);
+                            break;
+                        case 8:
+                            apply_refine(union_(ca,
+                                                translate(ca, directions[0]),
+                                                translate(ca, directions[1]),
+                                                translate(ca, directions[2]),
+                                                translate(ca, directions[3]),
+                                                translate(ca, directions[4]),
+                                                translate(ca, directions[5]),
+                                                translate(ca, directions[6]),
+                                                translate(ca, directions[7])),
+                                         coarse_level,
+                                         isIntersectionEmpty);
+                            break;
+                        case 26:
+                            apply_refine(union_(ca,
+                                                translate(ca, directions[0]),
+                                                translate(ca, directions[1]),
+                                                translate(ca, directions[2]),
+                                                translate(ca, directions[3]),
+                                                translate(ca, directions[4]),
+                                                translate(ca, directions[5]),
+                                                translate(ca, directions[6]),
+                                                translate(ca, directions[7]),
+                                                translate(ca, directions[8]),
+                                                translate(ca, directions[9]),
+                                                translate(ca, directions[10]),
+                                                translate(ca, directions[11]),
+                                                translate(ca, directions[12]),
+                                                translate(ca, directions[13]),
+                                                translate(ca, directions[14]),
+                                                translate(ca, directions[15]),
+                                                translate(ca, directions[16]),
+                                                translate(ca, directions[17]),
+                                                translate(ca, directions[18]),
+                                                translate(ca, directions[19]),
+                                                translate(ca, directions[20]),
+                                                translate(ca, directions[21]),
+                                                translate(ca, directions[22]),
+                                                translate(ca, directions[23]),
+                                                translate(ca, directions[24]),
+                                                translate(ca, directions[25])),
+                                         coarse_level,
+                                         isIntersectionEmpty);
+                            break;
+                        default:
+                            std::cerr << "Warning: Unsupported number of periodic directions (" << directions.size() << ")." << std::endl;
                     }
-                }
-            }
-            DirectionVector<dim> translation = xt::xscalar(0);
-            for (size_t d = 0; d != dim; ++d)
-            {
-                if (is_periodic[d])
-                {
-                    // for (size_t fine_level = max_level; fine_level > min_fine_level; --fine_level)
-                    // {
-                    //     std::cout << fmt::format("fine level: {}", fine_level) << std::endl;
-                    //     const int delta_l = int(domain.level() - fine_level);
-                    //     translation[d]    = (nb_cells_finest_level[d] >> delta_l);
-                    //     std::cout << fmt::format("translation: {}", translation[d]) << std::endl;
-                    //     for (size_t coarse_level = fine_level - 2; coarse_level > min_level - 1; --coarse_level)
-                    //     {
-                    //         bool isIntersectionEmpty = true;
-                    //         for (int width = 1; isIntersectionEmpty and width != max_width; ++width)
-                    //         {
-                    //             LevelCellArray<dim> lca = translate(lhs_ca[fine_level], translation);
-                    //             auto refine_subset      = intersection(nestedExpand(lca, 2 * width),
-                    //             rhs_ca[coarse_level]).on(coarse_level); refine_subset(
-                    //                 [&](const auto& x_interval, const auto& yz)
-                    //                 {
-                    //                     std::cout << fmt::format("refine subset: {} {} {}", coarse_level, x_interval, yz[0]) <<
-                    //                     std::endl; out[coarse_level].push_back(x_interval, yz); isIntersectionEmpty = false;
-                    //                 });
-                    //         }
-                    //         isIntersectionEmpty = true;
-                    //         for (int width = 1; isIntersectionEmpty and width != max_width; ++width)
-                    //         {
-                    //             LevelCellArray<dim> lca = translate(lhs_ca[fine_level], -translation);
-                    //             auto refine_subset      = intersection(nestedExpand(lca, 2 * width),
-                    //             rhs_ca[coarse_level]).on(coarse_level); refine_subset(
-                    //                 [&](const auto& x_interval, const auto& yz)
-                    //                 {
-                    //                     out[coarse_level].push_back(x_interval, yz);
-                    //                     std::cout << fmt::format("refine subset: {} {} {}", coarse_level, x_interval, yz[0]) <<
-                    //                     std::endl; isIntersectionEmpty = false;
-                    //                 });
-                    //         }
-                    //     }
-                    // }
-
-                    for (size_t fine_level = max_level; fine_level > min_fine_level; --fine_level)
-                    {
-                        const int delta_l = int(domain.level() - fine_level);
-                        for (size_t coarse_level = fine_level - 2; coarse_level > min_level - 1; --coarse_level)
-                        {
-                            for (int width = 1; width != max_width; ++width)
-                            {
-                                translation[d]     = (nb_cells_finest_level[d] >> delta_l) - 2 * width;
-                                auto refine_subset = intersection(union_(translate(lhs_ca[fine_level], -translation),
-                                                                         translate(lhs_ca[fine_level], translation)),
-                                                                  rhs_ca[coarse_level])
-                                                         .on(coarse_level);
-                                refine_subset(
-                                    [&](const auto& x_interval, const auto& yz)
-                                    {
-                                        out[coarse_level].push_back(x_interval, yz);
-                                    });
-                            }
-                        }
-                    }
-                    translation[d] = 0;
                 }
             }
         };
@@ -344,9 +410,9 @@ namespace samurai
 
                             for (int i = 2; i <= n_contiguous_boundary_cells; i += 2)
                             {
-                                // Here, the set algebra doesn't work, so we put the translation in a LevelCellArray before computing the
-                                // intersection.
-                                // When the problem is fixed, remove the two following lines and uncomment the line below.
+                                // Here, the set algebra doesn't work, so we put the translation in a LevelCellArray before computing
+                                // the intersection. When the problem is fixed, remove the two following lines and uncomment the line
+                                // below.
                                 LevelCellArray<dim, TInterval> translated_boundary(translate(boundaryCells, -i * translation));
                                 auto refine_subset = intersection(translated_boundary, ca[level - 1]).on(level - 1);
                                 // auto refine_subset = intersection(translate(boundaryCells, -i*translation), ca[level-1]).on(level-1);
@@ -362,10 +428,10 @@ namespace samurai
 
                     // 2. Jump level --> level+1
                     // Case where the boundary is at level L and jump is going up:
-                    //    If the number of boundary contiguous cells is >= ceil(half_stencil_width/2), then there is nothing to do, since
-                    //    the half stencil at L+1 will not go out of the domain. Here, we just test if half_stencil_width > 2 by simplicity,
-                    //    but at some point it would be nice to implement the real test.
-                    //    Otherwise, ensuring half_stencil_width contiguous cells at level L+1 is enough.
+                    //    If the number of boundary contiguous cells is >= ceil(half_stencil_width/2), then there is nothing to do,
+                    //    since the half stencil at L+1 will not go out of the domain. Here, we just test if half_stencil_width > 2 by
+                    //    simplicity, but at some point it would be nice to implement the real test. Otherwise, ensuring
+                    //    half_stencil_width contiguous cells at level L+1 is enough.
                     if (half_stencil_width > 2)
                     {
                         for (size_t level = max_level - 1; level != min_level - 1; --level)
