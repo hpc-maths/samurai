@@ -11,6 +11,7 @@
 #include "../box.hpp"
 #include "../mesh.hpp"
 #include "../samurai_config.hpp"
+#include "../stencil.hpp"
 #include "../subset/apply.hpp"
 #include "../subset/node.hpp"
 
@@ -189,7 +190,8 @@ namespace samurai
         {
             for (std::size_t level = max_level; level >= ((min_level == 0) ? 1 : min_level); --level)
             {
-                auto expr = difference(this->cells()[mesh_id_t::cells_and_ghosts][level], this->get_union()[level]).on(level);
+                auto expr = difference(intersection(this->cells()[mesh_id_t::cells_and_ghosts][level], self(this->domain()).on(level)),
+                                       this->get_union()[level]);
 
                 expr(
                     [&](const auto& interval, const auto& index_yz)

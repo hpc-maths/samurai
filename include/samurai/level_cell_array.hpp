@@ -625,7 +625,14 @@ namespace samurai
     inline auto LevelCellArray<Dim, TInterval>::get_interval(const interval_t& interval, T... index) const -> const interval_t&
     {
         auto offset = find(*this, {interval.start, index...});
-        assert(offset >= 0 && "Interval not found");
+#ifndef NDEBUG
+        if (offset < 0)
+        {
+            std::cerr << "Error: Interval not found: level " << m_level << ", i = " << interval << ", index = ";
+            ((std::cerr << index << " "), ...);
+            std::cerr << std::endl;
+        }
+#endif
         return m_cells[0][static_cast<std::size_t>(offset)];
     }
 
@@ -639,7 +646,17 @@ namespace samurai
             point[d] = index[d - 1];
         }
         auto offset = find(*this, point);
-        assert(offset >= 0 && "Interval not found");
+#ifndef NDEBUG
+        if (offset < 0)
+        {
+            std::cerr << "Error: Interval not found: level " << m_level << ", i = " << interval << ", index =";
+            for (std::size_t d = 0; d < dim - 1; ++d)
+            {
+                std::cerr << index[d] << " ";
+            }
+            std::cerr << std::endl;
+        }
+#endif
         return m_cells[0][static_cast<std::size_t>(offset)];
     }
 
@@ -647,7 +664,17 @@ namespace samurai
     inline auto LevelCellArray<Dim, TInterval>::get_interval(const all_coord_type& coord) const -> const interval_t&
     {
         auto offset = find(*this, coord);
-        assert((void(fmt::format("Interval not found -> coord: {}", coord)), offset >= 0));
+#ifndef NDEBUG
+        if (offset < 0)
+        {
+            std::cerr << "Error: Interval not found: level " << m_level << ", coord = ";
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                std::cerr << coord[d] << " ";
+            }
+            std::cerr << std::endl;
+        }
+#endif
         return m_cells[0][static_cast<std::size_t>(offset)];
     }
 

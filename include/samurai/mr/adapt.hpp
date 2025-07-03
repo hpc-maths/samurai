@@ -249,11 +249,57 @@ namespace samurai
         update_ghost_mr(m_fields);
         times::timers.start("mesh adaptation");
 
+        //--------------------//
+        // Detail computation //
+        //--------------------//
+
+        // We compute the detail in the cells and ghosts below the cells, except near the (non-periodic) boundaries, where we compute the
+        // detail only in the cells (justification in the comments below).
+
+        bool periodic_in_all_directions = true;
+        std::array<bool, dim> contract_directions;
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            periodic_in_all_directions = periodic_in_all_directions && mesh.is_periodic(d);
+            contract_directions[d]     = !mesh.is_periodic(d);
+        }
+
         for (std::size_t level = ((min_level > 0) ? min_level - 1 : 0); level < max_level - ite; ++level)
         {
-            auto subset = intersection(mesh[mesh_id_t::all_cells][level], mesh[mesh_id_t::cells][level + 1]).on(level);
-            subset.apply_op(compute_detail(m_detail, m_fields));
+            // 1. detail computation in the cells (at level+1)
+            auto ghosts_below_cells = intersection(mesh[mesh_id_t::all_cells][level], mesh[mesh_id_t::cells][level + 1]).on(level);
+            ghosts_below_cells.apply_op(compute_detail(m_detail, m_fields)); // 'compute_detail' applies 1 level above the set it is applied
+                                                                             // to, i.e. level+1
+
+            // 2. detail computation in the ghosts below cells (at level)
+            if (level >= min_level)
+            {
+                if (periodic_in_all_directions)
+                {
+                    auto ghosts_2_levels_below_cells = intersection(mesh[mesh_id_t::all_cells][level - 1], ghosts_below_cells).on(level - 1);
+                    ghosts_2_levels_below_cells.apply_op(compute_detail(m_detail, m_fields));
+                }
+                else
+                {
+                    // We don't want to compute the detail in the ghosts below the boundary cells. In those ghosts, we want to keep the
+                    // detail to 0. We do that because that detail would use the outer ghost cells at level L-2, which holds the BC
+                    // projected 2 times, and this method actually does not work well. So we're removing a layer of 4 boundary cells from
+                    // the domain. This number of 4 ensures that the outer ghost at level L-2 will not be used in the prediction stencil of
+                    // interior ghosts.
+                    // Note: where we don't compute the detail, it stays at its initial value of 0.
+
+                    // contract the domain only in non-periodic directions
+                    auto domain_without_bdry = contract(self(mesh.domain()).on(level + 1), 4, contract_directions);
+                    auto cells_without_bdry  = intersection(mesh[mesh_id_t::cells][level + 1], domain_without_bdry);
+                    auto ghosts_below_cells2 = intersection(mesh[mesh_id_t::all_cells][level], cells_without_bdry).on(level);
+                    auto ghosts_2_levels_below_cells = intersection(mesh[mesh_id_t::all_cells][level - 1], ghosts_below_cells2).on(level - 1);
+                    ghosts_2_levels_below_cells.apply_op(compute_detail(m_detail, m_fields)); // 'compute_detail' applies 1 level above the
+                                                                                              // set it is applied to, i.e. 1 level below
+                                                                                              // cells
+                }
+            }
         }
+
         update_ghost_subdomains(m_detail);
 
         for (std::size_t level = min_level; level <= max_level - ite; ++level)

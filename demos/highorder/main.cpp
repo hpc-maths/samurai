@@ -116,7 +116,7 @@ int main(int argc, char* argv[])
     constexpr std::size_t dim              = 2;
     constexpr std::size_t stencil_width    = 2;
     constexpr std::size_t graduation_width = 4;
-    constexpr std::size_t prediction_order = 4;
+    constexpr std::size_t prediction_order = 1;
     using Config                           = samurai::MRConfig<dim, stencil_width, graduation_width, prediction_order>;
 
     // Simulation parameters

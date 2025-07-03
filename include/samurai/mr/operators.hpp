@@ -263,13 +263,6 @@ namespace samurai
                 detail(level + 1, 2 * i)     = field(level + 1, 2 * i) - (field(level, i) + qs_i);
                 detail(level + 1, 2 * i + 1) = field(level + 1, 2 * i + 1) - (field(level, i) - qs_i);
             }
-
-            if (level >= 1)
-            {
-                prediction_op<dim, TInterval> pred(level, i);
-                pred(Dim<1>{}, detail, field, std::integral_constant<std::size_t, order>{}, std::integral_constant<bool, false>{});
-                detail(level, i) = field(level, i) - detail(level, i);
-            }
         }
 
         template <class T1, class T2, std::size_t order = T2::mesh_t::config::prediction_order>
@@ -296,8 +289,17 @@ namespace samurai
                         if (std::isnan(qs_i(ii)) || std::isnan(qs_j(ii)) || std::isnan(qs_ij(ii)))
                         {
                             std::cerr << "NaN detected during the computation of details." << std::endl;
+                            save(fs::current_path(), "check_nan", {true, true}, field.mesh(), field);
                             break;
                         }
+                    }
+                }
+                else
+                {
+                    if (xt::any(xt::isnan(qs_ij)))
+                    {
+                        std::cerr << "NaN detected during the computation of details." << std::endl;
+                        save(fs::current_path(), "check_nan", {true, true}, field.mesh(), field);
                     }
                 }
 #endif
@@ -306,13 +308,6 @@ namespace samurai
                 detail(level + 1, 2 * i + 1, 2 * j) = field(level + 1, 2 * i + 1, 2 * j) - (field(level, i, j) - qs_i + qs_j + qs_ij);
                 detail(level + 1, 2 * i, 2 * j + 1) = field(level + 1, 2 * i, 2 * j + 1) - (field(level, i, j) + qs_i - qs_j + qs_ij);
                 detail(level + 1, 2 * i + 1, 2 * j + 1) = field(level + 1, 2 * i + 1, 2 * j + 1) - (field(level, i, j) - qs_i - qs_j - qs_ij);
-            }
-
-            if (level >= 1)
-            {
-                prediction_op<dim, TInterval> pred(level, i, j);
-                pred(Dim<2>{}, detail, field, std::integral_constant<std::size_t, order>{}, std::integral_constant<bool, false>{});
-                detail(level, i, j) = field(level, i, j) - detail(level, i, j);
             }
         }
 
@@ -358,13 +353,6 @@ namespace samurai
                 detail(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1) = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1)
                                                                    - (field(level, i, j, k) - qs_i - qs_j - qs_k - qs_ij - qs_ik - qs_jk
                                                                       - qs_ijk);
-            }
-
-            if (level >= 1)
-            {
-                prediction_op<dim, TInterval> pred(level, i, j, k);
-                pred(Dim<3>{}, detail, field, std::integral_constant<std::size_t, order>{}, std::integral_constant<bool, false>{});
-                detail(level, i, j, k) = field(level, i, j, k) - detail(level, i, j, k);
             }
         }
     };
