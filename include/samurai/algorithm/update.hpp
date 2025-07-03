@@ -136,10 +136,14 @@ namespace samurai
 #ifdef SAMURAI_CHECK_NAN
                                     if (xt::any(xt::isnan(field(children_level, {ii_child, ii_child + 1}, index_child))))
                                     {
-                                        std::cerr << std::endl
-                                                  << "NaN found in field(" << children_level << "," << ii_child << "," << index_child
+                                        std::cerr << std::endl;
+#ifdef SAMURAI_WITH_MPI
+                                        mpi::communicator world;
+                                        std::cerr << "[" << world.rank() << "] ";
+#endif
+                                        std::cerr << "NaN found in field(" << children_level << "," << ii_child << "," << index_child
                                                   << ") during projection of the B.C." << std::endl;
-                                        // samurai::save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
+                                        samurai::save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
                                         std::exit(1);
                                     }
 #endif
@@ -170,6 +174,46 @@ namespace samurai
                     proj_ghost_lca.clear();
                 }
             });
+    }
+
+    /**
+     * Project the B.C. from level+1 to level:
+     * For projection ghost, we compute the average of its children,
+     * and we do that layer by layer.
+     * For instance, if max_stencil_width = 3, then 3 fine boundary ghosts overlap 2 coarse ghosts.
+     * Note that since we want to project the B.C. two levels down, it is done in two steps:
+     * - the B.C. is projected onto the lower ghosts
+     * - those lower ghosts are projected onto the even lower ghosts
+     */
+    template <class Field>
+    void project_bc(std::size_t level, Field& field)
+    {
+        auto& mesh = field.mesh();
+
+        if (level < mesh.max_level() && level >= (mesh.min_level() > 0 ? mesh.min_level() - 1 : 0))
+        {
+            static constexpr std::size_t max_stencil_width = Field::mesh_t::config::max_stencil_width;
+            int max_coarse_layer = static_cast<int>(max_stencil_width % 2 == 0 ? max_stencil_width / 2 : (max_stencil_width + 1) / 2);
+
+            for_each_cartesian_direction<Field::dim>(
+                [&](auto direction_index, const auto& direction)
+                {
+                    if (!mesh.is_periodic(direction_index))
+                    {
+                        for (int layer = 1; layer <= max_coarse_layer; ++layer)
+                        {
+                            project_bc(level, direction, layer, field);
+                        }
+                    }
+                });
+        }
+    }
+
+    template <class Field, class... Fields>
+    void project_bc(std::size_t level, Field& field, Fields&... other_fields)
+    {
+        project_bc(level, field);
+        project_bc(level, other_fields...);
     }
 
     template <class Field>
@@ -281,7 +325,7 @@ namespace samurai
 
         // Apply the B.C. at the same level as the cells and project below
         for_each_cartesian_direction<dim>(
-            [&](auto direction_index, auto& direction)
+            [&](auto direction_index, const auto& direction)
             {
                 if (!mesh.is_periodic(direction_index))
                 {
@@ -352,10 +396,20 @@ namespace samurai
         auto max_level        = mesh.max_level();
         std::size_t min_level = 0;
 
+        // mpi::communicator world;
+        // int rank = world.rank();
+        // std::cout << "[" << rank << "] update_ghost_mr" << std::endl;
+
+        update_bc_for_scheme(field, other_fields...);
+        // If the B.C. doesn't fill all the ghost layers, we use polynomial extrapolation to fill the remaining layers
+        update_further_ghosts_by_polynomial_extrapolation(field, other_fields...);
+
         for (std::size_t level = max_level; level > min_level; --level)
         {
             update_ghost_periodic(level, field, other_fields...);
-            update_ghost_subdomains(level, false, field, other_fields...);
+            update_ghost_subdomains(level, true, field, other_fields...);
+
+            project_bc(level - 1, field, other_fields...);
 
             auto set_at_levelm1 = intersection(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::proj_cells][level - 1]).on(level - 1);
             set_at_levelm1.apply_op(variadic_projection(field, other_fields...));
@@ -417,6 +471,13 @@ namespace samurai
 
         static constexpr std::size_t ghost_width = Field::mesh_t::config::ghost_width;
 
+        // mpi::communicator world;
+        // if ((world.rank() == 0 && neighbour.rank == 1) || (world.rank() == 1 && neighbour.rank == 0))
+        // {
+        //     std::cout << "[" << world.rank() << "] corners for level " << level << ": " << (to_send ? "sending" : "receiving") <<
+        //     std::endl;
+        // }
+
         ArrayOfIntervalAndPoint<interval_t, coord_t> interval_list;
 
         auto& mesh = field.mesh();
@@ -439,6 +500,11 @@ namespace samurai
                     neighbour_outer_corner(
                         [&](const auto& i, const auto& index)
                         {
+                            // if ((world.rank() == 0 && neighbour.rank == 1) || (world.rank() == 1 && neighbour.rank == 0))
+                            // {
+                            //     std::cout << "[" << world.rank() << "] add level " << level << ", i = " << i << ", index = " << index[0]
+                            //               << (to_send ? " sending" : " receiving") << std::endl;
+                            // }
                             interval_list.push_back(i, index);
                         });
                 }
@@ -452,6 +518,13 @@ namespace samurai
             const auto& [i, index] = interval_list[k];
             lca.add_interval_back(i, index);
         }
+
+        // if ((world.rank() == 0 && neighbour.rank == 1) || (world.rank() == 1 && neighbour.rank == 0))
+        // {
+        //     std::cout << "[" << world.rank() << "] corners for level " << level << ": " << (to_send ? " sending" : " receiving")
+        //               << ", lca = " << lca << std::endl;
+        // }
+
         return lca;
     }
 
