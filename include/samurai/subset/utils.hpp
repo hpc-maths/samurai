@@ -8,7 +8,9 @@
 
 namespace samurai
 {
-
+    ////////////////////////////////////////////////////////////////////////
+    //// misc
+    ////////////////////////////////////////////////////////////////////////
     template <typename T, typename... Ts>
     T vmin(const T& a, const T& b, const Ts&... others)
     {
@@ -35,6 +37,36 @@ namespace samurai
         }
     }
 
+    ////////////////////////////////////////////////////////////////////////
+    //// intervals args
+    ////////////////////////////////////////////////////////////////////////
+    template <class ForwardIt, class T = typename std::iterator_traits<ForwardIt>::value_type::value_type>
+    ForwardIt lower_bound_interval(ForwardIt begin, ForwardIt end, const T& value)
+    {
+        return std::lower_bound(begin,
+                                end,
+                                value,
+                                [](const auto& interval, auto v)
+                                {
+                                    return interval.end <= v;
+                                });
+    }
+
+    template <class ForwardIt, class T = typename std::iterator_traits<ForwardIt>::value_type::value_type>
+    ForwardIt upper_bound_interval(ForwardIt begin, ForwardIt end, const T& value)
+    {
+        return std::upper_bound(begin,
+                                end,
+                                value,
+                                [](auto v, const auto& interval)
+                                {
+                                    return v < interval.start;
+                                });
+    }
+
+    ////////////////////////////////////////////////////////////////////////
+    //// tuple iteration
+    ////////////////////////////////////////////////////////////////////////
     namespace detail
     {
         template <class Tuple, class Func, std::size_t... Is>
@@ -67,4 +99,6 @@ namespace samurai
 
         return detail::enumerate_const_items(tuple, func, std::make_index_sequence<N>{});
     }
+
+    ////////////////////////////////////////////////////////////////////////
 }

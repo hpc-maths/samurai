@@ -1,11 +1,13 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
+#pragma once
+
 #include <cstddef>
 
 #include <utility>
 
-#pragma once
+#include "set_traverser_base.hpp"
 
 namespace samurai
 {
@@ -40,9 +42,8 @@ namespace samurai
         static constexpr std::size_t dim = DerivedTraits::traverser_t::dim;
 
         using traverser_t = typename DerivedTraits::traverser_t;
-        using interval_t  = typename traverser_t::interval_t;
+        using interval_t  = typename SetTraverserTraits<traverser_t>::interval_t;
         using value_t     = typename interval_t::value_t;
-        using index_t     = xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>;
 
         const Derived& derived_cast() const
         {
@@ -54,17 +55,12 @@ namespace samurai
             return static_cast<Derived&>(*this);
         }
 
-        Derived&& derived_forward()
-        {
-            return static_cast<Derived&&>(*this);
-        }
-
         std::size_t level() const
         {
             return derived_cast().level();
         }
 
-        bool exists() const
+        bool exist() const
         {
             return derived_cast().exists();
         }
@@ -74,13 +70,13 @@ namespace samurai
             return derived_cast().empty();
         }
 
-        template <std::size_t d>
-        traverser_t get_traverser(const index_t& index, std::integral_constant<std::size_t d> d_ic) const
+        template <class index_t, std::size_t d>
+        traverser_t get_traverser(const index_t& index, std::integral_constant<std::size_t, d> d_ic) const
         {
             return derived_cast().get_traverser(index, d_ic);
         }
 
-        inline Projection<Derived> on(const std::size_t level);
+        //~ inline Projection<Derived> on(const std::size_t level);
 
         template <class Func>
         void operator()(Func&& func) const
@@ -101,15 +97,15 @@ namespace samurai
 
 } // namespace samurai
 
-#include "projected_set.hpp"
+//~ #include "projected_set.hpp"
 
-namespace samurai
-{
+//~ namespace samurai
+//~ {
 
-    template <class Derived>
-    Projection<Derived> SetBase<Derived>::on(const std::size_t level)
-    {
-        return Projection<Derived>(derived_cast(), level);
-    }
+//~ template <class Derived>
+//~ Projection<Derived> SetBase<Derived>::on(const std::size_t level)
+//~ {
+//~ return Projection<Derived>(derived_cast(), level);
+//~ }
 
-}
+//~ }

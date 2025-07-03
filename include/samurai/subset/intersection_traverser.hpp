@@ -4,19 +4,23 @@
 #pragma once
 
 #include "set_traverser_base.hpp"
+#include "utils.hpp"
+#include <fmt/ranges.h>
 
 namespace samurai
 {
 
-    template <SetTraverser_concept... SetTraverser>
+    template <SetTraverser_concept... SetTraversers>
     class IntersectionTraverser;
 
-    template <SetTraverser_concept... SetTraverser>
-        struct SetTraverserTraits < IntersectionTraverser<Op, SetTraverser>
+    template <SetTraverser_concept... SetTraversers>
+    struct SetTraverserTraits<IntersectionTraverser<SetTraversers...>>
     {
-        using interval_t = typename std::tuple_element<0, SetTraverser...>::interval_t;
+        using Childrens = std::tuple<SetTraversers...>;
 
-        static constexpr std::size_t dim = std::tuple_element<0, SetTraverser...>::dim;
+        using interval_t = typename SetTraverserTraits<std::tuple_element_t<0, Childrens>>::interval_t;
+
+        static constexpr std::size_t dim = SetTraverserTraits<std::tuple_element_t<0, Childrens>>::dim;
     };
 
     template <SetTraverser_concept... SetTraversers>
@@ -24,8 +28,8 @@ namespace samurai
     {
         using Self       = IntersectionTraverser<SetTraversers...>;
         using interval_t = typename SetTraverserTraits<Self>::interval_t;
+        using Childrens  = typename SetTraverserTraits<Self>::Childrens;
         using value_t    = typename interval_t::value_t;
-        using Childrens  = std::tuple<SetTraversers...>;
 
         template <size_t I>
         using IthChild = std::tuple_element<I, Childrens>;
@@ -35,7 +39,7 @@ namespace samurai
       public:
 
         IntersectionTraverser(const std::array<std::size_t, nIntervals> shifts, const SetTraversers&... set_traversers)
-            : m_set_traversers(set_traversers)
+            : m_set_traversers(set_traversers...)
             , m_shifts(shifts)
         {
             next_interval();
@@ -43,50 +47,62 @@ namespace samurai
 
         inline bool is_empty() const
         {
-            return std::apply(
-                [this](const auto&... set_traversers)
-                {
-                    return (set_traversers.is_empty() && ...);
-                },
-                m_set_traversers);
+            return m_current_interval.is_empty();
         }
 
         inline void next_interval()
         {
-            const auto max_start = [this]<std::size_t... Is>(std::index_sequence<Is...>)
-            {
-                return vmax((std::get<Is>(m_set_traversers).current_interval().start << m_shifts[Is])...);
-            };
-            const auto min_end = [this]<std::size_t... Is>(std::index_sequence<Is...>)
-            {
-                return vmin((std::get<Is>(m_set_traversers).current_interval().end << m_shifts[Is])...);
-            };
+            m_current_interval.start = 0;
+            m_current_interval.end   = 0;
 
-            while (m_current_interval.start >= m_current_interval.end)
+            while (not_is_any_child_empty() and m_current_interval.start >= m_current_interval.end)
             {
-                m_current_interval.start = max_start(std::make_index_sequence<nIntervals>{});
-                m_current_interval.end   = min_end(std::make_index_sequence<nIntervals>{});
+                m_current_interval.start = std::numeric_limits<value_t>::min();
+                m_current_interval.end   = std::numeric_limits<value_t>::max();
 
-                enumerate_items(m_set_traversers,
-                                [](const auto i, auto& set_traverser)
-                                {
-                                    if ((set_traverser.current_interval_end().end << m_shifts[i]) == m_current_interval.end)
-                                    {
-                                        set_traverser.next_interval();
-                                    }
-                                });
+                enumerate_const_items(
+                    m_set_traversers,
+                    [this](const auto i, const auto& set_traverser)
+                    {
+                        if (!set_traverser.is_empty())
+                        {
+                            m_current_interval.start = std::max(m_current_interval.start,
+                                                                set_traverser.current_interval().start << m_shifts[i]);
+                            m_current_interval.end = std::min(m_current_interval.end, set_traverser.current_interval().end << m_shifts[i]);
+                        }
+                    });
+
+                enumerate_items(
+                    m_set_traversers,
+                    [this](const auto i, auto& set_traverser)
+                    {
+                        if (!set_traverser.is_empty() && ((set_traverser.current_interval().end << m_shifts[i]) == m_current_interval.end))
+                        {
+                            set_traverser.next_interval();
+                        }
+                    });
             }
         }
 
-        inline interval_t& current_interval() const
+        inline const interval_t& current_interval() const
         {
             return m_current_interval;
         }
 
       private:
 
+        inline bool not_is_any_child_empty() const
+        {
+            return std::apply(
+                [this](const auto&... set_traversers)
+                {
+                    return (!set_traversers.is_empty() and ...);
+                },
+                m_set_traversers);
+        }
+
         interval_t m_current_interval;
         Childrens m_set_traversers;
-        std::array<std::size_t, nIntervals> m_shifts;
+        const std::array<std::size_t, nIntervals>& m_shifts;
     };
 }

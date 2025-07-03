@@ -1,6 +1,8 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
+#include "../box.hpp"
+#include "../interval.hpp"
 #include "set_traverser_base.hpp"
 
 #pragma once

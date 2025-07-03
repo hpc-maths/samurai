@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "lca_traverser.hpp"
+#include "box_traverser.hpp"
 #include "set_base.hpp"
 
 namespace samurai
@@ -24,7 +24,6 @@ namespace samurai
 
       public:
 
-        using index_t     = typename Base::index_t;
         using traverser_t = typename Base::traverser_t;
 
         BoxView(const std::size_t level, const B& box)
@@ -38,18 +37,18 @@ namespace samurai
             return m_level;
         }
 
-        bool exists() const
+        bool exist() const
         {
             return m_box.is_valid();
         }
 
         bool empty() const
         {
-            return !exists();
+            return !exist();
         }
 
-        template <std::size_t d>
-        traverser_t get_traverser(const index_t& index, std::integral_constant<std::size_t d>) const
+        template <class index_t, std::size_t d>
+        traverser_t get_traverser(const index_t& index, std::integral_constant<std::size_t, d>) const
         {
             if constexpr (d != Base::dim - 1)
             {
@@ -61,8 +60,15 @@ namespace samurai
 
       private:
 
+        std::size_t m_level;
         const B& m_box;
     };
+
+    template <Box_concept B>
+    const BoxView<B>& self(const BoxView<B>& box_view)
+    {
+        return box_view;
+    }
 
     template <Box_concept B>
     BoxView<B> self(const B& box)

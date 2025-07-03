@@ -24,7 +24,6 @@ namespace samurai
 
       public:
 
-        using index_t     = typename Base::index_t;
         using traverser_t = typename Base::traverser_t;
 
         LCAView(const LCA& lca)
@@ -37,7 +36,7 @@ namespace samurai
             return m_lca.level();
         }
 
-        bool exists() const
+        bool exist() const
         {
             return !empty();
         }
@@ -47,8 +46,8 @@ namespace samurai
             return m_lca.empty();
         }
 
-        template <std::size_t d>
-        traverser_t get_traverser(const index_t& index, std::integral_constant<std::size_t d>) const
+        template <class index_t, std::size_t d>
+        traverser_t get_traverser(const index_t& index, std::integral_constant<std::size_t, d>) const
         {
             if constexpr (d != Base::dim - 1)
             {
@@ -58,14 +57,21 @@ namespace samurai
                 // we need to find an interval that contains y.
                 std::size_t offset_idx = 0;
                 auto y_interval_it     = y_intervals.cbegin();
-                for (; !y_interval_it->contains(y) and y_interval_it != y_intervals.cend(); ++y_interval_it)
+                for (; y_interval_it != y_intervals.cend() and !y_interval_it->contains(y); ++y_interval_it)
                 {
-                    offset_idx += std::size_t(y_interval_it->size() - 1);
+                    offset_idx += y_interval_it->size();
                 }
-                assert(y_interval_it != y_intervals.cend());
-                offset_idx += std::size_t(y - it->start);
+                if (y_interval_it != y_intervals.cend())
+                {
+                    offset_idx += std::size_t(y - y_interval_it->start);
 
-                return traverser_t(m_lca[d].cbegin() + y_offsets[offset_idx], m_lca[d].cend() + y_offsets[offset_idx + 1]);
+                    return traverser_t(m_lca[d].cbegin() + ptrdiff_t(y_offsets[offset_idx]),
+                                       m_lca[d].cbegin() + ptrdiff_t(y_offsets[offset_idx + 1]));
+                }
+                else
+                {
+                    return traverser_t(m_lca[d].cend(), m_lca[d].cend());
+                }
             }
             else
             {
@@ -77,6 +83,12 @@ namespace samurai
 
         const LCA& m_lca;
     };
+
+    template <LCA_concept LCA>
+    const LCAView<LCA>& self(const LCAView<LCA>& lca_view)
+    {
+        return lca_view;
+    }
 
     template <LCA_concept LCA>
     LCAView<LCA> self(const LCA& lca)

@@ -23,10 +23,10 @@ namespace samurai
     {
       public:
 
-        using interval_t = typename SetTraits<Set>::interval_t;
+        using interval_t = typename SetTraverserTraits<Derived>::interval_t;
         using value_t    = typename interval_t::value_t;
 
-        static constexpr static constexpr std::size_t dim = SetTraits<Set>::dim;
+        static constexpr std::size_t dim = SetTraverserTraits<Derived>::dim;
 
         const Derived& derived_cast() const
         {
@@ -50,7 +50,7 @@ namespace samurai
 
         inline const interval_t& current_interval() const
         {
-            derived_cast().current_interval()
+            derived_cast().current_interval();
         }
     };
 }
