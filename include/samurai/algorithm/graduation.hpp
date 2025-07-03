@@ -22,12 +22,12 @@ namespace samurai
         {
             std::vector<DirectionVector<dim>> directions;
 
-            int num_periodic_dims = std::count_if(is_periodic.begin(),
-                                                  is_periodic.end(),
-                                                  [](bool b)
-                                                  {
-                                                      return b;
-                                                  });
+            auto num_periodic_dims = std::count_if(is_periodic.begin(),
+                                                   is_periodic.end(),
+                                                   [](bool b)
+                                                   {
+                                                       return b;
+                                                   });
 
             if (num_periodic_dims == 0)
             {
