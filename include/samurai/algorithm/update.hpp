@@ -407,7 +407,7 @@ namespace samurai
         for (std::size_t level = max_level; level > min_level; --level)
         {
             update_ghost_periodic(level, field, other_fields...);
-            update_ghost_subdomains(level, true, field, other_fields...);
+            update_ghost_subdomains(level, field, other_fields...);
 
             auto set_at_levelm1 = intersection(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::proj_cells][level - 1]).on(level - 1);
             set_at_levelm1.apply_op(variadic_projection(field, other_fields...));
@@ -418,11 +418,11 @@ namespace samurai
         if (min_level > 0 && min_level != max_level)
         {
             update_ghost_periodic(min_level - 1, field, other_fields...);
-            update_ghost_subdomains(min_level - 1, true, field, other_fields...);
+            update_ghost_subdomains(min_level - 1, field, other_fields...);
             update_outer_ghosts(min_level - 1, field, other_fields...);
         }
         update_ghost_periodic(min_level, field, other_fields...);
-        update_ghost_subdomains(min_level, true, field, other_fields...);
+        update_ghost_subdomains(min_level, field, other_fields...);
 
         for (std::size_t level = min_level + 1; level <= max_level; ++level)
         {
@@ -432,7 +432,7 @@ namespace samurai
 
             expr.apply_op(variadic_prediction<pred_order, false>(field, other_fields...));
             update_ghost_periodic(level, field, other_fields...);
-            update_ghost_subdomains(level, true, field, other_fields...);
+            update_ghost_subdomains(level, field, other_fields...);
         }
         // samurai::save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
 
@@ -510,8 +510,7 @@ namespace samurai
     }
 
     template <class Field>
-    void
-    update_ghost_subdomains([[maybe_unused]] std::size_t level, [[maybe_unused]] bool update_subdomain_corners, [[maybe_unused]] Field& field)
+    void update_ghost_subdomains([[maybe_unused]] std::size_t level, [[maybe_unused]] Field& field)
     {
 #ifdef SAMURAI_WITH_MPI
         using mesh_t    = typename Field::mesh_t;
@@ -537,16 +536,13 @@ namespace samurai
                     {
                         std::copy(field(level, i, index).begin(), field(level, i, index).end(), std::back_inserter(to_send[i_neigh]));
                     });
-                if (update_subdomain_corners)
-                {
-                    auto subdomain_corners = outer_subdomain_corner<true>(level, field, neighbour);
-                    for_each_interval(
-                        subdomain_corners,
-                        [&](const auto, const auto& i, const auto& index)
-                        {
-                            std::copy(field(level, i, index).begin(), field(level, i, index).end(), std::back_inserter(to_send[i_neigh]));
-                        });
-                }
+                auto subdomain_corners = outer_subdomain_corner<true>(level, field, neighbour);
+                for_each_interval(
+                    subdomain_corners,
+                    [&](const auto, const auto& i, const auto& index)
+                    {
+                        std::copy(field(level, i, index).begin(), field(level, i, index).end(), std::back_inserter(to_send[i_neigh]));
+                    });
 
                 req.push_back(world.isend(neighbour.rank, neighbour.rank, to_send[i_neigh++]));
             }
@@ -572,18 +568,15 @@ namespace samurai
                                   field(level, i, index).begin());
                         count += static_cast<ptrdiff_t>(i.size() * Field::n_comp);
                     });
-                if (update_subdomain_corners)
-                {
-                    auto subdomain_corners = outer_subdomain_corner<false>(level, field, neighbour);
-                    for_each_interval(subdomain_corners,
-                                      [&](const auto, const auto& i, const auto& index)
-                                      {
-                                          std::copy(to_recv.begin() + count,
-                                                    to_recv.begin() + count + static_cast<ptrdiff_t>(i.size() * Field::n_comp),
-                                                    field(level, i, index).begin());
-                                          count += static_cast<ptrdiff_t>(i.size() * Field::n_comp);
-                                      });
-                }
+                auto subdomain_corners = outer_subdomain_corner<false>(level, field, neighbour);
+                for_each_interval(subdomain_corners,
+                                  [&](const auto, const auto& i, const auto& index)
+                                  {
+                                      std::copy(to_recv.begin() + count,
+                                                to_recv.begin() + count + static_cast<ptrdiff_t>(i.size() * Field::n_comp),
+                                                field(level, i, index).begin());
+                                      count += static_cast<ptrdiff_t>(i.size() * Field::n_comp);
+                                  });
             }
         }
         mpi::wait_all(req.begin(), req.end());
@@ -591,10 +584,10 @@ namespace samurai
     }
 
     template <class Field, class... Fields>
-    void update_ghost_subdomains(std::size_t level, bool update_subdomain_corners, Field& field, Fields&... other_fields)
+    void update_ghost_subdomains(std::size_t level, Field& field, Fields&... other_fields)
     {
-        update_ghost_subdomains(level, update_subdomain_corners, field);
-        update_ghost_subdomains(level, update_subdomain_corners, other_fields...);
+        update_ghost_subdomains(level, field);
+        update_ghost_subdomains(level, other_fields...);
     }
 
     template <class Field>
@@ -606,7 +599,7 @@ namespace samurai
         auto max_level = mesh.max_level();
         for (std::size_t level = 0; level <= max_level; ++level)
         {
-            update_ghost_subdomains(level, true, field);
+            update_ghost_subdomains(level, field);
         }
 #endif
     }
