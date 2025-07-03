@@ -22,12 +22,12 @@ namespace samurai
         {
             std::vector<DirectionVector<dim>> directions;
 
-            std::size_t num_periodic_dims = std::count_if(is_periodic.begin(),
-                                                          is_periodic.end(),
-                                                          [](bool b)
-                                                          {
-                                                              return b;
-                                                          });
+            int num_periodic_dims = std::count_if(is_periodic.begin(),
+                                                  is_periodic.end(),
+                                                  [](bool b)
+                                                  {
+                                                      return b;
+                                                  });
 
             if (num_periodic_dims == 0)
             {
@@ -288,61 +288,61 @@ namespace samurai
             {
                 const int delta_l = int(domain.level() - fine_level);
                 auto directions   = detail::get_periodic_directions(nb_cells_finest_level, delta_l, is_periodic);
-                auto& ca          = lhs_ca[fine_level];
+                auto& fine_lca    = lhs_ca[fine_level];
                 for (size_t coarse_level = fine_level - 2; coarse_level > min_level - 1; --coarse_level)
                 {
                     bool isIntersectionEmpty = true;
                     switch (directions.size())
                     {
                         case 0:
-                            apply_refine(ca, coarse_level, isIntersectionEmpty);
+                            apply_refine(fine_lca, coarse_level, isIntersectionEmpty);
                             break;
                         case 2:
-                            apply_refine(union_(ca, translate(ca, directions[0]), translate(ca, directions[1])),
+                            apply_refine(union_(fine_lca, translate(fine_lca, directions[0]), translate(fine_lca, directions[1])),
                                          coarse_level,
                                          isIntersectionEmpty);
                             break;
                         case 8:
-                            apply_refine(union_(ca,
-                                                translate(ca, directions[0]),
-                                                translate(ca, directions[1]),
-                                                translate(ca, directions[2]),
-                                                translate(ca, directions[3]),
-                                                translate(ca, directions[4]),
-                                                translate(ca, directions[5]),
-                                                translate(ca, directions[6]),
-                                                translate(ca, directions[7])),
+                            apply_refine(union_(fine_lca,
+                                                translate(fine_lca, directions[0]),
+                                                translate(fine_lca, directions[1]),
+                                                translate(fine_lca, directions[2]),
+                                                translate(fine_lca, directions[3]),
+                                                translate(fine_lca, directions[4]),
+                                                translate(fine_lca, directions[5]),
+                                                translate(fine_lca, directions[6]),
+                                                translate(fine_lca, directions[7])),
                                          coarse_level,
                                          isIntersectionEmpty);
                             break;
                         case 26:
-                            apply_refine(union_(ca,
-                                                translate(ca, directions[0]),
-                                                translate(ca, directions[1]),
-                                                translate(ca, directions[2]),
-                                                translate(ca, directions[3]),
-                                                translate(ca, directions[4]),
-                                                translate(ca, directions[5]),
-                                                translate(ca, directions[6]),
-                                                translate(ca, directions[7]),
-                                                translate(ca, directions[8]),
-                                                translate(ca, directions[9]),
-                                                translate(ca, directions[10]),
-                                                translate(ca, directions[11]),
-                                                translate(ca, directions[12]),
-                                                translate(ca, directions[13]),
-                                                translate(ca, directions[14]),
-                                                translate(ca, directions[15]),
-                                                translate(ca, directions[16]),
-                                                translate(ca, directions[17]),
-                                                translate(ca, directions[18]),
-                                                translate(ca, directions[19]),
-                                                translate(ca, directions[20]),
-                                                translate(ca, directions[21]),
-                                                translate(ca, directions[22]),
-                                                translate(ca, directions[23]),
-                                                translate(ca, directions[24]),
-                                                translate(ca, directions[25])),
+                            apply_refine(union_(fine_lca,
+                                                translate(fine_lca, directions[0]),
+                                                translate(fine_lca, directions[1]),
+                                                translate(fine_lca, directions[2]),
+                                                translate(fine_lca, directions[3]),
+                                                translate(fine_lca, directions[4]),
+                                                translate(fine_lca, directions[5]),
+                                                translate(fine_lca, directions[6]),
+                                                translate(fine_lca, directions[7]),
+                                                translate(fine_lca, directions[8]),
+                                                translate(fine_lca, directions[9]),
+                                                translate(fine_lca, directions[10]),
+                                                translate(fine_lca, directions[11]),
+                                                translate(fine_lca, directions[12]),
+                                                translate(fine_lca, directions[13]),
+                                                translate(fine_lca, directions[14]),
+                                                translate(fine_lca, directions[15]),
+                                                translate(fine_lca, directions[16]),
+                                                translate(fine_lca, directions[17]),
+                                                translate(fine_lca, directions[18]),
+                                                translate(fine_lca, directions[19]),
+                                                translate(fine_lca, directions[20]),
+                                                translate(fine_lca, directions[21]),
+                                                translate(fine_lca, directions[22]),
+                                                translate(fine_lca, directions[23]),
+                                                translate(fine_lca, directions[24]),
+                                                translate(fine_lca, directions[25])),
                                          coarse_level,
                                          isIntersectionEmpty);
                             break;
