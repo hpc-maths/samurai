@@ -461,6 +461,13 @@ namespace samurai
     }
 
     template <class Field, class... Fields>
+    void update_outer_ghosts(std::size_t level, Field& field, Fields&... fields)
+    {
+        update_outer_ghosts(level, field);
+        update_outer_ghosts(level, fields...);
+    }
+
+    template <class Field, class... Fields>
     void update_ghost_mr(Field& field, Fields&... other_fields)
     {
         using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
@@ -476,9 +483,6 @@ namespace samurai
         // int rank = world.rank();
         // std::cout << "[" << rank << "] update_ghost_mr" << std::endl;
 
-        // update_bc_for_scheme(field, other_fields...);
-        //  If the B.C. doesn't fill all the ghost layers, we use polynomial extrapolation to fill the remaining layers
-        // update_further_ghosts_by_polynomial_extrapolation(field, other_fields...);
         update_outer_ghosts(max_level, field, other_fields...);
 
         for (std::size_t level = max_level; level > min_level; --level)
