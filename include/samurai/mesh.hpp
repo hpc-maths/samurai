@@ -840,7 +840,6 @@ namespace samurai
         std::set<int> set_neighbours;
         for (std::size_t i = 0; i < neighbours.size(); ++i)
         {
-            std::cout << neighbours[i] << std::endl;
             if (i != static_cast<std::size_t>(world.rank()))
             {
                 auto set = intersection(nestedExpand(m_subdomain, 1), neighbours[i]);
