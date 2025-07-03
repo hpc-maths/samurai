@@ -1235,11 +1235,12 @@ namespace samurai
             });
     }
 
-    template <class Field, class... Fields>
-    void update_bc_for_scheme(Field& field, Fields&... other_fields)
+    template <class Field1, class Field2, class... Fields>
+        requires(!std::is_same_v<Field2, DirectionVector<Field1::dim>>)
+    void update_bc_for_scheme(Field1& field1, Field2& field2, Fields&... other_fields)
     {
-        update_bc_for_scheme(field);
-        update_bc_for_scheme(other_fields...);
+        update_bc_for_scheme(field1);
+        update_bc_for_scheme(field2, other_fields...);
     }
 
     template <class Mesh>
