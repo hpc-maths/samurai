@@ -324,10 +324,6 @@ namespace samurai
             {
                 if (!mesh.is_periodic(direction_index))
                 {
-                    // We only project down to level-1 (not level-2), because we don't need to compute the detail at level-1,
-                    // since we can't coarsen lower than level anyway.
-                    // for (std::size_t level = mesh.max_level(); level >= (mesh.min_level() > 0 ? mesh.min_level() - 1 : 0); --level)
-                    // {
                     if (level < mesh.max_level())
                     {
                         // Project the B.C. from level+1 to level:
@@ -360,7 +356,6 @@ namespace samurai
                     // If the B.C. doesn't fill all the ghost layers, we use polynomial extrapolation
                     // to fill the remaining layers
                     update_further_ghosts_by_polynomial_extrapolation(level, direction, field);
-                    // }
                 }
             });
     }
@@ -407,10 +402,6 @@ namespace samurai
         auto max_level        = mesh.max_level();
         std::size_t min_level = 0;
 
-        // mpi::communicator world;
-        // int rank = world.rank();
-        // std::cout << "[" << rank << "] update_ghost_mr" << std::endl;
-
         update_outer_ghosts(max_level, field, other_fields...);
 
         for (std::size_t level = max_level; level > min_level; --level)
@@ -423,8 +414,6 @@ namespace samurai
 
             update_outer_ghosts(level - 1, field, other_fields...);
         }
-
-        // update_outer_ghosts(field, other_fields...);
 
         if (min_level > 0 && min_level != max_level)
         {
@@ -481,13 +470,6 @@ namespace samurai
 
         static constexpr std::size_t ghost_width = Field::mesh_t::config::ghost_width;
 
-        // mpi::communicator world;
-        // if ((world.rank() == 0 && neighbour.rank == 1) || (world.rank() == 1 && neighbour.rank == 0))
-        // {
-        //     std::cout << "[" << world.rank() << "] corners for level " << level << ": " << (to_send ? "sending" : "receiving") <<
-        //     std::endl;
-        // }
-
         ArrayOfIntervalAndPoint<interval_t, coord_t> interval_list;
 
         auto& mesh = field.mesh();
@@ -510,11 +492,6 @@ namespace samurai
                     neighbour_outer_corner(
                         [&](const auto& i, const auto& index)
                         {
-                            // if ((world.rank() == 0 && neighbour.rank == 1) || (world.rank() == 1 && neighbour.rank == 0))
-                            // {
-                            //     std::cout << "[" << world.rank() << "] add level " << level << ", i = " << i << ", index = " << index[0]
-                            //               << (to_send ? " sending" : " receiving") << std::endl;
-                            // }
                             interval_list.push_back(i, index);
                         });
                 }
@@ -529,12 +506,6 @@ namespace samurai
             lca.add_interval_back(i, index);
         }
 
-        // if ((world.rank() == 0 && neighbour.rank == 1) || (world.rank() == 1 && neighbour.rank == 0))
-        // {
-        //     std::cout << "[" << world.rank() << "] corners for level " << level << ": " << (to_send ? " sending" : " receiving")
-        //               << ", lca = " << lca << std::endl;
-        // }
-
         return lca;
     }
 
@@ -543,7 +514,6 @@ namespace samurai
     update_ghost_subdomains([[maybe_unused]] std::size_t level, [[maybe_unused]] bool update_subdomain_corners, [[maybe_unused]] Field& field)
     {
 #ifdef SAMURAI_WITH_MPI
-        // static constexpr std::size_t dim = Field::dim;
         using mesh_t    = typename Field::mesh_t;
         using value_t   = typename Field::value_type;
         using mesh_id_t = typename mesh_t::mesh_id_t;
@@ -645,7 +615,6 @@ namespace samurai
     void update_tag_subdomains([[maybe_unused]] std::size_t level, [[maybe_unused]] Field& tag, [[maybe_unused]] bool erase = false)
     {
 #ifdef SAMURAI_WITH_MPI
-        //  constexpr std::size_t dim = Field::dim;
         using mesh_t    = typename Field::mesh_t;
         using value_t   = typename Field::value_type;
         using mesh_id_t = typename mesh_t::mesh_id_t;
