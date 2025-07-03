@@ -35,8 +35,8 @@ namespace samurai
             }
 
             // Calculate the total number of combinations
-            const std::size_t num_diagonal_combinations = 1 << num_periodic_dims; // 2^num_periodic_dims
-            const std::size_t num_pure_directions       = 2 * num_periodic_dims;  // 2*num_periodic_dims
+            const std::size_t num_diagonal_combinations = (num_periodic_dims == 1) ? 0 : 1 << num_periodic_dims; // 2^num_periodic_dims
+            const std::size_t num_pure_directions       = 2 * num_periodic_dims;                                 // 2*num_periodic_dims
             const std::size_t total_combinations        = num_diagonal_combinations + num_pure_directions;
 
             directions.reserve(total_combinations);
