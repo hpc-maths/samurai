@@ -61,12 +61,12 @@ namespace samurai
 
         std::size_t max_level = mesh.max_level();
 
-        update_outer_ghosts(max_level, field, fields...);
+        update_outer_ghosts(max_level, field);
         for (std::size_t level = max_level; level >= 1; --level)
         {
             auto set_at_levelm1 = intersection(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::proj_cells][level - 1]).on(level - 1);
             set_at_levelm1.apply_op(projection(field));
-            update_outer_ghosts(level - 1, field, fields...);
+            update_outer_ghosts(level - 1, field);
         }
 
         update_outer_ghosts(0, field);
