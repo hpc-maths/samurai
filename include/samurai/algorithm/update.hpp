@@ -490,10 +490,10 @@ namespace samurai
             update_ghost_periodic(level, field, other_fields...);
             update_ghost_subdomains(level, true, field, other_fields...);
 
-            update_outer_ghosts(level - 1, field, other_fields...);
-
             auto set_at_levelm1 = intersection(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::proj_cells][level - 1]).on(level - 1);
             set_at_levelm1.apply_op(variadic_projection(field, other_fields...));
+
+            update_outer_ghosts(level - 1, field, other_fields...);
         }
 
         // update_outer_ghosts(field, other_fields...);
