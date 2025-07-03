@@ -36,13 +36,15 @@ namespace samurai
         auto& mesh            = field.mesh();
         std::size_t max_level = mesh.max_level();
 
+        update_outer_ghosts(max_level, field, fields...);
         for (std::size_t level = max_level; level >= 1; --level)
         {
             auto set_at_levelm1 = intersection(mesh[mesh_id_t::proj_cells][level], mesh[mesh_id_t::reference][level - 1]).on(level - 1);
             set_at_levelm1.apply_op(variadic_projection(field, fields...));
+            update_outer_ghosts(level - 1, field, fields...);
         }
 
-        update_outer_ghosts(field, fields...);
+        update_outer_ghosts(0, field, fields...);
         for (std::size_t level = mesh[mesh_id_t::reference].min_level(); level <= max_level; ++level)
         {
             auto set_at_level = intersection(mesh[mesh_id_t::pred_cells][level], mesh[mesh_id_t::reference][level - 1]).on(level);
@@ -59,13 +61,15 @@ namespace samurai
 
         std::size_t max_level = mesh.max_level();
 
+        update_outer_ghosts(max_level, field, fields...);
         for (std::size_t level = max_level; level >= 1; --level)
         {
             auto set_at_levelm1 = intersection(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::proj_cells][level - 1]).on(level - 1);
             set_at_levelm1.apply_op(projection(field));
+            update_outer_ghosts(level - 1, field, fields...);
         }
 
-        update_outer_ghosts(field);
+        update_outer_ghosts(0, field);
         for (std::size_t level = mesh[mesh_id_t::reference].min_level(); level <= max_level; ++level)
         {
             // We eliminate the overleaves from the computation since they
@@ -371,86 +375,10 @@ namespace samurai
     {
         auto& mesh = field.mesh();
 
-        /*
-        // Outer corners
-        if constexpr (dim > 1)
-        {
-            for_each_diagonal_direction<dim>(
-                [&](auto& direction)
-                {
-                    auto d = find_direction_index(direction);
-                    if (!mesh.is_periodic(d))
-                    {
-                        for (std::size_t level = mesh.max_level(); level >= mesh.min_level(); --level)
-                        {
-                            update_outer_corners_by_polynomial_extrapolation(level, direction, field);
-                            project_corner_below(level, direction, field);
-                            if (level == 0)
-                            {
-                                break;
-                            }
-                        }
-                    }
-                });
-        }
-
-        // Apply the B.C. at the same level as the cells and project below
-        for_each_cartesian_direction<dim>(
-            [&](auto direction_index, const auto& direction)
-            {
-                if (!mesh.is_periodic(direction_index))
-                {
-                    // We only project down to level-1 (not level-2), because we don't need to compute the detail at level-1,
-                    // since we can't coarsen lower than level anyway.
-                    for (std::size_t level = mesh.max_level(); level >= (mesh.min_level() > 0 ? mesh.min_level() - 1 : 0); --level)
-                    {
-                        if (level < mesh.max_level())
-                        {
-                            // Project the B.C. from level+1 to level:
-                            // For projection ghost, we compute the average of its children,
-                            // and we do that layer by layer.
-                            // For instance, if max_stencil_width = 3, then 3 fine boundary ghosts overlap 2 coarse ghosts.
-                            // Note that since we want to project the B.C. two levels down, it is done in two steps:
-                            // - the B.C. is projected onto the lower ghosts
-                            // - those lower ghosts are projected onto the even lower ghosts
-
-                            static constexpr std::size_t max_stencil_width = Field::mesh_t::config::max_stencil_width;
-                            int max_coarse_layer = static_cast<int>(max_stencil_width % 2 == 0 ? max_stencil_width / 2
-                                                                                               : (max_stencil_width + 1) / 2);
-                            for (int layer = 1; layer <= max_coarse_layer; ++layer)
-                            {
-                                project_bc(level, direction, layer, field);
-                            }
-                        }
-                        if (level >= mesh.min_level())
-                        {
-                            // Apply the B.C. at the same level as the cells
-                            update_bc_for_scheme(level, direction, field);
-                        }
-                        if (level < mesh.max_level() && level >= mesh.min_level())
-                        {
-                            // Predict the B.C. to level+1 (prediction of order 0, which is the same as a projection)
-                            predict_bc(level + 1, direction, field);
-                        }
-
-                        // If the B.C. doesn't fill all the ghost layers, we use polynomial extrapolation
-                        // to fill the remaining layers
-                        update_further_ghosts_by_polynomial_extrapolation(level, direction, field);
-
-                        if (level == 0)
-                        {
-                            break;
-                        }
-                    }
-                }
-            });
-            */
         for (std::size_t level = mesh.max_level(); level >= (mesh.min_level() > 0 ? mesh.min_level() - 1 : 0); --level)
         {
             update_outer_ghosts(level, field);
         }
-
-        // samurai::save(fs::current_path(), fmt::format("update_ghosts"), {true, true}, mesh, field);
     }
 
     template <class Field, class... Fields>
