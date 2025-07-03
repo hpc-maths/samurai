@@ -1235,6 +1235,13 @@ namespace samurai
             });
     }
 
+    template <class Field, class... Fields>
+    void update_bc_for_scheme(Field& field, Fields&... other_fields)
+    {
+        update_bc_for_scheme(field);
+        update_bc_for_scheme(other_fields...);
+    }
+
     template <class Mesh>
     auto get_corner(const Mesh& mesh, std::size_t level, const DirectionVector<Mesh::dim>& direction)
     {
@@ -1373,6 +1380,35 @@ namespace samurai
                     }
                 });
         }
+    }
+
+    template <class Field>
+    void update_further_ghosts_by_polynomial_extrapolation(Field& field, const DirectionVector<Field::dim>& direction)
+    {
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        auto& mesh      = field.mesh()[mesh_id_t::reference];
+
+        for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
+        {
+            update_further_ghosts_by_polynomial_extrapolation(level, direction, field);
+        }
+    }
+
+    template <class Field>
+    void update_further_ghosts_by_polynomial_extrapolation(Field& field)
+    {
+        for_each_cartesian_direction<Field::dim>(
+            [&](const auto& direction)
+            {
+                update_further_ghosts_by_polynomial_extrapolation(field, direction);
+            });
+    }
+
+    template <class Field, class... Fields>
+    void update_further_ghosts_by_polynomial_extrapolation(Field& field, Fields&... other_fields)
+    {
+        update_further_ghosts_by_polynomial_extrapolation(field);
+        update_further_ghosts_by_polynomial_extrapolation(other_fields...);
     }
 
 } // namespace samurai
