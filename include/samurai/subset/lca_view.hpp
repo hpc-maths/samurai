@@ -55,18 +55,17 @@ namespace samurai
                 const auto& y_intervals = m_lca[d + 1];
                 const auto& y_offsets   = m_lca.offsets(d + 1);
                 // we need to find an interval that contains y.
-                std::size_t offset_idx = 0;
-                auto y_interval_it     = y_intervals.cbegin();
-                for (; y_interval_it != y_intervals.cend() and !y_interval_it->contains(y); ++y_interval_it)
-                {
-                    offset_idx += y_interval_it->size();
-                }
+                const auto y_interval_it = std::find_if(y_intervals.cbegin(),
+                                                        y_intervals.cend(),
+                                                        [y](const auto& y_interval)
+                                                        {
+                                                            return y_interval.contains(y);
+                                                        });
                 if (y_interval_it != y_intervals.cend())
                 {
-                    offset_idx += std::size_t(y - y_interval_it->start);
-
-                    return traverser_t(m_lca[d].cbegin() + ptrdiff_t(y_offsets[offset_idx]),
-                                       m_lca[d].cbegin() + ptrdiff_t(y_offsets[offset_idx + 1]));
+                    const std::size_t y_offset_idx = std::size_t(y + y_interval_it->index);
+                    return traverser_t(m_lca[d].cbegin() + ptrdiff_t(y_offsets[y_offset_idx]),
+                                       m_lca[d].cbegin() + ptrdiff_t(y_offsets[y_offset_idx + 1]));
                 }
                 else
                 {

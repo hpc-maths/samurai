@@ -5,6 +5,8 @@
 
 #include "set_traverser_base.hpp"
 
+#include <fmt/ranges.h>
+
 namespace samurai
 {
 
@@ -40,33 +42,56 @@ namespace samurai
             : m_set_traversers(set_traverser...)
             , m_shifts(shifts)
         {
-            compute_current_interval();
+            next_interval();
         }
 
         inline bool is_empty() const
         {
-            return std::apply(
-                [this](const auto&... set_traversers)
-                {
-                    return (set_traversers.is_empty() && ...);
-                },
-                m_set_traversers);
+            return m_current_interval.start == std::numeric_limits<value_t>::max();
         }
 
         inline void next_interval()
         {
-            // we want all of our child to advance until they have not overlap with m_current_interval.
-            enumerate_items(
+            m_current_interval.start = std::numeric_limits<value_t>::max();
+            // We find the start of the interval, i.e. the smallest set_traverser.current_interval().start << m_shifts[i]
+            enumerate_const_items(
                 m_set_traversers,
-                [this](const auto i, auto& set_traverser)
+                [this](const auto i, const auto& set_traverser)
                 {
-                    while (!set_traverser.is_empty() && (set_traverser.current_interval().start << m_shifts[i]) <= m_current_interval.end)
+                    if (!set_traverser.is_empty() && ((set_traverser.current_interval().start << m_shifts[i]) < m_current_interval.start))
                     {
-                        set_traverser.next_interval();
+                        m_current_interval.start = set_traverser.current_interval().start << m_shifts[i];
+                        m_current_interval.end   = set_traverser.current_interval().end << m_shifts[i];
                     }
                 });
-            // we have passed, m_current_interval, now re-compute it.
-            compute_current_interval();
+            // Now we find the end of the interval, i.e. the largest set_traverser.current_interval().end << m_shifts[i]
+            // such that set_traverser.current_interval().start < m_current_interval.end
+            bool is_done = false;
+            while (!is_done)
+            {
+                is_done = true;
+                enumerate_items(
+                    m_set_traversers,
+                    [this](const auto i, auto& set_traverser)
+                    {
+                        if (!set_traverser.is_empty() && (set_traverser.current_interval().end << m_shifts[i]) <= m_current_interval.end)
+                        {
+                            set_traverser.next_interval();
+                        }
+                    });
+
+                enumerate_const_items(
+                    m_set_traversers,
+                    [&is_done, this](const auto i, const auto& set_traverser)
+                    {
+                        // there is an overlap
+                        if (!set_traverser.is_empty() && (set_traverser.current_interval().start << m_shifts[i]) <= m_current_interval.end)
+                        {
+                            is_done                = false;
+                            m_current_interval.end = set_traverser.current_interval().end << m_shifts[i];
+                        }
+                    });
+            }
         }
 
         inline const interval_t& current_interval() const
@@ -75,34 +100,6 @@ namespace samurai
         }
 
       private:
-
-        void compute_current_interval()
-        {
-            // first we compute the first interval
-            m_current_interval.start = std::numeric_limits<value_t>::max();
-            enumerate_const_items(
-                m_set_traversers,
-                [this](const auto i, const auto& set_traverser)
-                {
-                    if ((!set_traverser.is_empty()) and (set_traverser.current_interval().start << m_shifts[i]) < m_current_interval.start)
-                    {
-                        m_current_interval.start = set_traverser.current_interval().start << m_shifts[i];
-                        m_current_interval.end   = set_traverser.current_interval().end << m_shifts[i];
-                    }
-                });
-            enumerate_const_items(
-                m_set_traversers,
-                [this](const auto i, const auto& set_traverser)
-                {
-                    // there is an overlap
-                    if ((!set_traverser.is_empty()) && (set_traverser.current_interval().start << m_shifts[i]) <= m_current_interval.end)
-                    {
-                        m_current_interval.start = std::min(m_current_interval.start,
-                                                            (set_traverser.current_interval().start << m_shifts[i]));
-                        m_current_interval.end   = std::max(m_current_interval.end, (set_traverser.current_interval().end << m_shifts[i]));
-                    }
-                });
-        }
 
         interval_t m_current_interval;
         Childrens m_set_traversers;

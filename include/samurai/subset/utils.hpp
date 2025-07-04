@@ -72,14 +72,16 @@ namespace samurai
         template <class Tuple, class Func, std::size_t... Is>
         Func enumerate_items(Tuple& tuple, Func func, std::index_sequence<Is...>)
         {
-            (func(Is, std::get<Is>(tuple)), ...);
+            //~ (func(Is, std::get<Is>(tuple)), ...);
+            (func(std::integral_constant<std::size_t, Is>{}, std::get<Is>(tuple)), ...);
             return func;
         }
 
         template <class Tuple, class Func, std::size_t... Is>
         Func enumerate_const_items(const Tuple& tuple, Func func, std::index_sequence<Is...>)
         {
-            (func(Is, std::get<Is>(tuple)), ...);
+            //~ (func(Is, std::get<Is>(tuple)), ...);
+            (func(std::integral_constant<std::size_t, Is>{}, std::get<Is>(tuple)), ...);
             return func;
         }
     }

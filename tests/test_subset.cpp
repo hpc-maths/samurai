@@ -12,6 +12,9 @@
 #include <samurai/level_cell_array.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/subset/node.hpp>
+
+#include <samurai/io/hdf5.hpp>
+
 #include <xtensor/xtensor_forward.hpp>
 
 namespace samurai
@@ -656,6 +659,35 @@ namespace samurai
     //~ });
     //~ EXPECT_TRUE(found);
     //~ }
+
+    TEST(subset, union_1d)
+    {
+        using interval_t = typename CellArray<1>::interval_t;
+
+        LevelCellArray<1> lca1;
+        LevelCellArray<1> lca2;
+        LevelCellArray<1> lca3;
+
+        lca1.add_interval_back({10, 20}, {});
+
+        lca2.add_interval_back({0, 4}, {});
+        lca2.add_interval_back({5, 10}, {});
+
+        lca3.add_interval_back({1, 5}, {});
+
+        interval_t expected{0, 20};
+
+        auto set = union_(lca1, lca2, lca3);
+
+        std::size_t n_intervals = 0;
+        apply(set,
+              [&](auto& i, auto&)
+              {
+                  EXPECT_EQ(expected, i);
+                  ++n_intervals;
+              });
+        EXPECT_EQ(n_intervals, 1);
+    }
 
     TEST(subset, union)
     {

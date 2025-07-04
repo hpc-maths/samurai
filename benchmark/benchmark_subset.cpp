@@ -235,19 +235,22 @@ void SUBSET_unified_benchmark_mixed_levels(benchmark::State& state, Gen1&& gen1,
     state.counters["Input2_intervals"] = ca2[level2].nb_intervals();
     state.counters["ns/interval"]      = benchmark::Counter(total_intervals,
                                                        benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
-
+    std::size_t n_intervals            = 0;
     for (auto _ : state)
     {
+        n_intervals      = 0;
         auto total_cells = 0;
         auto subset      = operation(ca1[level1], ca2[level2]);
         subset(
-            [&total_cells](const auto&, const auto&)
+            [&n_intervals, &total_cells](const auto&, const auto&)
             {
                 total_cells = 1;
+                ++n_intervals;
             });
         benchmark::DoNotOptimize(total_cells);
         benchmark::DoNotOptimize(subset);
     }
+    state.counters["n_intervals"] = n_intervals;
 }
 
 ///////////////////////////////////////////////////////////////////
