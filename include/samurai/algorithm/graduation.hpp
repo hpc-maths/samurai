@@ -82,6 +82,12 @@ namespace samurai
 
             return directions;
         }
+
+        template <std::size_t... Is>
+        auto build_union(const auto& fine_lca, const auto& directions, std::index_sequence<Is...>)
+        {
+            return union_(fine_lca, translate(fine_lca, directions[Is])...);
+        }
     }
 
     ///////////////////////
@@ -298,51 +304,17 @@ namespace samurai
                             apply_refine(fine_lca, coarse_level, isIntersectionEmpty);
                             break;
                         case 2:
-                            apply_refine(union_(fine_lca, translate(fine_lca, directions[0]), translate(fine_lca, directions[1])),
+                            apply_refine(detail::build_union(fine_lca, directions, std::make_index_sequence<2>()),
                                          coarse_level,
                                          isIntersectionEmpty);
                             break;
                         case 8:
-                            apply_refine(union_(fine_lca,
-                                                translate(fine_lca, directions[0]),
-                                                translate(fine_lca, directions[1]),
-                                                translate(fine_lca, directions[2]),
-                                                translate(fine_lca, directions[3]),
-                                                translate(fine_lca, directions[4]),
-                                                translate(fine_lca, directions[5]),
-                                                translate(fine_lca, directions[6]),
-                                                translate(fine_lca, directions[7])),
+                            apply_refine(detail::build_union(fine_lca, directions, std::make_index_sequence<8>()),
                                          coarse_level,
                                          isIntersectionEmpty);
                             break;
                         case 26:
-                            apply_refine(union_(fine_lca,
-                                                translate(fine_lca, directions[0]),
-                                                translate(fine_lca, directions[1]),
-                                                translate(fine_lca, directions[2]),
-                                                translate(fine_lca, directions[3]),
-                                                translate(fine_lca, directions[4]),
-                                                translate(fine_lca, directions[5]),
-                                                translate(fine_lca, directions[6]),
-                                                translate(fine_lca, directions[7]),
-                                                translate(fine_lca, directions[8]),
-                                                translate(fine_lca, directions[9]),
-                                                translate(fine_lca, directions[10]),
-                                                translate(fine_lca, directions[11]),
-                                                translate(fine_lca, directions[12]),
-                                                translate(fine_lca, directions[13]),
-                                                translate(fine_lca, directions[14]),
-                                                translate(fine_lca, directions[15]),
-                                                translate(fine_lca, directions[16]),
-                                                translate(fine_lca, directions[17]),
-                                                translate(fine_lca, directions[18]),
-                                                translate(fine_lca, directions[19]),
-                                                translate(fine_lca, directions[20]),
-                                                translate(fine_lca, directions[21]),
-                                                translate(fine_lca, directions[22]),
-                                                translate(fine_lca, directions[23]),
-                                                translate(fine_lca, directions[24]),
-                                                translate(fine_lca, directions[25])),
+                            apply_refine(detail::build_union(fine_lca, directions, std::make_index_sequence<26>()),
                                          coarse_level,
                                          isIntersectionEmpty);
                             break;
