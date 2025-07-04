@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.25.0](https://github.com/hpc-maths/samurai/compare/v0.24.0...v0.25.0) (2025-07-04)
+
+
+### Features
+
+* find neighbourhood ([#345](https://github.com/hpc-maths/samurai/issues/345)) ([6dfacf9](https://github.com/hpc-maths/samurai/commit/6dfacf9414dc0a87a23a9ca5183257ff01fb4039))
+* parallel flux ([#343](https://github.com/hpc-maths/samurai/issues/343)) ([7fb1273](https://github.com/hpc-maths/samurai/commit/7fb12739bacd0d341589276c064db189411fe448))
+
+
+### Bug Fixes
+
+* add direction and cell to implicit BC ([#346](https://github.com/hpc-maths/samurai/issues/346)) ([3d47b9d](https://github.com/hpc-maths/samurai/commit/3d47b9df137e87ca0616adf50cb8faecf08007f8))
+* fix template deduction for mat_vec function ([#339](https://github.com/hpc-maths/samurai/issues/339)) ([7d95e3f](https://github.com/hpc-maths/samurai/commit/7d95e3f80dc23790c54fc6a2d5a92e3f5029adb1))
+* graduation when periodic conditions are used ([#347](https://github.com/hpc-maths/samurai/issues/347)) ([c6fc698](https://github.com/hpc-maths/samurai/commit/c6fc698c7aef09b937d48644c35cf7637cac6bd7))
+
+
+### Performance Improvements
+
+* projected/predicted boundary conditions ([#327](https://github.com/hpc-maths/samurai/issues/327)) ([178300d](https://github.com/hpc-maths/samurai/commit/178300dbc40c46d55a0940a6e8d4f6ad33e0648b))
+
 ## [0.24.0](https://github.com/hpc-maths/samurai/compare/v0.23.0...v0.24.0) (2025-06-25)
 
 
