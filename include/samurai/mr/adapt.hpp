@@ -376,6 +376,11 @@ namespace samurai
         {
             return true;
         }
+
+        times::timers.stop("mesh adaptation");
+        update_ghost_mr(other_fields...);
+        times::timers.start("mesh adaptation");
+
         detail::update_fields(new_mesh, m_fields, other_fields...);
         m_fields.mesh().swap(new_mesh);
         return false;
