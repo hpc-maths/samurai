@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.1](https://github.com/hpc-maths/samurai/compare/v0.25.0...v0.25.1) (2025-07-08)
+
+
+### Bug Fixes
+
+* fix MRAdaptation with fields to adapt ([#350](https://github.com/hpc-maths/samurai/issues/350)) ([bbe3fc5](https://github.com/hpc-maths/samurai/commit/bbe3fc5967ce772e80169b2474d9394be5d97f3d))
+
 ## [0.25.0](https://github.com/hpc-maths/samurai/compare/v0.24.0...v0.25.0) (2025-07-04)
 
 
