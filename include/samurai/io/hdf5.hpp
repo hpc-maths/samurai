@@ -35,9 +35,12 @@ namespace mpi = boost::mpi;
 #endif
 
 #include "../algorithm.hpp"
+#include "../arguments.hpp"
+#include "../field.hpp"
 #include "../interval.hpp"
 #include "../timers.hpp"
 #include "../utils.hpp"
+#include "concepts.hpp"
 #include "util.hpp"
 
 namespace samurai
@@ -952,187 +955,109 @@ namespace samurai
         }
     };
 
-    template <std::size_t dim, class TInterval, class... T>
-    void save(const fs::path& path, const std::string& filename, const LevelCellArray<dim, TInterval>& mesh, const T&... fields)
+    namespace detail
     {
+        template <class D, class Config>
+        const auto& get_all_cells(const Mesh_base<D, Config>& mesh)
+        {
+            using mesh_id_t = typename Config::mesh_id_t;
+            return mesh[mesh_id_t::reference];
+        }
+
+        template <class mesh_t>
+        const auto& get_all_cells(const mesh_t& mesh)
+        {
+            return mesh;
+        }
+
+        template <class mesh_t, class... T>
+        struct hdf5_mesh
+        {
+            using type = Hdf5_mesh_base<mesh_t, T...>;
+        };
+
+        template <class config_t, class... T>
+        struct hdf5_mesh<UniformMesh<config_t>, T...>
+        {
+            using type = Hdf5_mesh_base_level<UniformMesh<config_t>, T...>;
+        };
+
+        template <std::size_t dim, class TInterval, class... T>
+        struct hdf5_mesh<LevelCellArray<dim, TInterval>, T...>
+        {
+            using type = Hdf5_LevelCellArray<LevelCellArray<dim, TInterval>, T...>;
+        };
+
+        template <std::size_t dim, class TInterval, std::size_t max_size, class... T>
+        struct hdf5_mesh<CellArray<dim, TInterval, max_size>, T...>
+        {
+            using type = Hdf5_CellArray<CellArray<dim, TInterval, max_size>, T...>;
+        };
+
+        template <class D, class... T>
+        using hdf5_mesh_t = typename hdf5_mesh<D, T...>::type;
+    }
+
+    template <class mesh_t, class... T>
+        requires(IsMesh<mesh_t>)
+    void save(const fs::path& path, const std::string& filename, const Hdf5Options<mesh_t>& options, const mesh_t& mesh, const T&... fields)
+    {
+        static constexpr std::size_t dim = mesh_t::dim;
         times::timers.start("data saving");
-        using hdf5_t = Hdf5_LevelCellArray<LevelCellArray<dim, TInterval>, T...>;
-        auto h5      = hdf5_t(path, filename, {}, mesh, fields...);
-        h5.save();
+
+        if (!fs::exists(path))
+        {
+            fs::create_directory(path);
+        }
+
+        if (args::save_debug_fields)
+        {
+            const auto& mesh_ref = detail::get_all_cells(mesh);
+
+            auto index_field = make_vector_field<int, dim>("indices", mesh_ref);
+            auto coord_field = make_vector_field<double, dim>("coordinates", mesh_ref);
+            auto level_field = make_scalar_field<std::size_t>("levels", mesh_ref);
+
+            using hdf5_t = detail::hdf5_mesh_t<mesh_t, decltype(index_field), decltype(coord_field), decltype(level_field), T...>;
+
+            for_each_cell(mesh_ref,
+                          [&](auto& cell)
+                          {
+                              index_field[cell] = cell.indices;
+                              coord_field[cell] = cell.center();
+                              level_field[cell] = cell.level;
+                          });
+
+            auto h5 = hdf5_t(path, filename, options, mesh, index_field, coord_field, level_field, fields...);
+            h5.save();
+        }
+        else
+        {
+            using hdf5_t = detail::hdf5_mesh_t<mesh_t, T...>;
+            auto h5      = hdf5_t(path, filename, options, mesh, fields...);
+            h5.save();
+        }
         times::timers.stop("data saving");
     }
 
-    template <std::size_t dim, class TInterval, class... T>
-    void save(const std::string& filename, const LevelCellArray<dim, TInterval>& mesh, const T&... fields)
+    template <class mesh_t, class... T>
+        requires(IsMesh<mesh_t>)
+    void save(const fs::path& path, const std::string& filename, const mesh_t& mesh, const T&... fields)
     {
-        times::timers.start("data saving");
-        using hdf5_t = Hdf5_LevelCellArray<LevelCellArray<dim, TInterval>, T...>;
-        auto h5      = hdf5_t(fs::current_path(), filename, {}, mesh, fields...);
-        h5.save();
-        times::timers.stop("data saving");
+        save(path, filename, {}, mesh, fields...);
     }
 
-    template <std::size_t dim, class TInterval, class... T>
-    void save(const fs::path& path,
-              const std::string& filename,
-              const Hdf5Options<LevelCellArray<dim, TInterval>>& options,
-              const LevelCellArray<dim, TInterval>& mesh,
-              const T&... fields)
+    template <class options_t, class mesh_t, class... T>
+        requires(IsMesh<mesh_t> && std::is_same_v<options_t, std::initializer_list<bool>>)
+    void save(const std::string& filename, const options_t& options, const mesh_t& mesh, const T&... fields)
     {
-        times::timers.start("data saving");
-        using hdf5_t = Hdf5_LevelCellArray<LevelCellArray<dim, TInterval>, T...>;
-        auto h5      = hdf5_t(path, filename, options, mesh, fields...);
-        h5.save();
-        times::timers.stop("data saving");
+        save(fs::current_path(), filename, options, mesh, fields...);
     }
 
-    template <std::size_t dim, class TInterval, class... T>
-    void save(const std::string& filename,
-              const Hdf5Options<LevelCellArray<dim, TInterval>>& options,
-              const LevelCellArray<dim, TInterval>& mesh,
-              const T&... fields)
+    template <class mesh_t, class... T>
+        requires(IsMesh<mesh_t>)
+    void save(const std::string& filename, const mesh_t& mesh, const T&... fields)
     {
-        times::timers.start("data saving");
-        using hdf5_t = Hdf5_LevelCellArray<LevelCellArray<dim, TInterval>, T...>;
-        auto h5      = hdf5_t(fs::current_path(), filename, options, mesh, fields...);
-        h5.save();
-        times::timers.stop("data saving");
-    }
-
-    template <std::size_t dim, class TInterval, std::size_t max_size, class... T>
-    void save(const fs::path& path, const std::string& filename, const CellArray<dim, TInterval, max_size>& mesh, const T&... fields)
-    {
-        times::timers.start("data saving");
-        using hdf5_t = Hdf5_CellArray<CellArray<dim, TInterval, max_size>, T...>;
-        auto h5      = hdf5_t(path, filename, {}, mesh, fields...);
-        h5.save();
-        times::timers.stop("data saving");
-    }
-
-    template <std::size_t dim, class TInterval, std::size_t max_size, class... T>
-    void save(const std::string& filename, const CellArray<dim, TInterval, max_size>& mesh, const T&... fields)
-    {
-        times::timers.start("data saving");
-        using hdf5_t = Hdf5_CellArray<CellArray<dim, TInterval, max_size>, T...>;
-        auto h5      = hdf5_t(fs::current_path(), filename, {}, mesh, fields...);
-        h5.save();
-        times::timers.stop("data saving");
-    }
-
-    template <std::size_t dim, class TInterval, std::size_t max_size, class... T>
-    void save(const fs::path& path,
-              const std::string& filename,
-              const Hdf5Options<CellArray<dim, TInterval, max_size>>& options,
-              const CellArray<dim, TInterval, max_size>& mesh,
-              const T&... fields)
-    {
-        times::timers.start("data saving");
-        using hdf5_t = Hdf5_CellArray<CellArray<dim, TInterval, max_size>, T...>;
-        auto h5      = hdf5_t(path, filename, options, mesh, fields...);
-        h5.save();
-        times::timers.stop("data saving");
-    }
-
-    template <std::size_t dim, class TInterval, std::size_t max_size, class... T>
-    void save(const std::string& filename,
-              const Hdf5Options<CellArray<dim, TInterval, max_size>>& options,
-              const CellArray<dim, TInterval, max_size>& mesh,
-              const T&... fields)
-    {
-        times::timers.start("data saving");
-        using hdf5_t = Hdf5_CellArray<CellArray<dim, TInterval, max_size>, T...>;
-        auto h5      = hdf5_t(fs::current_path(), filename, options, mesh, fields...);
-        h5.save();
-        times::timers.stop("data saving");
-    }
-
-    template <class D, class Config, class... T>
-    void save(const fs::path& path, const std::string& filename, const Mesh_base<D, Config>& mesh, const T&... fields)
-    {
-        times::timers.start("data saving");
-        using hdf5_t = Hdf5_mesh_base<Mesh_base<D, Config>, T...>;
-        auto h5      = hdf5_t(path, filename, {}, mesh, fields...);
-        h5.save();
-        times::timers.stop("data saving");
-    }
-
-    template <class D, class Config, class... T>
-    void save(const std::string& filename, const Mesh_base<D, Config>& mesh, const T&... fields)
-    {
-        times::timers.start("data saving");
-        using hdf5_t = Hdf5_mesh_base<Mesh_base<D, Config>, T...>;
-        auto h5      = hdf5_t(fs::current_path(), filename, {}, mesh, fields...);
-        h5.save();
-        times::timers.stop("data saving");
-    }
-
-    template <class D, class Config, class... T>
-    void save(const fs::path& path,
-              const std::string& filename,
-              const Hdf5Options<Mesh_base<D, Config>>& options,
-              const Mesh_base<D, Config>& mesh,
-              const T&... fields)
-    {
-        times::timers.start("data saving");
-        using hdf5_t = Hdf5_mesh_base<Mesh_base<D, Config>, T...>;
-        auto h5      = hdf5_t(path, filename, options, mesh, fields...);
-        h5.save();
-        times::timers.stop("data saving");
-    }
-
-    template <class D, class Config, class... T>
-    void
-    save(const std::string& filename, const Hdf5Options<Mesh_base<D, Config>>& options, const Mesh_base<D, Config>& mesh, const T&... fields)
-    {
-        times::timers.start("data saving");
-        using hdf5_t = Hdf5_mesh_base<Mesh_base<D, Config>, T...>;
-        auto h5      = hdf5_t(fs::current_path(), filename, options, mesh, fields...);
-        h5.save();
-        times::timers.stop("data saving");
-    }
-
-    template <class Config, class... T>
-    void save(const fs::path& path, const std::string& filename, const UniformMesh<Config>& mesh, const T&... fields)
-    {
-        times::timers.start("data saving");
-        using hdf5_t = Hdf5_mesh_base_level<UniformMesh<Config>, T...>;
-        auto h5      = hdf5_t(path, filename, {}, mesh, fields...);
-        h5.save();
-        times::timers.stop("data saving");
-    }
-
-    template <class Config, class... T>
-    void save(const std::string& filename, const UniformMesh<Config>& mesh, const T&... fields)
-    {
-        times::timers.start("data saving");
-        using hdf5_t = Hdf5_mesh_base_level<UniformMesh<Config>, T...>;
-        auto h5      = hdf5_t(fs::current_path(), filename, {}, mesh, fields...);
-        h5.save();
-        times::timers.stop("data saving");
-    }
-
-    template <class Config, class... T>
-    void save(const fs::path& path,
-              const std::string& filename,
-              const Hdf5Options<UniformMesh<Config>>& options,
-              const UniformMesh<Config>& mesh,
-              const T&... fields)
-    {
-        times::timers.start("data saving");
-        using hdf5_t = Hdf5_mesh_base_level<UniformMesh<Config>, T...>;
-        auto h5      = hdf5_t(path, filename, options, mesh, fields...);
-        h5.save();
-        times::timers.stop("data saving");
-    }
-
-    template <class Config, class... T>
-    void
-    save(const std::string& filename, const Hdf5Options<UniformMesh<Config>>& options, const UniformMesh<Config>& mesh, const T&... fields)
-    {
-        times::timers.start("data saving");
-        using hdf5_t = Hdf5_mesh_base_level<UniformMesh<Config>, T...>;
-        auto h5      = hdf5_t(fs::current_path(), filename, options, mesh, fields...);
-        h5.save();
-        times::timers.stop("data saving");
+        save(fs::current_path(), filename, {}, mesh, fields...);
     }
 } // namespace samurai
