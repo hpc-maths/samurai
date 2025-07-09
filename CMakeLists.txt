@@ -188,6 +188,7 @@ set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 OPTION(BUILD_BENCHMARKS "samurai benchmark suite" OFF)
 OPTION(BUILD_DEMOS "samurai build all demos" OFF)
 OPTION(BUILD_TESTS "samurai test suite" OFF)
+OPTION(SPLIT_TESTS "samurai split each test and create an executable for each" OFF)
 OPTION(WITH_STATS "samurai mesh stats" OFF)
 option(SAMURAI_CHECK_NAN "Check NaN in computations" OFF)
 
