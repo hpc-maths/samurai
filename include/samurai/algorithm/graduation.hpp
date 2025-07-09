@@ -11,75 +11,51 @@
 #include "../mesh.hpp"
 #include "../stencil.hpp"
 #include "../subset/node.hpp"
+#include "../subset/utils.hpp"
 #include "utils.hpp"
 
 namespace samurai
 {
     namespace detail
     {
-        template <std::size_t dim, class Translation>
+        template <std::size_t d, class Translation, std::size_t dim>
+        void get_periodic_directions(const Translation& translation,
+                                     int delta,
+                                     std::array<bool, dim> is_periodic,
+                                     std::vector<DirectionVector<dim>>& directions,
+                                     DirectionVector<dim>& current)
+        {
+            auto next = [&]()
+            {
+                if constexpr (d == dim - 1)
+                {
+                    directions.push_back(current);
+                }
+                else
+                {
+                    get_periodic_directions<d + 1>(translation, delta, is_periodic, directions, current);
+                }
+            };
+
+            if (is_periodic[d])
+            {
+                current[d] = start_shift(-translation[d], delta);
+                next();
+
+                current[d] = start_shift(translation[d], delta);
+                next();
+            }
+            current[d] = 0;
+            next();
+        }
+
+        template <class Translation, std::size_t dim>
         auto get_periodic_directions(const Translation& translation, int delta, const std::array<bool, dim>& is_periodic)
         {
+            DirectionVector<dim> current{};
             std::vector<DirectionVector<dim>> directions;
-
-            auto num_periodic_dims = static_cast<std::size_t>(std::count_if(is_periodic.begin(),
-                                                                            is_periodic.end(),
-                                                                            [](bool b)
-                                                                            {
-                                                                                return b;
-                                                                            }));
-
-            if (num_periodic_dims == 0)
-            {
-                return directions; // No periodic direction, so no translation
-            }
-
-            // Calculate the total number of combinations
-            const std::size_t num_diagonal_combinations = (num_periodic_dims == 1) ? 0 : 1 << num_periodic_dims; // 2^num_periodic_dims
-            const std::size_t num_pure_directions       = 2 * num_periodic_dims;                                 // 2*num_periodic_dims
-            const std::size_t total_combinations        = num_diagonal_combinations + num_pure_directions;
-
-            directions.reserve(total_combinations);
-
-            // Map the indices of periodic dimensions
-            std::vector<std::size_t> periodic_dim_indices;
-            for (std::size_t d = 0; d < dim; ++d)
-            {
-                if (is_periodic[d])
-                {
-                    periodic_dim_indices.push_back(d);
-                }
-            }
-
-            // Generate all diagonal combinations for periodic dimensions
-            for (std::size_t i = 0; i < num_diagonal_combinations; ++i)
-            {
-                DirectionVector<dim> dir{};
-                for (std::size_t pd = 0; pd < num_periodic_dims; ++pd)
-                {
-                    std::size_t actual_dim = periodic_dim_indices[pd];
-                    auto translation_value = translation[actual_dim] >> delta;
-                    dir[actual_dim]        = (i & (1 << pd)) ? translation_value : -translation_value;
-                }
-                directions.push_back(dir);
-            }
-
-            // Generate pure directions for periodic dimensions
-            for (std::size_t pd = 0; pd < num_periodic_dims; ++pd)
-            {
-                std::size_t actual_dim = periodic_dim_indices[pd];
-
-                // Negative direction
-                DirectionVector<dim> dir_neg{};
-                dir_neg[actual_dim] = -translation[actual_dim] >> delta;
-                directions.push_back(dir_neg);
-
-                // Positive direction
-                DirectionVector<dim> dir_pos{};
-                dir_pos[actual_dim] = translation[actual_dim] >> delta;
-                directions.push_back(dir_pos);
-            }
-
+            get_periodic_directions<0>(translation, delta, is_periodic, directions, current);
+            directions.pop_back();
             return directions;
         }
 
