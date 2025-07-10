@@ -18,6 +18,10 @@
 #include "graduation.hpp"
 #include "utils.hpp"
 
+#ifndef NDEBUG
+#include "../io/hdf5.hpp"
+#endif
+
 using namespace xt::placeholders;
 
 #ifdef SAMURAI_WITH_MPI
@@ -153,7 +157,9 @@ namespace samurai
                                         std::cerr << "NaN found in field(" << children_level << "," << ii_child << "," << index_child
                                                   << ") during projection of the B.C. (dir = " << direction << ", layer = " << layer << ")"
                                                   << std::endl;
+#ifndef NDEBUG
                                         save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
+#endif
                                         std::exit(1);
                                     }
 #endif
@@ -175,7 +181,9 @@ namespace samurai
                         {
                             std::cerr << "No children found for the ghost at level " << proj_level << ", i = " << ii
                                       << ", index = " << index << " during projection of the B.C." << std::endl;
+#ifndef NDEBUG
                             save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
+#endif
                             std::exit(1);
                         }
 #endif
@@ -265,7 +273,9 @@ namespace samurai
 #endif
                         std::cerr << "NaN found in field(" << (pred_level - 1) << "," << (i_cell >> 1) << "," << (index >> 1)
                                   << ") during prediction of the B.C." << std::endl;
+#ifndef NDEBUG
                         samurai::save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
+#endif
                         std::exit(1);
                     }
 #endif
@@ -542,7 +552,7 @@ namespace samurai
             update_ghost_periodic(level, field, other_fields...);
             update_ghost_subdomains(level, field, other_fields...);
         }
-        // samurai::save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
+        // save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
 
         times::timers.stop("ghost update");
     }
