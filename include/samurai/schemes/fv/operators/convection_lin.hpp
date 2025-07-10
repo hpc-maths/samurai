@@ -214,7 +214,7 @@ namespace samurai
      * @param velocity_field: the velocity field
      */
     template <class Field, class VelocityField>
-    auto make_convection_weno5(const VelocityField& velocity_field)
+    auto make_convection_weno5(VelocityField& velocity_field)
     {
         static_assert(Field::mesh_t::config::ghost_width >= 3, "WENO5 requires at least 3 ghosts.");
 
@@ -243,6 +243,15 @@ namespace samurai
                 {
                     static constexpr std::size_t left  = 2;
                     static constexpr std::size_t right = 3;
+
+                    // Workaround to apply the B.C. by direction on the parameter
+                    // To remove when the operator can do it
+                    static std::size_t level_bc = 1000;
+                    if (data.cells[left].level != level_bc)
+                    {
+                        level_bc = data.cells[left].level;
+                        update_bc_for_scheme(level_bc, velocity_field, d);
+                    }
 
                     auto v = 0.5 * (velocity_field[data.cells[left]](d) + velocity_field[data.cells[right]](d));
 
