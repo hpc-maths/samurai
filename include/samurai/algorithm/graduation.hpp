@@ -18,6 +18,12 @@ namespace samurai
 {
     namespace detail
     {
+        template <class T>
+        inline T start_shift_neg(T value, T shift)
+        {
+            return shift >= 0 ? value >> shift : value << -shift;
+        }
+
         template <std::size_t d, class Translation, std::size_t dim>
         void get_periodic_directions(const Translation& translation,
                                      int delta,
@@ -39,10 +45,10 @@ namespace samurai
 
             if (is_periodic[d])
             {
-                current[d] = start_shift(-translation[d], delta);
+                current[d] = start_shift_neg(-translation[d], delta);
                 next();
 
-                current[d] = start_shift(translation[d], delta);
+                current[d] = start_shift_neg(translation[d], delta);
                 next();
             }
             current[d] = 0;
