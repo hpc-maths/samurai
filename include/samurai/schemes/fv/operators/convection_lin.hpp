@@ -218,20 +218,23 @@ namespace samurai
     {
         static_assert(Field::mesh_t::config::ghost_width >= 3, "WENO5 requires at least 3 ghosts.");
 
-        static constexpr std::size_t dim           = Field::dim;
-        static constexpr std::size_t n_comp        = Field::n_comp;
-        static constexpr bool is_soa               = detail::is_soa_v<Field>;
+        static constexpr std::size_t dim    = Field::dim;
+        static constexpr std::size_t n_comp = Field::n_comp;
+        static constexpr bool is_soa        = detail::is_soa_v<Field>;
+
         static constexpr std::size_t output_n_comp = n_comp;
         static constexpr std::size_t stencil_size  = 6;
+        using input_field_t                        = Field;
+        using parameter_field_t                    = VelocityField;
 
-        using cfg = FluxConfig<SchemeType::NonLinear, output_n_comp, stencil_size, Field>;
+        using cfg = FluxConfig<SchemeType::NonLinear, output_n_comp, stencil_size, input_field_t, parameter_field_t>;
 
         FluxDefinition<cfg> weno5;
 
         static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
-            [&](auto integral_constant_d)
+            [&](auto d_)
             {
-                static constexpr std::size_t d = decltype(integral_constant_d)::value;
+                static constexpr std::size_t d = d_();
 
                 // Stencil creation:
                 //        weno5[0].stencil = {{-2, 0}, {-1, 0}, {0,0}, {1,0}, {2,0}, {3,0}};
@@ -243,15 +246,6 @@ namespace samurai
                 {
                     static constexpr std::size_t left  = 2;
                     static constexpr std::size_t right = 3;
-
-                    // Workaround to apply the B.C. by direction on the parameter
-                    // To remove when the operator can do it
-                    static std::size_t level_bc = 1000;
-                    if (data.cells[left].level != level_bc)
-                    {
-                        level_bc = data.cells[left].level;
-                        update_bc_for_scheme(level_bc, velocity_field, d);
-                    }
 
                     auto v = 0.5 * (velocity_field[data.cells[left]](d) + velocity_field[data.cells[right]](d));
 
@@ -272,6 +266,7 @@ namespace samurai
 
         auto scheme = make_flux_based_scheme(weno5);
         scheme.set_name("convection");
+        scheme.set_parameter_field(velocity_field);
         return scheme;
     }
 
