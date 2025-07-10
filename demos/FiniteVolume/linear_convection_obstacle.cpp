@@ -163,7 +163,7 @@ int main(int argc, char* argv[])
         // samurai::save(path, fmt::format("{}_mesh", filename), {true, true}, mesh, u);
         samurai::update_ghost_mr(u);
         samurai::for_each_cell(mesh,
-                               [&](auto& cell)
+                               [&](const auto& cell)
                                {
                                    velocity[cell] = constant_velocity;
                                });
