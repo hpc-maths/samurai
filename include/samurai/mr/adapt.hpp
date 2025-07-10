@@ -83,12 +83,12 @@ namespace samurai
         };
     }
 
-    template <bool enlarge_, class TField, class... TFields>
+    template <bool enlarge_, class PredictionFn, class TField, class... TFields>
     class Adapt
     {
       public:
 
-        Adapt(TField& field, TFields&... fields);
+        Adapt(PredictionFn&& prediction_fn, TField& field, TFields&... fields);
 
         template <class... Fields>
         void operator()(double eps, double regularity, Fields&... other_fields);
@@ -112,22 +112,24 @@ namespace samurai
         template <class... Fields>
         bool harten(std::size_t ite, double eps, double regularity, Fields&... other_fields);
 
+        PredictionFn m_prediction_fn;
         fields_t m_fields; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
         detail_t m_detail;
         tag_t m_tag;
     };
 
-    template <bool enlarge_, class TField, class... TFields>
-    inline Adapt<enlarge_, TField, TFields...>::Adapt(TField& field, TFields&... fields)
-        : m_fields(field, fields...)
+    template <bool enlarge_, class PredictionFn, class TField, class... TFields>
+    inline Adapt<enlarge_, PredictionFn, TField, TFields...>::Adapt(PredictionFn&& prediction_fn, TField& field, TFields&... fields)
+        : m_prediction_fn(std::forward<PredictionFn>(prediction_fn))
+        , m_fields(field, fields...)
         , m_detail("detail", field.mesh())
         , m_tag("tag", field.mesh())
     {
     }
 
-    template <bool enlarge_, class TField, class... TFields>
+    template <bool enlarge_, class PredictionFn, class TField, class... TFields>
     template <class... Fields>
-    void Adapt<enlarge_, TField, TFields...>::operator()(double eps, double regularity, Fields&... other_fields)
+    void Adapt<enlarge_, PredictionFn, TField, TFields...>::operator()(double eps, double regularity, Fields&... other_fields)
     {
         auto& mesh            = m_fields.mesh();
         std::size_t min_level = mesh.min_level();
@@ -225,9 +227,9 @@ namespace samurai
         }
     }
 
-    template <bool enlarge_, class TField, class... TFields>
+    template <bool enlarge_, class PredictionFn, class TField, class... TFields>
     template <class... Fields>
-    bool Adapt<enlarge_, TField, TFields...>::harten(std::size_t ite, double eps, double regularity, Fields&... other_fields)
+    bool Adapt<enlarge_, PredictionFn, TField, TFields...>::harten(std::size_t ite, double eps, double regularity, Fields&... other_fields)
     {
         auto& mesh = m_fields.mesh();
 
@@ -352,13 +354,6 @@ namespace samurai
         }
         using ca_type = typename mesh_t::ca_type;
 
-        // return update_field_mr(m_tag, m_fields, other_fields...);
-        // for some reason I do not understand the above code produces the following error :
-        // C++ exception with description "Incompatible dimension of arrays, compile in DEBUG for more info" thrown in the test body
-        // on test adapt_test/2.mutliple_fields with:
-        // linux-mamba (clang-18, ubuntu-24.04, clang, clang-18, clang-18, clang++-18)
-        // while the code bellow do not.
-
         ca_type new_ca = update_cell_array_from_tag(mesh[mesh_id_t::cells], m_tag);
         make_graduation(new_ca,
                         mesh.domain(),
@@ -381,20 +376,40 @@ namespace samurai
         update_ghost_mr(other_fields...);
         times::timers.start("mesh adaptation");
 
-        detail::update_fields(new_mesh, m_fields, other_fields...);
+        update_fields(std::forward<PredictionFn>(m_prediction_fn), new_mesh, m_fields, other_fields...);
         m_fields.mesh().swap(new_mesh);
         return false;
     }
 
     template <class... TFields>
+        requires(IsField<TFields> && ...)
     auto make_MRAdapt(TFields&... fields)
     {
-        return Adapt<false, TFields...>(fields...);
+        std::cout << "Use default prediction function for MRAdapt" << std::endl;
+        using prediction_fn_t = decltype(default_config::default_prediction_fn);
+        return Adapt<false, prediction_fn_t, TFields...>(std::forward<prediction_fn_t>(default_config::default_prediction_fn), fields...);
+    }
+
+    template <class Prediction_fn, class... TFields>
+        requires(!IsField<Prediction_fn>) && (IsField<TFields> && ...)
+    auto make_MRAdapt(Prediction_fn&& prediction_fn, TFields&... fields)
+    {
+        std::cout << "Use custom prediction function for MRAdapt" << std::endl;
+        return Adapt<false, Prediction_fn, TFields...>(std::forward<Prediction_fn>(prediction_fn), fields...);
     }
 
     template <bool enlarge_, class... TFields>
+        requires(IsField<TFields> && ...)
     auto make_MRAdapt(TFields&... fields)
     {
-        return Adapt<enlarge_, TFields...>(fields...);
+        using prediction_fn_t = decltype(default_config::default_prediction_fn);
+        return Adapt<enlarge_, prediction_fn_t, TFields...>(std::forward<prediction_fn_t>(default_config::default_prediction_fn), fields...);
+    }
+
+    template <bool enlarge_, class Prediction_fn, class... TFields>
+        requires(!IsField<Prediction_fn>) && (IsField<TFields> && ...)
+    auto make_MRAdapt(Prediction_fn&& prediction_fn, TFields&... fields)
+    {
+        return Adapt<enlarge_, Prediction_fn, TFields...>(std::forward<Prediction_fn>(prediction_fn), fields...);
     }
 } // namespace samurai

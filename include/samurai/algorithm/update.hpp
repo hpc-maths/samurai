@@ -9,6 +9,7 @@
 
 #include "../algorithm.hpp"
 #include "../bc.hpp"
+#include "../concepts.hpp"
 #include "../field.hpp"
 #include "../numeric/prediction.hpp"
 #include "../numeric/projection.hpp"
@@ -1198,11 +1199,10 @@ namespace samurai
 
     namespace detail
     {
-        template <class Mesh, class Field>
-        void update_fields(Mesh& new_mesh, Field& field)
+        template <class PredictionOp, class Mesh, class Field>
+        void update_field(PredictionOp&& prediction_op, Mesh& new_mesh, Field& field)
         {
-            using mesh_id_t                  = typename Mesh::mesh_id_t;
-            constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
+            using mesh_id_t = typename Mesh::mesh_id_t;
 
             Field new_field("new_f", new_mesh);
 #ifdef SAMURAI_CHECK_NAN
@@ -1228,35 +1228,47 @@ namespace samurai
                 set_coarsen.apply_op(projection(new_field, field));
 
                 auto set_refine = intersection(new_mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level - 1]).on(level - 1);
-                set_refine.apply_op(prediction<pred_order, true>(new_field, field));
+                set_refine.apply_op(std::forward<PredictionOp>(prediction_op)(new_field, field));
             }
 
             std::swap(field.array(), new_field.array());
         }
+    }
 
-        template <class Mesh, class Fields, std::size_t... Is>
-        void update_fields(Mesh& new_mesh, Fields& fields, std::index_sequence<Is...>)
-        {
-            (update_fields(new_mesh, std::get<Is>(fields)), ...);
-        }
+    template <class Mesh>
+    void update_fields(Mesh&)
+    {
+    }
 
-        template <class Mesh, class... T>
-        void update_fields(Mesh& new_mesh, Field_tuple<T...>& fields)
-        {
-            update_fields(new_mesh, fields.elements(), std::make_index_sequence<sizeof...(T)>{});
-        }
+    template <class Mesh, class Fields, std::size_t... Is>
+    void update_fields(Mesh& new_mesh, Fields& fields, std::index_sequence<Is...>)
+    {
+        using prediction_fn_t = decltype(default_config::default_prediction_fn);
+        (detail::update_field(std::forward<prediction_fn_t>(default_config::default_prediction_fn), new_mesh, std::get<Is>(fields)), ...);
+    }
 
-        template <class Mesh, class Field, class... Fields>
-        void update_fields(Mesh& new_mesh, Field& field, Fields&... fields)
-        {
-            update_fields(new_mesh, field);
-            update_fields(new_mesh, fields...);
-        }
+    template <class Mesh, class... T>
+        requires IsMesh<Mesh> && (IsField<T> && ...)
+    void update_fields(Mesh& new_mesh, Field_tuple<T...>& fields)
+    {
+        update_fields(new_mesh, fields.elements(), std::make_index_sequence<sizeof...(T)>{});
+    }
 
-        template <class Mesh>
-        void update_fields(Mesh&)
-        {
-        }
+    template <class Mesh, class Field, class... Fields>
+        requires IsMesh<Mesh> && IsField<Field> && (IsField<Fields> && ...)
+    void update_fields(Mesh& new_mesh, Field& field, Fields&... fields)
+    {
+        using prediction_fn_t = decltype(default_config::default_prediction_fn);
+        detail::update_field(std::forward<prediction_fn_t>(default_config::default_prediction_fn), new_mesh, field);
+        update_fields(new_mesh, fields...);
+    }
+
+    template <class PredictionFn, class Mesh, class Field, class... Fields>
+        requires IsMesh<Mesh> && IsField<Field> && (IsField<Fields> && ...)
+    void update_fields(PredictionFn&& prediction_fn, Mesh& new_mesh, Field& field, Fields&... fields)
+    {
+        detail::update_field(std::forward<PredictionFn>(prediction_fn), new_mesh, field);
+        update_fields(new_mesh, fields...);
     }
 
     template <class Tag, class... Fields>
@@ -1325,44 +1337,8 @@ namespace samurai
             return true;
         }
 
-        detail::update_fields(new_mesh, fields...);
+        update_fields(new_mesh, fields...);
         tag.mesh().swap(new_mesh);
-        return false;
-    }
-
-    template <class Tag, class Field, class... Fields>
-    bool update_field_mr(const Tag& tag, Field& field, Fields&... other_fields)
-    {
-        using mesh_t    = typename Field::mesh_t;
-        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
-        using ca_type   = typename Field::mesh_t::ca_type;
-
-        const auto& mesh = tag.mesh();
-
-        const auto& min_indices = mesh.domain().min_indices();
-        const auto& max_indices = mesh.domain().max_indices();
-
-        std::array<int, mesh_t::dim> nb_cells_finest_level;
-
-        for (size_t d = 0; d != max_indices.size(); ++d)
-        {
-            nb_cells_finest_level[d] = max_indices[d] - min_indices[d];
-        }
-        ca_type new_ca = update_cell_array_from_tag(mesh[mesh_id_t::cells], tag);
-        make_graduation(new_ca, mesh.mpi_neighbourhood(), mesh.periodicity(), nb_cells_finest_level, mesh_t::config::graduation_width);
-
-        mesh_t new_mesh{new_ca, mesh};
-#ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-        if (mpi::all_reduce(world, mesh == new_mesh, std::logical_and()))
-#else
-        if (mesh == new_mesh)
-#endif // SAMURAI_WITH_MPI
-        {
-            return true;
-        }
-        detail::update_fields(new_mesh, field, other_fields...);
-        field.mesh().swap(new_mesh);
         return false;
     }
 }

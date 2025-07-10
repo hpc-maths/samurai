@@ -14,6 +14,9 @@ namespace samurai
     template <class D, class Config>
     class Mesh_base;
 
+    template <class Config>
+    class UniformMesh;
+
     template <class T>
     struct is_mesh_impl : std::false_type
     {
