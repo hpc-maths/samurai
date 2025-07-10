@@ -36,11 +36,11 @@ namespace mpi = boost::mpi;
 
 #include "../algorithm.hpp"
 #include "../arguments.hpp"
+#include "../concepts.hpp"
 #include "../field.hpp"
 #include "../interval.hpp"
 #include "../timers.hpp"
 #include "../utils.hpp"
-#include "concepts.hpp"
 #include "util.hpp"
 
 namespace samurai

@@ -1240,11 +1240,24 @@ namespace samurai
     {
     }
 
+    template <class PredictionFn, class Mesh, class Fields, std::size_t... Is>
+    void update_fields(PredictionFn&& prediction_fn, Mesh& new_mesh, Fields& fields, std::index_sequence<Is...>)
+    {
+        (detail::update_field(std::forward<PredictionFn>(prediction_fn), new_mesh, std::get<Is>(fields)), ...);
+    }
+
     template <class Mesh, class Fields, std::size_t... Is>
     void update_fields(Mesh& new_mesh, Fields& fields, std::index_sequence<Is...>)
     {
         using prediction_fn_t = decltype(default_config::default_prediction_fn);
         (detail::update_field(std::forward<prediction_fn_t>(default_config::default_prediction_fn), new_mesh, std::get<Is>(fields)), ...);
+    }
+
+    template <class PredictionFn, class Mesh, class... T>
+        requires IsMesh<Mesh> && (IsField<T> && ...)
+    void update_fields(PredictionFn&& prediction_fn, Mesh& new_mesh, Field_tuple<T...>& fields)
+    {
+        update_fields(std::forward<PredictionFn>(prediction_fn), new_mesh, fields.elements(), std::make_index_sequence<sizeof...(T)>{});
     }
 
     template <class Mesh, class... T>
