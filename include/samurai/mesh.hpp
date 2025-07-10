@@ -281,14 +281,14 @@ namespace samurai
         assert(min_level <= max_level);
         m_periodic.fill(false);
 
+        auto origin_point_ = domain_builder.origin_point();
+
 #ifdef SAMURAI_WITH_MPI
         std::cerr << "MPI is not implemented with DomainBuilder." << std::endl;
         std::exit(1);
         // partition_mesh(start_level, b);
         //  load_balancing();
 #else
-        auto origin_point_ = domain_builder.origin_point();
-
         // We need to be able to apply the BC at all levels (including those under the min_level set by the user).
         // If there is a hole that isn't large enough to have enough ghosts to apply the BC, we need to refine the mesh.
         // (Otherwise, some ghosts at the end of the stencil will infact be cells on the other side of the hole.)
@@ -865,7 +865,7 @@ namespace samurai
         std::vector<lca_type> all_subdomains(static_cast<std::size_t>(world.size()));
         mpi::all_gather(world, m_subdomain, all_subdomains);
 
-        for (std::size_t i = 0; i < all_subdomains.size(); ++i)
+        for (std::size_t k = 0; k < all_subdomains.size(); ++k)
         {
             for_each_interval(all_subdomains[i],
                               [&](auto, const auto& i, const auto& index)
