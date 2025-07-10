@@ -24,7 +24,7 @@ namespace samurai
         using value_t    = int;
         using interval_t = Interval<value_t, index_t>;
 
-        auto default_prediction_fn = [](auto& new_field, const auto& old_field)
+        auto default_prediction_fn = [](auto& new_field, const auto& old_field) // cppcheck-suppress constParameterReference
         {
             constexpr std::size_t pred_order = std::decay_t<decltype(new_field)>::mesh_t::config::prediction_order;
             return prediction<pred_order, true>(new_field, old_field);
