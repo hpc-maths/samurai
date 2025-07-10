@@ -5,6 +5,8 @@
 
 namespace samurai
 {
+    // MESH CONCEPTS
+    //////////////////////////////////////////////////////////////
     template <std::size_t dim, class TInterval>
     class LevelCellArray;
 
@@ -13,6 +15,9 @@ namespace samurai
 
     template <class D, class Config>
     class Mesh_base;
+
+    template <class Config>
+    class UniformMesh;
 
     template <class T>
     struct is_mesh_impl : std::false_type
@@ -45,4 +50,34 @@ namespace samurai
 
     template <typename T>
     concept IsMesh = is_mesh_impl_v<T>;
+
+    // FIELD CONCEPTS
+    //////////////////////////////////////////////////////////////
+
+    template <class mesh_t, class value_t, std::size_t n_comp, bool SOA>
+    class VectorField;
+
+    template <class mesh_t, class value_t>
+    class ScalarField;
+
+    template <class T>
+    struct is_field_impl : std::false_type
+    {
+    };
+
+    template <class mesh_t, class value_t, std::size_t n_comp, bool SOA>
+    struct is_field_impl<VectorField<mesh_t, value_t, n_comp, SOA>> : std::true_type
+    {
+    };
+
+    template <class mesh_t, class value_t>
+    struct is_field_impl<ScalarField<mesh_t, value_t>> : std::true_type
+    {
+    };
+
+    template <class T>
+    inline constexpr bool is_field_v = is_field_impl<std::decay_t<T>>::value;
+
+    template <typename T>
+    concept IsField = is_field_v<T>;
 }
