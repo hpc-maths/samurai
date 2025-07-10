@@ -10,26 +10,26 @@ namespace samurai
     template <std::size_t dim>
     class DomainBuilder
     {
-        using Box     = Box<double, dim>;
-        using point_t = typename Box::point_t;
+        using box_t   = Box<double, dim>;
+        using point_t = typename box_t::point_t;
 
       private:
 
-        std::vector<Box> m_added_boxes;
-        std::vector<Box> m_removed_boxes;
+        std::vector<box_t> m_added_boxes;
+        std::vector<box_t> m_removed_boxes;
 
       public:
 
         DomainBuilder() = default;
 
-        explicit DomainBuilder(const Box& box)
+        explicit DomainBuilder(const box_t& box)
         {
             add(box);
         }
 
         explicit DomainBuilder(const point_t& min_corner, const point_t& max_corner)
         {
-            add(Box(min_corner, max_corner));
+            add(box_t(min_corner, max_corner));
         }
 
         auto& added_boxes() const
@@ -56,24 +56,24 @@ namespace samurai
             return origin;
         }
 
-        void add(const Box& box)
+        void add(const box_t& box)
         {
             m_added_boxes.push_back(box);
         }
 
         void add(const point_t& min_corner, const point_t& max_corner)
         {
-            add(Box(min_corner, max_corner));
+            add(box_t(min_corner, max_corner));
         }
 
-        void remove(const Box& box)
+        void remove(const box_t& box)
         {
             m_removed_boxes.push_back(box);
         }
 
         void remove(const point_t& min_corner, const point_t& max_corner)
         {
-            remove(Box(min_corner, max_corner));
+            remove(box_t(min_corner, max_corner));
         }
 
         double largest_subdivision() const
@@ -97,7 +97,7 @@ namespace samurai
                 {
                     if (rbox.intersects(box))
                     {
-                        std::vector<Box> diff = box.difference(rbox);
+                        std::vector<box_t> diff = box.difference(rbox);
                         for (const auto& dbox : diff)
                         {
                             largest_subdivision = gcd_float(largest_subdivision, dbox.min_length());
