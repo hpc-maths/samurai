@@ -217,13 +217,13 @@ namespace samurai
             return boxes;
         }
 
-        auto intersection = this->intersection(other);
+        auto intersect = this->intersection(other);
 
         Box<value_t, dim_> box;
         box.min_corner() = this->min_corner();
-        box.max_corner() = intersection.min_corner();
+        box.max_corner() = intersect.min_corner();
 
-        difference_impl_rec(box, intersection, 0, boxes);
+        difference_impl_rec(box, intersect, 0, boxes);
         return boxes;
     }
 
