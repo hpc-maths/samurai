@@ -867,7 +867,7 @@ namespace samurai
 
         for (std::size_t k = 0; k < all_subdomains.size(); ++k)
         {
-            for_each_interval(all_subdomains[i],
+            for_each_interval(all_subdomains[k],
                               [&](auto, const auto& i, const auto& index)
                               {
                                   lcl[index].add_interval(i);
