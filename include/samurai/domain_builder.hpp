@@ -22,12 +22,12 @@ namespace samurai
 
         DomainBuilder() = default;
 
-        DomainBuilder(const Box& box)
+        explicit DomainBuilder(const Box& box)
         {
             add(box);
         }
 
-        DomainBuilder(const point_t& min_corner, const point_t& max_corner)
+        explicit DomainBuilder(const point_t& min_corner, const point_t& max_corner)
         {
             add(Box(min_corner, max_corner));
         }
