@@ -83,11 +83,11 @@ namespace samurai
             // The largest subdivision must be smaller than the smallest legnth of all boxes
             for (const auto& box : m_added_boxes)
             {
-                largest_subdivision = gcd_double(largest_subdivision, box.min_length());
+                largest_subdivision = gcd_float(largest_subdivision, box.min_length());
             }
             for (const auto& box : m_removed_boxes)
             {
-                largest_subdivision = gcd_double(largest_subdivision, box.min_length());
+                largest_subdivision = gcd_float(largest_subdivision, box.min_length());
             }
 
             // The largest subdivision must be smaller than the smallest length of all differences
