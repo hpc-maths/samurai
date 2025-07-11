@@ -35,11 +35,7 @@ namespace samurai
 
         void apply(std::size_t d, output_field_t& output_field, input_field_t& input_field) override
         {
-            update_bc_for_scheme(input_field, d);
-            if constexpr (cfg::has_parameter_field)
-            {
-                update_bc_for_scheme(scheme().parameter_field(), d);
-            }
+            scheme().apply_directional_bc(input_field, d);
 
             /**
              * Implementation by matrix-vector multiplication
