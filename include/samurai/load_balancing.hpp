@@ -15,6 +15,7 @@
 #include <boost/mpi.hpp>
 #endif
 
+
 #ifdef SAMURAI_WITH_MPI
 namespace samurai
 {

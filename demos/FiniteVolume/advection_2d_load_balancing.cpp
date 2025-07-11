@@ -200,7 +200,10 @@ int main(int argc, char* argv[])
     fs::path path        = fs::current_path();
     std::string filename = "FV_advection_2d";
     std::size_t nfiles   = 1;
+#ifdef SAMURAI_WITH_MPI    
     std::size_t nt_loadbalance = 1;
+#endif
+
 
     app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--max-corner", max_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
