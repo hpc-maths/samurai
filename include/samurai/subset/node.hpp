@@ -553,7 +553,14 @@ namespace samurai
         }
         else
         {
-            return set;
+            if constexpr (IsLCA<SubsetOrLCA>)
+            {
+                return self(set);
+            }
+            else
+            {
+                return set;
+            }
         }
     }
 
@@ -611,7 +618,14 @@ namespace samurai
         }
         else
         {
-            return set;
+            if constexpr (IsLCA<SubsetOrLCA>)
+            {
+                return self(set);
+            }
+            else
+            {
+                return set;
+            }
         }
     }
 
