@@ -176,8 +176,7 @@ namespace samurai
                     if (n_children == 0)
                     {
 #ifndef SAMURAI_WITH_MPI
-                        const bool domain_is_convex = false;
-                        if (domain_is_convex)
+                        if (mesh.domain().is_box())
                         {
                             std::cerr << "No children found for the ghost at level " << proj_level << ", i = " << ii
                                       << ", index = " << index << " during projection of the B.C." << std::endl;
@@ -362,69 +361,6 @@ namespace samurai
                     });
             }
         }
-
-        // // Project the B.C. from level+1 to level:
-        // // For projection ghost, we compute the average of its children,
-        // // and we do that layer by layer.
-        // // For instance, if max_stencil_width = 3, then 3 fine boundary ghosts overlap 2 coarse ghosts.
-        // // Note that since we want to project the B.C. two levels down, it is done in two steps:
-        // // - the B.C. is projected onto the lower ghosts
-        // // - those lower ghosts are projected onto the even lower ghosts
-        // for_each_cartesian_direction<dim>(
-        //     [&](auto direction_index, const auto& direction)
-        //     {
-        //         if (!mesh.is_periodic(direction_index))
-        //         {
-        //             if (level < mesh.max_level())
-        //             {
-        //                 static constexpr std::size_t max_stencil_width = Field::mesh_t::config::max_stencil_width;
-        //                 int max_coarse_layer                           = static_cast<int>(max_stencil_width % 2 == 0 ? max_stencil_width
-        //                 / 2
-        //                                                                                    : (max_stencil_width + 1) / 2);
-        //                 for (int layer = 1; layer <= max_coarse_layer; ++layer)
-        //                 {
-        //                     project_bc(level, direction, layer, field); // project from level+1 to level
-        //                 }
-        //             }
-        //         }
-        //     });
-
-        // // Apply the B.C. at the same level as the cells and project below
-        // for_each_cartesian_direction<dim>(
-        //     [&](auto direction_index, const auto& direction)
-        //     {
-        //         if (!mesh.is_periodic(direction_index))
-        //         {
-        //             if (level >= mesh.min_level())
-        //             {
-        //                 update_bc_for_scheme(level, direction, field);
-        //             }
-        //         }
-        //     });
-
-        // // Predict the B.C. to level+1 (prediction of order 0, which is the same as a projection)
-        // for_each_cartesian_direction<dim>(
-        //     [&](auto direction_index, const auto& direction)
-        //     {
-        //         if (!mesh.is_periodic(direction_index))
-        //         {
-        //             if (level < mesh.max_level() && level >= mesh.min_level())
-        //             {
-        //                 predict_bc(level + 1, direction, field);
-        //             }
-        //         }
-        //     });
-
-        // // If the B.C. doesn't fill all the ghost layers, we use polynomial extrapolation
-        // // to fill the remaining layers
-        // for_each_cartesian_direction<dim>(
-        //     [&](auto direction_index, const auto& direction)
-        //     {
-        //         if (!mesh.is_periodic(direction_index))
-        //         {
-        //             update_further_ghosts_by_polynomial_extrapolation(level, direction, field);
-        //         }
-        //     });
 
         // Apply the B.C. at the same level as the cells and project below
         for_each_cartesian_direction<dim>(

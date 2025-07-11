@@ -274,56 +274,6 @@ namespace samurai
         return out;
     }
 
-    // Function to compute the GCD of two floating point values
-    // template <std::floating_point T>
-    // T gcd_double(T a, T b)
-    // {
-    //     if (a == 0.0 && b == 0.0)
-    //     {
-    //         return 0.0; // GCD of 0 and 0 is 0
-    //     }
-
-    //     if (a == 0.0)
-    //     {
-    //         return std::abs(b); // GCD of 0 and b is |b|
-    //     }
-
-    //     if (b == 0.0)
-    //     {
-    //         return std::abs(a); // GCD of a and 0 is |a|
-    //     }
-
-    //     // Scale the doubles to integers by finding a common denominator
-    //     int scale_a = 0;
-    //     int scale_b = 0;
-
-    //     T temp_a = std::abs(a);
-    //     T temp_b = std::abs(b);
-
-    //     while (std::floor(temp_a) != temp_a)
-    //     {
-    //         temp_a *= 10;
-    //         scale_a++;
-    //     }
-
-    //     while (std::floor(temp_b) != temp_b)
-    //     {
-    //         temp_b *= 10;
-    //         scale_b++;
-    //     }
-
-    //     int scale = std::max(scale_a, scale_b);
-
-    //     long long int_a = static_cast<long long>(std::abs(a) * std::pow(10, scale));
-    //     long long int_b = static_cast<long long>(std::abs(b) * std::pow(10, scale));
-
-    //     // Compute the GCD of the scaled integers
-    //     long long int_gcd = std::gcd(int_a, int_b);
-
-    //     // Scale the GCD back to the original scale
-    //     return static_cast<T>(int_gcd) / std::pow(10, scale);
-    // }
-
     template <class value_t, std::size_t dim>
     Box<value_t, dim> approximate_box(const Box<value_t, dim>& box, double tol, double& subdivision_length)
     {
