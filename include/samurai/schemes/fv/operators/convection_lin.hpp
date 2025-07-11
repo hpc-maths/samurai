@@ -214,6 +214,7 @@ namespace samurai
      * @param velocity_field: the velocity field
      */
     template <class Field, class VelocityField>
+        requires IsField<VelocityField>
     auto make_convection_weno5(VelocityField& velocity_field)
     {
         static_assert(Field::mesh_t::config::ghost_width >= 3, "WENO5 requires at least 3 ghosts.");
