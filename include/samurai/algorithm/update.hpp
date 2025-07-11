@@ -246,7 +246,11 @@ namespace samurai
 
         auto& mesh = field.mesh();
 
-        auto n_bc_ghosts = field.get_bc().front()->stencil_size() / 2;
+        std::size_t n_bc_ghosts = Field::mesh_t::config::max_stencil_width;
+        if (!field.get_bc().empty())
+        {
+            n_bc_ghosts = field.get_bc().front()->stencil_size() / 2;
+        }
 
         auto& cells                    = mesh[mesh_id_t::cells][pred_level - 1];
         auto bc_ghosts                 = difference(translate(cells, n_bc_ghosts * direction), self(mesh.domain()).on(pred_level - 1));
