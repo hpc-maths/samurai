@@ -1,6 +1,7 @@
 #pragma once
 #include "../../bc.hpp"
 #include "../../boundary.hpp"
+#include "../../concepts.hpp"
 #include "../../field.hpp"
 #include "../../static_algorithm.hpp"
 #include "../../timers.hpp"
