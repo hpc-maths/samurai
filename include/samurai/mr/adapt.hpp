@@ -385,7 +385,6 @@ namespace samurai
         requires(IsField<TFields> && ...)
     auto make_MRAdapt(TFields&... fields)
     {
-        std::cout << "Use default prediction function for MRAdapt" << std::endl;
         using prediction_fn_t = decltype(default_config::default_prediction_fn);
         return Adapt<false, prediction_fn_t, TFields...>(std::forward<prediction_fn_t>(default_config::default_prediction_fn), fields...);
     }
