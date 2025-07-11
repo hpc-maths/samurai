@@ -9,8 +9,8 @@ namespace samurai
      * LINEAR HOMOGENEOUS explicit schemes
      */
     template <class cfg, class bdry_cfg>
-    class Explicit<FluxBasedScheme<cfg, bdry_cfg>, std::enable_if_t<cfg::scheme_type == SchemeType::LinearHomogeneous>>
-        : public ExplicitFVScheme<FluxBasedScheme<cfg, bdry_cfg>>
+        requires(cfg::scheme_type == SchemeType::LinearHomogeneous)
+    class Explicit<FluxBasedScheme<cfg, bdry_cfg>> : public ExplicitFVScheme<FluxBasedScheme<cfg, bdry_cfg>>
     {
         using base_class = ExplicitFVScheme<FluxBasedScheme<cfg, bdry_cfg>>;
 
