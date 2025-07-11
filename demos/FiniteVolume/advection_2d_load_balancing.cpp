@@ -10,14 +10,13 @@
 #include <samurai/field.hpp>
 #include <samurai/io/hdf5.hpp>
 #include <samurai/io/restart.hpp>
+#include <samurai/load_balancing.hpp>
+#include <samurai/load_balancing_diffusion.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/samurai.hpp>
 #include <samurai/stencil_field.hpp>
 #include <samurai/subset/node.hpp>
-#include <samurai/load_balancing.hpp>
-#include <samurai/load_balancing_diffusion.hpp>
-
 
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -200,10 +199,9 @@ int main(int argc, char* argv[])
     fs::path path        = fs::current_path();
     std::string filename = "FV_advection_2d";
     std::size_t nfiles   = 1;
-#ifdef SAMURAI_WITH_MPI    
+#ifdef SAMURAI_WITH_MPI
     std::size_t nt_loadbalance = 1;
 #endif
-
 
     app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--max-corner", max_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
@@ -231,7 +229,7 @@ int main(int argc, char* argv[])
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
 #ifdef SAMURAI_WITH_MPI
     app.add_option("--nt-loadbalance", nt_loadbalance, "load balance each nt steps")->capture_default_str()->group("Multiresolution");
-#endif    
+#endif
     SAMURAI_PARSE(argc, argv);
 
     const samurai::Box<double, dim> box(min_corner, max_corner);
@@ -262,17 +260,17 @@ int main(int argc, char* argv[])
     std::size_t nt    = 0;
 
 #ifdef SAMURAI_WITH_MPI
-	samurai::DiffusionLoadBalancer balancer; 
+    samurai::DiffusionLoadBalancer balancer;
 #endif
 
     while (t != Tf)
     {
 #ifdef SAMURAI_WITH_MPI
-	if (((nt % nt_loadbalance == 0) && nt > 1) || nt == 1)
-	{
-		auto weights = samurai::Weight::uniform(mesh);
-		balancer.load_balance(mesh, weights, u);
-	}
+        if (((nt % nt_loadbalance == 0) && nt > 1) || nt == 1)
+        {
+            auto weights = samurai::Weight::uniform(mesh);
+            balancer.load_balance(mesh, weights, u);
+        }
 #endif
 
         MRadaptation(mr_epsilon, mr_regularity);

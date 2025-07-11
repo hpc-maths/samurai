@@ -15,7 +15,6 @@
 #include <boost/mpi.hpp>
 #endif
 
-
 #ifdef SAMURAI_WITH_MPI
 namespace samurai
 {
@@ -27,6 +26,7 @@ namespace samurai
     class Weight
     {
       public:
+
         template <class Field>
         static auto from_field(const Field& f)
         {
@@ -52,15 +52,15 @@ namespace samurai
         template <BalanceElement_t elem, class Mesh_t, class Field_t>
         static double compute_load(const Mesh_t& mesh, const Field_t& weight)
         {
-            using mesh_id_t                  = typename Mesh_t::mesh_id_t;
-            const auto& current_mesh         = mesh[mesh_id_t::cells];
+            using mesh_id_t             = typename Mesh_t::mesh_id_t;
+            const auto& current_mesh    = mesh[mesh_id_t::cells];
             double current_process_load = 0.;
             // cell-based load with weight.
             samurai::for_each_cell(current_mesh,
-                                       [&](const auto& cell)
-                                       {
-                                           current_process_load += weight[cell];
-                                       });
+                                   [&](const auto& cell)
+                                   {
+                                       current_process_load += weight[cell];
+                                   });
             return current_process_load;
         }
     };
@@ -127,7 +127,7 @@ namespace samurai
             new_field.fill(0);
 
             auto& old_mesh = field.mesh();
-            //TODO : check if this is correct
+            // TODO : check if this is correct
             auto min_level = old_mesh.min_level();
             auto max_level = old_mesh.max_level();
 
@@ -150,8 +150,7 @@ namespace samurai
                 {
                     if (!old_mesh[mesh_id_t::cells][level].empty() && !neighbour_new_cells[level].empty())
                     {
-                        auto intersect_old_mesh_new_neigh = intersection(old_mesh[mesh_id_t::cells][level],
-                                                                         neighbour_new_cells[level]);
+                        auto intersect_old_mesh_new_neigh = intersection(old_mesh[mesh_id_t::cells][level], neighbour_new_cells[level]);
                         intersect_old_mesh_new_neigh(
                             [&](const auto& interval, const auto& index)
                             {
@@ -224,7 +223,7 @@ namespace samurai
                 mpi::wait_all(req.begin(), req.end());
             }
 
-                        std::swap(field.array(), new_field.array());
+            std::swap(field.array(), new_field.array());
             samurai::times::timers.stop("load_balancing_update_field");
         }
 
@@ -269,7 +268,7 @@ namespace samurai
         Mesh_t update_mesh(Mesh_t& mesh, const Field_t& flags)
         {
             samurai::times::timers.start("load_balancing_mesh_update");
-            
+
             using CellList_t  = typename Mesh_t::cl_type;
             using CellArray_t = typename Mesh_t::ca_type;
 
@@ -370,9 +369,9 @@ namespace samurai
             samurai::times::timers.start("load_balancing_construct_mesh");
             Mesh_t new_mesh(new_cl, mesh);
             samurai::times::timers.stop("load_balancing_construct_mesh");
-            
+
             samurai::times::timers.stop("load_balancing_mesh_update");
-            
+
             return new_mesh;
         }
 
@@ -407,10 +406,11 @@ namespace samurai
 
             // Final display of cell count after load balancing
             {
-                using mesh_id_t = typename Mesh_t::mesh_id_t;
+                using mesh_id_t     = typename Mesh_t::mesh_id_t;
                 double total_weight = Weight::compute_load<BalanceElement_t::CELL>(field.mesh(), weight);
-                auto nb_cells = field.mesh().nb_cells(mesh_id_t::cells);
-                std::cout << "Process " << world.rank() << " : " << nb_cells << " cells (total weight " << total_weight << ") after load balancing" << std::endl;
+                auto nb_cells       = field.mesh().nb_cells(mesh_id_t::cells);
+                std::cout << "Process " << world.rank() << " : " << nb_cells << " cells (total weight " << total_weight
+                          << ") after load balancing" << std::endl;
             }
         }
     };

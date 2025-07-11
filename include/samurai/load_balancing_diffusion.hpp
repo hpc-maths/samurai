@@ -5,8 +5,6 @@
 #include <algorithm>
 #include <iterator>
 
-
-
 #ifdef SAMURAI_WITH_MPI
 namespace samurai
 {
@@ -19,7 +17,7 @@ namespace samurai
         std::vector<double> compute_fluxes(Mesh_t& mesh, const Field_t& weight, int niterations)
         {
             samurai::times::timers.start("load_balancing_flux_computation");
-            
+
             using mpi_subdomain_t = typename Mesh_t::mpi_subdomain_t;
             boost::mpi::communicator world;
             std::vector<mpi_subdomain_t>& neighbourhood = mesh.mpi_neighbourhood();
@@ -37,17 +35,17 @@ namespace samurai
                 boost::mpi::all_gather(world, my_load, loads);
 
                 // Compute updated my_load for current process based on its neighbourhood
-                double my_load_new = my_load;
+                double my_load_new   = my_load;
                 bool all_fluxes_zero = true;
                 for (std::size_t neighbour_idx = 0; neighbour_idx < n_neighbours; ++neighbour_idx)
                 {
                     std::size_t neighbour_rank = static_cast<std::size_t>(neighbourhood[neighbour_idx].rank);
-                    double neighbour_load         = loads[neighbour_rank];
-                    double diff_load = neighbour_load - my_load_new;
+                    double neighbour_load      = loads[neighbour_rank];
+                    double diff_load           = neighbour_load - my_load_new;
 
                     // If transferLoad < 0 -> need to send data, if transferLoad > 0 need to receive data
                     // TODO : Use diffusion factor 1/(deg+1) for stability
-                    double transfertLoad = 0.5* diff_load;
+                    double transfertLoad = 0.5 * diff_load;
 
                     // Accumulate total flux on current edge
                     fluxes[neighbour_idx] += transfertLoad;
@@ -61,7 +59,7 @@ namespace samurai
                     // Update intermediate local load before processing next neighbour
                     my_load_new += transfertLoad;
                 }
-                
+
                 // Update reference load for next iteration
                 my_load = my_load_new;
 
@@ -74,12 +72,12 @@ namespace samurai
                     std::cout << "Process " << world.rank() << " : Global convergence reached at iteration " << iteration_count << std::endl;
                     break;
                 }
-                
+
                 iteration_count++;
             }
-            
+
             samurai::times::timers.stop("load_balancing_flux_computation");
-            
+
             return fluxes;
         }
 
@@ -127,18 +125,18 @@ namespace samurai
                       });
 
             auto& neighbourhood = mesh.mpi_neighbourhood();
-            
-            std::size_t top_index = 0;                   
+
+            std::size_t top_index    = 0;
             std::size_t bottom_index = cells.size() - 1;
 
             for (std::size_t i = 0; i < neighbourhood.size(); ++i)
             {
-                double flux = fluxes[i];
+                double flux         = fluxes[i];
                 auto neighbour_rank = neighbourhood[i].rank;
 
                 if (flux < 0) // We must send cells
                 {
-                    double weight_to_send = -flux;
+                    double weight_to_send     = -flux;
                     double accumulated_weight = 0;
 
                     // Send from the "top" to higher ranks, and from the "bottom" to lower ranks
@@ -157,7 +155,10 @@ namespace samurai
                         {
                             accumulated_weight += weight[cells[bottom_index]];
                             flags[cells[bottom_index]] = neighbour_rank;
-                            if (bottom_index == 0) break; // Éviter l'underflow
+                            if (bottom_index == 0)
+                            {
+                                break; // Éviter l'underflow
+                            }
                             bottom_index--;
                         }
                     }
