@@ -168,6 +168,9 @@ namespace samurai
         //// Gives the number of cells
         std::size_t nb_cells() const;
 
+        //// Is it box-shaped?
+        bool is_box() const;
+
         //
         double cell_length() const;
 
@@ -233,6 +236,7 @@ namespace samurai
         std::array<std::vector<std::size_t>, dim - 1> m_offsets; ///< Offsets in interval list for each dim >
                                                                  ///< 1
         std::size_t m_level = 0;
+        bool m_is_box       = false;
         coords_t m_origin_point;
         double m_scaling_factor = 1;
     };
@@ -367,6 +371,7 @@ namespace samurai
                                                           double approx_box_tol,
                                                           double scaling_factor)
         : m_level(level)
+        , m_is_box(true)
     {
         init_from_box(box, box.min_corner(), approx_box_tol, scaling_factor);
     }
@@ -378,6 +383,7 @@ namespace samurai
                                                           double approx_box_tol,
                                                           double scaling_factor)
         : m_level(level)
+        , m_is_box(true)
     {
         init_from_box(box, origin_point, approx_box_tol, scaling_factor);
     }
@@ -798,6 +804,12 @@ namespace samurai
             m_offsets[d].clear();
         }
         m_cells[dim - 1].clear();
+    }
+
+    template <std::size_t Dim, class TInterval>
+    inline bool LevelCellArray<Dim, TInterval>::is_box() const
+    {
+        return m_is_box;
     }
 
     template <std::size_t Dim, class TInterval>

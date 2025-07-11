@@ -181,6 +181,18 @@ namespace samurai
             m_parameter_field = &parameter_field;
         }
 
+        void apply_directional_bc(input_field_t& input_field, std::size_t d)
+        {
+            if (!input_field.mesh().domain().is_box())
+            {
+                update_bc_for_scheme(input_field, d);
+                if constexpr (cfg::has_parameter_field)
+                {
+                    update_bc_for_scheme(parameter_field(), d);
+                }
+            }
+        }
+
         /**
          * Explicit application of the scheme
          */
