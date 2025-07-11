@@ -5,7 +5,6 @@
 
 #include <algorithm>
 #include <array>
-
 #include <string>
 #include <type_traits>
 
@@ -957,10 +956,11 @@ namespace samurai
 
     namespace detail
     {
-        template <class D, class Config>
-        const auto& get_all_cells(const Mesh_base<D, Config>& mesh)
+        template <class mesh_t>
+            requires std::is_base_of_v<Mesh_base<mesh_t, typename mesh_t::config>, mesh_t>
+        const auto& get_all_cells(const mesh_t& mesh)
         {
-            using mesh_id_t = typename Config::mesh_id_t;
+            using mesh_id_t = typename mesh_t::mesh_id_t;
             return mesh[mesh_id_t::reference];
         }
 
@@ -1014,9 +1014,9 @@ namespace samurai
         {
             const auto& mesh_ref = detail::get_all_cells(mesh);
 
-            auto index_field = make_vector_field<int, dim>("indices", mesh_ref);
-            auto coord_field = make_vector_field<double, dim>("coordinates", mesh_ref);
-            auto level_field = make_scalar_field<std::size_t>("levels", mesh_ref);
+            auto index_field = make_vector_field<int, dim>("indices", mesh);
+            auto coord_field = make_vector_field<double, dim>("coordinates", mesh);
+            auto level_field = make_scalar_field<std::size_t>("levels", mesh);
 
             using hdf5_t = detail::hdf5_mesh_t<mesh_t, decltype(index_field), decltype(coord_field), decltype(level_field), T...>;
 
