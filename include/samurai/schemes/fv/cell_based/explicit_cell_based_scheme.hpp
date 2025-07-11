@@ -9,8 +9,8 @@ namespace samurai
      * LINEAR and HOMOGENEOUS explicit schemes
      */
     template <class cfg, class bdry_cfg>
-    class Explicit<CellBasedScheme<cfg, bdry_cfg>, std::enable_if_t<cfg::scheme_type == SchemeType::LinearHomogeneous>>
-        : public ExplicitFVScheme<CellBasedScheme<cfg, bdry_cfg>>
+        requires(cfg::scheme_type == SchemeType::LinearHomogeneous)
+    class Explicit<CellBasedScheme<cfg, bdry_cfg>> : public ExplicitFVScheme<CellBasedScheme<cfg, bdry_cfg>>
     {
         using base_class = ExplicitFVScheme<CellBasedScheme<cfg, bdry_cfg>>;
 
@@ -61,8 +61,8 @@ namespace samurai
      * NON-LINEAR explicit schemes
      */
     template <class cfg, class bdry_cfg>
-    class Explicit<CellBasedScheme<cfg, bdry_cfg>, std::enable_if_t<cfg::scheme_type == SchemeType::NonLinear>>
-        : public ExplicitFVScheme<CellBasedScheme<cfg, bdry_cfg>>
+        requires(cfg::scheme_type == SchemeType::NonLinear)
+    class Explicit<CellBasedScheme<cfg, bdry_cfg>> : public ExplicitFVScheme<CellBasedScheme<cfg, bdry_cfg>>
     {
         using base_class = ExplicitFVScheme<CellBasedScheme<cfg, bdry_cfg>>;
 
