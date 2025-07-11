@@ -12,7 +12,7 @@ namespace samurai
         static constexpr std::size_t stencil_size  = stencil_size_;
         using input_field_t                        = std::decay_t<input_field_t_>;
         using parameter_field_t                    = std::decay_t<parameter_field_t_>;
-        static constexpr bool has_parameter_field  = !std::is_same_v<parameter_field_t, void*>;
+        static constexpr bool has_parameter_field  = !std::is_same_v<parameter_field_t, void*>; // cppcheck-suppress unusedStructMember
         static constexpr std::size_t dim           = input_field_t::dim;
     };
 
