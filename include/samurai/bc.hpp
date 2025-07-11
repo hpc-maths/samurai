@@ -1182,6 +1182,7 @@ namespace samurai
     };
 
     template <class Field>
+        requires IsField<Field>
     void update_bc_for_scheme(std::size_t level, const DirectionVector<Field::dim>& direction, Field& field)
     {
         static constexpr std::size_t max_stencil_size_implemented_BC = Bc<Field>::max_stencil_size_implemented;
@@ -1202,6 +1203,7 @@ namespace samurai
     }
 
     template <class Field>
+        requires IsField<Field>
     void update_bc_for_scheme(Field& field, const DirectionVector<Field::dim>& direction)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
@@ -1214,6 +1216,7 @@ namespace samurai
     }
 
     template <class Field>
+        requires IsField<Field>
     void update_bc_for_scheme(Field& field, std::size_t direction_index)
     {
         DirectionVector<Field::dim> direction;
@@ -1227,6 +1230,7 @@ namespace samurai
     }
 
     template <class Field>
+        requires IsField<Field>
     void update_bc_for_scheme(std::size_t level, Field& field, std::size_t direction_index)
     {
         DirectionVector<Field::dim> direction;
@@ -1240,6 +1244,7 @@ namespace samurai
     }
 
     template <class Field>
+        requires IsField<Field>
     void update_bc_for_scheme(Field& field)
     {
         for_each_cartesian_direction<Field::dim>(
@@ -1249,12 +1254,11 @@ namespace samurai
             });
     }
 
-    template <class Field1, class Field2, class... Fields>
-        requires(!std::is_same_v<Field2, DirectionVector<Field1::dim>>)
-    void update_bc_for_scheme(Field1& field1, Field2& field2, Fields&... other_fields)
+    template <class Field, class... Fields>
+        requires(IsField<Field> && (IsField<Fields> && ...))
+    void update_bc_for_scheme(Field& field, Fields&... other_fields)
     {
-        update_bc_for_scheme(field1);
-        update_bc_for_scheme(field2, other_fields...);
+        update_bc_for_scheme(field, other_fields...);
     }
 
     template <class Mesh>
