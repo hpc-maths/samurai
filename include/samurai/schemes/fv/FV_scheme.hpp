@@ -1,6 +1,7 @@
 #pragma once
 #include "../../bc.hpp"
 #include "../../boundary.hpp"
+#include "../../concepts.hpp"
 #include "../../field.hpp"
 #include "../../static_algorithm.hpp"
 #include "../../timers.hpp"
@@ -94,12 +95,13 @@ namespace samurai
     {
       public:
 
-        using input_field_t    = typename cfg_::input_field_t;
-        using field_t          = input_field_t;
-        using mesh_t           = typename field_t::mesh_t;
-        using mesh_id_t        = typename mesh_t::mesh_id_t;
-        using field_value_type = typename field_t::value_type; // double
-        using size_type        = typename field_t::size_type;
+        using input_field_t     = typename cfg_::input_field_t;
+        using field_t           = input_field_t;
+        using parameter_field_t = typename cfg_::parameter_field_t;
+        using mesh_t            = typename field_t::mesh_t;
+        using mesh_id_t         = typename mesh_t::mesh_id_t;
+        using field_value_type  = typename field_t::value_type; // double
+        using size_type         = typename field_t::size_type;
 
         using cfg                                             = cfg_;
         using bdry_cfg                                        = bdry_cfg_;
@@ -125,6 +127,8 @@ namespace samurai
         std::string m_name  = "(unnamed)";
         bool m_is_symmetric = false;
         bool m_is_spd       = false;
+
+        parameter_field_t* m_parameter_field = nullptr;
 
         std::array<directional_bdry_config_t, 2 * dim> m_dirichlet_config;
         std::array<directional_bdry_config_t, 2 * dim> m_neumann_config;
@@ -165,6 +169,28 @@ namespace samurai
         DerivedScheme derived_cast() && noexcept
         {
             return *static_cast<DerivedScheme*>(this);
+        }
+
+        parameter_field_t& parameter_field()
+        {
+            return *m_parameter_field;
+        }
+
+        void set_parameter_field(parameter_field_t& parameter_field)
+        {
+            m_parameter_field = &parameter_field;
+        }
+
+        void apply_directional_bc(input_field_t& input_field, std::size_t d)
+        {
+            if (!input_field.mesh().domain().is_box())
+            {
+                update_bc_for_scheme(input_field, d);
+                if constexpr (cfg::has_parameter_field)
+                {
+                    update_bc_for_scheme(parameter_field(), d);
+                }
+            }
         }
 
         /**

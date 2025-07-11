@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "boundary.hpp"
+#include "concepts.hpp"
 #include "samurai/cell.hpp"
 #include "samurai_config.hpp"
 #include "static_algorithm.hpp"
@@ -1157,6 +1158,7 @@ namespace samurai
                         {
                             std::cerr << "NaN detected in [" << cells[c]
                                       << "] when applying polynomial extrapolation to fill the outer ghost [" << ghost << "]." << std::endl;
+                            save(fs::current_path(), "nan_extrapolation", {true, true}, u.mesh(), u);
                             assert(false);
                         }
                     }
@@ -1181,6 +1183,7 @@ namespace samurai
     };
 
     template <class Field>
+        requires IsField<Field>
     void update_bc_for_scheme(std::size_t level, const DirectionVector<Field::dim>& direction, Field& field)
     {
         static constexpr std::size_t max_stencil_size_implemented_BC = Bc<Field>::max_stencil_size_implemented;
@@ -1201,6 +1204,7 @@ namespace samurai
     }
 
     template <class Field>
+        requires IsField<Field>
     void update_bc_for_scheme(Field& field, const DirectionVector<Field::dim>& direction)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
@@ -1213,6 +1217,7 @@ namespace samurai
     }
 
     template <class Field>
+        requires IsField<Field>
     void update_bc_for_scheme(Field& field, std::size_t direction_index)
     {
         DirectionVector<Field::dim> direction;
@@ -1226,6 +1231,21 @@ namespace samurai
     }
 
     template <class Field>
+        requires IsField<Field>
+    void update_bc_for_scheme(std::size_t level, Field& field, std::size_t direction_index)
+    {
+        DirectionVector<Field::dim> direction;
+        direction.fill(0);
+
+        direction[direction_index] = 1;
+        update_bc_for_scheme(level, direction, field);
+
+        direction[direction_index] = -1;
+        update_bc_for_scheme(level, direction, field);
+    }
+
+    template <class Field>
+        requires IsField<Field>
     void update_bc_for_scheme(Field& field)
     {
         for_each_cartesian_direction<Field::dim>(
@@ -1236,10 +1256,10 @@ namespace samurai
     }
 
     template <class Field, class... Fields>
+        requires(IsField<Field> && (IsField<Fields> && ...))
     void update_bc_for_scheme(Field& field, Fields&... other_fields)
     {
-        update_bc_for_scheme(field);
-        update_bc_for_scheme(other_fields...);
+        update_bc_for_scheme(field, other_fields...);
     }
 
     template <class Mesh>

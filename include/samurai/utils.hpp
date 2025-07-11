@@ -3,8 +3,12 @@
 
 #pragma once
 
+#include "assert_log_trace.hpp"
 #include <algorithm>
+#include <cmath>
 #include <functional>
+#include <limits>
+#include <numeric>
 #include <tuple>
 #include <type_traits>
 
@@ -427,5 +431,77 @@ namespace samurai
     //         return *data[cell_index * Field::n_comp + field_i];
     //     }
     // }
+
+    //------------------------------//
+    // Greater Common Divisor (GCD) //
+    //------------------------------//
+
+    // Function to compute the greatest common divisor (GCD) of two integers
+    template <typename T>
+        requires std::integral<T>
+    T gcd_int(T a, T b)
+    {
+        while (b != 0)
+        {
+            T temp = b;
+            b      = a % b;
+            a      = temp;
+        }
+        return a;
+    }
+
+    // Function to compute the GCD of two floating-point values
+    template <typename T>
+        requires std::floating_point<T>
+    T gcd_float(T a, T b)
+    {
+        if (a == 0.0 && b == 0.0)
+        {
+            return 0.0; // GCD of 0 and 0 is 0
+        }
+
+        if (a == 0.0)
+        {
+            return std::abs(b); // GCD of 0 and b is |b|
+        }
+
+        if (b == 0.0)
+        {
+            return std::abs(a); // GCD of a and 0 is |a|
+        }
+
+        // Scale the floating-point values to integers by finding a common denominator
+        int scale_a = 0;
+        int scale_b = 0;
+
+        T temp_a = std::abs(a);
+        T temp_b = std::abs(b);
+
+        while (std::floor(temp_a) != temp_a)
+        {
+            temp_a *= 10;
+            scale_a++;
+        }
+
+        while (std::floor(temp_b) != temp_b)
+        {
+            temp_b *= 10;
+            scale_b++;
+        }
+
+        int scale = std::max(scale_a, scale_b);
+
+        // Use the largest integer type to avoid overflow
+        using IntegerType = long long;
+
+        IntegerType int_a = static_cast<IntegerType>(std::abs(a) * std::pow(10, scale));
+        IntegerType int_b = static_cast<IntegerType>(std::abs(b) * std::pow(10, scale));
+
+        // Compute the GCD of the scaled integers
+        IntegerType int_gcd = gcd_int(int_a, int_b);
+
+        // Scale the GCD back to the original scale
+        return static_cast<T>(int_gcd) / std::pow(10, scale);
+    }
 
 } // namespace samurai

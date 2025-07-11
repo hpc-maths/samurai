@@ -18,6 +18,10 @@
 #include "graduation.hpp"
 #include "utils.hpp"
 
+#ifndef NDEBUG
+#include "../io/hdf5.hpp"
+#endif
+
 using namespace xt::placeholders;
 
 #ifdef SAMURAI_WITH_MPI
@@ -111,9 +115,13 @@ namespace samurai
         auto outside_layer     = difference(translate(inner, layer * direction), translate(domain, (layer - 1) * direction));
         auto projection_ghosts = intersection(outside_layer, mesh[mesh_id_t::reference][proj_level]).on(proj_level);
 
+        // auto bc_ghosts                      = expand(mesh[mesh_id_t::cells][proj_level], Field::mesh_t::config::max_stencil_width);
+        // auto projection_ghosts_no_bc_ghosts = difference(projection_ghosts, bc_ghosts);
+
         lca_t proj_ghost_lca(proj_level, mesh.origin_point(), mesh.scaling_factor());
 
         projection_ghosts(
+            // projection_ghosts_no_bc_ghosts(
             [&](const auto& i, const auto& index)
             {
                 field(proj_level, i, index) = 0; // Initialize the sums to 0 to compute the average
@@ -147,8 +155,11 @@ namespace samurai
                                         std::cerr << "[" << world.rank() << "] ";
 #endif
                                         std::cerr << "NaN found in field(" << children_level << "," << ii_child << "," << index_child
-                                                  << ") during projection of the B.C." << std::endl;
-                                        samurai::save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
+                                                  << ") during projection of the B.C. (dir = " << direction << ", layer = " << layer << ")"
+                                                  << std::endl;
+#ifndef NDEBUG
+                                        save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
+#endif
                                         std::exit(1);
                                     }
 #endif
@@ -165,10 +176,15 @@ namespace samurai
                     if (n_children == 0)
                     {
 #ifndef SAMURAI_WITH_MPI
-                        std::cerr << "No children found for the ghost at level " << proj_level << ", i = " << ii << ", index = " << index
-                                  << " during projection of the B.C." << std::endl;
-                        // samurai::save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
-                        std::exit(1);
+                        if (mesh.domain().is_box())
+                        {
+                            std::cerr << "No children found for the ghost at level " << proj_level << ", i = " << ii
+                                      << ", index = " << index << " during projection of the B.C." << std::endl;
+#ifndef NDEBUG
+                            save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
+#endif
+                            std::exit(1);
+                        }
 #endif
                     }
                     else
@@ -229,16 +245,43 @@ namespace samurai
 
         auto& mesh = field.mesh();
 
-        auto& cells                    = mesh[mesh_id_t::cells][pred_level - 1];
-        auto bc_ghosts                 = difference(translate(cells, direction), self(mesh.domain()).on(pred_level - 1));
-        auto outside_prediction_ghosts = intersection(bc_ghosts, mesh[mesh_id_t::reference][pred_level]).on(pred_level);
+        std::size_t n_bc_ghosts = Field::mesh_t::config::max_stencil_width;
+        if (!field.get_bc().empty())
+        {
+            n_bc_ghosts = field.get_bc().front()->stencil_size() / 2;
+        }
 
-        outside_prediction_ghosts(
+        auto& cells                    = mesh[mesh_id_t::cells][pred_level - 1];
+        auto bc_ghosts                 = difference(translate(cells, n_bc_ghosts * direction), self(mesh.domain()).on(pred_level - 1));
+        auto outside_prediction_ghosts = intersection(bc_ghosts, mesh[mesh_id_t::reference][pred_level]).on(pred_level);
+        // We don't want to fill by prediction the ghosts that are/will be filled by the B.C. in other directions.
+        // This can happen when there is a hole in the domain.
+        auto bc_ghosts_in_other_directions  = expand(mesh[mesh_id_t::cells][pred_level], n_bc_ghosts);
+        auto prediction_ghosts_no_bc_ghosts = difference(outside_prediction_ghosts, bc_ghosts_in_other_directions);
+
+        // outside_prediction_ghosts(
+        prediction_ghosts_no_bc_ghosts(
             [&](const auto& i, const auto& index)
             {
                 interval_t i_cell = {i.start, i.start + 1};
                 for (auto ii = i.start; ii < i.end; ++ii, i_cell += 1)
                 {
+#ifdef SAMURAI_CHECK_NAN
+                    if (xt::any(xt::isnan(field(pred_level - 1, i_cell >> 1, index >> 1))))
+                    {
+                        std::cerr << std::endl;
+#ifdef SAMURAI_WITH_MPI
+                        mpi::communicator world;
+                        std::cerr << "[" << world.rank() << "] ";
+#endif
+                        std::cerr << "NaN found in field(" << (pred_level - 1) << "," << (i_cell >> 1) << "," << (index >> 1)
+                                  << ") during prediction of the B.C." << std::endl;
+#ifndef NDEBUG
+                        samurai::save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
+#endif
+                        std::exit(1);
+                    }
+#endif
                     field(pred_level, i_cell, index) = field(pred_level - 1, i_cell >> 1, index >> 1);
                 }
             });
@@ -354,11 +397,25 @@ namespace samurai
                         predict_bc(level + 1, direction, field);
                     }
 
-                    // If the B.C. doesn't fill all the ghost layers, we use polynomial extrapolation
-                    // to fill the remaining layers
-                    update_further_ghosts_by_polynomial_extrapolation(level, direction, field);
+                    // // If the B.C. doesn't fill all the ghost layers, we use polynomial extrapolation
+                    // // to fill the remaining layers
+                    // update_further_ghosts_by_polynomial_extrapolation(level, direction, field);
                 }
             });
+
+        // If the B.C. doesn't fill all the ghost layers, we use polynomial extrapolation
+        // to fill the remaining layers
+        if (level >= mesh.min_level())
+        {
+            for_each_cartesian_direction<dim>(
+                [&](auto direction_index, const auto& direction)
+                {
+                    if (!mesh.is_periodic(direction_index))
+                    {
+                        update_further_ghosts_by_polynomial_extrapolation(level, direction, field);
+                    }
+                });
+        }
     }
 
     /**
@@ -435,7 +492,7 @@ namespace samurai
             update_ghost_periodic(level, field, other_fields...);
             update_ghost_subdomains(level, field, other_fields...);
         }
-        // samurai::save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
+        // save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
 
         times::timers.stop("ghost update");
     }
