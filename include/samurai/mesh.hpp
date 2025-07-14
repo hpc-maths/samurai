@@ -289,9 +289,12 @@ namespace samurai
         // partition_mesh(start_level, b);
         //  load_balancing();
 #else
-        // We need to be able to apply the BC at all levels (including those under the min_level set by the user).
+        // We need to be able to apply the BC at all levels (between min_level and max_level, but not under min_level
+        // since the BC are only apply near real cells).
         // If there is a hole that isn't large enough to have enough ghosts to apply the BC, we need to refine the mesh.
         // (Otherwise, some ghosts at the end of the stencil will infact be cells on the other side of the hole.)
+        // Another constraint (that will be lifted in the future): as we simultaneously apply the BC on both positive and
+        // negartive directions, we actually need 2 times the stencil width inside the hole.
 
         // min_level where the BC can be applied
         std::size_t min_level_bc = min_level; // min_level > 1 ? min_level - 2 : 0;
@@ -302,7 +305,10 @@ namespace samurai
             auto largest_cell_length = samurai::cell_length(scaling_factor_, min_level_bc);
             for (const auto& box : domain_builder.removed_boxes())
             {
-                while (box.min_length() < largest_cell_length * config::max_stencil_width)
+                std::cout << "box.min_length() = " << box.min_length()
+                          << ", largest_cell_length * config::max_stencil_width = " << largest_cell_length * config::max_stencil_width
+                          << std::endl;
+                while (box.min_length() < 2 * largest_cell_length * config::max_stencil_width)
                 {
                     scaling_factor_ /= 2;
                     largest_cell_length /= 2;
@@ -314,10 +320,10 @@ namespace samurai
             auto largest_cell_length = samurai::cell_length(scaling_factor_, min_level_bc);
             for (const auto& box : domain_builder.removed_boxes())
             {
-                if (box.min_length() < largest_cell_length * config::max_stencil_width)
+                if (box.min_length() < 2 * largest_cell_length * config::max_stencil_width)
                 {
                     std::cerr << "The hole " << box << " is too small to apply the BC at level " << min_level_bc
-                              << " with the given scaling factor. We need to be able to construct " << config::max_stencil_width
+                              << " with the given scaling factor. We need to be able to construct " << (2 * config::max_stencil_width)
                               << " ghosts in each direction inside the hole." << std::endl;
                     std::cerr << "Please choose a smaller scaling factor or enlarge the hole." << std::endl;
                     std::exit(1);

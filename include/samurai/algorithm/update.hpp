@@ -259,7 +259,6 @@ namespace samurai
         auto bc_ghosts_in_other_directions  = expand(mesh[mesh_id_t::cells][pred_level], n_bc_ghosts);
         auto prediction_ghosts_no_bc_ghosts = difference(outside_prediction_ghosts, bc_ghosts_in_other_directions);
 
-        // outside_prediction_ghosts(
         prediction_ghosts_no_bc_ghosts(
             [&](const auto& i, const auto& index)
             {

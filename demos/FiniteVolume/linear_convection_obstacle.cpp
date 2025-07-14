@@ -51,14 +51,14 @@ int main(int argc, char* argv[])
     double cfl = 0.95;
 
     // Multiresolution parameters
-    std::size_t min_level = 1;
-    std::size_t max_level = dim == 1 ? 6 : 4;
+    std::size_t min_level = 2;
+    std::size_t max_level = 4;
     double mr_epsilon     = 1e-3; // Threshold used by multiresolution
     double mr_regularity  = 1.;   // Regularity guess for multiresolution
 
     // Output parameters
     fs::path path        = fs::current_path();
-    std::string filename = "linear_convection_obstacle_" + std::to_string(dim) + "D";
+    std::string filename = "linear_convection_obstacle";
     std::size_t nfiles   = 0;
 
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
