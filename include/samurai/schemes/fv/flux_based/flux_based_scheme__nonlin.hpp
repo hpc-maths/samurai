@@ -3,6 +3,22 @@
 
 namespace samurai
 {
+    namespace detail
+    {
+        template <bool enable_finer_level_flux>
+        inline auto get_dest_level(std::size_t level, std::size_t max_level)
+        {
+            if constexpr (enable_finer_level_flux)
+            {
+                return args::finer_level_flux < 0 ? max_level : std::min(level + static_cast<std::size_t>(args::finer_level_flux), max_level);
+            }
+            else
+            {
+                return level;
+            }
+        }
+    }
+
     /**
      * @class FluxBasedScheme
      *    Implementation of non-linear schemes
@@ -39,7 +55,7 @@ namespace samurai
 
         FluxDefinition<cfg> m_flux_definition;
         bool m_include_boundary_fluxes = true;
-        bool m_enable_max_level_flux   = false;
+        bool m_enable_finer_level_flux = false;
 
       public:
 
@@ -68,19 +84,19 @@ namespace samurai
             return m_include_boundary_fluxes;
         }
 
-        void enable_max_level_flux(bool enable)
+        void enable_finer_level_flux(bool enable)
         {
             if (enable && dim > 1 && stencil_size > 4 && !args::refine_boundary) // cppcheck-suppress knownConditionTrueFalse
             {
                 std::cout << "Warning: for stencils larger than 4, computing fluxes at max_level may cause issues close to the boundary."
                           << std::endl;
             }
-            m_enable_max_level_flux = enable;
+            m_enable_finer_level_flux = enable;
         }
 
-        bool enable_max_level_flux() const
+        bool enable_finer_level_flux() const
         {
-            return m_enable_max_level_flux;
+            return m_enable_finer_level_flux;
         }
 
       private:
@@ -117,7 +133,7 @@ namespace samurai
         /**
          * We store here everything that we compute only once per level
          */
-        template <bool enable_max_level_flux>
+        template <bool enable_finer_level_flux>
         struct FluxParameters
         {
             std::size_t flux_direction      = 0;
@@ -127,15 +143,17 @@ namespace samurai
             double left_factor              = 0;
             double right_factor             = 0;
             double cell_length              = 0; // cell length at the level where the flux is computed
-            std::size_t n_fine_fluxes       = 0; // number of fluxes at max_level to sum up together, or 1 if enable_max_level_flux=false
+            std::size_t n_fine_fluxes       = 0; // number of fluxes at max_level to sum up together, or 1 if enable_max_finer_flux=false
             int n_children_at_max_level     = 0; // number of 1D children at max_level of one cell at the current level
-            std::size_t coarse_stencil_size = 0; // number of cells at the current level used to predict the required values at max_level
+            std::size_t coarse_stencil_size = 0; // number of cells at the current level used to predict the required values at
+                                                 // max_level
 
             void set_level(std::size_t l)
             {
                 level                   = l;
-                delta_l                 = max_level - l;
-                n_fine_fluxes           = enable_max_level_flux ? (1 << ((dim - 1) * delta_l)) : 1;
+                delta_l                 = (args::finer_level_flux < 0) ? max_level - l
+                                                                       : std::min(l + static_cast<std::size_t>(args::finer_level_flux), max_level) - l;
+                n_fine_fluxes           = (1 << ((dim - 1) * delta_l));
                 n_children_at_max_level = 1 << delta_l;
 
                 coarse_stencil_size = 2;
@@ -171,13 +189,13 @@ namespace samurai
             }
         }
 
-        template <bool enable_max_level_flux>
-        void compute_stencil_values(const FluxParameters<enable_max_level_flux>& flux_params,
+        template <bool enable_finer_level_flux>
+        void compute_stencil_values(const FluxParameters<enable_finer_level_flux>& flux_params,
                                     const StencilCells<cfg>& cells,
                                     const input_field_t& field,
                                     std::vector<StencilValues<cfg>>& stencil_values_list)
         {
-            if constexpr (!enable_max_level_flux)
+            if constexpr (!enable_finer_level_flux)
             {
                 copy_stencil_values(field, cells, stencil_values_list[0]);
             }
@@ -190,7 +208,7 @@ namespace samurai
             }
             else
             {
-                static_assert(!enable_max_level_flux || stencil_size % 2 == 0, "not implemented for odd stencil sizes");
+                static_assert(!enable_finer_level_flux || stencil_size % 2 == 0, "not implemented for odd stencil sizes");
 
                 if (flux_params.delta_l == 0)
                 {
@@ -307,8 +325,8 @@ namespace samurai
             }
         }
 
-        template <bool enable_max_level_flux, class InterfaceIterator, class StencilIterator, class FluxFunction, class Func>
-        void process_interior_interfaces(const FluxParameters<enable_max_level_flux>& flux_params,
+        template <bool enable_finer_level_flux, class InterfaceIterator, class StencilIterator, class FluxFunction, class Func>
+        void process_interior_interfaces(const FluxParameters<enable_finer_level_flux>& flux_params,
                                          InterfaceIterator& interface_it,
                                          StencilIterator& comput_stencil_it,
                                          const FluxFunction& flux_function,
@@ -323,7 +341,7 @@ namespace samurai
 
             for (std::size_t ii = 0; ii < comput_stencil_it.interval().size(); ++ii)
             {
-                compute_stencil_values<enable_max_level_flux>(flux_params, comput_stencil_it.cells(), field, stencil_values_list);
+                compute_stencil_values<enable_finer_level_flux>(flux_params, comput_stencil_it.cells(), field, stencil_values_list);
 
                 for (std::size_t k = 0; k < flux_params.n_fine_fluxes; ++k)
                 {
@@ -339,7 +357,7 @@ namespace samurai
             }
         }
 
-        template <bool enable_max_level_flux, bool direction, class InterfaceIterator, class StencilIterator, class FluxFunction, class Func>
+        template <bool enable_finer_level_flux, bool direction, class InterfaceIterator, class StencilIterator, class FluxFunction, class Func>
         void process_boundary_interfaces(InterfaceIterator& interface_it,
                                          StencilIterator& comput_stencil_it,
                                          const FluxFunction& flux_function,
@@ -347,7 +365,7 @@ namespace samurai
                                          double factor,
                                          Func&& apply_contrib)
         {
-            static_assert(!enable_max_level_flux);
+            static_assert(!enable_finer_level_flux);
 
             FluxValuePair<cfg> flux_values;
             StencilValues<cfg> stencil_values;
@@ -382,7 +400,7 @@ namespace samurai
          * This function is used in the Explicit class to iterate over the interior interfaces
          * in a specific direction and receive the contribution computed from the stencil.
          */
-        template <Run run_type = Run::Sequential, bool enable_max_level_flux, class Func>
+        template <Run run_type = Run::Sequential, bool enable_finer_level_flux, class Func>
         void for_each_interior_interface(std::size_t d, input_field_t& field, Func&& apply_contrib)
         {
             auto& mesh = field.mesh();
@@ -394,9 +412,7 @@ namespace samurai
 
             auto flux_function = flux_def.flux_function ? flux_def.flux_function : flux_def.flux_function_as_conservative();
 
-            double h_max_level = mesh.cell_length(mesh.max_level());
-
-            FluxParameters<enable_max_level_flux> flux_params;
+            FluxParameters<enable_finer_level_flux> flux_params;
             flux_params.max_level      = mesh.max_level();
             flux_params.flux_direction = d;
 
@@ -404,7 +420,7 @@ namespace samurai
             for (std::size_t level = min_level; level <= max_level; ++level)
             {
                 auto h      = mesh.cell_length(level);
-                auto h_face = enable_max_level_flux ? h_max_level : h;
+                auto h_face = mesh.cell_length(detail::get_dest_level<enable_finer_level_flux>(level, max_level));
                 auto factor = h_factor(h_face, h);
 
                 flux_params.set_level(level);
@@ -418,7 +434,7 @@ namespace samurai
                                                                                   flux_def.stencil,
                                                                                   [&](auto& interface_it, auto& comput_stencil_it)
                                                                                   {
-                                                                                      process_interior_interfaces<enable_max_level_flux>(
+                                                                                      process_interior_interfaces<enable_finer_level_flux>(
                                                                                           flux_params,
                                                                                           interface_it,
                                                                                           comput_stencil_it,
@@ -440,7 +456,7 @@ namespace samurai
                 auto h_l   = mesh.cell_length(level);
                 auto h_lp1 = mesh.cell_length(level + 1);
 
-                auto h_face = enable_max_level_flux ? h_max_level : h_lp1;
+                auto h_face = mesh.cell_length(detail::get_dest_level<enable_finer_level_flux>(level + 1, max_level));
 
                 flux_params.set_level(level + 1);
                 flux_params.cell_length = h_face;
@@ -460,12 +476,12 @@ namespace samurai
                         flux_def.stencil,
                         [&](auto& interface_it, auto& comput_stencil_it)
                         {
-                            process_interior_interfaces<enable_max_level_flux>(flux_params,
-                                                                               interface_it,
-                                                                               comput_stencil_it,
-                                                                               flux_function,
-                                                                               field,
-                                                                               std::forward<Func>(apply_contrib));
+                            process_interior_interfaces<enable_finer_level_flux>(flux_params,
+                                                                                 interface_it,
+                                                                                 comput_stencil_it,
+                                                                                 flux_function,
+                                                                                 field,
+                                                                                 std::forward<Func>(apply_contrib));
                         });
                 }
                 //    |__|        l+1
@@ -483,12 +499,12 @@ namespace samurai
                         flux_def.stencil,
                         [&](auto& interface_it, auto& comput_stencil_it)
                         {
-                            process_interior_interfaces<enable_max_level_flux>(flux_params,
-                                                                               interface_it,
-                                                                               comput_stencil_it,
-                                                                               flux_function,
-                                                                               field,
-                                                                               std::forward<Func>(apply_contrib));
+                            process_interior_interfaces<enable_finer_level_flux>(flux_params,
+                                                                                 interface_it,
+                                                                                 comput_stencil_it,
+                                                                                 flux_function,
+                                                                                 field,
+                                                                                 std::forward<Func>(apply_contrib));
                         });
                 }
             }
@@ -498,7 +514,7 @@ namespace samurai
          * This function is used in the Explicit class to iterate over the boundary interfaces
          * in a specific direction and receive the contribution computed from the stencil.
          */
-        template <Run run_type = Run::Sequential, bool enable_max_level_flux, class Func>
+        template <Run run_type = Run::Sequential, bool enable_finer_level_flux, class Func>
         void for_each_boundary_interface(std::size_t d, input_field_t& field, Func&& apply_contrib)
         {
             auto& mesh = field.mesh();
