@@ -13,6 +13,7 @@ namespace samurai
 
             using scheme_t = OperatorSum<Operators...>;
             using field_t  = typename scheme_t::field_t;
+            using cell_t   = typename field_t::mesh_t::cell_t;
 
           private:
 
@@ -265,6 +266,26 @@ namespace samurai
             void enforce_projection_prediction(Vec& b) const
             {
                 largest_stencil_assembly().enforce_projection_prediction(b);
+            }
+
+            inline PetscInt col_index(PetscInt cell_index, unsigned int field_j) const
+            {
+                return largest_stencil_assembly().col_index(cell_index, field_j);
+            }
+
+            inline PetscInt row_index(PetscInt cell_index, [[maybe_unused]] unsigned int field_i) const
+            {
+                return largest_stencil_assembly().row_index(cell_index, field_i);
+            }
+
+            inline PetscInt col_index(const cell_t& cell, unsigned int field_j) const
+            {
+                return largest_stencil_assembly().col_index(cell, field_j);
+            }
+
+            inline PetscInt row_index(const cell_t& cell, unsigned int field_i) const
+            {
+                return largest_stencil_assembly().row_index(cell, field_i);
             }
 
             bool matrix_is_symmetric() const override
