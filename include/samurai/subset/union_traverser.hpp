@@ -5,20 +5,18 @@
 
 #include "set_traverser_base.hpp"
 
-#include <fmt/ranges.h>
-
 namespace samurai
 {
 
-    template <SetTraverser_concept... SetTraverser>
+    template <SetTraverser_concept... SetTraversers>
     class UnionTraverser;
 
     template <SetTraverser_concept... SetTraversers>
     struct SetTraverserTraits<UnionTraverser<SetTraversers...>>
     {
-        using Childrens = std::tuple<SetTraversers...>;
-
-        using interval_t = typename SetTraverserTraits<std::tuple_element_t<0, Childrens>>::interval_t;
+        using Childrens          = std::tuple<SetTraversers...>;
+        using interval_t         = typename SetTraverserTraits<std::tuple_element_t<0, Childrens>>::interval_t;
+        using current_interval_t = const interval_t&;
 
         static constexpr std::size_t dim = SetTraverserTraits<std::tuple_element_t<0, Childrens>>::dim;
     };
@@ -26,10 +24,11 @@ namespace samurai
     template <SetTraverser_concept... SetTraversers>
     class UnionTraverser : public SetTraverserBase<UnionTraverser<SetTraversers...>>
     {
-        using Self       = UnionTraverser<SetTraversers...>;
-        using interval_t = typename SetTraverserTraits<Self>::interval_t;
-        using Childrens  = typename SetTraverserTraits<Self>::Childrens;
-        using value_t    = typename interval_t::value_t;
+        using Self               = UnionTraverser<SetTraversers...>;
+        using interval_t         = typename SetTraverserTraits<Self>::interval_t;
+        using current_interval_t = typename SetTraverserTraits<Self>::current_interval_t;
+        using Childrens          = typename SetTraverserTraits<Self>::Childrens;
+        using value_t            = typename interval_t::value_t;
 
         template <size_t I>
         using IthChild = std::tuple_element<I, Childrens>;
@@ -65,11 +64,12 @@ namespace samurai
                     }
                 });
             // Now we find the end of the interval, i.e. the largest set_traverser.current_interval().end << m_shifts[i]
-            // such that set_traverser.current_interval().start < m_current_interval.end
+            // such that (set_traverser.current_interval().start << m_shifts[i]) < m_current_interval.end
             bool is_done = false;
             while (!is_done)
             {
                 is_done = true;
+                // advance set traverses that are behind current interval
                 enumerate_items(
                     m_set_traversers,
                     [this](const auto i, auto& set_traverser)
@@ -79,7 +79,7 @@ namespace samurai
                             set_traverser.next_interval();
                         }
                     });
-
+                // try to find a new end
                 enumerate_const_items(
                     m_set_traversers,
                     [&is_done, this](const auto i, const auto& set_traverser)
@@ -94,7 +94,7 @@ namespace samurai
             }
         }
 
-        inline const interval_t& current_interval() const
+        inline current_interval_t current_interval() const
         {
             return m_current_interval;
         }

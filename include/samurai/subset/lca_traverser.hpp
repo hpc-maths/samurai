@@ -17,7 +17,8 @@ namespace samurai
     template <LCA_concept LCA>
     struct SetTraverserTraits<LCATraverser<LCA>>
     {
-        using interval_t = typename LCA::interval_t;
+        using interval_t         = typename LCA::interval_t;
+        using current_interval_t = const interval_t&;
 
         static constexpr std::size_t dim = LCA::dim;
     };
@@ -25,10 +26,11 @@ namespace samurai
     template <LCA_concept LCA>
     class LCATraverser : public SetTraverserBase<LCATraverser<LCA>>
     {
-        using Self              = LCATraverser<LCA>;
-        using Base              = SetTraverserBase<Self>;
-        using interval_t        = typename SetTraverserTraits<Self>::interval_t;
-        using interval_iterator = typename std::vector<interval_t>::const_iterator;
+        using Self               = LCATraverser<LCA>;
+        using Base               = SetTraverserBase<Self>;
+        using interval_t         = typename SetTraverserTraits<Self>::interval_t;
+        using current_interval_t = typename SetTraverserTraits<Self>::current_interval_t;
+        using interval_iterator  = typename std::vector<interval_t>::const_iterator;
 
       public:
 
@@ -45,10 +47,11 @@ namespace samurai
 
         inline void next_interval()
         {
+            assert(!is_empty());
             ++m_first_interval;
         }
 
-        inline const interval_t& current_interval() const
+        inline current_interval_t current_interval() const
         {
             return *m_first_interval;
         }

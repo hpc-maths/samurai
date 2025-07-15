@@ -16,9 +16,9 @@ namespace samurai
     template <SetTraverser_concept... SetTraversers>
     struct SetTraverserTraits<IntersectionTraverser<SetTraversers...>>
     {
-        using Childrens = std::tuple<SetTraversers...>;
-
-        using interval_t = typename SetTraverserTraits<std::tuple_element_t<0, Childrens>>::interval_t;
+        using Childrens          = std::tuple<SetTraversers...>;
+        using interval_t         = typename SetTraverserTraits<std::tuple_element_t<0, Childrens>>::interval_t;
+        using current_interval_t = const interval_t&;
 
         static constexpr std::size_t dim = SetTraverserTraits<std::tuple_element_t<0, Childrens>>::dim;
     };
@@ -26,10 +26,11 @@ namespace samurai
     template <SetTraverser_concept... SetTraversers>
     class IntersectionTraverser : public SetTraverserBase<IntersectionTraverser<SetTraversers...>>
     {
-        using Self       = IntersectionTraverser<SetTraversers...>;
-        using interval_t = typename SetTraverserTraits<Self>::interval_t;
-        using Childrens  = typename SetTraverserTraits<Self>::Childrens;
-        using value_t    = typename interval_t::value_t;
+        using Self               = IntersectionTraverser<SetTraversers...>;
+        using interval_t         = typename SetTraverserTraits<Self>::interval_t;
+        using current_interval_t = typename SetTraverserTraits<Self>::current_interval_t;
+        using Childrens          = typename SetTraverserTraits<Self>::Childrens;
+        using value_t            = typename interval_t::value_t;
 
         template <size_t I>
         using IthChild = std::tuple_element<I, Childrens>;
@@ -38,8 +39,8 @@ namespace samurai
 
       public:
 
-        IntersectionTraverser(const std::array<std::size_t, nIntervals> shifts, const SetTraversers&... set_traversers)
-            : m_set_traversers(set_traversers...)
+        IntersectionTraverser(const std::array<std::size_t, nIntervals>& shifts, const SetTraversers&... set_traverser)
+            : m_set_traversers(set_traverser...)
             , m_shifts(shifts)
         {
             next_interval();
@@ -55,7 +56,7 @@ namespace samurai
             m_current_interval.start = 0;
             m_current_interval.end   = 0;
 
-            while (not_is_any_child_empty() and m_current_interval.start >= m_current_interval.end)
+            while (not_is_any_child_empty() && m_current_interval.start >= m_current_interval.end)
             {
                 m_current_interval.start = std::numeric_limits<value_t>::min();
                 m_current_interval.end   = std::numeric_limits<value_t>::max();
@@ -66,9 +67,12 @@ namespace samurai
                     {
                         if (!set_traverser.is_empty())
                         {
+                            fmt::print("child {} -- interval = {}\n", i, set_traverser.current_interval());
+
                             m_current_interval.start = std::max(m_current_interval.start,
                                                                 set_traverser.current_interval().start << m_shifts[i]);
                             m_current_interval.end = std::min(m_current_interval.end, set_traverser.current_interval().end << m_shifts[i]);
+                            fmt::print("current_interval = {}\n", m_current_interval);
                         }
                     });
 
@@ -84,7 +88,7 @@ namespace samurai
             }
         }
 
-        inline const interval_t& current_interval() const
+        inline current_interval_t current_interval() const
         {
             return m_current_interval;
         }

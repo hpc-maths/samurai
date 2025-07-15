@@ -84,12 +84,6 @@ namespace samurai
     };
 
     template <LCA_concept LCA>
-    const LCAView<LCA>& self(const LCAView<LCA>& lca_view)
-    {
-        return lca_view;
-    }
-
-    template <LCA_concept LCA>
     LCAView<LCA> self(const LCA& lca)
     {
         return LCAView<LCA>(lca);

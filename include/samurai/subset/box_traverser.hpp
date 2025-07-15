@@ -18,7 +18,8 @@ namespace samurai
     template <Box_concept B>
     struct SetTraverserTraits<BoxTraverser<B>>
     {
-        using interval_t = Interval<typename B::point_t::value_type>;
+        using interval_t         = Interval<typename B::point_t::value_type>;
+        using current_interval_t = const interval_t&;
 
         static constexpr std::size_t dim = B::dim;
     };
@@ -26,10 +27,11 @@ namespace samurai
     template <Box_concept B>
     class BoxTraverser : public SetTraverserBase<BoxTraverser<B>>
     {
-        using Self       = BoxTraverser<B>;
-        using Base       = SetTraverserBase<Self>;
-        using interval_t = typename SetTraverserTraits<Self>::interval_t;
-        using value_t    = typename interval_t::value_t;
+        using Self               = BoxTraverser<B>;
+        using Base               = SetTraverserBase<Self>;
+        using interval_t         = typename SetTraverserTraits<Self>::interval_t;
+        using current_interval_t = typename SetTraverserTraits<Self>::current_interval_t;
+        using value_t            = typename interval_t::value_t;
 
       public:
 
@@ -46,10 +48,11 @@ namespace samurai
 
         inline void next_interval()
         {
+            assert(!is_empty());
             m_empty = true;
         }
 
-        inline const interval_t& current_interval() const
+        inline current_interval_t current_interval() const
         {
             return m_current_interval;
         }

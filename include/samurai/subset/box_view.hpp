@@ -65,12 +65,6 @@ namespace samurai
     };
 
     template <Box_concept B>
-    const BoxView<B>& self(const BoxView<B>& box_view)
-    {
-        return box_view;
-    }
-
-    template <Box_concept B>
     BoxView<B> self(const B& box)
     {
         return BoxView<B>(box);

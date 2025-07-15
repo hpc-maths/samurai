@@ -14,7 +14,8 @@ namespace samurai
     template <SetTraverser_concept SetTraverser>
     struct SetTraverserTraits<TranslationTraverser<SetTraverser>>
     {
-        using interval_t = typename SetTraverserTraits<SetTraverser>::interval_t;
+        using interval_t         = typename SetTraverserTraits<SetTraverser>::interval_t;
+        using current_interval_t = interval_t;
 
         static constexpr std::size_t dim = SetTraverserTraits<SetTraverser>::dim;
     };
@@ -22,16 +23,16 @@ namespace samurai
     template <SetTraverser_concept SetTraverser>
     class TranslationTraverser : public SetTraverserBase<TranslationTraverser<SetTraverser>>
     {
-        using Self       = TranslationTraverser<SetTraverser>;
-        using interval_t = typename SetTraverserTraits<Self>::interval_t;
-        using value_t    = typename interval_t::value_t;
+        using Self               = TranslationTraverser<SetTraverser>;
+        using interval_t         = typename SetTraverserTraits<Self>::interval_t;
+        using current_interval_t = typename SetTraverserTraits<Self>::current_interval_t;
+        using value_t            = typename interval_t::value_t;
 
       public:
 
         TranslationTraverser(const SetTraverser& set_traverser, const value_t& translation)
             : m_set_traverser(set_traverser)
             , m_translation(translation)
-            , m_current_interval(set_traverser.current_interval().start + m_translation, set_traverser.current_interval().end + m_translation)
         {
         }
 
@@ -42,20 +43,19 @@ namespace samurai
 
         inline void next_interval()
         {
+            assert(!is_empty());
             m_set_traverser.next_interval();
-            m_current_interval.start = m_set_traverser.current_interval().start + m_translation;
-            m_current_interval.end   = m_set_traverser.current_interval().end + m_translation;
         }
 
-        inline const interval_t& current_interval() const
+        inline current_interval_t current_interval() const
         {
-            return m_current_interval;
+            return current_interval_t{m_set_traverser.current_interval().start + m_translation,
+                                      m_set_traverser.current_interval().end + m_translation};
         }
 
       private:
 
         SetTraverser m_set_traverser;
         value_t m_translation;
-        interval_t m_current_interval;
     };
 }

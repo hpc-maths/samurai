@@ -100,7 +100,7 @@ namespace samurai
         template <class index_t, std::size_t d, std::size_t... Is>
         traverser_t get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d> d_ic, std::index_sequence<Is...>) const
         {
-            return traverser_t(m_shifts, (std::get<Is>(m_sets).get_traverser(index >> m_shifts[Is], d_ic))...);
+            return traverser_t(m_shifts, std::get<Is>(m_sets).get_traverser(index >> m_shifts[Is], d_ic)...);
         }
 
         Childrens m_sets;
@@ -108,14 +108,9 @@ namespace samurai
         std::array<std::size_t, nIntervals> m_shifts;
     };
 
-    template <SetOperator op, Set_concept... Sets>
-    const SubSet<op, Sets...>& self(const SubSet<op, Sets...>& subset)
-    {
-        return subset;
-    }
-
     template <Set_concept... Sets>
     using Union = SubSet<SetOperator::UNION, Sets...>;
+
     template <Set_concept... Sets>
     using Intersection = SubSet<SetOperator::INTERSECTION, Sets...>;
 

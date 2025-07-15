@@ -17,13 +17,16 @@ namespace samurai
     ////////////////////////////////////////////////////////////////////////
 
     template <class Set>
-    class Projection;
-    template <class Set>
     struct SetTraits;
+
     template <class Derived>
     class SetBase;
+
     template <typename T>
     concept Set_concept = std::is_base_of<SetBase<T>, T>::value;
+
+    template <class Set>
+    class Projection;
 
     template <Set_concept Set, class Func>
     void apply(const Set& set, Func&& func);
@@ -76,7 +79,7 @@ namespace samurai
             return derived_cast().get_traverser(index, d_ic);
         }
 
-        //~ inline Projection<Derived> on(const std::size_t level);
+        inline Projection<Derived> on(const std::size_t level);
 
         template <class Func>
         void operator()(Func&& func) const
@@ -95,17 +98,23 @@ namespace samurai
         }
     };
 
+    template <Set_concept Set>
+    const Set& self(const Set& set)
+    {
+        return set;
+    }
+
 } // namespace samurai
 
-//~ #include "projected_set.hpp"
+#include "projection.hpp"
 
-//~ namespace samurai
-//~ {
+namespace samurai
+{
 
-//~ template <class Derived>
-//~ Projection<Derived> SetBase<Derived>::on(const std::size_t level)
-//~ {
-//~ return Projection<Derived>(derived_cast(), level);
-//~ }
+    template <class Derived>
+    Projection<Derived> SetBase<Derived>::on(const std::size_t level)
+    {
+        return Projection<Derived>(derived_cast(), level);
+    }
 
-//~ }
+}

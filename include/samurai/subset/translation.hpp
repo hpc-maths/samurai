@@ -70,12 +70,6 @@ namespace samurai
         translation_t m_translation;
     };
 
-    template <Set_concept Set>
-    const Translation<Set>& self(const Translation<Set>& translated_set)
-    {
-        return translated_set;
-    }
-
     template <class Set, class translation_t>
     auto translate(const Set& set, const translation_t& translation)
     {
