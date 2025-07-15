@@ -16,16 +16,16 @@ namespace samurai
           protected:
 
             using base_class = FVSchemeAssembly<Scheme>;
-            using base_class::col_index;
             using base_class::dim;
             using base_class::n_comp;
-            using base_class::row_index;
             using base_class::set_is_row_not_empty;
 
           public:
 
+            using base_class::col_index;
             using base_class::ghost_elimination_enabled;
             using base_class::mesh;
+            using base_class::row_index;
             using base_class::scheme;
             using base_class::set_current_insert_mode;
             using base_class::unknown;
