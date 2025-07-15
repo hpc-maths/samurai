@@ -395,6 +395,7 @@ namespace samurai
                   {
                       EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
                   });
+            EXPECT_EQ(ie, 1);
         }
 
         {
@@ -514,386 +515,385 @@ namespace samurai
         }
     }
 
-    //~ TEST(subset, translate)
-    //~ {
-    //~     CellList<1> cl;
-    //~     CellArray<1> ca;
-    //~     using interval_t = typename CellArray<1>::interval_t;
-    //~
-    //~     cl[14][{}].add_interval({8612, 8620});
-    //~     cl[13][{}].add_interval({4279, 4325});
-    //~
-    //~     ca = {cl, true};
-    //~
-    //~     apply(translate(intersection(translate(ca[14], xt::xtensor_fixed<int, xt::xshape<1>>{-1}), self(ca[13]).on(14)),
-    //~                     xt::xtensor_fixed<int, xt::xshape<1>>{-2}),
-    //~           [](auto& i, auto)
-    //~           {
-    //~               EXPECT_EQ(interval_t(8609, 8617), i);
-    //~           });
-    //~ }
+    TEST(subset, translate)
+    {
+        CellList<1> cl;
+        CellArray<1> ca;
+        using interval_t = typename CellArray<1>::interval_t;
 
-    //~ TEST(subset, translate_test)
-    //~ {
-    //~ CellList<1> cl;
-    //~ CellArray<1> ca;
-    //~ using interval_t = typename CellArray<1>::interval_t;
+        cl[14][{}].add_interval({8612, 8620});
+        cl[13][{}].add_interval({4279, 4325});
 
-    //~ cl[5][{}].add_interval({3, 17});
+        ca = {cl, true};
 
-    //~ ca = {cl, true};
+        apply(translate(intersection(translate(ca[14], xt::xtensor_fixed<int, xt::xshape<1>>{-1}), self(ca[13]).on(14)),
+                        xt::xtensor_fixed<int, xt::xshape<1>>{-2}),
+              [](auto& i, auto)
+              {
+                  EXPECT_EQ(interval_t(8609, 8617), i);
+              });
+    }
 
-    //~ apply(intersection(translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{-2}), ca[5]),
-    //~ [](auto& i, auto)
-    //~ {
-    //~ EXPECT_EQ(interval_t(3, 15), i);
-    //~ });
+    TEST(subset, translate_test)
+    {
+        CellList<1> cl;
+        CellArray<1> ca;
+        using interval_t = typename CellArray<1>::interval_t;
 
-    //~ apply(intersection(translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{-2}).on(4), ca[5]),
-    //~ [](auto& i, auto)
-    //~ {
-    //~ EXPECT_EQ(interval_t(3, 16), i);
-    //~ });
+        cl[5][{}].add_interval({3, 17});
 
-    //~ apply(intersection(translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{-2}).on(4),
-    //~ translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{2})),
-    //~ [](auto& i, auto)
-    //~ {
-    //~ EXPECT_EQ(interval_t(5, 16), i);
-    //~ });
+        ca = {cl, true};
 
-    //~ apply(translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{-2}).on(4),
-    //~ [](auto& i, auto)
-    //~ {
-    //~ EXPECT_EQ(interval_t(0, 8), i);
-    //~ });
+        apply(intersection(translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{-2}), ca[5]),
+              [](auto& i, auto)
+              {
+                  EXPECT_EQ(interval_t(3, 15), i);
+              });
 
-    //~ apply(translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{2}).on(3),
-    //~ [](auto& i, auto)
-    //~ {
-    //~ EXPECT_EQ(interval_t(1, 5), i);
-    //~ });
+        apply(intersection(translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{-2}).on(4), ca[5]),
+              [](auto& i, auto)
+              {
+                  EXPECT_EQ(interval_t(3, 16), i);
+              });
 
-    //~ apply(intersection(translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{-2}).on(4),
-    //~ translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{2}).on(3)),
-    //~ [](auto& i, auto)
-    //~ {
-    //~ EXPECT_EQ(interval_t(2, 8), i);
-    //~ });
+        apply(intersection(translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{-2}).on(4),
+                           translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{2})),
+              [](auto& i, auto)
+              {
+                  EXPECT_EQ(interval_t(5, 16), i);
+              });
 
-    //~ apply(translate(intersection(translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{-2}).on(4),
-    //~ translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{2}).on(3)),
-    //~ xt::xtensor_fixed<int, xt::xshape<1>>{5}),
-    //~ [](auto& i, auto)
-    //~ {
-    //~ EXPECT_EQ(interval_t(7, 13), i);
-    //~ });
-    //~ }
+        apply(translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{-2}).on(4),
+              [](auto& i, auto)
+              {
+                  EXPECT_EQ(interval_t(0, 8), i);
+              });
+
+        apply(translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{2}).on(3),
+              [](auto& i, auto)
+              {
+                  EXPECT_EQ(interval_t(1, 5), i);
+              });
+
+        apply(intersection(translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{-2}).on(4),
+                           translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{2}).on(3)),
+              [](auto& i, auto)
+              {
+                  EXPECT_EQ(interval_t(2, 8), i);
+              });
+
+        apply(translate(intersection(translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{-2}).on(4),
+                                     translate(ca[5], xt::xtensor_fixed<int, xt::xshape<1>>{2}).on(3)),
+                        xt::xtensor_fixed<int, xt::xshape<1>>{5}),
+              [](auto& i, auto)
+              {
+                  EXPECT_EQ(interval_t(7, 13), i);
+              });
+    }
 
     //~ TEST(subset, translate_2d)
     //~ {
-    //~ using lca_t      = LevelCellArray<2>;
-    //~ using interval_t = typename lca_t::interval_t;
-    //~ LevelCellArray<2> boundary(5);
-
-    //~ LevelCellArray<2> domain1(5);
-    //~ for (int j = 4; j < 6; ++j)
-    //~ {
-    //~ domain1.add_interval_back({0, 32}, {j});
-    //~ }
-    //~ xt::xtensor_fixed<int, xt::xshape<2>> translation{1, 0};
-    //~ auto diff = difference(domain1, translate(self(domain1), -translation));
-
-    //~ bool found = false;
-    //~ diff.on(4)(
-    //~ [&](auto& i, auto& index)
-    //~ {
-    //~ found = true;
-    //~ EXPECT_EQ(interval_t(15, 16), i);
-    //~ EXPECT_EQ(index[0], 2);
-    //~ });
-    //~ EXPECT_TRUE(found);
-
-    //~ found = false;
-    //~ intersection(diff.on(4), diff.on(4))(
-    //~ [&](auto& i, auto& index)
-    //~ {
-    //~ found = true;
-    //~ EXPECT_EQ(interval_t(15, 16), i);
-    //~ EXPECT_EQ(index[0], 2);
-    //~ });
-    //~ EXPECT_TRUE(found);
-
-    //~ found = false;
-    //~ intersection(diff.on(4), diff.on(4))
-    //~ .on(3)(
-    //~ [&](auto& i, auto& index)
-    //~ {
-    //~ found = true;
-    //~ EXPECT_EQ(interval_t(7, 8), i);
-    //~ EXPECT_EQ(index[0], 1);
-    //~ });
-    //~ EXPECT_TRUE(found);
-
-    //~ found = false;
-    //~ intersection(intersection(diff.on(4), diff.on(4)).on(3), intersection(diff.on(4), diff.on(4)).on(5))
-    //~ .on(3)(
-    //~ [&](auto& i, auto& index)
-    //~ {
-    //~ found = true;
-    //~ EXPECT_EQ(interval_t(7, 8), i);
-    //~ EXPECT_EQ(index[0], 1);
-    //~ });
-    //~ EXPECT_TRUE(found);
-
-    //~ LevelCellArray<2> lca_4(4);
-    //~ lca_4.add_interval_back({15, 16}, {2});
-
-    //~ found = false;
-    //~ intersection(intersection(diff.on(4), diff.on(4)).on(3), lca_4)(
-    //~ [&](auto& i, auto& index)
-    //~ {
-    //~ found = true;
-    //~ EXPECT_EQ(interval_t(15, 16), i);
-    //~ EXPECT_EQ(index[0], 2);
-    //~ });
-    //~ EXPECT_TRUE(found);
-    //~ }
-
-    //~ TEST(subset, union_1d)
-    //~ {
-    //~     using interval_t = typename CellArray<1>::interval_t;
+    //~     using lca_t      = LevelCellArray<2>;
+    //~     using interval_t = typename lca_t::interval_t;
+    //~     LevelCellArray<2> boundary(5);
     //~
-    //~     LevelCellArray<1> lca1;
-    //~     LevelCellArray<1> lca2;
-    //~     LevelCellArray<1> lca3;
-    //~
-    //~     lca1.add_interval_back({10, 20}, {});
-    //~
-    //~     lca2.add_interval_back({0, 4}, {});
-    //~     lca2.add_interval_back({5, 10}, {});
-    //~
-    //~     lca3.add_interval_back({1, 5}, {});
-    //~
-    //~     interval_t expected{0, 20};
-    //~
-    //~     auto set = union_(lca1, lca2, lca3);
-    //~
-    //~     std::size_t n_intervals = 0;
-    //~     apply(set,
-    //~           [&](auto& i, auto&)
-    //~           {
-    //~               EXPECT_EQ(expected, i);
-    //~               ++n_intervals;
-    //~           });
-    //~     EXPECT_EQ(n_intervals, 1);
-    //~ }
-
-    //~ TEST(subset, union)
-    //~ {
-    //~     using interval_t = typename CellArray<2>::interval_t;
-    //~     using expected_t = std::vector<std::pair<int, interval_t>>;
-    //~     LevelCellList<2> lcl1(1);
-    //~     LevelCellList<2> lcl2(1);
-    //~     LevelCellArray<2> lca1;
-    //~     LevelCellArray<2> lca2;
-    //~
-    //~     lcl1[{0}].add_interval({0, 1});
-    //~     lcl2[{1}].add_interval({1, 2});
-    //~
-    //~     lca1 = lcl1;
-    //~     lca2 = lcl2;
-    //~
+    //~     LevelCellArray<2> domain1(5);
+    //~     for (int j = 4; j < 6; ++j)
     //~     {
-    //~         auto expected = expected_t{
-    //~             {0, {0, 1}},
-    //~             {1, {1, 2}}
-    //~         };
-    //~
-    //~         auto set = union_(lca1, lca2);
-    //~         EXPECT_EQ(set.level(), 1);
-    //~
-    //~         bool found     = false;
-    //~         std::size_t ie = 0;
-    //~         apply(set,
-    //~               [&](auto& i, auto& index)
-    //~               {
-    //~                   EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
-    //~                   found = true;
-    //~               });
-    //~         EXPECT_TRUE(found);
+    //~         domain1.add_interval_back({0, 32}, {j});
     //~     }
+    //~     xt::xtensor_fixed<int, xt::xshape<2>> translation{1, 0};
+    //~     auto diff = difference(domain1, translate(self(domain1), -translation));
     //~
-    //~     {
-    //~         auto set = intersection(lca1, lca2);
-    //~         EXPECT_EQ(set.level(), 1);
-    //~
-    //~         bool found = false;
-    //~         apply(set,
-    //~               [&](auto&, auto&)
-    //~               {
-    //~                   found = true;
-    //~               });
-    //~         EXPECT_FALSE(found);
-    //~     }
-    //~
-    //~     {
-    //~         // .on is not yet
-    //~         //~ auto expected = expected_t{
-    //~         //~     {0, {0, 1}},
-    //~         //~ };
-    //~         //~ auto set = intersection(lca1, self(lca2).on(0));
-    //~         //~ EXPECT_EQ(set.level(), 1);
-    //~         //~
-    //~         //~ bool found     = false;
-    //~         //~ std::size_t ie = 0;
-    //~         //~ apply(set,
-    //~         //~       [&](auto& i, auto& index)
-    //~         //~       {
-    //~         //~           EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
-    //~         //~           found = true;
-    //~         //~       });
-    //~         //~ EXPECT_TRUE(found);
-    //~     }
-    //~
-    //~     {
-    //~         //~ auto set = difference(lca1, self(lca2).on(0));
-    //~         //~ EXPECT_EQ(set.level(), 1);
-    //~         //~
-    //~         //~ bool found = false;
-    //~         //~ apply(set,
-    //~         //~       [&](auto&, auto&)
-    //~         //~       {
-    //~         //~           found = true;
-    //~         //~       });
-    //~         //~ EXPECT_FALSE(found);
-    //~     }
-    //~
-    //~     {
-    //~         //~ auto expected = expected_t{
-    //~         //~     {0, {0, 1}},
-    //~         //~ };
-    //~         //~
-    //~         //~ auto set = difference(lca1, lca2);
-    //~         //~ EXPECT_EQ(set.level(), 1);
-    //~         //~
-    //~         //~ bool found     = false;
-    //~         //~ std::size_t ie = 0;
-    //~         //~ apply(set,
-    //~         //~       [&](auto& i, auto& index)
-    //~         //~       {
-    //~         //~           EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
-    //~         //~           found = true;
-    //~         //~       });
-    //~         //~ EXPECT_TRUE(found);
-    //~     }
-    //~
-    //~     {
-    //~         //~ auto expected = expected_t{
-    //~         //~     {0, {0, 2}},
-    //~         //~     {1, {0, 2}},
-    //~         //~ };
-    //~         //~
-    //~         //~ auto set = self(lca1).on(0).on(1);
-    //~         //~ EXPECT_EQ(set.level(), 1);
-    //~         //~
-    //~         //~ bool found     = false;
-    //~         //~ std::size_t ie = 0;
-    //~         //~ apply(set,
-    //~         //~       [&](auto& i, auto& index)
-    //~         //~       {
-    //~         //~           EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
-    //~         //~           found = true;
-    //~         //~       });
-    //~         //~ EXPECT_TRUE(found);
-    //~         //~ EXPECT_EQ(ie, expected.size());
-    //~     }
-    //~
-    //~     {
-    //~         //~ auto expected = expected_t{
-    //~         //~     {0, {0, 2}},
-    //~         //~     {1, {0, 1}},
-    //~         //~ };
-    //~         //~
-    //~         //~ auto set = difference(self(lca1).on(0).on(1), lca2);
-    //~         //~ EXPECT_EQ(set.level(), 1);
-    //~         //~
-    //~         //~ bool found     = false;
-    //~         //~ std::size_t ie = 0;
-    //~         //~ apply(set,
-    //~         //~       [&](auto& i, auto& index)
-    //~         //~       {
-    //~         //~           EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
-    //~         //~           found = true;
-    //~         //~       });
-    //~         //~ EXPECT_TRUE(found);
-    //~         //~ EXPECT_EQ(ie, expected.size());
-    //~     }
-    //~
-    //~     {
-    //~         //~ xt::xtensor_fixed<int, xt::xshape<2>> translation{-1, -1};
-    //~         //~ auto expected = expected_t{
-    //~         //~     {-1, {-1, 1}},
-    //~         //~     {0,  {-1, 0}},
-    //~         //~ };
-    //~         //~
-    //~         //~ // auto set = difference(translate(difference(self(lca1).on(0), lca2), translation), translate(lca1, translation));
-    //~         //~ auto set = translate(difference(self(lca1).on(0), lca2), translation);
-    //~         //~ EXPECT_EQ(set.level(), 1);
-    //~         //~
-    //~         //~ bool found     = false;
-    //~         //~ std::size_t ie = 0;
-    //~         //~ apply(set,
-    //~         //~       [&](auto& i, auto& index)
-    //~         //~       {
-    //~         //~           EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
-    //~         //~           found = true;
-    //~         //~       });
-    //~         //~ EXPECT_TRUE(found);
-    //~         //~ EXPECT_EQ(ie, expected.size());
-    //~     }
-    //~ }
-
-    // 1D Pathological Cases
-    //~ TEST(subset, 1d_empty_sets)
-    //~ {
-    //~     LevelCellList<1> lcl{3};
-    //~     LevelCellArray<1> empty_lca;
-    //~     LevelCellArray<1> regular_lca;
-    //~
-    //~     // Empty set operations
-    //~     lcl[{}].add_interval({5, 10});
-    //~     regular_lca = lcl;
-    //~
-    //~     // Union with empty set should return original
     //~     bool found = false;
-    //~     apply(union_(empty_lca, regular_lca),
-    //~           [&](auto& i, auto)
-    //~           {
-    //~               EXPECT_EQ(i, typename LevelCellArray<1>::interval_t(5, 10));
-    //~               found = true;
-    //~           });
+    //~     diff.on(4)(
+    //~         [&](auto& i, auto& index)
+    //~         {
+    //~             found = true;
+    //~             EXPECT_EQ(interval_t(15, 16), i);
+    //~             EXPECT_EQ(index[0], 2);
+    //~         });
     //~     EXPECT_TRUE(found);
     //~
-    //~     // Intersection with empty set should be empty
     //~     found = false;
-    //~     apply(intersection(empty_lca, regular_lca),
-    //~           [&](auto&, auto)
-    //~           {
-    //~               found = true;
-    //~           });
-    //~     EXPECT_FALSE(found);
+    //~     intersection(diff.on(4), diff.on(4))(
+    //~         [&](auto& i, auto& index)
+    //~         {
+    //~             found = true;
+    //~             EXPECT_EQ(interval_t(15, 16), i);
+    //~             EXPECT_EQ(index[0], 2);
+    //~         });
+    //~     EXPECT_TRUE(found);
     //~
-    //~     //~ // Difference with empty set should return original
-    //~     //~ found = false;
-    //~     //~ apply(difference(regular_lca, empty_lca),
-    //~     //~       [&](auto& i, auto)
-    //~     //~       {
-    //~     //~           EXPECT_EQ(i, typename LevelCellArray<1>::interval_t(5, 10));
-    //~     //~           found = true;
-    //~     //~       });
-    //~     //~ EXPECT_TRUE(found);
+    //~     found = false;
+    //~     intersection(diff.on(4), diff.on(4))
+    //~         .on(3)(
+    //~             [&](auto& i, auto& index)
+    //~             {
+    //~                 found = true;
+    //~                 EXPECT_EQ(interval_t(7, 8), i);
+    //~                 EXPECT_EQ(index[0], 1);
+    //~             });
+    //~     EXPECT_TRUE(found);
+    //~
+    //~     found = false;
+    //~     intersection(intersection(diff.on(4), diff.on(4)).on(3), intersection(diff.on(4), diff.on(4)).on(5))
+    //~         .on(3)(
+    //~             [&](auto& i, auto& index)
+    //~             {
+    //~                 found = true;
+    //~                 EXPECT_EQ(interval_t(7, 8), i);
+    //~                 EXPECT_EQ(index[0], 1);
+    //~             });
+    //~     EXPECT_TRUE(found);
+    //~
+    //~     LevelCellArray<2> lca_4(4);
+    //~     lca_4.add_interval_back({15, 16}, {2});
+    //~
+    //~     found = false;
+    //~     intersection(intersection(diff.on(4), diff.on(4)).on(3), lca_4)(
+    //~         [&](auto& i, auto& index)
+    //~         {
+    //~             found = true;
+    //~             EXPECT_EQ(interval_t(15, 16), i);
+    //~             EXPECT_EQ(index[0], 2);
+    //~         });
+    //~     EXPECT_TRUE(found);
     //~ }
+
+    TEST(subset, union_1d)
+    {
+        using interval_t = typename CellArray<1>::interval_t;
+
+        LevelCellArray<1> lca1;
+        LevelCellArray<1> lca2;
+        LevelCellArray<1> lca3;
+
+        lca1.add_interval_back({10, 20}, {});
+
+        lca2.add_interval_back({0, 4}, {});
+        lca2.add_interval_back({5, 10}, {});
+
+        lca3.add_interval_back({1, 5}, {});
+
+        interval_t expected{0, 20};
+
+        auto set = union_(lca1, lca2, lca3);
+
+        std::size_t n_intervals = 0;
+        apply(set,
+              [&](auto& i, auto&)
+              {
+                  EXPECT_EQ(expected, i);
+                  ++n_intervals;
+              });
+        EXPECT_EQ(n_intervals, 1);
+    }
+
+    TEST(subset, union)
+    {
+        using interval_t = typename CellArray<2>::interval_t;
+        using expected_t = std::vector<std::pair<int, interval_t>>;
+        LevelCellList<2> lcl1(1);
+        LevelCellList<2> lcl2(1);
+        LevelCellArray<2> lca1;
+        LevelCellArray<2> lca2;
+
+        lcl1[{0}].add_interval({0, 1});
+        lcl2[{1}].add_interval({1, 2});
+
+        lca1 = lcl1;
+        lca2 = lcl2;
+
+        {
+            auto expected = expected_t{
+                {0, {0, 1}},
+                {1, {1, 2}}
+            };
+
+            auto set = union_(lca1, lca2);
+            EXPECT_EQ(set.level(), 1);
+
+            bool found     = false;
+            std::size_t ie = 0;
+            apply(set,
+                  [&](auto& i, auto& index)
+                  {
+                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+                      found = true;
+                  });
+            EXPECT_TRUE(found);
+        }
+
+        {
+            auto set = intersection(lca1, lca2);
+            EXPECT_EQ(set.level(), 1);
+
+            bool found = false;
+            apply(set,
+                  [&](auto&, auto&)
+                  {
+                      found = true;
+                  });
+            EXPECT_FALSE(found);
+        }
+
+        {
+            auto expected = expected_t{
+                {0, {0, 1}},
+            };
+            auto set = intersection(lca1, self(lca2).on(0));
+            EXPECT_EQ(set.level(), 1);
+
+            bool found     = false;
+            std::size_t ie = 0;
+            apply(set,
+                  [&](auto& i, auto& index)
+                  {
+                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+                      found = true;
+                  });
+            EXPECT_TRUE(found);
+        }
+
+        {
+            //~ auto set = difference(lca1, self(lca2).on(0));
+            //~ EXPECT_EQ(set.level(), 1);
+            //~
+            //~ bool found = false;
+            //~ apply(set,
+            //~       [&](auto&, auto&)
+            //~       {
+            //~           found = true;
+            //~       });
+            //~ EXPECT_FALSE(found);
+        }
+
+        {
+            //~ auto expected = expected_t{
+            //~     {0, {0, 1}},
+            //~ };
+            //~
+            //~ auto set = difference(lca1, lca2);
+            //~ EXPECT_EQ(set.level(), 1);
+            //~
+            //~ bool found     = false;
+            //~ std::size_t ie = 0;
+            //~ apply(set,
+            //~       [&](auto& i, auto& index)
+            //~       {
+            //~           EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+            //~           found = true;
+            //~       });
+            //~ EXPECT_TRUE(found);
+        }
+
+        {
+            auto expected = expected_t{
+                {0, {0, 2}},
+                {1, {0, 2}},
+            };
+
+            auto set = self(lca1).on(0).on(1);
+            EXPECT_EQ(set.level(), 1);
+
+            bool found     = false;
+            std::size_t ie = 0;
+            apply(set,
+                  [&](auto& i, auto& index)
+                  {
+                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+                      found = true;
+                  });
+            EXPECT_TRUE(found);
+            EXPECT_EQ(ie, expected.size());
+        }
+
+        {
+            //~ auto expected = expected_t{
+            //~     {0, {0, 2}},
+            //~     {1, {0, 1}},
+            //~ };
+            //~
+            //~ auto set = difference(self(lca1).on(0).on(1), lca2);
+            //~ EXPECT_EQ(set.level(), 1);
+            //~
+            //~ bool found     = false;
+            //~ std::size_t ie = 0;
+            //~ apply(set,
+            //~       [&](auto& i, auto& index)
+            //~       {
+            //~           EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+            //~           found = true;
+            //~       });
+            //~ EXPECT_TRUE(found);
+            //~ EXPECT_EQ(ie, expected.size());
+        }
+
+        {
+            //~ xt::xtensor_fixed<int, xt::xshape<2>> translation{-1, -1};
+            //~ auto expected = expected_t{
+            //~     {-1, {-1, 1}},
+            //~     {0,  {-1, 0}},
+            //~ };
+            //~
+            //~ // auto set = difference(translate(difference(self(lca1).on(0), lca2), translation), translate(lca1, translation));
+            //~ auto set = translate(difference(self(lca1).on(0), lca2), translation);
+            //~ EXPECT_EQ(set.level(), 1);
+            //~
+            //~ bool found     = false;
+            //~ std::size_t ie = 0;
+            //~ apply(set,
+            //~       [&](auto& i, auto& index)
+            //~       {
+            //~           EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+            //~           found = true;
+            //~       });
+            //~ EXPECT_TRUE(found);
+            //~ EXPECT_EQ(ie, expected.size());
+        }
+    }
+
+    // 1D Pathological Cases
+    TEST(subset, 1d_empty_sets)
+    {
+        LevelCellList<1> lcl{3};
+        LevelCellArray<1> empty_lca;
+        LevelCellArray<1> regular_lca;
+
+        // Empty set operations
+        lcl[{}].add_interval({5, 10});
+        regular_lca = lcl;
+
+        // Union with empty set should return original
+        bool found = false;
+        apply(union_(empty_lca, regular_lca),
+              [&](auto& i, auto)
+              {
+                  EXPECT_EQ(i, typename LevelCellArray<1>::interval_t(5, 10));
+                  found = true;
+              });
+        EXPECT_TRUE(found);
+
+        // Intersection with empty set should be empty
+        found = false;
+        apply(intersection(empty_lca, regular_lca),
+              [&](auto&, auto)
+              {
+                  found = true;
+              });
+        EXPECT_FALSE(found);
+
+        //~ // Difference with empty set should return original
+        //~ found = false;
+        //~ apply(difference(regular_lca, empty_lca),
+        //~       [&](auto& i, auto)
+        //~       {
+        //~           EXPECT_EQ(i, typename LevelCellArray<1>::interval_t(5, 10));
+        //~           found = true;
+        //~       });
+        //~ EXPECT_TRUE(found);
+    }
 
     //~ TEST(subset, 1d_single_point_intervals)
     //~ {
@@ -919,111 +919,113 @@ namespace samurai
     //~     EXPECT_TRUE(found);
     //~ }
 
-    //~ TEST(subset, 1d_extreme_level_differences)
-    //~ {
-    //~     CellList<1> cl;
-    //~     CellArray<1> ca;
-    //~
-    //~     // Very different levels
-    //~     cl[0][{}].add_interval({0, 1});
-    //~     cl[10][{}].add_interval({0, 1024});
-    //~     ca = {cl, true};
-    //~
-    //~     // Intersection should work despite level difference
-    //~     bool found = false;
-    //~     apply(intersection(ca[0], ca[10]),
-    //~           [&](auto& i, auto)
-    //~           {
-    //~               found = true;
-    //~               EXPECT_EQ(i, typename CellArray<1>::interval_t(0, 1024));
-    //~           });
-    //~     EXPECT_TRUE(found);
-    //~
-    //~     //~ // Level adaptation
-    //~     //~ found = false;
-    //~     //~ apply(intersection(ca[0], self(ca[10]).on(0)),
-    //~     //~       [&](auto& i, auto)
-    //~     //~       {
-    //~     //~           found = true;
-    //~     //~           EXPECT_EQ(i, typename CellArray<1>::interval_t(0, 1));
-    //~     //~       });
-    //~     //~ EXPECT_TRUE(found);
-    //~ }
+    TEST(subset, 1d_extreme_level_differences)
+    {
+        CellList<1> cl;
+        CellArray<1> ca;
 
-    //~ TEST(subset, 1d_negative_coordinates)
-    //~ {
-    //~     LevelCellList<1> lcl{3};
-    //~     LevelCellArray<1> lca;
-    //~
-    //~     lcl[{}].add_interval({-10, -5});
-    //~     lcl[{}].add_interval({-2, 3});
-    //~     lcl[{}].add_interval({8, 12});
-    //~     lca = lcl;
-    //~
-    //~     xt::xtensor_fixed<int, xt::xshape<1>> translation{-15};
-    //~
-    //~     // Translation to very negative values
-    //~     bool found = false;
-    //~     apply(translate(lca, translation),
-    //~           [&](auto& i, auto)
-    //~           {
-    //~               found = true;
-    //~               EXPECT_TRUE(i == typename LevelCellArray<1>::interval_t(-25, -20) || i == typename LevelCellArray<1>::interval_t(-17,
-    //-12) ~                           || i == typename LevelCellArray<1>::interval_t(-7, -3)); ~           }); ~     EXPECT_TRUE(found); ~
-    //}
+        // Very different levels
+        cl[0][{}].add_interval({0, 1});
+        cl[10][{}].add_interval({0, 1024});
+        ca = {cl, true};
+
+        // Intersection should work despite level difference
+        bool found = false;
+        apply(intersection(ca[0], ca[10]),
+              [&](auto& i, auto)
+              {
+                  found = true;
+                  EXPECT_EQ(i, typename CellArray<1>::interval_t(0, 1024));
+              });
+        EXPECT_TRUE(found);
+
+        // Level adaptation
+        found = false;
+        apply(intersection(ca[0], self(ca[10]).on(0)),
+              [&](auto& i, auto)
+              {
+                  found = true;
+                  EXPECT_EQ(i, typename CellArray<1>::interval_t(0, 1));
+              });
+        EXPECT_TRUE(found);
+    }
+
+    TEST(subset, 1d_negative_coordinates)
+    {
+        LevelCellList<1> lcl{3};
+        LevelCellArray<1> lca;
+
+        lcl[{}].add_interval({-10, -5});
+        lcl[{}].add_interval({-2, 3});
+        lcl[{}].add_interval({8, 12});
+        lca = lcl;
+
+        xt::xtensor_fixed<int, xt::xshape<1>> translation{-15};
+
+        // Translation to very negative values
+        bool found = false;
+        apply(translate(lca, translation),
+              [&](auto& i, auto)
+              {
+                  found = true;
+                  EXPECT_TRUE(i == typename LevelCellArray<1>::interval_t(-25, -20) || i == typename LevelCellArray<1>::interval_t(-17, -12)
+                              || i == typename LevelCellArray<1>::interval_t(-7, -3));
+              });
+        EXPECT_TRUE(found);
+    }
 
     // 2D Pathological Cases
-    //~ TEST(subset, 2d_sparse_distribution)
-    //~ {
-    //~     LevelCellList<2> lcl{3};
-    //~     LevelCellArray<2> lca;
-    //~
-    //~     // Very sparse distribution
-    //~     lcl[{0}].add_interval({0, 1});
-    //~     lcl[{100}].add_interval({0, 1});
-    //~     lcl[{-50}].add_interval({200, 201});
-    //~     lca = lcl;
-    //~
-    //~     xt::xtensor_fixed<int, xt::xshape<2>> translation{1, 1};
-    //~
-    //~     // Self-intersection after translation should be empty for sparse data
-    //~     bool found = false;
-    //~     apply(intersection(lca, translate(lca, translation)),
-    //~           [&](auto&, auto)
-    //~           {
-    //~               found = true;
-    //~           });
-    //~     EXPECT_FALSE(found);
-    //~ }
+    TEST(subset, 2d_sparse_distribution)
+    {
+        LevelCellList<2> lcl{3};
+        LevelCellArray<2> lca;
 
-    //~ TEST(subset, 2d_checkerboard_pattern)
-    //~ {
-    //~     LevelCellList<2> lcl{3};
-    //~     LevelCellArray<2> lca;
-    //~
-    //~     // Checkerboard pattern
-    //~     for (int j = 0; j < 8; j += 2)
-    //~     {
-    //~         for (int i = j % 4; i < 8; i += 4)
-    //~         {
-    //~             lcl[{j}].add_interval({i, i + 1});
-    //~         }
-    //~     }
-    //~     lca = lcl;
-    //~
-    //~     xt::xtensor_fixed<int, xt::xshape<2>> translation{1, 1};
-    //~
-    //~     // Translation should create complementary pattern
-    //~     bool found = false;
-    //~     int count  = 0;
-    //~     apply(intersection(lca, translate(lca, translation)),
-    //~           [&](auto&, auto)
-    //~           {
-    //~               found = true;
-    //~               count++;
-    //~           });
-    //~     EXPECT_FALSE(found); // Should be empty due to checkerboard
-    //~ }
+        // Very sparse distribution
+        lcl[{0}].add_interval({0, 1});
+        lcl[{100}].add_interval({0, 1});
+        lcl[{-50}].add_interval({200, 201});
+        lca = lcl;
+
+        xt::xtensor_fixed<int, xt::xshape<2>> translation{1, 1};
+
+        // Self-intersection after translation should be empty for sparse data
+        bool found = false;
+        apply(intersection(lca, translate(lca, translation)),
+              [&](auto&, auto)
+              {
+                  found = true;
+              });
+        EXPECT_FALSE(found);
+    }
+
+    TEST(subset, 2d_checkerboard_pattern)
+    {
+        LevelCellList<2> lcl{3};
+        LevelCellArray<2> lca;
+
+        // Checkerboard pattern
+        for (int j = 0; j < 8; j += 2)
+        {
+            for (int i = j % 4; i < 8; i += 4)
+            {
+                lcl[{j}].add_interval({i, i + 1});
+            }
+        }
+        lca = lcl;
+
+        xt::xtensor_fixed<int, xt::xshape<2>> translation{1, 1};
+
+        // Translation should create complementary pattern
+        bool found = false;
+        int count  = 0;
+        apply(intersection(lca, translate(lca, translation)),
+              [&](auto&, auto)
+              {
+                  found = true;
+                  count++;
+              });
+        EXPECT_FALSE(found); // Should be empty due to checkerboard
+    }
 
     //~ TEST(subset, 2d_boundary_conditions)
     //~ {
@@ -1058,159 +1060,159 @@ namespace samurai
     //~     }
     //~ }
 
-    //~ TEST(subset, 2d_extreme_aspect_ratios)
-    //~ {
-    //~     LevelCellList<2> lcl{3};
-    //~     LevelCellArray<2> lca;
-    //~
-    //~     // Very thin horizontal strips at y=0 and y=1
-    //~     lcl[{0}].add_interval({0, 1000});
-    //~     lcl[{1}].add_interval({0, 1000});
-    //~
-    //~     // Very thin vertical strips at y=0 (overlapping with horizontal strips)
-    //~     for (int i = 0; i < 1000; i += 100)
-    //~     {
-    //~         lcl[{0}].add_interval({i, i + 1});
-    //~     }
-    //~     lca = lcl;
-    //~
-    //~     // Intersection should find overlap regions where horizontal and vertical strips meet
-    //~     bool found = false;
-    //~     int count  = 0;
-    //~     apply(intersection(self(lca), self(lca)),
-    //~           [&](auto& i, auto& index)
-    //~           {
-    //~               found = true;
-    //~               count++;
-    //~               // Should find the original intervals since self-intersection returns the original set
-    //~               if (index[0] == 0)
-    //~               {
-    //~                   EXPECT_TRUE(i.start >= 0 && i.end <= 1000);
-    //~               }
-    //~           });
-    //~     EXPECT_TRUE(found);
-    //~     EXPECT_GT(count, 0);
-    //~ }
+    TEST(subset, 2d_extreme_aspect_ratios)
+    {
+        LevelCellList<2> lcl{3};
+        LevelCellArray<2> lca;
+
+        // Very thin horizontal strips at y=0 and y=1
+        lcl[{0}].add_interval({0, 1000});
+        lcl[{1}].add_interval({0, 1000});
+
+        // Very thin vertical strips at y=0 (overlapping with horizontal strips)
+        for (int i = 0; i < 1000; i += 100)
+        {
+            lcl[{0}].add_interval({i, i + 1});
+        }
+        lca = lcl;
+
+        // Intersection should find overlap regions where horizontal and vertical strips meet
+        bool found = false;
+        int count  = 0;
+        apply(intersection(self(lca), self(lca)),
+              [&](auto& i, auto& index)
+              {
+                  found = true;
+                  count++;
+                  // Should find the original intervals since self-intersection returns the original set
+                  if (index[0] == 0)
+                  {
+                      EXPECT_TRUE(i.start >= 0 && i.end <= 1000);
+                  }
+              });
+        EXPECT_TRUE(found);
+        EXPECT_GT(count, 0);
+    }
 
     // 3D Pathological Cases
-    //~ TEST(subset, 3d_complex_geometry)
-    //~ {
-    //~     LevelCellList<3> lcl{2};
-    //~     LevelCellArray<3> lca;
-    //~
-    //~     // Create a complex 3D structure
-    //~     for (int k = 0; k < 4; ++k)
-    //~     {
-    //~         for (int j = 0; j < 4; ++j)
-    //~         {
-    //~             // Hollow cube structure
-    //~             if (k == 0 || k == 3 || j == 0 || j == 3)
-    //~             {
-    //~                 lcl[{j, k}].add_interval({0, 4});
-    //~             }
-    //~             else
-    //~             {
-    //~                 lcl[{j, k}].add_interval({0, 1});
-    //~                 lcl[{j, k}].add_interval({3, 4});
-    //~             }
-    //~         }
-    //~     }
-    //~     lca = lcl;
-    //~
-    //~     // Test volume calculation through iteration
-    //~     int cell_count = 0;
-    //~     apply(self(lca),
-    //~           [&](auto& i, auto&)
-    //~           {
-    //~               cell_count += int(i.size());
-    //~           });
-    //~     EXPECT_GT(cell_count, 0);
-    //~
-    //~     // Test 3D translation
-    //~     xt::xtensor_fixed<int, xt::xshape<3>> translation{1, 1, 1};
-    //~     bool found = false;
-    //~     apply(intersection(lca, translate(lca, translation)),
-    //~           [&](auto&, auto)
-    //~           {
-    //~               found = true;
-    //~           });
-    //~     EXPECT_TRUE(found);
-    //~ }
+    TEST(subset, 3d_complex_geometry)
+    {
+        LevelCellList<3> lcl{2};
+        LevelCellArray<3> lca;
 
-    //~ TEST(subset, 3d_layered_structure)
-    //~ {
-    //~     LevelCellList<3> lcl{3};
-    //~     LevelCellArray<3> lca;
-    //~
-    //~     // Alternating layers
-    //~     for (int k = 0; k < 8; k += 2)
-    //~     {
-    //~         for (int j = 0; j < 8; ++j)
-    //~         {
-    //~             lcl[{j, k}].add_interval({0, 8});
-    //~         }
-    //~     }
-    //~     lca = lcl;
-    //~
-    //~     // Test difference between adjacent layers
-    //~     LevelCellList<3> lcl2{3};
-    //~     LevelCellArray<3> lca2;
-    //~
-    //~     for (int k = 1; k < 8; k += 2)
-    //~     {
-    //~         for (int j = 0; j < 8; ++j)
-    //~         {
-    //~             lcl2[{j, k}].add_interval({0, 8});
-    //~         }
-    //~     }
-    //~     lca2 = lcl2;
-    //~
-    //~     // Should be completely disjoint
-    //~     bool found = false;
-    //~     apply(intersection(lca, lca2),
-    //~           [&](auto&, auto)
-    //~           {
-    //~               found = true;
-    //~           });
-    //~     EXPECT_FALSE(found);
-    //~
-    //~     // Union should cover all layers
-    //~     found = false;
-    //~     apply(union_(lca, lca2),
-    //~           [&](auto&, auto)
-    //~           {
-    //~               found = true;
-    //~           });
-    //~     EXPECT_TRUE(found);
-    //~ }
+        // Create a complex 3D structure
+        for (int k = 0; k < 4; ++k)
+        {
+            for (int j = 0; j < 4; ++j)
+            {
+                // Hollow cube structure
+                if (k == 0 || k == 3 || j == 0 || j == 3)
+                {
+                    lcl[{j, k}].add_interval({0, 4});
+                }
+                else
+                {
+                    lcl[{j, k}].add_interval({0, 1});
+                    lcl[{j, k}].add_interval({3, 4});
+                }
+            }
+        }
+        lca = lcl;
 
-    //~ TEST(subset, 3d_fractal_like_structure)
-    //~ {
-    //~     CellList<3> cl;
-    //~     CellArray<3> ca;
-    //~
-    //~     // Create a Menger sponge-like structure at different levels
-    //~     cl[3][{0, 0}].add_interval({0, 9});
-    //~     cl[3][{0, 1}].add_interval({0, 3});
-    //~     cl[3][{0, 1}].add_interval({6, 9});
-    //~     cl[3][{0, 2}].add_interval({0, 9});
-    //~
-    //~     cl[4][{0, 4}].add_interval({0, 18});
-    //~     cl[4][{1, 4}].add_interval({0, 6});
-    //~     cl[4][{1, 4}].add_interval({12, 18});
-    //~     cl[4][{2, 4}].add_interval({0, 18});
-    //~
-    //~     ca = {cl, true};
-    //~
-    //~     // Test self-similarity at different scales
-    //~     bool found = false;
-    //~     apply(intersection(ca[3], self(ca[4]).on(3)),
-    //~           [&](auto&, auto)
-    //~           {
-    //~               found = true;
-    //~           });
-    //~     EXPECT_TRUE(found);
-    //~ }
+        // Test volume calculation through iteration
+        int cell_count = 0;
+        apply(self(lca),
+              [&](auto& i, auto&)
+              {
+                  cell_count += int(i.size());
+              });
+        EXPECT_GT(cell_count, 0);
+
+        // Test 3D translation
+        xt::xtensor_fixed<int, xt::xshape<3>> translation{1, 1, 1};
+        bool found = false;
+        apply(intersection(lca, translate(lca, translation)),
+              [&](auto&, auto)
+              {
+                  found = true;
+              });
+        EXPECT_TRUE(found);
+    }
+
+    TEST(subset, 3d_layered_structure)
+    {
+        LevelCellList<3> lcl{3};
+        LevelCellArray<3> lca;
+
+        // Alternating layers
+        for (int k = 0; k < 8; k += 2)
+        {
+            for (int j = 0; j < 8; ++j)
+            {
+                lcl[{j, k}].add_interval({0, 8});
+            }
+        }
+        lca = lcl;
+
+        // Test difference between adjacent layers
+        LevelCellList<3> lcl2{3};
+        LevelCellArray<3> lca2;
+
+        for (int k = 1; k < 8; k += 2)
+        {
+            for (int j = 0; j < 8; ++j)
+            {
+                lcl2[{j, k}].add_interval({0, 8});
+            }
+        }
+        lca2 = lcl2;
+
+        // Should be completely disjoint
+        bool found = false;
+        apply(intersection(lca, lca2),
+              [&](auto&, auto)
+              {
+                  found = true;
+              });
+        EXPECT_FALSE(found);
+
+        // Union should cover all layers
+        found = false;
+        apply(union_(lca, lca2),
+              [&](auto&, auto)
+              {
+                  found = true;
+              });
+        EXPECT_TRUE(found);
+    }
+
+    TEST(subset, 3d_fractal_like_structure)
+    {
+        CellList<3> cl;
+        CellArray<3> ca;
+
+        // Create a Menger sponge-like structure at different levels
+        cl[3][{0, 0}].add_interval({0, 9});
+        cl[3][{0, 1}].add_interval({0, 3});
+        cl[3][{0, 1}].add_interval({6, 9});
+        cl[3][{0, 2}].add_interval({0, 9});
+
+        cl[4][{0, 4}].add_interval({0, 18});
+        cl[4][{1, 4}].add_interval({0, 6});
+        cl[4][{1, 4}].add_interval({12, 18});
+        cl[4][{2, 4}].add_interval({0, 18});
+
+        ca = {cl, true};
+
+        // Test self-similarity at different scales
+        bool found = false;
+        apply(intersection(ca[3], self(ca[4]).on(3)),
+              [&](auto&, auto)
+              {
+                  found = true;
+              });
+        EXPECT_TRUE(found);
+    }
 
     //~ TEST(subset, edge_case_translations)
     //~ {

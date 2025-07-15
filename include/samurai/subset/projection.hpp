@@ -103,7 +103,10 @@ namespace samurai
                     return traverser_t(m_set.get_traverser(_index << m_shift, d_ic), m_projectionType, m_shift);
                 }
             }
-            return traverser_t(m_set.get_traverser(_index >> m_shift, d_ic), m_projectionType, m_shift);
+            else
+            {
+                return traverser_t(m_set.get_traverser(_index >> m_shift, d_ic), m_projectionType, m_shift);
+            }
         }
 
       private:

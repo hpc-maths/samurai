@@ -48,7 +48,7 @@ namespace samurai
 
         inline bool is_empty() const
         {
-            return m_current_interval.is_empty();
+            return !m_current_interval.is_valid();
         }
 
         inline void next_interval()
@@ -67,12 +67,9 @@ namespace samurai
                     {
                         if (!set_traverser.is_empty())
                         {
-                            fmt::print("child {} -- interval = {}\n", i, set_traverser.current_interval());
-
                             m_current_interval.start = std::max(m_current_interval.start,
                                                                 set_traverser.current_interval().start << m_shifts[i]);
                             m_current_interval.end = std::min(m_current_interval.end, set_traverser.current_interval().end << m_shifts[i]);
-                            fmt::print("current_interval = {}\n", m_current_interval);
                         }
                     });
 
