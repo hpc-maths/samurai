@@ -106,22 +106,30 @@ namespace samurai
 
         assert(layer > 0 && layer <= Field::mesh_t::config::max_stencil_width);
 
-        auto& mesh  = field.mesh();
+        auto& mesh = field.mesh();
+
+        std::size_t n_bc_ghosts = Field::mesh_t::config::max_stencil_width;
+        if (!field.get_bc().empty())
+        {
+            n_bc_ghosts = field.get_bc().front()->stencil_size() / 2;
+        }
+
         auto domain = self(mesh.domain()).on(proj_level);
 
         auto& inner = mesh.get_union()[proj_level];
-        // We want only 1 layer (the further one),
-        // so we remove all closer layers by making the difference with the domain translated by (layer - 1) * direction
+        // auto inner = self(mesh[mesh_id_t::cells][proj_level + 1]).on(proj_level);
+        //  We want only 1 layer (the further one),
+        //  so we remove all closer layers by making the difference with the domain translated by (layer - 1) * direction
         auto outside_layer     = difference(translate(inner, layer * direction), translate(domain, (layer - 1) * direction));
         auto projection_ghosts = intersection(outside_layer, mesh[mesh_id_t::reference][proj_level]).on(proj_level);
-
-        // auto bc_ghosts                      = expand(mesh[mesh_id_t::cells][proj_level], Field::mesh_t::config::max_stencil_width);
-        // auto projection_ghosts_no_bc_ghosts = difference(projection_ghosts, bc_ghosts);
+        // We don't want to fill by projection the ghosts that have been/will be filled by the B.C. in other directions.
+        // This can happen when there is a hole in the domain.
+        auto bc_ghosts_in_other_directions  = domain_boundary_outer_layer(mesh, proj_level, n_bc_ghosts);
+        auto projection_ghosts_no_bc_ghosts = difference(projection_ghosts, bc_ghosts_in_other_directions);
 
         lca_t proj_ghost_lca(proj_level, mesh.origin_point(), mesh.scaling_factor());
 
-        projection_ghosts(
-            // projection_ghosts_no_bc_ghosts(
+        projection_ghosts_no_bc_ghosts(
             [&](const auto& i, const auto& index)
             {
                 field(proj_level, i, index) = 0; // Initialize the sums to 0 to compute the average
@@ -155,12 +163,12 @@ namespace samurai
                                         std::cerr << "[" << world.rank() << "] ";
 #endif
                                         std::cerr << "NaN found in field(" << children_level << "," << ii_child << "," << index_child
-                                                  << ") during projection of the B.C. (dir = " << direction << ", layer = " << layer << ")"
-                                                  << std::endl;
+                                                  << ") during projection of the B.C. into the cell at (" << proj_level << ", " << ii << ", "
+                                                  << index << ")   (dir = " << direction << ", layer = " << layer << ")" << std::endl;
 #ifndef NDEBUG
                                         save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
 #endif
-                                        std::exit(1);
+                                        // std::exit(1);
                                     }
 #endif
                                     field(proj_level, i_cell, index) += field(children_level, {ii_child, ii_child + 1}, index_child);
@@ -179,7 +187,8 @@ namespace samurai
                         if (mesh.domain().is_box())
                         {
                             std::cerr << "No children found for the ghost at level " << proj_level << ", i = " << ii
-                                      << ", index = " << index << " during projection of the B.C." << std::endl;
+                                      << ", index = " << index << " during projection of the B.C. into the cell at level " << proj_level
+                                      << ", i=" << i_cell << ", index=" << index << std::endl;
 #ifndef NDEBUG
                             save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
 #endif
@@ -251,12 +260,15 @@ namespace samurai
             n_bc_ghosts = field.get_bc().front()->stencil_size() / 2;
         }
 
-        auto& cells                    = mesh[mesh_id_t::cells][pred_level - 1];
-        auto bc_ghosts                 = difference(translate(cells, n_bc_ghosts * direction), self(mesh.domain()).on(pred_level - 1));
+        // auto& cells = mesh[mesh_id_t::cells][pred_level - 1];
+        //  auto cells                     = domain_boundary(mesh, pred_level - 1, direction);
+        // auto bc_ghosts = difference(translate(cells, n_bc_ghosts * direction), self(mesh.domain()).on(pred_level - 1));
+        auto bc_ghosts = domain_boundary_outer_layer(mesh, pred_level - 1, direction, n_bc_ghosts);
+
         auto outside_prediction_ghosts = intersection(bc_ghosts, mesh[mesh_id_t::reference][pred_level]).on(pred_level);
-        // We don't want to fill by prediction the ghosts that are/will be filled by the B.C. in other directions.
+        // We don't want to fill by prediction the ghosts that have been/will be filled by the B.C. in other directions.
         // This can happen when there is a hole in the domain.
-        auto bc_ghosts_in_other_directions  = expand(mesh[mesh_id_t::cells][pred_level], n_bc_ghosts);
+        auto bc_ghosts_in_other_directions  = domain_boundary_outer_layer(mesh, pred_level, n_bc_ghosts);
         auto prediction_ghosts_no_bc_ghosts = difference(outside_prediction_ghosts, bc_ghosts_in_other_directions);
 
         prediction_ghosts_no_bc_ghosts(
@@ -274,7 +286,8 @@ namespace samurai
                         std::cerr << "[" << world.rank() << "] ";
 #endif
                         std::cerr << "NaN found in field(" << (pred_level - 1) << "," << (i_cell >> 1) << "," << (index >> 1)
-                                  << ") during prediction of the B.C." << std::endl;
+                                  << ") during prediction of the B.C. into the cell at (" << pred_level << ", " << ii << ", " << index
+                                  << ") " << std::endl;
 #ifndef NDEBUG
                         samurai::save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
 #endif
@@ -377,9 +390,12 @@ namespace samurai
                         // - the B.C. is projected onto the lower ghosts
                         // - those lower ghosts are projected onto the even lower ghosts
 
-                        static constexpr std::size_t max_stencil_width = Field::mesh_t::config::max_stencil_width;
-                        int max_coarse_layer                           = static_cast<int>(max_stencil_width % 2 == 0 ? max_stencil_width / 2
-                                                                                           : (max_stencil_width + 1) / 2);
+                        std::size_t n_bc_ghosts = Field::mesh_t::config::max_stencil_width;
+                        if (!field.get_bc().empty())
+                        {
+                            n_bc_ghosts = field.get_bc().front()->stencil_size() / 2;
+                        }
+                        int max_coarse_layer = static_cast<int>(n_bc_ghosts % 2 == 0 ? n_bc_ghosts / 2 : (n_bc_ghosts + 1) / 2);
                         for (int layer = 1; layer <= max_coarse_layer; ++layer)
                         {
                             project_bc(level, direction, layer, field); // project from level+1 to level

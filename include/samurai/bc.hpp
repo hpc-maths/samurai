@@ -954,6 +954,57 @@ namespace samurai
         __apply_bc_on_subset(bc, field, cells, stencil_analyzer, direction);
     }
 
+    template <std::size_t layers, class Mesh>
+    auto translated_outer_neighbours(const Mesh& mesh, std::size_t level, const DirectionVector<Mesh::dim>& direction)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+        static_assert(layers <= 5, "not implemented for layers > 10");
+
+        // Technically, if mesh.domain().is_box(), then we can only test that the furthest layer of ghosts exists
+        // (i.e. the set return by the case stencil_size == 2 below).
+        // On the other hand, if the domain has holes, we have to check that all the intermediary ghost layers exist.
+        // Since we can't easily make the distinction in a static way, we always check that all the ghost layers exist.
+
+        if constexpr (layers == 1)
+        {
+            return translate(mesh[mesh_id_t::reference][level], -layers * direction);
+        }
+        else if constexpr (layers == 2)
+        {
+            // clang-format off
+            return intersection(translate(mesh[mesh_id_t::reference][level], -(layers    ) * direction),
+                                translate(mesh[mesh_id_t::reference][level], -(layers - 1) * direction));
+            // clang-format on
+        }
+        else if constexpr (layers == 3)
+        {
+            // clang-format off
+            return intersection(translate(mesh[mesh_id_t::reference][level], -(layers    ) * direction),
+                                translate(mesh[mesh_id_t::reference][level], -(layers - 1) * direction),
+                                translate(mesh[mesh_id_t::reference][level], -(layers - 2) * direction));
+            // clang-format on
+        }
+        else if constexpr (layers == 4)
+        {
+            // clang-format off
+            return intersection(translate(mesh[mesh_id_t::reference][level], -(layers    ) * direction),
+                                translate(mesh[mesh_id_t::reference][level], -(layers - 1) * direction),
+                                translate(mesh[mesh_id_t::reference][level], -(layers - 2) * direction),
+                                translate(mesh[mesh_id_t::reference][level], -(layers - 3) * direction));
+            // clang-format on
+        }
+        else if constexpr (layers == 5)
+        {
+            // clang-format off
+            return intersection(translate(mesh[mesh_id_t::reference][level], -(layers    ) * direction),
+                                translate(mesh[mesh_id_t::reference][level], -(layers - 1) * direction),
+                                translate(mesh[mesh_id_t::reference][level], -(layers - 2) * direction),
+                                translate(mesh[mesh_id_t::reference][level], -(layers - 3) * direction),
+                                translate(mesh[mesh_id_t::reference][level], -(layers - 4) * direction));
+            // clang-format on
+        }
+    }
+
     /**
      * Apply polynomial extrapolation on the outside ghosts close to inner ghosts at the boundary
      * (i.e. inner ghosts in the boundary region that have neighbouring ghosts outside the domain)
@@ -978,10 +1029,10 @@ namespace samurai
         auto stencil          = convert_for_direction(stencil_0, direction);
         auto stencil_analyzer = make_stencil_analyzer(stencil);
 
-        auto translated_outer_nghbr           = translate(mesh[mesh_id_t::reference][level], -(stencil_size / 2) * direction);
+        auto translated_outer_nghbr           = translated_outer_neighbours<stencil_size / 2>(mesh, level, direction);
         auto potential_inner_cells_and_ghosts = intersection(translated_outer_nghbr, inner_ghosts_location).on(level);
-        // auto inner_cells_and_ghosts           = intersection(potential_inner_cells_and_ghosts, mesh.get_union()[level]).on(level);
-        auto inner_cells_and_ghosts        = intersection(potential_inner_cells_and_ghosts, mesh[mesh_id_t::cells][level + 1]).on(level);
+        auto inner_cells_and_ghosts           = intersection(potential_inner_cells_and_ghosts, mesh.get_union()[level]).on(level);
+        // auto inner_cells_and_ghosts        = intersection(potential_inner_cells_and_ghosts, mesh[mesh_id_t::cells][level + 1]).on(level);
         auto inner_ghosts_with_outer_nghbr = difference(inner_cells_and_ghosts, mesh[mesh_id_t::cells][level]).on(level);
         __apply_bc_on_subset(bc, field, inner_ghosts_with_outer_nghbr, stencil_analyzer, direction);
     }
