@@ -5,7 +5,6 @@
 
 #include "set_traverser_base.hpp"
 #include "utils.hpp"
-#include <fmt/ranges.h>
 
 namespace samurai
 {

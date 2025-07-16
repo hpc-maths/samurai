@@ -3,9 +3,11 @@
 
 #pragma once
 
+#include "difference_traverser.hpp"
 #include "intersection_traverser.hpp"
-#include "set_base.hpp"
 #include "union_traverser.hpp"
+
+#include "set_base.hpp"
 
 #include "box_view.hpp"
 #include "lca_view.hpp"
@@ -15,7 +17,8 @@ namespace samurai
     enum class SetOperator
     {
         UNION,
-        INTERSECTION
+        INTERSECTION,
+        DIFFERENCE
     };
 
     template <SetOperator op, Set_concept... Sets>
@@ -31,6 +34,12 @@ namespace samurai
     struct SetTraits<SubSet<SetOperator::INTERSECTION, Sets...>>
     {
         using traverser_t = IntersectionTraverser<typename SetTraits<Sets>::traverser_t...>;
+    };
+
+    template <Set_concept... Sets>
+    struct SetTraits<SubSet<SetOperator::DIFFERENCE, Sets...>>
+    {
+        using traverser_t = DifferenceTraverser<typename SetTraits<Sets>::traverser_t...>;
     };
 
     template <SetOperator op, Set_concept... Sets>
@@ -72,9 +81,20 @@ namespace samurai
         bool exist() const
         {
             return std::apply(
-                [this](const auto&... set) -> std::size_t
+                [this](const auto first_set, const auto&... other_sets) -> std::size_t
                 {
-                    return (set.exist() || ...);
+                    if constexpr (op == SetOperator::UNION)
+                    {
+                        return first_set.exist() || (other_sets.exist() || ...);
+                    }
+                    else if constexpr (op == SetOperator::INTERSECTION)
+                    {
+                        return first_set.exist() && (other_sets.exist() && ...);
+                    }
+                    else
+                    {
+                        return first_set.exist();
+                    }
                 },
                 m_sets);
         }
@@ -82,9 +102,20 @@ namespace samurai
         bool empty() const
         {
             return std::apply(
-                [this](const auto&... set) -> std::size_t
+                [this](const auto first_set, const auto&... other_sets) -> std::size_t
                 {
-                    return (set.empty() && ...);
+                    if constexpr (op == SetOperator::UNION)
+                    {
+                        return first_set.empty() && (other_sets.empty() && ...);
+                    }
+                    else if constexpr (op == SetOperator::INTERSECTION)
+                    {
+                        return first_set.empty() || (other_sets.empty() || ...);
+                    }
+                    else
+                    {
+                        return first_set.empty();
+                    }
                 },
                 m_sets);
         }
@@ -114,8 +145,11 @@ namespace samurai
     template <Set_concept... Sets>
     using Intersection = SubSet<SetOperator::INTERSECTION, Sets...>;
 
+    template <Set_concept... Sets>
+    using Difference = SubSet<SetOperator::DIFFERENCE, Sets...>;
+
     ////////////////////////////////////////////////////////////////////////
-    //// union functions
+    //// functions
     ////////////////////////////////////////////////////////////////////////
     template <class FirstSet, class SecondSet, class... OtherSets>
     auto union_(const FirstSet& firstSet, const SecondSet& secondSet, const OtherSets&... otherSets)
@@ -123,13 +157,16 @@ namespace samurai
         return Union(self(firstSet), self(secondSet), self(otherSets)...);
     }
 
-    ////////////////////////////////////////////////////////////////////////
-    //// intersection functions
-    ////////////////////////////////////////////////////////////////////////
     template <class FirstSet, class SecondSet, class... OtherSets>
     auto intersection(const FirstSet& firstSet, const SecondSet& secondSet, const OtherSets&... otherSets)
     {
         return Intersection(self(firstSet), self(secondSet), self(otherSets)...);
+    }
+
+    template <class FirstSet, class SecondSet, class... OtherSets>
+    auto difference(const FirstSet& firstSet, const SecondSet& secondSet, const OtherSets&... otherSets)
+    {
+        return Difference(self(firstSet), self(secondSet), self(otherSets)...);
     }
 
 } // namespace samurai

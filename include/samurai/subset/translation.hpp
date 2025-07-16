@@ -8,6 +8,8 @@
 #include "set_base.hpp"
 #include "translation_traverser.hpp"
 
+#include <fmt/ranges.h>
+
 namespace samurai
 {
 
@@ -31,16 +33,12 @@ namespace samurai
         using value_t       = typename Base::value_t;
         using translation_t = xt::xtensor_fixed<value_t, xt::xshape<SetTraverserTraits<traverser_t>::dim>>;
 
-        Translation(const Set& set, const translation_t& translation)
+        template <class translation_expr_t>
+        Translation(const Set& set, const translation_expr_t& translation_expr)
             : m_set(set)
-            , m_translation(translation)
+            , m_translation(translation_expr)
         {
-        }
-
-        Translation(const Set& set, translation_t&& translation)
-            : m_set(set)
-            , m_translation(std::move(translation))
-        {
+            fmt::print("{} : translation = {}\n", __FUNCTION__, m_translation);
         }
 
         std::size_t level() const
@@ -61,7 +59,9 @@ namespace samurai
         template <class index_t, std::size_t d>
         traverser_t get_traverser(const index_t& index, std::integral_constant<std::size_t, d> d_ic) const
         {
-            return traverser_t(m_set.get_traverser(index, d_ic), m_translation[d]);
+            //~ return traverser_t(m_set.get_traverser(index - m_translation, d_ic), m_translation[d]);
+            fmt::print("{} : translation = {}, d = {}\n", __FUNCTION__, m_translation, d);
+            return traverser_t(m_set.get_traverser(index - xt::view(m_translation, xt::range(1, _)), d_ic), m_translation[d]);
         }
 
       private:

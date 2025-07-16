@@ -84,15 +84,15 @@ namespace samurai
             {
                 if constexpr (d != Base::dim - 1)
                 {
-                    const value_t ymin = _index[d + 1] << m_shift;
-                    const value_t ymax = (_index[d + 1] + 1) << m_shift;
+                    const value_t ymin = _index[d] << m_shift;
+                    const value_t ymax = (_index[d] + 1) << m_shift;
 
                     xt::xtensor_fixed<value_t, xt::xshape<Base::dim - 1>> index(_index << m_shift);
 
                     std::vector<typename SetTraits<Set>::traverser_t> set_traversers;
                     set_traversers.reserve(size_t(ymax - ymin));
 
-                    for (index[d + 1] = ymin; index[d + 1] != ymax; ++index[d + 1])
+                    for (index[d] = ymin; index[d] != ymax; ++index[d])
                     {
                         set_traversers.push_back(m_set.get_traverser(index, d_ic));
                     }

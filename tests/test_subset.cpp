@@ -591,75 +591,75 @@ namespace samurai
               });
     }
 
-    //~ TEST(subset, translate_2d)
-    //~ {
-    //~     using lca_t      = LevelCellArray<2>;
-    //~     using interval_t = typename lca_t::interval_t;
-    //~     LevelCellArray<2> boundary(5);
-    //~
-    //~     LevelCellArray<2> domain1(5);
-    //~     for (int j = 4; j < 6; ++j)
-    //~     {
-    //~         domain1.add_interval_back({0, 32}, {j});
-    //~     }
-    //~     xt::xtensor_fixed<int, xt::xshape<2>> translation{1, 0};
-    //~     auto diff = difference(domain1, translate(self(domain1), -translation));
-    //~
-    //~     bool found = false;
-    //~     diff.on(4)(
-    //~         [&](auto& i, auto& index)
-    //~         {
-    //~             found = true;
-    //~             EXPECT_EQ(interval_t(15, 16), i);
-    //~             EXPECT_EQ(index[0], 2);
-    //~         });
-    //~     EXPECT_TRUE(found);
-    //~
-    //~     found = false;
-    //~     intersection(diff.on(4), diff.on(4))(
-    //~         [&](auto& i, auto& index)
-    //~         {
-    //~             found = true;
-    //~             EXPECT_EQ(interval_t(15, 16), i);
-    //~             EXPECT_EQ(index[0], 2);
-    //~         });
-    //~     EXPECT_TRUE(found);
-    //~
-    //~     found = false;
-    //~     intersection(diff.on(4), diff.on(4))
-    //~         .on(3)(
-    //~             [&](auto& i, auto& index)
-    //~             {
-    //~                 found = true;
-    //~                 EXPECT_EQ(interval_t(7, 8), i);
-    //~                 EXPECT_EQ(index[0], 1);
-    //~             });
-    //~     EXPECT_TRUE(found);
-    //~
-    //~     found = false;
-    //~     intersection(intersection(diff.on(4), diff.on(4)).on(3), intersection(diff.on(4), diff.on(4)).on(5))
-    //~         .on(3)(
-    //~             [&](auto& i, auto& index)
-    //~             {
-    //~                 found = true;
-    //~                 EXPECT_EQ(interval_t(7, 8), i);
-    //~                 EXPECT_EQ(index[0], 1);
-    //~             });
-    //~     EXPECT_TRUE(found);
-    //~
-    //~     LevelCellArray<2> lca_4(4);
-    //~     lca_4.add_interval_back({15, 16}, {2});
-    //~
-    //~     found = false;
-    //~     intersection(intersection(diff.on(4), diff.on(4)).on(3), lca_4)(
-    //~         [&](auto& i, auto& index)
-    //~         {
-    //~             found = true;
-    //~             EXPECT_EQ(interval_t(15, 16), i);
-    //~             EXPECT_EQ(index[0], 2);
-    //~         });
-    //~     EXPECT_TRUE(found);
-    //~ }
+    TEST(subset, translate_2d)
+    {
+        using lca_t      = LevelCellArray<2>;
+        using interval_t = typename lca_t::interval_t;
+        LevelCellArray<2> boundary(5);
+
+        LevelCellArray<2> domain1(5);
+        for (int j = 4; j < 6; ++j)
+        {
+            domain1.add_interval_back({0, 32}, {j});
+        }
+        xt::xtensor_fixed<int, xt::xshape<2>> translation{1, 0};
+        auto diff = difference(domain1, translate(self(domain1), -translation));
+
+        bool found = false;
+        diff.on(4)(
+            [&](auto& i, auto& index)
+            {
+                found = true;
+                EXPECT_EQ(interval_t(15, 16), i);
+                EXPECT_EQ(index[0], 2);
+            });
+        EXPECT_TRUE(found);
+
+        found = false;
+        intersection(diff.on(4), diff.on(4))(
+            [&](auto& i, auto& index)
+            {
+                found = true;
+                EXPECT_EQ(interval_t(15, 16), i);
+                EXPECT_EQ(index[0], 2);
+            });
+        EXPECT_TRUE(found);
+
+        found = false;
+        intersection(diff.on(4), diff.on(4))
+            .on(3)(
+                [&](auto& i, auto& index)
+                {
+                    found = true;
+                    EXPECT_EQ(interval_t(7, 8), i);
+                    EXPECT_EQ(index[0], 1);
+                });
+        EXPECT_TRUE(found);
+
+        found = false;
+        intersection(intersection(diff.on(4), diff.on(4)).on(3), intersection(diff.on(4), diff.on(4)).on(5))
+            .on(3)(
+                [&](auto& i, auto& index)
+                {
+                    found = true;
+                    EXPECT_EQ(interval_t(7, 8), i);
+                    EXPECT_EQ(index[0], 1);
+                });
+        EXPECT_TRUE(found);
+
+        LevelCellArray<2> lca_4(4);
+        lca_4.add_interval_back({15, 16}, {2});
+
+        found = false;
+        intersection(intersection(diff.on(4), diff.on(4)).on(3), lca_4)(
+            [&](auto& i, auto& index)
+            {
+                found = true;
+                EXPECT_EQ(interval_t(15, 16), i);
+                EXPECT_EQ(index[0], 2);
+            });
+        EXPECT_TRUE(found);
+    }
 
     TEST(subset, union_1d)
     {
@@ -1214,124 +1214,124 @@ namespace samurai
         EXPECT_TRUE(found);
     }
 
-    //~ TEST(subset, edge_case_translations)
-    //~ {
-    //~     LevelCellList<2> lcl{5};
-    //~     LevelCellArray<2> lca;
-    //~
-    //~     // Single cell
-    //~     lcl[{16}].add_interval({16, 17});
-    //~     lca = lcl;
-    //~
-    //~     // Test translation by exactly the cell size at different levels
-    //~     for (int level_offset = -2; level_offset <= 2; ++level_offset)
-    //~     {
-    //~         int target_level = 5 + level_offset;
-    //~         if (target_level >= 0)
-    //~         {
-    //~             int scale = 1 << std::abs(level_offset);
-    //~             xt::xtensor_fixed<int, xt::xshape<2>> translation;
-    //~
-    //~             if (level_offset >= 0)
-    //~             {
-    //~                 translation = {scale, 0};
-    //~             }
-    //~             else
-    //~             {
-    //~                 translation = {1, 0};
-    //~             }
-    //~
-    //~             bool found = false;
-    //~             apply(intersection(self(lca).on(target_level), translate(self(lca).on(target_level), translation)),
-    //~                   [&](auto&, auto)
-    //~                   {
-    //~                       found = true;
-    //~                   });
-    //~             // Should be empty for non-zero translations of single cells
-    //~             if (translation[0] != 0 || translation[1] != 0)
-    //~             {
-    //~                 EXPECT_FALSE(found);
-    //~             }
-    //~         }
-    //~     }
-    //~ }
+    TEST(subset, edge_case_translations)
+    {
+        LevelCellList<2> lcl{5};
+        LevelCellArray<2> lca;
 
-    //~ TEST(subset, large_coordinate_stress_test)
-    //~ {
-    //~     LevelCellList<1> lcl{10};
-    //~     LevelCellArray<1> lca;
-    //~
-    //~     // Very large coordinates near integer limits
-    //~     const int large_coord = 1000000;
-    //~     lcl[{}].add_interval({large_coord, large_coord + 1024});
-    //~     lca = lcl;
-    //~
-    //~     // Test operations with large coordinates
-    //~     xt::xtensor_fixed<int, xt::xshape<1>> translation{-large_coord};
-    //~
-    //~     bool found = false;
-    //~     apply(translate(lca, translation),
-    //~           [&](auto& i, auto)
-    //~           {
-    //~               EXPECT_EQ(i, typename LevelCellArray<1>::interval_t(0, 1024));
-    //~               found = true;
-    //~           });
-    //~     EXPECT_TRUE(found);
-    //~ }
+        // Single cell
+        lcl[{16}].add_interval({16, 17});
+        lca = lcl;
 
-    //~ TEST(subset, mixed_operations_stress_test)
-    //~ {
-    //~     LevelCellList<2> lcl{4};
-    //~     LevelCellArray<2> lca1, lca2;
-    //~
-    //~     // Setup two overlapping patterns
-    //~     lcl[{2}].add_interval({0, 8});
-    //~     lcl[{3}].add_interval({2, 6});
-    //~     lcl[{4}].add_interval({0, 8});
-    //~     lca1 = lcl;
-    //~
-    //~     lcl.clear();
-    //~     lcl[{1}].add_interval({4, 12});
-    //~     lcl[{2}].add_interval({6, 10});
-    //~     lcl[{3}].add_interval({4, 12});
-    //~     lca2 = lcl;
-    //~
-    //~     // Complex nested operations
-    //~     xt::xtensor_fixed<int, xt::xshape<2>> trans1{1, 1};
-    //~     xt::xtensor_fixed<int, xt::xshape<2>> trans2{-1, 0};
-    //~
-    //~     auto complex_set = union_(intersection(translate(lca1, trans1), lca2), difference(lca1, translate(lca2, trans2)));
-    //~
-    //~     bool found = false;
-    //~     apply(complex_set,
-    //~           [&](auto&, auto)
-    //~           {
-    //~               found = true;
-    //~           });
-    //~     EXPECT_TRUE(found);
-    //~ }
+        // Test translation by exactly the cell size at different levels
+        for (int level_offset = -2; level_offset <= 2; ++level_offset)
+        {
+            int target_level = 5 + level_offset;
+            if (target_level >= 0)
+            {
+                int scale = 1 << std::abs(level_offset);
+                xt::xtensor_fixed<int, xt::xshape<2>> translation;
 
-    //~ TEST(subset, diff_1d_translate)
-    //~ {
-    //~     LevelCellArray<1> lca(1);
-    //~     lca.add_interval_back({0, 16}, {});
-    //~     xt::xtensor_fixed<int, xt::xshape<1>> translation{-1};
-    //~
-    //~     bool never_call = true;
-    //~     apply(difference(lca, translate(lca, translation)),
-    //~           [&never_call](auto& i, auto)
-    //~           {
-    //~               never_call = false;
-    //~               EXPECT_EQ(i, typename LevelCellArray<1>::interval_t(15, 16));
-    //~           });
-    //~     EXPECT_FALSE(never_call);
-    //~
-    //~     never_call = true;
-    //~     apply(difference(lca, translate(lca, translation).on(0)),
-    //~           [&never_call](auto&, auto)
-    //~           {
-    //~               never_call = false;
-    //~           });
-    //~     EXPECT_TRUE(never_call);
-    //~ }
+                if (level_offset >= 0)
+                {
+                    translation = {scale, 0};
+                }
+                else
+                {
+                    translation = {1, 0};
+                }
+
+                bool found = false;
+                apply(intersection(self(lca).on(target_level), translate(self(lca).on(target_level), translation)),
+                      [&](auto&, auto)
+                      {
+                          found = true;
+                      });
+                // Should be empty for non-zero translations of single cells
+                if (translation[0] != 0 || translation[1] != 0)
+                {
+                    EXPECT_FALSE(found);
+                }
+            }
+        }
+    }
+
+    TEST(subset, large_coordinate_stress_test)
+    {
+        LevelCellList<1> lcl{10};
+        LevelCellArray<1> lca;
+
+        // Very large coordinates near integer limits
+        const int large_coord = 1000000;
+        lcl[{}].add_interval({large_coord, large_coord + 1024});
+        lca = lcl;
+
+        // Test operations with large coordinates
+        xt::xtensor_fixed<int, xt::xshape<1>> translation{-large_coord};
+
+        bool found = false;
+        apply(translate(lca, translation),
+              [&](auto& i, auto)
+              {
+                  EXPECT_EQ(i, typename LevelCellArray<1>::interval_t(0, 1024));
+                  found = true;
+              });
+        EXPECT_TRUE(found);
+    }
+
+    TEST(subset, mixed_operations_stress_test)
+    {
+        LevelCellList<2> lcl{4};
+        LevelCellArray<2> lca1, lca2;
+
+        // Setup two overlapping patterns
+        lcl[{2}].add_interval({0, 8});
+        lcl[{3}].add_interval({2, 6});
+        lcl[{4}].add_interval({0, 8});
+        lca1 = lcl;
+
+        lcl.clear();
+        lcl[{1}].add_interval({4, 12});
+        lcl[{2}].add_interval({6, 10});
+        lcl[{3}].add_interval({4, 12});
+        lca2 = lcl;
+
+        // Complex nested operations
+        xt::xtensor_fixed<int, xt::xshape<2>> trans1{1, 1};
+        xt::xtensor_fixed<int, xt::xshape<2>> trans2{-1, 0};
+
+        auto complex_set = union_(intersection(translate(lca1, trans1), lca2), difference(lca1, translate(lca2, trans2)));
+
+        bool found = false;
+        apply(complex_set,
+              [&](auto&, auto)
+              {
+                  found = true;
+              });
+        EXPECT_TRUE(found);
+    }
+
+    TEST(subset, diff_1d_translate)
+    {
+        LevelCellArray<1> lca(1);
+        lca.add_interval_back({0, 16}, {});
+        xt::xtensor_fixed<int, xt::xshape<1>> translation{-1};
+
+        bool never_call = true;
+        apply(difference(lca, translate(lca, translation)),
+              [&never_call](auto& i, auto)
+              {
+                  never_call = false;
+                  EXPECT_EQ(i, typename LevelCellArray<1>::interval_t(15, 16));
+              });
+        EXPECT_FALSE(never_call);
+
+        never_call = true;
+        apply(difference(lca, translate(lca, translation).on(0)),
+              [&never_call](auto&, auto)
+              {
+                  never_call = false;
+              });
+        EXPECT_TRUE(never_call);
+    }
 }

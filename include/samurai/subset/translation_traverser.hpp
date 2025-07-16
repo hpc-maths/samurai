@@ -34,6 +34,7 @@ namespace samurai
             : m_set_traverser(set_traverser)
             , m_translation(translation)
         {
+            fmt::print("{} : translation = {}\n", __FUNCTION__, m_translation);
         }
 
         inline bool is_empty() const
