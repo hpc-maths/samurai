@@ -177,6 +177,7 @@ namespace samurai
         template <std::size_t... Is>
         auto compute_new_indices(auto order, const auto& parent_indices, const auto& loop_indices, std::index_sequence<Is...>)
         {
+            using value_t = typename std::decay_t<decltype(std::get<0>(parent_indices))>;
             return std::make_tuple(
                 (std::get<Is>(parent_indices) + static_cast<default_config::value_t>(std::get<Is>(loop_indices) - order))...);
         }
@@ -200,37 +201,107 @@ namespace samurai
             return compute_coeff(interp_coeffs, indices, std::make_index_sequence<std::tuple_size_v<std::decay_t<decltype(interp_coeffs)>>>{});
         }
 
-        template <typename Func, std::size_t d>
-        void multi_dim_loop(auto& current_index, const auto& coeff_arrays, Func&& func, std::integral_constant<std::size_t, d>)
+        template <class FuncIdx, class Func, std::size_t d>
+        void multi_dim_loop(auto& current_index,
+                            const auto& start,
+                            const auto& end,
+                            Func&& func2apply,
+                            FuncIdx&& compute_idx_func,
+                            std::integral_constant<std::size_t, d>)
         {
             if constexpr (d == 0)
             {
                 std::apply(
                     [&](auto... indices)
                     {
-                        func(indices...);
+                        func2apply(indices...);
                     },
                     current_index);
             }
             else
             {
-                for (std::size_t i = 0; i < std::get<d - 1>(coeff_arrays).size(); ++i)
+                for (std::size_t i = std::get<d - 1>(start); i < std::get<d - 1>(end); ++i)
                 {
-                    std::get<d - 1>(current_index) = i;
-                    multi_dim_loop(current_index, coeff_arrays, std::forward<Func>(func), std::integral_constant<std::size_t, d - 1>{});
+                    std::get<d - 1>(current_index) = compute_idx_func(i);
+                    multi_dim_loop(current_index,
+                                   start,
+                                   end,
+                                   std::forward<Func>(func2apply),
+                                   std::forward<FuncIdx>(compute_idx_func),
+                                   std::integral_constant<std::size_t, d - 1>{});
                 }
             }
         }
 
-        template <typename Func>
-        void multi_dim_loop(const auto& coeff_arrays, Func&& func)
+        template <class FuncIdx, class Func>
+        void multi_dim_loop(
+            const auto& start,
+            const auto& end,
+            Func&& func2apply,
+            FuncIdx&& compute_idx_func =
+                [](auto i)
+            {
+                return i;
+            })
+            requires(std::tuple_size_v<std::decay_t<decltype(start)>> == std::tuple_size_v<std::decay_t<decltype(end)>>)
         {
-            constexpr std::size_t num_dims = std::tuple_size_v<std::decay_t<decltype(coeff_arrays)>>;
-            auto current_index             = []<std::size_t... Is>(std::index_sequence<Is...>)
+            constexpr std::size_t num_dims = std::tuple_size_v<std::decay_t<decltype(start)>>;
+
+            auto current_index = []<std::size_t... Is>(std::index_sequence<Is...>)
             {
                 return std::make_tuple(((void)Is, std::size_t{0})...);
             }(std::make_index_sequence<num_dims>{});
-            multi_dim_loop(current_index, coeff_arrays, std::forward<Func>(func), std::integral_constant<std::size_t, num_dims>{});
+            multi_dim_loop(current_index,
+                           start,
+                           end,
+                           std::forward<Func>(func2apply),
+                           std::forward<FuncIdx>(compute_idx_func),
+                           std::integral_constant<std::size_t, num_dims>{});
+        }
+
+        template <class Func>
+        void multi_dim_loop(const auto& start, const auto& end, Func&& func2apply)
+        {
+            auto compute_idx_func = [](auto i)
+            {
+                return i;
+            };
+            multi_dim_loop(start, end, std::forward<Func>(func2apply), compute_idx_func);
+        }
+
+        template <typename Func, class... T>
+            requires(std::same_as<std::decay_t<T>, std::array<typename std::decay_t<T>::value_type, std::tuple_size_v<std::decay_t<T>>>>
+                     && ...)
+        void multi_dim_loop(const std::tuple<T...>& coeff_arrays, Func&& func)
+        {
+            constexpr std::size_t num_dims = std::tuple_size_v<std::decay_t<decltype(coeff_arrays)>>;
+            auto start                     = []<std::size_t... Is>(std::index_sequence<Is...>)
+            {
+                return std::make_tuple(((void)Is, std::size_t{0})...);
+            }(std::make_index_sequence<num_dims>{});
+
+            auto end = std::apply(
+                [](auto&... coeff_arrays)
+                {
+                    return std::make_tuple(coeff_arrays.size()...);
+                },
+                coeff_arrays);
+
+            multi_dim_loop(start, end, std::forward<Func>(func));
+        }
+
+        template <class Func, class... T>
+            requires(std::same_as<std::decay_t<T>, Interval<typename std::decay_t<T>::value_t, typename std::decay_t<T>::index_t>> && ...)
+        void multi_dim_loop(const std::tuple<T...>& interval_arrays, Func&& func)
+        {
+            auto [start, end] = std::apply(
+                [](auto&... intervals)
+                {
+                    return std::make_pair(std::make_tuple(intervals.start...), std::make_tuple(intervals.end...));
+                },
+                interval_arrays);
+
+            multi_dim_loop(start, end, std::forward<Func>(func));
         }
 
     }
@@ -239,6 +310,7 @@ namespace samurai
     auto& prediction(std::size_t level, index_t... indices)
     {
         static constexpr std::size_t dim = sizeof...(index_t);
+
         static std::unordered_map<std::tuple<std::size_t, std::size_t, index_t...>, prediction_map<dim, default_config::value_t>> values;
 
         auto key  = std::make_tuple(order, level, indices...);
@@ -298,35 +370,41 @@ namespace samurai
 
         INIT_OPERATOR(reconstruction_op_)
 
-        template <class T1, class T2>
-        inline void operator()(Dim<1>, std::size_t& reconstruct_level, T1& dest, const T2& src) const
-        {
-            using index_t                          = typename T2::interval_t::value_t;
-            constexpr std::size_t prediction_order = T2::mesh_t::config::prediction_order;
+        // template <std::size_t d, class T1, class T2>
+        // inline void operator()(Dim<d>, std::size_t& reconstruct_level, T1& dest, const T2& src) const
+        // {
+        //     using index_t                          = typename T2::interval_t::value_t;
+        //     constexpr std::size_t prediction_order = T2::mesh_t::config::prediction_order;
 
-            std::size_t delta_l = reconstruct_level - level;
-            if (delta_l == 0)
-            {
-                dest(level, i) = src(level, i);
-            }
-            else
-            {
-                index_t nb_cells = 1 << delta_l;
-                for (index_t ii = 0; ii < nb_cells; ++ii)
-                {
-                    auto& pred = prediction<prediction_order, index_t>(delta_l, ii);
-                    for (const auto& kv : pred.coeff)
-                    {
-                        auto i_f = (i << delta_l) + ii;
-                        i_f.step = nb_cells;
-                        dest(reconstruct_level, i_f) += kv.second * src(level, i + kv.first[0]);
-                    }
-                }
-            }
-        }
+        //     std::size_t delta_l = reconstruct_level - level;
+        //     if (delta_l == 0)
+        //     {
+        //         dest(level, i, index) = src(level, i, index);
+        //     }
+        //     else
+        //     {
+        //         index_t nb_cells = 1 << delta_l;
+        //         detail::multi_dim_loop(interp_coeff_values,
+        //                                  [&](auto&... out_indices)
+        //                                  {
+        //                                      auto& pred = prediction<prediction_order, index_t>(delta_l, out_indices...);
+        //                                      for (const auto& kv : pred.coeff)
+        //                                      {
+        //                                          std::apply(
+        //                                              [&](auto&... in_indices)
+        //                                              {
+        //                                                  dest(reconstruct_level, out_indices...) += kv.second * src(level,
+        //                                                  in_indices...);
+        //                                              },
+        //                                              detail::compute_new_indices(0, i, kv.first));
+        //                                      }
+        //                                  });
+        //     }
+        // }
 
         template <class T1, class T2>
         inline void operator()(Dim<2>, std::size_t& reconstruct_level, T1& dest, const T2& src) const
+
         {
             using index_t                          = typename T2::interval_t::value_t;
             constexpr std::size_t prediction_order = T2::mesh_t::config::prediction_order;
@@ -446,651 +524,172 @@ namespace samurai
 
     namespace detail
     {
-        // 1D portion
-        template <std::size_t prediction_order, class Field>
-        auto portion_impl(const Field& f,
-                          std::size_t element,
-                          std::size_t level,
-                          const typename Field::interval_t& i,
-                          std::size_t delta_l,
-                          typename Field::interval_t::value_t ii)
+        template <std::size_t prediction_order, class Field, class... index_t>
+            requires(Field::dim == sizeof...(index_t) + 1 && (std::same_as<typename Field::interval_t, index_t> && ...))
+        decltype(auto) get_prediction(std::size_t level, std::size_t delta_l, const auto& ii)
         {
-            auto pred = prediction<prediction_order, typename Field::interval_t::value_t>(delta_l, ii);
-
-            auto result = zeros_like(f(element, level, i));
-
-            for (const auto& kv : pred.coeff)
-            {
-                // cppcheck-suppress useStlAlgorithm
-                result += kv.second * f(element, level, i + kv.first[0]);
-            }
-            return result;
-        }
-
-        template <std::size_t prediction_order, class Field>
-        auto portion_impl(const Field& f,
-                          std::size_t element,
-                          std::size_t level,
-                          const typename Field::interval_t& i,
-                          std::size_t delta_l,
-                          const typename Field::interval_t& ii)
-        {
-            using index_t = typename Field::interval_t::value_t;
-            static std::unordered_map<std::tuple<std::size_t, std::size_t, typename Field::interval_t>, prediction_map<1, index_t>> values;
-
-            auto iter = values.find({prediction_order, level, ii});
-            if (iter == values.end())
-            {
-                for (auto ii_ = ii.start; ii_ < ii.end; ++ii_)
-                {
-                    values[{prediction_order, level, ii}] += prediction<prediction_order, index_t>(delta_l, ii_);
-                }
-            }
-
-            auto result = zeros_like(f(element, level, i));
-
-            for (const auto& kv : values[{prediction_order, level, ii}].coeff)
-            {
-                // cppcheck-suppress useStlAlgorithm
-                result += kv.second * f(element, level, i + kv.first[0]);
-            }
-            return result;
-        }
-
-        template <std::size_t prediction_order, class Field>
-        auto portion_impl(const Field& f,
-                          std::size_t level,
-                          const typename Field::interval_t& i,
-                          std::size_t delta_l,
-                          typename Field::interval_t::value_t ii)
-        {
-            using index_t = typename Field::interval_t::value_t;
-
-            auto pred = prediction<prediction_order, index_t>(delta_l, ii);
-
-            auto result = zeros_like(f(level, i));
-
-            for (const auto& kv : pred.coeff)
-            {
-                // cppcheck-suppress useStlAlgorithm
-                result += kv.second * f(level, i + kv.first[0]);
-            }
-            return result;
-        }
-
-        template <std::size_t prediction_order, class Field>
-        auto portion_impl(const Field& f,
-                          std::size_t level,
-                          const typename Field::interval_t& i,
-                          std::size_t delta_l,
-                          const typename Field::interval_t& ii)
-        {
-            using index_t = typename Field::interval_t::value_t;
-            static std::unordered_map<std::tuple<std::size_t, std::size_t, typename Field::interval_t>, prediction_map<1, index_t>> values;
-
-            auto iter = values.find({prediction_order, level, ii});
-            if (iter == values.end())
-            {
-                for (auto ii_ = ii.start; ii_ < ii.end; ++ii_)
-                {
-                    values[{prediction_order, level, ii}] += prediction<prediction_order, index_t>(delta_l, ii_);
-                }
-            }
-
-            auto result = zeros_like(f(level, i));
-
-            for (const auto& kv : values[{prediction_order, level, ii}].coeff)
-            {
-                // cppcheck-suppress useStlAlgorithm
-                result += kv.second * f(level, i + kv.first[0]);
-            }
-            return result;
-        }
-
-        // 2D portion
-        template <std::size_t prediction_order, class Field>
-        auto portion_impl(const Field& f,
-                          std::size_t element,
-                          std::size_t level,
-                          const typename Field::interval_t& i,
-                          typename Field::interval_t::value_t j,
-                          std::size_t delta_l,
-                          typename Field::interval_t::value_t ii,
-                          typename Field::interval_t::value_t jj)
-        {
-            using index_t = typename Field::interval_t::value_t;
-
-            auto pred = prediction<prediction_order, index_t>(delta_l, ii, jj);
-
-            auto result = zeros_like(f(element, level, i, j));
-
-            for (const auto& kv : pred.coeff)
-            {
-                // cppcheck-suppress useStlAlgorithm
-                result += kv.second * f(element, level, i + kv.first[0], j + kv.first[1]);
-            }
-            return result;
-        }
-
-        template <std::size_t prediction_order, class Field>
-        auto portion_impl(const Field& f,
-                          std::size_t element,
-
-                          std::size_t level,
-                          const typename Field::interval_t& i,
-                          typename Field::interval_t::value_t j,
-                          std::size_t delta_l,
-                          const typename Field::interval_t& ii,
-                          const typename Field::interval_t& jj)
-        {
-            using index_t = typename Field::interval_t::value_t;
-            static std::unordered_map<std::tuple<std::size_t, std::size_t, typename Field::interval_t, typename Field::interval_t>,
-                                      prediction_map<2, index_t>>
+            static constexpr std::size_t dim = Field::dim;
+            using value_t                    = typename Field::interval_t::value_t;
+            static std::unordered_map<std::tuple<std::size_t, std::size_t, typename Field::interval_t, index_t...>, prediction_map<dim, value_t>>
                 values;
 
-            auto iter = values.find({prediction_order, level, ii, jj});
+            auto iter = std::apply(
+                [&](auto&... index)
+                {
+                    return values.find({prediction_order, level, index...});
+                },
+                ii);
 
             if (iter == values.end())
             {
-                for (auto ii_ = ii.start; ii_ < ii.end; ++ii_)
-                {
-                    for (auto jj_ = jj.start; jj_ < jj.end; ++jj_)
+                multi_dim_loop(
+                    ii,
+                    [&](auto... ii_)
                     {
-                        values[{prediction_order, level, ii, jj}] += prediction<prediction_order, index_t>(delta_l, ii_, jj_);
-                    }
-                }
+                        std::apply(
+                            [&](auto&... index)
+                            {
+                                values[{prediction_order, level, index...}] += prediction<prediction_order, value_t>(delta_l, ii_...);
+                            },
+                            ii);
+                    });
             }
-            auto result = zeros_like(f(element, level, i, j));
 
-            for (const auto& kv : values[{prediction_order, level, ii, jj}].coeff)
-            {
-                // cppcheck-suppress useStlAlgorithm
-                result += kv.second * f(element, level, i + kv.first[0], j + kv.first[1]);
-            }
-            return result;
+            return std::apply(
+                [&](auto&... index) -> auto&
+                {
+                    return values[{prediction_order, level, index...}];
+                },
+                ii);
         }
 
-        template <std::size_t prediction_order, class Field>
+        template <std::size_t prediction_order, class Field, class... index_t>
+            requires((std::same_as<typename Field::interval_t::value_t, index_t> && ...))
+        decltype(auto) get_prediction(std::size_t, std::size_t delta_l, const auto& ii)
+        {
+            using value_t = typename Field::interval_t::value_t;
+            return std::apply(
+                [delta_l](const auto&... index) -> auto&
+                {
+                    return prediction<prediction_order, value_t>(delta_l, index...);
+                },
+                ii);
+        }
+
+        template <std::size_t prediction_order, class Field, class Func, class... index_t, class... cell_index_t>
+            requires(Field::dim == sizeof...(index_t) + 1 && Field::dim == sizeof...(cell_index_t)
+                     && ((std::same_as<typename Field::interval_t, cell_index_t> && ...)
+                         || (std::same_as<typename Field::interval_t::value_t, cell_index_t> && ...))
+                     && (std::same_as<typename Field::interval_t::value_t, index_t> && ...))
         void portion_impl(auto& result,
                           const Field& f,
+                          Func&& get_f,
                           std::size_t level,
-                          const typename Field::interval_t& i,
-                          typename Field::interval_t::value_t j,
                           std::size_t delta_l,
-                          typename Field::interval_t::value_t ii,
-                          typename Field::interval_t::value_t jj)
+                          const std::tuple<typename Field::interval_t, index_t...>& i,
+                          const std::tuple<cell_index_t...>& ii)
         {
-            using index_t = typename Field::interval_t::value_t;
+            using result_t = std::decay_t<decltype(result)>;
 
-            auto& pred = prediction<prediction_order, index_t>(delta_l, ii, jj);
+            auto& pred = get_prediction<prediction_order, Field>(level, delta_l, ii);
 
-            // auto result = zeros_like(f(level, i, j));
-            // result.fill(0.);
-            result = 0.;
+            if constexpr (std::is_same_v<result_t, double>)
+            {
+                result = 0.;
+            }
+            else
+            {
+                result.fill(0.);
+            }
 
             for (const auto& kv : pred.coeff)
             {
-                // cppcheck-suppress useStlAlgorithm
-                result += kv.second * f(level, i + kv.first[0], j + kv.first[1])[0];
-#ifdef SAMURAI_CHECK_NAN
-                if (xt::any(xt::isnan(f(level, i + kv.first[0], j + kv.first[1]))))
-                {
-                    if (i.size() == 1)
+                std::apply(
+                    [&](auto... indices)
                     {
-                        auto cell = f.mesh().get_cell(level, i.start + kv.first[0], j + kv.first[1]);
-                        std::cerr << "NaN detected in [" << cell << "] when trying to predict a value at level " << (level + delta_l)
-                                  << ". NaN in position {" << kv.first[0] << "," << kv.first[1] << "} of the prediction stencil."
-                                  << std::endl;
-                    }
-                }
-#endif
-            }
-            // return result;
-        }
-
-        template <std::size_t prediction_order, class Field>
-        auto portion_impl(const Field& f,
-                          std::size_t level,
-                          const typename Field::interval_t& i,
-                          typename Field::interval_t::value_t j,
-                          std::size_t delta_l,
-                          const typename Field::interval_t& ii,
-                          const typename Field::interval_t& jj)
-        {
-            using index_t = typename Field::interval_t::value_t;
-            static std::unordered_map<std::tuple<std::size_t, std::size_t, typename Field::interval_t, typename Field::interval_t>,
-                                      prediction_map<2, index_t>>
-                values;
-
-            auto iter = values.find({prediction_order, level, ii, jj});
-
-            if (iter == values.end())
-            {
-                for (auto ii_ = ii.start; ii_ < ii.end; ++ii_)
-                {
-                    for (auto jj_ = jj.start; jj_ < jj.end; ++jj_)
-                    {
-                        values[{prediction_order, level, ii, jj}] += prediction<prediction_order, index_t>(delta_l, ii_, jj_);
-                    }
-                }
-            }
-            auto result = zeros_like(f(level, i, j));
-
-            for (const auto& kv : values[{prediction_order, level, ii, jj}].coeff)
-            {
-                // cppcheck-suppress useStlAlgorithm
-                result += kv.second * f(level, i + kv.first[0], j + kv.first[1]);
-            }
-            return result;
-        }
-
-        // 3D portion
-        template <std::size_t prediction_order, class Field>
-        auto portion_impl(const Field& f,
-                          std::size_t element,
-                          std::size_t level,
-                          const typename Field::interval_t& i,
-                          typename Field::interval_t::value_t j,
-                          typename Field::interval_t::value_t k,
-                          std::size_t delta_l,
-                          typename Field::interval_t::value_t ii,
-                          typename Field::interval_t::value_t jj,
-                          typename Field::interval_t::value_t kk)
-        {
-            using index_t = typename Field::interval_t::value_t;
-
-            auto pred = prediction<prediction_order, index_t>(delta_l, ii, jj, kk);
-
-            auto result = zeros_like(f(element, level, i, j, k));
-
-            for (const auto& kv : pred.coeff)
-            {
-                // cppcheck-suppress useStlAlgorithm
-                result += kv.second * f(element, level, i + kv.first[0], j + kv.first[1], k + kv.first[2]);
-            }
-            return result;
-        }
-
-        template <std::size_t prediction_order, class Field>
-        auto portion_impl(const Field& f,
-                          std::size_t element,
-                          std::size_t level,
-                          const typename Field::interval_t& i,
-                          typename Field::interval_t::value_t j,
-                          typename Field::interval_t::value_t k,
-                          std::size_t delta_l,
-                          const typename Field::interval_t& ii,
-                          const typename Field::interval_t& jj,
-                          const typename Field::interval_t& kk)
-        {
-            using index_t    = typename Field::interval_t::value_t;
-            using interval_t = typename Field::interval_t;
-            static std::unordered_map<std::tuple<std::size_t, std::size_t, interval_t, interval_t, interval_t>, prediction_map<3, index_t>> values;
-
-            auto iter = values.find({prediction_order, level, ii, jj, kk});
-
-            if (iter == values.end())
-            {
-                for (auto ii_ = ii.start; ii_ < ii.end; ++ii_)
-                {
-                    for (auto jj_ = jj.start; jj_ < jj.end; ++jj_)
-                    {
-                        for (auto kk_ = kk.start; kk_ < kk.end; ++kk_)
+                        if constexpr (std::is_same_v<result_t, double>)
                         {
-                            values[{prediction_order, level, ii, jj, kk}] += prediction<prediction_order, index_t>(delta_l, ii_, jj_, kk_);
+                            result += kv.second * get_f(level, indices...)[0];
                         }
-                    }
-                }
-            }
-            auto result = zeros_like(f(element, level, i, j, k));
-
-            for (const auto& kv : values[{prediction_order, level, ii, jj, kk}].coeff)
-            {
-                // cppcheck-suppress useStlAlgorithm
-                result += kv.second * f(element, level, i + kv.first[0], j + kv.first[1], k + kv.first[2]);
-            }
-            return result;
-        }
-
-        template <std::size_t prediction_order, class Field>
-        auto portion_impl(const Field& f,
-                          std::size_t level,
-                          const typename Field::interval_t& i,
-                          typename Field::interval_t::value_t j,
-                          typename Field::interval_t::value_t k,
-                          std::size_t delta_l,
-                          typename Field::interval_t::value_t ii,
-                          typename Field::interval_t::value_t jj,
-                          typename Field::interval_t::value_t kk)
-        {
-            using index_t = typename Field::interval_t::value_t;
-            auto pred     = prediction<prediction_order, index_t>(delta_l, ii, jj, kk);
-
-            auto result = zeros_like(f(level, i, j, k));
-
-            for (const auto& kv : pred.coeff)
-            {
-                // cppcheck-suppress useStlAlgorithm
-                result += kv.second * f(level, i + kv.first[0], j + kv.first[1], k + kv.first[2]);
-            }
-            return result;
-        }
-
-        template <std::size_t prediction_order, class Field>
-        auto portion_impl(const Field& f,
-                          std::size_t level,
-                          const typename Field::interval_t& i,
-                          typename Field::interval_t::value_t j,
-                          typename Field::interval_t::value_t k,
-                          std::size_t delta_l,
-                          const typename Field::interval_t& ii,
-                          const typename Field::interval_t& jj,
-                          const typename Field::interval_t& kk)
-        {
-            using index_t    = typename Field::interval_t::value_t;
-            using interval_t = typename Field::interval_t;
-            static std::unordered_map<std::tuple<std::size_t, std::size_t, interval_t, interval_t, interval_t>, prediction_map<3, index_t>> values;
-
-            auto iter = values.find({prediction_order, level, ii, jj, kk});
-
-            if (iter == values.end())
-            {
-                for (auto ii_ = ii.start; ii_ < ii.end; ++ii_)
-                {
-                    for (auto jj_ = jj.start; jj_ < jj.end; ++jj_)
-                    {
-                        for (auto kk_ = kk.start; kk_ < kk.end; ++kk_)
+                        else
                         {
-                            values[{prediction_order, level, ii, jj, kk}] += prediction<prediction_order, index_t>(delta_l, ii_, jj_, kk_);
+                            result += kv.second * f(level, indices...);
                         }
-                    }
-                }
+                    },
+                    detail::compute_new_indices(0, i, kv.first));
             }
-            auto result = zeros_like(f(level, i, j, k));
-
-            for (const auto& kv : values[{prediction_order, level, ii, jj, kk}].coeff)
-            {
-                // cppcheck-suppress useStlAlgorithm
-                result += kv.second * f(level, i + kv.first[0], j + kv.first[1], k + kv.first[2]);
-            }
-            return result;
         }
     }
 
-    // 1D
-    template <class Field>
-    auto portion(const Field& f,
-                 std::size_t element,
-                 std::size_t level,
-                 const typename Field::interval_t& i,
-                 std::size_t delta_l,
-                 typename Field::interval_t::value_t ii)
-    {
-        return detail::portion_impl<Field::mesh_t::config::prediction_order>(f, element, level, i, delta_l, ii);
-    }
-
-    template <std::size_t prediction_order, class Field>
-    auto portion(const Field& f,
-                 std::size_t element,
-                 std::size_t level,
-                 const typename Field::interval_t& i,
-                 std::size_t delta_l,
-                 typename Field::interval_t::value_t ii)
-    {
-        return detail::portion_impl<prediction_order>(f, element, level, i, delta_l, ii);
-    }
-
-    template <class Field>
-    auto
-    portion(const Field& f, std::size_t level, const typename Field::interval_t& i, std::size_t delta_l, typename Field::interval_t::value_t ii)
-    {
-        return detail::portion_impl<Field::mesh_t::config::prediction_order>(f, level, i, delta_l, ii);
-    }
-
-    template <class Field>
-    auto
-    portion(const Field& f, std::size_t level, const typename Field::interval_t& i, std::size_t delta_l, const typename Field::interval_t& ii)
-    {
-        return detail::portion_impl<Field::mesh_t::config::prediction_order>(f, level, i, delta_l, ii);
-    }
-
-    template <std::size_t prediction_order, class Field>
-    auto
-    portion(const Field& f, std::size_t level, const typename Field::interval_t& i, std::size_t delta_l, typename Field::interval_t::value_t ii)
-    {
-        return detail::portion_impl<prediction_order>(f, level, i, delta_l, ii);
-    }
-
-    // 2D
-    template <class Field>
-    auto portion(const Field& f,
-                 std::size_t element,
-                 std::size_t level,
-                 const typename Field::interval_t& i,
-                 typename Field::interval_t::value_t j,
-                 std::size_t delta_l,
-                 typename Field::interval_t::value_t ii,
-                 typename Field::interval_t::value_t jj)
-    {
-        return detail::portion_impl<Field::mesh_t::config::prediction_order>(f, element, level, i, j, delta_l, ii, jj);
-    }
-
-    template <std::size_t prediction_order, class Field>
-    auto portion(const Field& f,
-                 std::size_t element,
-                 std::size_t level,
-                 const typename Field::interval_t& i,
-                 typename Field::interval_t::value_t j,
-                 std::size_t delta_l,
-                 typename Field::interval_t::value_t ii,
-                 typename Field::interval_t::value_t jj)
-    {
-        return detail::portion_impl<prediction_order>(f, element, level, i, j, delta_l, ii, jj);
-    }
-
-    template <std::size_t prediction_order, class Field>
+    template <class Field, class... index_t, class... cell_index_t>
     void portion(auto& result,
                  const Field& f,
                  std::size_t element,
                  std::size_t level,
-                 const typename Field::interval_t& i,
-                 typename Field::interval_t::value_t j,
                  std::size_t delta_l,
-                 typename Field::interval_t::value_t ii,
-                 typename Field::interval_t::value_t jj)
+                 const typename Field::interval_t& i,
+                 const std::tuple<index_t...>& others,
+                 const std::tuple<cell_index_t...>& ii)
     {
-        detail::portion_impl<prediction_order>(result, f, element, level, i, j, delta_l, ii, jj);
+        auto get_f = [&](std::size_t level, const auto&... indices) -> auto&
+        {
+            return f(element, level, indices...);
+        };
+        detail::portion_impl<Field::mesh_t::config::prediction_order>(result, f, get_f, level, delta_l, i, others, ii);
     }
 
-    template <std::size_t prediction_order, class Field>
+    template <class Field, class... index_t, class... cell_index_t>
     auto portion(const Field& f,
                  std::size_t element,
                  std::size_t level,
-                 const typename Field::interval_t& i,
-                 typename Field::interval_t::value_t j,
                  std::size_t delta_l,
-                 const typename Field::interval_t& ii,
-                 const typename Field::interval_t& jj)
+                 const typename Field::interval_t& i,
+                 const std::tuple<index_t...>& others,
+                 const std::tuple<cell_index_t...>& ii)
     {
-        return detail::portion_impl<prediction_order>(f, element, level, i, j, delta_l, ii, jj);
+        auto result = std::apply(
+            [&](const auto&... indices)
+            {
+                return zeros_like(f(element, level, i, indices...));
+            },
+            others);
+        portion(result, f, level, delta_l, i, others, ii);
+        return result;
     }
 
-    template <class Field>
-    auto portion(const Field& f,
-                 std::size_t element,
+    template <class Field, class... index_t, class... cell_index_t>
+    void portion(auto& result,
+                 const Field& f,
                  std::size_t level,
-                 const typename Field::interval_t& i,
-                 typename Field::interval_t::value_t j,
                  std::size_t delta_l,
-                 const typename Field::interval_t& ii,
-                 const typename Field::interval_t& jj)
+                 const typename Field::interval_t& i,
+                 const std::tuple<index_t...>& others,
+                 const std::tuple<cell_index_t...>& ii)
     {
-        return detail::portion_impl<Field::mesh_t::config::prediction_order>(f, element, level, i, j, delta_l, ii, jj);
+        auto get_f = [&](std::size_t level, const auto&... indices) -> auto&
+        {
+            return f(level, indices...);
+        };
+
+        detail::portion_impl<Field::mesh_t::config::prediction_order>(result, f, get_f, level, delta_l, i, others, ii);
     }
 
-    template <std::size_t prediction_order, class Field>
+    template <class Field, class... index_t, class... cell_index_t>
     auto portion(const Field& f,
                  std::size_t level,
-                 const typename Field::interval_t& i,
-                 typename Field::interval_t::value_t j,
                  std::size_t delta_l,
-                 const typename Field::interval_t& ii,
-                 const typename Field::interval_t& jj)
-    {
-        return detail::portion_impl<prediction_order>(f, level, i, j, delta_l, ii, jj);
-    }
-
-    template <class Field>
-    auto portion(const Field& f,
-                 std::size_t level,
                  const typename Field::interval_t& i,
-                 typename Field::interval_t::value_t j,
-                 std::size_t delta_l,
-                 const typename Field::interval_t& ii,
-                 const typename Field::interval_t& jj)
+                 const std::tuple<index_t...>& others,
+                 const std::tuple<cell_index_t...>& ii)
     {
-        return detail::portion_impl<Field::mesh_t::config::prediction_order>(f, level, i, j, delta_l, ii, jj);
-    }
-
-    template <class Field>
-    auto portion(const Field& f,
-                 std::size_t level,
-                 const typename Field::interval_t& i,
-                 typename Field::interval_t::value_t j,
-                 std::size_t delta_l,
-                 typename Field::interval_t::value_t ii,
-                 typename Field::interval_t::value_t jj)
-    {
-        return detail::portion_impl<Field::mesh_t::config::prediction_order>(f, level, i, j, delta_l, ii, jj);
-    }
-
-    template <std::size_t prediction_order, class Field>
-    auto portion(const Field& f,
-                 std::size_t level,
-                 const typename Field::interval_t& i,
-                 typename Field::interval_t::value_t j,
-                 std::size_t delta_l,
-                 typename Field::interval_t::value_t ii,
-                 typename Field::interval_t::value_t jj)
-    {
-        return detail::portion_impl<prediction_order>(f, level, i, j, delta_l, ii, jj);
-    }
-
-    // 3D
-    template <class Field>
-    auto portion(const Field& f,
-                 std::size_t element,
-                 std::size_t level,
-                 const typename Field::interval_t& i,
-                 typename Field::interval_t::value_t j,
-                 typename Field::interval_t::value_t k,
-                 std::size_t delta_l,
-                 typename Field::interval_t::value_t ii,
-                 typename Field::interval_t::value_t jj,
-                 typename Field::interval_t::value_t kk)
-    {
-        return detail::portion_impl<Field::mesh_t::config::prediction_order>(f, element, level, i, j, k, delta_l, ii, jj, kk);
-    }
-
-    template <std::size_t prediction_order, class Field>
-    auto portion(const Field& f,
-                 std::size_t element,
-                 std::size_t level,
-                 const typename Field::interval_t& i,
-                 typename Field::interval_t::value_t j,
-                 typename Field::interval_t::value_t k,
-                 std::size_t delta_l,
-                 typename Field::interval_t::value_t ii,
-                 typename Field::interval_t::value_t jj,
-                 typename Field::interval_t::value_t kk)
-    {
-        return detail::portion_impl<prediction_order>(f, element, level, i, j, k, delta_l, ii, jj, kk);
-    }
-
-    template <class Field>
-    auto portion(const Field& f,
-                 std::size_t element,
-                 std::size_t level,
-                 const typename Field::interval_t& i,
-                 typename Field::interval_t::value_t j,
-                 typename Field::interval_t::value_t k,
-                 std::size_t delta_l,
-                 const typename Field::interval_t& ii,
-                 const typename Field::interval_t& jj,
-                 const typename Field::interval_t& kk)
-    {
-        return detail::portion_impl<Field::mesh_t::config::prediction_order>(f, element, level, i, j, k, delta_l, ii, jj, kk);
-    }
-
-    template <std::size_t prediction_order, class Field>
-    auto portion(const Field& f,
-                 std::size_t element,
-                 std::size_t level,
-                 const typename Field::interval_t& i,
-                 typename Field::interval_t::value_t j,
-                 typename Field::interval_t::value_t k,
-                 std::size_t delta_l,
-                 const typename Field::interval_t& ii,
-                 const typename Field::interval_t& jj,
-                 const typename Field::interval_t& kk)
-    {
-        return detail::portion_impl<prediction_order>(f, element, level, i, j, k, delta_l, ii, jj, kk);
-    }
-
-    template <class Field>
-    auto portion(const Field& f,
-                 std::size_t level,
-                 const typename Field::interval_t& i,
-                 typename Field::interval_t::value_t j,
-                 typename Field::interval_t::value_t k,
-                 std::size_t delta_l,
-                 typename Field::interval_t::value_t ii,
-                 typename Field::interval_t::value_t jj,
-                 typename Field::interval_t::value_t kk)
-    {
-        return detail::portion_impl<Field::mesh_t::config::prediction_order>(f, level, i, j, k, delta_l, ii, jj, kk);
-    }
-
-    template <std::size_t prediction_order, class Field>
-    auto portion(const Field& f,
-                 std::size_t level,
-                 const typename Field::interval_t& i,
-                 typename Field::interval_t::value_t j,
-                 typename Field::interval_t::value_t k,
-                 std::size_t delta_l,
-                 typename Field::interval_t::value_t ii,
-                 typename Field::interval_t::value_t jj,
-                 typename Field::interval_t::value_t kk)
-    {
-        return detail::portion_impl<prediction_order>(f, level, i, j, k, delta_l, ii, jj, kk);
-    }
-
-    template <class Field>
-    auto portion(const Field& f,
-                 std::size_t level,
-                 const typename Field::interval_t& i,
-                 typename Field::interval_t::value_t j,
-                 typename Field::interval_t::value_t k,
-                 std::size_t delta_l,
-                 const typename Field::interval_t& ii,
-                 const typename Field::interval_t& jj,
-                 const typename Field::interval_t& kk)
-    {
-        return detail::portion_impl<Field::mesh_t::config::prediction_order>(f, level, i, j, k, delta_l, ii, jj, kk);
-    }
-
-    template <std::size_t prediction_order, class Field>
-    auto portion(const Field& f,
-                 std::size_t level,
-                 const typename Field::interval_t& i,
-                 typename Field::interval_t::value_t j,
-                 typename Field::interval_t::value_t k,
-                 std::size_t delta_l,
-                 const typename Field::interval_t& ii,
-                 const typename Field::interval_t& jj,
-                 const typename Field::interval_t& kk)
-    {
-        return detail::portion_impl<prediction_order>(f, level, i, j, k, delta_l, ii, jj, kk);
+        auto result = std::apply(
+            [&](const auto&... indices)
+            {
+                return zeros_like(f(level, i, indices...));
+            },
+            others);
+        portion(result, f, level, delta_l, i, others, ii);
+        return result;
     }
 
     // N-D
@@ -1098,8 +697,8 @@ namespace samurai
     void portion(auto& result,
                  const Field& f,
                  std::size_t level,
-                 const typename Field::cell_t::indices_t& src_indices,
                  std::size_t delta_l,
+                 const typename Field::cell_t::indices_t& src_indices,
                  const typename Field::cell_t::indices_t& dst_indices)
     {
         static constexpr std::size_t dim = Field::dim;
@@ -1109,20 +708,23 @@ namespace samurai
         if constexpr (dim == 1)
         {
             assert(dst_indices[0] <= (1 << delta_l));
-            detail::portion_impl<Field::mesh_t::config::prediction_order>(result, f, level, src_i, delta_l, dst_indices[0]);
+            detail::portion_impl<Field::mesh_t::config::prediction_order>(result, f, level, delta_l, src_i, dst_indices[0]);
         }
         else if constexpr (dim == 2)
         {
             assert(dst_indices[0] <= (1 << delta_l));
             assert(dst_indices[1] <= (1 << delta_l));
-            detail::portion_impl<Field::mesh_t::config::prediction_order>(result,
-                                                                          f,
-                                                                          level,
-                                                                          src_i,
-                                                                          src_indices[1],
-                                                                          delta_l,
-                                                                          dst_indices[0],
-                                                                          dst_indices[1]);
+            detail::portion_impl<Field::mesh_t::config::prediction_order>(
+                result,
+                f,
+                [&](auto&... e)
+                {
+                    return f(e...);
+                },
+                level,
+                delta_l,
+                std::make_tuple(src_i, src_indices[1]),
+                std::make_tuple(dst_indices[0], dst_indices[1]));
         }
         else if (dim == 3)
         {
@@ -1132,10 +734,10 @@ namespace samurai
             detail::portion_impl<Field::mesh_t::config::prediction_order>(result,
                                                                           f,
                                                                           level,
+                                                                          delta_l,
                                                                           src_i,
                                                                           src_indices[1],
                                                                           src_indices[2],
-                                                                          delta_l,
                                                                           dst_indices[0],
                                                                           dst_indices[1],
                                                                           dst_indices[2]);
