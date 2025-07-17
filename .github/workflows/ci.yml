@@ -482,15 +482,15 @@ jobs:
               run: |
                   cd build
                   set -e  # Stop on first failure
-                  mpiexec -n 1 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05
-                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05
-                  mpiexec -n 3 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05
+                  mpiexec -n 1 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 1
+                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 1
+                  mpiexec -n 3 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 1
 
             - name: test finite-volume-burgers
               shell: bash -l {0}
               run: |
                   cd build
                   set -e  # Stop on first failure
-                  mpiexec -n 1 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 20 --max-level 8
-                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 20 --max-level 8
-                  mpiexec -n 3 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 20 --max-level 8
+                  mpiexec -n 1 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 1 --max-level 8
+                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 1 --max-level 8
+                  mpiexec -n 3 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 1 --max-level 8
