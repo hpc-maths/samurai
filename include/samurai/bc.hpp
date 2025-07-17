@@ -1210,8 +1210,8 @@ namespace samurai
                         {
                             std::cerr << "NaN detected in [" << cells[c]
                                       << "] when applying polynomial extrapolation to fill the outer ghost [" << ghost << "]." << std::endl;
-                            save(fs::current_path(), "nan_extrapolation", {true, true}, u.mesh(), u);
-                            assert(false);
+                            // save(fs::current_path(), "nan_extrapolation", {true, true}, u.mesh(), u);
+                            exit(1);
                         }
                     }
                 }
