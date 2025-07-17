@@ -630,7 +630,7 @@ namespace samurai
                         {
                             std::cout << "Non-existing neighbour for " << origin_cell << " in the direction " << dir << std::endl;
                             // save(fs::current_path(), "mesh_error", {true, true}, m_mesh);
-                            assert(false);
+                            exit(1);
                         }
 #endif
                     }

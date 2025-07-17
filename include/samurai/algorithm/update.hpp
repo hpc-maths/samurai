@@ -168,7 +168,7 @@ namespace samurai
 #ifndef NDEBUG
                                         save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
 #endif
-                                        // std::exit(1);
+                                        std::exit(1);
                                     }
 #endif
                                     field(proj_level, i_cell, index) += field(children_level, {ii_child, ii_child + 1}, index_child);

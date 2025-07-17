@@ -51,15 +51,14 @@ namespace samurai
     template <class Mesh>
     auto domain_boundary_outer_layer(const Mesh& mesh, std::size_t level, std::size_t layer_width)
     {
-        using lca_t                      = typename Mesh::lca_type;
-        using lcl_t                      = typename Mesh::lcl_type;
-        static constexpr std::size_t dim = Mesh::dim;
+        using lca_t = typename Mesh::lca_type;
+        using lcl_t = typename Mesh::lcl_type;
 
         auto domain = self(mesh.domain()).on(level);
 
         lcl_t outer_boundary_lcl(level, mesh.origin_point(), mesh.scaling_factor());
 
-        for_each_cartesian_direction<dim>(
+        for_each_cartesian_direction<Mesh::dim>(
             [&](const auto& direction)
             {
                 auto inner_boundary = domain_boundary(mesh, level, direction);
