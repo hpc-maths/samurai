@@ -627,15 +627,14 @@ namespace samurai
                  std::size_t element,
                  std::size_t level,
                  std::size_t delta_l,
-                 const typename Field::interval_t& i,
-                 const std::tuple<index_t...>& others,
+                 const std::tuple<typename Field::interval_t, index_t...>& i,
                  const std::tuple<cell_index_t...>& ii)
     {
-        auto get_f = [&](std::size_t level, const auto&... indices) -> auto&
+        auto get_f = [&](std::size_t level, const auto&... indices)
         {
             return f(element, level, indices...);
         };
-        detail::portion_impl<Field::mesh_t::config::prediction_order>(result, f, get_f, level, delta_l, i, others, ii);
+        detail::portion_impl<Field::mesh_t::config::prediction_order>(result, f, get_f, level, delta_l, i, ii);
     }
 
     template <class Field, class... index_t, class... cell_index_t>
@@ -643,17 +642,16 @@ namespace samurai
                  std::size_t element,
                  std::size_t level,
                  std::size_t delta_l,
-                 const typename Field::interval_t& i,
-                 const std::tuple<index_t...>& others,
+                 const std::tuple<typename Field::interval_t, index_t...>& i,
                  const std::tuple<cell_index_t...>& ii)
     {
         auto result = std::apply(
             [&](const auto&... indices)
             {
-                return zeros_like(f(element, level, i, indices...));
+                return zeros_like(f(element, level, indices...));
             },
-            others);
-        portion(result, f, level, delta_l, i, others, ii);
+            i);
+        portion(result, f, level, delta_l, i, ii);
         return result;
     }
 
@@ -662,33 +660,31 @@ namespace samurai
                  const Field& f,
                  std::size_t level,
                  std::size_t delta_l,
-                 const typename Field::interval_t& i,
-                 const std::tuple<index_t...>& others,
+                 const std::tuple<typename Field::interval_t, index_t...>& i,
                  const std::tuple<cell_index_t...>& ii)
     {
-        auto get_f = [&](std::size_t level, const auto&... indices) -> auto&
+        auto get_f = [&](std::size_t level, const auto&... indices)
         {
             return f(level, indices...);
         };
 
-        detail::portion_impl<Field::mesh_t::config::prediction_order>(result, f, get_f, level, delta_l, i, others, ii);
+        detail::portion_impl<Field::mesh_t::config::prediction_order>(result, f, get_f, level, delta_l, i, ii);
     }
 
     template <class Field, class... index_t, class... cell_index_t>
     auto portion(const Field& f,
                  std::size_t level,
                  std::size_t delta_l,
-                 const typename Field::interval_t& i,
-                 const std::tuple<index_t...>& others,
+                 const std::tuple<typename Field::interval_t, index_t...>& i,
                  const std::tuple<cell_index_t...>& ii)
     {
         auto result = std::apply(
             [&](const auto&... indices)
             {
-                return zeros_like(f(level, i, indices...));
+                return zeros_like(f(level, indices...));
             },
-            others);
-        portion(result, f, level, delta_l, i, others, ii);
+            i);
+        portion(result, f, level, delta_l, i, ii);
         return result;
     }
 
@@ -708,39 +704,25 @@ namespace samurai
         if constexpr (dim == 1)
         {
             assert(dst_indices[0] <= (1 << delta_l));
-            detail::portion_impl<Field::mesh_t::config::prediction_order>(result, f, level, delta_l, src_i, dst_indices[0]);
+            portion(result, f, level, delta_l, std::make_tuple(src_i), std::make_tuple(dst_indices[0]));
         }
         else if constexpr (dim == 2)
         {
             assert(dst_indices[0] <= (1 << delta_l));
             assert(dst_indices[1] <= (1 << delta_l));
-            detail::portion_impl<Field::mesh_t::config::prediction_order>(
-                result,
-                f,
-                [&](auto&... e)
-                {
-                    return f(e...);
-                },
-                level,
-                delta_l,
-                std::make_tuple(src_i, src_indices[1]),
-                std::make_tuple(dst_indices[0], dst_indices[1]));
+            portion(result, f, level, delta_l, std::make_tuple(src_i, src_indices[1]), std::make_tuple(dst_indices[0], dst_indices[1]));
         }
         else if (dim == 3)
         {
             assert(dst_indices[0] <= (1 << delta_l));
             assert(dst_indices[1] <= (1 << delta_l));
             assert(dst_indices[2] <= (1 << delta_l));
-            detail::portion_impl<Field::mesh_t::config::prediction_order>(result,
-                                                                          f,
-                                                                          level,
-                                                                          delta_l,
-                                                                          src_i,
-                                                                          src_indices[1],
-                                                                          src_indices[2],
-                                                                          dst_indices[0],
-                                                                          dst_indices[1],
-                                                                          dst_indices[2]);
+            portion(result,
+                    f,
+                    level,
+                    delta_l,
+                    std::make_tuple(src_i, src_indices[1], src_indices[2]),
+                    std::make_tuple(dst_indices[0], dst_indices[1], dst_indices[2]));
         }
     }
 
@@ -763,21 +745,7 @@ namespace samurai
             same_cell(
                 [&](const auto& i, const auto& index)
                 {
-                    if constexpr (dim == 1)
-                    {
-                        field_dst(level_dst, i) = field_src(level_dst, i);
-                    }
-                    else if constexpr (dim == 2)
-                    {
-                        auto j                     = index[0];
-                        field_dst(level_dst, i, j) = field_src(level_dst, i, j);
-                    }
-                    else if constexpr (dim == 3)
-                    {
-                        auto j                        = index[0];
-                        auto k                        = index[1];
-                        field_dst(level_dst, i, j, k) = field_src(level_dst, i, j, k);
-                    }
+                    field_dst(level_dst, i, index) = field_src(level_dst, i, index);
                 });
 
             for (std::size_t level_src = level_dst + 1; level_src <= mesh_src.max_level(); ++level_src)
