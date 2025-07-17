@@ -273,10 +273,10 @@ namespace samurai
 
     template <class D, class Config>
     Mesh_base<D, Config>::Mesh_base(const samurai::DomainBuilder<dim>& domain_builder,
-                                    std::size_t start_level,
+                                    [[maybe_unused]] std::size_t start_level,
                                     std::size_t min_level,
                                     std::size_t max_level,
-                                    double approx_box_tol,
+                                    [[maybe_unused]] double approx_box_tol,
                                     double scaling_factor_)
         : m_min_level{min_level}
         , m_max_level{max_level}
