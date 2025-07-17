@@ -1208,10 +1208,6 @@ namespace samurai
                     {
                         if (std::isnan(field_value(u, cells[c], field_i)))
                         {
-#ifdef SAMURAI_WITH_MPI
-                            mpi::communicator world;
-                            std::cerr << "[" << world.rank() << "] ";
-#endif
                             std::cerr << "NaN detected in [" << cells[c]
                                       << "] when applying polynomial extrapolation to fill the outer ghost [" << ghost << "]." << std::endl;
                             // save(fs::current_path(), "nan_extrapolation", {true, true}, u.mesh(), u);
