@@ -111,6 +111,9 @@ namespace samurai
         // std::vector<int>& neighbouring_ranks();
         std::vector<mpi_subdomain_t>& mpi_neighbourhood();
         const std::vector<mpi_subdomain_t>& mpi_neighbourhood() const;
+        cl_type
+        construct_initial_mesh(const DomainBuilder<dim>& domain_builder, std::size_t start_level, double approx_box_tol, double scaling_factor);
+        void compute_scaling_factor(const samurai::DomainBuilder<dim>& domain_builder, double& scaling_factor);
 
         void swap(Mesh_base& mesh) noexcept;
 
@@ -281,96 +284,16 @@ namespace samurai
         assert(min_level <= max_level);
         m_periodic.fill(false);
 
-        auto origin_point_ = domain_builder.origin_point();
-
 #ifdef SAMURAI_WITH_MPI
         std::cerr << "MPI is not implemented with DomainBuilder." << std::endl;
         std::exit(1);
         // partition_mesh(start_level, b);
         //  load_balancing();
 #else
-        // We need to be able to apply the BC at all levels (between min_level and max_level, but not under min_level
-        // since the BC are only apply near real cells).
-        // If there is a hole that isn't large enough to have enough ghosts to apply the BC, we need to refine the mesh.
-        // (Otherwise, some ghosts at the end of the stencil will infact be cells on the other side of the hole.)
-        // Another constraint (that will be lifted in the future): as we simultaneously apply the BC on both positive and
-        // negartive directions, we actually need 2 times the stencil width inside the hole.
-
-        // min_level where the BC can be applied
-        std::size_t min_level_bc = min_level; // min_level > 1 ? min_level - 2 : 0;
-        if (scaling_factor_ <= 0)
-        {
-            scaling_factor_ = domain_builder.largest_subdivision();
-
-            auto largest_cell_length = samurai::cell_length(scaling_factor_, min_level_bc);
-            for (const auto& box : domain_builder.removed_boxes())
-            {
-                std::cout << "box.min_length() = " << box.min_length()
-                          << ", largest_cell_length * config::max_stencil_width = " << largest_cell_length * config::max_stencil_width
-                          << std::endl;
-                while (box.min_length() < 2 * largest_cell_length * config::max_stencil_width)
-                {
-                    scaling_factor_ /= 2;
-                    largest_cell_length /= 2;
-                }
-            }
-        }
-        else
-        {
-            auto largest_cell_length = samurai::cell_length(scaling_factor_, min_level_bc);
-            for (const auto& box : domain_builder.removed_boxes())
-            {
-                if (box.min_length() < 2 * largest_cell_length * config::max_stencil_width)
-                {
-                    std::cerr << "The hole " << box << " is too small to apply the BC at level " << min_level_bc
-                              << " with the given scaling factor. We need to be able to construct " << (2 * config::max_stencil_width)
-                              << " ghosts in each direction inside the hole." << std::endl;
-                    std::cerr << "Please choose a smaller scaling factor or enlarge the hole." << std::endl;
-                    std::exit(1);
-                }
-            }
-        }
+        compute_scaling_factor(domain_builder, scaling_factor_);
 
         // Build the domain by adding and removing boxes
-
-        cl_type domain_cl(origin_point_, scaling_factor_);
-
-        for (const auto& box : domain_builder.added_boxes())
-        {
-            lca_type box_lca(start_level, box, origin_point_, approx_box_tol, scaling_factor_);
-            // Put back this code when we have add_interval in LevelCellArray
-            // for_each_interval(box_lca,
-            //                   [&](const auto& i, const auto& index)
-            //                   {
-            //                       domain_lca.add_interval(i, index);
-            //                   });
-            lca_type current_domain_lca(domain_cl[start_level]);
-            auto new_domain_set = union_(current_domain_lca, box_lca);
-            domain_cl           = cl_type(origin_point_, scaling_factor_);
-            new_domain_set(
-                [&](const auto& i, const auto& index)
-                {
-                    domain_cl[start_level][index].add_interval({i});
-                });
-        }
-        for (const auto& box : domain_builder.removed_boxes())
-        {
-            lca_type hole_lca(start_level, box, origin_point_, approx_box_tol, scaling_factor_);
-            // Put back this code when we have remove_interval in LevelCellArray
-            // for_each_interval(hole_lca,
-            //                   [&](const auto& i, const auto& index)
-            //                   {
-            //                       domain_lca.remove_interval(i, index);
-            //                   });
-            lca_type current_domain_lca(domain_cl[start_level]);
-            auto new_domain_set = difference(current_domain_lca, hole_lca);
-            domain_cl           = cl_type(origin_point_, scaling_factor_);
-            new_domain_set(
-                [&](const auto& i, const auto& index)
-                {
-                    domain_cl[start_level][index].add_interval({i});
-                });
-        }
+        cl_type domain_cl = construct_initial_mesh(domain_builder, start_level, approx_box_tol, scaling_factor_);
 
         this->m_cells[mesh_id_t::cells] = {domain_cl, false};
 #endif
@@ -381,7 +304,7 @@ namespace samurai
         renumbering();
         update_mesh_neighbour();
 
-        set_origin_point(origin_point_);
+        set_origin_point(domain_builder.origin_point());
         set_scaling_factor(scaling_factor_);
     }
 
@@ -511,6 +434,89 @@ namespace samurai
 
         set_origin_point(ref_mesh.origin_point());
         set_scaling_factor(ref_mesh.scaling_factor());
+    }
+
+    template <class D, class Config>
+    void Mesh_base<D, Config>::compute_scaling_factor(const samurai::DomainBuilder<dim>& domain_builder, double& scaling_factor)
+    {
+        // We need to be able to apply the BC at all levels (between min_level and max_level, but not under min_level
+        // since the BC are only apply near real cells).
+        // If there is a hole that isn't large enough to have enough ghosts to apply the BC, we need to refine the mesh.
+        // (Otherwise, some ghosts at the end of the stencil will infact be cells on the other side of the hole.)
+        // Another constraint (that will be lifted in the future): as we simultaneously apply the BC on both positive and
+        // negartive directions, we actually need 2 times the stencil width inside the hole.
+
+        // min_level where the BC can be applied
+        std::size_t min_level_bc = m_min_level;
+        if (scaling_factor <= 0)
+        {
+            scaling_factor = domain_builder.largest_subdivision();
+
+            auto largest_cell_length = samurai::cell_length(scaling_factor, min_level_bc);
+            for (const auto& box : domain_builder.removed_boxes())
+            {
+                while (box.min_length() < 2 * largest_cell_length * config::max_stencil_width)
+                {
+                    scaling_factor /= 2;
+                    largest_cell_length /= 2;
+                }
+            }
+        }
+        else
+        {
+            auto largest_cell_length = samurai::cell_length(scaling_factor, min_level_bc);
+            for (const auto& box : domain_builder.removed_boxes())
+            {
+                if (box.min_length() < 2 * largest_cell_length * config::max_stencil_width)
+                {
+                    std::cerr << "The hole " << box << " is too small to apply the BC at level " << min_level_bc
+                              << " with the given scaling factor. We need to be able to construct " << (2 * config::max_stencil_width)
+                              << " ghosts in each direction inside the hole." << std::endl;
+                    std::cerr << "Please choose a smaller scaling factor or enlarge the hole." << std::endl;
+                    std::exit(1);
+                }
+            }
+        }
+    }
+
+    template <class D, class Config>
+    auto Mesh_base<D, Config>::construct_initial_mesh(const samurai::DomainBuilder<dim>& domain_builder,
+                                                      std::size_t start_level,
+                                                      double approx_box_tol,
+                                                      double scaling_factor) -> cl_type
+    {
+        // Build the domain by adding and removing boxes
+
+        auto origin_point_ = domain_builder.origin_point();
+
+        cl_type domain_cl(origin_point_, scaling_factor);
+
+        for (const auto& box : domain_builder.added_boxes())
+        {
+            lca_type box_lca(start_level, box, origin_point_, approx_box_tol, scaling_factor);
+            lca_type current_domain_lca(domain_cl[start_level]);
+            auto new_domain_set = union_(current_domain_lca, box_lca);
+            domain_cl           = cl_type(origin_point_, scaling_factor);
+            new_domain_set(
+                [&](const auto& i, const auto& index)
+                {
+                    domain_cl[start_level][index].add_interval({i});
+                });
+        }
+        for (const auto& box : domain_builder.removed_boxes())
+        {
+            lca_type hole_lca(start_level, box, origin_point_, approx_box_tol, scaling_factor);
+            lca_type current_domain_lca(domain_cl[start_level]);
+            auto new_domain_set = difference(current_domain_lca, hole_lca);
+            domain_cl           = cl_type(origin_point_, scaling_factor);
+            new_domain_set(
+                [&](const auto& i, const auto& index)
+                {
+                    domain_cl[start_level][index].add_interval({i});
+                });
+        }
+
+        return domain_cl;
     }
 
     template <class D, class Config>
