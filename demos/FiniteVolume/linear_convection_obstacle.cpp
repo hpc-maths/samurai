@@ -51,8 +51,8 @@ int main(int argc, char* argv[])
     double cfl = 0.95;
 
     // Multiresolution parameters
-    std::size_t min_level = 2;
-    std::size_t max_level = 4;
+    std::size_t min_level = 1;
+    std::size_t max_level = 3;
     double mr_epsilon     = 1e-3; // Threshold used by multiresolution
     double mr_regularity  = 1.;   // Regularity guess for multiresolution
 
