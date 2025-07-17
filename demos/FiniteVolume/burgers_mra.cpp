@@ -83,11 +83,18 @@ void run_simulation(Field& u,
 {
     auto& mesh = u.mesh();
 
-    std::cout << std::endl << "max-level-flux enabled: " << scheme.enable_max_level_flux() << std::endl;
+    std::cout << std::endl << "finer-level-flux enabled: " << scheme.enable_finer_level_flux() << std::endl;
 
-    if (scheme.enable_max_level_flux())
+    if (scheme.enable_finer_level_flux())
     {
-        filename += "_mlf";
+        if (samurai::args::finer_level_flux == -1)
+        {
+            filename += "_mlf";
+        }
+        else
+        {
+            filename += fmt::format("_lf_{}", samurai::args::finer_level_flux);
+        }
     }
 
     // Initial solution
