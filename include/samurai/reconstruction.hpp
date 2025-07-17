@@ -14,6 +14,21 @@
 
 namespace samurai
 {
+    // Hash function for std::array
+    template <typename T, std::size_t N>
+    struct ArrayHash
+    {
+        std::size_t operator()(const std::array<T, N>& arr) const
+        {
+            std::size_t hash = 0;
+            for (const auto& element : arr)
+            {
+                hash ^= std::hash<T>{}(element) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+            }
+            return hash;
+        }
+    };
+
     template <std::size_t dim, class index_t = default_config::value_t>
     class prediction_map
     {
@@ -115,7 +130,7 @@ namespace samurai
             }
         }
 
-        std::map<std::array<index_t, dim>, double> coeff;
+        std::unordered_map<std::array<index_t, dim>, double, ArrayHash<index_t, dim>> coeff;
     };
 
     template <std::size_t dim, class index_t>
@@ -157,131 +172,123 @@ namespace samurai
         return out;
     }
 
-    template <std::size_t order = 1, class index_t = default_config::value_t>
-    auto prediction(std::size_t level, index_t i) -> prediction_map<1, index_t>
+    namespace detail
     {
-        static std::map<std::tuple<std::size_t, std::size_t, index_t>, prediction_map<1, index_t>> values;
-
-        if (level == 0)
+        template <std::size_t... Is>
+        auto compute_new_indices(auto order, const auto& parent_indices, const auto& loop_indices, std::index_sequence<Is...>)
         {
-            return prediction_map<1, index_t>{{i}};
+            return std::make_tuple(
+                (std::get<Is>(parent_indices) + static_cast<default_config::value_t>(std::get<Is>(loop_indices) - order))...);
         }
 
-        auto iter = values.find({order, level, i});
-
-        if (iter == values.end())
+        auto compute_new_indices(auto order, const auto& parent_indices, const auto& loop_indices)
         {
-            int ig      = i >> 1;
-            double sign = (i & 1) ? -1. : 1.;
+            return compute_new_indices(order,
+                                       parent_indices,
+                                       loop_indices,
+                                       std::make_index_sequence<std::tuple_size_v<std::decay_t<decltype(parent_indices)>>>{});
+        }
 
-            values[{order, level, i}] = prediction<order, index_t>(level - 1, ig);
+        template <std::size_t... Is>
+        auto compute_coeff(const auto& interp_coeffs, const auto& indices, std::index_sequence<Is...>)
+        {
+            return (std::get<Is>(interp_coeffs)[std::get<Is>(indices)] * ...);
+        }
 
-            auto interp = interp_coeffs<2 * order + 1>(sign);
-            for (std::size_t ci = 0; ci < interp.size(); ++ci)
+        auto compute_coeff(const auto& interp_coeffs, const auto& indices)
+        {
+            return compute_coeff(interp_coeffs, indices, std::make_index_sequence<std::tuple_size_v<std::decay_t<decltype(interp_coeffs)>>>{});
+        }
+
+        template <typename Func, std::size_t d>
+        void multi_dim_loop(auto& current_index, const auto& coeff_arrays, Func&& func, std::integral_constant<std::size_t, d>)
+        {
+            if constexpr (d == 0)
             {
-                if (ci != order)
+                std::apply(
+                    [&](auto... indices)
+                    {
+                        func(indices...);
+                    },
+                    current_index);
+            }
+            else
+            {
+                for (std::size_t i = 0; i < std::get<d - 1>(coeff_arrays).size(); ++i)
                 {
-                    values[{order, level, i}] += interp[ci] * prediction<order, index_t>(level - 1, ig + static_cast<index_t>(ci - order));
+                    std::get<d - 1>(current_index) = i;
+                    multi_dim_loop(current_index, coeff_arrays, std::forward<Func>(func), std::integral_constant<std::size_t, d - 1>{});
                 }
             }
-            return values[{order, level, i}];
         }
-        return iter->second;
+
+        template <typename Func>
+        void multi_dim_loop(const auto& coeff_arrays, Func&& func)
+        {
+            constexpr std::size_t num_dims = std::tuple_size_v<std::decay_t<decltype(coeff_arrays)>>;
+            auto current_index             = []<std::size_t... Is>(std::index_sequence<Is...>)
+            {
+                return std::make_tuple(((void)Is, std::size_t{0})...);
+            }(std::make_index_sequence<num_dims>{});
+            multi_dim_loop(current_index, coeff_arrays, std::forward<Func>(func), std::integral_constant<std::size_t, num_dims>{});
+        }
+
     }
 
-    template <std::size_t order = 1, class index_t = default_config::value_t>
-    auto prediction(std::size_t level, index_t i, index_t j) -> prediction_map<2, index_t>
+    template <std::size_t order = 1, class... index_t>
+    auto& prediction(std::size_t level, index_t... indices)
     {
-        static std::map<std::tuple<std::size_t, std::size_t, index_t, index_t>, prediction_map<2, index_t>> values;
+        static constexpr std::size_t dim = sizeof...(index_t);
+        static std::unordered_map<std::tuple<std::size_t, std::size_t, index_t...>, prediction_map<dim, default_config::value_t>> values;
+
+        auto key  = std::make_tuple(order, level, indices...);
+        auto iter = values.find(key);
+
+        if (iter != values.end())
+        {
+            return iter->second;
+        }
 
         if (level == 0)
         {
-            return prediction_map<2, index_t>{
-                {i, j}
-            };
+            values[key] = prediction_map<dim, default_config::value_t>{{indices...}};
+            return values[key];
         }
 
-        auto iter = values.find({order, level, i, j});
+        auto parent_indices = std::make_tuple((indices >> 1)...);
+        auto signs          = std::make_tuple(((indices & 1) ? -1. : 1.)...);
 
-        if (iter == values.end())
-        {
-            int ig       = i >> 1;
-            int jg       = j >> 1;
-            double isign = (i & 1) ? -1. : 1.;
-            double jsign = (j & 1) ? -1. : 1.;
-
-            values[{order, level, i, j}] = prediction<order, index_t>(level - 1, ig, jg);
-
-            auto interpx = interp_coeffs<2 * order + 1>(isign);
-            auto interpy = interp_coeffs<2 * order + 1>(jsign);
-
-            for (std::size_t ci = 0; ci < interpx.size(); ++ci)
+        std::apply(
+            [&](auto... parent_values)
             {
-                for (std::size_t cj = 0; cj < interpy.size(); ++cj)
-                {
-                    if (ci != order || cj != order)
-                    {
-                        values[{order, level, i, j}] += interpx[ci] * interpy[cj]
-                                                      * prediction<order, index_t>(level - 1,
-                                                                                   ig + static_cast<index_t>(ci - order),
-                                                                                   jg + static_cast<index_t>(cj - order));
-                    }
-                }
-            }
-            return values[{order, level, i, j}];
-        }
-        return iter->second;
-    }
+                values[key] = prediction<order, index_t...>(level - 1, parent_values...);
+            },
+            parent_indices);
 
-    template <std::size_t order = 1, class index_t = default_config::value_t>
-    auto prediction(std::size_t level, index_t i, index_t j, index_t k) -> prediction_map<3, index_t>
-    {
-        static std::map<std::tuple<std::size_t, std::size_t, index_t, index_t, index_t>, prediction_map<3, index_t>> values;
-
-        if (level == 0)
-        {
-            return prediction_map<3, index_t>{
-                {i, j, k}
-            };
-        }
-
-        auto iter = values.find({order, level, i, j, k});
-
-        if (iter == values.end())
-        {
-            int ig       = i >> 1;
-            int jg       = j >> 1;
-            int kg       = k >> 1;
-            double isign = (i & 1) ? -1. : 1.;
-            double jsign = (j & 1) ? -1. : 1.;
-            double ksign = (k & 1) ? -1. : 1.;
-
-            values[{order, level, i, j, k}] = prediction<order, index_t>(level - 1, ig, jg, kg);
-
-            auto interpx = interp_coeffs<2 * order + 1>(isign);
-            auto interpy = interp_coeffs<2 * order + 1>(jsign);
-            auto interpz = interp_coeffs<2 * order + 1>(ksign);
-
-            for (std::size_t ci = 0; ci < interpx.size(); ++ci)
+        auto interp_coeff_values = std::apply(
+            [&](auto... sign_values)
             {
-                for (std::size_t cj = 0; cj < interpy.size(); ++cj)
-                {
-                    for (std::size_t ck = 0; ck < interpz.size(); ++ck)
-                    {
-                        if (ci != order || cj != order || ck != order)
-                        {
-                            values[{order, level, i, j, k}] += interpx[ci] * interpy[cj] * interpz[ck]
-                                                             * prediction<order, index_t>(level - 1,
-                                                                                          ig + static_cast<index_t>(ci - order),
-                                                                                          jg + static_cast<index_t>(cj - order),
-                                                                                          kg + static_cast<index_t>(ck - order));
-                        }
-                    }
-                }
-            }
-            return values[{order, level, i, j, k}];
-        }
-        return iter->second;
+                return std::make_tuple(interp_coeffs<2 * order + 1>(sign_values)...);
+            },
+            signs);
+
+        detail::multi_dim_loop(interp_coeff_values,
+                               [&](auto... loop_indices)
+                               {
+                                   bool is_not_center = ((loop_indices != order) || ...);
+
+                                   if (is_not_center)
+                                   {
+                                       double c = detail::compute_coeff(interp_coeff_values, std::make_tuple(loop_indices...));
+                                       std::apply(
+                                           [&](auto... offsets)
+                                           {
+                                               values[key] += c * prediction<order, index_t...>(level - 1, offsets...);
+                                           },
+                                           detail::compute_new_indices(order, parent_indices, std::make_tuple(loop_indices...)));
+                                   }
+                               });
+        return values[key];
     }
 
     template <std::size_t dim, class TInterval>
@@ -307,7 +314,7 @@ namespace samurai
                 index_t nb_cells = 1 << delta_l;
                 for (index_t ii = 0; ii < nb_cells; ++ii)
                 {
-                    auto pred = prediction<prediction_order, index_t>(delta_l, ii);
+                    auto& pred = prediction<prediction_order, index_t>(delta_l, ii);
                     for (const auto& kv : pred.coeff)
                     {
                         auto i_f = (i << delta_l) + ii;
@@ -337,9 +344,9 @@ namespace samurai
                     auto j_f = (j << delta_l) + jj;
                     for (index_t ii = 0; ii < nb_cells; ++ii)
                     {
-                        auto pred = prediction<prediction_order, index_t>(delta_l, ii, jj);
-                        auto i_f  = (i << delta_l) + ii;
-                        i_f.step  = nb_cells;
+                        auto& pred = prediction<prediction_order, index_t>(delta_l, ii, jj);
+                        auto i_f   = (i << delta_l) + ii;
+                        i_f.step   = nb_cells;
 
                         for (const auto& kv : pred.coeff)
                         {
@@ -372,9 +379,9 @@ namespace samurai
                         auto j_f = (j << delta_l) + jj;
                         for (index_t ii = 0; ii < nb_cells; ++ii)
                         {
-                            auto pred = prediction<prediction_order, index_t>(delta_l, ii, jj, kk);
-                            auto i_f  = (i << delta_l) + ii;
-                            i_f.step  = nb_cells;
+                            auto& pred = prediction<prediction_order, index_t>(delta_l, ii, jj, kk);
+                            auto i_f   = (i << delta_l) + ii;
+                            i_f.step   = nb_cells;
 
                             for (const auto& kv : pred.coeff)
                             {
@@ -604,7 +611,8 @@ namespace samurai
         }
 
         template <std::size_t prediction_order, class Field>
-        auto portion_impl(const Field& f,
+        void portion_impl(auto& result,
+                          const Field& f,
                           std::size_t level,
                           const typename Field::interval_t& i,
                           typename Field::interval_t::value_t j,
@@ -614,14 +622,16 @@ namespace samurai
         {
             using index_t = typename Field::interval_t::value_t;
 
-            auto pred = prediction<prediction_order, index_t>(delta_l, ii, jj);
+            auto& pred = prediction<prediction_order, index_t>(delta_l, ii, jj);
 
-            auto result = zeros_like(f(level, i, j));
+            // auto result = zeros_like(f(level, i, j));
+            // result.fill(0.);
+            result = 0.;
 
             for (const auto& kv : pred.coeff)
             {
                 // cppcheck-suppress useStlAlgorithm
-                result += kv.second * f(level, i + kv.first[0], j + kv.first[1]);
+                result += kv.second * f(level, i + kv.first[0], j + kv.first[1])[0];
 #ifdef SAMURAI_CHECK_NAN
                 if (xt::any(xt::isnan(f(level, i + kv.first[0], j + kv.first[1]))))
                 {
@@ -635,7 +645,7 @@ namespace samurai
                 }
 #endif
             }
-            return result;
+            // return result;
         }
 
         template <std::size_t prediction_order, class Field>
@@ -879,6 +889,20 @@ namespace samurai
     }
 
     template <std::size_t prediction_order, class Field>
+    void portion(auto& result,
+                 const Field& f,
+                 std::size_t element,
+                 std::size_t level,
+                 const typename Field::interval_t& i,
+                 typename Field::interval_t::value_t j,
+                 std::size_t delta_l,
+                 typename Field::interval_t::value_t ii,
+                 typename Field::interval_t::value_t jj)
+    {
+        detail::portion_impl<prediction_order>(result, f, element, level, i, j, delta_l, ii, jj);
+    }
+
+    template <std::size_t prediction_order, class Field>
     auto portion(const Field& f,
                  std::size_t element,
                  std::size_t level,
@@ -1071,7 +1095,8 @@ namespace samurai
 
     // N-D
     template <class Field>
-    auto portion(const Field& f,
+    void portion(auto& result,
+                 const Field& f,
                  std::size_t level,
                  const typename Field::cell_t::indices_t& src_indices,
                  std::size_t delta_l,
@@ -1081,37 +1106,39 @@ namespace samurai
         static_assert(dim <= 3, "Not implemented for dim > 3");
 
         typename Field::interval_t src_i{src_indices[0], src_indices[0] + 1};
-        if (dim == 1)
+        if constexpr (dim == 1)
         {
             assert(dst_indices[0] <= (1 << delta_l));
-            return detail::portion_impl<Field::mesh_t::config::prediction_order>(f, level, src_i, delta_l, dst_indices[0]);
+            detail::portion_impl<Field::mesh_t::config::prediction_order>(result, f, level, src_i, delta_l, dst_indices[0]);
         }
-        else if (dim == 2)
+        else if constexpr (dim == 2)
         {
             assert(dst_indices[0] <= (1 << delta_l));
             assert(dst_indices[1] <= (1 << delta_l));
-            return detail::portion_impl<Field::mesh_t::config::prediction_order>(f,
-                                                                                 level,
-                                                                                 src_i,
-                                                                                 src_indices[1],
-                                                                                 delta_l,
-                                                                                 dst_indices[0],
-                                                                                 dst_indices[1]);
+            detail::portion_impl<Field::mesh_t::config::prediction_order>(result,
+                                                                          f,
+                                                                          level,
+                                                                          src_i,
+                                                                          src_indices[1],
+                                                                          delta_l,
+                                                                          dst_indices[0],
+                                                                          dst_indices[1]);
         }
         else if (dim == 3)
         {
             assert(dst_indices[0] <= (1 << delta_l));
             assert(dst_indices[1] <= (1 << delta_l));
-            assert(dst_indices[3] <= (1 << delta_l));
-            return detail::portion_impl<Field::mesh_t::config::prediction_order>(f,
-                                                                                 level,
-                                                                                 src_i,
-                                                                                 src_indices[1],
-                                                                                 src_indices[2],
-                                                                                 delta_l,
-                                                                                 dst_indices[0],
-                                                                                 dst_indices[1],
-                                                                                 dst_indices[2]);
+            assert(dst_indices[2] <= (1 << delta_l));
+            detail::portion_impl<Field::mesh_t::config::prediction_order>(result,
+                                                                          f,
+                                                                          level,
+                                                                          src_i,
+                                                                          src_indices[1],
+                                                                          src_indices[2],
+                                                                          delta_l,
+                                                                          dst_indices[0],
+                                                                          dst_indices[1],
+                                                                          dst_indices[2]);
         }
     }
 

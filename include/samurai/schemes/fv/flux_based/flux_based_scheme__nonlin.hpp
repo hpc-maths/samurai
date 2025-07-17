@@ -181,11 +181,11 @@ namespace samurai
         {
             if constexpr (input_field_t::is_scalar)
             {
-                predicted_value = portion(field, level, coarse_cell_indices, delta_l, fine_cell_indices)[0];
+                portion(predicted_value, field, level, coarse_cell_indices, delta_l, fine_cell_indices);
             }
             else
             {
-                predicted_value = portion(field, level, coarse_cell_indices, delta_l, fine_cell_indices);
+                portion(predicted_value, field, level, coarse_cell_indices, delta_l, fine_cell_indices);
             }
         }
 
