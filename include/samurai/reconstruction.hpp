@@ -688,6 +688,27 @@ namespace samurai
         return result;
     }
 
+    namespace detail
+    {
+        template <std::size_t dim, class interval_t>
+        auto extract_src_tuple(const auto& src_indices)
+        {
+            return [&]<std::size_t... Is>(std::index_sequence<Is...>)
+            {
+                return std::make_tuple(interval_t{src_indices[0], src_indices[0] + 1}, ((void)Is, src_indices[Is + 1])...);
+            }(std::make_index_sequence<dim - 1>{});
+        }
+
+        template <std::size_t dim>
+        auto extract_dst_tuple(const auto& src_indices)
+        {
+            return [&]<std::size_t... Is>(std::index_sequence<Is...>)
+            {
+                return std::make_tuple(((void)Is, src_indices[Is])...);
+            }(std::make_index_sequence<dim>{});
+        }
+    }
+
     // N-D
     template <class Field>
     void portion(auto& result,
@@ -698,6 +719,7 @@ namespace samurai
                  const typename Field::cell_t::indices_t& dst_indices)
     {
         static constexpr std::size_t dim = Field::dim;
+        using interval_t                 = typename Field::interval_t;
         static_assert(dim <= 3, "Not implemented for dim > 3");
 
         typename Field::interval_t src_i{src_indices[0], src_indices[0] + 1};
@@ -708,9 +730,11 @@ namespace samurai
         }
         else if constexpr (dim == 2)
         {
+            auto src_tuple = detail::extract_src_tuple<dim, interval_t>(src_indices);
+            auto dst_tuple = detail::extract_dst_tuple<dim>(dst_indices);
             assert(dst_indices[0] <= (1 << delta_l));
             assert(dst_indices[1] <= (1 << delta_l));
-            portion(result, f, level, delta_l, std::make_tuple(src_i, src_indices[1]), std::make_tuple(dst_indices[0], dst_indices[1]));
+            portion(result, f, level, delta_l, src_tuple, dst_tuple);
         }
         else if (dim == 3)
         {
