@@ -20,12 +20,13 @@ namespace samurai
     {
         std::size_t operator()(const std::array<T, N>& arr) const
         {
-            std::size_t hash = 0;
-            for (const auto& element : arr)
-            {
-                hash ^= std::hash<T>{}(element) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
-            }
-            return hash;
+            return std::accumulate(arr.begin(),
+                                   arr.end(),
+                                   std::size_t{0},
+                                   [](std::size_t acc, const T& element)
+                                   {
+                                       return acc ^ (std::hash<T>{}(element) + 0x9e3779b9 + (acc << 6) + (acc >> 2));
+                                   });
         }
     };
 
@@ -177,9 +178,8 @@ namespace samurai
         template <std::size_t... Is>
         auto compute_new_indices(auto order, const auto& parent_indices, const auto& loop_indices, std::index_sequence<Is...>)
         {
-            using value_t = typename std::decay_t<decltype(std::get<0>(parent_indices))>;
-            return std::make_tuple(
-                (std::get<Is>(parent_indices) + static_cast<default_config::value_t>(std::get<Is>(loop_indices) - order))...);
+            using value_t = typename std::decay_t<decltype(std::get<sizeof...(Is) - 1>(parent_indices))>;
+            return std::make_tuple((std::get<Is>(parent_indices) + static_cast<value_t>(std::get<Is>(loop_indices) - order))...);
         }
 
         auto compute_new_indices(auto order, const auto& parent_indices, const auto& loop_indices)
@@ -274,11 +274,10 @@ namespace samurai
                      && ...)
         void multi_dim_loop(const std::tuple<T...>& coeff_arrays, Func&& func)
         {
-            constexpr std::size_t num_dims = std::tuple_size_v<std::decay_t<decltype(coeff_arrays)>>;
-            auto start                     = []<std::size_t... Is>(std::index_sequence<Is...>)
+            auto start = []<std::size_t... Is>(std::index_sequence<Is...>)
             {
                 return std::make_tuple(((void)Is, std::size_t{0})...);
-            }(std::make_index_sequence<num_dims>{});
+            }(std::make_index_sequence<std::tuple_size_v<std::decay_t<decltype(coeff_arrays)>>>{});
 
             auto end = std::apply(
                 [](auto&... coeff_arrays)
@@ -422,9 +421,9 @@ namespace samurai
                     auto j_f = (j << delta_l) + jj;
                     for (index_t ii = 0; ii < nb_cells; ++ii)
                     {
-                        auto& pred = prediction<prediction_order, index_t>(delta_l, ii, jj);
-                        auto i_f   = (i << delta_l) + ii;
-                        i_f.step   = nb_cells;
+                        const auto& pred = prediction<prediction_order, index_t>(delta_l, ii, jj);
+                        auto i_f         = (i << delta_l) + ii;
+                        i_f.step         = nb_cells;
 
                         for (const auto& kv : pred.coeff)
                         {
@@ -457,9 +456,9 @@ namespace samurai
                         auto j_f = (j << delta_l) + jj;
                         for (index_t ii = 0; ii < nb_cells; ++ii)
                         {
-                            auto& pred = prediction<prediction_order, index_t>(delta_l, ii, jj, kk);
-                            auto i_f   = (i << delta_l) + ii;
-                            i_f.step   = nb_cells;
+                            const auto& pred = prediction<prediction_order, index_t>(delta_l, ii, jj, kk);
+                            auto i_f         = (i << delta_l) + ii;
+                            i_f.step         = nb_cells;
 
                             for (const auto& kv : pred.coeff)
                             {
@@ -591,7 +590,7 @@ namespace samurai
         {
             using result_t = std::decay_t<decltype(result)>;
 
-            auto& pred = get_prediction<prediction_order, Field>(level, delta_l, ii);
+            const auto& pred = get_prediction<prediction_order, Field>(level, delta_l, ii);
 
             if constexpr (std::is_same_v<result_t, double>)
             {
