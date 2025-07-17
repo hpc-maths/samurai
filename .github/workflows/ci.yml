@@ -421,6 +421,10 @@ jobs:
                   set -e  # Stop on first failure
                   ./demos/FiniteVolume/finite-volume-lid-driven-cavity --min-level 3 --max-level 6
 
+    #
+    # MPI with CHECK_NAN
+    #
+    #########################################################
     linux-mamba-check-nan-mpi:
         needs: [pre-commit, cppcheck]
         runs-on: ubuntu-latest
@@ -433,9 +437,9 @@ jobs:
                   path: |
                       ~/.cache/ccache
                       ~/micromamba-root/envs/samurai-env
-                  key: linux-mamba-check-nan
+                  key: linux-mamba-check-nan-mpi
                   restore-keys: |
-                      linux-mamba-check-nan
+                      linux-mamba-check-nan-mpi
 
             - name: Mamba and samurai env installation
               uses: mamba-org/setup-micromamba@v2
