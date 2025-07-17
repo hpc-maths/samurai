@@ -352,3 +352,71 @@ jobs:
               run: |
                   ./build/tests/test_samurai_lib
                   cd tests; pytest --h5diff
+    #
+    # CHECK_NAN
+    #
+    #########################################################
+    linux-mamba-check-nan:
+        needs: [pre-commit, cppcheck]
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Cache
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      ~/.cache/ccache
+                      ~/micromamba-root/envs/samurai-env
+                  key: linux-mamba-check-nan
+                  restore-keys: |
+                      linux-mamba-check-nan
+
+            - name: Mamba and samurai env installation
+              uses: mamba-org/setup-micromamba@v2
+              with:
+                  environment-file: conda/environment.yml
+                  environment-name: samurai-env
+                  cache-environment: true
+
+            - name: Petsc installation
+              shell: bash -l {0}
+              run: |
+                  conda install -y petsc pkg-config cxx-compiler
+
+            - name: Conda informations
+              shell: bash -l {0}
+              run: |
+                  conda info
+                  conda list
+
+            - name: Configure
+              shell: bash -l {0}
+              run: |
+                  cmake \
+                      . \
+                      -Bbuild \
+                      -GNinja \
+                      -DCMAKE_BUILD_TYPE=Debug \
+                      -DSAMURAI_CHECK_NAN=ON \
+                      -DBUILD_DEMOS=ON
+
+            - name: Build
+              shell: bash -l {0}
+              run: |
+                  cmake --build build --target finite-volume-burgers --parallel 4
+                  cmake --build build --target finite-volume-lid-driven-cavity --parallel 4
+
+            - name: test finite-volume-burgers
+              shell: bash -l {0}
+              run: |
+                  cd build
+                  set -e  # Stop on first failure
+                  ./demos/FiniteVolume/finite-volume-burgers --min-level 2 --max-level 6
+
+            - name: test finite-volume-lid-driven-cavity
+              shell: bash -l {0}
+              run: |
+                  cd build
+                  set -e  # Stop on first failure
+                  ./demos/FiniteVolume/finite-volume-lid-driven-cavity --min-level 3 --max-level 6
