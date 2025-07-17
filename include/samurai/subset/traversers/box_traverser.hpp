@@ -1,8 +1,8 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-#include "../box.hpp"
-#include "../interval.hpp"
+#include "../../box.hpp"
+#include "../../interval.hpp"
 #include "set_traverser_base.hpp"
 
 #pragma once
@@ -20,8 +20,6 @@ namespace samurai
     {
         using interval_t         = Interval<typename B::point_t::value_type>;
         using current_interval_t = const interval_t&;
-
-        static constexpr std::size_t dim = B::dim;
     };
 
     template <Box_concept B>
@@ -29,9 +27,9 @@ namespace samurai
     {
         using Self               = BoxTraverser<B>;
         using Base               = SetTraverserBase<Self>;
-        using interval_t         = typename SetTraverserTraits<Self>::interval_t;
-        using current_interval_t = typename SetTraverserTraits<Self>::current_interval_t;
-        using value_t            = typename interval_t::value_t;
+        using interval_t         = typename Base::interval_t;
+        using current_interval_t = typename Base::current_interval_t;
+        using value_t            = typename Base::value_t;
 
       public:
 

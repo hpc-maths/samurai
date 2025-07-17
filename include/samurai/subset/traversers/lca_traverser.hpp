@@ -1,7 +1,7 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-#include "../level_cell_array.hpp"
+#include "../../level_cell_array.hpp"
 #include "set_traverser_base.hpp"
 
 #pragma once
@@ -19,8 +19,6 @@ namespace samurai
     {
         using interval_t         = typename LCA::interval_t;
         using current_interval_t = const interval_t&;
-
-        static constexpr std::size_t dim = LCA::dim;
     };
 
     template <LCA_concept LCA>
@@ -28,8 +26,9 @@ namespace samurai
     {
         using Self               = LCATraverser<LCA>;
         using Base               = SetTraverserBase<Self>;
-        using interval_t         = typename SetTraverserTraits<Self>::interval_t;
-        using current_interval_t = typename SetTraverserTraits<Self>::current_interval_t;
+        using interval_t         = typename Base::interval_t;
+        using current_interval_t = typename Base::current_interval_t;
+        using value_t            = typename Base::value_t;
         using interval_iterator  = typename std::vector<interval_t>::const_iterator;
 
       public:

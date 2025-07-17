@@ -16,17 +16,16 @@ namespace samurai
     {
         using interval_t         = typename SetTraverserTraits<SetTraverser>::interval_t;
         using current_interval_t = interval_t;
-
-        static constexpr std::size_t dim = SetTraverserTraits<SetTraverser>::dim;
     };
 
     template <SetTraverser_concept SetTraverser>
     class TranslationTraverser : public SetTraverserBase<TranslationTraverser<SetTraverser>>
     {
         using Self               = TranslationTraverser<SetTraverser>;
-        using interval_t         = typename SetTraverserTraits<Self>::interval_t;
-        using current_interval_t = typename SetTraverserTraits<Self>::current_interval_t;
-        using value_t            = typename interval_t::value_t;
+        using Base               = SetTraverserBase<Self>;
+        using interval_t         = typename Base::interval_t;
+        using current_interval_t = typename Base::current_interval_t;
+        using value_t            = typename Base::value_t;
 
       public:
 
@@ -34,7 +33,6 @@ namespace samurai
             : m_set_traverser(set_traverser)
             , m_translation(translation)
         {
-            fmt::print("{} : translation = {}\n", __FUNCTION__, m_translation);
         }
 
         inline bool is_empty() const

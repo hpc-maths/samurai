@@ -10,7 +10,7 @@
 #include <samurai/cell_list.hpp>
 #include <samurai/interval.hpp>
 #include <samurai/level_cell_array.hpp>
-//~ #include <samurai/mr/mesh.hpp>
+#include <samurai/mr/mesh.hpp>
 #include <samurai/subset/node.hpp>
 
 #include <samurai/io/hdf5.hpp>
@@ -486,32 +486,32 @@ namespace samurai
         }
 
         {
-            //~ using Config = MRConfig<2>;
-            //~ const Box<double, 2> box({0, 0}, {1, 1});
-            //~ MRMesh<Config> mesh{box, 0, 3};
-            //~ auto& domain                              = mesh.domain();
-            //~ xt::xtensor_fixed<int, xt::xshape<2>> dir = {0, 1 << (3 - 1)};
+            using Config = MRConfig<2>;
+            const Box<double, 2> box({0, 0}, {1, 1});
+            MRMesh<Config> mesh{box, 0, 3};
+            auto& domain                              = mesh.domain();
+            xt::xtensor_fixed<int, xt::xshape<2>> dir = {0, 1 << (3 - 1)};
 
-            //~ auto expected = expected_t{
-            //~ {0, {0, 2}}
-            //~ };
-            //~ std::size_t ie = 0;
+            auto expected = expected_t{
+                {0, {0, 2}}
+            };
+            std::size_t ie = 0;
 
-            // apply(difference(domain, translate(domain, dir)).on(1),
-            //       [&](auto& i, auto& index)
-            //       {
-            //           EXPECT_EQ(ie, 0);
-            //           EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
-            //       });
+            apply(difference(domain, translate(domain, dir)).on(1),
+                  [&](auto& i, auto& index)
+                  {
+                      EXPECT_EQ(ie, 0);
+                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+                  });
 
-            // dir = {0, 1};
-            // ie  = 0;
-            // apply(difference(self(domain).on(1), translate(self(domain).on(1), dir)),
-            //       [&](auto& i, auto& index)
-            //       {
-            //           EXPECT_EQ(ie, 0);
-            //           EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
-            //       });
+            dir = {0, 1};
+            ie  = 0;
+            apply(difference(self(domain).on(1), translate(self(domain).on(1), dir)),
+                  [&](auto& i, auto& index)
+                  {
+                      EXPECT_EQ(ie, 0);
+                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+                  });
         }
     }
 
@@ -757,35 +757,35 @@ namespace samurai
         }
 
         {
-            //~ auto set = difference(lca1, self(lca2).on(0));
-            //~ EXPECT_EQ(set.level(), 1);
-            //~
-            //~ bool found = false;
-            //~ apply(set,
-            //~       [&](auto&, auto&)
-            //~       {
-            //~           found = true;
-            //~       });
-            //~ EXPECT_FALSE(found);
+            auto set = difference(lca1, self(lca2).on(0));
+            EXPECT_EQ(set.level(), 1);
+
+            bool found = false;
+            apply(set,
+                  [&](auto&, auto&)
+                  {
+                      found = true;
+                  });
+            EXPECT_FALSE(found);
         }
 
         {
-            //~ auto expected = expected_t{
-            //~     {0, {0, 1}},
-            //~ };
-            //~
-            //~ auto set = difference(lca1, lca2);
-            //~ EXPECT_EQ(set.level(), 1);
-            //~
-            //~ bool found     = false;
-            //~ std::size_t ie = 0;
-            //~ apply(set,
-            //~       [&](auto& i, auto& index)
-            //~       {
-            //~           EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
-            //~           found = true;
-            //~       });
-            //~ EXPECT_TRUE(found);
+            auto expected = expected_t{
+                {0, {0, 1}},
+            };
+
+            auto set = difference(lca1, lca2);
+            EXPECT_EQ(set.level(), 1);
+
+            bool found     = false;
+            std::size_t ie = 0;
+            apply(set,
+                  [&](auto& i, auto& index)
+                  {
+                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+                      found = true;
+                  });
+            EXPECT_TRUE(found);
         }
 
         {
@@ -810,47 +810,47 @@ namespace samurai
         }
 
         {
-            //~ auto expected = expected_t{
-            //~     {0, {0, 2}},
-            //~     {1, {0, 1}},
-            //~ };
-            //~
-            //~ auto set = difference(self(lca1).on(0).on(1), lca2);
-            //~ EXPECT_EQ(set.level(), 1);
-            //~
-            //~ bool found     = false;
-            //~ std::size_t ie = 0;
-            //~ apply(set,
-            //~       [&](auto& i, auto& index)
-            //~       {
-            //~           EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
-            //~           found = true;
-            //~       });
-            //~ EXPECT_TRUE(found);
-            //~ EXPECT_EQ(ie, expected.size());
+            auto expected = expected_t{
+                {0, {0, 2}},
+                {1, {0, 1}},
+            };
+
+            auto set = difference(self(lca1).on(0).on(1), lca2);
+            EXPECT_EQ(set.level(), 1);
+
+            bool found     = false;
+            std::size_t ie = 0;
+            apply(set,
+                  [&](auto& i, auto& index)
+                  {
+                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+                      found = true;
+                  });
+            EXPECT_TRUE(found);
+            EXPECT_EQ(ie, expected.size());
         }
 
         {
-            //~ xt::xtensor_fixed<int, xt::xshape<2>> translation{-1, -1};
-            //~ auto expected = expected_t{
-            //~     {-1, {-1, 1}},
-            //~     {0,  {-1, 0}},
-            //~ };
-            //~
-            //~ // auto set = difference(translate(difference(self(lca1).on(0), lca2), translation), translate(lca1, translation));
-            //~ auto set = translate(difference(self(lca1).on(0), lca2), translation);
-            //~ EXPECT_EQ(set.level(), 1);
-            //~
-            //~ bool found     = false;
-            //~ std::size_t ie = 0;
-            //~ apply(set,
-            //~       [&](auto& i, auto& index)
-            //~       {
-            //~           EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
-            //~           found = true;
-            //~       });
-            //~ EXPECT_TRUE(found);
-            //~ EXPECT_EQ(ie, expected.size());
+            xt::xtensor_fixed<int, xt::xshape<2>> translation{-1, -1};
+            auto expected = expected_t{
+                {-1, {-1, 1}},
+                {0,  {-1, 0}},
+            };
+
+            // auto set = difference(translate(difference(self(lca1).on(0), lca2), translation), translate(lca1, translation));
+            auto set = translate(difference(self(lca1).on(0), lca2), translation);
+            EXPECT_EQ(set.level(), 1);
+
+            bool found     = false;
+            std::size_t ie = 0;
+            apply(set,
+                  [&](auto& i, auto& index)
+                  {
+                      EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
+                      found = true;
+                  });
+            EXPECT_TRUE(found);
+            EXPECT_EQ(ie, expected.size());
         }
     }
 
@@ -884,40 +884,40 @@ namespace samurai
               });
         EXPECT_FALSE(found);
 
-        //~ // Difference with empty set should return original
-        //~ found = false;
-        //~ apply(difference(regular_lca, empty_lca),
-        //~       [&](auto& i, auto)
-        //~       {
-        //~           EXPECT_EQ(i, typename LevelCellArray<1>::interval_t(5, 10));
-        //~           found = true;
-        //~       });
-        //~ EXPECT_TRUE(found);
+        // Difference with empty set should return original
+        found = false;
+        apply(difference(regular_lca, empty_lca),
+              [&](auto& i, auto)
+              {
+                  EXPECT_EQ(i, typename LevelCellArray<1>::interval_t(5, 10));
+                  found = true;
+              });
+        EXPECT_TRUE(found);
     }
 
-    //~ TEST(subset, 1d_single_point_intervals)
-    //~ {
-    //~     LevelCellList<1> lcl{3};
-    //~     LevelCellArray<1> lca;
-    //~
-    //~     // Single point intervals
-    //~     lcl[{}].add_interval({0, 1});
-    //~     lcl[{}].add_interval({2, 3});
-    //~     lcl[{}].add_interval({4, 5});
-    //~     lca = lcl;
-    //~
-    //~     // Translation by 1 should create gaps
-    //~     xt::xtensor_fixed<int, xt::xshape<1>> translation{1};
-    //~     bool found = false;
-    //~     apply(difference(lca, translate(lca, translation)),
-    //~           [&](auto& i, auto)
-    //~           {
-    //~               found = true;
-    //~               EXPECT_TRUE(i == typename LevelCellArray<1>::interval_t(0, 1) || i == typename LevelCellArray<1>::interval_t(2, 3)
-    //~                           || i == typename LevelCellArray<1>::interval_t(4, 5));
-    //~           });
-    //~     EXPECT_TRUE(found);
-    //~ }
+    TEST(subset, 1d_single_point_intervals)
+    {
+        LevelCellList<1> lcl{3};
+        LevelCellArray<1> lca;
+
+        // Single point intervals
+        lcl[{}].add_interval({0, 1});
+        lcl[{}].add_interval({2, 3});
+        lcl[{}].add_interval({4, 5});
+        lca = lcl;
+
+        // Translation by 1 should create gaps
+        xt::xtensor_fixed<int, xt::xshape<1>> translation{1};
+        bool found = false;
+        apply(difference(lca, translate(lca, translation)),
+              [&](auto& i, auto)
+              {
+                  found = true;
+                  EXPECT_TRUE(i == typename LevelCellArray<1>::interval_t(0, 1) || i == typename LevelCellArray<1>::interval_t(2, 3)
+                              || i == typename LevelCellArray<1>::interval_t(4, 5));
+              });
+        EXPECT_TRUE(found);
+    }
 
     TEST(subset, 1d_extreme_level_differences)
     {
@@ -1027,38 +1027,38 @@ namespace samurai
         EXPECT_FALSE(found); // Should be empty due to checkerboard
     }
 
-    //~ TEST(subset, 2d_boundary_conditions)
-    //~ {
-    //~     CellList<2> cl;
-    //~     CellArray<2> ca;
-    //~
-    //~     // Create a domain with holes
-    //~     cl[5][{16}].add_interval({0, 32});
-    //~     cl[5][{17}].add_interval({0, 8});
-    //~     cl[5][{17}].add_interval({24, 32});
-    //~     cl[5][{18}].add_interval({0, 32});
-    //~     ca = {cl, true};
-    //~
-    //~     // Test boundary extraction
-    //~     xt::xtensor_fixed<int, xt::xshape<2>> directions[] = {
-    //~         {1,  0 },
-    //~         {-1, 0 },
-    //~         {0,  1 },
-    //~         {0,  -1}
-    //~     };
-    //~
-    //~     for (auto& dir : directions)
-    //~     {
-    //~         auto boundary = difference(ca[5], translate(ca[5], dir));
-    //~         bool found    = false;
-    //~         apply(boundary,
-    //~               [&](auto&, auto)
-    //~               {
-    //~                   found = true;
-    //~               });
-    //~         EXPECT_TRUE(found);
-    //~     }
-    //~ }
+    TEST(subset, 2d_boundary_conditions)
+    {
+        CellList<2> cl;
+        CellArray<2> ca;
+
+        // Create a domain with holes
+        cl[5][{16}].add_interval({0, 32});
+        cl[5][{17}].add_interval({0, 8});
+        cl[5][{17}].add_interval({24, 32});
+        cl[5][{18}].add_interval({0, 32});
+        ca = {cl, true};
+
+        // Test boundary extraction
+        xt::xtensor_fixed<int, xt::xshape<2>> directions[] = {
+            {1,  0 },
+            {-1, 0 },
+            {0,  1 },
+            {0,  -1}
+        };
+
+        for (auto& dir : directions)
+        {
+            auto boundary = difference(ca[5], translate(ca[5], dir));
+            bool found    = false;
+            apply(boundary,
+                  [&](auto&, auto)
+                  {
+                      found = true;
+                  });
+            EXPECT_TRUE(found);
+        }
+    }
 
     TEST(subset, 2d_extreme_aspect_ratios)
     {

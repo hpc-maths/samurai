@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "box_traverser.hpp"
 #include "set_base.hpp"
+#include "traversers/box_traverser.hpp"
 
 namespace samurai
 {
@@ -14,7 +14,10 @@ namespace samurai
     template <Box_concept B>
     struct SetTraits<BoxView<B>>
     {
+        template <std::size_t>
         using traverser_t = BoxTraverser<B>;
+
+        static constexpr std::size_t dim = B::dim;
     };
 
     template <Box_concept B>
@@ -24,7 +27,8 @@ namespace samurai
 
       public:
 
-        using traverser_t = typename Base::traverser_t;
+        template <std::size_t d>
+        using traverser_t = typename Base::traverser_t<d>;
 
         BoxView(const std::size_t level, const B& box)
             : m_level(level)
@@ -48,14 +52,14 @@ namespace samurai
         }
 
         template <class index_t, std::size_t d>
-        traverser_t get_traverser(const index_t& index, std::integral_constant<std::size_t, d>) const
+        traverser_t<d> get_traverser(const index_t& index, std::integral_constant<std::size_t, d>) const
         {
             if constexpr (d != Base::dim - 1)
             {
                 assert(m_box.min_corner()[d + 1] <= index[d] && index[d] < m_box.max_corner()[d + 1]);
             }
 
-            return traverser_t(m_box.min_corner()[d], m_box.max_corner()[d]);
+            return traverser_t<d>(m_box.min_corner()[d], m_box.max_corner()[d]);
         }
 
       private:

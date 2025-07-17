@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "lca_traverser.hpp"
 #include "set_base.hpp"
+#include "traversers/lca_traverser.hpp"
 
 namespace samurai
 {
@@ -14,7 +14,10 @@ namespace samurai
     template <LCA_concept LCA>
     struct SetTraits<LCAView<LCA>>
     {
+        template <std::size_t>
         using traverser_t = LCATraverser<LCA>;
+
+        static constexpr std::size_t dim = LCA::dim;
     };
 
     template <LCA_concept LCA>
@@ -24,7 +27,8 @@ namespace samurai
 
       public:
 
-        using traverser_t = typename Base::traverser_t;
+        template <std::size_t d>
+        using traverser_t = typename Base::traverser_t<d>;
 
         LCAView(const LCA& lca)
             : m_lca(lca)
@@ -47,7 +51,7 @@ namespace samurai
         }
 
         template <class index_t, std::size_t d>
-        traverser_t get_traverser(const index_t& index, std::integral_constant<std::size_t, d>) const
+        traverser_t<d> get_traverser(const index_t& index, std::integral_constant<std::size_t, d>) const
         {
             if constexpr (d != Base::dim - 1)
             {
@@ -64,17 +68,17 @@ namespace samurai
                 if (y_interval_it != y_intervals.cend())
                 {
                     const std::size_t y_offset_idx = std::size_t(y + y_interval_it->index);
-                    return traverser_t(m_lca[d].cbegin() + ptrdiff_t(y_offsets[y_offset_idx]),
-                                       m_lca[d].cbegin() + ptrdiff_t(y_offsets[y_offset_idx + 1]));
+                    return traverser_t<d>(m_lca[d].cbegin() + ptrdiff_t(y_offsets[y_offset_idx]),
+                                          m_lca[d].cbegin() + ptrdiff_t(y_offsets[y_offset_idx + 1]));
                 }
                 else
                 {
-                    return traverser_t(m_lca[d].cend(), m_lca[d].cend());
+                    return traverser_t<d>(m_lca[d].cend(), m_lca[d].cend());
                 }
             }
             else
             {
-                return traverser_t(m_lca[d].cbegin(), m_lca[d].cend());
+                return traverser_t<d>(m_lca[d].cbegin(), m_lca[d].cend());
             }
         }
 

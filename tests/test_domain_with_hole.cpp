@@ -2,6 +2,8 @@
 #include <samurai/mr/mesh.hpp>
 #include <samurai/schemes/fv.hpp>
 
+#include <samurai/io/hdf5.hpp>
+
 namespace samurai
 {
     template <std::size_t dim>
@@ -52,6 +54,10 @@ namespace samurai
             });
 
         samurai::MRMesh<Config> mesh{domain_with_hole_cl, level, level};
+
+        samurai::save("domain_lca", domain_lca);
+        samurai::save("hole_lca", hole_lca);
+        samurai::save("mesh", mesh);
 
         EXPECT_EQ(mesh.nb_cells(mesh_id_t::cells), domain_lca.nb_cells() - hole_lca.nb_cells());
     }

@@ -3,14 +3,12 @@
 
 #pragma once
 
-#include "difference_traverser.hpp"
-#include "intersection_traverser.hpp"
-#include "union_traverser.hpp"
+#include "traversers/difference_id_traverser.hpp"
+#include "traversers/difference_traverser.hpp"
+#include "traversers/intersection_traverser.hpp"
+#include "traversers/union_traverser.hpp"
 
 #include "set_base.hpp"
-
-#include "box_view.hpp"
-#include "lca_view.hpp"
 
 namespace samurai
 {
@@ -27,32 +25,50 @@ namespace samurai
     template <Set_concept... Sets>
     struct SetTraits<SubSet<SetOperator::UNION, Sets...>>
     {
-        using traverser_t = UnionTraverser<typename SetTraits<Sets>::traverser_t...>;
+        using Childrens = std::tuple<Sets...>;
+
+        template <std::size_t d>
+        using traverser_t = UnionTraverser<typename SetTraits<Sets>::traverser_t<d>...>;
+
+        static constexpr std::size_t dim = SetTraits<std::tuple_element_t<0, Childrens>>::dim;
     };
 
     template <Set_concept... Sets>
     struct SetTraits<SubSet<SetOperator::INTERSECTION, Sets...>>
     {
-        using traverser_t = IntersectionTraverser<typename SetTraits<Sets>::traverser_t...>;
+        using Childrens = std::tuple<Sets...>;
+
+        template <std::size_t d>
+        using traverser_t = IntersectionTraverser<typename SetTraits<Sets>::traverser_t<d>...>;
+
+        static constexpr std::size_t dim = SetTraits<std::tuple_element_t<0, Childrens>>::dim;
     };
 
     template <Set_concept... Sets>
     struct SetTraits<SubSet<SetOperator::DIFFERENCE, Sets...>>
     {
-        using traverser_t = DifferenceTraverser<typename SetTraits<Sets>::traverser_t...>;
+        using Childrens = std::tuple<Sets...>;
+
+        template <std::size_t d>
+        using traverser_t = std::conditional_t<d == 0,
+                                               DifferenceTraverser<typename SetTraits<Sets>::traverser_t<d>...>,
+                                               DifferenceIdTraverser<typename SetTraits<Sets>::traverser_t<d>...>>;
+
+        static constexpr std::size_t dim = SetTraits<std::tuple_element_t<0, Childrens>>::dim;
     };
 
     template <SetOperator op, Set_concept... Sets>
     class SubSet : public SetBase<SubSet<op, Sets...>>
     {
         static_assert(sizeof...(Sets) >= 2);
-
-        using Base      = SetBase<SubSet<op, Sets...>>;
-        using Childrens = std::tuple<Sets...>;
+        using Self      = SubSet<op, Sets...>;
+        using Base      = SetBase<Self>;
+        using Childrens = typename SetTraits<Self>::Childrens;
 
       public:
 
-        using traverser_t = typename Base::traverser_t;
+        template <std::size_t d>
+        using traverser_t = typename Base::traverser_t<d>;
 
         static constexpr std::size_t nIntervals = std::tuple_size_v<Childrens>;
 
@@ -121,7 +137,7 @@ namespace samurai
         }
 
         template <class index_t, std::size_t d>
-        traverser_t get_traverser(const index_t& index, std::integral_constant<std::size_t, d> d_ic) const
+        traverser_t<d> get_traverser(const index_t& index, std::integral_constant<std::size_t, d> d_ic) const
         {
             return get_traverser_impl(index, d_ic, std::make_index_sequence<nIntervals>{});
         }
@@ -129,9 +145,9 @@ namespace samurai
       private:
 
         template <class index_t, std::size_t d, std::size_t... Is>
-        traverser_t get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d> d_ic, std::index_sequence<Is...>) const
+        traverser_t<d> get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d> d_ic, std::index_sequence<Is...>) const
         {
-            return traverser_t(m_shifts, std::get<Is>(m_sets).get_traverser(index >> m_shifts[Is], d_ic)...);
+            return traverser_t<d>(m_shifts, std::get<Is>(m_sets).get_traverser(index >> m_shifts[Is], d_ic)...);
         }
 
         Childrens m_sets;

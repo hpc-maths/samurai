@@ -8,6 +8,12 @@
 namespace samurai
 {
 
+    enum class ProjectionType
+    {
+        COARSEN,
+        REFINE
+    };
+
     template <SetTraverser_concept SetTraverser>
     class ProjectionTraverser;
 
@@ -16,25 +22,18 @@ namespace samurai
     {
         using interval_t         = typename SetTraverserTraits<SetTraverser>::interval_t;
         using current_interval_t = const interval_t&;
-
-        static constexpr std::size_t dim = SetTraverser::dim;
     };
 
     template <SetTraverser_concept SetTraverser>
     class ProjectionTraverser : public SetTraverserBase<ProjectionTraverser<SetTraverser>>
     {
         using Self               = ProjectionTraverser<SetTraverser>;
-        using interval_t         = typename SetTraverserTraits<Self>::interval_t;
-        using current_interval_t = typename SetTraverserTraits<Self>::current_interval_t;
-        using value_t            = typename interval_t::value_t;
+        using Base               = SetTraverserBase<Self>;
+        using interval_t         = typename Base::interval_t;
+        using current_interval_t = typename Base::current_interval_t;
+        using value_t            = typename Base::value_t;
 
       public:
-
-        enum class ProjectionType
-        {
-            COARSEN,
-            REFINE
-        };
 
         ProjectionTraverser(const SetTraverser& set_traverser, const ProjectionType projectionType, const std::size_t shift)
             : m_projectionType(projectionType)

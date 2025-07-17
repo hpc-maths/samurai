@@ -5,6 +5,7 @@
 
 #include "apply.hpp"
 #include "box_view.hpp"
+#include "contraction.hpp"
 #include "lca_view.hpp"
 #include "set_base.hpp"
 #include "subset.hpp"

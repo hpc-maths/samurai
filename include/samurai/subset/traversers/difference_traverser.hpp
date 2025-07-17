@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "../static_algorithm.hpp"
+#include "../../static_algorithm.hpp"
+#include "../utils.hpp"
 #include "set_traverser_base.hpp"
-#include "utils.hpp"
 
 namespace samurai
 {
@@ -19,21 +19,20 @@ namespace samurai
         using Childrens          = std::tuple<SetTraversers...>;
         using interval_t         = typename SetTraverserTraits<std::tuple_element_t<0, Childrens>>::interval_t;
         using current_interval_t = const interval_t&;
-
-        static constexpr std::size_t dim = SetTraverserTraits<std::tuple_element_t<0, Childrens>>::dim;
     };
 
     template <SetTraverser_concept... SetTraversers>
     class DifferenceTraverser : public SetTraverserBase<DifferenceTraverser<SetTraversers...>>
     {
         using Self               = DifferenceTraverser<SetTraversers...>;
-        using interval_t         = typename SetTraverserTraits<Self>::interval_t;
-        using current_interval_t = typename SetTraverserTraits<Self>::current_interval_t;
+        using Base               = SetTraverserBase<Self>;
+        using interval_t         = typename Base::interval_t;
+        using current_interval_t = typename Base::current_interval_t;
+        using value_t            = typename Base::value_t;
         using Childrens          = typename SetTraverserTraits<Self>::Childrens;
-        using value_t            = typename interval_t::value_t;
 
         template <size_t I>
-        using IthChild = std::tuple_element<I, Childrens>;
+        using IthChild = std::tuple_element<I, Childrens>::type;
 
         static constexpr std::size_t nIntervals = std::tuple_size_v<Childrens>;
 
@@ -43,13 +42,8 @@ namespace samurai
             : m_set_traversers(set_traversers...)
             , m_shifts(shifts)
         {
+            m_min_start = std::numeric_limits<value_t>::min();
             compute_current_interval();
-
-            enumerate_const_items(m_set_traversers,
-                                  [](const auto i, const auto& set_traverser)
-                                  {
-                                      fmt::print("{} : {}th traverser_t = {}\n", __FUNCTION__, i, typeid(set_traverser).name());
-                                  });
         }
 
         inline bool is_empty() const
@@ -59,7 +53,8 @@ namespace samurai
 
         inline void next_interval()
         {
-            std::get<0>(m_set_traversers).next_interval();
+            assert(!is_empty());
+            advance_ref_interval();
             compute_current_interval();
         }
 
@@ -70,11 +65,27 @@ namespace samurai
 
       private:
 
+        inline void advance_ref_interval()
+        {
+            if (m_current_interval.end != std::get<0>(m_set_traversers).current_interval().end << m_shifts[0])
+            {
+                // we have removed the beginning of the current interval.
+                // so ve remove [m_current_interval.start, m_current_interval.end) from std::get<0>(m_set_traversers).current_interval()
+                m_min_start = m_current_interval.end;
+            }
+            else
+            {
+                // all of the current interval has been removed.
+                // move to the next one.
+                std::get<0>(m_set_traversers).next_interval();
+            }
+        }
+
         inline void compute_current_interval()
         {
             while (!std::get<0>(m_set_traversers).is_empty() && !try_to_compute_current_interval())
             {
-                std::get<0>(m_set_traversers).next_interval();
+                advance_ref_interval();
             }
         }
 
@@ -82,10 +93,10 @@ namespace samurai
         {
             assert(!std::get<0>(m_set_traversers).is_empty());
 
-            m_current_interval.start = std::get<0>(m_set_traversers).current_interval().start << m_shifts[0];
+            m_current_interval.start = std::max(m_min_start, std::get<0>(m_set_traversers).current_interval().start << m_shifts[0]);
             m_current_interval.end   = std::get<0>(m_set_traversers).current_interval().end << m_shifts[0];
 
-            fmt::print("initial current_interval = {}\n", m_current_interval);
+            fmt::print("{} : initial interval = {}\n", __FUNCTION__, m_current_interval);
 
             static_for<1, nIntervals>::apply(
                 [this](const auto i)
@@ -97,30 +108,24 @@ namespace samurai
                         set_traverser.next_interval();
                     }
 
-                    if (!set_traverser.is_empty())
+                    if (!set_traverser.is_empty() && (set_traverser.current_interval().start << m_shifts[i]) <= m_current_interval.start)
                     {
-                        fmt::print("computing difference between {} and {}th interval {}\n",
-                                   m_current_interval,
-                                   i(),
-                                   set_traverser.current_interval() << m_shifts[i]);
-                        if ((set_traverser.current_interval().start << m_shifts[i]) <= m_current_interval.start)
-                        {
-                            assert((set_traverser.current_interval().end << m_shifts[i]) >= m_current_interval.start);
-                            m_current_interval.start = set_traverser.current_interval().end << m_shifts[i];
-                        }
-                        else if ((set_traverser.current_interval().start << m_shifts[i]) <= m_current_interval.end)
-                        {
-                            assert(set_traverser.current_interval().start << m_shifts[i] <= m_current_interval.end);
-                            m_current_interval.end = set_traverser.current_interval().start << m_shifts[i];
-                        }
-                        fmt::print("new current_interval = {}\n", m_current_interval);
+                        m_current_interval.start = set_traverser.current_interval().end << m_shifts[i];
+                        m_min_start              = m_current_interval.start;
+                        set_traverser.next_interval();
                     }
+                    if (!set_traverser.is_empty() && (set_traverser.current_interval().start << m_shifts[i]) <= m_current_interval.end)
+                    {
+                        m_current_interval.end = set_traverser.current_interval().start << m_shifts[i];
+                    }
+                    fmt::print("{} : new interval = {}\n\n", __FUNCTION__, m_current_interval);
                 });
 
             return m_current_interval.is_valid();
         }
 
         interval_t m_current_interval;
+        value_t m_min_start;
         Childrens m_set_traversers;
         const std::array<std::size_t, nIntervals>& m_shifts;
     };

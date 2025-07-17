@@ -14,6 +14,8 @@
 #include "cell.hpp"
 #include "mesh_holder.hpp"
 
+#include "subset/set_base.hpp"
+
 using namespace xt::placeholders;
 
 namespace samurai
@@ -109,6 +111,16 @@ namespace samurai
         {
             for_each_interval(ca[level], std::forward<Func>(f));
         }
+    }
+
+    template <Set_concept Set, class Func>
+    inline void for_each_interval(const Set& set, Func&& f)
+    {
+        set(
+            [&](const auto& x_interval, const auto& yz)
+            {
+                f(set.level(), x_interval, yz);
+            });
     }
 
     template <class Mesh, class Func>

@@ -3,8 +3,8 @@
 
 #pragma once
 
+#include "../utils.hpp"
 #include "set_traverser_base.hpp"
-#include "utils.hpp"
 
 namespace samurai
 {
@@ -18,21 +18,17 @@ namespace samurai
         using Childrens          = std::tuple<SetTraversers...>;
         using interval_t         = typename SetTraverserTraits<std::tuple_element_t<0, Childrens>>::interval_t;
         using current_interval_t = const interval_t&;
-
-        static constexpr std::size_t dim = SetTraverserTraits<std::tuple_element_t<0, Childrens>>::dim;
     };
 
     template <SetTraverser_concept... SetTraversers>
     class IntersectionTraverser : public SetTraverserBase<IntersectionTraverser<SetTraversers...>>
     {
         using Self               = IntersectionTraverser<SetTraversers...>;
-        using interval_t         = typename SetTraverserTraits<Self>::interval_t;
-        using current_interval_t = typename SetTraverserTraits<Self>::current_interval_t;
+        using Base               = SetTraverserBase<Self>;
+        using interval_t         = typename Base::interval_t;
+        using current_interval_t = typename Base::current_interval_t;
+        using value_t            = typename Base::value_t;
         using Childrens          = typename SetTraverserTraits<Self>::Childrens;
-        using value_t            = typename interval_t::value_t;
-
-        template <size_t I>
-        using IthChild = std::tuple_element<I, Childrens>;
 
         static constexpr std::size_t nIntervals = std::tuple_size_v<Childrens>;
 

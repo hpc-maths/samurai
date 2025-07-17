@@ -14,7 +14,6 @@ namespace samurai
         {
             for (auto traverser = set.get_traverser(index, d_ic); !traverser.is_empty(); traverser.next_interval())
             {
-                fmt::print("{} : dim = {} -- current_interval = {}\n", __FUNCTION__, d, traverser.current_interval());
                 const auto& interval = traverser.current_interval();
                 if constexpr (d == 0)
                 {

@@ -7,7 +7,7 @@
 
 #include <utility>
 
-#include "projection_traverser.hpp"
+#include "traversers/projection_traverser.hpp"
 
 namespace samurai
 {
@@ -18,7 +18,10 @@ namespace samurai
     template <class Set>
     struct SetTraits<Projection<Set>>
     {
-        using traverser_t = ProjectionTraverser<typename SetTraits<Set>::traverser_t>;
+        template <std::size_t d>
+        using traverser_t = ProjectionTraverser<typename SetTraits<Set>::traverser_t<d>>;
+
+        static constexpr std::size_t dim = SetTraits<Set>::dim;
     };
 
     /*
@@ -42,9 +45,10 @@ namespace samurai
 
       public:
 
-        using traverser_t    = typename Base::traverser_t;
-        using value_t        = typename Base::value_t;
-        using ProjectionType = traverser_t::ProjectionType;
+        template <std::size_t d>
+        using traverser_t = typename Base::traverser_t<d>;
+
+        using value_t = typename Base::value_t;
 
         Projection(const Set& set, const std::size_t level)
             : m_set(set)
@@ -78,7 +82,7 @@ namespace samurai
         }
 
         template <class index_t, std::size_t d>
-        traverser_t get_traverser(const index_t& _index, std::integral_constant<std::size_t, d> d_ic) const
+        traverser_t<d> get_traverser(const index_t& _index, std::integral_constant<std::size_t, d> d_ic) const
         {
             if (m_projectionType == ProjectionType::COARSEN)
             {
@@ -89,23 +93,23 @@ namespace samurai
 
                     xt::xtensor_fixed<value_t, xt::xshape<Base::dim - 1>> index(_index << m_shift);
 
-                    std::vector<typename SetTraits<Set>::traverser_t> set_traversers;
+                    std::vector<typename SetTraits<Set>::traverser_t<d>> set_traversers;
                     set_traversers.reserve(size_t(ymax - ymin));
 
                     for (index[d] = ymin; index[d] != ymax; ++index[d])
                     {
                         set_traversers.push_back(m_set.get_traverser(index, d_ic));
                     }
-                    return traverser_t(set_traversers, m_shift);
+                    return traverser_t<d>(set_traversers, m_shift);
                 }
                 else
                 {
-                    return traverser_t(m_set.get_traverser(_index << m_shift, d_ic), m_projectionType, m_shift);
+                    return traverser_t<d>(m_set.get_traverser(_index << m_shift, d_ic), m_projectionType, m_shift);
                 }
             }
             else
             {
-                return traverser_t(m_set.get_traverser(_index >> m_shift, d_ic), m_projectionType, m_shift);
+                return traverser_t<d>(m_set.get_traverser(_index >> m_shift, d_ic), m_projectionType, m_shift);
             }
         }
 

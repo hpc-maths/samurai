@@ -7,7 +7,7 @@
 
 #include <utility>
 
-#include "set_traverser_base.hpp"
+#include "traversers/set_traverser_base.hpp"
 
 namespace samurai
 {
@@ -42,10 +42,11 @@ namespace samurai
 
       public:
 
-        static constexpr std::size_t dim = DerivedTraits::traverser_t::dim;
+        static constexpr std::size_t dim = DerivedTraits::dim;
 
-        using traverser_t = typename DerivedTraits::traverser_t;
-        using interval_t  = typename SetTraverserTraits<traverser_t>::interval_t;
+        template <std::size_t d>
+        using traverser_t = typename DerivedTraits::traverser_t<d>;
+        using interval_t  = typename SetTraverserTraits<traverser_t<0>>::interval_t;
         using value_t     = typename interval_t::value_t;
 
         const Derived& derived_cast() const
@@ -74,7 +75,7 @@ namespace samurai
         }
 
         template <class index_t, std::size_t d>
-        traverser_t get_traverser(const index_t& index, std::integral_constant<std::size_t, d> d_ic) const
+        traverser_t<d> get_traverser(const index_t& index, std::integral_constant<std::size_t, d> d_ic) const
         {
             return derived_cast().get_traverser(index, d_ic);
         }

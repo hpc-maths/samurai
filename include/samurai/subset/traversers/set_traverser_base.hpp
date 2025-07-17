@@ -27,8 +27,6 @@ namespace samurai
         using current_interval_t = typename SetTraverserTraits<Derived>::current_interval_t;
         using value_t            = typename interval_t::value_t;
 
-        static constexpr std::size_t dim = SetTraverserTraits<Derived>::dim;
-
         const Derived& derived_cast() const
         {
             return static_cast<const Derived&>(*this);
