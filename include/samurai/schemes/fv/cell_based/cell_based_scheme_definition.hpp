@@ -23,6 +23,7 @@ namespace samurai
         static constexpr std::size_t contiguous_indices_start = contiguous_indices_start_;
         static constexpr std::size_t contiguous_indices_size  = contiguous_indices_size_;
         using input_field_t                                   = std::decay_t<InputField_>;
+        using parameter_field_t                               = void*; // unused in cell-based schemes but must exist
     };
 
     template <SchemeType scheme_type, std::size_t output_n_comp, std::size_t neighbourhood_width, class InputField>

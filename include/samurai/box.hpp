@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "utils.hpp"
 #include <xtensor/xfixed.hpp>
 #include <xtensor/xio.hpp>
 
@@ -42,6 +43,18 @@ namespace samurai
         auto min_length() const;
         bool is_valid() const;
 
+        bool intersects(const Box& other) const;
+        Box intersection(const Box& other) const;
+        std::vector<Box> difference(const Box& other) const;
+
+      private:
+
+        void difference_impl_rec(Box& box, const Box& intersection, std::size_t d, std::vector<Box>& boxes) const;
+
+      public:
+
+        bool operator==(const Box& other) const;
+        bool operator!=(const Box& other) const;
         Box& operator*=(value_t v);
 
       private:
@@ -130,6 +143,108 @@ namespace samurai
         return xt::all(m_min_corner < m_max_corner);
     }
 
+    /**
+     * Check if the box intersects with another box.
+     */
+    template <class value_t, std::size_t dim_>
+    inline bool Box<value_t, dim_>::intersects(const Box& other) const
+    {
+        return xt::all(m_min_corner < other.m_max_corner) && xt::all(m_max_corner > other.m_min_corner);
+    }
+
+    /**
+     * Return the intersection of the box with another box.
+     */
+    template <class value_t, std::size_t dim_>
+    inline Box<value_t, dim_> Box<value_t, dim_>::intersection(const Box& other) const
+    {
+        Box<value_t, dim_> box;
+        box.min_corner() = xt::maximum(m_min_corner, other.m_min_corner);
+        box.max_corner() = xt::minimum(m_max_corner, other.m_max_corner);
+        return box;
+    }
+
+    template <class value_t, std::size_t dim_>
+    void Box<value_t, dim_>::difference_impl_rec(Box& box, const Box& intersection, std::size_t d, std::vector<Box>& boxes) const
+    {
+        if (d == dim_)
+        {
+            return;
+        }
+
+        box.min_corner()[d] = this->min_corner()[d];
+        box.max_corner()[d] = intersection.min_corner()[d];
+        if (d == dim - 1 && box.is_valid())
+        {
+            boxes.push_back(box);
+            // std::cout << box << std::endl;
+        }
+
+        difference_impl_rec(box, intersection, d + 1, boxes);
+
+        box.min_corner()[d] = intersection.min_corner()[d];
+        box.max_corner()[d] = intersection.max_corner()[d];
+        if (d == dim - 1 && box.is_valid() && box != intersection) // The intersection is what we want to remove, so we don't add it
+        {
+            boxes.push_back(box);
+            // std::cout << box << std::endl;
+        }
+
+        difference_impl_rec(box, intersection, d + 1, boxes);
+
+        box.min_corner()[d] = intersection.max_corner()[d];
+        box.max_corner()[d] = this->max_corner()[d];
+        if (d == dim - 1 && box.is_valid())
+        {
+            boxes.push_back(box);
+            // std::cout << box << std::endl;
+        }
+
+        difference_impl_rec(box, intersection, d + 1, boxes);
+    }
+
+    /**
+     * Removes the intersection of the box with another box.
+     * The result is a list of boxes.
+     */
+    template <class value_t, std::size_t dim_>
+    inline std::vector<Box<value_t, dim_>> Box<value_t, dim_>::difference(const Box& other) const
+    {
+        std::vector<Box<value_t, dim_>> boxes;
+        if (!intersects(other))
+        {
+            boxes.push_back(*this);
+            return boxes;
+        }
+
+        auto intersect = this->intersection(other);
+
+        Box<value_t, dim_> box;
+        box.min_corner() = this->min_corner();
+        box.max_corner() = intersect.min_corner();
+
+        difference_impl_rec(box, intersect, 0, boxes);
+        return boxes;
+    }
+
+    /**
+     * Check if the box is equal to another box.
+     */
+    template <class value_t, std::size_t dim_>
+    inline bool Box<value_t, dim_>::operator==(const Box& other) const
+    {
+        return m_min_corner == other.m_min_corner && m_max_corner == other.m_max_corner;
+    }
+
+    /**
+     * Check if the box is different from another box.
+     */
+    template <class value_t, std::size_t dim_>
+    inline bool Box<value_t, dim_>::operator!=(const Box& other) const
+    {
+        return !(*this == other);
+    }
+
     template <class value_t, std::size_t dim_>
     inline auto Box<value_t, dim_>::operator*=(value_t v) -> Box&
     {
@@ -162,20 +277,80 @@ namespace samurai
     template <class value_t, std::size_t dim>
     Box<value_t, dim> approximate_box(const Box<value_t, dim>& box, double tol, double& subdivision_length)
     {
-        bool given_subdivision_length = subdivision_length > 0;
-        if (!given_subdivision_length)
+        using length_t = typename Box<value_t, dim>::point_t;
+
+        assert(tol >= 0 || subdivision_length > 0);
+
+        // bool given_subdivision_length = subdivision_length > 0;
+        length_t approx_length;
+        if (subdivision_length > 0)
         {
-            subdivision_length = box.min_length(); // / 2;
+            approx_length = xt::ceil(box.length() / subdivision_length) * subdivision_length;
         }
-
-        auto approx_length = xt::eval(xt::ceil(box.length() / subdivision_length) * subdivision_length);
-
-        if (!given_subdivision_length)
+        else
         {
-            while (xt::any(xt::abs(approx_length - box.length()) > tol * box.length()))
+            // The largest possible subdivision length to exactly approximate the box
+            // is the Greatest Common Divisor (GCD) of the box's lengths.
+            subdivision_length = box.length()[0];
+            for (std::size_t d = 1; d < dim; ++d)
             {
-                subdivision_length /= 2;
-                approx_length = xt::eval(xt::ceil(box.length() / subdivision_length) * subdivision_length);
+                subdivision_length = gcd_float(subdivision_length, box.length()[d]);
+            }
+
+            approx_length = xt::ceil(box.length() / subdivision_length) * subdivision_length;
+
+            length_t error        = xt::abs(approx_length - box.length());
+            length_t relative_tol = tol * box.length();
+
+            // If the subdivision length is really too small...
+            const double small_subdivision_length_tol = 1e-5;
+            if (xt::any(subdivision_length < small_subdivision_length_tol * box.length()))
+            {
+                // ... and no tolerance is allowed, we raise an error.
+                if (tol == 0)
+                {
+                    std::cerr << "The box " << box << " cannot be exactly represented with a reasonable cell length. ";
+                    std::cerr << "You can modify the box's dimensions or you can set a tolerance so it can be approximately represented."
+                              << std::endl;
+                    std::exit(1);
+                }
+
+                // ... we set it to the smallest length of the box...
+                subdivision_length = box.min_length();
+                approx_length      = xt::ceil(box.length() / subdivision_length) * subdivision_length;
+                error              = xt::abs(approx_length - box.length());
+                // ... and reduce it to fit the tolerance.
+                while (xt::any(error > relative_tol))
+                {
+                    subdivision_length /= 2;
+                    approx_length = xt::ceil(box.length() / subdivision_length) * subdivision_length;
+                    error         = xt::abs(approx_length - box.length());
+                    // std::cout << "Approximation error: " << error << std::endl;
+                }
+            }
+            else if (tol > 0)
+            {
+                // Since a tolerance is allowed, we try to find a larger subdivision within that tolerance.
+                // To do so, we successively double the subdivision length until the approximation error exceeds the tolerance.
+
+                if (xt::all(error < relative_tol))
+                {
+                    while (xt::all(error < relative_tol))
+                    {
+                        subdivision_length *= 2;
+                        approx_length = xt::ceil(box.length() / subdivision_length) * subdivision_length;
+                        error         = xt::abs(approx_length - box.length());
+                        // std::cout << "Approximation error: " << error << std::endl;
+                    }
+                    subdivision_length /= 2;
+                    approx_length = xt::ceil(box.length() / subdivision_length) * subdivision_length;
+                    error         = xt::abs(approx_length - box.length());
+                }
+            }
+
+            if (subdivision_length == 0)
+            {
+                SAMURAI_ASSERT(subdivision_length > 0, "An error occurred while approximating the box.");
             }
         }
 

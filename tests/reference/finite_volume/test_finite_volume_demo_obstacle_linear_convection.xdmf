@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<Xdmf>
+    <Domain>
+        <Grid Name="mesh">
+            <Topology TopologyType="Quadrilateral" NumberOfElements="4065">
+                <DataItem Dimensions="16260" Format="HDF">test_finite_volume_demo_obstacle_linear_convection.h5:/mesh/connectivity</DataItem>
+            </Topology>
+            <Geometry GeometryType="XYZ">
+                <DataItem Dimensions="39420" Format="HDF">test_finite_volume_demo_obstacle_linear_convection.h5:/mesh/points</DataItem>
+            </Geometry>
+            <Attribute Name="u" Center="Cell">
+                <DataItem Dimensions="4065" Format="HDF" Precision="8">test_finite_volume_demo_obstacle_linear_convection.h5:/mesh/fields/u</DataItem>
+            </Attribute>
+            <Attribute Name="level" Center="Cell">
+                <DataItem Dimensions="4065" Format="HDF" Precision="8">test_finite_volume_demo_obstacle_linear_convection.h5:/mesh/fields/level</DataItem>
+            </Attribute>
+        </Grid>
+    </Domain>
+</Xdmf>

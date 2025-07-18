@@ -168,6 +168,9 @@ namespace samurai
         //// Gives the number of cells
         std::size_t nb_cells() const;
 
+        //// Is it box-shaped?
+        bool is_box() const;
+
         //
         double cell_length() const;
 
@@ -233,6 +236,7 @@ namespace samurai
         std::array<std::vector<std::size_t>, dim - 1> m_offsets; ///< Offsets in interval list for each dim >
                                                                  ///< 1
         std::size_t m_level = 0;
+        bool m_is_box       = false;
         coords_t m_origin_point;
         double m_scaling_factor = 1;
     };
@@ -367,6 +371,7 @@ namespace samurai
                                                           double approx_box_tol,
                                                           double scaling_factor)
         : m_level(level)
+        , m_is_box(true)
     {
         init_from_box(box, box.min_corner(), approx_box_tol, scaling_factor);
     }
@@ -378,6 +383,7 @@ namespace samurai
                                                           double approx_box_tol,
                                                           double scaling_factor)
         : m_level(level)
+        , m_is_box(true)
     {
         init_from_box(box, origin_point, approx_box_tol, scaling_factor);
     }
@@ -535,11 +541,13 @@ namespace samurai
         {
             current_index[d] = m_cells[d].cbegin();
         }
-
-        for (std::size_t d = 0; d < dim - 1; ++d)
+        if (!empty())
         {
-            offset_index[d] = m_offsets[d].cbegin();
-            index[d]        = current_index[d + 1]->start;
+            for (std::size_t d = 0; d < dim - 1; ++d)
+            {
+                offset_index[d] = m_offsets[d].cbegin();
+                index[d]        = current_index[d + 1]->start;
+            }
         }
         return const_iterator(this, std::move(offset_index), std::move(current_index), std::move(index));
     }
@@ -557,10 +565,13 @@ namespace samurai
         }
         ++current_index[0];
 
-        for (std::size_t d = 0; d < dim - 1; ++d)
+        if (!empty())
         {
-            offset_index[d] = m_offsets[d].cend() - 2;
-            index[d]        = current_index[d + 1]->end - 1;
+            for (std::size_t d = 0; d < dim - 1; ++d)
+            {
+                offset_index[d] = m_offsets[d].cend() - 2;
+                index[d]        = current_index[d + 1]->end - 1;
+            }
         }
 
         return const_iterator(this, std::move(offset_index), std::move(current_index), std::move(index));
@@ -793,6 +804,12 @@ namespace samurai
             m_offsets[d].clear();
         }
         m_cells[dim - 1].clear();
+    }
+
+    template <std::size_t Dim, class TInterval>
+    inline bool LevelCellArray<Dim, TInterval>::is_box() const
+    {
+        return m_is_box;
     }
 
     template <std::size_t Dim, class TInterval>
@@ -1059,7 +1076,7 @@ namespace samurai
         using index_box_t = Box<value_t, dim>;
         using point_t     = typename index_box_t::point_t;
 
-        assert(approx_box_tol > 0 || scaling_factor > 0);
+        assert(approx_box_tol >= 0 || scaling_factor > 0);
 
         m_origin_point = origin_point;
 
@@ -1081,8 +1098,8 @@ namespace samurai
 
         auto shift_origin = (approx_box.min_corner() - m_origin_point);
 
-        point_t start_pt = shift_origin / cell_length();
-        point_t end_pt   = (shift_origin + approx_box.length()) / cell_length();
+        point_t start_pt = xt::round(shift_origin / cell_length());
+        point_t end_pt   = xt::round((shift_origin + approx_box.length()) / cell_length());
         init_from_box(index_box_t{start_pt, end_pt});
     }
 
