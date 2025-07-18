@@ -870,11 +870,12 @@ namespace samurai
                             {
                                 auto dst   = field_dst(level_dst, interval_t{i.start + ii, i.start + ii + 1});
                                 auto i_src = (i.start + static_cast<value_t>(ii)) >> shift;
-                                dst        = portion(field_src,
-                                              level_src,
-                                              interval_t{i_src, i_src + 1},
-                                              shift,
-                                              i.start + ii - (i_src << static_cast<value_t>(shift)));
+                                portion(dst,
+                                        field_src,
+                                        level_src,
+                                        shift,
+                                        std::make_tuple(interval_t{i_src, i_src + 1}),
+                                        std::make_tuple(i.start + ii - (i_src << static_cast<value_t>(shift))));
                             }
                         }
                         else if constexpr (dim == 2)
@@ -885,13 +886,12 @@ namespace samurai
                                 auto dst   = field_dst(level_dst, interval_t{i.start + ii, i.start + ii + 1}, j);
                                 auto i_src = (i.start + static_cast<value_t>(ii)) >> shift;
                                 auto j_src = j >> shift;
-                                dst        = portion(field_src,
-                                              level_src,
-                                              interval_t{i_src, i_src + 1},
-                                              j_src,
-                                              shift,
-                                              i.start + ii - (i_src << static_cast<value_t>(shift)),
-                                              j - (j_src << shift));
+                                portion(dst,
+                                        field_src,
+                                        level_src,
+                                        shift,
+                                        std::make_tuple(interval_t{i_src, i_src + 1}, j_src),
+                                        std::make_tuple(i.start + ii - (i_src << static_cast<value_t>(shift)), j - (j_src << shift)));
                             }
                         }
                         else if constexpr (dim == 3)
@@ -904,15 +904,14 @@ namespace samurai
                                 auto i_src = (i.start + static_cast<value_t>(ii)) >> shift;
                                 auto j_src = j >> shift;
                                 auto k_src = k >> shift;
-                                dst        = portion(field_src,
-                                              level_src,
-                                              interval_t{i_src, i_src + 1},
-                                              j_src,
-                                              k_src,
-                                              shift,
-                                              i.start + ii - (i_src << static_cast<value_t>(shift)),
-                                              j - (j_src << shift),
-                                              k - (k_src << shift));
+                                portion(dst,
+                                        field_src,
+                                        level_src,
+                                        shift,
+                                        std::make_tuple(interval_t{i_src, i_src + 1}, j_src, k_src),
+                                        std::make_tuple(i.start + ii - (i_src << static_cast<value_t>(shift)),
+                                                        j - (j_src << shift),
+                                                        k - (k_src << shift)));
                             }
                         }
                     });
