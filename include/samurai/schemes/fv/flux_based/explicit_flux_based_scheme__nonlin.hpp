@@ -32,11 +32,11 @@ namespace samurai
 
       private:
 
-        template <bool enable_max_level_flux>
+        template <bool enable_finer_level_flux>
         void _apply(std::size_t d, output_field_t& output_field, input_field_t& input_field)
         {
             // Interior interfaces
-            scheme().template for_each_interior_interface<Run::Parallel, enable_max_level_flux>( // We need the 'template' keyword...
+            scheme().template for_each_interior_interface<Run::Parallel, enable_finer_level_flux>( // We need the 'template' keyword...
                 d,
                 input_field,
                 [&](const auto& cell, auto& contrib)
@@ -53,7 +53,7 @@ namespace samurai
             // Boundary interfaces
             if (scheme().include_boundary_fluxes())
             {
-                scheme().template for_each_boundary_interface<Run::Parallel, enable_max_level_flux>( // We need the 'template' keyword...
+                scheme().template for_each_boundary_interface<Run::Parallel, enable_finer_level_flux>( // We need the 'template' keyword...
                     d,
                     input_field,
                     [&](const auto& cell, auto& contrib)
@@ -70,7 +70,7 @@ namespace samurai
 
         void apply(std::size_t d, output_field_t& output_field, input_field_t& input_field) override
         {
-            if (args::enable_max_level_flux || scheme().enable_max_level_flux()) // cppcheck-suppress knownConditionTrueFalse
+            if (args::finer_level_flux != 0 || scheme().enable_finer_level_flux()) // cppcheck-suppress knownConditionTrueFalse
             {
                 _apply<true>(d, output_field, input_field);
             }
