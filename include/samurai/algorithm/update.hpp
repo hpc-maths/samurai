@@ -191,8 +191,9 @@ namespace samurai
                                       << ", i=" << i_cell << ", index=" << index << std::endl;
 #ifndef NDEBUG
                             save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
+                            assert(false);
 #endif
-                            std::exit(1);
+                            // std::exit(1);
                         }
 #endif
                     }
