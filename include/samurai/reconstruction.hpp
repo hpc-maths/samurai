@@ -178,8 +178,8 @@ namespace samurai
         template <std::size_t... Is>
         auto compute_new_indices(auto order, const auto& parent_indices, const auto& loop_indices, std::index_sequence<Is...>)
         {
-            using value_t = typename std::decay_t<decltype(std::get<sizeof...(Is) - 1>(parent_indices))>;
-            return std::make_tuple((std::get<Is>(parent_indices) + static_cast<value_t>(std::get<Is>(loop_indices) - order))...);
+            return std::make_tuple(
+                (std::get<Is>(parent_indices) + static_cast<default_config::value_t>(std::get<Is>(loop_indices) - order))...);
         }
 
         auto compute_new_indices(auto order, const auto& parent_indices, const auto& loop_indices)
@@ -402,6 +402,33 @@ namespace samurai
         // }
 
         template <class T1, class T2>
+        inline void operator()(Dim<1>, std::size_t& reconstruct_level, T1& dest, const T2& src) const
+        {
+            using index_t                          = typename T2::interval_t::value_t;
+            constexpr std::size_t prediction_order = T2::mesh_t::config::prediction_order;
+
+            std::size_t delta_l = reconstruct_level - level;
+            if (delta_l == 0)
+            {
+                dest(level, i) = src(level, i);
+            }
+            else
+            {
+                index_t nb_cells = 1 << delta_l;
+                for (index_t ii = 0; ii < nb_cells; ++ii)
+                {
+                    auto pred = prediction<prediction_order, index_t>(delta_l, ii);
+                    for (const auto& kv : pred.coeff)
+                    {
+                        auto i_f = (i << delta_l) + ii;
+                        i_f.step = nb_cells;
+                        dest(reconstruct_level, i_f) += kv.second * src(level, i + kv.first[0]);
+                    }
+                }
+            }
+        }
+
+        template <class T1, class T2>
         inline void operator()(Dim<2>, std::size_t& reconstruct_level, T1& dest, const T2& src) const
 
         {
@@ -525,7 +552,7 @@ namespace samurai
     {
         template <std::size_t prediction_order, class Field, class... index_t>
             requires(Field::dim == sizeof...(index_t) + 1 && (std::same_as<typename Field::interval_t, index_t> && ...))
-        decltype(auto) get_prediction(std::size_t level, std::size_t delta_l, const auto& ii)
+        decltype(auto) get_prediction(std::size_t level, std::size_t delta_l, const std::tuple<index_t...>& ii)
         {
             static constexpr std::size_t dim = Field::dim;
             using value_t                    = typename Field::interval_t::value_t;
@@ -564,7 +591,7 @@ namespace samurai
 
         template <std::size_t prediction_order, class Field, class... index_t>
             requires((std::same_as<typename Field::interval_t::value_t, index_t> && ...))
-        decltype(auto) get_prediction(std::size_t, std::size_t delta_l, const auto& ii)
+        decltype(auto) get_prediction(std::size_t, std::size_t delta_l, const std::tuple<index_t...>& ii)
         {
             using value_t = typename Field::interval_t::value_t;
             return std::apply(
@@ -654,7 +681,7 @@ namespace samurai
         return result;
     }
 
-    template <class Field, class... index_t, class... cell_index_t>
+    template <std::size_t prediction_order, class Field, class... index_t, class... cell_index_t>
     void portion(auto& result,
                  const Field& f,
                  std::size_t level,
@@ -667,10 +694,21 @@ namespace samurai
             return f(level, indices...);
         };
 
-        detail::portion_impl<Field::mesh_t::config::prediction_order>(result, f, get_f, level, delta_l, i, ii);
+        detail::portion_impl<prediction_order>(result, f, get_f, level, delta_l, i, ii);
     }
 
     template <class Field, class... index_t, class... cell_index_t>
+    void portion(auto& result,
+                 const Field& f,
+                 std::size_t level,
+                 std::size_t delta_l,
+                 const std::tuple<typename Field::interval_t, index_t...>& i,
+                 const std::tuple<cell_index_t...>& ii)
+    {
+        portion<Field::mesh_t::config::prediction_order>(result, f, level, delta_l, i, ii);
+    }
+
+    template <std::size_t prediction_order, class Field, class... index_t, class... cell_index_t>
     auto portion(const Field& f,
                  std::size_t level,
                  std::size_t delta_l,
@@ -683,8 +721,18 @@ namespace samurai
                 return zeros_like(f(level, indices...));
             },
             i);
-        portion(result, f, level, delta_l, i, ii);
+        portion<prediction_order>(result, f, level, delta_l, i, ii);
         return result;
+    }
+
+    template <class Field, class... index_t, class... cell_index_t>
+    auto portion(const Field& f,
+                 std::size_t level,
+                 std::size_t delta_l,
+                 const std::tuple<typename Field::interval_t, index_t...>& i,
+                 const std::tuple<cell_index_t...>& ii)
+    {
+        return portion<Field::mesh_t::config::prediction_order>(f, level, delta_l, i, ii);
     }
 
     namespace detail
