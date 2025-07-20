@@ -28,7 +28,7 @@ namespace samurai
       public:
 
         template <std::size_t d>
-        using traverser_t = typename Base::traverser_t<d>;
+        using traverser_t = typename Base::template traverser_t<d>;
 
         BoxView(const std::size_t level, const B& box)
             : m_level(level)
@@ -52,7 +52,7 @@ namespace samurai
         }
 
         template <class index_t, std::size_t d>
-        traverser_t<d> get_traverser(const index_t& index, std::integral_constant<std::size_t, d>) const
+        traverser_t<d> get_traverser([[maybe_unused]] const index_t& index, std::integral_constant<std::size_t, d>) const
         {
             if constexpr (d != Base::dim - 1)
             {

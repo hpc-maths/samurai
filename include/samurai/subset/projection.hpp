@@ -19,7 +19,7 @@ namespace samurai
     struct SetTraits<Projection<Set>>
     {
         template <std::size_t d>
-        using traverser_t = ProjectionTraverser<typename SetTraits<Set>::traverser_t<d>>;
+        using traverser_t = ProjectionTraverser<typename SetTraits<Set>::template traverser_t<d>>;
 
         static constexpr std::size_t dim = SetTraits<Set>::dim;
     };
@@ -46,7 +46,7 @@ namespace samurai
       public:
 
         template <std::size_t d>
-        using traverser_t = typename Base::traverser_t<d>;
+        using traverser_t = typename Base::template traverser_t<d>;
 
         using value_t = typename Base::value_t;
 
@@ -93,7 +93,7 @@ namespace samurai
 
                     xt::xtensor_fixed<value_t, xt::xshape<Base::dim - 1>> index(_index << m_shift);
 
-                    std::vector<typename SetTraits<Set>::traverser_t<d>> set_traversers;
+                    std::vector<typename SetTraits<Set>::template traverser_t<d>> set_traversers;
                     set_traversers.reserve(size_t(ymax - ymin));
 
                     for (index[d] = ymin; index[d] != ymax; ++index[d])

@@ -5,6 +5,8 @@
 
 #include "set_traverser_base.hpp"
 
+#include <fmt/core.h>
+
 namespace samurai
 {
 

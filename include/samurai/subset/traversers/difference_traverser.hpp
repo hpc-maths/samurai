@@ -96,8 +96,6 @@ namespace samurai
             m_current_interval.start = std::max(m_min_start, std::get<0>(m_set_traversers).current_interval().start << m_shifts[0]);
             m_current_interval.end   = std::get<0>(m_set_traversers).current_interval().end << m_shifts[0];
 
-            fmt::print("{} : initial interval = {}\n", __FUNCTION__, m_current_interval);
-
             static_for<1, nIntervals>::apply(
                 [this](const auto i)
                 {
@@ -118,7 +116,6 @@ namespace samurai
                     {
                         m_current_interval.end = set_traverser.current_interval().start << m_shifts[i];
                     }
-                    fmt::print("{} : new interval = {}\n\n", __FUNCTION__, m_current_interval);
                 });
 
             return m_current_interval.is_valid();

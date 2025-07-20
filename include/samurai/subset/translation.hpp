@@ -16,7 +16,7 @@ namespace samurai
     struct SetTraits<Translation<Set>>
     {
         template <std::size_t d>
-        using traverser_t = TranslationTraverser<typename SetTraits<Set>::traverser_t<d>>;
+        using traverser_t = TranslationTraverser<typename SetTraits<Set>::template traverser_t<d>>;
 
         static constexpr std::size_t dim = SetTraits<Set>::dim;
     };
@@ -29,7 +29,7 @@ namespace samurai
       public:
 
         template <std::size_t d>
-        using traverser_t = typename Base::traverser_t<d>;
+        using traverser_t = typename Base::template traverser_t<d>;
 
         using value_t       = typename Base::value_t;
         using translation_t = xt::xtensor_fixed<value_t, xt::xshape<Base::dim>>;

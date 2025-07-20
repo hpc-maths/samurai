@@ -28,7 +28,7 @@ namespace samurai
       public:
 
         template <std::size_t d>
-        using traverser_t = typename Base::traverser_t<d>;
+        using traverser_t = typename Base::template traverser_t<d>;
 
         LCAView(const LCA& lca)
             : m_lca(lca)

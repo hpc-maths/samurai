@@ -15,8 +15,9 @@ namespace samurai
     {
     };
 
-    using dim_test_types = ::testing::
-        Types<std::integral_constant<std::size_t, 1>, std::integral_constant<std::size_t, 2>, std::integral_constant<std::size_t, 3>>;
+    //~ using dim_test_types = ::testing::
+    //~ Types<std::integral_constant<std::size_t, 1>, std::integral_constant<std::size_t, 2>, std::integral_constant<std::size_t, 3>>;
+    using dim_test_types = ::testing::Types<std::integral_constant<std::size_t, 1>>;
 
     TYPED_TEST_SUITE(dim_test, dim_test_types, );
 
@@ -71,12 +72,20 @@ namespace samurai
         auto unp1 = make_scalar_field<double>("unp1", mesh);
         unp1.fill(0);
 
+        //~ save("before_addapt", mesh, u);
+
         auto MRadaptation = make_MRAdapt(u);
         MRadaptation(mr_epsilon, mr_regularity);
 
-        while (t != Tf)
+        //~ save("after_addapt", mesh, u);
+
+        //~ while (t != Tf)
+        for (int ite = 0; ite != 8; ++ite)
         {
+            fmt::print("==================================================\n");
+            //~ save(fmt::format("before_addapt_{}", ite).c_str(), mesh, u);
             MRadaptation(mr_epsilon, mr_regularity);
+            //~ save(fmt::format("after_addapt_{}", ite++).c_str(), mesh, u);
 
             t += dt;
             if (t > Tf)

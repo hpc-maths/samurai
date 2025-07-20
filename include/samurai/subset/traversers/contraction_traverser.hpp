@@ -30,8 +30,8 @@ namespace samurai
 
       public:
 
-        ContractionTraverser(const SetTraverser& set, const std::size_t contraction)
-            : m_set_traverser(m_set_traverser)
+        ContractionTraverser(const SetTraverser& set_traverser, const std::size_t contraction)
+            : m_set_traverser(set_traverser)
             , m_contraction(contraction)
         {
         }

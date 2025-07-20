@@ -12,6 +12,9 @@
 #include "criteria.hpp"
 #include "operators.hpp"
 
+#include "../io/hdf5.hpp"
+#include <filesystem>
+
 namespace samurai
 {
     struct stencil_graduation
@@ -231,6 +234,14 @@ namespace samurai
     bool Adapt<enlarge_, TField, TFields...>::harten(std::size_t ite, double eps, double regularity, Fields&... other_fields)
     {
         auto& mesh = m_fields.mesh();
+
+        //~ for(const std::filesystem::directory_entry& entry: std::filesystem::directory_iterator{std::filesystem::current_path()})
+        //~ {
+        //~ const std::filesystem::path& path = entry.path();
+        //~ if (path.extension() == ".h5" or path.extension() == ".xdmf") { std::filesystem::remove(path); fmt::print("removing file {}\n",
+        // path.c_str()); }
+        //~ }
+        //~ save(fmt::format("harten_mesh_{}", ite).c_str(), mesh);
 
         std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();

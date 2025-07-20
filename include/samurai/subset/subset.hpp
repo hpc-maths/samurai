@@ -28,7 +28,7 @@ namespace samurai
         using Childrens = std::tuple<Sets...>;
 
         template <std::size_t d>
-        using traverser_t = UnionTraverser<typename SetTraits<Sets>::traverser_t<d>...>;
+        using traverser_t = UnionTraverser<typename SetTraits<Sets>::template traverser_t<d>...>;
 
         static constexpr std::size_t dim = SetTraits<std::tuple_element_t<0, Childrens>>::dim;
     };
@@ -39,7 +39,7 @@ namespace samurai
         using Childrens = std::tuple<Sets...>;
 
         template <std::size_t d>
-        using traverser_t = IntersectionTraverser<typename SetTraits<Sets>::traverser_t<d>...>;
+        using traverser_t = IntersectionTraverser<typename SetTraits<Sets>::template traverser_t<d>...>;
 
         static constexpr std::size_t dim = SetTraits<std::tuple_element_t<0, Childrens>>::dim;
     };
@@ -51,8 +51,8 @@ namespace samurai
 
         template <std::size_t d>
         using traverser_t = std::conditional_t<d == 0,
-                                               DifferenceTraverser<typename SetTraits<Sets>::traverser_t<d>...>,
-                                               DifferenceIdTraverser<typename SetTraits<Sets>::traverser_t<d>...>>;
+                                               DifferenceTraverser<typename SetTraits<Sets>::template traverser_t<d>...>,
+                                               DifferenceIdTraverser<typename SetTraits<Sets>::template traverser_t<d>...>>;
 
         static constexpr std::size_t dim = SetTraits<std::tuple_element_t<0, Childrens>>::dim;
     };
@@ -68,7 +68,7 @@ namespace samurai
       public:
 
         template <std::size_t d>
-        using traverser_t = typename Base::traverser_t<d>;
+        using traverser_t = typename Base::template traverser_t<d>;
 
         static constexpr std::size_t nIntervals = std::tuple_size_v<Childrens>;
 
@@ -76,7 +76,7 @@ namespace samurai
             : m_sets(sets...)
         {
             m_level = std::apply(
-                [this](const auto&... set) -> std::size_t
+                [](const auto&... set) -> std::size_t
                 {
                     return vmax(set.level()...);
                 },
@@ -97,7 +97,7 @@ namespace samurai
         bool exist() const
         {
             return std::apply(
-                [this](const auto first_set, const auto&... other_sets) -> std::size_t
+                [](const auto first_set, const auto&... other_sets) -> std::size_t
                 {
                     if constexpr (op == SetOperator::UNION)
                     {
@@ -155,34 +155,35 @@ namespace samurai
         std::array<std::size_t, nIntervals> m_shifts;
     };
 
-    template <Set_concept... Sets>
-    using Union = SubSet<SetOperator::UNION, Sets...>;
-
-    template <Set_concept... Sets>
-    using Intersection = SubSet<SetOperator::INTERSECTION, Sets...>;
-
-    template <Set_concept... Sets>
-    using Difference = SubSet<SetOperator::DIFFERENCE, Sets...>;
-
     ////////////////////////////////////////////////////////////////////////
     //// functions
     ////////////////////////////////////////////////////////////////////////
-    template <class FirstSet, class SecondSet, class... OtherSets>
-    auto union_(const FirstSet& firstSet, const SecondSet& secondSet, const OtherSets&... otherSets)
+
+    template <class... Sets>
+    auto union_(const Sets&... sets)
+        requires(sizeof...(Sets) >= 2)
     {
-        return Union(self(firstSet), self(secondSet), self(otherSets)...);
+        using Union = SubSet<SetOperator::UNION, std::decay_t<decltype(self(sets))>...>;
+
+        return Union(self(sets)...);
     }
 
-    template <class FirstSet, class SecondSet, class... OtherSets>
-    auto intersection(const FirstSet& firstSet, const SecondSet& secondSet, const OtherSets&... otherSets)
+    template <class... Sets>
+    auto intersection(const Sets&... sets)
+        requires(sizeof...(Sets) >= 2)
     {
-        return Intersection(self(firstSet), self(secondSet), self(otherSets)...);
+        using Intersection = SubSet<SetOperator::INTERSECTION, std::decay_t<decltype(self(sets))>...>;
+
+        return Intersection(self(sets)...);
     }
 
-    template <class FirstSet, class SecondSet, class... OtherSets>
-    auto difference(const FirstSet& firstSet, const SecondSet& secondSet, const OtherSets&... otherSets)
+    template <class... Sets>
+    auto difference(const Sets&... sets)
+        requires(sizeof...(Sets) >= 2)
     {
-        return Difference(self(firstSet), self(secondSet), self(otherSets)...);
+        using Difference = SubSet<SetOperator::DIFFERENCE, std::decay_t<decltype(self(sets))>...>;
+
+        return Difference(self(sets)...);
     }
 
 } // namespace samurai

@@ -90,7 +90,7 @@ namespace samurai
         inline bool not_is_any_child_empty() const
         {
             return std::apply(
-                [this](const auto&... set_traversers)
+                [](const auto&... set_traversers)
                 {
                     return (!set_traversers.is_empty() and ...);
                 },
