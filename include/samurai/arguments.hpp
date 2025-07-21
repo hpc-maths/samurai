@@ -12,9 +12,9 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
         static bool dont_redirect_output = false;
 #endif
-        static bool enable_max_level_flux = false;
-        static bool refine_boundary       = false;
-        static bool save_debug_fields     = false;
+        static int finer_level_flux   = 0;
+        static bool refine_boundary   = false;
+        static bool save_debug_fields = false;
     }
 
     inline void read_samurai_arguments(CLI::App& app, int& argc, char**& argv)
@@ -25,7 +25,10 @@ namespace samurai
             ->group("IO");
 #endif
         app.add_flag("--timers", args::timers, "Print timers at the end of the program")->capture_default_str()->group("Tools");
-        app.add_flag("--enable-max-level-flux", args::enable_max_level_flux, "Enable the computation of fluxes at the finest level")
+        app.add_option(
+               "--finer-level-flux",
+               args::finer_level_flux,
+               "Computation of fluxes at finer levels (default: 0, i.e. no finer level flux, -1 for max_level flux, > 0 for current level + finer_level_flux)")
             ->capture_default_str()
             ->group("SAMURAI");
         app.add_flag("--refine-boundary", args::refine_boundary, "Keep the boundary refined at max_level")->capture_default_str()->group("SAMURAI");

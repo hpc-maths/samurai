@@ -28,7 +28,7 @@ namespace samurai
         auto mesh                 = UniformMesh<config>(Box<double, dim>({0}, {1}), 5);
         auto u                    = init(mesh);
 
-        auto p = portion<1>(u, 5, interval_t{2, 3}, 4, 0);
+        auto p = portion<1>(u, 5, 4, std::make_tuple(interval_t{2, 3}), std::make_tuple(0));
         EXPECT_EQ(p[0], ((2 << 4) + .5) / (1 << 9));
     }
 
@@ -40,7 +40,7 @@ namespace samurai
         auto mesh                 = UniformMesh<config>(Box<double, dim>({0, 0}, {1, 1}), 5);
         auto u                    = init(mesh);
 
-        auto p = portion<1>(u, 5, interval_t{2, 3}, 2, 4, 0, 0);
+        auto p = portion<1>(u, 5, 4, std::make_tuple(interval_t{2, 3}, 2), std::make_tuple(0, 0));
         EXPECT_EQ(p[0], 2 * ((2 << 4) + .5) / (1 << 9));
     }
 
@@ -52,7 +52,7 @@ namespace samurai
         auto mesh                 = UniformMesh<config>(Box<double, dim>({0, 0, 0}, {1, 1, 1}), 5);
         auto u                    = init(mesh);
 
-        auto p = portion<1>(u, 5, interval_t{2, 3}, 2, 2, 4, 0, 0, 0);
+        auto p = portion<1>(u, 5, 4, std::make_tuple(interval_t{2, 3}, 2, 2), std::make_tuple(0, 0, 0));
         EXPECT_EQ(p[0], 3 * ((2 << 4) + .5) / (1 << 9));
     }
 }
