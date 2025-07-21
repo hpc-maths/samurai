@@ -472,7 +472,7 @@ namespace samurai
                 auto h_l   = mesh.cell_length(level);
                 auto h_lp1 = mesh.cell_length(level + 1);
 
-                auto h_face = mesh.cell_length(detail::get_dest_level<enable_finer_level_flux>(level + 1, max_level));
+                auto h_face = mesh.cell_length(detail::get_dest_level<enable_finer_level_flux>(level + 1, m_finer_level_flux, max_level));
 
                 flux_params.set_level(level + 1);
                 flux_params.cell_length = h_face;
