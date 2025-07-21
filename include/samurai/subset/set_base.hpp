@@ -91,9 +91,11 @@ namespace samurai
         template <class... ApplyOp>
         void apply_op(ApplyOp&&... op) const
         {
-            auto func = [&](auto& interval, auto& index)
+            const std::size_t l = level();
+
+            auto func = [l, &op...](auto& interval, auto& index)
             {
-                (op(level(), interval, index), ...);
+                (op(l, interval, index), ...);
             };
             apply(derived_cast(), func);
         }

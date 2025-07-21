@@ -142,6 +142,16 @@ namespace samurai
         }
         update_ghost_mr(m_fields);
 
+        for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator{std::filesystem::current_path()})
+        {
+            const std::filesystem::path& path = entry.path();
+            if (path.extension() == ".h5" or path.extension() == ".xdmf")
+            {
+                std::filesystem::remove(path);
+                fmt::print("removing file {}\n", path.c_str());
+            }
+        }
+
         times::timers.start("mesh adaptation");
         for (std::size_t i = 0; i < max_level - min_level; ++i)
         {
@@ -235,14 +245,6 @@ namespace samurai
     {
         auto& mesh = m_fields.mesh();
 
-        //~ for(const std::filesystem::directory_entry& entry: std::filesystem::directory_iterator{std::filesystem::current_path()})
-        //~ {
-        //~ const std::filesystem::path& path = entry.path();
-        //~ if (path.extension() == ".h5" or path.extension() == ".xdmf") { std::filesystem::remove(path); fmt::print("removing file {}\n",
-        // path.c_str()); }
-        //~ }
-        //~ save(fmt::format("harten_mesh_{}", ite).c_str(), mesh);
-
         std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
 
@@ -282,8 +284,11 @@ namespace samurai
                                            m_tag,
                                            (pow(2.0, regularity_to_use)) * eps_l,
                                            max_level)); // Refinement according to Harten
+
             update_tag_subdomains(level, m_tag, true);
         }
+
+        save(fmt::format("harten_tag_{}", ite).c_str(), mesh, m_tag);
 
         if (args::refine_boundary) // cppcheck-suppress knownConditionTrueFalse
         {
@@ -333,6 +338,10 @@ namespace samurai
                         mesh_t::config::graduation_width,
                         mesh_t::config::max_stencil_width);
         mesh_t new_mesh{new_ca, mesh};
+
+        save(fmt::format("old_mesh_{}", ite), mesh);
+        save(fmt::format("new_mesh_{}", ite), new_mesh);
+
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
         if (mpi::all_reduce(world, mesh == new_mesh, std::logical_and()))
