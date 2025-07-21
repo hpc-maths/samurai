@@ -555,7 +555,8 @@ namespace samurai
     }
 
     template <std::size_t dim, class TInterval, size_t max_size, class Tag>
-    CellArray<dim, TInterval, max_size> update_cell_array_from_tag(const CellArray<dim, TInterval, max_size>& old_ca, const Tag& tag)
+    CellArray<dim, TInterval, max_size>
+    update_cell_array_from_tag(const CellArray<dim, TInterval, max_size>& old_ca, const Tag& tag, const std::size_t ite)
     {
         using size_type        = unsigned int;
         using value_t          = typename TInterval::value_t;
@@ -636,6 +637,11 @@ namespace samurai
             } // end for each interval
         } // end for each level
         CellArray<dim, TInterval, max_size> new_ca;
+        save(fmt::format("old_ca_{}", ite), old_ca);
+        save(fmt::format("ca_add_m_{}", ite), ca_add_m);
+        save(fmt::format("ca_add_p_{}", ite), ca_add_p);
+        save(fmt::format("ca_remove_m_{}", ite), ca_remove_m);
+        save(fmt::format("ca_remove_p{}", ite), ca_remove_p);
         for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
         {
             auto set = difference(union_(old_ca[level], ca_add_m[level], ca_add_p[level]), union_(ca_remove_m[level], ca_remove_p[level]));

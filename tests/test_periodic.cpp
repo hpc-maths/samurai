@@ -76,16 +76,16 @@ namespace samurai
 
         auto MRadaptation = make_MRAdapt(u);
         MRadaptation(mr_epsilon, mr_regularity);
+        save(fmt::format("after_addapt_{}", 0).c_str(), mesh, u);
 
         //~ save("after_addapt", mesh, u);
 
         //~ while (t != Tf)
-        for (int ite = 0; ite != 1; ++ite)
+        for (int ite = 0; ite != 4; ++ite)
         {
             fmt::print("==================================================\n");
-            save(fmt::format("before_addapt_{}", ite).c_str(), mesh, u);
             MRadaptation(mr_epsilon, mr_regularity);
-            save(fmt::format("after_addapt_{}", ite++).c_str(), mesh, u);
+            save(fmt::format("after_addapt_{}", ite).c_str(), mesh, u);
 
             t += dt;
             if (t > Tf)
