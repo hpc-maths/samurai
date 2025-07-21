@@ -310,11 +310,10 @@ int main(int argc, char* argv[])
 
     std::size_t nsave;
 
-    scheme.enable_finer_level_flux(false);
+    scheme.enable_max_level_flux(false);
     run_simulation(u, unp1, u_max, unp1_max, scheme, cfl, mr_epsilon, mr_regularity, init_sol, nfiles, path, filename, nsave);
 
-    scheme.enable_finer_level_flux(true);
-    samurai::args::finer_level_flux = -1;
+    scheme.enable_max_level_flux(true);
     run_simulation(u, unp1, u_max, unp1_max, scheme, cfl, mr_epsilon, mr_regularity, init_sol, nfiles, path, filename, nsave);
 
     std::cout << std::endl;

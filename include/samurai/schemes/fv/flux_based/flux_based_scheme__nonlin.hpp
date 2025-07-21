@@ -6,11 +6,11 @@ namespace samurai
     namespace detail
     {
         template <bool enable_finer_level_flux>
-        inline auto get_dest_level(std::size_t level, std::size_t max_level)
+        inline auto get_dest_level(std::size_t level, int finer_level_flux, std::size_t max_level)
         {
             if constexpr (enable_finer_level_flux)
             {
-                return args::finer_level_flux < 0 ? max_level : std::min(level + static_cast<std::size_t>(args::finer_level_flux), max_level);
+                return finer_level_flux < 0 ? max_level : std::min(level + static_cast<std::size_t>(finer_level_flux), max_level);
             }
             else
             {
@@ -55,7 +55,7 @@ namespace samurai
 
         FluxDefinition<cfg> m_flux_definition;
         bool m_include_boundary_fluxes = true;
-        bool m_enable_finer_level_flux = false;
+        int m_finer_level_flux         = args::finer_level_flux;
 
       public:
 
@@ -84,19 +84,34 @@ namespace samurai
             return m_include_boundary_fluxes;
         }
 
-        void enable_finer_level_flux(bool enable)
+        int finer_level_flux() const
+        {
+            return m_finer_level_flux;
+        }
+
+        int& finer_level_flux()
+        {
+            return m_finer_level_flux;
+        }
+
+        bool enable_finer_level_flux() const
+        {
+            return m_finer_level_flux != 0;
+        }
+
+        void enable_max_level_flux(bool enable)
         {
             if (enable && dim > 1 && stencil_size > 4 && !args::refine_boundary) // cppcheck-suppress knownConditionTrueFalse
             {
                 std::cout << "Warning: for stencils larger than 4, computing fluxes at max_level may cause issues close to the boundary."
                           << std::endl;
             }
-            m_enable_finer_level_flux = enable;
+            m_finer_level_flux = enable ? -1 : 0;
         }
 
-        bool enable_finer_level_flux() const
+        bool enable_max_level_flux() const
         {
-            return m_enable_finer_level_flux;
+            return m_finer_level_flux == -1;
         }
 
       private:
@@ -143,6 +158,7 @@ namespace samurai
             double left_factor              = 0;
             double right_factor             = 0;
             double cell_length              = 0; // cell length at the level where the flux is computed
+            int finer_level_flux            = 0; // this is the number of levels to go up to compute the flux
             std::size_t n_fine_fluxes       = 0; // number of fluxes at max_level to sum up together, or 1 if enable_max_finer_flux=false
             int n_children_at_max_level     = 0; // number of 1D children at max_level of one cell at the current level
             std::size_t coarse_stencil_size = 0; // number of cells at the current level used to predict the required values at
@@ -150,9 +166,8 @@ namespace samurai
 
             void set_level(std::size_t l)
             {
-                level                   = l;
-                delta_l                 = (args::finer_level_flux < 0) ? max_level - l
-                                                                       : std::min(l + static_cast<std::size_t>(args::finer_level_flux), max_level) - l;
+                level   = l;
+                delta_l = (finer_level_flux < 0) ? max_level - l : std::min(l + static_cast<std::size_t>(finer_level_flux), max_level) - l;
                 n_fine_fluxes           = (1 << ((dim - 1) * delta_l));
                 n_children_at_max_level = 1 << delta_l;
 
@@ -413,14 +428,15 @@ namespace samurai
             auto flux_function = flux_def.flux_function ? flux_def.flux_function : flux_def.flux_function_as_conservative();
 
             FluxParameters<enable_finer_level_flux> flux_params;
-            flux_params.max_level      = mesh.max_level();
-            flux_params.flux_direction = d;
+            flux_params.max_level        = mesh.max_level();
+            flux_params.flux_direction   = d;
+            flux_params.finer_level_flux = m_finer_level_flux;
 
             // Same level
             for (std::size_t level = min_level; level <= max_level; ++level)
             {
                 auto h      = mesh.cell_length(level);
-                auto h_face = mesh.cell_length(detail::get_dest_level<enable_finer_level_flux>(level, max_level));
+                auto h_face = mesh.cell_length(detail::get_dest_level<enable_finer_level_flux>(level, m_finer_level_flux, max_level));
                 auto factor = h_factor(h_face, h);
 
                 flux_params.set_level(level);
