@@ -323,7 +323,7 @@ jobs:
             - name: Installl cxx compiler
               shell: bash -l {0}
               run: |
-                  micromamba install -y cxx-compiler
+                  micromamba install -y cxx-compiler<1.11
 
             - name: micromamba informations
               shell: bash -l {0}
