@@ -608,7 +608,6 @@ namespace samurai
                          || (std::same_as<typename Field::interval_t::value_t, cell_index_t> && ...))
                      && (std::same_as<typename Field::interval_t::value_t, index_t> && ...))
         void portion_impl(auto& result,
-                          const Field& f,
                           Func&& get_f,
                           std::size_t level,
                           std::size_t delta_l,
@@ -639,7 +638,7 @@ namespace samurai
                         }
                         else
                         {
-                            result += kv.second * f(level, indices...);
+                            result += kv.second * get_f(level, indices...);
                         }
                     },
                     detail::compute_new_indices(0, i, kv.first));
@@ -660,7 +659,7 @@ namespace samurai
         {
             return f(element, level, indices...);
         };
-        detail::portion_impl<Field::mesh_t::config::prediction_order>(result, f, get_f, level, delta_l, i, ii);
+        detail::portion_impl<Field::mesh_t::config::prediction_order, Field>(result, f, get_f, level, delta_l, i, ii);
     }
 
     template <class Field, class... index_t, class... cell_index_t>
@@ -694,7 +693,7 @@ namespace samurai
             return f(level, indices...);
         };
 
-        detail::portion_impl<prediction_order>(result, f, get_f, level, delta_l, i, ii);
+        detail::portion_impl<prediction_order, Field>(result, get_f, level, delta_l, i, ii);
     }
 
     template <class Field, class... index_t, class... cell_index_t>
@@ -747,11 +746,13 @@ namespace samurai
         }
 
         template <std::size_t dim>
-        auto extract_dst_tuple(const auto& src_indices)
+        auto extract_dst_tuple([[maybe_unused]] auto delta_l, const auto& dst_indices)
         {
             return [&]<std::size_t... Is>(std::index_sequence<Is...>)
             {
-                return std::make_tuple(((void)Is, src_indices[Is])...);
+                assert((dst_indices[Is] <= (1 << delta_l)) && ...);
+
+                return std::make_tuple(((void)Is, dst_indices[Is])...);
             }(std::make_index_sequence<dim>{});
         }
     }
@@ -769,32 +770,29 @@ namespace samurai
         using interval_t                 = typename Field::interval_t;
         static_assert(dim <= 3, "Not implemented for dim > 3");
 
-        typename Field::interval_t src_i{src_indices[0], src_indices[0] + 1};
-        if constexpr (dim == 1)
+        auto get_f = [&](std::size_t level, const auto&... indices)
         {
-            assert(dst_indices[0] <= (1 << delta_l));
-            portion(result, f, level, delta_l, std::make_tuple(src_i), std::make_tuple(dst_indices[0]));
-        }
-        else if constexpr (dim == 2)
-        {
-            auto src_tuple = detail::extract_src_tuple<dim, interval_t>(src_indices);
-            auto dst_tuple = detail::extract_dst_tuple<dim>(dst_indices);
-            assert(dst_indices[0] <= (1 << delta_l));
-            assert(dst_indices[1] <= (1 << delta_l));
-            portion(result, f, level, delta_l, src_tuple, dst_tuple);
-        }
-        else if (dim == 3)
-        {
-            assert(dst_indices[0] <= (1 << delta_l));
-            assert(dst_indices[1] <= (1 << delta_l));
-            assert(dst_indices[2] <= (1 << delta_l));
-            portion(result,
-                    f,
-                    level,
-                    delta_l,
-                    std::make_tuple(src_i, src_indices[1], src_indices[2]),
-                    std::make_tuple(dst_indices[0], dst_indices[1], dst_indices[2]));
-        }
+            if constexpr (Field::is_scalar)
+            {
+                return f(level, indices...);
+            }
+            else
+            {
+                if constexpr (Field::is_soa)
+                {
+                    return xt::view(f(level, indices...), xt::all(), 0);
+                }
+                else
+                {
+                    return xt::view(f(level, indices...), 0);
+                }
+            }
+        };
+
+        auto src_tuple = detail::extract_src_tuple<dim, interval_t>(src_indices);
+        auto dst_tuple = detail::extract_dst_tuple<dim>(delta_l, dst_indices);
+
+        detail::portion_impl<Field::mesh_t::config::prediction_order, Field>(result, get_f, level, delta_l, src_tuple, dst_tuple);
     }
 
     template <class Field_src, class Field_dst>

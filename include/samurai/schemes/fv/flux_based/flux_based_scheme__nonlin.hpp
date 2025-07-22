@@ -190,18 +190,11 @@ namespace samurai
         inline void predict_value(typename cfg::input_field_t::local_data_type& predicted_value,
                                   const input_field_t& field,
                                   const std::size_t level,
-                                  const cell_indices_t& coarse_cell_indices,
                                   const std::size_t delta_l,
+                                  const cell_indices_t& coarse_cell_indices,
                                   const cell_indices_t& fine_cell_indices)
         {
-            if constexpr (input_field_t::is_scalar)
-            {
-                portion(predicted_value, field, level, delta_l, coarse_cell_indices, fine_cell_indices);
-            }
-            else
-            {
-                portion(predicted_value, field, level, delta_l, coarse_cell_indices, fine_cell_indices);
-            }
+            portion(predicted_value, field, level, delta_l, coarse_cell_indices, fine_cell_indices);
         }
 
         template <bool enable_finer_level_flux>
@@ -286,8 +279,8 @@ namespace samurai
                                 predict_value(stencil_values_list[fine_flux_index][index_in_stencil - s],
                                               field,
                                               flux_params.level,
-                                              left_coarse_cell_indices,
                                               flux_params.delta_l,
+                                              left_coarse_cell_indices,
                                               left_fine_cell_indices);
                                 left_fine_cell_indices[flux_direction]--;
                             }
@@ -301,8 +294,8 @@ namespace samurai
                                 predict_value(stencil_values_list[fine_flux_index][index_in_stencil + s],
                                               field,
                                               flux_params.level,
-                                              right_coarse_cell_indices,
                                               flux_params.delta_l,
+                                              right_coarse_cell_indices,
                                               right_fine_cell_indices);
                                 right_fine_cell_indices[flux_direction]++;
                             }
