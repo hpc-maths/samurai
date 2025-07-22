@@ -144,6 +144,8 @@ namespace samurai
 
         void to_stream(std::ostream& os) const;
 
+        const lca_type& corner(const DirectionVector<dim>& direction) const;
+
       protected:
 
         using derived_type = D;
@@ -184,6 +186,7 @@ namespace samurai
         void construct_subdomain();
         void construct_domain();
         void construct_union();
+        void construct_corners();
         void update_sub_mesh();
         void renumbering();
 
@@ -201,6 +204,7 @@ namespace samurai
         std::array<bool, dim> m_periodic;
         mesh_t m_cells;
         ca_type m_union;
+        std::vector<lca_type> m_corners;
         // std::vector<int> m_neighbouring_ranks;
         std::vector<mpi_subdomain_t> m_mpi_neighbourhood;
 
@@ -264,6 +268,7 @@ namespace samurai
         construct_subdomain();
         construct_union();
         update_sub_mesh();
+        construct_corners();
         renumbering();
         update_mesh_neighbour();
 
@@ -301,6 +306,7 @@ namespace samurai
         m_domain = m_subdomain;
         construct_union();
         update_sub_mesh();
+        construct_corners();
         renumbering();
         update_mesh_neighbour();
 
@@ -333,6 +339,7 @@ namespace samurai
         construct_subdomain();
         construct_union();
         update_sub_mesh();
+        construct_corners();
         renumbering();
         update_mesh_neighbour();
 
@@ -354,6 +361,7 @@ namespace samurai
         construct_domain();
         construct_union();
         update_sub_mesh();
+        construct_corners();
         renumbering();
         update_mesh_neighbour();
 
@@ -375,6 +383,7 @@ namespace samurai
         construct_domain();
         construct_union();
         update_sub_mesh();
+        construct_corners();
         renumbering();
 
 #ifdef SAMURAI_WITH_MPI
@@ -408,6 +417,7 @@ namespace samurai
         construct_subdomain();
         construct_union();
         update_sub_mesh();
+        construct_corners();
         renumbering();
         update_mesh_neighbour();
 
@@ -429,6 +439,7 @@ namespace samurai
         construct_subdomain();
         construct_union();
         update_sub_mesh();
+        construct_corners();
         renumbering();
         update_mesh_neighbour();
 
@@ -776,6 +787,51 @@ namespace samurai
                                   });
             }
         }
+    }
+
+    template <class D, class Config>
+    inline void Mesh_base<D, Config>::construct_corners()
+    {
+        using direction_t = DirectionVector<dim>;
+
+        static_assert(dim <= 3, "Only 2D and 3D are supported.");
+
+        m_corners.clear();
+        for_each_diagonal_direction<dim>(
+            [&](const auto& direction)
+            {
+                if constexpr (dim == 2)
+                {
+                    m_corners.push_back(difference(
+                        m_domain,
+                        union_(translate(m_domain, direction_t{-direction[0], 0}), translate(m_domain, direction_t{0, -direction[1]}))));
+                }
+                else if constexpr (dim == 3)
+                {
+                    m_corners.push_back(difference(m_domain,
+                                                   union_(translate(m_domain, direction_t{-direction[0], 0, 0}),
+                                                          translate(m_domain, direction_t{0, -direction[1], 0}),
+                                                          translate(m_domain, direction_t{0, 0, -direction[2]}))));
+                }
+            });
+    }
+
+    template <class D, class Config>
+    auto Mesh_base<D, Config>::corner(const DirectionVector<dim>& direction) const -> const lca_type&
+    {
+        std::size_t i           = 0;
+        std::size_t i_direction = 0;
+        for_each_diagonal_direction<dim>(
+            [&](const auto& dir)
+            {
+                if (dir == direction)
+                {
+                    i_direction = i;
+                }
+                ++i;
+            });
+
+        return m_corners[i_direction];
     }
 
     template <class D, class Config>

@@ -321,7 +321,7 @@ namespace samurai
         {
             auto proj_level = level - delta_l;
 
-            auto fine_inner_corner = get_corner(mesh, level, direction);
+            auto fine_inner_corner = self(mesh.corner(direction)).on(level);
             auto fine_outer_corner = intersection(translate(fine_inner_corner, direction), mesh[mesh_id_t::reference][level]);
             auto projection_ghost  = intersection(fine_outer_corner.on(proj_level), mesh[mesh_id_t::reference][proj_level]);
 

@@ -948,10 +948,19 @@ namespace samurai
         auto stencil_analyzer = make_stencil_analyzer(stencil);
 
         //  We need to check that the furthest ghost exists. It's not always the case for large stencils!
-        auto translated_outer_nghbr = translate(mesh[mesh_id_t::reference][level], -(stencil_size / 2) * direction); // can be removed?
-        auto cells                  = intersection(translated_outer_nghbr, mesh[mesh_id_t::cells][level], bdry_cells).on(level);
+        if constexpr (stencil_size == 2)
+        {
+            auto cells = intersection(mesh[mesh_id_t::cells][level], bdry_cells).on(level);
 
-        __apply_bc_on_subset(bc, field, cells, stencil_analyzer, direction);
+            __apply_bc_on_subset(bc, field, cells, stencil_analyzer, direction);
+        }
+        else
+        {
+            auto translated_outer_nghbr = translate(mesh[mesh_id_t::reference][level], -(stencil_size / 2) * direction); // can be removed?
+            auto cells                  = intersection(translated_outer_nghbr, mesh[mesh_id_t::cells][level], bdry_cells).on(level);
+
+            __apply_bc_on_subset(bc, field, cells, stencil_analyzer, direction);
+        }
     }
 
     template <std::size_t layers, class Mesh>
@@ -1314,31 +1323,6 @@ namespace samurai
         update_bc_for_scheme(field, other_fields...);
     }
 
-    template <class Mesh>
-    auto get_corner(const Mesh& mesh, std::size_t level, const DirectionVector<Mesh::dim>& direction)
-    {
-        static constexpr std::size_t dim = Mesh::dim;
-
-        using direction_t = DirectionVector<dim>;
-
-        static_assert(dim <= 3, "Only 2D and 3D are supported.");
-
-        auto domain = self(mesh.domain()).on(level);
-
-        if constexpr (dim == 2)
-        {
-            return difference(domain,
-                              union_(translate(domain, direction_t{-direction[0], 0}), translate(domain, direction_t{0, -direction[1]})));
-        }
-        else if constexpr (dim == 3)
-        {
-            return difference(domain,
-                              union_(translate(domain, direction_t{-direction[0], 0, 0}),
-                                     translate(domain, direction_t{0, -direction[1], 0}),
-                                     translate(domain, direction_t{0, 0, -direction[2]})));
-        }
-    }
-
     template <class Field>
     void update_outer_corners_by_polynomial_extrapolation(std::size_t level, const DirectionVector<Field::dim>& direction, Field& field)
     {
@@ -1352,7 +1336,8 @@ namespace samurai
         auto& domain = detail::get_mesh(field.mesh());
         PolynomialExtrapolation<Field, extrap_stencil_size> bc(domain, ConstantBc<Field>(), true);
 
-        auto corner = get_corner(field.mesh(), level, direction);
+        // auto corner = get_corner(field.mesh(), level, direction);
+        auto corner = self(field.mesh().corner(direction)).on(level);
 
         __apply_extrapolation_bc__cells<extrap_stencil_size>(bc, level, field, direction, corner);
     }
