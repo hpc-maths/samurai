@@ -1336,7 +1336,6 @@ namespace samurai
         auto& domain = detail::get_mesh(field.mesh());
         PolynomialExtrapolation<Field, extrap_stencil_size> bc(domain, ConstantBc<Field>(), true);
 
-        // auto corner = get_corner(field.mesh(), level, direction);
         auto corner = self(field.mesh().corner(direction)).on(level);
 
         __apply_extrapolation_bc__cells<extrap_stencil_size>(bc, level, field, direction, corner);

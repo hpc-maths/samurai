@@ -12,6 +12,7 @@
 #include "cell_list.hpp"
 #include "domain_builder.hpp"
 #include "static_algorithm.hpp"
+#include "stencil.hpp"
 #include "subset/node.hpp"
 
 #ifdef SAMURAI_WITH_MPI
