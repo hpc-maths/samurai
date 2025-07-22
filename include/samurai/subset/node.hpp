@@ -684,6 +684,6 @@ namespace samurai
     {
         std::array<bool, SubsetOrLCA::dim> expand_directions;
         std::fill(expand_directions.begin(), expand_directions.end(), true);
-        return expand<SubsetOrLCA, width>(set, width, expand_directions);
+        return expand<SubsetOrLCA, width>(set, expand_directions);
     }
 }
