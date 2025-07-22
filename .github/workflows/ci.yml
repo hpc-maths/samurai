@@ -2,6 +2,11 @@ name: samurai CI
 
 on: [pull_request]
 
+# This section cancels previous runs for the same PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
     #
     # Check samurai with pre-commit
