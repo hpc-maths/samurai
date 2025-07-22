@@ -100,36 +100,59 @@ namespace samurai
     template <class Field>
     void project_bc(std::size_t proj_level, const DirectionVector<Field::dim>& direction, int layer, Field& field)
     {
-        using mesh_id_t  = typename Field::mesh_t::mesh_id_t;
-        using interval_t = typename Field::mesh_t::interval_t;
-        using lca_t      = typename Field::mesh_t::lca_type;
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
         assert(layer > 0 && layer <= Field::mesh_t::config::max_stencil_width);
 
         auto& mesh = field.mesh();
 
-        std::size_t n_bc_ghosts = Field::mesh_t::config::max_stencil_width;
-        if (!field.get_bc().empty())
-        {
-            n_bc_ghosts = field.get_bc().front()->stencil_size() / 2;
-        }
-
         auto domain = self(mesh.domain()).on(proj_level);
 
         auto& inner = mesh.get_union()[proj_level];
         // auto inner = self(mesh[mesh_id_t::cells][proj_level + 1]).on(proj_level);
-        //  We want only 1 layer (the further one),
-        //  so we remove all closer layers by making the difference with the domain translated by (layer - 1) * direction
+
+        // We want only 1 layer (the further one),
+        // so we remove all closer layers by making the difference with the domain translated by (layer - 1) * direction
         auto outside_layer     = difference(translate(inner, layer * direction), translate(domain, (layer - 1) * direction));
         auto projection_ghosts = intersection(outside_layer, mesh[mesh_id_t::reference][proj_level]).on(proj_level);
-        // We don't want to fill by projection the ghosts that have been/will be filled by the B.C. in other directions.
-        // This can happen when there is a hole in the domain.
-        auto bc_ghosts_in_other_directions  = domain_boundary_outer_layer(mesh, proj_level, n_bc_ghosts);
-        auto projection_ghosts_no_bc_ghosts = difference(projection_ghosts, bc_ghosts_in_other_directions);
 
+        if (mesh.domain().is_box())
+        {
+            project_bc(projection_ghosts, proj_level, direction, layer, field);
+        }
+        else
+        {
+            // We don't want to fill by projection the ghosts that have been/will be filled by the B.C. in other directions.
+            // This can happen when there is a hole in the domain.
+
+            std::size_t n_bc_ghosts = Field::mesh_t::config::max_stencil_width;
+            if (!field.get_bc().empty())
+            {
+                n_bc_ghosts = field.get_bc().front()->stencil_size() / 2;
+            }
+
+            auto bc_ghosts_in_other_directions  = domain_boundary_outer_layer(mesh, proj_level, n_bc_ghosts);
+            auto projection_ghosts_no_bc_ghosts = difference(projection_ghosts, bc_ghosts_in_other_directions);
+
+            project_bc(projection_ghosts_no_bc_ghosts, proj_level, direction, layer, field);
+        }
+    }
+
+    template <class Subset, class Field>
+    void project_bc(Subset& projection_ghosts,
+                    std::size_t proj_level,
+                    [[maybe_unused]] const DirectionVector<Field::dim>& direction,
+                    [[maybe_unused]] int layer,
+                    Field& field)
+    {
+        using mesh_id_t  = typename Field::mesh_t::mesh_id_t;
+        using interval_t = typename Field::mesh_t::interval_t;
+        using lca_t      = typename Field::mesh_t::lca_type;
+
+        auto& mesh = field.mesh();
         lca_t proj_ghost_lca(proj_level, mesh.origin_point(), mesh.scaling_factor());
 
-        projection_ghosts_no_bc_ghosts(
+        projection_ghosts(
             [&](const auto& i, const auto& index)
             {
                 field(proj_level, i, index) = 0; // Initialize the sums to 0 to compute the average
@@ -250,8 +273,7 @@ namespace samurai
     template <class Field>
     void predict_bc(std::size_t pred_level, const DirectionVector<Field::dim>& direction, Field& field)
     {
-        using mesh_id_t  = typename Field::mesh_t::mesh_id_t;
-        using interval_t = typename Field::mesh_t::interval_t;
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
         auto& mesh = field.mesh();
 
@@ -267,12 +289,30 @@ namespace samurai
         auto bc_ghosts = domain_boundary_outer_layer(mesh, pred_level - 1, direction, n_bc_ghosts);
 
         auto outside_prediction_ghosts = intersection(bc_ghosts, mesh[mesh_id_t::reference][pred_level]).on(pred_level);
-        // We don't want to fill by prediction the ghosts that have been/will be filled by the B.C. in other directions.
-        // This can happen when there is a hole in the domain.
-        auto bc_ghosts_in_other_directions  = domain_boundary_outer_layer(mesh, pred_level, n_bc_ghosts);
-        auto prediction_ghosts_no_bc_ghosts = difference(outside_prediction_ghosts, bc_ghosts_in_other_directions);
 
-        prediction_ghosts_no_bc_ghosts(
+        if (mesh.domain().is_box())
+        {
+            predict_bc(outside_prediction_ghosts, pred_level, direction, field);
+        }
+        else
+        {
+            // We don't want to fill by prediction the ghosts that have been/will be filled by the B.C. in other directions.
+            // This can happen when there is a hole in the domain.
+
+            auto bc_ghosts_in_other_directions  = domain_boundary_outer_layer(mesh, pred_level, n_bc_ghosts);
+            auto prediction_ghosts_no_bc_ghosts = difference(outside_prediction_ghosts, bc_ghosts_in_other_directions);
+
+            predict_bc(prediction_ghosts_no_bc_ghosts, pred_level, direction, field);
+        }
+    }
+
+    template <class Subset, class Field>
+    void
+    predict_bc(Subset& prediction_ghosts, std::size_t pred_level, [[maybe_unused]] const DirectionVector<Field::dim>& direction, Field& field)
+    {
+        using interval_t = typename Field::mesh_t::interval_t;
+
+        prediction_ghosts(
             [&](const auto& i, const auto& index)
             {
                 interval_t i_cell = {i.start, i.start + 1};
