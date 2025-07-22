@@ -772,7 +772,21 @@ namespace samurai
 
         auto get_f = [&](std::size_t level, const auto&... indices)
         {
-            return xt::view(f(level, indices...), 0);
+            if constexpr (Field::is_scalar)
+            {
+                return f(level, indices...);
+            }
+            else
+            {
+                if constexpr (Field::is_soa)
+                {
+                    return xt::view(f(level, indices...), xt::all(), 0);
+                }
+                else
+                {
+                    return xt::view(f(level, indices...), 0);
+                }
+            }
         };
 
         auto src_tuple = detail::extract_src_tuple<dim, interval_t>(src_indices);
