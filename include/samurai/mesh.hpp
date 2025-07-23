@@ -8,10 +8,11 @@
 
 #include <fmt/format.h>
 
-#include "box.hpp"
 #include "cell_array.hpp"
 #include "cell_list.hpp"
+#include "domain_builder.hpp"
 #include "static_algorithm.hpp"
+#include "stencil.hpp"
 #include "subset/node.hpp"
 
 #ifdef SAMURAI_WITH_MPI
@@ -111,6 +112,9 @@ namespace samurai
         // std::vector<int>& neighbouring_ranks();
         std::vector<mpi_subdomain_t>& mpi_neighbourhood();
         const std::vector<mpi_subdomain_t>& mpi_neighbourhood() const;
+        cl_type
+        construct_initial_mesh(const DomainBuilder<dim>& domain_builder, std::size_t start_level, double approx_box_tol, double scaling_factor);
+        void compute_scaling_factor(const samurai::DomainBuilder<dim>& domain_builder, double& scaling_factor);
 
         void swap(Mesh_base& mesh) noexcept;
 
@@ -141,6 +145,8 @@ namespace samurai
 
         void to_stream(std::ostream& os) const;
 
+        const lca_type& corner(const DirectionVector<dim>& direction) const;
+
       protected:
 
         using derived_type = D;
@@ -151,6 +157,12 @@ namespace samurai
         Mesh_base(const cl_type& cl, std::size_t min_level, std::size_t max_level);
         Mesh_base(const ca_type& ca, std::size_t min_level, std::size_t max_level);
         Mesh_base(const samurai::Box<double, dim>& b,
+                  std::size_t start_level,
+                  std::size_t min_level,
+                  std::size_t max_level,
+                  double approx_box_tol = lca_type::default_approx_box_tol,
+                  double scaling_factor = 0);
+        Mesh_base(const samurai::DomainBuilder<dim>& domain_builder,
                   std::size_t start_level,
                   std::size_t min_level,
                   std::size_t max_level,
@@ -175,6 +187,7 @@ namespace samurai
         void construct_subdomain();
         void construct_domain();
         void construct_union();
+        void construct_corners();
         void update_sub_mesh();
         void renumbering();
 
@@ -192,6 +205,7 @@ namespace samurai
         std::array<bool, dim> m_periodic;
         mesh_t m_cells;
         ca_type m_union;
+        std::vector<lca_type> m_corners;
         // std::vector<int> m_neighbouring_ranks;
         std::vector<mpi_subdomain_t> m_mpi_neighbourhood;
 
@@ -255,11 +269,50 @@ namespace samurai
         construct_subdomain();
         construct_union();
         update_sub_mesh();
+        construct_corners();
         renumbering();
         update_mesh_neighbour();
 
         set_origin_point(origin_point());
         set_scaling_factor(scaling_factor());
+    }
+
+    template <class D, class Config>
+    Mesh_base<D, Config>::Mesh_base(const samurai::DomainBuilder<dim>& domain_builder,
+                                    [[maybe_unused]] std::size_t start_level,
+                                    std::size_t min_level,
+                                    std::size_t max_level,
+                                    [[maybe_unused]] double approx_box_tol,
+                                    double scaling_factor_)
+        : m_min_level{min_level}
+        , m_max_level{max_level}
+    {
+        assert(min_level <= max_level);
+        m_periodic.fill(false);
+
+#ifdef SAMURAI_WITH_MPI
+        std::cerr << "MPI is not implemented with DomainBuilder." << std::endl;
+        std::exit(1);
+        // partition_mesh(start_level, b);
+        //  load_balancing();
+#else
+        compute_scaling_factor(domain_builder, scaling_factor_);
+
+        // Build the domain by adding and removing boxes
+        cl_type domain_cl = construct_initial_mesh(domain_builder, start_level, approx_box_tol, scaling_factor_);
+
+        this->m_cells[mesh_id_t::cells] = {domain_cl, false};
+#endif
+        construct_subdomain();
+        m_domain = m_subdomain;
+        construct_union();
+        update_sub_mesh();
+        construct_corners();
+        renumbering();
+        update_mesh_neighbour();
+
+        set_origin_point(domain_builder.origin_point());
+        set_scaling_factor(scaling_factor_);
     }
 
     template <class D, class Config>
@@ -287,6 +340,7 @@ namespace samurai
         construct_subdomain();
         construct_union();
         update_sub_mesh();
+        construct_corners();
         renumbering();
         update_mesh_neighbour();
 
@@ -308,6 +362,7 @@ namespace samurai
         construct_domain();
         construct_union();
         update_sub_mesh();
+        construct_corners();
         renumbering();
         update_mesh_neighbour();
 
@@ -329,6 +384,7 @@ namespace samurai
         construct_domain();
         construct_union();
         update_sub_mesh();
+        construct_corners();
         renumbering();
 
 #ifdef SAMURAI_WITH_MPI
@@ -362,6 +418,7 @@ namespace samurai
         construct_subdomain();
         construct_union();
         update_sub_mesh();
+        construct_corners();
         renumbering();
         update_mesh_neighbour();
 
@@ -383,11 +440,95 @@ namespace samurai
         construct_subdomain();
         construct_union();
         update_sub_mesh();
+        construct_corners();
         renumbering();
         update_mesh_neighbour();
 
         set_origin_point(ref_mesh.origin_point());
         set_scaling_factor(ref_mesh.scaling_factor());
+    }
+
+    template <class D, class Config>
+    void Mesh_base<D, Config>::compute_scaling_factor(const samurai::DomainBuilder<dim>& domain_builder, double& scaling_factor)
+    {
+        // We need to be able to apply the BC at all levels (between min_level and max_level, but not under min_level
+        // since the BC are only apply near real cells).
+        // If there is a hole that isn't large enough to have enough ghosts to apply the BC, we need to refine the mesh.
+        // (Otherwise, some ghosts at the end of the stencil will infact be cells on the other side of the hole.)
+        // Another constraint (that will be lifted in the future): as we simultaneously apply the BC on both positive and
+        // negartive directions, we actually need 2 times the stencil width inside the hole.
+
+        // min_level where the BC can be applied
+        std::size_t min_level_bc = m_min_level;
+        if (scaling_factor <= 0)
+        {
+            scaling_factor = domain_builder.largest_subdivision();
+
+            auto largest_cell_length = samurai::cell_length(scaling_factor, min_level_bc);
+            for (const auto& box : domain_builder.removed_boxes())
+            {
+                while (box.min_length() < 2 * largest_cell_length * config::max_stencil_width)
+                {
+                    scaling_factor /= 2;
+                    largest_cell_length /= 2;
+                }
+            }
+        }
+        else
+        {
+            auto largest_cell_length = samurai::cell_length(scaling_factor, min_level_bc);
+            for (const auto& box : domain_builder.removed_boxes())
+            {
+                if (box.min_length() < 2 * largest_cell_length * config::max_stencil_width)
+                {
+                    std::cerr << "The hole " << box << " is too small to apply the BC at level " << min_level_bc
+                              << " with the given scaling factor. We need to be able to construct " << (2 * config::max_stencil_width)
+                              << " ghosts in each direction inside the hole." << std::endl;
+                    std::cerr << "Please choose a smaller scaling factor or enlarge the hole." << std::endl;
+                    std::exit(1);
+                }
+            }
+        }
+    }
+
+    template <class D, class Config>
+    auto Mesh_base<D, Config>::construct_initial_mesh(const samurai::DomainBuilder<dim>& domain_builder,
+                                                      std::size_t start_level,
+                                                      double approx_box_tol,
+                                                      double scaling_factor) -> cl_type
+    {
+        // Build the domain by adding and removing boxes
+
+        auto origin_point_ = domain_builder.origin_point();
+
+        cl_type domain_cl(origin_point_, scaling_factor);
+
+        for (const auto& box : domain_builder.added_boxes())
+        {
+            lca_type box_lca(start_level, box, origin_point_, approx_box_tol, scaling_factor);
+            lca_type current_domain_lca(domain_cl[start_level]);
+            auto new_domain_set = union_(current_domain_lca, box_lca);
+            domain_cl           = cl_type(origin_point_, scaling_factor);
+            new_domain_set(
+                [&](const auto& i, const auto& index)
+                {
+                    domain_cl[start_level][index].add_interval({i});
+                });
+        }
+        for (const auto& box : domain_builder.removed_boxes())
+        {
+            lca_type hole_lca(start_level, box, origin_point_, approx_box_tol, scaling_factor);
+            lca_type current_domain_lca(domain_cl[start_level]);
+            auto new_domain_set = difference(current_domain_lca, hole_lca);
+            domain_cl           = cl_type(origin_point_, scaling_factor);
+            new_domain_set(
+                [&](const auto& i, const auto& index)
+                {
+                    domain_cl[start_level][index].add_interval({i});
+                });
+        }
+
+        return domain_cl;
     }
 
     template <class D, class Config>
@@ -650,6 +791,51 @@ namespace samurai
     }
 
     template <class D, class Config>
+    inline void Mesh_base<D, Config>::construct_corners()
+    {
+        using direction_t = DirectionVector<dim>;
+
+        static_assert(dim <= 3, "Only 2D and 3D are supported.");
+
+        m_corners.clear();
+        for_each_diagonal_direction<dim>(
+            [&](const auto& direction)
+            {
+                if constexpr (dim == 2)
+                {
+                    m_corners.push_back(difference(
+                        m_domain,
+                        union_(translate(m_domain, direction_t{-direction[0], 0}), translate(m_domain, direction_t{0, -direction[1]}))));
+                }
+                else if constexpr (dim == 3)
+                {
+                    m_corners.push_back(difference(m_domain,
+                                                   union_(translate(m_domain, direction_t{-direction[0], 0, 0}),
+                                                          translate(m_domain, direction_t{0, -direction[1], 0}),
+                                                          translate(m_domain, direction_t{0, 0, -direction[2]}))));
+                }
+            });
+    }
+
+    template <class D, class Config>
+    auto Mesh_base<D, Config>::corner(const DirectionVector<dim>& direction) const -> const lca_type&
+    {
+        std::size_t i           = 0;
+        std::size_t i_direction = 0;
+        for_each_diagonal_direction<dim>(
+            [&](const auto& dir)
+            {
+                if (dir == direction)
+                {
+                    i_direction = i;
+                }
+                ++i;
+            });
+
+        return m_corners[i_direction];
+    }
+
+    template <class D, class Config>
     inline void Mesh_base<D, Config>::update_mesh_neighbour()
     {
 #ifdef SAMURAI_WITH_MPI
@@ -748,9 +934,9 @@ namespace samurai
         std::vector<lca_type> all_subdomains(static_cast<std::size_t>(world.size()));
         mpi::all_gather(world, m_subdomain, all_subdomains);
 
-        for (std::size_t i = 0; i < all_subdomains.size(); ++i)
+        for (std::size_t k = 0; k < all_subdomains.size(); ++k)
         {
-            for_each_interval(all_subdomains[i],
+            for_each_interval(all_subdomains[k],
                               [&](auto, const auto& i, const auto& index)
                               {
                                   lcl[index].add_interval(i);
@@ -797,7 +983,6 @@ namespace samurai
     template <class D, class Config>
     inline void Mesh_base<D, Config>::construct_union()
     {
-        std::size_t min_lvl = m_min_level;
         std::size_t max_lvl = m_max_level;
 
         // Construction of union cells
@@ -814,7 +999,7 @@ namespace samurai
         // FIX: cppcheck false positive ?
         // cppcheck-suppress redundantAssignment
         m_union[max_lvl] = {max_lvl};
-        for (std::size_t level = max_lvl; level >= ((min_lvl == 0) ? 1 : min_lvl); --level)
+        for (std::size_t level = max_lvl; level >= 1; --level)
         {
             lcl_type lcl{level - 1};
             auto expr = union_(this->m_cells[mesh_id_t::cells][level], m_union[level]).on(level - 1);

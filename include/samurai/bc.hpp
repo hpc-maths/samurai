@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "boundary.hpp"
+#include "concepts.hpp"
 #include "samurai/cell.hpp"
 #include "samurai_config.hpp"
 #include "static_algorithm.hpp"
@@ -947,10 +948,70 @@ namespace samurai
         auto stencil_analyzer = make_stencil_analyzer(stencil);
 
         //  We need to check that the furthest ghost exists. It's not always the case for large stencils!
-        auto translated_outer_nghbr = translate(mesh[mesh_id_t::reference][level], -(stencil_size / 2) * direction); // can be removed?
-        auto cells                  = intersection(translated_outer_nghbr, bdry_cells).on(level);
+        if constexpr (stencil_size == 2)
+        {
+            auto cells = intersection(mesh[mesh_id_t::cells][level], bdry_cells).on(level);
 
-        __apply_bc_on_subset(bc, field, cells, stencil_analyzer, direction);
+            __apply_bc_on_subset(bc, field, cells, stencil_analyzer, direction);
+        }
+        else
+        {
+            auto translated_outer_nghbr = translate(mesh[mesh_id_t::reference][level], -(stencil_size / 2) * direction); // can be removed?
+            auto cells                  = intersection(translated_outer_nghbr, mesh[mesh_id_t::cells][level], bdry_cells).on(level);
+
+            __apply_bc_on_subset(bc, field, cells, stencil_analyzer, direction);
+        }
+    }
+
+    template <std::size_t layers, class Mesh>
+    auto translated_outer_neighbours(const Mesh& mesh, std::size_t level, const DirectionVector<Mesh::dim>& direction)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+        static_assert(layers <= 5, "not implemented for layers > 10");
+
+        // Technically, if mesh.domain().is_box(), then we can only test that the furthest layer of ghosts exists
+        // (i.e. the set return by the case stencil_size == 2 below).
+        // On the other hand, if the domain has holes, we have to check that all the intermediary ghost layers exist.
+        // Since we can't easily make the distinction in a static way, we always check that all the ghost layers exist.
+
+        if constexpr (layers == 1)
+        {
+            return translate(mesh[mesh_id_t::reference][level], -layers * direction);
+        }
+        else if constexpr (layers == 2)
+        {
+            // clang-format off
+            return intersection(translate(mesh[mesh_id_t::reference][level], -(layers    ) * direction),
+                                translate(mesh[mesh_id_t::reference][level], -(layers - 1) * direction));
+            // clang-format on
+        }
+        else if constexpr (layers == 3)
+        {
+            // clang-format off
+            return intersection(translate(mesh[mesh_id_t::reference][level], -(layers    ) * direction),
+                                translate(mesh[mesh_id_t::reference][level], -(layers - 1) * direction),
+                                translate(mesh[mesh_id_t::reference][level], -(layers - 2) * direction));
+            // clang-format on
+        }
+        else if constexpr (layers == 4)
+        {
+            // clang-format off
+            return intersection(translate(mesh[mesh_id_t::reference][level], -(layers    ) * direction),
+                                translate(mesh[mesh_id_t::reference][level], -(layers - 1) * direction),
+                                translate(mesh[mesh_id_t::reference][level], -(layers - 2) * direction),
+                                translate(mesh[mesh_id_t::reference][level], -(layers - 3) * direction));
+            // clang-format on
+        }
+        else if constexpr (layers == 5)
+        {
+            // clang-format off
+            return intersection(translate(mesh[mesh_id_t::reference][level], -(layers    ) * direction),
+                                translate(mesh[mesh_id_t::reference][level], -(layers - 1) * direction),
+                                translate(mesh[mesh_id_t::reference][level], -(layers - 2) * direction),
+                                translate(mesh[mesh_id_t::reference][level], -(layers - 3) * direction),
+                                translate(mesh[mesh_id_t::reference][level], -(layers - 4) * direction));
+            // clang-format on
+        }
     }
 
     /**
@@ -977,10 +1038,11 @@ namespace samurai
         auto stencil          = convert_for_direction(stencil_0, direction);
         auto stencil_analyzer = make_stencil_analyzer(stencil);
 
-        auto translated_outer_nghbr           = translate(mesh[mesh_id_t::reference][level], -(stencil_size / 2) * direction);
+        auto translated_outer_nghbr           = translated_outer_neighbours<stencil_size / 2>(mesh, level, direction);
         auto potential_inner_cells_and_ghosts = intersection(translated_outer_nghbr, inner_ghosts_location).on(level);
         auto inner_cells_and_ghosts           = intersection(potential_inner_cells_and_ghosts, mesh.get_union()[level]).on(level);
-        auto inner_ghosts_with_outer_nghbr    = difference(inner_cells_and_ghosts, mesh[mesh_id_t::cells][level]).on(level);
+        // auto inner_cells_and_ghosts        = intersection(potential_inner_cells_and_ghosts, mesh[mesh_id_t::cells][level + 1]).on(level);
+        auto inner_ghosts_with_outer_nghbr = difference(inner_cells_and_ghosts, mesh[mesh_id_t::cells][level]).on(level);
         __apply_bc_on_subset(bc, field, inner_ghosts_with_outer_nghbr, stencil_analyzer, direction);
     }
 
@@ -1157,7 +1219,8 @@ namespace samurai
                         {
                             std::cerr << "NaN detected in [" << cells[c]
                                       << "] when applying polynomial extrapolation to fill the outer ghost [" << ghost << "]." << std::endl;
-                            assert(false);
+                            // save(fs::current_path(), "nan_extrapolation", {true, true}, u.mesh(), u);
+                            exit(1);
                         }
                     }
                 }
@@ -1181,6 +1244,7 @@ namespace samurai
     };
 
     template <class Field>
+        requires IsField<Field>
     void update_bc_for_scheme(std::size_t level, const DirectionVector<Field::dim>& direction, Field& field)
     {
         static constexpr std::size_t max_stencil_size_implemented_BC = Bc<Field>::max_stencil_size_implemented;
@@ -1201,6 +1265,7 @@ namespace samurai
     }
 
     template <class Field>
+        requires IsField<Field>
     void update_bc_for_scheme(Field& field, const DirectionVector<Field::dim>& direction)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
@@ -1213,6 +1278,7 @@ namespace samurai
     }
 
     template <class Field>
+        requires IsField<Field>
     void update_bc_for_scheme(Field& field, std::size_t direction_index)
     {
         DirectionVector<Field::dim> direction;
@@ -1226,6 +1292,21 @@ namespace samurai
     }
 
     template <class Field>
+        requires IsField<Field>
+    void update_bc_for_scheme(std::size_t level, Field& field, std::size_t direction_index)
+    {
+        DirectionVector<Field::dim> direction;
+        direction.fill(0);
+
+        direction[direction_index] = 1;
+        update_bc_for_scheme(level, direction, field);
+
+        direction[direction_index] = -1;
+        update_bc_for_scheme(level, direction, field);
+    }
+
+    template <class Field>
+        requires IsField<Field>
     void update_bc_for_scheme(Field& field)
     {
         for_each_cartesian_direction<Field::dim>(
@@ -1236,35 +1317,10 @@ namespace samurai
     }
 
     template <class Field, class... Fields>
+        requires(IsField<Field> && (IsField<Fields> && ...))
     void update_bc_for_scheme(Field& field, Fields&... other_fields)
     {
-        update_bc_for_scheme(field);
-        update_bc_for_scheme(other_fields...);
-    }
-
-    template <class Mesh>
-    auto get_corner(const Mesh& mesh, std::size_t level, const DirectionVector<Mesh::dim>& direction)
-    {
-        static constexpr std::size_t dim = Mesh::dim;
-
-        using direction_t = DirectionVector<dim>;
-
-        static_assert(dim <= 3, "Only 2D and 3D are supported.");
-
-        auto domain = self(mesh.domain()).on(level);
-
-        if constexpr (dim == 2)
-        {
-            return difference(domain,
-                              union_(translate(domain, direction_t{-direction[0], 0}), translate(domain, direction_t{0, -direction[1]})));
-        }
-        else if constexpr (dim == 3)
-        {
-            return difference(domain,
-                              union_(translate(domain, direction_t{-direction[0], 0, 0}),
-                                     translate(domain, direction_t{0, -direction[1], 0}),
-                                     translate(domain, direction_t{0, 0, -direction[2]})));
-        }
+        update_bc_for_scheme(field, other_fields...);
     }
 
     template <class Field>
@@ -1280,7 +1336,7 @@ namespace samurai
         auto& domain = detail::get_mesh(field.mesh());
         PolynomialExtrapolation<Field, extrap_stencil_size> bc(domain, ConstantBc<Field>(), true);
 
-        auto corner = get_corner(field.mesh(), level, direction);
+        auto corner = self(field.mesh().corner(direction)).on(level);
 
         __apply_extrapolation_bc__cells<extrap_stencil_size>(bc, level, field, direction, corner);
     }

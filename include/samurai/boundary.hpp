@@ -38,6 +38,67 @@ namespace samurai
         return subdomain_boundary_layer(mesh, level, direction, 1);
     }
 
+    template <class Mesh>
+    inline auto domain_boundary(const Mesh& mesh, std::size_t level)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+
+        auto& cells = mesh[mesh_id_t::cells][level];
+
+        return difference(cells, contract(self(mesh.domain()).on(level), 1));
+    }
+
+    template <class Mesh>
+    auto domain_boundary_outer_layer(const Mesh& mesh, std::size_t level, std::size_t layer_width)
+    {
+        using lca_t = typename Mesh::lca_type;
+        using lcl_t = typename Mesh::lcl_type;
+
+        auto domain = self(mesh.domain()).on(level);
+
+        lcl_t outer_boundary_lcl(level, mesh.origin_point(), mesh.scaling_factor());
+
+        for_each_cartesian_direction<Mesh::dim>(
+            [&](const auto& direction)
+            {
+                auto inner_boundary = domain_boundary(mesh, level, direction);
+                for (std::size_t layer = 1; layer <= layer_width; ++layer)
+                {
+                    auto outer_layer = difference(translate(inner_boundary, layer * direction), domain);
+                    outer_layer(
+                        [&](const auto& i, const auto& index)
+                        {
+                            outer_boundary_lcl[index].add_interval({i});
+                        });
+                }
+            });
+        return lca_t(outer_boundary_lcl);
+    }
+
+    template <class Mesh>
+    auto
+    domain_boundary_outer_layer(const Mesh& mesh, std::size_t level, const DirectionVector<Mesh::dim>& direction, std::size_t layer_width)
+    {
+        using lca_t = typename Mesh::lca_type;
+        using lcl_t = typename Mesh::lcl_type;
+
+        auto domain = self(mesh.domain()).on(level);
+
+        lcl_t outer_boundary_lcl(level, mesh.origin_point(), mesh.scaling_factor());
+
+        auto inner_boundary = domain_boundary(mesh, level, direction);
+        for (std::size_t layer = 1; layer <= layer_width; ++layer)
+        {
+            auto outer_layer = difference(translate(inner_boundary, layer * direction), domain);
+            outer_layer(
+                [&](const auto& i, const auto& index)
+                {
+                    outer_boundary_lcl[index].add_interval({i});
+                });
+        }
+        return lca_t(outer_boundary_lcl);
+    }
+
     template <class Mesh, class Subset, std::size_t stencil_size, class GetCoeffsFunc, class Func>
     void for_each_stencil_on_boundary(const Mesh& mesh,
                                       const Subset& boundary_region,

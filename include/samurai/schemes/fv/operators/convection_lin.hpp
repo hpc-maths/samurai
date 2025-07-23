@@ -169,7 +169,7 @@ namespace samurai
                     // In this case, of size n_comp x n_comp.
                     FluxStencilCoeffs<cfg> coeffs;
 
-                    auto velocity = velocity_field[cells[left]];
+                    auto velocity = 0.5 * (velocity_field[cells[left]] + velocity_field[cells[right]]);
                     if (velocity(d) >= 0) // use the left values
                     {
                         if constexpr (output_n_comp == 1)
@@ -214,24 +214,28 @@ namespace samurai
      * @param velocity_field: the velocity field
      */
     template <class Field, class VelocityField>
-    auto make_convection_weno5(const VelocityField& velocity_field)
+        requires IsField<VelocityField>
+    auto make_convection_weno5(VelocityField& velocity_field)
     {
         static_assert(Field::mesh_t::config::ghost_width >= 3, "WENO5 requires at least 3 ghosts.");
 
-        static constexpr std::size_t dim           = Field::dim;
-        static constexpr std::size_t n_comp        = Field::n_comp;
-        static constexpr bool is_soa               = detail::is_soa_v<Field>;
+        static constexpr std::size_t dim    = Field::dim;
+        static constexpr std::size_t n_comp = Field::n_comp;
+        static constexpr bool is_soa        = detail::is_soa_v<Field>;
+
         static constexpr std::size_t output_n_comp = n_comp;
         static constexpr std::size_t stencil_size  = 6;
+        using input_field_t                        = Field;
+        using parameter_field_t                    = VelocityField;
 
-        using cfg = FluxConfig<SchemeType::NonLinear, output_n_comp, stencil_size, Field>;
+        using cfg = FluxConfig<SchemeType::NonLinear, output_n_comp, stencil_size, input_field_t, parameter_field_t>;
 
         FluxDefinition<cfg> weno5;
 
         static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
-            [&](auto integral_constant_d)
+            [&](auto d_)
             {
-                static constexpr std::size_t d = decltype(integral_constant_d)::value;
+                static constexpr std::size_t d = d_();
 
                 // Stencil creation:
                 //        weno5[0].stencil = {{-2, 0}, {-1, 0}, {0,0}, {1,0}, {2,0}, {3,0}};
@@ -241,9 +245,10 @@ namespace samurai
                 weno5[d].cons_flux_function =
                     [&velocity_field](FluxValue<cfg>& flux, const StencilData<cfg>& data, const StencilValues<cfg>& u)
                 {
-                    static constexpr std::size_t stencil_center = 2;
+                    static constexpr std::size_t left  = 2;
+                    static constexpr std::size_t right = 3;
 
-                    auto v = velocity_field[data.cells[stencil_center]](d);
+                    auto v = 0.5 * (velocity_field[data.cells[left]](d) + velocity_field[data.cells[right]](d));
 
                     if (v >= 0)
                     {
@@ -262,6 +267,7 @@ namespace samurai
 
         auto scheme = make_flux_based_scheme(weno5);
         scheme.set_name("convection");
+        scheme.set_parameter_field(velocity_field);
         return scheme;
     }
 

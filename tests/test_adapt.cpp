@@ -31,7 +31,8 @@ namespace samurai
 
         static constexpr std::size_t dim = TypeParam::value;
         using config                     = MRConfig<dim>;
-        auto mesh                        = MRMesh<config>({xt::zeros<double>({dim}), xt::ones<double>({dim})}, 2, 4);
+        using box_t                      = Box<double, dim>;
+        auto mesh                        = MRMesh<config>(box_t{xt::zeros<double>({dim}), xt::ones<double>({dim})}, 2, 4);
         auto u_1                         = make_scalar_field<double>("u_1", mesh);
         auto u_2                         = make_vector_field<double, 3, true>("u_2", mesh);
         auto u_3                         = make_vector_field<double, 2>("u_3", mesh);

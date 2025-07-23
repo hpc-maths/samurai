@@ -750,7 +750,7 @@ namespace samurai
         {
             return [&]<std::size_t... Is>(std::index_sequence<Is...>)
             {
-                assert((dst_indices[Is] <= (1 << delta_l)) && ...);
+                // assert((dst_indices[Is] <= (1 << delta_l)) && ...); // doesn't compile on linux
 
                 return std::make_tuple(((void)Is, dst_indices[Is])...);
             }(std::make_index_sequence<dim>{});

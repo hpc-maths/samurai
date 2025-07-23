@@ -18,6 +18,10 @@
 #include "graduation.hpp"
 #include "utils.hpp"
 
+#ifndef NDEBUG
+#include "../io/hdf5.hpp"
+#endif
+
 using namespace xt::placeholders;
 
 #ifdef SAMURAI_WITH_MPI
@@ -96,21 +100,56 @@ namespace samurai
     template <class Field>
     void project_bc(std::size_t proj_level, const DirectionVector<Field::dim>& direction, int layer, Field& field)
     {
-        using mesh_id_t  = typename Field::mesh_t::mesh_id_t;
-        using interval_t = typename Field::mesh_t::interval_t;
-        using lca_t      = typename Field::mesh_t::lca_type;
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
         assert(layer > 0 && layer <= Field::mesh_t::config::max_stencil_width);
 
-        auto& mesh  = field.mesh();
+        auto& mesh = field.mesh();
+
         auto domain = self(mesh.domain()).on(proj_level);
 
         auto& inner = mesh.get_union()[proj_level];
+        // auto inner = self(mesh[mesh_id_t::cells][proj_level + 1]).on(proj_level);
+
         // We want only 1 layer (the further one),
         // so we remove all closer layers by making the difference with the domain translated by (layer - 1) * direction
         auto outside_layer     = difference(translate(inner, layer * direction), translate(domain, (layer - 1) * direction));
         auto projection_ghosts = intersection(outside_layer, mesh[mesh_id_t::reference][proj_level]).on(proj_level);
 
+        if (mesh.domain().is_box())
+        {
+            project_bc(projection_ghosts, proj_level, direction, layer, field);
+        }
+        else
+        {
+            // We don't want to fill by projection the ghosts that have been/will be filled by the B.C. in other directions.
+            // This can happen when there is a hole in the domain.
+
+            std::size_t n_bc_ghosts = Field::mesh_t::config::max_stencil_width;
+            if (!field.get_bc().empty())
+            {
+                n_bc_ghosts = field.get_bc().front()->stencil_size() / 2;
+            }
+
+            auto bc_ghosts_in_other_directions  = domain_boundary_outer_layer(mesh, proj_level, n_bc_ghosts);
+            auto projection_ghosts_no_bc_ghosts = difference(projection_ghosts, bc_ghosts_in_other_directions);
+
+            project_bc(projection_ghosts_no_bc_ghosts, proj_level, direction, layer, field);
+        }
+    }
+
+    template <class Subset, class Field>
+    void project_bc(Subset& projection_ghosts,
+                    std::size_t proj_level,
+                    [[maybe_unused]] const DirectionVector<Field::dim>& direction,
+                    [[maybe_unused]] int layer,
+                    Field& field)
+    {
+        using mesh_id_t  = typename Field::mesh_t::mesh_id_t;
+        using interval_t = typename Field::mesh_t::interval_t;
+        using lca_t      = typename Field::mesh_t::lca_type;
+
+        auto& mesh = field.mesh();
         lca_t proj_ghost_lca(proj_level, mesh.origin_point(), mesh.scaling_factor());
 
         projection_ghosts(
@@ -147,8 +186,11 @@ namespace samurai
                                         std::cerr << "[" << world.rank() << "] ";
 #endif
                                         std::cerr << "NaN found in field(" << children_level << "," << ii_child << "," << index_child
-                                                  << ") during projection of the B.C." << std::endl;
-                                        samurai::save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
+                                                  << ") during projection of the B.C. into the cell at (" << proj_level << ", " << ii << ", "
+                                                  << index << ")   (dir = " << direction << ", layer = " << layer << ")" << std::endl;
+#ifndef NDEBUG
+                                        save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
+#endif
                                         std::exit(1);
                                     }
 #endif
@@ -162,20 +204,28 @@ namespace samurai
                             break;
                         }
                     }
-                    if (n_children == 0)
-                    {
-#ifndef SAMURAI_WITH_MPI
-                        std::cerr << "No children found for the ghost at level " << proj_level << ", i = " << ii << ", index = " << index
-                                  << " during projection of the B.C." << std::endl;
-                        // samurai::save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
-                        std::exit(1);
-#endif
-                    }
-                    else
+                    if (n_children > 0)
                     {
                         // We divide the sum by the number of children to get the average
                         field(proj_level, i_cell, index) /= n_children;
                     }
+#ifndef NDEBUG
+#ifndef SAMURAI_WITH_MPI
+                    else
+                    {
+                        // I'm not sure if this can happen in normal conditions, so I put this error message in debug mode only.
+                        // However, it can happen in normal conditions if the domain has a hole, so we don't raise an error in that case.
+                        if (mesh.domain().is_box())
+                        {
+                            std::cerr << "No children found for the ghost at level " << proj_level << ", i = " << ii
+                                      << ", index = " << index << " during projection of the B.C. into the cell at level " << proj_level
+                                      << ", i=" << i_cell << ", index=" << index << std::endl;
+                            save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
+                            assert(false);
+                        }
+                    }
+#endif
+#endif
                     proj_ghost_lca.clear();
                 }
             });
@@ -224,21 +274,68 @@ namespace samurai
     template <class Field>
     void predict_bc(std::size_t pred_level, const DirectionVector<Field::dim>& direction, Field& field)
     {
-        using mesh_id_t  = typename Field::mesh_t::mesh_id_t;
-        using interval_t = typename Field::mesh_t::interval_t;
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
         auto& mesh = field.mesh();
 
-        auto& cells                    = mesh[mesh_id_t::cells][pred_level - 1];
-        auto bc_ghosts                 = difference(translate(cells, direction), self(mesh.domain()).on(pred_level - 1));
+        std::size_t n_bc_ghosts = Field::mesh_t::config::max_stencil_width;
+        if (!field.get_bc().empty())
+        {
+            n_bc_ghosts = field.get_bc().front()->stencil_size() / 2;
+        }
+
+        // auto& cells = mesh[mesh_id_t::cells][pred_level - 1];
+        //  auto cells                     = domain_boundary(mesh, pred_level - 1, direction);
+        // auto bc_ghosts = difference(translate(cells, n_bc_ghosts * direction), self(mesh.domain()).on(pred_level - 1));
+        auto bc_ghosts = domain_boundary_outer_layer(mesh, pred_level - 1, direction, n_bc_ghosts);
+
         auto outside_prediction_ghosts = intersection(bc_ghosts, mesh[mesh_id_t::reference][pred_level]).on(pred_level);
 
-        outside_prediction_ghosts(
+        if (mesh.domain().is_box())
+        {
+            predict_bc(outside_prediction_ghosts, pred_level, direction, field);
+        }
+        else
+        {
+            // We don't want to fill by prediction the ghosts that have been/will be filled by the B.C. in other directions.
+            // This can happen when there is a hole in the domain.
+
+            auto bc_ghosts_in_other_directions  = domain_boundary_outer_layer(mesh, pred_level, n_bc_ghosts);
+            auto prediction_ghosts_no_bc_ghosts = difference(outside_prediction_ghosts, bc_ghosts_in_other_directions);
+
+            predict_bc(prediction_ghosts_no_bc_ghosts, pred_level, direction, field);
+        }
+    }
+
+    template <class Subset, class Field>
+    void
+    predict_bc(Subset& prediction_ghosts, std::size_t pred_level, [[maybe_unused]] const DirectionVector<Field::dim>& direction, Field& field)
+    {
+        using interval_t = typename Field::mesh_t::interval_t;
+
+        prediction_ghosts(
             [&](const auto& i, const auto& index)
             {
                 interval_t i_cell = {i.start, i.start + 1};
                 for (auto ii = i.start; ii < i.end; ++ii, i_cell += 1)
                 {
+#ifdef SAMURAI_CHECK_NAN
+                    if (xt::any(xt::isnan(field(pred_level - 1, i_cell >> 1, index >> 1))))
+                    {
+                        std::cerr << std::endl;
+#ifdef SAMURAI_WITH_MPI
+                        mpi::communicator world;
+                        std::cerr << "[" << world.rank() << "] ";
+#endif
+                        std::cerr << "NaN found in field(" << (pred_level - 1) << "," << (i_cell >> 1) << "," << (index >> 1)
+                                  << ") during prediction of the B.C. into the cell at (" << pred_level << ", " << ii << ", " << index
+                                  << ") " << std::endl;
+#ifndef NDEBUG
+                        samurai::save(fs::current_path(), "update_ghosts", {true, true}, field.mesh(), field);
+#endif
+                        std::exit(1);
+                    }
+#endif
                     field(pred_level, i_cell, index) = field(pred_level - 1, i_cell >> 1, index >> 1);
                 }
             });
@@ -265,7 +362,7 @@ namespace samurai
         {
             auto proj_level = level - delta_l;
 
-            auto fine_inner_corner = get_corner(mesh, level, direction);
+            auto fine_inner_corner = self(mesh.corner(direction)).on(level);
             auto fine_outer_corner = intersection(translate(fine_inner_corner, direction), mesh[mesh_id_t::reference][level]);
             auto projection_ghost  = intersection(fine_outer_corner.on(proj_level), mesh[mesh_id_t::reference][proj_level]);
 
@@ -335,9 +432,12 @@ namespace samurai
                         // - the B.C. is projected onto the lower ghosts
                         // - those lower ghosts are projected onto the even lower ghosts
 
-                        static constexpr std::size_t max_stencil_width = Field::mesh_t::config::max_stencil_width;
-                        int max_coarse_layer                           = static_cast<int>(max_stencil_width % 2 == 0 ? max_stencil_width / 2
-                                                                                           : (max_stencil_width + 1) / 2);
+                        std::size_t n_bc_ghosts = Field::mesh_t::config::max_stencil_width;
+                        if (!field.get_bc().empty())
+                        {
+                            n_bc_ghosts = field.get_bc().front()->stencil_size() / 2;
+                        }
+                        int max_coarse_layer = static_cast<int>(n_bc_ghosts % 2 == 0 ? n_bc_ghosts / 2 : (n_bc_ghosts + 1) / 2);
                         for (int layer = 1; layer <= max_coarse_layer; ++layer)
                         {
                             project_bc(level, direction, layer, field); // project from level+1 to level
@@ -354,11 +454,25 @@ namespace samurai
                         predict_bc(level + 1, direction, field);
                     }
 
-                    // If the B.C. doesn't fill all the ghost layers, we use polynomial extrapolation
-                    // to fill the remaining layers
-                    update_further_ghosts_by_polynomial_extrapolation(level, direction, field);
+                    // // If the B.C. doesn't fill all the ghost layers, we use polynomial extrapolation
+                    // // to fill the remaining layers
+                    // update_further_ghosts_by_polynomial_extrapolation(level, direction, field);
                 }
             });
+
+        // If the B.C. doesn't fill all the ghost layers, we use polynomial extrapolation
+        // to fill the remaining layers
+        if (level >= mesh.min_level())
+        {
+            for_each_cartesian_direction<dim>(
+                [&](auto direction_index, const auto& direction)
+                {
+                    if (!mesh.is_periodic(direction_index))
+                    {
+                        update_further_ghosts_by_polynomial_extrapolation(level, direction, field);
+                    }
+                });
+        }
     }
 
     /**
@@ -435,7 +549,7 @@ namespace samurai
             update_ghost_periodic(level, field, other_fields...);
             update_ghost_subdomains(level, field, other_fields...);
         }
-        // samurai::save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
+        // save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
 
         times::timers.stop("ghost update");
     }

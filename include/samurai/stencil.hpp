@@ -629,7 +629,8 @@ namespace samurai
                         if (cell.index > 0 && static_cast<std::size_t>(cell.index) > m_mesh.nb_cells()) // nb_cells() is very costly
                         {
                             std::cout << "Non-existing neighbour for " << origin_cell << " in the direction " << dir << std::endl;
-                            assert(false);
+                            // save(fs::current_path(), "mesh_error", {true, true}, m_mesh);
+                            exit(1);
                         }
 #endif
                     }

@@ -78,6 +78,15 @@ namespace samurai
             apply(*this, func);
         }
 
+        inline void to_stream(std::ostream& os)
+        {
+            apply_op(
+                [&](const auto level, const auto& i, const auto& index)
+                {
+                    os << "level: " << level << ", i: " << i << ", index: " << index << std::endl;
+                });
+        }
+
         template <std::size_t d, class Func_goback_beg, class Func_goback_end>
         auto get_local_set(auto level, auto& index, Func_goback_beg&& goback_fct_beg, Func_goback_end&& goback_fct_end)
         {
@@ -474,6 +483,13 @@ namespace samurai
         }
     }
 
+    template <class Op, class StartEndOp, class... S>
+    inline std::ostream& operator<<(std::ostream& out, Subset<Op, StartEndOp, S...>& subset)
+    {
+        subset.to_stream(out);
+        return out;
+    }
+
     template <class... sets_t>
     auto intersection(sets_t&&... sets)
     {
@@ -532,6 +548,10 @@ namespace samurai
         return Self<std::decay_t<lca_t>>(std::forward<lca_t>(lca));
     }
 
+    //----------------------------------------------------------------//
+    //                        Contract                                //
+    //----------------------------------------------------------------//
+
     template <std::size_t direction_index, class SubsetOrLCA>
     auto contract_rec(const SubsetOrLCA& set, int width, const std::array<bool, SubsetOrLCA::dim>& contract_directions)
     {
@@ -549,7 +569,14 @@ namespace samurai
         }
         else
         {
-            return set;
+            if constexpr (IsLCA<SubsetOrLCA>)
+            {
+                return self(set);
+            }
+            else
+            {
+                return set;
+            }
         }
     }
 
@@ -584,5 +611,79 @@ namespace samurai
         std::array<bool, SubsetOrLCA::dim> contract_directions;
         std::fill(contract_directions.begin(), contract_directions.end(), true);
         return contract(set, width, contract_directions);
+    }
+
+    //--------------------------------------------------------------//
+    //                        Expand                                //
+    //--------------------------------------------------------------//
+
+    template <std::size_t direction_index, int width, class SubsetOrLCA>
+    auto expand_rec(const SubsetOrLCA& set, const std::array<bool, SubsetOrLCA::dim>& expand_directions)
+    {
+        static constexpr std::size_t dim = SubsetOrLCA::dim;
+        using direction_t                = xt::xtensor_fixed<int, xt::xshape<dim>>;
+
+        if constexpr (width == 0 && direction_index == dim)
+        {
+            if constexpr (IsLCA<SubsetOrLCA>)
+            {
+                return self(set);
+            }
+            else
+            {
+                return set;
+            }
+        }
+        else if constexpr (width > 0)
+        {
+            auto expanded_layer = expand_rec<direction_index, width - 1>(set, expand_directions);
+            direction_t dir;
+            dir.fill(0);
+            dir[direction_index] = expand_directions[direction_index] ? width : 0;
+
+            return union_(expanded_layer, translate(set, dir), translate(set, -dir));
+        }
+        else if constexpr (direction_index < dim)
+        {
+            auto expanded_in_other_dirs = expand_rec<direction_index + 1, width>(set, expand_directions);
+            direction_t dir;
+            dir.fill(0);
+            dir[direction_index] = expand_directions[direction_index] ? width : 0;
+
+            return union_(expanded_in_other_dirs, translate(set, dir), translate(set, -dir));
+        }
+    }
+
+    /**
+     * @brief Expand a set in the specified directions.
+     *
+     * @tparam SubsetOrLCA The type of the set to expand.
+     * @param set The set or LevelCellArray to expand.
+     * @param width The expansion width.
+     * @param expand_directions An array indicating which directions to expand (true for expansion, false for no expansion).
+     * @return A new set that is expanded in the specified directions.
+     */
+    template <class SubsetOrLCA, int width = 1>
+    auto expand(const SubsetOrLCA& set, const std::array<bool, SubsetOrLCA::dim>& expand_directions)
+    {
+        return expand_rec<0, width>(set, expand_directions);
+    }
+
+    /**
+     * @brief Expand a set in all Cartesian directions (no diagonals!).
+     *
+     * This function is a convenience wrapper that expands the set in all dimensions.
+     *
+     * @tparam SubsetOrLCA The type of the set to expand.
+     * @param set The set or LevelCellArray to expand.
+     * @param width The expansion width.
+     * @return A new set that is expanded in all directions.
+     */
+    template <class SubsetOrLCA, int width = 1>
+    auto expand(const SubsetOrLCA& set)
+    {
+        std::array<bool, SubsetOrLCA::dim> expand_directions;
+        std::fill(expand_directions.begin(), expand_directions.end(), true);
+        return expand<SubsetOrLCA, width>(set, expand_directions);
     }
 }

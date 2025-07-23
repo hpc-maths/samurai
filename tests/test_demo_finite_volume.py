@@ -239,10 +239,6 @@ def test_finite_volume_demo_stokes_nonstationary(config):
 
 
 @pytest.mark.h5diff()
-@pytest.mark.skipif(
-    sys.platform == "darwin",
-    reason="skipped on macos because libpthread is missing on github worker",
-)
 def test_finite_volume_demo_burgers(config):
     cmd = [
         get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-burgers"),
@@ -265,10 +261,6 @@ def test_finite_volume_demo_burgers(config):
 
 
 @pytest.mark.h5diff()
-@pytest.mark.skipif(
-    sys.platform == "darwin",
-    reason="skipped on macos because libpthread is missing on github worker",
-)
 def test_finite_volume_demo_mra_burgers(config):
     cmd = [
         get_executable(
@@ -431,10 +423,6 @@ def test_finite_volume_demo_lid_driven_cavity(config):
 
 
 @pytest.mark.h5diff()
-@pytest.mark.skipif(
-    sys.platform == "darwin",
-    reason="skipped on macos because libpthread is missing on github worker",
-)
 def test_finite_volume_demo_linear_convection(config):
     cmd = [
         get_executable(
@@ -452,6 +440,23 @@ def test_finite_volume_demo_linear_convection(config):
         "6",
         "--Tf",
         "0.1",
+    ]
+    output = subprocess.run(cmd, check=True, capture_output=True)
+
+@pytest.mark.h5diff()
+def test_finite_volume_demo_obstacle_linear_convection(config):
+    cmd = [
+        get_executable(
+            Path("../build/demos/FiniteVolume/"), "finite-volume-linear-convection-obstacle"
+        ),
+        "--path",
+        config["path"],
+        "--filename",
+        config["filename"],
+        "--nfiles",
+        "1",
+        "--Tf",
+        "0.3",
     ]
     output = subprocess.run(cmd, check=True, capture_output=True)
 
