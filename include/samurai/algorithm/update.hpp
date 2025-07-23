@@ -330,7 +330,7 @@ namespace samurai
                                   << ") during prediction of the B.C. into the cell at (" << pred_level << ", " << ii << ", " << index
                                   << ") " << std::endl;
 #ifndef NDEBUG
-                        samurai::save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
+                        samurai::save(fs::current_path(), "update_ghosts", {true, true}, field.mesh(), field);
 #endif
                         std::exit(1);
                     }

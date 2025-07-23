@@ -32,12 +32,12 @@ namespace samurai
             add(box_t(min_corner, max_corner));
         }
 
-        auto& added_boxes() const
+        const auto& added_boxes() const
         {
             return m_added_boxes;
         }
 
-        auto& removed_boxes() const
+        const auto& removed_boxes() const
         {
             return m_removed_boxes;
         }
@@ -45,6 +45,7 @@ namespace samurai
         point_t origin_point() const
         {
             point_t origin;
+            origin.fill(std::numeric_limits<double>::max());
             for (const auto& box : m_added_boxes)
             {
                 origin = xt::minimum(origin, box.min_corner());
