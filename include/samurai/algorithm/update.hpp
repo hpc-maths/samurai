@@ -210,11 +210,11 @@ namespace samurai
                         field(proj_level, i_cell, index) /= n_children;
                     }
 #ifndef NDEBUG
+#ifndef SAMURAI_WITH_MPI
                     else
                     {
-                    // I'm not sure if this can happen in normal conditions, so I put this error message in debug mode only.
-                    // However, it can happen in normal conditions if the domain has a hole, so we don't raise an error in that case.
-#ifndef SAMURAI_WITH_MPI
+                        // I'm not sure if this can happen in normal conditions, so I put this error message in debug mode only.
+                        // However, it can happen in normal conditions if the domain has a hole, so we don't raise an error in that case.
                         if (mesh.domain().is_box())
                         {
                             std::cerr << "No children found for the ghost at level " << proj_level << ", i = " << ii
@@ -222,10 +222,9 @@ namespace samurai
                                       << ", i=" << i_cell << ", index=" << index << std::endl;
                             save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
                             assert(false);
-#endif
-                            // std::exit(1);
                         }
                     }
+#endif
 #endif
                     proj_ghost_lca.clear();
                 }
