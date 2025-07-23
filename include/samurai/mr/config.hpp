@@ -44,15 +44,20 @@ namespace samurai
             return m_rel_detail;
         }
 
-        void init_options(CLI::App& app_)
+        void parse_args()
         {
-            app_.add_option("--mr-eps", m_epsilon, "The epsilon used by the multiresolution to adapt the mesh")
-                ->capture_default_str()
-                ->group("Multiresolution");
-            app_.add_option("--mr-reg", m_regularity, "The regularity criteria used by the multiresolution to adapt the mesh")
-                ->capture_default_str()
-                ->group("Multiresolution");
-            app_.add_flag("--mr-rel-detail", m_rel_detail, "Use relative detail instead of absolute detail")->group("Multiresolution");
+            if (args::epsilon != std::numeric_limits<double>::infinity())
+            {
+                m_epsilon = args::epsilon;
+            }
+            if (args::regularity != std::numeric_limits<double>::infinity())
+            {
+                m_regularity = args::regularity;
+            }
+            if (args::rel_detail)
+            {
+                m_rel_detail = true;
+            }
         }
 
       private:

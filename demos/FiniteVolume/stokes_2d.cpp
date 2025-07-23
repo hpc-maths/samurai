@@ -186,9 +186,6 @@ int main(int argc, char* argv[])
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
 
-    auto mra_config = samurai::mra_config().epsilon(1e-1).regularity(3);
-    mra_config.init_options(app);
-
     app.allow_extras();
     SAMURAI_PARSE(argc, argv);
 
@@ -443,6 +440,7 @@ int main(int argc, char* argv[])
 
         // Time iteration
         auto MRadaptation = samurai::make_MRAdapt(velocity);
+        auto mra_config   = samurai::mra_config().epsilon(1e-1).regularity(3);
 
         std::size_t nsave = 0, nt = 0;
         if (nfiles != 1)

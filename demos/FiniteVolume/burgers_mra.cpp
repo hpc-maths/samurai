@@ -265,9 +265,6 @@ int main(int argc, char* argv[])
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Ouput");
     app.allow_extras();
 
-    auto mra_config = samurai::mra_config().epsilon(1e-5).regularity(0.);
-    mra_config.init_options(app);
-
     SAMURAI_PARSE(argc, argv);
 
     //--------------------//
@@ -297,6 +294,8 @@ int main(int argc, char* argv[])
     //-----------------//
 
     std::size_t nsave;
+
+    auto mra_config = samurai::mra_config().epsilon(1e-5).regularity(0.);
 
     scheme.enable_max_level_flux(false);
     run_simulation(u, unp1, u_max, unp1_max, scheme, cfl, mra_config, init_sol, nfiles, path, filename, nsave);

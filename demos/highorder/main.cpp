@@ -146,9 +146,6 @@ int main(int argc, char* argv[])
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
 
-    auto mra_config = samurai::mra_config().epsilon(2e-4);
-    mra_config.init_options(app);
-
     app.allow_extras();
     SAMURAI_PARSE(argc, argv);
 
@@ -180,6 +177,7 @@ int main(int argc, char* argv[])
                                                           });
 
     auto MRadaptation = samurai::make_MRAdapt(adapt_field);
+    auto mra_config   = samurai::mra_config().epsilon(2e-4);
     MRadaptation(mra_config);
 
     // samurai::save("initial_mesh", mesh);

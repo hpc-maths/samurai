@@ -132,9 +132,6 @@ int main(int argc, char* argv[])
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
     app.allow_extras();
 
-    auto mra_config = samurai::mra_config().epsilon(1e-3);
-    mra_config.init_options(app);
-
     SAMURAI_PARSE(argc, argv);
 
     std::cout << "  max_level = " << max_level << "   min_level = " << min_level << std::endl;
@@ -169,6 +166,7 @@ int main(int argc, char* argv[])
                            });
 
     auto MRadaptation = samurai::make_MRAdapt(u);
+    auto mra_config   = samurai::mra_config().epsilon(1e-3);
     MRadaptation(mra_config);
 
     double dt_save    = nfiles == 0 ? dt : Tf / static_cast<double>(nfiles);

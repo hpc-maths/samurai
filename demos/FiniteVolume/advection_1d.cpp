@@ -97,9 +97,6 @@ int main(int argc, char* argv[])
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
 
-    auto mra_config = samurai::mra_config().epsilon(2e-4);
-    mra_config.init_options(app);
-
     SAMURAI_PARSE(argc, argv);
 
     const samurai::Box<double, dim> box({left_box}, {right_box});
@@ -130,6 +127,7 @@ int main(int argc, char* argv[])
     auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);
 
     auto MRadaptation = samurai::make_MRAdapt(u);
+    auto mra_config   = samurai::mra_config().epsilon(2e-4);
     MRadaptation(mra_config);
     save(path, filename, u, "_init");
 

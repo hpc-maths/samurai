@@ -80,9 +80,6 @@ int main(int argc, char* argv[])
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
 
-    auto mra_config = samurai::mra_config();
-    mra_config.init_options(app);
-
     app.allow_extras();
     SAMURAI_PARSE(argc, argv);
 
@@ -156,6 +153,7 @@ int main(int argc, char* argv[])
     }
 
     auto MRadaptation = samurai::make_MRAdapt(u);
+    auto mra_config   = samurai::mra_config();
     MRadaptation(mra_config);
 
     double dt_save    = nfiles == 0 ? dt : Tf / static_cast<double>(nfiles);

@@ -114,9 +114,6 @@ int main(int argc, char* argv[])
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
 
-    auto mra_config = samurai::mra_config().regularity(2);
-    mra_config.init_options(app);
-
     SAMURAI_PARSE(argc, argv);
 
     if (!fs::exists(path))
@@ -137,6 +134,7 @@ int main(int argc, char* argv[])
     auto u_exact = init(umesh, test_case);
 
     auto MRadaptation = samurai::make_MRAdapt(u);
+    auto mra_config   = samurai::mra_config().regularity(2);
     MRadaptation(mra_config);
 
     auto level_ = samurai::make_scalar_field<std::size_t>("level", mrmesh);

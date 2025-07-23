@@ -96,9 +96,6 @@ int main(int argc, char* argv[])
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_flag("--save-final-state-only", save_final_state_only, "Save final state only")->group("Output");
 
-    auto mra_config = samurai::mra_config().epsilon(1e-5);
-    mra_config.init_options(app);
-
     app.allow_extras();
     SAMURAI_PARSE(argc, argv);
 
@@ -198,6 +195,7 @@ int main(int argc, char* argv[])
     }
 
     auto MRadaptation = samurai::make_MRAdapt(u);
+    auto mra_config   = samurai::mra_config().epsilon(1e-5);
     MRadaptation(mra_config);
 
     std::size_t nsave = 0, nt = 0;

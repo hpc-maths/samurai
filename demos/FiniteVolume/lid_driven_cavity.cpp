@@ -136,9 +136,6 @@ int main(int argc, char* argv[])
     app.add_flag("--export-velocity", export_velocity, "Export velocity field")->capture_default_str()->group("Output");
     app.add_flag("--export-reconstruct", export_reconstruct, "Export reconstructed fields")->capture_default_str()->group("Output");
 
-    auto mra_config = samurai::mra_config().epsilon(1e-1).regularity(3);
-    mra_config.init_options(app);
-
     app.allow_extras();
     SAMURAI_PARSE(argc, argv);
 
@@ -180,6 +177,7 @@ int main(int argc, char* argv[])
 
     // Multi-resolution: the mesh will be adapted according to the velocity
     auto MRadaptation = samurai::make_MRAdapt(velocity);
+    auto mra_config   = samurai::mra_config().epsilon(1e-1).regularity(3);
 
     // Boundary conditions (n)
     samurai::DirectionVector<dim> left   = {-1, 0};

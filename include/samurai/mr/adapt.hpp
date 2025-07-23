@@ -98,7 +98,7 @@ namespace samurai
         Adapt(PredictionFn&& prediction_fn, TField& field, TFields&... fields);
 
         template <class... Fields>
-        void operator()(const mra_config& config, Fields&... other_fields);
+        void operator()(mra_config& config, Fields&... other_fields);
 
         template <class... Fields>
         void operator()(double eps, double regularity, Fields&... other_fields);
@@ -139,7 +139,7 @@ namespace samurai
 
     template <bool enlarge_, class PredictionFn, class TField, class... TFields>
     template <class... Fields>
-    void Adapt<enlarge_, PredictionFn, TField, TFields...>::operator()(const mra_config& cfg, Fields&... other_fields)
+    void Adapt<enlarge_, PredictionFn, TField, TFields...>::operator()(mra_config& cfg, Fields&... other_fields)
     {
         auto& mesh            = m_fields.mesh();
         std::size_t min_level = mesh.min_level();
@@ -151,6 +151,7 @@ namespace samurai
         }
 
         times::timers.start("mesh adaptation");
+        cfg.parse_args();
         for (std::size_t i = 0; i < max_level - min_level; ++i)
         {
             // std::cout << "MR mesh adaptation " << i << std::endl;
