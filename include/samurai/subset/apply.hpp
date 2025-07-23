@@ -15,8 +15,6 @@ namespace samurai
             using traverser_t        = typename SetBase<Set>::template traverser_t<d>;
             using current_interval_t = typename SetTraverserTraits<traverser_t>::current_interval_t;
 
-            //~ fmt::print("apply dim = {} -- traverser_type = {}\n", d, typeid(traverser_t).name());
-
             for (traverser_t traverser = set.get_traverser(index, d_ic); !traverser.is_empty(); traverser.next_interval())
             {
                 current_interval_t interval = traverser.current_interval();

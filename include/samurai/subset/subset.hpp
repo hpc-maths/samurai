@@ -60,7 +60,7 @@ namespace samurai
     template <SetOperator op, Set_concept... Sets>
     class SubSet : public SetBase<SubSet<op, Sets...>>
     {
-        static_assert(sizeof...(Sets) >= 2);
+        //~ static_assert(sizeof...(Sets) >= 2);
         using Self      = SubSet<op, Sets...>;
         using Base      = SetBase<Self>;
         using Childrens = typename SetTraits<Self>::Childrens;
@@ -161,7 +161,7 @@ namespace samurai
 
     template <class... Sets>
     auto union_(const Sets&... sets)
-        requires(sizeof...(Sets) >= 2)
+        requires(sizeof...(Sets) >= 1)
     {
         using Union = SubSet<SetOperator::UNION, std::decay_t<decltype(self(sets))>...>;
 

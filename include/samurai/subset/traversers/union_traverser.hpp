@@ -33,8 +33,8 @@ namespace samurai
 
       public:
 
-        UnionTraverser(const std::array<std::size_t, nIntervals>& shifts, const SetTraversers&... set_traverser)
-            : m_set_traversers(set_traverser...)
+        UnionTraverser(const std::array<std::size_t, nIntervals>& shifts, const SetTraversers&... set_traversers)
+            : m_set_traversers(set_traversers...)
             , m_shifts(shifts)
         {
             next_interval();
@@ -70,7 +70,7 @@ namespace samurai
                     m_set_traversers,
                     [this](const auto i, auto& set_traverser)
                     {
-                        if (!set_traverser.is_empty() && (set_traverser.current_interval().end << m_shifts[i]) <= m_current_interval.end)
+                        while (!set_traverser.is_empty() && (set_traverser.current_interval().end << m_shifts[i]) <= m_current_interval.end)
                         {
                             set_traverser.next_interval();
                         }

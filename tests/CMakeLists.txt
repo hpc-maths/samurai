@@ -11,27 +11,27 @@ set(COMMON_BASE
 )
 
 set(SAMURAI_TESTS
-    #~ test_adapt.cpp
-    #~ test_bc.cpp
-    #~ test_box.cpp
-    #~ test_cell.cpp
-    #~ test_cell_array.cpp
-    #~ test_cell_list.cpp
-    #~ test_corner_projection.cpp
-    #~ test_domain_with_hole.cpp
-    #~ test_field.cpp
-    #~ test_find.cpp
-    #~ test_for_each.cpp
-    #~ test_graduation.cpp
-    #~ test_interval.cpp
-    #~ test_level_cell_list.cpp
-    #~ test_list_of_intervals.cpp
+    test_adapt.cpp
+    test_bc.cpp
+    test_box.cpp
+    test_cell.cpp
+    test_cell_array.cpp
+    test_cell_list.cpp
+    test_corner_projection.cpp
+    test_domain_with_hole.cpp
+    test_field.cpp
+    test_find.cpp
+    test_for_each.cpp
+    test_graduation.cpp
+    test_interval.cpp
+    test_level_cell_list.cpp
+    test_list_of_intervals.cpp
     test_periodic.cpp
-    #~ test_portion.cpp
-    #~ test_restart.cpp
-    #~ test_scaling.cpp
-    #~ test_subset.cpp
-    #~ test_utils.cpp
+    test_portion.cpp
+    test_restart.cpp
+    test_scaling.cpp
+    test_subset.cpp
+    test_utils.cpp
 )
 
 if(rapidcheck_FOUND)

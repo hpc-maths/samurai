@@ -142,16 +142,6 @@ namespace samurai
         }
         update_ghost_mr(m_fields);
 
-        for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator{std::filesystem::current_path()})
-        {
-            const std::filesystem::path& path = entry.path();
-            if (path.extension() == ".h5" or path.extension() == ".xdmf")
-            {
-                std::filesystem::remove(path);
-                fmt::print("removing file {}\n", path.c_str());
-            }
-        }
-
         times::timers.start("mesh adaptation");
         for (std::size_t i = 0; i < max_level - min_level; ++i)
         {
@@ -288,8 +278,6 @@ namespace samurai
             update_tag_subdomains(level, m_tag, true);
         }
 
-        save(fmt::format("harten_tag_{}", ite).c_str(), mesh, m_tag);
-
         if (args::refine_boundary) // cppcheck-suppress knownConditionTrueFalse
         {
             keep_boundary_refined(mesh, m_tag);
@@ -331,7 +319,6 @@ namespace samurai
         // while the code bellow do not.
 
         ca_type new_ca = update_cell_array_from_tag(mesh[mesh_id_t::cells], m_tag, ite);
-        save(fmt::format("intermediate_mesh_{}", ite), new_ca);
         make_graduation(new_ca,
                         mesh.domain(),
                         mesh.mpi_neighbourhood(),
@@ -339,9 +326,6 @@ namespace samurai
                         mesh_t::config::graduation_width,
                         mesh_t::config::max_stencil_width);
         mesh_t new_mesh{new_ca, mesh};
-
-        save(fmt::format("old_mesh_{}", ite), mesh);
-        save(fmt::format("new_mesh_{}", ite), new_mesh);
 
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;

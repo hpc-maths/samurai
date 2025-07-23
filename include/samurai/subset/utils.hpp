@@ -11,6 +11,18 @@ namespace samurai
     ////////////////////////////////////////////////////////////////////////
     //// misc
     ////////////////////////////////////////////////////////////////////////
+    template <typename T>
+    const T& vmin(const T& a)
+    {
+        return a;
+    }
+
+    template <typename T>
+    const T& vmax(const T& a)
+    {
+        return a;
+    }
+
     template <typename T, typename... Ts>
     T vmin(const T& a, const T& b, const Ts&... others)
     {

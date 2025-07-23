@@ -131,7 +131,7 @@ namespace samurai
                 // advance set traverses that are behind current interval
                 for (SetTraverser& set_traverser : m_set_traversers)
                 {
-                    if (!set_traverser.is_empty() && (coarsen_end(set_traverser.current_interval()) <= m_current_interval.end))
+                    while (!set_traverser.is_empty() && (coarsen_end(set_traverser.current_interval()) <= m_current_interval.end))
                     {
                         set_traverser.next_interval();
                     }

@@ -72,20 +72,12 @@ namespace samurai
         auto unp1 = make_scalar_field<double>("unp1", mesh);
         unp1.fill(0);
 
-        //~ save("before_addapt", mesh, u);
-
         auto MRadaptation = make_MRAdapt(u);
         MRadaptation(mr_epsilon, mr_regularity);
-        save(fmt::format("after_addapt_{}", 0).c_str(), mesh, u);
 
-        //~ save("after_addapt", mesh, u);
-
-        //~ while (t != Tf)
-        for (int ite = 0; ite != 4; ++ite)
+        while (t != Tf)
         {
-            fmt::print("==================================================\n");
             MRadaptation(mr_epsilon, mr_regularity);
-            save(fmt::format("after_addapt_{}", ite).c_str(), mesh, u);
 
             t += dt;
             if (t > Tf)
