@@ -306,7 +306,7 @@ namespace samurai
             auto& mesh = field.mesh();
 
             for_each_cell(mesh,
-                          [&](auto& cell)
+                          [&](const auto& cell)
                           {
                               inv_max_fields[dec] = std::max(inv_max_fields[dec], std::abs(field[cell]));
                           });
@@ -318,7 +318,7 @@ namespace samurai
             auto& mesh = field.mesh();
 
             for_each_cell(mesh,
-                          [&](auto& cell)
+                          [&](const auto& cell)
                           {
                               for (std::size_t i = 0; i < field.n_comp; ++i)
                               {
