@@ -32,7 +32,8 @@ namespace samurai
                                                     });
 
         auto MRadaptation = samurai::make_MRAdapt(u);
-        MRadaptation(1e-3, 1);
+        auto mra_config   = samurai::mra_config().epsilon(1e-3);
+        MRadaptation(mra_config);
 
         coords_t coords = {0.4, 0.8};
         auto cell       = samurai::find_cell(mesh, coords);

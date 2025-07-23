@@ -3,6 +3,11 @@
 
 #pragma once
 
+#include <algorithm>
+#include <concepts>
+
+#include <CLI/CLI.hpp>
+
 #include "../algorithm/graduation.hpp"
 #include "../algorithm/update.hpp"
 #include "../arguments.hpp"
@@ -14,6 +19,61 @@
 
 namespace samurai
 {
+    class mra_config
+    {
+      public:
+
+        auto& epsilon(double eps)
+        {
+            m_epsilon = eps;
+            return *this;
+        }
+
+        auto& epsilon() const
+        {
+            return m_epsilon;
+        }
+
+        auto& regularity(double reg)
+        {
+            m_regularity = reg;
+            return *this;
+        }
+
+        auto& regularity() const
+        {
+            return m_regularity;
+        }
+
+        auto& relative_detail(bool rel)
+        {
+            m_rel_detail = rel;
+            return *this;
+        }
+
+        auto& relative_detail() const
+        {
+            return m_rel_detail;
+        }
+
+        void init_options(CLI::App& app_)
+        {
+            app_.add_option("--mr-eps", m_epsilon, "The epsilon used by the multiresolution to adapt the mesh")
+                ->capture_default_str()
+                ->group("Multiresolution");
+            app_.add_option("--mr-reg", m_regularity, "The regularity criteria used by the multiresolution to adapt the mesh")
+                ->capture_default_str()
+                ->group("Multiresolution");
+            app_.add_flag("--mr-rel-detail", m_rel_detail, "Use relative detail instead of absolute detail")->group("Multiresolution");
+        }
+
+      private:
+
+        double m_epsilon    = 1e-4;
+        double m_regularity = 1.;
+        bool m_rel_detail   = false;
+    };
+
     struct stencil_graduation
     {
         static auto call(samurai::Dim<1>)
@@ -91,6 +151,9 @@ namespace samurai
         Adapt(PredictionFn&& prediction_fn, TField& field, TFields&... fields);
 
         template <class... Fields>
+        void operator()(const mra_config& config, Fields&... other_fields);
+
+        template <class... Fields>
         void operator()(double eps, double regularity, Fields&... other_fields);
 
       private:
@@ -110,7 +173,7 @@ namespace samurai
         using cl_type       = typename mesh_t::cl_type;
 
         template <class... Fields>
-        bool harten(std::size_t ite, double eps, double regularity, Fields&... other_fields);
+        bool harten(std::size_t ite, const mra_config& cfg, Fields&... other_fields);
 
         PredictionFn m_prediction_fn;
         fields_t m_fields; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
@@ -129,7 +192,7 @@ namespace samurai
 
     template <bool enlarge_, class PredictionFn, class TField, class... TFields>
     template <class... Fields>
-    void Adapt<enlarge_, PredictionFn, TField, TFields...>::operator()(double eps, double regularity, Fields&... other_fields)
+    void Adapt<enlarge_, PredictionFn, TField, TFields...>::operator()(const mra_config& cfg, Fields&... other_fields)
     {
         auto& mesh            = m_fields.mesh();
         std::size_t min_level = mesh.min_level();
@@ -148,12 +211,20 @@ namespace samurai
             m_detail.fill(0);
             m_tag.resize();
             m_tag.fill(0);
-            if (harten(i, eps, regularity, other_fields...))
+            if (harten(i, cfg, other_fields...))
             {
                 break;
             }
         }
         times::timers.stop("mesh adaptation");
+    }
+
+    template <bool enlarge_, class PredictionFn, class TField, class... TFields>
+    template <class... Fields>
+    [[deprecated("Use mra_config instead of eps and regularity (see advection_2d example for more information)")]]
+    void Adapt<enlarge_, PredictionFn, TField, TFields...>::operator()(double eps, double regularity, Fields&... other_fields)
+    {
+        operator()(mra_config().epsilon(eps).regularity(regularity), other_fields...);
     }
 
     // TODO: to remove since it is used at several place
@@ -227,12 +298,93 @@ namespace samurai
         }
     }
 
+    namespace detail
+    {
+        void set_inv_max_field(auto& inv_max_fields, const auto& field, std::size_t dec = 0)
+            requires(std::decay_t<decltype(field)>::is_scalar)
+        {
+            auto& mesh = field.mesh();
+
+            for_each_cell(mesh,
+                          [&](auto& cell)
+                          {
+                              inv_max_fields[dec] = std::max(inv_max_fields[dec], std::abs(field[cell]));
+                          });
+        }
+
+        void set_inv_max_field(auto& inv_max_fields, const auto& field, std::size_t dec = 0)
+            requires(!std::decay_t<decltype(field)>::is_scalar)
+        {
+            auto& mesh = field.mesh();
+
+            for_each_cell(mesh,
+                          [&](auto& cell)
+                          {
+                              for (std::size_t i = 0; i < field.n_comp; ++i)
+                              {
+                                  inv_max_fields[dec + i] = std::max(inv_max_fields[dec + i], std::abs(field[cell][i]));
+                              }
+                          });
+        }
+
+        template <class... TFields>
+        void set_inv_max_field(auto& inv_max_fields, const Field_tuple<TFields...>& field)
+        {
+            auto f = [](auto& inv_max_fields, const auto& field, auto& dec)
+            {
+                set_inv_max_field(inv_max_fields, field, dec);
+                dec += field.n_comp;
+            };
+
+            std::size_t dec = 0;
+            std::apply(
+                [&](const auto&... args)
+                {
+                    (f(inv_max_fields, args, dec), ...);
+                },
+                field.elements());
+        }
+
+        auto compute_relative_detail(auto& detail, const auto& fields)
+        {
+            using detail_t   = typename std::decay_t<decltype(detail)>;
+            using value_t    = typename detail_t::value_type;
+            using local_type = std::array<value_t, detail_t::n_comp>;
+
+            local_type inv_max_fields;
+            inv_max_fields.fill(std::numeric_limits<value_t>::min());
+
+            set_inv_max_field(inv_max_fields, fields);
+
+#ifdef SAMURAI_WITH_MPI
+            mpi::communicator world;
+            mpi::all_reduce(world, mpi::inplace(inv_max_fields.data()), inv_max_fields.size(), mpi::maximum<value_t>());
+#endif
+
+            for (std::size_t i = 0; i < inv_max_fields.size(); ++i)
+            {
+                if (inv_max_fields[i] < std::numeric_limits<value_t>::epsilon())
+                {
+                    inv_max_fields[i] = 1.0;
+                }
+                inv_max_fields[i] = 1. / inv_max_fields[i];
+            }
+
+            auto inv_max_fields_xt = xt::adapt(inv_max_fields);
+            detail.array() *= inv_max_fields_xt;
+        }
+    } // namespace detail
+
     template <bool enlarge_, class PredictionFn, class TField, class... TFields>
     template <class... Fields>
-    bool Adapt<enlarge_, PredictionFn, TField, TFields...>::harten(std::size_t ite, double eps, double regularity, Fields&... other_fields)
+    bool Adapt<enlarge_, PredictionFn, TField, TFields...>::harten(std::size_t ite, const mra_config& cfg, Fields&... other_fields)
     {
         auto& mesh = m_fields.mesh();
 
+        // save(fmt::format("adapt_{}", ite), mesh, m_fields);
+        // save(std::filesystem::current_path(), fmt::format("full_adapt_{}", ite), {true, true}, mesh, m_fields);
+
+        times::timers.start("mesh adaptation");
         std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
 
@@ -247,16 +399,21 @@ namespace samurai
             update_tag_subdomains(level, m_tag, true);
         }
 
+        // mpi::communicator world;
+        // std::cout << fmt::format("[{}] MR mesh adaptation step 0", world.rank()) << std::endl;
+
         times::timers.stop("mesh adaptation");
         update_ghost_mr(m_fields);
         times::timers.start("mesh adaptation");
+
+        // std::cout << fmt::format("[{}] MR mesh adaptation step 1", world.rank()) << std::endl;
 
         //--------------------//
         // Detail computation //
         //--------------------//
 
-        // We compute the detail in the cells and ghosts below the cells, except near the (non-periodic) boundaries, where we compute the
-        // detail only in the cells (justification in the comments below).
+        // We compute the detail in the cells and ghosts below the cells, except near the (non-periodic) boundaries, where we compute
+        // the detail only in the cells (justification in the comments below).
 
         bool periodic_in_all_directions = true;
         std::array<bool, dim> contract_directions;
@@ -266,12 +423,14 @@ namespace samurai
             contract_directions[d]     = !mesh.is_periodic(d);
         }
 
+        // std::cout << fmt::format("[{}] MR mesh adaptation step 2", world.rank()) << std::endl;
+
         for (std::size_t level = ((min_level > 0) ? min_level - 1 : 0); level < max_level - ite; ++level)
         {
             // 1. detail computation in the cells (at level+1)
             auto ghosts_below_cells = intersection(mesh[mesh_id_t::all_cells][level], mesh[mesh_id_t::cells][level + 1]).on(level);
-            ghosts_below_cells.apply_op(compute_detail(m_detail, m_fields)); // 'compute_detail' applies 1 level above the set it is applied
-                                                                             // to, i.e. level+1
+            ghosts_below_cells.apply_op(compute_detail(m_detail, m_fields)); // 'compute_detail' applies 1 level above the set
+                                                                             // it is applied to, i.e. level+1
 
             // 2. detail computation in the ghosts below cells (at level)
             if (level >= min_level)
@@ -285,31 +444,37 @@ namespace samurai
                 {
                     // We don't want to compute the detail in the ghosts below the boundary cells. In those ghosts, we want to keep the
                     // detail to 0. We do that because that detail would use the outer ghost cells at level L-2, which holds the BC
-                    // projected 2 times, and this method actually does not work well. So we're removing a layer of 4 boundary cells from
-                    // the domain. This number of 4 ensures that the outer ghost at level L-2 will not be used in the prediction stencil of
-                    // interior ghosts.
-                    // Note: where we don't compute the detail, it stays at its initial value of 0.
+                    // projected 2 times, and this method actually does not work well. So we're removing a layer of 4 boundary cells
+                    // from the domain. This number of 4 ensures that the outer ghost at level L-2 will not be used in the prediction
+                    // stencil of interior ghosts. Note: where we don't compute the detail, it stays at its initial value of 0.
 
                     // contract the domain only in non-periodic directions
                     auto domain_without_bdry = contract(self(mesh.domain()).on(level + 1), 4, contract_directions);
                     auto cells_without_bdry  = intersection(mesh[mesh_id_t::cells][level + 1], domain_without_bdry);
                     auto ghosts_below_cells2 = intersection(mesh[mesh_id_t::all_cells][level], cells_without_bdry).on(level);
                     auto ghosts_2_levels_below_cells = intersection(mesh[mesh_id_t::all_cells][level - 1], ghosts_below_cells2).on(level - 1);
-                    ghosts_2_levels_below_cells.apply_op(compute_detail(m_detail, m_fields)); // 'compute_detail' applies 1 level above the
-                                                                                              // set it is applied to, i.e. 1 level below
+                    ghosts_2_levels_below_cells.apply_op(compute_detail(m_detail, m_fields)); // 'compute_detail' applies 1
+                                                                                              // level above the set it is
+                                                                                              // applied to, i.e. 1 level below
                                                                                               // cells
                 }
             }
         }
 
+        if (cfg.relative_detail())
+        {
+            detail::compute_relative_detail(m_detail, m_fields);
+        }
+
+        // std::cout << fmt::format("[{}] MR mesh adaptation step 3", world.rank()) << std::endl;
         update_ghost_subdomains(m_detail);
 
         for (std::size_t level = min_level; level <= max_level - ite; ++level)
         {
             std::size_t exponent = dim * (max_level - level);
-            double eps_l         = eps / (1 << exponent);
+            double eps_l         = cfg.epsilon() / (1 << exponent);
 
-            double regularity_to_use = regularity + dim;
+            double regularity_to_use = cfg.regularity() + dim;
 
             auto subset_1 = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
 
@@ -371,6 +536,9 @@ namespace samurai
         {
             return true;
         }
+        // save(fmt::format("adapt_{}-{}-{}-new_mesh", mesh.min_level(), mesh.max_level(), ite), mesh, m_fields, m_tag, m_detail);
+
+        // std::cout << fmt::format("[{}] MR mesh adaptation step 6", world.rank()) << std::endl;
 
         times::timers.stop("mesh adaptation");
         update_ghost_mr(other_fields...);

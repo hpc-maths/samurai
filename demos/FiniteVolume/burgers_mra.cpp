@@ -73,8 +73,7 @@ void run_simulation(Field& u,
                     Field& unp1_max,
                     Scheme& scheme,
                     double cfl,
-                    double mr_epsilon,
-                    double mr_regularity,
+                    const auto& mra_config,
                     const std::string& init_sol,
                     std::size_t nfiles,
                     const fs::path& path,
@@ -149,7 +148,7 @@ void run_simulation(Field& u,
     double dt = cfl * dx;
 
     auto MRadaptation = samurai::make_MRAdapt(u);
-    MRadaptation(mr_epsilon, mr_regularity);
+    MRadaptation(mra_config);
 
     double dt_save = Tf / static_cast<double>(nfiles);
 
@@ -166,7 +165,7 @@ void run_simulation(Field& u,
         std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt) << std::flush;
 
         // Mesh adaptation
-        MRadaptation(mr_epsilon, mr_regularity);
+        MRadaptation(mra_config);
         samurai::update_ghost_mr(u);
         unp1.resize();
 
@@ -251,8 +250,6 @@ int main(int argc, char* argv[])
     // Multiresolution parameters
     std::size_t min_level = 1;
     std::size_t max_level = 7;
-    double mr_epsilon     = 1e-5; // Threshold used by multiresolution
-    double mr_regularity  = 0.;   // Regularity guess for multiresolution
 
     // Output parameters
     fs::path path        = fs::current_path();
@@ -263,16 +260,14 @@ int main(int argc, char* argv[])
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
-    app.add_option("--mr-eps", mr_epsilon, "The epsilon used by the multiresolution to adapt the mesh")
-        ->capture_default_str()
-        ->group("Multiresolution");
-    app.add_option("--mr-reg", mr_regularity, "The regularity criteria used by the multiresolution to adapt the mesh")
-        ->capture_default_str()
-        ->group("Multiresolution");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Ouput");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Ouput");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Ouput");
     app.allow_extras();
+
+    auto mra_config = samurai::mra_config().epsilon(1e-5).regularity(0.);
+    mra_config.init_options(app);
+
     SAMURAI_PARSE(argc, argv);
 
     //--------------------//
@@ -304,10 +299,10 @@ int main(int argc, char* argv[])
     std::size_t nsave;
 
     scheme.enable_max_level_flux(false);
-    run_simulation(u, unp1, u_max, unp1_max, scheme, cfl, mr_epsilon, mr_regularity, init_sol, nfiles, path, filename, nsave);
+    run_simulation(u, unp1, u_max, unp1_max, scheme, cfl, mra_config, init_sol, nfiles, path, filename, nsave);
 
     scheme.enable_max_level_flux(true);
-    run_simulation(u, unp1, u_max, unp1_max, scheme, cfl, mr_epsilon, mr_regularity, init_sol, nfiles, path, filename, nsave);
+    run_simulation(u, unp1, u_max, unp1_max, scheme, cfl, mra_config, init_sol, nfiles, path, filename, nsave);
 
     std::cout << std::endl;
     std::cout << "Run the following commands to view the results:" << std::endl;

@@ -198,8 +198,6 @@ int main(int argc, char* argv[])
     // Multiresolution parameters
     std::size_t min_level = 4;
     std::size_t max_level = 10;
-    double mr_epsilon     = 2.e-4; // Threshold used by multiresolution
-    double mr_regularity  = 1.;    // Regularity guess for multiresolution
     bool correction       = false;
 
     // Output parameters
@@ -216,21 +214,16 @@ int main(int argc, char* argv[])
     app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
-    app.add_option("--mr-eps", mr_epsilon, "The epsilon used by the multiresolution to adapt the mesh")
-        ->capture_default_str()
-        ->group("Multiresolution");
-    app.add_option("--mr-reg",
-                   mr_regularity,
-                   "The regularity criteria used by the multiresolution to "
-                   "adapt the mesh")
-        ->capture_default_str()
-        ->group("Multiresolution");
     app.add_option("--with-correction", correction, "Apply flux correction at the interface of two refinement levels")
         ->capture_default_str()
         ->group("Multiresolution");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
+
+    auto mra_config = samurai::mra_config().epsilon(2.e-4);
+    mra_config.init_options(app);
+
     SAMURAI_PARSE(argc, argv);
 
     const samurai::Box<double, dim> box(min_corner, max_corner);
@@ -256,7 +249,7 @@ int main(int argc, char* argv[])
     auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);
 
     auto MRadaptation = samurai::make_MRAdapt(u);
-    MRadaptation(mr_epsilon, mr_regularity);
+    MRadaptation(mra_config);
     save(path, filename, u, "_init");
 
     std::size_t nsave = 1;
@@ -264,7 +257,7 @@ int main(int argc, char* argv[])
 
     while (t != Tf)
     {
-        MRadaptation(mr_epsilon, mr_regularity);
+        MRadaptation(mra_config);
 
         t += dt;
         if (t > Tf)

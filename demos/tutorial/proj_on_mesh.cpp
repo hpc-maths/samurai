@@ -68,8 +68,9 @@ int main()
     auto adapt_1 = samurai::make_MRAdapt(f1);
     auto adapt_2 = samurai::make_MRAdapt(f2);
 
-    adapt_1(1e-3, 2);
-    adapt_2(1e-3, 2);
+    auto mra_config = samurai::mra_config().epsilon(1e-3).regularity(2.);
+    adapt_1(mra_config);
+    adapt_2(mra_config);
 
     samurai::update_ghost_mr(f1);
     samurai::transfer(f1, f2);

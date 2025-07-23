@@ -113,8 +113,6 @@ int main(int argc, char* argv[])
     // Multiresolution parameters
     std::size_t min_level = 10;
     std::size_t max_level = 10;
-    double mr_epsilon     = 1e-3; // Threshold used by multiresolution
-    double mr_regularity  = 1.;   // Regularity guess for multiresolution
 
     // Output parameters
     fs::path path        = fs::current_path();
@@ -129,16 +127,14 @@ int main(int argc, char* argv[])
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
-    app.add_option("--mr-eps", mr_epsilon, "The epsilon used by the multiresolution to adapt the mesh")
-        ->capture_default_str()
-        ->group("Multiresolution");
-    app.add_option("--mr-reg", mr_regularity, "The regularity criteria used by the multiresolution to adapt the mesh")
-        ->capture_default_str()
-        ->group("Multiresolution");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
     app.allow_extras();
+
+    auto mra_config = samurai::mra_config().epsilon(1e-3);
+    mra_config.init_options(app);
+
     SAMURAI_PARSE(argc, argv);
 
     std::cout << "  max_level = " << max_level << "   min_level = " << min_level << std::endl;
@@ -173,7 +169,7 @@ int main(int argc, char* argv[])
                            });
 
     auto MRadaptation = samurai::make_MRAdapt(u);
-    MRadaptation(mr_epsilon, mr_regularity);
+    MRadaptation(mra_config);
 
     double dt_save    = nfiles == 0 ? dt : Tf / static_cast<double>(nfiles);
     std::size_t nsave = 0, nt = 0;
@@ -208,7 +204,7 @@ int main(int argc, char* argv[])
         std::cout << fmt::format("iteration {}: t = {:.12f}, dt = {}", nt++, t, dt) << std::flush;
 
         // Mesh adaptation
-        MRadaptation(mr_epsilon, mr_regularity);
+        MRadaptation(mra_config);
 
         try
         {

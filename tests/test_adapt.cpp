@@ -37,8 +37,9 @@ namespace samurai
         auto u_2                         = make_vector_field<double, 3, true>("u_2", mesh);
         auto u_3                         = make_vector_field<double, 2>("u_3", mesh);
 
-        auto adapt = make_MRAdapt(u_1, u_2, u_3);
-        adapt(1e-4, 2);
+        auto adapt      = make_MRAdapt(u_1, u_2, u_3);
+        auto mra_config = samurai::mra_config().regularity(2.);
+        adapt(mra_config);
         ::samurai::finalize();
     }
 }
