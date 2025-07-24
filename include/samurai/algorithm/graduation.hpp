@@ -555,8 +555,7 @@ namespace samurai
     }
 
     template <std::size_t dim, class TInterval, size_t max_size, class Tag>
-    CellArray<dim, TInterval, max_size>
-    update_cell_array_from_tag(const CellArray<dim, TInterval, max_size>& old_ca, const Tag& tag, const std::size_t ite)
+    CellArray<dim, TInterval, max_size> update_cell_array_from_tag(const CellArray<dim, TInterval, max_size>& old_ca, const Tag& tag)
     {
         using size_type        = unsigned int;
         using value_t          = typename TInterval::value_t;

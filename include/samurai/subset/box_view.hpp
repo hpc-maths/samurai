@@ -23,9 +23,12 @@ namespace samurai
     template <Box_concept B>
     class BoxView : public SetBase<BoxView<B>>
     {
-        using Base = SetBase<BoxView<B>>;
+        using Self = BoxView<B>;
+        using Base = SetBase<Self>;
 
       public:
+
+        static constexpr std::size_t dim = Base::dim;
 
         template <std::size_t d>
         using traverser_t = typename Base::template traverser_t<d>;

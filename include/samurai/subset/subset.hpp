@@ -28,9 +28,9 @@ namespace samurai
         using Childrens = std::tuple<Sets...>;
 
         template <std::size_t d>
-        using traverser_t = UnionTraverser<typename SetTraits<Sets>::template traverser_t<d>...>;
+        using traverser_t = UnionTraverser<typename Sets::template traverser_t<d>...>;
 
-        static constexpr std::size_t dim = SetTraits<std::tuple_element_t<0, Childrens>>::dim;
+        static constexpr std::size_t dim = std::tuple_element_t<0, Childrens>::dim;
     };
 
     template <Set_concept... Sets>
@@ -41,7 +41,7 @@ namespace samurai
         template <std::size_t d>
         using traverser_t = IntersectionTraverser<typename SetTraits<Sets>::template traverser_t<d>...>;
 
-        static constexpr std::size_t dim = SetTraits<std::tuple_element_t<0, Childrens>>::dim;
+        static constexpr std::size_t dim = std::tuple_element_t<0, Childrens>::dim;
     };
 
     template <Set_concept... Sets>
@@ -51,10 +51,10 @@ namespace samurai
 
         template <std::size_t d>
         using traverser_t = std::conditional_t<d == 0,
-                                               DifferenceTraverser<typename SetTraits<Sets>::template traverser_t<d>...>,
-                                               DifferenceIdTraverser<typename SetTraits<Sets>::template traverser_t<d>...>>;
+                                               DifferenceTraverser<typename Sets::template traverser_t<d>...>,
+                                               DifferenceIdTraverser<typename Sets::template traverser_t<d>...>>;
 
-        static constexpr std::size_t dim = SetTraits<std::tuple_element_t<0, Childrens>>::dim;
+        static constexpr std::size_t dim = std::tuple_element_t<0, Childrens>::dim;
     };
 
     template <SetOperator op, Set_concept... Sets>
@@ -66,6 +66,8 @@ namespace samurai
         using Childrens = typename SetTraits<Self>::Childrens;
 
       public:
+
+        static constexpr std::size_t dim = Base::dim;
 
         template <std::size_t d>
         using traverser_t = typename Base::template traverser_t<d>;

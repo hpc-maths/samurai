@@ -24,14 +24,15 @@ namespace samurai
     template <LCA_concept LCA>
     class LCATraverser : public SetTraverserBase<LCATraverser<LCA>>
     {
-        using Self               = LCATraverser<LCA>;
-        using Base               = SetTraverserBase<Self>;
+        using Self = LCATraverser<LCA>;
+        using Base = SetTraverserBase<Self>;
+
+      public:
+
         using interval_t         = typename Base::interval_t;
         using current_interval_t = typename Base::current_interval_t;
         using value_t            = typename Base::value_t;
         using interval_iterator  = typename std::vector<interval_t>::const_iterator;
-
-      public:
 
         LCATraverser(const interval_iterator first, const interval_iterator end)
             : m_first_interval(first)

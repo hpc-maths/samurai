@@ -41,12 +41,12 @@ namespace samurai
 
       public:
 
-        static constexpr std::size_t dim = DerivedTraits::dim;
-
         template <std::size_t d>
         using traverser_t = typename DerivedTraits::template traverser_t<d>;
         using interval_t  = typename SetTraverserTraits<traverser_t<0>>::interval_t;
         using value_t     = typename interval_t::value_t;
+
+        static constexpr std::size_t dim = DerivedTraits::dim;
 
         const Derived& derived_cast() const
         {

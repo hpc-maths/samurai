@@ -16,22 +16,23 @@ namespace samurai
     template <SetTraverser_concept FirstSetTraverser, SetTraverser_concept... OtherSetTraversers>
     struct SetTraverserTraits<DifferenceIdTraverser<FirstSetTraverser, OtherSetTraversers...>>
     {
-        using interval_t         = typename SetTraverserTraits<FirstSetTraverser>::interval_t;
+        using interval_t         = typename FirstSetTraverser::interval_t;
         using current_interval_t = interval_t;
     };
 
     template <SetTraverser_concept FirstSetTraverser, SetTraverser_concept... OtherSetTraversers>
     class DifferenceIdTraverser : public SetTraverserBase<DifferenceIdTraverser<FirstSetTraverser, OtherSetTraversers...>>
     {
-        using Self               = DifferenceIdTraverser<FirstSetTraverser, OtherSetTraversers...>;
-        using Base               = SetTraverserBase<Self>;
+        using Self = DifferenceIdTraverser<FirstSetTraverser, OtherSetTraversers...>;
+        using Base = SetTraverserBase<Self>;
+
+      public:
+
         using interval_t         = typename Base::interval_t;
         using current_interval_t = typename Base::current_interval_t;
         using value_t            = typename Base::value_t;
 
         static constexpr std::size_t nIntervals = 1 + sizeof...(OtherSetTraversers);
-
-      public:
 
         DifferenceIdTraverser(const std::array<std::size_t, nIntervals>& shifts,
                               const FirstSetTraverser& set_traverser,

@@ -15,23 +15,24 @@ namespace samurai
     struct SetTraverserTraits<UnionTraverser<SetTraversers...>>
     {
         using Childrens          = std::tuple<SetTraversers...>;
-        using interval_t         = typename SetTraverserTraits<std::tuple_element_t<0, Childrens>>::interval_t;
+        using interval_t         = typename std::tuple_element_t<0, Childrens>::interval_t;
         using current_interval_t = const interval_t&;
     };
 
     template <SetTraverser_concept... SetTraversers>
     class UnionTraverser : public SetTraverserBase<UnionTraverser<SetTraversers...>>
     {
-        using Self               = UnionTraverser<SetTraversers...>;
-        using Base               = SetTraverserBase<Self>;
+        using Self = UnionTraverser<SetTraversers...>;
+        using Base = SetTraverserBase<Self>;
+
+      public:
+
         using interval_t         = typename Base::interval_t;
         using current_interval_t = typename Base::current_interval_t;
         using value_t            = typename Base::value_t;
         using Childrens          = typename SetTraverserTraits<Self>::Childrens;
 
         static constexpr std::size_t nIntervals = std::tuple_size_v<Childrens>;
-
-      public:
 
         UnionTraverser(const std::array<std::size_t, nIntervals>& shifts, const SetTraversers&... set_traversers)
             : m_set_traversers(set_traversers...)

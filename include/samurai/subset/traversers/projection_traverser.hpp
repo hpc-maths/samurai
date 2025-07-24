@@ -22,20 +22,21 @@ namespace samurai
     template <SetTraverser_concept SetTraverser>
     struct SetTraverserTraits<ProjectionTraverser<SetTraverser>>
     {
-        using interval_t         = typename SetTraverserTraits<SetTraverser>::interval_t;
+        using interval_t         = typename SetTraverser::interval_t;
         using current_interval_t = const interval_t&;
     };
 
     template <SetTraverser_concept SetTraverser>
     class ProjectionTraverser : public SetTraverserBase<ProjectionTraverser<SetTraverser>>
     {
-        using Self               = ProjectionTraverser<SetTraverser>;
-        using Base               = SetTraverserBase<Self>;
+        using Self = ProjectionTraverser<SetTraverser>;
+        using Base = SetTraverserBase<Self>;
+
+      public:
+
         using interval_t         = typename Base::interval_t;
         using current_interval_t = typename Base::current_interval_t;
         using value_t            = typename Base::value_t;
-
-      public:
 
         ProjectionTraverser(const SetTraverser& set_traverser, const ProjectionType projectionType, const std::size_t shift)
             : m_projectionType(projectionType)

@@ -318,7 +318,7 @@ namespace samurai
         // linux-mamba (clang-18, ubuntu-24.04, clang, clang-18, clang-18, clang++-18)
         // while the code bellow do not.
 
-        ca_type new_ca = update_cell_array_from_tag(mesh[mesh_id_t::cells], m_tag, ite);
+        ca_type new_ca = update_cell_array_from_tag(mesh[mesh_id_t::cells], m_tag);
         make_graduation(new_ca,
                         mesh.domain(),
                         mesh.mpi_neighbourhood(),

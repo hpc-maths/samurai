@@ -16,17 +16,20 @@ namespace samurai
     struct SetTraits<Translation<Set>>
     {
         template <std::size_t d>
-        using traverser_t = TranslationTraverser<typename SetTraits<Set>::template traverser_t<d>>;
+        using traverser_t = TranslationTraverser<typename Set::template traverser_t<d>>;
 
-        static constexpr std::size_t dim = SetTraits<Set>::dim;
+        static constexpr std::size_t dim = Set::dim;
     };
 
     template <Set_concept Set>
     class Translation : public SetBase<Translation<Set>>
     {
-        using Base = SetBase<Translation<Set>>;
+        using Self = Translation<Set>;
+        using Base = SetBase<Self>;
 
       public:
+
+        static constexpr std::size_t dim = Base::dim;
 
         template <std::size_t d>
         using traverser_t = typename Base::template traverser_t<d>;

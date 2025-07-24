@@ -14,20 +14,21 @@ namespace samurai
     template <SetTraverser_concept SetTraverser>
     struct SetTraverserTraits<TranslationTraverser<SetTraverser>>
     {
-        using interval_t         = typename SetTraverserTraits<SetTraverser>::interval_t;
+        using interval_t         = typename SetTraverser::interval_t;
         using current_interval_t = interval_t;
     };
 
     template <SetTraverser_concept SetTraverser>
     class TranslationTraverser : public SetTraverserBase<TranslationTraverser<SetTraverser>>
     {
-        using Self               = TranslationTraverser<SetTraverser>;
-        using Base               = SetTraverserBase<Self>;
+        using Self = TranslationTraverser<SetTraverser>;
+        using Base = SetTraverserBase<Self>;
+
+      public:
+
         using interval_t         = typename Base::interval_t;
         using current_interval_t = typename Base::current_interval_t;
         using value_t            = typename Base::value_t;
-
-      public:
 
         TranslationTraverser(const SetTraverser& set_traverser, const value_t& translation)
             : m_set_traverser(set_traverser)

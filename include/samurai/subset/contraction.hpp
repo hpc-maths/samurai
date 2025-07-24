@@ -16,17 +16,20 @@ namespace samurai
     struct SetTraits<Contraction<Set>>
     {
         template <std::size_t d>
-        using traverser_t = ContractionTraverser<typename SetTraits<Set>::template traverser_t<d>>;
+        using traverser_t = ContractionTraverser<typename Set::template traverser_t<d>>;
 
-        static constexpr std::size_t dim = SetTraits<Set>::dim;
+        static constexpr std::size_t dim = Set::dim;
     };
 
     template <Set_concept Set>
     class Contraction : public SetBase<Contraction<Set>>
     {
-        using Base = SetBase<Contraction<Set>>;
+        using Self = Contraction<Set>;
+        using Base = SetBase<Self>;
 
       public:
+
+        static constexpr std::size_t dim = Base::dim;
 
         template <std::size_t d>
         using traverser_t = typename Base::template traverser_t<d>;

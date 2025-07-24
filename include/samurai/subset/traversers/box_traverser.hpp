@@ -25,13 +25,14 @@ namespace samurai
     template <Box_concept B>
     class BoxTraverser : public SetTraverserBase<BoxTraverser<B>>
     {
-        using Self               = BoxTraverser<B>;
-        using Base               = SetTraverserBase<Self>;
+        using Self = BoxTraverser<B>;
+        using Base = SetTraverserBase<Self>;
+
+      public:
+
         using interval_t         = typename Base::interval_t;
         using current_interval_t = typename Base::current_interval_t;
         using value_t            = typename Base::value_t;
-
-      public:
 
         BoxTraverser(const value_t& start, const value_t& end)
             : m_current_interval{start, end}

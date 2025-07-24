@@ -15,20 +15,21 @@ namespace samurai
     template <SetTraverser_concept SetTraverser>
     struct SetTraverserTraits<ContractionTraverser<SetTraverser>>
     {
-        using interval_t         = typename SetTraverserTraits<SetTraverser>::interval_t;
+        using interval_t         = typename SetTraverser::interval_t;
         using current_interval_t = interval_t;
     };
 
     template <SetTraverser_concept SetTraverser>
     class ContractionTraverser : public SetTraverserBase<ContractionTraverser<SetTraverser>>
     {
-        using Self               = ContractionTraverser<SetTraverser>;
-        using Base               = SetTraverserBase<Self>;
+        using Self = ContractionTraverser<SetTraverser>;
+        using Base = SetTraverserBase<Self>;
+
+      public:
+
         using interval_t         = typename Base::interval_t;
         using current_interval_t = typename Base::current_interval_t;
         using value_t            = typename Base::value_t;
-
-      public:
 
         ContractionTraverser(const SetTraverser& set_traverser, const std::size_t contraction)
             : m_set_traverser(set_traverser)

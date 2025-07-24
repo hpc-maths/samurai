@@ -23,9 +23,12 @@ namespace samurai
     template <LCA_concept LCA>
     class LCAView : public SetBase<LCAView<LCA>>
     {
-        using Base = SetBase<LCAView<LCA>>;
+        using Self = LCAView<LCA>;
+        using Base = SetBase<Self>;
 
       public:
+
+        static constexpr std::size_t dim = Base::dim;
 
         template <std::size_t d>
         using traverser_t = typename Base::template traverser_t<d>;

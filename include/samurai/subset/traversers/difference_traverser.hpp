@@ -17,15 +17,18 @@ namespace samurai
     struct SetTraverserTraits<DifferenceTraverser<SetTraversers...>>
     {
         using Childrens          = std::tuple<SetTraversers...>;
-        using interval_t         = typename SetTraverserTraits<std::tuple_element_t<0, Childrens>>::interval_t;
+        using interval_t         = typename std::tuple_element_t<0, Childrens>::interval_t;
         using current_interval_t = const interval_t&;
     };
 
     template <SetTraverser_concept... SetTraversers>
     class DifferenceTraverser : public SetTraverserBase<DifferenceTraverser<SetTraversers...>>
     {
-        using Self               = DifferenceTraverser<SetTraversers...>;
-        using Base               = SetTraverserBase<Self>;
+        using Self = DifferenceTraverser<SetTraversers...>;
+        using Base = SetTraverserBase<Self>;
+
+      public:
+
         using interval_t         = typename Base::interval_t;
         using current_interval_t = typename Base::current_interval_t;
         using value_t            = typename Base::value_t;
@@ -35,8 +38,6 @@ namespace samurai
         using IthChild = std::tuple_element<I, Childrens>::type;
 
         static constexpr std::size_t nIntervals = std::tuple_size_v<Childrens>;
-
-      public:
 
         DifferenceTraverser(const std::array<std::size_t, nIntervals>& shifts, const SetTraversers&... set_traversers)
             : m_set_traversers(set_traversers...)
