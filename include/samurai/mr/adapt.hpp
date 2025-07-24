@@ -252,9 +252,6 @@ namespace samurai
     {
         auto& mesh = m_fields.mesh();
 
-        // save(fmt::format("adapt_{}", ite), mesh, m_fields);
-        // save(std::filesystem::current_path(), fmt::format("full_adapt_{}", ite), {true, true}, mesh, m_fields);
-
         times::timers.start("mesh adaptation");
         std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
@@ -270,14 +267,9 @@ namespace samurai
             update_tag_subdomains(level, m_tag, true);
         }
 
-        // mpi::communicator world;
-        // std::cout << fmt::format("[{}] MR mesh adaptation step 0", world.rank()) << std::endl;
-
         times::timers.stop("mesh adaptation");
         update_ghost_mr(m_fields);
         times::timers.start("mesh adaptation");
-
-        // std::cout << fmt::format("[{}] MR mesh adaptation step 1", world.rank()) << std::endl;
 
         //--------------------//
         // Detail computation //
@@ -293,8 +285,6 @@ namespace samurai
             periodic_in_all_directions = periodic_in_all_directions && mesh.is_periodic(d);
             contract_directions[d]     = !mesh.is_periodic(d);
         }
-
-        // std::cout << fmt::format("[{}] MR mesh adaptation step 2", world.rank()) << std::endl;
 
         for (std::size_t level = ((min_level > 0) ? min_level - 1 : 0); level < max_level - ite; ++level)
         {
@@ -337,7 +327,6 @@ namespace samurai
             compute_relative_detail(m_detail, m_fields);
         }
 
-        // std::cout << fmt::format("[{}] MR mesh adaptation step 3", world.rank()) << std::endl;
         update_ghost_subdomains(m_detail);
 
         for (std::size_t level = min_level; level <= max_level - ite; ++level)
@@ -407,9 +396,6 @@ namespace samurai
         {
             return true;
         }
-        // save(fmt::format("adapt_{}-{}-{}-new_mesh", mesh.min_level(), mesh.max_level(), ite), mesh, m_fields, m_tag, m_detail);
-
-        // std::cout << fmt::format("[{}] MR mesh adaptation step 6", world.rank()) << std::endl;
 
         times::timers.stop("mesh adaptation");
         update_ghost_mr(other_fields...);
