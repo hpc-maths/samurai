@@ -135,8 +135,6 @@ int main(int argc, char* argv[])
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
     app.add_flag("--export-velocity", export_velocity, "Export velocity field")->capture_default_str()->group("Output");
     app.add_flag("--export-reconstruct", export_reconstruct, "Export reconstructed fields")->capture_default_str()->group("Output");
-
-    app.allow_extras();
     SAMURAI_PARSE(argc, argv);
 
     if (!fs::exists(path))
@@ -144,14 +142,9 @@ int main(int argc, char* argv[])
         fs::create_directory(path);
     }
 
-    samurai::times::timers.start("petsc init");
-    PetscInitialize(&argc, &argv, 0, nullptr);
-
     PetscMPIInt size;
     PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size));
     PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
-    PetscOptionsSetValue(NULL, "-options_left", "off"); // disable warning for unused options
-    samurai::times::timers.stop("petsc init");
 
     auto box = samurai::Box<double, dim>({0, 0}, {1, 1});
 
@@ -475,9 +468,6 @@ int main(int argc, char* argv[])
     }
 
     stokes_solver.destroy_petsc_objects();
-    samurai::times::timers.start("petsc finalize");
-    PetscFinalize();
-    samurai::times::timers.stop("petsc finalize");
     samurai::finalize();
     return 0;
 }

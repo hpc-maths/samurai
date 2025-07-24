@@ -25,12 +25,14 @@ burgers_mra.cpp:finite-volume-burgers-mra
 burgers_os.cpp:finite-volume-burgers-os
 )
 
-include(FindPkgConfig)
+include(CMakeFindDependencyMacro)
+find_dependency(PkgConfig)
 pkg_check_modules(PETSC PETSc)
 # Create executables with PETSc
 if(PETSC_FOUND)
     include_directories(${PETSC_INCLUDE_DIRS})
     find_package(MPI)
+    target_compile_definitions(samurai INTERFACE SAMURAI_WITH_PETSC)
 
     foreach(demo_entry ${PETSC_DEMOS})
         string(REPLACE ":" ";" demo_parts ${demo_entry})

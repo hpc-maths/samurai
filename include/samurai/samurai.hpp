@@ -25,8 +25,29 @@ namespace samurai
         return samurai::app.exit(e);    \
     }
 
+#ifdef SAMURAI_WITH_PETSC
+    void petsc_initialize(int& argc, char**& argv)
+    {
+        samurai::times::timers.start("petsc init");
+        PetscInitialize(&argc, &argv, 0, nullptr);
+
+        // If on, Petsc will issue warnings saying that the options managed by CLI are unused
+        PetscOptionsSetValue(NULL, "-options_left", "off");
+        samurai::times::timers.stop("petsc init");
+    }
+
+    void petsc_finalize()
+    {
+        samurai::times::timers.start("petsc finalize");
+        PetscFinalize();
+        samurai::times::timers.stop("petsc finalize");
+    }
+#endif
+
     inline auto& initialize(const std::string& description, int& argc, char**& argv)
     {
+        times::timers.start("total runtime");
+
         app.description(description);
         read_samurai_arguments(app, argc, argv);
 
@@ -40,7 +61,9 @@ namespace samurai
             std::cout.rdbuf(null_stream.rdbuf());
         }
 #endif
-        times::timers.start("total runtime");
+#ifdef SAMURAI_WITH_PETSC
+        petsc_initialize(argc, argv);
+#endif
         return app;
     }
 
@@ -58,6 +81,9 @@ namespace samurai
 
     inline void finalize()
     {
+#ifdef SAMURAI_WITH_PETSC
+        petsc_finalize();
+#endif
         if (args::timers) // cppcheck-suppress knownConditionTrueFalse
         {
             times::timers.stop("total runtime");

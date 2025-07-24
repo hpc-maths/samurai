@@ -1,6 +1,7 @@
 
 option(SAMURAI_WITH_OPENMP "Enable OpenMP" OFF)
 if(${SAMURAI_WITH_OPENMP})
+    message(STATUS "SAMURAI_WITH_OPENMP = ON")
     find_dependency(OpenMP)
     if(OpenMP_CXX_FOUND)
         target_link_libraries(samurai::samurai INTERFACE OpenMP::OpenMP_CXX)
@@ -13,6 +14,7 @@ endif()
 
 option(SAMURAI_WITH_MPI "Enable MPI" OFF)
 if(SAMURAI_WITH_MPI)
+  message(STATUS "SAMURAI_WITH_MPI = ON")
   if (NOT HDF5_IS_PARALLEL)
     message(FATAL_ERROR "HDF5 is not parallel. Please install a parallel version.")
   endif()
@@ -21,9 +23,25 @@ if(SAMURAI_WITH_MPI)
   target_compile_definitions(samurai::samurai INTERFACE SAMURAI_WITH_MPI)
 endif()
 
+option(SAMURAI_WITH_PETSC "Enable PETSc" OFF)
+if(${SAMURAI_WITH_PETSC})
+  message(STATUS "SAMURAI_WITH_PETSC = ON")
+
+  include(CMakeFindDependencyMacro)
+  find_dependency(PkgConfig)
+
+  pkg_check_modules(PETSC REQUIRED PETSc)
+  include_directories(${PETSC_INCLUDE_DIRS})
+  find_package(MPI)
+
+  target_compile_definitions(samurai::samurai INTERFACE SAMURAI_WITH_PETSC)
+  target_link_libraries(samurai::samurai INTERFACE ${PETSC_LINK_LIBRARIES} ${MPI_LIBRARIES})
+endif()
+
 
 option(SAMURAI_CHECK_NAN "Check NaN in computations" OFF)
 if(SAMURAI_CHECK_NAN)
+  message(STATUS "SAMURAI_CHECK_NAN = ON")
   target_compile_definitions(samurai::samurai INTERFACE SAMURAI_CHECK_NAN)
 endif()
 

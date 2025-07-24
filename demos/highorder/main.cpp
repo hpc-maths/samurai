@@ -145,8 +145,6 @@ int main(int argc, char* argv[])
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
-
-    app.allow_extras();
     SAMURAI_PARSE(argc, argv);
 
     samurai::Box<double, dim> box(min_corner, max_corner);
@@ -154,9 +152,6 @@ int main(int argc, char* argv[])
     using mesh_id_t = typename mesh_t::mesh_id_t;
     using cl_type   = typename mesh_t::cl_type;
     mesh_t init_mesh{box, min_level, max_level};
-
-    PetscInitialize(&argc, &argv, 0, nullptr);
-    PetscOptionsSetValue(NULL, "-options_left", "off");
 
     auto adapt_field = samurai::make_scalar_field<double>("adapt_field",
                                                           init_mesh,
@@ -323,7 +318,6 @@ int main(int argc, char* argv[])
         error_coarse        = error;
         error_recons_coarse = error_recons;
     }
-    PetscFinalize();
 
     samurai::finalize();
     return 0;
