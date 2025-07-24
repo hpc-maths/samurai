@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.26.0](https://github.com/hpc-maths/samurai/compare/v0.25.1...v0.26.0) (2025-07-24)
+
+
+### Features
+
+* add finer-level-flux option ([#359](https://github.com/hpc-maths/samurai/issues/359)) ([c35e852](https://github.com/hpc-maths/samurai/commit/c35e852bf29a72e109a531d2c2458d191b722efe))
+* add relative detail computation + MRA options ([#362](https://github.com/hpc-maths/samurai/issues/362)) ([a49cde6](https://github.com/hpc-maths/samurai/commit/a49cde6d5433df184f257dc262d346bb5f1cca96))
+* Add row_index() and col_index() to operator sum ([#358](https://github.com/hpc-maths/samurai/issues/358)) ([3b981e7](https://github.com/hpc-maths/samurai/commit/3b981e71976595433907ce9215d602180258fe16))
+* add the possibility to define a user prediction function ([#355](https://github.com/hpc-maths/samurai/issues/355)) ([870dd9e](https://github.com/hpc-maths/samurai/commit/870dd9ecae4da6008d02358d19156f0c2b359aaa))
+* obstacles ([#349](https://github.com/hpc-maths/samurai/issues/349)) ([ff287c0](https://github.com/hpc-maths/samurai/commit/ff287c0e22e39f574c50967b2874bc658b9027f9))
+* save debug informations via `--save-debug-fields` ([#352](https://github.com/hpc-maths/samurai/issues/352)) ([2ce85c8](https://github.com/hpc-maths/samurai/commit/2ce85c861805301c4d3f4e5b6a5c05616efc68a7))
+
+
+### Bug Fixes
+
+* finer level flux for `VectorField` ([#360](https://github.com/hpc-maths/samurai/issues/360)) ([e32a1d3](https://github.com/hpc-maths/samurai/commit/e32a1d3d46019958c53b59761679fc9a128a1646))
+* hdf5 ([#356](https://github.com/hpc-maths/samurai/issues/356)) ([30c5bde](https://github.com/hpc-maths/samurai/commit/30c5bdec01bcb2843628ac6b503f59d88f5c3019))
+* periodic directions ([#354](https://github.com/hpc-maths/samurai/issues/354)) ([8d07a54](https://github.com/hpc-maths/samurai/commit/8d07a540ecb62f3ea3d23b78271e75496bc51dd5))
+
 ## [0.25.1](https://github.com/hpc-maths/samurai/compare/v0.25.0...v0.25.1) (2025-07-08)
 
 
