@@ -46,8 +46,6 @@ namespace samurai
 
     inline auto& initialize(const std::string& description, int& argc, char**& argv)
     {
-        times::timers.start("total runtime");
-
         app.description(description);
         read_samurai_arguments(app, argc, argv);
 
@@ -61,6 +59,8 @@ namespace samurai
             std::cout.rdbuf(null_stream.rdbuf());
         }
 #endif
+        times::timers.start("total runtime");
+
 #ifdef SAMURAI_WITH_PETSC
         petsc_initialize(argc, argv);
 #endif
