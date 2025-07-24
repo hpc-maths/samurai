@@ -37,17 +37,17 @@ namespace samurai
             return static_cast<Derived&>(*this);
         }
 
-        inline bool is_empty() const
+        inline bool interface_is_empty() const
         {
             return derived_cast().is_empty();
         }
 
-        inline void next_interval()
+        inline void interface_next_interval()
         {
             derived_cast().next_interval();
         }
 
-        inline current_interval_t current_interval() const
+        inline current_interval_t interface_current_interval() const
         {
             derived_cast().current_interval();
         }

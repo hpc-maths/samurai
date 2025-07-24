@@ -58,23 +58,23 @@ namespace samurai
             return static_cast<Derived&>(*this);
         }
 
-        std::size_t level() const
+        std::size_t interface_level() const
         {
             return derived_cast().level();
         }
 
-        bool exist() const
+        bool interface_exist() const
         {
             return derived_cast().exists();
         }
 
-        bool empty() const
+        bool interface_empty() const
         {
             return derived_cast().empty();
         }
 
         template <class index_t, std::size_t d>
-        traverser_t<d> get_traverser(const index_t& index, std::integral_constant<std::size_t, d> d_ic) const
+        traverser_t<d> interface_get_traverser(const index_t& index, std::integral_constant<std::size_t, d> d_ic) const
         {
             return derived_cast().get_traverser(index, d_ic);
         }
@@ -90,7 +90,7 @@ namespace samurai
         template <class... ApplyOp>
         void apply_op(ApplyOp&&... op) const
         {
-            const std::size_t l = level();
+            const std::size_t l = interface_level();
 
             auto func = [l, &op...](auto& interval, auto& index)
             {
