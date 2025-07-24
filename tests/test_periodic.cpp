@@ -54,8 +54,6 @@ namespace samurai
 
         // Multiresolution parameters
         std::size_t min_level = 3, max_level = 6;
-        double mr_epsilon    = 1.e-4; // Threshold used by multiresolution
-        double mr_regularity = 1.;    // Regularity guess for multiresolution
 
         Box<double, dim> box(min_corner, max_corner);
         std::array<bool, dim> bc;
@@ -72,11 +70,12 @@ namespace samurai
         unp1.fill(0);
 
         auto MRadaptation = make_MRAdapt(u);
-        MRadaptation(mr_epsilon, mr_regularity);
+        auto mra_config   = samurai::mra_config();
+        MRadaptation(mra_config);
 
         while (t != Tf)
         {
-            MRadaptation(mr_epsilon, mr_regularity);
+            MRadaptation(mra_config);
 
             t += dt;
             if (t > Tf)

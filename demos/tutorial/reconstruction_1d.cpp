@@ -74,8 +74,6 @@ int main(int argc, char* argv[])
     // Adaptation parameters
     std::size_t min_level = 3;
     std::size_t max_level = 8;
-    double mr_epsilon     = 1.e-4; // Threshold used by multiresolution
-    double mr_regularity  = 2.;    // Regularity guess for multiresolution
 
     // Output parameters
     fs::path path        = fs::current_path();
@@ -84,17 +82,9 @@ int main(int argc, char* argv[])
     app.add_option("--case", test_case, "Test case")->capture_default_str()->transform(CLI::CheckedTransformer(map, CLI::ignore_case));
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
-    app.add_option("--mr-eps", mr_epsilon, "The epsilon used by the multiresolution to adapt the mesh")
-        ->capture_default_str()
-        ->group("Multiresolution");
-    app.add_option("--mr-reg",
-                   mr_regularity,
-                   "The regularity criteria used by the multiresolution to "
-                   "adapt the mesh")
-        ->capture_default_str()
-        ->group("Multiresolution");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
+
     SAMURAI_PARSE(argc, argv);
 
     if (!fs::exists(path))
@@ -115,7 +105,8 @@ int main(int argc, char* argv[])
     auto u_exact = init(umesh, test_case);
 
     auto MRadaptation = samurai::make_MRAdapt(u);
-    MRadaptation(mr_epsilon, mr_regularity);
+    auto mra_config   = samurai::mra_config().regularity(2);
+    MRadaptation(mra_config);
 
     auto level_ = samurai::make_scalar_field<std::size_t>("level", mrmesh);
     samurai::for_each_cell(mrmesh[mrmesh_id_t::cells],

@@ -170,9 +170,7 @@ int main(int argc, char* argv[])
     double Tf             = 1.;
     double dt             = Tf / 100;
 
-    double mr_epsilon    = 1e-1; // Threshold used by multiresolution
-    double mr_regularity = 3;    // Regularity guess for multiresolution
-    std::size_t nfiles   = 50;
+    std::size_t nfiles = 50;
 
     fs::path path        = fs::current_path();
     std::string filename = "";
@@ -184,15 +182,10 @@ int main(int argc, char* argv[])
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
-    app.add_option("--mr-eps", mr_epsilon, "The epsilon used by the multiresolution to adapt the mesh")
-        ->capture_default_str()
-        ->group("Multiresolution");
-    app.add_option("--mr-reg", mr_regularity, "The regularity criteria used by the multiresolution to adapt the mesh")
-        ->capture_default_str()
-        ->group("Multiresolution");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
+
     app.allow_extras();
     SAMURAI_PARSE(argc, argv);
 
@@ -447,6 +440,7 @@ int main(int argc, char* argv[])
 
         // Time iteration
         auto MRadaptation = samurai::make_MRAdapt(velocity);
+        auto mra_config   = samurai::mra_config().epsilon(1e-1).regularity(3);
 
         std::size_t nsave = 0, nt = 0;
         if (nfiles != 1)
@@ -480,7 +474,7 @@ int main(int argc, char* argv[])
             // Mesh adaptation
             if (min_level != max_level)
             {
-                MRadaptation(mr_epsilon, mr_regularity);
+                MRadaptation(mra_config);
                 min_level_np1    = mesh[mesh_id_t::cells].min_level();
                 max_level_np1    = mesh[mesh_id_t::cells].max_level();
                 mesh_has_changed = !(samurai::is_uniform(mesh) && min_level_n == min_level_np1 && max_level_n == max_level_np1);

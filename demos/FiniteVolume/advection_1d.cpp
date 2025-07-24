@@ -37,56 +37,6 @@ void init(Field& u)
 }
 
 template <class Field>
-void flux_correction(double dt, double a, const Field& u, Field& unp1)
-{
-    using mesh_t              = typename Field::mesh_t;
-    using mesh_id_t           = typename mesh_t::mesh_id_t;
-    using interval_t          = typename mesh_t::interval_t;
-    constexpr std::size_t dim = Field::dim;
-
-    auto mesh = u.mesh();
-
-    for (std::size_t level = mesh.min_level(); level < mesh.max_level(); ++level)
-    {
-        xt::xtensor_fixed<int, xt::xshape<dim>> stencil;
-
-        stencil = {{-1}};
-
-        auto subset_right = samurai::intersection(samurai::translate(mesh[mesh_id_t::cells][level + 1], stencil),
-                                                  mesh[mesh_id_t::cells][level])
-                                .on(level);
-
-        subset_right(
-            [&](const auto& i, auto)
-            {
-                const double dx = mesh.cell_length(level);
-
-                unp1(level, i) = unp1(level, i)
-                               - dt / dx
-                                     * (-samurai::upwind_op<dim, interval_t>(level, i).right_flux(a, u)
-                                        + samurai::upwind_op<dim, interval_t>(level + 1, 2 * i + 1).right_flux(a, u));
-            });
-
-        stencil = {{1}};
-
-        auto subset_left = samurai::intersection(samurai::translate(mesh[mesh_id_t::cells][level + 1], stencil),
-                                                 mesh[mesh_id_t::cells][level])
-                               .on(level);
-
-        subset_left(
-            [&](const auto& i, auto)
-            {
-                const double dx = mesh.cell_length(level);
-
-                unp1(level, i) = unp1(level, i)
-                               - dt / dx
-                                     * (samurai::upwind_op<dim, interval_t>(level, i).left_flux(a, u)
-                                        - samurai::upwind_op<dim, interval_t>(level + 1, 2 * i).left_flux(a, u));
-            });
-    }
-}
-
-template <class Field>
 void save(const fs::path& path, const std::string& filename, const Field& u, const std::string& suffix = "")
 {
     auto mesh   = u.mesh();
@@ -127,9 +77,6 @@ int main(int argc, char* argv[])
     // Multiresolution parameters
     std::size_t min_level = 6;
     std::size_t max_level = 12;
-    double mr_epsilon     = 2.e-4; // Threshold used by multiresolution
-    double mr_regularity  = 1.;    // Regularity guess for multiresolution
-    bool correction       = false;
 
     // Output parameters
     fs::path path        = fs::current_path();
@@ -146,21 +93,10 @@ int main(int argc, char* argv[])
     app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
-    app.add_option("--mr-eps", mr_epsilon, "The epsilon used by the multiresolution to adapt the mesh")
-        ->capture_default_str()
-        ->group("Multiresolution");
-    app.add_option("--mr-reg",
-                   mr_regularity,
-                   "The regularity criteria used by the multiresolution to "
-                   "adapt the mesh")
-        ->capture_default_str()
-        ->group("Multiresolution");
-    app.add_option("--with-correction", correction, "Apply flux correction at the interface of two refinement levels")
-        ->capture_default_str()
-        ->group("Multiresolution");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
+
     SAMURAI_PARSE(argc, argv);
 
     const samurai::Box<double, dim> box({left_box}, {right_box});
@@ -191,7 +127,8 @@ int main(int argc, char* argv[])
     auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);
 
     auto MRadaptation = samurai::make_MRAdapt(u);
-    MRadaptation(mr_epsilon, mr_regularity);
+    auto mra_config   = samurai::mra_config().epsilon(2e-4);
+    MRadaptation(mra_config);
     save(path, filename, u, "_init");
 
     std::size_t nsave = 1;
@@ -199,7 +136,7 @@ int main(int argc, char* argv[])
 
     while (t != Tf)
     {
-        MRadaptation(mr_epsilon, mr_regularity);
+        MRadaptation(mra_config);
 
         t += dt;
         if (t > Tf)
@@ -214,10 +151,6 @@ int main(int argc, char* argv[])
         unp1.resize();
         unp1.fill(0);
         unp1 = u - dt * samurai::upwind(a, u);
-        if (correction)
-        {
-            flux_correction(dt, a, u, unp1);
-        }
 
         std::swap(u.array(), unp1.array());
 

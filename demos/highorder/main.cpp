@@ -127,8 +127,6 @@ int main(int argc, char* argv[])
     std::size_t min_level  = 4;
     std::size_t max_level  = 4;
     std::size_t refinement = 5;
-    double mr_epsilon      = 2.e-4; // Threshold used by multiresolution
-    double mr_regularity   = 1.;    // Regularity guess for multiresolution
     bool correction        = false;
 
     // Output parameters
@@ -141,21 +139,13 @@ int main(int argc, char* argv[])
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--refinement", refinement, "Number of refinement")->capture_default_str()->group("Multiresolution");
-    app.add_option("--mr-eps", mr_epsilon, "The epsilon used by the multiresolution to adapt the mesh")
-        ->capture_default_str()
-        ->group("Multiresolution");
-    app.add_option("--mr-reg",
-                   mr_regularity,
-                   "The regularity criteria used by the multiresolution to "
-                   "adapt the mesh")
-        ->capture_default_str()
-        ->group("Multiresolution");
     app.add_option("--with-correction", correction, "Apply flux correction at the interface of two refinement levels")
         ->capture_default_str()
         ->group("Multiresolution");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
+
     app.allow_extras();
     SAMURAI_PARSE(argc, argv);
 
@@ -187,7 +177,8 @@ int main(int argc, char* argv[])
                                                           });
 
     auto MRadaptation = samurai::make_MRAdapt(adapt_field);
-    MRadaptation(mr_epsilon, mr_regularity);
+    auto mra_config   = samurai::mra_config().epsilon(2e-4);
+    MRadaptation(mra_config);
 
     // samurai::save("initial_mesh", mesh);
     double h_coarse            = -1;

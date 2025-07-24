@@ -15,6 +15,11 @@ namespace samurai
         static int finer_level_flux   = 0;
         static bool refine_boundary   = false;
         static bool save_debug_fields = false;
+
+        // MRA arguments
+        static double epsilon    = std::numeric_limits<double>::infinity();
+        static double regularity = std::numeric_limits<double>::infinity();
+        static bool rel_detail   = false;
     }
 
     inline void read_samurai_arguments(CLI::App& app, int& argc, char**& argv)
@@ -35,6 +40,10 @@ namespace samurai
         app.add_flag("--save-debug-fields", args::save_debug_fields, "Add debug fields during save process (coordinates, indices, levels, ...)")
             ->capture_default_str()
             ->group("SAMURAI");
+        app.add_option("--mr-eps", args::epsilon, "The epsilon used by the multiresolution to adapt the mesh")->group("Multiresolution");
+        app.add_option("--mr-reg", args::regularity, "The regularity criteria used by the multiresolution to adapt the mesh")
+            ->group("Multiresolution");
+        app.add_flag("--mr-rel-detail", args::rel_detail, "Use relative detail instead of absolute detail")->group("Multiresolution");
         app.allow_extras();
         app.set_help_flag("", ""); // deactivate --help option
         try
