@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.26.1](https://github.com/hpc-maths/samurai/compare/v0.26.0...v0.26.1) (2025-07-25)
+
+
+### Bug Fixes
+
+* user prediction function ([#366](https://github.com/hpc-maths/samurai/issues/366)) ([6019432](https://github.com/hpc-maths/samurai/commit/60194328994dfee39b26222d8473bbbd9563d37c))
+
 ## [0.26.0](https://github.com/hpc-maths/samurai/compare/v0.25.1...v0.26.0) (2025-07-24)
 
 
