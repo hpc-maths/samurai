@@ -1,10 +1,11 @@
-include(FindPkgConfig)
-pkg_check_modules(PETSC PETSc)
+if(${WITH_PETSC})
+    include(CMakeFindDependencyMacro)
+    find_dependency(PkgConfig)
+    pkg_check_modules(PETSC REQUIRED PETSc)
 
-if (PETSC_FOUND)
     include_directories(${PETSC_INCLUDE_DIRS})
-    find_package(MPI)
 
     add_executable(multigrid main.cpp)
-    target_link_libraries(multigrid samurai CLI11::CLI11 ${PETSC_LINK_LIBRARIES} ${MPI_LIBRARIES})
+    target_compile_definitions(multigrid PUBLIC SAMURAI_WITH_PETSC)
+    target_link_libraries(multigrid samurai CLI11::CLI11 ${PETSC_LINK_LIBRARIES})
 endif()

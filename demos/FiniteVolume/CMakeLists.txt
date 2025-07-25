@@ -25,12 +25,15 @@ burgers_mra.cpp:finite-volume-burgers-mra
 burgers_os.cpp:finite-volume-burgers-os
 )
 
-include(FindPkgConfig)
-pkg_check_modules(PETSC PETSc)
 # Create executables with PETSc
-if(PETSC_FOUND)
+if(${WITH_PETSC})
+    message(STATUS "Building demos with PETSc support")
+
+    include(CMakeFindDependencyMacro)
+    find_dependency(PkgConfig)
+    pkg_check_modules(PETSC REQUIRED PETSc)
+
     include_directories(${PETSC_INCLUDE_DIRS})
-    find_package(MPI)
 
     foreach(demo_entry ${PETSC_DEMOS})
         string(REPLACE ":" ";" demo_parts ${demo_entry})
@@ -38,7 +41,8 @@ if(PETSC_FOUND)
         list(GET demo_parts 1 executable_name)
 
         add_executable(${executable_name} ${source_file})
-        target_link_libraries(${executable_name} samurai CLI11::CLI11 ${PETSC_LINK_LIBRARIES} ${MPI_LIBRARIES})
+        target_compile_definitions(${executable_name} PUBLIC SAMURAI_WITH_PETSC)
+        target_link_libraries(${executable_name} samurai CLI11::CLI11 ${PETSC_LINK_LIBRARIES})
     endforeach()
 endif()
 

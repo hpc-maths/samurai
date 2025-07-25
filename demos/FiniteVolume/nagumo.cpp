@@ -4,8 +4,8 @@
 #include <samurai/io/restart.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
-#include <samurai/petsc.hpp>
 #include <samurai/samurai.hpp>
+#include <samurai/schemes/fv.hpp>
 
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -95,23 +95,11 @@ int main(int argc, char* argv[])
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_flag("--save-final-state-only", save_final_state_only, "Save final state only")->group("Output");
-
-    app.allow_extras();
     SAMURAI_PARSE(argc, argv);
-
-    //------------------//
-    // Petsc initialize //
-    //------------------//
-
-    samurai::times::timers.start("petsc init");
-    PetscInitialize(&argc, &argv, 0, nullptr);
 
     PetscMPIInt size;
     PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size));
     PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
-    PetscOptionsSetValue(NULL, "-options_left", "off"); // If on, Petsc will issue warnings saying that
-                                                        // the options managed by CLI are unused
-    samurai::times::timers.stop("petsc init");
 
     //--------------------//
     // Problem definition //
@@ -289,10 +277,6 @@ int main(int argc, char* argv[])
     {
         save(path, filename, u);
     }
-
-    samurai::times::timers.start("petsc finalize");
-    PetscFinalize();
-    samurai::times::timers.stop("petsc finalize");
 
     samurai::finalize();
     return 0;

@@ -7,8 +7,8 @@
 #include <samurai/field.hpp>
 #include <samurai/io/hdf5.hpp>
 #include <samurai/mr/mesh.hpp>
-#include <samurai/petsc.hpp>
 #include <samurai/samurai.hpp>
+#include <samurai/schemes/fv.hpp>
 
 #include "Timer.hpp"
 #include "samurai_new/utils.cpp"
@@ -128,12 +128,6 @@ int main(int argc, char* argv[])
     constexpr unsigned int n_comp = 1;
     constexpr bool is_soa         = true;
     using Field                   = samurai::VectorField<Mesh, double, n_comp, is_soa>;
-
-    //------------------//
-    // Petsc initialize //
-    //------------------//
-
-    PetscInitialize(&argc, &argv, 0, help);
 
     PetscMPIInt size;
     PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size));
@@ -322,7 +316,6 @@ int main(int argc, char* argv[])
     }
 
     delete test_case;
-    PetscFinalize();
 
     samurai::finalize();
     return 0;

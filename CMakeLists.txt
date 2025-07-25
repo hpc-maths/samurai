@@ -49,6 +49,7 @@ option(SANITIZERS "Activate sanitizers" OFF)
 option(ENABLE_COVERAGE "Activate coverage" OFF)
 option(WITH_MPI "Enable MPI" OFF)
 option(WITH_OPENMP "Enable OpenMP" OFF)
+option(WITH_PETSC "Enable PETSc" OFF)
 option(SAMURAI_CONTAINER_LAYOUT_COL_MAJOR "Set the containers' layout to column-major" OFF)
 
 set(FIELD_CONTAINER_LIST "xtensor" "eigen3")

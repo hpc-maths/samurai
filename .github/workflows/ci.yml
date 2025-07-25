@@ -189,6 +189,7 @@ jobs:
                       -Bbuild \
                       -GNinja \
                       -DCMAKE_BUILD_TYPE=Release \
+                      -DWITH_PETSC=ON \
                       -DBUILD_DEMOS=ON \
                       -DBUILD_TESTS=ON
 
@@ -399,6 +400,7 @@ jobs:
                       -GNinja \
                       -DCMAKE_BUILD_TYPE=Debug \
                       -DSAMURAI_CHECK_NAN=ON \
+                      -DWITH_PETSC=ON \
                       -DBUILD_DEMOS=ON
 
             - name: Build

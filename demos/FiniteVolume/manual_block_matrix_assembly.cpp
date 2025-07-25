@@ -4,8 +4,8 @@
 #include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
-#include <samurai/petsc.hpp>
 #include <samurai/samurai.hpp>
+#include <samurai/schemes/fv.hpp>
 
 using aux_t = xt::xtensor<double, 2>;
 
@@ -193,8 +193,6 @@ int main(int argc, char* argv[])
 
     std::cout << "------------------------- Begin -------------------------" << std::endl;
 
-    PetscInitialize(&argc, &argv, 0, nullptr);
-
     std::size_t min_level = 3;
     std::size_t max_level = 3;
 
@@ -289,8 +287,6 @@ int main(int argc, char* argv[])
     Vec v = assembly.create_vector(u_e, aux_Ce, u_s);
     VecView(v, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
     std::cout << std::endl;
-
-    PetscFinalize();
 
     samurai::finalize();
     return 0;

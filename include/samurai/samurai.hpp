@@ -7,6 +7,9 @@
 #include <fstream>
 namespace mpi = boost::mpi;
 #endif
+#ifdef SAMURAI_WITH_PETSC
+#include <petsc.h>
+#endif
 
 #include "arguments.hpp"
 #include "timers.hpp"
@@ -15,6 +18,18 @@ namespace samurai
 {
     static CLI::App app;
 
+#ifdef SAMURAI_WITH_PETSC
+#define SAMURAI_PARSE(argc, argv)       \
+    try                                 \
+    {                                   \
+        samurai::app.parse(argc, argv); \
+        app.allow_extras();             \
+    }                                   \
+    catch (const CLI::ParseError& e)    \
+    {                                   \
+        return samurai::app.exit(e);    \
+    }
+#else
 #define SAMURAI_PARSE(argc, argv)       \
     try                                 \
     {                                   \
@@ -24,6 +39,26 @@ namespace samurai
     {                                   \
         return samurai::app.exit(e);    \
     }
+#endif
+
+#ifdef SAMURAI_WITH_PETSC
+    void petsc_initialize(int& argc, char**& argv)
+    {
+        samurai::times::timers.start("petsc init");
+        PetscInitialize(&argc, &argv, 0, nullptr);
+
+        // If on, Petsc will issue warnings saying that the options managed by CLI are unused
+        PetscOptionsSetValue(NULL, "-options_left", "off");
+        samurai::times::timers.stop("petsc init");
+    }
+
+    void petsc_finalize()
+    {
+        samurai::times::timers.start("petsc finalize");
+        PetscFinalize();
+        samurai::times::timers.stop("petsc finalize");
+    }
+#endif
 
     inline auto& initialize(const std::string& description, int& argc, char**& argv)
     {
@@ -41,6 +76,10 @@ namespace samurai
         }
 #endif
         times::timers.start("total runtime");
+
+#ifdef SAMURAI_WITH_PETSC
+        petsc_initialize(argc, argv);
+#endif
         return app;
     }
 
@@ -58,6 +97,9 @@ namespace samurai
 
     inline void finalize()
     {
+#ifdef SAMURAI_WITH_PETSC
+        petsc_finalize();
+#endif
         if (args::timers) // cppcheck-suppress knownConditionTrueFalse
         {
             times::timers.stop("total runtime");
@@ -68,5 +110,4 @@ namespace samurai
         MPI_Finalize();
 #endif
     }
-
 }
