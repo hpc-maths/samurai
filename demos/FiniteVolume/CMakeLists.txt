@@ -25,11 +25,14 @@ burgers_mra.cpp:finite-volume-burgers-mra
 burgers_os.cpp:finite-volume-burgers-os
 )
 
-include(CMakeFindDependencyMacro)
-find_dependency(PkgConfig)
-pkg_check_modules(PETSC PETSc)
 # Create executables with PETSc
-if(PETSC_FOUND)
+if(${WITH_PETSC})
+    message(STATUS "Building demos with PETSc support")
+
+    include(CMakeFindDependencyMacro)
+    find_dependency(PkgConfig)
+    pkg_check_modules(PETSC REQUIRED PETSc)
+
     include_directories(${PETSC_INCLUDE_DIRS})
     find_package(MPI)
 

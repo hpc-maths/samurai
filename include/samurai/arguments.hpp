@@ -44,9 +44,7 @@ namespace samurai
         app.add_option("--mr-reg", args::regularity, "The regularity criteria used by the multiresolution to adapt the mesh")
             ->group("Multiresolution");
         app.add_flag("--mr-rel-detail", args::rel_detail, "Use relative detail instead of absolute detail")->group("Multiresolution");
-#ifdef SAMURAI_WITH_PETSC
         app.allow_extras();
-#endif
         app.set_help_flag("", ""); // deactivate --help option
         try
         {

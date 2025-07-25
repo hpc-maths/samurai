@@ -15,6 +15,18 @@ namespace samurai
 {
     static CLI::App app;
 
+#ifdef SAMURAI_WITH_PETSC
+#define SAMURAI_PARSE(argc, argv)       \
+    try                                 \
+    {                                   \
+        samurai::app.parse(argc, argv); \
+        app.allow_extras();             \
+    }                                   \
+    catch (const CLI::ParseError& e)    \
+    {                                   \
+        return samurai::app.exit(e);    \
+    }
+#else
 #define SAMURAI_PARSE(argc, argv)       \
     try                                 \
     {                                   \
@@ -24,6 +36,7 @@ namespace samurai
     {                                   \
         return samurai::app.exit(e);    \
     }
+#endif
 
 #ifdef SAMURAI_WITH_PETSC
     void petsc_initialize(int& argc, char**& argv)
@@ -94,5 +107,4 @@ namespace samurai
         MPI_Finalize();
 #endif
     }
-
 }
