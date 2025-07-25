@@ -7,6 +7,9 @@
 #include <fstream>
 namespace mpi = boost::mpi;
 #endif
+#ifdef SAMURAI_WITH_PETSC
+#include <petsc.h>
+#endif
 
 #include "arguments.hpp"
 #include "timers.hpp"

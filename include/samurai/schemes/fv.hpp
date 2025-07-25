@@ -22,3 +22,8 @@
 #include "fv/operators/gradient.hpp"
 #include "fv/operators/identity.hpp"
 #include "fv/operators/zero_operator.hpp"
+
+#ifdef SAMURAI_WITH_PETSC
+#include "../petsc/manual_assembly.hpp"
+#include "../petsc/solver_helpers.hpp"
+#endif

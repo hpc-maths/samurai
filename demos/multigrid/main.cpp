@@ -7,8 +7,8 @@
 #include <samurai/field.hpp>
 #include <samurai/io/hdf5.hpp>
 #include <samurai/mr/mesh.hpp>
-#include <samurai/petsc.hpp>
 #include <samurai/samurai.hpp>
+#include <samurai/schemes/fv.hpp>
 
 #include "Timer.hpp"
 #include "samurai_new/utils.cpp"

@@ -5,8 +5,8 @@
 #include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
-#include <samurai/petsc.hpp>
 #include <samurai/samurai.hpp>
+#include <samurai/schemes/fv.hpp>
 
 template <class Solver>
 void configure_direct_solver(Solver& solver)

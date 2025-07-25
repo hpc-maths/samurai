@@ -4,8 +4,8 @@
 #include <samurai/io/restart.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
-#include <samurai/petsc.hpp>
 #include <samurai/samurai.hpp>
+#include <samurai/schemes/fv.hpp>
 
 #include <filesystem>
 namespace fs = std::filesystem;
