@@ -34,7 +34,6 @@ if(${WITH_PETSC})
     pkg_check_modules(PETSC REQUIRED PETSc)
 
     include_directories(${PETSC_INCLUDE_DIRS})
-    find_package(MPI)
 
     foreach(demo_entry ${PETSC_DEMOS})
         string(REPLACE ":" ";" demo_parts ${demo_entry})
@@ -43,7 +42,7 @@ if(${WITH_PETSC})
 
         add_executable(${executable_name} ${source_file})
         target_compile_definitions(${executable_name} PUBLIC SAMURAI_WITH_PETSC)
-        target_link_libraries(${executable_name} samurai CLI11::CLI11 ${PETSC_LINK_LIBRARIES} ${MPI_LIBRARIES})
+        target_link_libraries(${executable_name} samurai CLI11::CLI11 ${PETSC_LINK_LIBRARIES})
     endforeach()
 endif()
 

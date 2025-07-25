@@ -32,10 +32,9 @@ if(${SAMURAI_WITH_PETSC})
 
   pkg_check_modules(PETSC REQUIRED PETSc)
   include_directories(${PETSC_INCLUDE_DIRS})
-  find_package(MPI)
 
   target_compile_definitions(samurai::samurai INTERFACE SAMURAI_WITH_PETSC)
-  target_link_libraries(samurai::samurai INTERFACE ${PETSC_LINK_LIBRARIES} ${MPI_LIBRARIES})
+  target_link_libraries(samurai::samurai INTERFACE ${PETSC_LINK_LIBRARIES})
 endif()
 
 
