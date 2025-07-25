@@ -1349,7 +1349,14 @@ namespace samurai
         }
     }
 
+    template <class PredictionFn, class Mesh>
+        requires IsMesh<Mesh>
+    void update_fields(PredictionFn&&, Mesh&)
+    {
+    }
+
     template <class Mesh>
+        requires IsMesh<Mesh>
     void update_fields(Mesh&)
     {
     }
@@ -1395,7 +1402,7 @@ namespace samurai
     void update_fields(PredictionFn&& prediction_fn, Mesh& new_mesh, Field& field, Fields&... fields)
     {
         detail::update_field(std::forward<PredictionFn>(prediction_fn), new_mesh, field);
-        update_fields(new_mesh, fields...);
+        update_fields(std::forward<PredictionFn>(prediction_fn), new_mesh, fields...);
     }
 
     template <class Tag, class... Fields>
