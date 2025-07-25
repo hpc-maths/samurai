@@ -6,13 +6,16 @@ namespace samurai
     template <class Field>
     auto make_gradient_order2()
     {
-        static_assert(Field::n_comp == 1, "The field type for the gradient operator must be a scalar field.");
+        static_assert(Field::n_comp == 1,
+                      "The field type for the gradient operator must be a scalar field or a vector field with 1 component.");
 
-        static constexpr std::size_t dim           = Field::dim;
-        static constexpr std::size_t output_n_comp = dim;
-        static constexpr std::size_t stencil_size  = 2;
+        static constexpr std::size_t dim = Field::dim;
 
-        using cfg = FluxConfig<SchemeType::LinearHomogeneous, output_n_comp, stencil_size, Field>;
+        static constexpr std::size_t stencil_size = 2;
+        using input_field_t                       = Field;
+        using output_field_t = VectorField<typename Field::mesh_t, typename Field::value_type, dim, detail::is_soa_v<input_field_t>>;
+
+        using cfg = FluxConfig<SchemeType::LinearHomogeneous, stencil_size, output_field_t, input_field_t>;
 
         FluxDefinition<cfg> average_coeffs;
 
@@ -29,20 +32,20 @@ namespace samurai
                     // Return value: 2 matrices (left, right) of size output_n_comp x n_comp.
                     // In this case, of size dim x 1, i.e. a column vector of size dim.
                     FluxStencilCoeffs<cfg> coeffs;
-                    if constexpr (output_n_comp == 1)
-                    {
-                        coeffs[left]  = 0.5;
-                        coeffs[right] = 0.5;
-                    }
-                    else
-                    {
-                        coeffs[left].fill(0);
-                        coeffs[right].fill(0);
-                        coeffs[left](d, 0)  = 0.5;
-                        coeffs[right](d, 0) = 0.5;
-                        // xt::row(coeffs[left], d)  = 0.5;
-                        // xt::row(coeffs[right], d) = 0.5;
-                    }
+                    // if constexpr (output_n_comp == 1)
+                    // {
+                    //     coeffs[left]  = 0.5;
+                    //     coeffs[right] = 0.5;
+                    // }
+                    // else
+                    // {
+                    coeffs[left].fill(0);
+                    coeffs[right].fill(0);
+                    coeffs[left](d, 0)  = 0.5;
+                    coeffs[right](d, 0) = 0.5;
+                    // xt::row(coeffs[left], d)  = 0.5;
+                    // xt::row(coeffs[right], d) = 0.5;
+                    // }
                     return coeffs;
                 };
             });

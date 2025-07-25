@@ -15,12 +15,13 @@ namespace samurai
     template <class Field>
     auto make_convection_upwind(const VelocityVector<Field::dim>& velocity)
     {
-        static constexpr std::size_t dim           = Field::dim;
-        static constexpr std::size_t n_comp        = Field::n_comp;
-        static constexpr std::size_t output_n_comp = n_comp;
-        static constexpr std::size_t stencil_size  = 2;
+        static constexpr std::size_t dim = Field::dim;
 
-        using cfg = FluxConfig<SchemeType::LinearHomogeneous, output_n_comp, stencil_size, Field>;
+        static constexpr std::size_t stencil_size = 2;
+        using input_field_t                       = Field;
+        using output_field_t                      = Field;
+
+        using cfg = FluxConfig<SchemeType::LinearHomogeneous, stencil_size, output_field_t, input_field_t>;
 
         FluxDefinition<cfg> upwind;
 
@@ -39,7 +40,7 @@ namespace samurai
                         // Return type: 2 matrices (left, right) of size output_n_comp x n_comp.
                         // In this case, of size n_comp x n_comp.
                         FluxStencilCoeffs<cfg> coeffs;
-                        if constexpr (output_n_comp == 1)
+                        if constexpr (Field::is_scalar)
                         {
                             coeffs[left]  = velocity(d);
                             coeffs[right] = 0;
@@ -59,7 +60,7 @@ namespace samurai
                     upwind[d].cons_flux_function = [&](double)
                     {
                         FluxStencilCoeffs<cfg> coeffs;
-                        if constexpr (output_n_comp == 1)
+                        if constexpr (Field::is_scalar)
                         {
                             coeffs[left]  = 0;
                             coeffs[right] = velocity(d);
@@ -90,13 +91,12 @@ namespace samurai
     {
         static_assert(Field::mesh_t::config::ghost_width >= 3, "WENO5 requires at least 3 ghosts.");
 
-        static constexpr std::size_t dim           = Field::dim;
-        static constexpr std::size_t n_comp        = Field::n_comp;
-        static constexpr bool is_soa               = detail::is_soa_v<Field>;
-        static constexpr std::size_t output_n_comp = n_comp;
-        static constexpr std::size_t stencil_size  = 6;
+        static constexpr std::size_t dim          = Field::dim;
+        static constexpr bool is_soa              = detail::is_soa_v<Field>;
+        static constexpr std::size_t stencil_size = 6;
+        using output_field_t                      = Field;
 
-        using cfg = FluxConfig<SchemeType::NonLinear, output_n_comp, stencil_size, Field>;
+        using cfg = FluxConfig<SchemeType::NonLinear, stencil_size, output_field_t, Field>;
 
         FluxDefinition<cfg> weno5;
 
@@ -142,16 +142,20 @@ namespace samurai
      * @param velocity_field: the velocity field
      */
     template <class Field, class VelocityField>
+        requires IsField<VelocityField>
     auto make_convection_upwind(const VelocityField& velocity_field)
     {
         static_assert(Field::dim == VelocityField::dim && VelocityField::n_comp == VelocityField::dim);
 
-        static constexpr std::size_t dim           = Field::dim;
-        static constexpr std::size_t n_comp        = Field::n_comp;
-        static constexpr std::size_t output_n_comp = n_comp;
-        static constexpr std::size_t stencil_size  = 2;
+        static constexpr std::size_t dim    = Field::dim;
+        static constexpr std::size_t n_comp = Field::n_comp;
 
-        using cfg = FluxConfig<SchemeType::LinearHeterogeneous, output_n_comp, stencil_size, Field>;
+        static constexpr std::size_t stencil_size = 2;
+        using input_field_t                       = Field;
+        using output_field_t                      = Field;
+        using parameter_field_t                   = VelocityField;
+
+        using cfg = FluxConfig<SchemeType::LinearHeterogeneous, stencil_size, output_field_t, input_field_t, parameter_field_t>;
 
         FluxDefinition<cfg> upwind;
 
@@ -172,7 +176,7 @@ namespace samurai
                     auto velocity = 0.5 * (velocity_field[cells[left]] + velocity_field[cells[right]]);
                     if (velocity(d) >= 0) // use the left values
                     {
-                        if constexpr (output_n_comp == 1)
+                        if constexpr (n_comp == 1)
                         {
                             coeffs[left]  = velocity(d);
                             coeffs[right] = 0;
@@ -187,7 +191,7 @@ namespace samurai
                     }
                     else // use the right values
                     {
-                        if constexpr (output_n_comp == 1)
+                        if constexpr (n_comp == 1)
                         {
                             coeffs[left]  = 0;
                             coeffs[right] = velocity(d);
@@ -206,6 +210,7 @@ namespace samurai
 
         auto scheme = make_flux_based_scheme(upwind);
         scheme.set_name("convection");
+        scheme.set_parameter_field(velocity_field);
         return scheme;
     }
 
@@ -219,16 +224,15 @@ namespace samurai
     {
         static_assert(Field::mesh_t::config::ghost_width >= 3, "WENO5 requires at least 3 ghosts.");
 
-        static constexpr std::size_t dim    = Field::dim;
-        static constexpr std::size_t n_comp = Field::n_comp;
-        static constexpr bool is_soa        = detail::is_soa_v<Field>;
+        static constexpr std::size_t dim = Field::dim;
+        static constexpr bool is_soa     = detail::is_soa_v<Field>;
 
-        static constexpr std::size_t output_n_comp = n_comp;
-        static constexpr std::size_t stencil_size  = 6;
-        using input_field_t                        = Field;
-        using parameter_field_t                    = VelocityField;
+        static constexpr std::size_t stencil_size = 6;
+        using input_field_t                       = Field;
+        using output_field_t                      = Field;
+        using parameter_field_t                   = VelocityField;
 
-        using cfg = FluxConfig<SchemeType::NonLinear, output_n_comp, stencil_size, input_field_t, parameter_field_t>;
+        using cfg = FluxConfig<SchemeType::NonLinear, stencil_size, output_field_t, input_field_t, parameter_field_t>;
 
         FluxDefinition<cfg> weno5;
 

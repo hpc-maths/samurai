@@ -17,7 +17,8 @@ namespace samurai
 
             using base_class = FVSchemeAssembly<Scheme>;
             using base_class::dim;
-            using base_class::n_comp;
+            using base_class::input_n_comp;
+            using base_class::output_n_comp;
             using base_class::set_is_row_not_empty;
 
           public:
@@ -30,12 +31,11 @@ namespace samurai
             using base_class::set_current_insert_mode;
             using base_class::unknown;
 
-            using scheme_t                             = Scheme;
-            using cfg_t                                = typename Scheme::cfg_t;
-            using bdry_cfg_t                           = typename Scheme::bdry_cfg;
-            using field_t                              = typename Scheme::field_t;
-            static constexpr std::size_t output_n_comp = cfg_t::output_n_comp;
-            static constexpr std::size_t stencil_size  = cfg_t::stencil_size;
+            using scheme_t                            = Scheme;
+            using cfg_t                               = typename Scheme::cfg_t;
+            using bdry_cfg_t                          = typename Scheme::bdry_cfg;
+            using field_t                             = typename Scheme::field_t;
+            static constexpr std::size_t stencil_size = cfg_t::stencil_size;
 
           private:
 
@@ -72,7 +72,7 @@ namespace samurai
                         {
                             for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                             {
-                                for (unsigned int field_j = 0; field_j < n_comp; ++field_j)
+                                for (unsigned int field_j = 0; field_j < input_n_comp; ++field_j)
                                 {
                                     if constexpr (ghost_elimination_enabled)
                                     {
@@ -82,26 +82,26 @@ namespace samurai
                                             if (it_ghost == this->m_ghost_recursion.end())
                                             {
                                                 nnz[static_cast<std::size_t>(
-                                                    this->row_index(interface_cells[0], field_i))] += static_cast<PetscInt>(n_comp);
+                                                    this->row_index(interface_cells[0], field_i))] += static_cast<PetscInt>(input_n_comp);
                                                 nnz[static_cast<std::size_t>(
-                                                    this->row_index(interface_cells[1], field_i))] += static_cast<PetscInt>(n_comp);
+                                                    this->row_index(interface_cells[1], field_i))] += static_cast<PetscInt>(input_n_comp);
                                             }
                                             else
                                             {
                                                 auto& linear_comb = it_ghost->second;
                                                 nnz[static_cast<std::size_t>(this->row_index(interface_cells[0], field_i))] += static_cast<PetscInt>(
-                                                    linear_comb.size() * n_comp);
+                                                    linear_comb.size() * input_n_comp);
                                                 nnz[static_cast<std::size_t>(this->row_index(interface_cells[1], field_i))] += static_cast<PetscInt>(
-                                                    linear_comb.size() * n_comp);
+                                                    linear_comb.size() * input_n_comp);
                                             }
                                         }
                                     }
                                     else
                                     {
                                         nnz[static_cast<std::size_t>(this->row_index(interface_cells[0], field_i))] += static_cast<PetscInt>(
-                                            stencil_size * n_comp);
+                                            stencil_size * input_n_comp);
                                         nnz[static_cast<std::size_t>(this->row_index(interface_cells[1], field_i))] += static_cast<PetscInt>(
-                                            stencil_size * n_comp);
+                                            stencil_size * input_n_comp);
                                     }
                                 }
                             }
@@ -117,10 +117,10 @@ namespace samurai
                             {
                                 for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                                 {
-                                    for (unsigned int field_j = 0; field_j < n_comp; ++field_j)
+                                    for (unsigned int field_j = 0; field_j < input_n_comp; ++field_j)
                                     {
-                                        nnz[static_cast<std::size_t>(this->row_index(cell, field_i))] += static_cast<PetscInt>(stencil_size
-                                                                                                                               * n_comp);
+                                        nnz[static_cast<std::size_t>(this->row_index(cell, field_i))] += static_cast<PetscInt>(
+                                            stencil_size * input_n_comp);
                                     }
                                 }
                             });
@@ -153,7 +153,7 @@ namespace samurai
                         {
                             auto left_cell_row  = this->row_index(interface_cells[0], field_i);
                             auto right_cell_row = this->row_index(interface_cells[1], field_i);
-                            for (unsigned int field_j = 0; field_j < n_comp; ++field_j)
+                            for (unsigned int field_j = 0; field_j < input_n_comp; ++field_j)
                             {
                                 for (std::size_t c = 0; c < stencil_size; ++c)
                                 {
@@ -203,7 +203,7 @@ namespace samurai
                             for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                             {
                                 auto cell_row = this->row_index(cell, field_i);
-                                for (unsigned int field_j = 0; field_j < n_comp; ++field_j)
+                                for (unsigned int field_j = 0; field_j < input_n_comp; ++field_j)
                                 {
                                     for (std::size_t c = 0; c < stencil_size; ++c)
                                     {

@@ -7,19 +7,19 @@ namespace samurai
     template <class Field, std::size_t order>
     auto make_convection_os(const double& dt)
     {
-        static constexpr std::size_t dim           = Field::dim;
-        static constexpr std::size_t n_comp        = Field::n_comp;
-        static constexpr std::size_t output_n_comp = n_comp;
-        static constexpr std::size_t stencil_size  = 2 * (order / 2 + order % 2);
+        static constexpr std::size_t dim          = Field::dim;
+        static constexpr std::size_t stencil_size = 2 * (order / 2 + order % 2);
+        using input_field_t                       = Field;
+        using output_field_t                      = Field;
 
-        using cfg = FluxConfig<SchemeType::NonLinear, output_n_comp, stencil_size, Field>;
+        using cfg = FluxConfig<SchemeType::NonLinear, stencil_size, output_field_t, input_field_t>;
 
         samurai::FluxDefinition<cfg> ostvd;
 
         samurai::static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
-            [&](auto integral_constant_d)
+            [&](auto _d)
             {
-                static constexpr int d = decltype(integral_constant_d)::value;
+                static constexpr int d = _d();
 
                 static constexpr std::size_t j = (order / 2 + order % 2) - 1;
 

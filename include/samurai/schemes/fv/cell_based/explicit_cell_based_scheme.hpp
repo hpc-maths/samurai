@@ -21,8 +21,8 @@ namespace samurai
 
         using base_class::scheme;
 
-        static constexpr size_type n_comp         = input_field_t::n_comp;
-        static constexpr size_type output_n_comp  = cfg::output_n_comp;
+        static constexpr size_type input_n_comp   = input_field_t::n_comp;
+        static constexpr size_type output_n_comp  = output_field_t::n_comp;
         static constexpr std::size_t stencil_size = cfg::stencil_size;
         static constexpr std::size_t center_index = cfg::center_index;
 
@@ -43,7 +43,7 @@ namespace samurai
                 {
                     for (size_type field_i = 0; field_i < output_n_comp; ++field_i)
                     {
-                        for (size_type field_j = 0; field_j < n_comp; ++field_j)
+                        for (size_type field_j = 0; field_j < input_n_comp; ++field_j)
                         {
                             for (std::size_t c = 0; c < stencil_size; ++c)
                             {
@@ -73,7 +73,7 @@ namespace samurai
 
         using base_class::scheme;
 
-        static constexpr size_type output_n_comp = cfg::output_n_comp;
+        static constexpr size_type output_n_comp = output_field_t::n_comp;
 
       public:
 

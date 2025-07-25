@@ -30,6 +30,7 @@ namespace samurai
             using cfg_t                                            = typename Scheme::cfg_t;
             using bdry_cfg_t                                       = typename Scheme::bdry_cfg;
             using field_t                                          = typename Scheme::field_t;
+            using output_field_t                                   = typename cfg_t::output_field_t;
             using mesh_t                                           = typename field_t::mesh_t;
             using mesh_id_t                                        = typename mesh_t::mesh_id_t;
             using interval_t                                       = typename mesh_t::interval_t;
@@ -37,8 +38,8 @@ namespace samurai
             using coord_index_t                                    = typename interval_t::coord_index_t;
             using index_t                                          = typename interval_t::index_t;
             static constexpr std::size_t dim                       = field_t::dim;
-            static constexpr std::size_t n_comp                    = field_t::n_comp;
-            static constexpr std::size_t output_n_comp             = cfg_t::output_n_comp;
+            static constexpr std::size_t input_n_comp              = field_t::n_comp;
+            static constexpr std::size_t output_n_comp             = output_field_t::n_comp;
             static constexpr std::size_t prediction_order          = mesh_t::config::prediction_order;
             static constexpr std::size_t bdry_neighbourhood_width  = bdry_cfg_t::neighbourhood_width;
             static constexpr std::size_t bdry_stencil_size         = bdry_cfg_t::stencil_size;
@@ -198,7 +199,7 @@ namespace samurai
 
             PetscInt matrix_cols() const override
             {
-                return static_cast<PetscInt>(m_n_cells * n_comp);
+                return static_cast<PetscInt>(m_n_cells * input_n_comp);
             }
 
             // Global data index
@@ -214,7 +215,7 @@ namespace samurai
                 }
                 else
                 {
-                    return m_col_shift + cell_index * static_cast<PetscInt>(n_comp) + static_cast<PetscInt>(field_j);
+                    return m_col_shift + cell_index * static_cast<PetscInt>(input_n_comp) + static_cast<PetscInt>(field_j);
                 }
             }
 
@@ -842,7 +843,7 @@ namespace samurai
                     {
                         double h       = mesh().cell_length(ghost.level);
                         double scaling = 1. / (h * h);
-                        for (unsigned int field_i = 0; field_i < n_comp; ++field_i)
+                        for (unsigned int field_i = 0; field_i < input_n_comp; ++field_i)
                         {
                             PetscInt ghost_index = this->row_index(ghost, field_i);
                             MatSetValue(A, ghost_index, ghost_index, scaling, current_insert_mode());
@@ -907,7 +908,7 @@ namespace samurai
                     {
                         double h       = mesh().cell_length(ghost.level);
                         double scaling = 1. / (h * h);
-                        for (unsigned int field_i = 0; field_i < n_comp; ++field_i)
+                        for (unsigned int field_i = 0; field_i < input_n_comp; ++field_i)
                         {
                             PetscInt ghost_index = this->row_index(ghost, field_i);
                             MatSetValue(A, ghost_index, ghost_index, scaling, current_insert_mode());
@@ -989,7 +990,7 @@ namespace samurai
                     {
                         double h       = mesh().cell_length(ghost.level);
                         double scaling = 1. / (h * h);
-                        for (unsigned int field_i = 0; field_i < n_comp; ++field_i)
+                        for (unsigned int field_i = 0; field_i < input_n_comp; ++field_i)
                         {
                             PetscInt ghost_index = this->row_index(ghost, field_i);
                             MatSetValue(A, ghost_index, ghost_index, scaling, current_insert_mode());

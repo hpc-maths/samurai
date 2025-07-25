@@ -128,13 +128,15 @@ namespace samurai
     template <class Field, DirichletEnforcement dirichlet_enfcmt = Equation>
     auto make_diffusion_order2(const DiffCoeff<Field::dim>& K)
     {
-        using size_type                            = typename Field::size_type;
-        static constexpr std::size_t dim           = Field::dim;
-        static constexpr size_type n_comp          = Field::n_comp;
-        static constexpr std::size_t output_n_comp = n_comp;
-        static constexpr std::size_t stencil_size  = 2;
+        using size_type                   = typename Field::size_type;
+        static constexpr std::size_t dim  = Field::dim;
+        static constexpr size_type n_comp = Field::n_comp;
 
-        using cfg = FluxConfig<SchemeType::LinearHomogeneous, output_n_comp, stencil_size, Field>;
+        static constexpr std::size_t stencil_size = 2;
+        using input_field_t                       = Field;
+        using output_field_t                      = Field;
+
+        using cfg = FluxConfig<SchemeType::LinearHomogeneous, stencil_size, output_field_t, input_field_t>;
 
         FluxDefinition<cfg> K_grad;
 
@@ -183,12 +185,14 @@ namespace samurai
     template <class Field, DirichletEnforcement dirichlet_enfcmt = Equation>
     auto make_multi_diffusion_order2(const DiffCoeff<Field::n_comp>& K)
     {
-        static constexpr std::size_t dim           = Field::dim;
-        static constexpr std::size_t n_comp        = Field::n_comp;
-        static constexpr std::size_t output_n_comp = n_comp;
-        static constexpr std::size_t stencil_size  = 2;
+        static constexpr std::size_t dim    = Field::dim;
+        static constexpr std::size_t n_comp = Field::n_comp;
 
-        using cfg = FluxConfig<SchemeType::LinearHomogeneous, output_n_comp, stencil_size, Field>;
+        static constexpr std::size_t stencil_size = 2;
+        using input_field_t                       = Field;
+        using output_field_t                      = Field;
+
+        using cfg = FluxConfig<SchemeType::LinearHomogeneous, stencil_size, output_field_t, input_field_t>;
 
         FluxDefinition<cfg> K_grad;
 
@@ -271,12 +275,14 @@ namespace samurai
               std::enable_if_t<DiffTensorField::is_scalar && std::is_same_v<typename DiffTensorField::value_type, DiffCoeff<field_t::dim>>, bool> = true>
     auto make_diffusion_order2(const DiffTensorField& K)
     {
-        static constexpr std::size_t dim           = field_t::dim;
-        static constexpr std::size_t n_comp        = field_t::n_comp;
-        static constexpr std::size_t output_n_comp = n_comp;
-        static constexpr std::size_t stencil_size  = 2;
+        static constexpr std::size_t dim    = field_t::dim;
+        static constexpr std::size_t n_comp = field_t::n_comp;
 
-        using cfg = FluxConfig<SchemeType::LinearHeterogeneous, output_n_comp, stencil_size, field_t>;
+        static constexpr std::size_t stencil_size = 2;
+        using input_field_t                       = field_t;
+        using output_field_t                      = field_t;
+
+        using cfg = FluxConfig<SchemeType::LinearHeterogeneous, stencil_size, output_field_t, input_field_t>;
 
         FluxDefinition<cfg> K_grad;
 

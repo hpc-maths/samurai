@@ -6,14 +6,16 @@ namespace samurai
     template <class Field>
     auto make_divergence_order2()
     {
-        static constexpr std::size_t n_comp        = Field::n_comp;
-        static constexpr std::size_t dim           = Field::dim;
-        static constexpr std::size_t output_n_comp = 1;
-        static constexpr std::size_t stencil_size  = 2;
+        static constexpr std::size_t n_comp = Field::n_comp;
+        static constexpr std::size_t dim    = Field::dim;
+
+        static constexpr std::size_t stencil_size = 2;
+        using input_field_t                       = Field;
+        using output_field_t                      = ScalarField<typename Field::mesh_t, typename Field::value_type>;
 
         static_assert(n_comp == dim, "The field type for the divergence operator must have a size equal to the space dimension.");
 
-        using cfg = FluxConfig<SchemeType::LinearHomogeneous, output_n_comp, stencil_size, Field>;
+        using cfg = FluxConfig<SchemeType::LinearHomogeneous, stencil_size, output_field_t, input_field_t>;
 
         FluxDefinition<cfg> average_coeffs;
 

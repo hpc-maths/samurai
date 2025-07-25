@@ -118,7 +118,7 @@ namespace samurai
                     assert(false && "Undefined unknown");
                     exit(EXIT_FAILURE);
                 }
-                static_assert(scheme_t::cfg_t::output_n_comp == field_t::n_comp);
+                static_assert(scheme_t::cfg_t::output_field_t::n_comp == field_t::n_comp);
 
                 static constexpr PetscInt n = field_t::n_comp;
 

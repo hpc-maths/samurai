@@ -144,7 +144,7 @@ namespace samurai
         using stencil_cells_t = typename CellBasedScheme<nonlin_cfg, bdry_cfg>::stencil_cells_t;
         using field_t         = typename CellBasedScheme<nonlin_cfg, bdry_cfg>::field_t;
 
-        static constexpr bool can_collapse = lin_cfg::input_field_t::is_scalar && lin_cfg::output_n_comp == 1;
+        static constexpr bool can_collapse = lin_cfg::input_field_t::is_scalar && lin_cfg::output_field_t::is_scalar == 1;
 
         CellBasedScheme<nonlin_cfg, bdry_cfg> addition_scheme(nonlin_scheme); // copy
 

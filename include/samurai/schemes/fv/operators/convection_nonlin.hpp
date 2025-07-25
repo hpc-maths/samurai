@@ -24,15 +24,17 @@ namespace samurai
     {
         using field_value_t = typename Field::value_type;
 
-        static constexpr std::size_t dim           = Field::dim;
-        static constexpr std::size_t n_comp        = Field::n_comp;
-        static constexpr std::size_t output_n_comp = n_comp;
-        static constexpr std::size_t stencil_size  = 2;
+        static constexpr std::size_t dim    = Field::dim;
+        static constexpr std::size_t n_comp = Field::n_comp;
+
+        static constexpr std::size_t stencil_size = 2;
+        using input_field_t                       = Field;
+        using output_field_t                      = Field;
 
         static_assert(dim == n_comp || n_comp == 1,
                       "make_convection_upwind() is not implemented for this field size in this space dimension.");
 
-        using cfg = FluxConfig<SchemeType::NonLinear, output_n_comp, stencil_size, Field>;
+        using cfg = FluxConfig<SchemeType::NonLinear, stencil_size, output_field_t, input_field_t>;
 
         FluxDefinition<cfg> upwind;
 
@@ -84,15 +86,16 @@ namespace samurai
 
         static_assert(Field::mesh_t::config::ghost_width >= 3, "WENO5 requires at least 3 ghosts.");
 
-        static constexpr std::size_t dim           = Field::dim;
-        static constexpr std::size_t n_comp        = Field::n_comp;
-        static constexpr std::size_t output_n_comp = n_comp;
-        static constexpr std::size_t stencil_size  = 6;
+        static constexpr std::size_t dim = Field::dim;
 
-        static_assert(dim == n_comp || n_comp == 1,
+        static constexpr std::size_t stencil_size = 6;
+        using input_field_t                       = Field;
+        using output_field_t                      = Field;
+
+        static_assert(dim == Field::n_comp || Field::n_comp == 1,
                       "make_convection_weno5() is not implemented for this field size in this space dimension.");
 
-        using cfg = FluxConfig<SchemeType::NonLinear, output_n_comp, stencil_size, Field>;
+        using cfg = FluxConfig<SchemeType::NonLinear, stencil_size, output_field_t, input_field_t>;
 
         FluxDefinition<cfg> weno5;
 
