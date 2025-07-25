@@ -94,9 +94,10 @@ namespace samurai
         static constexpr std::size_t dim          = Field::dim;
         static constexpr bool is_soa              = detail::is_soa_v<Field>;
         static constexpr std::size_t stencil_size = 6;
+        using input_field_t                       = Field;
         using output_field_t                      = Field;
 
-        using cfg = FluxConfig<SchemeType::NonLinear, stencil_size, output_field_t, Field>;
+        using cfg = FluxConfig<SchemeType::NonLinear, stencil_size, output_field_t, input_field_t>;
 
         FluxDefinition<cfg> weno5;
 
