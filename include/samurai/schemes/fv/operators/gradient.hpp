@@ -20,9 +20,9 @@ namespace samurai
         FluxDefinition<cfg> average_coeffs;
 
         static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
-            [&](auto integral_constant_d)
+            [&](auto _d)
             {
-                static constexpr std::size_t d = decltype(integral_constant_d)::value;
+                static constexpr std::size_t d = _d();
 
                 average_coeffs[d].cons_flux_function = [](double)
                 {
@@ -32,20 +32,20 @@ namespace samurai
                     // Return value: 2 matrices (left, right) of size output_n_comp x n_comp.
                     // In this case, of size dim x 1, i.e. a column vector of size dim.
                     FluxStencilCoeffs<cfg> coeffs;
-                    // if constexpr (output_n_comp == 1)
-                    // {
-                    //     coeffs[left]  = 0.5;
-                    //     coeffs[right] = 0.5;
-                    // }
-                    // else
-                    // {
-                    coeffs[left].fill(0);
-                    coeffs[right].fill(0);
-                    coeffs[left](d, 0)  = 0.5;
-                    coeffs[right](d, 0) = 0.5;
-                    // xt::row(coeffs[left], d)  = 0.5;
-                    // xt::row(coeffs[right], d) = 0.5;
-                    // }
+                    if constexpr (output_field_t::is_scalar)
+                    {
+                        coeffs[left]  = 0.5;
+                        coeffs[right] = 0.5;
+                    }
+                    else
+                    {
+                        coeffs[left].fill(0);
+                        coeffs[right].fill(0);
+                        coeffs[left](d, 0)  = 0.5;
+                        coeffs[right](d, 0) = 0.5;
+                        // xt::row(coeffs[left], d)  = 0.5;
+                        // xt::row(coeffs[right], d) = 0.5;
+                    }
                     return coeffs;
                 };
             });

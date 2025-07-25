@@ -26,9 +26,9 @@ namespace samurai
         FluxDefinition<cfg> upwind;
 
         static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
-            [&](auto integral_constant_d)
+            [&](auto _d)
             {
-                static constexpr std::size_t d = decltype(integral_constant_d)::value;
+                static constexpr std::size_t d = _d();
 
                 static constexpr std::size_t left  = 0;
                 static constexpr std::size_t right = 1;
@@ -101,9 +101,9 @@ namespace samurai
         FluxDefinition<cfg> weno5;
 
         static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
-            [&](auto integral_constant_d)
+            [&](auto _d)
             {
-                static constexpr std::size_t d = decltype(integral_constant_d)::value;
+                static constexpr std::size_t d = _d();
 
                 // Stencil creation:
                 //        weno5[0].stencil = {{-2, 0}, {-1, 0}, {0,0}, {1,0}, {2,0}, {3,0}};
@@ -160,9 +160,9 @@ namespace samurai
         FluxDefinition<cfg> upwind;
 
         static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
-            [&](auto integral_constant_d)
+            [&](auto _d)
             {
-                static constexpr std::size_t d = decltype(integral_constant_d)::value;
+                static constexpr std::size_t d = _d();
 
                 static constexpr std::size_t left  = 0;
                 static constexpr std::size_t right = 1;

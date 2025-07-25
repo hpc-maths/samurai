@@ -39,9 +39,9 @@ namespace samurai
         FluxDefinition<cfg> upwind;
 
         static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
-            [&](auto integral_constant_d)
+            [&](auto _d)
             {
-                static constexpr std::size_t d = decltype(integral_constant_d)::value;
+                static constexpr std::size_t d = _d();
 
                 auto f = [](auto u) -> FluxValue<cfg>
                 {
@@ -100,9 +100,9 @@ namespace samurai
         FluxDefinition<cfg> weno5;
 
         static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
-            [&](auto integral_constant_d)
+            [&](auto _d)
             {
-                static constexpr std::size_t d = decltype(integral_constant_d)::value;
+                static constexpr std::size_t d = _d();
 
                 auto f = [](auto u) -> FluxValue<cfg>
                 {

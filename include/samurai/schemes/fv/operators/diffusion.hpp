@@ -141,9 +141,9 @@ namespace samurai
         FluxDefinition<cfg> K_grad;
 
         static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
-            [&](auto integral_constant_d)
+            [&](auto _d)
             {
-                static constexpr std::size_t d = decltype(integral_constant_d)::value;
+                static constexpr std::size_t d = _d();
 
                 K_grad[d].cons_flux_function = [K](double h)
                 {
@@ -197,9 +197,9 @@ namespace samurai
         FluxDefinition<cfg> K_grad;
 
         static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
-            [&](auto integral_constant_d)
+            [&](auto _d)
             {
-                static constexpr std::size_t d = decltype(integral_constant_d)::value;
+                static constexpr std::size_t d = _d();
 
                 K_grad[d].cons_flux_function = [K](double h)
                 {
@@ -287,9 +287,9 @@ namespace samurai
         FluxDefinition<cfg> K_grad;
 
         static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
-            [&](auto integral_constant_d)
+            [&](auto _d)
             {
-                static constexpr std::size_t d = decltype(integral_constant_d)::value;
+                static constexpr std::size_t d = _d();
 
                 K_grad[d].cons_flux_function = [&](const auto& cells)
                 {

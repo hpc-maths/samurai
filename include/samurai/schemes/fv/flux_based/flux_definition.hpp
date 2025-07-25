@@ -271,9 +271,9 @@ namespace samurai
         {
             auto directions = positive_cartesian_directions<dim>();
             static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
-                [&](auto integral_constant_d)
+                [&](auto _d)
                 {
-                    static constexpr int d         = decltype(integral_constant_d)::value;
+                    static constexpr std::size_t d = _d();
                     DirectionVector<dim> direction = xt::view(directions, d);
                     m_normal_fluxes[d].direction   = direction;
                     m_normal_fluxes[d].stencil     = line_stencil_from<dim, d, stencil_size>(-static_cast<int>(stencil_size) / 2 + 1);
