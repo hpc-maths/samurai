@@ -6,36 +6,35 @@
 namespace samurai
 {
     template <SchemeType scheme_type_,
-              std::size_t output_n_comp_,
               std::size_t neighbourhood_width_,
               std::size_t stencil_size_,
               std::size_t center_index_,
               std::size_t contiguous_indices_start_,
               std::size_t contiguous_indices_size_,
-              class InputField_>
+              class output_field_t_,
+              class input_field_t_>
     struct CellBasedSchemeConfig
     {
         static constexpr SchemeType scheme_type               = scheme_type_;
-        static constexpr std::size_t output_n_comp            = output_n_comp_;
         static constexpr std::size_t neighbourhood_width      = neighbourhood_width_;
         static constexpr std::size_t stencil_size             = stencil_size_;
         static constexpr std::size_t center_index             = center_index_;
         static constexpr std::size_t contiguous_indices_start = contiguous_indices_start_;
         static constexpr std::size_t contiguous_indices_size  = contiguous_indices_size_;
-        using input_field_t                                   = std::decay_t<InputField_>;
+        using output_field_t                                  = std::decay_t<output_field_t_>;
+        using input_field_t                                   = std::decay_t<input_field_t_>;
         using parameter_field_t                               = void*; // unused in cell-based schemes but must exist
     };
 
-    template <SchemeType scheme_type, std::size_t output_n_comp, std::size_t neighbourhood_width, class InputField>
+    template <SchemeType scheme_type, std::size_t neighbourhood_width, class output_field_t, class input_field_t>
     using StarStencilSchemeConfig = CellBasedSchemeConfig<scheme_type,
-                                                          output_n_comp,
                                                           neighbourhood_width,
                                                           // ---- Stencil size
                                                           // Cell-centered Finite Volume scheme:
                                                           // center + 'neighbourhood_width' neighbours in each Cartesian direction (2*dim
                                                           // directions) --> 1+2=3 in 1D
                                                           //                 1+4=5 in 2D
-                                                          1 + 2 * InputField::dim * neighbourhood_width,
+                                                          1 + 2 * input_field_t::dim * neighbourhood_width,
                                                           // ---- Index of the stencil center
                                                           // (as defined in star_stencil())
                                                           neighbourhood_width,
@@ -43,11 +42,13 @@ namespace samurai
                                                           // (as defined in star_stencil())
                                                           0,
                                                           1 + 2 * neighbourhood_width,
+                                                          // ---- Output field
+                                                          output_field_t,
                                                           // ---- Input field
-                                                          InputField>;
+                                                          input_field_t>;
 
-    template <SchemeType scheme_type, std::size_t output_n_comp, class InputField>
-    using LocalCellSchemeConfig = StarStencilSchemeConfig<scheme_type, output_n_comp, 0, InputField>;
+    template <SchemeType scheme_type, class output_field_t, class input_field_t>
+    using LocalCellSchemeConfig = StarStencilSchemeConfig<scheme_type, 0, output_field_t, input_field_t>;
 
     template <class cfg>
     using StencilCoeffs = StencilJacobian<cfg>;
@@ -78,10 +79,10 @@ namespace samurai
     };
 
     template <class cfg>
-    using SchemeValue = CollapsArray<typename cfg::input_field_t::value_type,
-                                     cfg::output_n_comp,
-                                     detail::is_soa_v<typename cfg::input_field_t>,
-                                     cfg::input_field_t::is_scalar>;
+    using SchemeValue = CollapsArray<typename cfg::output_field_t::value_type,
+                                     cfg::output_field_t::n_comp,
+                                     detail::is_soa_v<typename cfg::output_field_t>,
+                                     cfg::output_field_t::is_scalar>;
 
     /**
      * Specialization of @class CellBasedSchemeDefinition.

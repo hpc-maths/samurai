@@ -152,7 +152,7 @@ int main(int argc, char* argv[])
     auto id   = samurai::make_identity<decltype(u)>();
 
     // Reaction operator
-    using cfg  = samurai::LocalCellSchemeConfig<samurai::SchemeType::NonLinear, n_comp, decltype(u)>;
+    using cfg  = samurai::LocalCellSchemeConfig<samurai::SchemeType::NonLinear, decltype(u), decltype(u)>;
     auto react = samurai::make_cell_based_scheme<cfg>();
     react.set_name("Reaction");
     react.set_scheme_function(

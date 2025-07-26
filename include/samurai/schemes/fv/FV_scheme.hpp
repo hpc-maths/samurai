@@ -97,6 +97,7 @@ namespace samurai
 
         using input_field_t     = typename cfg_::input_field_t;
         using field_t           = input_field_t;
+        using output_field_t    = typename cfg_::output_field_t;
         using parameter_field_t = typename cfg_::parameter_field_t;
         using mesh_t            = typename field_t::mesh_t;
         using mesh_id_t         = typename mesh_t::mesh_id_t;
@@ -107,14 +108,14 @@ namespace samurai
         using bdry_cfg                                        = bdry_cfg_;
         static constexpr std::size_t dim                      = field_t::dim;
         static constexpr std::size_t n_comp                   = field_t::n_comp;
-        static constexpr std::size_t output_n_comp            = cfg::output_n_comp;
+        static constexpr std::size_t output_n_comp            = output_field_t::n_comp;
         static constexpr std::size_t bdry_neighbourhood_width = bdry_cfg::neighbourhood_width;
         static constexpr std::size_t bdry_stencil_size        = bdry_cfg::stencil_size;
         static constexpr std::size_t nb_bdry_ghosts           = bdry_cfg::nb_ghosts;
 
-        using output_field_t = std::conditional_t<input_field_t::is_scalar && output_n_comp == 1,
-                                                  ScalarField<mesh_t, field_value_type>,
-                                                  VectorField<mesh_t, field_value_type, output_n_comp, detail::is_soa_v<input_field_t>>>;
+        // using output_field_t = std::conditional_t<input_field_t::is_scalar && output_n_comp == 1,
+        //                                           ScalarField<mesh_t, field_value_type>,
+        //                                           VectorField<mesh_t, field_value_type, output_n_comp, detail::is_soa_v<input_field_t>>>;
 
         using dirichlet_t = DirichletImpl<nb_bdry_ghosts, field_t>;
         using neumann_t   = NeumannImpl<nb_bdry_ghosts, field_t>;

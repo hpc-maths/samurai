@@ -9,7 +9,7 @@ namespace samurai
         static constexpr std::size_t n_comp = Field::n_comp;
         using field_value_type              = typename Field::value_type;
 
-        using cfg = LocalCellSchemeConfig<SchemeType::LinearHomogeneous, Field::n_comp, Field>;
+        using cfg = LocalCellSchemeConfig<SchemeType::LinearHomogeneous, Field, Field>;
 
         auto identity = make_cell_based_scheme<cfg>("Identity");
 
@@ -23,12 +23,6 @@ namespace samurai
         identity.is_symmetric(true);
         identity.is_spd(true);
         return identity;
-    }
-
-    template <class Field>
-    [[deprecated("Use make_identity() instead.")]] auto make_identity_FV()
-    {
-        return make_identity<Field>();
     }
 
 } // end namespace samurai

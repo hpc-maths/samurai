@@ -3,21 +3,19 @@
 
 namespace samurai
 {
-    template <std::size_t output_n_comp, class Field>
+    template <class output_field_t, class input_field_t>
     auto make_zero_operator()
     {
-        static constexpr std::size_t n_comp = Field::n_comp;
-        using field_value_type              = typename Field::value_type;
+        using field_value_type = typename input_field_t::value_type;
 
-        using cfg = LocalCellSchemeConfig<SchemeType::LinearHomogeneous, output_n_comp, Field>;
+        using cfg = LocalCellSchemeConfig<SchemeType::LinearHomogeneous, output_field_t, input_field_t>;
 
         auto zero = make_cell_based_scheme<cfg>("Zero");
 
         zero.coefficients_func() = [](double) -> StencilCoeffs<cfg>
         {
-            // return {zeros<field_value_type, output_n_comp, n_comp>()};
             StencilCoeffs<cfg> sc;
-            sc(0) = zeros<field_value_type, output_n_comp, n_comp, Field::is_scalar>();
+            sc(0) = zeros<field_value_type, output_field_t::n_comp, input_field_t::n_comp, input_field_t::is_scalar>();
             return sc;
         };
         zero.is_symmetric(true);
@@ -27,14 +25,8 @@ namespace samurai
     template <class Field>
     auto make_zero_operator()
     {
-        static constexpr std::size_t default_output_n_comp = Field::n_comp;
-        return make_zero_operator<default_output_n_comp, Field>();
-    }
-
-    template <class Field>
-    [[deprecated("Use make_zero_operator() instead.")]] auto make_zero_operator_FV()
-    {
-        return make_zero_operator<Field>();
+        using default_output_field_t = Field;
+        return make_zero_operator<default_output_field_t, Field>();
     }
 
 } // end namespace samurai

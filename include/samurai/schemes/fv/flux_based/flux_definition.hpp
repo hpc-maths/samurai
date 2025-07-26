@@ -4,16 +4,17 @@
 
 namespace samurai
 {
-    template <SchemeType scheme_type_, std::size_t output_n_comp_, std::size_t stencil_size_, class input_field_t_, class parameter_field_t_ = void*>
+    template <SchemeType scheme_type_, std::size_t stencil_size_, class output_field_t_, class input_field_t_, class parameter_field_t_ = void*>
+        requires(IsField<output_field_t_> && IsField<input_field_t_>)
     struct FluxConfig
     {
-        static constexpr SchemeType scheme_type    = scheme_type_;
-        static constexpr std::size_t output_n_comp = output_n_comp_;
-        static constexpr std::size_t stencil_size  = stencil_size_;
-        using input_field_t                        = std::decay_t<input_field_t_>;
-        using parameter_field_t                    = std::decay_t<parameter_field_t_>;
-        static constexpr bool has_parameter_field  = !std::is_same_v<parameter_field_t, void*>; // cppcheck-suppress unusedStructMember
-        static constexpr std::size_t dim           = input_field_t::dim;
+        static constexpr SchemeType scheme_type   = scheme_type_;
+        static constexpr std::size_t stencil_size = stencil_size_;
+        using output_field_t                      = std::decay_t<output_field_t_>;
+        using input_field_t                       = std::decay_t<input_field_t_>;
+        using parameter_field_t                   = std::decay_t<parameter_field_t_>;
+        static constexpr bool has_parameter_field = !std::is_same_v<parameter_field_t, void*>; // cppcheck-suppress unusedStructMember
+        static constexpr std::size_t dim          = input_field_t::dim;
     };
 
     template <class cfg>
@@ -65,7 +66,7 @@ namespace samurai
     //----------------------------------//
 
     template <class cfg>
-    using FluxValue = CollapsFluxArray<typename cfg::input_field_t::value_type, cfg::output_n_comp, cfg::input_field_t::is_scalar>;
+    using FluxValue = CollapsFluxArray<typename cfg::input_field_t::value_type, cfg::output_field_t::n_comp, cfg::output_field_t::is_scalar>;
 
     template <class cfg>
     using FluxValuePair = StdArrayWrapper<FluxValue<cfg>, 2>;
@@ -270,9 +271,9 @@ namespace samurai
         {
             auto directions = positive_cartesian_directions<dim>();
             static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
-                [&](auto integral_constant_d)
+                [&](auto _d)
                 {
-                    static constexpr int d         = decltype(integral_constant_d)::value;
+                    static constexpr std::size_t d = _d();
                     DirectionVector<dim> direction = xt::view(directions, d);
                     m_normal_fluxes[d].direction   = direction;
                     m_normal_fluxes[d].stencil     = line_stencil_from<dim, d, stencil_size>(-static_cast<int>(stencil_size) / 2 + 1);

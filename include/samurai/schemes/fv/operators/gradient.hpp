@@ -6,20 +6,23 @@ namespace samurai
     template <class Field>
     auto make_gradient_order2()
     {
-        static_assert(Field::n_comp == 1, "The field type for the gradient operator must be a scalar field.");
+        static_assert(Field::n_comp == 1,
+                      "The field type for the gradient operator must be a scalar field or a vector field with 1 component.");
 
-        static constexpr std::size_t dim           = Field::dim;
-        static constexpr std::size_t output_n_comp = dim;
-        static constexpr std::size_t stencil_size  = 2;
+        static constexpr std::size_t dim = Field::dim;
 
-        using cfg = FluxConfig<SchemeType::LinearHomogeneous, output_n_comp, stencil_size, Field>;
+        static constexpr std::size_t stencil_size = 2;
+        using input_field_t                       = Field;
+        using output_field_t = VectorField<typename Field::mesh_t, typename Field::value_type, dim, detail::is_soa_v<input_field_t>>;
+
+        using cfg = FluxConfig<SchemeType::LinearHomogeneous, stencil_size, output_field_t, input_field_t>;
 
         FluxDefinition<cfg> average_coeffs;
 
         static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
-            [&](auto integral_constant_d)
+            [&](auto _d)
             {
-                static constexpr std::size_t d = decltype(integral_constant_d)::value;
+                static constexpr std::size_t d = _d();
 
                 average_coeffs[d].cons_flux_function = [](double)
                 {
@@ -29,7 +32,7 @@ namespace samurai
                     // Return value: 2 matrices (left, right) of size output_n_comp x n_comp.
                     // In this case, of size dim x 1, i.e. a column vector of size dim.
                     FluxStencilCoeffs<cfg> coeffs;
-                    if constexpr (output_n_comp == 1)
+                    if constexpr (output_field_t::is_scalar)
                     {
                         coeffs[left]  = 0.5;
                         coeffs[right] = 0.5;

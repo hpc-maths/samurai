@@ -60,25 +60,24 @@ namespace samurai
     {
       private:
 
-        template <SchemeType scheme_type_, std::size_t stencil_size_, std::size_t output_n_comp_>
+        template <SchemeType scheme_type_, std::size_t stencil_size_, class output_field_t_>
         struct Config
         {
-            static constexpr SchemeType scheme_type    = scheme_type_;
-            static constexpr std::size_t stencil_size  = stencil_size_;
-            static constexpr std::size_t output_n_comp = output_n_comp_;
+            static constexpr SchemeType scheme_type   = scheme_type_;
+            static constexpr std::size_t stencil_size = stencil_size_;
+            using output_field_t                      = output_field_t_;
         };
 
       public:
 
         using FirstOperatorType = std::tuple_element_t<0, std::tuple<Operators...>>;
 
-        static constexpr std::size_t output_n_comp = FirstOperatorType::cfg_t::output_n_comp;
-        using input_field_t                        = typename FirstOperatorType::input_field_t;
-        using output_field_t                       = typename FirstOperatorType::output_field_t;
-        using size_type                            = typename FirstOperatorType::size_type;
-        using field_t                              = input_field_t;
+        using input_field_t  = typename FirstOperatorType::input_field_t;
+        using output_field_t = typename FirstOperatorType::output_field_t;
+        using size_type      = typename FirstOperatorType::size_type;
+        using field_t        = input_field_t;
 
-        using cfg_t = Config<scheme_type_of_sum<Operators...>(), stencil_size_of_sum<Operators...>(), output_n_comp>;
+        using cfg_t = Config<scheme_type_of_sum<Operators...>(), stencil_size_of_sum<Operators...>(), output_field_t>;
 
         // cppcheck-suppress unusedStructMember
         static constexpr std::size_t largest_stencil_index = get_largest_stencil_index<Operators...>();
@@ -93,8 +92,8 @@ namespace samurai
             : m_operators(operators...)
         {
             static constexpr bool all_output_n_comp_are_same = std::conjunction_v<
-                std::integral_constant<bool, Operators::cfg_t::output_n_comp == output_n_comp>...>;
-            static_assert(all_output_n_comp_are_same, "Cannot add operators with different output field sizes.");
+                std::integral_constant<bool, std::is_same_v<typename Operators::cfg_t::output_field_t, output_field_t>>...>;
+            static_assert(all_output_n_comp_are_same, "Cannot add operators with different output field types.");
         }
 
         explicit OperatorSum(const std::tuple<Operators...>& operator_tuple)

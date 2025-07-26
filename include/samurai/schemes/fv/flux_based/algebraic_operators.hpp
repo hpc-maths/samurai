@@ -11,9 +11,9 @@ namespace samurai
         FluxBasedScheme<cfg, bdry_cfg> multiplied_scheme(scheme); // copy
 
         static_for<0, dim>::apply(
-            [&](auto integral_constant_d)
+            [&](auto _d)
             {
-                static constexpr std::size_t d = decltype(integral_constant_d)::value;
+                static constexpr std::size_t d = _d();
 
                 multiplied_scheme.flux_definition()[d] = scheme.flux_definition()[d];
                 if (scalar != 1)
@@ -96,9 +96,9 @@ namespace samurai
         sum_scheme.set_name(scheme1.name() + " + " + scheme2.name());
 
         static_for<0, cfg::dim>::apply(
-            [&](auto integral_constant_d)
+            [&](auto _d)
             {
-                static constexpr std::size_t d = decltype(integral_constant_d)::value;
+                static constexpr std::size_t d = _d();
 
                 if constexpr (cfg::scheme_type == SchemeType::LinearHomogeneous)
                 {

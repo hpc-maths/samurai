@@ -12,13 +12,12 @@ namespace samurai
       public:
 
         using base_class::dim;
-        using base_class::n_comp;
-        using base_class::output_n_comp;
         using size_type = typename base_class::size_type;
 
         using cfg_t            = cfg;
         using bdry_cfg_t       = bdry_cfg;
         using input_field_t    = typename base_class::input_field_t;
+        using output_field_t   = typename base_class::output_field_t;
         using mesh_t           = typename base_class::mesh_t;
         using field_value_type = typename base_class::field_value_type;
 
@@ -134,7 +133,7 @@ namespace samurai
 
         inline field_value_type contrib_cmpnent(const SchemeValue<cfg>& coeffs, [[maybe_unused]] size_type field_i) const
         {
-            if constexpr (input_field_t::is_scalar && cfg::output_n_comp == 1)
+            if constexpr (input_field_t::is_scalar && output_field_t::is_scalar)
             {
                 return coeffs;
             }
