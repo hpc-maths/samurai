@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include <samurai/box.hpp>
 #include <samurai/field.hpp>
 #include <samurai/stencil_field.hpp>
 #include <samurai/uniform_mesh.hpp>

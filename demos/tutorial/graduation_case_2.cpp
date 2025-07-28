@@ -8,6 +8,7 @@
 #include <xtensor/xrandom.hpp>
 #include <xtensor/xview.hpp>
 
+#include <samurai/box.hpp>
 #include <samurai/cell_array.hpp>
 #include <samurai/field.hpp>
 #include <samurai/io/hdf5.hpp>

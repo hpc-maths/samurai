@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include <samurai/box.hpp>
 #include <samurai/field.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/uniform_mesh.hpp>

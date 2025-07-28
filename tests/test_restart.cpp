@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <samurai/box.hpp>
 #include <samurai/field.hpp>
 #include <samurai/io/restart.hpp>
 #include <samurai/mr/mesh.hpp>

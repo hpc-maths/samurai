@@ -7,6 +7,7 @@
 
 #include <xtensor/xmasked_view.hpp>
 
+#include <samurai/box.hpp>
 #include <samurai/cell_array.hpp>
 #include <samurai/field.hpp>
 #include <samurai/io/hdf5.hpp>
