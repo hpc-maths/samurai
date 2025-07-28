@@ -152,7 +152,7 @@ namespace samurai
         using cell_t      = typename base_t::cell_t;
         using function_t  = std::function<value_t(const direction_t&, const cell_t&, const coords_t&)>;
 
-        FunctionBc(const function_t& f);
+        explicit FunctionBc(const function_t& f);
 
         value_t get_value(const direction_t& d, const cell_t& cell_in, const coords_t& coords) const override;
         std::unique_ptr<base_t> clone() const override;
@@ -270,7 +270,7 @@ namespace samurai
         using lca_t       = typename base_t::lca_t;
         using region_t    = typename base_t::region_t;
 
-        OnDirection(const std::array<direction_t, nd>& d);
+        explicit OnDirection(const std::array<direction_t, nd>& d);
 
         region_t get_region(const lca_t& domain) const override;
         std::unique_ptr<base_t> clone() const override;
@@ -291,7 +291,7 @@ namespace samurai
         using region_t    = typename base_t::region_t;
         using function_t  = std::function<bool(const xt::xtensor_fixed<double, xt::xshape<dim>>&)>;
 
-        CoordsRegion(const function_t& f);
+        explicit CoordsRegion(const function_t& f);
 
         std::unique_ptr<base_t> clone() const override;
         region_t get_region(const lca_t& domain) const override;
@@ -311,7 +311,7 @@ namespace samurai
         using lca_t       = typename base_t::lca_t;
         using region_t    = typename base_t::region_t;
 
-        SetRegion(const Set& set);
+        explicit SetRegion(const Set& set);
 
         std::unique_ptr<base_t> clone() const override;
         region_t get_region(const lca_t& domain) const override;
@@ -564,10 +564,10 @@ namespace samurai
     {
       public:
 
-        static constexpr std::size_t dim    = Field::dim;
-        static constexpr std::size_t n_comp = Field::n_comp;
-        using mesh_t                        = typename Field::mesh_t;
-        using interval_t                    = typename Field::interval_t;
+        static constexpr std::size_t dim = Field::dim;
+        // static constexpr std::size_t n_comp = Field::n_comp;
+        using mesh_t     = typename Field::mesh_t;
+        using interval_t = typename Field::interval_t;
 
         using bcvalue_t    = BcValue<Field>;
         using bcvalue_impl = std::unique_ptr<bcvalue_t>;
@@ -595,7 +595,7 @@ namespace samurai
         virtual std::unique_ptr<Bc> clone() const = 0;
         virtual std::size_t stencil_size() const  = 0;
 
-        static constexpr std::size_t max_stencil_size_implemented = 10;
+        static constexpr std::size_t max_stencil_size_implemented = 10; // cppcheck-suppress unusedStructMember
         APPLY_AND_STENCIL_FUNCTIONS(1)
         APPLY_AND_STENCIL_FUNCTIONS(2)
         APPLY_AND_STENCIL_FUNCTIONS(3)
