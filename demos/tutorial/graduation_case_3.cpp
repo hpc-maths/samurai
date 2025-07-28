@@ -3,6 +3,8 @@
 
 #include <cmath>
 
+#include <filesystem>
+
 #include <xtensor/xmasked_view.hpp>
 
 #include <samurai/cell_array.hpp>
@@ -11,7 +13,6 @@
 #include <samurai/samurai.hpp>
 #include <samurai/subset/node.hpp>
 
-#include <filesystem>
 namespace fs = std::filesystem;
 
 auto generate_mesh(std::size_t start_level)

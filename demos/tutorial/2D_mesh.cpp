@@ -3,12 +3,13 @@
 
 #include <iostream>
 
+#include <filesystem>
+
 #include <samurai/cell_array.hpp>
 #include <samurai/cell_list.hpp>
 #include <samurai/io/hdf5.hpp>
 #include <samurai/samurai.hpp>
 
-#include <filesystem>
 namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])

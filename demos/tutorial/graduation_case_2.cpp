@@ -1,6 +1,9 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
+#include <filesystem>
+
+#include <xtensor/xfixed.hpp>
 #include <xtensor/xmasked_view.hpp>
 #include <xtensor/xrandom.hpp>
 #include <xtensor/xview.hpp>
@@ -11,7 +14,6 @@
 #include <samurai/samurai.hpp>
 #include <samurai/subset/node.hpp>
 
-#include <filesystem>
 namespace fs = std::filesystem;
 
 auto generate_mesh(std::size_t min_level, std::size_t max_level, std::size_t nsamples = 100)

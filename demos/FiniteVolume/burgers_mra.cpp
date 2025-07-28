@@ -7,6 +7,8 @@
 #include <samurai/mr/mesh.hpp>
 #include <samurai/schemes/fv.hpp>
 
+#include <algorithm>
+
 #include <filesystem>
 namespace fs = std::filesystem;
 

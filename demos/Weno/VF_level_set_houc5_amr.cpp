@@ -1,6 +1,8 @@
 // #include <spdlog/spdlog.h>
 #include <fmt/format.h>
 #include <fmt/ostream.h>
+#include <xtensor/xfixed.hpp>
+#include <xtensor/xmasked_view.hpp>
 
 #include <samurai/algorithm/graduation.hpp>
 #include <samurai/algorithm/update.hpp>

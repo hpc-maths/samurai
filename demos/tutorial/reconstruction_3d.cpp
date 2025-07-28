@@ -2,6 +2,7 @@
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #include <chrono>
+#include <filesystem>
 
 #include <samurai/algorithm.hpp>
 #include <samurai/bc.hpp>
@@ -13,7 +14,6 @@
 #include <samurai/samurai.hpp>
 #include <samurai/uniform_mesh.hpp>
 
-#include <filesystem>
 namespace fs = std::filesystem;
 
 enum class Case : int

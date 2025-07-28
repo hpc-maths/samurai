@@ -3,6 +3,8 @@
 
 #include <iostream>
 
+#include <filesystem>
+
 #include <xtensor/xadapt.hpp>
 #include <xtensor/xrandom.hpp>
 #include <xtensor/xtensor.hpp>
@@ -14,7 +16,6 @@
 #include <samurai/samurai.hpp>
 #include <samurai/subset/node.hpp>
 
-#include <filesystem>
 namespace fs = std::filesystem;
 
 template <class Mesh, class Container>

@@ -1,6 +1,8 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
+#include <filesystem>
+
 #include <samurai/cell_array.hpp>
 #include <samurai/field.hpp>
 #include <samurai/io/hdf5.hpp>
@@ -18,7 +20,6 @@
 
 #include "update_sol.hpp" // with flux correction
 
-#include <filesystem>
 namespace fs = std::filesystem;
 
 /**
