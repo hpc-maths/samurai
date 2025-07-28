@@ -24,6 +24,7 @@ namespace samurai
         using output_field_t                                  = std::decay_t<output_field_t_>;
         using input_field_t                                   = std::decay_t<input_field_t_>;
         using parameter_field_t                               = void*; // unused in cell-based schemes but must exist
+        static constexpr bool has_parameter_field = !std::is_same_v<parameter_field_t, void*>; // cppcheck-suppress unusedStructMember
     };
 
     template <SchemeType scheme_type, std::size_t neighbourhood_width, class output_field_t, class input_field_t>

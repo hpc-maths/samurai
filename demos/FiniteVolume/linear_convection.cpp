@@ -127,10 +127,6 @@ int main(int argc, char* argv[])
     auto u1 = samurai::make_scalar_field<double>("u1", mesh);
     auto u2 = samurai::make_scalar_field<double>("u2", mesh);
 
-    unp1.fill(0);
-    u1.fill(0);
-    u2.fill(0);
-
     // Convection operator
     samurai::VelocityVector<dim> velocity;
     velocity.fill(1);
@@ -176,24 +172,19 @@ int main(int argc, char* argv[])
 
         // Mesh adaptation
         MRadaptation(mra_config);
-        samurai::update_ghost_mr(u);
         unp1.resize();
         u1.resize();
         u2.resize();
-        u1.fill(0);
-        u2.fill(0);
 
         // unp1 = u - dt * conv(u);
 
         // TVD-RK3 (SSPRK3)
-        u1 = u - dt * conv(u);
-        samurai::update_ghost_mr(u1);
-        u2 = 3. / 4 * u + 1. / 4 * (u1 - dt * conv(u1));
-        samurai::update_ghost_mr(u2);
+        u1   = u - dt * conv(u);
+        u2   = 3. / 4 * u + 1. / 4 * (u1 - dt * conv(u1));
         unp1 = 1. / 3 * u + 2. / 3 * (u2 - dt * conv(u2));
 
         // u <-- unp1
-        std::swap(u.array(), unp1.array());
+        samurai::swap(u, unp1);
 
         // Save the result
         if (nfiles == 0 || t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)

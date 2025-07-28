@@ -355,7 +355,6 @@ int main(int argc, char* argv[])
         }
 
         // Solve Stokes system
-        samurai::update_ghost_mr(velocity);
         rhs = velocity - dt * conv(velocity);
         zero.fill(0);
         stokes_solver.solve(rhs, zero);
@@ -365,17 +364,14 @@ int main(int argc, char* argv[])
         ink_np1.resize();
 
         // Transfer velocity_np1 to the 2nd mesh (--> velocity2)
-        samurai::update_ghost_mr(velocity_np1);
         samurai::transfer(velocity_np1, velocity2);
 
         // Ink convection
-        samurai::update_ghost_mr(ink);
-        samurai::update_ghost_mr(velocity2);
         ink_np1 = ink - dt * conv2(ink);
 
         // Prepare next step
-        std::swap(velocity.array(), velocity_np1.array());
-        std::swap(ink.array(), ink_np1.array());
+        samurai::swap(velocity, velocity_np1);
+        samurai::swap(ink, ink_np1);
         min_level_n = min_level_np1;
         max_level_n = max_level_np1;
 
@@ -393,7 +389,6 @@ int main(int argc, char* argv[])
 
             if (export_reconstruct)
             {
-                samurai::update_ghost_mr(ink);
                 auto ink_recons = samurai::reconstruction(ink);
                 samurai::save(path, fmt::format("ldc_ink_recons_ite_{}", nsave), ink_recons.mesh(), ink_recons);
             }
@@ -405,7 +400,6 @@ int main(int argc, char* argv[])
 
                 if (export_reconstruct)
                 {
-                    samurai::update_ghost_mr(velocity);
                     auto velocity_recons = samurai::reconstruction(velocity);
                     samurai::save(path, fmt::format("ldc_velocity_recons_ite_{}", nsave), velocity_recons.mesh(), velocity_recons);
                 }

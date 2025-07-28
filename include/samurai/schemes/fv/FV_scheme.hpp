@@ -187,11 +187,25 @@ namespace samurai
             }
         }
 
+        void update_ghosts_if_needed(input_field_t& input_field)
+        {
+            if constexpr (cfg::stencil_size > 1)
+            {
+                update_ghost_mr_if_needed(input_field);
+            }
+            if constexpr (cfg::has_parameter_field)
+            {
+                update_ghost_mr_if_needed(parameter_field());
+            }
+        }
+
         /**
          * Explicit application of the scheme
          */
         auto operator()(input_field_t& input_field)
         {
+            this->update_ghosts_if_needed(input_field);
+
             times::timers.start(name() + " operator");
             auto explicit_scheme = make_explicit(derived_cast());
             auto output_field    = explicit_scheme.apply_to(input_field);
@@ -201,6 +215,8 @@ namespace samurai
 
         void apply(output_field_t& output_field, input_field_t& input_field)
         {
+            this->update_ghosts_if_needed(input_field);
+
             times::timers.start(name() + " operator");
             auto explicit_scheme = make_explicit(derived_cast());
             explicit_scheme.apply(output_field, input_field);
@@ -209,6 +225,8 @@ namespace samurai
 
         auto operator()(std::size_t d, input_field_t& input_field)
         {
+            this->update_ghosts_if_needed(input_field);
+
             times::timers.start(name() + " operator");
             auto explicit_scheme = make_explicit(derived_cast());
             auto output_field    = explicit_scheme.apply_to(d, input_field);
@@ -218,6 +236,8 @@ namespace samurai
 
         void apply(std::size_t d, output_field_t& output_field, input_field_t& input_field)
         {
+            this->update_ghosts_if_needed(input_field);
+
             times::timers.start(name() + " operator");
             auto explicit_scheme = make_explicit(derived_cast());
             explicit_scheme.apply(d, output_field, input_field);

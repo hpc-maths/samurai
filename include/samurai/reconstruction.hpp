@@ -508,11 +508,13 @@ namespace samurai
     }
 
     template <class Field>
-    auto reconstruction(const Field& field)
+    auto reconstruction(Field& field)
     {
         using mesh_t    = typename Field::mesh_t;
         using mesh_id_t = typename mesh_t::mesh_id_t;
         using ca_type   = typename mesh_t::ca_type;
+
+        update_ghost_mr_if_needed(field);
 
         auto make_field_like = [](std::string const& name, auto& mesh)
         {
@@ -805,6 +807,8 @@ namespace samurai
         using value_t                    = typename interval_t::value_t;
         auto& mesh_src                   = field_src.mesh();
         auto& mesh_dst                   = field_dst.mesh();
+
+        update_ghost_mr_if_needed(field_src);
 
         field_dst.fill(0.);
 

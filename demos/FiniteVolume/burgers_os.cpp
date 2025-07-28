@@ -215,8 +215,6 @@ int main(int argc, char* argv[])
             return 1;
         }
 
-        samurai::update_ghost_mr(u);
-
         unp1.resize();
 
         unp1 = u - dt * conv(u);

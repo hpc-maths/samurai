@@ -207,7 +207,6 @@ int main(int argc, char* argv[])
 
         // Mesh adaptation
         MRadaptation(mra_config);
-        samurai::update_ghost_mr(u);
         unp1.resize();
         rhs.resize();
 
@@ -245,7 +244,7 @@ int main(int argc, char* argv[])
         }
 
         // u <-- unp1
-        std::swap(u.array(), unp1.array());
+        samurai::swap(u, unp1);
 
         // Compute error
         double error = samurai::L2_error(u,

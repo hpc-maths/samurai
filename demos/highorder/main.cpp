@@ -284,7 +284,6 @@ int main(int argc, char* argv[])
         }
         std::cout << std::endl;
 
-        samurai::update_ghost_mr(u);
         auto u_recons = samurai::reconstruction(u);
 
         double error_recons = L2_error(u_recons, exact_func);
