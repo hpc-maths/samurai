@@ -13,6 +13,7 @@
 #include <samurai/samurai.hpp>
 #include <samurai/uniform_mesh.hpp>
 
+#include <filesystem>
 namespace fs = std::filesystem;
 
 enum class Case : int

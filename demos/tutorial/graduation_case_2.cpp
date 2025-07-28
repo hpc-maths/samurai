@@ -11,6 +11,7 @@
 #include <samurai/samurai.hpp>
 #include <samurai/subset/node.hpp>
 
+#include <filesystem>
 namespace fs = std::filesystem;
 
 auto generate_mesh(std::size_t min_level, std::size_t max_level, std::size_t nsamples = 100)

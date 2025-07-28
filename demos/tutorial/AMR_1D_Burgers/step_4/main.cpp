@@ -12,6 +12,7 @@
 #include "AMR_criterion.hpp"
 #include "update_mesh.hpp"
 
+#include <filesystem>
 namespace fs = std::filesystem;
 
 /**

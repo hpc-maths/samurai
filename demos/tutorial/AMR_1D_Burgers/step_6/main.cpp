@@ -18,6 +18,7 @@
 
 #include "update_sol.hpp" // with flux correction
 
+#include <filesystem>
 namespace fs = std::filesystem;
 
 /**

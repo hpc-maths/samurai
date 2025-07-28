@@ -12,6 +12,7 @@
 #include <samurai/samurai.hpp>
 #include <samurai/subset/node.hpp>
 
+#include <filesystem>
 namespace fs = std::filesystem;
 
 /// Timer used in tic & toc

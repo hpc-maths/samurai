@@ -12,6 +12,7 @@
 #include <samurai/stencil_field.hpp>
 #include <samurai/subset/node.hpp>
 
+#include <filesystem>
 namespace fs = std::filesystem;
 
 template <class Field>

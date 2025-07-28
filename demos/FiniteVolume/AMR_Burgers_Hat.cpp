@@ -17,6 +17,7 @@
 
 #include "../LBM/boundary_conditions.hpp"
 
+#include <filesystem>
 namespace fs = std::filesystem;
 
 template <class Field>

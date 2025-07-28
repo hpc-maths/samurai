@@ -9,6 +9,7 @@
 #include "../step_1/init_sol.hpp"
 #include "update_sol.hpp"
 
+#include <filesystem>
 namespace fs = std::filesystem;
 
 /**

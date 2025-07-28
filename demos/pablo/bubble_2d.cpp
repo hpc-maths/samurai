@@ -14,6 +14,7 @@
 #include <samurai/samurai.hpp>
 #include <samurai/subset/node.hpp>
 
+#include <filesystem>
 namespace fs = std::filesystem;
 
 template <class Mesh, class Container>

@@ -15,6 +15,7 @@
 #include "make_graduation.hpp"
 #include "update_ghost.hpp"
 
+#include <filesystem>
 namespace fs = std::filesystem;
 
 /**

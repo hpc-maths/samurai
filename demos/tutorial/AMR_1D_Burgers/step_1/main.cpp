@@ -8,6 +8,7 @@
 
 #include "init_sol.hpp"
 
+#include <filesystem>
 namespace fs = std::filesystem;
 
 /**
