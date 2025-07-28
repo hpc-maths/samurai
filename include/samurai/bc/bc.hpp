@@ -565,9 +565,8 @@ namespace samurai
       public:
 
         static constexpr std::size_t dim = Field::dim;
-        // static constexpr std::size_t n_comp = Field::n_comp;
-        using mesh_t     = typename Field::mesh_t;
-        using interval_t = typename Field::interval_t;
+        using mesh_t                     = typename Field::mesh_t;
+        using interval_t                 = typename Field::interval_t;
 
         using bcvalue_t    = BcValue<Field>;
         using bcvalue_impl = std::unique_ptr<bcvalue_t>;
