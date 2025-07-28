@@ -1,15 +1,11 @@
 // Copyright 2021 SAMURAI TEAM. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
-#include <CLI/CLI.hpp>
 
 #include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
-#include <samurai/samurai.hpp>
 #include <samurai/schemes/fv.hpp>
-
-#include <algorithm>
 
 #include <filesystem>
 namespace fs = std::filesystem;

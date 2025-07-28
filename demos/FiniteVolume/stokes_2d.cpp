@@ -1,11 +1,9 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-#include <iostream>
 #include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
-#include <samurai/samurai.hpp>
 #include <samurai/schemes/fv.hpp>
 
 static constexpr double pi = M_PI;

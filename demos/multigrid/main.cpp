@@ -1,13 +1,10 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-#include <iostream>
 #include <samurai/amr/mesh.hpp>
-#include <samurai/box.hpp>
 #include <samurai/field.hpp>
 #include <samurai/io/hdf5.hpp>
 #include <samurai/mr/mesh.hpp>
-#include <samurai/samurai.hpp>
 #include <samurai/schemes/fv.hpp>
 
 #include "Timer.hpp"
