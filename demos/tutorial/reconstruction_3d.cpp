@@ -2,7 +2,6 @@
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #include <chrono>
-#include <filesystem>
 
 #include <samurai/algorithm.hpp>
 #include <samurai/bc.hpp>

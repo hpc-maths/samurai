@@ -7,7 +7,6 @@
 #include <samurai/mr/mesh.hpp>
 #include <samurai/schemes/fv.hpp>
 
-#include <filesystem>
 namespace fs = std::filesystem;
 
 template <class Field>

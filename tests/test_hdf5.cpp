@@ -3,7 +3,6 @@
 #include <gtest/gtest.h>
 
 #include <samurai/arguments.hpp>
-#include <samurai/box.hpp>
 #include <samurai/cell_array.hpp>
 #include <samurai/io/hdf5.hpp>
 #include <samurai/mr/mesh.hpp>

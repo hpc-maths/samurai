@@ -3,13 +3,10 @@
 
 #include <iostream>
 
-#include <filesystem>
-
 #include <xtensor/xadapt.hpp>
 #include <xtensor/xrandom.hpp>
 #include <xtensor/xtensor.hpp>
 
-#include <samurai/box.hpp>
 #include <samurai/cell_array.hpp>
 #include <samurai/cell_flag.hpp>
 #include <samurai/field.hpp>

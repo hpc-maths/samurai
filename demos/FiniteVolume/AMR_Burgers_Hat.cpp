@@ -8,7 +8,6 @@
 #include <samurai/algorithm/update.hpp>
 #include <samurai/amr/mesh.hpp>
 #include <samurai/bc.hpp>
-#include <samurai/box.hpp>
 #include <samurai/field.hpp>
 #include <samurai/io/hdf5.hpp>
 #include <samurai/io/restart.hpp>
@@ -18,7 +17,6 @@
 
 #include "../LBM/boundary_conditions.hpp"
 
-#include <filesystem>
 namespace fs = std::filesystem;
 
 template <class Field>

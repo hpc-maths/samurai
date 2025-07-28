@@ -2,12 +2,10 @@
 #include <fmt/format.h>
 #include <fmt/ostream.h>
 #include <xtensor/xfixed.hpp>
-#include <xtensor/xmasked_view.hpp>
 
 #include <samurai/algorithm/graduation.hpp>
 #include <samurai/algorithm/update.hpp>
 #include <samurai/amr/mesh.hpp>
-#include <samurai/box.hpp>
 #include <samurai/field.hpp>
 #include <samurai/field_expression.hpp>
 #include <samurai/io/hdf5.hpp>

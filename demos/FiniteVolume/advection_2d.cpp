@@ -1,10 +1,6 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-#include <array>
-
-#include <xtensor/xfixed.hpp>
-
 #include <samurai/algorithm.hpp>
 #include <samurai/bc.hpp>
 #include <samurai/field.hpp>
@@ -16,7 +12,6 @@
 #include <samurai/stencil_field.hpp>
 #include <samurai/subset/node.hpp>
 
-#include <filesystem>
 namespace fs = std::filesystem;
 
 template <class Field>

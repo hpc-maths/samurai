@@ -1,6 +1,5 @@
 #include <gtest/gtest.h>
 #include <samurai/algorithm.hpp>
-#include <samurai/box.hpp>
 #include <samurai/field.hpp>
 #include <samurai/reconstruction.hpp>
 #include <samurai/uniform_mesh.hpp>
