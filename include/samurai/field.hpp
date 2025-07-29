@@ -21,6 +21,7 @@ namespace fs = std::filesystem;
 #include "bc/bc.hpp"
 #include "cell.hpp"
 #include "cell_array.hpp"
+#include "concepts.hpp"
 #include "field_expression.hpp"
 #include "mesh_holder.hpp"
 #include "numeric/gauss_legendre.hpp"
