@@ -525,7 +525,7 @@ int main(int argc, char* argv[])
             stokes_solver.solve(rhs, zero);
 
             // Prepare next step
-            samurai::swap(velocity, velocity_unp1);
+            samurai::swap(velocity, velocity_np1);
             t_n         = t_np1;
             min_level_n = min_level_np1;
             max_level_n = max_level_np1;
