@@ -8,7 +8,7 @@
 #include <xtensor/xfixed.hpp>
 
 #include "../algorithm.hpp"
-#include "../bc.hpp"
+#include "../bc/apply_bc.hpp"
 #include "../concepts.hpp"
 #include "../field.hpp"
 #include "../numeric/prediction.hpp"

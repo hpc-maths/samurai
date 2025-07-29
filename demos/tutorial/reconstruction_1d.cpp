@@ -5,6 +5,7 @@
 #include <filesystem>
 
 #include <samurai/algorithm.hpp>
+#include <samurai/bc.hpp>
 #include <samurai/field.hpp>
 #include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>

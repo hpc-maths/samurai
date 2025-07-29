@@ -18,7 +18,7 @@ namespace fs = std::filesystem;
 #include <xtensor/xview.hpp>
 
 #include "algorithm.hpp"
-#include "bc.hpp"
+#include "bc/bc.hpp"
 #include "cell.hpp"
 #include "cell_array.hpp"
 #include "field_expression.hpp"
