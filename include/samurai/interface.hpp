@@ -123,7 +123,6 @@ namespace samurai
                                                            const StencilAnalyzer<comput_stencil_size, Mesh::dim>& comput_stencil,
                                                            Func&& f)
     {
-        // static constexpr std::size_t dim = Mesh::dim;
         using mesh_id_t       = typename Mesh::mesh_id_t;
         using mesh_interval_t = typename Mesh::mesh_interval_t;
 
