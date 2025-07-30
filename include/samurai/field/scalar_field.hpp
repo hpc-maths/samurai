@@ -190,9 +190,8 @@ namespace samurai
         // Assignment from field expression
         template <class E>
         ScalarField& operator=(const field_expression<E>& e)
-            : base_type::operator=(e)
         {
-            return *this;
+            return base_type::operator=(e);
         }
 
         // Copy boundary conditions from another ScalarField
