@@ -190,8 +190,9 @@ namespace samurai
         // Assignment from field expression
         template <class E>
         VectorField& operator=(const field_expression<E>& e)
+            : base_type::operator=(e)
         {
-            return static_cast<VectorField&>(base_type::operator=(e));
+            return *this;
         }
 
         // Copy boundary conditions from another VectorField
