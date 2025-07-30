@@ -9,19 +9,12 @@
 
 namespace samurai
 {
-    enum DirichletEnforcement : int
-    {
-        Equation,
-        Elimination
-    };
-
-    template <std::size_t neighbourhood_width_ = 1, DirichletEnforcement dirichlet_enfcmt_ = Equation>
+    template <std::size_t neighbourhood_width_ = 1>
     struct BoundaryConfigFV
     {
-        static constexpr std::size_t neighbourhood_width       = neighbourhood_width_;
-        static constexpr std::size_t stencil_size              = 1 + 2 * neighbourhood_width;
-        static constexpr std::size_t nb_ghosts                 = neighbourhood_width;
-        static constexpr DirichletEnforcement dirichlet_enfcmt = dirichlet_enfcmt_;
+        static constexpr std::size_t neighbourhood_width = neighbourhood_width_;
+        static constexpr std::size_t stencil_size        = 1 + 2 * neighbourhood_width;
+        static constexpr std::size_t nb_ghosts           = neighbourhood_width;
     };
 
     /**

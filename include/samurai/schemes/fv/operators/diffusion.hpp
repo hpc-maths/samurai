@@ -9,12 +9,7 @@ namespace samurai
      * @class DiffusionFV:
      * implements the operator -Laplacian.
      */
-    template <
-        // template parameters
-        class cfg,
-        DirichletEnforcement dirichlet_enfcmt = Equation,
-        // boundary config
-        class bdry_cfg = BoundaryConfigFV<cfg::stencil_size / 2, dirichlet_enfcmt>>
+    template <class cfg, class bdry_cfg = BoundaryConfigFV<cfg::stencil_size / 2>>
     class DiffusionFV : public FluxBasedScheme<cfg, bdry_cfg>
     {
         using base_class = FluxBasedScheme<cfg, bdry_cfg>;
@@ -119,13 +114,13 @@ namespace samurai
      * Linear homogeneous diffusion
      */
 
-    template <class cfg, DirichletEnforcement dirichlet_enfcmt = Equation>
+    template <class cfg>
     auto make_diffusion__(const FluxDefinition<cfg>& flux_definition)
     {
-        return DiffusionFV<cfg, dirichlet_enfcmt>(flux_definition);
+        return DiffusionFV<cfg>(flux_definition);
     }
 
-    template <class Field, DirichletEnforcement dirichlet_enfcmt = Equation>
+    template <class Field>
     auto make_diffusion_order2(const DiffCoeff<Field::dim>& K)
     {
         using size_type                   = typename Field::size_type;
@@ -174,7 +169,7 @@ namespace samurai
                     return coeffs;
                 };
             });
-        auto scheme = make_diffusion__<cfg, dirichlet_enfcmt>(K_grad);
+        auto scheme = make_diffusion__<cfg>(K_grad);
         scheme.set_name("diffusion");
         return scheme;
     }
@@ -182,7 +177,7 @@ namespace samurai
     /**
      * Diffusion operator with a different coefficient for each field component
      */
-    template <class Field, DirichletEnforcement dirichlet_enfcmt = Equation>
+    template <class Field>
     auto make_multi_diffusion_order2(const DiffCoeff<Field::n_comp>& K)
     {
         static constexpr std::size_t dim    = Field::dim;
@@ -241,23 +236,23 @@ namespace samurai
                     return coeffs;
                 };
             });
-        auto scheme = make_diffusion__<cfg, dirichlet_enfcmt>(K_grad);
+        auto scheme = make_diffusion__<cfg>(K_grad);
         scheme.set_name("diffusion");
         return scheme;
     }
 
-    template <class Field, DirichletEnforcement dirichlet_enfcmt = Equation>
+    template <class Field>
     auto make_diffusion_order2(double k)
     {
         DiffCoeff<Field::dim> K;
         K.fill(k);
-        return make_diffusion_order2<Field, dirichlet_enfcmt>(K);
+        return make_diffusion_order2<Field>(K);
     }
 
-    template <class Field, DirichletEnforcement dirichlet_enfcmt = Equation>
+    template <class Field>
     auto make_diffusion_order2()
     {
-        return make_diffusion_order2<Field, dirichlet_enfcmt>(1.);
+        return make_diffusion_order2<Field>(1.);
     }
 
     template <class Field>
