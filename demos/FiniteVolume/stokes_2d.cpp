@@ -525,7 +525,7 @@ int main(int argc, char* argv[])
             stokes_solver.solve(rhs, zero);
 
             // Prepare next step
-            std::swap(velocity.array(), velocity_np1.array());
+            samurai::swap(velocity, velocity_np1);
             t_n         = t_np1;
             min_level_n = min_level_np1;
             max_level_n = max_level_np1;
@@ -551,7 +551,6 @@ int main(int argc, char* argv[])
             if (min_level != max_level)
             {
                 // Reconstruction on the finest level
-                samurai::update_ghost_mr(velocity);
                 auto velocity_recons = samurai::reconstruction(velocity);
                 // Error
                 double error_recons = samurai::L2_error(velocity_recons,

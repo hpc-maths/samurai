@@ -180,7 +180,6 @@ int main(int argc, char* argv[])
 
         // Mesh adaptation
         MRadaptation(mra_config);
-        samurai::update_ghost_mr(u);
         unp1.resize();
         K.resize();
         set_K_values();
@@ -196,7 +195,7 @@ int main(int argc, char* argv[])
         }
 
         // u <-- unp1
-        std::swap(u.array(), unp1.array());
+        samurai::swap(u, unp1);
 
         // Save the result
         if (!save_final_state_only)

@@ -151,7 +151,6 @@ int main(int argc, char* argv[])
 
         MRadaptation(mra_config, velocity);
         // samurai::save(path, fmt::format("{}_mesh", filename), {true, true}, mesh, u);
-        samurai::update_ghost_mr(u);
         samurai::for_each_cell(mesh,
                                [&](const auto& cell)
                                {
@@ -165,14 +164,12 @@ int main(int argc, char* argv[])
         // unp1 = u - dt * conv(u);
 
         // TVD-RK3 (SSPRK3)
-        u1 = u - dt * conv(u);
-        samurai::update_ghost_mr(u1);
-        u2 = 3. / 4 * u + 1. / 4 * (u1 - dt * conv(u1));
-        samurai::update_ghost_mr(u2);
+        u1   = u - dt * conv(u);
+        u2   = 3. / 4 * u + 1. / 4 * (u1 - dt * conv(u1));
         unp1 = 1. / 3 * u + 2. / 3 * (u2 - dt * conv(u2));
 
         // u <-- unp1
-        std::swap(u.array(), unp1.array());
+        samurai::swap(u, unp1);
 
         // Save the result
         if (nfiles == 0 || t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)

@@ -21,6 +21,7 @@ namespace fs = std::filesystem;
 #include "bc/bc.hpp"
 #include "cell.hpp"
 #include "cell_array.hpp"
+#include "concepts.hpp"
 #include "field_expression.hpp"
 #include "mesh_holder.hpp"
 #include "numeric/gauss_legendre.hpp"
@@ -190,6 +191,7 @@ namespace samurai
             void resize()
             {
                 m_storage.resize(static_cast<size_type>(this->derived_cast().mesh().nb_cells()));
+                this->derived_cast().m_ghosts_updated = false;
 #ifdef SAMURAI_CHECK_NAN
                 if constexpr (std::is_floating_point_v<value_t>)
                 {
@@ -314,6 +316,7 @@ namespace samurai
             void resize()
             {
                 m_storage.resize(static_cast<size_type>(this->derived_cast().mesh().nb_cells()));
+                this->derived_cast().m_ghosts_updated = false;
 #ifdef SAMURAI_CHECK_NAN
                 m_storage.data().fill(std::nan(""));
 #endif
@@ -391,6 +394,9 @@ namespace samurai
 
         void to_stream(std::ostream& os) const;
 
+        bool& ghosts_updated();
+        bool ghosts_updated() const;
+
         template <class Bc_derived>
         auto attach_bc(const Bc_derived& bc);
         auto& get_bc();
@@ -424,6 +430,7 @@ namespace samurai
         std::string m_name;
 
         bc_container p_bc;
+        bool m_ghosts_updated = false;
 
         friend struct detail::inner_field_types<VectorField<mesh_t, value_t, n_comp_, SOA>>;
     };
@@ -476,6 +483,7 @@ namespace samurai
                            return v->clone();
                        });
         std::swap(p_bc, tmp);
+        m_ghosts_updated = field.m_ghosts_updated;
         times::timers.stop("field expressions");
         return *this;
     }
@@ -490,6 +498,7 @@ namespace samurai
                           {
                               noalias((*this)(level, i, index)) = e.derived_cast()(level, i, index);
                           });
+        m_ghosts_updated = false;
         times::timers.stop("field expressions");
         return *this;
     }
@@ -570,6 +579,18 @@ namespace samurai
     inline std::string& VectorField<mesh_t, value_t, n_comp_, SOA>::name()
     {
         return m_name;
+    }
+
+    template <class mesh_t, class value_t, std::size_t n_comp_, bool SOA>
+    inline bool& VectorField<mesh_t, value_t, n_comp_, SOA>::ghosts_updated()
+    {
+        return m_ghosts_updated;
+    }
+
+    template <class mesh_t, class value_t, std::size_t n_comp_, bool SOA>
+    inline bool VectorField<mesh_t, value_t, n_comp_, SOA>::ghosts_updated() const
+    {
+        return m_ghosts_updated;
     }
 
     // --- iterators ----------------------------------------------------------
@@ -656,6 +677,7 @@ namespace samurai
     inline void VectorField<mesh_t, value_t, n_comp_, SOA>::fill(value_type v)
     {
         this->m_storage.data().fill(v);
+        m_ghosts_updated = false;
     }
 
     template <class mesh_t, class value_t, std::size_t n_comp_, bool SOA>
@@ -1002,6 +1024,9 @@ namespace samurai
 
         void to_stream(std::ostream& os) const;
 
+        bool& ghosts_updated();
+        bool ghosts_updated() const;
+
         template <class Bc_derived>
         auto attach_bc(const Bc_derived& bc);
         auto& get_bc();
@@ -1035,6 +1060,8 @@ namespace samurai
         std::string m_name;
 
         bc_container p_bc;
+
+        bool m_ghosts_updated = false;
 
         friend struct detail::inner_field_types<ScalarField<mesh_t, value_t>>;
     };
@@ -1087,6 +1114,7 @@ namespace samurai
                            return v->clone();
                        });
         std::swap(p_bc, tmp);
+        m_ghosts_updated = field.m_ghosts_updated;
         times::timers.stop("field expressions");
         return *this;
     }
@@ -1101,6 +1129,7 @@ namespace samurai
                           {
                               noalias((*this)(level, i, index)) = e.derived_cast()(level, i, index);
                           });
+        m_ghosts_updated = false;
         times::timers.stop("field expressions");
         return *this;
     }
@@ -1180,6 +1209,18 @@ namespace samurai
     inline std::string& ScalarField<mesh_t, value_t>::name()
     {
         return m_name;
+    }
+
+    template <class mesh_t, class value_t>
+    inline bool& ScalarField<mesh_t, value_t>::ghosts_updated()
+    {
+        return m_ghosts_updated;
+    }
+
+    template <class mesh_t, class value_t>
+    inline bool ScalarField<mesh_t, value_t>::ghosts_updated() const
+    {
+        return m_ghosts_updated;
     }
 
     // --- iterators ----------------------------------------------------------
@@ -1695,4 +1736,15 @@ namespace samurai
 
         tuple_type m_fields;
     };
+
+    template <class Field1, class Field2>
+        requires(IsField<Field1> && IsField<Field2>)
+    inline void swap(Field1& u1, Field2& u2)
+    {
+        std::swap(u1.array(), u2.array());
+
+        bool u1_ghosts_updated = u1.ghosts_updated();
+        u1.ghosts_updated()    = u2.ghosts_updated();
+        u2.ghosts_updated()    = u1_ghosts_updated;
+    }
 } // namespace samurai

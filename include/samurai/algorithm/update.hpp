@@ -505,6 +505,22 @@ namespace samurai
         update_outer_ghosts(level, fields...);
     }
 
+    template <class Field>
+    void update_ghost_mr_if_needed(Field& field)
+    {
+        if (!field.ghosts_updated())
+        {
+            update_ghost_mr(field);
+        }
+    }
+
+    template <class Field, class... Fields>
+    void update_ghost_mr_if_needed(Field& field, Fields&... other_fields)
+    {
+        update_ghost_mr_if_needed(field);
+        update_ghost_mr_if_needed(other_fields...);
+    }
+
     template <class Field, class... Fields>
     void update_ghost_mr(Field& field, Fields&... other_fields)
     {
@@ -550,6 +566,9 @@ namespace samurai
             update_ghost_subdomains(level, field, other_fields...);
         }
         // save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
+
+        field.ghosts_updated() = true;
+        ((other_fields.ghosts_updated() = true), ...);
 
         times::timers.stop("ghost update");
     }
@@ -1345,7 +1364,7 @@ namespace samurai
                 set_refine.apply_op(std::forward<PredictionOp>(prediction_op)(new_field, field));
             }
 
-            std::swap(field.array(), new_field.array());
+            swap(field, new_field);
         }
     }
 

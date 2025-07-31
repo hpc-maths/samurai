@@ -166,18 +166,16 @@ void run_simulation(Field& u,
 
         // Mesh adaptation
         MRadaptation(mra_config);
-        samurai::update_ghost_mr(u);
         unp1.resize();
 
         unp1     = u - dt * scheme(u);
         unp1_max = u_max - dt * scheme(u_max);
 
         // u <-- unp1
-        std::swap(u.array(), unp1.array());
-        std::swap(u_max.array(), unp1_max.array());
+        samurai::swap(u, unp1);
+        samurai::swap(u_max, unp1_max);
 
         // Reconstruction
-        samurai::update_ghost_mr(u);
         auto u_recons = samurai::reconstruction(u);
 
         // Error
