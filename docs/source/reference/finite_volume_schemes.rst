@@ -10,7 +10,6 @@ To enable it, use
 .. code-block:: c++
 
     #include <samurai/schemes/fv.hpp>
-    #include <samurai/petsc.hpp> // optional, necessary for implicit schemes
 
 In the Finite Volume method (FVM), the computed values correspond to average values, in control volumes, of the physical variables involved.
 The mathematical system of equations is therefore integrated locally over each control volume :math:`V`.
@@ -88,7 +87,7 @@ First of all, the structural information about the scheme must be declared.
 It contains:
 
 - the :code:`input_field_type`: the C++ type of the field :math:`u`.
-- the :code:`output_n_comp`: the number of components of field of the resulting field :math:`v`.
+- the :code:`output_field_type`: the C++ type of the resulting field :math:`v`.
   For instance, the size of :math:`\nabla u`, if :math:`u` is a scalar field, is the space dimension.
 - the :code:`stencil_size`: the size of the stencil required to compute the flux.
   A typical low-order scheme requires a stencil of two cells.
@@ -109,12 +108,12 @@ Here is an example for the vectorial Laplace operator:
 .. code-block:: c++
 
     // Creation of a field 'u' with 2 components
-    auto u = samurai::make_field<2>("u", mesh);
+    auto u = samurai::make_vector_field<2>("u", mesh);
 
     // Configuration for the Laplace operator
     using cfg = samurai::FluxConfig<SchemeType::LinearHomogeneous, // scheme_type
-                                    decltype(u)::n_comp,    // output_n_comp (here identical to the input field size)
                                     2,                             // stencil_size (for the Laplacian of order 2)
+                                    decltype(u),                   // output_field_type (here identical to the input field)
                                     decltype(u)>;                  // input_field_type
 
 .. _stencil-configuration:
@@ -196,9 +195,9 @@ These helper functions allow you to write :math:`n`-dimensional code through a s
 .. code-block:: c++
 
     samurai::static_for<0, dim>::apply( // for each Cartesian direction 'd'
-        [&](auto integral_constant_d)
+        [&](auto _d)
         {
-            static constexpr std::size_t d = decltype(integral_constant_d)::value;
+            static constexpr std::size_t d = _d();
 
             my_flux[d].stencil = samurai::line_stencil<dim, d>(-1, 0, 1, 2);
         }
@@ -233,9 +232,9 @@ If the flux functions only differ by the direction index, you can write an :math
 
     samurai::FluxDefinition<cfg> my_flux;
     samurai::static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
-            [&](auto integral_constant_d)
+            [&](auto _d)
             {
-                static constexpr std::size_t d = decltype(integral_constant_d)::value; // get the static direction index
+                static constexpr std::size_t d = _d(); // get the static direction index
 
                 my_flux[d].cons_flux_function = my_flux_function_d;
             });
@@ -266,10 +265,24 @@ or in an implicit context
 
 .. code-block:: c++
 
-    auto rhs = samurai::make_field<...>("rhs", mesh); // right-hand side
+    auto rhs = samurai::make_scalar_field<...>("rhs", mesh); // right-hand side
     samurai::petsc::solve(D, u, rhs); // solves the equation D(u) = rhs
 
 Note that the :code:`solve` function involves a linear or a non-linear solver according to the :code:`SchemeType` declared in :code:`cfg`.
+
+.. note::
+
+    The provided cells and associated field values correspond to the *computational* stencil. This is not the couple of real cells around the considered face.
+    Where a level jump occurs, at least one of the computational cells is a ghost cell.
+    Consequently, values must be set in the ghost cells for the considered field,
+    typically with the instruction
+
+    .. code-block:: c++
+
+        samurai::update_ghost_mr(u);
+
+    This is done automatically when `D(u)` is called, so you do not need to call it explicitly before the operator execution.
+    However, if the flux function captures a parameter field, its ghosts must be updated manually before the operator execution.
 
 The definition of actual flux functions according the selected :code:`SchemeType` is described in the next sections.
 
@@ -310,13 +323,13 @@ The :code:`FluxStencilCoeffs<cfg>` object is an array-like structure of fixed-si
 Its size is the :code:`stencil_size` declared in :code:`cfg`.
 Each :code:`c[i]` is a matrix of size :code:`output_n_comp x input_n_comp`,
 where :code:`output_n_comp` is set in :code:`cfg`,
-and :code:`input_n_comp` corresponds to the size of the field type set in :code:`cfg` as :code:`input_field_type`.
+and :code:`input_n_comp` (resp. :code:`output_n_comp`) corresponds to the size of the field type set in :code:`cfg` as :code:`input_field_type` (resp. :code:`output_field_type`).
 The matrix type is in fact an :code:`xtensor` object.
 You can then, among other things, access the :math:`k`-th row of :code:`c[0]` via :code:`xt::row(c[0], k)`,
 its :math:`l`-th column via :code:`xt::col(c[0], l)`, or its coefficient at indices :math:`(k, l)` via :code:`c[0](k, l)`.
 
 .. note::
-    When both :code:`output_n_comp` and :code:`input_n_comp` equal 1,
+    When both :code:`output_field_type` and :code:`input_field_types` are scalar fields,
     the matrix type employed to store the coefficients reduces to a scalar type (typically :code:`double`).
     In particular, no accessor or :code:`xtensor` function is available.
     To write an :math:`n`-dimensional program, a separate code for the special case where the matrix reduces to a scalar is usually necessary.
@@ -349,11 +362,11 @@ This is enough to write the static configuration:
 
 .. code-block:: c++
 
-    auto u = samurai::make_field<1>("u", mesh); // scalar field
+    auto u = samurai::make_scalar_field<double>("u", mesh);
 
     using cfg = samurai::FluxConfig<SchemeType::LinearHomogeneous,
-                                    1,            // output_n_comp
                                     2,            // stencil_size
+                                    decltype(u),  // output_field_type
                                     decltype(u)>; // input_field_type
 
 Now, denoting by :math:`V_L` (left) and :math:`V_R` (right) the stencil cells and :math:`F` their interface, the discrete flux from :math:`V_L` to :math:`V_R` writes
@@ -429,11 +442,11 @@ The implementation of the vector laplacian operator then writes
 .. code-block:: c++
 
     static constexpr std::size_t n_comp = 3;
-    auto u = samurai::make_field<n_comp>("u", mesh); // vector field
+    auto u = samurai::make_vector_field<n_comp>("u", mesh); // vector field
 
     using cfg = samurai::FluxConfig<SchemeType::LinearHomogeneous,
-                                    n_comp, // output_n_comp
                                     2,                // stencil_size
+                                    decltype(u),      // output_field_type
                                     decltype(u)>;     // input_field_type
 
     samurai::FluxDefinition<cfg> gradient([](double h)
@@ -454,18 +467,15 @@ The implementation of the vector laplacian operator then writes
 
     auto laplacian = samurai::make_divergence(gradient);
 
-Compared to the scalar laplacian code:
+Compared to the scalar laplacian code, in the flux function, the coefficients for each cell of the stencil are now matrices.
+Specifically, they are diagonal matrices with the same coefficients as in the scalar laplacian.
 
-- in the configuration, the :code:`output_n_comp` now equals the :code:`n_comp`,
-- in the flux function, the coefficients for each cell of the stencil are now matrices.
-  Specifically, they are diagonal matrices with the same coefficients as in the scalar laplacian.
-
-When :code:`n_comp = 1`, the matrix type actually reduces to a scalar type, thus forbidding instructions such as :code:`c[L](i, i)`.
+When :code:`u` is a scalar field, the matrix type actually reduces to a scalar type, thus forbidding instructions such as :code:`c[L](i, i)`.
 In order to manage all cases with one code, you must write
 
 .. code-block:: c++
 
-    if constexpr (n_comp == 1)
+    if constexpr (decltype(u)::is_scalar)
     {
         c[L] = -1/h;
         c[R] =  1/h;
@@ -513,18 +523,21 @@ in all directions, i.e., in 2D
 where :math:`B` and :math:`T` refer to bottom and top cells.
 
 
-In the configuration, :code:`output_n_comp` is set to the space dimension:
+In the configuration, the number of components of the output field is set to the space dimension:
 
 .. code-block:: c++
 
     static constexpr std::size_t dim = decltype(mesh)::dim;
 
-    auto u = samurai::make_field<1>("u", mesh); // scalar field
+    auto u = samurai::make_scalar_field<double>("u", mesh);
+
+    using input_field_t                       = decltype(u);
+    using output_field_t = VectorField<typename input_field_t::mesh_t, typename input_field_t::value_type, dim, detail::is_soa_v<input_field_t>>;
 
     using cfg = samurai::FluxConfig<SchemeType::LinearHomogeneous,
-                                    dim,          // output_n_comp
-                                    2,            // stencil_size
-                                    decltype(u)>; // input_field_type
+                                    2,              // stencil_size
+                                    output_field_t, // output_n_comp
+                                    input_field_t>; // input_field_type
 
 This time, the flux functions are different in each direction.
 In 2D, they write:
@@ -574,9 +587,9 @@ This code can be compacted into the :math:`n`-dimensional code
 
     samurai::FluxDefinition<cfg> flux;
     samurai::static_for<0, dim>::apply(
-        [&](auto integral_constant_d)
+        [&](auto _d)
         {
-            static constexpr std::size_t d = decltype(integral_constant_d)::value; // direction index
+            static constexpr std::size_t d = _d(); // direction index
 
             flux[d].cons_flux_function = [](double h)
             {
@@ -592,25 +605,6 @@ This code can be compacted into the :math:`n`-dimensional code
                 return c;
             };
         });
-
-When :code:`dim = 1`, the matrix type in :code:`FluxStencilCoeffs<cfg>` actually reduces to a scalar type.
-In order to manage all cases with one code, the content of the flux function evolves into
-
-.. code-block:: c++
-
-    if constexpr (dim == 1)
-    {
-        c[L] = 0.5;
-        c[R] = 0.5;
-    }
-    else
-    {
-        c[L].fill(0);
-        xt::row(c[L], d) = 0.5;
-
-        c[R].fill(0);
-        xt::row(c[R], d) = 0.5;
-    }
 
 Finally, we create the operator:
 
@@ -663,19 +657,21 @@ The following code corresponds directly to the :math:`n`-dimensional version:
 
     static constexpr std::size_t dim = decltype(mesh)::dim;
 
-    auto u = samurai::make_field<dim>("u", mesh); // vector field
+    auto u = samurai::make_vector_field<double, dim>("u", mesh);
 
+    using input_field_t  = decltype(u);
+    using output_field_t = ScalarField<typename input_field_t::mesh_t, typename input_field_t::value_type>;
     using cfg = samurai::FluxConfig<SchemeType::LinearHomogeneous,
-                                    1,            // output_n_comp
                                     2,            // stencil_size
-                                    decltype(u)>; // input_field_type
+                                    output_field_t,
+                                    input_field_t>;
 
     samurai::FluxDefinition<cfg> flux;
 
     samurai::static_for<0, dim>::apply(
-        [&](auto integral_constant_d)
+        [&](auto _d)
         {
-            static constexpr std::size_t d = decltype(integral_constant_d)::value;
+            static constexpr std::size_t d = _d();
 
             flux[d].cons_flux_function = [](double)
             {
@@ -683,7 +679,7 @@ The following code corresponds directly to the :math:`n`-dimensional version:
                 static constexpr std::size_t R = 1;
 
                 samurai::FluxStencilCoeffs<cfg> c;
-                if constexpr (dim == 1)
+                if constexpr (input_field_t::is_scalar)
                 {
                     c[L] = 0.5;
                     c[R] = 0.5;
@@ -716,7 +712,7 @@ The flux function resembles that of the :ref:`homogeneous linear operators <lin_
 
 .. code-block:: c++
 
-    auto param = samurai::make_field<...>("param", mesh)
+    auto param = samurai::make_scalar_field<double>("param", mesh);
 
     auto my_flux_function = [&](const auto& cells)
     {
@@ -793,7 +789,7 @@ We store it in a field of size the space dimension, and set its value for each c
 
     static constexpr std::size_t dim = 2;
 
-    auto a = samurai::make_field<dim>("velocity", mesh);
+    auto a = samurai::make_vector_field<dim>("velocity", mesh);
 
     samurai::for_each_cell(mesh[decltype(mesh)::mesh_id_t::reference],
             [](auto& cell)
@@ -813,19 +809,19 @@ The construction of the operator now reads
 
 .. code-block:: c++
 
-    auto u = samurai::make_field<1>("u", mesh); // scalar field
+    auto u = samurai::make_scalar_field<double>("u", mesh); // scalar field
 
     using cfg = samurai::FluxConfig<SchemeType::LinearHeterogeneous,
-                                    1,            // output_n_comp
                                     2,            // stencil_size
+                                    decltype(u),  // output_field_type
                                     decltype(u)>; // input_field_type
 
     samurai::FluxDefinition<cfg> upwind;
 
     samurai::static_for<0, dim>::apply(
-        [&](auto integral_constant_d)
+        [&](auto _d)
         {
-            static constexpr std::size_t d = decltype(integral_constant_d)::value;
+            static constexpr std::size_t d = _d();
 
             upwind[d].cons_flux_function = [&](const auto& cells)
             {
@@ -861,28 +857,15 @@ The flux function is
 
 .. code-block:: c++
 
-    auto my_flux_function = [](const auto& cells, const auto& field)
+    auto my_flux_function = [](samurai::FluxValue<cfg>& flux, const samurai::StencilData<cfg>& data, const samurai::StencilValues<cfg>& field)
     {
-        samurai::FluxValue<cfg> flux_value;
-
-        // Compute your flux using the field and the stencil cells
-
-        return flux_value;
+        // Compute your flux using the stencil values of the field
+        flux_value = ...;
     };
 
 Here, :code:`FluxValue<cfg>` is an array-like structure of size :code:`cfg::output_n_comp`.
 If :code:`cfg::output_n_comp = 1`, it collapses to a simple scalar.
 
-.. warning::
-
-    The provided cells correspond to the *computational* stencil. This is not the couple of real cells around the considered face.
-    Where a level jump occurs, at least one of the computational cells is a ghost cell.
-    Consequently, make sure that values are set in the ghost cells for the considered field,
-    typically with the instruction
-
-    .. code-block:: c++
-
-        samurai::update_ghost_mr(u);
 
 Flux divergence
 +++++++++++++++
@@ -910,9 +893,9 @@ The associated code yields
     samurai::FluxDefinition<cfg> f_h;
 
     samurai::static_for<0, dim>::apply(
-        [&](auto integral_constant_d)
+        [&](auto _d)
         {
-            static constexpr std::size_t d = decltype(integral_constant_d)::value;
+            static constexpr std::size_t d = _d();
 
             auto f = [](auto v)
             {
@@ -1033,9 +1016,9 @@ where :math:`u_d` is the :math:`d`-th component of :math:`\mathbf{u}`, the code 
     samurai::FluxDefinition<cfg> upwind_f;
 
     samurai::static_for<0, dim>::apply(
-        [&](auto integral_constant_d)
+        [&](auto _d)
         {
-            static constexpr std::size_t d = decltype(integral_constant_d)::value;
+            static constexpr std::size_t d = _d();
 
             auto f_d = [](auto u) -> samurai::FluxValue<cfg>
             {
@@ -1143,7 +1126,7 @@ Here are some examples according to the type of coefficient:
 
     static constexpr std::size_t dim = 2;
 
-    auto K = samurai::make_field<samurai::DiffCoeff<dim>, 1>("K", mesh);
+    auto K = samurai::make_scalar_field<samurai::DiffCoeff<dim>>("K", mesh);
 
     samurai::for_each_cell(mesh[decltype(mesh)::mesh_id_t::reference],
             [&](auto& cell)
@@ -1178,7 +1161,7 @@ The mathematical operator implemented is :math:`\nabla \cdot (a \otimes u)`, whi
 
 .. code-block:: c++
 
-    auto a = samurai::make_field<dim>("velocity", mesh); // the size must correspond to the space dimension
+    auto a = samurai::make_vector_field<double, dim>("velocity", mesh); // the size must correspond to the space dimension
     auto conv = samurai::make_convection_SCHEME<FieldType>(a);
 
 - Non-linear convection :math:`\nabla \cdot (u \otimes u)`:
@@ -1214,8 +1197,8 @@ Example of the heat equation
 
 .. code-block:: c++
 
-    auto u    = samurai::make_field<1>("u", mesh);
-    auto unp1 = samurai::make_field<1>("unp1", mesh);
+    auto u    = samurai::make_scalar_field<double>("u", mesh);
+    auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);
 
     auto diff = samurai::make_diffusion_order2<decltype(u)>();
     auto id   = samurai::make_identity<decltype(u)>();
@@ -1231,8 +1214,8 @@ Example of the Stokes system:
 .. code-block:: c++
 
     // Unknowns
-    auto velocity = samurai::make_field<dim>("velocity", mesh);
-    auto pressure = samurai::make_field<1>("pressure", mesh);
+    auto velocity = samurai::make_vector_field<double, dim>("velocity", mesh);
+    auto pressure = samurai::make_scalar_field<double>("pressure", mesh);
 
     // Stokes operator
     auto diff = samurai::make_diffusion_order2<decltype(velocity)>();
@@ -1243,8 +1226,8 @@ Example of the Stokes system:
     auto stokes = samurai::make_block_operator<2, 2>(diff, grad,
                                                      -div, zero);
     // Right-hand side
-    auto f = samurai::make_field<dim>("f", mesh);
-    auto z = samurai::make_field<1>("z", mesh, 0.);
+    auto f = samurai::make_vector_field<double, dim>("f", mesh);
+    auto z = samurai::make_scalar_field<double>("z", mesh, 0.);
 
     // Linear solver
     auto stokes_solver = samurai::petsc::make_solver(stokes);
