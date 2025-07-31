@@ -394,15 +394,8 @@ namespace samurai
 
         void to_stream(std::ostream& os) const;
 
-        bool& ghosts_updated()
-        {
-            return m_ghosts_updated;
-        }
-
-        bool ghosts_updated() const
-        {
-            return m_ghosts_updated;
-        }
+        bool& ghosts_updated();
+        bool ghosts_updated() const;
 
         template <class Bc_derived>
         auto attach_bc(const Bc_derived& bc);
@@ -586,6 +579,18 @@ namespace samurai
     inline std::string& VectorField<mesh_t, value_t, n_comp_, SOA>::name()
     {
         return m_name;
+    }
+
+    template <class mesh_t, class value_t, std::size_t n_comp_, bool SOA>
+    inline bool& VectorField<mesh_t, value_t, n_comp_, SOA>::ghosts_updated()
+    {
+        return m_ghosts_updated;
+    }
+
+    template <class mesh_t, class value_t, std::size_t n_comp_, bool SOA>
+    inline bool VectorField<mesh_t, value_t, n_comp_, SOA>::ghosts_updated() const
+    {
+        return m_ghosts_updated;
     }
 
     // --- iterators ----------------------------------------------------------
@@ -1019,15 +1024,8 @@ namespace samurai
 
         void to_stream(std::ostream& os) const;
 
-        bool& ghosts_updated()
-        {
-            return m_ghosts_updated;
-        }
-
-        bool ghosts_updated() const
-        {
-            return m_ghosts_updated;
-        }
+        bool& ghosts_updated();
+        bool ghosts_updated() const;
 
         template <class Bc_derived>
         auto attach_bc(const Bc_derived& bc);
@@ -1211,6 +1209,18 @@ namespace samurai
     inline std::string& ScalarField<mesh_t, value_t>::name()
     {
         return m_name;
+    }
+
+    template <class mesh_t, class value_t>
+    inline bool& ScalarField<mesh_t, value_t>::ghosts_updated()
+    {
+        return m_ghosts_updated;
+    }
+
+    template <class mesh_t, class value_t>
+    inline bool ScalarField<mesh_t, value_t>::ghosts_updated() const
+    {
+        return m_ghosts_updated;
     }
 
     // --- iterators ----------------------------------------------------------
