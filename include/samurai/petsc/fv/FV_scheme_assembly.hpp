@@ -27,25 +27,24 @@ namespace samurai
 
           public:
 
-            using cfg_t                                            = typename Scheme::cfg_t;
-            using bdry_cfg_t                                       = typename Scheme::bdry_cfg;
-            using field_t                                          = typename Scheme::field_t;
-            using output_field_t                                   = typename cfg_t::output_field_t;
-            using mesh_t                                           = typename field_t::mesh_t;
-            using mesh_id_t                                        = typename mesh_t::mesh_id_t;
-            using interval_t                                       = typename mesh_t::interval_t;
-            using field_value_type                                 = typename field_t::value_type; // double
-            using coord_index_t                                    = typename interval_t::coord_index_t;
-            using index_t                                          = typename interval_t::index_t;
-            static constexpr std::size_t dim                       = field_t::dim;
-            static constexpr std::size_t input_n_comp              = field_t::n_comp;
-            static constexpr std::size_t output_n_comp             = output_field_t::n_comp;
-            static constexpr std::size_t prediction_order          = mesh_t::config::prediction_order;
-            static constexpr std::size_t bdry_neighbourhood_width  = bdry_cfg_t::neighbourhood_width;
-            static constexpr std::size_t bdry_stencil_size         = bdry_cfg_t::stencil_size;
-            static constexpr std::size_t nb_bdry_ghosts            = bdry_cfg_t::nb_ghosts;
-            static constexpr DirichletEnforcement dirichlet_enfcmt = bdry_cfg_t::dirichlet_enfcmt;
-            using cell_t                                           = Cell<dim, interval_t>;
+            using cfg_t                                           = typename Scheme::cfg_t;
+            using bdry_cfg_t                                      = typename Scheme::bdry_cfg;
+            using field_t                                         = typename Scheme::field_t;
+            using output_field_t                                  = typename cfg_t::output_field_t;
+            using mesh_t                                          = typename field_t::mesh_t;
+            using mesh_id_t                                       = typename mesh_t::mesh_id_t;
+            using interval_t                                      = typename mesh_t::interval_t;
+            using field_value_type                                = typename field_t::value_type; // double
+            using coord_index_t                                   = typename interval_t::coord_index_t;
+            using index_t                                         = typename interval_t::index_t;
+            static constexpr std::size_t dim                      = field_t::dim;
+            static constexpr std::size_t input_n_comp             = field_t::n_comp;
+            static constexpr std::size_t output_n_comp            = output_field_t::n_comp;
+            static constexpr std::size_t prediction_order         = mesh_t::config::prediction_order;
+            static constexpr std::size_t bdry_neighbourhood_width = bdry_cfg_t::neighbourhood_width;
+            static constexpr std::size_t bdry_stencil_size        = bdry_cfg_t::stencil_size;
+            static constexpr std::size_t nb_bdry_ghosts           = bdry_cfg_t::nb_ghosts;
+            using cell_t                                          = Cell<dim, interval_t>;
 
             using dirichlet_t = DirichletImpl<nb_bdry_ghosts, field_t>;
             using neumann_t   = NeumannImpl<nb_bdry_ghosts, field_t>;
@@ -265,6 +264,80 @@ namespace samurai
                 m_is_row_empty[static_cast<std::size_t>(row_number - m_row_shift)] = false;
             }
 
+          protected:
+
+            template <class Func>
+            void iterate_on_boundary(Func&& apply) const
+            {
+                for (std::size_t d = 0; d < dim; ++d)
+                {
+                    if (mesh().is_periodic(d))
+                    {
+                        std::cerr << "Matrix assembly failure: periodic boundary conditions are not implemented." << std::endl;
+                        assert(false);
+                        continue;
+                    }
+
+                    if (cfg_t::stencil_size > 1 && unknown().get_bc().empty())
+                    {
+                        std::cerr << "Failure to assemble the boundary conditions in the operator '" << this->name()
+                                  << "': no boundary condition attached to the field '" << unknown().name() << "'." << std::endl;
+                        assert(false);
+                        continue;
+                    }
+
+                    // Iterate over the boundary conditions set by the user
+                    for (auto& bc : unknown().get_bc())
+                    {
+                        auto bc_region                  = bc->get_region();
+                        auto& directions                = bc_region.first;
+                        auto& boundary_cells_directions = bc_region.second;
+                        // Iterate over the directions in that region
+                        for (std::size_t d_region = 0; d_region < directions.size(); ++d_region)
+                        {
+                            auto& towards_out = directions[d_region];
+
+                            int number_of_one = xt::sum(xt::abs(towards_out))[0];
+                            if (number_of_one == 1 && find_direction_index(towards_out) == d)
+                            {
+                                auto& boundary_cells   = boundary_cells_directions[d_region];
+                                dirichlet_t* dirichlet = dynamic_cast<dirichlet_t*>(bc.get());
+                                neumann_t* neumann     = dynamic_cast<neumann_t*>(bc.get());
+                                if (dirichlet)
+                                {
+                                    auto config = scheme().dirichlet_config(towards_out);
+                                    for_each_stencil_on_boundary(mesh(),
+                                                                 boundary_cells,
+                                                                 config.directional_stencil.stencil,
+                                                                 config.equations,
+                                                                 [&](auto& cells, auto& equations)
+                                                                 {
+                                                                     apply(cells, equations, towards_out, dirichlet);
+                                                                 });
+                                }
+                                else if (neumann)
+                                {
+                                    auto config = scheme().neumann_config(towards_out);
+                                    for_each_stencil_on_boundary(mesh(),
+                                                                 boundary_cells,
+                                                                 config.directional_stencil.stencil,
+                                                                 config.equations,
+                                                                 [&](auto& cells, auto& equations)
+                                                                 {
+                                                                     apply(cells, equations, towards_out, neumann);
+                                                                 });
+                                }
+                                else
+                                {
+                                    std::cerr << "Unknown boundary condition type. Only Dirichlet and Neumann are implemented at the moment."
+                                              << std::endl;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
           public:
 
             //-------------------------------------------------------------//
@@ -273,90 +346,17 @@ namespace samurai
 
             void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const override
             {
-                if (cfg_t::stencil_size > 1 && unknown().get_bc().empty())
-                {
-                    std::cerr << "Failure to assemble to boundary conditions in the operator '" << this->name()
-                              << "': no boundary condition attached to the field '" << unknown().name() << "'." << std::endl;
-                    assert(false);
-                    return;
-                }
-                // Iterate over the boundary conditions set by the user
-                for (auto& bc : unknown().get_bc())
-                {
-                    auto bc_region                  = bc->get_region(); // get the region
-                    auto& directions                = bc_region.first;
-                    auto& boundary_cells_directions = bc_region.second;
-                    // Iterate over the directions in that region
-                    for (std::size_t d = 0; d < directions.size(); ++d)
+                iterate_on_boundary(
+                    [&](auto& cells, auto& equations, auto&, auto*)
                     {
-                        auto& towards_out = directions[d];
-
-                        int number_of_one = xt::sum(xt::abs(towards_out))[0];
-                        if (number_of_one == 1)
-                        {
-                            auto& boundary_cells   = boundary_cells_directions[d];
-                            dirichlet_t* dirichlet = dynamic_cast<dirichlet_t*>(bc.get());
-                            neumann_t* neumann     = dynamic_cast<neumann_t*>(bc.get());
-                            if (dirichlet)
-                            {
-                                auto config = scheme().dirichlet_config(towards_out);
-                                for_each_stencil_on_boundary(mesh(),
-                                                             boundary_cells,
-                                                             config.directional_stencil.stencil,
-                                                             config.equations,
-                                                             [&](auto& cells, auto& equations)
-                                                             {
-                                                                 sparsity_pattern_dirichlet_bc(nnz, cells, equations);
-                                                             });
-                            }
-                            else if (neumann)
-                            {
-                                auto config = scheme().neumann_config(towards_out);
-                                for_each_stencil_on_boundary(mesh(),
-                                                             boundary_cells,
-                                                             config.directional_stencil.stencil,
-                                                             config.equations,
-                                                             [&](auto& cells, auto& equations)
-                                                             {
-                                                                 sparsity_pattern_neumann_bc(nnz, cells, equations);
-                                                             });
-                            }
-                            else
-                            {
-                                std::cerr << "Unknown boundary condition type" << std::endl;
-                            }
-                        }
-                    }
-                }
+                        sparsity_pattern_bc(nnz, cells, equations);
+                    });
             }
 
           protected:
 
             template <class CellList, class CoeffList>
-            void
-            sparsity_pattern_dirichlet_bc(std::vector<PetscInt>& nnz, CellList& cells, std::array<CoeffList, nb_bdry_ghosts>& equations) const
-            {
-                for (std::size_t e = 0; e < nb_bdry_ghosts; ++e)
-                {
-                    const auto& eq    = equations[e];
-                    const auto& ghost = cells[eq.ghost_index];
-                    for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
-                    {
-                        if constexpr (dirichlet_enfcmt == DirichletEnforcement::Elimination)
-                        {
-                            nnz[static_cast<std::size_t>(row_index(ghost, field_i))] = 1;
-                        }
-                        else
-                        {
-                            nnz[static_cast<std::size_t>(row_index(ghost, field_i))] = bdry_stencil_size;
-                        }
-                    }
-                }
-            }
-
-            template <class CellList, class CoeffList>
-            void
-            sparsity_pattern_neumann_bc(std::vector<PetscInt>& nnz, CellList& cells, std::array<CoeffList, nb_bdry_ghosts>& equations) const
+            void sparsity_pattern_bc(std::vector<PetscInt>& nnz, CellList& cells, std::array<CoeffList, nb_bdry_ghosts>& equations) const
             {
                 for (std::size_t e = 0; e < nb_bdry_ghosts; ++e)
                 {
@@ -377,14 +377,6 @@ namespace samurai
 
             void assemble_boundary_conditions(Mat& A) override
             {
-                if (cfg_t::stencil_size > 1 && unknown().get_bc().empty())
-                {
-                    std::cerr << "Failure to assemble to boundary conditions in the operator '" << this->name()
-                              << "': no boundary condition attached to the field '" << unknown().name() << "'." << std::endl;
-                    assert(false);
-                    return;
-                }
-
                 // std::cout << "assemble_boundary_conditions of " << this->name() << std::endl;
                 if (current_insert_mode() == ADD_VALUES)
                 {
@@ -394,54 +386,11 @@ namespace samurai
                     set_current_insert_mode(INSERT_VALUES);
                 }
 
-                // Iterate over the boundary conditions set by the user
-                for (auto& bc : unknown().get_bc())
-                {
-                    auto bc_region                  = bc->get_region(); // get the region
-                    auto& directions                = bc_region.first;
-                    auto& boundary_cells_directions = bc_region.second;
-                    // Iterate over the directions in that region
-                    for (std::size_t d = 0; d < directions.size(); ++d)
+                iterate_on_boundary(
+                    [&](auto& cells, auto& equations, auto&, auto*)
                     {
-                        auto& towards_out = directions[d];
-
-                        int number_of_one = xt::sum(xt::abs(towards_out))[0];
-                        if (number_of_one == 1)
-                        {
-                            auto& boundary_cells   = boundary_cells_directions[d];
-                            dirichlet_t* dirichlet = dynamic_cast<dirichlet_t*>(bc.get());
-                            neumann_t* neumann     = dynamic_cast<neumann_t*>(bc.get());
-                            if (dirichlet)
-                            {
-                                auto config = scheme().dirichlet_config(towards_out);
-                                for_each_stencil_on_boundary(mesh(),
-                                                             boundary_cells,
-                                                             config.directional_stencil.stencil,
-                                                             config.equations,
-                                                             [&](auto& cells, auto& equations)
-                                                             {
-                                                                 assemble_bc(A, cells, equations);
-                                                             });
-                            }
-                            else if (neumann)
-                            {
-                                auto config = scheme().neumann_config(towards_out);
-                                for_each_stencil_on_boundary(mesh(),
-                                                             boundary_cells,
-                                                             config.directional_stencil.stencil,
-                                                             config.equations,
-                                                             [&](auto& cells, auto& equations)
-                                                             {
-                                                                 assemble_bc(A, cells, equations);
-                                                             });
-                            }
-                            else
-                            {
-                                std::cerr << "Unknown boundary condition type" << std::endl;
-                            }
-                        }
-                    }
-                }
+                        assemble_bc(A, cells, equations);
+                    });
             }
 
             template <class CellList, class CoeffList>
@@ -462,13 +411,7 @@ namespace samurai
 
                             if (coeff != 0)
                             {
-                                if constexpr (dirichlet_enfcmt == DirichletEnforcement::Elimination)
-                                {
-                                }
-                                else
-                                {
-                                    MatSetValue(A, equation_row, col, coeff, INSERT_VALUES);
-                                }
+                                MatSetValue(A, equation_row, col, coeff, INSERT_VALUES);
                                 set_is_row_not_empty(equation_row);
                             }
                         }
@@ -498,54 +441,11 @@ namespace samurai
                     }
                 }
 
-                // Iterate over the boundary conditions set by the user
-                for (auto& bc : unknown().get_bc())
-                {
-                    auto bc_region                  = bc->get_region(); // get the region
-                    auto& directions                = bc_region.first;
-                    auto& boundary_cells_directions = bc_region.second;
-                    // Iterate over the directions in that region
-                    for (std::size_t d = 0; d < directions.size(); ++d)
+                iterate_on_boundary(
+                    [&](auto& cells, auto& equations, auto& towards_out, auto* bc)
                     {
-                        auto& towards_out = directions[d];
-
-                        int number_of_one = xt::sum(xt::abs(towards_out))[0];
-                        if (number_of_one == 1)
-                        {
-                            auto& boundary_cells   = boundary_cells_directions[d];
-                            dirichlet_t* dirichlet = dynamic_cast<dirichlet_t*>(bc.get());
-                            neumann_t* neumann     = dynamic_cast<neumann_t*>(bc.get());
-                            if (dirichlet)
-                            {
-                                auto config = scheme().dirichlet_config(towards_out);
-                                for_each_stencil_on_boundary(mesh(),
-                                                             boundary_cells,
-                                                             config.directional_stencil.stencil,
-                                                             config.equations,
-                                                             [&](auto& cells, auto& equations)
-                                                             {
-                                                                 enforce_bc(b, cells, equations, dirichlet, towards_out);
-                                                             });
-                            }
-                            else if (neumann)
-                            {
-                                auto config = scheme().neumann_config(towards_out);
-                                for_each_stencil_on_boundary(mesh(),
-                                                             boundary_cells,
-                                                             config.directional_stencil.stencil,
-                                                             config.equations,
-                                                             [&](auto& cells, auto& equations)
-                                                             {
-                                                                 enforce_bc(b, cells, equations, neumann, towards_out);
-                                                             });
-                            }
-                            else
-                            {
-                                std::cerr << "Unknown boundary condition type" << std::endl;
-                            }
-                        }
-                    }
-                }
+                        enforce_bc(b, cells, equations, bc, towards_out);
+                    });
             }
 
             template <class CellList, class CoeffList, class BoundaryCondition>
@@ -580,13 +480,7 @@ namespace samurai
                                                                                               // once per field_i
                         }
 
-                        if constexpr (dirichlet_enfcmt == DirichletEnforcement::Elimination)
-                        {
-                        }
-                        else
-                        {
-                            VecSetValue(b, equation_row, coeff * bc_value, INSERT_VALUES);
-                        }
+                        VecSetValue(b, equation_row, coeff * bc_value, INSERT_VALUES);
                     }
                 }
             }

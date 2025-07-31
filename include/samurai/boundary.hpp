@@ -99,35 +99,11 @@ namespace samurai
         return lca_t(outer_boundary_lcl);
     }
 
-    template <class Mesh, class Subset, std::size_t stencil_size, class GetCoeffsFunc, class Func>
-    void for_each_stencil_on_boundary(const Mesh& mesh,
-                                      const Subset& boundary_region,
-                                      const StencilAnalyzer<stencil_size, Mesh::dim>& stencil,
-                                      GetCoeffsFunc&& get_coefficients,
-                                      Func&& func)
-    {
-        using mesh_id_t = typename Mesh::mesh_id_t;
-
-        for_each_level(mesh,
-                       [&](std::size_t level)
-                       {
-                           auto bdry   = intersection(mesh[mesh_id_t::cells][level], boundary_region).on(level);
-                           auto coeffs = get_coefficients(mesh.cell_length(level));
-                           for_each_stencil(mesh,
-                                            bdry,
-                                            stencil,
-                                            [&](auto& cells)
-                                            {
-                                                func(cells, coeffs);
-                                            });
-                       });
-    }
-
     template <class Mesh, class Subset, std::size_t stencil_size, class Equation, std::size_t nb_equations, class Func>
     void for_each_stencil_on_boundary(const Mesh& mesh,
                                       const Subset& boundary_region,
                                       const StencilAnalyzer<stencil_size, Mesh::dim>& stencil,
-                                      std::array<Equation, nb_equations> equations,
+                                      const std::array<Equation, nb_equations>& equations,
                                       Func&& func)
     {
         using mesh_id_t         = typename Mesh::mesh_id_t;

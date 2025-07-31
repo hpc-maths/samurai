@@ -9,13 +9,12 @@ namespace samurai
      * The matrix corresponds to the discretization of the operator -Lap by the Finite-Volume method.
      */
     template <class Field,
-              DirichletEnforcement dirichlet_enfcmt = Equation,
               // scheme config
               std::size_t dim                 = Field::dim,
               std::size_t neighbourhood_width = 1,
               class cfg                       = StarStencilSchemeConfig<SchemeType::LinearHomogeneous, neighbourhood_width, Field, Field>,
-              class bdry_cfg                  = BoundaryConfigFV<neighbourhood_width, dirichlet_enfcmt>>
-    class DiffusionFV_old : public CellBasedScheme<cfg, bdry_cfg>
+              class bdry_cfg                  = BoundaryConfigFV<neighbourhood_width>>
+    class DiffusionFV_cell_based : public CellBasedScheme<cfg, bdry_cfg>
     {
         using base_class = CellBasedScheme<cfg, bdry_cfg>;
         using base_class::bdry_stencil_size;
@@ -26,7 +25,7 @@ namespace samurai
         using field_value_type          = typename Field::value_type;
         using directional_bdry_config_t = typename base_class::directional_bdry_config_t;
 
-        explicit DiffusionFV_old()
+        explicit DiffusionFV_cell_based()
         {
             this->set_name("Diffusion");
 
@@ -122,10 +121,10 @@ namespace samurai
         }
     };
 
-    template <class Field, DirichletEnforcement dirichlet_enfcmt = Equation>
-    auto make_diffusion_old()
+    template <class Field>
+    auto make_diffusion_cell_based()
     {
-        return DiffusionFV_old<Field, dirichlet_enfcmt>();
+        return DiffusionFV_cell_based<Field>();
     }
 
 } // end namespace samurai
