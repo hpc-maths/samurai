@@ -23,6 +23,7 @@ linear_convection_obstacle.cpp:finite-volume-linear-convection-obstacle
 burgers.cpp:finite-volume-burgers
 burgers_mra.cpp:finite-volume-burgers-mra
 burgers_os.cpp:finite-volume-burgers-os
+  grayscott.cpp:finite-volume-grayscott
 )
 
 # Create executables with PETSc
