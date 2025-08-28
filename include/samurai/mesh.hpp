@@ -11,6 +11,7 @@
 #include "cell_array.hpp"
 #include "cell_list.hpp"
 #include "domain_builder.hpp"
+#include "mesh_config.hpp"
 #include "static_algorithm.hpp"
 #include "stencil.hpp"
 #include "subset/node.hpp"
@@ -157,6 +158,7 @@ namespace samurai
         Mesh_base(const cl_type& cl, const self_type& ref_mesh);
         Mesh_base(const cl_type& cl, std::size_t min_level, std::size_t max_level);
         Mesh_base(const ca_type& ca, std::size_t min_level, std::size_t max_level);
+        Mesh_base(mesh_config<Config::dim>& config, const samurai::Box<double, dim>& b, std::size_t start_level);
         Mesh_base(const samurai::Box<double, dim>& b,
                   std::size_t start_level,
                   std::size_t min_level,
@@ -245,6 +247,35 @@ namespace samurai
     inline auto Mesh_base<D, Config>::derived_cast() && noexcept -> derived_type
     {
         return *static_cast<derived_type*>(this);
+    }
+
+    template <class D, class Config>
+    inline Mesh_base<D, Config>::Mesh_base(mesh_config<Config::dim>& config, const samurai::Box<double, dim>& b, std::size_t start_level)
+        : m_domain{start_level, b, (config.parse_args(), config.approx_box_tol()), config.scaling_factor()}
+        , m_min_level{config.min_level()}
+        , m_max_level{config.max_level()}
+    {
+        // config.parse_args();
+        // m_min_level = config.min_level();
+        // m_max_level = config.max_level();
+
+        assert(m_min_level <= m_max_level);
+
+#ifdef SAMURAI_WITH_MPI
+        partition_mesh(start_level, b);
+        // load_balancing();
+#else
+        this->m_cells[mesh_id_t::cells][start_level] = {start_level, b, config.approx_box_tol(), config.scaling_factor()};
+#endif
+        construct_subdomain();
+        construct_union();
+        update_sub_mesh();
+        construct_corners();
+        renumbering();
+        update_mesh_neighbour();
+
+        set_origin_point(origin_point());
+        set_scaling_factor(config.scaling_factor());
     }
 
     template <class D, class Config>

@@ -8,6 +8,10 @@ namespace samurai
 {
     namespace args
     {
+        // Mesh arguments
+        static std::size_t min_level = std::numeric_limits<std::size_t>::infinity();
+        static std::size_t max_level = std::numeric_limits<std::size_t>::infinity();
+
         static bool timers = false;
 #ifdef SAMURAI_WITH_MPI
         static bool dont_redirect_output = false;
@@ -24,6 +28,9 @@ namespace samurai
 
     inline void read_samurai_arguments(CLI::App& app, int& argc, char**& argv)
     {
+        app.add_option("--min-level", args::min_level, "The minimum level of the mesh")->group("SAMURAI");
+        app.add_option("--max-level", args::max_level, "The maximum level of the mesh")->group("SAMURAI");
+
 #ifdef SAMURAI_WITH_MPI
         app.add_flag("--dont-redirect-output", args::dont_redirect_output, "Redirect the output for all ranks different of 0")
             ->capture_default_str()
