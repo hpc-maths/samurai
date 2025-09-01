@@ -120,6 +120,24 @@ namespace samurai
                         f *= velocity(d);
                         compute_weno5_flux(flux, f);
                     };
+                    weno5[d].cons_jacobian_function = [&velocity](auto& cells, const Field& u)
+                    {
+                        Array<FluxValue<cfg>, 5, is_soa> f({u[cells[0]], u[cells[1]], u[cells[2]], u[cells[3]], u[cells[4]]});
+                        f *= velocity(d);
+
+                        samurai::StencilJacobian<cfg> jac;
+                        std::array<decltype(&jac[0]), 5> jacobians({&jac[0], &jac[1], &jac[2], &jac[3], &jac[4]});
+                        if constexpr (Field::is_scalar)
+                        {
+                            jac[5] = 0; // the last one is not used
+                        }
+                        else
+                        {
+                            jac[5].fill(0); // the last one is not used
+                        }
+                        compute_weno5_jacobian(jacobians, f);
+                        return jac;
+                    };
                 }
                 else
                 {
@@ -129,6 +147,24 @@ namespace samurai
                         Array<FluxValue<cfg>, 5, is_soa> f({u[5], u[4], u[3], u[2], u[1]});
                         f *= velocity(d);
                         compute_weno5_flux(flux, f);
+                    };
+                    weno5[d].cons_jacobian_function = [&velocity](auto& cells, const Field& u)
+                    {
+                        Array<FluxValue<cfg>, 5, is_soa> f({u[cells[5]], u[cells[4]], u[cells[3]], u[cells[2]], u[cells[1]]});
+                        f *= velocity(d);
+
+                        samurai::StencilJacobian<cfg> jac;
+                        std::array<decltype(&jac[0]), 5> jacobians({&jac[5], &jac[5], &jac[3], &jac[2], &jac[1]});
+                        if constexpr (Field::is_scalar)
+                        {
+                            jac[0] = 0; // the first one is not used
+                        }
+                        else
+                        {
+                            jac[0].fill(0); // the first one is not used
+                        }
+                        compute_weno5_jacobian(jacobians, f);
+                        return jac;
                     };
                 }
             });

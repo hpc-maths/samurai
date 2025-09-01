@@ -64,7 +64,7 @@ namespace samurai
                 auto& flux_def = scheme().flux_definition();
                 for (std::size_t d = 0; d < dim; ++d)
                 {
-                    for_each_interior_interface(
+                    for_each_interior_interface<Run::Sequential, Get::Cells, /* include_periodic = */ false>(
                         mesh(),
                         flux_def[d].direction,
                         flux_def[d].stencil,
@@ -145,7 +145,7 @@ namespace samurai
                 }
 
                 // Interior interfaces
-                scheme().for_each_interior_interface_and_coeffs(
+                scheme().template for_each_interior_interface_and_coeffs<Run::Sequential, Get::Cells, /* include_periodic = */ false>(
                     unknown(),
                     [&](auto& interface_cells, auto& comput_cells, auto& left_cell_coeffs, auto& right_cell_coeffs)
                     {

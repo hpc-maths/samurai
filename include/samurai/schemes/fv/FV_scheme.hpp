@@ -179,10 +179,16 @@ namespace samurai
         {
             if (!input_field.mesh().domain().is_box())
             {
-                update_bc_for_scheme(input_field, d);
+                if (input_field.mesh().is_periodic())
+                {
+                    std::cerr << "Error: apply_directional_bc() not implemented for non-box domains with periodic directions." << std::endl;
+                    assert(false);
+                    return;
+                }
+                apply_field_bc(input_field, d);
                 if constexpr (cfg::has_parameter_field)
                 {
-                    update_bc_for_scheme(parameter_field(), d);
+                    apply_field_bc(parameter_field(), d);
                 }
             }
         }

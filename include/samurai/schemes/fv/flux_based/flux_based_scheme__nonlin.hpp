@@ -584,7 +584,7 @@ namespace samurai
          * This function is used in the Assembly class to iterate over the interior interfaces
          * and receive the Jacobian coefficients.
          */
-        template <Run run_type = Run::Sequential, class Func>
+        template <Run run_type = Run::Sequential, Get get_type = Get::Cells, bool include_periodic = true, class Func>
         void for_each_interior_interface_and_coeffs(input_field_t& field, Func&& apply_contrib) const
         {
             auto& mesh = field.mesh();
@@ -611,7 +611,7 @@ namespace samurai
                 {
                     auto h = mesh.cell_length(level);
 
-                    for_each_interior_interface__same_level<run_type>(
+                    for_each_interior_interface__same_level<run_type, Get::Cells, include_periodic>(
                         mesh,
                         level,
                         flux_def.direction,
@@ -642,7 +642,7 @@ namespace samurai
                     //    --------->
                     //    direction
                     {
-                        for_each_interior_interface__level_jump_direction<run_type>(
+                        for_each_interior_interface__level_jump_direction<run_type, Get::Cells, include_periodic>(
                             mesh,
                             level,
                             flux_def.direction,
@@ -660,7 +660,7 @@ namespace samurai
                     //    --------->
                     //    direction
                     {
-                        for_each_interior_interface__level_jump_opposite_direction<run_type>(
+                        for_each_interior_interface__level_jump_opposite_direction<run_type, Get::Cells, include_periodic>(
                             mesh,
                             level,
                             flux_def.direction,

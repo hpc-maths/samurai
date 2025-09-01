@@ -32,7 +32,7 @@ namespace samurai
      * Iterates over the interfaces of same level only (no level jump).
      * Same parameters as the preceding function.
      */
-    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, std::size_t comput_stencil_size, class Func>
+    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, bool include_periodic = true, class Mesh, std::size_t comput_stencil_size, class Func>
     void for_each_interior_interface__same_level(const Mesh& mesh,
                                                  std::size_t level,
                                                  const DirectionVector<Mesh::dim>& direction,
@@ -80,24 +80,30 @@ namespace samurai
         apply_on_interface(mesh[mesh_id_t::cells][level], translate(mesh[mesh_id_t::cells][level], -direction));
 
         auto d = find_direction_index(direction);
-        if (mesh.periodicity()[d])
+        if constexpr (include_periodic)
         {
-            auto shift = get_periodic_shift(mesh.domain(), level, d);
-            apply_on_interface(mesh[mesh_id_t::cells][level], translate(translate(mesh[mesh_id_t::cells][level], shift), -direction));
-            apply_on_interface(translate(mesh[mesh_id_t::cells][level], -shift), translate(mesh[mesh_id_t::cells][level], -direction));
+            if (mesh.periodicity()[d])
+            {
+                auto shift = get_periodic_shift(mesh.domain(), level, d);
+                apply_on_interface(mesh[mesh_id_t::cells][level], translate(translate(mesh[mesh_id_t::cells][level], shift), -direction));
+                apply_on_interface(translate(mesh[mesh_id_t::cells][level], -shift), translate(mesh[mesh_id_t::cells][level], -direction));
+            }
         }
 #ifdef SAMURAI_WITH_MPI
         for (const auto& neigh : mesh.mpi_neighbourhood())
         {
             apply_on_interface(mesh[mesh_id_t::cells][level], translate(neigh.mesh[mesh_id_t::cells][level], -direction));
             apply_on_interface(neigh.mesh[mesh_id_t::cells][level], translate(mesh[mesh_id_t::cells][level], -direction));
-            if (mesh.periodicity()[d])
+            if constexpr (include_periodic)
             {
-                auto shift = get_periodic_shift(mesh.domain(), level, d);
-                apply_on_interface(mesh[mesh_id_t::cells][level],
-                                   translate(translate(neigh.mesh[mesh_id_t::cells][level], shift), -direction));
-                apply_on_interface(translate(neigh.mesh[mesh_id_t::cells][level], -shift),
-                                   translate(mesh[mesh_id_t::cells][level], -direction));
+                if (mesh.periodicity()[d])
+                {
+                    auto shift = get_periodic_shift(mesh.domain(), level, d);
+                    apply_on_interface(mesh[mesh_id_t::cells][level],
+                                       translate(translate(neigh.mesh[mesh_id_t::cells][level], shift), -direction));
+                    apply_on_interface(translate(neigh.mesh[mesh_id_t::cells][level], -shift),
+                                       translate(mesh[mesh_id_t::cells][level], -direction));
+                }
             }
         }
 #endif
@@ -116,7 +122,7 @@ namespace samurai
      * where
      *       'interface_cells' = [cell_{l}, cell_{l+1}].
      */
-    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, std::size_t comput_stencil_size, class Func>
+    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, bool include_periodic = true, class Mesh, std::size_t comput_stencil_size, class Func>
     void for_each_interior_interface__level_jump_direction(const Mesh& mesh,
                                                            std::size_t level,
                                                            const DirectionVector<Mesh::dim>& direction,
@@ -170,24 +176,30 @@ namespace samurai
         apply_on_interface(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level + 1]);
 
         auto d = find_direction_index(direction);
-        if (mesh.periodicity()[d])
+        if constexpr (include_periodic)
         {
-            auto shift = get_periodic_shift(mesh.domain(), level + 1, d);
-            apply_on_interface(mesh[mesh_id_t::cells][level], translate(mesh[mesh_id_t::cells][level + 1], shift));
-            shift = get_periodic_shift(mesh.domain(), level, d);
-            apply_on_interface(translate(mesh[mesh_id_t::cells][level], -shift), mesh[mesh_id_t::cells][level + 1]);
+            if (mesh.periodicity()[d])
+            {
+                auto shift = get_periodic_shift(mesh.domain(), level + 1, d);
+                apply_on_interface(mesh[mesh_id_t::cells][level], translate(mesh[mesh_id_t::cells][level + 1], shift));
+                shift = get_periodic_shift(mesh.domain(), level, d);
+                apply_on_interface(translate(mesh[mesh_id_t::cells][level], -shift), mesh[mesh_id_t::cells][level + 1]);
+            }
         }
 #ifdef SAMURAI_WITH_MPI
         for (const auto& neigh : mesh.mpi_neighbourhood())
         {
             apply_on_interface(mesh[mesh_id_t::cells][level], neigh.mesh[mesh_id_t::cells][level + 1]);
             apply_on_interface(neigh.mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level + 1]);
-            if (mesh.periodicity()[d])
+            if constexpr (include_periodic)
             {
-                auto shift = get_periodic_shift(mesh.domain(), level + 1, d);
-                apply_on_interface(mesh[mesh_id_t::cells][level], translate(neigh.mesh[mesh_id_t::cells][level + 1], shift));
-                shift = get_periodic_shift(mesh.domain(), level, d);
-                apply_on_interface(translate(neigh.mesh[mesh_id_t::cells][level], -shift), mesh[mesh_id_t::cells][level + 1]);
+                if (mesh.periodicity()[d])
+                {
+                    auto shift = get_periodic_shift(mesh.domain(), level + 1, d);
+                    apply_on_interface(mesh[mesh_id_t::cells][level], translate(neigh.mesh[mesh_id_t::cells][level + 1], shift));
+                    shift = get_periodic_shift(mesh.domain(), level, d);
+                    apply_on_interface(translate(neigh.mesh[mesh_id_t::cells][level], -shift), mesh[mesh_id_t::cells][level + 1]);
+                }
             }
         }
 #endif
@@ -206,7 +218,7 @@ namespace samurai
      * where
      *       'interface_cells' = [cell_{l+1}, cell_{l}].
      */
-    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, std::size_t comput_stencil_size, class Func>
+    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, bool include_periodic = true, class Mesh, std::size_t comput_stencil_size, class Func>
     void for_each_interior_interface__level_jump_opposite_direction(const Mesh& mesh,
                                                                     std::size_t level,
                                                                     const DirectionVector<Mesh::dim>& direction,
@@ -265,24 +277,30 @@ namespace samurai
         apply_on_interface(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level + 1]);
 
         auto d = find_direction_index(direction);
-        if (mesh.periodicity()[d])
+        if constexpr (include_periodic)
         {
-            auto shift = get_periodic_shift(mesh.domain(), level + 1, d);
-            apply_on_interface(mesh[mesh_id_t::cells][level], translate(mesh[mesh_id_t::cells][level + 1], -shift));
-            shift = get_periodic_shift(mesh.domain(), level, d);
-            apply_on_interface(translate(mesh[mesh_id_t::cells][level], shift), mesh[mesh_id_t::cells][level + 1]);
+            if (mesh.periodicity()[d])
+            {
+                auto shift = get_periodic_shift(mesh.domain(), level + 1, d);
+                apply_on_interface(mesh[mesh_id_t::cells][level], translate(mesh[mesh_id_t::cells][level + 1], -shift));
+                shift = get_periodic_shift(mesh.domain(), level, d);
+                apply_on_interface(translate(mesh[mesh_id_t::cells][level], shift), mesh[mesh_id_t::cells][level + 1]);
+            }
         }
 #ifdef SAMURAI_WITH_MPI
         for (const auto& neigh : mesh.mpi_neighbourhood())
         {
             apply_on_interface(mesh[mesh_id_t::cells][level], neigh.mesh[mesh_id_t::cells][level + 1]);
             apply_on_interface(neigh.mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level + 1]);
-            if (mesh.periodicity()[d])
+            if constexpr (include_periodic)
             {
-                auto shift = get_periodic_shift(mesh.domain(), level + 1, d);
-                apply_on_interface(mesh[mesh_id_t::cells][level], translate(neigh.mesh[mesh_id_t::cells][level + 1], -shift));
-                shift = get_periodic_shift(mesh.domain(), level, d);
-                apply_on_interface(translate(neigh.mesh[mesh_id_t::cells][level], shift), mesh[mesh_id_t::cells][level + 1]);
+                if (mesh.periodicity()[d])
+                {
+                    auto shift = get_periodic_shift(mesh.domain(), level + 1, d);
+                    apply_on_interface(mesh[mesh_id_t::cells][level], translate(neigh.mesh[mesh_id_t::cells][level + 1], -shift));
+                    shift = get_periodic_shift(mesh.domain(), level, d);
+                    apply_on_interface(translate(neigh.mesh[mesh_id_t::cells][level], shift), mesh[mesh_id_t::cells][level + 1]);
+                }
             }
         }
 #endif
@@ -309,20 +327,28 @@ namespace samurai
      *       'interface_cells' is an array containing the two real cells on both sides of the interface (might be of different levels).
      *       'comput_cells'    is an array containing the set of cells/ghosts defined by @param comput_stencil (all of same level).
      */
-    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, std::size_t comput_stencil_size, class Func>
+    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, bool include_periodic = true, class Mesh, std::size_t comput_stencil_size, class Func>
     void for_each_interior_interface(const Mesh& mesh,
                                      std::size_t level,
                                      const DirectionVector<Mesh::dim>& direction,
                                      const StencilAnalyzer<comput_stencil_size, Mesh::dim>& comput_stencil,
                                      Func&& f)
     {
-        for_each_interior_interface__same_level<run_type, get_type>(mesh, level, direction, comput_stencil, std::forward<Func>(f));
-        for_each_interior_interface__level_jump_direction<run_type, get_type>(mesh, level, direction, comput_stencil, std::forward<Func>(f));
-        for_each_interior_interface__level_jump_opposite_direction<run_type, get_type>(mesh,
-                                                                                       level,
-                                                                                       direction,
-                                                                                       comput_stencil,
-                                                                                       std::forward<Func>(f));
+        for_each_interior_interface__same_level<run_type, get_type, include_periodic>(mesh,
+                                                                                      level,
+                                                                                      direction,
+                                                                                      comput_stencil,
+                                                                                      std::forward<Func>(f));
+        for_each_interior_interface__level_jump_direction<run_type, get_type, include_periodic>(mesh,
+                                                                                                level,
+                                                                                                direction,
+                                                                                                comput_stencil,
+                                                                                                std::forward<Func>(f));
+        for_each_interior_interface__level_jump_opposite_direction<run_type, get_type, include_periodic>(mesh,
+                                                                                                         level,
+                                                                                                         direction,
+                                                                                                         comput_stencil,
+                                                                                                         std::forward<Func>(f));
     }
 
     /**
@@ -338,7 +364,7 @@ namespace samurai
      *       'interface_cells' is an array containing the two real cells on both sides of the interface (might be of different levels),
      *       'comput_cells'    is an array containing the set of cells/ghosts defined by @param comput_stencil (all of same level).
      */
-    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, std::size_t comput_stencil_size, class Func>
+    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, bool include_periodic = true, class Mesh, std::size_t comput_stencil_size, class Func>
     void for_each_interior_interface(const Mesh& mesh,
                                      const DirectionVector<Mesh::dim>& direction,
                                      const StencilAnalyzer<comput_stencil_size, Mesh::dim>& comput_stencil,
@@ -347,7 +373,11 @@ namespace samurai
         for_each_level(mesh,
                        [&](auto level)
                        {
-                           for_each_interior_interface<run_type, get_type>(mesh, level, direction, comput_stencil, std::forward<Func>(f));
+                           for_each_interior_interface<run_type, get_type, include_periodic>(mesh,
+                                                                                             level,
+                                                                                             direction,
+                                                                                             comput_stencil,
+                                                                                             std::forward<Func>(f));
                        });
 
         // for (std::size_t level = 0; level < mesh.max_level(); ++level)
@@ -370,14 +400,14 @@ namespace samurai
      * In case of level jump l/l+1, the cells of 'interface_cells' are of different levels,
      * while both cells of 'comput_cells' are at level l+1 and one of them is a ghost.
      */
-    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, class Func>
+    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, bool include_periodic, class Mesh, class Func>
     void for_each_interior_interface(const Mesh& mesh, const DirectionVector<Mesh::dim>& direction, Func&& f)
     {
         static constexpr std::size_t dim = Mesh::dim;
 
         Stencil<2, dim> comput_stencil = in_out_stencil<dim>(direction);
         auto stencil_analyzer          = make_stencil_analyzer(comput_stencil);
-        for_each_interior_interface<run_type, get_type>(mesh, direction, stencil_analyzer, std::forward<Func>(f));
+        for_each_interior_interface<run_type, get_type, include_periodic>(mesh, direction, stencil_analyzer, std::forward<Func>(f));
     }
 
     /**
@@ -391,7 +421,7 @@ namespace samurai
      * In case of level jump l/l+1, the cells of 'interface_cells' are of different levels,
      * while both cells of 'comput_cells' are at level l+1 and one of them is a ghost.
      */
-    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, class Func>
+    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, bool include_periodic = true, class Mesh, class Func>
     void for_each_interior_interface(const Mesh& mesh, Func&& f)
     {
         static constexpr std::size_t dim = Mesh::dim;
@@ -401,7 +431,7 @@ namespace samurai
             DirectionVector<Mesh::dim> direction;
             direction.fill(0);
             direction[d] = 1;
-            for_each_interior_interface<run_type, get_type>(mesh, direction, std::forward<Func>(f));
+            for_each_interior_interface<run_type, get_type, include_periodic>(mesh, direction, std::forward<Func>(f));
         }
     }
 

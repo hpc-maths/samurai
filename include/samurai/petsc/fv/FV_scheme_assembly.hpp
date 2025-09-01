@@ -34,6 +34,7 @@ namespace samurai
             using mesh_t                                          = typename field_t::mesh_t;
             using mesh_id_t                                       = typename mesh_t::mesh_id_t;
             using interval_t                                      = typename mesh_t::interval_t;
+            using mesh_interval_t                                 = typename mesh_t::mesh_interval_t;
             using field_value_type                                = typename field_t::value_type; // double
             using coord_index_t                                   = typename interval_t::coord_index_t;
             using index_t                                         = typename interval_t::index_t;
@@ -264,6 +265,13 @@ namespace samurai
                 m_is_row_empty[static_cast<std::size_t>(row_number - m_row_shift)] = false;
             }
 
+            template <class int_type>
+            inline bool is_row_empty(int_type row_number)
+            {
+                assert(row_number - m_row_shift >= 0);
+                return m_is_row_empty[static_cast<std::size_t>(row_number - m_row_shift)];
+            }
+
           protected:
 
             template <class Func>
@@ -273,8 +281,6 @@ namespace samurai
                 {
                     if (mesh().is_periodic(d))
                     {
-                        std::cerr << "Matrix assembly failure: periodic boundary conditions are not implemented." << std::endl;
-                        assert(false);
                         continue;
                     }
 
@@ -338,14 +344,64 @@ namespace samurai
                 }
             }
 
-          public:
+            template <class Func>
+            void iterate_on_periodic_ghosts(Func&& apply) const
+            {
+                mesh_interval_t ghost_mi;
+                mesh_interval_t cell_mi;
+
+                std::size_t min_level = mesh()[mesh_id_t::reference].min_level();
+                std::size_t max_level = mesh()[mesh_id_t::reference].max_level();
+
+                for (std::size_t level = min_level; level <= max_level; ++level)
+                {
+                    ghost_mi.level = level;
+                    cell_mi.level  = level;
+                    iterate_over_periodic_ghosts(
+                        level,
+                        unknown(),
+                        [&](const auto& i_ghosts, const auto& index_ghosts, const auto& i_cells, const auto& index_cells)
+                        {
+                            ghost_mi.i            = i_ghosts;
+                            ghost_mi.index        = index_ghosts;
+                            auto ghost_cell_index = get_index_start(mesh(), ghost_mi);
+                            cell_mi.i             = i_cells;
+                            cell_mi.index         = index_cells;
+                            auto cell_cell_index  = get_index_start(mesh(), cell_mi);
+
+                            for (std::size_t ii = 0; ii < i_ghosts.size(); ++ii)
+                            {
+                                apply(ghost_cell_index, cell_cell_index);
+
+                                ghost_cell_index++;
+                                cell_cell_index++;
+                            }
+                        });
+                };
+            }
 
             //-------------------------------------------------------------//
             //        Sparsity pattern of the boundary conditions          //
             //-------------------------------------------------------------//
 
+          public:
+
             void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const override
             {
+                if (mesh().is_periodic())
+                {
+                    iterate_on_periodic_ghosts(
+                        [&](auto ghost_cell_index, auto /* cell_cell_index */)
+                        {
+                            for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
+                            {
+                                PetscInt row = row_index(static_cast<PetscInt>(ghost_cell_index), field_i);
+
+                                nnz[static_cast<std::size_t>(row)] = 2;
+                            }
+                        });
+                }
+
                 iterate_on_boundary(
                     [&](auto& cells, auto& equations, auto&, auto*)
                     {
@@ -386,6 +442,11 @@ namespace samurai
                     set_current_insert_mode(INSERT_VALUES);
                 }
 
+                if (mesh().is_periodic())
+                {
+                    assemble_periodic_bc(A);
+                }
+
                 iterate_on_boundary(
                     [&](auto& cells, auto& equations, auto&, auto*)
                     {
@@ -417,6 +478,33 @@ namespace samurai
                         }
                     }
                 }
+            }
+
+          private:
+
+            inline void assemble_periodic_bc(Mat& A)
+            {
+                std::vector<bool> is_periodic_row_empty(mesh().nb_cells(), true);
+
+                iterate_on_periodic_ghosts(
+                    [&](auto ghost_cell_index, auto cell_cell_index)
+                    {
+                        if (is_periodic_row_empty[static_cast<std::size_t>(ghost_cell_index)]) // to avoid multiple insertions when a ghost
+                                                                                               // is periodic in several directions
+                                                                                               // (external corners)
+                        {
+                            for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
+                            {
+                                PetscInt row = row_index(static_cast<PetscInt>(ghost_cell_index), field_i);
+                                PetscInt col = col_index(static_cast<PetscInt>(cell_cell_index), field_i);
+
+                                MatSetValue(A, row, row, 1., INSERT_VALUES);
+                                MatSetValue(A, row, col, -1, INSERT_VALUES);
+                                set_is_row_not_empty(row);
+                            }
+                            is_periodic_row_empty[static_cast<std::size_t>(ghost_cell_index)] = false;
+                        }
+                    });
             }
 
           public:

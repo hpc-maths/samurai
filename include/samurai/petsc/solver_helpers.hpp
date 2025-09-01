@@ -48,6 +48,13 @@ namespace samurai
             return NonLinearLocalSolvers<CellBasedScheme<cfg, bdry_cfg>>(scheme);
         }
 
+        template <class Scheme>
+        auto make_solver(Scheme&& scheme)
+        {
+            Scheme scheme_ = std::move(scheme);
+            return make_solver(scheme_);
+        }
+
         /**
          * Solve
          */
