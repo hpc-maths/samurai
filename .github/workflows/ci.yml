@@ -47,9 +47,6 @@ jobs:
               run: |
                   conda install -y cppcheck=2.12 python=3.12 cxx-compiler
 
-            - name: Clean build
-              run: rm -rf build
-
             - name: Configure
               shell: bash -el {0}
               run: |
@@ -183,9 +180,6 @@ jobs:
                   conda info
                   conda list
 
-            - name: Clean build
-              run: rm -rf build
-
             - name: Configure
               shell: bash -l {0}
               run: |
@@ -259,9 +253,6 @@ jobs:
               run: |
                   conda info
                   conda list
-
-            - name: Clean build
-              run: rm -rf build
 
             - name: Configure
               shell: bash -l {0}
@@ -341,9 +332,6 @@ jobs:
                   micromamba info
                   micromamba list
 
-            - name: Clean build
-              run: rm -rf build
-
             - name: Configure
               shell: bash -l {0}
               run: |
@@ -402,9 +390,6 @@ jobs:
               run: |
                   conda info
                   conda list
-
-            - name: Clean build
-              run: rm -rf build
 
             - name: Configure
               shell: bash -l {0}
@@ -475,9 +460,6 @@ jobs:
               run: |
                   conda info
                   conda list
-
-            - name: Clean build
-              run: rm -rf build
 
             - name: Configure
               shell: bash -l {0}
