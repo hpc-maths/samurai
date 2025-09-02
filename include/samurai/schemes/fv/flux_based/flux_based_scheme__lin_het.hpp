@@ -149,12 +149,12 @@ namespace samurai
             }
         }
 
-        template <class Func>
+        template <Run run_type = Run::Sequential, Get get_type = Get::Cells, bool include_periodic = true, class Func>
         void for_each_interior_interface_and_coeffs(input_field_t& field, Func&& apply_coeffs) const
         {
             for (std::size_t d = 0; d < dim; ++d)
             {
-                for_each_interior_interface_and_coeffs(d, field, std::forward<Func>(apply_coeffs));
+                for_each_interior_interface_and_coeffs<run_type, get_type, include_periodic>(d, field, std::forward<Func>(apply_coeffs));
             }
         }
 
