@@ -496,4 +496,4 @@ jobs:
                   mpiexec -n 1 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 1 --max-level 8
                   mpiexec -n 2 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 1 --max-level 8
                   # This test is failing with 3 processes due to a bug in the exchange of subdomain corners
-                  # mpiexec -n 3 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 1 --max-level 8
+                  mpiexec -n 3 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 1 --max-level 8
