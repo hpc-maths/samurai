@@ -941,7 +941,6 @@ namespace samurai
     {
         iterate_over_periodic_ghosts(level,
                                      field,
-                                     // copy_values_from_myself
                                      [&](const auto& i_ghosts, const auto& index_ghosts, const auto& i_cells, const auto& index_cells)
                                      {
                                          field(level, i_ghosts, index_ghosts) = field(level, i_cells, index_cells);
@@ -949,15 +948,7 @@ namespace samurai
     }
 
     template <class Field, class Func>
-    void iterate_over_periodic_ghosts(std::size_t level,
-                                      Field& field,
-                                      Func&& copy_values_from_myself
-#ifdef SAMURAI_WITH_MPI
-                                      ,
-                                      Func&& send_values_to_neighbour,
-                                      Func&& receive_values_from_neighbour
-#endif
-    )
+    void iterate_over_periodic_ghosts(std::size_t level, Field& field, Func&& copy_values)
     {
 #ifdef SAMURAI_WITH_MPI
         using field_value_t = typename Field::value_type;
@@ -1031,14 +1022,14 @@ namespace samurai
                 set1(
                     [&](const auto& i, const auto& index)
                     {
-                        copy_values_from_myself(i, index, i - shift_interval, index - shift_index);
+                        copy_values(i, index, i - shift_interval, index - shift_index);
                     });
                 auto set2 = intersection(translate(intersection(mesh_ref[level], lca_max_m), -shift),
                                          intersection(mesh_ref[level], lca_min_m));
                 set2(
                     [&](const auto& i, const auto& index)
                     {
-                        copy_values_from_myself(i, index, i + shift_interval, index + shift_index);
+                        copy_values(i, index, i + shift_interval, index + shift_index);
                     });
 #ifdef SAMURAI_WITH_MPI
                 size_t neighbor_id = 0;
