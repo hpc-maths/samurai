@@ -242,6 +242,24 @@ else()
     target_compile_definitions(samurai INTERFACE SAMURAI_STATIC_MAT_CONTAINER_${SAMURAI_STATIC_MAT_CONTAINER})
 endif()
 
+function(print_target_dependencies tgt indent)
+    if (NOT TARGET ${tgt})
+        message(STATUS "${indent}${tgt} (not a target)")
+        return()
+    endif()
+
+    message(STATUS "${indent}${tgt}")
+
+    get_target_property(libs ${tgt} LINK_LIBRARIES)
+    if (libs)
+        foreach(lib IN LISTS libs)
+            print_target_dependencies(${lib} "  ${indent}")
+        endforeach()
+    endif()
+endfunction()
+
+print_target_dependencies(samurai "")
+
 # Package the project
 package_project(
   TARGETS samurai project_options project_warnings #libdeps
