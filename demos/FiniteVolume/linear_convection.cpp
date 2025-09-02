@@ -125,13 +125,6 @@ int main(int argc, char* argv[])
         samurai::load(restart_file, mesh, u);
     }
 
-    samurai::for_each_cell(mesh,
-                           [&](const auto& cell)
-                           {
-                               std::cout << "Cell " << cell.index << " at level " << cell.level << " indices = " << cell.indices
-                                         << ", center = " << cell.center() << std::endl;
-                           });
-
     auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);
     // Intermediary fields for the RK3 scheme
     auto u1 = samurai::make_scalar_field<double>("u1", mesh);
@@ -193,7 +186,7 @@ int main(int argc, char* argv[])
             auto solver = samurai::petsc::make_solver(id + dt * conv);
 
             // Configure the PETSc solver
-            SNESSetTolerances(solver.Snes(), PETSC_CURRENT /* abstol */, 1e-5 /* rtol */, PETSC_CURRENT /* stol */, 100 /* maxit */, PETSC_CURRENT);
+            SNESSetTolerances(solver.Snes(), PETSC_CURRENT /* abstol */, 1e-5 /* rtol */, PETSC_CURRENT /* stol */, 500 /* maxit */, PETSC_CURRENT);
             KSP ksp;
             PC pc;
             SNESGetKSP(solver.Snes(), &ksp);

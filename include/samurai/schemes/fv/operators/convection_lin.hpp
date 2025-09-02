@@ -136,6 +136,10 @@ namespace samurai
                             jac[5].fill(0); // the last one is not used
                         }
                         compute_weno5_jacobian(jacobians, f);
+                        for (std::size_t i = 0; i < 5; ++i)
+                        {
+                            jac[i] *= velocity(d);
+                        }
                         return jac;
                     };
                 }
@@ -154,7 +158,7 @@ namespace samurai
                         f *= velocity(d);
 
                         samurai::StencilJacobian<cfg> jac;
-                        std::array<decltype(&jac[0]), 5> jacobians({&jac[5], &jac[5], &jac[3], &jac[2], &jac[1]});
+                        std::array<decltype(&jac[0]), 5> jacobians({&jac[5], &jac[4], &jac[3], &jac[2], &jac[1]});
                         if constexpr (Field::is_scalar)
                         {
                             jac[0] = 0; // the first one is not used
@@ -164,6 +168,10 @@ namespace samurai
                             jac[0].fill(0); // the first one is not used
                         }
                         compute_weno5_jacobian(jacobians, f);
+                        for (std::size_t i = 1; i < 6; ++i)
+                        {
+                            jac[i] *= velocity(d);
+                        }
                         return jac;
                     };
                 }
