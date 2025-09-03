@@ -110,7 +110,6 @@ int main(int argc, char* argv[])
                                                    {
                                                        const auto& x = coords(0);
                                                        return (x >= -0.8 && x <= -0.3) ? 1. : 0.;
-                                                       // return std::sin(M_PI * (x + 1));
                                                    }
                                                    else
                                                    {

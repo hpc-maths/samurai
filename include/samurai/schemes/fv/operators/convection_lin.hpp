@@ -136,10 +136,7 @@ namespace samurai
                             jac[5].fill(0); // the last one is not used
                         }
                         compute_weno5_jacobian(jacobians, f);
-                        for (std::size_t i = 0; i < 5; ++i)
-                        {
-                            jac[i] *= velocity(d);
-                        }
+                        jac *= velocity(d);
                         return jac;
                     };
                 }
@@ -168,10 +165,7 @@ namespace samurai
                             jac[0].fill(0); // the first one is not used
                         }
                         compute_weno5_jacobian(jacobians, f);
-                        for (std::size_t i = 1; i < 6; ++i)
-                        {
-                            jac[i] *= velocity(d);
-                        }
+                        jac *= velocity(d);
                         return jac;
                     };
                 }
