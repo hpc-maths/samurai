@@ -266,13 +266,6 @@ namespace samurai
                 m_is_row_empty[static_cast<std::size_t>(row_number - m_row_shift)] = false;
             }
 
-            template <class int_type>
-            inline bool is_row_empty(int_type row_number)
-            {
-                assert(row_number - m_row_shift >= 0);
-                return m_is_row_empty[static_cast<std::size_t>(row_number - m_row_shift)];
-            }
-
           protected:
 
             template <class Func>
