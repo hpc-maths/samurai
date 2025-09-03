@@ -423,6 +423,10 @@ def test_finite_volume_demo_lid_driven_cavity(config):
 
 
 @pytest.mark.h5diff()
+@pytest.mark.skipif(
+    sys.platform == "darwin",
+    reason="skipped on macos because libpthread is missing on github worker",
+)
 def test_finite_volume_demo_linear_convection(config):
     cmd = [
         get_executable(
