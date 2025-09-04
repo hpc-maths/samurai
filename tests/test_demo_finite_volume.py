@@ -205,10 +205,10 @@ def test_finite_volume_demo_mra_burgers(config):
     output = subprocess.run(cmd, check=True, capture_output=True)
 
 @pytest.mark.h5diff()
-# @pytest.mark.skipif(
-#     sys.platform == "darwin",
-#     reason="skipped on macos because libpthread is missing on github worker",
-# )
+@pytest.mark.skipif(
+    sys.platform == "darwin",
+    reason="skipped on macos because libpthread is missing on github worker",
+)
 @pytest.mark.parametrize("scheme", ["imp_diff_imp_react", "exp_diff_imp_react", "imp_diff_exp_react", "exp_diff_exp_react"])
 def test_finite_volume_demo_nagumo(scheme, config):
     cmd = [
