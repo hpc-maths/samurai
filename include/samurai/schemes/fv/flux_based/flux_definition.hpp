@@ -175,7 +175,7 @@ namespace samurai
         requires(cfg::scheme_type == SchemeType::LinearHeterogeneous)
     struct NormalFluxDefinition<cfg> : NormalFluxDefinitionBase<cfg>
     {
-        using cons_flux_func = std::function<FluxStencilCoeffs<cfg>(StencilCells<cfg>&)>;
+        using cons_flux_func = std::function<void(FluxStencilCoeffs<cfg>&, const StencilData<cfg>&)>;
 
         cons_flux_func cons_flux_function = nullptr;
 
@@ -207,12 +207,10 @@ namespace samurai
          * For instance, considering a scalar field u, we configure the flux Grad(u).n through the function
          *
          *            // Grad(u).n = (u_1 - u_0)/h
-         *            auto flux_function(double h)
+         *            void flux_function(FluxStencilCoeffs<cfg>& coeffs, double h)
          *            {
-         *                std::array<double, 2> coeffs;
          *                coeffs[0] = -1/h; // current cell    (because, stencil[0] = {0,0})
          *                coeffs[1] =  1/h; // right neighbour (because, stencil[1] = {1,0})
-         *                return coeffs;
          *            }
          * If u is now a vectorial field of size S, then coeffs[0] and coeffs[1] become matrices of size SxS.
          * If the field components are independent from each other, then

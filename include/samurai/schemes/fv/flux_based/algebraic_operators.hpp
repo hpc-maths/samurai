@@ -21,7 +21,7 @@ namespace samurai
                     // Multiply the flux or coefficients by the scalar
                     if constexpr (cfg::scheme_type == SchemeType::LinearHomogeneous)
                     {
-                        multiplied_scheme.flux_definition()[d].cons_flux_function = [=](FluxStencilCoeffs<cfg>& coeffs, auto h)
+                        multiplied_scheme.flux_definition()[d].cons_flux_function = [=](auto& coeffs, auto h)
                         {
                             scheme.flux_definition()[d].cons_flux_function(coeffs, h);
                             coeffs *= scalar;
@@ -29,9 +29,10 @@ namespace samurai
                     }
                     else if constexpr (cfg::scheme_type == SchemeType::LinearHeterogeneous)
                     {
-                        multiplied_scheme.flux_definition()[d].cons_flux_function = [=](auto& cells) -> FluxStencilCoeffs<cfg>
+                        multiplied_scheme.flux_definition()[d].cons_flux_function = [=](auto& coeffs, const auto& data)
                         {
-                            return scalar * scheme.flux_definition()[d].cons_flux_function(cells);
+                            scheme.flux_definition()[d].cons_flux_function(coeffs, data);
+                            coeffs *= scalar;
                         };
                     }
                     else // SchemeType::NonLinear
@@ -115,10 +116,12 @@ namespace samurai
                 }
                 else if constexpr (cfg::scheme_type == SchemeType::LinearHeterogeneous)
                 {
-                    sum_scheme.flux_definition()[d].cons_flux_function = [=](auto& cells)
+                    sum_scheme.flux_definition()[d].cons_flux_function = [=](FluxStencilCoeffs<cfg>& coeffs, const auto& data)
                     {
-                        return scheme1.flux_definition()[d].cons_flux_function(cells)
-                             + scheme2.flux_definition()[d].cons_flux_function(cells);
+                        scheme1.flux_definition()[d].cons_flux_function(coeffs, data);
+                        FluxStencilCoeffs<cfg> coeffs2;
+                        scheme2.flux_definition()[d].cons_flux_function(coeffs2, data);
+                        coeffs += coeffs2;
                     };
                 }
                 else // SchemeType::NonLinear
