@@ -120,12 +120,12 @@ namespace samurai
                         f *= velocity(d);
                         compute_weno5_flux(flux, f);
                     };
-                    weno5[d].cons_jacobian_function = [&velocity](auto& cells, const Field& u)
+                    weno5[d].cons_jacobian_function =
+                        [&velocity](StencilJacobian<cfg>& jac, const StencilData<cfg>& /*data*/, const StencilValues<cfg>& u)
                     {
-                        Array<FluxValue<cfg>, 5, is_soa> f({u[cells[0]], u[cells[1]], u[cells[2]], u[cells[3]], u[cells[4]]});
+                        Array<FluxValue<cfg>, 5, is_soa> f({u[0], u[1], u[2], u[3], u[4]});
                         f *= velocity(d);
 
-                        samurai::StencilJacobian<cfg> jac;
                         std::array<decltype(&jac[0]), 5> jacobians({&jac[0], &jac[1], &jac[2], &jac[3], &jac[4]});
                         if constexpr (Field::is_scalar)
                         {
@@ -137,7 +137,6 @@ namespace samurai
                         }
                         compute_weno5_jacobian(jacobians, f);
                         jac *= velocity(d);
-                        return jac;
                     };
                 }
                 else
@@ -149,12 +148,12 @@ namespace samurai
                         f *= velocity(d);
                         compute_weno5_flux(flux, f);
                     };
-                    weno5[d].cons_jacobian_function = [&velocity](auto& cells, const Field& u)
+                    weno5[d].cons_jacobian_function =
+                        [&velocity](StencilJacobian<cfg>& jac, const StencilData<cfg>& /*data*/, const StencilValues<cfg>& u)
                     {
-                        Array<FluxValue<cfg>, 5, is_soa> f({u[cells[5]], u[cells[4]], u[cells[3]], u[cells[2]], u[cells[1]]});
+                        Array<FluxValue<cfg>, 5, is_soa> f({u[5], u[4], u[3], u[2], u[1]});
                         f *= velocity(d);
 
-                        samurai::StencilJacobian<cfg> jac;
                         std::array<decltype(&jac[0]), 5> jacobians({&jac[5], &jac[4], &jac[3], &jac[2], &jac[1]});
                         if constexpr (Field::is_scalar)
                         {
@@ -166,7 +165,6 @@ namespace samurai
                         }
                         compute_weno5_jacobian(jacobians, f);
                         jac *= velocity(d);
-                        return jac;
                     };
                 }
             });

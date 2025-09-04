@@ -54,18 +54,20 @@ namespace samurai
                         }
                         if (scheme.flux_definition()[d].cons_jacobian_function)
                         {
-                            multiplied_scheme.flux_definition()[d].cons_jacobian_function = [=](auto& cells,
-                                                                                                const auto& field) -> StencilJacobian<cfg>
+                            multiplied_scheme.flux_definition()[d].cons_jacobian_function =
+                                [=](StencilJacobian<cfg>& jac, const StencilData<cfg>& data, const StencilValues<cfg>& u)
                             {
-                                return scalar * scheme.flux_definition()[d].cons_jacobian_function(cells, field);
+                                scheme.flux_definition()[d].cons_jacobian_function(jac, data, u);
+                                jac *= scalar;
                             };
                         }
                         if (scheme.flux_definition()[d].jacobian_function)
                         {
-                            multiplied_scheme.flux_definition()[d].jacobian_function = [=](auto& cells,
-                                                                                           const auto& field) -> StencilJacobianPair<cfg>
+                            multiplied_scheme.flux_definition()[d].jacobian_function =
+                                [=](StencilJacobianPair<cfg>& jac_pair, const StencilData<cfg>& data, const StencilValues<cfg>& u)
                             {
-                                return scalar * scheme.flux_definition()[d].jacobian_function(cells, field);
+                                scheme.flux_definition()[d].jacobian_function(jac_pair, data, u);
+                                jac_pair *= scalar;
                             };
                         }
                     }
@@ -142,19 +144,25 @@ namespace samurai
 
                     if (scheme1.flux_definition()[d].jacobian_function && scheme2.flux_definition()[d].jacobian_function)
                     {
-                        sum_scheme.flux_definition()[d].jacobian_function = [=](auto& cells, const auto& field)
+                        sum_scheme.flux_definition()[d].jacobian_function =
+                            [=](StencilJacobianPair<cfg>& jac_pair, const StencilData<cfg>& data, const StencilValues<cfg>& u)
                         {
-                            return scheme1.flux_definition()[d].jacobian_function(cells, field)
-                                 + scheme2.flux_definition()[d].jacobian_function(cells, field);
+                            scheme1.flux_definition()[d].jacobian_function(jac_pair, data, u);
+                            StencilJacobianPair<cfg> jac_pair2;
+                            scheme2.flux_definition()[d].jacobian_function(jac_pair2, data, u);
+                            jac_pair += jac_pair2;
                         };
                         sum_scheme.cons_jacobian_function = nullptr;
                     }
                     else if (scheme1.flux_definition()[d].cons_jacobian_function && scheme2.flux_definition()[d].cons_jacobian_function)
                     {
-                        sum_scheme.flux_definition()[d].cons_jacobian_function = [=](auto& cells, const auto& field)
+                        sum_scheme.flux_definition()[d].cons_jacobian_function =
+                            [=](StencilJacobian<cfg>& jac, const StencilData<cfg>& data, const StencilValues<cfg>& u)
                         {
-                            return scheme1.flux_definition()[d].cons_jacobian_function(cells, field)
-                                 + scheme2.flux_definition()[d].cons_jacobian_function(cells, field);
+                            scheme1.flux_definition()[d].cons_jacobian_function(jac, data, u);
+                            StencilJacobian<cfg> jac2;
+                            scheme2.flux_definition()[d].cons_jacobian_function(jac2, data, u);
+                            jac += jac2;
                         };
                         sum_scheme.flux_function = nullptr;
                     }

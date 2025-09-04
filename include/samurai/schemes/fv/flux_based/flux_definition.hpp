@@ -91,15 +91,18 @@ namespace samurai
      * Defines how to compute a NON-LINEAR normal flux.
      */
     template <class cfg>
-    struct NormalFluxDefinition<cfg, std::enable_if_t<cfg::scheme_type == SchemeType::NonLinear>> : NormalFluxDefinitionBase<cfg>
+        requires(cfg::scheme_type == SchemeType::NonLinear)
+    struct NormalFluxDefinition<cfg> : NormalFluxDefinitionBase<cfg>
     {
         using field_t = typename cfg::input_field_t;
 
         using flux_func = std::function<void(FluxValuePair<cfg>&, const StencilData<cfg>&, const StencilValues<cfg>&)>;  // non-conservative
         using cons_flux_func = std::function<void(FluxValue<cfg>&, const StencilData<cfg>&, const StencilValues<cfg>&)>; // conservative
 
-        using jacobian_func      = std::function<StencilJacobianPair<cfg>(StencilCells<cfg>&, const field_t&)>; // non-conservative
-        using cons_jacobian_func = std::function<StencilJacobian<cfg>(StencilCells<cfg>&, const field_t&)>;     // conservative
+        // using jacobian_func      = std::function<StencilJacobianPair<cfg>(StencilCells<cfg>&, const field_t&)>; // non-conservative
+        // using cons_jacobian_func = std::function<StencilJacobian<cfg>(StencilCells<cfg>&, const field_t&)>;     // conservative
+        using jacobian_func = std::function<void(StencilJacobianPair<cfg>&, const StencilData<cfg>&, const StencilValues<cfg>&)>; // non-conservative
+        using cons_jacobian_func = std::function<void(StencilJacobian<cfg>&, const StencilData<cfg>&, const StencilValues<cfg>&)>; // conservative
 
         /**
          * Conservative flux function:
@@ -140,13 +143,10 @@ namespace samurai
             {
                 return nullptr;
             }
-
-            return [&](auto& cells, const auto& field)
+            return [&](StencilJacobianPair<cfg>& jacobians, const StencilData<cfg>& data, const StencilValues<cfg>& field)
             {
-                StencilJacobianPair<cfg> jacobians;
-                jacobians[0] = cons_jacobian_function(cells, field);
+                cons_jacobian_function(jacobians[0], data, field);
                 jacobians[1] = -jacobians[0];
-                return jacobians;
             };
         }
 
@@ -174,7 +174,8 @@ namespace samurai
      * Defines how to compute a LINEAR and HETEROGENEOUS normal flux.
      */
     template <class cfg>
-    struct NormalFluxDefinition<cfg, std::enable_if_t<cfg::scheme_type == SchemeType::LinearHeterogeneous>> : NormalFluxDefinitionBase<cfg>
+        requires(cfg::scheme_type == SchemeType::LinearHeterogeneous)
+    struct NormalFluxDefinition<cfg> : NormalFluxDefinitionBase<cfg>
     {
         using cons_flux_func = std::function<FluxStencilCoeffs<cfg>(StencilCells<cfg>&)>;
 
@@ -197,7 +198,8 @@ namespace samurai
      * Defines how to compute a LINEAR and HOMOGENEOUS normal flux.
      */
     template <class cfg>
-    struct NormalFluxDefinition<cfg, std::enable_if_t<cfg::scheme_type == SchemeType::LinearHomogeneous>> : NormalFluxDefinitionBase<cfg>
+        requires(cfg::scheme_type == SchemeType::LinearHomogeneous)
+    struct NormalFluxDefinition<cfg> : NormalFluxDefinitionBase<cfg>
     {
         using cons_flux_func = std::function<FluxStencilCoeffs<cfg>(double)>;
 

@@ -123,12 +123,6 @@ namespace samurai
             return face_measure / cell_measure;
         }
 
-        template <class T> // FluxValue<cfg> or StencilJacobian<cfg>
-        inline T contribution(const T& flux_value, double h_face, double h_cell) const
-        {
-            return h_factor(h_face, h_cell) * flux_value;
-        }
-
       public:
 
         inline field_value_type flux_value_cmpnent(const FluxValue<cfg>& flux_value, [[maybe_unused]] size_type field_i) const
@@ -179,7 +173,7 @@ namespace samurai
             }
         };
 
-        inline void copy_stencil_values(const input_field_t& field, const StencilCells<cfg>& cells, StencilValues<cfg>& stencil_values)
+        inline void copy_stencil_values(const input_field_t& field, const StencilCells<cfg>& cells, StencilValues<cfg>& stencil_values) const
         {
             for (std::size_t s = 0; s < stencil_size; ++s)
             {
@@ -606,22 +600,38 @@ namespace samurai
                     exit(EXIT_FAILURE);
                 }
 
+                // Worker variables
+                StencilValues<cfg> stencil_values;
+                StencilJacobianPair<cfg> jacobians;
+
                 // Same level
                 for (std::size_t level = min_level; level <= max_level; ++level)
                 {
-                    auto h = mesh.cell_length(level);
+                    auto h      = mesh.cell_length(level);
+                    auto factor = h_factor(h, h);
 
-                    for_each_interior_interface__same_level<run_type, Get::Cells, include_periodic>(
+                    for_each_interior_interface__same_level<run_type, Get::Intervals, include_periodic>(
                         mesh,
                         level,
                         flux_def.direction,
                         flux_def.stencil,
-                        [&](auto& interface_cells, auto& comput_cells)
+                        [&](auto& interface_it, auto& comput_stencil_it)
                         {
-                            auto jacobians          = jacobian_function(comput_cells, field);
-                            auto left_cell_contrib  = contribution(jacobians[0], h, h);
-                            auto right_cell_contrib = contribution(jacobians[1], h, h);
-                            apply_contrib(interface_cells, comput_cells, left_cell_contrib, right_cell_contrib);
+                            StencilData<cfg> data(comput_stencil_it.cells());
+                            data.cell_length = h;
+
+                            for (std::size_t ii = 0; ii < comput_stencil_it.interval().size(); ++ii)
+                            {
+                                copy_stencil_values(field, comput_stencil_it.cells(), stencil_values);
+
+                                jacobian_function(jacobians, data, stencil_values);
+                                jacobians[0] *= factor;
+                                jacobians[1] *= factor;
+                                apply_contrib(interface_it.cells(), comput_stencil_it.cells(), jacobians[0], jacobians[1]);
+
+                                interface_it.move_next();
+                                comput_stencil_it.move_next();
+                            }
                         });
                 }
 
@@ -637,22 +647,38 @@ namespace samurai
                     auto h_l   = mesh.cell_length(level);
                     auto h_lp1 = mesh.cell_length(level + 1);
 
+                    auto h_face = h_lp1;
+
                     //         |__|   l+1
                     //    |____|      l
                     //    --------->
                     //    direction
                     {
-                        for_each_interior_interface__level_jump_direction<run_type, Get::Cells, include_periodic>(
+                        auto left_factor  = h_factor(h_face, h_l);
+                        auto right_factor = h_factor(h_face, h_lp1);
+
+                        for_each_interior_interface__level_jump_direction<run_type, Get::Intervals, include_periodic>(
                             mesh,
                             level,
                             flux_def.direction,
                             flux_def.stencil,
-                            [&](auto& interface_cells, auto& comput_cells)
+                            [&](auto& interface_it, auto& comput_stencil_it)
                             {
-                                auto jacobians          = jacobian_function(comput_cells, field);
-                                auto left_cell_contrib  = contribution(jacobians[0], h_lp1, h_l);
-                                auto right_cell_contrib = contribution(jacobians[1], h_lp1, h_lp1);
-                                apply_contrib(interface_cells, comput_cells, left_cell_contrib, right_cell_contrib);
+                                StencilData<cfg> data(comput_stencil_it.cells());
+                                data.cell_length = h_face;
+
+                                for (std::size_t ii = 0; ii < comput_stencil_it.interval().size(); ++ii)
+                                {
+                                    copy_stencil_values(field, comput_stencil_it.cells(), stencil_values);
+
+                                    jacobian_function(jacobians, data, stencil_values);
+                                    jacobians[0] *= left_factor;
+                                    jacobians[1] *= right_factor;
+                                    apply_contrib(interface_it.cells(), comput_stencil_it.cells(), jacobians[0], jacobians[1]);
+
+                                    interface_it.move_next();
+                                    comput_stencil_it.move_next();
+                                }
                             });
                     }
                     //    |__|        l+1
@@ -660,17 +686,31 @@ namespace samurai
                     //    --------->
                     //    direction
                     {
-                        for_each_interior_interface__level_jump_opposite_direction<run_type, Get::Cells, include_periodic>(
+                        auto left_factor  = h_factor(h_face, h_lp1);
+                        auto right_factor = h_factor(h_face, h_l);
+
+                        for_each_interior_interface__level_jump_opposite_direction<run_type, Get::Intervals, include_periodic>(
                             mesh,
                             level,
                             flux_def.direction,
                             flux_def.stencil,
-                            [&](auto& interface_cells, auto& comput_cells)
+                            [&](auto& interface_it, auto& comput_stencil_it)
                             {
-                                auto jacobians          = jacobian_function(comput_cells, field);
-                                auto left_cell_contrib  = contribution(jacobians[0], h_lp1, h_lp1);
-                                auto right_cell_contrib = contribution(jacobians[1], h_lp1, h_l);
-                                apply_contrib(interface_cells, comput_cells, left_cell_contrib, right_cell_contrib);
+                                StencilData<cfg> data(comput_stencil_it.cells());
+                                data.cell_length = h_face;
+
+                                for (std::size_t ii = 0; ii < comput_stencil_it.interval().size(); ++ii)
+                                {
+                                    copy_stencil_values(field, comput_stencil_it.cells(), stencil_values);
+
+                                    jacobian_function(jacobians, data, stencil_values);
+                                    jacobians[0] *= left_factor;
+                                    jacobians[1] *= right_factor;
+                                    apply_contrib(interface_it.cells(), comput_stencil_it.cells(), jacobians[0], jacobians[1]);
+
+                                    interface_it.move_next();
+                                    comput_stencil_it.move_next();
+                                }
                             });
                     }
                 }
@@ -697,36 +737,64 @@ namespace samurai
                 auto jacobian_function = flux_def.jacobian_function ? flux_def.jacobian_function
                                                                     : flux_def.jacobian_function_as_conservative();
 
-                for_each_level(
-                    mesh,
-                    [&](auto level)
-                    {
-                        auto h = mesh.cell_length(level);
+                // Worker variables
+                StencilValues<cfg> stencil_values;
+                StencilJacobianPair<cfg> jacobians;
 
-                        // Boundary in direction
-                        for_each_boundary_interface__direction<run_type>(mesh,
-                                                                         level,
-                                                                         flux_def.direction,
-                                                                         flux_def.stencil,
-                                                                         [&](auto& cell, auto& comput_cells)
-                                                                         {
-                                                                             auto jacobians    = jacobian_function(comput_cells, field);
-                                                                             auto cell_contrib = contribution(jacobians[0], h, h);
-                                                                             apply_contrib(cell, comput_cells, cell_contrib);
-                                                                         });
+                for_each_level(mesh,
+                               [&](auto level)
+                               {
+                                   auto h      = mesh.cell_length(level);
+                                   auto factor = h_factor(h, h);
 
-                        // Boundary in opposite direction
-                        for_each_boundary_interface__opposite_direction<run_type>(mesh,
-                                                                                  level,
-                                                                                  flux_def.direction,
-                                                                                  flux_def.stencil,
-                                                                                  [&](auto& cell, auto& comput_cells)
-                                                                                  {
-                                                                                      auto jacobians = jacobian_function(comput_cells, field);
-                                                                                      auto cell_contrib = contribution(jacobians[1], h, h);
-                                                                                      apply_contrib(cell, comput_cells, cell_contrib);
-                                                                                  });
-                    });
+                                   // Boundary in direction
+                                   for_each_boundary_interface__direction<run_type, Get::Intervals>(
+                                       mesh,
+                                       level,
+                                       flux_def.direction,
+                                       flux_def.stencil,
+                                       [&](auto& interface_it, auto& comput_stencil_it)
+                                       {
+                                           StencilData<cfg> data(comput_stencil_it.cells());
+                                           data.cell_length = h;
+
+                                           for (std::size_t ii = 0; ii < comput_stencil_it.interval().size(); ++ii)
+                                           {
+                                               copy_stencil_values(field, comput_stencil_it.cells(), stencil_values);
+
+                                               jacobian_function(jacobians, data, stencil_values);
+                                               jacobians[0] *= factor;
+                                               apply_contrib(interface_it.cells()[0], comput_stencil_it.cells(), jacobians[0]);
+
+                                               interface_it.move_next();
+                                               comput_stencil_it.move_next();
+                                           }
+                                       });
+
+                                   // Boundary in opposite direction
+                                   for_each_boundary_interface__opposite_direction<run_type, Get::Intervals>(
+                                       mesh,
+                                       level,
+                                       flux_def.direction,
+                                       flux_def.stencil,
+                                       [&](auto& interface_it, auto& comput_stencil_it)
+                                       {
+                                           StencilData<cfg> data(comput_stencil_it.cells());
+                                           data.cell_length = h;
+
+                                           for (std::size_t ii = 0; ii < comput_stencil_it.interval().size(); ++ii)
+                                           {
+                                               copy_stencil_values(field, comput_stencil_it.cells(), stencil_values);
+
+                                               jacobian_function(jacobians, data, stencil_values);
+                                               jacobians[1] *= factor;
+                                               apply_contrib(interface_it.cells()[0], comput_stencil_it.cells(), jacobians[1]);
+
+                                               interface_it.move_next();
+                                               comput_stencil_it.move_next();
+                                           }
+                                       });
+                               });
             }
         }
     };
