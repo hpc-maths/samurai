@@ -156,16 +156,16 @@ int main(int argc, char* argv[])
     auto react = samurai::make_cell_based_scheme<cfg>();
     react.set_name("Reaction");
     react.set_scheme_function(
-        [&](const auto& cell, const auto& field) -> samurai::SchemeValue<cfg>
+        [&](samurai::SchemeValue<cfg>& value, const auto& cell, const auto& field)
         {
             auto v = field[cell];
-            return k * v * v * (1 - v);
+            value  = k * v * v * (1 - v);
         });
     react.set_jacobian_function(
-        [&](const auto& cell, const auto& field) -> samurai::JacobianMatrix<cfg>
+        [&](samurai::JacobianMatrix<cfg>& jac, const auto& cell, const auto& field)
         {
             auto v = field[cell];
-            return k * (2 * v * (1 - v) - v * v);
+            jac    = k * (2 * v * (1 - v) - v * v);
         });
 
     //--------------------//

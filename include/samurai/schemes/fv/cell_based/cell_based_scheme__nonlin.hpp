@@ -94,9 +94,9 @@ namespace samurai
             m_scheme_definition.local_scheme_function = scheme_function;
         }
 
-        auto contribution(stencil_cells_t& stencil_cells, input_field_t& field) const
+        void contribution(SchemeValue<cfg>& value, const stencil_cells_t& stencil_cells, input_field_t& field) const
         {
-            return m_scheme_definition.scheme_function(stencil_cells, field);
+            m_scheme_definition.scheme_function(value, stencil_cells, field);
         }
 
         const jacobian_func& jacobian_function() const
@@ -126,9 +126,9 @@ namespace samurai
             m_scheme_definition.local_jacobian_function = jacobian_function;
         }
 
-        auto jacobian_coefficients(stencil_cells_t& stencil_cells, input_field_t& field) const
+        void jacobian_coefficients(StencilJacobian<cfg>& jac, const stencil_cells_t& stencil_cells, input_field_t& field) const
         {
-            return m_scheme_definition.jacobian_function(stencil_cells, field);
+            m_scheme_definition.jacobian_function(jac, stencil_cells, field);
         }
 
         inline field_value_type contrib_cmpnent(const SchemeValue<cfg>& coeffs, [[maybe_unused]] size_type field_i) const
@@ -150,19 +150,21 @@ namespace samurai
         template <class Func>
         void for_each_stencil_center(input_field_t& field, Func&& apply_contrib) const
         {
+            SchemeValue<cfg> value;
+
             for_each_stencil(field.mesh(),
                              stencil(),
                              [&](auto& stencil_cells)
                              {
                                  if constexpr (cfg::stencil_size == 1)
                                  {
-                                     auto contrib = contribution(stencil_cells[0], field);
-                                     apply_contrib(stencil_cells[cfg::center_index], contrib);
+                                     contribution(value, stencil_cells[0], field);
+                                     apply_contrib(stencil_cells[cfg::center_index], value);
                                  }
                                  else
                                  {
-                                     auto contrib = contribution(stencil_cells, field);
-                                     apply_contrib(stencil_cells[cfg::center_index], contrib);
+                                     contribution(value, stencil_cells, field);
+                                     apply_contrib(stencil_cells[cfg::center_index], value);
                                  }
                              });
         }
@@ -181,18 +183,20 @@ namespace samurai
                 exit(EXIT_FAILURE);
             }
 
+            StencilJacobian<cfg> coeffs;
+
             for_each_stencil(field.mesh(),
                              stencil(),
                              [&](auto& stencil_cells)
                              {
                                  if constexpr (cfg::stencil_size == 1)
                                  {
-                                     auto coeffs = jacobian_coefficients(stencil_cells[0], field);
+                                     jacobian_coefficients(coeffs, stencil_cells[0], field);
                                      apply_jacobian_coeffs(stencil_cells, coeffs);
                                  }
                                  else
                                  {
-                                     auto coeffs = jacobian_coefficients(stencil_cells, field);
+                                     jacobian_coefficients(coeffs, stencil_cells, field);
                                      apply_jacobian_coeffs(stencil_cells, coeffs);
                                  }
                              });

@@ -12,11 +12,9 @@ namespace samurai
 
         auto zero = make_cell_based_scheme<cfg>("Zero");
 
-        zero.coefficients_func() = [](double) -> StencilCoeffs<cfg>
+        zero.coefficients_func() = [](StencilCoeffs<cfg>& sc, double)
         {
-            StencilCoeffs<cfg> sc;
-            sc(0) = zeros<field_value_type, output_field_t::n_comp, input_field_t::n_comp, input_field_t::is_scalar>();
-            return sc;
+            sc = zeros<field_value_type, output_field_t::n_comp, input_field_t::n_comp, input_field_t::is_scalar>();
         };
         zero.is_symmetric(true);
         return zero;

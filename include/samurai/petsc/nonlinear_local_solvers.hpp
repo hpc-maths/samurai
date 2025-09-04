@@ -32,6 +32,7 @@ namespace samurai
             // clang-format on
 
             using scheme_t      = Scheme;
+            using cfg_t         = typename scheme_t::cfg_t;
             using field_t       = typename scheme_t::field_t;
             using mesh_t        = typename field_t::mesh_t;
             using field_value_t = typename field_t::value_type;
@@ -212,7 +213,8 @@ namespace samurai
                 // LocalField<field_t> f_field(cell, f_data);
 
                 // Apply explicit scheme
-                auto f_field = scheme.scheme_definition().local_scheme_function(cell, x_field);
+                SchemeValue<cfg_t> f_field;
+                scheme.scheme_definition().local_scheme_function(f_field, cell, x_field);
 
                 copy(f_field, f);
 
@@ -236,8 +238,8 @@ namespace samurai
 
                 // Assembly of the Jacobian matrix.
                 // In this case, jac = B, but Petsc recommends we assemble B for more general cases.
-                auto jac_stencil_coeffs = scheme.scheme_definition().local_jacobian_function(cell, x_field);
-                auto& jac_coeffs        = jac_stencil_coeffs[0]; // local stencil (of size 1)
+                JacobianMatrix<cfg_t> jac_coeffs;
+                scheme.scheme_definition().local_jacobian_function(jac_coeffs, cell, x_field);
                 if constexpr (field_t::is_scalar)
                 {
                     MatSetValue(B, 0, 0, jac_coeffs, INSERT_VALUES);

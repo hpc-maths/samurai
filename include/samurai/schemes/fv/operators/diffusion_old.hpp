@@ -30,17 +30,15 @@ namespace samurai
             this->set_name("Diffusion");
 
             this->stencil()           = star_stencil<dim>();
-            this->coefficients_func() = [](double h)
+            this->coefficients_func() = [](StencilCoeffs<cfg>& coeffs, double h)
             {
                 auto Identity = eye<field_value_type, n_comp, n_comp, Field::is_scalar>();
-                StencilCoeffs<cfg> coeffs;
                 for (unsigned int i = 0; i < cfg::stencil_size; ++i)
                 {
                     coeffs[i] = -Identity;
                 }
                 coeffs[cfg::center_index] = (cfg::stencil_size - 1) * Identity;
                 coeffs /= (h * h);
-                return coeffs;
             };
 
             this->is_symmetric(true);

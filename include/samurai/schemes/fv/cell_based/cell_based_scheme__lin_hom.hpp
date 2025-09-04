@@ -73,9 +73,9 @@ namespace samurai
             m_scheme_definition.get_coefficients_function = get_coefficients_function;
         }
 
-        auto coefficients(double h) const
+        void coefficients(StencilCoeffs<cfg>& coeffs, double h) const
         {
-            return m_scheme_definition.get_coefficients_function(h);
+            m_scheme_definition.get_coefficients_function(coeffs, h);
         }
 
         template <class Func>
@@ -84,10 +84,12 @@ namespace samurai
             auto& mesh      = field.mesh();
             auto stencil_it = make_stencil_iterator(mesh, stencil());
 
+            StencilCoeffs<cfg> coeffs;
+
             for_each_level(mesh,
                            [&](std::size_t level)
                            {
-                               auto coeffs = coefficients(mesh.cell_length(level));
+                               coefficients(coeffs, mesh.cell_length(level));
 
                                for_each_stencil(mesh,
                                                 level,

@@ -93,6 +93,8 @@ namespace samurai
                     return;
                 }
 
+                StencilCoeffs<cfg_t> coeffs;
+
                 for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                 {
                     PetscInt scheme_nnz_i = stencil_size * input_n_comp;
@@ -101,7 +103,7 @@ namespace samurai
                     // Not sure if this optimization really makes a difference though...
                     if constexpr (cfg_t::scheme_type == SchemeType::LinearHomogeneous && detail::is_soa_v<field_t>)
                     {
-                        auto coeffs  = scheme().coefficients(cell_length(1., 0));
+                        scheme().coefficients(coeffs, cell_length(1., 0));
                         scheme_nnz_i = 0;
                         for (unsigned int field_j = 0; field_j < input_n_comp; ++field_j)
                         {
@@ -256,13 +258,6 @@ namespace samurai
                                                                                        field_i,
                                                                                        field_j);
                                         }
-                                        // if (std::any_of(contiguous_coeffs.begin(),
-                                        //                 contiguous_coeffs.end(),
-                                        //                 [](auto coeff)
-                                        //                 {
-                                        //                     return coeff != 0;
-                                        //                 }))
-                                        // {
                                         MatSetValues(A,
                                                      1,
                                                      &stencil_center_row,
@@ -270,7 +265,6 @@ namespace samurai
                                                      &cols[local_col_index(cfg_t::contiguous_indices_start, field_j)],
                                                      contiguous_coeffs.data(),
                                                      ADD_VALUES);
-                                        // }
                                     }
                                     if constexpr (cfg_t::contiguous_indices_start + cfg_t::contiguous_indices_size < cfg_t::stencil_size)
                                     {
@@ -299,21 +293,34 @@ namespace samurai
                             // row (c*2)+i   --> [-1  0|-1  0| 4  0|-1  0|-1  0]
                             // row (c*2)+i+1 --> [ 0 -1| 0 -1| 0  4| 0 -1| 0 -1]
 
-                            for (unsigned int c = 0; c < stencil_size; ++c)
+                            if constexpr (stencil_size == 1)
                             {
-                                // Insert a coefficient block of size <output_n_comp x input_n_comp>:
-                                // - in 'rows', for each cell, <output_n_comp> rows are contiguous.
-                                // - in 'cols', for each cell, <input_n_comp> cols are contiguous.
-                                // - coeffs[c] is a row-major matrix (xtensor), as requested by PETSc.
                                 MatSetValues(A,
                                              static_cast<PetscInt>(output_n_comp),
                                              &rows[local_row_index(cfg_t::center_index, 0)],
                                              static_cast<PetscInt>(input_n_comp),
-                                             &cols[local_col_index(c, 0)],
-                                             coeffs[c].data(),
+                                             &cols[local_col_index(0, 0)],
+                                             coeffs.data(),
                                              ADD_VALUES);
                             }
+                            else
+                            {
+                                for (unsigned int c = 0; c < stencil_size; ++c)
+                                {
+                                    // Insert a coefficient block of size <output_n_comp x input_n_comp>:
+                                    // - in 'rows', for each cell, <output_n_comp> rows are contiguous.
+                                    // - in 'cols', for each cell, <input_n_comp> cols are contiguous.
+                                    // - coeffs[c] is a row-major matrix (xtensor), as requested by PETSc.
 
+                                    MatSetValues(A,
+                                                 static_cast<PetscInt>(output_n_comp),
+                                                 &rows[local_row_index(cfg_t::center_index, 0)],
+                                                 static_cast<PetscInt>(input_n_comp),
+                                                 &cols[local_col_index(c, 0)],
+                                                 coeffs[c].data(),
+                                                 ADD_VALUES);
+                                }
+                            }
                             for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                             {
                                 auto row = rows[local_row_index(cfg_t::center_index, field_i)];

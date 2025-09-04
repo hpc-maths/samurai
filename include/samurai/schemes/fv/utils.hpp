@@ -24,6 +24,6 @@ namespace samurai
                                          cfg::input_field_t::is_scalar && cfg::output_field_t::is_scalar>;
 
     template <class cfg>
-    using StencilJacobian = StdArrayWrapper<JacobianMatrix<cfg>, cfg::stencil_size>;
+    using StencilJacobian = collapsable_algebraic_std_array<JacobianMatrix<cfg>, cfg::stencil_size, true>;
 
 } // end namespace samurai
