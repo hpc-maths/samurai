@@ -99,8 +99,6 @@ namespace samurai
         using flux_func = std::function<void(FluxValuePair<cfg>&, const StencilData<cfg>&, const StencilValues<cfg>&)>;  // non-conservative
         using cons_flux_func = std::function<void(FluxValue<cfg>&, const StencilData<cfg>&, const StencilValues<cfg>&)>; // conservative
 
-        // using jacobian_func      = std::function<StencilJacobianPair<cfg>(StencilCells<cfg>&, const field_t&)>; // non-conservative
-        // using cons_jacobian_func = std::function<StencilJacobian<cfg>(StencilCells<cfg>&, const field_t&)>;     // conservative
         using jacobian_func = std::function<void(StencilJacobianPair<cfg>&, const StencilData<cfg>&, const StencilValues<cfg>&)>; // non-conservative
         using cons_jacobian_func = std::function<void(StencilJacobian<cfg>&, const StencilData<cfg>&, const StencilValues<cfg>&)>; // conservative
 
@@ -201,7 +199,7 @@ namespace samurai
         requires(cfg::scheme_type == SchemeType::LinearHomogeneous)
     struct NormalFluxDefinition<cfg> : NormalFluxDefinitionBase<cfg>
     {
-        using cons_flux_func = std::function<FluxStencilCoeffs<cfg>(double)>;
+        using cons_flux_func = std::function<void(FluxStencilCoeffs<cfg>&, double)>;
 
         /**
          * Function returning the coefficients for the computation of the flux w.r.t. the defined stencil, in function of the meshsize h.
