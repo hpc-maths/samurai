@@ -294,7 +294,7 @@ namespace samurai
                     double h = data.cell_length;
 
                     auto k_left  = K[data.cells[left]];
-                    auto k_right = K[data.cells[left]]; // MAKE CORRECTION?
+                    auto k_right = K[data.cells[right]];
 
                     // `coeffs`: 2 matrices (left, right) of size output_n_comp x n_comp.
                     // In this case, of size n_comp x n_comp.

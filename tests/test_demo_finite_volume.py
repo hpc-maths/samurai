@@ -81,7 +81,8 @@ def test_finite_volume_demo(exec, Tf, config):
     sys.platform == "darwin",
     reason="skipped on macos because libpthread is missing on github worker",
 )
-def test_finite_volume_demo_heat_explicit(config):
+@pytest.mark.parametrize("time_scheme", ["explicit", "implicit"])
+def test_finite_volume_demo_heat(time_scheme, config):
     cmd = [
         get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-heat"),
         "--path",
@@ -89,18 +90,15 @@ def test_finite_volume_demo_heat_explicit(config):
         "--filename",
         config["filename"],
         "--save-final-state-only",
-        "--explicit",
-        "--init-sol",
-        "dirac",
-        "--Tf",
-        "0.1",
-        "--cfl",
-        "0.95",
-        "--min-level",
-        "3",
-        "--max-level",
-        "6",
+        "--init-sol=dirac",
+        "--Tf=0.1",
+        "--min-level=3",
+        "--max-level=6",
     ]
+    if time_scheme == "explicit":
+        cmd.append("--explicit")
+    else:
+        cmd.extend(["-ksp_type", "preonly", "-pc_type", "lu"])
     output = subprocess.run(cmd, check=True, capture_output=True)
 
 
@@ -109,36 +107,8 @@ def test_finite_volume_demo_heat_explicit(config):
     sys.platform == "darwin",
     reason="skipped on macos because libpthread is missing on github worker",
 )
-def test_finite_volume_demo_heat_implicit(config):
-    cmd = [
-        get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-heat"),
-        "--path",
-        config["path"],
-        "--filename",
-        config["filename"],
-        "--save-final-state-only",
-        "--init-sol",
-        "dirac",
-        "--Tf",
-        "0.1",
-        "--min-level",
-        "3",
-        "--max-level",
-        "6",
-        "-ksp_type",
-        "preonly",
-        "-pc_type",
-        "lu",
-    ]
-    output = subprocess.run(cmd, check=True, capture_output=True)
-
-
-@pytest.mark.h5diff()
-@pytest.mark.skipif(
-    sys.platform == "darwin",
-    reason="skipped on macos because libpthread is missing on github worker",
-)
-def test_finite_volume_demo_heat_heterogeneous_explicit(config):
+@pytest.mark.parametrize("time_scheme", ["explicit", "implicit"])
+def test_finite_volume_demo_heat_heterogeneous(time_scheme, config):
     cmd = [
         get_executable(
             Path("../build/demos/FiniteVolume/"), "finite-volume-heat-heterogeneous"
@@ -148,45 +118,14 @@ def test_finite_volume_demo_heat_heterogeneous_explicit(config):
         "--filename",
         config["filename"],
         "--save-final-state-only",
-        "--explicit",
-        "--Tf",
-        "0.1",
-        "--cfl",
-        "0.95",
-        "--min-level",
-        "3",
-        "--max-level",
-        "6",
+        "--Tf=0.1",
+        "--min-level=3",
+        "--max-level=6",
     ]
-    output = subprocess.run(cmd, check=True, capture_output=True)
-
-
-@pytest.mark.h5diff()
-@pytest.mark.skipif(
-    sys.platform == "darwin",
-    reason="skipped on macos because libpthread is missing on github worker",
-)
-def test_finite_volume_demo_heat_heterogeneous_implicit(config):
-    cmd = [
-        get_executable(
-            Path("../build/demos/FiniteVolume/"), "finite-volume-heat-heterogeneous"
-        ),
-        "--path",
-        config["path"],
-        "--filename",
-        config["filename"],
-        "--save-final-state-only",
-        "--Tf",
-        "0.1",
-        "--min-level",
-        "3",
-        "--max-level",
-        "6",
-        "-ksp_type",
-        "preonly",
-        "-pc_type",
-        "lu",
-    ]
+    if time_scheme == "explicit":
+        cmd.append("--explicit")
+    else:
+        cmd.extend(["-ksp_type", "preonly", "-pc_type", "lu"])
     output = subprocess.run(cmd, check=True, capture_output=True)
 
 
@@ -202,12 +141,9 @@ def test_finite_volume_demo_stokes_stationary(config):
         config["path"],
         "--filename",
         config["filename"],
-        "--test-case",
-        "s",
-        "--min-level",
-        "5",
-        "--max-level",
-        "5",
+        "--test-case=s",
+        "--min-level=5",
+        "--max-level=5",
     ]
     output = subprocess.run(cmd, check=True, capture_output=True)
 
@@ -224,16 +160,11 @@ def test_finite_volume_demo_stokes_nonstationary(config):
         config["path"],
         "--filename",
         config["filename"],
-        "--test-case",
-        "ns",
-        "--nfiles",
-        "1",
-        "--min-level",
-        "3",
-        "--max-level",
-        "6",
-        "--Tf",
-        "0.1",
+        "--test-case=ns",
+        "--nfiles=1",
+        "--min-level=3",
+        "--max-level=6",
+        "--Tf=0.1",
     ]
     output = subprocess.run(cmd, check=True, capture_output=True)
 
@@ -246,16 +177,11 @@ def test_finite_volume_demo_burgers(config):
         config["path"],
         "--filename",
         config["filename"],
-        "--nfiles",
-        "1",
-        "--min-level",
-        "3",
-        "--max-level",
-        "6",
-        "--init-sol",
-        "hat",
-        "--Tf",
-        "0.1",
+        "--nfiles=1",
+        "--min-level=3",
+        "--max-level=6",
+        "--init-sol=hat",
+        "--Tf=0.1",
     ]
     output = subprocess.run(cmd, check=True, capture_output=True)
 
@@ -270,16 +196,11 @@ def test_finite_volume_demo_mra_burgers(config):
         config["path"],
         "--filename",
         config["filename"],
-        "--nfiles",
-        "1",
-        "--min-level",
-        "2",
-        "--max-level",
-        "9",
-        "--init-sol",
-        "hat",
-        "--mr-eps",
-        "1e-5",
+        "--nfiles=1",
+        "--min-level=2",
+        "--max-level=9",
+        "--init-sol=hat",
+        "--mr-eps=1e-5",
     ]
     output = subprocess.run(cmd, check=True, capture_output=True)
 
@@ -297,10 +218,8 @@ def test_finite_volume_demo_nagumo_imp_diff_imp_react(config):
         "--filename",
         config["filename"],
         "--save-final-state-only",
-        "--min-level",
-        "4",
-        "--max-level",
-        "8",
+        "--min-level=4",
+        "--max-level=8",
         "-ksp_type",
         "preonly",
         "-pc_type",
@@ -326,10 +245,8 @@ def test_finite_volume_demo_nagumo_exp_diff_imp_react(config):
         "--filename",
         config["filename"],
         "--save-final-state-only",
-        "--min-level",
-        "4",
-        "--max-level",
-        "8",
+        "--min-level=4",
+        "--max-level=8",
         "--explicit-diffusion",
         "-ksp_type",
         "preonly",
@@ -354,10 +271,8 @@ def test_finite_volume_demo_nagumo_imp_diff_exp_react(config):
         "--filename",
         config["filename"],
         "--save-final-state-only",
-        "--min-level",
-        "4",
-        "--max-level",
-        "8",
+        "--min-level=4",
+        "--max-level=8",
         "--explicit-reaction",
         "-ksp_type",
         "preonly",
@@ -384,14 +299,11 @@ def test_finite_volume_demo_nagumo_exp_diff_exp_react(config):
         "--filename",
         config["filename"],
         "--save-final-state-only",
-        "--min-level",
-        "4",
-        "--max-level",
-        "8",
+        "--min-level=4",
+        "--max-level=8",
         "--explicit-diffusion",
         "--explicit-reaction",
-        "--Tf",
-        "0.01",
+        "--Tf=0.01",
     ]
     output = subprocess.run(cmd, check=True, capture_output=True)
 
@@ -410,14 +322,10 @@ def test_finite_volume_demo_lid_driven_cavity(config):
         config["path"],
         "--filename",
         config["filename"],
-        "--nfiles",
-        "1",
-        "--min-level",
-        "3",
-        "--max-level",
-        "6",
-        "--Tf",
-        "0.03",
+        "--nfiles=1",
+        "--min-level=3",
+        "--max-level=6",
+        "--Tf=0.03",
     ]
     output = subprocess.run(cmd, check=True, capture_output=True)
 
@@ -456,10 +364,8 @@ def test_finite_volume_demo_obstacle_linear_convection(config):
         config["path"],
         "--filename",
         config["filename"],
-        "--nfiles",
-        "1",
-        "--Tf",
-        "0.3",
+        "--nfiles=1",
+        "--Tf=0.3",
     ]
     output = subprocess.run(cmd, check=True, capture_output=True)
 

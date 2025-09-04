@@ -196,6 +196,11 @@ namespace samurai
         {
             auto& mesh = field.mesh();
 
+            if (mesh.periodicity()[d])
+            {
+                return; // no boundary in this direction
+            }
+
             auto& flux_def = flux_definition()[d];
 
             FluxStencilCoeffs<cfg> flux_coeffs;
@@ -239,14 +244,8 @@ namespace samurai
         template <class Func>
         void for_each_boundary_interface_and_coeffs(input_field_t& field, Func&& apply_coeffs) const
         {
-            auto& mesh = field.mesh();
             for (std::size_t d = 0; d < dim; ++d)
             {
-                if (mesh.periodicity()[d])
-                {
-                    continue; // no boundary in this direction
-                }
-
                 for_each_boundary_interface_and_coeffs(d, field, std::forward<Func>(apply_coeffs));
             }
         }

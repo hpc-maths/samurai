@@ -198,7 +198,6 @@ namespace samurai
             auto& flux_def = flux_definition()[d];
 
             FluxStencilCoeffs<cfg> flux_coeffs;
-            FluxStencilCoeffs<cfg> cell_coeffs;
 
             for_each_level(mesh,
                            [&](auto level)
@@ -209,18 +208,18 @@ namespace samurai
 
                                // Boundary in direction
                                flux_def.cons_flux_function(flux_coeffs, h);
-                               cell_coeffs = factor * flux_coeffs;
+                               flux_coeffs *= factor;
                                for_each_boundary_interface__direction<run_type, get_type>(mesh,
                                                                                           level,
                                                                                           flux_def.direction,
                                                                                           flux_def.stencil,
                                                                                           [&](auto& cell, auto& comput_cells)
                                                                                           {
-                                                                                              apply_coeffs(cell, comput_cells, cell_coeffs);
+                                                                                              apply_coeffs(cell, comput_cells, flux_coeffs);
                                                                                           });
 
                                // Boundary in opposite direction
-                               cell_coeffs = -cell_coeffs;
+                               flux_coeffs *= -1;
                                for_each_boundary_interface__opposite_direction<run_type, get_type>(
                                    mesh,
                                    level,
@@ -228,7 +227,7 @@ namespace samurai
                                    flux_def.stencil,
                                    [&](auto& cell, auto& comput_cells)
                                    {
-                                       apply_coeffs(cell, comput_cells, cell_coeffs);
+                                       apply_coeffs(cell, comput_cells, flux_coeffs);
                                    });
                            });
         }
