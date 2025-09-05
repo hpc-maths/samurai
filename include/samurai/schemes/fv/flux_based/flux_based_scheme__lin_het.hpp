@@ -57,13 +57,6 @@ namespace samurai
             return m_include_boundary_fluxes;
         }
 
-        // FluxStencilCoeffs<cfg> contribution(const FluxStencilCoeffs<cfg>& flux_coeffs, double h_face, double h_cell) const
-        // {
-        //     double face_measure = pow(h_face, dim - 1);
-        //     double cell_measure = pow(h_cell, dim);
-        //     return (face_measure / cell_measure) * flux_coeffs;
-        // }
-
       private:
 
         inline auto h_factor(double h_face, double h_cell) const

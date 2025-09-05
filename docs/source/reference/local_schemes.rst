@@ -82,19 +82,18 @@ The analytical formula of the operator is implemented as a lambda function.
 
 .. code-block:: c++
 
-    A.set_scheme_function([&](auto& cell, const auto& field)
+    A.set_scheme_function([&](samurai::SchemeValue<cfg>& result, const auto& cell, const auto& field)
     {
         // Local field value
         auto v = field[cell];
 
         // Use 'v' and captured parameters in your computation
-        samurai::SchemeValue<cfg> result = ...;
-
-        return result;
+        result = ...;
     });
 
 The parameters of the function are
 
+- :code:`result`: the result of the operator application, to be filled in the function;
 - :code:`cell`: the current local cell;
 - :code:`field`: the input field, to which the operator applies. Its actual type is declared in :code:`cfg`.
 
@@ -110,13 +109,12 @@ If only explicit applications of the operator shall be used, then this step is o
 
 .. code-block:: c++
 
-    A.set_jacobian_function([&](auto& cell, const auto& field)
+    A.set_jacobian_function([&](samurai::JacobianMatrix<cfg>& jac, const auto& cell, const auto& field)
     {
         // Local field value
         auto v = field[cell];
 
-        samurai::JacobianMatrix<cfg> jac = ...
-        return jac;
+        jac = ...; // Fill the jacobian matrix
     });
 
 .. warning::

@@ -111,10 +111,10 @@ Here is an example for the vectorial Laplace operator:
     auto u = samurai::make_vector_field<2>("u", mesh);
 
     // Configuration for the Laplace operator
-    using cfg = samurai::FluxConfig<SchemeType::LinearHomogeneous, // scheme_type
-                                    2,                             // stencil_size (for the Laplacian of order 2)
-                                    decltype(u),                   // output_field_type (here identical to the input field)
-                                    decltype(u)>;                  // input_field_type
+    using cfg = samurai::FluxConfig<samurai::SchemeType::LinearHomogeneous, // scheme_type
+                                    2,             // stencil_size (for the Laplacian of order 2)
+                                    decltype(u),   // output_field_type (here identical to the input field)
+                                    decltype(u)>;  // input_field_type
 
 .. _stencil-configuration:
 
@@ -155,17 +155,17 @@ The corresponding stencils are configured by
     my_flux[1].cons_flux_function = my_flux_function_y;
 
 Note that one stencil and associated flux function must be defined for each positive Cartesian direction.
-The set of cells captured by the stencil will be passed as argument of the flux function in the form of a cell array, arranged according the order chosen in the configured stencil:
+The set of values captured by the stencil will be passed as argument of the flux function in the form of an array, arranged according the order chosen in the configured stencil:
 
 .. code-block:: c++
 
     my_flux[0].stencil = {{-1,0}, {0,0}, {1,0}, {2,0}};
-    my_flux[0].cons_flux_function = [](auto& cells, ...)
+    my_flux[0].cons_flux_function = [](auto& flux_value, const auto& data, const auto& field_values)
         {
-            auto& L2 = cells[0]; // {-1,0}
-            auto& L1 = cells[1]; // { 0,0}
-            auto& R1 = cells[2]; // { 1,0}
-            auto& R2 = cells[3]; // { 2,0}
+            auto& value_L2 = field_values[0]; // {-1,0}
+            auto& value_L1 = field_values[1]; // { 0,0}
+            auto& value_R1 = field_values[2]; // { 1,0}
+            auto& value_R2 = field_values[3]; // { 2,0}
         };
 
 Helper functions allow you to easily build line stencils (such as the one above) for any direction:
@@ -308,15 +308,11 @@ Its implementation looks like
 
 .. code-block:: c++
 
-    auto my_flux_function = [](double h)
+    auto my_flux_function = [](samurai::FluxStencilCoeffs<cfg>& c, double h)
     {
-        FluxStencilCoeffs<cfg> c;
-
         // Assuming a 2-cell stencil:
-        c[0] = ...
-        c[1] = ...
-
-        return c;
+        c[0] = ...;
+        c[1] = ...;
     };
 
 The :code:`FluxStencilCoeffs<cfg>` object is an array-like structure of fixed-size.
@@ -364,7 +360,7 @@ This is enough to write the static configuration:
 
     auto u = samurai::make_scalar_field<double>("u", mesh);
 
-    using cfg = samurai::FluxConfig<SchemeType::LinearHomogeneous,
+    using cfg = samurai::FluxConfig<samurai::SchemeType::LinearHomogeneous,
                                     2,            // stencil_size
                                     decltype(u),  // output_field_type
                                     decltype(u)>; // input_field_type
@@ -380,15 +376,13 @@ The flux function then writes:
 
 .. code-block:: c++
 
-    samurai::FluxDefinition<cfg> gradient([](double h)
+    samurai::FluxDefinition<cfg> gradient([](samurai::FluxStencilCoeffs<cfg>& c, double h)
         {
             static constexpr std::size_t L = 0; // left
             static constexpr std::size_t R = 1; // right
 
-            samurai::FluxStencilCoeffs<cfg> c;
             c[L] = -1/h;
             c[R] =  1/h;
-            return c;
         });
 
 First of all, remark that we have declared only one flux function for all directions.
@@ -444,17 +438,16 @@ The implementation of the vector laplacian operator then writes
     static constexpr std::size_t n_comp = 3;
     auto u = samurai::make_vector_field<n_comp>("u", mesh); // vector field
 
-    using cfg = samurai::FluxConfig<SchemeType::LinearHomogeneous,
+    using cfg = samurai::FluxConfig<samurai::SchemeType::LinearHomogeneous,
                                     2,                // stencil_size
                                     decltype(u),      // output_field_type
                                     decltype(u)>;     // input_field_type
 
-    samurai::FluxDefinition<cfg> gradient([](double h)
+    samurai::FluxDefinition<cfg> gradient([](samurai::FluxStencilCoeffs<cfg>& c, double h)
         {
             static constexpr std::size_t L = 0;
             static constexpr std::size_t R = 1;
 
-            samurai::FluxStencilCoeffs<cfg> c;
             c[L].fill(0);
             c[R].fill(0);
             for (std::size_t i = 0; i < n_comp; ++i)
@@ -462,7 +455,6 @@ The implementation of the vector laplacian operator then writes
                 c[L](i, i) = -1/h;
                 c[R](i, i) =  1/h;
             }
-            return c;
         });
 
     auto laplacian = samurai::make_divergence(gradient);
@@ -534,7 +526,7 @@ In the configuration, the number of components of the output field is set to the
     using input_field_t                       = decltype(u);
     using output_field_t = VectorField<typename input_field_t::mesh_t, typename input_field_t::value_type, dim, detail::is_soa_v<input_field_t>>;
 
-    using cfg = samurai::FluxConfig<SchemeType::LinearHomogeneous,
+    using cfg = samurai::FluxConfig<samurai::SchemeType::LinearHomogeneous,
                                     2,              // stencil_size
                                     output_field_t, // output_n_comp
                                     input_field_t>; // input_field_type
@@ -549,32 +541,28 @@ In 2D, they write:
 
     samurai::FluxDefinition<cfg> flux;
 
-    flux[x].cons_flux_function = [](double h)
+    flux[x].cons_flux_function = [](samurai::FluxStencilCoeffs<cfg>& c, double h)
     {
         static constexpr std::size_t L = 0;
         static constexpr std::size_t R = 1;
 
-        samurai::FluxStencilCoeffs<cfg> c;
         xt::row(c[L], x) = 0.5;
         xt::row(c[L], y) = 0;
 
         xt::row(c[R], x) = 0.5;
         xt::row(c[R], y) = 0;
-        return c;
     };
 
-    flux[y].cons_flux_function = [](double h)
+    flux[y].cons_flux_function = [](samurai::FluxStencilCoeffs<cfg>& c, double h)
     {
         static constexpr std::size_t B = 0;
         static constexpr std::size_t T = 1;
 
-        samurai::FluxStencilCoeffs<cfg> c;
         xt::row(c[B], x) = 0;
         xt::row(c[B], y) = 0.5;
 
         xt::row(c[T], x) = 0;
         xt::row(c[T], y) = 0.5;
-        return c;
     };
 
 Here, the type :code:`FluxStencilCoeffs<cfg>` contains, for each cell in the stencil, a matrix of size :code:`dim x 1`, where :code:`dim` is the space dimension.
@@ -591,18 +579,16 @@ This code can be compacted into the :math:`n`-dimensional code
         {
             static constexpr std::size_t d = _d(); // direction index
 
-            flux[d].cons_flux_function = [](double h)
+            flux[d].cons_flux_function = [](samurai::FluxStencilCoeffs<cfg>& c, double h)
             {
                 static constexpr std::size_t L = 0;
                 static constexpr std::size_t R = 1;
 
-                samurai::FluxStencilCoeffs<cfg> c;
                 c[L].fill(0);
                 xt::row(c[L], d) = 0.5;
 
                 c[R].fill(0);
                 xt::row(c[R], d) = 0.5;
-                return c;
             };
         });
 
@@ -661,8 +647,8 @@ The following code corresponds directly to the :math:`n`-dimensional version:
 
     using input_field_t  = decltype(u);
     using output_field_t = ScalarField<typename input_field_t::mesh_t, typename input_field_t::value_type>;
-    using cfg = samurai::FluxConfig<SchemeType::LinearHomogeneous,
-                                    2,            // stencil_size
+    using cfg = samurai::FluxConfig<samurai::SchemeType::LinearHomogeneous,
+                                    2,               // stencil_size
                                     output_field_t,
                                     input_field_t>;
 
@@ -673,12 +659,11 @@ The following code corresponds directly to the :math:`n`-dimensional version:
         {
             static constexpr std::size_t d = _d();
 
-            flux[d].cons_flux_function = [](double)
+            flux[d].cons_flux_function = [](samurai::FluxStencilCoeffs<cfg>& c, double h)
             {
                 static constexpr std::size_t L = 0;
                 static constexpr std::size_t R = 1;
 
-                samurai::FluxStencilCoeffs<cfg> c;
                 if constexpr (input_field_t::is_scalar)
                 {
                     c[L] = 0.5;
@@ -692,7 +677,6 @@ The following code corresponds directly to the :math:`n`-dimensional version:
                     c[R].fill(0);
                     xt::col(c[R], d) = 0.5;
                 }
-                return c;
             };
         });
 
@@ -714,15 +698,11 @@ The flux function resembles that of the :ref:`homogeneous linear operators <lin_
 
     auto param = samurai::make_scalar_field<double>("param", mesh);
 
-    auto my_flux_function = [&](const auto& cells)
+    auto my_flux_function = [&](samurai::FluxStencilCoeffs<cfg>& c, const samurai::StencilData<cfg>& data)
     {
-        FluxStencilCoeffs<cfg> c;
-
         // Assuming a 2-cell stencil:
-        c[0] = ... param[cell[0]] ...
-        c[1] = ... param[cell[1]] ...
-
-        return c;
+        c[0] = ... param[data.cells[0]] ...
+        c[1] = ... param[data.cells[1]] ...
     };
 
 Here, the stencil cells of the computational stencil are provided, to be used to retrieved the values of the parameters in those cells.
@@ -811,7 +791,7 @@ The construction of the operator now reads
 
     auto u = samurai::make_scalar_field<double>("u", mesh); // scalar field
 
-    using cfg = samurai::FluxConfig<SchemeType::LinearHeterogeneous,
+    using cfg = samurai::FluxConfig<samurai::SchemeType::LinearHeterogeneous,
                                     2,            // stencil_size
                                     decltype(u),  // output_field_type
                                     decltype(u)>; // input_field_type
@@ -823,14 +803,12 @@ The construction of the operator now reads
         {
             static constexpr std::size_t d = _d();
 
-            upwind[d].cons_flux_function = [&](const auto& cells)
+            upwind[d].cons_flux_function = [&](samurai::FluxStencilCoeffs<cfg>& c, const samurai::StencilData<cfg>& data)
             {
                 static constexpr std::size_t L = 0;
                 static constexpr std::size_t R = 1;
 
-                auto cell = cells[L]; // arbitrary choice
-
-                samurai::FluxStencilCoeffs<cfg> c;
+                auto cell = data.cells[L]; // arbitrary choice
 
                 if (a[cell](d) >= 0)
                 {
@@ -842,7 +820,6 @@ The construction of the operator now reads
                     c[L] = 0;
                     c[R] = a[cell](d);
                 }
-                return c;
             };
         });
 
