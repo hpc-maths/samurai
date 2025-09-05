@@ -1,5 +1,6 @@
 #pragma once
 #include "../cell_based/cell_based_scheme__lin_hom.hpp"
+#include "../cell_based/cell_based_scheme__nonlin.hpp"
 
 namespace samurai
 {
@@ -123,6 +124,44 @@ namespace samurai
     auto make_diffusion_cell_based()
     {
         return DiffusionFV_cell_based<Field>();
+    }
+
+    template <class Field>
+    auto make_diffusion_cell_based_nonlin()
+    {
+        static constexpr std::size_t neighbourhood_width = 1;
+        using input_field_t                              = Field;
+        using output_field_t                             = Field;
+        using cfg = StarStencilSchemeConfig<SchemeType::NonLinear, neighbourhood_width, output_field_t, input_field_t>;
+
+        auto diff = make_cell_based_scheme<cfg>();
+
+        diff.stencil() = star_stencil<Field::dim, neighbourhood_width>();
+
+        diff.scheme_function() = [](SchemeValue<cfg>& value, const StencilCells<cfg>& cells, const input_field_t& field)
+        {
+            value  = 0.;
+            auto h = cells[0].length;
+            for (std::size_t i = 0; i < cfg::stencil_size; ++i)
+            {
+                value += (i == cfg::center_index ? (cfg::stencil_size - 1.) : -1.) * field[cells[i]];
+            }
+            value /= (h * h);
+        };
+
+        diff.jacobian_function() = [](StencilJacobian<cfg>& jac, const StencilCells<cfg>& cells, const input_field_t& /*field*/)
+        {
+            auto h = cells[0].length;
+            for (std::size_t i = 0; i < cfg::stencil_size; ++i)
+            {
+                jac[i] = (i == cfg::center_index ? (cfg::stencil_size - 1.) : -1.)
+                       * eye<typename Field::value_type, Field::n_comp, Field::n_comp, Field::is_scalar>();
+            }
+            jac /= (h * h);
+        };
+
+        diff.set_name("Diffusion");
+        return diff;
     }
 
 } // end namespace samurai
