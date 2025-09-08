@@ -255,10 +255,6 @@ namespace samurai
         , m_min_level{config.min_level()}
         , m_max_level{config.max_level()}
     {
-        // config.parse_args();
-        // m_min_level = config.min_level();
-        // m_max_level = config.max_level();
-
         assert(m_min_level <= m_max_level);
 
 #ifdef SAMURAI_WITH_MPI
@@ -275,7 +271,7 @@ namespace samurai
         update_mesh_neighbour();
 
         set_origin_point(origin_point());
-        set_scaling_factor(config.scaling_factor());
+        set_scaling_factor(scaling_factor());
     }
 
     template <class D, class Config>
@@ -289,6 +285,7 @@ namespace samurai
         , m_min_level{min_level}
         , m_max_level{max_level}
     {
+        static_assert(false, "Delete min_level and max_level from CLI11 options and use mesh_config object in the constructor");
         assert(min_level <= max_level);
         m_periodic.fill(false);
 

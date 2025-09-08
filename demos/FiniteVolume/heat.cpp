@@ -84,8 +84,8 @@ int main(int argc, char* argv[])
     std::string restart_file;
 
     // Multiresolution parameters
-    std::size_t min_level = 3;
-    std::size_t max_level = dim == 1 ? 5 : 6;
+    std::size_t min_level = 4;
+    std::size_t max_level = dim == 1 ? 5 : 8;
 
     // Output parameters
     fs::path path              = fs::current_path();
@@ -127,6 +127,7 @@ int main(int argc, char* argv[])
     {
         auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
         mesh        = {config, box};
+        // mesh = {box, min_level, max_level};
         u.resize();
         // Initial solution
         if (init_sol == "dirac")
@@ -174,7 +175,7 @@ int main(int argc, char* argv[])
 
     if (explicit_scheme)
     {
-        double dx = mesh.cell_length(max_level);
+        double dx = mesh.cell_length(mesh.max_level());
         dt        = cfl * (dx * dx) / (pow(2, dim) * diff_coeff);
     }
 
