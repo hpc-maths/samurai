@@ -23,9 +23,9 @@ namespace samurai
 
           public:
 
-            explicit Assembly(scheme_t& sum_scheme)
+            explicit Assembly(const scheme_t& sum_scheme)
                 : m_sum_scheme(sum_scheme)
-                , m_assembly_ops(transform(sum_scheme.operators(),
+                , m_assembly_ops(transform(m_sum_scheme.operators(),
                                            [](auto& op)
                                            {
                                                return make_assembly(op);

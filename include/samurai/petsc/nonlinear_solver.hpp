@@ -24,7 +24,7 @@ namespace samurai
 
           public:
 
-            explicit NonLinearSolverBase(scheme_t& scheme)
+            explicit NonLinearSolverBase(const scheme_t& scheme)
                 : m_assembly(scheme)
             {
                 _configure_solver();
@@ -308,7 +308,7 @@ namespace samurai
             using base_class::m_is_set_up;
             using base_class::m_J;
 
-            explicit NonLinearSolver(scheme_t& scheme)
+            explicit NonLinearSolver(const scheme_t& scheme)
                 : base_class(scheme)
             {
             }
