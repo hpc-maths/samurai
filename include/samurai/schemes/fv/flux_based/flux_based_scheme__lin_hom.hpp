@@ -67,7 +67,7 @@ namespace samurai
         /**
          * Iterates for each interior interface and returns (in lambda parameters) the scheme coefficients.
          */
-        template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Func>
+        template <Run run_type = Run::Sequential, Get get_type = Get::Cells, bool include_periodic = true, class Func>
         void for_each_interior_interface_and_coeffs(std::size_t d, input_field_t& field, Func&& apply_coeffs) const
         {
             auto& mesh = field.mesh();
@@ -86,7 +86,7 @@ namespace samurai
                 auto left_cell_coeffs                        = contribution(flux_coeffs, h, h);
                 decltype(left_cell_coeffs) right_cell_coeffs = -left_cell_coeffs;
 
-                for_each_interior_interface__same_level<run_type, get_type>(
+                for_each_interior_interface__same_level<run_type, get_type, include_periodic>(
                     mesh,
                     level,
                     flux_def.direction,
@@ -119,7 +119,7 @@ namespace samurai
                     auto left_cell_coeffs  = contribution(flux_coeffs, h_lp1, h_l);
                     auto right_cell_coeffs = contribution(minus_flux_coeffs, h_lp1, h_lp1);
 
-                    for_each_interior_interface__level_jump_direction<run_type, get_type>(
+                    for_each_interior_interface__level_jump_direction<run_type, get_type, include_periodic>(
                         mesh,
                         level,
                         flux_def.direction,
@@ -137,7 +137,7 @@ namespace samurai
                     auto left_cell_coeffs  = contribution(flux_coeffs, h_lp1, h_lp1);
                     auto right_cell_coeffs = contribution(minus_flux_coeffs, h_lp1, h_l);
 
-                    for_each_interior_interface__level_jump_opposite_direction<run_type, get_type>(
+                    for_each_interior_interface__level_jump_opposite_direction<run_type, get_type, include_periodic>(
                         mesh,
                         level,
                         flux_def.direction,
@@ -150,12 +150,12 @@ namespace samurai
             }
         }
 
-        template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Func>
+        template <Run run_type = Run::Sequential, Get get_type = Get::Cells, bool include_periodic = true, class Func>
         void for_each_interior_interface_and_coeffs(input_field_t& field, Func&& apply_coeffs) const
         {
             for (std::size_t d = 0; d < dim; ++d)
             {
-                for_each_interior_interface_and_coeffs<run_type, get_type>(d, field, std::forward<Func>(apply_coeffs));
+                for_each_interior_interface_and_coeffs<run_type, get_type, include_periodic>(d, field, std::forward<Func>(apply_coeffs));
             }
         }
 
@@ -209,14 +209,8 @@ namespace samurai
         template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Func>
         void for_each_boundary_interface_and_coeffs(input_field_t& field, Func&& apply_coeffs) const
         {
-            auto& mesh = field.mesh();
             for (std::size_t d = 0; d < dim; ++d)
             {
-                if (mesh.periodicity()[d])
-                {
-                    continue; // no boundary in this direction
-                }
-
                 for_each_boundary_interface_and_coeffs<run_type, get_type>(d, field, std::forward<Func>(apply_coeffs));
             }
         }

@@ -3,6 +3,6 @@
 
 #pragma once
 
-#include "bc/apply_bc.hpp"
+#include "bc/apply_field_bc.hpp"
 #include "bc/dirichlet.hpp"
 #include "bc/neumann.hpp"

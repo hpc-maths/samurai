@@ -405,6 +405,20 @@ namespace samurai
                     });
             }
 
+            void set_0_for_all_ghosts(Vec& b) const
+            {
+                for_each_assembly_op(
+                    [&](auto& op, auto row, auto col)
+                    {
+                        if (row == col) // only on diagonal blocks
+                        {
+                            Vec b_block;
+                            VecNestGetSubVec(b, static_cast<PetscInt>(row), &b_block);
+                            op.set_0_for_all_ghosts(b_block);
+                        }
+                    });
+            }
+
             Vec create_solution_vector() const
             {
                 std::array<Vec, cols> x_blocks;
@@ -790,6 +804,18 @@ namespace samurai
                         if (op.must_insert_value_on_diag_for_useless_ghosts())
                         {
                             op.set_0_for_useless_ghosts(b);
+                        }
+                    });
+            }
+
+            void set_0_for_all_ghosts(Vec& b) const
+            {
+                for_each_assembly_op(
+                    [&](auto& op, auto row, auto col)
+                    {
+                        if (row == col) // only on diagonal blocks
+                        {
+                            op.set_0_for_all_ghosts(b);
                         }
                     });
             }

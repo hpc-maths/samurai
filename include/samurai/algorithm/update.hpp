@@ -8,7 +8,7 @@
 #include <xtensor/xfixed.hpp>
 
 #include "../algorithm.hpp"
-#include "../bc/apply_bc.hpp"
+#include "../bc/apply_field_bc.hpp"
 #include "../concepts.hpp"
 #include "../field.hpp"
 #include "../numeric/prediction.hpp"
@@ -446,7 +446,7 @@ namespace samurai
                     if (level >= mesh.min_level())
                     {
                         // Apply the B.C. at the same level as the cells
-                        update_bc_for_scheme(level, direction, field);
+                        apply_field_bc(level, direction, field);
                     }
                     if (level < mesh.max_level() && level >= mesh.min_level())
                     {
@@ -939,6 +939,17 @@ namespace samurai
     template <class Field>
     void update_ghost_periodic(std::size_t level, Field& field)
     {
+        iterate_over_periodic_ghosts(level,
+                                     field,
+                                     [&](const auto& i_ghosts, const auto& index_ghosts, const auto& i_cells, const auto& index_cells)
+                                     {
+                                         field(level, i_ghosts, index_ghosts) = field(level, i_cells, index_cells);
+                                     });
+    }
+
+    template <class Field, class Func>
+    void iterate_over_periodic_ghosts(std::size_t level, Field& field, Func&& copy_values)
+    {
 #ifdef SAMURAI_WITH_MPI
         using field_value_t = typename Field::value_type;
 #endif
@@ -1011,14 +1022,14 @@ namespace samurai
                 set1(
                     [&](const auto& i, const auto& index)
                     {
-                        field(level, i, index) = field(level, i - shift_interval, index - shift_index);
+                        copy_values(i, index, i - shift_interval, index - shift_index);
                     });
                 auto set2 = intersection(translate(intersection(mesh_ref[level], lca_max_m), -shift),
                                          intersection(mesh_ref[level], lca_min_m));
                 set2(
                     [&](const auto& i, const auto& index)
                     {
-                        field(level, i, index) = field(level, i + shift_interval, index + shift_index);
+                        copy_values(i, index, i + shift_interval, index + shift_index);
                     });
 #ifdef SAMURAI_WITH_MPI
                 size_t neighbor_id = 0;

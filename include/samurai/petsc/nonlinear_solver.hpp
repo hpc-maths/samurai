@@ -24,7 +24,7 @@ namespace samurai
 
           public:
 
-            explicit NonLinearSolverBase(scheme_t& scheme)
+            explicit NonLinearSolverBase(const scheme_t& scheme)
                 : m_assembly(scheme)
             {
                 _configure_solver();
@@ -201,7 +201,7 @@ namespace samurai
                 // Transfer B.C. to the new field,
                 // so that the assembly process has B.C. to enforce in the matrix
                 x_field.copy_bc_from(assembly.unknown());
-                update_bc_for_scheme(x_field);
+                update_ghost_mr(x_field);
 
                 // Save unknown...
                 auto real_system_unknown = assembly.unknown_ptr();
@@ -308,7 +308,7 @@ namespace samurai
             using base_class::m_is_set_up;
             using base_class::m_J;
 
-            explicit NonLinearSolver(scheme_t& scheme)
+            explicit NonLinearSolver(const scheme_t& scheme)
                 : base_class(scheme)
             {
             }

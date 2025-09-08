@@ -7,6 +7,7 @@ stokes_2d.cpp:finite-volume-stokes-2d
 lid_driven_cavity.cpp:finite-volume-lid-driven-cavity
 nagumo.cpp:finite-volume-nagumo
 manual_block_matrix_assembly.cpp:manual_block_matrix_assembly
+linear_convection.cpp:finite-volume-linear-convection
 )
 
 # List of standard files (without PETSc)
@@ -18,7 +19,6 @@ advection_1d.cpp:finite-volume-advection-1d
 advection_2d.cpp:finite-volume-advection-2d
 advection_2d_user_bc.cpp:finite-volume-advection-2d-user-bc
 scalar_burgers_2d.cpp:finite-volume-scalar-burgers-2d
-linear_convection.cpp:finite-volume-linear-convection
 linear_convection_obstacle.cpp:finite-volume-linear-convection-obstacle
 burgers.cpp:finite-volume-burgers
 burgers_mra.cpp:finite-volume-burgers-mra

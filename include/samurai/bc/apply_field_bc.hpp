@@ -236,7 +236,7 @@ namespace samurai
 
     template <class Field>
         requires IsField<Field>
-    void update_bc_for_scheme(std::size_t level, const DirectionVector<Field::dim>& direction, Field& field)
+    void apply_field_bc(std::size_t level, const DirectionVector<Field::dim>& direction, Field& field)
     {
         static constexpr std::size_t max_stencil_size_implemented_BC = Bc<Field>::max_stencil_size_implemented;
 
@@ -257,61 +257,61 @@ namespace samurai
 
     template <class Field>
         requires IsField<Field>
-    void update_bc_for_scheme(Field& field, const DirectionVector<Field::dim>& direction)
+    void apply_field_bc(Field& field, const DirectionVector<Field::dim>& direction)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
         auto& mesh      = field.mesh()[mesh_id_t::reference];
 
         for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
         {
-            update_bc_for_scheme(level, direction, field);
+            apply_field_bc(level, direction, field);
         }
     }
 
     template <class Field>
         requires IsField<Field>
-    void update_bc_for_scheme(Field& field, std::size_t direction_index)
+    void apply_field_bc(Field& field, std::size_t direction_index)
     {
         DirectionVector<Field::dim> direction;
         direction.fill(0);
 
         direction[direction_index] = 1;
-        update_bc_for_scheme(field, direction);
+        apply_field_bc(field, direction);
 
         direction[direction_index] = -1;
-        update_bc_for_scheme(field, direction);
+        apply_field_bc(field, direction);
     }
 
     template <class Field>
         requires IsField<Field>
-    void update_bc_for_scheme(std::size_t level, Field& field, std::size_t direction_index)
+    void apply_field_bc(std::size_t level, Field& field, std::size_t direction_index)
     {
         DirectionVector<Field::dim> direction;
         direction.fill(0);
 
         direction[direction_index] = 1;
-        update_bc_for_scheme(level, direction, field);
+        apply_field_bc(level, direction, field);
 
         direction[direction_index] = -1;
-        update_bc_for_scheme(level, direction, field);
+        apply_field_bc(level, direction, field);
     }
 
     template <class Field>
         requires IsField<Field>
-    void update_bc_for_scheme(Field& field)
+    void apply_field_bc(Field& field)
     {
         for_each_cartesian_direction<Field::dim>(
             [&](const auto& direction)
             {
-                update_bc_for_scheme(field, direction);
+                apply_field_bc(field, direction);
             });
     }
 
     template <class Field, class... Fields>
         requires(IsField<Field> && (IsField<Fields> && ...))
-    void update_bc_for_scheme(Field& field, Fields&... other_fields)
+    void apply_field_bc(Field& field, Fields&... other_fields)
     {
-        update_bc_for_scheme(field, other_fields...);
+        apply_field_bc(field, other_fields...);
     }
 
     template <class Field>

@@ -48,8 +48,9 @@ int main(int argc, char* argv[])
     //--------------------//
 
     // Simulation parameters
-    double left_box  = -1;
-    double right_box = 1;
+    double left_box      = -1;
+    double right_box     = 1;
+    bool implicit_scheme = false;
 
     // Time integration
     double Tf  = 3;
@@ -72,6 +73,7 @@ int main(int argc, char* argv[])
     app.add_option("--Ti", t, "Initial time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
+    app.add_flag("--implicit", implicit_scheme, "Implicit scheme instead of explicit")->group("Simulation parameters");
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
     app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
@@ -135,6 +137,7 @@ int main(int argc, char* argv[])
         velocity(1) = -1;
     }
     auto conv = samurai::make_convection_weno5<decltype(u)>(velocity);
+    auto id   = samurai::make_identity<decltype(u)>();
 
     //--------------------//
     //   Time iteration   //
@@ -176,12 +179,35 @@ int main(int argc, char* argv[])
         u1.resize();
         u2.resize();
 
-        // unp1 = u - dt * conv(u);
+        if (implicit_scheme) // Backward Euler
+        {
+            // Newton solver for non-linear equation  [Id + dt*Conv](unp1) = u
+            auto solver = samurai::petsc::make_solver(id + dt * conv);
 
-        // TVD-RK3 (SSPRK3)
-        u1   = u - dt * conv(u);
-        u2   = 3. / 4 * u + 1. / 4 * (u1 - dt * conv(u1));
-        unp1 = 1. / 3 * u + 2. / 3 * (u2 - dt * conv(u2));
+            // Configure the PETSc solver
+            SNESSetTolerances(solver.Snes(), PETSC_CURRENT /* abstol */, 1e-5 /* rtol */, PETSC_CURRENT /* stol */, 500 /* maxit */, PETSC_CURRENT);
+            KSP ksp;
+            PC pc;
+            SNESGetKSP(solver.Snes(), &ksp);
+            KSPSetType(ksp, KSPPREONLY);
+            KSPGetPC(ksp, &pc);
+            PCSetType(pc, PCLU); // Set the PC type to LU
+
+            // Solve the non-linear equation   [Id + dt*Conv](unp1) = u
+            solver.set_unknown(unp1);
+            unp1 = u; // set initial guess for the Newton solver
+            solver.solve(u);
+        }
+        else
+        {
+            // Forward Euler
+            // unp1 = u - dt * conv(u);
+
+            // TVD-RK3 (SSPRK3)
+            u1   = u - dt * conv(u);
+            u2   = 3. / 4 * u + 1. / 4 * (u1 - dt * conv(u1));
+            unp1 = 1. / 3 * u + 2. / 3 * (u2 - dt * conv(u2));
+        }
 
         // u <-- unp1
         samurai::swap(u, unp1);

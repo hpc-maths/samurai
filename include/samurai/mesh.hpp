@@ -107,6 +107,7 @@ namespace samurai
         const lca_type& domain() const;
         const lca_type& subdomain() const;
         const ca_type& get_union() const;
+        bool is_periodic() const;
         bool is_periodic(std::size_t d) const;
         const std::array<bool, dim>& periodicity() const;
         // std::vector<int>& neighbouring_ranks();
@@ -725,6 +726,17 @@ namespace samurai
     inline auto Mesh_base<D, Config>::get_cell(std::size_t level, const xt::xexpression<E>& coord) const -> cell_t
     {
         return m_cells[mesh_id_t::reference].get_cell(level, coord);
+    }
+
+    template <class D, class Config>
+    inline bool Mesh_base<D, Config>::is_periodic() const
+    {
+        return std::any_of(m_periodic.cbegin(),
+                           m_periodic.cend(),
+                           [](bool v)
+                           {
+                               return v;
+                           });
     }
 
     template <class D, class Config>

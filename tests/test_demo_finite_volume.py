@@ -423,7 +423,12 @@ def test_finite_volume_demo_lid_driven_cavity(config):
 
 
 @pytest.mark.h5diff()
-def test_finite_volume_demo_linear_convection(config):
+@pytest.mark.skipif(
+    sys.platform == "darwin",
+    reason="skipped on macos because libpthread is missing on github worker",
+)
+@pytest.mark.parametrize("time_scheme", ["explicit", "implicit"])
+def test_finite_volume_demo_linear_convection(time_scheme, config):
     cmd = [
         get_executable(
             Path("../build/demos/FiniteVolume/"), "finite-volume-linear-convection"
@@ -432,15 +437,13 @@ def test_finite_volume_demo_linear_convection(config):
         config["path"],
         "--filename",
         config["filename"],
-        "--nfiles",
-        "1",
-        "--min-level",
-        "1",
-        "--max-level",
-        "6",
-        "--Tf",
-        "0.1",
+        "--nfiles=1",
+        "--min-level=1",
+        "--max-level=6",
+        "--Tf=0.1",
     ]
+    if time_scheme == "implicit":
+        cmd.append("--implicit")
     output = subprocess.run(cmd, check=True, capture_output=True)
 
 @pytest.mark.h5diff()

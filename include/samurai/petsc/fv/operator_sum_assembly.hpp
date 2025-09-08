@@ -17,15 +17,15 @@ namespace samurai
 
           private:
 
-            scheme_t* m_sum_scheme;
+            scheme_t m_sum_scheme;
 
             std::tuple<Assembly<Operators>...> m_assembly_ops;
 
           public:
 
-            explicit Assembly(scheme_t& sum_scheme)
-                : m_sum_scheme(&sum_scheme)
-                , m_assembly_ops(transform(sum_scheme.operators(),
+            explicit Assembly(const scheme_t& sum_scheme)
+                : m_sum_scheme(sum_scheme)
+                , m_assembly_ops(transform(m_sum_scheme.operators(),
                                            [](auto& op)
                                            {
                                                return make_assembly(op);
@@ -70,12 +70,12 @@ namespace samurai
 
             auto& scheme() // cppcheck-suppress functionRedefined
             {
-                return *m_sum_scheme;
+                return m_sum_scheme;
             }
 
             auto& scheme() const
             {
-                return *m_sum_scheme;
+                return m_sum_scheme;
             }
 
             void set_row_shift(PetscInt shift) override

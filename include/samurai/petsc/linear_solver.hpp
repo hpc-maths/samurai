@@ -28,7 +28,7 @@ namespace samurai
 
           public:
 
-            explicit LinearSolverBase(scheme_t& scheme)
+            explicit LinearSolverBase(const scheme_t& scheme)
                 : m_assembly(scheme)
             {
                 _configure_solver();
@@ -174,12 +174,13 @@ namespace samurai
             {
                 times::timers.start("system solve");
 
+                assembly().set_0_for_all_ghosts(b);
                 // Update the right-hand side with the boundary conditions stored in the solution field
                 assembly().enforce_bc(b);
-                // Set to zero the right-hand side of the ghost equations
-                assembly().enforce_projection_prediction(b);
-                // Set to zero the right-hand side of the useless ghosts' equations
-                assembly().set_0_for_useless_ghosts(b);
+                // // Set to zero the right-hand side of the ghost equations
+                // assembly().enforce_projection_prediction(b);
+                // // Set to zero the right-hand side of the useless ghosts' equations
+                // assembly().set_0_for_useless_ghosts(b);
                 // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
                 // assert(check_nan_or_inf(b));
                 times::timers.stop("system solve");
@@ -252,7 +253,7 @@ namespace samurai
 
           public:
 
-            explicit LinearSolver(scheme_t& scheme)
+            explicit LinearSolver(const scheme_t& scheme)
                 : base_class(scheme)
             {
                 _configure_solver();
