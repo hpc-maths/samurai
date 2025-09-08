@@ -31,8 +31,8 @@ namespace samurai
     };
 
     template <std::size_t dim_,
-              std::size_t max_stencil_width_    = default_config::ghost_width,
-              std::size_t graduation_width_     = default_config::graduation_width,
+              std::size_t max_stencil_width_ = default_config::ghost_width,
+              // std::size_t graduation_width_     = default_config::graduation_width,
               std::size_t prediction_order_     = default_config::prediction_order,
               std::size_t max_refinement_level_ = default_config::max_level,
               class TInterval                   = default_config::interval_t>
@@ -41,8 +41,8 @@ namespace samurai
         static constexpr std::size_t dim                  = dim_;
         static constexpr std::size_t max_refinement_level = max_refinement_level_;
         static constexpr int max_stencil_width            = max_stencil_width_;
-        static constexpr std::size_t graduation_width     = graduation_width_;
-        static constexpr int prediction_order             = prediction_order_;
+        // static constexpr std::size_t graduation_width     = graduation_width_;
+        static constexpr int prediction_order = prediction_order_;
 
         // static constexpr int ghost_width = std::max(std::max(2 *
         // static_cast<int>(graduation_width) - 1,
@@ -88,6 +88,7 @@ namespace samurai
                std::size_t max_level,
                double approx_box_tol = lca_type::default_approx_box_tol,
                double scaling_factor = 0);
+        MRMesh(mesh_config<Config::dim>& config, const samurai::DomainBuilder<dim>& domain_builder);
         MRMesh(const samurai::Box<double, dim>& b,
                std::size_t min_level,
                std::size_t max_level,
@@ -128,6 +129,12 @@ namespace samurai
     template <class Config>
     inline MRMesh<Config>::MRMesh(mesh_config<Config::dim>& config, const samurai::Box<double, dim>& b)
         : base_type(config, b, (config.parse_args(), config.max_level()))
+    {
+    }
+
+    template <class Config>
+    inline MRMesh<Config>::MRMesh(mesh_config<Config::dim>& config, const samurai::DomainBuilder<dim>& domain_builder)
+        : base_type(config, domain_builder, (config.parse_args(), config.max_level()))
     {
     }
 
