@@ -127,7 +127,6 @@ int main(int argc, char* argv[])
     {
         auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
         mesh        = {config, box};
-        // mesh = {box, min_level, max_level};
         u.resize();
         // Initial solution
         if (init_sol == "dirac")

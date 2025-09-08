@@ -62,8 +62,6 @@ int main(int argc, char* argv[])
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
-    app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
@@ -77,7 +75,9 @@ int main(int argc, char* argv[])
     samurai::DomainBuilder<dim> domain({-1., -1.}, {1., 1.});
     domain.remove({0.0, 0.0}, {0.4, 0.4});
 
-    Mesh mesh(domain, min_level, max_level);
+    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
+    Mesh mesh   = {config, domain};
+    // Mesh mesh(domain, min_level, max_level);
 
     // Initial solution
     auto u = samurai::make_scalar_field<double>("u",
@@ -117,7 +117,7 @@ int main(int argc, char* argv[])
 
     if (dt == 0)
     {
-        double dx             = mesh.cell_length(max_level);
+        double dx             = mesh.cell_length(mesh.max_level());
         auto a                = xt::abs(constant_velocity);
         double sum_velocities = xt::sum(xt::abs(constant_velocity))();
         dt                    = cfl * dx / sum_velocities;

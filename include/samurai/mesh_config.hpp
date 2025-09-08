@@ -49,6 +49,11 @@ namespace samurai
             return *this;
         }
 
+        auto& min_level()
+        {
+            return m_min_level;
+        }
+
         auto& min_level() const
         {
             return m_min_level;
@@ -58,6 +63,11 @@ namespace samurai
         {
             m_max_level = level;
             return *this;
+        }
+
+        auto& max_level()
+        {
+            return m_max_level;
         }
 
         auto& max_level() const
@@ -93,6 +103,12 @@ namespace samurai
             return *this;
         }
 
+        auto& periodic(bool periodicity)
+        {
+            m_periodic.fill(periodicity);
+            return *this;
+        }
+
         auto& periodic() const
         {
             return m_periodic;
@@ -109,10 +125,10 @@ namespace samurai
             // {
             //     m_max_stencil_width = args::max_stencil_width;
             // }
-            // if (args::graduation_width != std::numeric_limits<std::size_t>::max())
-            // {
-            //     m_graduation_width = args::graduation_width;
-            // }
+            if (args::graduation_width != std::numeric_limits<std::size_t>::max())
+            {
+                m_graduation_width = args::graduation_width;
+            }
             if (args::min_level != std::numeric_limits<std::size_t>::max())
             {
                 m_min_level = args::min_level;
@@ -129,6 +145,11 @@ namespace samurai
             // {
             //     m_scaling_factor = args::scaling_factor;
             // }
+            if (m_max_level < m_min_level)
+            {
+                std::cerr << "Max level must be greater than min level." << std::endl;
+                exit(EXIT_FAILURE);
+            }
         }
 
       private:

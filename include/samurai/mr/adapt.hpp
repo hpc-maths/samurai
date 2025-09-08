@@ -384,7 +384,7 @@ namespace samurai
                         mesh.domain(),
                         mesh.mpi_neighbourhood(),
                         mesh.periodicity(),
-                        mesh_t::config::graduation_width,
+                        mesh.graduation_width(),
                         mesh_t::config::max_stencil_width);
         mesh_t new_mesh{new_ca, mesh};
 #ifdef SAMURAI_WITH_MPI

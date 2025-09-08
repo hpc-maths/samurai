@@ -76,8 +76,6 @@ int main(int argc, char* argv[])
     app.add_flag("--implicit", implicit_scheme, "Implicit scheme instead of explicit")->group("Simulation parameters");
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
-    app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
@@ -100,7 +98,8 @@ int main(int argc, char* argv[])
 
     if (restart_file.empty())
     {
-        mesh = {box, min_level, max_level, periodic};
+        auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).periodic(periodic);
+        mesh        = {config, box};
         // Initial solution
         u = samurai::make_scalar_field<double>("u",
                                                mesh,
@@ -145,7 +144,7 @@ int main(int argc, char* argv[])
 
     if (dt == 0)
     {
-        double dx             = mesh.cell_length(max_level);
+        double dx             = mesh.cell_length(mesh.max_level());
         auto a                = xt::abs(velocity);
         double sum_velocities = xt::sum(xt::abs(velocity))();
         dt                    = cfl * dx / sum_velocities;
