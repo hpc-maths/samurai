@@ -9,8 +9,8 @@ namespace samurai
     namespace args
     {
         // Mesh arguments
-        static std::size_t min_level = std::numeric_limits<std::size_t>::infinity();
-        static std::size_t max_level = std::numeric_limits<std::size_t>::infinity();
+        static std::size_t min_level = std::numeric_limits<std::size_t>::max();
+        static std::size_t max_level = std::numeric_limits<std::size_t>::max();
 
         static bool timers = false;
 #ifdef SAMURAI_WITH_MPI
