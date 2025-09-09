@@ -17,7 +17,10 @@ namespace samurai
         template <std::size_t>
         using traverser_t = BoxTraverser<B>;
 
-        static constexpr std::size_t dim = B::dim;
+        static constexpr std::size_t getDim()
+        {
+            return B::dim;
+        }
     };
 
     template <Box_concept B>

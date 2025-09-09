@@ -21,7 +21,10 @@ namespace samurai
         template <std::size_t d>
         using traverser_t = ProjectionTraverser<typename Set::template traverser_t<d>>;
 
-        static constexpr std::size_t dim = Set::dim;
+        static constexpr std::size_t getDim()
+        {
+            return SetTraits<Set>::getDim();
+        }
     };
 
     /*

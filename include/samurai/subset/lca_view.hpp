@@ -17,7 +17,10 @@ namespace samurai
         template <std::size_t>
         using traverser_t = LCATraverser<LCA>;
 
-        static constexpr std::size_t dim = LCA::dim;
+        static constexpr std::size_t getDim()
+        {
+            return LCA::dim;
+        }
     };
 
     template <LCA_concept LCA>

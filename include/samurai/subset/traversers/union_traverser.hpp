@@ -15,7 +15,7 @@ namespace samurai
     struct SetTraverserTraits<UnionTraverser<SetTraversers...>>
     {
         using Childrens          = std::tuple<SetTraversers...>;
-        using interval_t         = typename std::tuple_element_t<0, Childrens>::interval_t;
+        using interval_t         = typename SetTraverserTraits<std::tuple_element_t<0, Childrens>>::interval_t;
         using current_interval_t = const interval_t&;
     };
 

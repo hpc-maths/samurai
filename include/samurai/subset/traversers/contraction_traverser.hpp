@@ -15,7 +15,7 @@ namespace samurai
     template <SetTraverser_concept SetTraverser>
     struct SetTraverserTraits<ContractionTraverser<SetTraverser>>
     {
-        using interval_t         = typename SetTraverser::interval_t;
+        using interval_t         = typename SetTraverserTraits<SetTraverser>::interval_t;
         using current_interval_t = interval_t;
     };
 

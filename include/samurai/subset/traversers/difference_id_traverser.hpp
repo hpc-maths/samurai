@@ -16,7 +16,7 @@ namespace samurai
     template <SetTraverser_concept FirstSetTraverser, SetTraverser_concept... OtherSetTraversers>
     struct SetTraverserTraits<DifferenceIdTraverser<FirstSetTraverser, OtherSetTraversers...>>
     {
-        using interval_t         = typename FirstSetTraverser::interval_t;
+        using interval_t         = typename SetTraverserTraits<FirstSetTraverser>::interval_t;
         using current_interval_t = interval_t;
     };
 

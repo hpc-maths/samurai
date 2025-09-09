@@ -30,7 +30,10 @@ namespace samurai
         template <std::size_t d>
         using traverser_t = UnionTraverser<typename Sets::template traverser_t<d>...>;
 
-        static constexpr std::size_t dim = std::tuple_element_t<0, Childrens>::dim;
+        static constexpr std::size_t getDim()
+        {
+            return SetTraits<std::tuple_element_t<0, Childrens>>::getDim();
+        }
     };
 
     template <Set_concept... Sets>
@@ -41,7 +44,10 @@ namespace samurai
         template <std::size_t d>
         using traverser_t = IntersectionTraverser<typename SetTraits<Sets>::template traverser_t<d>...>;
 
-        static constexpr std::size_t dim = std::tuple_element_t<0, Childrens>::dim;
+        static constexpr std::size_t getDim()
+        {
+            return SetTraits<std::tuple_element_t<0, Childrens>>::getDim();
+        }
     };
 
     template <Set_concept... Sets>
@@ -54,13 +60,15 @@ namespace samurai
                                                DifferenceTraverser<typename Sets::template traverser_t<d>...>,
                                                DifferenceIdTraverser<typename Sets::template traverser_t<d>...>>;
 
-        static constexpr std::size_t dim = std::tuple_element_t<0, Childrens>::dim;
+        static constexpr std::size_t getDim()
+        {
+            return SetTraits<std::tuple_element_t<0, Childrens>>::getDim();
+        }
     };
 
     template <SetOperator op, Set_concept... Sets>
     class SubSet : public SetBase<SubSet<op, Sets...>>
     {
-        //~ static_assert(sizeof...(Sets) >= 2);
         using Self      = SubSet<op, Sets...>;
         using Base      = SetBase<Self>;
         using Childrens = typename SetTraits<Self>::Childrens;

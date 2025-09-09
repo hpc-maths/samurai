@@ -22,7 +22,7 @@ namespace samurai
     template <SetTraverser_concept SetTraverser>
     struct SetTraverserTraits<ProjectionTraverser<SetTraverser>>
     {
-        using interval_t         = typename SetTraverser::interval_t;
+        using interval_t         = typename SetTraverserTraits<SetTraverser>::interval_t;
         using current_interval_t = const interval_t&;
     };
 
