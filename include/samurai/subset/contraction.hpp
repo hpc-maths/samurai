@@ -29,23 +29,28 @@ namespace samurai
 
       public:
 
-        static constexpr std::size_t dim = Base::dim;
-
         template <std::size_t d>
         using traverser_t = typename Base::template traverser_t<d>;
 
         using value_t       = typename Base::value_t;
-        using contraction_t = xt::xtensor_fixed<std::size_t, xt::xshape<Base::dim>>;
+        using contraction_t = xt::xtensor_fixed<value_t, xt::xshape<Base::dim>>;
 
         Contraction(const Set& set, const contraction_t& contraction)
             : m_set(set)
             , m_contraction(contraction)
         {
+            assert(std::all_of(m_contraction.cbegin(),
+                               m_contraction.cend(),
+                               [](const contraction_t& c)
+                               {
+                                   return c >= 0;
+                               }));
         }
 
-        Contraction(const Set& set, const std::size_t contraction)
+        Contraction(const Set& set, const value_t contraction)
             : m_set(set)
         {
+            assert(contraction >= 0);
             std::fill(m_contraction.begin(), m_contraction.end(), contraction);
         }
 
@@ -77,13 +82,14 @@ namespace samurai
     };
 
     template <class Set>
-    auto contraction(const Set& set, const std::array<std::size_t, SetTraits<Set>::dim>& contraction)
+    auto contraction(const Set& set,
+                     const std::array<typename SetBase<decltype(self(set))>::value_t, SetBase<decltype(self(set))>::getDim()>& contraction)
     {
         return Contraction(self(set), contraction);
     }
 
     template <class Set>
-    auto contraction(const Set& set, const std::size_t contraction)
+    auto contraction(const Set& set, const typename SetBase<decltype(self(set))>::value_t contraction)
     {
         return Contraction(self(set), contraction);
     }

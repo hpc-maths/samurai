@@ -67,14 +67,12 @@ namespace samurai
 
       public:
 
-        static constexpr std::size_t dim = Base::dim;
-
         template <std::size_t d>
         using traverser_t = typename Base::template traverser_t<d>;
 
         static constexpr std::size_t nIntervals = std::tuple_size_v<Childrens>;
 
-        SubSet(const Sets&... sets)
+        explicit SubSet(const Sets&... sets)
             : m_sets(sets...)
         {
             m_level = std::apply(

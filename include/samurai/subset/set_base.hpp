@@ -98,6 +98,11 @@ namespace samurai
             };
             apply(derived_cast(), func);
         }
+
+        inline static constexpr std::size_t getDim()
+        {
+            return dim;
+        }
     };
 
     template <Set_concept Set>

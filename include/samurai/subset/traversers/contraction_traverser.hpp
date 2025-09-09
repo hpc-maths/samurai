@@ -31,10 +31,11 @@ namespace samurai
         using current_interval_t = typename Base::current_interval_t;
         using value_t            = typename Base::value_t;
 
-        ContractionTraverser(const SetTraverser& set_traverser, const std::size_t contraction)
+        ContractionTraverser(const SetTraverser& set_traverser, const value_t contraction)
             : m_set_traverser(set_traverser)
             , m_contraction(contraction)
         {
+            assert(m_contraction >= 0);
         }
 
         inline bool is_empty() const
@@ -46,7 +47,7 @@ namespace samurai
         {
             assert(!is_empty());
             m_set_traverser.next_interval();
-            while (!m_set_traverser.is_empty() && m_set_traverser.current_interval().size() <= 2 * m_contraction)
+            while (!m_set_traverser.is_empty() && m_set_traverser.current_interval().size() <= size_t(2 * m_contraction))
             {
                 m_set_traverser.next_interval();
             }
@@ -61,7 +62,7 @@ namespace samurai
       private:
 
         SetTraverser m_set_traverser;
-        std::size_t m_contraction;
+        value_t m_contraction;
     };
 
 }

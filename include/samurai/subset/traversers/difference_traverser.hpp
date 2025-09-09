@@ -40,10 +40,10 @@ namespace samurai
         static constexpr std::size_t nIntervals = std::tuple_size_v<Childrens>;
 
         DifferenceTraverser(const std::array<std::size_t, nIntervals>& shifts, const SetTraversers&... set_traversers)
-            : m_set_traversers(set_traversers...)
+            : m_min_start(std::numeric_limits<value_t>::min())
+            , m_set_traversers(set_traversers...)
             , m_shifts(shifts)
         {
-            m_min_start = std::numeric_limits<value_t>::min();
             compute_current_interval();
         }
 

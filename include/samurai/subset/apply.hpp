@@ -36,7 +36,7 @@ namespace samurai
     template <Set_concept Set, class Func>
     void apply(const Set& set, Func&& func)
     {
-        constexpr std::size_t dim = Set::dim;
+        constexpr std::size_t dim = Set::getDim();
         xt::xtensor_fixed<int, xt::xshape<dim - 1>> index;
         if (set.exist())
         {

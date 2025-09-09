@@ -178,10 +178,10 @@ auto create_translation_stencil()
 // Opérations ensemblistes
 ///////////////////////////////////////////////////////////////////
 
-//~ auto op_difference = [](const auto& a, const auto& b)
-//~ {
-//~ return samurai::difference(a, b);
-//~ };
+auto op_difference = [](const auto& a, const auto& b)
+{
+    return samurai::difference(a, b);
+};
 
 auto op_intersection = [](const auto& a, const auto& b)
 {
@@ -261,23 +261,23 @@ void SUBSET_unified_benchmark_mixed_levels(benchmark::State& state, Gen1&& gen1,
 // Benchmarks pour les opérations ensemblistes
 ///////////////////////////////////////////////////////////////////
 
-//~ template <unsigned int dim, unsigned int level1, unsigned int level2>
-//~ void SUBSET_set_diff_identical(benchmark::State& state)
-//~ {
-//~     SUBSET_unified_benchmark_mixed_levels<dim, level1, level2>(state, gen_regular_wrapper<dim>, gen_regular_wrapper<dim>,
-// op_difference); ~ }
-//~
-//~ template <unsigned int dim, unsigned int level1, unsigned int level2>
-//~ void SUBSET_set_diff_disjoint(benchmark::State& state)
-//~ {
-//~     SUBSET_unified_benchmark_mixed_levels<dim, level1, level2>(state, gen_regular_wrapper<dim>, gen_offset_wrapper<dim>, op_difference);
-//~ }
-//~
-//~ template <unsigned int dim, unsigned int level1, unsigned int level2>
-//~ void SUBSET_set_diff_single(benchmark::State& state)
-//~ {
-//~     SUBSET_unified_benchmark_mixed_levels<dim, level1, level2>(state, gen_regular_wrapper<dim>, gen_unique_wrapper<dim>, op_difference);
-//~ }
+template <unsigned int dim, unsigned int level1, unsigned int level2>
+void SUBSET_set_diff_identical(benchmark::State& state)
+{
+    SUBSET_unified_benchmark_mixed_levels<dim, level1, level2>(state, gen_regular_wrapper<dim>, gen_regular_wrapper<dim>, op_difference);
+}
+
+template <unsigned int dim, unsigned int level1, unsigned int level2>
+void SUBSET_set_diff_disjoint(benchmark::State& state)
+{
+    SUBSET_unified_benchmark_mixed_levels<dim, level1, level2>(state, gen_regular_wrapper<dim>, gen_offset_wrapper<dim>, op_difference);
+}
+
+template <unsigned int dim, unsigned int level1, unsigned int level2>
+void SUBSET_set_diff_single(benchmark::State& state)
+{
+    SUBSET_unified_benchmark_mixed_levels<dim, level1, level2>(state, gen_regular_wrapper<dim>, gen_unique_wrapper<dim>, op_difference);
+}
 
 template <unsigned int dim, unsigned int level1, unsigned int level2>
 void SUBSET_set_intersect_identical(benchmark::State& state)
@@ -390,78 +390,78 @@ void SUBSET_translate_and_intersect(benchmark::State& state)
     }
 }
 
-//~ template <unsigned int dim, unsigned int level1, unsigned int level2>
-//~ void SUBSET_translate_and_intersect_and_project(benchmark::State& state)
-//~ {
-//~     samurai::CellList<dim> cl1, cl2;
-//~     int max_index = static_cast<int>(state.range(0));
-//~     gen_regular_intervals<dim>(cl1, max_index, level1, DEFAULT_X_INTERVALS);
-//~     gen_regular_intervals<dim>(cl2, max_index, level2, DEFAULT_X_INTERVALS);
-//~     samurai::CellArray<dim> ca1(cl1);
-//~     samurai::CellArray<dim> ca2(cl2);
-//~
-//~     // Créer le stencil de translation
-//~     auto stencil = create_translation_stencil<dim>();
-//~
-//~     // Ajouter les statistiques
-//~     auto total_intervals               = ca1[level1].nb_intervals() + ca2[level2].nb_intervals();
-//~     state.counters["Dimension"]        = dim;
-//~     state.counters["Level1"]           = level1;
-//~     state.counters["Level2"]           = level2;
-//~     state.counters["Input1_intervals"] = ca1[level1].nb_intervals();
-//~     state.counters["Input2_intervals"] = ca2[level2].nb_intervals();
-//~     state.counters["ns/interval"]      = benchmark::Counter(total_intervals,
-//~                                                        benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
-//~
-//~     for (auto _ : state)
-//~     {
-//~         auto total_cells = 0;
-//~         // intersection(translate(ca1, stencil), ca2) puis projection sur niveau supérieur
-//~         auto project_level = std::max(level1, level2) + 1;
-//~         auto subset        = samurai::intersection(samurai::translate(ca1[level1], stencil), ca2[level2]).on(project_level);
-//~         subset(
-//~             [&total_cells](const auto&, const auto&)
-//~             {
-//~                 total_cells = 1;
-//~             });
-//~         benchmark::DoNotOptimize(total_cells);
-//~         benchmark::DoNotOptimize(subset);
-//~     }
-//~ }
+template <unsigned int dim, unsigned int level1, unsigned int level2>
+void SUBSET_translate_and_intersect_and_project(benchmark::State& state)
+{
+    samurai::CellList<dim> cl1, cl2;
+    int max_index = static_cast<int>(state.range(0));
+    gen_regular_intervals<dim>(cl1, max_index, level1, DEFAULT_X_INTERVALS);
+    gen_regular_intervals<dim>(cl2, max_index, level2, DEFAULT_X_INTERVALS);
+    samurai::CellArray<dim> ca1(cl1);
+    samurai::CellArray<dim> ca2(cl2);
 
-//~ template <unsigned int dim, unsigned int level>
-//~ void SUBSET_translate_and_project(benchmark::State& state)
-//~ {
-//~     samurai::CellList<dim> cl;
-//~     int max_index = static_cast<int>(state.range(0));
-//~     gen_regular_intervals<dim>(cl, max_index, level, DEFAULT_X_INTERVALS);
-//~     samurai::CellArray<dim> ca(cl);
-//~
-//~     // Créer le stencil de translation
-//~     auto stencil = create_translation_stencil<dim>();
-//~
-//~     // Ajouter les statistiques
-//~     auto total_intervals              = ca[level].nb_intervals();
-//~     state.counters["Dimension"]       = dim;
-//~     state.counters["Level"]           = level;
-//~     state.counters["Total_intervals"] = total_intervals;
-//~     state.counters["ns/interval"]     = benchmark::Counter(total_intervals,
-//~                                                        benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
-//~
-//~     for (auto _ : state)
-//~     {
-//~         auto total_cells = 0;
-//~         // Translate puis projection sur niveau supérieur
-//~         auto subset = samurai::translate(ca[level], stencil).on(level + 1);
-//~         subset(
-//~             [&total_cells](const auto&, const auto&)
-//~             {
-//~                 total_cells = 1;
-//~             });
-//~         benchmark::DoNotOptimize(total_cells);
-//~         benchmark::DoNotOptimize(subset);
-//~     }
-//~ }
+    // Créer le stencil de translation
+    auto stencil = create_translation_stencil<dim>();
+
+    // Ajouter les statistiques
+    auto total_intervals               = ca1[level1].nb_intervals() + ca2[level2].nb_intervals();
+    state.counters["Dimension"]        = dim;
+    state.counters["Level1"]           = level1;
+    state.counters["Level2"]           = level2;
+    state.counters["Input1_intervals"] = ca1[level1].nb_intervals();
+    state.counters["Input2_intervals"] = ca2[level2].nb_intervals();
+    state.counters["ns/interval"]      = benchmark::Counter(total_intervals,
+                                                       benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
+
+    for (auto _ : state)
+    {
+        auto total_cells = 0;
+        // intersection(translate(ca1, stencil), ca2) puis projection sur niveau supérieur
+        auto project_level = std::max(level1, level2) + 1;
+        auto subset        = samurai::intersection(samurai::translate(ca1[level1], stencil), ca2[level2]).on(project_level);
+        subset(
+            [&total_cells](const auto&, const auto&)
+            {
+                total_cells = 1;
+            });
+        benchmark::DoNotOptimize(total_cells);
+        benchmark::DoNotOptimize(subset);
+    }
+}
+
+template <unsigned int dim, unsigned int level>
+void SUBSET_translate_and_project(benchmark::State& state)
+{
+    samurai::CellList<dim> cl;
+    int max_index = static_cast<int>(state.range(0));
+    gen_regular_intervals<dim>(cl, max_index, level, DEFAULT_X_INTERVALS);
+    samurai::CellArray<dim> ca(cl);
+
+    // Créer le stencil de translation
+    auto stencil = create_translation_stencil<dim>();
+
+    // Ajouter les statistiques
+    auto total_intervals              = ca[level].nb_intervals();
+    state.counters["Dimension"]       = dim;
+    state.counters["Level"]           = level;
+    state.counters["Total_intervals"] = total_intervals;
+    state.counters["ns/interval"]     = benchmark::Counter(total_intervals,
+                                                       benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
+
+    for (auto _ : state)
+    {
+        auto total_cells = 0;
+        // Translate puis projection sur niveau supérieur
+        auto subset = samurai::translate(ca[level], stencil).on(level + 1);
+        subset(
+            [&total_cells](const auto&, const auto&)
+            {
+                total_cells = 1;
+            });
+        benchmark::DoNotOptimize(total_cells);
+        benchmark::DoNotOptimize(subset);
+    }
+}
 
 template <unsigned int dim, unsigned int level>
 void SUBSET_self(benchmark::State& state)
@@ -493,120 +493,120 @@ void SUBSET_self(benchmark::State& state)
     }
 }
 
-//~ template <unsigned int dim, unsigned int level>
-//~ void SUBSET_self_and_project(benchmark::State& state)
-//~ {
-//~     samurai::CellList<dim> cl;
-//~     int max_index = static_cast<int>(state.range(0));
-//~     gen_regular_intervals<dim>(cl, max_index, level, DEFAULT_X_INTERVALS);
-//~     samurai::CellArray<dim> ca(cl);
-//~
-//~     // Ajouter les statistiques
-//~     auto total_intervals              = ca[level].nb_intervals();
-//~     state.counters["Dimension"]       = dim;
-//~     state.counters["Level"]           = level;
-//~     state.counters["Total_intervals"] = total_intervals;
-//~     state.counters["ns/interval"]     = benchmark::Counter(total_intervals,
-//~                                                        benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
-//~
-//~     for (auto _ : state)
-//~     {
-//~         auto total_cells = 0;
-//~         // Self puis projection sur niveau supérieur
-//~         auto subset = samurai::self(ca[level]).on(level + 1);
-//~         subset(
-//~             [&total_cells](const auto&, const auto&)
-//~             {
-//~                 total_cells = 1;
-//~             });
-//~         benchmark::DoNotOptimize(total_cells);
-//~         benchmark::DoNotOptimize(subset);
-//~     }
-//~ }
+template <unsigned int dim, unsigned int level>
+void SUBSET_self_and_project(benchmark::State& state)
+{
+    samurai::CellList<dim> cl;
+    int max_index = static_cast<int>(state.range(0));
+    gen_regular_intervals<dim>(cl, max_index, level, DEFAULT_X_INTERVALS);
+    samurai::CellArray<dim> ca(cl);
+
+    // Ajouter les statistiques
+    auto total_intervals              = ca[level].nb_intervals();
+    state.counters["Dimension"]       = dim;
+    state.counters["Level"]           = level;
+    state.counters["Total_intervals"] = total_intervals;
+    state.counters["ns/interval"]     = benchmark::Counter(total_intervals,
+                                                       benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
+
+    for (auto _ : state)
+    {
+        auto total_cells = 0;
+        // Self puis projection sur niveau supérieur
+        auto subset = samurai::self(ca[level]).on(level + 1);
+        subset(
+            [&total_cells](const auto&, const auto&)
+            {
+                total_cells = 1;
+            });
+        benchmark::DoNotOptimize(total_cells);
+        benchmark::DoNotOptimize(subset);
+    }
+}
 
 ///////////////////////////////////////////////////////////////////
 // Enregistrement des benchmarks
 ///////////////////////////////////////////////////////////////////
 
 // Benchmarks pour les opérations ensemblistes en 1D (même niveau) - ~10k intervalles
-//~ BENCHMARK_TEMPLATE(SUBSET_set_diff_identical, 1, 0, 0)->Arg(10000);
-//~ BENCHMARK_TEMPLATE(SUBSET_set_diff_disjoint, 1, 0, 0)->Arg(10000);
-// BENCHMARK_TEMPLATE(SUBSET_set_diff_single, 1, 0, 0)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_set_diff_identical, 1, 0, 0)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_set_diff_disjoint, 1, 0, 0)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_set_diff_single, 1, 0, 0)->Arg(10000);
 BENCHMARK_TEMPLATE(SUBSET_set_intersect_identical, 1, 0, 0)->Arg(10000);
 BENCHMARK_TEMPLATE(SUBSET_set_intersect_disjoint, 1, 0, 0)->Arg(10000);
-// BENCHMARK_TEMPLATE(SUBSET_set_intersect_single, 1, 0, 0)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_set_intersect_single, 1, 0, 0)->Arg(10000);
 BENCHMARK_TEMPLATE(SUBSET_set_union_identical, 1, 0, 0)->Arg(10000);
 BENCHMARK_TEMPLATE(SUBSET_set_union_disjoint, 1, 0, 0)->Arg(10000);
-// BENCHMARK_TEMPLATE(SUBSET_set_union_single, 1, 0, 0)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_set_union_single, 1, 0, 0)->Arg(10000);
 
-//~ BENCHMARK_TEMPLATE(SUBSET_set_diff_identical, 1, 0, 1)->Arg(10000);
-//~ BENCHMARK_TEMPLATE(SUBSET_set_diff_disjoint, 1, 0, 1)->Arg(10000);
-// BENCHMARK_TEMPLATE(SUBSET_set_diff_single, 1, 0, 1)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_set_diff_identical, 1, 0, 1)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_set_diff_disjoint, 1, 0, 1)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_set_diff_single, 1, 0, 1)->Arg(10000);
 BENCHMARK_TEMPLATE(SUBSET_set_intersect_identical, 1, 0, 1)->Arg(10000);
 BENCHMARK_TEMPLATE(SUBSET_set_intersect_disjoint, 1, 0, 1)->Arg(10000);
-// BENCHMARK_TEMPLATE(SUBSET_set_intersect_single, 1, 0, 1)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_set_intersect_single, 1, 0, 1)->Arg(10000);
 BENCHMARK_TEMPLATE(SUBSET_set_union_identical, 1, 0, 1)->Arg(10000);
 BENCHMARK_TEMPLATE(SUBSET_set_union_disjoint, 1, 0, 1)->Arg(10000);
-// BENCHMARK_TEMPLATE(SUBSET_set_union_single, 1, 0, 1)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_set_union_single, 1, 0, 1)->Arg(10000);
 
 // Benchmarks pour les opérations ensemblistes en 2D (même niveau) - ~10k intervalles
-//~ BENCHMARK_TEMPLATE(SUBSET_set_diff_identical, 2, 0, 0)->Arg(2000);
-//~ BENCHMARK_TEMPLATE(SUBSET_set_diff_disjoint, 2, 0, 0)->Arg(2000);
-// BENCHMARK_TEMPLATE(SUBSET_set_diff_single, 2, 0, 0)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_set_diff_identical, 2, 0, 0)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_set_diff_disjoint, 2, 0, 0)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_set_diff_single, 2, 0, 0)->Arg(2000);
 BENCHMARK_TEMPLATE(SUBSET_set_intersect_identical, 2, 0, 0)->Arg(2000);
 BENCHMARK_TEMPLATE(SUBSET_set_intersect_disjoint, 2, 0, 0)->Arg(2000);
-// BENCHMARK_TEMPLATE(SUBSET_set_intersect_single, 2, 0, 0)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_set_intersect_single, 2, 0, 0)->Arg(2000);
 BENCHMARK_TEMPLATE(SUBSET_set_union_identical, 2, 0, 0)->Arg(2000);
 BENCHMARK_TEMPLATE(SUBSET_set_union_disjoint, 2, 0, 0)->Arg(2000);
-// BENCHMARK_TEMPLATE(SUBSET_set_union_single, 2, 0, 0)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_set_union_single, 2, 0, 0)->Arg(2000);
 
-//~ BENCHMARK_TEMPLATE(SUBSET_set_diff_identical, 2, 0, 1)->Arg(2000);
-//~ BENCHMARK_TEMPLATE(SUBSET_set_diff_disjoint, 2, 0, 1)->Arg(2000);
-// BENCHMARK_TEMPLATE(SUBSET_set_diff_single, 2, 0, 1)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_set_diff_identical, 2, 0, 1)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_set_diff_disjoint, 2, 0, 1)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_set_diff_single, 2, 0, 1)->Arg(2000);
 BENCHMARK_TEMPLATE(SUBSET_set_intersect_identical, 2, 0, 1)->Arg(2000);
 BENCHMARK_TEMPLATE(SUBSET_set_intersect_disjoint, 2, 0, 1)->Arg(2000);
-// BENCHMARK_TEMPLATE(SUBSET_set_intersect_single, 2, 0, 1)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_set_intersect_single, 2, 0, 1)->Arg(2000);
 BENCHMARK_TEMPLATE(SUBSET_set_union_identical, 2, 0, 1)->Arg(2000);
 BENCHMARK_TEMPLATE(SUBSET_set_union_disjoint, 2, 0, 1)->Arg(2000);
-// BENCHMARK_TEMPLATE(SUBSET_set_union_single, 2, 0, 1)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_set_union_single, 2, 0, 1)->Arg(2000);
 
 // Benchmarks pour les opérations ensemblistes en 3D (même niveau) - ~10k intervalles
-//~ BENCHMARK_TEMPLATE(SUBSET_set_diff_identical, 3, 0, 0)->Arg(45);
-//~ BENCHMARK_TEMPLATE(SUBSET_set_diff_disjoint, 3, 0, 0)->Arg(45);
-// BENCHMARK_TEMPLATE(SUBSET_set_diff_single, 3, 0, 0)->Arg(45);
+BENCHMARK_TEMPLATE(SUBSET_set_diff_identical, 3, 0, 0)->Arg(45);
+BENCHMARK_TEMPLATE(SUBSET_set_diff_disjoint, 3, 0, 0)->Arg(45);
+BENCHMARK_TEMPLATE(SUBSET_set_diff_single, 3, 0, 0)->Arg(45);
 BENCHMARK_TEMPLATE(SUBSET_set_intersect_identical, 3, 0, 0)->Arg(45);
 BENCHMARK_TEMPLATE(SUBSET_set_intersect_disjoint, 3, 0, 0)->Arg(45);
-// BENCHMARK_TEMPLATE(SUBSET_set_intersect_single, 3, 0, 0)->Arg(45);
+BENCHMARK_TEMPLATE(SUBSET_set_intersect_single, 3, 0, 0)->Arg(45);
 BENCHMARK_TEMPLATE(SUBSET_set_union_identical, 3, 0, 0)->Arg(45);
 BENCHMARK_TEMPLATE(SUBSET_set_union_disjoint, 3, 0, 0)->Arg(45);
-// BENCHMARK_TEMPLATE(SUBSET_set_union_single, 3, 0, 0)->Arg(45);
+BENCHMARK_TEMPLATE(SUBSET_set_union_single, 3, 0, 0)->Arg(45);
 
-//~ BENCHMARK_TEMPLATE(SUBSET_set_diff_identical, 3, 0, 1)->Arg(45);
-//~ BENCHMARK_TEMPLATE(SUBSET_set_diff_disjoint, 3, 0, 1)->Arg(45);
-// BENCHMARK_TEMPLATE(SUBSET_set_diff_single, 3, 0, 1)->Arg(45);
+BENCHMARK_TEMPLATE(SUBSET_set_diff_identical, 3, 0, 1)->Arg(45);
+BENCHMARK_TEMPLATE(SUBSET_set_diff_disjoint, 3, 0, 1)->Arg(45);
+BENCHMARK_TEMPLATE(SUBSET_set_diff_single, 3, 0, 1)->Arg(45);
 BENCHMARK_TEMPLATE(SUBSET_set_intersect_identical, 3, 0, 1)->Arg(45);
 BENCHMARK_TEMPLATE(SUBSET_set_intersect_disjoint, 3, 0, 1)->Arg(45);
-// BENCHMARK_TEMPLATE(SUBSET_set_intersect_single, 3, 0, 1)->Arg(45);
+BENCHMARK_TEMPLATE(SUBSET_set_intersect_single, 3, 0, 1)->Arg(45);
 BENCHMARK_TEMPLATE(SUBSET_set_union_identical, 3, 0, 1)->Arg(45);
 BENCHMARK_TEMPLATE(SUBSET_set_union_disjoint, 3, 0, 1)->Arg(45);
-// BENCHMARK_TEMPLATE(SUBSET_set_union_single, 3, 0, 1)->Arg(45);
+BENCHMARK_TEMPLATE(SUBSET_set_union_single, 3, 0, 1)->Arg(45);
 
 // Benchmarks pour les opérations géométriques (niveau unique)
 BENCHMARK_TEMPLATE(SUBSET_translate, 1, 0)->Arg(10000); // ~10k intervalles
 BENCHMARK_TEMPLATE(SUBSET_translate, 2, 0)->Arg(2000);  // ~10k intervalles
 BENCHMARK_TEMPLATE(SUBSET_translate, 3, 0)->Arg(45);    // ~10k intervalles
 
-//~ BENCHMARK_TEMPLATE(SUBSET_translate_and_project, 1, 0)->Arg(10000);
-//~ BENCHMARK_TEMPLATE(SUBSET_translate_and_project, 2, 0)->Arg(2000);
-//~ BENCHMARK_TEMPLATE(SUBSET_translate_and_project, 3, 0)->Arg(45);
+BENCHMARK_TEMPLATE(SUBSET_translate_and_project, 1, 0)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_translate_and_project, 2, 0)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_translate_and_project, 3, 0)->Arg(45);
 
 BENCHMARK_TEMPLATE(SUBSET_self, 1, 0)->Arg(10000); // ~10k intervalles
 BENCHMARK_TEMPLATE(SUBSET_self, 2, 0)->Arg(2000);  // ~10k intervalles
 BENCHMARK_TEMPLATE(SUBSET_self, 3, 0)->Arg(45);    // ~10k intervalles
 
-//~ BENCHMARK_TEMPLATE(SUBSET_self_and_project, 1, 0)->Arg(10000);
-//~ BENCHMARK_TEMPLATE(SUBSET_self_and_project, 2, 0)->Arg(2000);
-//~ BENCHMARK_TEMPLATE(SUBSET_self_and_project, 3, 0)->Arg(45);
+BENCHMARK_TEMPLATE(SUBSET_self_and_project, 1, 0)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_self_and_project, 2, 0)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_self_and_project, 3, 0)->Arg(45);
 
 // Benchmarks géométriques avec niveaux mixtes (niveau 0 vs autre niveau)
 BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect, 1, 0, 0)->Arg(10000);
@@ -618,9 +618,9 @@ BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect, 2, 0, 1)->Arg(2000);
 BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect, 2, 0, 2)->Arg(2000);
 BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect, 2, 0, 10)->Arg(2000); // this bench is weird : the perf ??? maybe a bug.
 
-//~ BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect_and_project, 1, 0, 0)->Arg(10000);
-//~ BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect_and_project, 2, 0, 0)->Arg(2000);
-//~ BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect_and_project, 3, 0, 0)->Arg(45);
+BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect_and_project, 1, 0, 0)->Arg(10000);
+BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect_and_project, 2, 0, 0)->Arg(2000);
+BENCHMARK_TEMPLATE(SUBSET_translate_and_intersect_and_project, 3, 0, 0)->Arg(45);
 
 ///////////////////////////////////////////////////////////////////
 // Benchmarks avec niveaux mixtes (intéressants pour comparer les niveaux)

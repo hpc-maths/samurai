@@ -28,8 +28,6 @@ namespace samurai
 
       public:
 
-        static constexpr std::size_t dim = Base::dim;
-
         template <std::size_t d>
         using traverser_t = typename Base::template traverser_t<d>;
 
