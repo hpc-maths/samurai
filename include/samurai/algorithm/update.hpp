@@ -740,9 +740,9 @@ namespace samurai
 
     template <class Field>
     void update_tag_subdomains([[maybe_unused]] std::size_t min_level,
-                             [[maybe_unused]] std::size_t max_level,
-                             [[maybe_unused]] Field& tag,
-                             [[maybe_unused]] bool erase = false)
+                               [[maybe_unused]] std::size_t max_level,
+                               [[maybe_unused]] Field& tag,
+                               [[maybe_unused]] bool erase = false)
     {
 #ifdef SAMURAI_WITH_MPI
         using mesh_t    = typename Field::mesh_t;
