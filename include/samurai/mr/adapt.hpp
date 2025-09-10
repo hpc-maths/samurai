@@ -262,10 +262,7 @@ namespace samurai
                           m_tag[cell] = static_cast<int>(CellFlag::keep);
                       });
 
-        for (std::size_t level = min_level; level <= max_level; ++level)
-        {
-            update_tag_subdomains(level, m_tag, true);
-        }
+        update_tag_subdomains(min_level, max_level, m_tag, true);
 
         times::timers.stop("mesh adaptation");
         update_ghost_mr(m_fields);
