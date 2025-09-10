@@ -111,22 +111,14 @@ namespace samurai
             {
                 fmt::printf("\n > [Master] Timers \n");
                 fmt::printf(" %-*s%*s%*s%*s%*s%*s%*s%*s\n",
-                            nameWidth,
-                            "Name",
-                            timeWidth,
-                            "Min time (s)",
-                            rankWidth,
-                            "[r]",
-                            timeWidth,
-                            "Max time (s)",
-                            rankWidth,
-                            "[r]",
-                            timeWidth,
-                            "Ave time (s)",
-                            timeWidth,
-                            "Std dev",
-                            callsWidth,
-                            "Calls");
+                            nameWidth,  "Name",
+                            timeWidth,  "Min time (s)",
+                            rankWidth,  "[r]",
+                            timeWidth,  "Max time (s)",
+                            rankWidth,  "[r]",
+                            timeWidth,  "Ave time (s)",
+                            timeWidth,  "Std dev",
+                            callsWidth, "Calls");
             }
 
             for (const auto& timer : _times)
@@ -172,22 +164,14 @@ namespace samurai
                 if (world.rank() == 0)
                 {
                     fmt::printf(" %-*s%*.5f%*s%*.5f%*s%*.5f%*.5f%*u\n",
-                                nameWidth,
-                                timer.first,
-                                timeWidth,
-                                min,
-                                rankWidth,
-                                "[" + std::to_string(minrank) + "]",
-                                timeWidth,
-                                max,
-                                rankWidth,
-                                "[" + std::to_string(maxrank) + "]",
-                                timeWidth,
-                                ave,
-                                timeWidth,
-                                std,
-                                callsWidth,
-                                timer.second.ntimes);
+                                nameWidth, timer.first,
+                                timeWidth, min,
+                                rankWidth, "[" + std::to_string(minrank) + "]",
+                                timeWidth, max,
+                                rankWidth, "[" + std::to_string(maxrank) + "]",
+                                timeWidth, ave,
+                                timeWidth, std,
+                                callsWidth,timer.second.ntimes);
                 }
             }
         }
