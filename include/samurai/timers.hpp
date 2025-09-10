@@ -111,14 +111,22 @@ namespace samurai
             {
                 fmt::printf("\n > [Master] Timers \n");
                 fmt::printf(" %-*s%*s%*s%*s%*s%*s%*s%*s\n",
-                            nameWidth,  "Name",
-                            timeWidth,  "Min time (s)",
-                            rankWidth,  "[r]",
-                            timeWidth,  "Max time (s)",
-                            rankWidth,  "[r]",
-                            timeWidth,  "Ave time (s)",
-                            timeWidth,  "Std dev",
-                            callsWidth, "Calls");
+                            nameWidth,
+                            "Name",
+                            timeWidth,
+                            "Min time (s)",
+                            rankWidth,
+                            "[r]",
+                            timeWidth,
+                            "Max time (s)",
+                            rankWidth,
+                            "[r]",
+                            timeWidth,
+                            "Ave time (s)",
+                            timeWidth,
+                            "Std dev",
+                            callsWidth,
+                            "Calls");
             }
 
             for (const auto& timer : _times)
@@ -164,14 +172,22 @@ namespace samurai
                 if (world.rank() == 0)
                 {
                     fmt::printf(" %-*s%*.5f%*s%*.5f%*s%*.5f%*.5f%*u\n",
-                                nameWidth, timer.first,
-                                timeWidth, min,
-                                rankWidth, "[" + std::to_string(minrank) + "]",
-                                timeWidth, max,
-                                rankWidth, "[" + std::to_string(maxrank) + "]",
-                                timeWidth, ave,
-                                timeWidth, std,
-                                callsWidth,timer.second.ntimes);
+                                nameWidth,
+                                timer.first,
+                                timeWidth,
+                                min,
+                                rankWidth,
+                                "[" + std::to_string(minrank) + "]",
+                                timeWidth,
+                                max,
+                                rankWidth,
+                                "[" + std::to_string(maxrank) + "]",
+                                timeWidth,
+                                ave,
+                                timeWidth,
+                                std,
+                                callsWidth,
+                                timer.second.ntimes);
                 }
             }
         }
@@ -181,8 +197,7 @@ namespace samurai
         {
             std::chrono::microseconds total_runtime(0);
             std::chrono::microseconds total_measured(0);
-            std::size_t max_name_length = 0;
-            bool has_total_runtime      = false;
+            bool has_total_runtime = false;
             for (const auto& timer : _times)
             {
                 if (timer.first == "total runtime")
@@ -193,7 +208,6 @@ namespace samurai
                 else
                 {
                     total_measured += timer.second.elapsed;
-                    max_name_length = std::max(max_name_length, timer.first.length());
                 }
             }
             std::chrono::microseconds total = has_total_runtime ? total_runtime : total_measured;
@@ -207,27 +221,16 @@ namespace samurai
                       });
 
             double total_perc = 0.0;
-            // std::cout << "\n > [Process] Timers " << std::endl;
-            int setwSizeName = static_cast<int>(max_name_length) + 2;
-            int setwSizeData = 12;
 
-            // std::cout << " ";
-            fmt::printf("%*s%*s%*s\n", setwSizeName, " ", setwSizeData, "Elapsed (s)", setwSizeData, "Fraction (%)");
+            // Print header
+            fmt::printf("{:>20} {:>12} {:>12}\n", " ", "Elapsed (s)", "Fraction (%)");
 
             for (const auto& timer : sorted_data)
             {
                 if (timer.first != "total runtime")
                 {
                     auto elapsedInSeconds = std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1>>>(timer.second.elapsed);
-                    // std::cout << " ";
-                    fmt::printf("%*s%*.3f%*.1f\n",
-                                setwSizeName,
-                                timer.first,
-                                setwSizeData,
-                                elapsedInSeconds.count(),
-                                setwSizeData,
-                                _percent(timer.second.elapsed, total));
-                    // std::cout << std::setw(setwSizeData) << timer.second.ntimes;
+                    fmt::printf("{:>20} {:>12.3f} {:>12.1f}\n", timer.first, elapsedInSeconds.count(), _percent(timer.second.elapsed, total));
                     total_perc += timer.second.elapsed * 100.0 / total;
                 }
             }
@@ -237,24 +240,16 @@ namespace samurai
                 if (timer.first == "total runtime")
                 {
                     std::string msg = "--------";
-                    fmt::printf("%*s\n", setwSizeName, msg);
+                    fmt::printf("{:>20}\n", msg);
 
                     auto untimed          = total_runtime - total_measured;
                     auto untimedInSeconds = std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1>>>(untimed);
-                    // std::cout << " ";
-                    fmt::printf("%*s%*.3f%*.1f\n",
-                                setwSizeName,
-                                "(untimed)",
-                                setwSizeData,
-                                untimedInSeconds.count(),
-                                setwSizeData,
-                                _percent(untimed, total));
+                    fmt::printf("{:>20} {:>12.3f} {:>12.1f}\n", "(untimed)", untimedInSeconds.count(), _percent(untimed, total));
 
-                    fmt::printf("%*s%*s%*s\n", setwSizeName, msg, setwSizeData, msg, setwSizeData, msg);
+                    fmt::printf("{:>20} {:>12} {:>12}\n", msg, msg, msg);
 
                     auto totalInSeconds = std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1>>>(timer.second.elapsed);
-                    // std::cout << " ";
-                    fmt::printf("%*s%*.3f%*.1f\n", setwSizeName, timer.first, setwSizeData, totalInSeconds.count(), setwSizeData, 100.0);
+                    fmt::printf("{:>20} {:>12.3f} {:>12.1f}\n", timer.first, totalInSeconds.count(), 100.0);
                     total_perc += _percent(timer.second.elapsed, total);
                 }
             }
@@ -262,7 +257,7 @@ namespace samurai
             if (!has_total_runtime)
             {
                 auto totalInSeconds = std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1>>>(total_measured);
-                fmt::printf("%*s%*.3f%*.1f\n", setwSizeName, "Total", setwSizeData, totalInSeconds.count(), setwSizeData, total_perc);
+                fmt::printf("{:>20} {:>12.3f} {:>12.1f}\n", "Total", totalInSeconds.count(), total_perc);
             }
 
             fmt::printf("\n");
