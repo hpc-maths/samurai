@@ -1,11 +1,13 @@
 #pragma once
 
+#include <algorithm>
 #include <cassert>
-#include <iomanip>
-#include <iostream>
 #include <limits>
 #include <map>
+#include <string>
 #include <vector>
+
+#include <fmt/printf.h>
 
 #include "assert_log_trace.hpp"
 
@@ -107,11 +109,24 @@ namespace samurai
 
             if (world.rank() == 0)
             {
-                std::cout << "\n > [Master] Timers " << std::endl;
-                std::cout << std::left << " " << std::setw(nameWidth) << "Name" << std::right << std::setw(timeWidth) << "Min time (s)"
-                          << std::setw(rankWidth) << "[r]" << std::setw(timeWidth) << "Max time (s)" << std::setw(rankWidth) << "[r]"
-                          << std::setw(timeWidth) << "Ave time (s)" << std::setw(timeWidth) << "Std dev" << std::setw(callsWidth) << "Calls"
-                          << std::endl;
+                fmt::printf("\n > [Master] Timers \n");
+                fmt::printf(" %-*s%*s%*s%*s%*s%*s%*s%*s\n",
+                            nameWidth,
+                            "Name",
+                            timeWidth,
+                            "Min time (s)",
+                            rankWidth,
+                            "[r]",
+                            timeWidth,
+                            "Max time (s)",
+                            rankWidth,
+                            "[r]",
+                            timeWidth,
+                            "Ave time (s)",
+                            timeWidth,
+                            "Std dev",
+                            callsWidth,
+                            "Calls");
             }
 
             for (const auto& timer : _times)
@@ -156,11 +171,23 @@ namespace samurai
 
                 if (world.rank() == 0)
                 {
-                    std::cout << std::fixed << std::setprecision(5) << std::left << " " << std::setw(nameWidth) << timer.first << std::right
-                              << std::setw(timeWidth) << min << std::setw(rankWidth) << ("[" + std::to_string(minrank) + "]")
-                              << std::setw(timeWidth) << max << std::setw(rankWidth) << ("[" + std::to_string(maxrank) + "]")
-                              << std::setw(timeWidth) << ave << std::setw(timeWidth) << std << std::setw(callsWidth) << timer.second.ntimes
-                              << std::endl;
+                    fmt::printf(" %-*s%*.5f%*s%*.5f%*s%*.5f%*.5f%*u\n",
+                                nameWidth,
+                                timer.first,
+                                timeWidth,
+                                min,
+                                rankWidth,
+                                "[" + std::to_string(minrank) + "]",
+                                timeWidth,
+                                max,
+                                rankWidth,
+                                "[" + std::to_string(maxrank) + "]",
+                                timeWidth,
+                                ave,
+                                timeWidth,
+                                std,
+                                callsWidth,
+                                timer.second.ntimes);
                 }
             }
         }
@@ -201,24 +228,22 @@ namespace samurai
             int setwSizeData = 12;
 
             // std::cout << " ";
-            std::cout << std::setw(setwSizeName) << " ";
-            std::cout << std::setw(setwSizeData) << "Elapsed (s)";
-            std::cout << std::setw(setwSizeData) << "Fraction (%)";
-            // std::cout << std::setw(setwSizeData) << "Calls";
-            std::cout << std::endl;
+            fmt::printf("%*s%*s%*s\n", setwSizeName, " ", setwSizeData, "Elapsed (s)", setwSizeData, "Fraction (%)");
 
-            std::cout << std::fixed;
             for (const auto& timer : sorted_data)
             {
                 if (timer.first != "total runtime")
                 {
                     auto elapsedInSeconds = std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1>>>(timer.second.elapsed);
                     // std::cout << " ";
-                    std::cout << std::setw(setwSizeName) << timer.first;
-                    std::cout << std::setw(setwSizeData) << std::setprecision(3) << elapsedInSeconds.count();
-                    std::cout << std::setw(setwSizeData) << std::setprecision(1) << _percent(timer.second.elapsed, total);
+                    fmt::printf("%*s%*.3f%*.1f\n",
+                                setwSizeName,
+                                timer.first,
+                                setwSizeData,
+                                elapsedInSeconds.count(),
+                                setwSizeData,
+                                _percent(timer.second.elapsed, total));
                     // std::cout << std::setw(setwSizeData) << timer.second.ntimes;
-                    std::cout << std::endl;
                     total_perc += timer.second.elapsed * 100.0 / total;
                 }
             }
@@ -228,27 +253,24 @@ namespace samurai
                 if (timer.first == "total runtime")
                 {
                     std::string msg = "--------";
-                    std::cout << std::setw(setwSizeName) << msg /*<< std::setw(setwSizeData) << msg << std::setw(setwSizeData) << msg
-                              << std::setw(setwSizeData)*/
-                              << std::endl;
+                    fmt::printf("%*s\n", setwSizeName, msg);
 
                     auto untimed          = total_runtime - total_measured;
                     auto untimedInSeconds = std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1>>>(untimed);
                     // std::cout << " ";
-                    std::cout << std::setw(setwSizeName) << "(untimed)";
-                    std::cout << std::setw(setwSizeData) << std::setprecision(3) << untimedInSeconds.count();
-                    std::cout << std::setw(setwSizeData) << std::setprecision(1) << _percent(untimed, total);
-                    std::cout << std::endl;
+                    fmt::printf("%*s%*.3f%*.1f\n",
+                                setwSizeName,
+                                "(untimed)",
+                                setwSizeData,
+                                untimedInSeconds.count(),
+                                setwSizeData,
+                                _percent(untimed, total));
 
-                    std::cout << std::setw(setwSizeName) << msg << std::setw(setwSizeData) << msg << std::setw(setwSizeData) << msg
-                              << std::setw(setwSizeData) << std::endl;
+                    fmt::printf("%*s%*s%*s\n", setwSizeName, msg, setwSizeData, msg, setwSizeData, msg);
 
                     auto totalInSeconds = std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1>>>(timer.second.elapsed);
                     // std::cout << " ";
-                    std::cout << std::setw(setwSizeName) << timer.first;
-                    std::cout << std::setw(setwSizeData) << std::setprecision(3) << totalInSeconds.count();
-                    std::cout << std::setw(setwSizeData) << std::setprecision(1) << 100.0;
-                    std::cout << std::endl;
+                    fmt::printf("%*s%*.3f%*.1f\n", setwSizeName, timer.first, setwSizeData, totalInSeconds.count(), setwSizeData, 100.0);
                     total_perc += _percent(timer.second.elapsed, total);
                 }
             }
@@ -256,13 +278,10 @@ namespace samurai
             if (!has_total_runtime)
             {
                 auto totalInSeconds = std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1>>>(total_measured);
-                std::cout << std::setw(setwSizeName) << "Total";
-                std::cout << std::setw(setwSizeData) << std::setprecision(3) << totalInSeconds.count();
-                std::cout << std::setw(setwSizeData) << std::setprecision(1) << total_perc;
-                std::cout << std::endl;
+                fmt::printf("%*s%*.3f%*.1f\n", setwSizeName, "Total", setwSizeData, totalInSeconds.count(), setwSizeData, total_perc);
             }
 
-            std::cout << std::endl;
+            fmt::printf("\n");
         }
 #endif
 
