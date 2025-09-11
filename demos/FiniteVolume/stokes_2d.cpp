@@ -5,6 +5,7 @@
 #include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
+#include <samurai/print.hpp>
 #include <samurai/samurai.hpp>
 #include <samurai/schemes/fv.hpp>
 
@@ -21,7 +22,7 @@ template <class Field>
         if (std::isnan(value) || std::isinf(value) || (abs(value) < 1e-300 && abs(value) != 0))
         {
             is_nan_or_inf = true;
-            fmt::print("{}\n", fmt::streamed(f));
+            samurai::io::print("{}\n", fmt::streamed(f));
             break;
         }
     }
@@ -199,11 +200,11 @@ int main(int argc, char* argv[])
     // Stationary problem //
     //--------------------//
 
-    fmt::print("Problem solved: ");
+    samurai::io::print("Problem solved: ");
 
     if (test_case == "s")
     {
-        fmt::print("stationary\n");
+        samurai::io::print("stationary\n");
         if (filename.empty())
         {
             filename = "stokes";
@@ -269,14 +270,14 @@ int main(int argc, char* argv[])
         zero.fill(0);
 
         // Linear solver
-        fmt::print("Solving Stokes system...\n");
+        samurai::io::print("Solving Stokes system...\n");
         auto stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
 
         stokes_solver.set_unknowns(velocity, pressure);
         configure_solver(stokes_solver);
 
         stokes_solver.solve(f, zero);
-        fmt::print("{} iterations\n\n", stokes_solver.iterations());
+        samurai::io::print("{} iterations\n\n", stokes_solver.iterations());
 
         // Error
         double error = L2_error(velocity,
@@ -288,10 +289,10 @@ int main(int argc, char* argv[])
                                     auto v_y      = -v_x;
                                     return samurai::Array<double, dim, is_soa>{v_x, v_y};
                                 });
-        fmt::print("L2-error on the velocity: {:.2e}\n", error);
+        samurai::io::print("L2-error on the velocity: {:.2e}\n", error);
 
         // Save solution
-        fmt::print("Saving solution...\n");
+        samurai::io::print("Saving solution...\n");
 
         samurai::save(path, filename, mesh, velocity);
         samurai::save(path, "pressure", mesh, pressure);
@@ -332,7 +333,7 @@ int main(int argc, char* argv[])
 
     else if (test_case == "ns")
     {
-        fmt::print("non stationary\n");
+        samurai::io::print("non stationary\n");
 
         if (filename.empty())
         {
@@ -459,7 +460,7 @@ int main(int argc, char* argv[])
                 t_np1          = Tf;
                 dt_has_changed = true;
             }
-            fmt::print("{}", fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t_np1, dt));
+            samurai::io::print("{}", fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t_np1, dt));
 
             // Mesh adaptation
             if (mesh.min_level() != mesh.max_level())
@@ -475,7 +476,7 @@ int main(int argc, char* argv[])
                     rhs.resize();
                     zero.resize();
                 }
-                fmt::print(", levels {}-{}", min_level_np1, max_level_np1);
+                samurai::io::print(", levels {}-{}", min_level_np1, max_level_np1);
             }
             // flush no-op with fmt
 
@@ -531,7 +532,7 @@ int main(int argc, char* argv[])
                                     {
                                         return exact_velocity(t_n, coord);
                                     });
-            fmt::print(", L2-error: {:.2e}", error);
+            samurai::io::print(", L2-error: {:.2e}", error);
 
             // Divergence
             auto div_velocity = div(velocity);
@@ -552,7 +553,7 @@ int main(int argc, char* argv[])
                                                         {
                                                             return exact_velocity(t_n, coord);
                                                         });
-                fmt::print(", L2-error (recons): {:.2e}", error_recons);
+                samurai::io::print(", L2-error (recons): {:.2e}", error_recons);
                 // Save
                 if (nfiles != 1)
                 {
@@ -563,7 +564,7 @@ int main(int argc, char* argv[])
             {
                 nsave++;
             }
-            fmt::print("\n");
+            samurai::io::print("\n");
         }
 
         if (nfiles == 1)
@@ -573,7 +574,7 @@ int main(int argc, char* argv[])
     }
     else
     {
-        fmt::print(stderr, "Unknown test case. Allowed options are 's' = stationary, 'ns' = non-stationary.\n");
+        samurai::io::eprint("Unknown test case. Allowed options are 's' = stationary, 'ns' = non-stationary.\n");
     }
 
     samurai::finalize();

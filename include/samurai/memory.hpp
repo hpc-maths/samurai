@@ -5,6 +5,7 @@
 
 #include <numeric>
 
+#include "print.hpp"
 #include <fmt/format.h>
 #include <fmt/ostream.h>
 
@@ -48,7 +49,7 @@ namespace samurai
             std::size_t mem_id = memory_usage(mesh[id]);
             if (verbose)
             {
-                fmt::print("Mesh {}: {}\n", id, mem_id);
+                samurai::io::print("Mesh {}: {}\n", id, mem_id);
             }
             mem += mem_id;
         }

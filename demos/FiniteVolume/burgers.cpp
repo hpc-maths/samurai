@@ -55,7 +55,7 @@ int main_dim(int argc, char* argv[])
     using Box     = samurai::Box<double, dim>;
     using point_t = typename Box::point_t;
 
-    fmt::print("------------------------- Burgers -------------------------\n");
+    samurai::io::print("------------------------- Burgers -------------------------\n");
 
     //--------------------//
     // Program parameters //
@@ -176,7 +176,7 @@ int main_dim(int argc, char* argv[])
         }
         else
         {
-            fmt::print(stderr, "Unmanaged initial solution '{}' .\n", init_sol);
+            samurai::io::eprint("Unmanaged initial solution '{}' .\n", init_sol);
             return EXIT_FAILURE;
         }
     }
@@ -244,7 +244,7 @@ int main_dim(int argc, char* argv[])
             dt += Tf - t;
             t = Tf;
         }
-        fmt::print("{}", fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt));
+        samurai::io::print("{}", fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt));
 
         // Mesh adaptation
         MRadaptation(mra_config);
@@ -286,7 +286,7 @@ int main_dim(int argc, char* argv[])
                                              {
                                                  return exact_solution<n_comp>(coord, t);
                                              });
-            fmt::print(", L2-error: {:.2e}", error);
+            samurai::io::print(", L2-error: {:.2e}", error);
 
             if (mesh.min_level() != mesh.max_level())
             {
@@ -297,18 +297,18 @@ int main_dim(int argc, char* argv[])
                                           {
                                               return exact_solution<n_comp>(coord, t);
                                           });
-                fmt::print(", L2-error (recons): {:.2e}", error);
+                samurai::io::print(", L2-error (recons): {:.2e}", error);
             }
         }
 
-        fmt::print("\n");
+        samurai::io::print("\n");
     }
 
     if constexpr (dim == 1)
     {
-        fmt::print("\n");
-        fmt::print("Run the following command to view the results:\n");
-        fmt::print("python <<path to samurai>>/python/read_mesh.py {}_ite_ --field u level --start 0 --end {}\n", filename, nsave);
+        samurai::io::print("\n");
+        samurai::io::print("Run the following command to view the results:\n");
+        samurai::io::print("python <<path to samurai>>/python/read_mesh.py {}_ite_ --field u level --start 0 --end {}\n", filename, nsave);
     }
 
     samurai::finalize();

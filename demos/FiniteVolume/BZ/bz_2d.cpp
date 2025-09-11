@@ -313,7 +313,7 @@ int main()
 
     while (t < Tf)
     {
-        fmt::print(fmt::format("Iteration = {:4d}, t: {}\n", nb_ite, t));
+        samurai::io::print("{}", fmt::format("Iteration = {:4d}, t: {}\n", nb_ite, t));
 
         if (max_level > min_level)
         {
@@ -323,12 +323,12 @@ int main()
         tic();
         reaction(field, t, t + .5 * dt);
         auto duration = toc();
-        fmt::print(fmt::format("first reaction: {}\n", duration));
+        samurai::io::print("{}", fmt::format("first reaction: {}\n", duration));
 
         tic();
         RK4(field, dt, std::ceil(dt / dt_diffusion), update_bc, D_b, D_c);
         duration = toc();
-        fmt::print(fmt::format("diffusion: {}\n", duration));
+        samurai::io::print("{}", fmt::format("diffusion: {}\n", duration));
         /*
         rock4_integration(double tini, double tend, int neq, double *u,
                     func_rock fcn, double tol, int *info)
@@ -336,7 +336,7 @@ int main()
         tic();
         reaction(field, t + .5 * dt, t + dt);
         duration = toc();
-        fmt::print(fmt::format("second reaction: {}\n", duration));
+        samurai::io::print("{}", fmt::format("second reaction: {}\n", duration));
 
         if (nsave == 20)
         {

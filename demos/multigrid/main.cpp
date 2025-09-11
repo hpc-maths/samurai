@@ -9,6 +9,7 @@
 #include <samurai/field.hpp>
 #include <samurai/io/hdf5.hpp>
 #include <samurai/mr/mesh.hpp>
+#include <samurai/print.hpp>
 #include <samurai/samurai.hpp>
 #include <samurai/schemes/fv.hpp>
 
@@ -168,9 +169,9 @@ int main(int argc, char* argv[])
     }
     else
     {
-        fmt::print(stderr, "unknown value for argument --tc\n");
+        samurai::io::eprint("unknown value for argument --tc\n");
     }
-    fmt::print("Test case: {}\n", test_case_code);
+    samurai::io::print("Test case: {}\n", test_case_code);
 
     PetscOptionsGetBool(NULL, NULL, "--save_sol", &save_solution, NULL);
     PetscOptionsGetBool(NULL, NULL, "--save_mesh", &save_mesh, NULL);
@@ -204,11 +205,11 @@ int main(int argc, char* argv[])
 
     if (save_mesh)
     {
-        fmt::print("Saving mesh...\n");
+        samurai::io::print("Saving mesh...\n");
         samurai::save(path, "mesh", mesh);
     }
 
-    fmt::print("Unknowns: {}\n", (mesh.nb_cells() * n_comp));
+    samurai::io::print("Unknowns: {}\n", (mesh.nb_cells() * n_comp));
 
     //----------------//
     // Create problem //
@@ -245,19 +246,19 @@ int main(int argc, char* argv[])
 
     total_timer.Start();
 
-    fmt::print("Setup solver...\n");
+    samurai::io::print("Setup solver...\n");
     setup_timer.Start();
     solver.setup();
     setup_timer.Stop();
 
-    fmt::print("Solving...\n");
+    samurai::io::print("Solving...\n");
     solve_timer.Start();
     solver.solve(source);
     solve_timer.Stop();
 
     total_timer.Stop();
 
-    fmt::print("{} iterations\n\n", solver.iterations());
+    samurai::io::print("{} iterations\n\n", solver.iterations());
 
     solver.destroy_petsc_objects();
 
@@ -265,16 +266,16 @@ int main(int argc, char* argv[])
     //  Print exec times  //
     //--------------------//
 
-    fmt::print("---- Setup ----\n");
-    fmt::print("CPU time    : {}\n", fmt::streamed(setup_timer.CPU()));
-    fmt::print("Elapsed time: {}\n", fmt::streamed(setup_timer.Elapsed()));
-    fmt::print("---- Solve ----\n");
-    fmt::print("CPU time    : {}\n", fmt::streamed(solve_timer.CPU()));
-    fmt::print("Elapsed time: {}\n", fmt::streamed(solve_timer.Elapsed()));
-    fmt::print("---- Total ----\n");
-    fmt::print("CPU time    : {}\n", fmt::streamed(total_timer.CPU()));
-    fmt::print("Elapsed time: {}\n", fmt::streamed(total_timer.Elapsed()));
-    fmt::print("\n");
+    samurai::io::print("---- Setup ----\n");
+    samurai::io::print("CPU time    : {}\n", fmt::streamed(setup_timer.CPU()));
+    samurai::io::print("Elapsed time: {}\n", fmt::streamed(setup_timer.Elapsed()));
+    samurai::io::print("---- Solve ----\n");
+    samurai::io::print("CPU time    : {}\n", fmt::streamed(solve_timer.CPU()));
+    samurai::io::print("Elapsed time: {}\n", fmt::streamed(solve_timer.Elapsed()));
+    samurai::io::print("---- Total ----\n");
+    samurai::io::print("CPU time    : {}\n", fmt::streamed(total_timer.CPU()));
+    samurai::io::print("Elapsed time: {}\n", fmt::streamed(total_timer.Elapsed()));
+    samurai::io::print("\n");
 
     /*auto right_fluxes = samurai::make_vector_field<double, n_comp, is_soa>("fluxes", mesh);
     samurai::DirectionVector<dim> right = {1, 0};
@@ -294,7 +295,7 @@ int main(int argc, char* argv[])
     if (test_case->solution_is_known())
     {
         double error = L2_error(solution, test_case->solution());
-        fmt::print("L2-error: {:.2e}\n", error);
+        samurai::io::print("L2-error: {:.2e}\n", error);
 
         if (test_case_code == "poly")
         {
@@ -307,7 +308,7 @@ int main(int argc, char* argv[])
             // std::cout << "theoretical_bound: " << theoretical_bound << std::endl;
             if (error > theoretical_bound)
             {
-                fmt::print(stderr, "Convergence order failure: the error must be < {}.\n", theoretical_bound);
+                samurai::io::eprint("Convergence order failure: the error must be < {}.\n", theoretical_bound);
             }
         }
     }
@@ -315,7 +316,7 @@ int main(int argc, char* argv[])
     // Save solution
     if (save_solution)
     {
-        fmt::print("Saving solution...\n");
+        samurai::io::print("Saving solution...\n");
         samurai::save(path, filename, mesh, solution);
     }
 

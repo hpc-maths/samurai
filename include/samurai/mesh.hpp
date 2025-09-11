@@ -13,6 +13,7 @@
 #include "cell_list.hpp"
 #include "domain_builder.hpp"
 #include "mesh_config.hpp"
+#include "print.hpp"
 #include "static_algorithm.hpp"
 #include "stencil.hpp"
 #include "subset/node.hpp"
@@ -301,7 +302,7 @@ namespace samurai
         }
 
 #ifdef SAMURAI_WITH_MPI
-        fmt::print(stderr, "MPI is not implemented with DomainBuilder.\n");
+        samurai::io::eprint("MPI is not implemented with DomainBuilder.\n");
         std::exit(EXIT_FAILURE);
         // partition_mesh(m_config.start_level(), b);
         //  load_balancing();
@@ -450,13 +451,12 @@ namespace samurai
             {
                 if (box.min_length() < 2 * largest_cell_length * max_stencil_radius())
                 {
-                    fmt::print(
-                        stderr,
+                    samurai::io::eprint(
                         "The hole {} is too small to apply the BC at level {} with the given scaling factor. We need to be able to construct {} ghosts in each direction inside the hole.\n",
                         fmt::streamed(box),
                         min_level_bc,
                         (2 * max_stencil_radius()));
-                    fmt::print(stderr, "Please choose a smaller scaling factor or enlarge the hole.\n");
+                    samurai::io::eprint("Please choose a smaller scaling factor or enlarge the hole.\n");
                     std::exit(1);
                 }
             }
@@ -1151,7 +1151,7 @@ namespace samurai
             world.barrier();
             if (rank == 0)
             {
-                fmt::print("---------------- k = {} ----------------\n", k);
+                samurai::io::print("---------------- k = {} ----------------\n", k);
             }
             mpi::all_gather(world, load, loads);
 
@@ -1181,7 +1181,7 @@ namespace samurai
 
             load_transfer(load_fluxes);
 
-            fmt::print("{}: load = {}, load_np1 = {}\n", rank, load, load_np1);
+            samurai::io::print("{}: load = {}, load_np1 = {}\n", rank, load, load_np1);
 
             load = static_cast<std::size_t>(load_np1);
         }
@@ -1193,7 +1193,7 @@ namespace samurai
     {
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
-        fmt::print("{}: ", world.rank());
+        samurai::io::print("{}: ", world.rank());
         for (std::size_t i_rank = 0; i_rank < m_mpi_neighbourhood.size(); ++i_rank)
         {
             auto neighbour = m_mpi_neighbourhood[i_rank];
@@ -1203,9 +1203,9 @@ namespace samurai
             else if (load_fluxes[i_rank] > 0) // must receive load from the neighbour
             {
             }
-            fmt::print("--> {}: {}, ", neighbour.rank, load_fluxes[i_rank]);
+            samurai::io::print("--> {}: {}, ", neighbour.rank, load_fluxes[i_rank]);
         }
-        fmt::print("\n");
+        samurai::io::print("\n");
 #endif
     }
 

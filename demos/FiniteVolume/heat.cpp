@@ -5,6 +5,7 @@
 #include <samurai/io/restart.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
+#include <samurai/print.hpp>
 #include <samurai/samurai.hpp>
 #include <samurai/schemes/fv.hpp>
 
@@ -52,7 +53,7 @@ int main(int argc, char* argv[])
     using Box                        = samurai::Box<double, dim>;
     using point_t                    = typename Box::point_t;
 
-    fmt::print("------------------------- Heat -------------------------\n");
+    samurai::io::print("------------------------- Heat -------------------------\n");
 
     //--------------------//
     // Program parameters //
@@ -193,7 +194,7 @@ int main(int argc, char* argv[])
             dt += Tf - t;
             t = Tf;
         }
-        fmt::print("{}", fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt));
+        samurai::io::print("{}", fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt));
 
         // Mesh adaptation
         MRadaptation(mra_config);
@@ -226,16 +227,16 @@ int main(int argc, char* argv[])
                                              {
                                                  return exact_solution(coord, t, diff_coeff);
                                              });
-            fmt::print(", L2-error: {:.2e}", error);
+            samurai::io::print(", L2-error: {:.2e}", error);
         }
-        fmt::print("\n");
+        samurai::io::print("\n");
     }
 
     if (!save_final_state_only && dim == 1)
     {
-        fmt::print("\n");
-        fmt::print("Run the following command to view the results:\n");
-        fmt::print("python <<path to samurai>>/python/read_mesh.py {}_ite_ --field u level --start 1 --end {}\n", filename, nsave);
+        samurai::io::print("\n");
+        samurai::io::print("Run the following command to view the results:\n");
+        samurai::io::print("python <<path to samurai>>/python/read_mesh.py {}_ite_ --field u level --start 1 --end {}\n", filename, nsave);
     }
 
     if (save_final_state_only)

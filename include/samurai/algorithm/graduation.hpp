@@ -10,6 +10,7 @@
 #include "../array_of_interval_and_point.hpp"
 #include "../cell_flag.hpp"
 #include "../mesh.hpp"
+#include "../print.hpp"
 #include "../stencil.hpp"
 #include "../subset/node.hpp"
 #include "../subset/utils.hpp"
@@ -311,7 +312,7 @@ namespace samurai
                                          isIntersectionEmpty);
                             break;
                         default:
-                            fmt::print(stderr, "Warning: Unsupported number of periodic directions ({}) .\n", directions.size());
+                            samurai::io::eprint("Warning: Unsupported number of periodic directions ({}) .\n", directions.size());
                     }
                 }
             }

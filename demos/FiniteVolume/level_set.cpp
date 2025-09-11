@@ -325,7 +325,7 @@ int main(int argc, char* argv[])
         std::size_t ite = 0;
         while (true)
         {
-            fmt::print("Mesh adaptation iteration {}\n", ite++);
+            samurai::io::print("Mesh adaptation iteration {}\n", ite++);
             tag.resize();
             AMR_criteria(phi, tag);
             samurai::graduation(tag, stencil_grad);
@@ -343,7 +343,7 @@ int main(int argc, char* argv[])
             t = Tf;
         }
 
-        fmt::print("iteration {}: t = {}, dt = {}\n", nt++, t, dt);
+        samurai::io::print("iteration {}: t = {}, dt = {}\n", nt++, t, dt);
 
         // Numerical scheme
         samurai::update_ghost(phi, u);

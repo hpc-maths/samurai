@@ -14,6 +14,7 @@
 #include <boost/serialization/vector.hpp>
 #endif
 
+#include "print.hpp"
 #include <fmt/color.h>
 #include <fmt/format.h>
 #include <fmt/ostream.h>
@@ -640,9 +641,9 @@ namespace samurai
 #ifndef NDEBUG
         if (offset < 0)
         {
-            fmt::print(stderr, "Error: Interval not found: level {}, i = {}, index = ", m_level, fmt::streamed(interval));
-            ((fmt::print(stderr, "{} ", index)), ...);
-            fmt::print(stderr, "\n");
+            samurai::io::eprint("Error: Interval not found: level {}, i = {}, index = ", m_level, fmt::streamed(interval));
+            ((samurai::io::eprint("{} ", index)), ...);
+            samurai::io::eprint("\n");
         }
 #endif
         return m_cells[0][static_cast<std::size_t>(offset)];
@@ -661,12 +662,12 @@ namespace samurai
 #ifndef NDEBUG
         if (offset < 0)
         {
-            fmt::print(stderr, "Error: Interval not found: level {}, i = {}, index =", m_level, fmt::streamed(interval));
+            samurai::io::eprint("Error: Interval not found: level {}, i = {}, index =", m_level, fmt::streamed(interval));
             for (std::size_t d = 0; d < dim - 1; ++d)
             {
-                fmt::print(stderr, "{} ", index[d]);
+                samurai::io::eprint("{} ", index[d]);
             }
-            fmt::print(stderr, "\n");
+            samurai::io::eprint("\n");
         }
 #endif
         return m_cells[0][static_cast<std::size_t>(offset)];
@@ -679,12 +680,12 @@ namespace samurai
 #ifndef NDEBUG
         if (offset < 0)
         {
-            fmt::print(stderr, "Error: Interval not found: level {}, coord = ", m_level);
+            samurai::io::eprint("Error: Interval not found: level {}, coord = ", m_level);
             for (std::size_t d = 0; d < dim; ++d)
             {
-                fmt::print(stderr, "{} ", coord[d]);
+                samurai::io::eprint("{} ", coord[d]);
             }
-            fmt::print(stderr, "\n");
+            samurai::io::eprint("\n");
         }
 #endif
         return m_cells[0][static_cast<std::size_t>(offset)];
@@ -1091,8 +1092,7 @@ namespace samurai
         const double warning_tol = 0.5;
         if (scaling_factor > 0 && xt::any(xt::abs(approx_box.length() - box.length()) >= warning_tol * box.length()))
         {
-            fmt::print(
-                stderr,
+            samurai::io::eprint(
                 "Warning: the box {} is poorly approximated by {}. This is due to a too large scaling factor ({}). Choose a smaller value for a better approximation.\n",
                 fmt::streamed(box),
                 fmt::streamed(approx_box),

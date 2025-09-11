@@ -88,14 +88,14 @@ int main(int argc, char* argv[])
             t = Tf;
         }
 
-        fmt::print("Iteration = {:4d} Time = {:5.4}\n", nt++, t);
+        samurai::io::print("Iteration = {:4d} Time = {:5.4}\n", nt++, t);
 
         std::size_t i_adapt = 0;
         while (i_adapt < (max_level - min_level + 1))
         {
             auto tag = samurai::make_scalar_field<std::size_t>("tag", mesh);
 
-            fmt::print("adaptation iteration : {:4d}\n", i_adapt++);
+            samurai::io::print("adaptation iteration : {:4d}\n", i_adapt++);
             update_ghost(phi);
             AMR_criterion(phi, tag);
             make_graduation(tag);

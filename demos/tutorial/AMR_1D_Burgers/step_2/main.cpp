@@ -79,7 +79,7 @@ int main(int argc, char* argv[])
             t = Tf;
         }
 
-        fmt::print("Iteration = {:4d} Time = {:5.4}\n", nt++, t);
+        samurai::io::print("Iteration = {:4d} Time = {:5.4}\n", nt++, t);
 
         update_sol(dt, phi, phi_np1);
 

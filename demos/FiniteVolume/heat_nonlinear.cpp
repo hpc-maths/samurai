@@ -5,6 +5,7 @@
 #include <samurai/io/restart.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
+#include <samurai/print.hpp>
 #include <samurai/schemes/fv.hpp>
 
 #include <filesystem>
@@ -105,7 +106,7 @@ int main(int argc, char* argv[])
     using Box                        = samurai::Box<double, dim>;
     using point_t                    = typename Box::point_t;
 
-    fmt::print("------------------------- Non-linear heat -------------------------\n");
+    samurai::io::print("------------------------- Non-linear heat -------------------------\n");
 
     /*
         Solves the non-linear heat equation
@@ -222,7 +223,7 @@ int main(int argc, char* argv[])
             dt += Tf - t;
             t = Tf;
         }
-        fmt::print("{}", fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt));
+        samurai::io::print("{}", fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt));
 
         // Update boundary conditions
         if (explicit_scheme)
@@ -266,7 +267,7 @@ int main(int argc, char* argv[])
                                          {
                                              return exact_solution(coords, t);
                                          });
-        fmt::print(", L2-error: {:.2e}", error);
+        samurai::io::print(", L2-error: {:.2e}", error);
 
         // Save the result
         if (!save_final_state_only)
@@ -274,7 +275,7 @@ int main(int argc, char* argv[])
             save(path, filename, u, fmt::format("_ite_{}", nsave++));
         }
 
-        fmt::print("\n");
+        samurai::io::print("\n");
     }
 
     if (save_final_state_only)

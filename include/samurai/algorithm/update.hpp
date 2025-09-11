@@ -15,6 +15,7 @@
 #include "../field.hpp"
 #include "../numeric/prediction.hpp"
 #include "../numeric/projection.hpp"
+#include "../print.hpp"
 #include "../subset/node.hpp"
 #include "../timers.hpp"
 #include "graduation.hpp"
@@ -182,13 +183,12 @@ namespace samurai
 #ifdef SAMURAI_CHECK_NAN
                                     if (xt::any(xt::isnan(field(children_level, {ii_child, ii_child + 1}, index_child))))
                                     {
-                                        fmt::print(stderr, "\n");
+                                        samurai::io::eprint("\n");
 #ifdef SAMURAI_WITH_MPI
                                         mpi::communicator world;
-                                        fmt::print(stderr, "[{}] ", world.rank());
+                                        samurai::io::eprint("[{}] ", world.rank());
 #endif
-                                        fmt::print(
-                                            stderr,
+                                        samurai::io::eprint(
                                             "NaN found in field({}, {}, {}) during projection of the B.C. into the cell at ({}, {}, {})   (dir = {}, layer = {})\n",
                                             children_level,
                                             ii_child,
@@ -227,8 +227,7 @@ namespace samurai
                         // However, it can happen in normal conditions if the domain has a hole, so we don't raise an error in that case.
                         if (mesh.domain().is_box())
                         {
-                            fmt::print(
-                                stderr,
+                            samurai::io::eprint(
                                 "No children found for the ghost at level {}, i = {}, index = {} during projection of the B.C. into the cell at level {}, i = {}, index = {}\n",
                                 proj_level,
                                 ii,
@@ -338,19 +337,18 @@ namespace samurai
 #ifdef SAMURAI_CHECK_NAN
                     if (xt::any(xt::isnan(field(pred_level - 1, i_cell >> 1, index >> 1))))
                     {
-                        fmt::print(stderr, "\n");
+                        samurai::io::eprint("\n");
 #ifdef SAMURAI_WITH_MPI
                         mpi::communicator world;
-                        fmt::print(stderr, "[{}] ", world.rank());
+                        samurai::io::eprint("[{}] ", world.rank());
 #endif
-                        fmt::print(stderr,
-                                   "NaN found in field({}, {}, {}) during prediction of the B.C. into the cell at ({}, {}, {})\n",
-                                   (pred_level - 1),
-                                   fmt::streamed(i_cell >> 1),
-                                   fmt::streamed(index >> 1),
-                                   pred_level,
-                                   ii,
-                                   fmt::streamed(index));
+                        samurai::io::eprint("NaN found in field({}, {}, {}) during prediction of the B.C. into the cell at ({}, {}, {})\n",
+                                            (pred_level - 1),
+                                            fmt::streamed(i_cell >> 1),
+                                            fmt::streamed(index >> 1),
+                                            pred_level,
+                                            ii,
+                                            fmt::streamed(index));
 #ifndef NDEBUG
                         samurai::save(fs::current_path(), "update_ghosts", {true, true}, field.mesh(), field);
 #endif

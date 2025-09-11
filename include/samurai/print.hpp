@@ -16,6 +16,7 @@ namespace samurai
 {
     namespace io
     {
+        // Tags & helpers
         struct all_t
         {
         };
@@ -32,97 +33,93 @@ namespace samurai
         inline constexpr all_t all{};
         inline constexpr root_t root{};
 
-        inline constexpr rank_t rank(int value)
+        inline constexpr rank_t rank(int v)
         {
-            return rank_t{value};
+            return {v};
         }
 
-#ifdef SAMURAI_WITH_MPI
         inline int current_rank()
         {
+#ifdef SAMURAI_WITH_MPI
             int r = 0;
             MPI_Comm_rank(MPI_COMM_WORLD, &r);
             return r;
-        }
 #else
-        inline int current_rank()
-        {
             return 0;
-        }
 #endif
-
-        // stdout printers
-        template <class... Args>
-        inline void print(all_t, fmt::format_string<Args...> fmt, Args&&... args)
-        {
-            fmt::print(fmt, std::forward<Args>(args)...);
         }
 
-        template <class... Args>
-        inline void print(root_t, fmt::format_string<Args...> fmt, Args&&... args)
+        namespace detail
         {
-            if (current_rank() == 0)
+            inline bool allow_default_print()
             {
-                fmt::print(fmt, std::forward<Args>(args)...);
-            }
-        }
-
-        template <class... Args>
-        inline void print(rank_t r, fmt::format_string<Args...> fmt, Args&&... args)
-        {
-            if (current_rank() == r.value)
-            {
-                fmt::print(fmt, std::forward<Args>(args)...);
-            }
-        }
-
-        template <class... Args>
-        inline void print(fmt::format_string<Args...> fmt, Args&&... args)
-        {
 #ifdef SAMURAI_WITH_MPI
-            if (samurai::args::print_root_only && current_rank() != 0)
-            {
-                return;
-            }
+                return !(samurai::args::print_root_only && current_rank() != 0);
+#else
+                return true;
 #endif
-            fmt::print(fmt, std::forward<Args>(args)...);
-        }
+            }
 
-        // stderr printers
-        template <class... Args>
-        inline void eprint(all_t, fmt::format_string<Args...> fmt, Args&&... args)
-        {
-            fmt::print(stderr, fmt, std::forward<Args>(args)...);
-        }
-
-        template <class... Args>
-        inline void eprint(root_t, fmt::format_string<Args...> fmt, Args&&... args)
-        {
-            if (current_rank() == 0)
+            // Default (non-scoped) printing helper
+            template <class... Args>
+            inline void do_print(FILE* s, fmt::format_string<Args...> f, Args&&... a)
             {
-                fmt::print(stderr, fmt, std::forward<Args>(args)...);
+                if (allow_default_print())
+                {
+                    fmt::print(s, f, std::forward<Args>(a)...);
+                }
+            }
+
+            inline bool should_print(all_t)
+            {
+                return true;
+            }
+
+            inline bool should_print(root_t)
+            {
+                return current_rank() == 0;
+            }
+
+            inline bool should_print(rank_t r)
+            {
+                return current_rank() == r.value;
+            }
+
+            // Scoped printing helper
+            template <class Scope, class... Args>
+            inline void do_print(FILE* s, Scope sc, fmt::format_string<Args...> f, Args&&... a)
+            {
+                if (should_print(sc))
+                {
+                    fmt::print(s, f, std::forward<Args>(a)...);
+                }
             }
         }
 
+        // stdout
         template <class... Args>
-        inline void eprint(rank_t r, fmt::format_string<Args...> fmt, Args&&... args)
+        inline void print(fmt::format_string<Args...> f, Args&&... a)
         {
-            if (current_rank() == r.value)
-            {
-                fmt::print(stderr, fmt, std::forward<Args>(args)...);
-            }
+            detail::do_print(stdout, f, std::forward<Args>(a)...);
         }
 
-        template <class... Args>
-        inline void eprint(fmt::format_string<Args...> fmt, Args&&... args)
+        template <class Scope, class... Args>
+        inline void print(Scope sc, fmt::format_string<Args...> f, Args&&... a)
         {
-#ifdef SAMURAI_WITH_MPI
-            if (samurai::args::print_root_only && current_rank() != 0)
-            {
-                return;
-            }
-#endif
-            fmt::print(stderr, fmt, std::forward<Args>(args)...);
+            detail::do_print(stdout, sc, f, std::forward<Args>(a)...);
+        }
+
+        // stderr
+        template <class... Args>
+        inline void eprint(fmt::format_string<Args...> f, Args&&... a)
+        {
+            detail::do_print(stderr, f, std::forward<Args>(a)...);
+        }
+
+        template <class Scope, class... Args>
+        inline void eprint(Scope sc, fmt::format_string<Args...> f, Args&&... a)
+        {
+            detail::do_print(stderr, sc, f, std::forward<Args>(a)...);
         }
     } // namespace io
 } // namespace samurai

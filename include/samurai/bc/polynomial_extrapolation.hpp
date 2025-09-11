@@ -2,6 +2,7 @@
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #pragma once
+#include "../print.hpp"
 #include "bc.hpp"
 #include <fmt/format.h>
 #include <fmt/ostream.h>
@@ -52,10 +53,9 @@ namespace samurai
                     {
                         if (std::isnan(field_value(u, cells[c], field_i)))
                         {
-                            fmt::print(stderr,
-                                       "NaN detected in [{}] when applying polynomial extrapolation to fill the outer ghost [{}].\n",
-                                       fmt::streamed(cells[c]),
-                                       fmt::streamed(ghost));
+                            samurai::io::eprint("NaN detected in [{}] when applying polynomial extrapolation to fill the outer ghost [{}].\n",
+                                                fmt::streamed(cells[c]),
+                                                fmt::streamed(ghost));
                             // save(fs::current_path(), "nan_extrapolation", {true, true}, u.mesh(), u);
                             exit(1);
                         }

@@ -6,6 +6,7 @@
 
 #include "../boundary.hpp"
 #include "../concepts.hpp"
+#include "../print.hpp"
 #include "polynomial_extrapolation.hpp"
 
 namespace samurai
@@ -45,7 +46,7 @@ namespace samurai
         }
         else
         {
-            fmt::print(stderr, "Unknown BC type\n");
+            samurai::io::eprint("Unknown BC type\n");
             exit(EXIT_FAILURE);
         }
     }
