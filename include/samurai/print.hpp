@@ -7,7 +7,7 @@
 #include <fmt/ostream.h>
 
 #ifdef SAMURAI_WITH_MPI
-#  include <mpi.h>
+#include <mpi.h>
 #endif
 
 #include "arguments.hpp"
@@ -19,9 +19,11 @@ namespace samurai
         struct all_t
         {
         };
+
         struct root_t
         {
         };
+
         struct rank_t
         {
             int value;
@@ -29,6 +31,7 @@ namespace samurai
 
         inline constexpr all_t all{};
         inline constexpr root_t root{};
+
         inline constexpr rank_t rank(int value)
         {
             return rank_t{value};
@@ -123,4 +126,3 @@ namespace samurai
         }
     } // namespace io
 } // namespace samurai
-
