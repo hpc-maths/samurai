@@ -15,18 +15,18 @@ namespace samurai
         static std::size_t graduation_width = std::numeric_limits<std::size_t>::max();
         static int max_stencil_radius       = std::numeric_limits<int>::max();
 
-        static bool timers = false;
+        inline bool timers = false;
 #ifdef SAMURAI_WITH_MPI
-        static bool print_root_only      = true;
+        inline bool print_root_only      = false;
 #endif
-        static int finer_level_flux   = 0;
-        static bool refine_boundary   = false;
-        static bool save_debug_fields = false;
+        inline int  finer_level_flux   = 0;
+        inline bool refine_boundary   = false;
+        inline bool save_debug_fields = false;
 
         // MRA arguments
-        static double epsilon    = std::numeric_limits<double>::infinity();
-        static double regularity = std::numeric_limits<double>::infinity();
-        static bool rel_detail   = false;
+        inline double epsilon    = std::numeric_limits<double>::infinity();
+        inline double regularity = std::numeric_limits<double>::infinity();
+        inline bool   rel_detail = false;
     }
 
     inline void read_samurai_arguments(CLI::App& app, int& argc, char**& argv)

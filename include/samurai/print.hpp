@@ -10,7 +10,7 @@
 #include <mpi.h>
 #endif
 
-#include "arguments.hpp"
+#include <samurai/arguments.hpp>
 
 namespace samurai
 {
