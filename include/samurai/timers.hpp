@@ -129,7 +129,7 @@ namespace samurai
             {
                 int minrank = -1, maxrank = -1;
                 double min = std::numeric_limits<double>::max(), max = std::numeric_limits<double>::lowest();
-                double ave = 0., std = 0.;
+                double ave = 0., std_dev = 0.;
 
                 std::vector<double> all(static_cast<std::size_t>(world.size()), 0.0);
                 boost::mpi::all_gather(world, timer.second.elapsed, all);
@@ -159,7 +159,7 @@ namespace samurai
                     const double d = all[iproc] - ave;
                     sqsum += d * d;
                 }
-                std = std::sqrt(sqsum / static_cast<double>(world.size()));
+                std_dev = std::sqrt(sqsum / static_cast<double>(world.size()));
 
                 // boost::mpi::reduce( world, timer.second.elapsed, min, boost::mpi::minimum<double>(), root );
                 // boost::mpi::reduce( world, timer.second.elapsed, max, boost::mpi::maximum<double>(), root );
@@ -180,7 +180,7 @@ namespace samurai
                                rankWidth,
                                ave,
                                timeWidth,
-                               std,
+                               std_dev,
                                timeWidth,
                                timer.second.ntimes,
                                callsWidth);
