@@ -2,6 +2,12 @@
 
 This document explains how an agent (LLM) should use, build, test, and extend this project. It focuses on build paths, CMake options, tests, and the key demos (advection_2d and burgers). Do not use benchmarks (they are broken).
 
+## Why This File Matters
+- Many AI coding assistants and IDEs automatically read AGENTS.md to adapt to a repository’s rules (e.g., Codex CLI, Cursor, Google Gemini, Warp AI, etc.).
+- This file exists to help users working with LLMs avoid unsafe or wasteful changes and to follow project-specific conventions (build paths, CMake flags, tests, demo settings).
+- As agent usage grows, AGENTS.md ensures agents “do the right thing” by default: make small, safe, targeted edits aligned with this repository.
+- Keep this file up to date; its scope is the whole repository unless otherwise specified.
+
 ## Repository Overview
 - Header-only C++ code in `include/samurai` (C++20).
 - Demos in `demos/` (mainly `demos/FiniteVolume/`): notable targets
