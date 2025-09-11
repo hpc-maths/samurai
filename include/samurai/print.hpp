@@ -5,6 +5,7 @@
 
 #include <fmt/format.h>
 #include <fmt/ostream.h>
+#include <type_traits>
 
 #ifdef SAMURAI_WITH_MPI
 #include <mpi.h>
@@ -103,7 +104,13 @@ namespace samurai
             detail::do_print(stdout, f, std::forward<Args>(a)...);
         }
 
-        template <class Scope, class... Args>
+        // Constrain scoped overloads to known scope tag types to avoid
+        // ambiguity with string literals and other types.
+        template <class Scope, class... Args,
+                  std::enable_if_t<std::is_same_v<std::decay_t<Scope>, all_t>
+                                       || std::is_same_v<std::decay_t<Scope>, root_t>
+                                       || std::is_same_v<std::decay_t<Scope>, rank_t>,
+                                   int> = 0>
         inline void print(Scope sc, fmt::format_string<Args...> f, Args&&... a)
         {
             detail::do_print(stdout, sc, f, std::forward<Args>(a)...);
@@ -116,7 +123,11 @@ namespace samurai
             detail::do_print(stderr, f, std::forward<Args>(a)...);
         }
 
-        template <class Scope, class... Args>
+        template <class Scope, class... Args,
+                  std::enable_if_t<std::is_same_v<std::decay_t<Scope>, all_t>
+                                       || std::is_same_v<std::decay_t<Scope>, root_t>
+                                       || std::is_same_v<std::decay_t<Scope>, rank_t>,
+                                   int> = 0>
         inline void eprint(Scope sc, fmt::format_string<Args...> f, Args&&... a)
         {
             detail::do_print(stderr, sc, f, std::forward<Args>(a)...);
