@@ -4,6 +4,7 @@
 
 #ifdef SAMURAI_WITH_MPI
 #include <boost/mpi.hpp>
+#include <cstdio>
 #include <fstream>
 namespace mpi = boost::mpi;
 #endif
@@ -12,6 +13,7 @@ namespace mpi = boost::mpi;
 #endif
 
 #include "arguments.hpp"
+#include "print.hpp"
 #include "timers.hpp"
 
 namespace samurai
@@ -67,7 +69,7 @@ namespace samurai
 
 #ifdef SAMURAI_WITH_MPI
         MPI_Init(&argc, &argv);
-        // redirect stdout to /dev/null for all ranks except rank 0
+        // Redirect std::cout to /dev/null for non-root ranks, unless disabled by '--dont-redirect-output'
         mpi::communicator world;
         if (!args::dont_redirect_output && world.rank() != 0) // cppcheck-suppress knownConditionTrueFalse
         {

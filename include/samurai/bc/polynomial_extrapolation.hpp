@@ -3,6 +3,8 @@
 
 #pragma once
 #include "bc.hpp"
+#include <fmt/format.h>
+#include <fmt/ostream.h>
 
 namespace samurai
 {
@@ -50,8 +52,10 @@ namespace samurai
                     {
                         if (std::isnan(field_value(u, cells[c], field_i)))
                         {
-                            std::cerr << "NaN detected in [" << cells[c]
-                                      << "] when applying polynomial extrapolation to fill the outer ghost [" << ghost << "]." << std::endl;
+                            fmt::print(stderr,
+                                       "NaN detected in [{}] when applying polynomial extrapolation to fill the outer ghost [{}].\n",
+                                       fmt::streamed(cells[c]),
+                                       fmt::streamed(ghost));
                             // save(fs::current_path(), "nan_extrapolation", {true, true}, u.mesh(), u);
                             exit(1);
                         }

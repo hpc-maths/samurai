@@ -1,6 +1,8 @@
 #pragma once
 #include "indices.hpp"
 #include "static_algorithm.hpp"
+#include <fmt/format.h>
+#include <fmt/ostream.h>
 
 namespace samurai
 {
@@ -623,7 +625,7 @@ namespace samurai
 #ifndef NDEBUG
             if (origin_cell.index > 0 && static_cast<std::size_t>(origin_cell.index) > m_mesh.nb_cells()) // nb_cells() is very costly
             {
-                std::cout << "Cell not found in the mesh: " << origin_cell << std::endl;
+                fmt::print("Cell not found in the mesh: {}\n", fmt::streamed(origin_cell));
                 assert(false);
             }
 #endif
@@ -660,7 +662,7 @@ namespace samurai
 #ifndef NDEBUG
                         if (cell.index > 0 && static_cast<std::size_t>(cell.index) > m_mesh.nb_cells()) // nb_cells() is very costly
                         {
-                            std::cout << "Non-existing neighbour for " << origin_cell << " in the direction " << dir << std::endl;
+                            fmt::print("Non-existing neighbour for {} in the direction {}\n", fmt::streamed(origin_cell), fmt::streamed(dir));
                             // save(fs::current_path(), "mesh_error", {true, true}, m_mesh);
                             exit(1);
                         }

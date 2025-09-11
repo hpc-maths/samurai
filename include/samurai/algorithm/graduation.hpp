@@ -2,6 +2,7 @@
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #pragma once
+#include <fmt/format.h>
 
 #include <xtensor/containers/xtensor.hpp>
 #include <xtensor/views/xmasked_view.hpp>
@@ -310,7 +311,7 @@ namespace samurai
                                          isIntersectionEmpty);
                             break;
                         default:
-                            std::cerr << "Warning: Unsupported number of periodic directions (" << directions.size() << ")." << std::endl;
+                            fmt::print(stderr, "Warning: Unsupported number of periodic directions ({}) .\n", directions.size());
                     }
                 }
             }

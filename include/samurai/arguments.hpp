@@ -18,6 +18,7 @@ namespace samurai
         static bool timers = false;
 #ifdef SAMURAI_WITH_MPI
         static bool dont_redirect_output = false;
+        static bool print_root_only      = false;
 #endif
         static int finer_level_flux   = 0;
         static bool refine_boundary   = false;
@@ -39,6 +40,9 @@ namespace samurai
 
 #ifdef SAMURAI_WITH_MPI
         app.add_flag("--dont-redirect-output", args::dont_redirect_output, "Redirect the output for all ranks different of 0")
+            ->capture_default_str()
+            ->group("IO");
+        app.add_flag("--print-root-only", args::print_root_only, "Print on root rank only by default for samurai::io::print/eprint")
             ->capture_default_str()
             ->group("IO");
 #endif

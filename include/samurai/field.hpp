@@ -2,6 +2,8 @@
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #pragma once
+#include <fmt/format.h>
+#include <fmt/ostream.h>
 
 #include <algorithm>
 #include <array>
@@ -140,7 +142,7 @@ namespace samurai
                             // std::cerr << "READ NaN at level " << level << ", in interval " << interval << std::endl;
                             auto ii   = i - interval_tmp.index;
                             auto cell = this->derived_cast().mesh().get_cell(level, static_cast<int>(ii), index...);
-                            std::cerr << "READ NaN in " << cell << std::endl;
+                            fmt::print(stderr, "READ NaN in {}\n", fmt::streamed(cell));
                             break;
                         }
                     }
@@ -179,7 +181,7 @@ namespace samurai
                             // std::cerr << "READ NaN at level " << level << ", in interval " << interval << std::endl;
                             auto ii   = i - interval_tmp.index;
                             auto cell = this->derived_cast().mesh().get_cell(level, static_cast<int>(ii), index);
-                            std::cerr << "READ NaN in " << cell << std::endl;
+                            fmt::print(stderr, "READ NaN in {}\n", fmt::streamed(cell));
                             break;
                         }
                     }

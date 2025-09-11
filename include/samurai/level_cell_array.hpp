@@ -16,6 +16,7 @@
 
 #include <fmt/color.h>
 #include <fmt/format.h>
+#include <fmt/ostream.h>
 
 #include "algorithm.hpp"
 #include "box.hpp"
@@ -639,9 +640,9 @@ namespace samurai
 #ifndef NDEBUG
         if (offset < 0)
         {
-            std::cerr << "Error: Interval not found: level " << m_level << ", i = " << interval << ", index = ";
-            ((std::cerr << index << " "), ...);
-            std::cerr << std::endl;
+            fmt::print(stderr, "Error: Interval not found: level {}, i = {}, index = ", m_level, fmt::streamed(interval));
+            ((fmt::print(stderr, "{} ", index)), ...);
+            fmt::print(stderr, "\n");
         }
 #endif
         return m_cells[0][static_cast<std::size_t>(offset)];
@@ -660,12 +661,12 @@ namespace samurai
 #ifndef NDEBUG
         if (offset < 0)
         {
-            std::cerr << "Error: Interval not found: level " << m_level << ", i = " << interval << ", index =";
+            fmt::print(stderr, "Error: Interval not found: level {}, i = {}, index =", m_level, fmt::streamed(interval));
             for (std::size_t d = 0; d < dim - 1; ++d)
             {
-                std::cerr << index[d] << " ";
+                fmt::print(stderr, "{} ", index[d]);
             }
-            std::cerr << std::endl;
+            fmt::print(stderr, "\n");
         }
 #endif
         return m_cells[0][static_cast<std::size_t>(offset)];
@@ -678,12 +679,12 @@ namespace samurai
 #ifndef NDEBUG
         if (offset < 0)
         {
-            std::cerr << "Error: Interval not found: level " << m_level << ", coord = ";
+            fmt::print(stderr, "Error: Interval not found: level {}, coord = ", m_level);
             for (std::size_t d = 0; d < dim; ++d)
             {
-                std::cerr << coord[d] << " ";
+                fmt::print(stderr, "{} ", coord[d]);
             }
-            std::cerr << std::endl;
+            fmt::print(stderr, "\n");
         }
 #endif
         return m_cells[0][static_cast<std::size_t>(offset)];
@@ -1090,9 +1091,12 @@ namespace samurai
         const double warning_tol = 0.5;
         if (scaling_factor > 0 && xt::any(xt::abs(approx_box.length() - box.length()) >= warning_tol * box.length()))
         {
-            std::cerr << "Warning: the box " << box << " is poorly approximated by " << approx_box << ". ";
-            std::cerr << "This is due to a too large scaling factor (" << scaling_factor
-                      << "). Choose a smaller value for a better approximation." << std::endl;
+            fmt::print(
+                stderr,
+                "Warning: the box {} is poorly approximated by {}. This is due to a too large scaling factor ({}). Choose a smaller value for a better approximation.\n",
+                fmt::streamed(box),
+                fmt::streamed(approx_box),
+                scaling_factor);
         }
         m_scaling_factor = scaling_factor;
 
