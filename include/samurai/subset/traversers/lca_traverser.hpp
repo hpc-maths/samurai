@@ -40,18 +40,18 @@ namespace samurai
         {
         }
 
-        inline bool is_empty() const
+        inline bool is_empty_impl() const
         {
             return m_first_interval == m_end_interval;
         }
 
-        inline void next_interval()
+        inline void next_interval_impl()
         {
             assert(!is_empty());
             ++m_first_interval;
         }
 
-        inline current_interval_t current_interval() const
+        inline current_interval_t current_interval_impl() const
         {
             return *m_first_interval;
         }

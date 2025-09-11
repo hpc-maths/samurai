@@ -42,7 +42,7 @@ namespace samurai
             next_interval();
         }
 
-        inline bool is_empty() const
+        inline bool is_empty_impl() const
         {
             return !m_current_interval.is_valid();
         }
