@@ -98,12 +98,7 @@ namespace samurai
             boost::mpi::communicator world;
 
             // Compute dynamic widths
-            std::size_t max_name_length = 0;
-            for (const auto& kv : _times)
-            {
-                max_name_length = std::max<std::size_t>(max_name_length, kv.first.size());
-            }
-            const int nameWidth  = static_cast<int>(std::max<std::size_t>(24, max_name_length + 2));
+            const int nameWidth  = _compute_name_width(24);
             const int timeWidth  = 16;
             const int rankWidth  = 7; // prints like "[  12]"
             const int callsWidth = 10;
@@ -197,12 +192,7 @@ namespace samurai
         void print() const
         {
             // Compute dynamic width for the name column
-            std::size_t max_name_length = 0;
-            for (const auto& kv : _times)
-            {
-                max_name_length = std::max<std::size_t>(max_name_length, kv.first.size());
-            }
-            const int nameWidth = static_cast<int>(std::max<std::size_t>(20, max_name_length + 2));
+            const int nameWidth = _compute_name_width(20);
 
             std::chrono::microseconds total_runtime(0);
             std::chrono::microseconds total_measured(0);
@@ -307,6 +297,16 @@ namespace samurai
             return std::chrono::microseconds(0);
         }
 #endif
+        inline int _compute_name_width(std::size_t min_width) const
+        {
+            std::size_t max_name_length = 0;
+            for (const auto& kv : _times)
+            {
+                max_name_length = std::max<std::size_t>(max_name_length, kv.first.size());
+            }
+            return static_cast<int>(std::max<std::size_t>(min_width, max_name_length + 2));
+        }
+
         inline double _percent(const std::chrono::microseconds& value, const std::chrono::microseconds& total) const
         {
             return static_cast<double>(value.count() * 100) / static_cast<double>(total.count());
