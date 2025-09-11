@@ -9,7 +9,6 @@
 #include <type_traits>
 #include <vector>
 
-
 #ifdef SAMURAI_WITH_MPI
 #include <boost/serialization/serialization.hpp>
 #include <boost/serialization/vector.hpp>
@@ -46,7 +45,7 @@ namespace samurai
         explicit LevelCellArray_reverse_iterator(iterator&& it)
             : base_type(std::move(it))
         {
-}
+        }
 
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic pop
