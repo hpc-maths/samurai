@@ -91,15 +91,16 @@ namespace samurai
      * Defines how to compute a NON-LINEAR normal flux.
      */
     template <class cfg>
-    struct NormalFluxDefinition<cfg, std::enable_if_t<cfg::scheme_type == SchemeType::NonLinear>> : NormalFluxDefinitionBase<cfg>
+        requires(cfg::scheme_type == SchemeType::NonLinear)
+    struct NormalFluxDefinition<cfg> : NormalFluxDefinitionBase<cfg>
     {
         using field_t = typename cfg::input_field_t;
 
         using flux_func = std::function<void(FluxValuePair<cfg>&, const StencilData<cfg>&, const StencilValues<cfg>&)>;  // non-conservative
         using cons_flux_func = std::function<void(FluxValue<cfg>&, const StencilData<cfg>&, const StencilValues<cfg>&)>; // conservative
 
-        using jacobian_func      = std::function<StencilJacobianPair<cfg>(StencilCells<cfg>&, const field_t&)>; // non-conservative
-        using cons_jacobian_func = std::function<StencilJacobian<cfg>(StencilCells<cfg>&, const field_t&)>;     // conservative
+        using jacobian_func = std::function<void(StencilJacobianPair<cfg>&, const StencilData<cfg>&, const StencilValues<cfg>&)>; // non-conservative
+        using cons_jacobian_func = std::function<void(StencilJacobian<cfg>&, const StencilData<cfg>&, const StencilValues<cfg>&)>; // conservative
 
         /**
          * Conservative flux function:
@@ -140,13 +141,10 @@ namespace samurai
             {
                 return nullptr;
             }
-
-            return [&](auto& cells, const auto& field)
+            return [&](StencilJacobianPair<cfg>& jacobians, const StencilData<cfg>& data, const StencilValues<cfg>& field)
             {
-                StencilJacobianPair<cfg> jacobians;
-                jacobians[0] = cons_jacobian_function(cells, field);
+                cons_jacobian_function(jacobians[0], data, field);
                 jacobians[1] = -jacobians[0];
-                return jacobians;
             };
         }
 
@@ -174,9 +172,10 @@ namespace samurai
      * Defines how to compute a LINEAR and HETEROGENEOUS normal flux.
      */
     template <class cfg>
-    struct NormalFluxDefinition<cfg, std::enable_if_t<cfg::scheme_type == SchemeType::LinearHeterogeneous>> : NormalFluxDefinitionBase<cfg>
+        requires(cfg::scheme_type == SchemeType::LinearHeterogeneous)
+    struct NormalFluxDefinition<cfg> : NormalFluxDefinitionBase<cfg>
     {
-        using cons_flux_func = std::function<FluxStencilCoeffs<cfg>(StencilCells<cfg>&)>;
+        using cons_flux_func = std::function<void(FluxStencilCoeffs<cfg>&, const StencilData<cfg>&)>;
 
         cons_flux_func cons_flux_function = nullptr;
 
@@ -197,9 +196,10 @@ namespace samurai
      * Defines how to compute a LINEAR and HOMOGENEOUS normal flux.
      */
     template <class cfg>
-    struct NormalFluxDefinition<cfg, std::enable_if_t<cfg::scheme_type == SchemeType::LinearHomogeneous>> : NormalFluxDefinitionBase<cfg>
+        requires(cfg::scheme_type == SchemeType::LinearHomogeneous)
+    struct NormalFluxDefinition<cfg> : NormalFluxDefinitionBase<cfg>
     {
-        using cons_flux_func = std::function<FluxStencilCoeffs<cfg>(double)>;
+        using cons_flux_func = std::function<void(FluxStencilCoeffs<cfg>&, double)>;
 
         /**
          * Function returning the coefficients for the computation of the flux w.r.t. the defined stencil, in function of the meshsize h.
@@ -207,12 +207,10 @@ namespace samurai
          * For instance, considering a scalar field u, we configure the flux Grad(u).n through the function
          *
          *            // Grad(u).n = (u_1 - u_0)/h
-         *            auto flux_function(double h)
+         *            void flux_function(FluxStencilCoeffs<cfg>& coeffs, double h)
          *            {
-         *                std::array<double, 2> coeffs;
          *                coeffs[0] = -1/h; // current cell    (because, stencil[0] = {0,0})
          *                coeffs[1] =  1/h; // right neighbour (because, stencil[1] = {1,0})
-         *                return coeffs;
          *            }
          * If u is now a vectorial field of size S, then coeffs[0] and coeffs[1] become matrices of size SxS.
          * If the field components are independent from each other, then

@@ -18,19 +18,21 @@ namespace samurai
                 multiplied_scheme.flux_definition()[d] = scheme.flux_definition()[d];
                 if (scalar != 1)
                 {
-                    // Multiply the flux function by the scalar
+                    // Multiply the flux or coefficients by the scalar
                     if constexpr (cfg::scheme_type == SchemeType::LinearHomogeneous)
                     {
-                        multiplied_scheme.flux_definition()[d].cons_flux_function = [=](auto h) -> FluxStencilCoeffs<cfg>
+                        multiplied_scheme.flux_definition()[d].cons_flux_function = [=](auto& coeffs, auto h)
                         {
-                            return scalar * scheme.flux_definition()[d].cons_flux_function(h);
+                            scheme.flux_definition()[d].cons_flux_function(coeffs, h);
+                            coeffs *= scalar;
                         };
                     }
                     else if constexpr (cfg::scheme_type == SchemeType::LinearHeterogeneous)
                     {
-                        multiplied_scheme.flux_definition()[d].cons_flux_function = [=](auto& cells) -> FluxStencilCoeffs<cfg>
+                        multiplied_scheme.flux_definition()[d].cons_flux_function = [=](auto& coeffs, const auto& data)
                         {
-                            return scalar * scheme.flux_definition()[d].cons_flux_function(cells);
+                            scheme.flux_definition()[d].cons_flux_function(coeffs, data);
+                            coeffs *= scalar;
                         };
                     }
                     else // SchemeType::NonLinear
@@ -54,18 +56,20 @@ namespace samurai
                         }
                         if (scheme.flux_definition()[d].cons_jacobian_function)
                         {
-                            multiplied_scheme.flux_definition()[d].cons_jacobian_function = [=](auto& cells,
-                                                                                                const auto& field) -> StencilJacobian<cfg>
+                            multiplied_scheme.flux_definition()[d].cons_jacobian_function =
+                                [=](StencilJacobian<cfg>& jac, const StencilData<cfg>& data, const StencilValues<cfg>& u)
                             {
-                                return scalar * scheme.flux_definition()[d].cons_jacobian_function(cells, field);
+                                scheme.flux_definition()[d].cons_jacobian_function(jac, data, u);
+                                jac *= scalar;
                             };
                         }
                         if (scheme.flux_definition()[d].jacobian_function)
                         {
-                            multiplied_scheme.flux_definition()[d].jacobian_function = [=](auto& cells,
-                                                                                           const auto& field) -> StencilJacobianPair<cfg>
+                            multiplied_scheme.flux_definition()[d].jacobian_function =
+                                [=](StencilJacobianPair<cfg>& jac_pair, const StencilData<cfg>& data, const StencilValues<cfg>& u)
                             {
-                                return scalar * scheme.flux_definition()[d].jacobian_function(cells, field);
+                                scheme.flux_definition()[d].jacobian_function(jac_pair, data, u);
+                                jac_pair *= scalar;
                             };
                         }
                     }
@@ -102,36 +106,47 @@ namespace samurai
 
                 if constexpr (cfg::scheme_type == SchemeType::LinearHomogeneous)
                 {
-                    sum_scheme.flux_definition()[d].cons_flux_function = [=](auto h)
+                    sum_scheme.flux_definition()[d].cons_flux_function = [=](FluxStencilCoeffs<cfg>& coeffs, auto h)
                     {
-                        return scheme1.flux_definition()[d].cons_flux_function(h) + scheme2.flux_definition()[d].cons_flux_function(h);
+                        scheme1.flux_definition()[d].cons_flux_function(coeffs, h);
+                        FluxStencilCoeffs<cfg> coeffs2;
+                        scheme2.flux_definition()[d].cons_flux_function(coeffs2, h);
+                        coeffs += coeffs2;
                     };
                 }
                 else if constexpr (cfg::scheme_type == SchemeType::LinearHeterogeneous)
                 {
-                    sum_scheme.flux_definition()[d].cons_flux_function = [=](auto& cells)
+                    sum_scheme.flux_definition()[d].cons_flux_function = [=](FluxStencilCoeffs<cfg>& coeffs, const auto& data)
                     {
-                        return scheme1.flux_definition()[d].cons_flux_function(cells)
-                             + scheme2.flux_definition()[d].cons_flux_function(cells);
+                        scheme1.flux_definition()[d].cons_flux_function(coeffs, data);
+                        FluxStencilCoeffs<cfg> coeffs2;
+                        scheme2.flux_definition()[d].cons_flux_function(coeffs2, data);
+                        coeffs += coeffs2;
                     };
                 }
                 else // SchemeType::NonLinear
                 {
                     if (scheme1.flux_definition()[d].flux_function && scheme2.flux_definition()[d].flux_function)
                     {
-                        sum_scheme.flux_definition()[d].flux_function = [=](auto& cells, const auto& field)
+                        sum_scheme.flux_definition()[d].flux_function =
+                            [=](FluxValuePair<cfg>& flux_values, const auto& data, const auto& field)
                         {
-                            return scheme1.flux_definition()[d].flux_function(cells, field)
-                                 + scheme2.flux_definition()[d].flux_function(cells, field);
+                            scheme1.flux_definition()[d].flux_function(flux_values, data, field);
+                            FluxValuePair<cfg> flux_values2;
+                            scheme2.flux_definition()[d].flux_function(flux_values2, data, field);
+                            flux_values += flux_values2;
                         };
                         sum_scheme.cons_flux_function = nullptr;
                     }
                     else if (scheme1.flux_definition()[d].cons_flux_function && scheme2.flux_definition()[d].cons_flux_function)
                     {
-                        sum_scheme.flux_definition()[d].cons_flux_function = [=](auto& cells, const auto& field)
+                        sum_scheme.flux_definition()[d].cons_flux_function =
+                            [=](FluxValue<cfg>& flux_value, const auto& data, const auto& field)
                         {
-                            return scheme1.flux_definition()[d].cons_flux_function(cells, field)
-                                 + scheme2.flux_definition()[d].cons_flux_function(cells, field);
+                            scheme1.flux_definition()[d].cons_flux_function(flux_value, data, field);
+                            FluxValue<cfg> flux_value2;
+                            scheme2.flux_definition()[d].cons_flux_function(flux_value2, data, field);
+                            flux_value += flux_value2;
                         };
                         sum_scheme.flux_function = nullptr;
                     }
@@ -142,19 +157,25 @@ namespace samurai
 
                     if (scheme1.flux_definition()[d].jacobian_function && scheme2.flux_definition()[d].jacobian_function)
                     {
-                        sum_scheme.flux_definition()[d].jacobian_function = [=](auto& cells, const auto& field)
+                        sum_scheme.flux_definition()[d].jacobian_function =
+                            [=](StencilJacobianPair<cfg>& jac_pair, const StencilData<cfg>& data, const StencilValues<cfg>& u)
                         {
-                            return scheme1.flux_definition()[d].jacobian_function(cells, field)
-                                 + scheme2.flux_definition()[d].jacobian_function(cells, field);
+                            scheme1.flux_definition()[d].jacobian_function(jac_pair, data, u);
+                            StencilJacobianPair<cfg> jac_pair2;
+                            scheme2.flux_definition()[d].jacobian_function(jac_pair2, data, u);
+                            jac_pair += jac_pair2;
                         };
                         sum_scheme.cons_jacobian_function = nullptr;
                     }
                     else if (scheme1.flux_definition()[d].cons_jacobian_function && scheme2.flux_definition()[d].cons_jacobian_function)
                     {
-                        sum_scheme.flux_definition()[d].cons_jacobian_function = [=](auto& cells, const auto& field)
+                        sum_scheme.flux_definition()[d].cons_jacobian_function =
+                            [=](StencilJacobian<cfg>& jac, const StencilData<cfg>& data, const StencilValues<cfg>& u)
                         {
-                            return scheme1.flux_definition()[d].cons_jacobian_function(cells, field)
-                                 + scheme2.flux_definition()[d].cons_jacobian_function(cells, field);
+                            scheme1.flux_definition()[d].cons_jacobian_function(jac, data, u);
+                            StencilJacobian<cfg> jac2;
+                            scheme2.flux_definition()[d].cons_jacobian_function(jac2, data, u);
+                            jac += jac2;
                         };
                         sum_scheme.flux_function = nullptr;
                     }

@@ -24,14 +24,13 @@ namespace samurai
             {
                 static constexpr std::size_t d = _d();
 
-                average_coeffs[d].cons_flux_function = [](double)
+                average_coeffs[d].cons_flux_function = [](FluxStencilCoeffs<cfg>& coeffs, double)
                 {
                     static constexpr std::size_t left  = 0;
                     static constexpr std::size_t right = 1;
 
                     // Return value: 2 matrices (left, right) of size output_n_comp x n_comp.
                     // In this case, of size dim x 1, i.e. a column vector of size dim.
-                    FluxStencilCoeffs<cfg> coeffs;
                     if constexpr (output_field_t::is_scalar)
                     {
                         coeffs[left]  = 0.5;
@@ -46,7 +45,6 @@ namespace samurai
                         // xt::row(coeffs[left], d)  = 0.5;
                         // xt::row(coeffs[right], d) = 0.5;
                     }
-                    return coeffs;
                 };
             });
 

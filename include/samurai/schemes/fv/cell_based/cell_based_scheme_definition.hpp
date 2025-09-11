@@ -96,17 +96,14 @@ namespace samurai
 
         using stencil_cells_t = StencilCells<cfg>;
 
-        using scheme_func   = std::function<SchemeValue<cfg>(stencil_cells_t&, const field_t&)>;
-        using jacobian_func = std::function<StencilJacobian<cfg>(stencil_cells_t&, const field_t&)>;
+        using scheme_func   = std::function<void(SchemeValue<cfg>&, const stencil_cells_t&, const field_t&)>;
+        using jacobian_func = std::function<void(StencilJacobian<cfg>&, const stencil_cells_t&, const field_t&)>;
 
-        // Specific to implicit local schemes (unused otherwise)
-        using local_field_t     = LocalField<field_t>;
-        using local_scheme_func = std::function<SchemeValue<cfg>(stencil_cells_t&, const local_field_t&)>; // same as 'scheme_func', but
-                                                                                                           // with 'local_field_t' instead
-                                                                                                           // of 'field_t'
-        using local_jacobian_func = std::function<StencilJacobian<cfg>(stencil_cells_t&, const local_field_t&)>; // same as 'jacobian_func',
-                                                                                                                 // but with 'local_field_t'
-                                                                                                                 // instead of 'field_t'
+        // Specific to implicit local schemes (unused otherwise):
+        // same as 'scheme_func', but with 'LocalField<field_t>' instead of 'field_t'
+        using local_scheme_func = std::function<void(SchemeValue<cfg>&, const stencil_cells_t&, const LocalField<field_t>&)>;
+        // same as 'jacobian_func', but with 'LocalField<field_t>' instead of 'field_t'
+        using local_jacobian_func = std::function<void(JacobianMatrix<cfg>&, const stencil_cells_t&, const LocalField<field_t>&)>;
 
         scheme_func scheme_function     = nullptr;
         jacobian_func jacobian_function = nullptr;
@@ -130,7 +127,7 @@ namespace samurai
     struct CellBasedSchemeDefinition<cfg, std::enable_if_t<cfg::scheme_type == SchemeType::LinearHeterogeneous>>
         : CellBasedSchemeDefinitionBase<cfg>
     {
-        using get_coefficients_func = std::function<StencilCoeffs<cfg>(StencilCells<cfg>&)>;
+        using get_coefficients_func = std::function<void(StencilCoeffs<cfg>&, const StencilCells<cfg>&)>;
 
         get_coefficients_func get_coefficients_function = nullptr;
 
@@ -148,7 +145,7 @@ namespace samurai
     struct CellBasedSchemeDefinition<cfg, std::enable_if_t<cfg::scheme_type == SchemeType::LinearHomogeneous>>
         : CellBasedSchemeDefinitionBase<cfg>
     {
-        using get_coefficients_func = std::function<StencilCoeffs<cfg>(double)>;
+        using get_coefficients_func = std::function<void(StencilCoeffs<cfg>&, double)>;
 
         get_coefficients_func get_coefficients_function = nullptr;
 

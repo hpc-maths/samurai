@@ -13,12 +13,9 @@ namespace samurai
 
         auto identity = make_cell_based_scheme<cfg>("Identity");
 
-        identity.coefficients_func() = [](double) -> StencilCoeffs<cfg>
+        identity.coefficients_func() = [](StencilCoeffs<cfg>& sc, double)
         {
-            // return {eye<field_value_type, n_comp, n_comp>()};
-            StencilCoeffs<cfg> sc;
-            sc(0) = eye<field_value_type, n_comp, n_comp, Field::is_scalar>();
-            return sc;
+            sc = eye<field_value_type, n_comp, n_comp, Field::is_scalar>();
         };
         identity.is_symmetric(true);
         identity.is_spd(true);

@@ -24,12 +24,11 @@ class HighOrderDiffusion : public samurai::CellBasedScheme<cfg, bdry_cfg>
     HighOrderDiffusion()
     {
         this->stencil()           = samurai::star_stencil<dim, neighbourhood_width>();
-        this->coefficients_func() = [](double h)
+        this->coefficients_func() = [](samurai::StencilCoeffs<cfg>& coeffs, double h)
         {
-            //                                    left2,    left, center, right, right2   bottom2,  bottom,   top,    top2
-            samurai::StencilCoeffs<cfg> coeffs = {1. / 12, -4. / 3, 5., -4. / 3, 1. / 12, 1. / 12, -4. / 3, -4. / 3, 1. / 12};
+            //        left2,    left, center, right, right2   bottom2,  bottom,   top,    top2
+            coeffs = {1. / 12, -4. / 3, 5., -4. / 3, 1. / 12, 1. / 12, -4. / 3, -4. / 3, 1. / 12};
             coeffs /= (h * h);
-            return coeffs;
         };
         set_dirichlet_config();
     }

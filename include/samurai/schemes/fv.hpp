@@ -16,7 +16,7 @@
 #include "fv/operators/convection_lin.hpp"
 #include "fv/operators/convection_nonlin.hpp"
 #include "fv/operators/diffusion.hpp"
-#include "fv/operators/diffusion_old.hpp"
+#include "fv/operators/diffusion_cell_based.hpp"
 #include "fv/operators/divergence.hpp"
 #include "fv/operators/flux_divergence.hpp"
 #include "fv/operators/gradient.hpp"

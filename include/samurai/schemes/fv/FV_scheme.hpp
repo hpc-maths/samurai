@@ -258,13 +258,27 @@ namespace samurai
                                            [[maybe_unused]] size_type field_i,
                                            [[maybe_unused]] size_type field_j) const
         {
-            if constexpr (field_t::is_scalar && output_n_comp == 1)
+            if constexpr (cfg::stencil_size == 1)
             {
-                return coeffs[cell_number_in_stencil];
+                if constexpr (field_t::is_scalar && output_n_comp == 1)
+                {
+                    return coeffs;
+                }
+                else
+                {
+                    return coeffs(field_i, field_j);
+                }
             }
             else
             {
-                return coeffs[cell_number_in_stencil](field_i, field_j);
+                if constexpr (field_t::is_scalar && output_n_comp == 1)
+                {
+                    return coeffs[cell_number_in_stencil];
+                }
+                else
+                {
+                    return coeffs[cell_number_in_stencil](field_i, field_j);
+                }
             }
         }
 

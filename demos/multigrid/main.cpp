@@ -214,6 +214,7 @@ int main(int argc, char* argv[])
 
     auto source   = samurai::make_vector_field<double, n_comp, is_soa>("source", mesh, test_case->source());
     auto solution = samurai::make_vector_field<double, n_comp, is_soa>("solution", mesh);
+    solution.fill(0);
 
     // Boundary conditions
     samurai::make_bc<samurai::Dirichlet<1>>(solution, test_case->dirichlet());
@@ -232,7 +233,9 @@ int main(int argc, char* argv[])
     // Solve linear system //
     //---------------------//
 
-    auto diff   = samurai::make_diffusion_cell_based<decltype(solution)>();
+    auto diff        = samurai::make_diffusion_cell_based<decltype(solution)>();
+    auto diff_nonlin = samurai::make_diffusion_cell_based_nonlin<decltype(solution)>();
+
     auto solver = samurai::petsc::make_solver(diff);
     solver.set_unknown(solution);
 

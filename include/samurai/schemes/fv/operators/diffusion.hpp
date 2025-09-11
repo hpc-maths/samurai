@@ -140,14 +140,15 @@ namespace samurai
             {
                 static constexpr std::size_t d = _d();
 
-                K_grad[d].cons_flux_function = [K](double h)
+                K_grad[d].cons_flux_function = [K](FluxStencilCoeffs<cfg>& coeffs, double h)
                 {
                     static constexpr std::size_t left  = 0;
                     static constexpr std::size_t right = 1;
 
-                    // Return value: 2 matrices (left, right) of size output_n_comp x n_comp.
+                    // `coeffs` must be filled.
+                    // It contains 2 matrices (left, right) of size output_n_comp x input_n_comp.
                     // In this case, of size n_comp x n_comp.
-                    FluxStencilCoeffs<cfg> coeffs;
+
                     if constexpr (Field::is_scalar)
                     {
                         coeffs[left]  = -1 / h;
@@ -166,7 +167,6 @@ namespace samurai
                     // Minus sign because we want -Laplacian
                     coeffs[left] *= -K(d);
                     coeffs[right] *= -K(d);
-                    return coeffs;
                 };
             });
         auto scheme = make_diffusion__<cfg>(K_grad);
@@ -196,14 +196,15 @@ namespace samurai
             {
                 static constexpr std::size_t d = _d();
 
-                K_grad[d].cons_flux_function = [K](double h)
+                K_grad[d].cons_flux_function = [K](FluxStencilCoeffs<cfg>& coeffs, double h)
                 {
                     static constexpr std::size_t left  = 0;
                     static constexpr std::size_t right = 1;
 
-                    // Return value: 2 matrices (left, right) of size output_n_comp x n_comp.
+                    // `coeffs` must be filled.
+                    // It contains 2 matrices (left, right) of size output_n_comp x n_comp.
                     // In this case, of size n_comp x n_comp.
-                    FluxStencilCoeffs<cfg> coeffs;
+
                     if constexpr (Field::is_scalar)
                     {
                         coeffs[left]  = -1 / h;
@@ -233,7 +234,6 @@ namespace samurai
                             coeffs[right](i, i) *= -K(i);
                         }
                     }
-                    return coeffs;
                 };
             });
         auto scheme = make_diffusion__<cfg>(K_grad);
@@ -286,19 +286,18 @@ namespace samurai
             {
                 static constexpr std::size_t d = _d();
 
-                K_grad[d].cons_flux_function = [&](const auto& cells)
+                K_grad[d].cons_flux_function = [&](FluxStencilCoeffs<cfg>& coeffs, const StencilData<cfg>& data)
                 {
                     static constexpr std::size_t left  = 0;
                     static constexpr std::size_t right = 1;
 
-                    double h = cells[left].length;
+                    double h = data.cell_length;
 
-                    auto k_left  = K[cells[left]];
-                    auto k_right = K[cells[left]];
+                    auto k_left  = K[data.cells[left]];
+                    auto k_right = K[data.cells[right]];
 
-                    // Return value: 2 matrices (left, right) of size output_n_comp x n_comp.
+                    // `coeffs`: 2 matrices (left, right) of size output_n_comp x n_comp.
                     // In this case, of size n_comp x n_comp.
-                    FluxStencilCoeffs<cfg> coeffs;
                     if constexpr (field_t::is_scalar)
                     {
                         coeffs[left]  = -k_left(d) / h;
@@ -317,7 +316,6 @@ namespace samurai
                     // Because we want -Laplacian
                     coeffs[left] *= -1;
                     coeffs[right] *= -1;
-                    return coeffs;
                 };
             });
 

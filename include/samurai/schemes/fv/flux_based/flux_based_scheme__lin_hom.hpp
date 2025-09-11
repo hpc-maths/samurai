@@ -57,12 +57,16 @@ namespace samurai
             return m_include_boundary_fluxes;
         }
 
-        FluxStencilCoeffs<cfg> contribution(const FluxStencilCoeffs<cfg>& flux_coeffs, double h_face, double h_cell) const
+      private:
+
+        inline auto h_factor(double h_face, double h_cell) const
         {
             double face_measure = std::pow(h_face, dim - 1);
             double cell_measure = std::pow(h_cell, dim);
-            return (face_measure / cell_measure) * flux_coeffs;
+            return face_measure / cell_measure;
         }
+
+      public:
 
         /**
          * Iterates for each interior interface and returns (in lambda parameters) the scheme coefficients.
@@ -77,14 +81,20 @@ namespace samurai
 
             auto& flux_def = flux_definition()[d];
 
+            FluxStencilCoeffs<cfg> flux_coeffs;
+            FluxStencilCoeffs<cfg> left_cell_coeffs;
+            FluxStencilCoeffs<cfg> right_cell_coeffs;
+
             // Same level
             for (std::size_t level = min_level; level <= max_level; ++level)
             {
-                auto h           = mesh.cell_length(level);
-                auto flux_coeffs = flux_def.cons_flux_function(h);
+                auto h      = mesh.cell_length(level);
+                auto factor = h_factor(h, h);
 
-                auto left_cell_coeffs                        = contribution(flux_coeffs, h, h);
-                decltype(left_cell_coeffs) right_cell_coeffs = -left_cell_coeffs;
+                flux_def.cons_flux_function(flux_coeffs, h);
+
+                left_cell_coeffs  = factor * flux_coeffs;
+                right_cell_coeffs = -left_cell_coeffs;
 
                 for_each_interior_interface__same_level<run_type, get_type, include_periodic>(
                     mesh,
@@ -106,18 +116,21 @@ namespace samurai
             for (std::size_t level = min_level; level < max_level; ++level)
 #endif
             {
-                auto h_l                                = mesh.cell_length(level);
-                auto h_lp1                              = mesh.cell_length(level + 1);
-                auto flux_coeffs                        = flux_def.cons_flux_function(h_lp1); // flux computed at level l+1
-                decltype(flux_coeffs) minus_flux_coeffs = -flux_coeffs;
+                auto h_l   = mesh.cell_length(level);
+                auto h_lp1 = mesh.cell_length(level + 1);
+
+                flux_def.cons_flux_function(flux_coeffs, h_lp1); // flux computed at level l+1
 
                 //         |__|   l+1
                 //    |____|      l
                 //    --------->
                 //    direction
                 {
-                    auto left_cell_coeffs  = contribution(flux_coeffs, h_lp1, h_l);
-                    auto right_cell_coeffs = contribution(minus_flux_coeffs, h_lp1, h_lp1);
+                    auto left_factor  = h_factor(h_lp1, h_l);
+                    auto right_factor = h_factor(h_lp1, h_lp1);
+
+                    left_cell_coeffs  = left_factor * flux_coeffs;
+                    right_cell_coeffs = -right_factor * flux_coeffs;
 
                     for_each_interior_interface__level_jump_direction<run_type, get_type, include_periodic>(
                         mesh,
@@ -134,8 +147,11 @@ namespace samurai
                 //    --------->
                 //    direction
                 {
-                    auto left_cell_coeffs  = contribution(flux_coeffs, h_lp1, h_lp1);
-                    auto right_cell_coeffs = contribution(minus_flux_coeffs, h_lp1, h_l);
+                    auto left_factor  = h_factor(h_lp1, h_lp1);
+                    auto right_factor = h_factor(h_lp1, h_l);
+
+                    left_cell_coeffs  = left_factor * flux_coeffs;
+                    right_cell_coeffs = -right_factor * flux_coeffs;
 
                     for_each_interior_interface__level_jump_opposite_direction<run_type, get_type, include_periodic>(
                         mesh,
@@ -174,26 +190,29 @@ namespace samurai
 
             auto& flux_def = flux_definition()[d];
 
+            FluxStencilCoeffs<cfg> flux_coeffs;
+
             for_each_level(mesh,
                            [&](auto level)
                            {
                                auto h = mesh.cell_length(level);
 
+                               auto factor = h_factor(h, h);
+
                                // Boundary in direction
-                               auto flux_coeffs = flux_def.cons_flux_function(h);
-                               auto cell_coeffs = contribution(flux_coeffs, h, h);
+                               flux_def.cons_flux_function(flux_coeffs, h);
+                               flux_coeffs *= factor;
                                for_each_boundary_interface__direction<run_type, get_type>(mesh,
                                                                                           level,
                                                                                           flux_def.direction,
                                                                                           flux_def.stencil,
                                                                                           [&](auto& cell, auto& comput_cells)
                                                                                           {
-                                                                                              apply_coeffs(cell, comput_cells, cell_coeffs);
+                                                                                              apply_coeffs(cell, comput_cells, flux_coeffs);
                                                                                           });
 
                                // Boundary in opposite direction
-                               decltype(flux_coeffs) minus_flux_coeffs = -flux_coeffs;
-                               cell_coeffs                             = contribution(minus_flux_coeffs, h, h);
+                               flux_coeffs *= -1;
                                for_each_boundary_interface__opposite_direction<run_type, get_type>(
                                    mesh,
                                    level,
@@ -201,7 +220,7 @@ namespace samurai
                                    flux_def.stencil,
                                    [&](auto& cell, auto& comput_cells)
                                    {
-                                       apply_coeffs(cell, comput_cells, cell_coeffs);
+                                       apply_coeffs(cell, comput_cells, flux_coeffs);
                                    });
                            });
         }

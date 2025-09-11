@@ -76,27 +76,25 @@ auto make_nonlinear_diffusion()
                 flux = _u * grad_u; // (1)
             };
 
-            flux[d].cons_jacobian_function = [](auto& cells, const Field& u)
+            flux[d].cons_jacobian_function =
+                [](samurai::StencilJacobian<cfg>& jac, const samurai::StencilData<cfg>& data, const samurai::StencilValues<cfg>& u)
             {
-                auto& L = cells[0];
-                auto& R = cells[1];
-                auto dx = L.length;
+                static constexpr std::size_t L = 0;
+                static constexpr std::size_t R = 1;
 
-                samurai::StencilJacobian<cfg> jac;
-                auto& jac_L = jac[0];
-                auto& jac_R = jac[1];
+                auto dx = data.cell_length;
 
                 auto _u     = (u[L] + u[R]) / 2;
                 auto grad_u = (u[L] - u[R]) / dx;
 
-                jac_L = grad_u / 2 + _u / dx; // derive (1) w.r.t. u[L]
-                jac_R = grad_u / 2 - _u / dx; // derive (1) w.r.t. u[R]
-
-                return jac;
+                jac[L] = grad_u / 2 + _u / dx; // derive (1) w.r.t. u[L]
+                jac[R] = grad_u / 2 - _u / dx; // derive (1) w.r.t. u[R]
             };
         });
 
-    return samurai::make_flux_based_scheme(flux);
+    auto scheme = samurai::make_flux_based_scheme(flux);
+    scheme.set_name("nonlinear_diffusion");
+    return scheme;
 }
 
 int main(int argc, char* argv[])
@@ -261,6 +259,7 @@ int main(int argc, char* argv[])
         }
         else
         {
+            unp1 = u;                                       // initial guess for the non-linear solver
             samurai::petsc::solve(id + dt * diff, unp1, u); // solves the non-linear equation [id+dt*diff](unp1) = u
         }
 

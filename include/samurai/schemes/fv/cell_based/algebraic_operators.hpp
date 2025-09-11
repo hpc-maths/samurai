@@ -24,35 +24,40 @@ namespace samurai
             using stencil_cells_t = typename CellBasedScheme<cfg, bdry_cfg>::stencil_cells_t;
             using field_t         = typename CellBasedScheme<cfg, bdry_cfg>::field_t;
 
-            multiplied_scheme.scheme_function() = [=](stencil_cells_t& cells, const field_t& field)
+            multiplied_scheme.scheme_function() = [=](SchemeValue<cfg>& value, const stencil_cells_t& cells, const field_t& field)
             {
-                return scalar * scheme.scheme_function()(cells, field);
+                scheme.scheme_function()(value, cells, field);
+                value *= scalar;
             };
 
             multiplied_scheme.local_scheme_function() = nullptr;
             if (scheme.local_scheme_function())
             {
-                multiplied_scheme.local_scheme_function() = [=](stencil_cells_t& cells, const auto& field)
+                multiplied_scheme.local_scheme_function() = [=](SchemeValue<cfg>& value, const stencil_cells_t& cells, const auto& field)
                 {
-                    return scalar * scheme.local_scheme_function()(cells, field);
+                    scheme.local_scheme_function()(value, cells, field);
+                    value *= scalar;
                 };
             }
 
             multiplied_scheme.jacobian_function() = nullptr;
             if (scheme.jacobian_function())
             {
-                multiplied_scheme.jacobian_function() = [=](stencil_cells_t& cells, const field_t& field)
+                multiplied_scheme.jacobian_function() = [=](StencilJacobian<cfg>& jacobian, const stencil_cells_t& cells, const field_t& field)
                 {
-                    return scalar * scheme.jacobian_function()(cells, field);
+                    scheme.jacobian_function()(jacobian, cells, field);
+                    jacobian *= scalar;
                 };
             }
 
             multiplied_scheme.local_jacobian_function() = nullptr;
             if (scheme.local_jacobian_function())
             {
-                multiplied_scheme.local_jacobian_function() = [=](stencil_cells_t& cells, const auto& field)
+                multiplied_scheme.local_jacobian_function() =
+                    [=](StencilJacobian<cfg>& jacobian, const stencil_cells_t& cells, const auto& field)
                 {
-                    return scalar * scheme.local_jacobian_function()(cells, field);
+                    scheme.local_jacobian_function()(jacobian, cells, field);
+                    jacobian *= scalar;
                 };
             }
         }
@@ -151,53 +156,56 @@ namespace samurai
         addition_scheme.set_name(lin_scheme.name() + " + " + nonlin_scheme.name());
         if constexpr (lin_cfg::scheme_type == SchemeType::LinearHomogeneous)
         {
-            addition_scheme.scheme_function() = [=](stencil_cells_t& cell, const field_t& field)
+            addition_scheme.scheme_function() = [=](SchemeValue<nonlin_cfg>& value, const stencil_cells_t& cell, const field_t& field)
             {
-                auto value = nonlin_scheme.scheme_function()(cell, field);
+                nonlin_scheme.scheme_function()(value, cell, field);
 
-                auto h      = cell.length;
-                auto coeffs = lin_scheme.coefficients(h);
-                value += mat_vec<detail::is_soa_v<field_t>, can_collapse>(coeffs[0], field[cell]);
-                return value;
+                StencilCoeffs<lin_cfg> coeffs;
+                auto h = cell.length;
+                lin_scheme.coefficients(coeffs, h);
+                value += mat_vec<detail::is_soa_v<field_t>, can_collapse>(coeffs, field[cell]);
             };
 
             addition_scheme.local_scheme_function() = nullptr;
             if (nonlin_scheme.local_scheme_function())
             {
-                addition_scheme.local_scheme_function() = [=](stencil_cells_t& cell, const auto& field)
+                addition_scheme.local_scheme_function() = [=](SchemeValue<nonlin_cfg>& value, const stencil_cells_t& cell, const auto& field)
                 {
-                    auto value = nonlin_scheme.local_scheme_function()(cell, field);
+                    nonlin_scheme.local_scheme_function()(value, cell, field);
 
-                    auto h      = cell.length;
-                    auto coeffs = lin_scheme.coefficients(h);
-                    value += mat_vec<detail::is_soa_v<field_t>, can_collapse>(coeffs[0], field[cell]);
-                    return value;
+                    StencilCoeffs<lin_cfg> coeffs;
+                    auto h = cell.length;
+                    lin_scheme.coefficients(coeffs, h);
+                    value += mat_vec<detail::is_soa_v<field_t>, can_collapse>(coeffs, field[cell]);
                 };
             }
 
             addition_scheme.jacobian_function() = nullptr;
             if (nonlin_scheme.jacobian_function())
             {
-                addition_scheme.jacobian_function() = [=](stencil_cells_t& cell, const field_t& field)
+                addition_scheme.jacobian_function() = [=](StencilJacobian<nonlin_cfg>& jac, const stencil_cells_t& cell, const field_t& field)
                 {
-                    auto jac = nonlin_scheme.jacobian_function()(cell, field);
+                    nonlin_scheme.jacobian_function()(jac, cell, field);
 
+                    StencilCoeffs<lin_cfg> coeffs;
                     auto h = cell.length;
-                    jac += lin_scheme.coefficients(h);
-                    return jac;
+                    lin_scheme.coefficients(coeffs, h);
+                    jac += coeffs[0];
                 };
             }
 
             addition_scheme.local_jacobian_function() = nullptr;
             if (nonlin_scheme.local_jacobian_function())
             {
-                addition_scheme.local_jacobian_function() = [=](stencil_cells_t& cell, const auto& field)
+                addition_scheme.local_jacobian_function() =
+                    [=](StencilJacobian<nonlin_cfg>& jac, const stencil_cells_t& cell, const auto& field)
                 {
-                    auto jac = nonlin_scheme.local_jacobian_function()(cell, field);
+                    nonlin_scheme.local_jacobian_function()(jac, cell, field);
 
+                    StencilCoeffs<lin_cfg> coeffs;
                     auto h = cell.length;
-                    jac += lin_scheme.coefficients(h);
-                    return jac;
+                    lin_scheme.coefficients(coeffs, h);
+                    jac += coeffs[0];
                 };
             }
         }
