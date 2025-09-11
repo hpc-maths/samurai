@@ -44,7 +44,9 @@ namespace samurai
                     for (size_type field_i = 0; field_i < output_n_comp; ++field_i)
                     {
                     // clang-format off
+                        #if defined(SAMURAI_WITH_OPENMP)
                         #pragma omp atomic update
+                        #endif
                         field_value(output_field, cell, field_i) += this->scheme().flux_value_cmpnent(contrib, field_i);
                         // clang-format on
                     }
