@@ -40,7 +40,7 @@ int main(int argc, char* argv[])
     using Box                        = samurai::Box<double, dim>;
     using point_t                    = typename Box::point_t;
 
-    std::cout << "------------------------- Linear convection -------------------------" << std::endl;
+    fmt::print("------------------------- Linear convection -------------------------\n");
 
     //--------------------//
     // Program parameters //
@@ -163,7 +163,7 @@ int main(int argc, char* argv[])
             dt += Tf - t;
             t = Tf;
         }
-        std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt) << std::flush;
+        fmt::print("{}", fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt));
 
         // Mesh adaptation
         MRadaptation(mra_config);
@@ -218,15 +218,14 @@ int main(int argc, char* argv[])
             }
         }
 
-        std::cout << std::endl;
+        fmt::print("\n");
     }
 
     if constexpr (dim == 1)
     {
-        std::cout << std::endl;
-        std::cout << "Run the following command to view the results:" << std::endl;
-        std::cout << "python <<path to samurai>>/python/read_mesh.py " << filename << "_ite_ --field u level --start 0 --end " << nsave
-                  << std::endl;
+        fmt::print("\n");
+        fmt::print("Run the following command to view the results:\n");
+        fmt::print("python <<path to samurai>>/python/read_mesh.py {}_ite_ --field u level --start 0 --end {}\n", filename, nsave);
     }
 
     samurai::finalize();

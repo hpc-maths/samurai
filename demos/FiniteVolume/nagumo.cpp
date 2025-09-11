@@ -40,7 +40,7 @@ int main(int argc, char* argv[])
     using Box                           = samurai::Box<double, dim>;
     using point_t                       = typename Box::point_t;
 
-    std::cout << "------------------------- Nagumo -------------------------" << std::endl;
+    fmt::print("------------------------- Nagumo -------------------------\n");
 
     /**
      * Nagumo, or Fisher-KPP equation:
@@ -195,7 +195,7 @@ int main(int argc, char* argv[])
             dt += Tf - t;
             t = Tf;
         }
-        std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt) << std::flush;
+        fmt::print("{}", fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt));
 
         // Mesh adaptation
         MRadaptation(mra_config);
@@ -244,8 +244,7 @@ int main(int argc, char* argv[])
                                          {
                                              return exact_solution(coord(0), t);
                                          });
-        std::cout.precision(2);
-        std::cout << ", L2-error: " << std::scientific << error;
+        fmt::print(", L2-error: {:.2e}", error);
 
         // Save the result
         if (!save_final_state_only)
@@ -253,15 +252,14 @@ int main(int argc, char* argv[])
             save(path, filename, u, fmt::format("_ite_{}", nsave++));
         }
 
-        std::cout << std::endl;
+        fmt::print("\n");
     }
 
     if (!save_final_state_only && dim == 1)
     {
-        std::cout << std::endl;
-        std::cout << "Run the following command to view the results:" << std::endl;
-        std::cout << "python <<path to samurai>>/python/read_mesh.py " << filename << "_ite_ --field u level --start 1 --end " << nsave
-                  << std::endl;
+        fmt::print("\n");
+        fmt::print("Run the following command to view the results:\n");
+        fmt::print("python <<path to samurai>>/python/read_mesh.py {}_ite_ --field u level --start 1 --end {}\n", filename, nsave);
     }
 
     if (save_final_state_only)

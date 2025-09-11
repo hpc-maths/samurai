@@ -41,48 +41,48 @@ void check_diff(auto& field, auto& lca_left, auto& lca_right)
 {
     auto& mesh      = field.mesh();
     using mesh_id_t = typename std::decay_t<decltype(mesh)>::mesh_id_t;
-    samurai::for_each_level(
-        mesh,
-        [&](auto level)
-        {
-            auto set = samurai::difference(samurai::intersection(mesh[mesh_id_t::cells][level], self(lca_left).on(level)),
-                                           samurai::translate(samurai::intersection(mesh[mesh_id_t::cells][level], self(lca_right).on(level)),
-                                                              xt::xtensor_fixed<int, xt::xshape<1>>{-(1 << level)}));
-            set(
-                [&](auto& i, auto)
-                {
-                    std::cout << "Difference found !! " << level << " " << i << "\n";
-                    auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
-                    samurai::for_each_cell(mesh,
-                                           [&](const auto& cell)
-                                           {
-                                               level_[cell] = cell.level;
-                                           });
-                    samurai::save("mesh_throw", mesh, field, level_);
-                    throw std::runtime_error("Difference found in check_diff function for the mesh");
-                });
-            auto set_field = samurai::intersection(mesh[mesh_id_t::cells][level], self(lca_left).on(level));
-            set_field(
-                [&](auto i, auto)
-                {
-                    if (xt::any(xt::abs(field(level, i) - field(level, i + (1 << level))) > 1e-13))
-                    {
-                        std::cout << fmt::format("\nDifference found at level {} on interval {}:\n", level, i);
-                        std::cout << fmt::format("\tleft = {}\n", field(level, i));
-                        std::cout << fmt::format("\tright = {}\n", field(level, i + (1 << level)));
-                        std::cout << fmt::format("\terror = {}\n", xt::abs(field(level, i) - field(level, i + (1 << level))));
-                        std::cout << mesh << std::endl;
-                        auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
-                        samurai::for_each_cell(mesh,
-                                               [&](const auto& cell)
-                                               {
-                                                   level_[cell] = cell.level;
-                                               });
-                        samurai::save("mesh_throw", mesh, field, level_);
-                        throw std::runtime_error("Difference found in check_diff function for the field values");
-                    }
-                });
-        });
+    samurai::for_each_level(mesh,
+                            [&](auto level)
+                            {
+                                auto set = samurai::difference(
+                                    samurai::intersection(mesh[mesh_id_t::cells][level], self(lca_left).on(level)),
+                                    samurai::translate(samurai::intersection(mesh[mesh_id_t::cells][level], self(lca_right).on(level)),
+                                                       xt::xtensor_fixed<int, xt::xshape<1>>{-(1 << level)}));
+                                set(
+                                    [&](auto& i, auto)
+                                    {
+                                        fmt::print("Difference found !! {} {}\n", level, i);
+                                        auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
+                                        samurai::for_each_cell(mesh,
+                                                               [&](const auto& cell)
+                                                               {
+                                                                   level_[cell] = cell.level;
+                                                               });
+                                        samurai::save("mesh_throw", mesh, field, level_);
+                                        throw std::runtime_error("Difference found in check_diff function for the mesh");
+                                    });
+                                auto set_field = samurai::intersection(mesh[mesh_id_t::cells][level], self(lca_left).on(level));
+                                set_field(
+                                    [&](auto i, auto)
+                                    {
+                                        if (xt::any(xt::abs(field(level, i) - field(level, i + (1 << level))) > 1e-13))
+                                        {
+                                            fmt::print("\nDifference found at level {} on interval {}:\n", level, i);
+                                            fmt::print("\tleft = {}\n", field(level, i));
+                                            fmt::print("\tright = {}\n", field(level, i + (1 << level)));
+                                            fmt::print("\terror = {}\n", xt::abs(field(level, i) - field(level, i + (1 << level))));
+                                            fmt::print("{}\n", fmt::streamed(mesh));
+                                            auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
+                                            samurai::for_each_cell(mesh,
+                                                                   [&](const auto& cell)
+                                                                   {
+                                                                       level_[cell] = cell.level;
+                                                                   });
+                                            samurai::save("mesh_throw", mesh, field, level_);
+                                            throw std::runtime_error("Difference found in check_diff function for the field values");
+                                        }
+                                    });
+                            });
 }
 
 int main(int argc, char* argv[])
@@ -94,7 +94,7 @@ int main(int argc, char* argv[])
     using Box     = samurai::Box<double, dim>;
     using point_t = typename Box::point_t;
 
-    std::cout << "------------------------- Burgers 1D -------------------------" << std::endl;
+    fmt::print("------------------------- Burgers 1D -------------------------\n");
 
     //--------------------//
     // Program parameters //
@@ -131,6 +131,8 @@ int main(int argc, char* argv[])
     app.allow_extras();
 
     SAMURAI_PARSE(argc, argv);
+
+    fmt::print("  max_level = {}   min_level = {}\n", max_level, min_level);
 
     //--------------------//
     // Problem definition //
@@ -200,7 +202,7 @@ int main(int argc, char* argv[])
             dt += Tf - t;
             t = Tf;
         }
-        std::cout << fmt::format("iteration {}: t = {:.12f}, dt = {}", nt++, t, dt) << std::flush;
+        fmt::print("{}", fmt::format("iteration {}: t = {:.12f}, dt = {}", nt++, t, dt));
 
         // Mesh adaptation
         MRadaptation(mra_config);
@@ -211,7 +213,7 @@ int main(int argc, char* argv[])
         }
         catch (...)
         {
-            std::cout << "Exception caught in check_diff after adaptation" << std::endl;
+            fmt::print("Exception caught in check_diff after adaptation\n");
             samurai::finalize();
             return 1;
         }
@@ -229,7 +231,7 @@ int main(int argc, char* argv[])
         }
         catch (...)
         {
-            std::cout << "Exception caught in check_diff after integration" << std::endl;
+            fmt::print("Exception caught in check_diff after integration\n");
             samurai::finalize();
             return 1;
         }
@@ -237,13 +239,13 @@ int main(int argc, char* argv[])
         // Save the result
         if (nfiles == 0 || t >= static_cast<double>(nsave) * dt_save || t == Tf)
         {
-            std::cout << "  (saving results)" << std::flush;
+            fmt::print("  (saving results)");
             std::string suffix = (nfiles != 1) ? fmt::format("_level_{}_{}_ite_{}", min_level, max_level, nsave) : "";
             save(path, filename, u, suffix);
             nsave++;
         }
 
-        std::cout << std::endl;
+        fmt::print("\n");
     }
 
     samurai::finalize();

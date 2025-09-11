@@ -82,7 +82,7 @@ void run_simulation(Field& u,
 {
     auto& mesh = u.mesh();
 
-    std::cout << std::endl << "max-level-flux enabled: " << scheme.enable_max_level_flux() << std::endl;
+    fmt::print("\nmax-level-flux enabled: {}\n", scheme.enable_max_level_flux());
 
     if (scheme.enable_max_level_flux())
     {
@@ -188,14 +188,14 @@ void run_simulation(Field& u,
                                              {
                                                  return hat_exact_solution(coord[0], t);
                                              });
-            std::cout << "[w.r.t. exact, no recons] " << error;
+            fmt::print("[w.r.t. exact, no recons] {}", error);
 
             error = samurai::L2_error(u_recons,
                                       [&](const auto& coord)
                                       {
                                           return hat_exact_solution(coord[0], t);
                                       });
-            std::cout << ", [w.r.t. exact, recons] " << error;
+            fmt::print(", [w.r.t. exact, recons] {}", error);
         }
 
         double error = 0;
@@ -206,7 +206,7 @@ void run_simulation(Field& u,
                                    error += std::pow(u_max[cell] - u_recons[cell2], 2) * std::pow(cell.length, 1);
                                });
         error = std::sqrt(error);
-        std::cout << ", [w.r.t. max level, recons] " << error;
+        fmt::print(", [w.r.t. max level, recons] {}", error);
 
         // Save the result
         if (t >= static_cast<double>(nsave) * dt_save || t == Tf)
@@ -219,7 +219,7 @@ void run_simulation(Field& u,
             nsave++;
         }
 
-        std::cout << std::endl;
+        fmt::print("\n");
     }
 }
 
@@ -230,7 +230,7 @@ int main(int argc, char* argv[])
 
     auto& app = samurai::initialize("Finite volume example for the Burgers equation in 1d", argc, argv);
 
-    std::cout << "------------------------- Burgers -------------------------" << std::endl;
+    fmt::print("------------------------- Burgers -------------------------\n");
 
     //--------------------//
     // Program parameters //
@@ -296,12 +296,12 @@ int main(int argc, char* argv[])
     scheme.enable_max_level_flux(true);
     run_simulation(u, unp1, u_max, unp1_max, scheme, cfl, mra_config, init_sol, nfiles, path, filename, nsave);
 
-    std::cout << std::endl;
-    std::cout << "Run the following commands to view the results:" << std::endl;
-    std::cout << "max-level-flux disabled:" << std::endl;
-    std::cout << "     python ../python/read_mesh.py " << filename << "_recons_ite_ --field u --start 0 --end " << nsave << std::endl;
-    std::cout << "max-level-flux enabled:" << std::endl;
-    std::cout << "     python ../python/read_mesh.py " << filename << "_mlf_recons_ite_ --field u --start 0 --end " << nsave << std::endl;
+    fmt::print("\n");
+    fmt::print("Run the following commands to view the results:\n");
+    fmt::print("max-level-flux disabled:\n");
+    fmt::print("     python ../python/read_mesh.py {}_recons_ite_ --field u --start 0 --end {}\n", filename, nsave);
+    fmt::print("max-level-flux enabled:\n");
+    fmt::print("     python ../python/read_mesh.py {}_mlf_recons_ite_ --field u --start 0 --end {}\n", filename, nsave);
 
     samurai::finalize();
     return 0;

@@ -55,7 +55,7 @@ int main_dim(int argc, char* argv[])
     using Box     = samurai::Box<double, dim>;
     using point_t = typename Box::point_t;
 
-    std::cout << "------------------------- Burgers -------------------------" << std::endl;
+    fmt::print("------------------------- Burgers -------------------------\n");
 
     //--------------------//
     // Program parameters //
@@ -176,7 +176,7 @@ int main_dim(int argc, char* argv[])
         }
         else
         {
-            std::cerr << "Unmanaged initial solution '" << init_sol << "'.";
+            fmt::print(stderr, "Unmanaged initial solution '{}' .\n", init_sol);
             return EXIT_FAILURE;
         }
     }
@@ -244,7 +244,7 @@ int main_dim(int argc, char* argv[])
             dt += Tf - t;
             t = Tf;
         }
-        std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt) << std::flush;
+        fmt::print("{}", fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt));
 
         // Mesh adaptation
         MRadaptation(mra_config);
@@ -286,7 +286,7 @@ int main_dim(int argc, char* argv[])
                                              {
                                                  return exact_solution<n_comp>(coord, t);
                                              });
-            std::cout << ", L2-error: " << std::scientific << std::setprecision(2) << error;
+            fmt::print(", L2-error: {:.2e}", error);
 
             if (mesh.min_level() != mesh.max_level())
             {
@@ -297,19 +297,18 @@ int main_dim(int argc, char* argv[])
                                           {
                                               return exact_solution<n_comp>(coord, t);
                                           });
-                std::cout << ", L2-error (recons): " << std::scientific << std::setprecision(2) << error;
+                fmt::print(", L2-error (recons): {:.2e}", error);
             }
         }
 
-        std::cout << std::endl;
+        fmt::print("\n");
     }
 
     if constexpr (dim == 1)
     {
-        std::cout << std::endl;
-        std::cout << "Run the following command to view the results:" << std::endl;
-        std::cout << "python <<path to samurai>>/python/read_mesh.py " << filename << "_ite_ --field u level --start 0 --end " << nsave
-                  << std::endl;
+        fmt::print("\n");
+        fmt::print("Run the following command to view the results:\n");
+        fmt::print("python <<path to samurai>>/python/read_mesh.py {}_ite_ --field u level --start 0 --end {}\n", filename, nsave);
     }
 
     samurai::finalize();

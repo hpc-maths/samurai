@@ -660,7 +660,7 @@ int main(int argc, char* argv[])
         std::size_t ite = 0;
         while (true)
         {
-            std::cout << "Mesh adaptation iteration " << ite++ << std::endl;
+            fmt::print("Mesh adaptation iteration {}\n", ite++);
             auto tag = samurai::make_scalar_field<int>("tag", mesh);
             AMR_criteria(phi, tag);
             ::make_graduation(tag);
@@ -679,7 +679,7 @@ int main(int argc, char* argv[])
             t = Tf;
         }
 
-        std::cout << fmt::format("iteration {}: t = {}, dt = {}", nt++, t, dt) << std::endl;
+        fmt::print("iteration {}: t = {}, dt = {}\n", nt++, t, dt);
 
         // Numerical scheme
         update_ghosts(phi, u);

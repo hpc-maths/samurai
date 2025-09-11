@@ -263,7 +263,7 @@ int main(int argc, char* argv[])
         std::size_t ite_adapt = 0;
         while (true)
         {
-            std::cout << "\tmesh adaptation: " << ite_adapt++ << std::endl;
+            fmt::print("\tmesh adaptation: {}\n", ite_adapt++);
             samurai::update_ghost(phi);
             tag.resize();
             AMR_criteria(phi, tag);
@@ -281,7 +281,7 @@ int main(int argc, char* argv[])
             t = Tf;
         }
 
-        std::cout << fmt::format("iteration {}: t = {}, dt = {}", nt++, t, dt) << std::endl;
+        fmt::print("iteration {}: t = {}, dt = {}\n", nt++, t, dt);
 
         // Numerical scheme
         samurai::update_ghost(phi);
