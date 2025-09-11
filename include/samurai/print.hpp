@@ -106,9 +106,9 @@ namespace samurai
 
         // Constrain scoped overloads to known scope tag types to avoid
         // ambiguity with string literals and other types.
-        template <class Scope, class... Args,
-                  std::enable_if_t<std::is_same_v<std::decay_t<Scope>, all_t>
-                                       || std::is_same_v<std::decay_t<Scope>, root_t>
+        template <class Scope,
+                  class... Args,
+                  std::enable_if_t<std::is_same_v<std::decay_t<Scope>, all_t> || std::is_same_v<std::decay_t<Scope>, root_t>
                                        || std::is_same_v<std::decay_t<Scope>, rank_t>,
                                    int> = 0>
         inline void print(Scope sc, fmt::format_string<Args...> f, Args&&... a)
@@ -123,9 +123,9 @@ namespace samurai
             detail::do_print(stderr, f, std::forward<Args>(a)...);
         }
 
-        template <class Scope, class... Args,
-                  std::enable_if_t<std::is_same_v<std::decay_t<Scope>, all_t>
-                                       || std::is_same_v<std::decay_t<Scope>, root_t>
+        template <class Scope,
+                  class... Args,
+                  std::enable_if_t<std::is_same_v<std::decay_t<Scope>, all_t> || std::is_same_v<std::decay_t<Scope>, root_t>
                                        || std::is_same_v<std::decay_t<Scope>, rank_t>,
                                    int> = 0>
         inline void eprint(Scope sc, fmt::format_string<Args...> f, Args&&... a)
