@@ -223,7 +223,7 @@ int main(int argc, char* argv[])
             dt += Tf - t;
             t = Tf;
         }
-        samurai::io::print("{}", fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt));
+        samurai::io::print(samurai::io::root, "{}", fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt));
 
         // Update boundary conditions
         if (explicit_scheme)

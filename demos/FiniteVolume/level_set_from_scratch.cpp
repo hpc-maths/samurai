@@ -679,7 +679,7 @@ int main(int argc, char* argv[])
             t = Tf;
         }
 
-        samurai::io::print("iteration {}: t = {}, dt = {}\n", nt++, t, dt);
+        samurai::io::print(samurai::io::root, "iteration {}: t = {}, dt = {}\n", nt++, t, dt);
 
         // Numerical scheme
         update_ghosts(phi, u);

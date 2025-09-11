@@ -316,7 +316,7 @@ int main(int argc, char* argv[])
             t              = Tf;
             dt_has_changed = true;
         }
-        samurai::io::print("{}", fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt));
+        samurai::io::print(samurai::io::root, "{}", fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt));
 
         // Mesh adaptation for Navier-Stokes
         if (mesh.min_level() != mesh.max_level())

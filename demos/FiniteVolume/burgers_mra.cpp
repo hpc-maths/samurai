@@ -162,7 +162,7 @@ void run_simulation(Field& u,
             dt += Tf - t;
             t = Tf;
         }
-        std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt) << std::flush;
+        samurai::io::print(samurai::io::root, "iteration {}: t = {:.2f}, dt = {}\n", nt++, t, dt);
 
         // Mesh adaptation
         MRadaptation(mra_config);

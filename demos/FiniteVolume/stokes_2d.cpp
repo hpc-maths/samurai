@@ -460,7 +460,7 @@ int main(int argc, char* argv[])
                 t_np1          = Tf;
                 dt_has_changed = true;
             }
-            samurai::io::print("{}", fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t_np1, dt));
+            samurai::io::print(samurai::io::root, "{}", fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t_np1, dt));
 
             // Mesh adaptation
             if (mesh.min_level() != mesh.max_level())

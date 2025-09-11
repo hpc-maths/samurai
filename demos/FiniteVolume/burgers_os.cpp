@@ -202,7 +202,7 @@ int main(int argc, char* argv[])
             dt += Tf - t;
             t = Tf;
         }
-        samurai::io::print("{}", fmt::format("iteration {}: t = {:.12f}, dt = {}", nt++, t, dt));
+        samurai::io::print(samurai::io::root, "{}", fmt::format("iteration {}: t = {:.12f}, dt = {}", nt++, t, dt));
 
         // Mesh adaptation
         MRadaptation(mra_config);

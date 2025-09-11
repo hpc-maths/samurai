@@ -313,7 +313,7 @@ int main()
 
     while (t < Tf)
     {
-        samurai::io::print("{}", fmt::format("Iteration = {:4d}, t: {}\n", nb_ite, t));
+        samurai::io::print(samurai::io::root, "{}", fmt::format("Iteration = {:4d}, t: {}\n", nb_ite, t));
 
         if (max_level > min_level)
         {
