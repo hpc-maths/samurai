@@ -17,16 +17,16 @@ namespace samurai
 
         inline bool timers = false;
 #ifdef SAMURAI_WITH_MPI
-        inline bool print_root_only      = false;
+        inline bool print_root_only = false;
 #endif
-        inline int  finer_level_flux   = 0;
+        inline int finer_level_flux   = 0;
         inline bool refine_boundary   = false;
         inline bool save_debug_fields = false;
 
         // MRA arguments
         inline double epsilon    = std::numeric_limits<double>::infinity();
         inline double regularity = std::numeric_limits<double>::infinity();
-        inline bool   rel_detail = false;
+        inline bool rel_detail   = false;
     }
 
     inline void read_samurai_arguments(CLI::App& app, int& argc, char**& argv)
