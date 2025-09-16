@@ -145,9 +145,9 @@ namespace samurai
 
     TEST(subset, compute_min)
     {
-        EXPECT_EQ(1, compute_min(3, 4, 1, 4));
-        EXPECT_EQ(0, compute_min(0, 0, 0, 0));
-        EXPECT_EQ(-1, compute_min(-1, -1, -1, -1));
+        EXPECT_EQ(1, vmin(3, 4, 1, 4));
+        EXPECT_EQ(0, vmin(0, 0, 0, 0));
+        EXPECT_EQ(-1, vmin(-1, -1, -1, -1));
     }
 
     TEST(subset, check_dim)

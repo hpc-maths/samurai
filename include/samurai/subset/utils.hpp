@@ -3,73 +3,55 @@
 
 #pragma once
 
-#include <algorithm>
-#include <cstddef>
-#include <iterator>
-#include <limits>
+#include <functional>
+#include <tuple>
 
-// namespace samurai::experimental
 namespace samurai
 {
-    template <class T>
-    static constexpr T sentinel = std::numeric_limits<T>::max();
-
-    template <class T>
-    inline T end_shift(T value, T shift)
+    ////////////////////////////////////////////////////////////////////////
+    //// misc
+    ////////////////////////////////////////////////////////////////////////
+    template <typename T>
+    const T& vmin(const T& a)
     {
-        return shift >= 0 ? value << shift : ((value - 1) >> -shift) + 1;
+        return a;
     }
 
-    template <class T>
-    inline T start_shift(T value, T shift)
+    template <typename T>
+    const T& vmax(const T& a)
     {
-        return shift >= 0 ? value << shift : value >> -shift;
+        return a;
     }
 
-    constexpr auto compute_min(auto const& value, auto const&... args)
+    template <typename T, typename... Ts>
+    T vmin(const T& a, const T& b, const Ts&... others)
     {
-        if constexpr (sizeof...(args) == 0u) // Single argument case!
+        if constexpr (sizeof...(Ts) == 0u)
         {
-            return value;
+            return std::min(a, b);
         }
-        else // For the Ts...
+        else
         {
-            const auto min = compute_min(args...);
-            return value < min ? value : min;
-        }
-    }
-
-    constexpr auto compute_max(auto const& value, auto const&... args)
-    {
-        if constexpr (sizeof...(args) == 0u) // Single argument case!
-        {
-            return value;
-        }
-        else // For the Ts...
-        {
-            const auto max = compute_max(args...);
-            return value > max ? value : max;
+            return a < b ? vmin(a, others...) : vmin(b, others...);
         }
     }
 
-    template <class S1, class... S>
-    struct get_interval_type
+    template <typename T, typename... Ts>
+    T vmax(const T& a, const T& b, const Ts&... others)
     {
-        using type = typename S1::interval_t;
-    };
+        if constexpr (sizeof...(Ts) == 0u)
+        {
+            return std::max(a, b);
+        }
+        else
+        {
+            return a > b ? vmax(a, others...) : vmax(b, others...);
+        }
+    }
 
-    template <class... S>
-    using get_interval_t = typename get_interval_type<S...>::type;
-
-    template <class S1, class... S>
-    struct get_set_dim
-    {
-        static constexpr std::size_t value = S1::dim;
-    };
-
-    template <class... S>
-    constexpr std::size_t get_set_dim_v = get_set_dim<std::decay_t<S>...>::value;
-
+    ////////////////////////////////////////////////////////////////////////
+    //// intervals args
+    ////////////////////////////////////////////////////////////////////////
     template <class ForwardIt, class T = typename std::iterator_traits<ForwardIt>::value_type::value_type>
     ForwardIt lower_bound_interval(ForwardIt begin, ForwardIt end, const T& value)
     {
@@ -94,20 +76,41 @@ namespace samurai
                                 });
     }
 
-    template <typename Tuple1, typename Tuple2, typename F, std::size_t... Is>
-    constexpr void zip_apply_impl(F&& f, Tuple1&& t1, Tuple2&& t2, std::index_sequence<Is...>)
+    ////////////////////////////////////////////////////////////////////////
+    //// tuple iteration
+    ////////////////////////////////////////////////////////////////////////
+    namespace detail
     {
-        (f(std::get<Is>(std::forward<Tuple1>(t1)), std::get<Is>(std::forward<Tuple2>(t2))), ...);
+        template <class Tuple, class Func, std::size_t... Is>
+        Func enumerate_items(Tuple& tuple, Func func, std::index_sequence<Is...>)
+        {
+            (func(Is, std::get<Is>(tuple)), ...);
+            return func;
+        }
+
+        template <class Tuple, class Func, std::size_t... Is>
+        Func enumerate_const_items(const Tuple& tuple, Func func, std::index_sequence<Is...>)
+        {
+            (func(Is, std::get<Is>(tuple)), ...);
+            return func;
+        }
     }
 
-    template <typename Tuple1, typename Tuple2, typename F>
-    constexpr void zip_apply(F&& f, Tuple1&& t1, Tuple2&& t2)
+    template <class Tuple, class Func>
+    Func enumerate_items(Tuple& tuple, Func func)
     {
-        constexpr std::size_t size1 = std::tuple_size_v<std::remove_reference_t<Tuple1>>;
-        constexpr std::size_t size2 = std::tuple_size_v<std::remove_reference_t<Tuple2>>;
+        constexpr std::size_t N = std::tuple_size_v<std::decay_t<Tuple>>;
 
-        static_assert(size1 == size2, "Tuples must have the same size");
-
-        zip_apply_impl(std::forward<F>(f), std::forward<Tuple1>(t1), std::forward<Tuple2>(t2), std::make_index_sequence<size1>{});
+        return detail::enumerate_items(tuple, func, std::make_index_sequence<N>{});
     }
+
+    template <class Tuple, class Func>
+    Func enumerate_const_items(const Tuple& tuple, Func func)
+    {
+        constexpr std::size_t N = std::tuple_size_v<std::decay_t<Tuple>>;
+
+        return detail::enumerate_const_items(tuple, func, std::make_index_sequence<N>{});
+    }
+
+    ////////////////////////////////////////////////////////////////////////
 }
