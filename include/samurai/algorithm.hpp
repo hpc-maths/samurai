@@ -14,6 +14,9 @@
 #include "cell.hpp"
 #include "mesh_holder.hpp"
 
+#include "concepts.hpp"
+#include "subset/node.hpp"
+
 using namespace xt::placeholders;
 
 namespace samurai
@@ -111,18 +114,28 @@ namespace samurai
         }
     }
 
-    template <class Mesh, class Func>
-    SAMURAI_INLINE void for_each_interval(const Mesh& mesh, Func&& f)
+    template <IsMesh Mesh, class Func>
+    inline void for_each_interval(const Mesh& mesh, Func&& f)
     {
         using mesh_id_t = typename Mesh::config::mesh_id_t;
         for_each_interval(mesh[mesh_id_t::cells], std::forward<Func>(f));
     }
 
-    template <class Op, class StartEndOp, class... S>
-    class Subset;
+    //~ template <class Op, class StartEndOp, class... S>
+    //~ class Subset;
 
-    template <class Func, class Op, class StartEndOp, class... S>
-    SAMURAI_INLINE void for_each_interval(Subset<Op, StartEndOp, S...>& set, Func&& f)
+    //~ template <class Func, class Op, class StartEndOp, class... S>
+    //~ inline void for_each_interval(Subset<Op, StartEndOp, S...>& set, Func&& f)
+    //~ {
+    //~     set(
+    //~         [&](const auto& i, const auto& index)
+    //~         {
+    //~             f(set.level(), i, index);
+    //~         });
+    //~ }
+
+    template <class Func, class Set>
+    inline void for_each_interval(const SetBase<Set>& set, Func&& f)
     {
         set(
             [&](const auto& i, const auto& index)
@@ -460,8 +473,8 @@ namespace samurai
     } // namespace detail
 
     template <std::size_t dim, class TInterval, class index_t = typename TInterval::index_t, class coord_index_t = typename TInterval::coord_index_t>
-    SAMURAI_INLINE auto
-    find(const LevelCellArray<dim, TInterval>& lca, const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& coord) -> index_t
+    SAMURAI_INLINE auto find(const LevelCellArray<dim, TInterval>& lca, const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& coord)
+        -> index_t
     {
         return detail::find_impl(lca, 0, lca[dim - 1].size(), coord, std::integral_constant<std::size_t, dim - 1>{});
     }

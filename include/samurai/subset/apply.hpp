@@ -3,119 +3,45 @@
 
 #pragma once
 
-#include "concepts.hpp"
-#include "utils.hpp"
+#include "set_base.hpp"
 
 namespace samurai
 {
     namespace detail
     {
-        template <std::size_t dim, class Set, class Func, class Container>
-        bool apply_impl(Set&& global_set, Func&& func, Container& index)
+        template <Set_concept Set, class Func, class Index, std::size_t d>
+        void apply_rec(const Set& set, Func&& func, Index& index, std::integral_constant<std::size_t, d> d_ic)
         {
-            auto set            = global_set.template get_local_set<dim>(global_set.level(), index);
-            auto start_and_stop = global_set.template get_start_and_stop_function<dim>();
+            using traverser_t        = typename Set::template traverser_t<d>;
+            using current_interval_t = typename traverser_t::current_interval_t;
 
-            if constexpr (dim != 1)
+            for (traverser_t traverser = set.get_traverser(index, d_ic); !traverser.is_empty(); traverser.next_interval())
             {
-                auto func_int = [&](const auto& interval)
+                current_interval_t interval = traverser.current_interval();
+                if constexpr (d == 0)
                 {
-                    for (auto i = interval.start; i < interval.end; ++i)
+                    func(interval, index);
+                }
+                else
+                {
+                    for (index[d - 1] = interval.start; index[d - 1] != interval.end; ++index[d - 1])
                     {
-                        index[dim - 2] = i;
-                        if (apply_impl<dim - 1>(std::forward<Set>(global_set), std::forward<Func>(func), index))
-                        {
-                            return true;
-                        }
+                        apply_rec(set, std::forward<Func>(func), index, std::integral_constant<std::size_t, d - 1>{});
                     }
-                    return false;
-                };
-                return apply(set, start_and_stop, func_int);
-            }
-            else
-            {
-                auto func_int = [&](const auto& interval)
-                {
-                    return func(interval, index);
-                };
-                return apply(set, start_and_stop, func_int);
-            }
-        }
-    }
-
-    template <class Set, class Func>
-    void apply(Set&& global_set, Func&& user_func)
-    {
-        constexpr std::size_t dim = std::decay_t<Set>::dim;
-        xt::xtensor_fixed<int, xt::xshape<dim - 1>> index;
-
-        auto func = [&](const auto& interval, const auto& yz)
-        {
-            user_func(interval, yz);
-            return false;
-        };
-
-        if (global_set.exist())
-        {
-            detail::apply_impl<dim>(std::forward<Set>(global_set), func, index);
-        }
-    }
-
-    template <class Set>
-    bool empty_check(Set&& global_set)
-    {
-        constexpr std::size_t dim = std::decay_t<Set>::dim;
-        xt::xtensor_fixed<int, xt::xshape<dim - 1>> index;
-
-        auto func = [](const auto&, const auto&)
-        {
-            return true;
-        };
-
-        if (global_set.exist())
-        {
-            return !detail::apply_impl<dim>(std::forward<Set>(global_set), func, index);
-        }
-        return true;
-    }
-
-    template <class Set, class StartEnd, class Func>
-        requires IsSetOp<Set> || IsIntervalListVisitor<Set>
-    bool apply(Set&& set, StartEnd&& start_and_stop, Func&& func)
-    {
-        using interval_t = typename std::decay_t<Set>::interval_t;
-        using value_t    = typename interval_t::value_t;
-
-        interval_t result;
-        int r_ipos = 0;
-        set.next(0, std::forward<StartEnd>(start_and_stop));
-        auto scan = set.min();
-
-        while (scan < sentinel<value_t> && !set.is_empty())
-        {
-            bool is_in = set.is_in(scan);
-
-            if (is_in && r_ipos == 0)
-            {
-                result.start = scan;
-                r_ipos       = 1;
-            }
-            else if (!is_in && r_ipos == 1)
-            {
-                result.end = scan;
-                r_ipos     = 0;
-
-                auto true_result = set.shift() >= 0 ? result >> static_cast<std::size_t>(set.shift())
-                                                    : result << -static_cast<std::size_t>(set.shift());
-                if (func(true_result))
-                {
-                    return true;
                 }
             }
-
-            set.next(scan, std::forward<StartEnd>(start_and_stop));
-            scan = set.min();
         }
-        return false;
+    }
+
+    template <Set_concept Set, class Func>
+    void apply(const Set& set, Func&& func)
+    {
+        constexpr std::size_t dim = SetTraits<Set>::getDim();
+
+        xt::xtensor_fixed<int, xt::xshape<dim - 1>> index;
+        if (set.exist())
+        {
+            detail::apply_rec(set, std::forward<Func>(func), index, std::integral_constant<std::size_t, dim - 1>{});
+        }
     }
 }
