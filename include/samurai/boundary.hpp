@@ -49,7 +49,7 @@ namespace samurai
     }
 
     template <class Mesh>
-    auto domain_boundary_outer_layer(const Mesh& mesh, std::size_t level, std::size_t layer_width)
+    auto domain_boundary_outer_layer(const Mesh& mesh, std::size_t level, int layer_width)
     {
         using lca_t = typename Mesh::lca_type;
         using lcl_t = typename Mesh::lcl_type;
@@ -62,7 +62,7 @@ namespace samurai
             [&](const auto& direction)
             {
                 auto inner_boundary = domain_boundary(mesh, level, direction);
-                for (std::size_t layer = 1; layer <= layer_width; ++layer)
+                for (int layer = 1; layer <= layer_width; ++layer)
                 {
                     auto outer_layer = difference(translate(inner_boundary, layer * direction), domain);
                     outer_layer(
@@ -76,8 +76,7 @@ namespace samurai
     }
 
     template <class Mesh>
-    auto
-    domain_boundary_outer_layer(const Mesh& mesh, std::size_t level, const DirectionVector<Mesh::dim>& direction, std::size_t layer_width)
+    auto domain_boundary_outer_layer(const Mesh& mesh, std::size_t level, const DirectionVector<Mesh::dim>& direction, int layer_width)
     {
         using lca_t = typename Mesh::lca_type;
         using lcl_t = typename Mesh::lcl_type;
@@ -87,7 +86,7 @@ namespace samurai
         lcl_t outer_boundary_lcl(level, mesh.origin_point(), mesh.scaling_factor());
 
         auto inner_boundary = domain_boundary(mesh, level, direction);
-        for (std::size_t layer = 1; layer <= layer_width; ++layer)
+        for (int layer = 1; layer <= layer_width; ++layer)
         {
             auto outer_layer = difference(translate(inner_boundary, layer * direction), domain);
             outer_layer(

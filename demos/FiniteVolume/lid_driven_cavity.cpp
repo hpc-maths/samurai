@@ -128,8 +128,6 @@ int main(int argc, char* argv[])
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
-    app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
@@ -158,7 +156,8 @@ int main(int argc, char* argv[])
     // where v = velocity
     //       p = pressure
 
-    auto mesh = Mesh(box, min_level, max_level);
+    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).max_stencil_radius(2);
+    auto mesh   = Mesh(config, box);
 
     // Fields for the Navier-Stokes equations
     auto velocity     = samurai::make_vector_field<double, dim, is_soa>("velocity", mesh);
@@ -235,7 +234,8 @@ int main(int argc, char* argv[])
     //               d(i)/dt + conv(i) = 0,       where conv(i) = v.grad(i).
 
     // 2nd mesh
-    auto mesh2 = Mesh2(box, 1, max_level);
+    auto config2 = samurai::mesh_config<dim>().min_level(1).max_level(mesh.max_level()).max_stencil_size(4).disable_args_parse();
+    auto mesh2   = Mesh2(config2, box);
 
     // Ink data fields
     auto ink     = samurai::make_scalar_field<double>("ink", mesh2);

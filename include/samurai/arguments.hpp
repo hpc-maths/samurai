@@ -12,6 +12,7 @@ namespace samurai
         static std::size_t min_level        = std::numeric_limits<std::size_t>::max();
         static std::size_t max_level        = std::numeric_limits<std::size_t>::max();
         static std::size_t graduation_width = std::numeric_limits<std::size_t>::max();
+        static int max_stencil_radius       = std::numeric_limits<int>::max();
 
         static bool timers = false;
 #ifdef SAMURAI_WITH_MPI
@@ -32,6 +33,8 @@ namespace samurai
         app.add_option("--min-level", args::min_level, "The minimum level of the mesh")->group("SAMURAI");
         app.add_option("--max-level", args::max_level, "The maximum level of the mesh")->group("SAMURAI");
         app.add_option("--graduation-width", args::graduation_width, "The graduation width of the mesh")->group("SAMURAI");
+        // app.add_option("--graduation-width", args::graduation_width, "The graduation width of the mesh")->group("SAMURAI");
+        app.add_option("--max-stencil-radius", args::max_stencil_radius, "The maximum number of neighbour in each direction")->group("SAMURAI");
 
 #ifdef SAMURAI_WITH_MPI
         app.add_flag("--dont-redirect-output", args::dont_redirect_output, "Redirect the output for all ranks different of 0")

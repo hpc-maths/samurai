@@ -31,32 +31,31 @@
         return line_stencil<dim, 0, STENCIL_SIZE>();                                                                                      \
     }
 
-#define INIT_BC(NAME, STENCIL_SIZE)                                                                                                \
-    using base_t      = samurai::Bc<Field>;                                                                                        \
-    using cell_t      = typename base_t::cell_t;                                                                                   \
-    using value_t     = typename base_t::value_t;                                                                                  \
-    using direction_t = typename base_t::direction_t;                                                                              \
-    using base_t::base_t;                                                                                                          \
-    using base_t::dim;                                                                                                             \
-    using base_t::get_apply_function;                                                                                              \
-    using base_t::get_stencil;                                                                                                     \
-                                                                                                                                   \
-    using stencil_t               = samurai::Stencil<STENCIL_SIZE, dim>;                                                           \
-    using constant_stencil_size_t = std::integral_constant<std::size_t, STENCIL_SIZE>;                                             \
-    using stencil_cells_t         = std::array<cell_t, STENCIL_SIZE>;                                                              \
-    using apply_function_t        = std::function<void(Field&, const std::array<cell_t, STENCIL_SIZE>&, const value_t&)>;          \
-                                                                                                                                   \
-    static_assert(STENCIL_SIZE <= base_t::max_stencil_size_implemented, "The stencil size is too large.");                         \
-    static_assert(Field::mesh_t::config::ghost_width >= STENCIL_SIZE / 2, "Not enough ghost layers for this boundary condition."); \
-                                                                                                                                   \
-    std::unique_ptr<base_t> clone() const override                                                                                 \
-    {                                                                                                                              \
-        return std::make_unique<NAME>(*this);                                                                                      \
-    }                                                                                                                              \
-                                                                                                                                   \
-    std::size_t stencil_size() const override                                                                                      \
-    {                                                                                                                              \
-        return STENCIL_SIZE;                                                                                                       \
+#define INIT_BC(NAME, STENCIL_SIZE)                                                                                       \
+    using base_t      = samurai::Bc<Field>;                                                                               \
+    using cell_t      = typename base_t::cell_t;                                                                          \
+    using value_t     = typename base_t::value_t;                                                                         \
+    using direction_t = typename base_t::direction_t;                                                                     \
+    using base_t::base_t;                                                                                                 \
+    using base_t::dim;                                                                                                    \
+    using base_t::get_apply_function;                                                                                     \
+    using base_t::get_stencil;                                                                                            \
+                                                                                                                          \
+    using stencil_t               = samurai::Stencil<STENCIL_SIZE, dim>;                                                  \
+    using constant_stencil_size_t = std::integral_constant<std::size_t, STENCIL_SIZE>;                                    \
+    using stencil_cells_t         = std::array<cell_t, STENCIL_SIZE>;                                                     \
+    using apply_function_t        = std::function<void(Field&, const std::array<cell_t, STENCIL_SIZE>&, const value_t&)>; \
+                                                                                                                          \
+    static_assert(STENCIL_SIZE <= base_t::max_stencil_size_implemented, "The stencil size is too large.");                \
+                                                                                                                          \
+    std::unique_ptr<base_t> clone() const override                                                                        \
+    {                                                                                                                     \
+        return std::make_unique<NAME>(*this);                                                                             \
+    }                                                                                                                     \
+                                                                                                                          \
+    int stencil_size() const override                                                                                     \
+    {                                                                                                                     \
+        return STENCIL_SIZE;                                                                                              \
     }
 
 namespace samurai
@@ -592,9 +591,9 @@ namespace samurai
         Bc& operator=(Bc&& bc) noexcept = default;
 
         virtual std::unique_ptr<Bc> clone() const = 0;
-        virtual std::size_t stencil_size() const  = 0;
+        virtual int stencil_size() const          = 0;
 
-        static constexpr std::size_t max_stencil_size_implemented = 10; // cppcheck-suppress unusedStructMember
+        static constexpr int max_stencil_size_implemented = 10; // cppcheck-suppress unusedStructMember
         APPLY_AND_STENCIL_FUNCTIONS(1)
         APPLY_AND_STENCIL_FUNCTIONS(2)
         APPLY_AND_STENCIL_FUNCTIONS(3)

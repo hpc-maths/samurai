@@ -9,27 +9,53 @@
 namespace samurai
 {
 
-    template <std::size_t dim_>
+    template <std::size_t dim_, std::size_t prediction_stencil_radius_ = 1>
     class mesh_config
     {
       public:
 
-        static constexpr std::size_t dim = dim_;
+        static constexpr std::size_t dim                       = dim_;
+        static constexpr std::size_t prediction_stencil_radius = prediction_stencil_radius_;
 
         mesh_config()
         {
             m_periodic.fill(false);
         }
 
-        auto& max_stencil_width(std::size_t stencil_width)
+        auto& max_stencil_radius(int stencil_radius)
         {
-            m_max_stencil_width = stencil_width;
+            m_max_stencil_radius = stencil_radius;
             return *this;
         }
 
-        auto& max_stencil_width() const
+        auto& max_stencil_radius()
         {
-            return m_max_stencil_width;
+            return m_max_stencil_radius;
+        }
+
+        auto& max_stencil_radius() const
+        {
+            return m_max_stencil_radius;
+        }
+
+        auto& max_stencil_size(int stencil_size)
+        {
+            m_max_stencil_radius = stencil_size / 2;
+            if (stencil_size % 2 == 1)
+            {
+                m_max_stencil_radius += 1;
+            }
+            return *this;
+        }
+
+        auto max_stencil_size() const
+        {
+            return m_max_stencil_radius * 2;
+        }
+
+        auto ghost_width() const
+        {
+            return m_ghost_width;
         }
 
         auto& graduation_width(std::size_t grad_width)
@@ -119,12 +145,22 @@ namespace samurai
             return m_periodic[i];
         }
 
+        auto& disable_args_parse()
+        {
+            m_disable_args_parse = false;
+            return *this;
+        }
+
         void parse_args()
         {
-            // if (args::max_stencil_width != std::numeric_limits<std::size_t>::max())
-            // {
-            //     m_max_stencil_width = args::max_stencil_width;
-            // }
+            if (m_disable_args_parse)
+            {
+                return;
+            }
+            if (args::max_stencil_radius != std::numeric_limits<int>::max())
+            {
+                m_max_stencil_radius = args::max_stencil_radius;
+            }
             if (args::graduation_width != std::numeric_limits<std::size_t>::max())
             {
                 m_graduation_width = args::graduation_width;
@@ -150,12 +186,15 @@ namespace samurai
                 std::cerr << "Max level must be greater than min level." << std::endl;
                 exit(EXIT_FAILURE);
             }
+
+            m_ghost_width = std::max(static_cast<int>(m_max_stencil_radius), static_cast<int>(prediction_stencil_radius));
         }
 
       private:
 
-        std::size_t m_max_stencil_width = 1;
-        std::size_t m_graduation_width  = 1;
+        int m_max_stencil_radius       = 1;
+        std::size_t m_graduation_width = 1;
+        int m_ghost_width              = 1;
 
         std::size_t m_min_level;
         std::size_t m_max_level;
@@ -164,5 +203,7 @@ namespace samurai
         double m_scaling_factor = 0;
 
         std::array<bool, dim> m_periodic;
+
+        bool m_disable_args_parse = false;
     };
 }

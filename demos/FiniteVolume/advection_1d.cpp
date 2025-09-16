@@ -91,8 +91,6 @@ int main(int argc, char* argv[])
     app.add_option("--Ti", t, "Initial time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
-    app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
@@ -100,12 +98,16 @@ int main(int argc, char* argv[])
     SAMURAI_PARSE(argc, argv);
 
     const samurai::Box<double, dim> box({left_box}, {right_box});
-    samurai::MRMesh<Config> mesh;
+
+    auto config                  = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).periodic(is_periodic);
+    samurai::MRMesh<Config> mesh = {config, box};
+    // samurai::MRMesh<Config> mesh;
     auto u = samurai::make_scalar_field<double>("u", mesh);
 
     if (restart_file.empty())
     {
-        mesh = {box, min_level, max_level, std::array<bool, dim>{is_periodic}};
+        // mesh = {box, min_level, max_level, std::array<bool, dim>{is_periodic}};
+        mesh = {config, box};
         init(u);
     }
     else
@@ -113,7 +115,7 @@ int main(int argc, char* argv[])
         samurai::load(restart_file, mesh, u);
     }
 
-    double dt            = cfl * mesh.cell_length(max_level);
+    double dt            = cfl * mesh.cell_length(mesh.max_level());
     const double dt_save = Tf / static_cast<double>(nfiles);
 
     if (!is_periodic)

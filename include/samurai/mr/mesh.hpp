@@ -40,7 +40,7 @@ namespace samurai
     {
         static constexpr std::size_t dim                  = dim_;
         static constexpr std::size_t max_refinement_level = max_refinement_level_;
-        static constexpr int max_stencil_width            = max_stencil_width_;
+        // static constexpr int max_stencil_width            = max_stencil_width_;
         // static constexpr std::size_t graduation_width     = graduation_width_;
         static constexpr int prediction_order = prediction_order_;
 
@@ -48,9 +48,9 @@ namespace samurai
         // static_cast<int>(graduation_width) - 1,
         //                                                      static_cast<int>(max_stencil_width)),
         //                                             static_cast<int>(prediction_order));
-        static constexpr int ghost_width = std::max(static_cast<int>(max_stencil_width), static_cast<int>(prediction_order));
-        using interval_t                 = TInterval;
-        using mesh_id_t                  = MRMeshId;
+        // static constexpr int ghost_width = std::max(static_cast<int>(max_stencil_width_), static_cast<int>(prediction_order));
+        using interval_t = TInterval;
+        using mesh_id_t  = MRMeshId;
     };
 
     template <class Config>
@@ -71,6 +71,9 @@ namespace samurai
 
         using ca_type  = typename base_type::ca_type;
         using lca_type = typename base_type::lca_type;
+
+        using base_type::ghost_width;
+        using base_type::max_stencil_radius;
 
         MRMesh() = default;
         MRMesh(const ca_type& ca, const self_type& ref_mesh);
@@ -200,18 +203,19 @@ namespace samurai
         //
         // level 0 |.......|-------|.......|       |.......|-------|.......|
         //
-        for_each_interval(
-            this->cells()[mesh_id_t::cells],
-            [&](std::size_t level, const auto& interval, const auto& index_yz)
-            {
-                lcl_type& lcl = cell_list[level];
-                static_nested_loop<dim - 1, -config::max_stencil_width, config::max_stencil_width + 1>(
-                    [&](auto stencil)
-                    {
-                        auto index = xt::eval(index_yz + stencil);
-                        lcl[index].add_interval({interval.start - config::max_stencil_width, interval.end + config::max_stencil_width});
-                    });
-            });
+        for_each_interval(this->cells()[mesh_id_t::cells],
+                          [&](std::size_t level, const auto& interval, const auto& index_yz)
+                          {
+                              lcl_type& lcl = cell_list[level];
+                              static_nested_loop<dim - 1>(
+                                  -max_stencil_radius(),
+                                  max_stencil_radius() + 1,
+                                  [&](auto stencil)
+                                  {
+                                      auto index = xt::eval(index_yz + stencil);
+                                      lcl[index].add_interval({interval.start - max_stencil_radius(), interval.end + max_stencil_radius()});
+                                  });
+                          });
         this->cells()[mesh_id_t::cells_and_ghosts] = {cell_list, false};
 
         // Add cells for the MRA
@@ -327,8 +331,8 @@ namespace samurai
                         box_t box;
                         for (std::size_t d = 0; d < dim; ++d)
                         {
-                            box.min_corner()[d] = (neighbor_min_indices[d] >> delta_l) - config::ghost_width;
-                            box.max_corner()[d] = (neighbor_max_indices[d] >> delta_l) + config::ghost_width;
+                            box.min_corner()[d] = (neighbor_min_indices[d] >> delta_l) - ghost_width();
+                            box.max_corner()[d] = (neighbor_max_indices[d] >> delta_l) + ghost_width();
                         }
                         neighbourhood_extended_subdomain[neighbor_id][level] = {level, box};
                     }
@@ -343,8 +347,8 @@ namespace samurai
 
                 for (std::size_t d = 0; d < dim; ++d)
                 {
-                    min_corner[d] = (subdomain_min_indices[d] >> delta_l) - config::ghost_width;
-                    max_corner[d] = (subdomain_max_indices[d] >> delta_l) + config::ghost_width;
+                    min_corner[d] = (subdomain_min_indices[d] >> delta_l) - ghost_width();
+                    max_corner[d] = (subdomain_max_indices[d] >> delta_l) + ghost_width();
                 }
                 lca_type lca_extended_subdomain(level, box_t(min_corner, max_corner));
                 for (std::size_t d = 0; d < dim; ++d)
@@ -353,13 +357,13 @@ namespace samurai
                     {
                         shift[d] = (domain_max_indices[d] - domain_min_indices[d]) >> delta_l;
 
-                        min_corner[d] = (domain_min_indices[d] >> delta_l) - config::ghost_width;
-                        max_corner[d] = (domain_min_indices[d] >> delta_l) + config::ghost_width;
+                        min_corner[d] = (domain_min_indices[d] >> delta_l) - ghost_width();
+                        max_corner[d] = (domain_min_indices[d] >> delta_l) + ghost_width();
 
                         lca_type lca_min(level, box_t(min_corner, max_corner));
 
-                        min_corner[d] = (domain_max_indices[d] >> delta_l) - config::ghost_width;
-                        max_corner[d] = (domain_max_indices[d] >> delta_l) + config::ghost_width;
+                        min_corner[d] = (domain_max_indices[d] >> delta_l) - ghost_width();
+                        max_corner[d] = (domain_max_indices[d] >> delta_l) + ghost_width();
 
                         lca_type lca_max(level, box_t(min_corner, max_corner));
 
@@ -404,8 +408,8 @@ namespace samurai
 
                         /* reset variables for next iterations. */
                         shift[d]      = 0;
-                        min_corner[d] = (subdomain_min_indices[d] >> delta_l) - config::ghost_width;
-                        max_corner[d] = (subdomain_max_indices[d] >> delta_l) + config::ghost_width;
+                        min_corner[d] = (subdomain_min_indices[d] >> delta_l) - ghost_width();
+                        max_corner[d] = (subdomain_max_indices[d] >> delta_l) + ghost_width();
                     }
                 }
             }
@@ -435,7 +439,7 @@ namespace samurai
             {
                 for (std::size_t level = 0; level <= this->max_level(); ++level)
                 {
-                    auto expr = intersection(nestedExpand(self(this->subdomain()).on(level), config::ghost_width),
+                    auto expr = intersection(nestedExpand(self(this->subdomain()).on(level), ghost_width()),
                                              neighbour.mesh[mesh_id_t::reference][level]);
                     expr(
                         [&](const auto& interval, const auto& index_yz)
@@ -448,7 +452,7 @@ namespace samurai
                         if (this->is_periodic(d))
                         {
                             auto domain_shift = get_periodic_shift(this->domain(), level, d);
-                            auto expr_left    = intersection(nestedExpand(self(this->subdomain()).on(level), config::ghost_width),
+                            auto expr_left    = intersection(nestedExpand(self(this->subdomain()).on(level), ghost_width()),
                                                           translate(neighbour.mesh[mesh_id_t::reference][level], -domain_shift));
                             expr_left(
                                 [&](const auto& interval, const auto& index_yz)
@@ -457,7 +461,7 @@ namespace samurai
                                     lcl[index_yz].add_interval(interval);
                                 });
 
-                            auto expr_right = intersection(nestedExpand(self(this->subdomain()).on(level), config::ghost_width),
+                            auto expr_right = intersection(nestedExpand(self(this->subdomain()).on(level), ghost_width()),
                                                            translate(neighbour.mesh[mesh_id_t::reference][level], domain_shift));
                             expr_right(
                                 [&](const auto& interval, const auto& index_yz)

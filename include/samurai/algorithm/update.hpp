@@ -102,9 +102,17 @@ namespace samurai
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
-        assert(layer > 0 && layer <= Field::mesh_t::config::max_stencil_width);
+        // assert(layer > 0 && layer <= Field::mesh_t::config::max_stencil_width);
 
         auto& mesh = field.mesh();
+
+#ifndef NDEBUG
+        if (!(layer > 0 && layer <= mesh.max_stencil_radius()))
+        {
+            std::cerr << " " << std::endl;
+            exit(EXIT_FAILURE);
+        }
+#endif
 
         auto domain = self(mesh.domain()).on(proj_level);
 
@@ -125,7 +133,7 @@ namespace samurai
             // We don't want to fill by projection the ghosts that have been/will be filled by the B.C. in other directions.
             // This can happen when there is a hole in the domain.
 
-            std::size_t n_bc_ghosts = Field::mesh_t::config::max_stencil_width;
+            int n_bc_ghosts = mesh.max_stencil_radius();
             if (!field.get_bc().empty())
             {
                 n_bc_ghosts = field.get_bc().front()->stencil_size() / 2;
@@ -278,7 +286,7 @@ namespace samurai
 
         auto& mesh = field.mesh();
 
-        std::size_t n_bc_ghosts = Field::mesh_t::config::max_stencil_width;
+        int n_bc_ghosts = mesh.max_stencil_radius();
         if (!field.get_bc().empty())
         {
             n_bc_ghosts = field.get_bc().front()->stencil_size() / 2;
@@ -432,12 +440,12 @@ namespace samurai
                         // - the B.C. is projected onto the lower ghosts
                         // - those lower ghosts are projected onto the even lower ghosts
 
-                        std::size_t n_bc_ghosts = Field::mesh_t::config::max_stencil_width;
+                        int n_bc_ghosts = mesh.max_stencil_radius();
                         if (!field.get_bc().empty())
                         {
-                            n_bc_ghosts = field.get_bc().front()->stencil_size() / 2;
+                            n_bc_ghosts = static_cast<int>(field.get_bc().front()->stencil_size()) / 2;
                         }
-                        int max_coarse_layer = static_cast<int>(n_bc_ghosts % 2 == 0 ? n_bc_ghosts / 2 : (n_bc_ghosts + 1) / 2);
+                        int max_coarse_layer = n_bc_ghosts % 2 == 0 ? n_bc_ghosts / 2 : (n_bc_ghosts + 1) / 2;
                         for (int layer = 1; layer <= max_coarse_layer; ++layer)
                         {
                             project_bc(level, direction, layer, field); // project from level+1 to level
@@ -954,7 +962,6 @@ namespace samurai
         using field_value_t = typename Field::value_type;
 #endif
         using mesh_id_t        = typename Field::mesh_t::mesh_id_t;
-        using config           = typename Field::mesh_t::config;
         using lca_type         = typename Field::mesh_t::lca_type;
         using interval_value_t = typename Field::interval_t::value_t;
         using box_t            = Box<interval_value_t, Field::dim>;
@@ -977,8 +984,8 @@ namespace samurai
 
         for (std::size_t d = 0; d < dim; ++d)
         {
-            min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
-            max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
+            min_corner[d] = (min_indices[d] >> delta_l) - mesh.ghost_width();
+            max_corner[d] = (max_indices[d] >> delta_l) + mesh.ghost_width();
             shift[d]      = 0;
         }
 #ifdef SAMURAI_WITH_MPI
@@ -997,23 +1004,23 @@ namespace samurai
                 const auto shift_interval = shift[0];
                 const auto shift_index    = xt::view(shift, xt::range(1, _));
 
-                min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
+                min_corner[d] = (min_indices[d] >> delta_l) - mesh.ghost_width();
                 max_corner[d] = (min_indices[d] >> delta_l);
 
                 lca_type lca_min_m(level, box_t(min_corner, max_corner));
 
-                min_corner[d] = (max_indices[d] >> delta_l) - config::ghost_width;
+                min_corner[d] = (max_indices[d] >> delta_l) - mesh.ghost_width();
                 max_corner[d] = (max_indices[d] >> delta_l);
 
                 lca_type lca_max_m(level, box_t(min_corner, max_corner));
 
                 min_corner[d] = (min_indices[d] >> delta_l);
-                max_corner[d] = (min_indices[d] >> delta_l) + config::ghost_width;
+                max_corner[d] = (min_indices[d] >> delta_l) + mesh.ghost_width();
 
                 lca_type lca_min_p(level, box_t(min_corner, max_corner));
 
                 min_corner[d] = (max_indices[d] >> delta_l);
-                max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
+                max_corner[d] = (max_indices[d] >> delta_l) + mesh.ghost_width();
 
                 lca_type lca_max_p(level, box_t(min_corner, max_corner));
 
@@ -1084,8 +1091,8 @@ namespace samurai
 #endif // SAMURAI_WITH_MPI
                 /* reset variables for next iterations. */
                 shift[d]      = 0;
-                min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
-                max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
+                min_corner[d] = (min_indices[d] >> delta_l) - mesh.ghost_width();
+                max_corner[d] = (max_indices[d] >> delta_l) + mesh.ghost_width();
             }
         }
     }
@@ -1125,7 +1132,6 @@ namespace samurai
         using tag_value_type = typename Tag::value_type;
 #endif
         using mesh_id_t           = typename Tag::mesh_t::mesh_id_t;
-        using config              = typename Tag::mesh_t::config;
         using lca_type            = typename Tag::mesh_t::lca_type;
         using interval_value_t    = typename Tag::interval_t::value_t;
         using box_t               = Box<interval_value_t, Tag::dim>;
@@ -1147,8 +1153,8 @@ namespace samurai
         for (std::size_t d = 0; d < dim; ++d)
         {
             shift[d]      = 0;
-            min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
-            max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
+            min_corner[d] = (min_indices[d] >> delta_l) - mesh.ghost_width();
+            max_corner[d] = (max_indices[d] >> delta_l) + mesh.ghost_width();
         }
 #ifdef SAMURAI_WITH_MPI
         using tag_value_type = typename Tag::value_type;
@@ -1167,23 +1173,23 @@ namespace samurai
                 const auto shift_interval = shift[0];
                 const auto shift_index    = xt::view(shift, xt::range(1, _));
 
-                min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
+                min_corner[d] = (min_indices[d] >> delta_l) - mesh.ghost_width();
                 max_corner[d] = (min_indices[d] >> delta_l);
 
                 lca_type lca_min_m(level, box_t(min_corner, max_corner));
 
-                min_corner[d] = (max_indices[d] >> delta_l) - config::ghost_width;
+                min_corner[d] = (max_indices[d] >> delta_l) - mesh.ghost_width();
                 max_corner[d] = (max_indices[d] >> delta_l);
 
                 lca_type lca_max_m(level, box_t(min_corner, max_corner));
 
                 min_corner[d] = (min_indices[d] >> delta_l);
-                max_corner[d] = (min_indices[d] >> delta_l) + config::ghost_width;
+                max_corner[d] = (min_indices[d] >> delta_l) + mesh.ghost_width();
 
                 lca_type lca_min_p(level, box_t(min_corner, max_corner));
 
                 min_corner[d] = (max_indices[d] >> delta_l);
-                max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
+                max_corner[d] = (max_indices[d] >> delta_l) + mesh.ghost_width();
 
                 lca_type lca_max_p(level, box_t(min_corner, max_corner));
 
@@ -1313,8 +1319,8 @@ namespace samurai
 #endif // SAMURAI_WITH_MPI
                 /* reset variables for next iterations. */
                 shift[d]      = 0;
-                min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
-                max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
+                min_corner[d] = (min_indices[d] >> delta_l) - mesh.ghost_width();
+                max_corner[d] = (max_indices[d] >> delta_l) + mesh.ghost_width();
             }
         }
     }

@@ -100,6 +100,9 @@ namespace samurai
         std::size_t& min_level();
 
         std::size_t graduation_width() const;
+        int ghost_width() const;
+        int max_stencil_radius() const;
+        auto& cfg() const;
 
         auto& origin_point() const;
         void set_origin_point(const coords_t& origin_point);
@@ -107,6 +110,7 @@ namespace samurai
         void set_scaling_factor(double scaling_factor);
         void scale_domain(double domain_scaling_factor);
         double cell_length(std::size_t level) const;
+        double min_cell_length() const;
         const lca_type& domain() const;
         const lca_type& subdomain() const;
         const ca_type& get_union() const;
@@ -685,6 +689,24 @@ namespace samurai
     }
 
     template <class D, class Config>
+    inline int Mesh_base<D, Config>::ghost_width() const
+    {
+        return m_config.ghost_width();
+    }
+
+    template <class D, class Config>
+    inline int Mesh_base<D, Config>::max_stencil_radius() const
+    {
+        return m_config.max_stencil_radius();
+    }
+
+    template <class D, class Config>
+    inline auto& Mesh_base<D, Config>::cfg() const
+    {
+        return m_config;
+    }
+
+    template <class D, class Config>
     inline auto& Mesh_base<D, Config>::origin_point() const
     {
         return m_domain.origin_point();
@@ -730,6 +752,12 @@ namespace samurai
     inline double Mesh_base<D, Config>::cell_length(std::size_t level) const
     {
         return samurai::cell_length(scaling_factor(), level);
+    }
+
+    template <class D, class Config>
+    inline double Mesh_base<D, Config>::min_cell_length() const
+    {
+        return cell_length(max_level());
     }
 
     template <class D, class Config>

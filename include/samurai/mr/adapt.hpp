@@ -220,7 +220,7 @@ namespace samurai
     {
         // Since the adaptation process starts at max_level, we just need to flag to `keep` the boundary cells at max_level only.
         // There will never be boundary cells at lower levels.
-        auto bdry = domain_boundary_layer(mesh, mesh.max_level(), direction, Mesh::config::max_stencil_width);
+        auto bdry = domain_boundary_layer(mesh, mesh.max_level(), direction, static_cast<std::size_t>(mesh.max_stencil_radius()));
         for_each_cell(mesh,
                       bdry,
                       [&](auto& cell)
@@ -380,12 +380,7 @@ namespace samurai
         using ca_type = typename mesh_t::ca_type;
 
         ca_type new_ca = update_cell_array_from_tag(mesh[mesh_id_t::cells], m_tag);
-        make_graduation(new_ca,
-                        mesh.domain(),
-                        mesh.mpi_neighbourhood(),
-                        mesh.periodicity(),
-                        mesh.graduation_width(),
-                        mesh_t::config::max_stencil_width);
+        make_graduation(new_ca, mesh.domain(), mesh.mpi_neighbourhood(), mesh.periodicity(), mesh.graduation_width(), mesh.max_stencil_radius());
         mesh_t new_mesh{new_ca, mesh};
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;

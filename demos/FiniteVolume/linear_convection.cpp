@@ -59,10 +59,6 @@ int main(int argc, char* argv[])
     double t   = 0.;
     std::string restart_file;
 
-    // Multiresolution parameters
-    std::size_t min_level = 1;
-    std::size_t max_level = dim == 1 ? 6 : 4;
-
     // Output parameters
     fs::path path        = fs::current_path();
     std::string filename = "linear_convection_" + std::to_string(dim) + "D";
@@ -98,7 +94,7 @@ int main(int argc, char* argv[])
 
     if (restart_file.empty())
     {
-        auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).periodic(periodic);
+        auto config = samurai::mesh_config<dim>().min_level(1).max_level(dim == 1 ? 6 : 4).periodic(periodic).max_stencil_radius(3);
         mesh        = {config, box};
         // Initial solution
         u = samurai::make_scalar_field<double>("u",

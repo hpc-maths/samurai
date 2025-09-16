@@ -321,13 +321,13 @@ namespace samurai
 
     template <size_t dim, typename TInterval, size_t max_size, typename TCoord>
     void list_interval_to_refine_for_contiguous_boundary_cells(
-        const size_t half_stencil_width,
+        const int max_stencil_radius,
         const CellArray<dim, TInterval, max_size>& ca,
         const LevelCellArray<dim, TInterval>& domain,
         const std::array<bool, dim>& is_periodic,
         std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, CellArray<dim, TInterval, max_size>::max_size>& out)
     {
-        if (half_stencil_width == 1)
+        if (max_stencil_radius == 1)
         {
             return;
         }
@@ -348,13 +348,13 @@ namespace samurai
                     // Case where the boundary is at level L and the jump is going down to L-1:
                     //     We want to have enough contiguous boundary cells to ensure that the stencil at the lower level
                     //     won't go outside the domain.
-                    //     To ensure half_stencil_width at L-1, we need 2*half_stencil_width at level L.
+                    //     To ensure max_stencil_radius at L-1, we need 2*max_stencil_radius at level L.
                     //     However, since we project the B.C. in the first outside ghost at level L-1, we can reduce the number of
-                    //     contiguous cells by 1 at level L-1. This makes, at level L, 2*(half_stencil_width - 2) contiguous cells.
-                    //     (One cell is a real cell, the other is a ghost cell outside of the domain, which makes half_stencil_width - 2
+                    //     contiguous cells by 1 at level L-1. This makes, at level L, 2*(max_stencil_radius - 2) contiguous cells.
+                    //     (One cell is a real cell, the other is a ghost cell outside of the domain, which makes max_stencil_radius - 2
                     //     ghosts cells inside the domain).
 
-                    int n_contiguous_boundary_cells = std::max(int(half_stencil_width), 2 * (int(half_stencil_width) - 2));
+                    int n_contiguous_boundary_cells = std::max(max_stencil_radius, 2 * (max_stencil_radius - 2));
 
                     if (n_contiguous_boundary_cells > 1)
                     {
@@ -382,16 +382,16 @@ namespace samurai
 
                     // 2. Jump level --> level+1
                     // Case where the boundary is at level L and jump is going up:
-                    //    If the number of boundary contiguous cells is >= ceil(half_stencil_width/2), then there is nothing to do,
-                    //    since the half stencil at L+1 will not go out of the domain. Here, we just test if half_stencil_width > 2 by
+                    //    If the number of boundary contiguous cells is >= ceil(max_stencil_radius/2), then there is nothing to do,
+                    //    since the half stencil at L+1 will not go out of the domain. Here, we just test if max_stencil_radius > 2 by
                     //    simplicity, but at some point it would be nice to implement the real test. Otherwise, ensuring
-                    //    half_stencil_width contiguous cells at level L+1 is enough.
-                    if (half_stencil_width > 2)
+                    //    max_stencil_radius contiguous cells at level L+1 is enough.
+                    if (max_stencil_radius > 2)
                     {
                         for (size_t level = max_level - 1; level != min_level - 1; --level)
                         {
                             auto boundaryCells = difference(ca[level], translate(self(domain).on(level), -translation));
-                            for (size_t i = 1; i != half_stencil_width; ++i)
+                            for (int i = 1; i != max_stencil_radius; ++i)
                             {
                                 auto refine_subset = translate(
                                                          intersection(translate(boundaryCells, -i * translation), ca[level + 1]).on(level),
@@ -410,8 +410,8 @@ namespace samurai
     }
 
     template <size_t dim, typename TInterval, typename MeshType, size_t max_size, typename TCoord>
-    void list_intervals_to_refine(const size_t grad_width,
-                                  const size_t half_stencil_width,
+    void list_intervals_to_refine(const std::size_t grad_width,
+                                  const int max_stencil_radius,
                                   const CellArray<dim, TInterval, max_size>& ca,
                                   const LevelCellArray<dim, TInterval>& domain,
                                   [[maybe_unused]] const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood,
@@ -422,7 +422,7 @@ namespace samurai
         list_interval_to_refine_for_graduation(grad_width, ca, domain, mpi_neighbourhood, is_periodic, nb_cells_finest_level, out);
         if (!domain.empty())
         {
-            list_interval_to_refine_for_contiguous_boundary_cells(half_stencil_width, ca, domain, is_periodic, out);
+            list_interval_to_refine_for_contiguous_boundary_cells(max_stencil_radius, ca, domain, is_periodic, out);
         }
     }
 
@@ -486,8 +486,8 @@ namespace samurai
                            const LevelCellArray<dim, TInterval>& domain,
                            [[maybe_unused]] const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood,
                            const std::array<bool, dim>& is_periodic,
-                           const size_t grad_width         = 1,
-                           const size_t half_stencil_width = 1 // half of width of the numerical scheme's stencil.
+                           const size_t grad_width      = 1,
+                           const int max_stencil_radius = 1 // half of width of the numerical scheme's stencil.
     )
     {
         using ca_type    = CellArray<dim, TInterval, max_size>;
@@ -537,7 +537,7 @@ namespace samurai
             // Then, if the non-graduated is not tagged as keep, we coarsen it
             ca_add_p.clear();
             ca_remove_p.clear();
-            list_intervals_to_refine(grad_width, half_stencil_width, ca, domain, mpi_neighbourhood, is_periodic, nb_cells_finest_level, remove_m_all);
+            list_intervals_to_refine(grad_width, max_stencil_radius, ca, domain, mpi_neighbourhood, is_periodic, nb_cells_finest_level, remove_m_all);
 
             add_p_interval.clear();
             add_p_inner_stencil.clear();
