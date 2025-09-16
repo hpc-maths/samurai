@@ -514,6 +514,13 @@ namespace samurai
         using mesh_id_t = typename mesh_t::mesh_id_t;
         using ca_type   = typename mesh_t::ca_type;
 
+        if (field.mesh().max_stencil_radius() < 2)
+        {
+            std::cerr << "The reconstruction function requires at least 2 ghosts on the boundary.\nTo fix this issue, set mesh_config.max_stencil_radius(2) or mesh_config.max_stencil_size(4)."
+                      << std::endl;
+            exit(EXIT_FAILURE);
+        }
+
         update_ghost_mr_if_needed(field);
 
         auto make_field_like = [](std::string const& name, auto& mesh)
@@ -807,6 +814,13 @@ namespace samurai
         using value_t                    = typename interval_t::value_t;
         auto& mesh_src                   = field_src.mesh();
         auto& mesh_dst                   = field_dst.mesh();
+
+        if (field_src.mesh().max_stencil_radius() < 2)
+        {
+            std::cerr << "The transfert function requires at least 2 ghosts on the boundary.\nTo fix this issue, set mesh_config.max_stencil_radius(2) or mesh_config.max_stencil_size(4)."
+                      << std::endl;
+            exit(EXIT_FAILURE);
+        }
 
         update_ghost_mr_if_needed(field_src);
 

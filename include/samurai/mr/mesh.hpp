@@ -31,7 +31,7 @@ namespace samurai
     };
 
     template <std::size_t dim_,
-              std::size_t max_stencil_width_ = default_config::ghost_width,
+              // std::size_t max_stencil_width_ = default_config::ghost_width,
               // std::size_t graduation_width_     = default_config::graduation_width,
               std::size_t prediction_order_     = default_config::prediction_order,
               std::size_t max_refinement_level_ = default_config::max_level,

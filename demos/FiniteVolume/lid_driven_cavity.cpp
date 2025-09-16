@@ -96,11 +96,11 @@ int main(int argc, char* argv[])
     auto& app = samurai::initialize("Lid-driven cavity", argc, argv);
 
     constexpr std::size_t dim = 2;
-    using Config              = samurai::MRConfig<dim, 2>;
+    using Config              = samurai::MRConfig<dim>;
     using Mesh                = samurai::MRMesh<Config>;
     using mesh_id_t           = typename Mesh::mesh_id_t;
 
-    using Config2 = samurai::MRConfig<dim, 3>;
+    using Config2 = samurai::MRConfig<dim>;
     using Mesh2   = samurai::MRMesh<Config2>;
 
     static constexpr bool is_soa     = false;
@@ -234,7 +234,7 @@ int main(int argc, char* argv[])
     //               d(i)/dt + conv(i) = 0,       where conv(i) = v.grad(i).
 
     // 2nd mesh
-    auto config2 = samurai::mesh_config<dim>().min_level(1).max_level(mesh.max_level()).max_stencil_size(4).disable_args_parse();
+    auto config2 = samurai::mesh_config<dim>().min_level(1).max_level(mesh.max_level()).max_stencil_size(6).disable_args_parse();
     auto mesh2   = Mesh2(config2, box);
 
     // Ink data fields
