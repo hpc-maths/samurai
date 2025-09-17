@@ -119,7 +119,7 @@ void run_simulation(Field& u,
                                });
     }
 
-    nsave          = 1;
+    nsave          = 0;
     std::size_t nt = 0;
 
     if (nfiles > 1)
