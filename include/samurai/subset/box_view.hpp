@@ -8,77 +8,65 @@
 
 namespace samurai
 {
-    template <Box_concept B>
+
+	template <class B>
     class BoxView;
 
-    template <Box_concept B>
+    template <class B>
     struct SetTraits<BoxView<B>>
     {
+		static_assert(std::same_as<Box<typename B::point_t::value_type, B::dim>, B>);
+		
         template <std::size_t>
         using traverser_t = BoxTraverser<B>;
-
-        static constexpr std::size_t getDim()
-        {
-            return B::dim;
-        }
+        
+        static constexpr std::size_t dim = B::dim;
     };
 
-    template <Box_concept B>
+    template <class B>
     class BoxView : public SetBase<BoxView<B>>
     {
         using Self = BoxView<B>;
-        using Base = SetBase<Self>;
-
-      public:
-
-        template <std::size_t d>
-        using traverser_t = typename Base::template traverser_t<d>;
-
-        BoxView(const std::size_t level_impl, const B& box)
-            : m_level_impl(level_impl)
+    public:
+		SAMURAI_SET_TYPEDEFS
+		SAMURAI_SET_CONSTEXPRS
+		
+		BoxView(const std::size_t level, const B& box)
+            : m_level(level)
             , m_box(box)
         {
         }
-
-        std::size_t level_impl() const
+        
+        inline std::size_t level_impl() const
         {
-            return m_level_impl;
+			return m_level;
         }
 
-        bool exist_impl() const
+        inline bool exist_impl() const
         {
-            return m_box.is_valid();
+			return m_box.is_valid();
         }
 
-        bool empty_impl() const
+        inline bool empty_impl() const
         {
-            return !exist_impl();
+			return !exist_impl();
         }
-
+        
         template <class index_t, std::size_t d>
-        traverser_t<d> get_traverser_impl([[maybe_unused]] const index_t& index, std::integral_constant<std::size_t, d>) const
+        inline traverser_t<d> get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d>) const
         {
-            if constexpr (d != Base::dim - 1)
+			if constexpr (d != dim - 1)
             {
                 assert(m_box.min_corner()[d + 1] <= index[d] && index[d] < m_box.max_corner()[d + 1]);
             }
 
-            return traverser_t<d>(m_box.min_corner()[d], m_box.max_corner()[d]);
+            return traverser_t<d>(m_box.min_corner()[d], m_box.max_corner()[d]); 
         }
+        
+    private:
 
-      private:
-
-        std::size_t m_level_impl;
+        std::size_t m_level;
         const B& m_box;
-    };
-    
-    template <Box_concept B>
-	struct SelfTraits<B> { using Type = BoxView<B>; };
-
-    template <Box_concept B>
-    BoxView<B> self(const B& box)
-    {
-        return BoxView<B>(box);
-    }
-
-}
+	};
+	
+} // namespace samurai

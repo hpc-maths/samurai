@@ -112,5 +112,4 @@ namespace samurai
         return detail::enumerate_const_items(tuple, func, std::make_index_sequence<N>{});
     }
 
-    ////////////////////////////////////////////////////////////////////////
-}
+} // namespace samurai

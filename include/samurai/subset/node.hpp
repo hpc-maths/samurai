@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "set_base.hpp"
+#include "projection.hpp"
 #include "apply.hpp"
 #include "box_view.hpp"
 #include "contraction.hpp"

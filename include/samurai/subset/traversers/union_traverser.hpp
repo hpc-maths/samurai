@@ -8,47 +8,48 @@
 namespace samurai
 {
 
-    template <SetTraverser_concept... SetTraversers>
+    template <class... SetTraversers>
     class UnionTraverser;
 
-    template <SetTraverser_concept... SetTraversers>
+	template <class... SetTraversers>
     struct SetTraverserTraits<UnionTraverser<SetTraversers...>>
     {
-        using Childrens          = std::tuple<SetTraversers...>;
-        using interval_t         = typename SetTraverserTraits<std::tuple_element_t<0, Childrens>>::interval_t;
+		static_assert((IsSetTraverser<SetTraversers>::value and ...));
+		
+		using FirstSetTraverser  = std::tuple_element_t<0, std::tuple<SetTraversers...>>;
+        using interval_t         = typename FirstSetTraverser::interval_t;
         using current_interval_t = const interval_t&;
     };
-
-    template <SetTraverser_concept... SetTraversers>
+    
+    template <class... SetTraversers>
     class UnionTraverser : public SetTraverserBase<UnionTraverser<SetTraversers...>>
     {
-        using Self = UnionTraverser<SetTraversers...>;
-        using Base = SetTraverserBase<Self>;
-
-      public:
-
-        using interval_t         = typename Base::interval_t;
-        using current_interval_t = typename Base::current_interval_t;
-        using value_t            = typename Base::value_t;
-        using Childrens          = typename SetTraverserTraits<Self>::Childrens;
+		using Self = UnionTraverser<SetTraversers...>;
+	public:
+		SAMURAI_SET_TRAVERSER_TYPEDEFS
+		using Childrens = std::tuple<SetTraversers...>;
+		
+		template <size_t I>
+        using IthChild = std::tuple_element<I, Childrens>::type;
 
         static constexpr std::size_t nIntervals = std::tuple_size_v<Childrens>;
-
-        UnionTraverser(const std::array<std::size_t, nIntervals>& shifts, const SetTraversers&... set_traversers)
+     
+		UnionTraverser(const std::array<std::size_t, nIntervals>& shifts, const SetTraversers&... set_traversers)
             : m_set_traversers(set_traversers...)
             , m_shifts(shifts)
         {
-            next_interval();
+            next_interval_impl();
+        }
+     
+
+		inline bool is_empty_impl() const
+        {
+			return m_current_interval.start == std::numeric_limits<value_t>::max();
         }
 
-        inline bool is_empty() const
+        inline void next_interval_impl()
         {
-            return m_current_interval.start == std::numeric_limits<value_t>::max();
-        }
-
-        inline void next_interval()
-        {
-            m_current_interval.start = std::numeric_limits<value_t>::max();
+			m_current_interval.start = std::numeric_limits<value_t>::max();
             // We find the start of the interval, i.e. the smallest set_traverser.current_interval().start << m_shifts[i]
             enumerate_const_items(
                 m_set_traversers,
@@ -88,19 +89,18 @@ namespace samurai
                             m_current_interval.end = set_traverser.current_interval().end << m_shifts[i];
                         }
                     });
-            }
+				}
         }
 
-        inline current_interval_t current_interval() const
+        inline current_interval_t current_interval_impl() const
         {
-            return m_current_interval;
+			return m_current_interval;
         }
-
-      private:
+	private:
 
         interval_t m_current_interval;
         Childrens m_set_traversers;
         const std::array<std::size_t, nIntervals>& m_shifts;
-    };
+	};
 
-}
+} // namespace samurai 
