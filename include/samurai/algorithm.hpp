@@ -133,7 +133,7 @@ namespace samurai
     //~             f(set.level(), i, index);
     //~         });
     //~ }
-    
+
     template <class Func, class Set>
     inline void for_each_interval(const SetBase<Set>& set, Func&& f)
     {

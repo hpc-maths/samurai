@@ -18,58 +18,60 @@ namespace samurai
         INTERSECTION,
         DIFFERENCE
     };
-    
+
     template <SetOperator op, class... Sets>
     class NArySetOperator;
 
     template <class... Sets>
     struct SetTraits<NArySetOperator<SetOperator::UNION, Sets...>>
     {
-		static_assert((IsSet<Sets>::value and ...));
+        static_assert((IsSet<Sets>::value and ...));
 
-		template <std::size_t d>
+        template <std::size_t d>
         using traverser_t = UnionTraverser<typename Sets::template traverser_t<d>...>;
-        
+
         static constexpr std::size_t dim = std::tuple_element_t<0, std::tuple<Sets...>>::dim;
     };
 
     template <class... Sets>
     struct SetTraits<NArySetOperator<SetOperator::INTERSECTION, Sets...>>
     {
-		static_assert((IsSet<Sets>::value and ...));
-		
-		template <std::size_t d>
+        static_assert((IsSet<Sets>::value and ...));
+
+        template <std::size_t d>
         using traverser_t = IntersectionTraverser<typename Sets::template traverser_t<d>...>;
-        
+
         static constexpr std::size_t dim = std::tuple_element_t<0, std::tuple<Sets...>>::dim;
     };
 
     template <class... Sets>
     struct SetTraits<NArySetOperator<SetOperator::DIFFERENCE, Sets...>>
     {
-		static_assert((IsSet<Sets>::value and ...));
-		
-		template <std::size_t d>
+        static_assert((IsSet<Sets>::value and ...));
+
+        template <std::size_t d>
         using traverser_t = std::conditional_t<d == 0,
                                                DifferenceTraverser<typename Sets::template traverser_t<d>...>,
                                                DifferenceIdTraverser<typename Sets::template traverser_t<d>...>>;
-        
+
         static constexpr std::size_t dim = std::tuple_element_t<0, std::tuple<Sets...>>::dim;
     };
-    
+
     template <SetOperator op, class... Sets>
     class NArySetOperator : public SetBase<NArySetOperator<op, Sets...>>
     {
-		using Self = NArySetOperator<op, Sets...>;
-	public:
-		SAMURAI_SET_TYPEDEFS
-		SAMURAI_SET_CONSTEXPRS
-		
-		using Childrens = std::tuple<Sets...>;
-		
-		static constexpr std::size_t nIntervals = std::tuple_size_v<Childrens>;
-		
-		explicit NArySetOperator(const Sets&... sets)
+        using Self = NArySetOperator<op, Sets...>;
+
+      public:
+
+        SAMURAI_SET_TYPEDEFS
+        SAMURAI_SET_CONSTEXPRS
+
+        using Childrens = std::tuple<Sets...>;
+
+        static constexpr std::size_t nIntervals = std::tuple_size_v<Childrens>;
+
+        explicit NArySetOperator(const Sets&... sets)
             : m_sets(sets...)
         {
             m_level = std::apply(
@@ -85,15 +87,15 @@ namespace samurai
                                       m_shifts[i] = std::size_t(m_level - set.level());
                                   });
         }
-		
-		inline std::size_t level_impl() const
+
+        inline std::size_t level_impl() const
         {
-			return m_level;
+            return m_level;
         }
 
         inline bool exist_impl() const
         {
-			return std::apply(
+            return std::apply(
                 [](const auto first_set, const auto&... other_sets) -> std::size_t
                 {
                     if constexpr (op == SetOperator::UNION)
@@ -132,17 +134,18 @@ namespace samurai
                 },
                 m_sets);
         }
-        
+
         template <class index_t, std::size_t d>
         inline traverser_t<d> get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d> d_ic) const
         {
-			return get_traverser_impl_impl(index, d_ic, std::make_index_sequence<nIntervals>{});
+            return get_traverser_impl_impl(index, d_ic, std::make_index_sequence<nIntervals>{});
         }
-        
-	private:
+
+      private:
 
         template <class index_t, std::size_t d, std::size_t... Is>
-        traverser_t<d> get_traverser_impl_impl(const index_t& index, std::integral_constant<std::size_t, d> d_ic, std::index_sequence<Is...>) const
+        traverser_t<d>
+        get_traverser_impl_impl(const index_t& index, std::integral_constant<std::size_t, d> d_ic, std::index_sequence<Is...>) const
         {
             return traverser_t<d>(m_shifts, std::get<Is>(m_sets).get_traverser(index >> m_shifts[Is], d_ic)...);
         }
@@ -150,8 +153,8 @@ namespace samurai
         Childrens m_sets;
         std::size_t m_level;
         std::array<std::size_t, nIntervals> m_shifts;
-	};
-    
+    };
+
     ////////////////////////////////////////////////////////////////////////
     //// functions
     ////////////////////////////////////////////////////////////////////////
@@ -182,5 +185,5 @@ namespace samurai
 
         return Difference(self(sets)...);
     }
-    
+
 } // namespace samurai

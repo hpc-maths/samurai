@@ -11,12 +11,12 @@ namespace samurai
     template <class FirstSetTraverser, class... OtherSetTraversers>
     class DifferenceIdTraverser;
 
-	template <class FirstSetTraverser, class... OtherSetTraversers>
+    template <class FirstSetTraverser, class... OtherSetTraversers>
     struct SetTraverserTraits<DifferenceIdTraverser<FirstSetTraverser, OtherSetTraversers...>>
     {
-		static_assert(IsSetTraverser<FirstSetTraverser>::value);
-		static_assert((IsSetTraverser<OtherSetTraversers>::value and ...));
-		
+        static_assert(IsSetTraverser<FirstSetTraverser>::value);
+        static_assert((IsSetTraverser<OtherSetTraversers>::value and ...));
+
         using interval_t         = typename FirstSetTraverser::interval_t;
         using current_interval_t = interval_t;
     };
@@ -24,20 +24,22 @@ namespace samurai
     template <class FirstSetTraverser, class... OtherSetTraversers>
     class DifferenceIdTraverser : public SetTraverserBase<DifferenceIdTraverser<FirstSetTraverser, OtherSetTraversers...>>
     {
-		using Self = DifferenceIdTraverser<FirstSetTraverser>;
-	public:
-		SAMURAI_SET_TRAVERSER_TYPEDEFS
-		
-		static constexpr std::size_t nIntervals = 1 + sizeof...(OtherSetTraversers);
-		
-		DifferenceIdTraverser(const std::array<std::size_t, nIntervals>& shifts,
+        using Self = DifferenceIdTraverser<FirstSetTraverser>;
+
+      public:
+
+        SAMURAI_SET_TRAVERSER_TYPEDEFS
+
+        static constexpr std::size_t nIntervals = 1 + sizeof...(OtherSetTraversers);
+
+        DifferenceIdTraverser(const std::array<std::size_t, nIntervals>& shifts,
                               const FirstSetTraverser& set_traverser,
                               const OtherSetTraversers&...)
             : m_set_traverser(set_traverser)
             , m_shift(shifts[0])
         {
         }
-        
+
         DifferenceIdTraverser() = delete;
 
         inline bool is_empty_impl() const

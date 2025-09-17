@@ -96,8 +96,8 @@ namespace samurai
 
         //~ template <class Op, class StartEndOp, class... S>
         //~ LevelCellArray(Subset<Op, StartEndOp, S...> set);
-        
-        template<class Set>
+
+        template <class Set>
         LevelCellArray(const SetBase<Set>& set);
 
         LevelCellArray(std::size_t level, const Box<value_t, dim>& box);
@@ -358,19 +358,19 @@ namespace samurai
     //~             add_interval_back(i, index);
     //~         });
     //~ }
-    
-    template <std::size_t Dim, class TInterval> 
-    template<class Set>
+
+    template <std::size_t Dim, class TInterval>
+    template <class Set>
     inline LevelCellArray<Dim, TInterval>::LevelCellArray(const SetBase<Set>& set)
-		: m_level(set.level())
-	{
-		set(
+        : m_level(set.level())
+    {
+        set(
             [this](const auto& i, const auto& index)
             {
                 add_interval_back(i, index);
             });
-	}
-    
+    }
+
     //~ template <std::size_t Dim, class TInterval>
     //~ template <class Op, class StartEndOp, class... S>
     //~ inline LevelCellArray<Dim, TInterval>::LevelCellArray(Subset<Op, StartEndOp, S...> set)

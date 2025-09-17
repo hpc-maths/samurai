@@ -97,20 +97,21 @@ namespace samurai
         }
     };
 
-	 #define SAMURAI_SET_TYPEDEFS \
-		using Base = SetBase<Self>; \
-		\
-		template <std::size_t d> \
-		using traverser_t = typename Base::template traverser_t<d>; \
-		\
-        using interval_t  = typename Base::interval_t; \
-        using value_t     = typename Base::value_t; \
+#define SAMURAI_SET_TYPEDEFS                                    \
+    using Base = SetBase<Self>;                                 \
+                                                                \
+    template <std::size_t d>                                    \
+    using traverser_t = typename Base::template traverser_t<d>; \
+                                                                \
+    using interval_t = typename Base::interval_t;               \
+    using value_t    = typename Base::value_t;
 
-	#define SAMURAI_SET_CONSTEXPRS \
-		static constexpr std::size_t dim = Base::dim; \
+#define SAMURAI_SET_CONSTEXPRS static constexpr std::size_t dim = Base::dim;
 
-	template<typename T>
-    struct IsSet : std::bool_constant< std::is_base_of<SetBase<T>, T>::value > {};
+    template <typename T>
+    struct IsSet : std::bool_constant<std::is_base_of<SetBase<T>, T>::value>
+    {
+    };
 
     template <class Set>
     const Set& self(const SetBase<Set>& set)
