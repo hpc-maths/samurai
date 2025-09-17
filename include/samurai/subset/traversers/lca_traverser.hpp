@@ -1,53 +1,47 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-#include "../../level_cell_array.hpp"
-#include "set_traverser_base.hpp"
-
 #pragma once
+
+#include "set_traverser_base.hpp"
+#include <concepts>
 
 namespace samurai
 {
-    template <typename T>
-    concept LCA_concept = std::same_as<LevelCellArray<T::dim, typename T::interval_t>, T>;
+	template <std::size_t Dim, class TInterval> class LevelCellArray;
 
-    template <LCA_concept LCA>
-    class LCATraverser;
+	template <class LCA> class LCATraverser;
 
-    template <LCA_concept LCA>
+	template <class LCA>
     struct SetTraverserTraits<LCATraverser<LCA>>
     {
+		static_assert(std::same_as<LevelCellArray<LCA::dim, typename LCA::interval_t>, LCA>);
+		
         using interval_t         = typename LCA::interval_t;
         using current_interval_t = const interval_t&;
     };
-
-    template <LCA_concept LCA>
+    
+    template <class LCA>
     class LCATraverser : public SetTraverserBase<LCATraverser<LCA>>
     {
-        using Self = LCATraverser<LCA>;
-        using Base = SetTraverserBase<Self>;
-
-      public:
-
-        using interval_t         = typename Base::interval_t;
-        using current_interval_t = typename Base::current_interval_t;
-        using value_t            = typename Base::value_t;
-        using interval_iterator  = typename std::vector<interval_t>::const_iterator;
-
-        LCATraverser(const interval_iterator first, const interval_iterator end)
+		using Self = LCATraverser<LCA>;
+	public:
+		SAMURAI_SET_TRAVERSER_TYPEDEFS
+		using interval_iterator  = typename std::vector<interval_t>::const_iterator;
+		
+		LCATraverser(const interval_iterator first, const interval_iterator end)
             : m_first_interval(first)
             , m_end_interval(end)
         {
         }
-
-        inline bool is_empty_impl() const
+		
+		inline bool is_empty_impl() const
         {
             return m_first_interval == m_end_interval;
         }
 
         inline void next_interval_impl()
         {
-            assert(!is_empty_impl());
             ++m_first_interval;
         }
 
@@ -55,10 +49,10 @@ namespace samurai
         {
             return *m_first_interval;
         }
-
+        
       private:
-
         interval_iterator m_first_interval;
         interval_iterator m_end_interval;
-    };
-}
+	};
+
+} // namespace samurai

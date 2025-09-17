@@ -3,44 +3,39 @@
 
 #pragma once
 
-#include "../../samurai_config.hpp"
-#include "../fixed_capacity_array.hpp"
 #include "set_traverser_base.hpp"
+#include "../fixed_capacity_array.hpp"
 
 #include <fmt/core.h>
 
 namespace samurai
 {
-
-    enum class ProjectionType
+	enum class ProjectionType
     {
         COARSEN,
         REFINE
     };
 
-    template <SetTraverser_concept SetTraverser>
+    template <class SetTraverser, std::size_t nTraversers>
     class ProjectionTraverser;
 
-    template <SetTraverser_concept SetTraverser>
-    struct SetTraverserTraits<ProjectionTraverser<SetTraverser>>
+    template <class SetTraverser, std::size_t nTraversers>
+    struct SetTraverserTraits<ProjectionTraverser<SetTraverser, nTraversers>>
     {
-        using interval_t         = typename SetTraverserTraits<SetTraverser>::interval_t;
+		static_assert(IsSetTraverser<SetTraverser>::value);
+		
+        using interval_t         = typename SetTraverser::interval_t;
         using current_interval_t = const interval_t&;
     };
 
-    template <SetTraverser_concept SetTraverser>
-    class ProjectionTraverser : public SetTraverserBase<ProjectionTraverser<SetTraverser>>
+    template <class SetTraverser, std::size_t nTraversers>
+    class ProjectionTraverser : public SetTraverserBase<ProjectionTraverser<SetTraverser, nTraversers>>
     {
-        using Self = ProjectionTraverser<SetTraverser>;
-        using Base = SetTraverserBase<Self>;
-
-      public:
-
-        using interval_t         = typename Base::interval_t;
-        using current_interval_t = typename Base::current_interval_t;
-        using value_t            = typename Base::value_t;
-
-        ProjectionTraverser(const SetTraverser& set_traverser, const ProjectionType projectionType, const std::size_t shift)
+		using Self = ProjectionTraverser<SetTraverser, nTraversers>;
+	public:
+		SAMURAI_SET_TRAVERSER_TYPEDEFS
+		
+		ProjectionTraverser(const SetTraverser& set_traverser, const ProjectionType projectionType, const std::size_t shift)
             : m_projectionType(projectionType)
             , m_shift(shift)
             , m_isEmpty(set_traverser.is_empty())
@@ -70,26 +65,25 @@ namespace samurai
                 }
             }
         }
-
+        
         /*
          * This constructor only works for coarsening
          */
-        ProjectionTraverser(const FixedCapacityArray<SetTraverser, default_config::max_level>& set_traversers, const std::size_t shift)
+        ProjectionTraverser(const FixedCapacityArray<SetTraverser, nTraversers>& set_traversers, const std::size_t shift)
             : m_set_traversers(set_traversers)
             , m_projectionType(ProjectionType::COARSEN)
             , m_shift(shift)
         {
             next_interval_coarsen();
         }
-
-        inline bool is_empty() const
+        
+        inline bool is_empty_impl() const
         {
-            return m_isEmpty;
+			return m_isEmpty;
         }
 
-        inline void next_interval()
+        inline void next_interval_impl()
         {
-            assert(!is_empty());
             if (m_projectionType == ProjectionType::COARSEN)
             {
                 next_interval_coarsen();
@@ -106,14 +100,14 @@ namespace samurai
             }
         }
 
-        inline current_interval_t current_interval() const
+        inline current_interval_t current_interval_impl() const
         {
-            return m_current_interval;
+			return m_current_interval;
         }
-
-      private:
-
-        inline void next_interval_coarsen()
+        
+	private:
+	
+		inline void next_interval_coarsen()
         {
             m_current_interval.start = std::numeric_limits<value_t>::max();
             // We find the start of the interval, i.e. the smallest set_traverser.current_interval().start >> m_shift
@@ -152,7 +146,7 @@ namespace samurai
             }
             m_isEmpty = (m_current_interval.start == std::numeric_limits<value_t>::max());
         }
-
+        
         inline value_t coarsen_start(const interval_t& interval) const
         {
             return interval.start >> m_shift;
@@ -163,13 +157,12 @@ namespace samurai
             const value_t trial_end = interval.end >> m_shift;
             return (trial_end << m_shift) < interval.end ? trial_end + 1 : trial_end;
         }
-
-        //~ std::vector<SetTraverser> m_set_traversers;
-        FixedCapacityArray<SetTraverser, default_config::max_level> m_set_traversers;
+	
+		FixedCapacityArray<SetTraverser, nTraversers> m_set_traversers;
         ProjectionType m_projectionType;
         std::size_t m_shift;
         interval_t m_current_interval;
         bool m_isEmpty;
-    };
-
-}
+	};
+    
+} // namespace samurai

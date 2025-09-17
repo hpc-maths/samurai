@@ -9,35 +9,30 @@
 namespace samurai
 {
 
-    template <Set_concept Set>
+	template <class Set>
     class Contraction;
 
-    template <Set_concept Set>
+    template <class Set>
     struct SetTraits<Contraction<Set>>
     {
+		static_assert(IsSet<Set>::value);
+		
         template <std::size_t d>
         using traverser_t = ContractionTraverser<typename Set::template traverser_t<d>>;
-
-        static constexpr std::size_t getDim()
-        {
-            return SetTraits<Set>::getDim();
-        }
+        
+        static constexpr std::size_t dim = Set::dim;
     };
 
-    template <Set_concept Set>
+    template <class Set>
     class Contraction : public SetBase<Contraction<Set>>
     {
         using Self = Contraction<Set>;
-        using Base = SetBase<Self>;
+    public:
+		SAMURAI_SET_TYPEDEFS
+		SAMURAI_SET_CONSTEXPRS
 
-      public:
-
-        template <std::size_t d>
-        using traverser_t = typename Base::template traverser_t<d>;
-
-        using value_t          = typename Base::value_t;
-        using contraction_t    = std::array<value_t, Base::dim>;
-        using do_contraction_t = std::array<bool, Base::dim>;
+		using contraction_t    = std::array<value_t, dim>;
+        using do_contraction_t = std::array<bool,    dim>;
 
         Contraction(const Set& set, const contraction_t& contraction)
             : m_set(set)
@@ -67,49 +62,49 @@ namespace samurai
 			}
 			
 		}
-
-        std::size_t level_impl() const
+		
+        inline std::size_t level_impl() const
         {
-            return m_set.level_impl();
+			return m_set.level();
         }
 
-        bool exist_impl() const
+        inline bool exist_impl() const
         {
-            return m_set.exist_impl();
+			return m_set.exist();
         }
 
-        bool empty_impl() const
+        inline bool empty_impl() const
         {
-            return m_set.empty_impl();
+			return m_set.empty();
         }
-
+        
         template <class index_t, std::size_t d>
-        traverser_t<d> get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d> d_ic) const
+        inline traverser_t<d> get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d> d_ic) const
         {
-            return traverser_t<d>(m_set.get_traverser_impl(index, d_ic), m_contraction[d]);
+			return traverser_t<d>(m_set.get_traverser(index, d_ic), m_contraction[d]);
         }
-
-      private:
-
+		
+	private:
         Set m_set;
         contraction_t m_contraction;
-    };
-
+	};
+	
     template <class Set>
-    auto contract(const Set& set, const typename Contraction<typename SelfTraits<Set>::Type>::contraction_t& contraction)
+    auto contract(const Set& sets, const typename Contraction<std::decay_t<decltype(self(sets))>>::contraction_t& contraction)
     {
-        return Contraction(self(set), contraction);
+        return Contraction(self(sets), contraction);
     }
 
     template <class Set>
-    auto contract(const Set& set, const typename Contraction<typename SelfTraits<Set>::Type>::value_t contraction)
+    auto contract(const Set& sets, const typename Contraction<std::decay_t<decltype(self(sets))>>::value_t contraction)
     {
-        return Contraction(self(set), contraction);
+        return Contraction(self(sets), contraction);
     }
 
     template <class Set>
-    auto contract(const Set& set, const typename Contraction<typename SelfTraits<Set>::Type>::value_t contraction, const typename Contraction<typename SelfTraits<Set>::Type>::do_contraction_t& do_contraction)
+    auto contract(const Set& sets, const typename Contraction<std::decay_t<decltype(self(sets))>>::value_t contraction, const typename Contraction<std::decay_t<decltype(self(sets))>>::do_contraction_t& do_contraction) // idk how to make this more readable, perhaps a traits...
     {
-        return Contraction(self(set), contraction, do_contraction);
+        return Contraction(self(sets), contraction, do_contraction);
     }
-}
+	
+} // namespace samurai

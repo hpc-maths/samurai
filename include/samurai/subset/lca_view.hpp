@@ -8,56 +8,50 @@
 
 namespace samurai
 {
-    template <LCA_concept LCA>
+
+	template <class LCA>
     class LCAView;
 
-    template <LCA_concept LCA>
+    template <class LCA>
     struct SetTraits<LCAView<LCA>>
     {
+		static_assert(std::same_as<LevelCellArray<LCA::dim, typename LCA::interval_t>, LCA>);
+		
         template <std::size_t>
         using traverser_t = LCATraverser<LCA>;
-
-        static constexpr std::size_t getDim()
-        {
-            return LCA::dim;
-        }
+        
+        static constexpr std::size_t dim = LCA::dim;
     };
 
-    template <LCA_concept LCA>
+    template <class LCA>
     class LCAView : public SetBase<LCAView<LCA>>
     {
         using Self = LCAView<LCA>;
-        using Base = SetBase<Self>;
-
-      public:
-
-        template <std::size_t d>
-        using traverser_t = typename Base::template traverser_t<d>;
-
-        explicit LCAView(const LCA& lca)
-            : m_lca(lca)
+    public:
+		SAMURAI_SET_TYPEDEFS
+		SAMURAI_SET_CONSTEXPRS
+		
+		LCAView(const LCA& lca) : m_lca(lca) {}
+		
+	    inline std::size_t level_impl() const
         {
+			return m_lca.level();
         }
 
-        std::size_t level_impl() const
+        inline bool exist_impl() const
         {
-            return m_lca.level();
+			return !empty_impl();
         }
 
-        bool exist_impl() const
+        inline bool empty_impl() const
         {
-            return !empty_impl();
+			return m_lca.empty();
         }
-
-        bool empty_impl() const
-        {
-            return m_lca.empty();
-        }
-
+        
         template <class index_t, std::size_t d>
-        traverser_t<d> get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d>) const
+        inline traverser_t<d> get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d>) const
         {
-            if constexpr (d != Base::dim - 1)
+			if constexpr (d != dim - 1)
             {
                 const auto& y           = index[d];
                 const auto& y_intervals = m_lca[d + 1];
@@ -72,6 +66,7 @@ namespace samurai
                 if (y_interval_it != y_intervals.cend())
                 {
                     const std::size_t y_offset_idx = std::size_t(y + y_interval_it->index);
+                    
                     return traverser_t<d>(m_lca[d].cbegin() + ptrdiff_t(y_offsets[y_offset_idx]),
                                           m_lca[d].cbegin() + ptrdiff_t(y_offsets[y_offset_idx + 1]));
                 }
@@ -85,19 +80,16 @@ namespace samurai
                 return traverser_t<d>(m_lca[d].cbegin(), m_lca[d].cend());
             }
         }
-
-      private:
-
-        const LCA& m_lca;
-    };
     
-	template <LCA_concept LCA>
-	struct SelfTraits<LCA> { using Type = LCAView<LCA>; };
-
-    template <LCA_concept LCA>
-    LCAView<LCA> self(const LCA& lca)
-    {
-        return LCAView<LCA>(lca);
-    }
-
-}
+    private:
+		const LCA& m_lca;
+	};
+	
+	
+	template<std::size_t Dim, class TInterval> 
+	LCAView<LevelCellArray<Dim, TInterval>> self(const LevelCellArray<Dim, TInterval>& lca)
+	{
+		return LCAView<LevelCellArray<Dim, TInterval>>(lca);
+	}
+	
+} // namespace samurai

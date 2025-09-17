@@ -1,11 +1,10 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-#include <cstddef>
-
-#include <utility>
-
 #pragma once
+
+#include <cstddef>
+#include <utility>
 
 namespace samurai
 {
@@ -14,9 +13,6 @@ namespace samurai
 
     template <class Derived>
     class SetTraverserBase;
-
-    template <typename T>
-    concept SetTraverser_concept = std::is_base_of<SetTraverserBase<T>, T>::value;
 
     template <class Derived>
     class SetTraverserBase
@@ -44,6 +40,7 @@ namespace samurai
 
         inline void next_interval()
         {
+			assert(!is_empty());
             derived_cast().next_interval_impl();
         }
 
@@ -52,4 +49,14 @@ namespace samurai
             return derived_cast().current_interval_impl();
         }
     };
-}
+    
+    template<typename T>
+    struct IsSetTraverser : std::bool_constant< std::is_base_of<SetTraverserBase<T>, T>::value > {};
+    
+    #define SAMURAI_SET_TRAVERSER_TYPEDEFS \
+		using Base               = SetTraverserBase<Self>; \
+		using interval_t         = typename Base::interval_t; \
+		using current_interval_t = typename Base::current_interval_t; \
+		using value_t            = typename Base::value_t; \
+		
+} // namespace samurai

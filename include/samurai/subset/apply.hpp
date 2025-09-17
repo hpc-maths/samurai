@@ -9,8 +9,8 @@ namespace samurai
 {
     namespace detail
     {
-        template <Set_concept Set, class Func, class Index, std::size_t d>
-        void apply_rec(const Set& set, Func&& func, Index& index, std::integral_constant<std::size_t, d> d_ic)
+        template <class Set, class Func, class Index, std::size_t d>
+        void apply_rec(const SetBase<Set>& set, Func&& func, Index& index, std::integral_constant<std::size_t, d> d_ic)
         {
             using traverser_t        = typename Set::template traverser_t<d>;
             using current_interval_t = typename traverser_t::current_interval_t;
@@ -33,10 +33,10 @@ namespace samurai
         }
     }
 
-    template <Set_concept Set, class Func>
-    void apply(const Set& set, Func&& func)
+    template <class Set, class Func>
+    void apply(const SetBase<Set>& set, Func&& func)
     {
-        constexpr std::size_t dim = SetTraits<Set>::getDim();
+        constexpr std::size_t dim = Set::dim;
 
         xt::xtensor_fixed<int, xt::xshape<dim - 1>> index;
         if (set.exist())

@@ -1,61 +1,57 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-#include "set_traverser_base.hpp"
-
 #pragma once
+
+#include "set_traverser_base.hpp"
 
 namespace samurai
 {
 
-    template <SetTraverser_concept SetTraverser>
+    template <class SetTraverser>
     class TranslationTraverser;
 
-    template <SetTraverser_concept SetTraverser>
+    template <class SetTraverser>
     struct SetTraverserTraits<TranslationTraverser<SetTraverser>>
     {
+		static_assert(IsSetTraverser<SetTraverser>::value);
+		
         using interval_t         = typename SetTraverserTraits<SetTraverser>::interval_t;
         using current_interval_t = interval_t;
     };
 
-    template <SetTraverser_concept SetTraverser>
+    template <class SetTraverser>
     class TranslationTraverser : public SetTraverserBase<TranslationTraverser<SetTraverser>>
     {
         using Self = TranslationTraverser<SetTraverser>;
-        using Base = SetTraverserBase<Self>;
-
-      public:
-
-        using interval_t         = typename Base::interval_t;
-        using current_interval_t = typename Base::current_interval_t;
-        using value_t            = typename Base::value_t;
-
-        TranslationTraverser(const SetTraverser& set_traverser, const value_t& translation)
+    public:
+		SAMURAI_SET_TRAVERSER_TYPEDEFS
+		
+		TranslationTraverser(const SetTraverser& set_traverser, const value_t& translation)
             : m_set_traverser(set_traverser)
             , m_translation(translation)
         {
         }
-
-        inline bool is_empty() const
+		
+        inline bool is_empty_impl() const
         {
-            return m_set_traverser.is_empty();
+			return m_set_traverser.is_empty();
         }
 
-        inline void next_interval()
+        inline void next_interval_impl()
         {
-            assert(!is_empty());
-            m_set_traverser.next_interval();
+			m_set_traverser.next_interval();
         }
 
-        inline current_interval_t current_interval() const
+        inline current_interval_t current_interval_impl() const
         {
-            return current_interval_t{m_set_traverser.current_interval().start + m_translation,
+			return current_interval_t{m_set_traverser.current_interval().start + m_translation,
                                       m_set_traverser.current_interval().end + m_translation};
         }
-
-      private:
-
+        
+	private:
         SetTraverser m_set_traverser;
         value_t m_translation;
-    };
-}
+	};
+	
+} // namespace samurai

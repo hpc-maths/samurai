@@ -3,42 +3,38 @@
 
 #pragma once
 
-#include "../../static_algorithm.hpp"
-#include "../utils.hpp"
 #include "set_traverser_base.hpp"
+#include "../../static_algorithm.hpp"
 
 namespace samurai
 {
-
-    template <SetTraverser_concept... SetTraversers>
+	
+    template <class... SetTraversers>
     class DifferenceTraverser;
 
-    template <SetTraverser_concept... SetTraversers>
+	template <class... SetTraversers>
     struct SetTraverserTraits<DifferenceTraverser<SetTraversers...>>
     {
-        using Childrens          = std::tuple<SetTraversers...>;
-        using interval_t         = typename SetTraverserTraits<std::tuple_element_t<0, Childrens>>::interval_t;
+		static_assert((IsSetTraverser<SetTraversers>::value and ...));
+		
+		using FirstSetTraverser  = std::tuple_element_t<0, std::tuple<SetTraversers...>>;
+        using interval_t         = typename FirstSetTraverser::interval_t;
         using current_interval_t = const interval_t&;
     };
-
-    template <SetTraverser_concept... SetTraversers>
+    
+    template <class... SetTraversers>
     class DifferenceTraverser : public SetTraverserBase<DifferenceTraverser<SetTraversers...>>
     {
-        using Self = DifferenceTraverser<SetTraversers...>;
-        using Base = SetTraverserBase<Self>;
-
-      public:
-
-        using interval_t         = typename Base::interval_t;
-        using current_interval_t = typename Base::current_interval_t;
-        using value_t            = typename Base::value_t;
-        using Childrens          = typename SetTraverserTraits<Self>::Childrens;
+		using Self = DifferenceTraverser<SetTraversers...>;
+	public:
+		SAMURAI_SET_TRAVERSER_TYPEDEFS
+		using Childrens = std::tuple<SetTraversers...>;
 
         template <size_t I>
         using IthChild = std::tuple_element<I, Childrens>::type;
 
         static constexpr std::size_t nIntervals = std::tuple_size_v<Childrens>;
-
+        
         DifferenceTraverser(const std::array<std::size_t, nIntervals>& shifts, const SetTraversers&... set_traversers)
             : m_min_start(std::numeric_limits<value_t>::min())
             , m_set_traversers(set_traversers...)
@@ -46,27 +42,26 @@ namespace samurai
         {
             compute_current_interval();
         }
-
-        inline bool is_empty() const
+        
+        inline bool is_empty_impl() const
         {
-            return std::get<0>(m_set_traversers).is_empty();
+			return std::get<0>(m_set_traversers).is_empty();
         }
 
-        inline void next_interval()
+        inline void next_interval_impl()
         {
-            assert(!is_empty());
-            advance_ref_interval();
-            compute_current_interval();
+			advance_ref_interval();
+			compute_current_interval();
         }
 
-        inline current_interval_t current_interval() const
+        inline current_interval_t current_interval_impl() const
         {
-            return m_current_interval;
+			return m_current_interval;
         }
-
-      private:
-
-        inline void advance_ref_interval()
+        
+    private:
+    
+		inline void advance_ref_interval()
         {
             if (m_current_interval.end != std::get<0>(m_set_traversers).current_interval().end << m_shifts[0])
             {
@@ -81,7 +76,7 @@ namespace samurai
                 std::get<0>(m_set_traversers).next_interval();
             }
         }
-
+        
         inline void compute_current_interval()
         {
             while (!std::get<0>(m_set_traversers).is_empty() && !try_to_compute_current_interval())
@@ -89,7 +84,7 @@ namespace samurai
                 advance_ref_interval();
             }
         }
-
+        
         inline bool try_to_compute_current_interval()
         {
             assert(!std::get<0>(m_set_traversers).is_empty());
@@ -121,11 +116,11 @@ namespace samurai
 
             return m_current_interval.is_valid();
         }
-
-        interval_t m_current_interval;
+    
+		interval_t m_current_interval;
         value_t m_min_start;
         Childrens m_set_traversers;
         const std::array<std::size_t, nIntervals>& m_shifts;
-    };
+	};
 
-}
+} // namespace samurai
