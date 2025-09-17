@@ -170,7 +170,7 @@ int main(int argc, char* argv[])
     MRadaptation(mra_config);
 
     double dt_save    = nfiles == 0 ? dt : Tf / static_cast<double>(nfiles);
-    std::size_t nsave = 1, nt = 0;
+    std::size_t nsave = 0, nt = 0;
     if (nfiles != 1)
     {
         std::string suffix = (nfiles != 1) ? fmt::format("_level_{}_{}_ite_{}", min_level, max_level, nsave) : "";
