@@ -9,17 +9,17 @@
 namespace samurai
 {
 
-	template <class B>
+    template <class B>
     class BoxView;
 
     template <class B>
     struct SetTraits<BoxView<B>>
     {
-		static_assert(std::same_as<Box<typename B::point_t::value_type, B::dim>, B>);
-		
+        static_assert(std::same_as<Box<typename B::point_t::value_type, B::dim>, B>);
+
         template <std::size_t>
         using traverser_t = BoxTraverser<B>;
-        
+
         static constexpr std::size_t dim = B::dim;
     };
 
@@ -27,46 +27,48 @@ namespace samurai
     class BoxView : public SetBase<BoxView<B>>
     {
         using Self = BoxView<B>;
-    public:
-		SAMURAI_SET_TYPEDEFS
-		SAMURAI_SET_CONSTEXPRS
-		
-		BoxView(const std::size_t level, const B& box)
+
+      public:
+
+        SAMURAI_SET_TYPEDEFS
+        SAMURAI_SET_CONSTEXPRS
+
+        BoxView(const std::size_t level, const B& box)
             : m_level(level)
             , m_box(box)
         {
         }
-        
+
         inline std::size_t level_impl() const
         {
-			return m_level;
+            return m_level;
         }
 
         inline bool exist_impl() const
         {
-			return m_box.is_valid();
+            return m_box.is_valid();
         }
 
         inline bool empty_impl() const
         {
-			return !exist_impl();
+            return !exist_impl();
         }
-        
+
         template <class index_t, std::size_t d>
         inline traverser_t<d> get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d>) const
         {
-			if constexpr (d != dim - 1)
+            if constexpr (d != dim - 1)
             {
                 assert(m_box.min_corner()[d + 1] <= index[d] && index[d] < m_box.max_corner()[d + 1]);
             }
 
-            return traverser_t<d>(m_box.min_corner()[d], m_box.max_corner()[d]); 
+            return traverser_t<d>(m_box.min_corner()[d], m_box.max_corner()[d]);
         }
-        
-    private:
+
+      private:
 
         std::size_t m_level;
         const B& m_box;
-	};
-	
+    };
+
 } // namespace samurai

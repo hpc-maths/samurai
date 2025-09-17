@@ -224,8 +224,8 @@ namespace samurai
                   {
                       EXPECT_EQ(interval_t(0, 20), i);
                   });
-                  
-			auto set2 = set.on(5);
+
+            auto set2 = set.on(5);
             EXPECT_EQ(set2.level(), 5);
             apply(set2,
                   [](auto& i, auto)
