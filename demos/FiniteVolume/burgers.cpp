@@ -229,7 +229,7 @@ int main_dim(int argc, char* argv[])
     MRadaptation(mra_config);
 
     double dt_save    = Tf / static_cast<double>(nfiles);
-    std::size_t nsave = 0, nt = 0;
+    std::size_t nsave = 1, nt = 0;
 
     {
         std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
@@ -273,7 +273,7 @@ int main_dim(int argc, char* argv[])
         samurai::swap(u, unp1);
 
         // Save the result
-        if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
+        if (t >= static_cast<double>(nsave) * dt_save || t == Tf)
         {
             std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
             save(path, filename, u, suffix);
