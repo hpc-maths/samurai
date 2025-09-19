@@ -4,6 +4,7 @@
 #pragma once
 
 #include "arguments.hpp"
+#include "samurai_config.hpp"
 #include <array>
 
 namespace samurai
@@ -153,38 +154,37 @@ namespace samurai
 
         void parse_args()
         {
-            if (m_disable_args_parse)
+            if (!m_disable_args_parse)
             {
-                return;
-            }
-            if (args::max_stencil_radius != std::numeric_limits<int>::max())
-            {
-                m_max_stencil_radius = args::max_stencil_radius;
-            }
-            if (args::graduation_width != std::numeric_limits<std::size_t>::max())
-            {
-                m_graduation_width = args::graduation_width;
-            }
-            if (args::min_level != std::numeric_limits<std::size_t>::max())
-            {
-                m_min_level = args::min_level;
-            }
-            if (args::max_level != std::numeric_limits<std::size_t>::max())
-            {
-                m_max_level = args::max_level;
-            }
-            // if (args::approx_box_tol != std::numeric_limits<double>::infinity())
-            // {
-            //     m_approx_box_tol = args::approx_box_tol;
-            // }
-            // if (args::scaling_factor != std::numeric_limits<double>::infinity())
-            // {
-            //     m_scaling_factor = args::scaling_factor;
-            // }
-            if (m_max_level < m_min_level)
-            {
-                std::cerr << "Max level must be greater than min level." << std::endl;
-                exit(EXIT_FAILURE);
+                if (args::max_stencil_radius != std::numeric_limits<int>::max())
+                {
+                    m_max_stencil_radius = args::max_stencil_radius;
+                }
+                if (args::graduation_width != std::numeric_limits<std::size_t>::max())
+                {
+                    m_graduation_width = args::graduation_width;
+                }
+                if (args::min_level != std::numeric_limits<std::size_t>::max())
+                {
+                    m_min_level = args::min_level;
+                }
+                if (args::max_level != std::numeric_limits<std::size_t>::max())
+                {
+                    m_max_level = args::max_level;
+                }
+                // if (args::approx_box_tol != std::numeric_limits<double>::infinity())
+                // {
+                //     m_approx_box_tol = args::approx_box_tol;
+                // }
+                // if (args::scaling_factor != std::numeric_limits<double>::infinity())
+                // {
+                //     m_scaling_factor = args::scaling_factor;
+                // }
+                if (m_max_level < m_min_level)
+                {
+                    std::cerr << "Max level must be greater than min level." << std::endl;
+                    exit(EXIT_FAILURE);
+                }
             }
 
             m_ghost_width = std::max(static_cast<int>(m_max_stencil_radius), static_cast<int>(prediction_stencil_radius));
@@ -193,8 +193,8 @@ namespace samurai
       private:
 
         int m_max_stencil_radius       = 1;
-        std::size_t m_graduation_width = 1;
-        int m_ghost_width              = 1;
+        std::size_t m_graduation_width = default_config::graduation_width;
+        int m_ghost_width              = default_config::ghost_width;
 
         std::size_t m_min_level;
         std::size_t m_max_level;

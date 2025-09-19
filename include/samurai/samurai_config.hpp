@@ -16,8 +16,8 @@ namespace samurai
     namespace default_config
     {
         static constexpr std::size_t max_level        = 20;
-        static constexpr std::size_t ghost_width      = 1;
-        static constexpr std::size_t graduation_width = 1;
+        static constexpr int ghost_width              = 1;
+        static constexpr int graduation_width         = 1;
         static constexpr std::size_t prediction_order = 1;
 
         using index_t    = signed long long int;
