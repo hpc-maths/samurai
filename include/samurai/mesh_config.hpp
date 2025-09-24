@@ -196,8 +196,8 @@ namespace samurai
         std::size_t m_graduation_width = default_config::graduation_width;
         int m_ghost_width              = default_config::ghost_width;
 
-        std::size_t m_min_level;
-        std::size_t m_max_level;
+        std::size_t m_min_level = 0;
+        std::size_t m_max_level = 6;
 
         double m_approx_box_tol = 0.05;
         double m_scaling_factor = 0;

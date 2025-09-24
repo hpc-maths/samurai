@@ -168,6 +168,7 @@ namespace samurai
 
         Mesh_base(mesh_config<Config::dim>& config, const samurai::DomainBuilder<dim>& domain_builder, std::size_t start_level);
 
+        // cppcheck-suppress uninitMemberVar
         Mesh_base(const samurai::Box<double, dim>&, std::size_t, std::size_t, std::size_t, double, double)
         {
             std::cerr << "Delete min_level and max_level from CLI11 options and use mesh_config object in the mesh constructor" << std::endl;
@@ -181,6 +182,7 @@ namespace samurai
                   double approx_box_tol = lca_type::default_approx_box_tol,
                   double scaling_factor = 0);
 
+        // cppcheck-suppress uninitMemberVar
         Mesh_base(const samurai::Box<double, dim>&, std::size_t, std::size_t, std::size_t, const std::array<bool, dim>&, double, double)
         {
             std::cerr << "Delete min_level and max_level from CLI11 options and use mesh_config object in the mesh constructor" << std::endl;
@@ -757,7 +759,18 @@ namespace samurai
     template <class D, class Config>
     inline double Mesh_base<D, Config>::min_cell_length() const
     {
-        return cell_length(max_level());
+        if (args::finer_level_flux != 0)
+        {
+            return cell_length(max_level());
+        }
+        else
+        {
+#ifdef SAMURAI_WITH_MPI
+            return cell_length(max_level());
+#else
+            return cell_length(m_cells[mesh_id_t::cells].max_level());
+#endif
+        }
     }
 
     template <class D, class Config>
