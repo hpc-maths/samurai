@@ -344,12 +344,15 @@ namespace samurai
         std::exit(EXIT_FAILURE);
         // partition_mesh(start_level, b);
         //  load_balancing();
+
+        double scaling_factor_ = 0.;
 #else
-        double scaling_factor_ = config.scaling_factor();
+        double scaling_factor_ = m_config.scaling_factor();
         compute_scaling_factor(domain_builder, scaling_factor_);
+        m_config.scaling_factor() = scaling_factor_;
 
         // Build the domain by adding and removing boxes
-        cl_type domain_cl = construct_initial_mesh(domain_builder, start_level, config.approx_box_tol(), scaling_factor_);
+        cl_type domain_cl = construct_initial_mesh(domain_builder, start_level, m_config.approx_box_tol(), m_config.scaling_factor());
 
         this->m_cells[mesh_id_t::cells] = {domain_cl, false};
 #endif
@@ -362,7 +365,7 @@ namespace samurai
         update_mesh_neighbour();
 
         set_origin_point(domain_builder.origin_point());
-        set_scaling_factor(scaling_factor_);
+        set_scaling_factor(m_config.scaling_factor());
     }
 
     //     template <class D, class Config>

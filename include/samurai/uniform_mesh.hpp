@@ -9,6 +9,7 @@
 #include "level_cell_array.hpp"
 #include "level_cell_list.hpp"
 #include "mesh.hpp"
+#include "mesh_config.hpp"
 #include "samurai_config.hpp"
 
 namespace samurai
@@ -76,6 +77,8 @@ namespace samurai
         auto scaling_factor() const;
         void set_scaling_factor(double scaling_factor);
         double cell_length(std::size_t level) const;
+
+        auto cfg() const;
 
       private:
 
@@ -239,6 +242,12 @@ namespace samurai
     inline double UniformMesh<Config>::cell_length(std::size_t level) const
     {
         return samurai::cell_length(scaling_factor(), level);
+    }
+
+    template <class Config>
+    inline auto UniformMesh<Config>::cfg() const
+    {
+        return mesh_config();
     }
 
     template <class Config>

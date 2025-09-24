@@ -124,6 +124,11 @@ namespace samurai
             return m_scaling_factor;
         }
 
+        auto& scaling_factor()
+        {
+            return m_scaling_factor;
+        }
+
         auto& periodic(std::array<bool, dim> const& periodicity)
         {
             m_periodic = periodicity;
@@ -187,7 +192,7 @@ namespace samurai
                 }
             }
 
-            m_ghost_width = std::max(static_cast<int>(m_max_stencil_radius), static_cast<int>(prediction_stencil_radius));
+            m_ghost_width = std::max(m_max_stencil_radius, static_cast<int>(prediction_stencil_radius));
         }
 
       private:

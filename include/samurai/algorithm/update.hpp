@@ -610,7 +610,7 @@ namespace samurai
         using interval_t = typename Field::mesh_t::interval_t;
         using coord_t    = typename lca_t::coord_type;
 
-        static constexpr std::size_t ghost_width = Field::mesh_t::config::ghost_width;
+        int ghost_width = field.mesh().ghost_width();
 
         ArrayOfIntervalAndPoint<interval_t, coord_t> interval_list;
 
