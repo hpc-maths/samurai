@@ -78,9 +78,12 @@ namespace samurai
         MRMesh() = default;
         MRMesh(const ca_type& ca, const self_type& ref_mesh);
         MRMesh(const cl_type& cl, const self_type& ref_mesh);
-        MRMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level);
-        MRMesh(const ca_type& ca, std::size_t min_level, std::size_t max_level);
+        MRMesh(const mesh_config<Config::dim>& config, const cl_type& cl);
+        MRMesh(const mesh_config<Config::dim>& config, const ca_type& ca);
         MRMesh(mesh_config<Config::dim>& config, const samurai::Box<double, dim>& b);
+        MRMesh(mesh_config<Config::dim>& config, const samurai::DomainBuilder<dim>& domain_builder);
+
+        // deprecated constructors
         MRMesh(const samurai::Box<double, dim>& b,
                std::size_t min_level,
                std::size_t max_level,
@@ -91,7 +94,6 @@ namespace samurai
                std::size_t max_level,
                double approx_box_tol = lca_type::default_approx_box_tol,
                double scaling_factor = 0);
-        MRMesh(mesh_config<Config::dim>& config, const samurai::DomainBuilder<dim>& domain_builder);
         MRMesh(const samurai::Box<double, dim>& b,
                std::size_t min_level,
                std::size_t max_level,
@@ -118,14 +120,14 @@ namespace samurai
     }
 
     template <class Config>
-    inline MRMesh<Config>::MRMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level)
-        : base_type(cl, min_level, max_level)
+    inline MRMesh<Config>::MRMesh(const mesh_config<Config::dim>& config, const cl_type& cl)
+        : base_type(config, cl)
     {
     }
 
     template <class Config>
-    inline MRMesh<Config>::MRMesh(const ca_type& ca, std::size_t min_level, std::size_t max_level)
-        : base_type(ca, min_level, max_level)
+    inline MRMesh<Config>::MRMesh(const mesh_config<Config::dim>& config, const ca_type& ca)
+        : base_type(config, ca)
     {
     }
 

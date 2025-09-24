@@ -36,7 +36,8 @@ namespace samurai
                 domain_with_hole_cl[level][index_y].add_interval({interval});
             });
 
-        samurai::MRMesh<Config> mesh{domain_with_hole_cl, level, level};
+        auto mesh_cfg = mesh_config<dim>().min_level(level).max_level(level);
+        samurai::MRMesh<Config> mesh{mesh_cfg, domain_with_hole_cl};
 
         EXPECT_EQ(mesh.nb_cells(mesh_id_t::cells), domain_lca.nb_cells() - hole_lca.nb_cells());
     }

@@ -104,8 +104,9 @@ namespace samurai
         cl[1][{0}].add_interval({4, 6});
         cl[2][{0}].add_interval({4, 8});
 
-        auto mesh  = MRMesh<config>(cl, 1, 2);
-        auto field = make_scalar_field<std::size_t>("u", mesh);
+        auto mesh_cfg = mesh_config<2>().min_level(1).max_level(2);
+        auto mesh     = MRMesh<config>(mesh_cfg, cl);
+        auto field    = make_scalar_field<std::size_t>("u", mesh);
 
         std::size_t index = 0;
         for_each_cell(mesh,

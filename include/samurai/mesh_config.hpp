@@ -18,6 +18,24 @@ namespace samurai
         static constexpr std::size_t dim                       = dim_;
         static constexpr std::size_t prediction_stencil_radius = prediction_stencil_radius_;
 
+      private:
+
+        int m_max_stencil_radius       = 1;
+        std::size_t m_graduation_width = default_config::graduation_width;
+        int m_ghost_width              = default_config::ghost_width;
+
+        std::size_t m_min_level = 0;
+        std::size_t m_max_level = 6;
+
+        double m_approx_box_tol = 0.05;
+        double m_scaling_factor = 0;
+
+        std::array<bool, dim> m_periodic;
+
+        bool m_disable_args_parse = false;
+
+      public:
+
         mesh_config()
         {
             m_periodic.fill(false);
@@ -197,18 +215,21 @@ namespace samurai
 
       private:
 
-        int m_max_stencil_radius       = 1;
-        std::size_t m_graduation_width = default_config::graduation_width;
-        int m_ghost_width              = default_config::ghost_width;
+#ifdef SAMURAI_WITH_MPI
+        friend class boost::serialization::access;
 
-        std::size_t m_min_level = 0;
-        std::size_t m_max_level = 6;
-
-        double m_approx_box_tol = 0.05;
-        double m_scaling_factor = 0;
-
-        std::array<bool, dim> m_periodic;
-
-        bool m_disable_args_parse = false;
+        template <class Archive>
+        void serialize(Archive& ar, const unsigned long)
+        {
+            // ar & m_max_stencil_radius;
+            // ar & m_graduation_width;
+            // ar & m_ghost_width;
+            ar & m_min_level;
+            ar & m_max_level;
+            // ar & m_approx_box_tol;
+            // ar & m_scaling_factor;
+            // ar & m_disable_args_parse;
+        }
+#endif
     };
 }

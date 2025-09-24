@@ -14,8 +14,9 @@ namespace samurai
         cl_type cl2;
         cl2[level][{}].add_interval({0, 3});
 
-        auto m1 = Mesh(cl1, level, level);
-        auto m2 = Mesh(cl2, level, level);
+        auto mesh_cfg = mesh_config<1>().min_level(level).max_level(level);
+        auto m1       = Mesh(mesh_cfg, cl1);
+        auto m2       = Mesh(mesh_cfg, cl2);
         return std::make_tuple(m1, m2);
     }
 

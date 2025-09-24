@@ -18,10 +18,9 @@ namespace samurai
 
         Box box({-1., -1.}, {1., 1.});
 
-        std::size_t min_level = 2;
-        std::size_t max_level = 6;
+        auto mesh_cfg = mesh_config<dim>().min_level(2).max_level(6);
 
-        Mesh mesh{box, min_level, max_level};
+        Mesh mesh{mesh_cfg, box};
 
         direction_t direction = {-1, -1}; // corner direction
         std::size_t level     = 6;
