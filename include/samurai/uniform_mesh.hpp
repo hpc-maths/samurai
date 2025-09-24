@@ -247,7 +247,7 @@ namespace samurai
     template <class Config>
     inline auto UniformMesh<Config>::cfg() const
     {
-        return mesh_config();
+        return mesh_config<dim>();
     }
 
     template <class Config>

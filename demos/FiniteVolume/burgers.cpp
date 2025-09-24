@@ -107,7 +107,7 @@ int main_dim(int argc, char* argv[])
     box_corner2.fill(right_box);
     Box box(box_corner1, box_corner2);
 
-    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).max_stencil_width(6);
+    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).max_stencil_size(6);
     samurai::MRMesh<Config> mesh;
 
     auto u    = samurai::make_vector_field<n_comp>("u", mesh);
