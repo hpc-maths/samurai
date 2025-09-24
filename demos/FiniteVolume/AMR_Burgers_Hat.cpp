@@ -240,7 +240,7 @@ int main(int argc, char* argv[])
 
     if (restart_file.empty())
     {
-        mesh = {box, start_level, config.min_level(), config.max_level()};
+        mesh = {config, box, start_level};
         init_solution(phi);
     }
     else

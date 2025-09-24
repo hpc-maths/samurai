@@ -4,6 +4,7 @@
 #pragma once
 
 #include <algorithm>
+#include <type_traits>
 
 #include <xtensor/containers/xfixed.hpp>
 
@@ -400,7 +401,7 @@ namespace samurai
     template <class Field>
     void update_outer_ghosts(std::size_t level, Field& field)
     {
-        static_assert(Field::mesh_t::config::prediction_order <= 1);
+        static_assert(std::remove_cvref_t<decltype(field.mesh().cfg())>::prediction_stencil_radius <= 1);
 
         constexpr std::size_t dim = Field::dim;
 
