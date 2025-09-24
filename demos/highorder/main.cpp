@@ -135,8 +135,6 @@ int main(int argc, char* argv[])
 
     app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--max-corner", min_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
-    app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--refinement", refinement, "Number of refinement")->capture_default_str()->group("Multiresolution");
     app.add_option("--with-correction", correction, "Apply flux correction at the interface of two refinement levels")
         ->capture_default_str()
@@ -150,7 +148,9 @@ int main(int argc, char* argv[])
     using mesh_t    = samurai::MRMesh<Config>;
     using mesh_id_t = typename mesh_t::mesh_id_t;
     using cl_type   = typename mesh_t::cl_type;
-    mesh_t init_mesh{box, min_level, max_level};
+
+    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
+    mesh_t init_mesh{config, box};
 
     auto adapt_field = samurai::make_scalar_field<double>("adapt_field",
                                                           init_mesh,

@@ -212,8 +212,6 @@ int main(int argc, char* argv[])
     app.add_option("--Ti", t, "Initial time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
-    app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--with-correction", correction, "Apply flux correction at the interface of two refinement levels")
         ->capture_default_str()
         ->group("Multiresolution");
@@ -224,13 +222,14 @@ int main(int argc, char* argv[])
     SAMURAI_PARSE(argc, argv);
 
     const samurai::Box<double, dim> box(min_corner, max_corner);
+    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
     samurai::MRMesh<Config> mesh;
 
     auto u = samurai::make_scalar_field<double>("u", mesh);
 
     if (restart_file.empty())
     {
-        mesh = {box, min_level, max_level};
+        mesh = {config, box};
         init(u);
     }
     else
@@ -240,7 +239,7 @@ int main(int argc, char* argv[])
 
     samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
 
-    double dt            = cfl * mesh.cell_length(max_level);
+    double dt            = cfl * mesh.cell_length(mesh.max_level());
     const double dt_save = Tf / static_cast<double>(nfiles);
 
     auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);

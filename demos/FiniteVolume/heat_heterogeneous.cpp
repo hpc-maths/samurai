@@ -74,8 +74,6 @@ int main(int argc, char* argv[])
     app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
-    app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_flag("--save-final-state-only", save_final_state_only, "Save final state only")->group("Output");
@@ -93,6 +91,7 @@ int main(int argc, char* argv[])
     box_corner1.fill(left_box);
     box_corner2.fill(right_box);
     Box box(box_corner1, box_corner2);
+    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
     samurai::MRMesh<Config> mesh;
 
     auto u    = samurai::make_scalar_field<double>("u", mesh);
@@ -100,7 +99,7 @@ int main(int argc, char* argv[])
 
     if (restart_file.empty())
     {
-        mesh = {box, min_level, max_level};
+        mesh = {config, box};
         u.resize();
         // Initial solution: crenel
         samurai::for_each_cell(mesh,
@@ -153,7 +152,7 @@ int main(int argc, char* argv[])
     if (explicit_scheme)
     {
         double diff_coeff = 4;
-        double dx         = mesh.cell_length(max_level);
+        double dx         = mesh.cell_length(mesh.max_level());
         dt                = cfl * (dx * dx) / (pow(2, dim) * diff_coeff);
     }
 

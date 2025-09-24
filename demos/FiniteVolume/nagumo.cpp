@@ -90,8 +90,6 @@ int main(int argc, char* argv[])
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
     app.add_flag("--explicit-reaction", explicit_reaction, "Explicit the reaction term")->capture_default_str()->group("Simulation parameters");
     app.add_flag("--explicit-diffusion", explicit_diffusion, "Explicit the diffusion term")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
-    app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_flag("--save-final-state-only", save_final_state_only, "Save final state only")->group("Output");
@@ -109,7 +107,8 @@ int main(int argc, char* argv[])
     box_corner1.fill(left_box);
     box_corner2.fill(right_box);
     Box box(box_corner1, box_corner2);
-    samurai::MRMesh<Config> mesh{box, min_level, max_level};
+    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
+    samurai::MRMesh<Config> mesh{config, box};
 
     auto u = samurai::make_vector_field<double, n_comp>("u", mesh);
 
@@ -177,7 +176,7 @@ int main(int argc, char* argv[])
         dt = Tf / 100;
         if (explicit_diffusion)
         {
-            double dx = mesh.cell_length(max_level);
+            double dx = mesh.cell_length(mesh.max_level());
             dt        = cfl * (dx * dx) / (pow(2, dim) * D);
         }
     }

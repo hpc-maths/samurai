@@ -180,8 +180,6 @@ int main(int argc, char* argv[])
         ->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
-    app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
@@ -196,8 +194,9 @@ int main(int argc, char* argv[])
     PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size));
     PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
 
-    auto box  = samurai::Box<double, dim>({0, 0}, {1, 1});
-    auto mesh = Mesh(box, min_level, max_level);
+    auto box    = samurai::Box<double, dim>({0, 0}, {1, 1});
+    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
+    auto mesh   = Mesh(config, box);
 
     //--------------------//
     // Stationary problem //

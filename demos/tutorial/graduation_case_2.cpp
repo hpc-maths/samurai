@@ -50,8 +50,8 @@ int main(int argc, char* argv[])
     fs::path path        = fs::current_path();
     std::string filename = "graduation_case_2";
 
-    app.add_option("--min-level", min_level, "Minimum level of the mesh generator")->capture_default_str();
-    app.add_option("--max-level", max_level, "Maximum level of the mesh generator")->capture_default_str();
+    app.add_option("--minimum-level", min_level, "Minimum level of the mesh generator")->capture_default_str();
+    app.add_option("--maximum-level", max_level, "Maximum level of the mesh generator")->capture_default_str();
     app.add_flag("--with-corner", with_corner, "Make the graduation including the diagonal")->capture_default_str();
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");

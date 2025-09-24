@@ -91,8 +91,6 @@ int main_dim(int argc, char* argv[])
     app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
-    app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
@@ -108,6 +106,8 @@ int main_dim(int argc, char* argv[])
     box_corner1.fill(left_box);
     box_corner2.fill(right_box);
     Box box(box_corner1, box_corner2);
+
+    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
     samurai::MRMesh<Config> mesh;
 
     auto u    = samurai::make_vector_field<n_comp>("u", mesh);
@@ -117,7 +117,7 @@ int main_dim(int argc, char* argv[])
 
     if (restart_file.empty())
     {
-        mesh = {box, min_level, max_level};
+        mesh = {config, box};
         u.resize();
 
         // Initial solution
@@ -221,7 +221,7 @@ int main_dim(int argc, char* argv[])
     //   Time iteration   //
     //--------------------//
 
-    double dx = mesh.cell_length(max_level);
+    double dx = mesh.cell_length(mesh.max_level());
     dt        = cfl * dx / pow(2, dim);
 
     auto MRadaptation = samurai::make_MRAdapt(u);
