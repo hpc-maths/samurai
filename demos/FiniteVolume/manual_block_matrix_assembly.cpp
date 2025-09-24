@@ -51,9 +51,9 @@ struct Coupling_auxCe_e : public samurai::petsc::ManualAssembly<aux_t> // <...>:
                                                         {
                                                             PetscInt row = this->row_shift() + static_cast<PetscInt>(cell.index);
                                                             PetscInt col = this->col_shift() + i;
-                                                            double coeff = 123;                              // random...
-                                                            MatSetValue(A, row, col, coeff, ADD_VALUES);     // 1st aux variable
-                                                            MatSetValue(A, row, col + 1, coeff, ADD_VALUES); // 2nd aux variable
+                                                            double coeff = 123;                                   // random...
+                                                            MatSetValueLocal(A, row, col, coeff, ADD_VALUES);     // 1st aux variable
+                                                            MatSetValueLocal(A, row, col + 1, coeff, ADD_VALUES); // 2nd aux variable
                                                             i += 2;
                                                         });
     }

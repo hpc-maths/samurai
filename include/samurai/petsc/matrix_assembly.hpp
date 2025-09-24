@@ -29,6 +29,15 @@ namespace samurai
             PetscInt m_rows             = 0;
             PetscInt m_cols             = 0;
 
+#ifdef SAMURAI_WITH_MPI
+            // Petsc takes a reference to the nnz vectors, so we must keep them alive as long as the matrix is alive
+            std::vector<PetscInt> m_d_nnz; // number of non-zeros in the diagonal part of the local submatrix
+            std::vector<PetscInt> m_o_nnz; // number of non-zeros in the off-diagonal part of the local submatrix
+
+            ISLocalToGlobalMapping m_local_to_global_rows = nullptr;
+            ISLocalToGlobalMapping m_local_to_global_cols = nullptr;
+#endif
+
           public:
 
             std::string name() const
@@ -166,14 +175,107 @@ namespace samurai
                 times::timers.start("matrix assembly");
 
                 reset();
+
+                //-----------------//
+                // Matrix creation //
+                //-----------------//
+
                 auto m = matrix_rows();
                 auto n = matrix_cols();
 
-                MatCreate(PETSC_COMM_SELF, &A);
-                MatSetSizes(A, m, n, m, n);
+                MatCreate(PETSC_COMM_WORLD, &A);
+#ifdef SAMURAI_WITH_MPI
+                MatSetType(A, MATMPIAIJ);
+#else
+                MatSetType(A, MATSEQAIJ);
+#endif
+
+                PetscInt global_nrows = PETSC_DETERMINE;
+                PetscInt global_ncols = PETSC_DETERMINE;
+                MatSetSizes(A, m, n, global_nrows, global_ncols);
                 MatSetFromOptions(A);
                 PetscObjectSetName(reinterpret_cast<PetscObject>(A), m_name.c_str());
 
+#ifdef SAMURAI_WITH_MPI
+                // Sets the local to global mapping for the rows and columns, which allows to use the local numbering when inserting
+                // values into the matrix.
+                MatSetLocalToGlobalMapping(A, m_local_to_global_rows, m_local_to_global_cols);
+#endif
+                //---------------------------------------//
+                // Preallocation of the non-zero entries //
+                //---------------------------------------//
+
+#ifdef SAMURAI_WITH_MPI
+                mpi::communicator world;
+
+                // Number of non-zeros per row in the diagonal and off-diagonal part of the local submatrix. 0 by default.
+                auto& d_nnz = m_d_nnz;
+                auto& o_nnz = m_o_nnz;
+                d_nnz.resize(static_cast<std::size_t>(m));
+                o_nnz.resize(static_cast<std::size_t>(m));
+                std::fill(d_nnz.begin(), d_nnz.end(), 0);
+                std::fill(o_nnz.begin(), o_nnz.end(), 0);
+
+                if (world.rank() == 1)
+                {
+                    sleep(1); // to avoid jumbled output
+                }
+
+                std::cout << "\n\t> [" << world.rank() << "] sparsity_pattern_scheme" << std::endl;
+                sparsity_pattern_scheme(d_nnz, o_nnz);
+                // world.barrier(); // TO REMOVE
+
+                if (m_include_bc)
+                {
+                    std::cout << "\n\t> [" << world.rank() << "] sparsity_pattern_boundary" << std::endl;
+                    sparsity_pattern_boundary(d_nnz, o_nnz);
+                    // world.barrier(); // TO REMOVE
+                }
+                if (m_assemble_proj_pred)
+                {
+                    std::cout << "\n\t> [" << world.rank() << "] sparsity_pattern_projection" << std::endl;
+                    sparsity_pattern_projection(d_nnz, o_nnz);
+                    world.barrier(); // TO REMOVE
+                    std::cout << "\n\t> [" << world.rank() << "] sparsity_pattern_prediction" << std::endl;
+                    sparsity_pattern_prediction(d_nnz, o_nnz);
+                    // world.barrier(); // TO REMOVE
+                }
+                if (m_insert_value_on_diag_for_useless_ghosts)
+                {
+                    std::cout << "\n\t> [" << world.rank() << "] sparsity_pattern_useless_ghosts" << std::endl;
+                    sparsity_pattern_useless_ghosts(d_nnz);
+                    // world.barrier(); // TO REMOVE
+                }
+
+                if (!m_is_block)
+                {
+                    if (world.rank() == 1)
+                    {
+                        sleep(1); // to avoid jumbled output
+                    }
+                    std::cout << "\n\t> [" << world.rank() << "] Preallocation of" << std::endl;
+                    for (std::size_t row = 0; row < static_cast<std::size_t>(m); ++row)
+                    {
+                        std::cout << "d_nnz[L" << row << "] = " << d_nnz[row] << std::endl;
+                    }
+                    std::cout << std::endl;
+                    for (std::size_t row = 0; row < static_cast<std::size_t>(m); ++row)
+                    {
+                        std::cout << "o_nnz[L" << row << "] = " << o_nnz[row] << std::endl;
+                    }
+                    std::cout << std::endl;
+
+                    // sleep(10); // to avoid jumbled output
+                    // world.barrier(); // TO REMOVE
+
+                    std::cout << "\n\t> [" << world.rank() << "] MatMPIAIJSetPreallocation" << std::endl;
+                    MatMPIAIJSetPreallocation(A, PETSC_DEFAULT, d_nnz.data(), PETSC_DEFAULT, o_nnz.data());
+                    std::cout << "\n\t> [" << world.rank() << "] MatMPIAIJSetPreallocation <done>" << std::endl;
+
+                    std::cout << "\n\t> [" << world.rank() << "] create_matrix done" << std::endl;
+                    // world.barrier(); // TO REMOVE
+                }
+#else
                 // Number of non-zeros per row. 0 by default.
                 std::vector<PetscInt> nnz(static_cast<std::size_t>(m), 0);
 
@@ -200,6 +302,7 @@ namespace samurai
                 {
                     MatSeqAIJSetPreallocation(A, PETSC_DEFAULT, nnz.data());
                 }
+#endif
                 // MatSetOption(A, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
                 times::timers.stop("matrix assembly");
             }
@@ -212,19 +315,57 @@ namespace samurai
             {
                 times::timers.start("matrix assembly");
 
+                mpi::communicator world;
+
+                std::cout << "\n\t> [" << world.rank() << "] start assemble_matrix" << std::endl;
+
+                if (world.rank() == 1)
+                {
+                    sleep(1);
+                }
+                std::cout << "\n\t> [" << world.rank() << "] assemble_scheme" << std::endl;
                 assemble_scheme(A);
+
+                // world.barrier(); // TO REMOVE
+
                 if (m_include_bc)
                 {
+                    if (world.rank() == 1)
+                    {
+                        sleep(1);
+                    }
+                    std::cout << "\n\t> [" << world.rank() << "] assemble_boundary_conditions" << std::endl;
                     assemble_boundary_conditions(A);
+
+                    // world.barrier(); // TO REMOVE
                 }
                 if (m_assemble_proj_pred)
                 {
+                    if (world.rank() == 1)
+                    {
+                        sleep(1);
+                    }
+                    std::cout << "\n\t> [" << world.rank() << "] assemble_projection" << std::endl;
                     assemble_projection(A);
+                    // world.barrier(); // TO REMOVE
+
+                    if (world.rank() == 1)
+                    {
+                        sleep(1);
+                    }
+                    std::cout << "\n\t> [" << world.rank() << "] assemble_prediction" << std::endl;
                     assemble_prediction(A);
+                    // world.barrier(); // TO REMOVE
                 }
                 if (m_insert_value_on_diag_for_useless_ghosts)
                 {
+                    if (world.rank() == 1)
+                    {
+                        sleep(1);
+                    }
+                    std::cout << "\n\t> [" << world.rank() << "] insert_value_on_diag_for_useless_ghosts" << std::endl;
                     insert_value_on_diag_for_useless_ghosts(A);
+                    // world.barrier(); // TO REMOVE
                 }
 
                 if (!m_is_block)
@@ -237,6 +378,7 @@ namespace samurai
 
                     if (final_assembly)
                     {
+                        std::cout << "\n\t> [" << world.rank() << "] ASSEMBLY" << std::endl;
                         MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
                         MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
                     }
@@ -248,8 +390,42 @@ namespace samurai
             {
                 // std::cout << "Destruction of '" << name() << "'" << std::endl;
                 m_is_deleted = true;
+                if (m_local_to_global_rows)
+                {
+                    ISLocalToGlobalMappingDestroy(&m_local_to_global_rows);
+                }
+                if (m_local_to_global_cols != m_local_to_global_rows && m_local_to_global_cols)
+                {
+                    ISLocalToGlobalMappingDestroy(&m_local_to_global_cols);
+                }
             }
 
+#ifdef SAMURAI_WITH_MPI
+            /**
+             * @brief Sets the sparsity pattern of the matrix for the interior of the domain (cells only).
+             * @param d_nnz that stores, for each row index, the number of non-zero coefficients in the diagonal (local-local) block.
+             * @param o_nnz that stores, for each row index, the number of non-zero coefficients in the off-diagonal (local-neighb.) block.
+             */
+            virtual void sparsity_pattern_scheme(std::vector<PetscInt>& d_nnz, std::vector<PetscInt>& o_nnz) const = 0;
+            /**
+             * @brief Sets the sparsity pattern of the matrix for the boundary conditions.
+             * @param d_nnz that stores, for each row index, the number of non-zero coefficients in the diagonal (local-local) block.
+             * @param o_nnz that stores, for each row index, the number of non-zero coefficients in the off-diagonal (local-neighb.) block.
+             */
+            virtual void sparsity_pattern_boundary(std::vector<PetscInt>& d_nnz, std::vector<PetscInt>& o_nnz) const = 0;
+            /**
+             * @brief Sets the sparsity pattern of the matrix for the projection ghosts.
+             * @param d_nnz that stores, for each row index, the number of non-zero coefficients in the diagonal (local-local) block.
+             * @param o_nnz that stores, for each row index, the number of non-zero coefficients in the off-diagonal (local-neighb.) block.
+             */
+            virtual void sparsity_pattern_projection(std::vector<PetscInt>& d_nnz, std::vector<PetscInt>& o_nnz) const = 0;
+            /**
+             * @brief Sets the sparsity pattern of the matrix for the prediction ghosts.
+             * @param d_nnz that stores, for each row index, the number of non-zero coefficients in the diagonal (local-local) block.
+             * @param o_nnz that stores, for each row index, the number of non-zero coefficients in the off-diagonal (local-neighb.) block.
+             */
+            virtual void sparsity_pattern_prediction(std::vector<PetscInt>& d_nnz, std::vector<PetscInt>& o_nnz) const = 0;
+#else
             /**
              * @brief Sets the sparsity pattern of the matrix for the interior of the domain (cells only).
              * @param nnz that stores, for each row index in the matrix, the number of non-zero coefficients.
@@ -271,6 +447,7 @@ namespace samurai
              */
             virtual void sparsity_pattern_prediction(std::vector<PetscInt>& nnz) const = 0;
 
+#endif
             /**
              * @brief Inserts coefficients into the matrix.
              * This function defines the scheme in the inside of the domain.

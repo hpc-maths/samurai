@@ -5,6 +5,9 @@
 #include "../../schemes/fv/FV_scheme.hpp"
 #include "../../schemes/fv/scheme_operators.hpp"
 #include "../matrix_assembly.hpp"
+#ifdef SAMURAI_WITH_MPI
+#include "../global_numbering.hpp"
+#endif
 
 namespace samurai
 {
@@ -53,7 +56,11 @@ namespace samurai
 
             using directional_bdry_config_t = DirectionalBoundaryConfig<field_t, output_n_comp, bdry_stencil_size, nb_bdry_ghosts>;
 
+#ifdef SAMURAI_WITH_MPI
+            static constexpr bool ghost_elimination_enabled = false; // ghost elimination and MPI are not compatible yet
+#else
             static constexpr bool ghost_elimination_enabled = true;
+#endif
 
           protected:
 
@@ -61,6 +68,12 @@ namespace samurai
             field_t* m_unknown    = nullptr;
             std::size_t m_n_cells = 0;
             std::vector<bool> m_is_row_empty;
+#ifdef SAMURAI_WITH_MPI
+            std::size_t m_n_owned_cells = 0;
+            std::vector<PetscInt> m_local_cell_indices;
+            std::vector<PetscInt> m_global_cell_indices;
+            std::vector<int> m_ownership; // store the owner rank of each cell
+#endif
 
             // Ghost recursion
             using cell_coeff_pair_t     = std::pair<index_t, double>;
@@ -95,7 +108,66 @@ namespace samurai
                     exit(EXIT_FAILURE);
                 }
                 m_n_cells = mesh().nb_cells();
-                // std::cout << "reset " << this->name() << ", rows = " << matrix_rows() << std::endl;
+
+#ifdef SAMURAI_WITH_MPI
+                compute_global_numbering(mesh(), m_local_cell_indices, m_global_cell_indices, m_ownership);
+
+                m_n_owned_cells = 0;
+                for (auto& own : m_ownership)
+                {
+                    if (own == mpi::communicator().rank())
+                    {
+                        ++m_n_owned_cells;
+                    }
+                }
+                // std::cout << "rank " << mpi::communicator().rank() << " has " << m_n_owned_cells << " owned cells/ghosts\n";
+
+                // if (mpi::communicator().rank() == 1)
+                // {
+                //     sleep(1);
+                // }
+                // std::cout << "ownership: size = " << m_ownership.size() << std::endl;
+                // for (std::size_t i = 0; i < m_ownership.size(); ++i)
+                // {
+                //     std::cout << fmt::format("rank {}: ownership[L{}] = {}\n", mpi::communicator().rank(), i, m_ownership[i]);
+                // }
+                // std::cout << std::endl;
+
+                if (m_local_to_global_rows)
+                {
+                    ISLocalToGlobalMappingDestroy(&m_local_to_global_rows);
+                }
+                if (m_local_to_global_cols != m_local_to_global_rows)
+                {
+                    ISLocalToGlobalMappingDestroy(&m_local_to_global_cols);
+                }
+
+                if constexpr (input_n_comp == 1 && output_n_comp == 1)
+                {
+                    std::vector<PetscInt> m_local_to_global(m_local_cell_indices.size());
+                    for (std::size_t i = 0; i < m_local_cell_indices.size(); ++i)
+                    {
+                        m_local_to_global[static_cast<std::size_t>(m_local_cell_indices[i])] = m_global_cell_indices[i];
+                    }
+                    ISLocalToGlobalMappingCreate(PETSC_COMM_WORLD,
+                                                 1,
+                                                 static_cast<PetscInt>(m_local_to_global.size()),
+                                                 m_local_to_global.data(),
+                                                 /*PETSC_USE_POINTER,*/ PETSC_COPY_VALUES,
+                                                 &m_local_to_global_rows);
+
+                    std::cout << "Created local to global mapping for rows of matrix '" << name() << "' with 1 component\n";
+                    ISLocalToGlobalMappingView(m_local_to_global_rows, PETSC_VIEWER_STDOUT_WORLD);
+                    m_local_to_global_cols = m_local_to_global_rows;
+                }
+                else
+                {
+                    std::cerr << "Unimplemented: local to global mapping with multiple components for matrix '" << name() << "'\n";
+                    exit(EXIT_FAILURE);
+                }
+                // m_is_row_empty.resize(static_cast<std::size_t>(m_n_cells * output_n_comp));
+// #else
+#endif
                 m_is_row_empty.resize(static_cast<std::size_t>(matrix_rows()));
                 std::fill(m_is_row_empty.begin(), m_is_row_empty.end(), true);
 
@@ -195,17 +267,98 @@ namespace samurai
 
             PetscInt matrix_rows() const override
             {
+#ifdef SAMURAI_WITH_MPI
+                return static_cast<PetscInt>(m_n_owned_cells * output_n_comp);
+#else
                 return static_cast<PetscInt>(m_n_cells * output_n_comp);
+#endif
             }
 
             PetscInt matrix_cols() const override
             {
+#ifdef SAMURAI_WITH_MPI
+                return static_cast<PetscInt>(m_n_owned_cells * input_n_comp);
+#else
                 return static_cast<PetscInt>(m_n_cells * input_n_comp);
+#endif
             }
+
+#ifdef SAMURAI_WITH_MPI
+            inline PetscInt local_col_index(PetscInt cell_index, [[maybe_unused]] unsigned int field_j) const
+            {
+                cell_index = m_local_cell_indices[static_cast<std::size_t>(cell_index)];
+                if constexpr (field_t::is_scalar)
+                {
+                    return m_col_shift + cell_index;
+                }
+                else if constexpr (detail::is_soa_v<field_t>)
+                {
+                    return m_col_shift + static_cast<PetscInt>(field_j * m_n_cells) + cell_index;
+                }
+                else
+                {
+                    return m_col_shift + cell_index * static_cast<PetscInt>(input_n_comp) + static_cast<PetscInt>(field_j);
+                }
+            }
+
+            inline PetscInt global_col_index(PetscInt cell_index, [[maybe_unused]] unsigned int field_j) const
+            {
+                cell_index = m_global_cell_indices[static_cast<std::size_t>(cell_index)];
+                if constexpr (field_t::is_scalar)
+                {
+                    return m_col_shift + cell_index;
+                }
+                else if constexpr (detail::is_soa_v<field_t>)
+                {
+                    return m_col_shift + static_cast<PetscInt>(field_j * m_n_cells) + cell_index;
+                }
+                else
+                {
+                    return m_col_shift + cell_index * static_cast<PetscInt>(input_n_comp) + static_cast<PetscInt>(field_j);
+                }
+            }
+
+            inline PetscInt local_row_index(PetscInt cell_index, [[maybe_unused]] unsigned int field_i) const
+            {
+                cell_index = m_local_cell_indices[static_cast<std::size_t>(cell_index)];
+                if constexpr (output_n_comp == 1)
+                {
+                    return m_row_shift + cell_index;
+                }
+                else if constexpr (detail::is_soa_v<field_t>)
+                {
+                    return m_row_shift + static_cast<PetscInt>(field_i * m_n_cells) + cell_index;
+                }
+                else
+                {
+                    return m_row_shift + cell_index * static_cast<PetscInt>(output_n_comp) + static_cast<PetscInt>(field_i);
+                }
+            }
+
+            inline PetscInt global_row_index(PetscInt cell_index, [[maybe_unused]] unsigned int field_i) const
+            {
+                cell_index = m_global_cell_indices[static_cast<std::size_t>(cell_index)];
+                if constexpr (output_n_comp == 1)
+                {
+                    return m_row_shift + cell_index;
+                }
+                else if constexpr (detail::is_soa_v<field_t>)
+                {
+                    return m_row_shift + static_cast<PetscInt>(field_i * m_n_cells) + cell_index;
+                }
+                else
+                {
+                    return m_row_shift + cell_index * static_cast<PetscInt>(output_n_comp) + static_cast<PetscInt>(field_i);
+                }
+            }
+#endif
 
             // Global data index
             inline PetscInt col_index(PetscInt cell_index, [[maybe_unused]] unsigned int field_j) const
             {
+#ifdef SAMURAI_WITH_MPI
+                cell_index = m_global_cell_indices[static_cast<std::size_t>(cell_index)];
+#endif
                 if constexpr (field_t::is_scalar)
                 {
                     return m_col_shift + cell_index;
@@ -222,6 +375,9 @@ namespace samurai
 
             inline PetscInt row_index(PetscInt cell_index, [[maybe_unused]] unsigned int field_i) const
             {
+#ifdef SAMURAI_WITH_MPI
+                cell_index = m_global_cell_indices[static_cast<std::size_t>(cell_index)];
+#endif
                 if constexpr (output_n_comp == 1)
                 {
                     return m_row_shift + cell_index;
@@ -246,6 +402,28 @@ namespace samurai
                 return row_index(static_cast<PetscInt>(cell.index), field_i);
             }
 
+#ifdef SAMURAI_WITH_MPI
+            inline PetscInt global_col_index(const cell_t& cell, unsigned int field_j) const
+            {
+                return global_col_index(static_cast<PetscInt>(cell.index), field_j);
+            }
+
+            inline PetscInt global_row_index(const cell_t& cell, unsigned int field_i) const
+            {
+                return global_row_index(static_cast<PetscInt>(cell.index), field_i);
+            }
+
+            inline PetscInt local_col_index(const cell_t& cell, unsigned int field_j) const
+            {
+                return local_col_index(static_cast<PetscInt>(cell.index), field_j);
+            }
+
+            inline PetscInt local_row_index(const cell_t& cell, unsigned int field_i) const
+            {
+                return local_row_index(static_cast<PetscInt>(cell.index), field_i);
+            }
+#endif
+
             template <class Coeffs>
             inline double rhs_coeff(const Coeffs& coeffs, [[maybe_unused]] unsigned int field_i, [[maybe_unused]] unsigned int field_j) const
             {
@@ -263,6 +441,7 @@ namespace samurai
             inline void set_is_row_not_empty(int_type row_number)
             {
                 assert(row_number - m_row_shift >= 0);
+                // std::cout << fmt::format("[{}]: set_is_row_not_empty(L{})\n", mpi::communicator().rank(), row_number);
                 m_is_row_empty[static_cast<std::size_t>(row_number - m_row_shift)] = false;
             }
 
@@ -380,18 +559,34 @@ namespace samurai
 
           public:
 
-            void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const override
+            void sparsity_pattern_boundary(
+#ifdef SAMURAI_WITH_MPI
+                std::vector<PetscInt>& d_nnz,
+                std::vector<PetscInt>& o_nnz
+#else
+                std::vector<PetscInt>& nnz
+#endif
+            ) const override
             {
                 if (mesh().is_periodic())
                 {
                     iterate_on_periodic_ghosts(
-                        [&](auto ghost_cell_index, auto /* cell_cell_index */)
+                        [&](auto ghost_cell_index, [[maybe_unused]] auto cell_cell_index)
                         {
                             for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                             {
-                                PetscInt row = row_index(static_cast<PetscInt>(ghost_cell_index), field_i);
-
-                                nnz[static_cast<std::size_t>(row)] = 2;
+                                std::size_t row = static_cast<std::size_t>(row_index(static_cast<PetscInt>(ghost_cell_index), field_i));
+#ifdef SAMURAI_WITH_MPI
+                                if (m_ownership[static_cast<std::size_t>(cell_cell_index)] == mpi::communicator().rank())
+                                    d_nnz.at(row) = 2;
+                                else
+                                {
+                                    d_nnz.at(row) = 1;
+                                    o_nnz.at(row) = 1;
+                                }
+#else
+                                nnz[row] = 2;
+#endif
                             }
                         });
                 }
@@ -399,12 +594,56 @@ namespace samurai
                 iterate_on_boundary(
                     [&](auto& cells, auto& equations, auto&, auto*)
                     {
+#ifdef SAMURAI_WITH_MPI
+                        sparsity_pattern_bc(d_nnz, o_nnz, cells, equations);
+#else
                         sparsity_pattern_bc(nnz, cells, equations);
+#endif
                     });
             }
 
           protected:
 
+#ifdef SAMURAI_WITH_MPI
+            template <class CellList, class CoeffList>
+            void sparsity_pattern_bc(std::vector<PetscInt>& d_nnz,
+                                     std::vector<PetscInt>& o_nnz,
+                                     CellList& cells,
+                                     std::array<CoeffList, nb_bdry_ghosts>& equations) const
+            {
+                mpi::communicator world;
+                int rank = world.rank();
+
+                for (std::size_t e = 0; e < nb_bdry_ghosts; ++e)
+                {
+                    const auto& eq    = equations[e];
+                    const auto& ghost = cells[eq.ghost_index];
+
+                    if (this->m_ownership[static_cast<std::size_t>(ghost.index)] != rank)
+                    {
+                        continue;
+                    }
+
+                    for (std::size_t c = 0; c < bdry_stencil_size; ++c)
+                    {
+                        if (this->m_ownership[static_cast<std::size_t>(cells[c].index)] == rank)
+                        {
+                            for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
+                            {
+                                d_nnz.at(static_cast<std::size_t>(local_row_index(ghost, field_i))) += 1;
+                            }
+                        }
+                        else
+                        {
+                            for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
+                            {
+                                o_nnz.at(static_cast<std::size_t>(local_row_index(ghost, field_i))) += 1;
+                            }
+                        }
+                    }
+                }
+            }
+#else
             template <class CellList, class CoeffList>
             void sparsity_pattern_bc(std::vector<PetscInt>& nnz, CellList& cells, std::array<CoeffList, nb_bdry_ghosts>& equations) const
             {
@@ -414,10 +653,11 @@ namespace samurai
                     const auto& ghost = cells[eq.ghost_index];
                     for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                     {
-                        nnz[static_cast<std::size_t>(row_index(ghost, field_i))] = bdry_stencil_size;
+                        nnz.at(static_cast<std::size_t>(row_index(ghost, field_i))) = bdry_stencil_size;
                     }
                 }
             }
+#endif
 
             //-------------------------------------------------------------//
             //             Assemble the boundary conditions                //
@@ -455,6 +695,15 @@ namespace samurai
                 {
                     auto eq                    = equations[e];
                     const auto& equation_ghost = cells[eq.ghost_index];
+
+#ifdef SAMURAI_WITH_MPI
+                    int rank = mpi::communicator().rank();
+                    if (this->m_ownership[static_cast<std::size_t>(eq.ghost_index)] != rank)
+                    {
+                        continue;
+                    }
+#endif
+
                     for (std::size_t c = 0; c < bdry_stencil_size; ++c)
                     {
                         for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
@@ -466,8 +715,14 @@ namespace samurai
 
                             if (coeff != 0)
                             {
+                                // std::cout << "[" << rank << "]" << " MatSetValue: A[" << equation_row << ", " << col << "] = " << coeff
+                                //           << std::endl;
                                 MatSetValue(A, equation_row, col, coeff, INSERT_VALUES);
+#ifdef SAMURAI_WITH_MPI
+                                set_is_row_not_empty(local_col_index(equation_ghost, field_i));
+#else
                                 set_is_row_not_empty(equation_row);
+#endif
                             }
                         }
                     }
@@ -492,8 +747,8 @@ namespace samurai
                                 PetscInt row = row_index(static_cast<PetscInt>(ghost_cell_index), field_i);
                                 PetscInt col = col_index(static_cast<PetscInt>(cell_cell_index), field_i);
 
-                                MatSetValue(A, row, row, 1., INSERT_VALUES);
-                                MatSetValue(A, row, col, -1, INSERT_VALUES);
+                                MatSetValueLocal(A, row, row, 1., INSERT_VALUES);
+                                MatSetValueLocal(A, row, col, -1, INSERT_VALUES);
                                 set_is_row_not_empty(row);
                             }
                             is_periodic_row_empty[static_cast<std::size_t>(ghost_cell_index)] = false;
@@ -594,16 +849,24 @@ namespace samurai
                     MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
                     set_current_insert_mode(INSERT_VALUES);
                 }
+                // #ifdef SAMURAI_WITH_MPI
+                //                 int rank = mpi::communicator().rank();
+                // #endif
                 // std::cout << "insert_value_on_diag_for_useless_ghosts of " << this->name() << std::endl;
                 for (std::size_t i = 0; i < m_is_row_empty.size(); i++)
                 {
-                    if (m_is_row_empty[i])
+                    if (m_is_row_empty[i]
+                        // #ifdef SAMURAI_WITH_MPI
+                        //                         && m_ownership[static_cast<std::size_t>(i)] == rank // only insert for the ghosts owned
+                        //                         by the current process
+                        // #endif
+                    )
                     {
-                        auto error = MatSetValue(A,
-                                                 m_row_shift + static_cast<PetscInt>(i),
-                                                 m_col_shift + static_cast<PetscInt>(i),
-                                                 this->diag_value_for_useless_ghosts(),
-                                                 INSERT_VALUES);
+                        auto error = MatSetValueLocal(A,
+                                                      m_row_shift + static_cast<PetscInt>(i),
+                                                      m_col_shift + static_cast<PetscInt>(i),
+                                                      this->diag_value_for_useless_ghosts(),
+                                                      INSERT_VALUES);
                         if (error)
                         {
                             std::cerr << scheme().name() << ": failure to insert diagonal coefficient at ("
@@ -650,57 +913,82 @@ namespace samurai
             //                  Projection / prediction                    //
             //-------------------------------------------------------------//
 
-            void sparsity_pattern_projection(std::vector<PetscInt>& nnz) const override
+            void sparsity_pattern_projection(
+#ifdef SAMURAI_WITH_MPI
+                std::vector<PetscInt>& d_nnz,
+                std::vector<PetscInt>& o_nnz
+#else
+                std::vector<PetscInt>& nnz
+#endif
+            ) const override
             {
+                // ----  Projection stencil size
+                // cell + 2^dim children --> 1+2=3 in 1D
+                //                           1+4=5 in 2D
+                static constexpr std::size_t proj_stencil_size = 1 + (1 << dim);
+
                 for_each_projection_ghost(mesh(),
                                           [&](auto& ghost)
                                           {
                                               for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                                               {
-                                                  if constexpr (ghost_elimination_enabled)
-                                                  {
-                                                      nnz[static_cast<std::size_t>(row_index(ghost, field_i))] = static_cast<PetscInt>(
-                                                          m_ghost_recursion.at(ghost.index).size());
-                                                  }
-                                                  else
-                                                  {
-                                                      // ----  Projection stencil size
-                                                      // cell + 2^dim children --> 1+2=3 in 1D
-                                                      //                           1+4=5 in 2D
-                                                      static constexpr std::size_t proj_stencil_size = 1 + (1 << dim);
-
-                                                      nnz[static_cast<std::size_t>(row_index(ghost, field_i))] = proj_stencil_size;
-                                                  }
+                                                  std::size_t row = static_cast<std::size_t>(row_index(ghost, field_i));
+#ifdef SAMURAI_WITH_MPI
+                                                  d_nnz.at(row) = proj_stencil_size;
+                                                  o_nnz.at(row) = 0; // all children are owned by the same process
+#else
+                                                    if constexpr (ghost_elimination_enabled)
+                                                    {
+                                                        nnz[row] = static_cast<PetscInt>(m_ghost_recursion.at(ghost.index).size());
+                                                    }
+                                                    else
+                                                    {
+                                                        nnz[row] = proj_stencil_size;
+                                                }
+#endif
                                               }
                                           });
             }
 
-            void sparsity_pattern_prediction(std::vector<PetscInt>& nnz) const override
+            void sparsity_pattern_prediction(
+#ifdef SAMURAI_WITH_MPI
+                std::vector<PetscInt>& d_nnz,
+                std::vector<PetscInt>& o_nnz
+#else
+                std::vector<PetscInt>& nnz
+#endif
+            ) const override
             {
-                for_each_prediction_ghost(
-                    mesh(),
-                    [&](const auto& ghost)
-                    {
-                        for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
-                        {
-                            if constexpr (ghost_elimination_enabled)
-                            {
-                                nnz[static_cast<std::size_t>(row_index(ghost, field_i))] = static_cast<PetscInt>(
-                                    m_ghost_recursion.at(ghost.index).size());
-                            }
-                            else
-                            {
-                                // ----  Prediction stencil size
-                                // Order 1: cell + hypercube of 3 coarser cells --> 1 + 3= 4 in 1D
-                                //                                                  1 + 9=10 in 2D
-                                // Order 2: cell + hypercube of 5 coarser cells --> 1 + 5= 6 in 1D
-                                //                                                  1 +25=21 in 2D
-                                static constexpr std::size_t pred_stencil_size = 1 + ce_pow(2 * prediction_stencil_radius + 1, dim);
+                // ----  Prediction stencil size
+                // Order 1: cell + hypercube of 3 coarser cells --> 1 + 3= 4 in 1D
+                //                                                  1 + 9=10 in 2D
+                // Order 2: cell + hypercube of 5 coarser cells --> 1 + 5= 6 in 1D
+                //                                                  1 +25=21 in 2D
+                static constexpr std::size_t pred_stencil_size = 1 + ce_pow(2 * prediction_radius + 1, dim);
 
-                                nnz[static_cast<std::size_t>(row_index(ghost, field_i))] = pred_stencil_size;
-                            }
-                        }
-                    });
+                for_each_prediction_ghost(mesh(),
+                                          [&](const auto& ghost)
+                                          {
+                                              for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
+                                              {
+                                                  std::size_t row = static_cast<std::size_t>(row_index(ghost, field_i));
+#ifdef SAMURAI_WITH_MPI
+                                                  d_nnz.at(row) = pred_stencil_size;
+                                                  o_nnz.at(row) = pred_stencil_size / 2; // assume (rough estimate) that half of the
+                                                                                         // stencil can be on the other process
+#else
+                                                  if constexpr (ghost_elimination_enabled)
+                                                  {
+                                                      nnz[row] = static_cast<PetscInt>(
+                                                          m_ghost_recursion.at(ghost.index).size());
+                                                  }
+                                                  else
+                                                  {
+                                                      nnz[row] = pred_stencil_size;
+                                                  }
+#endif
+                                              }
+                                          });
             }
 
             virtual void enforce_projection_prediction(Vec& b) const
@@ -743,14 +1031,14 @@ namespace samurai
                             for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                             {
                                 PetscInt ghost_index = row_index(ghost, field_i);
-                                MatSetValue(A, ghost_index, ghost_index, scaling, current_insert_mode());
+                                MatSetValueLocal(A, ghost_index, ghost_index, scaling, current_insert_mode());
                                 for (unsigned int i = 0; i < number_of_children; ++i)
                                 {
-                                    auto error = MatSetValue(A,
-                                                             ghost_index,
-                                                             col_index(children[i], field_i),
-                                                             -scaling / number_of_children,
-                                                             current_insert_mode());
+                                    auto error = MatSetValueLocal(A,
+                                                                  ghost_index,
+                                                                  col_index(children[i], field_i),
+                                                                  -scaling / number_of_children,
+                                                                  current_insert_mode());
                                     if (error)
                                     {
                                         std::cerr << scheme().name() << ": failure to insert projection coefficient at (" << ghost_index
@@ -822,7 +1110,7 @@ namespace samurai
                         for (unsigned int field_i = 0; field_i < input_n_comp; ++field_i)
                         {
                             PetscInt ghost_index = this->row_index(ghost, field_i);
-                            MatSetValue(A, ghost_index, ghost_index, scaling, current_insert_mode());
+                            MatSetValueLocal(A, ghost_index, ghost_index, scaling, current_insert_mode());
 
                             auto ii      = ghost.indices(0);
                             auto ig      = ii >> 1;
@@ -831,7 +1119,7 @@ namespace samurai
                             auto interpx = samurai::interp_coeffs<2 * prediction_stencil_radius + 1>(isign);
 
                             auto parent_index = this->col_index(static_cast<PetscInt>(this->mesh().get_index(ghost.level - 1, ig)), field_i);
-                            MatSetValue(A, ghost_index, parent_index, -scaling, current_insert_mode());
+                            MatSetValueLocal(A, ghost_index, parent_index, -scaling, current_insert_mode());
 
                             for (std::size_t ci = 0; ci < interpx.size(); ++ci)
                             {
@@ -843,7 +1131,7 @@ namespace samurai
                                             this->mesh().get_index(ghost.level - 1,
                                                                    ig + static_cast<coord_index_t>(ci - prediction_stencil_radius))),
                                         field_i);
-                                    MatSetValue(A, ghost_index, coarse_cell_index, scaling * value, current_insert_mode());
+                                    MatSetValueLocal(A, ghost_index, coarse_cell_index, scaling * value, current_insert_mode());
                                 }
                             }
                             set_is_row_not_empty(ghost_index);
@@ -888,7 +1176,7 @@ namespace samurai
                         for (unsigned int field_i = 0; field_i < input_n_comp; ++field_i)
                         {
                             PetscInt ghost_index = this->row_index(ghost, field_i);
-                            MatSetValue(A, ghost_index, ghost_index, scaling, current_insert_mode());
+                            MatSetValueLocal(A, ghost_index, ghost_index, scaling, current_insert_mode());
 
                             auto ii      = ghost.indices(0);
                             auto ig      = ii >> 1;
@@ -902,7 +1190,7 @@ namespace samurai
 
                             auto parent_index = this->col_index(static_cast<PetscInt>(this->mesh().get_index(ghost.level - 1, ig, jg)),
                                                                 field_i);
-                            MatSetValue(A, ghost_index, parent_index, -scaling, current_insert_mode());
+                            MatSetValueLocal(A, ghost_index, parent_index, -scaling, current_insert_mode());
 
                             for (std::size_t ci = 0; ci < interpx.size(); ++ci)
                             {
@@ -917,7 +1205,7 @@ namespace samurai
                                                                        ig + static_cast<coord_index_t>(ci - prediction_stencil_radius),
                                                                        jg + static_cast<coord_index_t>(cj - prediction_stencil_radius))),
                                             field_i);
-                                        MatSetValue(A, ghost_index, coarse_cell_index, scaling * value, current_insert_mode());
+                                        MatSetValueLocal(A, ghost_index, coarse_cell_index, scaling * value, current_insert_mode());
                                     }
                                 }
                             }
@@ -971,7 +1259,7 @@ namespace samurai
                         for (unsigned int field_i = 0; field_i < input_n_comp; ++field_i)
                         {
                             PetscInt ghost_index = this->row_index(ghost, field_i);
-                            MatSetValue(A, ghost_index, ghost_index, scaling, current_insert_mode());
+                            MatSetValueLocal(A, ghost_index, ghost_index, scaling, current_insert_mode());
 
                             auto ii      = ghost.indices(0);
                             auto ig      = ii >> 1;
@@ -989,7 +1277,7 @@ namespace samurai
 
                             auto parent_index = this->col_index(static_cast<PetscInt>(this->mesh().get_index(ghost.level - 1, ig, jg, kg)),
                                                                 field_i);
-                            MatSetValue(A, ghost_index, parent_index, -scaling, current_insert_mode());
+                            MatSetValueLocal(A, ghost_index, parent_index, -scaling, current_insert_mode());
 
                             for (std::size_t ci = 0; ci < interpx.size(); ++ci)
                             {
@@ -1008,7 +1296,7 @@ namespace samurai
                                                     jg + static_cast<coord_index_t>(cj - prediction_stencil_radius),
                                                     kg + static_cast<coord_index_t>(ck - prediction_stencil_radius))),
                                                 field_i);
-                                            MatSetValue(A, ghost_index, coarse_cell_index, scaling * value, current_insert_mode());
+                                            MatSetValueLocal(A, ghost_index, coarse_cell_index, scaling * value, current_insert_mode());
                                         }
                                     }
                                 }

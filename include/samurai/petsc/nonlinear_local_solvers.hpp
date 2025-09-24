@@ -242,7 +242,7 @@ namespace samurai
                 scheme.scheme_definition().local_jacobian_function(jac_coeffs, cell, x_field);
                 if constexpr (field_t::is_scalar)
                 {
-                    MatSetValue(B, 0, 0, jac_coeffs, INSERT_VALUES);
+                    MatSetValueLocal(B, 0, 0, jac_coeffs, INSERT_VALUES);
                 }
                 else
                 {
@@ -250,7 +250,7 @@ namespace samurai
                     {
                         for (PetscInt j = 0; j < static_cast<PetscInt>(field_t::n_comp); ++j)
                         {
-                            MatSetValue(B, i, j, jac_coeffs(i, j), INSERT_VALUES);
+                            MatSetValueLocal(B, i, j, jac_coeffs(i, j), INSERT_VALUES);
                         }
                     }
                 }

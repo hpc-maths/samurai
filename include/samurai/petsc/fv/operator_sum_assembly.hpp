@@ -159,6 +159,31 @@ namespace samurai
                 return cols;
             }
 
+#ifdef SAMURAI_WITH_MPI
+            void sparsity_pattern_scheme(std::vector<PetscInt>& d_nnz, std::vector<PetscInt>& o_nnz) const override
+            {
+                // The scheme with largest stencil allocates the number of non-zeros.
+                largest_stencil_assembly().sparsity_pattern_scheme(d_nnz, o_nnz);
+            }
+
+            void sparsity_pattern_boundary(std::vector<PetscInt>& d_nnz, std::vector<PetscInt>& o_nnz) const override
+            {
+                // Only one scheme assembles the boundary conditions.
+                // We arbitrarily choose the one with largest stencil,
+                // because we already use it to allocate the number of non-zeros in the scheme.
+                largest_stencil_assembly().sparsity_pattern_boundary(d_nnz, o_nnz);
+            }
+
+            void sparsity_pattern_projection(std::vector<PetscInt>& d_nnz, std::vector<PetscInt>& o_nnz) const override
+            {
+                largest_stencil_assembly().sparsity_pattern_projection(d_nnz, o_nnz);
+            }
+
+            void sparsity_pattern_prediction(std::vector<PetscInt>& d_nnz, std::vector<PetscInt>& o_nnz) const override
+            {
+                largest_stencil_assembly().sparsity_pattern_prediction(d_nnz, o_nnz);
+            }
+#else
             void sparsity_pattern_scheme(std::vector<PetscInt>& nnz) const override
             {
                 // The scheme with largest stencil allocates the number of non-zeros.
@@ -182,6 +207,7 @@ namespace samurai
             {
                 largest_stencil_assembly().sparsity_pattern_prediction(nnz);
             }
+#endif
 
             void assemble_scheme(Mat& A) override
             {
