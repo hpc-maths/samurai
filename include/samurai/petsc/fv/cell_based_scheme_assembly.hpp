@@ -244,7 +244,7 @@ namespace samurai
                                             double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
                                             if (coeff != 0 || stencil_center_row == cols[local_col_index(c, field_j)])
                                             {
-                                                MatSetValue(A, stencil_center_row, cols[local_col_index(c, field_j)], coeff, ADD_VALUES);
+                                                MatSetValueLocal(A, stencil_center_row, cols[local_col_index(c, field_j)], coeff, ADD_VALUES);
                                             }
                                         }
                                     }
@@ -275,7 +275,7 @@ namespace samurai
                                             double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
                                             if (coeff != 0 || stencil_center_row == cols[local_col_index(c, field_j)])
                                             {
-                                                MatSetValue(A, stencil_center_row, cols[local_col_index(c, field_j)], coeff, ADD_VALUES);
+                                                MatSetValueLocal(A, stencil_center_row, cols[local_col_index(c, field_j)], coeff, ADD_VALUES);
                                             }
                                         }
                                     }

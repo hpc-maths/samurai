@@ -30,6 +30,19 @@ namespace samurai
                 m_unknown = &unknown;
             }
 
+#ifdef SAMURAI_WITH_MPI
+            void sparsity_pattern_boundary(std::vector<PetscInt>&, std::vector<PetscInt>&) const override
+            {
+            }
+
+            void sparsity_pattern_projection(std::vector<PetscInt>&, std::vector<PetscInt>&) const override
+            {
+            }
+
+            void sparsity_pattern_prediction(std::vector<PetscInt>&, std::vector<PetscInt>&) const override
+            {
+            }
+#else
             void sparsity_pattern_boundary(std::vector<PetscInt>&) const override
             {
             }
@@ -41,6 +54,7 @@ namespace samurai
             void sparsity_pattern_prediction(std::vector<PetscInt>&) const override
             {
             }
+#endif
 
             void assemble_boundary_conditions(Mat&) override
             {

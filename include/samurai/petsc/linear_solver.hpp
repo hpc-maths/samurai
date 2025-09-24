@@ -110,7 +110,7 @@ namespace samurai
 
             void _configure_solver()
             {
-                KSPCreate(PETSC_COMM_SELF, &m_ksp);
+                KSPCreate(PETSC_COMM_WORLD, &m_ksp);
                 KSPSetFromOptions(m_ksp);
             }
 
@@ -272,7 +272,7 @@ namespace samurai
             void _configure_solver()
             {
                 KSP user_ksp;
-                KSPCreate(PETSC_COMM_SELF, &user_ksp);
+                KSPCreate(PETSC_COMM_WORLD, &user_ksp);
                 KSPSetFromOptions(user_ksp);
                 PC user_pc;
                 KSPGetPC(user_ksp, &user_pc);
@@ -283,7 +283,7 @@ namespace samurai
 #endif
                 KSPDestroy(&user_ksp);
 
-                KSPCreate(PETSC_COMM_SELF, &m_ksp);
+                KSPCreate(PETSC_COMM_WORLD, &m_ksp);
                 KSPSetFromOptions(m_ksp);
 #ifdef ENABLE_MG
                 if (m_use_samurai_mg)
@@ -319,6 +319,7 @@ namespace samurai
 
             void setup() override
             {
+                mpi::communicator world;
                 if (m_is_set_up)
                 {
                     return;
@@ -332,18 +333,23 @@ namespace samurai
                 }
                 if (!m_use_samurai_mg)
                 {
+                    std::cout << "[" << world.rank() << "] linear solver: Create  matrix..." << std::endl;
                     assembly().create_matrix(m_A);
+                    std::cout << "[" << world.rank() << "] linear solver: Assemble matrix..." << std::endl;
                     assembly().assemble_matrix(m_A);
                     PetscObjectSetName(reinterpret_cast<PetscObject>(m_A), "A");
 
                     // PetscBool is_symmetric;
                     // MatIsSymmetric(m_A, 0, &is_symmetric);
 
+                    std::cout << "[" << world.rank() << "] linear solver: KSPSetOperators..." << std::endl;
                     KSPSetOperators(m_ksp, m_A, m_A);
                 }
 
                 times::timers.start("solver setup");
+                std::cout << "[" << world.rank() << "] linear solver: KSPSetUp..." << std::endl;
                 KSPSetUp(m_ksp);
+                std::cout << "[" << world.rank() << "] linear solver: KSPSetUp done" << std::endl;
                 times::timers.stop("solver setup");
                 m_is_set_up = true;
             }
