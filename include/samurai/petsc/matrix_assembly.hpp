@@ -249,21 +249,22 @@ namespace samurai
 
                 if (!m_is_block)
                 {
-                    if (world.rank() == 1)
-                    {
-                        sleep(1); // to avoid jumbled output
-                    }
-                    std::cout << "\n\t> [" << world.rank() << "] Preallocation of" << std::endl;
-                    for (std::size_t row = 0; row < static_cast<std::size_t>(m); ++row)
-                    {
-                        std::cout << "d_nnz[L" << row << "] = " << d_nnz[row] << std::endl;
-                    }
-                    std::cout << std::endl;
-                    for (std::size_t row = 0; row < static_cast<std::size_t>(m); ++row)
-                    {
-                        std::cout << "o_nnz[L" << row << "] = " << o_nnz[row] << std::endl;
-                    }
-                    std::cout << std::endl;
+                    // if (world.rank() == 1)
+                    // {
+                    //     sleep(1); // to avoid jumbled output
+                    // }
+
+                    // std::cout << "\n\t> [" << world.rank() << "] Preallocation of" << std::endl;
+                    // int sum_nnz = 0;
+                    // for (std::size_t row = 0; row < static_cast<std::size_t>(m); ++row)
+                    // {
+                    //     std::cout << "[G"
+                    //                  "] d_nnz[L"
+                    //               << row << "] = " << d_nnz[row] << ", o_nnz[L" << row << "] = " << o_nnz[row] << std::endl;
+                    //     sum_nnz += d_nnz[row] + o_nnz[row];
+                    // }
+                    // std::cout << "Total number of non-zeros on rank " << world.rank() << ": " << sum_nnz << std::endl;
+                    // std::cout << std::endl;
 
                     // sleep(10); // to avoid jumbled output
                     // world.barrier(); // TO REMOVE

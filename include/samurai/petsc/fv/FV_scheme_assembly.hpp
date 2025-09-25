@@ -238,6 +238,13 @@ namespace samurai
                 return recursion;
             }
 
+#ifdef SAMURAI_WITH_MPI
+            inline bool is_locally_owned(const cell_t& cell) const
+            {
+                return m_ownership[static_cast<std::size_t>(cell.index)] == mpi::communicator().rank();
+            }
+#endif
+
             void set_unknown(field_t& unknown)
             {
                 m_unknown = &unknown;
@@ -437,11 +444,94 @@ namespace samurai
                 }
             }
 
+            //-------------------------------------------------------------//
+            //                           Vectors                           //
+            //-------------------------------------------------------------//
+
+#ifdef SAMURAI_WITH_MPI
+
+          private:
+
+            Vec create_petsc_vector(PetscInt n) const
+            {
+                Vec v;
+                VecCreate(PETSC_COMM_WORLD, &v);
+                VecSetType(v, VECMPI);
+                VecSetFromOptions(v);
+                VecSetSizes(v, n, PETSC_DETERMINE);
+                return v;
+            }
+
+          public:
+
+            Vec create_solution_vector(const field_t& field) const
+            {
+                Vec v = create_petsc_vector(matrix_cols());
+                VecSetLocalToGlobalMapping(v, m_local_to_global_cols);
+
+                // Copy data from the field to the vector
+                for_each_cell(field.mesh()[mesh_id_t::reference],
+                              [&](const auto& cell)
+                              {
+                                  if (is_locally_owned(cell))
+                                  {
+                                      for (unsigned int j = 0; j < input_n_comp; ++j)
+                                      {
+                                          auto vec_row = local_col_index(static_cast<PetscInt>(cell.index), j);
+                                          VecSetValueLocal(v, vec_row, field_value(field, cell, j), INSERT_VALUES);
+                                      }
+                                  }
+                              });
+                return v;
+            }
+
+            Vec create_rhs_vector(const output_field_t& field) const
+            {
+                Vec v = create_petsc_vector(matrix_rows());
+                VecSetLocalToGlobalMapping(v, m_local_to_global_rows);
+
+                // Copy data from the field to the vector
+                for_each_cell(field.mesh()[mesh_id_t::reference],
+                              [&](const auto& cell)
+                              {
+                                  if (is_locally_owned(cell))
+                                  {
+                                      for (unsigned int i = 0; i < output_n_comp; ++i)
+                                      {
+                                          auto vec_row = local_row_index(static_cast<PetscInt>(cell.index), i);
+                                          VecSetValueLocal(v, vec_row, field_value(field, cell, i), INSERT_VALUES);
+                                      }
+                                  }
+                              });
+                return v;
+            }
+
+            void update_unknown(Vec& v) const
+            {
+                // Copy data from the vector to the field
+                const double* v_data;
+                VecGetArrayRead(v, &v_data);
+
+                for_each_cell(mesh()[mesh_id_t::reference],
+                              [&](const auto& cell)
+                              {
+                                  if (is_locally_owned(cell))
+                                  {
+                                      for (unsigned int j = 0; j < input_n_comp; ++j)
+                                      {
+                                          auto vec_row                    = local_col_index(static_cast<PetscInt>(cell.index), j);
+                                          field_value(unknown(), cell, j) = v_data[vec_row];
+                                      }
+                                  }
+                              });
+                VecRestoreArrayRead(v, &v_data);
+            }
+#endif
+
             template <class int_type>
             inline void set_is_row_not_empty(int_type row_number)
             {
                 assert(row_number - m_row_shift >= 0);
-                // std::cout << fmt::format("[{}]: set_is_row_not_empty(L{})\n", mpi::communicator().rank(), row_number);
                 m_is_row_empty[static_cast<std::size_t>(row_number - m_row_shift)] = false;
             }
 
@@ -612,21 +702,20 @@ namespace samurai
                                      std::array<CoeffList, nb_bdry_ghosts>& equations) const
             {
                 mpi::communicator world;
-                int rank = world.rank();
 
                 for (std::size_t e = 0; e < nb_bdry_ghosts; ++e)
                 {
                     const auto& eq    = equations[e];
                     const auto& ghost = cells[eq.ghost_index];
 
-                    if (this->m_ownership[static_cast<std::size_t>(ghost.index)] != rank)
+                    if (!is_locally_owned(ghost))
                     {
                         continue;
                     }
 
                     for (std::size_t c = 0; c < bdry_stencil_size; ++c)
                     {
-                        if (this->m_ownership[static_cast<std::size_t>(cells[c].index)] == rank)
+                        if (is_locally_owned(cells[c]))
                         {
                             for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                             {
@@ -693,12 +782,11 @@ namespace samurai
             {
                 for (std::size_t e = 0; e < nb_bdry_ghosts; ++e)
                 {
-                    auto eq                    = equations[e];
-                    const auto& equation_ghost = cells[eq.ghost_index];
+                    auto eq           = equations[e];
+                    const auto& ghost = cells[eq.ghost_index];
 
 #ifdef SAMURAI_WITH_MPI
-                    int rank = mpi::communicator().rank();
-                    if (this->m_ownership[static_cast<std::size_t>(eq.ghost_index)] != rank)
+                    if (!is_locally_owned(ghost))
                     {
                         continue;
                     }
@@ -708,18 +796,16 @@ namespace samurai
                     {
                         for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                         {
-                            PetscInt equation_row = col_index(equation_ghost, field_i);
+                            PetscInt equation_row = row_index(ghost, field_i);
                             PetscInt col          = col_index(cells[c], field_i);
 
                             double coeff = scheme().bdry_cell_coeff(eq.stencil_coeffs, c, field_i, field_i);
 
                             if (coeff != 0)
                             {
-                                // std::cout << "[" << rank << "]" << " MatSetValue: A[" << equation_row << ", " << col << "] = " << coeff
-                                //           << std::endl;
                                 MatSetValue(A, equation_row, col, coeff, INSERT_VALUES);
 #ifdef SAMURAI_WITH_MPI
-                                set_is_row_not_empty(local_col_index(equation_ghost, field_i));
+                                set_is_row_not_empty(local_row_index(ghost, field_i));
 #else
                                 set_is_row_not_empty(equation_row);
 #endif
@@ -768,7 +854,7 @@ namespace samurai
                 if (!this->is_block())
                 {
                     PetscInt b_rows;
-                    VecGetSize(b, &b_rows);
+                    VecGetLocalSize(b, &b_rows);
                     if (b_rows != this->matrix_cols())
                     {
                         std::cerr << "Operator '" << this->name() << "': the number of rows in vector (" << b_rows
@@ -797,11 +883,15 @@ namespace samurai
 
                 for (std::size_t e = 0; e < nb_bdry_ghosts; ++e)
                 {
-                    auto eq                    = equations[e];
-                    const auto& equation_ghost = cells[eq.ghost_index];
+                    auto eq           = equations[e];
+                    const auto& ghost = cells[eq.ghost_index];
+                    if (!is_locally_owned(ghost))
+                    {
+                        continue;
+                    }
                     for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                     {
-                        PetscInt equation_row = row_index(equation_ghost, field_i);
+                        PetscInt equation_row = row_index(ghost, field_i);
 
                         double coeff = rhs_coeff(eq.rhs_coeffs, field_i, field_i);
                         assert(coeff != 0);
@@ -816,7 +906,6 @@ namespace samurai
                             bc_value = bc->value(towards_out, cell, boundary_point)(field_i); // TODO: call get_value() only once instead of
                                                                                               // once per field_i
                         }
-
                         VecSetValue(b, equation_row, coeff * bc_value, INSERT_VALUES);
                     }
                 }
@@ -901,9 +990,12 @@ namespace samurai
                                   ghosts,
                                   [&](auto& ghost)
                                   {
-                                      for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
+                                      if (is_locally_owned(ghost))
                                       {
-                                          VecSetValue(b, row_index(ghost, field_i), 0, INSERT_VALUES);
+                                          for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
+                                          {
+                                              VecSetValue(b, row_index(ghost, field_i), 0, INSERT_VALUES);
+                                          }
                                       }
                                   });
                 }
