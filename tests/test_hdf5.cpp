@@ -94,7 +94,8 @@ namespace samurai
         min_corner.fill(-1);
         max_corner.fill(1);
         Box<double, dim> box(min_corner, max_corner);
-        Mesh mesh(box, 4, 4);
+        auto mesh_cfg = samurai::mesh_config<dim>().min_level(4).max_level(4);
+        Mesh mesh(mesh_cfg, box);
         test_save(mesh);
         args::save_debug_fields = true;
         test_save(mesh);

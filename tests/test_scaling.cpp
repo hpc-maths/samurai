@@ -17,8 +17,9 @@ namespace samurai
         box_corner1.fill(0);
         box_corner2.fill(box_boundary);
         Box box(box_corner1, box_corner2);
+        auto mesh_cfg = samurai::mesh_config<dim>().min_level(level).max_level(level);
 
-        return Mesh(box, level, level);
+        return Mesh(mesh_cfg, box);
     }
 
     /**

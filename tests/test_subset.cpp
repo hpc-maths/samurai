@@ -484,8 +484,9 @@ namespace samurai
 
         {
             using Config = MRConfig<2>;
-            const Box<double, 2> box({0, 0}, {1, 1});
-            MRMesh<Config> mesh{box, 0, 3};
+            const Box<double, Config::dim> box({0, 0}, {1, 1});
+            auto mesh_cfg = samurai::mesh_config<Config::dim>().min_level(0).max_level(3);
+            MRMesh<Config> mesh{mesh_cfg, box};
             auto& domain                              = mesh.domain();
             xt::xtensor_fixed<int, xt::xshape<2>> dir = {0, 1 << (3 - 1)};
 

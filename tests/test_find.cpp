@@ -20,7 +20,8 @@ namespace samurai
         std::size_t min_level = 2;
         std::size_t max_level = 6;
 
-        Mesh mesh{box, min_level, max_level};
+        auto mesh_cfg = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
+        Mesh mesh{mesh_cfg, box};
 
         auto u = samurai::make_scalar_field<double>("u",
                                                     mesh,

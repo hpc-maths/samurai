@@ -197,8 +197,9 @@ int main(int argc, char* argv[])
     std::size_t max_level = 3;
 
     Box box({0, 0}, {1, 1});
-    samurai::MRMesh<Config> mesh_e{box, min_level, max_level};
-    samurai::MRMesh<Config> mesh_s{box, min_level, max_level};
+    auto mesh_cfg = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
+    samurai::MRMesh<Config> mesh_e{mesh_cfg, box};
+    samurai::MRMesh<Config> mesh_s{mesh_cfg, box};
 
     //-------------------------------//
     // Fields and auxiliary unknowns //
