@@ -28,46 +28,64 @@ namespace samurai
             ownership.resize(mesh.nb_cells());
             std::fill(ownership.begin(), ownership.end(), -1); // -1 means not owned by any rank
 
-            // All cells and ghosts that intersect with the subdomain are owned by the current rank
             for (std::size_t level = min_level; level <= max_level; ++level)
             {
+                // All cells and ghosts that intersect with the subdomain are owned by the current rank
                 auto local_cells_and_ghosts = intersection(mesh[mesh_id_t::reference][level], self(mesh.subdomain()).on(level));
-                // local_cells_and_ghosts(
-                //     [&](const auto& i, const auto& index)
-                //     {
-                //         ownership(level, i, index) = rank;
-                //     });
                 for_each_cell(mesh,
                               local_cells_and_ghosts,
                               [&](auto& cell)
                               {
                                   ownership[static_cast<std::size_t>(cell.index)] = rank;
                               });
+
+                // All the boundary ghosts of locally owned boundary cells are also owned by the local rank
+                auto domain_bdry_outer_layer = domain_boundary_outer_layer(mesh, level, Mesh::config::ghost_width);
+                auto boundary_ghosts         = intersection(domain_bdry_outer_layer, mesh[mesh_id_t::reference][level]);
+                for_each_cell(mesh,
+                              boundary_ghosts,
+                              [&](auto& ghost)
+                              {
+                                  ownership[static_cast<std::size_t>(ghost.index)] = rank;
+                              });
             }
 
+            for (auto& neighbour : mesh.mpi_neighbourhood())
+            {
+                for (std::size_t level = min_level; level <= max_level; ++level)
+                {
+                    // Cells and ghosts that intersect with a neighbour subdomain are owned by the neighbour rank
+                    auto neighbour_cells_and_ghosts = intersection(mesh[mesh_id_t::reference][level],
+                                                                   self(neighbour.mesh.subdomain()).on(level));
+                    for_each_cell(mesh,
+                                  neighbour_cells_and_ghosts,
+                                  [&](auto& cell)
+                                  {
+                                      assert(ownership[static_cast<std::size_t>(cell.index)] == -1);
+                                      ownership[static_cast<std::size_t>(cell.index)] = neighbour.rank;
+                                  });
+
+                    // All the boundary ghosts of attached to boundary cells owned by a neighbour are also owned by that neighbour
+                    auto domain_bdry_outer_layer = domain_boundary_outer_layer(neighbour.mesh, level, Mesh::config::ghost_width);
+                    auto boundary_ghosts         = intersection(domain_bdry_outer_layer, mesh[mesh_id_t::reference][level]);
+                    for_each_cell(mesh,
+                                  boundary_ghosts,
+                                  [&](auto& ghost)
+                                  {
+                                      assert(ownership[static_cast<std::size_t>(ghost.index)] == -1);
+                                      ownership[static_cast<std::size_t>(ghost.index)] = neighbour.rank;
+                                  });
+                }
+            }
+
+            // For the remaining cells and ghosts, if the reference intersects with the reference of a neighbour,
+            // then the smallest rank owns the intersecting cells/ghosts
             for (auto& neighbour : mesh.mpi_neighbourhood())
             {
                 int min_rank = std::min(rank, neighbour.rank);
 
                 for (std::size_t level = min_level; level <= max_level; ++level)
                 {
-                    // Cells and ghosts that intersect with a neighbour subdomain are owned by the neighbour rank
-                    auto neighbour_cells_and_ghosts = intersection(mesh[mesh_id_t::reference][level],
-                                                                   self(neighbour.mesh.subdomain()).on(level));
-                    // neighbour_cells_and_ghosts(
-                    //     [&](const auto& i, const auto& index)
-                    //     {
-                    //         ownership(level, i, index) = neighbour.rank;
-                    //     });
-                    for_each_cell(mesh,
-                                  neighbour_cells_and_ghosts,
-                                  [&](auto& cell)
-                                  {
-                                      ownership[static_cast<std::size_t>(cell.index)] = neighbour.rank;
-                                  });
-
-                    // For the remaining cells and ghosts, if the reference intersects with the reference of a neighbour,
-                    // then the smallest rank owns the intersecting cells/ghosts
                     auto intersecting_cells_and_ghosts = intersection(mesh[mesh_id_t::reference][level],
                                                                       neighbour.mesh[mesh_id_t::reference][level]);
                     for_each_cell(mesh,
@@ -84,7 +102,6 @@ namespace samurai
             }
 
             // Finally, the cells and ghosts that are not owned by any rank (ownership == -1) are owned by the current rank.
-            // This typically concerns the boundary ghosts.
             for_each_cell(mesh[mesh_id_t::reference],
                           [&](auto& cell)
                           {

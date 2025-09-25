@@ -11,7 +11,7 @@ namespace samurai
         {
             Vec v;
             auto n = static_cast<PetscInt>(f.mesh().nb_cells() * Field::n_comp);
-            VecCreateSeqWithArray(MPI_COMM_SELF, 1, n, f.array().data(), &v);
+            VecCreateSeqWithArray(PETSC_COMM_SELF, 1, n, f.array().data(), &v);
             PetscObjectSetName(reinterpret_cast<PetscObject>(v), f.name().data());
             return v;
         }
@@ -21,7 +21,7 @@ namespace samurai
         {
             Vec v;
             auto n = static_cast<PetscInt>(f.size());
-            VecCreateSeqWithArray(MPI_COMM_SELF, 1, n, f.data(), &v);
+            VecCreateSeqWithArray(PETSC_COMM_SELF, 1, n, f.data(), &v);
             return v;
         }
 
@@ -29,7 +29,7 @@ namespace samurai
         void copy(Field& f, Vec& v)
         {
             PetscInt n_vec;
-            VecGetSize(v, &n_vec);
+            VecGetLocalSize(v, &n_vec);
             assert(static_cast<PetscInt>(f.mesh().nb_cells() * Field::n_comp) == n_vec);
 
             double* v_data;
@@ -201,7 +201,7 @@ namespace samurai
             Vec v;
             auto vec_size        = static_cast<PetscInt>(Field::n_comp);
             auto cell_data_index = Field::n_comp * static_cast<std::size_t>(cell.index);
-            VecCreateSeqWithArray(MPI_COMM_SELF, 1, vec_size, &f.array().data()[cell_data_index], &v);
+            VecCreateSeqWithArray(PETSC_COMM_SELF, 1, vec_size, &f.array().data()[cell_data_index], &v);
             return v;
         }
 
