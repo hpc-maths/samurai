@@ -89,7 +89,8 @@ Mesh create_uniform_mesh(std::size_t level)
     min_level   = level;
     max_level   = level;
 
-    return Mesh(box, start_level, min_level, max_level); // amr::Mesh
+    auto config = samurai::mesh_config<Mesh::dim>().min_level(min_level).max_level(max_level);
+    return Mesh(config, box, start_level); // amr::Mesh
     // return Mesh(box, /*start_level,*/ min_level, max_level); // MRMesh
 }
 
@@ -112,7 +113,8 @@ template <class Mesh>
     }
     static_assert(Mesh::dim == 1, "create_refined_mesh() not implemented for this dimension");
 
-    return Mesh(cl, min_level, max_level); // amr::Mesh
+    auto config = samurai::mesh_config<Mesh::dim>().min_level(min_level).max_level(max_level);
+    return Mesh(config, cl); // amr::Mesh
     // return Mesh(box, /*start_level,*/ min_level, max_level); // MRMesh
 }
 

@@ -187,7 +187,7 @@ void refine_2(mesh_t& mesh, std::size_t max_level)
                                        }
                                    });
 
-        mesh = {cl, mesh.min_level(), mesh.max_level()};
+        mesh = {mesh.cfg(), cl};
     }
 }
 
@@ -241,7 +241,8 @@ int main(int argc, char* argv[])
     // samurai::CellArray<dim> mesh_2(cl);
     using Config    = samurai::MRConfig<dim>;
     using mesh_id_t = typename samurai::MRMesh<Config>::mesh_id_t;
-    samurai::MRMesh<Config> mesh_2(cl, 1, max_level);
+    auto config     = samurai::mesh_config<dim>().min_level(1).max_level(max_level);
+    samurai::MRMesh<Config> mesh_2(config, cl);
 
     tic();
     refine_2(mesh_2, max_level);

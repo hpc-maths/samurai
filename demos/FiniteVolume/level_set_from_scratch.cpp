@@ -86,18 +86,18 @@ class AMRMesh : public samurai::Mesh_base<AMRMesh<Config>, Config>
     {
     }
 
-    inline AMRMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level)
-        : base_type(cl, min_level, max_level)
+    inline AMRMesh(const samurai::mesh_config<Config::dim>& cfg, const cl_type& cl)
+        : base_type(cfg, cl)
     {
     }
 
-    inline AMRMesh(const ca_type& ca, std::size_t min_level, std::size_t max_level)
-        : base_type(ca, min_level, max_level)
+    inline AMRMesh(const samurai::mesh_config<Config::dim>& cfg, const ca_type& ca)
+        : base_type(cfg, ca)
     {
     }
 
-    inline AMRMesh(const samurai::Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level)
-        : base_type(b, start_level, min_level, max_level)
+    inline AMRMesh(samurai::mesh_config<Config::dim>& cfg, const samurai::Box<double, dim>& b, std::size_t start_level)
+        : base_type(cfg, b, start_level)
     {
     }
 
@@ -639,7 +639,8 @@ int main(int argc, char* argv[])
 
     if (restart_file.empty())
     {
-        mesh = {box, config.max_level(), config.min_level(), config.max_level()};
+        config.parse_args();
+        mesh = {config, box, config.max_level()};
         init_level_set(phi);
     }
     else

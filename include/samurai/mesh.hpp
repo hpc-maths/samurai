@@ -539,7 +539,7 @@ namespace samurai
         // negartive directions, we actually need 2 times the stencil width inside the hole.
 
         // min_level where the BC can be applied
-        std::size_t min_level_bc = m_config.min_level();
+        std::size_t min_level_bc = min_level();
         if (scaling_factor <= 0)
         {
             scaling_factor = domain_builder.largest_subdivision();
@@ -547,7 +547,7 @@ namespace samurai
             auto largest_cell_length = samurai::cell_length(scaling_factor, min_level_bc);
             for (const auto& box : domain_builder.removed_boxes())
             {
-                while (box.min_length() < 2 * largest_cell_length * config::max_stencil_width)
+                while (box.min_length() < 2 * largest_cell_length * max_stencil_radius())
                 {
                     scaling_factor /= 2;
                     largest_cell_length /= 2;
@@ -559,10 +559,10 @@ namespace samurai
             auto largest_cell_length = samurai::cell_length(scaling_factor, min_level_bc);
             for (const auto& box : domain_builder.removed_boxes())
             {
-                if (box.min_length() < 2 * largest_cell_length * config::max_stencil_width)
+                if (box.min_length() < 2 * largest_cell_length * max_stencil_radius())
                 {
                     std::cerr << "The hole " << box << " is too small to apply the BC at level " << min_level_bc
-                              << " with the given scaling factor. We need to be able to construct " << (2 * config::max_stencil_width)
+                              << " with the given scaling factor. We need to be able to construct " << (2 * max_stencil_radius())
                               << " ghosts in each direction inside the hole." << std::endl;
                     std::cerr << "Please choose a smaller scaling factor or enlarge the hole." << std::endl;
                     std::exit(1);

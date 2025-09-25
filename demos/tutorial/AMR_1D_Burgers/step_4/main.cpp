@@ -41,8 +41,6 @@ int main(int argc, char* argv[])
     std::string filename = "amr_1d_burgers_step_4";
 
     app.add_option("--start-level", start_level, "Start level of the AMR")->capture_default_str()->group("AMR parameter");
-    app.add_option("--min-level", min_level, "Minimum level of the AMR")->capture_default_str()->group("AMR parameter");
-    app.add_option("--max-level", max_level, "Maximum level of the AMR")->capture_default_str()->group("AMR parameter");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     SAMURAI_PARSE(argc, argv);
@@ -55,7 +53,8 @@ int main(int argc, char* argv[])
     constexpr std::size_t dim = 1;
 
     const samurai::Box<double, dim> box({-3}, {3});
-    Mesh<MeshConfig<dim>> mesh(box, start_level, min_level, max_level);
+    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
+    Mesh<MeshConfig<dim>> mesh(config, box, start_level);
 
     auto phi = init_sol(mesh);
 

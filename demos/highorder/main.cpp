@@ -116,7 +116,7 @@ int main(int argc, char* argv[])
     constexpr std::size_t stencil_width    = 2;
     constexpr std::size_t graduation_width = 4;
     constexpr std::size_t prediction_order = 1;
-    using Config                           = samurai::MRConfig<dim, stencil_width, graduation_width, prediction_order>;
+    using Config                           = samurai::MRConfig<dim, prediction_order>;
 
     // Simulation parameters
     xt::xtensor_fixed<double, xt::xshape<dim>> min_corner = {0., 0.};
@@ -149,7 +149,11 @@ int main(int argc, char* argv[])
     using mesh_id_t = typename mesh_t::mesh_id_t;
     using cl_type   = typename mesh_t::cl_type;
 
-    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
+    auto config = samurai::mesh_config<dim>()
+                      .min_level(min_level)
+                      .max_level(max_level)
+                      .graduation_width(graduation_width)
+                      .max_stencil_radius(stencil_width);
     mesh_t init_mesh{config, box};
 
     auto adapt_field = samurai::make_scalar_field<double>("adapt_field",
@@ -196,7 +200,8 @@ int main(int argc, char* argv[])
                                                });
                                        });
             // mesh = {cl, mesh.min_level() + 1, mesh.max_level() + 1};
-            mesh = {cl, min_level + i_ref + 1, max_level + i_ref + 1};
+            auto mesh_cfg = samurai::mesh_config<dim>().min_level(min_level + i_ref + 1).max_level(max_level + i_ref + 1);
+            mesh          = {mesh_cfg, cl};
         }
         // std::cout << mesh << std::endl;
         // samurai::save("refine_mesh", mesh);

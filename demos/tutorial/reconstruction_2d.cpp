@@ -91,7 +91,7 @@ int main(int argc, char* argv[])
     constexpr std::size_t graduation_width_     = 2;
     constexpr std::size_t max_refinement_level_ = samurai::default_config::max_level;
     constexpr std::size_t prediction_order_     = 1;
-    using MRConfig = samurai::MRConfig<dim, max_stencil_width_, graduation_width_, prediction_order_, max_refinement_level_>;
+    using MRConfig                              = samurai::MRConfig<dim, prediction_order_, max_refinement_level_>;
 
     Case test_case{Case::abs};
     const std::map<std::string, Case> map{
@@ -109,8 +109,6 @@ int main(int argc, char* argv[])
     std::string filename = "reconstruction_2d";
 
     app.add_option("--case", test_case, "Test case")->capture_default_str()->transform(CLI::CheckedTransformer(map, CLI::ignore_case));
-    app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
-    app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
 
@@ -128,8 +126,15 @@ int main(int argc, char* argv[])
     using UMesh   = samurai::UniformMesh<UConfig>;
 
     const samurai::Box<double, dim> box({-1, -1}, {1, 1});
-    MRMesh mrmesh{box, min_level, max_level, 0, 1};
-    UMesh umesh{box, max_level, 0, 1};
+    auto config = samurai::mesh_config<dim>()
+                      .min_level(min_level)
+                      .max_level(max_level)
+                      .approx_box_tol(0)
+                      .scaling_factor(1)
+                      .graduation_width(graduation_width_)
+                      .max_stencil_radius(max_stencil_width_);
+    MRMesh mrmesh{config, box};
+    UMesh umesh{box, mrmesh.max_level(), 0, 1};
     auto u       = init(mrmesh, test_case);
     auto u_exact = init(umesh, test_case);
 
