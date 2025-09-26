@@ -316,6 +316,7 @@ namespace samurai
             {
                 times::timers.start("matrix assembly");
 
+#ifdef SAMURAI_WITH_MPI
                 mpi::communicator world;
 
                 std::cout << "\n\t> [" << world.rank() << "] start assemble_matrix" << std::endl;
@@ -325,48 +326,49 @@ namespace samurai
                     sleep(1);
                 }
                 std::cout << "\n\t> [" << world.rank() << "] assemble_scheme" << std::endl;
+#endif
                 assemble_scheme(A);
-
-                // world.barrier(); // TO REMOVE
 
                 if (m_include_bc)
                 {
+#ifdef SAMURAI_WITH_MPI
                     if (world.rank() == 1)
                     {
                         sleep(1);
                     }
                     std::cout << "\n\t> [" << world.rank() << "] assemble_boundary_conditions" << std::endl;
+#endif
                     assemble_boundary_conditions(A);
-
-                    // world.barrier(); // TO REMOVE
                 }
                 if (m_assemble_proj_pred)
                 {
+#ifdef SAMURAI_WITH_MPI
                     if (world.rank() == 1)
                     {
                         sleep(1);
                     }
                     std::cout << "\n\t> [" << world.rank() << "] assemble_projection" << std::endl;
+#endif
                     assemble_projection(A);
-                    // world.barrier(); // TO REMOVE
-
+#ifdef SAMURAI_WITH_MPI
                     if (world.rank() == 1)
                     {
                         sleep(1);
                     }
                     std::cout << "\n\t> [" << world.rank() << "] assemble_prediction" << std::endl;
+#endif
                     assemble_prediction(A);
-                    // world.barrier(); // TO REMOVE
                 }
                 if (m_insert_value_on_diag_for_useless_ghosts)
                 {
+#ifdef SAMURAI_WITH_MPI
                     if (world.rank() == 1)
                     {
                         sleep(1);
                     }
                     std::cout << "\n\t> [" << world.rank() << "] insert_value_on_diag_for_useless_ghosts" << std::endl;
+#endif
                     insert_value_on_diag_for_useless_ghosts(A);
-                    // world.barrier(); // TO REMOVE
                 }
 
                 if (!m_is_block)
@@ -379,7 +381,9 @@ namespace samurai
 
                     if (final_assembly)
                     {
+#ifdef SAMURAI_WITH_MPI
                         std::cout << "\n\t> [" << world.rank() << "] ASSEMBLY" << std::endl;
+#endif
                         MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
                         MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
                     }
@@ -391,6 +395,7 @@ namespace samurai
             {
                 // std::cout << "Destruction of '" << name() << "'" << std::endl;
                 m_is_deleted = true;
+#ifdef SAMURAI_WITH_MPI
                 if (m_local_to_global_rows)
                 {
                     ISLocalToGlobalMappingDestroy(&m_local_to_global_rows);
@@ -399,6 +404,7 @@ namespace samurai
                 {
                     ISLocalToGlobalMappingDestroy(&m_local_to_global_cols);
                 }
+#endif
             }
 
 #ifdef SAMURAI_WITH_MPI

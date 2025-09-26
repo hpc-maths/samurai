@@ -199,8 +199,8 @@ namespace samurai
             {
                 times::timers.start("system solve");
 
-                std::cout << "[" << mpi::communicator().rank() << "] linear solver: KSPSolve..." << std::endl;
-                // Solve the system
+                // std::cout << "[" << mpi::communicator().rank() << "] linear solver: KSPSolve..." << std::endl;
+                //  Solve the system
                 KSPSolve(m_ksp, b, x);
 
                 times::timers.stop("system solve");
@@ -327,7 +327,6 @@ namespace samurai
 
             void setup() override
             {
-                mpi::communicator world;
                 if (m_is_set_up)
                 {
                     return;
@@ -341,23 +340,23 @@ namespace samurai
                 }
                 if (!m_use_samurai_mg)
                 {
-                    std::cout << "[" << world.rank() << "] linear solver: Create  matrix..." << std::endl;
+                    // std::cout << "[" << mpi::communicator().rank() << "] linear solver: Create  matrix..." << std::endl;
                     assembly().create_matrix(m_A);
-                    std::cout << "[" << world.rank() << "] linear solver: Assemble matrix..." << std::endl;
+                    // std::cout << "[" << mpi::communicator().rank() << "] linear solver: Assemble matrix..." << std::endl;
                     assembly().assemble_matrix(m_A);
                     PetscObjectSetName(reinterpret_cast<PetscObject>(m_A), "A");
 
                     // PetscBool is_symmetric;
                     // MatIsSymmetric(m_A, 0, &is_symmetric);
 
-                    std::cout << "[" << world.rank() << "] linear solver: KSPSetOperators..." << std::endl;
+                    // std::cout << "[" << mpi::communicator().rank() << "] linear solver: KSPSetOperators..." << std::endl;
                     KSPSetOperators(m_ksp, m_A, m_A);
                 }
 
                 times::timers.start("solver setup");
-                std::cout << "[" << world.rank() << "] linear solver: KSPSetUp..." << std::endl;
+                // std::cout << "[" << mpi::communicator().rank() << "] linear solver: KSPSetUp..." << std::endl;
                 KSPSetUp(m_ksp);
-                std::cout << "[" << world.rank() << "] linear solver: KSPSetUp done" << std::endl;
+                // std::cout << "[" << mpi::communicator().rank() << "] linear solver: KSPSetUp done" << std::endl;
                 times::timers.stop("solver setup");
                 m_is_set_up = true;
             }
