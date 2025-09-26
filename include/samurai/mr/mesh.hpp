@@ -200,7 +200,6 @@ namespace samurai
                     });
             });
         this->cells()[mesh_id_t::cells_and_ghosts] = {cell_list, false};
-        // this->update_meshid_neighbour(mesh_id_t::cells_and_ghosts);
 
         std::array<int, dim> nb_cells_finest_level;
 
