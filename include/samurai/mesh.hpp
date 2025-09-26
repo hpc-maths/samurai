@@ -110,6 +110,7 @@ namespace samurai
         bool is_periodic() const;
         bool is_periodic(std::size_t d) const;
         const std::array<bool, dim>& periodicity() const;
+        std::array<bool, dim>& periodicity();
         // std::vector<int>& neighbouring_ranks();
         std::vector<mpi_subdomain_t>& mpi_neighbourhood();
         const std::vector<mpi_subdomain_t>& mpi_neighbourhood() const;
@@ -147,6 +148,8 @@ namespace samurai
         void to_stream(std::ostream& os) const;
 
         const lca_type& corner(const DirectionVector<dim>& direction) const;
+
+        void find_neighbourhood();
 
       protected:
 
@@ -191,8 +194,6 @@ namespace samurai
         void construct_corners();
         void update_sub_mesh();
         void renumbering();
-
-        void find_neighbourhood();
 
         void partition_mesh(std::size_t start_level, const Box<double, dim>& global_box);
         void load_balancing();
@@ -335,7 +336,7 @@ namespace samurai
         partition_mesh(start_level, b);
         // load_balancing();
 #else
-        this->m_cells[mesh_id_t::cells][start_level] = {start_level, b, approx_box_tol, scaling_factor_};
+        m_cells[mesh_id_t::cells][start_level] = {start_level, b, approx_box_tol, scaling_factor_};
 #endif
 
         construct_subdomain();
@@ -343,7 +344,7 @@ namespace samurai
         update_sub_mesh();
         construct_corners();
         renumbering();
-        update_mesh_neighbour();
+        // update_mesh_neighbour();
 
         set_origin_point(origin_point());
         set_scaling_factor(scaling_factor());
@@ -357,7 +358,8 @@ namespace samurai
         m_periodic.fill(false);
         assert(min_level <= max_level);
 
-        this->m_cells[mesh_id_t::cells] = {cl};
+        m_cells[mesh_id_t::cells] = {cl};
+        update_meshid_neighbour(mesh_id_t::cells);
 
         construct_subdomain();
         construct_domain();
@@ -365,7 +367,7 @@ namespace samurai
         update_sub_mesh();
         construct_corners();
         renumbering();
-        update_mesh_neighbour();
+        // update_mesh_neighbour();
 
         set_origin_point(cl.origin_point());
         set_scaling_factor(cl.scaling_factor());
@@ -379,7 +381,11 @@ namespace samurai
         m_periodic.fill(false);
         assert(min_level <= max_level);
 
-        this->m_cells[mesh_id_t::cells] = ca;
+        m_cells[mesh_id_t::cells] = ca;
+        update_meshid_neighbour(mesh_id_t::cells);
+
+        set_origin_point(ca.origin_point());
+        set_scaling_factor(ca.scaling_factor());
 
         construct_subdomain();
         construct_domain();
@@ -388,18 +394,18 @@ namespace samurai
         construct_corners();
         renumbering();
 
-#ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-        m_mpi_neighbourhood.clear();
-        for (int i = 0; i < world.size(); ++i)
-        {
-            if (i != world.rank())
-            {
-                m_mpi_neighbourhood.emplace_back(i);
-            }
-        }
-#endif
-        update_mesh_neighbour();
+        // #ifdef SAMURAI_WITH_MPI
+        //         mpi::communicator world;
+        //         m_mpi_neighbourhood.clear();
+        //         for (int i = 0; i < world.size(); ++i)
+        //         {
+        //             if (i != world.rank())
+        //             {
+        //                 m_mpi_neighbourhood.emplace_back(i);
+        //             }
+        //         }
+        // #endif
+        // update_mesh_neighbour();
 
         set_origin_point(ca.origin_point());
         set_scaling_factor(ca.scaling_factor());
@@ -415,13 +421,14 @@ namespace samurai
 
     {
         m_cells[mesh_id_t::cells] = ca;
+        update_meshid_neighbour(mesh_id_t::cells);
 
         construct_subdomain();
         construct_union();
         update_sub_mesh();
         construct_corners();
         renumbering();
-        update_mesh_neighbour();
+        // update_mesh_neighbour();
 
         set_origin_point(ref_mesh.origin_point());
         set_scaling_factor(ref_mesh.scaling_factor());
@@ -437,13 +444,14 @@ namespace samurai
 
     {
         m_cells[mesh_id_t::cells] = {cl, false};
+        update_meshid_neighbour(mesh_id_t::cells);
 
         construct_subdomain();
         construct_union();
         update_sub_mesh();
         construct_corners();
         renumbering();
-        update_mesh_neighbour();
+        // update_mesh_neighbour();
 
         set_origin_point(ref_mesh.origin_point());
         set_scaling_factor(ref_mesh.scaling_factor());
@@ -672,9 +680,8 @@ namespace samurai
 
     template <class D, class Config>
     template <class E>
-    inline auto Mesh_base<D, Config>::get_interval(std::size_t level,
-                                                   const interval_t& interval,
-                                                   const xt::xexpression<E>& index) const -> const interval_t&
+    inline auto Mesh_base<D, Config>::get_interval(std::size_t level, const interval_t& interval, const xt::xexpression<E>& index) const
+        -> const interval_t&
     {
         return m_cells[mesh_id_t::reference].get_interval(level, interval, index);
     }
@@ -747,6 +754,12 @@ namespace samurai
 
     template <class D, class Config>
     inline auto Mesh_base<D, Config>::periodicity() const -> const std::array<bool, dim>&
+    {
+        return m_periodic;
+    }
+
+    template <class D, class Config>
+    inline auto Mesh_base<D, Config>::periodicity() -> std::array<bool, dim>&
     {
         return m_periodic;
     }
