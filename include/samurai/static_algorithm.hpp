@@ -111,6 +111,18 @@ namespace samurai
         return detail::NestedExpand<index_size, dim_max - 1, dim_min>::run(idx, lca, width);
     }
 
+    template <class LCA_OR_SET, size_t dim_min = 0, size_t dim_max = LCA_OR_SET::dim, size_t... Is>
+    auto nestedExpand_impl(const LCA_OR_SET& lca, std::index_sequence<Is...>)
+    {
+        return union_(nestedExpand(lca, Is + 1)...);
+    }
+
+    template <int width, class LCA_OR_SET, size_t dim_min = 0, size_t dim_max = LCA_OR_SET::dim>
+    auto nestedExpand(const LCA_OR_SET& lca)
+    {
+        return nestedExpand_impl(lca, std::make_index_sequence<width>{});
+    }
+
     template <size_t index_size, size_t dim_min, size_t dim_max, typename Function>
     inline void nestedLoop(int i0, int i1, Function&& func)
     {
