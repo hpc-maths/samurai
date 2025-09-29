@@ -116,39 +116,51 @@ namespace samurai
 
         inline bool empty_impl() const
         {
-            return std::apply(
-                [](const auto first_set, const auto&... other_sets) -> std::size_t
-                {
-                    if constexpr (op == SetOperator::UNION)
-                    {
-                        return first_set.empty() && (other_sets.empty() && ...);
-                    }
-                    else if constexpr (op == SetOperator::INTERSECTION)
-                    {
-                        return first_set.empty() || (other_sets.empty() || ...);
-                    }
-                    else
-                    {
-                        return first_set.empty();
-                    }
-                },
-                m_sets);
+			xt::xtensor_fixed<int, xt::xshape<dim - 1>> index;
+			return empty_rec(index, std::integral_constant<std::size_t, dim - 1>{});
         }
 
         template <class index_t, std::size_t d>
         inline traverser_t<d> get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d> d_ic) const
         {
-            return get_traverser_impl_impl(index, d_ic, std::make_index_sequence<nIntervals>{});
+            return get_traverser_impl_detail(index, d_ic, std::make_index_sequence<nIntervals>{});
         }
 
       private:
 
         template <class index_t, std::size_t d, std::size_t... Is>
         traverser_t<d>
-        get_traverser_impl_impl(const index_t& index, std::integral_constant<std::size_t, d> d_ic, std::index_sequence<Is...>) const
+        get_traverser_impl_detail(const index_t& index, std::integral_constant<std::size_t, d> d_ic, std::index_sequence<Is...>) const
         {
             return traverser_t<d>(m_shifts, std::get<Is>(m_sets).get_traverser(index >> m_shifts[Is], d_ic)...);
         }
+
+        template <class index_t, std::size_t d>
+        bool empty_rec(index_t& index, std::integral_constant<std::size_t, d> d_ic) const
+        {
+			using current_interval_t = typename traverser_t<d>::current_interval_t;
+			
+			for (traverser_t<d> traverser = Base::get_traverser(index, d_ic); !traverser.is_empty(); traverser.next_interval())
+			{
+				current_interval_t interval = traverser.current_interval();
+				
+				if constexpr (d == 0)
+                {
+                    return false;
+                }
+                else
+                {
+					for (index[d - 1] = interval.start; index[d - 1] != interval.end; ++index[d - 1])
+                    {
+                        if (not empty_rec(index, std::integral_constant<std::size_t, d - 1>{}))
+                        {
+							return false;
+						}
+                    }
+				}
+			}
+			return true;
+		}
 
         Childrens m_sets;
         std::size_t m_level;

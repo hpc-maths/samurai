@@ -72,8 +72,8 @@ namespace samurai
         translation_t m_translation;
     };
 
-    template <class Set, class translation_t>
-    auto translate(const Set& set, const translation_t& translation)
+    template <class Set>
+    auto translate(const Set& set, const typename Translation<std::decay_t<decltype(self(set))>>::translation_t& translation)
     {
         return Translation(self(set), translation);
     }

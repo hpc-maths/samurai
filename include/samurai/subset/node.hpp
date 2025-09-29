@@ -6,6 +6,7 @@
 #include "apply.hpp"
 #include "box_view.hpp"
 #include "contraction.hpp"
+#include "expansion.hpp"
 #include "lca_view.hpp"
 #include "nary_set_operator.hpp"
 #include "projection.hpp"

@@ -4,6 +4,7 @@
 #pragma once
 
 #include "../samurai_config.hpp"
+#include "../static_algorithm.hpp"
 #include "set_base.hpp"
 #include "traversers/projection_traverser.hpp"
 
@@ -19,18 +20,31 @@ namespace samurai
         static_assert(IsSet<Set>::value);
 
         template <std::size_t d>
-        using traverser_t = std::conditional_t<d == Set::dim - 1,
-                                               ProjectionTraverser<typename Set::template traverser_t<d>, 1>,
-                                               ProjectionTraverser<typename Set::template traverser_t<d>, default_config::max_level>>;
+        using traverser_t = ProjectionTraverser< typename Set::template traverser_t<d> >;
 
         static constexpr std::size_t dim = Set::dim;
     };
+    
+    namespace detail
+    {
+		template<class Set, typename Seq>
+		struct ProjectionWork;
+		
+		template<class Set, std::size_t... ds>
+		struct ProjectionWork<Set, std::index_sequence<ds...>>
+		{
+			template<std::size_t d>
+			using child_traverser_array_t = std::vector< typename Set::template traverser_t<d> >;
+			
+			using Type = std::tuple< child_traverser_array_t<ds>... >;
+		};
+	} // namespace detail
 
     template <class Set>
     class Projection : public SetBase<Projection<Set>>
     {
         using Self = Projection<Set>;
-
+        using Work = typename detail::ProjectionWork< Set, std::make_index_sequence<Set::dim> >::Type;
       public:
 
         SAMURAI_SET_TYPEDEFS
@@ -69,34 +83,38 @@ namespace samurai
 
         template <class index_t, std::size_t d>
         inline traverser_t<d> get_traverser_impl(const index_t& _index, std::integral_constant<std::size_t, d> d_ic) const
-        {
+        {			
+			auto& set_traversers = std::get<d>(m_work_traversers);
+			set_traversers.clear();
+			
             if (m_projectionType == ProjectionType::COARSEN)
             {
                 if constexpr (d != dim - 1)
                 {
+					//~ set_traversers.reserve(1 << m_shift);
+					
                     const value_t ymin = _index[d] << m_shift;
                     const value_t ymax = (_index[d] + 1) << m_shift;
 
                     xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> index(_index << m_shift);
 
-                    //~ std::vector<typename Set::template traverser_t<d>> set_traversers;
-                    //~ set_traversers.reserve(size_t(ymax - ymin));
-                    FixedCapacityArray<typename Set::template traverser_t<d>, default_config::max_level> set_traversers;
-
                     for (index[d] = ymin; index[d] != ymax; ++index[d])
                     {
                         set_traversers.push_back(m_set.get_traverser(index, d_ic));
+						if (set_traversers.back().is_empty()) { set_traversers.pop_back(); }
                     }
-                    return traverser_t<d>(set_traversers, m_shift);
+                    return traverser_t<d>(set_traversers.begin(), set_traversers.end(), m_shift);
                 }
                 else
                 {
-                    return traverser_t<d>(m_set.get_traverser(_index << m_shift, d_ic), m_projectionType, m_shift);
+					set_traversers.push_back(m_set.get_traverser(_index << m_shift, d_ic));
+                    return traverser_t<d>(set_traversers.begin(), m_projectionType, m_shift);
                 }
             }
             else
             {
-                return traverser_t<d>(m_set.get_traverser(_index >> m_shift, d_ic), m_projectionType, m_shift);
+				set_traversers.push_back(m_set.get_traverser(_index >> m_shift, d_ic));
+                return traverser_t<d>(set_traversers.begin(), m_projectionType, m_shift);
             }
         }
 
@@ -106,6 +124,8 @@ namespace samurai
         std::size_t m_level;
         ProjectionType m_projectionType;
         std::size_t m_shift;
+        
+        Work m_work_traversers;
     };
 
 } // namespace samurai
