@@ -537,7 +537,6 @@ namespace samurai
 
         for (std::size_t level = max_level; level > min_level; --level)
         {
-            update_ghost_periodic(level, field, other_fields...);
             update_ghost_subdomains(level, field, other_fields...);
             update_ghost_periodic(level, field, other_fields...);
 
@@ -549,12 +548,10 @@ namespace samurai
 
         if (min_level > 0 && min_level != max_level)
         {
-            update_ghost_periodic(min_level - 1, field, other_fields...);
             update_ghost_subdomains(min_level - 1, field, other_fields...);
             update_ghost_periodic(min_level - 1, field, other_fields...);
             update_outer_ghosts(min_level - 1, field, other_fields...);
         }
-        update_ghost_periodic(min_level, field, other_fields...);
         update_ghost_subdomains(min_level, field, other_fields...);
         update_ghost_periodic(min_level, field, other_fields...);
 
@@ -565,7 +562,6 @@ namespace samurai
             auto expr        = intersection(pred_ghosts, mesh.subdomain(), mesh[mesh_id_t::all_cells][level - 1]).on(level);
 
             expr.apply_op(variadic_prediction<pred_order, false>(field, other_fields...));
-            update_ghost_periodic(level, field, other_fields...);
             update_ghost_subdomains(level, field, other_fields...);
             update_ghost_periodic(level, field, other_fields...);
         }
