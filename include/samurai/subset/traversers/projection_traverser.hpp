@@ -6,8 +6,6 @@
 #include "../fixed_capacity_array.hpp"
 #include "set_traverser_base.hpp"
 
-#include <fmt/core.h>
-
 namespace samurai
 {
     enum class ProjectionType
@@ -16,11 +14,11 @@ namespace samurai
         REFINE
     };
 
-    template <class SetTraverser, std::size_t nTraversers>
+    template <class SetTraverser>
     class ProjectionTraverser;
 
-    template <class SetTraverser, std::size_t nTraversers>
-    struct SetTraverserTraits<ProjectionTraverser<SetTraverser, nTraversers>>
+    template <class SetTraverser>
+    struct SetTraverserTraits<ProjectionTraverser<SetTraverser>>
     {
         static_assert(IsSetTraverser<SetTraverser>::value);
 
@@ -28,23 +26,24 @@ namespace samurai
         using current_interval_t = const interval_t&;
     };
 
-    template <class SetTraverser, std::size_t nTraversers>
-    class ProjectionTraverser : public SetTraverserBase<ProjectionTraverser<SetTraverser, nTraversers>>
+    template <class SetTraverser>
+    class ProjectionTraverser : public SetTraverserBase<ProjectionTraverser<SetTraverser>>
     {
-        using Self = ProjectionTraverser<SetTraverser, nTraversers>;
+        using Self = ProjectionTraverser<SetTraverser>;
+        using SetTraverserIterator = typename std::vector<SetTraverser>::iterator;
 
       public:
 
         SAMURAI_SET_TRAVERSER_TYPEDEFS
 
-        ProjectionTraverser(const SetTraverser& set_traverser, const ProjectionType projectionType, const std::size_t shift)
-            : m_projectionType(projectionType)
+        ProjectionTraverser(SetTraverserIterator set_traverser, const ProjectionType projectionType, const std::size_t shift)
+            : m_set_traversers(set_traverser, set_traverser + 1)
+            , m_projectionType(projectionType)
             , m_shift(shift)
-            , m_isEmpty(set_traverser.is_empty())
+            , m_isEmpty(set_traverser->is_empty())
         {
-            m_set_traversers.push_back(set_traverser);
             if (!m_isEmpty)
-            {
+            {				
                 if (m_projectionType == ProjectionType::COARSEN)
                 {
                     m_current_interval.start = coarsen_start(m_set_traversers[0].current_interval());
@@ -61,7 +60,7 @@ namespace samurai
                     }
                 }
                 else
-                {
+                {					
                     m_current_interval.start = m_set_traversers[0].current_interval().start << shift;
                     m_current_interval.end   = m_set_traversers[0].current_interval().end << shift;
                 }
@@ -71,8 +70,8 @@ namespace samurai
         /*
          * This constructor only works for coarsening
          */
-        ProjectionTraverser(const FixedCapacityArray<SetTraverser, nTraversers>& set_traversers, const std::size_t shift)
-            : m_set_traversers(set_traversers)
+        ProjectionTraverser(SetTraverserIterator begin_set_traversers, SetTraverserIterator end_set_traversers, const std::size_t shift)
+            : m_set_traversers(begin_set_traversers, end_set_traversers)
             , m_projectionType(ProjectionType::COARSEN)
             , m_shift(shift)
         {
@@ -154,13 +153,14 @@ namespace samurai
             return interval.start >> m_shift;
         }
 
-        inline value_t coarsen_end(const interval_t& interval) const
+		inline value_t coarsen_end(const interval_t& interval) const
         {
-            const value_t trial_end = interval.end >> m_shift;
-            return (trial_end << m_shift) < interval.end ? trial_end + 1 : trial_end;
+            return ((interval.end - 1) >> m_shift) + 1;
+			//~ const value_t trial_end = interval.end >> m_shift;
+            //~ return (trial_end << m_shift) < interval.end ? trial_end + 1 : trial_end;
         }
 
-        FixedCapacityArray<SetTraverser, nTraversers> m_set_traversers;
+        std::span<SetTraverser> m_set_traversers;
         ProjectionType m_projectionType;
         std::size_t m_shift;
         interval_t m_current_interval;

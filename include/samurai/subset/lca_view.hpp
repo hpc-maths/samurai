@@ -32,6 +32,8 @@ namespace samurai
 
         SAMURAI_SET_TYPEDEFS
         SAMURAI_SET_CONSTEXPRS
+        
+        using const_interval_iterator = typename std::vector<interval_t>::const_iterator;
 
         LCAView(const LCA& lca)
             : m_lca(lca)
@@ -54,37 +56,57 @@ namespace samurai
         }
 
         template <class index_t, std::size_t d>
-        inline traverser_t<d> get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d>) const
+        inline traverser_t<d> get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d> d_ic) const
         {
-            if constexpr (d != dim - 1)
+            return get_traverser_impl_detail(index, m_lca[dim-1].cbegin(), m_lca[dim-1].cend(), d_ic, std::integral_constant<std::size_t, dim-1>{});
+        }
+        
+        template <class index_t, std::size_t d, std::size_t dCur>
+        inline traverser_t<d> get_traverser_impl_detail(const index_t& index, const_interval_iterator begin_y_interval, const_interval_iterator end_y_interval, std::integral_constant<std::size_t, d> d_ic, std::integral_constant<std::size_t, dCur> dCur_ic) const
+        {
+            if constexpr (dCur != dim - 1)
             {
-                const auto& y           = index[d];
-                const auto& y_intervals = m_lca[d + 1];
-                const auto& y_offsets   = m_lca.offsets(d + 1);
+                const auto& y         = index[dCur];
+                const auto& y_offsets = m_lca.offsets(dCur + 1);
                 // we need to find an interval that contains y.
-                const auto y_interval_it = std::find_if(y_intervals.cbegin(),
-                                                        y_intervals.cend(),
+                const auto y_interval_it = std::find_if(begin_y_interval,
+                                                        end_y_interval,
                                                         [y](const auto& y_interval)
                                                         {
                                                             return y_interval.contains(y);
                                                         });
-                if (y_interval_it != y_intervals.cend())
+                if (y_interval_it != end_y_interval)
                 {
                     const std::size_t y_offset_idx = std::size_t(y + y_interval_it->index);
+                    
+                    const_interval_iterator begin_x_interval = m_lca[dCur].cbegin() + ptrdiff_t(y_offsets[y_offset_idx]);
+                    const_interval_iterator end_x_interval   = m_lca[dCur].cbegin() + ptrdiff_t(y_offsets[y_offset_idx + 1]);
 
-                    return traverser_t<d>(m_lca[d].cbegin() + ptrdiff_t(y_offsets[y_offset_idx]),
-                                          m_lca[d].cbegin() + ptrdiff_t(y_offsets[y_offset_idx + 1]));
+                    return get_traverser_impl_detail_wrapper(index, begin_x_interval, end_x_interval, d_ic, dCur_ic);
                 }
                 else
                 {
-                    return traverser_t<d>(m_lca[d].cend(), m_lca[d].cend());
+                    return get_traverser_impl_detail_wrapper(index, m_lca[dCur].cend(), m_lca[dCur].cend(), d_ic, dCur_ic);
                 }
             }
             else
             {
-                return traverser_t<d>(m_lca[d].cbegin(), m_lca[d].cend());
+                return get_traverser_impl_detail_wrapper(index, m_lca[dCur].cbegin(), m_lca[dCur].cend(), d_ic, dCur_ic);
             }
         }
+        
+        template <class index_t, std::size_t d, std::size_t dCur>
+        inline traverser_t<d> get_traverser_impl_detail_wrapper(const index_t& index, const_interval_iterator begin_x_interval, const_interval_iterator end_x_interval, std::integral_constant<std::size_t, d> d_ic, std::integral_constant<std::size_t, dCur>) const
+        {
+			if constexpr (d == dCur)
+			{
+				return traverser_t<d>(begin_x_interval, end_x_interval);
+			}
+			else
+			{
+				return get_traverser_impl_detail(index, begin_x_interval, end_x_interval, d_ic, std::integral_constant<std::size_t, dCur-1>{});
+			}
+		}
 
       private:
 

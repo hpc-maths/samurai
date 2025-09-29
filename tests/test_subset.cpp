@@ -15,6 +15,9 @@
 #include <samurai/mr/mesh.hpp>
 #include <samurai/subset/node.hpp>
 
+#include <samurai/io/hdf5.hpp>
+#include <fmt/ranges.h>
+
 namespace samurai
 {
     TEST(subset, lower_bound)
@@ -514,6 +517,91 @@ namespace samurai
                   });
         }
     }
+
+	TEST(subset, expand)
+	{
+		using interval_t = typename LevelCellArray<2>::interval_t;
+		using expected_t = std::vector<std::pair<int, interval_t>>;
+		
+		LevelCellArray<2> ca;
+		
+		const int expand_width = 3;
+		
+		ca.add_interval_back({0, 1}, {0});
+		
+		{
+			const auto translated_ca = translate(ca, {expand_width+1, 0});
+			const auto joined_cas = union_(ca, translated_ca);
+			
+			const auto set = expand(joined_cas, expand_width);
+			
+			expected_t expected;
+			for (int w=-expand_width; w!=expand_width+1; ++w) 
+			{
+				expected.push_back(std::make_pair(w, interval_t{-expand_width, 2*(expand_width + 1)}));
+			}
+			
+			bool is_set_empty = true;
+			std::size_t ie = 0;
+			set([&expected, &is_set_empty, &ie](const auto& x_interval, const auto& yz)
+			{
+				is_set_empty = false;
+				EXPECT_EQ(expected[ie++], std::make_pair(yz[0], x_interval));
+			});
+			EXPECT_FALSE(is_set_empty);
+		}
+		
+		{
+			const auto translated_ca = translate(ca, {0, expand_width+1});
+			const auto joined_cas = union_(ca, translated_ca);
+			
+			const auto set = expand(joined_cas, expand_width);
+			
+			expected_t expected;
+			for (int w=-expand_width; w!=2*(expand_width+1); ++w) 
+			{
+				expected.push_back(std::make_pair(w, interval_t{-expand_width, expand_width + 1}));
+			}
+			
+			bool is_set_empty = true;
+			std::size_t ie = 0;
+			set([&expected, &is_set_empty, &ie](const auto& x_interval, const auto& yz)
+			{
+				is_set_empty = false;
+				EXPECT_EQ(expected[ie++], std::make_pair(yz[0], x_interval));
+			});
+			EXPECT_FALSE(is_set_empty);
+		}
+		
+		{
+			const auto translated_ca = translate(ca, {expand_width+1, expand_width+1});
+			const auto joined_cas = union_(ca, translated_ca);
+			
+			const auto set = expand(joined_cas, expand_width);
+			
+			expected_t expected;
+			for (int w=-expand_width; w!=2*(expand_width+1); ++w) 
+			{
+				expected.push_back(std::make_pair(w, interval_t{-expand_width, 2*(expand_width+1)}));
+			}
+			
+			bool is_set_empty = true;
+			std::size_t ie = 0;
+			set([&expected, &is_set_empty, &ie](const auto& x_interval, const auto& yz)
+			{
+				is_set_empty = false;
+				//~ EXPECT_EQ(expected[ie++], std::make_pair(yz[0], x_interval));
+				fmt::print("x_interval = {} -- y = {}\n", x_interval, yz[0]);
+			});
+			EXPECT_FALSE(is_set_empty);
+			
+			const auto lca_joined_cas = joined_cas.to_lca();
+			const auto lca_set        = set.to_lca();
+			
+			save("lca_joined_cas", lca_joined_cas);
+			save("lca_set", lca_set);
+		}
+	}
 
     TEST(subset, translate)
     {

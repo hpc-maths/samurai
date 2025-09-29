@@ -33,7 +33,7 @@ namespace samurai
 
         BoxTraverser(const value_t& start, const value_t& end)
             : m_current_interval{start, end}
-            , m_empty(false)
+            , m_empty(start < end)
         {
         }
 
