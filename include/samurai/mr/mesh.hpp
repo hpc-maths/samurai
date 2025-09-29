@@ -272,8 +272,8 @@ namespace samurai
                            for (const auto& d : directions)
                            {
                                auto set = intersection(
-                                   nestedExpand(translate(this->cells()[mesh_id_t::cells][level], d), config::max_stencil_width),
-                                   nestedExpand(self(this->subdomain()).on(level), config::max_stencil_width));
+                                   nestedExpand<config::max_stencil_width>(translate(this->cells()[mesh_id_t::cells][level], d)),
+                                   nestedExpand<config::max_stencil_width>(self(this->subdomain()).on(level)));
                                set(
                                    [&](const auto& interval, const auto& index)
                                    {
@@ -288,8 +288,8 @@ namespace samurai
                            [&](std::size_t level)
                            {
                                lcl_type& lcl = cell_list[level];
-                               auto set = intersection(nestedExpand(neighbour.mesh[mesh_id_t::cells][level], config::max_stencil_width),
-                                                       nestedExpand(self(this->subdomain()).on(level), config::max_stencil_width));
+                               auto set = intersection(nestedExpand<config::max_stencil_width>(neighbour.mesh[mesh_id_t::cells][level]),
+                                                       nestedExpand<config::max_stencil_width>(self(this->subdomain()).on(level)));
                                set(
                                    [&](const auto& interval, const auto& index)
                                    {
@@ -301,8 +301,8 @@ namespace samurai
                                for (const auto& d : directions)
                                {
                                    auto set = intersection(
-                                       translate(nestedExpand(neighbour.mesh[mesh_id_t::cells][level], config::max_stencil_width), d),
-                                       nestedExpand(self(this->subdomain()).on(level), config::max_stencil_width));
+                                       translate(nestedExpand<config::max_stencil_width>(neighbour.mesh[mesh_id_t::cells][level]), d),
+                                       nestedExpand<config::max_stencil_width>(self(this->subdomain()).on(level)));
                                    set(
                                        [&](const auto& interval, const auto& index)
                                        {
@@ -359,9 +359,8 @@ namespace samurai
                 {
                     auto expr = intersection(nestedExpand(translate(this->cells()[mesh_id_t::cells_and_ghosts][level], d).on(level - 1),
                                                           config::prediction_order),
-                                             nestedExpand(self(this->subdomain()).on(level - 1), config::prediction_order));
-
-                    //  self(this->subdomain()).on(level - 1));
+                                             //  nestedExpand(self(this->subdomain()).on(level - 1), config::prediction_order));
+                                             self(this->subdomain()).on(level - 1));
 
                     expr(
                         [&](const auto& interval, const auto& index_yz)
@@ -374,8 +373,8 @@ namespace samurai
                     {
                         auto expr_2 = intersection(
                             nestedExpand(translate(this->cells()[mesh_id_t::cells][level], d).on(level - 2), config::prediction_order),
-                            nestedExpand(self(this->subdomain()).on(level - 2), config::prediction_order));
-                        // self(this->subdomain()).on(level - 2));
+                            // nestedExpand(self(this->subdomain()).on(level - 2), config::prediction_order));
+                            self(this->subdomain()).on(level - 2));
 
                         expr_2(
                             [&](const auto& interval, const auto& index_yz)
@@ -401,9 +400,8 @@ namespace samurai
                     //                 .on(level - 1);
                     auto expr = intersection(
                         nestedExpand(self(neighbour.mesh[mesh_id_t::cells_and_ghosts][level]).on(level - 1), config::prediction_order),
-                        nestedExpand(self(this->subdomain()).on(level - 1), config::prediction_order));
-
-                    // self(this->subdomain()).on(level - 1));
+                        // nestedExpand(self(this->subdomain()).on(level - 1), config::prediction_order));
+                        self(this->subdomain()).on(level - 1));
 
                     expr(
                         [&](const auto& interval, const auto& index_yz)
@@ -416,9 +414,8 @@ namespace samurai
                     {
                         auto expr_2 = intersection(
                             nestedExpand(self(neighbour.mesh[mesh_id_t::cells][level]).on(level - 2), config::prediction_order),
-                            nestedExpand(self(this->subdomain()).on(level - 2), config::prediction_order));
-
-                        // self(this->subdomain()).on(level - 2));
+                            // nestedExpand(self(this->subdomain()).on(level - 2), config::prediction_order));
+                            self(this->subdomain()).on(level - 2));
 
                         expr_2(
                             [&](const auto& interval, const auto& index_yz)
@@ -434,8 +431,8 @@ namespace samurai
                     {
                         auto expr = intersection(nestedExpand(translate(neighbour.mesh[mesh_id_t::cells_and_ghosts][level], d).on(level - 1),
                                                               config::prediction_order),
-                                                 nestedExpand(self(this->subdomain()).on(level - 1), config::prediction_order));
-                        // self(this->subdomain()).on(level - 1));
+                                                 //  nestedExpand(self(this->subdomain()).on(level - 1), config::prediction_order));
+                                                 self(this->subdomain()).on(level - 1));
                         expr(
                             [&](const auto& interval, const auto& index_yz)
                             {
@@ -447,9 +444,8 @@ namespace samurai
                         {
                             auto expr_2 = intersection(
                                 nestedExpand(translate(neighbour.mesh[mesh_id_t::cells][level], d).on(level - 2), config::prediction_order),
-                                nestedExpand(self(this->subdomain()).on(level - 2), config::prediction_order));
-
-                            // self(this->subdomain()).on(level - 2));
+                                // nestedExpand(self(this->subdomain()).on(level - 2), config::prediction_order));
+                                self(this->subdomain()).on(level - 2));
 
                             expr_2(
                                 [&](const auto& interval, const auto& index_yz)
