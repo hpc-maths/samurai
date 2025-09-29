@@ -292,7 +292,7 @@ namespace samurai
         update_sub_mesh();
         construct_corners();
         renumbering();
-        update_mesh_neighbour();
+        // update_mesh_neighbour();
 
         set_origin_point(origin_point());
         set_scaling_factor(scaling_factor());
@@ -341,7 +341,7 @@ namespace samurai
         update_sub_mesh();
         construct_corners();
         renumbering();
-        update_mesh_neighbour();
+        // update_mesh_neighbour();
 
         set_origin_point(domain_builder.origin_point());
         set_scaling_factor(m_config.scaling_factor());
