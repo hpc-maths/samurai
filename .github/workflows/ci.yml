@@ -283,7 +283,7 @@ jobs:
                   cmake --build build --target finite-volume-burgers
                   cmake --build build --target finite-volume-heat
                   cmake --build build --target finite-volume-lid-driven-cavity
-                  cmake --build build --target finite-volume-burgers-os-2d-mpi --parallel 4
+                  cmake --build build --target finite-volume-burgers-os-2d-mpi
 
             - name: MPI test finite-volume-advection-2d
               shell: micromamba-shell {0}
