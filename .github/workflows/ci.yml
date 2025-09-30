@@ -190,20 +190,6 @@ jobs:
               run: |
                   export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
                   cd tests
-
-                  # The following options are set to have a deterministic Petsc behaviour on Linux.
-                  # The problem occurs on the diff. heated cavity demo. It seems to come from the use of the non-linear solver with QR to solve the Jacobian systems.
-                  # The result is not deterministic accross runs. Something seems to be multithreaded in Petsc or in one of its dependencies.
-                  # The strange part is that the diff. heated cavity is the only demo that fails.
-                  # Hint: it's the only demo with a non-linear block solver.
-                  export OMP_NUM_THREADS=1
-                  export OMP_DYNAMIC=FALSE
-                  export OMP_MAX_ACTIVE_LEVELS=1
-                  export MKL_NUM_THREADS=1
-                  export OPENBLAS_NUM_THREADS=1
-                  export VECLIB_MAXIMUM_THREADS=1
-                  export SCOTCH_DETERMINISTIC=1
-
                   pytest -v -s --h5diff
     #
     # Check linux build with mamba environment
@@ -351,6 +337,18 @@ jobs:
                   ls
                   python ../python/compare.py ldc_ink_size_1 ldc_ink_size_2 --tol 1e-11
 
+            - name: MPI test burgers OSMP 2D (weak scaling)
+              shell: bash -l {0}
+              run: |
+                  cd build
+                  set -e  # Stop on first failure
+                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-burgers-os-2d-mpi --npx=2 --npy=1 --min-level=0 --max-level=8 --Tf=6 --nfiles 1
+                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-burgers-os-2d-mpi --npx=2 --npy=1 --min-level=0 --max-level=8 --Tf=6 --nfiles 1
+                  mpiexec -n 4 ./demos/FiniteVolume/finite-volume-burgers-os-2d-mpi --npx=2 --npy=2 --min-level=0 --max-level=8 --Tf=6 --nfiles 1
+                  mpiexec -n 8 ./demos/FiniteVolume/finite-volume-burgers-os-2d-mpi --npx=4 --npy=2 --min-level=0 --max-level=8 --Tf=6 --nfiles 1
+                  mpiexec -n 8 ./demos/FiniteVolume/finite-volume-burgers-os-2d-mpi --npx=2 --npy=4 --min-level=0 --max-level=8 --Tf=6 --nfiles 1
+                  mpiexec -n 9 ./demos/FiniteVolume/finite-volume-burgers-os-2d-mpi --npx=3 --npy=3 --min-level=0 --max-level=8 --Tf=6 --nfiles 1
+
     macos-mamba:
         needs: [pre-commit, cppcheck]
         runs-on: macos-14
@@ -366,7 +364,7 @@ jobs:
             - name: Petsc installation
               shell: bash -l {0}
               run: |
-                micromamba install -y petsc pkg-config
+                  micromamba install -y petsc pkg-config
 
             - name: Install cxx compiler
               shell: bash -l {0}
