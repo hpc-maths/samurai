@@ -111,16 +111,22 @@ namespace samurai
         return detail::NestedExpand<index_size, dim_max - 1, dim_min>::run(idx, lca, width);
     }
 
-    template <class LCA_OR_SET, size_t dim_min = 0, size_t dim_max = LCA_OR_SET::dim, size_t... Is>
-    auto nestedExpand_impl(const LCA_OR_SET& lca, std::index_sequence<Is...>)
+    template <class LCA_OR_SET, size_t dim_min = 0, size_t dim_max = LCA_OR_SET::dim>
+    auto nestedExpand_impl(const LCA_OR_SET& lca, std::integral_constant<std::size_t, 1>)
     {
-        return union_(nestedExpand(lca, Is + 1)...);
+        return nestedExpand(lca, 1);
+    }
+
+    template <class LCA_OR_SET, size_t dim_min = 0, size_t dim_max = LCA_OR_SET::dim, std::size_t width>
+    auto nestedExpand_impl(const LCA_OR_SET& lca, std::integral_constant<std::size_t, width>)
+    {
+        return nestedExpand(nestedExpand(lca, std::integral_constant<std::size_t, width - 1>{}), 1);
     }
 
     template <int width, class LCA_OR_SET, size_t dim_min = 0, size_t dim_max = LCA_OR_SET::dim>
     auto nestedExpand(const LCA_OR_SET& lca)
     {
-        return nestedExpand_impl(lca, std::make_index_sequence<width>{});
+        return nestedExpand_impl(lca, std::integral_constant<std::size_t, width>{});
     }
 
     template <size_t index_size, size_t dim_min, size_t dim_max, typename Function>
