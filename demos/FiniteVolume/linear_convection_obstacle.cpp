@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
     auto& app = samurai::initialize("Finite volume example for the linear convection equation", argc, argv);
 
     static constexpr std::size_t dim = 2;
-    using Config                     = samurai::MRConfig<dim, 3>;
+    using Config                     = samurai::MRConfig<dim>;
     using Mesh                       = samurai::MRMesh<Config>;
 
     std::cout << "------------------------- Linear convection -------------------------" << std::endl;
@@ -75,7 +75,7 @@ int main(int argc, char* argv[])
     samurai::DomainBuilder<dim> domain({-1., -1.}, {1., 1.});
     domain.remove({0.0, 0.0}, {0.4, 0.4});
 
-    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
+    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).max_stencil_width(6);
     Mesh mesh   = {config, domain};
     // Mesh mesh(domain, min_level, max_level);
 

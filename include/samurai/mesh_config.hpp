@@ -26,6 +26,7 @@ namespace samurai
 
         std::size_t m_min_level = 0;
         std::size_t m_max_level = 6;
+        // std::size_t m_initial_level;
 
         double m_approx_box_tol = 0.05;
         double m_scaling_factor = 0;

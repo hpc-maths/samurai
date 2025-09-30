@@ -289,8 +289,9 @@ int main()
     const double regularity = 1.;    // Regularity guess for multiresolution
     const double epsilon_MR = 2.e-4; // Threshold used by multiresolution
 
-    using Config = samurai::MRConfig<dim, 2>;
-    samurai::MRMesh<Config> mesh(box, min_level, max_level); // Constructing mesh from the box
+    using Config = samurai::MRConfig<dim>;
+    auto config  = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).max_stencil_radius(2);
+    samurai::MRMesh<Config> mesh(config, box); // Constructing mesh from the box
 
     using mesh_id_t = typename decltype(mesh)::mesh_id_t;
 

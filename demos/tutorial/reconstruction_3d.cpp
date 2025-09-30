@@ -90,14 +90,8 @@ int main(int argc, char* argv[])
 {
     auto& app = samurai::initialize("3d reconstruction of an adapted solution using multiresolution", argc, argv);
 
-    constexpr size_t dim                     = 3;
-    constexpr std::size_t max_stencil_width_ = 2;
-    // constexpr std::size_t graduation_width_ =
-    // samurai::default_config::graduation_width;
-    constexpr std::size_t graduation_width_     = 2;
-    constexpr std::size_t max_refinement_level_ = samurai::default_config::max_level;
-    constexpr std::size_t prediction_order_     = 1;
-    using MRConfig                              = samurai::MRConfig<dim, prediction_order_, max_refinement_level_>;
+    constexpr size_t dim = 3;
+    using MRConfig       = samurai::MRConfig<dim>;
 
     Case test_case{Case::abs};
     const std::map<std::string, Case> map{
@@ -105,10 +99,6 @@ int main(int argc, char* argv[])
         {"exp",  Case::exp },
         {"tanh", Case::tanh}
     };
-
-    // Adaptation parameters
-    std::size_t min_level = 2;
-    std::size_t max_level = 5;
 
     // Output parameters
     fs::path path        = fs::current_path();
@@ -132,13 +122,14 @@ int main(int argc, char* argv[])
     using UMesh   = samurai::UniformMesh<UConfig>;
 
     const samurai::Box<double, dim> box({-1, -1, -1}, {1, 1, 1});
+    // clang-format off
     auto config = samurai::mesh_config<dim>()
-                      .min_level(min_level)
-                      .max_level(max_level)
-                      .approx_box_tol(0)
-                      .scaling_factor(1)
-                      .graduation_width(graduation_width_)
-                      .max_stencil_radius(max_stencil_width_);
+                    .min_level(2)
+                    .max_level(5)
+                    .scaling_factor(1)
+                    .graduation_width(2)
+                    .max_stencil_radius(2);
+    // clang-format on
     MRMesh mrmesh{config, box};
     UMesh umesh{box, mrmesh.max_level(), 0, 1};
     auto u       = init(mrmesh, test_case);
