@@ -385,7 +385,6 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
                 assembly().update_unknown(x);
 #endif
-
                 VecDestroy(&b);
                 VecDestroy(&x);
             }
