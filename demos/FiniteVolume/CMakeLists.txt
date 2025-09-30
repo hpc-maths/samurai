@@ -23,8 +23,14 @@ linear_convection_obstacle.cpp:finite-volume-linear-convection-obstacle
 burgers.cpp:finite-volume-burgers
 burgers_mra.cpp:finite-volume-burgers-mra
 burgers_os.cpp:finite-volume-burgers-os
-burgers_os_2d_mpi.cpp:finite-volume-burgers-os-2d-mpi
 )
+
+# List of MPI demos (only if WITH_MPI is enabled)
+if(${WITH_MPI})
+    list(APPEND STANDARD_DEMOS
+        burgers_os_2d_mpi.cpp:finite-volume-burgers-os-2d-mpi
+    )
+endif()
 
 # Create executables with PETSc
 if(${WITH_PETSC})
