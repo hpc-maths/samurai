@@ -254,6 +254,7 @@ jobs:
                   cmake --build build --target finite-volume-burgers
                   cmake --build build --target finite-volume-heat
                   cmake --build build --target finite-volume-lid-driven-cavity
+                  cmake --build build --target finite-volume-burgers-os-2d-mpi --parallel 4
 
             - name: MPI test finite-volume-advection-2d
               shell: bash -l {0}
@@ -336,18 +337,6 @@ jobs:
                   mpiexec -n 2 ./demos/FiniteVolume/finite-volume-lid-driven-cavity -pc_type lu -pc_factor_mat_solver_type mumps -mat_ordering_type amd --filename ldc_ink_size_2 --Tf 0.1 --nfiles 1 --min-level 8 --max-level 8
                   ls
                   python ../python/compare.py ldc_ink_size_1 ldc_ink_size_2 --tol 1e-11
-
-            - name: MPI test burgers OSMP 2D (weak scaling)
-              shell: bash -l {0}
-              run: |
-                  cd build
-                  set -e  # Stop on first failure
-                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-burgers-os-2d-mpi --npx=2 --npy=1 --min-level=0 --max-level=8 --Tf=6 --nfiles 1
-                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-burgers-os-2d-mpi --npx=2 --npy=1 --min-level=0 --max-level=8 --Tf=6 --nfiles 1
-                  mpiexec -n 4 ./demos/FiniteVolume/finite-volume-burgers-os-2d-mpi --npx=2 --npy=2 --min-level=0 --max-level=8 --Tf=6 --nfiles 1
-                  mpiexec -n 8 ./demos/FiniteVolume/finite-volume-burgers-os-2d-mpi --npx=4 --npy=2 --min-level=0 --max-level=8 --Tf=6 --nfiles 1
-                  mpiexec -n 8 ./demos/FiniteVolume/finite-volume-burgers-os-2d-mpi --npx=2 --npy=4 --min-level=0 --max-level=8 --Tf=6 --nfiles 1
-                  mpiexec -n 9 ./demos/FiniteVolume/finite-volume-burgers-os-2d-mpi --npx=3 --npy=3 --min-level=0 --max-level=8 --Tf=6 --nfiles 1
 
     macos-mamba:
         needs: [pre-commit, cppcheck]
