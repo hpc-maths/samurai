@@ -9,12 +9,14 @@
 #include <xtensor/xview.hpp>
 
 // #include "../algorithm/graduation.hpp"
+#include "../algorithm/graduation.hpp"
 #include "../box.hpp"
 #include "../mesh.hpp"
 #include "../samurai_config.hpp"
 #include "../stencil.hpp"
 #include "../subset/apply.hpp"
 #include "../subset/node.hpp"
+#include "../timers.hpp"
 
 using namespace xt::placeholders;
 
