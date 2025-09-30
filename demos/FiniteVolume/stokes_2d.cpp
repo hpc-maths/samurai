@@ -165,10 +165,8 @@ int main(int argc, char* argv[])
 
     std::string test_case = "ns";
 
-    std::size_t min_level = 5;
-    std::size_t max_level = 5;
-    double Tf             = 1.;
-    double dt             = Tf / 100;
+    double Tf = 1.;
+    double dt = Tf / 100;
 
     std::size_t nfiles = 50;
 
@@ -195,7 +193,7 @@ int main(int argc, char* argv[])
     PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
 
     auto box    = samurai::Box<double, dim>({0, 0}, {1, 1});
-    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).max_stencil_radius(2);
+    auto config = samurai::mesh_config<dim>().min_level(5).max_level(5).max_stencil_radius(2);
     auto mesh   = Mesh(config, box);
 
     //--------------------//
@@ -466,7 +464,7 @@ int main(int argc, char* argv[])
             std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t_np1, dt);
 
             // Mesh adaptation
-            if (min_level != max_level)
+            if (mesh.min_level() != mesh.max_level())
             {
                 MRadaptation(mra_config);
                 min_level_np1    = mesh[mesh_id_t::cells].min_level();
@@ -547,7 +545,7 @@ int main(int argc, char* argv[])
                 samurai::save(path, fmt::format("{}_ite_{}", filename, nsave), velocity.mesh(), velocity, div_velocity);
             }
 
-            if (min_level != max_level)
+            if (mesh.min_level() != mesh.max_level())
             {
                 // Reconstruction on the finest level
                 auto velocity_recons = samurai::reconstruction(velocity);
