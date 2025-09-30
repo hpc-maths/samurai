@@ -1117,6 +1117,7 @@ namespace samurai
             find_neighbourhood();
         }
 #endif
+        update_neighbour_subdomain();
     }
 
     template <class D, class Config>
