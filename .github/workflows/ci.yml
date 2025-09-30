@@ -212,13 +212,21 @@ jobs:
 
             - name: Mamba and samurai env installation
               uses: mamba-org/setup-micromamba@v2
+              env:
+                  MAMBA_ROOT_PREFIX: ${{ runner.temp }}/mamba-root
               with:
-                  environment-file: conda/mpi-environment.yml
+                  download-micromamba: true
+                  micromamba-binary-path: ${{ runner.temp }}/bin/micromamba
+                  environment-file: conda/environment.yml
                   environment-name: samurai-env
-                  cache-environment: true
+                  init-shell: none
+                  generate-run-shell: true
+                  cache-environment: false
+                  cache-downloads: false
+                  post-cleanup: all
                   cache-environment-key: ${{ runner.os }}-${{ hashFiles('conda/mpi-environment.yml') }}
 
-            # - name: Conda update
+                  # - name: Conda update
             #   shell: bash -l {0}
             #   run: |
             #       conda update --all
