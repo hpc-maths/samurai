@@ -6,6 +6,14 @@
 #include <xtensor/containers/xtensor.hpp>
 #include <xtensor/views/xmasked_view.hpp>
 
+#ifdef SAMURAI_WITH_MPI
+#include <boost/serialization/vector.hpp>
+
+#include <boost/mpi.hpp>
+#include <boost/mpi/cartesian_communicator.hpp>
+namespace mpi = boost::mpi;
+#endif
+
 #include "../array_of_interval_and_point.hpp"
 #include "../cell_flag.hpp"
 #include "../concepts.hpp"
@@ -320,9 +328,10 @@ namespace samurai
     }
 
     template <IsMesh mesh_t>
-    auto update_subdomains_mpi(const mesh_t& mesh, const auto& mpi_neighbourhood)
+    auto update_subdomains_mpi([[maybe_unused]] const mesh_t& mesh, const auto& mpi_neighbourhood)
     {
         std::vector<mesh_t> mpi_meshes(mpi_neighbourhood.size());
+#ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
         std::vector<mpi::request> req;
 
@@ -345,6 +354,7 @@ namespace samurai
         }
 
         mpi::wait_all(req.begin(), req.end());
+#endif // SAMURAI_WITH_MPI
         return mpi_meshes;
     }
 
