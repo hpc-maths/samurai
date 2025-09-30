@@ -70,10 +70,10 @@ namespace samurai
         }
 
         // minmod limiter between i and i+1
-        double dmm   = 0.;
-        double d4min = 0.;
         for (std::size_t i = 1; i < stencil_size - 2; i++)
         {
+            double dmm   = 0.;
+            double d4min = 0.;
             if (d2[i] * d2[i + 1] < 0.)
             {
                 dmm = 0.;
@@ -296,17 +296,15 @@ namespace samurai
                                 flux = f(u[j + 1]);
                             }
 
-                            // Limiter giving 1st-order Roe scheme
-                            double phi_lim = 0.;
-
                             // Accuracy function for high-order approximations up to 7th-order
                             if (order > 1)
                             {
                                 // Flux correction
-                                phi_lim = compute_osmp_flux_limiter<decltype(unmnudalpha), decltype(nu), order, stencil_size>(unmnudalpha,
-                                                                                                                              lambdadalpha,
-                                                                                                                              nu,
-                                                                                                                              j);
+                                double phi_lim = compute_osmp_flux_limiter<decltype(unmnudalpha), decltype(nu), order, stencil_size>(
+                                    unmnudalpha,
+                                    lambdadalpha,
+                                    nu,
+                                    j);
 
                                 psi(k) = phi_lim;
                             }
