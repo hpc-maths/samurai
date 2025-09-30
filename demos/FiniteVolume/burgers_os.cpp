@@ -90,7 +90,7 @@ int main(int argc, char* argv[])
     auto& app = samurai::initialize("Finite volume example for the linear convection equation", argc, argv);
 
     static constexpr std::size_t dim = 1;
-    using Config                     = samurai::MRConfig<dim, 2, 2>;
+    using Config                     = samurai::MRConfig<dim>;
     using Box                        = samurai::Box<double, dim>;
     using point_t                    = typename Box::point_t;
 
@@ -147,7 +147,14 @@ int main(int argc, char* argv[])
     samurai::LevelCellArray<1> lca_left(max_level, box_left, {-1}, 0.05, 2);
     samurai::LevelCellArray<1> lca_right(max_level, box_right, {-1}, 0.05, 2);
 
-    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).periodic(true).approx_box_tol(0.05).scaling_factor(2);
+    auto config = samurai::mesh_config<dim>()
+                      .min_level(min_level)
+                      .max_level(max_level)
+                      .periodic(true)
+                      .approx_box_tol(0.05)
+                      .scaling_factor(2)
+                      .max_stencil_radius(2)
+                      .graduation_width(2);
     std::cout << "  max_level = " << config.max_level() << "   min_level = " << config.min_level() << std::endl;
 
     samurai::MRMesh<Config> mesh{config, box};

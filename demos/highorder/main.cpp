@@ -112,19 +112,16 @@ int main(int argc, char* argv[])
 {
     auto& app = samurai::initialize("Finite volume example for the advection equation in 2d using multiresolution", argc, argv);
 
-    constexpr std::size_t dim              = 2;
-    constexpr std::size_t stencil_width    = 2;
-    constexpr std::size_t graduation_width = 4;
-    constexpr std::size_t prediction_order = 1;
-    using Config                           = samurai::MRConfig<dim, prediction_order>;
+    constexpr std::size_t dim = 2;
+    using Config              = samurai::MRConfig<dim>;
+
+    constexpr std::size_t prediction_stencil_radius = 1;
 
     // Simulation parameters
     xt::xtensor_fixed<double, xt::xshape<dim>> min_corner = {0., 0.};
     xt::xtensor_fixed<double, xt::xshape<dim>> max_corner = {1., 1.};
 
     // Multiresolution parameters
-    std::size_t min_level  = 4;
-    std::size_t max_level  = 4;
     std::size_t refinement = 5;
     bool correction        = false;
 
@@ -149,11 +146,13 @@ int main(int argc, char* argv[])
     using mesh_id_t = typename mesh_t::mesh_id_t;
     using cl_type   = typename mesh_t::cl_type;
 
-    auto config = samurai::mesh_config<dim>()
-                      .min_level(min_level)
-                      .max_level(max_level)
-                      .graduation_width(graduation_width)
-                      .max_stencil_radius(stencil_width);
+    // clang-format off
+    auto config = samurai::mesh_config<dim, prediction_stencil_radius>()
+                    .min_level(4)
+                    .max_level(4)
+                    .graduation_width(4)
+                    .max_stencil_width(4);
+    // clang-format on
     mesh_t init_mesh{config, box};
 
     auto adapt_field = samurai::make_scalar_field<double>("adapt_field",
