@@ -82,7 +82,7 @@ void check_diff(auto& mesh)
                                                                        samurai::translate(neighbour.mesh[mesh_id_t::cells][level],
                                                                                           translation >> (mesh.subdomain().level() - level)));
                                         set(
-                                            [&](auto& i, auto index)
+                                            [&](const auto& i, const auto& index)
                                             {
                                                 std::cout << "Difference found !! " << level << " " << i << " " << index << " for domain "
                                                           << world.rank() << " with subdomain " << neighbour.rank << "\n";
