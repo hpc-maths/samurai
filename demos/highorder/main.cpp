@@ -151,7 +151,7 @@ int main(int argc, char* argv[])
                     .min_level(4)
                     .max_level(4)
                     .graduation_width(4)
-                    .max_stencil_width(4);
+                    .max_stencil_size(4);
     // clang-format on
     mesh_t init_mesh{config, box};
 

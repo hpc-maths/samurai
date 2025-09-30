@@ -75,7 +75,7 @@ int main(int argc, char* argv[])
     samurai::DomainBuilder<dim> domain({-1., -1.}, {1., 1.});
     domain.remove({0.0, 0.0}, {0.4, 0.4});
 
-    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).max_stencil_width(6);
+    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).max_stencil_size(6);
     Mesh mesh   = {config, domain};
     // Mesh mesh(domain, min_level, max_level);
 

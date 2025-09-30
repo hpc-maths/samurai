@@ -92,7 +92,7 @@ int main(int argc, char* argv[])
 
     if (restart_file.empty())
     {
-        auto config = samurai::mesh_config<dim>().min_level(1).max_level(dim == 1 ? 6 : 4).periodic(true).max_stencil_width(6);
+        auto config = samurai::mesh_config<dim>().min_level(1).max_level(dim == 1 ? 6 : 4).periodic(true).max_stencil_size(6);
         mesh        = {config, box};
         // Initial solution
         u = samurai::make_scalar_field<double>("u",
