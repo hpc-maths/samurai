@@ -238,7 +238,7 @@ jobs:
               with:
                   download-micromamba: true
                   micromamba-binary-path: ${{ runner.temp }}/bin/micromamba
-                  environment-file: conda/environment.yml
+                  environment-file: conda/mpi-environment.yml
                   environment-name: samurai-env
                   init-shell: none
                   generate-run-shell: true
@@ -246,7 +246,7 @@ jobs:
                   cache-downloads: false
                   post-cleanup: all
 
-                  # - name: Conda update
+            # - name: Conda update
             #   shell: bash -l {0}
             #   run: |
             #       conda update --all
