@@ -199,8 +199,8 @@ int main(int argc, char* argv[])
                                                });
                                        });
             // mesh = {cl, mesh.min_level() + 1, mesh.max_level() + 1};
-            auto mesh_cfg = samurai::mesh_config<dim>().min_level(min_level + i_ref + 1).max_level(max_level + i_ref + 1);
-            mesh          = {mesh_cfg, cl};
+            auto mesh_cfg = samurai::mesh_config<dim>().min_level(init_mesh.min_level() + i_ref + 1).max_level(init_mesh.max_level() + i_ref + 1);
+            mesh = {mesh_cfg, cl};
         }
         // std::cout << mesh << std::endl;
         // samurai::save("refine_mesh", mesh);
@@ -232,7 +232,7 @@ int main(int argc, char* argv[])
         // set.apply_op(samurai::projection(f));
         // auto f_recons = samurai::make_scalar_field<double>("f_recons", mesh);
         // auto error_f = samurai::make_scalar_field<double>("error", mesh);
-        // set.apply_op(samurai::prediction<prediction_order, true>(f_recons, f));
+        // set.apply_op(samurai::prediction<prediction_stencil_radius, true>(f_recons, f));
         // samurai::for_each_interval(mesh[mesh_id_t::cells], [&](std::size_t level,
         // const auto& i, const auto& index)
         // {
