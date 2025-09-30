@@ -314,8 +314,8 @@ int main(int argc, char* argv[])
                                });
 
         samurai::save(fmt::format("error_ref_{}", ite), mesh, error_field);
-        samurai::save(fmt::format("solution_{}_{}_ref_{}", min_level, max_level, ite), mesh, u);
-        samurai::save(fmt::format("solution_recons_{}_{}_ref_{}", min_level, max_level, ite), u_recons.mesh(), u_recons);
+        samurai::save(fmt::format("solution_{}_{}_ref_{}", mesh.min_level(), mesh.max_level(), ite), mesh, u);
+        samurai::save(fmt::format("solution_recons_{}_{}_ref_{}", mesh.min_level(), mesh.max_level(), ite), u_recons.mesh(), u_recons);
         h_coarse            = h;
         error_coarse        = error;
         error_recons_coarse = error_recons;
