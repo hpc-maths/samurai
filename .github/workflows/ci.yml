@@ -224,18 +224,18 @@ jobs:
             #       conda update --all
 
             - name: Petsc installation
-              shell: bash -l {0}
+              shell: micromamba-shell {0}
               run: |
                   conda install -y "petsc>=3.24" pkg-config cxx-compiler
 
             - name: Conda informations
-              shell: bash -l {0}
+              shell: micromamba-shell {0}
               run: |
-                  conda info
-                  conda list
+                  micromamba info
+                  micromamba list
 
             - name: Configure
-              shell: bash -l {0}
+              shell: micromamba-shell {0}
               run: |
                   cmake \
                       . \
@@ -248,7 +248,7 @@ jobs:
                       -DBUILD_TESTS=ON
 
             - name: Build
-              shell: bash -l {0}
+              shell: micromamba-shell {0}
               run: |
                   cmake --build build --target finite-volume-advection-2d
                   cmake --build build --target finite-volume-burgers
@@ -257,7 +257,7 @@ jobs:
                   cmake --build build --target finite-volume-burgers-os-2d-mpi --parallel 4
 
             - name: MPI test finite-volume-advection-2d
-              shell: bash -l {0}
+              shell: micromamba-shell {0}
               run: |
                   cd build
                   set -e  # Stop on first failure
@@ -273,7 +273,7 @@ jobs:
                   python ../python/compare.py FV_advection_2d_size_1_ite_ FV_advection_2d_size_9_ite_ --start 1 --end 19
 
             - name: MPI test finite-volume-burgers
-              shell: bash -l {0}
+              shell: micromamba-shell {0}
               run: |
                   cd build
                   set -e  # Stop on first failure
