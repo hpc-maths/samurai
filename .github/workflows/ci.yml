@@ -271,6 +271,7 @@ jobs:
               run: |
                   cmake --build build --target finite-volume-advection-2d --parallel 4
                   cmake --build build --target finite-volume-burgers --parallel 4
+                  cmake --build build --target finite-volume-burgers-os-2d-mpi --parallel 4
 
             - name: MPI test finite-volume-advection-2d
               shell: bash -l {0}
