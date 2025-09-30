@@ -278,9 +278,7 @@ jobs:
             - name: Build
               shell: micromamba-shell {0}
               run: |
-                  cmake --build build --target finite-volume-advection-2d --parallel 4
-                  cmake --build build --target finite-volume-burgers --parallel 4
-                  cmake --build build --target finite-volume-burgers-os-2d-mpi --parallel 4
+                  cmake --build build --target finite-volume-advection-2d finite-volume-burgers finite-volume-burgers-os-2d-mpi --parallel 4
 
             - name: MPI test finite-volume-advection-2d
               shell: micromamba-shell {0}
