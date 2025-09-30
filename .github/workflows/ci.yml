@@ -233,6 +233,8 @@ jobs:
 
             - name: Mamba and samurai env installation
               uses: mamba-org/setup-micromamba@v2
+              env:
+                  MAMBA_ROOT_PREFIX: ${{ runner.temp }}/micromamba-root
               with:
                   download-micromamba: true
                   micromamba-binary-path: ${{ runner.temp }}/bin/micromamba
@@ -250,6 +252,8 @@ jobs:
 
             - name: Petsc installation
               shell: micromamba-shell {0}
+              env:
+                  MAMBA_ROOT_PREFIX: ${{ runner.temp }}/micromamba-root
               run: |
                   micromamba install -y petsc pkg-config cxx-compiler
 
