@@ -294,10 +294,11 @@ namespace samurai
                 [&](std::size_t level)
                 {
                     // own part
-                    add_prediction_ghosts(
-                        nestedExpand<config::prediction_order>(self(this->cells()[mesh_id_t::cells][level]).on(level - 2)),
-                        nestedExpand<config::prediction_order>(self(this->cells()[mesh_id_t::cells_and_ghosts][level]).on(level - 1)),
-                        level);
+                    add_prediction_ghosts(nestedExpand<config::prediction_order>(self(this->cells()[mesh_id_t::cells][level]).on(level - 2)),
+                                          intersection(nestedExpand<config::prediction_order>(
+                                                           self(this->cells()[mesh_id_t::cells_and_ghosts][level]).on(level - 1)),
+                                                       nestedExpand<config::prediction_order>(self(this->subdomain()).on(level - 1))),
+                                          level);
 
                     // periodic part
                     const int delta_l = int(this->domain().level() - level);
