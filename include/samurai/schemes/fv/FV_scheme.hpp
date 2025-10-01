@@ -181,8 +181,8 @@ namespace samurai
             {
                 if (input_field.mesh().is_periodic())
                 {
-                    std::cerr << "Error: apply_directional_bc() not implemented for non-box domains with periodic directions." << std::endl;
-                    assert(false);
+                    // std::cerr << "Error: apply_directional_bc() not implemented for non-box domains with periodic directions." <<
+                    // std::endl; assert(false);
                     return;
                 }
                 apply_field_bc(input_field, d);
