@@ -56,10 +56,10 @@ namespace samurai
       public:
 
         SAMURAI_SET_TYPEDEFS
-        SAMURAI_SET_CONSTEXPRS
+        //~ SAMURAI_SET_CONSTEXPRS
 
-        using expansion_t    = std::array<value_t, dim>;
-        using do_expansion_t = std::array<bool, dim>;
+        using expansion_t    = std::array<value_t, Base::dim>;
+        using do_expansion_t = std::array<bool, Base::dim>;
 
         Expansion(const Set& set, const expansion_t& expansions)
             : m_set(set)
@@ -98,7 +98,7 @@ namespace samurai
 
         ~Expansion()
         {
-            static_for<0, dim - 1>::apply(
+            static_for<0, Base::dim - 1>::apply(
                 [this](const auto d)
                 {
                     using Work = MemoryPool<typename Set::template traverser_t<d>>;
@@ -130,7 +130,7 @@ namespace samurai
         template <class index_t, std::size_t d>
         inline traverser_t<d> get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d> d_ic) const
         {
-            if constexpr (d == dim - 1)
+            if constexpr (d == Base::dim - 1)
             {
                 return traverser_t<d>(m_set.get_traverser(index, d_ic), m_expansions[d]);
             }
@@ -146,7 +146,7 @@ namespace samurai
                 const auto set_traversers_offsets = work.requestChunk(WorkSize(2 * (m_expansions[d + 1] + 1)));
                 auto end_offset                   = set_traversers_offsets.first;
 
-                xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> tmp_index(index);
+                xt::xtensor_fixed<value_t, xt::xshape<Base::dim - 1>> tmp_index(index);
 
                 for (value_t width = 0; width != m_expansions[d + 1] + 1; ++width)
                 {

@@ -53,7 +53,8 @@ namespace samurai
       public:
 
         SAMURAI_SET_TYPEDEFS
-        SAMURAI_SET_CONSTEXPRS
+
+        //~ SAMURAI_SET_CONSTEXPRS
 
         Projection(const Set& set, const std::size_t level)
             : m_set(set)
@@ -91,7 +92,7 @@ namespace samurai
 
         ~Projection()
         {
-            static_for<0, dim>::apply(
+            static_for<0, Base::dim>::apply(
                 [this](const auto d)
                 {
                     using Work = MemoryPool<typename Set::template traverser_t<d>>;
@@ -131,7 +132,7 @@ namespace samurai
 
             if (m_projectionType == ProjectionType::COARSEN)
             {
-                if constexpr (d != dim - 1)
+                if constexpr (d != Base::dim - 1)
                 {
                     const auto set_traversers_offsets = work.requestChunk(1 << m_shift);
                     auto end_offset                   = set_traversers_offsets.first;
@@ -139,7 +140,7 @@ namespace samurai
                     const value_t ymin = _index[d] << m_shift;
                     const value_t ymax = (_index[d] + 1) << m_shift;
 
-                    xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> index(_index << m_shift);
+                    xt::xtensor_fixed<value_t, xt::xshape<Base::dim - 1>> index(_index << m_shift);
 
                     for (index[d] = ymin; index[d] != ymax; ++index[d])
                     {
