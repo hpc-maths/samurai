@@ -154,7 +154,7 @@ int main(int argc, char* argv[])
 
         std::swap(u.array(), unp1.array());
 
-        if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
+        if (t >= static_cast<double>(nsave) * dt_save || t == Tf)
         {
             const std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
             save(path, filename, u, suffix);

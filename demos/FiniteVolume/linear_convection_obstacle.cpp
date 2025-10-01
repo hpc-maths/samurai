@@ -172,7 +172,7 @@ int main(int argc, char* argv[])
         samurai::swap(u, unp1);
 
         // Save the result
-        if (nfiles == 0 || t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
+        if (nfiles == 0 || t >= static_cast<double>(nsave) * dt_save || t == Tf)
         {
             if (nfiles != 1)
             {

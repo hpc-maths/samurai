@@ -376,7 +376,7 @@ int main(int argc, char* argv[])
         max_level_n = max_level_np1;
 
         // Save the results
-        if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
+        if (t >= static_cast<double>(nsave) * dt_save || t == Tf)
         {
             if (nfiles != 1)
             {
