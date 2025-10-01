@@ -1,11 +1,14 @@
 #pragma once
 
+#include <algorithm>
 #include <cassert>
-#include <iomanip>
-#include <iostream>
 #include <limits>
 #include <map>
+#include <string>
 #include <vector>
+
+#include <fmt/color.h>
+#include <fmt/format.h>
 
 #include "assert_log_trace.hpp"
 
@@ -94,21 +97,39 @@ namespace samurai
         {
             boost::mpi::communicator world;
 
-            int setwSize = 20;
+            // Compute dynamic widths
+            const int nameWidth  = _compute_name_width(24);
+            const int timeWidth  = 16;
+            const int rankWidth  = 7; // prints like "[  12]"
+            const int callsWidth = 10;
 
             if (world.rank() == 0)
             {
-                std::cout << "\n\t> [Master] Timers " << std::endl;
-                std::cout << "\t" << std::setw(setwSize) << "Name " << std::setw(setwSize) << "Min time (s)" << std::setw(8) << ""
-                          << std::setw(setwSize) << "Max time (s)" << std::setw(8) << "" << std::setw(setwSize) << "Ave time (s)"
-                          << std::setw(setwSize) << "Std dev" << std::setw(setwSize) << "Calls" << std::endl;
+                fmt::print("\n > [Master] Timers \n");
+                fmt::print(" {:<{}}{:>{}}{:>{}}{:>{}}{:>{}}{:>{}}{:>{}}{:>{}}\n",
+                           "Name",
+                           nameWidth,
+                           "Min time (s)",
+                           timeWidth,
+                           "[r]",
+                           rankWidth,
+                           "Max time (s)",
+                           timeWidth,
+                           "[r]",
+                           rankWidth,
+                           "Ave time (s)",
+                           timeWidth,
+                           "Std dev",
+                           timeWidth,
+                           "Calls",
+                           callsWidth);
             }
 
             for (const auto& timer : _times)
             {
                 int minrank = -1, maxrank = -1;
-                double min = std::numeric_limits<double>::max(), max = std::numeric_limits<double>::min();
-                double ave = 0., std = 0.;
+                double min = std::numeric_limits<double>::max(), max = std::numeric_limits<double>::lowest();
+                double ave = 0., std_dev = 0.;
 
                 std::vector<double> all(static_cast<std::size_t>(world.size()), 0.0);
                 boost::mpi::all_gather(world, timer.second.elapsed, all);
@@ -132,12 +153,13 @@ namespace samurai
 
                 ave /= static_cast<double>(world.size());
 
+                double sqsum = 0.0;
                 for (size_t iproc = 0; iproc < all.size(); ++iproc)
                 {
-                    std = (all[iproc] - ave) * (all[iproc] - ave);
+                    const double d = all[iproc] - ave;
+                    sqsum += d * d;
                 }
-                std /= static_cast<double>(world.size());
-                std = std::sqrt(std);
+                std_dev = std::sqrt(sqsum / static_cast<double>(world.size()));
 
                 // boost::mpi::reduce( world, timer.second.elapsed, min, boost::mpi::minimum<double>(), root );
                 // boost::mpi::reduce( world, timer.second.elapsed, max, boost::mpi::maximum<double>(), root );
@@ -145,10 +167,23 @@ namespace samurai
 
                 if (world.rank() == 0)
                 {
-                    std::cout << std::fixed << std::setprecision(5) << "\t" << std::setw(setwSize) << timer.first << std::setw(setwSize)
-                              << min << std::setw(2) << "[" << std::setw(4) << minrank << std::setw(2) << "]" << std::setw(setwSize) << max
-                              << std::setw(2) << "[" << std::setw(4) << maxrank << std::setw(2) << "]" << std::setw(setwSize) << ave
-                              << std::setw(setwSize) << std << std::setw(setwSize) << timer.second.ntimes << std::endl;
+                    fmt::print(" {:<{}}{:>{}.5f}{:>{}}{:>{}.5f}{:>{}}{:>{}.5f}{:>{}.5f}{:>{}}\n",
+                               timer.first,
+                               nameWidth,
+                               min,
+                               timeWidth,
+                               fmt::format("[{}]", minrank),
+                               rankWidth,
+                               max,
+                               timeWidth,
+                               fmt::format("[{}]", maxrank),
+                               rankWidth,
+                               ave,
+                               timeWidth,
+                               std_dev,
+                               timeWidth,
+                               timer.second.ntimes,
+                               callsWidth);
                 }
             }
         }
@@ -156,10 +191,12 @@ namespace samurai
 #else
         void print() const
         {
+            // Compute dynamic width for the name column
+            const int nameWidth = _compute_name_width(20);
+
             std::chrono::microseconds total_runtime(0);
             std::chrono::microseconds total_measured(0);
-            std::size_t max_name_length = 0;
-            bool has_total_runtime      = false;
+            bool has_total_runtime = false;
             for (const auto& timer : _times)
             {
                 if (timer.first == "total runtime")
@@ -170,7 +207,6 @@ namespace samurai
                 else
                 {
                     total_measured += timer.second.elapsed;
-                    max_name_length = std::max(max_name_length, timer.first.length());
                 }
             }
             std::chrono::microseconds total = has_total_runtime ? total_runtime : total_measured;
@@ -184,29 +220,20 @@ namespace samurai
                       });
 
             double total_perc = 0.0;
-            // std::cout << "\n\t> [Process] Timers " << std::endl;
-            int setwSizeName = static_cast<int>(max_name_length) + 4;
-            int setwSizeData = 16;
 
-            // std::cout << "\t";
-            std::cout << std::setw(setwSizeName) << " ";
-            std::cout << std::setw(setwSizeData) << "Elapsed (s)";
-            std::cout << std::setw(setwSizeData) << "Fraction (%)";
-            // std::cout << std::setw(setwSizeData) << "Calls";
-            std::cout << std::endl;
+            // Print header (blank name header preserved)
+            fmt::print("{:>{}} {:>12} {:>12}\n", " ", nameWidth, "Elapsed (s)", "Fraction (%)");
 
-            std::cout << std::fixed;
             for (const auto& timer : sorted_data)
             {
                 if (timer.first != "total runtime")
                 {
                     auto elapsedInSeconds = std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1>>>(timer.second.elapsed);
-                    // std::cout << "\t";
-                    std::cout << std::setw(setwSizeName) << timer.first;
-                    std::cout << std::setw(setwSizeData) << std::setprecision(3) << elapsedInSeconds.count();
-                    std::cout << std::setw(setwSizeData) << std::setprecision(1) << _percent(timer.second.elapsed, total);
-                    // std::cout << std::setw(setwSizeData) << timer.second.ntimes;
-                    std::cout << std::endl;
+                    fmt::print("{:>{}} {:>12.3f} {:>12.1f}\n",
+                               timer.first,
+                               nameWidth,
+                               elapsedInSeconds.count(),
+                               _percent(timer.second.elapsed, total));
                     total_perc += timer.second.elapsed * 100.0 / total;
                 }
             }
@@ -215,28 +242,17 @@ namespace samurai
             {
                 if (timer.first == "total runtime")
                 {
-                    std::string msg = "----------------";
-                    std::cout << std::setw(setwSizeName) << msg /*<< std::setw(setwSizeData) << msg << std::setw(setwSizeData) << msg
-                              << std::setw(setwSizeData)*/
-                              << std::endl;
+                    std::string msg = "--------";
+                    fmt::print("{:>{}}\n", msg, nameWidth);
 
                     auto untimed          = total_runtime - total_measured;
                     auto untimedInSeconds = std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1>>>(untimed);
-                    // std::cout << "\t";
-                    std::cout << std::setw(setwSizeName) << "(untimed)";
-                    std::cout << std::setw(setwSizeData) << std::setprecision(3) << untimedInSeconds.count();
-                    std::cout << std::setw(setwSizeData) << std::setprecision(1) << _percent(untimed, total);
-                    std::cout << std::endl;
+                    fmt::print("{:>{}} {:>12.3f} {:>12.1f}\n", "(untimed)", nameWidth, untimedInSeconds.count(), _percent(untimed, total));
 
-                    std::cout << std::setw(setwSizeName) << msg << std::setw(setwSizeData) << msg << std::setw(setwSizeData) << msg
-                              << std::setw(setwSizeData) << std::endl;
+                    fmt::print("{:>{}} {:>12} {:>12}\n", msg, nameWidth, msg, msg);
 
                     auto totalInSeconds = std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1>>>(timer.second.elapsed);
-                    // std::cout << "\t";
-                    std::cout << std::setw(setwSizeName) << timer.first;
-                    std::cout << std::setw(setwSizeData) << std::setprecision(3) << totalInSeconds.count();
-                    std::cout << std::setw(setwSizeData) << std::setprecision(1) << 100.0;
-                    std::cout << std::endl;
+                    fmt::print(fmt::emphasis::bold, "{:>{}} {:>12.3f} {:>12.1f}\n", timer.first, nameWidth, totalInSeconds.count(), 100.0);
                     total_perc += _percent(timer.second.elapsed, total);
                 }
             }
@@ -244,13 +260,10 @@ namespace samurai
             if (!has_total_runtime)
             {
                 auto totalInSeconds = std::chrono::duration_cast<std::chrono::duration<double, std::ratio<1>>>(total_measured);
-                std::cout << std::setw(setwSizeName) << "Total";
-                std::cout << std::setw(setwSizeData) << std::setprecision(3) << totalInSeconds.count();
-                std::cout << std::setw(setwSizeData) << std::setprecision(1) << total_perc;
-                std::cout << std::endl;
+                fmt::print(fmt::emphasis::bold, "{:>{}} {:>12.3f} {:>12.1f}\n", "Total", nameWidth, totalInSeconds.count(), total_perc);
             }
 
-            std::cout << std::endl;
+            fmt::print("\n");
         }
 #endif
 
@@ -284,6 +297,16 @@ namespace samurai
             return std::chrono::microseconds(0);
         }
 #endif
+        inline int _compute_name_width(std::size_t min_width) const
+        {
+            std::size_t max_name_length = 0;
+            for (const auto& kv : _times)
+            {
+                max_name_length = std::max<std::size_t>(max_name_length, kv.first.size());
+            }
+            return static_cast<int>(std::max<std::size_t>(min_width, max_name_length + 2));
+        }
+
         inline double _percent(const std::chrono::microseconds& value, const std::chrono::microseconds& total) const
         {
             return static_cast<double>(value.count() * 100) / static_cast<double>(total.count());
