@@ -23,7 +23,10 @@ namespace samurai
         template <std::size_t d>
         using traverser_t = TranslationTraverser<typename Set::template traverser_t<d>>;
 
-        static constexpr std::size_t dim = Set::dim;
+        static constexpr std::size_t dim()
+        {
+            return Set::dim;
+        }
     };
 
     template <class Set>
