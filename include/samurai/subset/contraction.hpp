@@ -98,14 +98,14 @@ namespace samurai
     }
 
     template <class Set>
-    auto contract(const Set& set, const typename Contraction<std::decay_t<decltype(self(set))>>::value_t contraction)
+    auto contract(const Set& set, const typename Contraction<std::decay_t<decltype(self(set))>>::value_t& contraction)
     {
         return Contraction(self(set), contraction);
     }
 
     template <class Set>
     auto contract(const Set& set,
-                  const typename Contraction<std::decay_t<decltype(self(set))>>::value_t contraction,
+                  const typename Contraction<std::decay_t<decltype(self(set))>>::value_t& contraction,
                   const typename Contraction<std::decay_t<decltype(self(set))>>::do_contraction_t& do_contraction) // idk how to make this
                                                                                                                    // more readable,
                                                                                                                    // perhaps a traits...

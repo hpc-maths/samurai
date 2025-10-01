@@ -9,7 +9,7 @@ namespace samurai
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
 
-        auto& cells = mesh[mesh_id_t::cells][level];
+        const auto& cells = mesh[mesh_id_t::cells][level];
 
         return difference(cells, translate(self(domain).on(level), -layer_width * direction));
     }

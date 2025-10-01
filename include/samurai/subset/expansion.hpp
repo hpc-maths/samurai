@@ -194,14 +194,14 @@ namespace samurai
     }
 
     template <class Set>
-    auto expand(const Set& set, const typename Contraction<std::decay_t<decltype(self(set))>>::value_t expansion)
+    auto expand(const Set& set, const typename Contraction<std::decay_t<decltype(self(set))>>::value_t& expansion)
     {
         return Expansion(self(set), expansion);
     }
 
     template <class Set>
     auto expand(const Set& set,
-                const typename Contraction<std::decay_t<decltype(self(set))>>::value_t expansion,
+                const typename Contraction<std::decay_t<decltype(self(set))>>::value_t& expansion,
                 const typename Contraction<std::decay_t<decltype(self(set))>>::do_expansion_t& do_expansion)
     {
         return Expansion(self(set), expansion, do_expansion);
