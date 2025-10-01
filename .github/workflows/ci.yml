@@ -8,215 +8,216 @@ concurrency:
     cancel-in-progress: true
 
 jobs:
-    # #
-    # # Check samurai with pre-commit
-    # #
-    # #########################################################
-    # pre-commit:
-    #     runs-on: ubuntu-latest
-    #     steps:
-    #         - uses: actions/checkout@v4
-    #         - uses: actions/setup-python@v5
-    #         - uses: pre-commit/action@v3.0.0
-    # #
-    # # Check samurai with cppcheck
-    # #
-    # #########################################################
-    # cppcheck:
-    #     runs-on: ubuntu-latest
-    #     steps:
-    #         - uses: actions/checkout@v4
+    #
+    # Check samurai with pre-commit
+    #
+    #########################################################
+    pre-commit:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-python@v5
+            - uses: pre-commit/action@v3.0.0
+    #
+    # Check samurai with cppcheck
+    #
+    #########################################################
+    cppcheck:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
 
-    #         - name: Cache
-    #           uses: actions/cache@v4
-    #           with:
-    #               path: |
-    #                   ~/.cache/ccache
-    #                   ~/micromamba/envs/samurai-env
-    #               key: cppcheck
+            - name: Cache
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      ~/.cache/ccache
+                      ~/micromamba/envs/samurai-env
+                  key: cppcheck
 
-    #         - name: Mamba and samurai env installation
-    #           uses: mamba-org/setup-micromamba@v1
-    #           with:
-    #               environment-file: conda/environment.yml
-    #               environment-name: samurai-env
-    #               cache-environment: true
+            - name: Mamba and samurai env installation
+              uses: mamba-org/setup-micromamba@v1
+              with:
+                  environment-file: conda/environment.yml
+                  environment-name: samurai-env
+                  cache-environment: true
 
-    #         - name: cppcheck installation
-    #           shell: bash -el {0}
-    #           run: |
-    #               conda install -y cppcheck=2.12 python=3.12 cxx-compiler
+            - name: cppcheck installation
+              shell: bash -el {0}
+              run: |
+                  conda install -y cppcheck=2.12 python=3.12 cxx-compiler
 
-    #         - name: Configure
-    #           shell: bash -el {0}
-    #           run: |
-    #               cmake . -Bbuild -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_DEMOS=ON
+            - name: Configure
+              shell: bash -el {0}
+              run: |
+                  cmake . -Bbuild -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_DEMOS=ON
 
-    #         - name: Run cppcheck on samurai
-    #           shell: bash -el {0}
-    #           run: |
-    #               cppcheck --enable=all -q --project=./build/compile_commands.json --suppressions-list=.cppcheck --inline-suppr 2> cppcheck_err.txt
+            - name: Run cppcheck on samurai
+              shell: bash -el {0}
+              run: |
+                  cppcheck --enable=all -q --project=./build/compile_commands.json --suppressions-list=.cppcheck --inline-suppr 2> cppcheck_err.txt
 
-    #         - name: Check for errors
-    #           run: |
-    #               if [[ -s cppcheck_err.txt ]];
-    #               then
-    #                 cat cppcheck_err.txt
-    #                 exit -1
-    #               fi
-    # #
-    # # Check linux build with mamba environment
-    # #
-    # #########################################################
-    # linux-mamba:
-    #     needs: [pre-commit, cppcheck]
-    #     strategy:
-    #         fail-fast: false
-    #         matrix:
-    #             include:
-    #                 - cpp-version: gcc-11
-    #                   os: ubuntu-latest
-    #                   compiler: "gcc"
-    #                   package: "gcc-11 g++-11"
-    #                   cc: "gcc-11"
-    #                   cxx: "g++-11"
-    #                 - cpp-version: gcc-12
-    #                   os: ubuntu-latest
-    #                   compiler: "gcc"
-    #                   package: "gcc-12 g++-12"
-    #                   cc: "gcc-12"
-    #                   cxx: "g++-12"
-    #                 - cpp-version: gcc-13
-    #                   os: ubuntu-latest
-    #                   compiler: "gcc"
-    #                   package: "gcc-13 g++-13"
-    #                   cc: "gcc-13"
-    #                   cxx: "g++-13"
-    #                 # - cpp-version: gcc-14
-    #                 #   os: ubuntu-latest
-    #                 #   compiler: "gcc"
-    #                 #   package: "gcc-14 g++-14"
-    #                 #   cc: "gcc-14"
-    #                 #   cxx: "g++-14"
-    #                 - cpp-version: clang-13
-    #                   os: ubuntu-22.04
-    #                   compiler: "clang"
-    #                   package: "clang-13"
-    #                   cc: "clang-13"
-    #                   cxx: "clang++-13"
-    #                 - cpp-version: clang-14
-    #                   os: ubuntu-22.04
-    #                   compiler: "clang"
-    #                   package: "clang-14"
-    #                   cc: "clang-14"
-    #                   cxx: "clang++-14"
-    #                 - cpp-version: clang-15
-    #                   os: ubuntu-22.04
-    #                   compiler: "clang"
-    #                   package: "clang-15"
-    #                   cc: "clang-15"
-    #                   cxx: "clang++-15"
-    #                 - cpp-version: clang-16
-    #                   os: ubuntu-24.04
-    #                   compiler: "clang"
-    #                   package: "clang-16"
-    #                   cc: "clang-16"
-    #                   cxx: "clang++-16"
-    #                 - cpp-version: clang-17
-    #                   os: ubuntu-24.04
-    #                   compiler: "clang"
-    #                   package: "clang-17"
-    #                   cc: "clang-17"
-    #                   cxx: "clang++-17"
-    #                 - cpp-version: clang-18
-    #                   os: ubuntu-24.04
-    #                   compiler: "clang"
-    #                   package: "clang-18"
-    #                   cc: "clang-18"
-    #                   cxx: "clang++-18"
-    #     runs-on: ${{ matrix.os }}
-    #     steps:
-    #         - uses: actions/checkout@v4
+            - name: Check for errors
+              run: |
+                  if [[ -s cppcheck_err.txt ]];
+                  then
+                    cat cppcheck_err.txt
+                    exit -1
+                  fi
+    #
+    # Check linux build with mamba environment
+    #
+    #########################################################
+    linux-mamba:
+        needs: [pre-commit, cppcheck]
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - cpp-version: gcc-11
+                      os: ubuntu-latest
+                      compiler: "gcc"
+                      package: "gcc-11 g++-11"
+                      cc: "gcc-11"
+                      cxx: "g++-11"
+                    - cpp-version: gcc-12
+                      os: ubuntu-latest
+                      compiler: "gcc"
+                      package: "gcc-12 g++-12"
+                      cc: "gcc-12"
+                      cxx: "g++-12"
+                    - cpp-version: gcc-13
+                      os: ubuntu-latest
+                      compiler: "gcc"
+                      package: "gcc-13 g++-13"
+                      cc: "gcc-13"
+                      cxx: "g++-13"
+                    # - cpp-version: gcc-14
+                    #   os: ubuntu-latest
+                    #   compiler: "gcc"
+                    #   package: "gcc-14 g++-14"
+                    #   cc: "gcc-14"
+                    #   cxx: "g++-14"
+                    - cpp-version: clang-13
+                      os: ubuntu-22.04
+                      compiler: "clang"
+                      package: "clang-13"
+                      cc: "clang-13"
+                      cxx: "clang++-13"
+                    - cpp-version: clang-14
+                      os: ubuntu-22.04
+                      compiler: "clang"
+                      package: "clang-14"
+                      cc: "clang-14"
+                      cxx: "clang++-14"
+                    - cpp-version: clang-15
+                      os: ubuntu-22.04
+                      compiler: "clang"
+                      package: "clang-15"
+                      cc: "clang-15"
+                      cxx: "clang++-15"
+                    - cpp-version: clang-16
+                      os: ubuntu-24.04
+                      compiler: "clang"
+                      package: "clang-16"
+                      cc: "clang-16"
+                      cxx: "clang++-16"
+                    - cpp-version: clang-17
+                      os: ubuntu-24.04
+                      compiler: "clang"
+                      package: "clang-17"
+                      cc: "clang-17"
+                      cxx: "clang++-17"
+                    - cpp-version: clang-18
+                      os: ubuntu-24.04
+                      compiler: "clang"
+                      package: "clang-18"
+                      cc: "clang-18"
+                      cxx: "clang++-18"
+        runs-on: ${{ matrix.os }}
+        steps:
+            - uses: actions/checkout@v4
 
-    #         - name: Cache
-    #           uses: actions/cache@v4
-    #           with:
-    #               path: |
-    #                   ~/.cache/ccache
-    #                   ~/micromamba-root/envs/samurai-env
-    #               key: linux-${{ matrix.cpp-version }}
-    #               restore-keys: |
-    #                   linux-${{ matrix.cpp-version }}
+            - name: Cache
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      ~/.cache/ccache
+                      ~/micromamba-root/envs/samurai-env
+                  key: linux-${{ matrix.cpp-version }}
+                  restore-keys: |
+                      linux-${{ matrix.cpp-version }}
 
-    #         - name: Compiler and dev tools installation
-    #           run: |
-    #               sudo apt update
-    #               sudo apt install ${{ matrix.package }}
+            - name: Compiler and dev tools installation
+              run: |
+                  sudo apt update
+                  sudo apt install ${{ matrix.package }}
 
-    #         # - name: Information about ccache
-    #         #   run: |
-    #         #     ccache -s -v
+            # - name: Information about ccache
+            #   run: |
+            #     ccache -s -v
 
-    #         - name: Mamba and samurai env installation
-    #           uses: mamba-org/setup-micromamba@v1
-    #           with:
-    #               environment-file: conda/environment.yml
-    #               environment-name: samurai-env
-    #               cache-environment: true
+            - name: Mamba and samurai env installation
+              uses: mamba-org/setup-micromamba@v1
+              with:
+                  environment-file: conda/environment.yml
+                  environment-name: samurai-env
+                  cache-environment: true
 
-    #         # - name: Conda update
-    #         #   shell: bash -l {0}
-    #         #   run: |
-    #         #       conda update --all
+            # - name: Conda update
+            #   shell: bash -l {0}
+            #   run: |
+            #       conda update --all
 
-    #         - name: Petsc installation
-    #           shell: bash -l {0}
-    #           run: |
-    #               conda install -y petsc pkg-config
+            - name: Petsc installation
+              shell: bash -l {0}
+              run: |
+                  conda install -y petsc pkg-config
 
-    #         - name: Conda informations
-    #           shell: bash -l {0}
-    #           run: |
-    #               conda info
-    #               conda list
+            - name: Conda informations
+              shell: bash -l {0}
+              run: |
+                  conda info
+                  conda list
 
-    #         - name: Configure
-    #           shell: bash -l {0}
-    #           run: |
-    #               export LDFLAGS="${LDFLAGS} -L$CONDA_PREFIX/lib"
-    #               CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
-    #                   . \
-    #                   -Bbuild \
-    #                   -GNinja \
-    #                   -DCMAKE_BUILD_TYPE=Release \
-    #                   -DWITH_PETSC=ON \
-    #                   -DBUILD_DEMOS=ON \
-    #                   -DBUILD_TESTS=ON
+            - name: Configure
+              shell: bash -l {0}
+              run: |
+                  export LDFLAGS="${LDFLAGS} -L$CONDA_PREFIX/lib"
+                  CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
+                      . \
+                      -Bbuild \
+                      -GNinja \
+                      -DCMAKE_BUILD_TYPE=Release \
+                      -DWITH_PETSC=ON \
+                      -DBUILD_DEMOS=ON \
+                      -DBUILD_TESTS=ON
 
-    #         - name: Build
-    #           shell: bash -l {0}
-    #           run: |
-    #               cmake --build build --target all --parallel 2
+            - name: Build
+              shell: bash -l {0}
+              run: |
+                  cmake --build build --target all --parallel 2
 
-    #         - name: Test with googletest
-    #           shell: bash -l {0}
-    #           run: |
-    #               export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
-    #               cd build
-    #               ./tests/test_samurai_lib
+            - name: Test with googletest
+              shell: bash -l {0}
+              run: |
+                  export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
+                  cd build
+                  ./tests/test_samurai_lib
 
-    #         - name: Test with pytest
-    #           shell: bash -l {0}
-    #           run: |
-    #               export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
-    #               cd tests
-    #               pytest -v -s --h5diff
+            - name: Test with pytest
+              shell: bash -l {0}
+              run: |
+                  export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
+                  cd tests
+                  pytest -v -s --h5diff
+
     #
     # Check linux build with mamba environment
     #
     #########################################################
     linux-mpi-mamba:
-        # needs: [pre-commit, cppcheck]
+        needs: [pre-commit, cppcheck]
         runs-on: self-hosted
         steps:
             - uses: actions/checkout@v4
@@ -244,11 +245,6 @@ jobs:
                   cache-environment: false
                   cache-downloads: false
                   post-cleanup: all
-
-            # - name: Conda update
-            #   shell: bash -l {0}
-            #   run: |
-            #       conda update --all
 
             - name: Petsc installation
               shell: micromamba-shell {0}
@@ -324,196 +320,196 @@ jobs:
                   mpiexec -n 8 ./demos/FiniteVolume/finite-volume-burgers-os-2d-mpi --npx=2 --npy=4 --min-level=0 --max-level=8 --Tf=6 --nfiles 1
                   mpiexec -n 9 ./demos/FiniteVolume/finite-volume-burgers-os-2d-mpi --npx=3 --npy=3 --min-level=0 --max-level=8 --Tf=6 --nfiles 1
 
-    # macos-mamba:
-    #     needs: [pre-commit, cppcheck]
-    #     runs-on: macos-14
-    #     steps:
-    #         - uses: actions/checkout@v4
-    #         - name: Mamba and samurai env installation
-    #           uses: mamba-org/setup-micromamba@v1
-    #           with:
-    #               environment-file: conda/environment.yml
-    #               environment-name: samurai-env
-    #               cache-environment: true
+    macos-mamba:
+        needs: [pre-commit, cppcheck]
+        runs-on: macos-14
+        steps:
+            - uses: actions/checkout@v4
+            - name: Mamba and samurai env installation
+              uses: mamba-org/setup-micromamba@v1
+              with:
+                  environment-file: conda/environment.yml
+                  environment-name: samurai-env
+                  cache-environment: true
 
-    #         # - name: Petsc installation
-    #         #   shell: bash -l {0}
-    #         #   run: |
-    #         #     micromamba install -y petsc=3.18 pkg-config
+            # - name: Petsc installation
+            #   shell: bash -l {0}
+            #   run: |
+            #     micromamba install -y petsc=3.18 pkg-config
 
-    #         - name: Installl cxx compiler
-    #           shell: bash -l {0}
-    #           run: |
-    #               micromamba install -y cxx-compiler\<1.11.0
+            - name: Installl cxx compiler
+              shell: bash -l {0}
+              run: |
+                  micromamba install -y cxx-compiler\<1.11.0
 
-    #         - name: micromamba informations
-    #           shell: bash -l {0}
-    #           run: |
-    #               micromamba info
-    #               micromamba list
+            - name: micromamba informations
+              shell: bash -l {0}
+              run: |
+                  micromamba info
+                  micromamba list
 
-    #         - name: Configure
-    #           shell: bash -l {0}
-    #           run: |
-    #               cmake \
-    #                   . \
-    #                   -Bbuild \
-    #                   -GNinja \
-    #                   -DCMAKE_BUILD_TYPE=Release \
-    #                   -DBUILD_DEMOS=ON \
-    #                   -DBUILD_TESTS=ON
+            - name: Configure
+              shell: bash -l {0}
+              run: |
+                  cmake \
+                      . \
+                      -Bbuild \
+                      -GNinja \
+                      -DCMAKE_BUILD_TYPE=Release \
+                      -DBUILD_DEMOS=ON \
+                      -DBUILD_TESTS=ON
 
-    #         - name: Build
-    #           shell: bash -l {0}
-    #           run: |
-    #               cmake --build ./build --config Release --parallel 3
+            - name: Build
+              shell: bash -l {0}
+              run: |
+                  cmake --build ./build --config Release --parallel 3
 
-    #         - name: Run tests
-    #           shell: bash -l {0}
-    #           run: |
-    #               ./build/tests/test_samurai_lib
-    #               cd tests; pytest --h5diff
-    # #
-    # # CHECK_NAN
-    # #
-    # #########################################################
-    # linux-mamba-check-nan:
-    #     needs: [pre-commit, cppcheck]
-    #     runs-on: ubuntu-latest
-    #     steps:
-    #         - uses: actions/checkout@v4
+            - name: Run tests
+              shell: bash -l {0}
+              run: |
+                  ./build/tests/test_samurai_lib
+                  cd tests; pytest --h5diff
+    #
+    # CHECK_NAN
+    #
+    #########################################################
+    linux-mamba-check-nan:
+        needs: [pre-commit, cppcheck]
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
 
-    #         - name: Cache
-    #           uses: actions/cache@v4
-    #           with:
-    #               path: |
-    #                   ~/.cache/ccache
-    #                   ~/micromamba-root/envs/samurai-env
-    #               key: linux-mamba-check-nan
-    #               restore-keys: |
-    #                   linux-mamba-check-nan
+            - name: Cache
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      ~/.cache/ccache
+                      ~/micromamba-root/envs/samurai-env
+                  key: linux-mamba-check-nan
+                  restore-keys: |
+                      linux-mamba-check-nan
 
-    #         - name: Mamba and samurai env installation
-    #           uses: mamba-org/setup-micromamba@v2
-    #           with:
-    #               environment-file: conda/environment.yml
-    #               environment-name: samurai-env
-    #               cache-environment: true
+            - name: Mamba and samurai env installation
+              uses: mamba-org/setup-micromamba@v2
+              with:
+                  environment-file: conda/environment.yml
+                  environment-name: samurai-env
+                  cache-environment: true
 
-    #         - name: Petsc installation
-    #           shell: bash -l {0}
-    #           run: |
-    #               conda install -y petsc pkg-config cxx-compiler
+            - name: Petsc installation
+              shell: bash -l {0}
+              run: |
+                  conda install -y petsc pkg-config cxx-compiler
 
-    #         - name: Conda informations
-    #           shell: bash -l {0}
-    #           run: |
-    #               conda info
-    #               conda list
+            - name: Conda informations
+              shell: bash -l {0}
+              run: |
+                  conda info
+                  conda list
 
-    #         - name: Configure
-    #           shell: bash -l {0}
-    #           run: |
-    #               cmake \
-    #                   . \
-    #                   -Bbuild \
-    #                   -GNinja \
-    #                   -DCMAKE_BUILD_TYPE=Debug \
-    #                   -DSAMURAI_CHECK_NAN=ON \
-    #                   -DWITH_PETSC=ON \
-    #                   -DBUILD_DEMOS=ON
+            - name: Configure
+              shell: bash -l {0}
+              run: |
+                  cmake \
+                      . \
+                      -Bbuild \
+                      -GNinja \
+                      -DCMAKE_BUILD_TYPE=Debug \
+                      -DSAMURAI_CHECK_NAN=ON \
+                      -DWITH_PETSC=ON \
+                      -DBUILD_DEMOS=ON
 
-    #         - name: Build
-    #           shell: bash -l {0}
-    #           run: |
-    #               cmake --build build --target finite-volume-burgers
-    #               cmake --build build --target finite-volume-lid-driven-cavity
+            - name: Build
+              shell: bash -l {0}
+              run: |
+                  cmake --build build --target finite-volume-burgers
+                  cmake --build build --target finite-volume-lid-driven-cavity
 
-    #         - name: test finite-volume-burgers
-    #           shell: bash -l {0}
-    #           run: |
-    #               cd build
-    #               set -e  # Stop on first failure
-    #               ./demos/FiniteVolume/finite-volume-burgers --min-level 2 --max-level 6
+            - name: test finite-volume-burgers
+              shell: bash -l {0}
+              run: |
+                  cd build
+                  set -e  # Stop on first failure
+                  ./demos/FiniteVolume/finite-volume-burgers --min-level 2 --max-level 6
 
-    #         - name: test finite-volume-lid-driven-cavity
-    #           shell: bash -l {0}
-    #           run: |
-    #               cd build
-    #               set -e  # Stop on first failure
-    #               ./demos/FiniteVolume/finite-volume-lid-driven-cavity --min-level 3 --max-level 6
+            - name: test finite-volume-lid-driven-cavity
+              shell: bash -l {0}
+              run: |
+                  cd build
+                  set -e  # Stop on first failure
+                  ./demos/FiniteVolume/finite-volume-lid-driven-cavity --min-level 3 --max-level 6
 
-    # #
-    # # MPI with CHECK_NAN
-    # #
-    # #########################################################
-    # linux-mamba-check-nan-mpi:
-    #     needs: [pre-commit, cppcheck]
-    #     runs-on: ubuntu-latest
-    #     steps:
-    #         - uses: actions/checkout@v4
+    #
+    # MPI with CHECK_NAN
+    #
+    #########################################################
+    linux-mamba-check-nan-mpi:
+        needs: [pre-commit, cppcheck]
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
 
-    #         - name: Cache
-    #           uses: actions/cache@v4
-    #           with:
-    #               path: |
-    #                   ~/.cache/ccache
-    #                   ~/micromamba-root/envs/samurai-env
-    #               key: linux-mamba-check-nan-mpi
-    #               restore-keys: |
-    #                   linux-mamba-check-nan-mpi
+            - name: Cache
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      ~/.cache/ccache
+                      ~/micromamba-root/envs/samurai-env
+                  key: linux-mamba-check-nan-mpi
+                  restore-keys: |
+                      linux-mamba-check-nan-mpi
 
-    #         - name: Mamba and samurai env installation
-    #           uses: mamba-org/setup-micromamba@v2
-    #           with:
-    #               environment-file: conda/mpi-environment.yml
-    #               environment-name: samurai-env
-    #               cache-environment: true
+            - name: Mamba and samurai env installation
+              uses: mamba-org/setup-micromamba@v2
+              with:
+                  environment-file: conda/mpi-environment.yml
+                  environment-name: samurai-env
+                  cache-environment: true
 
-    #         - name: Petsc installation
-    #           shell: bash -l {0}
-    #           run: |
-    #               conda install -y petsc pkg-config cxx-compiler
+            - name: Petsc installation
+              shell: bash -l {0}
+              run: |
+                  conda install -y petsc pkg-config cxx-compiler
 
-    #         - name: Conda informations
-    #           shell: bash -l {0}
-    #           run: |
-    #               conda info
-    #               conda list
+            - name: Conda informations
+              shell: bash -l {0}
+              run: |
+                  conda info
+                  conda list
 
-    #         - name: Configure
-    #           shell: bash -l {0}
-    #           run: |
-    #               cmake \
-    #                   . \
-    #                   -Bbuild \
-    #                   -GNinja \
-    #                   -DWITH_MPI=ON \
-    #                   -DCMAKE_BUILD_TYPE=Debug \
-    #                   -DSAMURAI_CHECK_NAN=ON \
-    #                   -DBUILD_DEMOS=ON
+            - name: Configure
+              shell: bash -l {0}
+              run: |
+                  cmake \
+                      . \
+                      -Bbuild \
+                      -GNinja \
+                      -DWITH_MPI=ON \
+                      -DCMAKE_BUILD_TYPE=Debug \
+                      -DSAMURAI_CHECK_NAN=ON \
+                      -DBUILD_DEMOS=ON
 
-    #         - name: Build
-    #           shell: bash -l {0}
-    #           run: |
-    #               cmake --build build --target finite-volume-advection-2d
-    #               cmake --build build --target finite-volume-burgers
+            - name: Build
+              shell: bash -l {0}
+              run: |
+                  cmake --build build --target finite-volume-advection-2d
+                  cmake --build build --target finite-volume-burgers
 
-    #         - name: test finite-volume-advection-2d
-    #           shell: bash -l {0}
-    #           run: |
-    #               cd build
-    #               set -e  # Stop on first failure
-    #               mpiexec -n 1 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 1
-    #               mpiexec -n 2 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 1
-    #               mpiexec -n 3 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 1
+            - name: test finite-volume-advection-2d
+              shell: bash -l {0}
+              run: |
+                  cd build
+                  set -e  # Stop on first failure
+                  mpiexec -n 1 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 1
+                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 1
+                  mpiexec -n 3 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 1
 
-    #         - name: test finite-volume-burgers
-    #           shell: bash -l {0}
-    #           run: |
-    #               cd build
-    #               set -e  # Stop on first failure
-    #               mpiexec -n 1 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 1 --max-level 8
-    #               mpiexec -n 2 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 1 --max-level 8
-    #               # This test is failing with 3 processes due to a bug in the exchange of subdomain corners
-    #               # mpiexec -n 3 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 1 --max-level 8
+            - name: test finite-volume-burgers
+              shell: bash -l {0}
+              run: |
+                  cd build
+                  set -e  # Stop on first failure
+                  mpiexec -n 1 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 1 --max-level 8
+                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 1 --max-level 8
+                  # This test is failing with 3 processes due to a bug in the exchange of subdomain corners
+                  # mpiexec -n 3 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 1 --max-level 8
