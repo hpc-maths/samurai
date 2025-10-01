@@ -139,20 +139,6 @@ namespace samurai
             const auto lca_projection_ghosts              = projection_ghosts.to_lca(bc_ghosts_in_other_directions.origin_point(), bc_ghosts_in_other_directions.scaling_factor());
             const auto lca_projection_ghosts_no_bc_ghosts = projection_ghosts_no_bc_ghosts.to_lca(bc_ghosts_in_other_directions.origin_point(), bc_ghosts_in_other_directions.scaling_factor());
             const auto lca_domain                         = domain.to_lca(bc_ghosts_in_other_directions.origin_point(), bc_ghosts_in_other_directions.scaling_factor());
-            
-            //// TODO :  generate bug, why ?  
-            // const auto lca_expand_projection_ghosts_no_bc_ghosts = expand(projection_ghosts_no_bc_ghosts, expand_width).to_lca(bc_ghosts_in_other_directions.origin_point(), bc_ghosts_in_other_directions.scaling_factor());
-            
-            std::system("rm -f bc_ghosts_in_other_directions.*");
-            std::system("rm -f projection_ghosts.*");
-            std::system("rm -f projection_ghosts_no_bc_ghosts.*");
-            std::system("rm -f domain.*");
-            
-            if (!bc_ghosts_in_other_directions.empty())      { save("bc_ghosts_in_other_directions", bc_ghosts_in_other_directions);       }
-            if (!lca_projection_ghosts.empty())              { save("projection_ghosts", lca_projection_ghosts);                           }
-            if (!lca_projection_ghosts_no_bc_ghosts.empty()) { save("projection_ghosts_no_bc_ghosts", lca_projection_ghosts_no_bc_ghosts); }
-            
-            save("domain", lca_domain);
 
             project_bc(projection_ghosts_no_bc_ghosts, proj_level, direction, layer, field);
         }
