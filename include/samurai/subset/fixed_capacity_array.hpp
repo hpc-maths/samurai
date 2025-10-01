@@ -18,7 +18,7 @@ class FixedCapacityArray
     {
     }
 
-    FixedCapacityArray(const std::size_t size, const T& value = T())
+    explicit FixedCapacityArray(const std::size_t size, const T& value = T())
         requires(std::is_trivially_constructible<T>::value)
     {
         assert(size <= N);

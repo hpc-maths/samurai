@@ -103,7 +103,6 @@ namespace samurai
         SetTraverserOffsetRange m_set_traverser_offsets;
         value_t m_expansion;
         interval_t m_current_interval;
-        bool m_isEmpty;
     };
 
 } // namespace samurai

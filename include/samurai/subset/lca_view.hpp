@@ -35,7 +35,7 @@ namespace samurai
 
         using const_interval_iterator = typename std::vector<interval_t>::const_iterator;
 
-        LCAView(const LCA& lca)
+        explicit LCAView(const LCA& lca)
             : m_lca(lca)
         {
         }
