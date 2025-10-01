@@ -134,7 +134,7 @@ int main(int argc, char* argv[])
 
     double t = 0;
     //~ while (t != Tf)
-    for (int ite=0; ite!=23; ++ite)
+    for (int ite = 0; ite != 23; ++ite)
     {
         // Move to next timestep
         t += dt;

@@ -135,10 +135,14 @@ namespace samurai
 
             auto bc_ghosts_in_other_directions  = domain_boundary_outer_layer(mesh, proj_level, n_bc_ghosts);
             auto projection_ghosts_no_bc_ghosts = difference(projection_ghosts, bc_ghosts_in_other_directions);
-            
-            const auto lca_projection_ghosts              = projection_ghosts.to_lca(bc_ghosts_in_other_directions.origin_point(), bc_ghosts_in_other_directions.scaling_factor());
-            const auto lca_projection_ghosts_no_bc_ghosts = projection_ghosts_no_bc_ghosts.to_lca(bc_ghosts_in_other_directions.origin_point(), bc_ghosts_in_other_directions.scaling_factor());
-            const auto lca_domain                         = domain.to_lca(bc_ghosts_in_other_directions.origin_point(), bc_ghosts_in_other_directions.scaling_factor());
+
+            const auto lca_projection_ghosts              = projection_ghosts.to_lca(bc_ghosts_in_other_directions.origin_point(),
+                                                                        bc_ghosts_in_other_directions.scaling_factor());
+            const auto lca_projection_ghosts_no_bc_ghosts = projection_ghosts_no_bc_ghosts.to_lca(
+                bc_ghosts_in_other_directions.origin_point(),
+                bc_ghosts_in_other_directions.scaling_factor());
+            const auto lca_domain = domain.to_lca(bc_ghosts_in_other_directions.origin_point(),
+                                                  bc_ghosts_in_other_directions.scaling_factor());
 
             project_bc(projection_ghosts_no_bc_ghosts, proj_level, direction, layer, field);
         }

@@ -32,8 +32,8 @@ namespace samurai
     {
         using Self = ProjectionTraverser<SetTraverser>;
 
-		using SetTraverserOffsetRange = MemoryPool<SetTraverser>::OffsetRange;
-		using SetTraverserOffset      = MemoryPool<SetTraverser>::Distance;
+        using SetTraverserOffsetRange = MemoryPool<SetTraverser>::OffsetRange;
+        using SetTraverserOffset      = MemoryPool<SetTraverser>::Distance;
 
       public:
 
@@ -44,13 +44,13 @@ namespace samurai
             , m_projectionType(projectionType)
             , m_shift(shift)
             , m_isEmpty(MemoryPool<SetTraverser>::getInstance().at(set_traverser_offset).is_empty())
-        {			
-			auto& memory_pool = MemoryPool<SetTraverser>::getInstance();
-			
+        {
+            auto& memory_pool = MemoryPool<SetTraverser>::getInstance();
+
             if (!m_isEmpty)
-            {				
-				SetTraverser& set_traverser = memory_pool.at(set_traverser_offset);
-				
+            {
+                SetTraverser& set_traverser = memory_pool.at(set_traverser_offset);
+
                 if (m_projectionType == ProjectionType::COARSEN)
                 {
                     m_current_interval.start = coarsen_start(set_traverser.current_interval());
@@ -67,7 +67,7 @@ namespace samurai
                     }
                 }
                 else
-                {					
+                {
                     m_current_interval.start = set_traverser.current_interval().start << shift;
                     m_current_interval.end   = set_traverser.current_interval().end << shift;
                 }
@@ -77,16 +77,18 @@ namespace samurai
         /*
          * This constructor only works for coarsening
          */
-        ProjectionTraverser(const SetTraverserOffset first_set_traverser_offset, const SetTraverserOffset bound_set_traverser_offset, const std::size_t shift)
+        ProjectionTraverser(const SetTraverserOffset first_set_traverser_offset,
+                            const SetTraverserOffset bound_set_traverser_offset,
+                            const std::size_t shift)
             : m_set_traverser_offsets(first_set_traverser_offset, bound_set_traverser_offset)
             , m_projectionType(ProjectionType::COARSEN)
             , m_shift(shift)
-        {	
+        {
             next_interval_coarsen();
         }
 
         inline bool is_empty_impl() const
-        {			
+        {
             return m_isEmpty;
         }
 
@@ -98,8 +100,8 @@ namespace samurai
             }
             else
             {
-				SetTraverser& set_traverser = MemoryPool<SetTraverser>::getInstance().at(m_set_traverser_offsets.first);
-				
+                SetTraverser& set_traverser = MemoryPool<SetTraverser>::getInstance().at(m_set_traverser_offsets.first);
+
                 set_traverser.next_interval();
                 m_isEmpty = set_traverser.is_empty();
                 if (!m_isEmpty)
@@ -116,17 +118,17 @@ namespace samurai
         }
 
       private:
-      
+
         inline void next_interval_coarsen()
         {
-			auto& memory_pool = MemoryPool<SetTraverser>::getInstance();
-			
+            auto& memory_pool = MemoryPool<SetTraverser>::getInstance();
+
             m_current_interval.start = std::numeric_limits<value_t>::max();
             // We find the start of the interval, i.e. the smallest set_traverser.current_interval().start >> m_shift
             for (auto offset = m_set_traverser_offsets.first; offset != m_set_traverser_offsets.bound; ++offset)
             {
-				const SetTraverser& set_traverser = memory_pool.at(offset);
-				
+                const SetTraverser& set_traverser = memory_pool.at(offset);
+
                 if (!set_traverser.is_empty() && (coarsen_start(set_traverser.current_interval()) < m_current_interval.start))
                 {
                     m_current_interval.start = coarsen_start(set_traverser.current_interval());
@@ -142,8 +144,8 @@ namespace samurai
                 // advance set traverses that are behind current interval
                 for (auto offset = m_set_traverser_offsets.first; offset != m_set_traverser_offsets.bound; ++offset)
                 {
-					SetTraverser& set_traverser = memory_pool.at(offset);
-					
+                    SetTraverser& set_traverser = memory_pool.at(offset);
+
                     while (!set_traverser.is_empty() && (coarsen_end(set_traverser.current_interval()) <= m_current_interval.end))
                     {
                         set_traverser.next_interval();
@@ -152,8 +154,8 @@ namespace samurai
                 // try to find a new end
                 for (auto offset = m_set_traverser_offsets.first; offset != m_set_traverser_offsets.bound; ++offset)
                 {
-					const SetTraverser& set_traverser = memory_pool.at(offset);
-					
+                    const SetTraverser& set_traverser = memory_pool.at(offset);
+
                     // there is an overlap
                     if (!set_traverser.is_empty() && (coarsen_start(set_traverser.current_interval()) <= m_current_interval.end))
                     {
@@ -170,16 +172,16 @@ namespace samurai
             return interval.start >> m_shift;
         }
 
-		inline value_t coarsen_end(const interval_t& interval) const
+        inline value_t coarsen_end(const interval_t& interval) const
         {
             return ((interval.end - 1) >> m_shift) + 1;
         }
 
-        SetTraverserOffsetRange   m_set_traverser_offsets;
-        ProjectionType            m_projectionType;
-        std::size_t               m_shift;
-        interval_t                m_current_interval;
-        bool                      m_isEmpty;
+        SetTraverserOffsetRange m_set_traverser_offsets;
+        ProjectionType m_projectionType;
+        std::size_t m_shift;
+        interval_t m_current_interval;
+        bool m_isEmpty;
     };
 
 } // namespace samurai

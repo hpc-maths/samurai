@@ -107,8 +107,8 @@ namespace samurai
     auto contract(const Set& set,
                   const typename Contraction<std::decay_t<decltype(self(set))>>::value_t contraction,
                   const typename Contraction<std::decay_t<decltype(self(set))>>::do_contraction_t& do_contraction) // idk how to make this
-                                                                                                                    // more readable,
-                                                                                                                    // perhaps a traits...
+                                                                                                                   // more readable,
+                                                                                                                   // perhaps a traits...
     {
         return Contraction(self(set), contraction, do_contraction);
     }

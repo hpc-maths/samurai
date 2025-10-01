@@ -116,7 +116,7 @@ namespace samurai
 
         inline bool empty_impl() const
         {
-			return Base::empty_default_impl();
+            return Base::empty_default_impl();
         }
 
         template <class index_t, std::size_t d>
