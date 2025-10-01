@@ -23,7 +23,10 @@ namespace samurai
                                                LastDimExpansionTraverser<typename Set::template traverser_t<d>>,
                                                ExpansionTraverser<typename Set::template traverser_t<d>>>;
 
-        static constexpr std::size_t dim = Set::dim;
+        static constexpr std::size_t dim()
+        {
+            return Set::dim;
+        }
     };
 
     namespace detail

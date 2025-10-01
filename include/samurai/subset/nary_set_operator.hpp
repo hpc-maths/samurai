@@ -30,7 +30,10 @@ namespace samurai
         template <std::size_t d>
         using traverser_t = UnionTraverser<typename Sets::template traverser_t<d>...>;
 
-        static constexpr std::size_t dim = std::tuple_element_t<0, std::tuple<Sets...>>::dim;
+        static constexpr std::size_t dim()
+        {
+            return std::tuple_element_t<0, std::tuple<Sets...>>::dim;
+        }
     };
 
     template <class... Sets>
@@ -41,7 +44,10 @@ namespace samurai
         template <std::size_t d>
         using traverser_t = IntersectionTraverser<typename Sets::template traverser_t<d>...>;
 
-        static constexpr std::size_t dim = std::tuple_element_t<0, std::tuple<Sets...>>::dim;
+        static constexpr std::size_t dim()
+        {
+            return std::tuple_element_t<0, std::tuple<Sets...>>::dim;
+        }
     };
 
     template <class... Sets>
@@ -54,7 +60,10 @@ namespace samurai
                                                DifferenceTraverser<typename Sets::template traverser_t<d>...>,
                                                DifferenceIdTraverser<typename Sets::template traverser_t<d>...>>;
 
-        static constexpr std::size_t dim = std::tuple_element_t<0, std::tuple<Sets...>>::dim;
+        static constexpr std::size_t dim()
+        {
+            return std::tuple_element_t<0, std::tuple<Sets...>>::dim;
+        }
     };
 
     template <SetOperator op, class... Sets>

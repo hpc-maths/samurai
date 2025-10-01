@@ -25,7 +25,6 @@ class MemoryPool
     using const_Reference = const Element&;
     using Distance        = typename AllocatorTraits::difference_type;
     using Size            = typename AllocatorTraits::size_type;
-    //~ using OffsetRange     = std::ranges::iota_view<Distance, Distance>;
 
     static_assert(std::is_move_constructible<Element>::value or std::is_trivially_copyable<Element>::value);
 

@@ -43,10 +43,10 @@ namespace samurai
         using interval_t  = typename traverser_t<0>::interval_t;
         using value_t     = typename interval_t::value_t;
 
-        using to_lca_t       = LevelCellArray<DerivedTraits::dim, interval_t>;
+        using to_lca_t       = LevelCellArray<DerivedTraits::dim(), interval_t>;
         using to_lca_coord_t = typename to_lca_t::coords_t;
 
-        static constexpr std::size_t dim = DerivedTraits::dim;
+        static constexpr std::size_t dim = DerivedTraits::dim();
 
         const Derived& derived_cast() const
         {
