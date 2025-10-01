@@ -13,7 +13,7 @@ endif()
 
 
 option(SAMURAI_WITH_MPI "Enable MPI" OFF)
-if(SAMURAI_WITH_MPI)
+if(${SAMURAI_WITH_MPI})
   message(STATUS "SAMURAI_WITH_MPI = ON")
   if (NOT HDF5_IS_PARALLEL)
     message(FATAL_ERROR "HDF5 is not parallel. Please install a parallel version.")

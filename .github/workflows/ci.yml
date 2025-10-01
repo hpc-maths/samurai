@@ -552,6 +552,6 @@ jobs:
 
                   cp ../demos/FiniteVolume/advection_2d.cpp main.cpp
 
-                  cmake . -Bbuild
+                  cmake . -Bbuild -DSAMURAI_WITH_MPI=ON
                   cmake --build build
                   ./build/test_app
