@@ -24,9 +24,17 @@ public:
     using const_Reference = const Element&;
     using Distance        = typename AllocatorTraits::difference_type;
     using Size            = typename AllocatorTraits::size_type;
-	using OffsetRange     = std::ranges::iota_view<Distance, Distance>;
+	//~ using OffsetRange     = std::ranges::iota_view<Distance, Distance>;
 	
 	static_assert(std::is_move_constructible<Element>::value or std::is_trivially_copyable<Element>::value);
+	
+	struct OffsetRange
+	{
+		Distance first;
+		Distance bound; 
+		
+		inline Size size() const { return Size(bound - first); }
+	};
 	
 	struct Chunk
 	{		
@@ -176,7 +184,7 @@ auto MemoryPool<T,DefaultAllocator>::freeChunk(const OffsetRange offsets) -> voi
 {	
 	const ChunkIterator chunkIt = std::find_if(std::begin(m_chunks), std::end(m_chunks), [&offsets](const Chunk& chunk) -> bool
 	{
-		return (not chunk.isFree) and chunk.offset == offsets[0] and chunk.size == offsets.size();
+		return (not chunk.isFree) and chunk.offset == offsets.first and chunk.size == offsets.size();
 	});
 	
 	assert(chunkIt != std::end(m_chunks));

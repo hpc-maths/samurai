@@ -29,15 +29,18 @@ namespace samurai
     namespace detail
     {
 		template<class Set, typename Seq>
-		struct ExpansionChildrenTraversers;
+		struct ExpansionWork;
 		
 		template<class Set, std::size_t... ds>
-		struct ExpansionChildrenTraversers<Set, std::index_sequence<ds...>>
+		struct ExpansionWork<Set, std::index_sequence<ds...>>
 		{
 			template<std::size_t d>
-			using child_traverser_array_t = std::vector< typename Set::template traverser_t<d> >;
+			using child_traverser_t = typename Set::template traverser_t<d>;
+			
+			template<std::size_t d>
+			using array_of_child_traverser_offset_range_t = std::vector< typename MemoryPool< child_traverser_t<d> >::OffsetRange >;
 				
-			using Type = std::tuple< child_traverser_array_t<ds>... >;
+			using Type = std::tuple< array_of_child_traverser_offset_range_t<ds>... >;
 			
 			static_assert(std::tuple_size<Type>::value == Set::dim-1);
 		};
@@ -48,7 +51,7 @@ namespace samurai
     class Expansion : public SetBase<Expansion<Set>>
     {
 		using Self = Expansion<Set>;
-		using ChildrenTraversers = detail::ExpansionChildrenTraversers< Set, std::make_index_sequence<Set::dim-1> >::Type;
+		using OffsetRangeWork = detail::ExpansionWork< Set, std::make_index_sequence<Set::dim-1> >::Type;
       public:
 
         SAMURAI_SET_TYPEDEFS
@@ -61,20 +64,12 @@ namespace samurai
 			: m_set(set)
 			, m_expansions(expansions)
 		{
-			static_for<0, dim-1>::apply([this](const auto d)
-			{
-				std::get<d>(m_children_traversers).reserve(2*m_expansions[d]);
-			});
 		}
         
         Expansion(const Set& set, const value_t expansion)
 			: m_set(set)
 		{
 			m_expansions.fill(expansion);
-			static_for<0, dim-1>::apply([this](const auto d)
-			{
-				std::get<d>(m_children_traversers).reserve(std::size_t(2*m_expansions[d]));
-			});
 		}
         
         Expansion(const Set& set, const value_t expansion, const do_expansion_t& do_expansion)
@@ -84,11 +79,35 @@ namespace samurai
             {
                 m_expansions[i] = expansion * do_expansion[i];
             }
-			
+		}
+		
+		// we need to define a custom copy and move constructor because 
+		// we do not want to copy m_work_offsetRanges
+		Expansion(const Expansion& other)
+			: m_set(other.m_set)
+			, m_expansions(other.m_expansions)
+		{
+		}
+		
+		Expansion(Expansion&& other)
+			: m_set(other.m_set)
+			, m_expansions(other.m_expansions)
+		{
+		}
+
+		~Expansion()
+		{
 			static_for<0, dim-1>::apply([this](const auto d)
 			{
-				std::get<d>(m_children_traversers).reserve(2*m_expansions);
-			});
+				using Work = MemoryPool< typename Set::template traverser_t< d > >;
+				
+				auto& work = Work::getInstance();
+				
+				for (auto& offset_range : std::get<d>(m_work_offsetRanges))
+				{
+					work.freeChunk(offset_range);
+				}
+			}); 
 		}
 		
 		inline std::size_t level_impl() const
@@ -115,32 +134,42 @@ namespace samurai
 			}
 			else
 			{
-				auto& children_traversers = std::get<d>(m_children_traversers);
+				using Work     = MemoryPool< typename Set::template traverser_t<d> >;
+				using WorkSize = typename Work::Size;
 				
-				children_traversers.clear();
+				Work& work = Work::getInstance();
+			
+				auto& offsetRange = std::get<d>(m_work_offsetRanges);
+				
+				const auto set_traversers_offsets = work.requestChunk( WorkSize(2*(m_expansions[d+1] + 1)) );
+				auto end_offset = set_traversers_offsets.first;
 				
 				xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> tmp_index(index);
 				
 				for (value_t width=0; width!=m_expansions[d+1]+1; ++width)
 				{
 					tmp_index[d+1] = index[d+1] + width;
-					children_traversers.push_back(m_set.get_traverser(tmp_index, d_ic));
-					if (children_traversers.back().is_empty()) { children_traversers.pop_back(); }
+					std::construct_at(work.getPtr(end_offset), m_set.get_traverser(tmp_index, d_ic));
+					if (work.at(end_offset).is_empty()) { std::destroy_at(work.getPtr(end_offset)); }
+					else                                { ++end_offset;                             }
 					
 					tmp_index[d+1] = index[d+1] - width;
-					children_traversers.push_back(m_set.get_traverser(tmp_index, d_ic));
-					if (children_traversers.back().is_empty()) { children_traversers.pop_back(); }
+					std::construct_at(work.getPtr(end_offset), m_set.get_traverser(tmp_index, d_ic));
+					if (work.at(end_offset).is_empty()) { std::destroy_at(work.getPtr(end_offset)); }
+					else                                { ++end_offset;                             }
 				}
 				
-				return traverser_t<d>(children_traversers.begin(), children_traversers.end(), m_expansions[d]);
+				offsetRange.push_back(set_traversers_offsets);
+				
+				return traverser_t<d>(set_traversers_offsets.first, end_offset, m_expansions[d]);
 			}
 		}
 			
 	private:
-		Set                m_set;
-		expansion_t        m_expansions;
+		Set         m_set;
+		expansion_t m_expansions;
 		
-		mutable ChildrenTraversers m_children_traversers;
+		mutable OffsetRangeWork m_work_offsetRanges;
 	}; 
 	
 	template<class Set>
