@@ -99,7 +99,7 @@ namespace samurai
 
         template <class Set>
         LevelCellArray(const SetBase<Set>& set);
-        
+
         template <class Set>
         LevelCellArray(const SetBase<Set>& set, const coords_t& origin_point, const double scaling_factor);
 

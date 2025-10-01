@@ -15,8 +15,8 @@
 #include <samurai/mr/mesh.hpp>
 #include <samurai/subset/node.hpp>
 
-#include <samurai/io/hdf5.hpp>
 #include <fmt/ranges.h>
+#include <samurai/io/hdf5.hpp>
 
 namespace samurai
 {
@@ -518,129 +518,133 @@ namespace samurai
         }
     }
 
-	TEST(subset, expand)
-	{
-		using interval_t = typename LevelCellArray<2>::interval_t;
-		using expected_t = std::vector<std::pair<int, interval_t>>;
-		
-		LevelCellArray<2> ca;
-		
-		ca.add_interval_back({0, 1}, {0});
-		
-		{
-			const auto translated_ca = translate(ca, {3 + 1, 0});
-			const auto joined_cas = union_(ca, translated_ca);
-			
-			const auto set = expand(joined_cas, 3);
-			
-			expected_t expected{
-				{-3, {-3, 8}},
-				{-2, {-3, 8}},
-				{-1, {-3, 8}},
-				{ 0, {-3, 8}},
-				{ 1, {-3, 8}},
-				{ 2, {-3, 8}},
-				{ 3, {-3, 8}}
-			};
-			
-			bool is_set_empty = true;
-			std::size_t ie = 0;
-			set([&expected, &is_set_empty, &ie](const auto& x_interval, const auto& yz)
-			{
-				is_set_empty = false;
-				EXPECT_EQ(expected[ie++], std::make_pair(yz[0], x_interval));
-			});
-			EXPECT_EQ(ie, expected.size());
-			EXPECT_FALSE(is_set_empty);
-		}
-		
-		{
-			const auto translated_ca = translate(ca, {0, 3+1});
-			const auto joined_cas = union_(ca, translated_ca);
-			
-			const auto set = expand(joined_cas, 3);
-			
-			expected_t expected{
-				{-3, {-3, 4}},
-				{-2, {-3, 4}},
-				{-1, {-3, 4}},
-				{ 0, {-3, 4}},
-				{ 1, {-3, 4}},
-				{ 2, {-3, 4}},
-				{ 3, {-3, 4}},
-				{ 4, {-3, 4}},
-				{ 5, {-3, 4}},
-				{ 6, {-3, 4}},
-				{ 7, {-3, 4}}
-			};
-			
-			bool is_set_empty = true;
-			std::size_t ie = 0;
-			set([&expected, &is_set_empty, &ie](const auto& x_interval, const auto& yz)
-			{
-				is_set_empty = false;
-				EXPECT_EQ(expected[ie++], std::make_pair(yz[0], x_interval));
-			});
-			EXPECT_EQ(ie, expected.size());
-			EXPECT_FALSE(is_set_empty);
-		}
-		{
-			const auto translated_ca = translate(ca, {3+1, 3+1});
-			const auto joined_cas = union_(ca, translated_ca);
-			
-			const auto set = expand(joined_cas, 3);
-			
-			expected_t expected{
-				{-3, {-3, 4}},
-				{-2, {-3, 4}},
-				{-1, {-3, 4}},
-				{ 0, {-3, 4}},
-				{ 1, {-3, 8}},
-				{ 2, {-3, 8}},
-				{ 3, {-3, 8}},
-				{ 4, { 1, 8}},
-				{ 5, { 1, 8}},
-				{ 6, { 1, 8}},
-				{ 7, { 1, 8}}
-			};
-			
-			bool is_set_empty = true;
-			std::size_t ie = 0;
-			set([&expected, &is_set_empty, &ie](const auto& x_interval, const auto& yz)
-			{
-				is_set_empty = false;
-				EXPECT_EQ(expected[ie++], std::make_pair(yz[0], x_interval));
-			});
-			EXPECT_EQ(ie, expected.size());
-			EXPECT_FALSE(is_set_empty);
-			
-			const auto lca_joined_cas = joined_cas.to_lca();
-			const auto lca_set        = set.to_lca();
-		}
-	}
-	
-	TEST(subset, contract)
-	{
-		LevelCellArray<2> ca;
-		
-		ca.add_interval_back({0, 1}, {0});
-		
-		{
-			const auto translated_ca = translate(ca, {3 + 1, 0});
-			const auto joined_cas = union_(ca, translated_ca);
-			
-			const auto set = contract(joined_cas, 1);
-			
-			bool is_set_empty = true;
-			set([&is_set_empty](const auto& x_interval, const auto& yz)
-			{
-				fmt::print("x_interval = {} -- yz = {}", x_interval, yz[0]);
-				is_set_empty = false;
-			});
-			EXPECT_TRUE(is_set_empty);
-			//~ EXPECT_TRUE(set.empty());
-		}
-	}
+    TEST(subset, expand)
+    {
+        using interval_t = typename LevelCellArray<2>::interval_t;
+        using expected_t = std::vector<std::pair<int, interval_t>>;
+
+        LevelCellArray<2> ca;
+
+        ca.add_interval_back({0, 1}, {0});
+
+        {
+            const auto translated_ca = translate(ca, {3 + 1, 0});
+            const auto joined_cas    = union_(ca, translated_ca);
+
+            const auto set = expand(joined_cas, 3);
+
+            expected_t expected{
+                {-3, {-3, 8}},
+                {-2, {-3, 8}},
+                {-1, {-3, 8}},
+                {0,  {-3, 8}},
+                {1,  {-3, 8}},
+                {2,  {-3, 8}},
+                {3,  {-3, 8}}
+            };
+
+            bool is_set_empty = true;
+            std::size_t ie    = 0;
+            set(
+                [&expected, &is_set_empty, &ie](const auto& x_interval, const auto& yz)
+                {
+                    is_set_empty = false;
+                    EXPECT_EQ(expected[ie++], std::make_pair(yz[0], x_interval));
+                });
+            EXPECT_EQ(ie, expected.size());
+            EXPECT_FALSE(is_set_empty);
+        }
+
+        {
+            const auto translated_ca = translate(ca, {0, 3 + 1});
+            const auto joined_cas    = union_(ca, translated_ca);
+
+            const auto set = expand(joined_cas, 3);
+
+            expected_t expected{
+                {-3, {-3, 4}},
+                {-2, {-3, 4}},
+                {-1, {-3, 4}},
+                {0,  {-3, 4}},
+                {1,  {-3, 4}},
+                {2,  {-3, 4}},
+                {3,  {-3, 4}},
+                {4,  {-3, 4}},
+                {5,  {-3, 4}},
+                {6,  {-3, 4}},
+                {7,  {-3, 4}}
+            };
+
+            bool is_set_empty = true;
+            std::size_t ie    = 0;
+            set(
+                [&expected, &is_set_empty, &ie](const auto& x_interval, const auto& yz)
+                {
+                    is_set_empty = false;
+                    EXPECT_EQ(expected[ie++], std::make_pair(yz[0], x_interval));
+                });
+            EXPECT_EQ(ie, expected.size());
+            EXPECT_FALSE(is_set_empty);
+        }
+        {
+            const auto translated_ca = translate(ca, {3 + 1, 3 + 1});
+            const auto joined_cas    = union_(ca, translated_ca);
+
+            const auto set = expand(joined_cas, 3);
+
+            expected_t expected{
+                {-3, {-3, 4}},
+                {-2, {-3, 4}},
+                {-1, {-3, 4}},
+                {0,  {-3, 4}},
+                {1,  {-3, 8}},
+                {2,  {-3, 8}},
+                {3,  {-3, 8}},
+                {4,  {1, 8} },
+                {5,  {1, 8} },
+                {6,  {1, 8} },
+                {7,  {1, 8} }
+            };
+
+            bool is_set_empty = true;
+            std::size_t ie    = 0;
+            set(
+                [&expected, &is_set_empty, &ie](const auto& x_interval, const auto& yz)
+                {
+                    is_set_empty = false;
+                    EXPECT_EQ(expected[ie++], std::make_pair(yz[0], x_interval));
+                });
+            EXPECT_EQ(ie, expected.size());
+            EXPECT_FALSE(is_set_empty);
+
+            const auto lca_joined_cas = joined_cas.to_lca();
+            const auto lca_set        = set.to_lca();
+        }
+    }
+
+    TEST(subset, contract)
+    {
+        LevelCellArray<2> ca;
+
+        ca.add_interval_back({0, 1}, {0});
+
+        {
+            const auto translated_ca = translate(ca, {3 + 1, 0});
+            const auto joined_cas    = union_(ca, translated_ca);
+
+            const auto set = contract(joined_cas, 1);
+
+            bool is_set_empty = true;
+            set(
+                [&is_set_empty](const auto& x_interval, const auto& yz)
+                {
+                    fmt::print("x_interval = {} -- yz = {}", x_interval, yz[0]);
+                    is_set_empty = false;
+                });
+            EXPECT_TRUE(is_set_empty);
+            //~ EXPECT_TRUE(set.empty());
+        }
+    }
 
     TEST(subset, translate)
     {

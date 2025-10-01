@@ -5,8 +5,8 @@
 
 #include "../samurai_config.hpp"
 #include "../static_algorithm.hpp"
-#include "set_base.hpp"
 #include "memory_pool.hpp"
+#include "set_base.hpp"
 #include "traversers/projection_traverser.hpp"
 
 namespace samurai
@@ -21,34 +21,35 @@ namespace samurai
         static_assert(IsSet<Set>::value);
 
         template <std::size_t d>
-        using traverser_t = ProjectionTraverser< typename Set::template traverser_t<d> >;
+        using traverser_t = ProjectionTraverser<typename Set::template traverser_t<d>>;
 
         static constexpr std::size_t dim = Set::dim;
     };
-    
+
     namespace detail
     {
-		template<class Set, typename Seq>
-		struct ProjectionWork;
-		
-		template<class Set, std::size_t... ds>
-		struct ProjectionWork<Set, std::index_sequence<ds...>>
-		{
-			template<std::size_t d>
-			using child_traverser_t = typename Set::template traverser_t<d>;
-			
-			template<std::size_t d>
-			using array_of_child_traverser_offset_range_t = std::vector< typename MemoryPool< child_traverser_t<d> >::OffsetRange >;
-			
-			using Type = std::tuple< array_of_child_traverser_offset_range_t<ds>... >;
-		};
-	} // namespace detail
+        template <class Set, typename Seq>
+        struct ProjectionWork;
+
+        template <class Set, std::size_t... ds>
+        struct ProjectionWork<Set, std::index_sequence<ds...>>
+        {
+            template <std::size_t d>
+            using child_traverser_t = typename Set::template traverser_t<d>;
+
+            template <std::size_t d>
+            using array_of_child_traverser_offset_range_t = std::vector<typename MemoryPool<child_traverser_t<d>>::OffsetRange>;
+
+            using Type = std::tuple<array_of_child_traverser_offset_range_t<ds>...>;
+        };
+    } // namespace detail
 
     template <class Set>
     class Projection : public SetBase<Projection<Set>>
     {
-        using Self = Projection<Set>;
-        using OffsetRangeWork =  detail::ProjectionWork< Set, std::make_index_sequence<Set::dim> >::Type;
+        using Self            = Projection<Set>;
+        using OffsetRangeWork = detail::ProjectionWork<Set, std::make_index_sequence<Set::dim>>::Type;
+
       public:
 
         SAMURAI_SET_TYPEDEFS
@@ -70,38 +71,39 @@ namespace samurai
             }
         }
 
-		// we need to define a custom copy and move constructor because 
-		// we do not want to copy m_work_offsetRanges
-		Projection(const Projection& other)
-			: m_set(other.m_set)
-			, m_level(other.m_level)
-			, m_projectionType(other.m_projectionType)
-			, m_shift(other.m_shift)
-		{
-		}
-		
-		Projection(Projection&& other)
-			: m_set(std::move(other.m_set))
-			, m_level(std::move(other.m_level))
-			, m_projectionType(std::move(other.m_projectionType))
-			, m_shift(std::move(other.m_shift))
-		{
-		}
+        // we need to define a custom copy and move constructor because
+        // we do not want to copy m_work_offsetRanges
+        Projection(const Projection& other)
+            : m_set(other.m_set)
+            , m_level(other.m_level)
+            , m_projectionType(other.m_projectionType)
+            , m_shift(other.m_shift)
+        {
+        }
 
-		~Projection()
-		{
-			static_for<0, dim>::apply([this](const auto d)
-			{
-				using Work = MemoryPool< typename Set::template traverser_t< d > >;
-				
-				auto& work = Work::getInstance();
-				
-				for (auto& offset_range : std::get<d>(m_work_offsetRanges))
-				{
-					work.freeChunk(offset_range);
-				}
-			}); 
-		}
+        Projection(Projection&& other)
+            : m_set(std::move(other.m_set))
+            , m_level(std::move(other.m_level))
+            , m_projectionType(std::move(other.m_projectionType))
+            , m_shift(std::move(other.m_shift))
+        {
+        }
+
+        ~Projection()
+        {
+            static_for<0, dim>::apply(
+                [this](const auto d)
+                {
+                    using Work = MemoryPool<typename Set::template traverser_t<d>>;
+
+                    auto& work = Work::getInstance();
+
+                    for (auto& offset_range : std::get<d>(m_work_offsetRanges))
+                    {
+                        work.freeChunk(offset_range);
+                    }
+                });
+        }
 
         inline std::size_t level_impl() const
         {
@@ -121,19 +123,19 @@ namespace samurai
         template <class index_t, std::size_t d>
         inline traverser_t<d> get_traverser_impl(const index_t& _index, std::integral_constant<std::size_t, d> d_ic) const
         {
-			using Work = MemoryPool< typename Set::template traverser_t<d> >;
-			
-			Work& work = Work::getInstance();
-			
-			auto& offsetRange = std::get<d>(m_work_offsetRanges);
-			
+            using Work = MemoryPool<typename Set::template traverser_t<d>>;
+
+            Work& work = Work::getInstance();
+
+            auto& offsetRange = std::get<d>(m_work_offsetRanges);
+
             if (m_projectionType == ProjectionType::COARSEN)
             {
                 if constexpr (d != dim - 1)
                 {
-					const auto set_traversers_offsets = work.requestChunk( 1 << m_shift );
-					auto end_offset = set_traversers_offsets.first;
-					
+                    const auto set_traversers_offsets = work.requestChunk(1 << m_shift);
+                    auto end_offset                   = set_traversers_offsets.first;
+
                     const value_t ymin = _index[d] << m_shift;
                     const value_t ymax = (_index[d] + 1) << m_shift;
 
@@ -141,32 +143,38 @@ namespace samurai
 
                     for (index[d] = ymin; index[d] != ymax; ++index[d])
                     {
-						std::construct_at(work.getPtr(end_offset), m_set.get_traverser(index, d_ic));
-						if (work.at(end_offset).is_empty()) { std::destroy_at(work.getPtr(end_offset)); }
-						else                                { ++end_offset;                             }
+                        std::construct_at(work.getPtr(end_offset), m_set.get_traverser(index, d_ic));
+                        if (work.at(end_offset).is_empty())
+                        {
+                            std::destroy_at(work.getPtr(end_offset));
+                        }
+                        else
+                        {
+                            ++end_offset;
+                        }
                     }
-                    
+
                     offsetRange.push_back(set_traversers_offsets);
-                    
+
                     return traverser_t<d>(set_traversers_offsets.first, end_offset, m_shift);
                 }
                 else
                 {
-					const auto set_traversers_offsets = work.requestChunk( 1 );
-					std::construct_at(work.getPtr(set_traversers_offsets.first), m_set.get_traverser(_index << m_shift, d_ic));
-					
-					offsetRange.push_back(set_traversers_offsets);
-					
+                    const auto set_traversers_offsets = work.requestChunk(1);
+                    std::construct_at(work.getPtr(set_traversers_offsets.first), m_set.get_traverser(_index << m_shift, d_ic));
+
+                    offsetRange.push_back(set_traversers_offsets);
+
                     return traverser_t<d>(set_traversers_offsets.first, m_projectionType, m_shift);
                 }
             }
             else
             {
-				const auto set_traversers_offsets = work.requestChunk( 1 );
-				std::construct_at(work.getPtr(set_traversers_offsets.first), m_set.get_traverser(_index >> m_shift, d_ic));
-				
-				offsetRange.push_back(set_traversers_offsets);
-					
+                const auto set_traversers_offsets = work.requestChunk(1);
+                std::construct_at(work.getPtr(set_traversers_offsets.first), m_set.get_traverser(_index >> m_shift, d_ic));
+
+                offsetRange.push_back(set_traversers_offsets);
+
                 return traverser_t<d>(set_traversers_offsets.first, m_projectionType, m_shift);
             }
         }
@@ -177,7 +185,7 @@ namespace samurai
         std::size_t m_level;
         ProjectionType m_projectionType;
         std::size_t m_shift;
-        
+
         mutable OffsetRangeWork m_work_offsetRanges;
     };
 

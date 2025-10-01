@@ -56,13 +56,13 @@ namespace samurai
 
       private:
 
-		inline void advance_to_next_valid_interval()
-		{
-			while (!m_set_traverser.is_empty() && m_set_traverser.current_interval().size() <= size_t(2 * m_contraction))
+        inline void advance_to_next_valid_interval()
+        {
+            while (!m_set_traverser.is_empty() && m_set_traverser.current_interval().size() <= size_t(2 * m_contraction))
             {
                 m_set_traverser.next_interval();
             }
-		}
+        }
 
         SetTraverser m_set_traverser;
         value_t m_contraction;

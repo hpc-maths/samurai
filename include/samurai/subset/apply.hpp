@@ -16,9 +16,9 @@ namespace samurai
             using current_interval_t = typename traverser_t::current_interval_t;
 
             for (traverser_t traverser = set.get_traverser(index, d_ic); !traverser.is_empty(); traverser.next_interval())
-            {				
+            {
                 current_interval_t interval = traverser.current_interval();
-                
+
                 if constexpr (d == 0)
                 {
                     func(interval, index);
