@@ -497,3 +497,61 @@ jobs:
                   mpiexec -n 2 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 1 --max-level 8
                   # This test is failing with 3 processes due to a bug in the exchange of subdomain corners
                   # mpiexec -n 3 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 1 --max-level 8
+
+    #
+    # test samurai installation
+    #
+    #########################################################
+    samurai-installation:
+        needs: [pre-commit, cppcheck]
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Mamba and samurai env installation
+              uses: mamba-org/setup-micromamba@v2
+              with:
+                  environment-file: conda/mpi-environment.yml
+                  environment-name: samurai-env
+                  cache-environment: true
+
+            - name: Compiler installation
+              shell: bash -l {0}
+              run: |
+                  micromamba install -y cxx-compiler
+
+            - name: Configure
+              shell: bash -l {0}
+              run: |
+                  cmake \
+                      . \
+                      -Bbuild \
+                      -DWITH_MPI=ON \
+                      -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
+
+            - name: Install samurai
+              shell: bash -l {0}
+              run: |
+                  cmake --build build --target install
+
+            - name: Check samurai installation
+              shell: bash -l {0}
+              run: |
+                  mkdir -p test_installation
+                  cd test_installation
+
+                  cat > CMakeLists.txt << 'EOF'
+                  cmake_minimum_required(VERSION 3.18)
+                  project(test_samurai_installation)
+
+                  find_package(samurai REQUIRED)
+
+                  add_executable(test_app main.cpp)
+                  target_link_libraries(test_app samurai::samurai)
+                  EOF
+
+                  cp ../demos/FiniteVolume/advection_2d.cpp main.cpp
+
+                  cmake . -Bbuild
+                  cmake --build build
+                  ./build/test_app
