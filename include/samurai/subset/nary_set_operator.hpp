@@ -65,7 +65,7 @@ namespace samurai
       public:
 
         SAMURAI_SET_TYPEDEFS
-        SAMURAI_SET_CONSTEXPRS
+        //~ SAMURAI_SET_CONSTEXPRS
 
         using Childrens = std::tuple<Sets...>;
 

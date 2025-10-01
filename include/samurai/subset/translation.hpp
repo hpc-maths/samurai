@@ -34,9 +34,9 @@ namespace samurai
       public:
 
         SAMURAI_SET_TYPEDEFS
-        SAMURAI_SET_CONSTEXPRS
+        //~ SAMURAI_SET_CONSTEXPRS
 
-        using translation_t = xt::xtensor_fixed<value_t, xt::xshape<dim>>;
+        using translation_t = xt::xtensor_fixed<value_t, xt::xshape<Base::dim>>;
 
         template <class translation_expr_t>
         Translation(const Set& set, const translation_expr_t& translation_expr)

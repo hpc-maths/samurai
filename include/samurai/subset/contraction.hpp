@@ -31,10 +31,10 @@ namespace samurai
       public:
 
         SAMURAI_SET_TYPEDEFS
-        SAMURAI_SET_CONSTEXPRS
+        //~ SAMURAI_SET_CONSTEXPRS
 
-        using contraction_t    = std::array<value_t, dim>;
-        using do_contraction_t = std::array<bool, dim>;
+        using contraction_t    = std::array<value_t, Base::dim>;
+        using do_contraction_t = std::array<bool, Base::dim>;
 
         Contraction(const Set& set, const contraction_t& contraction)
             : m_set(set)

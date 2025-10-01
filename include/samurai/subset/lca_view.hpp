@@ -31,7 +31,7 @@ namespace samurai
       public:
 
         SAMURAI_SET_TYPEDEFS
-        SAMURAI_SET_CONSTEXPRS
+        //~ SAMURAI_SET_CONSTEXPRS
 
         using const_interval_iterator = typename std::vector<interval_t>::const_iterator;
 
@@ -59,10 +59,10 @@ namespace samurai
         inline traverser_t<d> get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d> d_ic) const
         {
             return get_traverser_impl_detail(index,
-                                             m_lca[dim - 1].cbegin(),
-                                             m_lca[dim - 1].cend(),
+                                             m_lca[Base::dim - 1].cbegin(),
+                                             m_lca[Base::dim - 1].cend(),
                                              d_ic,
-                                             std::integral_constant<std::size_t, dim - 1>{});
+                                             std::integral_constant<std::size_t, Base::dim - 1>{});
         }
 
         template <class index_t, std::size_t d, std::size_t dCur>
@@ -72,7 +72,7 @@ namespace samurai
                                                         std::integral_constant<std::size_t, d> d_ic,
                                                         std::integral_constant<std::size_t, dCur> dCur_ic) const
         {
-            if constexpr (dCur != dim - 1)
+            if constexpr (dCur != Base::dim - 1)
             {
                 const auto& y         = index[dCur];
                 const auto& y_offsets = m_lca.offsets(dCur + 1);

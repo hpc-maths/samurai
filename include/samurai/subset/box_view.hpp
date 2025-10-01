@@ -31,7 +31,8 @@ namespace samurai
       public:
 
         SAMURAI_SET_TYPEDEFS
-        SAMURAI_SET_CONSTEXPRS
+
+        //~ SAMURAI_SET_CONSTEXPRS
 
         BoxView(const std::size_t level, const B& box)
             : m_level(level)
