@@ -108,6 +108,39 @@ namespace samurai
         {
 			return to_lca_t(*this, origin_point, scaling_factor);
 		}
+	protected:
+		inline bool empty_default_impl() const
+        {
+            xt::xtensor_fixed<int, xt::xshape<dim - 1>> index;
+			return empty_default_impl_rec(index, std::integral_constant<std::size_t, dim - 1>{});
+        }
+        
+		template <class index_t, std::size_t d>
+        bool empty_default_impl_rec(index_t& index, std::integral_constant<std::size_t, d> d_ic) const
+        {
+			using current_interval_t = typename traverser_t<d>::current_interval_t;
+			
+			for (traverser_t<d> traverser = get_traverser(index, d_ic); !traverser.is_empty(); traverser.next_interval())
+			{
+				current_interval_t interval = traverser.current_interval();
+				
+				if constexpr (d == 0)
+                {
+                    return false;
+                }
+                else
+                {
+					for (index[d - 1] = interval.start; index[d - 1] != interval.end; ++index[d - 1])
+                    {
+                        if (not empty_default_impl_rec(index, std::integral_constant<std::size_t, d - 1>{}))
+                        {
+							return false;
+						}
+                    }
+				}
+			}
+			return true;
+		}
     };
 
 #define SAMURAI_SET_TYPEDEFS                                    \

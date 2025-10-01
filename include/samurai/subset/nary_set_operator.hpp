@@ -116,8 +116,7 @@ namespace samurai
 
         inline bool empty_impl() const
         {
-			xt::xtensor_fixed<int, xt::xshape<dim - 1>> index;
-			return empty_rec(index, std::integral_constant<std::size_t, dim - 1>{});
+			return Base::empty_default_impl();
         }
 
         template <class index_t, std::size_t d>
@@ -134,33 +133,6 @@ namespace samurai
         {
             return traverser_t<d>(m_shifts, std::get<Is>(m_sets).get_traverser(index >> m_shifts[Is], d_ic)...);
         }
-
-        template <class index_t, std::size_t d>
-        bool empty_rec(index_t& index, std::integral_constant<std::size_t, d> d_ic) const
-        {
-			using current_interval_t = typename traverser_t<d>::current_interval_t;
-			
-			for (traverser_t<d> traverser = Base::get_traverser(index, d_ic); !traverser.is_empty(); traverser.next_interval())
-			{
-				current_interval_t interval = traverser.current_interval();
-				
-				if constexpr (d == 0)
-                {
-                    return false;
-                }
-                else
-                {
-					for (index[d - 1] = interval.start; index[d - 1] != interval.end; ++index[d - 1])
-                    {
-                        if (not empty_rec(index, std::integral_constant<std::size_t, d - 1>{}))
-                        {
-							return false;
-						}
-                    }
-				}
-			}
-			return true;
-		}
 
         Childrens m_sets;
         std::size_t m_level;
