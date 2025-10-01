@@ -94,9 +94,6 @@ namespace samurai
         LevelCellArray() = default;
         LevelCellArray(const LevelCellList<Dim, TInterval>& lcl);
 
-        //~ template <class Op, class StartEndOp, class... S>
-        //~ LevelCellArray(Subset<Op, StartEndOp, S...> set);
-
         template <class Set>
         explicit LevelCellArray(const SetBase<Set>& set);
 
