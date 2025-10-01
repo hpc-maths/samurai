@@ -114,8 +114,6 @@ auto MemoryPool<T,DefaultAllocator>::requestChunk(const Size chunkSize) -> Offse
 			m_chunks.push_back({.offset = newChunkOffset, .size = newChunkSize, .isFree = true});
 		}
 		
-		fmt::print("returning chunk {} of {}\n", fmt::join(ret, ", "), typeid(T).name());
-		
 		return ret;
 	}
 	else if (m_memory != nullptr)
@@ -160,8 +158,6 @@ auto MemoryPool<T,DefaultAllocator>::requestChunk(const Size chunkSize) -> Offse
 		}
 		m_totalSize = newTotalSize;
 		
-		fmt::print("returning chunk {} of {}\n", fmt::join(ret, ", "), typeid(T).name());
-		
 		return ret; 
 	}
 	else
@@ -170,8 +166,6 @@ auto MemoryPool<T,DefaultAllocator>::requestChunk(const Size chunkSize) -> Offse
 		m_totalSize = chunkSize;
 		
 		m_chunks.push_back({.offset = 0, .size = chunkSize, .isFree = false});
-		
-		fmt::print("returning chunk {} of {}\n", fmt::join(OffsetRange(m_chunks.back().offset, m_chunks.back().offset + Distance(m_chunks.back().size)), ", "), typeid(T).name());
 		
 		return OffsetRange(m_chunks.back().offset, m_chunks.back().offset + Distance(m_chunks.back().size));
 	}
@@ -184,8 +178,6 @@ auto MemoryPool<T,DefaultAllocator>::freeChunk(const OffsetRange offsets) -> voi
 	{
 		return (not chunk.isFree) and chunk.offset == offsets[0] and chunk.size == offsets.size();
 	});
-	
-	fmt::print("freeing {} of {}\n", fmt::join(offsets, ", "), typeid(T).name());
 	
 	assert(chunkIt != std::end(m_chunks));
 	
