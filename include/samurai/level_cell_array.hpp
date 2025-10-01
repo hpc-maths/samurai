@@ -98,7 +98,7 @@ namespace samurai
         //~ LevelCellArray(Subset<Op, StartEndOp, S...> set);
 
         template <class Set>
-        LevelCellArray(const SetBase<Set>& set);
+        explicit LevelCellArray(const SetBase<Set>& set);
 
         template <class Set>
         LevelCellArray(const SetBase<Set>& set, const coords_t& origin_point, const double scaling_factor);
