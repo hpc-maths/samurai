@@ -102,10 +102,6 @@ int main(int argc, char* argv[])
     app.add_flag("--save-final-state-only", save_final_state_only, "Save final state only")->group("Output");
     SAMURAI_PARSE(argc, argv);
 
-    PetscMPIInt size;
-    PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size));
-    PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
-
     //--------------------//
     // Problem definition //
     //--------------------//

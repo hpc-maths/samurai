@@ -210,6 +210,16 @@ namespace samurai
                 // std::cout << "assemble_scheme() of " << this->name() << std::endl;
                 std::cout << "[" << mpi::communicator().rank() << "] assemble_scheme() of " << this->name() << std::endl;
 
+                ISLocalToGlobalMapping rowmap, colmap;
+                MatGetLocalToGlobalMapping(A, &rowmap, &colmap);
+                if (!rowmap)
+                {
+                    std::cout << "[" << mpi::communicator().rank() << "] assemble_scheme(" << this->name()
+                              << ") - Local to global mapping not set!" << std::endl;
+                    assert(false && "Local to global mappings not set");
+                    exit(EXIT_FAILURE);
+                }
+
                 if (this->current_insert_mode() == INSERT_VALUES)
                 {
                     // Must flush to use ADD_VALUES instead of INSERT_VALUES
@@ -217,6 +227,11 @@ namespace samurai
                     MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
                     set_current_insert_mode(ADD_VALUES);
                 }
+
+                // if (mpi::communicator().rank() == 1)
+                // {
+                //     sleep(1);
+                // }
 
                 // Apply the given coefficents to the given stencil
                 scheme().for_each_stencil_and_coeffs(
@@ -307,6 +322,11 @@ namespace samurai
                                                                                        field_i,
                                                                                        field_j);
                                         }
+                                        // std::cout << "[" << mpi::communicator().rank() << "] Id A[L" << stencil_center_row << ", L"
+                                        //           << cols[stencil_col_index(cfg_t::contiguous_indices_start, field_j)] << "] = A[G"
+                                        //           << this->global_row_index(cells[cfg_t::center_index], field_i) << ", G"
+                                        //           << this->global_col_index(cells[cfg_t::contiguous_indices_start], field_j)
+                                        //           << "] = " << contiguous_coeffs[0] << std::endl;
                                         MatSetValuesLocal(A,
                                                           1,
                                                           &stencil_center_row,

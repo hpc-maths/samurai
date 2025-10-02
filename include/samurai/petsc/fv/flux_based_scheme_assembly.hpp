@@ -189,17 +189,20 @@ namespace samurai
             void assemble_scheme(Mat& A) override
             {
                 // std::cout << "assemble_scheme() of " << this->name() << std::endl;
-
-                // std::cout << "[" << mpi::communicator().rank() << "] assemble_scheme()" << std::endl;
+                std::cout << "[" << mpi::communicator().rank() << "] assemble_scheme() of " << this->name() << std::endl;
 
                 if (this->current_insert_mode() == INSERT_VALUES)
                 {
                     // Must flush to use INSERT_VALUES instead of ADD_VALUES
-                    // std::cout << "[" << mpi::communicator().rank() << "] Flushing assembly to switch to ADD_VALUES mode\n";
                     MatAssemblyBegin(A, MAT_FLUSH_ASSEMBLY);
                     MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
                     set_current_insert_mode(ADD_VALUES);
                 }
+
+                // if (mpi::communicator().rank() == 1)
+                // {
+                //     sleep(1);
+                // }
 
                 // Interior interfaces
                 scheme().template for_each_interior_interface_and_coeffs<Run::Sequential, Get::Cells, /* include_periodic = */ false>(
@@ -244,10 +247,19 @@ namespace samurai
                                         auto comput_cell_col = local_col_index(comput_cells[c], field_j);
                                         if (left_cell_is_locally_owned)
                                         {
+                                            // std::cout << "[" << mpi::communicator().rank() << "] Diff A[L" << left_cell_row << ", L"
+                                            //           << comput_cell_col << "] = A[G" << global_row_index(interface_cells[0], field_i)
+                                            //           << ", G" << global_col_index(comput_cells[c], field_j) << "] = " << left_cell_coeff
+                                            //           << std::endl;
                                             MatSetValueLocal(A, left_cell_row, comput_cell_col, left_cell_coeff, ADD_VALUES);
                                         }
                                         if (right_cell_is_locally_owned)
                                         {
+                                            // std::cout << "[" << mpi::communicator().rank() << "] Diff A[L" << right_cell_row << ", L"
+                                            //           << comput_cell_col << "] = A[G" << global_row_index(interface_cells[1], field_i)
+                                            //           << ", G" << global_col_index(comput_cells[c], field_j) << "] = " <<
+                                            //           right_cell_coeff
+                                            //           << std::endl;
                                             MatSetValueLocal(A, right_cell_row, comput_cell_col, right_cell_coeff, ADD_VALUES);
                                         }
                                     }
@@ -286,6 +298,9 @@ namespace samurai
                                     {
                                         double coeff         = scheme().cell_coeff(coeffs, c, field_i, field_j);
                                         auto comput_cell_col = local_col_index(comput_cells[c], field_j);
+                                        // std::cout << "[" << mpi::communicator().rank() << "] Diff A[L" << cell_row << ", L"
+                                        //           << comput_cell_col << "] = A[G" << global_row_index(cell, field_i) << ", G"
+                                        //           << global_col_index(comput_cells[c], field_j) << "] = " << coeff << std::endl;
                                         MatSetValueLocal(A, cell_row, comput_cell_col, coeff, ADD_VALUES);
                                     }
                                 }
