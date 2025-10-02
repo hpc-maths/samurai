@@ -11,9 +11,10 @@ namespace samurai
         {
           public:
 
-            using scheme_t = OperatorSum<Operators...>;
-            using field_t  = typename scheme_t::field_t;
-            using cell_t   = typename field_t::mesh_t::cell_t;
+            using scheme_t       = OperatorSum<Operators...>;
+            using input_field_t  = typename scheme_t::field_t;
+            using output_field_t = typename scheme_t::output_field_t;
+            using cell_t         = typename input_field_t::mesh_t::cell_t;
 
           private:
 
@@ -59,7 +60,7 @@ namespace samurai
                 return !unknown_ptr();
             }
 
-            void set_unknown(field_t& unknown)
+            void set_unknown(input_field_t& unknown)
             {
                 for_each(m_assembly_ops,
                          [&](auto& op)
@@ -157,6 +158,21 @@ namespace samurai
                              }
                          });
                 return cols;
+            }
+
+            Vec create_rhs_vector(const output_field_t& field) const
+            {
+                return largest_stencil_assembly().create_rhs_vector(field);
+            }
+
+            Vec create_solution_vector(const input_field_t& field) const
+            {
+                return largest_stencil_assembly().create_solution_vector(field);
+            }
+
+            void update_unknown(Vec& v) const
+            {
+                largest_stencil_assembly().update_unknown(v);
             }
 
 #ifdef SAMURAI_WITH_MPI
@@ -338,11 +354,25 @@ namespace samurai
 
             void reset() override
             {
+                // computes global numbering and other costly information
+                largest_stencil_assembly().reset();
+
+                std::size_t i = 0;
                 for_each(m_assembly_ops,
                          [&](auto& op)
                          {
-                             op.reset();
+                             if (i != scheme_t::largest_stencil_index)
+                             {
+                                 // reset the other schemes by giving the all the costly information to avoid recomputing it
+                                 op.reset(largest_stencil_assembly());
+                             }
+                             ++i;
                          });
+            }
+
+            void set_local_to_global_mappings(Mat& A) const override
+            {
+                largest_stencil_assembly().set_local_to_global_mappings(A);
             }
         };
 

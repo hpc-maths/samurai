@@ -60,12 +60,13 @@ namespace samurai
     {
       private:
 
-        template <SchemeType scheme_type_, std::size_t stencil_size_, class output_field_t_>
+        template <SchemeType scheme_type_, std::size_t stencil_size_, class output_field_t_, class input_field_t_>
         struct Config
         {
             static constexpr SchemeType scheme_type   = scheme_type_;
             static constexpr std::size_t stencil_size = stencil_size_;
             using output_field_t                      = output_field_t_;
+            using input_field_t                       = input_field_t_;
         };
 
       public:
@@ -77,7 +78,7 @@ namespace samurai
         using size_type      = typename FirstOperatorType::size_type;
         using field_t        = input_field_t;
 
-        using cfg_t = Config<scheme_type_of_sum<Operators...>(), stencil_size_of_sum<Operators...>(), output_field_t>;
+        using cfg_t = Config<scheme_type_of_sum<Operators...>(), stencil_size_of_sum<Operators...>(), output_field_t, input_field_t>;
 
         // cppcheck-suppress unusedStructMember
         static constexpr std::size_t largest_stencil_index = get_largest_stencil_index<Operators...>();

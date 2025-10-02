@@ -10,7 +10,8 @@ namespace samurai
         void compute_global_numbering(const Mesh& mesh,
                                       std::vector<PetscInt>& local_indices,
                                       std::vector<PetscInt>& global_indices,
-                                      std::vector<int>& ownership)
+                                      std::vector<int>& ownership,
+                                      std::size_t& n_owned_cells)
         {
             using mesh_id_t = typename Mesh::mesh_id_t;
 
@@ -123,11 +124,11 @@ namespace samurai
 
             // 1. Count the number of local DOFs
             PetscInt n_local_dofs = 0;
-            for_each_cell(mesh[mesh_id_t::reference],
-                          [&](auto& cell)
-                          {
-                              n_local_dofs += (ownership[static_cast<std::size_t>(cell.index)] == rank) ? 1 : 0;
-                          });
+            for (std::size_t i = 0; i < ownership.size(); ++i)
+            {
+                n_local_dofs += (ownership[i] == rank) ? 1 : 0;
+            }
+            n_owned_cells = static_cast<std::size_t>(n_local_dofs);
 
             // 2. Sums up the DOFs owned by the previous MPI processes to get the global offset, i.e. where to start counting the global
             // indices on the current rank
@@ -135,7 +136,7 @@ namespace samurai
             PetscInt offset = 0;
             MPI_Exscan(&n_local_dofs, &offset, 1, MPIU_INT, MPI_SUM, PETSC_COMM_WORLD);
 
-            std::cout << fmt::format("rank {}: n_local_dofs = {}, offset = {}\n", rank, n_local_dofs, offset);
+            // std::cout << fmt::format("rank {}: n_local_dofs = {}, offset = {}\n", rank, n_local_dofs, offset);
 
             // 3. Compute local/global indices of the locally owned cells and ghosts
             PetscInt local_index  = 0;
@@ -215,59 +216,57 @@ namespace samurai
 
             mpi::wait_all(req.begin(), req.end());
 
-            if (rank == 1)
-            {
-                sleep(1);
-            }
+            // if (rank == 1)
+            // {
+            //     sleep(1);
+            // }
 
-            for (std::size_t i = 0; i < global_indices.size(); ++i)
-            {
-                // assert(m_global_indices[i] != -1);
-                std::cout << fmt::format("[{}]: cell_index {} (owned by {}): L{} G{}\n",
-                                         world.rank(),
-                                         i,
-                                         ownership[i],
-                                         local_indices[i],
-                                         global_indices[i]);
-            }
+            // for (std::size_t i = 0; i < global_indices.size(); ++i)
+            // {
+            //     // assert(m_global_indices[i] != -1);
+            //     std::cout << fmt::format("[{}]: cell_index {} (owned by {}): L{} G{}\n",
+            //                              world.rank(),
+            //                              i,
+            //                              ownership[i],
+            //                              local_indices[i],
+            //                              global_indices[i]);
+            // }
 
-            auto ownership_field = make_scalar_field<int>("owner_rank", mesh);
-            for_each_cell(mesh[mesh_id_t::reference],
-                          [&](auto& cell)
-                          {
-                              ownership_field[cell] = ownership[static_cast<std::size_t>(cell.index)];
-                          });
+            // auto ownership_field = make_scalar_field<int>("owner_rank", mesh);
+            // for_each_cell(mesh[mesh_id_t::reference],
+            //               [&](auto& cell)
+            //               {
+            //                   ownership_field[cell] = ownership[static_cast<std::size_t>(cell.index)];
+            //               });
 
-            auto global_indices_field = make_scalar_field<PetscInt>("petsc_global_index", mesh);
-            for_each_cell(mesh[mesh_id_t::reference],
-                          [&](auto& cell)
-                          {
-                              global_indices_field[cell] = global_indices[static_cast<std::size_t>(cell.index)];
-                          });
+            // auto global_indices_field = make_scalar_field<PetscInt>("petsc_global_index", mesh);
+            // for_each_cell(mesh[mesh_id_t::reference],
+            //               [&](auto& cell)
+            //               {
+            //                   global_indices_field[cell] = global_indices[static_cast<std::size_t>(cell.index)];
+            //               });
 
-            auto local_indices_field = make_scalar_field<PetscInt>("petsc_local_index", mesh);
-            for_each_cell(mesh[mesh_id_t::reference],
-                          [&](auto& cell)
-                          {
-                              local_indices_field[cell] = local_indices[static_cast<std::size_t>(cell.index)];
-                          });
+            // auto local_indices_field = make_scalar_field<PetscInt>("petsc_local_index", mesh);
+            // for_each_cell(mesh[mesh_id_t::reference],
+            //               [&](auto& cell)
+            //               {
+            //                   local_indices_field[cell] = local_indices[static_cast<std::size_t>(cell.index)];
+            //               });
 
-            auto samurai_cell_indices_field = make_scalar_field<std::size_t>("samurai_cell_index", mesh);
-            for_each_cell(mesh[mesh_id_t::reference],
-                          [&](auto& cell)
-                          {
-                              samurai_cell_indices_field[cell] = static_cast<std::size_t>(cell.index);
-                          });
-            save(fs::current_path(),
-                 "petsc_indices",
-                 {true, true},
-                 mesh,
-                 ownership_field,
-                 global_indices_field,
-                 local_indices_field,
-                 samurai_cell_indices_field);
-
-            // exit(1);
+            // auto samurai_cell_indices_field = make_scalar_field<std::size_t>("samurai_cell_index", mesh);
+            // for_each_cell(mesh[mesh_id_t::reference],
+            //               [&](auto& cell)
+            //               {
+            //                   samurai_cell_indices_field[cell] = static_cast<std::size_t>(cell.index);
+            //               });
+            // save(fs::current_path(),
+            //      "petsc_indices",
+            //      {true, true},
+            //      mesh,
+            //      ownership_field,
+            //      global_indices_field,
+            //      local_indices_field,
+            //      samurai_cell_indices_field);
         }
     }
 }

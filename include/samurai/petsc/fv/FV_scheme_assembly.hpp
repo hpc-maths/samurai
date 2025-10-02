@@ -24,6 +24,9 @@ namespace samurai
         template <class Scheme>
         class FVSchemeAssembly : public MatrixAssembly
         {
+            template <class Scheme2>
+            friend class FVSchemeAssembly;
+
           protected:
 
             using MatrixAssembly::m_col_shift;
@@ -73,6 +76,9 @@ namespace samurai
             std::vector<PetscInt> m_local_cell_indices;
             std::vector<PetscInt> m_global_cell_indices;
             std::vector<int> m_ownership; // store the owner rank of each cell
+
+            ISLocalToGlobalMapping m_local_to_global_rows = nullptr;
+            ISLocalToGlobalMapping m_local_to_global_cols = nullptr;
 #endif
 
             // Ghost recursion
@@ -108,65 +114,8 @@ namespace samurai
                     exit(EXIT_FAILURE);
                 }
                 m_n_cells = mesh().nb_cells();
-
 #ifdef SAMURAI_WITH_MPI
-                compute_global_numbering(mesh(), m_local_cell_indices, m_global_cell_indices, m_ownership);
-
-                m_n_owned_cells = 0;
-                for (auto& own : m_ownership)
-                {
-                    if (own == mpi::communicator().rank())
-                    {
-                        ++m_n_owned_cells;
-                    }
-                }
-                // std::cout << "rank " << mpi::communicator().rank() << " has " << m_n_owned_cells << " owned cells/ghosts\n";
-
-                // if (mpi::communicator().rank() == 1)
-                // {
-                //     sleep(1);
-                // }
-                // std::cout << "ownership: size = " << m_ownership.size() << std::endl;
-                // for (std::size_t i = 0; i < m_ownership.size(); ++i)
-                // {
-                //     std::cout << fmt::format("rank {}: ownership[L{}] = {}\n", mpi::communicator().rank(), i, m_ownership[i]);
-                // }
-                // std::cout << std::endl;
-
-                if (m_local_to_global_rows)
-                {
-                    ISLocalToGlobalMappingDestroy(&m_local_to_global_rows);
-                }
-                if (m_local_to_global_cols != m_local_to_global_rows)
-                {
-                    ISLocalToGlobalMappingDestroy(&m_local_to_global_cols);
-                }
-
-                if constexpr (input_n_comp == 1 && output_n_comp == 1)
-                {
-                    std::vector<PetscInt> m_local_to_global(m_local_cell_indices.size());
-                    for (std::size_t i = 0; i < m_local_cell_indices.size(); ++i)
-                    {
-                        m_local_to_global[static_cast<std::size_t>(m_local_cell_indices[i])] = m_global_cell_indices[i];
-                    }
-                    ISLocalToGlobalMappingCreate(PETSC_COMM_WORLD,
-                                                 1,
-                                                 static_cast<PetscInt>(m_local_to_global.size()),
-                                                 m_local_to_global.data(),
-                                                 /*PETSC_USE_POINTER,*/ PETSC_COPY_VALUES,
-                                                 &m_local_to_global_rows);
-
-                    // std::cout << "Created local to global mapping for rows of matrix '" << name() << "' with 1 component\n";
-                    // ISLocalToGlobalMappingView(m_local_to_global_rows, PETSC_VIEWER_STDOUT_WORLD);
-                    m_local_to_global_cols = m_local_to_global_rows;
-                }
-                else
-                {
-                    std::cerr << "Unimplemented: local to global mapping with multiple components for matrix '" << name() << "'\n";
-                    exit(EXIT_FAILURE);
-                }
-                // m_is_row_empty.resize(static_cast<std::size_t>(m_n_cells * output_n_comp));
-// #else
+                create_local_to_global_mappings();
 #endif
                 m_is_row_empty.resize(static_cast<std::size_t>(matrix_rows()));
                 std::fill(m_is_row_empty.begin(), m_is_row_empty.end(), true);
@@ -174,6 +123,126 @@ namespace samurai
                 if constexpr (ghost_elimination_enabled)
                 {
                     m_ghost_recursion = ghost_recursion();
+                }
+            }
+
+            /**
+             * This function is called in case of sum_assembly or block_assembly.
+             */
+            template <class OtherScheme>
+            void reset(const FVSchemeAssembly<OtherScheme>& other)
+            {
+                m_n_cells             = other.m_n_cells;
+                m_local_cell_indices  = other.m_local_cell_indices;
+                m_global_cell_indices = other.m_global_cell_indices;
+                m_ownership           = other.m_ownership;
+                m_n_owned_cells       = other.m_n_owned_cells;
+
+                m_local_to_global_rows = other.m_local_to_global_rows;
+                m_local_to_global_cols = other.m_local_to_global_cols;
+
+                m_is_row_empty.resize(static_cast<std::size_t>(matrix_rows()));
+                std::fill(m_is_row_empty.begin(), m_is_row_empty.end(), true);
+
+                if constexpr (ghost_elimination_enabled)
+                {
+                    m_ghost_recursion = other.m_ghost_recursion;
+                }
+            }
+
+            void set_local_to_global_mappings(Mat& A) const override
+            {
+                // Sets the local to global mapping for the rows and columns, which allows to use the local numbering when inserting
+                // values into the matrix.
+
+                // if (m_local_to_global_rows == nullptr || m_local_to_global_cols == nullptr)
+                // {
+                //     std::cerr << "Local to global mappings not set for matrix '" << name() << "'!" << std::endl;
+                //     assert(false && "Local to global mappings not set");
+                //     exit(EXIT_FAILURE);
+                // }
+
+                // ISLocalToGlobalMapping local_to_global_rows = nullptr;
+                // ISLocalToGlobalMapping local_to_global_cols = nullptr;
+
+                // if constexpr (input_n_comp == 1 && output_n_comp == 1)
+                // {
+                //     std::vector<PetscInt> local_to_global(m_local_cell_indices.size());
+                //     for (std::size_t i = 0; i < m_local_cell_indices.size(); ++i)
+                //     {
+                //         local_to_global[static_cast<std::size_t>(m_local_cell_indices[i])] = m_global_cell_indices[i];
+                //     }
+                //     ISLocalToGlobalMappingCreate(PETSC_COMM_WORLD,
+                //                                  1,
+                //                                  static_cast<PetscInt>(local_to_global.size()),
+                //                                  local_to_global.data(),
+                //                                  /*PETSC_USE_POINTER,*/ PETSC_COPY_VALUES,
+                //                                  &m_local_to_global_rows);
+
+                //     std::cout << "[" << mpi::communicator().rank() << "] Created local to global mapping for rows of matrix '" << name()
+                //               << "'\n";
+                //     // ISLocalToGlobalMappingView(m_local_to_global_rows, PETSC_VIEWER_STDOUT_WORLD);
+
+                //     m_local_to_global_cols = m_local_to_global_rows;
+                // }
+                // else
+                // {
+                //     std::cerr << "Unimplemented: local to global mapping with multiple components for matrix '" << name() << "'\n";
+                //     exit(EXIT_FAILURE);
+                // }
+
+                if (m_local_to_global_rows == nullptr || m_local_to_global_cols == nullptr)
+                {
+                    std::cerr << "Local to global mappings not set for matrix '" << name() << "'!" << std::endl;
+                    assert(false && "Local to global mappings not set");
+                    exit(EXIT_FAILURE);
+                }
+
+                MatSetLocalToGlobalMapping(A, m_local_to_global_rows, m_local_to_global_cols);
+            }
+
+            void create_local_to_global_mappings()
+            {
+                // std::cout << "[" << mpi::communicator().rank() << "] Computing global numbering for matrix '" << name() << "'\n";
+                compute_global_numbering(mesh(), m_local_cell_indices, m_global_cell_indices, m_ownership, m_n_owned_cells);
+
+                if (m_local_to_global_rows)
+                {
+                    std::cout << "[" << mpi::communicator().rank() << "] Destroying local to global mapping for rows of matrix '" << name()
+                              << "'\n";
+                    ISLocalToGlobalMappingDestroy(&m_local_to_global_rows);
+                }
+                if (m_local_to_global_cols != m_local_to_global_rows)
+                {
+                    std::cout << "[" << mpi::communicator().rank() << "] Destroying local to global mapping for cols of matrix '" << name()
+                              << "'\n";
+                    ISLocalToGlobalMappingDestroy(&m_local_to_global_cols);
+                }
+
+                if constexpr (input_n_comp == 1 && output_n_comp == 1)
+                {
+                    std::vector<PetscInt> local_to_global(m_local_cell_indices.size());
+                    for (std::size_t i = 0; i < m_local_cell_indices.size(); ++i)
+                    {
+                        local_to_global[static_cast<std::size_t>(m_local_cell_indices[i])] = m_global_cell_indices[i];
+                    }
+                    ISLocalToGlobalMappingCreate(PETSC_COMM_WORLD,
+                                                 1,
+                                                 static_cast<PetscInt>(local_to_global.size()),
+                                                 local_to_global.data(),
+                                                 /*PETSC_USE_POINTER,*/ PETSC_COPY_VALUES,
+                                                 &m_local_to_global_rows);
+
+                    std::cout << "[" << mpi::communicator().rank() << "] Created local to global mapping for rows of matrix '" << name()
+                              << "'\n";
+                    // ISLocalToGlobalMappingView(m_local_to_global_rows, PETSC_VIEWER_STDOUT_WORLD);
+
+                    m_local_to_global_cols = m_local_to_global_rows;
+                }
+                else
+                {
+                    std::cerr << "Unimplemented: local to global mapping with multiple components for matrix '" << name() << "'\n";
+                    exit(EXIT_FAILURE);
                 }
             }
 
@@ -713,13 +782,15 @@ namespace samurai
 
             void assemble_boundary_conditions(Mat& A) override
             {
-                // std::cout << "assemble_boundary_conditions of " << this->name() << std::endl;
+                std::cout << "[" << mpi::communicator().rank() << "] assemble_boundary_conditions of " << this->name() << std::endl;
                 if (current_insert_mode() == ADD_VALUES)
                 {
                     // Must flush to use INSERT_VALUES instead of ADD_VALUES
+                    std::cout << "[" << mpi::communicator().rank() << "] Flushing assembly to switch to INSERT_VALUES mode\n";
                     MatAssemblyBegin(A, MAT_FLUSH_ASSEMBLY);
                     MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
                     set_current_insert_mode(INSERT_VALUES);
+                    std::cout << "[" << mpi::communicator().rank() << "] end flush" << std::endl;
                 }
 
                 if (mesh().is_periodic())
@@ -759,6 +830,15 @@ namespace samurai
 
                             if (coeff != 0)
                             {
+                                // std::cout << fmt::format("[{}] BC  A[L{},L{}] = A[G{},G{}] = {} (ghost {}, cell {})\n",
+                                //                          mpi::communicator().rank(),
+                                //                          equation_row,
+                                //                          col,
+                                //                          global_row_index(ghost, field_i),
+                                //                          global_col_index(cells[c], field_i),
+                                //                          coeff,
+                                //                          ghost.index,
+                                //                          cells[c].index);
                                 MatSetValueLocal(A, equation_row, col, coeff, INSERT_VALUES);
                                 set_is_row_not_empty(equation_row);
                             }
