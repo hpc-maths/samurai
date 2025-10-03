@@ -27,9 +27,9 @@ namespace fs = std::filesystem;
 #include "field_expression.hpp"
 #include "mesh_holder.hpp"
 #include "numeric/gauss_legendre.hpp"
+#include "print.hpp"
 #include "storage/containers.hpp"
 #include "timers.hpp"
-#include "print.hpp"
 
 namespace samurai
 {
