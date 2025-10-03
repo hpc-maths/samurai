@@ -29,6 +29,7 @@ namespace fs = std::filesystem;
 #include "numeric/gauss_legendre.hpp"
 #include "storage/containers.hpp"
 #include "timers.hpp"
+#include "print.hpp"
 
 namespace samurai
 {
@@ -257,7 +258,7 @@ namespace samurai
                 if (xt::any(xt::isnan(data)))
                 {
                     // std::cout << data << std::endl;
-                    std::cerr << "READ NaN at level " << level << ", " << interval << std::endl;
+                    samurai::io::eprint("READ NaN at level {}, {}\n", level, fmt::streamed(interval));
                 }
 #endif
                 return data;
@@ -756,7 +757,7 @@ namespace samurai
 
         if (field1.mesh() != field2.mesh())
         {
-            std::cout << "mesh different" << std::endl;
+            samurai::io::eprint(samurai::io::root, "mesh different\n");
             return false;
         }
 

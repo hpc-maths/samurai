@@ -8,6 +8,8 @@
 
 #include <xtensor/containers/xadapt.hpp>
 #include <xtensor/views/xview.hpp>
+#include <fmt/ostream.h>
+#include "../print.hpp"
 
 #include "../operators_base.hpp"
 #include "../storage/utils.hpp"
@@ -576,8 +578,8 @@ namespace samurai
 #ifdef SAMURAI_CHECK_NAN
         if (xt::any(xt::isnan(qs_ij)))
         {
-            std::cerr << "NaN detected in the prediction stencil (Qs_ij)." << std::endl;
-            std::cerr << qs_ij << std::endl;
+            samurai::io::eprint("NaN detected in the prediction stencil (Qs_ij).\n{}
+", fmt::streamed(qs_ij));
             save(fs::current_path(), "check_nan", {true, true}, src.mesh(), src);
         }
 #endif

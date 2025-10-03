@@ -6,6 +6,8 @@
 #include "utils.hpp"
 #include <xtensor/containers/xfixed.hpp>
 #include <xtensor/io/xio.hpp>
+#include <fmt/ostream.h>
+#include "print.hpp"
 
 namespace samurai
 {
@@ -309,9 +311,9 @@ namespace samurai
                 // ... and no tolerance is allowed, we raise an error.
                 if (tol == 0)
                 {
-                    std::cerr << "The box " << box << " cannot be exactly represented with a reasonable cell length. ";
-                    std::cerr << "You can modify the box's dimensions or you can set a tolerance so it can be approximately represented."
-                              << std::endl;
+                    samurai::io::eprint(samurai::io::root,
+                                        "The box {} cannot be exactly represented with a reasonable cell length. You can modify the box's dimensions or set a tolerance so it can be approximately represented.\n",
+                                        fmt::streamed(box));
                     std::exit(1);
                 }
 
