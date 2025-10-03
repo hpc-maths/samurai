@@ -4,8 +4,6 @@
 #include "../../numeric/prediction.hpp"
 #include "../../schemes/fv/FV_scheme.hpp"
 #include "../../schemes/fv/scheme_operators.hpp"
-#include "../../print.hpp"
-#include <fmt/format.h>
 #include "../matrix_assembly.hpp"
 
 namespace samurai
@@ -518,11 +516,8 @@ namespace samurai
                     VecGetSize(b, &b_rows);
                     if (b_rows != this->matrix_cols())
                     {
-                        samurai::io::eprint(samurai::io::root,
-                                            "Operator '{}': the number of rows in vector ({}) does not equal the number of columns of the matrix ({})\n",
-                                            this->name(),
-                                            b_rows,
-                                            this->matrix_cols());
+                        std::cerr << "Operator '" << this->name() << "': the number of rows in vector (" << b_rows
+                                  << ") does not equal the number of columns of the matrix (" << this->matrix_cols() << ")" << std::endl;
                         assert(false);
                         return;
                     }
@@ -611,13 +606,9 @@ namespace samurai
                                                  INSERT_VALUES);
                         if (error)
                         {
-                            samurai::io::eprint(samurai::io::root,
-                                                "{}: failure to insert diagonal coefficient at ({}, {}), i.e. ({}, {}) in the block.\n",
-                                                scheme().name(),
-                                                m_row_shift + static_cast<PetscInt>(i),
-                                                m_col_shift + static_cast<PetscInt>(i),
-                                                i,
-                                                i);
+                            std::cerr << scheme().name() << ": failure to insert diagonal coefficient at ("
+                                      << m_row_shift + static_cast<PetscInt>(i) << ", " << m_col_shift + static_cast<PetscInt>(i)
+                                      << "), i.e. (" << i << ", " << i << ") in the block." << std::endl;
                             assert(false);
                             exit(EXIT_FAILURE);
                         }
@@ -762,11 +753,8 @@ namespace samurai
                                                              current_insert_mode());
                                     if (error)
                                     {
-                                        samurai::io::eprint(samurai::io::root,
-                                                            "{}: failure to insert projection coefficient at ({}, {}).\n",
-                                                            scheme().name(),
-                                                            ghost_index,
-                                                            m_col_shift + col_index(children[i], field_i));
+                                        std::cerr << scheme().name() << ": failure to insert projection coefficient at (" << ghost_index
+                                                  << ", " << m_col_shift + col_index(children[i], field_i) << ")." << std::endl;
                                         assert(false);
                                         exit(EXIT_FAILURE);
                                     }

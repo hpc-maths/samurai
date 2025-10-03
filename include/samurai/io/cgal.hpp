@@ -12,7 +12,6 @@
 #include <CGAL/Simple_cartesian.h>
 #include <CGAL/box_intersection_d.h>
 #include <CGAL/optimal_bounding_box.h>
-#include "../print.hpp"
 
 #include <xtensor/containers/xfixed.hpp>
 
@@ -167,7 +166,7 @@ namespace samurai
             CGALMesh cgal_mesh;
             if (!PMP::IO::read_polygon_mesh(input_file, cgal_mesh) || cgal_mesh.is_empty())
             {
-                samurai::io::eprint(samurai::io::root, "Invalid input file.\n");
+                std::cerr << "Invalid input file." << std::endl;
                 return CGALMesh();
             }
 

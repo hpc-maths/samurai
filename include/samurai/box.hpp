@@ -311,9 +311,9 @@ namespace samurai
                 // ... and no tolerance is allowed, we raise an error.
                 if (tol == 0)
                 {
-                    samurai::io::eprint(samurai::io::root,
-                                        "The box {} cannot be exactly represented with a reasonable cell length. You can modify the box's dimensions or set a tolerance so it can be approximately represented.\n",
-                                        fmt::streamed(box));
+                    std::cerr << "The box " << box << " cannot be exactly represented with a reasonable cell length. ";
+                    std::cerr << "You can modify the box's dimensions or you can set a tolerance so it can be approximately represented."
+                              << std::endl;
                     std::exit(1);
                 }
 

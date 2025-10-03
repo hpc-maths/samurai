@@ -287,7 +287,9 @@ namespace samurai
 #ifdef SAMURAI_CHECK_NAN
                                     if (std::isnan(field_value(input_field, stencil.cells()[c], field_j)))
                                     {
-                                        std::cerr << "NaN detected when computing the flux on the boundary interfaces: " << stencil.cells()[c] << std::endl;
+                                        std::cerr
+                                            << "NaN detected when computing the flux on the boundary interfaces: " << stencil.cells()[c]
+                                            << std::endl;
                                         assert(false);
                                     }
 #endif
@@ -316,5 +318,3 @@ namespace samurai
     };
 
 } // end namespace samurai
-#include "../../../print.hpp"
-#include <fmt/ostream.h>

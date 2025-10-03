@@ -1,6 +1,5 @@
 #pragma once
 #include "../../../arguments.hpp"
-#include "../../../print.hpp"
 #include "../../../interface.hpp"
 #include "../../../reconstruction.hpp"
 #include "../../explicit_scheme.hpp"
@@ -25,8 +24,8 @@ namespace samurai
         // cppcheck-suppress knownConditionTrueFalse
         if (args::finer_level_flux != 0 && cfg::dim > 1 && cfg::stencil_size > 4 && !args::refine_boundary)
         {
-            samurai::io::eprint(samurai::io::root,
-                                "Warning: for stencils larger than 4, computing fluxes at max_level may cause issues close to the boundary.\n");
+            std::cout << "Warning: for stencils larger than 4, computing fluxes at max_level may cause issues close to the boundary."
+                      << std::endl;
         }
 
         return FluxBasedScheme<cfg, bdry_cfg>(flux_definition);

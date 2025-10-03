@@ -12,7 +12,6 @@
 #include "../numeric/prediction.hpp"
 #include "../operators_base.hpp"
 #include "../utils.hpp"
-#include "../print.hpp"
 
 namespace samurai
 {
@@ -289,7 +288,7 @@ namespace samurai
                     {
                         if (std::isnan(qs_i(ii)) || std::isnan(qs_j(ii)) || std::isnan(qs_ij(ii)))
                         {
-                            samurai::io::eprint("NaN detected during the computation of details.\n");
+                            std::cerr << "NaN detected during the computation of details." << std::endl;
                             save(fs::current_path(), "check_nan", {true, true}, field.mesh(), field);
                             break;
                         }
@@ -299,7 +298,7 @@ namespace samurai
                 {
                     if (xt::any(xt::isnan(qs_ij)))
                     {
-                        samurai::io::eprint("NaN detected during the computation of details.\n");
+                        std::cerr << "NaN detected during the computation of details." << std::endl;
                         save(fs::current_path(), "check_nan", {true, true}, field.mesh(), field);
                     }
                 }

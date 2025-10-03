@@ -181,11 +181,8 @@ namespace samurai
         {
             if (!jacobian_function())
             {
-                samurai::io::eprint(samurai::io::root,
-                                    "The jacobian function of operator '{}' has not been implemented.\n",
-                                    this->name());
-                samurai::io::eprint(samurai::io::root,
-                                    "Use option -snes_mf or -snes_fd for an automatic computation of the jacobian matrix.\n");
+                std::cerr << "The jacobian function of operator '" << this->name() << "' has not been implemented." << std::endl;
+                std::cerr << "Use option -snes_mf or -snes_fd for an automatic computation of the jacobian matrix." << std::endl;
                 exit(EXIT_FAILURE);
             }
 
