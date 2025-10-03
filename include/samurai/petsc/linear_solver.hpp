@@ -132,7 +132,6 @@ namespace samurai
                     {
                         samurai::io::eprint(
                             "Undefined unknown(s) for this linear system. Please set the unknowns using the instruction '[solver].set_unknown(u);' or '[solver].set_unknowns(u1, u2...).\n");
-                        << std::endl;
                         assert(false && "Undefined unknown(s)");
                         exit(EXIT_FAILURE);
                     }
@@ -327,7 +326,6 @@ namespace samurai
                 {
                     samurai::io::eprint(
                         "Undefined unknown for this linear system. Please set the unknown using the instruction '[solver].set_unknown(u);'.\n");
-                    << std::endl;
                     assert(false && "Undefined unknown");
                     exit(EXIT_FAILURE);
                 }
