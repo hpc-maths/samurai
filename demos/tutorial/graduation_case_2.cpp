@@ -12,6 +12,7 @@
 #include <samurai/cell_array.hpp>
 #include <samurai/field.hpp>
 #include <samurai/io/hdf5.hpp>
+#include <samurai/print.hpp>
 #include <samurai/samurai.hpp>
 #include <samurai/subset/node.hpp>
 
@@ -69,7 +70,7 @@ int main(int argc, char* argv[])
     std::size_t ite = 0;
     while (true)
     {
-        std::cout << "Iteration for remove intersection: " << ite++ << "\n";
+        samurai::io::print("Iteration for remove intersection: {}\n", ite++);
         auto tag = samurai::make_scalar_field<bool>("tag", ca);
         tag.fill(false);
 
@@ -137,7 +138,7 @@ int main(int argc, char* argv[])
     ite = 0;
     while (true)
     {
-        std::cout << "Iteration for graduation: " << ite++ << "\n";
+        samurai::io::print("Iteration for graduation: {}\n", ite++);
         auto tag = samurai::make_scalar_field<bool>("tag", ca);
         tag.fill(false);
 

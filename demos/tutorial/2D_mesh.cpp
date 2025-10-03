@@ -1,7 +1,7 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-#include <iostream>
+#include <samurai/print.hpp>
 
 #include <filesystem>
 
@@ -54,7 +54,7 @@ int main(int argc, char* argv[])
 
     const samurai::CellArray<dim> ca{cl};
 
-    std::cout << ca << std::endl;
+    samurai::io::print("{}\n", fmt::streamed(ca));
 
     samurai::save(path, filename, ca);
     samurai::finalize();

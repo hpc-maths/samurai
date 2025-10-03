@@ -1,6 +1,7 @@
 // #include <spdlog/spdlog.h>
 #include <fmt/format.h>
 #include <fmt/ostream.h>
+#include <samurai/print.hpp>
 #include <xtensor/containers/xfixed.hpp>
 #include <xtensor/views/xmasked_view.hpp>
 
@@ -461,12 +462,12 @@ int main()
 
     for (std::size_t ite = 0; ite < max_ite; ++ite)
     {
-        std::cout << "iteration: " << ite << std::endl;
+        samurai::io::print("iteration: {}\n", ite);
 
         std::size_t ite_adapt = 0;
         while (1)
         {
-            std::cout << "\tmesh adaptation: " << ite_adapt++ << std::endl;
+            samurai::io::print("\tmesh adaptation: {}\n", ite_adapt++);
             samurai::update_ghost(update_bc, field);
             auto tag = samurai::make_scalar_field<int>("tag", mesh);
             AMR_criteria(field, tag);

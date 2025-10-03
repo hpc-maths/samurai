@@ -13,6 +13,7 @@
 #include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh_with_overleaves.hpp>
+#include <samurai/print.hpp>
 #include <samurai/samurai.hpp>
 
 #include "boundary_conditions.hpp"
@@ -534,7 +535,7 @@ int main(int argc, char* argv[])
 
         if (result.count("help"))
         {
-            std::cout << options.help() << "\n";
+            samurai::io::print("{}\n", options.help());
         }
         else
         {
@@ -594,8 +595,7 @@ int main(int argc, char* argv[])
                 save_reconstructed(f, fR, update_bc_for_level, eps, nb_ite);
 
                 auto error = compute_error(f, fR, update_bc_for_level, t);
-
-                std::cout << std::endl << "Diff = " << error[1] << std::flush;
+                samurai::io::print("\nDiff = {}", error[1]);
 
                 out_time_frames << t << std::endl;
                 out_error_exact_ref << error[0] << std::endl;
@@ -618,7 +618,7 @@ int main(int argc, char* argv[])
     }
     catch (const cxxopts::OptionException& e)
     {
-        std::cout << options.help() << "\n";
+        samurai::io::print("{}\n", options.help());
     }
     samurai::finalize();
     return 0;

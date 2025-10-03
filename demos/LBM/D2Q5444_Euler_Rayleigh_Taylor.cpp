@@ -10,6 +10,7 @@
 #include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh_with_overleaves.hpp>
+#include <samurai/print.hpp>
 #include <samurai/samurai.hpp>
 
 #include "boundary_conditions.hpp"
@@ -1104,7 +1105,7 @@ int main(int argc, char* argv[])
 
         if (result.count("help"))
         {
-            std::cout << options.help() << "\n";
+            samurai::io::print("{}\n", options.help());
         }
         else
         {
@@ -1152,7 +1153,7 @@ int main(int argc, char* argv[])
 
             for (std::size_t nb_ite = 0; nb_ite <= N; ++nb_ite)
             {
-                std::cout << std::endl << "Time = " << t << "   Iteration number = " << nb_ite << std::endl;
+                samurai::io::print("\nTime = {}   Iteration number = {}\n", t, nb_ite);
 
                 if (max_level > min_level)
                 {
@@ -1173,7 +1174,7 @@ int main(int argc, char* argv[])
     }
     catch (const cxxopts::OptionException& e)
     {
-        std::cout << options.help() << "\n";
+        samurai::io::print("{}\n", options.help());
     }
     samurai::finalize();
     return 0;

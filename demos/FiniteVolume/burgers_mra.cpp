@@ -179,8 +179,7 @@ void run_simulation(Field& u,
         auto u_recons = samurai::reconstruction(u);
 
         // Error
-        std::cout << ", L2-error: " << std::scientific;
-        std::cout.precision(2);
+        samurai::io::print(", L2-error: ");
         if (init_sol == "hat")
         {
             double error = samurai::L2_error(u,
