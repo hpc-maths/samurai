@@ -63,9 +63,7 @@ namespace samurai
 #ifdef SAMURAI_CHECK_NAN
                                 if (std::isnan(field_value(input_field, comput_cells[c], field_j)))
                                 {
-                                    samurai::io::eprint(
-                                        "NaN detected when computing the flux on the interior interfaces: {}\n",
-                                        fmt::streamed(comput_cells[c]));
+                                    std::cerr << "NaN detected when computing the flux on the interior interfaces: " << comput_cells[c] << std::endl;
                                     assert(false);
                                 }
 #endif
@@ -97,9 +95,7 @@ namespace samurai
 #ifdef SAMURAI_CHECK_NAN
                                     if (std::isnan(field_value(input_field, comput_cells[c], field_j)))
                                     {
-                                        samurai::io::eprint(
-                                            "NaN detected when computing the flux on the boundary interfaces: {}\n",
-                                            fmt::streamed(comput_cells[c]));
+                                        std::cerr << "NaN detected when computing the flux on the boundary interfaces: " << comput_cells[c] << std::endl;
                                         assert(false);
                                     }
 #endif
@@ -114,5 +110,3 @@ namespace samurai
     };
 
 } // end namespace samurai
-#include "../../../print.hpp"
-#include <fmt/ostream.h>
