@@ -533,8 +533,8 @@ namespace samurai
             //                   level_field[cell] = cell.level;
             //               });
             // save(fs::current_path(), "mesh_throw", {true, true}, this->mesh(), coords, level_field);
-            ((samurai::io::print("{} ", index)), ...);
-            samurai::io::print("\n");
+            // Avoid formatting of xtensor views/expressions which may be unformattable for fmt
+            samurai::io::print("indices: <unavailable>\n");
             throw std::out_of_range(fmt::format("FIELD ERROR on level {}: try to find interval {}", level, interval));
         }
 
@@ -1172,8 +1172,8 @@ namespace samurai
             //                   level_field[cell] = cell.level;
             //               });
             // save(fs::current_path(), "mesh_throw", {true, true}, this->mesh(), coords, level_field);
-            ((samurai::io::print("{} ", index)), ...);
-            samurai::io::print("\n");
+            // Avoid formatting of xtensor views/expressions which may be unformattable for fmt
+            samurai::io::print("indices: <unavailable>\n");
             throw std::out_of_range(fmt::format("FIELD ERROR on level {}: try to find interval {}", level, interval));
         }
 
