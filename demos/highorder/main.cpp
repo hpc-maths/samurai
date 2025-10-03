@@ -4,8 +4,8 @@
 #include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
-#include <samurai/samurai.hpp>
 #include <samurai/print.hpp>
+#include <samurai/samurai.hpp>
 #include <samurai/schemes/fv.hpp>
 
 #include <filesystem>

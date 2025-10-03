@@ -13,8 +13,8 @@
 #include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh_with_overleaves.hpp>
-#include <samurai/samurai.hpp>
 #include <samurai/print.hpp>
+#include <samurai/samurai.hpp>
 
 #include "boundary_conditions.hpp"
 #include "prediction_map_1d.hpp"
@@ -537,9 +537,9 @@ int main(int argc, char* argv[])
                                         << std::endl;
 
                         samurai::io::print(samurai::io::root, "\n");
-                                  << "Time = " << t << " Diff_h = " << error[1] << std::endl
-                                  << "Diff q = " << error[3] << std::endl
-                                  << "Diff E = " << error[5];
+                        << "Time = " << t << " Diff_h = " << error[1] << std::endl
+                        << "Diff q = " << error[3] << std::endl
+                        << "Diff E = " << error[5];
 
                         one_time_step(f, pred_coeff_separate, update_bc_for_level, s, lambda);
                         one_time_step(fR, pred_coeff_separate, update_bc_for_level, s, lambda);
@@ -606,8 +606,7 @@ int main(int argc, char* argv[])
 
                         auto error = compute_error(f, fR, update_bc_for_level, t);
                         samurai::io::print(samurai::io::root, "Diff  h= {}\n", error[1]);
-                                  << "Diff q = " << error[3] << std::endl
-                                  << "Diff E = " << error[5] << std::endl;
+                        << "Diff q = " << error[3] << std::endl << "Diff E = " << error[5] << std::endl;
 
                         out_eps << eps << std::endl;
                         out_diff_rho_ref_adap << error[1] << std::endl;
