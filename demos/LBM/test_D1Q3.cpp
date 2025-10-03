@@ -13,6 +13,7 @@
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh_with_overleaves.hpp>
 #include <samurai/samurai.hpp>
+#include <samurai/print.hpp>
 
 #include "boundary_conditions.hpp"
 #include "prediction_map_1d.hpp"
@@ -318,7 +319,7 @@ int main(int argc, char* argv[])
 
         if (result.count("help"))
         {
-            std::cout << options.help() << "\n";
+            samurai::io::print(samurai::io::root, "{}\n", options.help());
         }
         else
         {
@@ -354,11 +355,11 @@ int main(int argc, char* argv[])
 
             for (auto s : s_vect)
             {
-                std::cout << std::endl << "Relaxation parameter s = " << s;
+                samurai::io::print(samurai::io::root, "\nRelaxation parameter s = {}", s);
 
                 std::string prefix(case_name + "_s_" + std::to_string(s) + "_");
 
-                std::cout << std::endl << "Testing time behavior" << std::endl;
+                samurai::io::print(samurai::io::root, "\nTesting time behavior\n");
                 {
                     double eps = 1.0e-4; // This remains fixed
 
@@ -409,14 +410,14 @@ int main(int argc, char* argv[])
                                                / static_cast<double>(meshR.nb_cells(mesh_id_t::cells))
                                         << std::endl;
 
-                        std::cout << std::endl << "Time = " << t << " Diff_h = " << error[1] << std::endl << "Diff q = " << error[3];
+                        samurai::io::print(samurai::io::root, "\nTime = {} Diff_h = {}\nDiff q = {}", t, error[1], error[3]);
 
                         one_time_step(f, pred_coeff_separate, update_bc_for_level, s, lambda, g);
                         one_time_step(fR, pred_coeff_separate, update_bc_for_level, s, lambda, g);
                         t += dt;
                     }
 
-                    std::cout << std::endl;
+                    samurai::io::print(samurai::io::root, "\n");
 
                     out_time_frames.close();
                     out_error_h_exact_ref.close();
@@ -426,7 +427,7 @@ int main(int argc, char* argv[])
                     out_compression.close();
                 }
 
-                std::cout << std::endl << "Testing eps behavior" << std::endl;
+                samurai::io::print(samurai::io::root, "\nTesting eps behavior\n");
                 {
                     double eps         = 1.0e-1; // 0.1;
                     std::size_t N_test = 50;     // 50;
@@ -443,7 +444,7 @@ int main(int argc, char* argv[])
 
                     for (std::size_t n_test = 0; n_test < N_test; ++n_test)
                     {
-                        std::cout << std::endl << "Test " << n_test << " eps = " << eps;
+                        samurai::io::print(samurai::io::root, "\nTest {} eps = {}", n_test, eps);
 
                         samurai::MROMesh<Config> mesh{box, min_level, max_level};
                         samurai::MROMesh<Config> meshR{box, max_level, max_level}; // This is the reference scheme
@@ -470,7 +471,7 @@ int main(int argc, char* argv[])
                         }
 
                         auto error = compute_error(f, fR, update_bc_for_level, t, lambda, g);
-                        std::cout << "Diff  h= " << error[1] << std::endl << "Diff q = " << error[3] << std::endl;
+                        samurai::io::print(samurai::io::root, "Diff  h= {}\nDiff q = {}\n", error[1], error[3]);
 
                         out_eps << eps << std::endl;
                         out_diff_h_ref_adap << error[1] << std::endl;
@@ -493,7 +494,7 @@ int main(int argc, char* argv[])
 
     catch (const cxxopts::OptionException& e)
     {
-        std::cout << options.help() << "\n";
+        samurai::io::print(samurai::io::root, "{}\n", options.help());
     }
 
     samurai::finalize();

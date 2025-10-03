@@ -2,6 +2,7 @@
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #include <iostream>
+#include <samurai/print.hpp>
 
 #include <filesystem>
 
@@ -227,14 +228,14 @@ int main(int argc, char* argv[])
     cl[2][{3}].add_interval({2, 4});
 
     samurai::CellArray<dim> mesh_1(cl);
-    std::cout << "nb_cells: " << mesh_1.nb_cells() << "\n";
+    samurai::io::print(samurai::io::root, "nb_cells: {}\n", mesh_1.nb_cells());
 
     tic();
     refine_1(mesh_1, config.max_level());
     auto duration = toc();
-    std::cout << "Version 1: " << duration << "s" << std::endl;
+    samurai::io::print(samurai::io::root, "Version 1: {}s\n", duration);
     toc();
-    std::cout << "nb_cells: " << mesh_1.nb_cells() << "\n";
+    samurai::io::print(samurai::io::root, "nb_cells: {}\n", mesh_1.nb_cells());
 
     auto mesh_2     = samurai::mra::make_mesh(cl, config);
     using mesh_id_t = typename decltype(mesh_2)::mesh_id_t;
@@ -242,12 +243,12 @@ int main(int argc, char* argv[])
     tic();
     refine_2(mesh_2, config.max_level());
     duration = toc();
-    std::cout << "Version 2: " << duration << "s" << std::endl;
-    std::cout << "nb_cells: " << mesh_2.nb_cells(mesh_id_t::cells) << "\n";
+    samurai::io::print(samurai::io::root, "Version 2: {}s\n", duration);
+    samurai::io::print(samurai::io::root, "nb_cells: {}\n", mesh_2.nb_cells(mesh_id_t::cells));
 
-    std::cout << "Memory used " << std::endl;
+    samurai::io::print(samurai::io::root, "Memory used \n");
     auto mem = samurai::memory_usage(mesh_2, /*verbose*/ true);
-    std::cout << "Total: " << mem << std::endl;
+    samurai::io::print(samurai::io::root, "Total: {}\n", mem);
 
     auto level = samurai::make_scalar_field<std::size_t>("level", mesh_2);
     samurai::for_each_cell(mesh_2,
