@@ -1,4 +1,4 @@
-#include <iostream>
+#include <samurai/print.hpp>
 
 #include <samurai/cell_array.hpp>
 #include <samurai/cell_list.hpp>
@@ -31,7 +31,7 @@ int main()
 
     samurai::CellArray<dim> ca{cl};
 
-    std::cout << ca << std::endl;
+    samurai::io::print("{}\n", fmt::streamed(ca));
 
     samurai::save("2d_mesh_representation", ca);
     return 0;
