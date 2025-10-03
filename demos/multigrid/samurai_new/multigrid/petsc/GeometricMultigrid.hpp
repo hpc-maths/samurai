@@ -57,8 +57,8 @@ namespace samurai_new
                 PetscOptionsGetInt(NULL, NULL, "--samg_transfer_ops", &transfer_ops_arg, NULL);
                 samurai_new::TransferOperators transfer_ops = static_cast<samurai_new::TransferOperators>(transfer_ops_arg);
 
-                PetscInt prediction_order = 0;
-                PetscOptionsGetInt(NULL, NULL, "--samg_pred_order", &prediction_order, NULL);
+                PetscInt prediction_stencil_radius = 0;
+                PetscOptionsGetInt(NULL, NULL, "--samg_pred_order", &prediction_stencil_radius, NULL);
 
                 PetscBool smoother_is_set = PETSC_FALSE;
                 Smoothers smoother        = SymGaussSeidel;
@@ -121,9 +121,9 @@ namespace samurai_new
                 }
                 std::cout << std::endl;
 
-                std::cout << "    prediction order  : " << prediction_order << std::endl;
+                std::cout << "    prediction order  : " << prediction_stencil_radius << std::endl;
 
-                _samuraiDM = new SamuraiDM<Dsctzr>(PETSC_COMM_SELF, *_discretizer, *_mesh, transfer_ops, prediction_order);
+                _samuraiDM = new SamuraiDM<Dsctzr>(PETSC_COMM_SELF, *_discretizer, *_mesh, transfer_ops, prediction_stencil_radius);
                 KSPSetDM(ksp, _samuraiDM->PetscDM());
 
                 // Default outer solver: CG

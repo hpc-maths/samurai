@@ -135,7 +135,7 @@ namespace samurai
 
         std::size_t max_level = mesh.max_level();
 
-        constexpr int ghost_width = mesh_t::config::graduation_width; // cppcheck-suppress unreadVariable
+        constexpr int ghost_width = mesh_t::config::prediction_stencil_radius; // cppcheck-suppress unreadVariable
 
         for (std::size_t level = max_level; level > 0; --level)
         {

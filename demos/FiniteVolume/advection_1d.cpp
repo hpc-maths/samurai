@@ -62,7 +62,6 @@ int main(int argc, char* argv[])
     auto& app = samurai::initialize("Finite volume example for the advection equation in 1d using multiresolution", argc, argv);
 
     constexpr std::size_t dim = 1; // cppcheck-suppress unreadVariable
-    using Config              = samurai::MRConfig<dim>;
 
     // Simulation parameters
     double left_box  = -2;
@@ -99,8 +98,8 @@ int main(int argc, char* argv[])
 
     const samurai::Box<double, dim> box({left_box}, {right_box});
 
-    auto config                  = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).periodic(is_periodic);
-    samurai::MRMesh<Config> mesh = {config, box};
+    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).periodic(is_periodic);
+    auto mesh   = samurai::make_MRMesh(config, box);
     // samurai::MRMesh<Config> mesh;
     auto u = samurai::make_scalar_field<double>("u", mesh);
 

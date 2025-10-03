@@ -49,7 +49,6 @@ int main(int argc, char* argv[])
     auto& app = samurai::initialize("Finite volume example for the heat equation", argc, argv);
 
     static constexpr std::size_t dim = 2;
-    using Config                     = samurai::MRConfig<dim>;
     using Box                        = samurai::Box<double, dim>;
     using point_t                    = typename Box::point_t;
 
@@ -119,14 +118,14 @@ int main(int argc, char* argv[])
     box_corner1.fill(left_box);
     box_corner2.fill(right_box);
     Box box(box_corner1, box_corner2);
-    samurai::MRMesh<Config> mesh;
+    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
+    auto mesh   = samurai::make_MRMesh(config);
 
     auto u = samurai::make_scalar_field<double>("u", mesh);
 
     if (restart_file.empty())
     {
-        auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
-        mesh        = {config, box};
+        mesh = samurai::make_MRMesh(config, box);
         u.resize();
         // Initial solution
         if (init_sol == "dirac")

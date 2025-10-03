@@ -45,7 +45,6 @@ namespace samurai
     TYPED_TEST(dim_test, periodic)
     {
         static constexpr std::size_t dim = TypeParam::value;
-        using Config                     = MRConfig<dim>;
 
         // Simulation parameters
         xt::xtensor_fixed<double, xt::xshape<dim>> min_corner, max_corner;
@@ -54,9 +53,9 @@ namespace samurai
 
         // Multiresolution parameters
         Box<double, dim> box(min_corner, max_corner);
-        auto mesh_cfg = samurai::mesh_config<dim>().min_level(3).max_level(6).periodic(true).graduation_width(1);
-        MRMesh<Config> mesh{mesh_cfg, box};
-        using mesh_id_t = typename MRMesh<Config>::mesh_id_t;
+        auto mesh_cfg   = samurai::mesh_config<dim>().min_level(3).max_level(6).periodic(true).graduation_width(1);
+        auto mesh       = samurai::make_MRMesh(mesh_cfg, box);
+        using mesh_id_t = typename decltype(mesh)::mesh_id_t;
 
         double dt = 1;
         double Tf = 2 / mesh.cell_length(mesh.max_level());

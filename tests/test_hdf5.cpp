@@ -87,15 +87,14 @@ namespace samurai
     TYPED_TEST(hdf5_test, mr_mesh)
     {
         static constexpr std::size_t dim = TypeParam::value;
-        using Config                     = MRConfig<dim>;
-        using Mesh                       = MRMesh<Config>;
+
         xt::xtensor_fixed<double, xt::xshape<dim>> min_corner;
         xt::xtensor_fixed<double, xt::xshape<dim>> max_corner;
         min_corner.fill(-1);
         max_corner.fill(1);
         Box<double, dim> box(min_corner, max_corner);
-        auto mesh_cfg = samurai::mesh_config<dim>().min_level(4).max_level(4);
-        Mesh mesh(mesh_cfg, box);
+        auto mesh_cfg = mesh_config<dim>().min_level(4).max_level(4);
+        auto mesh     = make_MRMesh(mesh_cfg, box);
         test_save(mesh);
         args::save_debug_fields = true;
         test_save(mesh);

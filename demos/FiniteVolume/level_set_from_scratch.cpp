@@ -54,13 +54,13 @@ struct fmt::formatter<SimpleID> : formatter<string_view>
 template <std::size_t dim_>
 struct AMRConfig
 {
-    static constexpr std::size_t dim                  = dim_;
-    static constexpr std::size_t max_refinement_level = 20;
-    static constexpr int max_stencil_width            = 2;
-    static constexpr int ghost_width                  = 2;
-    static constexpr std::size_t prediction_order     = 1;
-    using interval_t                                  = samurai::Interval<int>;
-    using mesh_id_t                                   = SimpleID;
+    static constexpr std::size_t dim                       = dim_;
+    static constexpr std::size_t max_refinement_level      = 20;
+    static constexpr int max_stencil_width                 = 2;
+    static constexpr int ghost_width                       = 2;
+    static constexpr std::size_t prediction_stencil_radius = 1;
+    using interval_t                                       = samurai::Interval<int>;
+    using mesh_id_t                                        = SimpleID;
 };
 
 template <class Config>
@@ -607,8 +607,6 @@ int main(int argc, char* argv[])
 
     // AMR parameters
     std::size_t start_level = 8;
-    std::size_t min_level   = 4;
-    std::size_t max_level   = 8;
     bool correction         = false;
 
     // Output parameters
@@ -632,15 +630,14 @@ int main(int argc, char* argv[])
     SAMURAI_PARSE(argc, argv);
 
     const samurai::Box<double, dim> box(min_corner, max_corner);
-    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
+    auto config = samurai::mesh_config<dim>().min_level(4).max_level(8);
     AMRMesh<Config> mesh;
 
     auto phi = samurai::make_scalar_field<double>("phi", mesh);
 
     if (restart_file.empty())
     {
-        config.parse_args();
-        mesh = {config, box, config.max_level()};
+        mesh = {config, box, start_level};
         init_level_set(phi);
     }
     else
@@ -715,9 +712,9 @@ int main(int argc, char* argv[])
             update_ghosts(phi, u);
             auto phihat = samurai::make_scalar_field<double>("phi", mesh);
             samurai::make_bc<samurai::Neumann<1>>(phihat, 0.);
-            phihat = phi - dt_fict * H_wrap(phi, phi_0, max_level);
+            phihat = phi - dt_fict * H_wrap(phi, phi_0, mesh.max_level());
             update_ghosts(phihat, u);
-            phinp1 = .5 * phi_0 + .5 * (phihat - dt_fict * H_wrap(phihat, phi_0, max_level));
+            phinp1 = .5 * phi_0 + .5 * (phihat - dt_fict * H_wrap(phihat, phi_0, mesh.max_level()));
             std::swap(phi.array(), phinp1.array());
         }
 

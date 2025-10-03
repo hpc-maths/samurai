@@ -33,24 +33,24 @@ namespace samurai_new
         LevelContext* finer   = nullptr;
         LevelContext* coarser = nullptr;
         TransferOperators transfer_ops;
-        int prediction_order;
+        int prediction_stencil_radius;
 
         LevelContext(Dsctzr& d, Mesh& m, TransferOperators to, int pred_order)
             : _mesh(m)
             , _discretizer(d)
         {
-            level            = 0;
-            transfer_ops     = to;
-            prediction_order = pred_order;
+            level                     = 0;
+            transfer_ops              = to;
+            prediction_stencil_radius = pred_order;
         }
 
         LevelContext(LevelContext& fine_ctx)
             : _mesh(samurai_new::coarsen(fine_ctx.mesh()))
             , _discretizer(Dsctzr::create_coarse(fine_ctx.assembly(), _mesh))
         {
-            level            = fine_ctx.level + 1;
-            transfer_ops     = fine_ctx.transfer_ops;
-            prediction_order = fine_ctx.prediction_order;
+            level                     = fine_ctx.level + 1;
+            transfer_ops              = fine_ctx.transfer_ops;
+            prediction_stencil_radius = fine_ctx.prediction_stencil_radius;
 
             this->finer      = &fine_ctx;
             fine_ctx.coarser = this;

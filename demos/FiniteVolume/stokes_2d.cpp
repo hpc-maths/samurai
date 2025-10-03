@@ -153,9 +153,6 @@ int main(int argc, char* argv[])
     auto& app = samurai::initialize("Stokes problem", argc, argv);
 
     constexpr std::size_t dim        = 2;
-    using Config                     = samurai::MRConfig<dim>;
-    using Mesh                       = samurai::MRMesh<Config>;
-    using mesh_id_t                  = typename Mesh::mesh_id_t;
     static constexpr bool is_soa     = false;
     static constexpr bool monolithic = true;
 
@@ -194,7 +191,9 @@ int main(int argc, char* argv[])
 
     auto box    = samurai::Box<double, dim>({0, 0}, {1, 1});
     auto config = samurai::mesh_config<dim>().min_level(5).max_level(5).max_stencil_radius(2);
-    auto mesh   = Mesh(config, box);
+    auto mesh   = samurai::make_MRMesh(config, box);
+
+    using mesh_id_t = typename decltype(mesh)::mesh_id_t;
 
     //--------------------//
     // Stationary problem //

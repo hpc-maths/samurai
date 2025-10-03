@@ -483,11 +483,12 @@ namespace samurai
         }
 
         {
-            using Config = MRConfig<2>;
-            const Box<double, Config::dim> box({0, 0}, {1, 1});
-            auto mesh_cfg = samurai::mesh_config<Config::dim>().min_level(0).max_level(3);
-            MRMesh<Config> mesh{mesh_cfg, box};
-            auto& domain                              = mesh.domain();
+            static constexpr std::size_t dim = 2;
+            const Box<double, dim> box({0, 0}, {1, 1});
+            auto mesh_cfg = samurai::mesh_config<dim>().min_level(0).max_level(3);
+            auto mesh     = samurai::make_MRMesh(mesh_cfg, box);
+            auto& domain  = mesh.domain();
+
             xt::xtensor_fixed<int, xt::xshape<2>> dir = {0, 1 << (3 - 1)};
 
             auto expected = expected_t{

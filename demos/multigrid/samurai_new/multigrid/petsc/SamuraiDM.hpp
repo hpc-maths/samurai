@@ -21,8 +21,8 @@ namespace samurai_new
             using Mesh  = typename Dsctzr::Mesh;
             using Field = typename Dsctzr::field_t;
 
-            SamuraiDM(MPI_Comm comm, Dsctzr& assembly, Mesh& mesh, TransferOperators to, int prediction_order)
-                : _ctx(assembly, mesh, to, prediction_order)
+            SamuraiDM(MPI_Comm comm, Dsctzr& assembly, Mesh& mesh, TransferOperators to, int prediction_stencil_radius)
+                : _ctx(assembly, mesh, to, prediction_stencil_radius)
             {
                 DMShellCreate(comm, &_dm);
                 DefineShellFunctions(_dm, _ctx);
@@ -155,7 +155,7 @@ namespace samurai_new
                 {
                     Field coarse_field("coarse_field", coarse_ctx->mesh());
                     samurai::petsc::copy(x, coarse_field);
-                    Field fine_field = multigrid::prolong(coarse_field, fine_ctx->mesh(), coarse_ctx->prediction_order);
+                    Field fine_field = multigrid::prolong(coarse_field, fine_ctx->mesh(), coarse_ctx->prediction_stencil_radius);
                     samurai::petsc::copy(fine_field, y);
 
                     // std::cout << "prolongated vector (marche):" << std::endl;
@@ -168,7 +168,7 @@ namespace samurai_new
                     double* yarray;
                     VecGetArrayRead(x, &xarray);
                     VecGetArray(y, &yarray);
-                    multigrid::prolong(coarse_ctx->mesh(), fine_ctx->mesh(), xarray, yarray, coarse_ctx->prediction_order);
+                    multigrid::prolong(coarse_ctx->mesh(), fine_ctx->mesh(), xarray, yarray, coarse_ctx->prediction_stencil_radius);
                     VecRestoreArrayRead(x, &xarray);
                     VecRestoreArray(y, &yarray);
 
@@ -227,7 +227,7 @@ namespace samurai_new
                 MatSetSizes(*P, nf, nc, nf, nc);
                 MatSetFromOptions(*P);
                 MatSeqAIJSetPreallocation(*P, stencil_size, NULL);
-                multigrid::set_prolong_matrix(coarse_ctx->mesh(), fine_ctx->mesh(), *P, coarse_ctx->prediction_order);
+                multigrid::set_prolong_matrix(coarse_ctx->mesh(), fine_ctx->mesh(), *P, coarse_ctx->prediction_stencil_radius);
                 MatAssemblyBegin(*P, MAT_FINAL_ASSEMBLY);
                 MatAssemblyEnd(*P, MAT_FINAL_ASSEMBLY);
 

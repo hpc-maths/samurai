@@ -66,21 +66,21 @@ static char help[] = "Solution of the Poisson problem in the domain [0,1]^d.\n"
                      "-log_view -pc_mg_log           Monitors the multigrid performance\n"
                      "\n";
 
-template <class Mesh>
-Mesh create_uniform_mesh(std::size_t level)
+template <std::size_t dim>
+auto create_uniform_mesh(std::size_t level)
 {
-    using Box = samurai::Box<double, Mesh::dim>;
+    using Box = samurai::Box<double, dim>;
 
     Box box;
-    if constexpr (Mesh::dim == 1)
+    if constexpr (dim == 1)
     {
         box = Box({0}, {1});
     }
-    else if constexpr (Mesh::dim == 2)
+    else if constexpr (dim == 2)
     {
         box = Box({0, 0}, {1, 1});
     }
-    else if constexpr (Mesh::dim == 3)
+    else if constexpr (dim == 3)
     {
         box = Box({0, 0, 0}, {1, 1, 1});
     }
@@ -89,32 +89,33 @@ Mesh create_uniform_mesh(std::size_t level)
     min_level   = level;
     max_level   = level;
 
-    auto config = samurai::mesh_config<Mesh::dim>().min_level(min_level).max_level(max_level);
-    return Mesh(config, box, start_level); // amr::Mesh
+    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
+    return samurai::amr::make_Mesh(config, box, start_level); // amr::Mesh
     // return Mesh(box, /*start_level,*/ min_level, max_level); // MRMesh
 }
 
-template <class Mesh>
-[[maybe_unused]] Mesh create_refined_mesh(std::size_t level)
+template <std::size_t dim>
+[[maybe_unused]] auto create_refined_mesh(std::size_t level)
 {
-    using cl_type = typename Mesh::cl_type;
-
     std::size_t min_level, max_level;
     min_level = level - 1;
     max_level = level;
 
+    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
+
+    using cl_type = typename decltype(samurai::amr::make_Mesh(config))::cl_type;
+
     int i = 1 << min_level;
 
     cl_type cl;
-    if constexpr (Mesh::dim == 1)
+    if constexpr (dim == 1)
     {
         cl[min_level][{}].add_interval({0, i / 2});
         cl[max_level][{}].add_interval({i, 2 * i});
     }
-    static_assert(Mesh::dim == 1, "create_refined_mesh() not implemented for this dimension");
+    static_assert(dim == 1, "create_refined_mesh() not implemented for this dimension");
 
-    auto config = samurai::mesh_config<Mesh::dim>().min_level(min_level).max_level(max_level);
-    return Mesh(config, cl); // amr::Mesh
+    return samurai::amr::make_Mesh(config, cl); // amr::Mesh
     // return Mesh(box, /*start_level,*/ min_level, max_level); // MRMesh
 }
 
@@ -122,14 +123,12 @@ int main(int argc, char* argv[])
 {
     samurai::initialize(argc, argv);
 
-    constexpr std::size_t dim = 2;
-    using Config              = samurai::amr::Config<dim>;
-    using Mesh                = samurai::amr::Mesh<Config>;
-    // using Config = samurai::MRConfig<dim>;
-    // using Mesh = samurai::MRMesh<Config>;
+    constexpr std::size_t dim     = 2;
     constexpr unsigned int n_comp = 1;
     constexpr bool is_soa         = true;
-    using Field                   = samurai::VectorField<Mesh, double, n_comp, is_soa>;
+    using Field                   = decltype(samurai::make_vector_field<double, n_comp, is_soa>(
+        "type",
+        std::declval<decltype(create_uniform_mesh<dim>(1))&>())); // samurai::VectorField<Mesh, double, n_comp, is_soa>;
 
     PetscMPIInt size;
     PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size));
@@ -199,7 +198,7 @@ int main(int argc, char* argv[])
     // Mesh creation //
     //---------------//
 
-    Mesh mesh = create_uniform_mesh<Mesh>(static_cast<std::size_t>(level));
+    auto mesh = create_uniform_mesh<dim>(static_cast<std::size_t>(level));
     // print_mesh(mesh);
 
     if (save_mesh)

@@ -5,8 +5,8 @@ namespace samurai
 {
     auto create_meshes(std::size_t level)
     {
-        using Config  = amr::Config<1>;
-        using Mesh    = amr::Mesh<Config>;
+        using Config  = mesh_config<1>;
+        using Mesh    = decltype(amr::make_Mesh(std::declval<Config>()));
         using cl_type = typename Mesh::cl_type;
 
         cl_type cl1;
@@ -15,15 +15,15 @@ namespace samurai
         cl2[level][{}].add_interval({0, 3});
 
         auto mesh_cfg = mesh_config<1>().min_level(level).max_level(level);
-        auto m1       = Mesh(mesh_cfg, cl1);
-        auto m2       = Mesh(mesh_cfg, cl2);
+        auto m1       = amr::make_Mesh(mesh_cfg, cl1);
+        auto m2       = amr::make_Mesh(mesh_cfg, cl2);
         return std::make_tuple(m1, m2);
     }
 
     TEST(set, for_each_interval)
     {
-        using Config    = amr::Config<1>;
-        using Mesh      = amr::Mesh<Config>;
+        using Config    = mesh_config<1>;
+        using Mesh      = decltype(amr::make_Mesh(std::declval<Config>()));
         using mesh_id_t = typename Mesh::mesh_id_t;
 
         std::size_t level = 1;
@@ -46,8 +46,8 @@ namespace samurai
 
     TEST(set, for_each_cell)
     {
-        using Config    = amr::Config<1>;
-        using Mesh      = amr::Mesh<Config>;
+        using Config    = mesh_config<1>;
+        using Mesh      = decltype(amr::make_Mesh(std::declval<Config>()));
         using mesh_id_t = typename Mesh::mesh_id_t;
 
         std::size_t level = 1;

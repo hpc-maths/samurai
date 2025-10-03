@@ -182,7 +182,6 @@ int main(int argc, char* argv[])
     auto& app = samurai::initialize("Finite volume example for the scalar Burgers equation in 2d using multiresolution", argc, argv);
 
     constexpr size_t dim = 2;
-    using Config         = samurai::MRConfig<dim>;
 
     // Simulation parameters
     xt::xtensor_fixed<double, xt::xshape<dim>> min_corner = {0., 0.};
@@ -223,13 +222,13 @@ int main(int argc, char* argv[])
 
     const samurai::Box<double, dim> box(min_corner, max_corner);
     auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
-    samurai::MRMesh<Config> mesh;
+    auto mesh   = samurai::make_MRMesh(config);
 
     auto u = samurai::make_scalar_field<double>("u", mesh);
 
     if (restart_file.empty())
     {
-        mesh = {config, box};
+        mesh = samurai::make_MRMesh(config, box);
         init(u);
     }
     else

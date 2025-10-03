@@ -12,7 +12,6 @@ namespace samurai
     TEST(field, from_expr)
     {
         Box<double, 1> box{{0}, {1}};
-        // using Config = MRConfig<1>;
         // auto mesh    = MRMesh<Config>(box, 3, 3);
 
         using Config = UniformConfig<1>;
@@ -98,14 +97,13 @@ namespace samurai
 
     TEST(field, iterator)
     {
-        using config = MRConfig<2>;
         CellList<2> cl;
         cl[1][{0}].add_interval({0, 2});
         cl[1][{0}].add_interval({4, 6});
         cl[2][{0}].add_interval({4, 8});
 
         auto mesh_cfg = mesh_config<2>().min_level(1).max_level(2);
-        auto mesh     = MRMesh<config>(mesh_cfg, cl);
+        auto mesh     = make_MRMesh(mesh_cfg, cl);
         auto field    = make_scalar_field<std::size_t>("u", mesh);
 
         std::size_t index = 0;

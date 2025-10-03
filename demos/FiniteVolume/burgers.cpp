@@ -52,7 +52,6 @@ int main_dim(int argc, char* argv[])
 {
     auto& app = samurai::initialize("Finite volume example for the Burgers equation", argc, argv);
 
-    using Config  = samurai::MRConfig<dim>;
     using Box     = samurai::Box<double, dim>;
     using point_t = typename Box::point_t;
 
@@ -108,7 +107,7 @@ int main_dim(int argc, char* argv[])
     Box box(box_corner1, box_corner2);
 
     auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).max_stencil_size(6);
-    samurai::MRMesh<Config> mesh;
+    auto mesh   = samurai::make_MRMesh(config, box);
 
     auto u    = samurai::make_vector_field<n_comp>("u", mesh);
     auto u1   = samurai::make_vector_field<n_comp>("u1", mesh);

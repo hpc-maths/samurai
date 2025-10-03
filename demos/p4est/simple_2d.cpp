@@ -236,10 +236,8 @@ int main(int argc, char* argv[])
     toc();
     std::cout << "nb_cells: " << mesh_1.nb_cells() << "\n";
 
-    // samurai::CellArray<dim> mesh_2(cl);
-    using Config    = samurai::MRConfig<dim>;
-    using mesh_id_t = typename samurai::MRMesh<Config>::mesh_id_t;
-    samurai::MRMesh<Config> mesh_2(config, cl);
+    auto mesh_2     = samurai::make_MRMesh(config, cl);
+    using mesh_id_t = typename decltype(mesh_2)::mesh_id_t;
 
     tic();
     refine_2(mesh_2, config.max_level());

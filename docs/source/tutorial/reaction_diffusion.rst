@@ -45,18 +45,16 @@ The mesh is created by the following code:
     double right_box = 10;
 
     // Mesh creation
-    using Config  = samurai::MRConfig<dim>;
     using Box     = samurai::Box<double, dim>;
     using point_t = typename Box::point_t;
 
-    std::size_t min_level = 0;
-    std::size_t max_level = 4;
+    auto config = samurai::mesh_config<dim>().min_level(0).max_level(4);
 
     point_t box_corner1, box_corner2;
     box_corner1.fill(left_box);
     box_corner2.fill(right_box);
     Box box(box_corner1, box_corner2);
-    samurai::MRMesh<Config> mesh{box, min_level, max_level};
+    auto mesh = samurai::make_MRMesh(config, box);
 
 Here, we have used the mesh type :code:`MRMesh`, but any other type of mesh can be chosen.
 Then, solution fields at two time steps (:math:`u_n` and :math:`u_{n+1}`) are declared, and boundary conditions are attached:
