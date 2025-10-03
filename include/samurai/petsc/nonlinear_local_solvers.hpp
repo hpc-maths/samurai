@@ -1,9 +1,9 @@
 #pragma once
+#include "../print.hpp"
 #include "fv/cell_based_scheme_assembly.hpp"
 #include "fv/flux_based_scheme_assembly.hpp"
 #include "fv/operator_sum_assembly.hpp"
 #include "utils.hpp"
-#include "../print.hpp"
 #include <petsc.h>
 
 namespace samurai
@@ -51,17 +51,14 @@ namespace samurai
             {
                 if (!m_scheme.scheme_definition().local_scheme_function)
                 {
-                    samurai::io::eprint(
-                        "The scheme function 'local_scheme_function' of operator '{}' has not been implemented.\n",
-                        scheme.name());
+                    samurai::io::eprint("The scheme function 'local_scheme_function' of operator '{}' has not been implemented.\n",
+                                        scheme.name());
                     assert(false && "Undefined 'local_scheme_function'");
                     exit(EXIT_FAILURE);
                 }
                 if (!m_scheme.scheme_definition().local_jacobian_function)
                 {
-                    samurai::io::eprint(
-                        "The function 'local_jacobian_function' of operator '{}' has not been implemented.\n",
-                        scheme.name());
+                    samurai::io::eprint("The function 'local_jacobian_function' of operator '{}' has not been implemented.\n", scheme.name());
                     assert(false && "Undefined 'local_jacobian_function'");
                     exit(EXIT_FAILURE);
                 }

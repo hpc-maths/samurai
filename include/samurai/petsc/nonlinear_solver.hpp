@@ -1,9 +1,9 @@
 #pragma once
+#include "../print.hpp"
 #include "fv/cell_based_scheme_assembly.hpp"
 #include "fv/flux_based_scheme_assembly.hpp"
 #include "fv/operator_sum_assembly.hpp"
 #include "utils.hpp"
-#include "../print.hpp"
 #include <petsc.h>
 
 namespace samurai
@@ -268,12 +268,12 @@ namespace samurai
                     const char* reason_text;
                     SNESGetConvergedReasonString(m_snes, &reason_text);
                     samurai::io::eprint("Divergence of the non-linear solver ({})\n", reason_text);
-                // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                // std::cout << std::endl;
-                // assert(check_nan_or_inf(b));
-                assert(false && "Divergence of the solver");
-                exit(EXIT_FAILURE);
-            }
+                    // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
+                    // std::cout << std::endl;
+                    // assert(check_nan_or_inf(b));
+                    assert(false && "Divergence of the solver");
+                    exit(EXIT_FAILURE);
+                }
                 // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
             }
 

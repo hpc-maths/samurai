@@ -11,8 +11,8 @@
 #include "../field.hpp"
 #include "../numeric/prediction.hpp"
 #include "../operators_base.hpp"
-#include "../utils.hpp"
 #include "../print.hpp"
+#include "../utils.hpp"
 #include <fmt/ostream.h>
 
 namespace samurai

@@ -1,10 +1,10 @@
 #pragma once
 
 // #define ENABLE_MG
+#include "../print.hpp"
 #include "fv/cell_based_scheme_assembly.hpp"
 #include "fv/flux_based_scheme_assembly.hpp"
 #include "fv/operator_sum_assembly.hpp"
-#include "../print.hpp"
 #ifdef ENABLE_MG
 #include "multigrid/petsc/GeometricMultigrid.hpp"
 #else
@@ -130,8 +130,9 @@ namespace samurai
                 {
                     if (assembly().undefined_unknown())
                     {
-                        samurai::io::eprint("Undefined unknown(s) for this linear system. Please set the unknowns using the instruction '[solver].set_unknown(u);' or '[solver].set_unknowns(u1, u2...).\n");
-                                  << std::endl;
+                        samurai::io::eprint(
+                            "Undefined unknown(s) for this linear system. Please set the unknowns using the instruction '[solver].set_unknown(u);' or '[solver].set_unknowns(u1, u2...).\n");
+                        << std::endl;
                         assert(false && "Undefined unknown(s)");
                         exit(EXIT_FAILURE);
                     }
@@ -324,8 +325,9 @@ namespace samurai
                 }
                 if (assembly().undefined_unknown())
                 {
-                    samurai::io::eprint("Undefined unknown for this linear system. Please set the unknown using the instruction '[solver].set_unknown(u);'.\n");
-                              << std::endl;
+                    samurai::io::eprint(
+                        "Undefined unknown for this linear system. Please set the unknown using the instruction '[solver].set_unknown(u);'.\n");
+                    << std::endl;
                     assert(false && "Undefined unknown");
                     exit(EXIT_FAILURE);
                 }

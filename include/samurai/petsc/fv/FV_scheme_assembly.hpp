@@ -2,11 +2,11 @@
 #include "../../algorithm/update.hpp"
 #include "../../boundary.hpp"
 #include "../../numeric/prediction.hpp"
+#include "../../print.hpp"
 #include "../../schemes/fv/FV_scheme.hpp"
 #include "../../schemes/fv/scheme_operators.hpp"
-#include "../../print.hpp"
-#include <fmt/ostream.h>
 #include "../matrix_assembly.hpp"
+#include <fmt/ostream.h>
 
 namespace samurai
 {
@@ -613,13 +613,12 @@ namespace samurai
                                                  INSERT_VALUES);
                         if (error)
                         {
-                            samurai::io::eprint(
-                                "{}: failure to insert diagonal coefficient at ({}, {}), i.e. ({}, {}) in the block.\n",
-                                scheme().name(),
-                                m_row_shift + static_cast<PetscInt>(i),
-                                m_col_shift + static_cast<PetscInt>(i),
-                                i,
-                                i);
+                            samurai::io::eprint("{}: failure to insert diagonal coefficient at ({}, {}), i.e. ({}, {}) in the block.\n",
+                                                scheme().name(),
+                                                m_row_shift + static_cast<PetscInt>(i),
+                                                m_col_shift + static_cast<PetscInt>(i),
+                                                i,
+                                                i);
                             assert(false);
                             exit(EXIT_FAILURE);
                         }
@@ -764,11 +763,10 @@ namespace samurai
                                                              current_insert_mode());
                                     if (error)
                                     {
-                                        samurai::io::eprint(
-                                            "{}: failure to insert projection coefficient at ({}, {}).\n",
-                                            scheme().name(),
-                                            ghost_index,
-                                            m_col_shift + col_index(children[i], field_i));
+                                        samurai::io::eprint("{}: failure to insert projection coefficient at ({}, {}).\n",
+                                                            scheme().name(),
+                                                            ghost_index,
+                                                            m_col_shift + col_index(children[i], field_i));
                                         assert(false);
                                         exit(EXIT_FAILURE);
                                     }

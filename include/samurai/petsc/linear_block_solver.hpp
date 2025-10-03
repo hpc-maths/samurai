@@ -1,8 +1,8 @@
 #pragma once
 
+#include "../print.hpp"
 #include "block_assembly.hpp"
 #include "linear_solver.hpp"
-#include "../print.hpp"
 
 namespace samurai
 {

@@ -1,9 +1,9 @@
 #pragma once
+#include "../print.hpp"
 #include "../schemes/block_operator.hpp"
 #include "utils.hpp"
-#include "../print.hpp"
-#include <fmt/format.h>
 #include "zero_block_assembly.hpp"
+#include <fmt/format.h>
 
 namespace samurai
 {
@@ -123,12 +123,11 @@ namespace samurai
                                 }
                                 else if (op.matrix_rows() != block_rows)
                                 {
-                                    samurai::io::eprint(
-                                        "Assembly failure: incompatible number of rows of block ({}, {}): {} (expected {})\n",
-                                        row,
-                                        col,
-                                        op.matrix_rows(),
-                                        block_rows);
+                                    samurai::io::eprint("Assembly failure: incompatible number of rows of block ({}, {}): {} (expected {})\n",
+                                                        row,
+                                                        col,
+                                                        op.matrix_rows(),
+                                                        block_rows);
                                     exit(EXIT_FAILURE);
                                 }
                             }
@@ -202,12 +201,11 @@ namespace samurai
                                              }
                                              else
                                              {
-                                                 samurai::io::eprint(
-                                                     "unknown {} is not compatible with the scheme ({}, {}) (named '{}')\n",
-                                                     i,
-                                                     row,
-                                                     col,
-                                                     op.name());
+                                                 samurai::io::eprint("unknown {} is not compatible with the scheme ({}, {}) (named '{}')\n",
+                                                                     i,
+                                                                     row,
+                                                                     col,
+                                                                     op.name());
                                                  assert(false);
                                                  exit(EXIT_FAILURE);
                                              }

@@ -3,11 +3,11 @@
 #include "../../boundary.hpp"
 #include "../../concepts.hpp"
 #include "../../field.hpp"
+#include "../../print.hpp"
 #include "../../static_algorithm.hpp"
 #include "../../timers.hpp"
-#include "../../print.hpp"
-#include <fmt/ostream.h>
 #include "utils.hpp"
+#include <fmt/ostream.h>
 
 namespace samurai
 {
@@ -183,8 +183,7 @@ namespace samurai
             {
                 if (input_field.mesh().is_periodic())
                 {
-                    samurai::io::eprint(
-                        "Error: apply_directional_bc() not implemented for non-box domains with periodic directions.\n");
+                    samurai::io::eprint("Error: apply_directional_bc() not implemented for non-box domains with periodic directions.\n");
                     assert(false);
                     return;
                 }

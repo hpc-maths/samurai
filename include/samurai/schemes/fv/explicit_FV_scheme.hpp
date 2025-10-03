@@ -1,7 +1,7 @@
 #pragma once
+#include "../../print.hpp"
 #include "../explicit_scheme.hpp"
 #include "FV_scheme.hpp"
-#include "../../print.hpp"
 
 namespace samurai
 {

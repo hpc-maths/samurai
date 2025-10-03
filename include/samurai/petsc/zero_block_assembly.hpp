@@ -1,6 +1,6 @@
 #pragma once
-#include "matrix_assembly.hpp"
 #include "../print.hpp"
+#include "matrix_assembly.hpp"
 
 namespace samurai
 {

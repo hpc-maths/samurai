@@ -3,11 +3,11 @@
 
 #pragma once
 
+#include "print.hpp"
 #include "utils.hpp"
+#include <fmt/ostream.h>
 #include <xtensor/containers/xfixed.hpp>
 #include <xtensor/io/xio.hpp>
-#include <fmt/ostream.h>
-#include "print.hpp"
 
 namespace samurai
 {
