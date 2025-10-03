@@ -3,10 +3,10 @@
 
 #pragma once
 
+#include <cstdio>
 #include <fmt/format.h>
 #include <fmt/ostream.h>
 #include <type_traits>
-#include <cstdio>
 #include <utility>
 
 #ifdef SAMURAI_WITH_MPI
@@ -44,7 +44,7 @@ namespace samurai
         inline int current_rank()
         {
 #ifdef SAMURAI_WITH_MPI
-            int r = 0;
+            int r           = 0;
             int initialized = 0;
             int finalized   = 0;
             MPI_Initialized(&initialized);
