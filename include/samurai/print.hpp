@@ -6,6 +6,8 @@
 #include <fmt/format.h>
 #include <fmt/ostream.h>
 #include <type_traits>
+#include <cstdio>
+#include <utility>
 
 #ifdef SAMURAI_WITH_MPI
 #include <mpi.h>
@@ -43,6 +45,18 @@ namespace samurai
         {
 #ifdef SAMURAI_WITH_MPI
             int r = 0;
+            int initialized = 0;
+            int finalized   = 0;
+            MPI_Initialized(&initialized);
+            if (!initialized)
+            {
+                return 0;
+            }
+            MPI_Finalized(&finalized);
+            if (finalized)
+            {
+                return 0;
+            }
             MPI_Comm_rank(MPI_COMM_WORLD, &r);
             return r;
 #else
