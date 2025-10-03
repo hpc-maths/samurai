@@ -42,48 +42,48 @@ void check_diff(auto& field, auto& lca_left, auto& lca_right)
 {
     auto& mesh      = field.mesh();
     using mesh_id_t = typename std::decay_t<decltype(mesh)>::mesh_id_t;
-    samurai::for_each_level(mesh,
-                            [&](auto level)
-                            {
-                                auto set = samurai::difference(
-                                    samurai::intersection(mesh[mesh_id_t::cells][level], self(lca_left).on(level)),
-                                    samurai::translate(samurai::intersection(mesh[mesh_id_t::cells][level], self(lca_right).on(level)),
-                                                       xt::xtensor_fixed<int, xt::xshape<1>>{-(1 << level)}));
-                                set(
-                                    [&](auto& i, auto)
-                                    {
-                                        samurai::io::print("Difference found !! {} {}\n", level, i);
-                                        auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
-                                        samurai::for_each_cell(mesh,
-                                                               [&](const auto& cell)
-                                                               {
-                                                                   level_[cell] = cell.level;
-                                                               });
-                                        samurai::save("mesh_throw", mesh, field, level_);
-                                        throw std::runtime_error("Difference found in check_diff function for the mesh");
-                                    });
-                                auto set_field = samurai::intersection(mesh[mesh_id_t::cells][level], self(lca_left).on(level));
-                                set_field(
-                                    [&](auto i, auto)
-                                    {
-                                        if (xt::any(xt::abs(field(level, i) - field(level, i + (1 << level))) > 1e-13))
-                                        {
-                                            samurai::io::print("\nDifference found at level {} on interval {}:\n", level, i);
-                                            samurai::io::print("\tleft = {}\n", field(level, i));
-                                            samurai::io::print("\tright = {}\n", field(level, i + (1 << level)));
-                                            samurai::io::print("\terror = {}\n", xt::abs(field(level, i) - field(level, i + (1 << level))));
-                                            samurai::io::print("{}\n", fmt::streamed(mesh));
-                                            auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
-                                            samurai::for_each_cell(mesh,
-                                                                   [&](const auto& cell)
-                                                                   {
-                                                                       level_[cell] = cell.level;
-                                                                   });
-                                            samurai::save("mesh_throw", mesh, field, level_);
-                                            throw std::runtime_error("Difference found in check_diff function for the field values");
-                                        }
-                                    });
-                            });
+    samurai::for_each_level(
+        mesh,
+        [&](auto level)
+        {
+            auto set = samurai::difference(samurai::intersection(mesh[mesh_id_t::cells][level], self(lca_left).on(level)),
+                                           samurai::translate(samurai::intersection(mesh[mesh_id_t::cells][level], self(lca_right).on(level)),
+                                                              xt::xtensor_fixed<int, xt::xshape<1>>{-(1 << level)}));
+            set(
+                [&](auto& i, auto)
+                {
+                    samurai::io::print("Difference found !! {} {}\n", level, i);
+                    auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
+                    samurai::for_each_cell(mesh,
+                                           [&](const auto& cell)
+                                           {
+                                               level_[cell] = cell.level;
+                                           });
+                    samurai::save("mesh_throw", mesh, field, level_);
+                    throw std::runtime_error("Difference found in check_diff function for the mesh");
+                });
+            auto set_field = samurai::intersection(mesh[mesh_id_t::cells][level], self(lca_left).on(level));
+            set_field(
+                [&](auto i, auto)
+                {
+                    if (xt::any(xt::abs(field(level, i) - field(level, i + (1 << level))) > 1e-13))
+                    {
+                        samurai::io::print("\nDifference found at level {} on interval {}:\n", level, i);
+                        samurai::io::print("\tleft = {}\n", fmt::streamed(field(level, i)));
+                        samurai::io::print("\tright = {}\n", fmt::streamed(field(level, i + (1 << level))));
+                        samurai::io::print("\terror = {}\n", fmt::streamed(xt::abs(field(level, i) - field(level, i + (1 << level)))));
+                        samurai::io::print("{}\n", fmt::streamed(mesh));
+                        auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
+                        samurai::for_each_cell(mesh,
+                                               [&](const auto& cell)
+                                               {
+                                                   level_[cell] = cell.level;
+                                               });
+                        samurai::save("mesh_throw", mesh, field, level_);
+                        throw std::runtime_error("Difference found in check_diff function for the field values");
+                    }
+                });
+        });
 }
 
 int main(int argc, char* argv[])
