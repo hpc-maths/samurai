@@ -197,7 +197,6 @@ int main(int argc, char* argv[])
     auto& app = samurai::initialize("Finite volume example for the Burgers equation in 2d using AMR", argc, argv);
 
     constexpr std::size_t dim = 1; // cppcheck-suppress unreadVariable
-    using Config              = samurai::amr::Config<dim>;
 
     // Simulation parameters
     double left_box  = -3;
@@ -235,12 +234,12 @@ int main(int argc, char* argv[])
 
     const samurai::Box<double, dim> box({left_box}, {right_box});
     auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
-    samurai::amr::Mesh<Config> mesh;
-    auto phi = samurai::make_scalar_field<double>("phi", mesh);
+    auto mesh   = samurai::amr::make_Mesh(config);
+    auto phi    = samurai::make_scalar_field<double>("phi", mesh);
 
     if (restart_file.empty())
     {
-        mesh = {config, box, start_level};
+        mesh = samurai::amr::make_Mesh(config, box, start_level);
         init_solution(phi);
     }
     else

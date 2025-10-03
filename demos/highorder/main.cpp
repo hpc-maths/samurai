@@ -113,7 +113,6 @@ int main(int argc, char* argv[])
     auto& app = samurai::initialize("Finite volume example for the advection equation in 2d using multiresolution", argc, argv);
 
     constexpr std::size_t dim = 2;
-    using Config              = samurai::MRConfig<dim>;
 
     constexpr std::size_t prediction_stencil_radius = 1;
 
@@ -142,18 +141,19 @@ int main(int argc, char* argv[])
     SAMURAI_PARSE(argc, argv);
 
     samurai::Box<double, dim> box(min_corner, max_corner);
-    using mesh_t    = samurai::MRMesh<Config>;
-    using mesh_id_t = typename mesh_t::mesh_id_t;
-    using cl_type   = typename mesh_t::cl_type;
 
     // clang-format off
     auto config = samurai::mesh_config<dim, prediction_stencil_radius>()
-                    .min_level(4)
-                    .max_level(4)
-                    .graduation_width(4)
-                    .max_stencil_size(4);
+    .min_level(4)
+    .max_level(4)
+    .graduation_width(4)
+    .max_stencil_size(4);
     // clang-format on
-    mesh_t init_mesh{config, box};
+    auto init_mesh = samurai::make_MRMesh(config, box);
+
+    using mesh_t    = decltype(init_mesh);
+    using mesh_id_t = typename mesh_t::mesh_id_t;
+    using cl_type   = typename mesh_t::cl_type;
 
     auto adapt_field = samurai::make_scalar_field<double>("adapt_field",
                                                           init_mesh,
@@ -200,7 +200,7 @@ int main(int argc, char* argv[])
                                        });
             // mesh = {cl, mesh.min_level() + 1, mesh.max_level() + 1};
             auto mesh_cfg = samurai::mesh_config<dim>().min_level(init_mesh.min_level() + i_ref + 1).max_level(init_mesh.max_level() + i_ref + 1);
-            mesh = {mesh_cfg, cl};
+            mesh = samurai::make_MRMesh(mesh_cfg, cl);
         }
         // std::cout << mesh << std::endl;
         // samurai::save("refine_mesh", mesh);

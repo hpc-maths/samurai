@@ -30,28 +30,29 @@ namespace samurai
         reference        = all_cells
     };
 
-    template <std::size_t dim_,
-              // std::size_t max_stencil_width_ = default_config::ghost_width,
-              // std::size_t graduation_width_     = default_config::graduation_width,
-              std::size_t prediction_order_     = default_config::prediction_order,
-              std::size_t max_refinement_level_ = default_config::max_level,
-              class TInterval                   = default_config::interval_t>
-    struct MRConfig
-    {
-        static constexpr std::size_t dim                  = dim_;
-        static constexpr std::size_t max_refinement_level = max_refinement_level_;
-        // static constexpr int max_stencil_width            = max_stencil_width_;
-        // static constexpr std::size_t graduation_width     = graduation_width_;
-        static constexpr int prediction_order = prediction_order_;
+    // template <std::size_t dim_,
+    //           // std::size_t max_stencil_width_ = default_config::ghost_width,
+    //           // std::size_t graduation_width_     = default_config::graduation_width,
+    //           std::size_t prediction_stencil_radius_     = default_config::prediction_stencil_radius,
+    //           std::size_t max_refinement_level_ = default_config::max_level,
+    //           class TInterval                   = default_config::interval_t>
+    // struct MRConfig
+    // {
+    //     // static constexpr std::size_t dim                  = dim_;
+    //     // static constexpr std::size_t max_refinement_level = max_refinement_level_;
+    //     // // static constexpr int max_stencil_width            = max_stencil_width_;
+    //     // // static constexpr std::size_t graduation_width     = graduation_width_;
+    //     // static constexpr int prediction_stencil_radius = prediction_stencil_radius_;
 
-        // static constexpr int ghost_width = std::max(std::max(2 *
-        // static_cast<int>(graduation_width) - 1,
-        //                                                      static_cast<int>(max_stencil_width)),
-        //                                             static_cast<int>(prediction_order));
-        // static constexpr int ghost_width = std::max(static_cast<int>(max_stencil_width_), static_cast<int>(prediction_order));
-        using interval_t = TInterval;
-        using mesh_id_t  = MRMeshId;
-    };
+    //     // // static constexpr int ghost_width = std::max(std::max(2 *
+    //     // // static_cast<int>(graduation_width) - 1,
+    //     // //                                                      static_cast<int>(max_stencil_width)),
+    //     // //                                             static_cast<int>(prediction_stencil_radius));
+    //     // // static constexpr int ghost_width = std::max(static_cast<int>(max_stencil_width_),
+    //     static_cast<int>(prediction_stencil_radius));
+    //     // using interval_t = TInterval;
+    //     // using mesh_id_t  = MRMeshId;
+    // };
 
     template <class Config>
     class MRMesh : public samurai::Mesh_base<MRMesh<Config>, Config>
@@ -233,12 +234,12 @@ namespace samurai
                     {
                         lcl_type& lcl = cell_list[level - 1];
 
-                        static_nested_loop<dim - 1, -config::prediction_order, config::prediction_order + 1>(
+                        static_nested_loop<dim - 1, -config::prediction_stencil_radius, config::prediction_stencil_radius + 1>(
                             [&](auto stencil)
                             {
                                 auto new_interval = interval >> 1;
-                                lcl[(index_yz >> 1) + stencil].add_interval(
-                                    {new_interval.start - config::prediction_order, new_interval.end + config::prediction_order});
+                                lcl[(index_yz >> 1) + stencil].add_interval({new_interval.start - config::prediction_stencil_radius,
+                                                                             new_interval.end + config::prediction_stencil_radius});
                             });
                     });
 
@@ -251,12 +252,12 @@ namespace samurai
                         {
                             lcl_type& lcl = cell_list[level - 2];
 
-                            static_nested_loop<dim - 1, -config::prediction_order, config::prediction_order + 1>(
+                            static_nested_loop<dim - 1, -config::prediction_stencil_radius, config::prediction_stencil_radius + 1>(
                                 [&](auto stencil)
                                 {
                                     auto new_interval = interval >> 2;
-                                    lcl[(index_yz >> 2) + stencil].add_interval(
-                                        {new_interval.start - config::prediction_order, new_interval.end + config::prediction_order});
+                                    lcl[(index_yz >> 2) + stencil].add_interval({new_interval.start - config::prediction_stencil_radius,
+                                                                                 new_interval.end + config::prediction_stencil_radius});
                                 });
                         }
                     });
@@ -281,12 +282,12 @@ namespace samurai
                             {
                                 lcl_type& lclm1 = cell_list[level - 1];
 
-                                static_nested_loop<dim - 1, -config::prediction_order, config::prediction_order + 1>(
+                                static_nested_loop<dim - 1, -config::prediction_stencil_radius, config::prediction_stencil_radius + 1>(
                                     [&](auto stencil)
                                     {
                                         auto new_interval = interval >> 1;
-                                        lclm1[(index_yz >> 1) + stencil].add_interval(
-                                            {new_interval.start - config::prediction_order, new_interval.end + config::prediction_order});
+                                        lclm1[(index_yz >> 1) + stencil].add_interval({new_interval.start - config::prediction_stencil_radius,
+                                                                                       new_interval.end + config::prediction_stencil_radius});
                                     });
                             }
                         });
@@ -512,6 +513,38 @@ namespace samurai
             }
             return out;
         }
+    }
+
+    template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, MRMeshId>>
+    auto make_MRMesh(const mesh_config_t&)
+    {
+        return MRMesh<complete_mesh_config_t>();
+    }
+
+    template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, MRMeshId>>
+    auto make_MRMesh(const mesh_config_t& cfg, const typename MRMesh<complete_mesh_config_t>::cl_type& cl)
+    {
+        return MRMesh<complete_mesh_config_t>(cfg, cl);
+    }
+
+    template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, MRMeshId>>
+    auto make_MRMesh(const mesh_config_t& cfg, const typename MRMesh<complete_mesh_config_t>::ca_type& ca)
+    {
+        return MRMesh<complete_mesh_config_t>(cfg, ca);
+    }
+
+    template <class mesh_config_t>
+    auto make_MRMesh(mesh_config_t& cfg, const samurai::Box<double, mesh_config_t::dim>& b)
+    {
+        using complete_cfg_t = complete_mesh_config<mesh_config_t, MRMeshId>;
+        return MRMesh<complete_cfg_t>(cfg, b);
+    }
+
+    template <class mesh_config_t>
+    auto make_MRMesh(mesh_config_t& cfg, const samurai::DomainBuilder<mesh_config_t::dim>& domain_builder)
+    {
+        using complete_cfg_t = complete_mesh_config<mesh_config_t, MRMeshId>;
+        return MRMesh<complete_cfg_t>(cfg, domain_builder);
     }
 } // namespace samurai
 

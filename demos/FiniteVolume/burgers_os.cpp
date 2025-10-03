@@ -90,9 +90,9 @@ int main(int argc, char* argv[])
     auto& app = samurai::initialize("Finite volume example for the linear convection equation", argc, argv);
 
     static constexpr std::size_t dim = 1;
-    using Config                     = samurai::MRConfig<dim>;
-    using Box                        = samurai::Box<double, dim>;
-    using point_t                    = typename Box::point_t;
+
+    using Box     = samurai::Box<double, dim>;
+    using point_t = typename Box::point_t;
 
     std::cout << "------------------------- Burgers 1D -------------------------" << std::endl;
 
@@ -155,10 +155,10 @@ int main(int argc, char* argv[])
                       .scaling_factor(2)
                       .max_stencil_radius(2)
                       .graduation_width(2);
+    config.parse_args();
     std::cout << "  max_level = " << config.max_level() << "   min_level = " << config.min_level() << std::endl;
 
-    samurai::MRMesh<Config> mesh{config, box};
-
+    auto mesh = samurai::make_MRMesh(config, box);
     auto u    = samurai::make_scalar_field<double>("u", mesh);
     auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);
 

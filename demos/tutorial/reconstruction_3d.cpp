@@ -91,7 +91,6 @@ int main(int argc, char* argv[])
     auto& app = samurai::initialize("3d reconstruction of an adapted solution using multiresolution", argc, argv);
 
     constexpr size_t dim = 3;
-    using MRConfig       = samurai::MRConfig<dim>;
 
     Case test_case{Case::abs};
     const std::map<std::string, Case> map{
@@ -115,25 +114,24 @@ int main(int argc, char* argv[])
         fs::create_directory(path);
     }
 
-    using MRMesh      = samurai::MRMesh<MRConfig>;
-    using mrmesh_id_t = typename MRMesh::mesh_id_t;
-
     using UConfig = samurai::UniformConfig<dim>;
     using UMesh   = samurai::UniformMesh<UConfig>;
 
     const samurai::Box<double, dim> box({-1, -1, -1}, {1, 1, 1});
     // clang-format off
     auto config = samurai::mesh_config<dim>()
-                    .min_level(2)
-                    .max_level(5)
-                    .scaling_factor(1)
-                    .graduation_width(2)
-                    .max_stencil_radius(2);
+    .min_level(2)
+    .max_level(5)
+    .scaling_factor(1)
+    .graduation_width(2)
+    .max_stencil_radius(2);
     // clang-format on
-    MRMesh mrmesh{config, box};
+    auto mrmesh = samurai::make_MRMesh(config, box);
     UMesh umesh{box, mrmesh.max_level(), 0, 1};
     auto u       = init(mrmesh, test_case);
     auto u_exact = init(umesh, test_case);
+
+    using mrmesh_id_t = typename decltype(mrmesh)::mesh_id_t;
 
     auto MRadaptation = samurai::make_MRAdapt(u);
     auto mra_config   = samurai::mra_config().regularity(2);

@@ -10,18 +10,11 @@ namespace samurai
     TEST(find, test)
     {
         static constexpr std::size_t dim = 2;
-        using Config                     = samurai::MRConfig<dim>;
         using Box                        = samurai::Box<double, dim>;
-        using Mesh                       = samurai::MRMesh<Config>;
-        using coords_t                   = typename Mesh::cell_t::coords_t;
-
         Box box({-1., -1.}, {1., 1.});
 
-        std::size_t min_level = 2;
-        std::size_t max_level = 6;
-
-        auto mesh_cfg = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
-        Mesh mesh{mesh_cfg, box};
+        auto mesh_cfg = mesh_config<dim>().min_level(2).max_level(6);
+        auto mesh     = make_MRMesh(mesh_cfg, box);
 
         auto u = samurai::make_scalar_field<double>("u",
                                                     mesh,
@@ -36,6 +29,7 @@ namespace samurai
         auto mra_config   = samurai::mra_config().epsilon(1e-3);
         MRadaptation(mra_config);
 
+        using coords_t  = typename decltype(mesh)::cell_t::coords_t;
         coords_t coords = {0.4, 0.8};
         auto cell       = samurai::find_cell(mesh, coords);
 

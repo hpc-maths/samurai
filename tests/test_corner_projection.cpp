@@ -9,18 +9,17 @@ namespace samurai
     TEST(subset, corner_projection)
     {
         static constexpr std::size_t dim = 2;
-        using Config                     = MRConfig<dim>;
         using Box                        = Box<double, dim>;
-        using Mesh                       = MRMesh<Config>;
-        using interval_t                 = typename Mesh::interval_t;
-        using mesh_id_t                  = typename Mesh::mesh_id_t;
         using direction_t                = DirectionVector<dim>;
 
         Box box({-1., -1.}, {1., 1.});
 
         auto mesh_cfg = mesh_config<dim>().min_level(2).max_level(6);
+        auto mesh     = make_MRMesh(mesh_cfg, box);
 
-        Mesh mesh{mesh_cfg, box};
+        using Mesh       = decltype(mesh);
+        using interval_t = typename Mesh::interval_t;
+        using mesh_id_t  = typename Mesh::mesh_id_t;
 
         direction_t direction = {-1, -1}; // corner direction
         std::size_t level     = 6;

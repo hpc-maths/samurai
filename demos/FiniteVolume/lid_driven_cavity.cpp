@@ -96,12 +96,6 @@ int main(int argc, char* argv[])
     auto& app = samurai::initialize("Lid-driven cavity", argc, argv);
 
     constexpr std::size_t dim = 2;
-    using Config              = samurai::MRConfig<dim>;
-    using Mesh                = samurai::MRMesh<Config>;
-    using mesh_id_t           = typename Mesh::mesh_id_t;
-
-    using Config2 = samurai::MRConfig<dim>;
-    using Mesh2   = samurai::MRMesh<Config2>;
 
     static constexpr bool is_soa     = false;
     static constexpr bool monolithic = true;
@@ -110,11 +104,9 @@ int main(int argc, char* argv[])
     //   Parameters   //
     //----------------//
 
-    std::size_t min_level = 3;
-    std::size_t max_level = 6;
-    double Tf             = 5.;
-    double dt             = Tf / 100;
-    double cfl            = 0.95;
+    double Tf  = 5.;
+    double dt  = Tf / 100;
+    double cfl = 0.95;
 
     int ink_init = 20;
 
@@ -156,8 +148,10 @@ int main(int argc, char* argv[])
     // where v = velocity
     //       p = pressure
 
-    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).max_stencil_radius(2);
-    auto mesh   = Mesh(config, box);
+    auto config = samurai::mesh_config<dim>().min_level(3).max_level(6).max_stencil_radius(2);
+    auto mesh   = samurai::make_MRMesh(config, box);
+
+    using mesh_id_t = typename decltype(mesh)::mesh_id_t;
 
     // Fields for the Navier-Stokes equations
     auto velocity     = samurai::make_vector_field<double, dim, is_soa>("velocity", mesh);
@@ -235,7 +229,7 @@ int main(int argc, char* argv[])
 
     // 2nd mesh
     auto config2 = samurai::mesh_config<dim>().min_level(1).max_level(mesh.max_level()).max_stencil_size(6).disable_args_parse();
-    auto mesh2   = Mesh2(config2, box);
+    auto mesh2   = samurai::make_MRMesh(config2, box);
 
     // Ink data fields
     auto ink     = samurai::make_scalar_field<double>("ink", mesh2);
@@ -325,7 +319,7 @@ int main(int argc, char* argv[])
         std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt);
 
         // Mesh adaptation for Navier-Stokes
-        if (min_level != max_level)
+        if (mesh.min_level() != mesh.max_level())
         {
             MRadaptation(mra_config);
             min_level_np1    = mesh[mesh_id_t::cells].min_level();

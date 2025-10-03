@@ -37,7 +37,6 @@ int main(int argc, char* argv[])
 
     static constexpr std::size_t dim    = 1;
     static constexpr std::size_t n_comp = 1;
-    using Config                        = samurai::MRConfig<dim>;
     using Box                           = samurai::Box<double, dim>;
     using point_t                       = typename Box::point_t;
 
@@ -108,9 +107,8 @@ int main(int argc, char* argv[])
     box_corner2.fill(right_box);
     Box box(box_corner1, box_corner2);
     auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
-    samurai::MRMesh<Config> mesh{config, box};
-
-    auto u = samurai::make_vector_field<double, n_comp>("u", mesh);
+    auto mesh   = samurai::make_MRMesh(config, box);
+    auto u      = samurai::make_vector_field<double, n_comp>("u", mesh);
 
     double z0 = left_box / 5;    // wave initial position
     double c  = sqrt(k * D / 2); // wave velocity

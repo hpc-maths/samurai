@@ -10,8 +10,6 @@ namespace samurai
     template <std::size_t dim>
     auto create_mesh(double box_boundary)
     {
-        using Config  = samurai::MRConfig<dim>;
-        using Mesh    = samurai::MRMesh<Config>;
         using Box     = samurai::Box<double, dim>;
         using point_t = typename Box::point_t;
 
@@ -21,7 +19,7 @@ namespace samurai
         Box box(box_corner1, box_corner2);
         auto mesh_cfg = samurai::mesh_config<dim>().min_level(2).max_level(5);
 
-        return Mesh(mesh_cfg, box);
+        return make_MRMesh(mesh_cfg, box);
     }
 
     TEST(restart, restart_lca)

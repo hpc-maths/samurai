@@ -9,14 +9,14 @@ namespace samurai
     {
         static constexpr std::size_t dim = 2;
 
-        using Config    = samurai::MRConfig<dim>;
-        using Mesh      = samurai::MRMesh<Config>;
+        std::size_t level = 3;
+        auto mesh_cfg     = mesh_config<dim>().min_level(level).max_level(level);
+
+        using Mesh      = decltype(make_MRMesh(mesh_cfg));
         using mesh_id_t = typename Mesh::mesh_id_t;
         using cl_t      = typename Mesh::cl_type;
         using lca_t     = typename Mesh::lca_type;
         using Box       = samurai::Box<double, dim>;
-
-        std::size_t level = 3;
 
         const Box domain_box({-1., -1.}, {1., 1.});
         const Box hole_box({0.0, 0.0}, {0.2, 0.2});
@@ -36,8 +36,7 @@ namespace samurai
                 domain_with_hole_cl[level][index_y].add_interval({interval});
             });
 
-        auto mesh_cfg = mesh_config<dim>().min_level(level).max_level(level);
-        samurai::MRMesh<Config> mesh{mesh_cfg, domain_with_hole_cl};
+        auto mesh = samurai::make_MRMesh(mesh_cfg, domain_with_hole_cl);
 
         EXPECT_EQ(mesh.nb_cells(mesh_id_t::cells), domain_lca.nb_cells() - hole_lca.nb_cells());
     }

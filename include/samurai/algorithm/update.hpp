@@ -37,7 +37,7 @@ namespace samurai
     void update_ghost(Field& field, Fields&... fields)
     {
         using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
-        constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
+        constexpr std::size_t pred_order = Field::mesh_t::config::prediction_stencil_radius;
 
         auto& mesh            = field.mesh();
         std::size_t max_level = mesh.max_level();
@@ -62,7 +62,7 @@ namespace samurai
     void update_ghost_mro(Field& field)
     {
         using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
-        constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
+        constexpr std::size_t pred_order = Field::mesh_t::config::prediction_stencil_radius;
         auto& mesh                       = field.mesh();
 
         std::size_t max_level = mesh.max_level();
@@ -534,7 +534,7 @@ namespace samurai
     void update_ghost_mr(Field& field, Fields&... other_fields)
     {
         using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
-        constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
+        constexpr std::size_t pred_order = Field::mesh_t::config::prediction_stencil_radius;
 
         times::timers.start("ghost update");
 

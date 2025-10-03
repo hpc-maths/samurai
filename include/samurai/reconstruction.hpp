@@ -373,7 +373,7 @@ namespace samurai
         // inline void operator()(Dim<d>, std::size_t& reconstruct_level, T1& dest, const T2& src) const
         // {
         //     using index_t                          = typename T2::interval_t::value_t;
-        //     constexpr std::size_t prediction_order = T2::mesh_t::config::prediction_order;
+        //     constexpr std::size_t prediction_stencil_radius = T2::mesh_t::config::prediction_stencil_radius;
 
         //     std::size_t delta_l = reconstruct_level - level;
         //     if (delta_l == 0)
@@ -386,7 +386,7 @@ namespace samurai
         //         detail::multi_dim_loop(interp_coeff_values,
         //                                  [&](auto&... out_indices)
         //                                  {
-        //                                      auto& pred = prediction<prediction_order, index_t>(delta_l, out_indices...);
+        //                                      auto& pred = prediction<prediction_stencil_radius, index_t>(delta_l, out_indices...);
         //                                      for (const auto& kv : pred.coeff)
         //                                      {
         //                                          std::apply(
@@ -404,8 +404,8 @@ namespace samurai
         template <class T1, class T2>
         inline void operator()(Dim<1>, std::size_t& reconstruct_level, T1& dest, const T2& src) const
         {
-            using index_t                          = typename T2::interval_t::value_t;
-            constexpr std::size_t prediction_order = T2::mesh_t::config::prediction_order;
+            using index_t                                   = typename T2::interval_t::value_t;
+            constexpr std::size_t prediction_stencil_radius = T2::mesh_t::config::prediction_stencil_radius;
 
             std::size_t delta_l = reconstruct_level - level;
             if (delta_l == 0)
@@ -417,7 +417,7 @@ namespace samurai
                 index_t nb_cells = 1 << delta_l;
                 for (index_t ii = 0; ii < nb_cells; ++ii)
                 {
-                    auto pred = prediction<prediction_order, index_t>(delta_l, ii);
+                    auto pred = prediction<prediction_stencil_radius, index_t>(delta_l, ii);
                     for (const auto& kv : pred.coeff)
                     {
                         auto i_f = (i << delta_l) + ii;
@@ -432,8 +432,8 @@ namespace samurai
         inline void operator()(Dim<2>, std::size_t& reconstruct_level, T1& dest, const T2& src) const
 
         {
-            using index_t                          = typename T2::interval_t::value_t;
-            constexpr std::size_t prediction_order = T2::mesh_t::config::prediction_order;
+            using index_t                                   = typename T2::interval_t::value_t;
+            constexpr std::size_t prediction_stencil_radius = T2::mesh_t::config::prediction_stencil_radius;
 
             std::size_t delta_l = reconstruct_level - level;
             if (delta_l == 0)
@@ -448,7 +448,7 @@ namespace samurai
                     auto j_f = (j << delta_l) + jj;
                     for (index_t ii = 0; ii < nb_cells; ++ii)
                     {
-                        const auto& pred = prediction<prediction_order, index_t>(delta_l, ii, jj);
+                        const auto& pred = prediction<prediction_stencil_radius, index_t>(delta_l, ii, jj);
                         auto i_f         = (i << delta_l) + ii;
                         i_f.step         = nb_cells;
 
@@ -464,8 +464,8 @@ namespace samurai
         template <class T1, class T2>
         inline void operator()(Dim<3>, std::size_t& reconstruct_level, T1& dest, const T2& src) const
         {
-            using index_t                          = typename T2::interval_t::value_t;
-            constexpr std::size_t prediction_order = T2::mesh_t::config::prediction_order;
+            using index_t                                   = typename T2::interval_t::value_t;
+            constexpr std::size_t prediction_stencil_radius = T2::mesh_t::config::prediction_stencil_radius;
 
             std::size_t delta_l = reconstruct_level - level;
             if (delta_l == 0)
@@ -483,7 +483,7 @@ namespace samurai
                         auto j_f = (j << delta_l) + jj;
                         for (index_t ii = 0; ii < nb_cells; ++ii)
                         {
-                            const auto& pred = prediction<prediction_order, index_t>(delta_l, ii, jj, kk);
+                            const auto& pred = prediction<prediction_stencil_radius, index_t>(delta_l, ii, jj, kk);
                             auto i_f         = (i << delta_l) + ii;
                             i_f.step         = nb_cells;
 
@@ -559,7 +559,7 @@ namespace samurai
 
     namespace detail
     {
-        template <std::size_t prediction_order, class Field, class... index_t>
+        template <std::size_t prediction_stencil_radius, class Field, class... index_t>
             requires(Field::dim == sizeof...(index_t) + 1 && (std::same_as<typename Field::interval_t, index_t> && ...))
         decltype(auto) get_prediction(std::size_t level, std::size_t delta_l, const std::tuple<index_t...>& ii)
         {
@@ -571,7 +571,7 @@ namespace samurai
             auto iter = std::apply(
                 [&](auto&... index)
                 {
-                    return values.find({prediction_order, level, index...});
+                    return values.find({prediction_stencil_radius, level, index...});
                 },
                 ii);
 
@@ -584,7 +584,9 @@ namespace samurai
                         std::apply(
                             [&](auto&... index)
                             {
-                                values[{prediction_order, level, index...}] += prediction<prediction_order, value_t>(delta_l, ii_...);
+                                values[{prediction_stencil_radius, level, index...}] += prediction<prediction_stencil_radius, value_t>(
+                                    delta_l,
+                                    ii_...);
                             },
                             ii);
                     });
@@ -593,12 +595,12 @@ namespace samurai
             return std::apply(
                 [&](auto&... index) -> auto&
                 {
-                    return values[{prediction_order, level, index...}];
+                    return values[{prediction_stencil_radius, level, index...}];
                 },
                 ii);
         }
 
-        template <std::size_t prediction_order, class Field, class... index_t>
+        template <std::size_t prediction_stencil_radius, class Field, class... index_t>
             requires((std::same_as<typename Field::interval_t::value_t, index_t> && ...))
         decltype(auto) get_prediction(std::size_t, std::size_t delta_l, const std::tuple<index_t...>& ii)
         {
@@ -606,12 +608,12 @@ namespace samurai
             return std::apply(
                 [delta_l](const auto&... index) -> auto&
                 {
-                    return prediction<prediction_order, value_t>(delta_l, index...);
+                    return prediction<prediction_stencil_radius, value_t>(delta_l, index...);
                 },
                 ii);
         }
 
-        template <std::size_t prediction_order, class Field, class Func, class... index_t, class... cell_index_t>
+        template <std::size_t prediction_stencil_radius, class Field, class Func, class... index_t, class... cell_index_t>
             requires(Field::dim == sizeof...(index_t) + 1 && Field::dim == sizeof...(cell_index_t)
                      && ((std::same_as<typename Field::interval_t, cell_index_t> && ...)
                          || (std::same_as<typename Field::interval_t::value_t, cell_index_t> && ...))
@@ -625,7 +627,7 @@ namespace samurai
         {
             using result_t = std::decay_t<decltype(result)>;
 
-            const auto& pred = get_prediction<prediction_order, Field>(level, delta_l, ii);
+            const auto& pred = get_prediction<prediction_stencil_radius, Field>(level, delta_l, ii);
 
             if constexpr (std::is_same_v<result_t, double>)
             {
@@ -668,7 +670,7 @@ namespace samurai
         {
             return f(element, level, indices...);
         };
-        detail::portion_impl<Field::mesh_t::config::prediction_order, Field>(result, f, get_f, level, delta_l, i, ii);
+        detail::portion_impl<Field::mesh_t::config::prediction_stencil_radius, Field>(result, f, get_f, level, delta_l, i, ii);
     }
 
     template <class Field, class... index_t, class... cell_index_t>
@@ -689,7 +691,7 @@ namespace samurai
         return result;
     }
 
-    template <std::size_t prediction_order, class Field, class... index_t, class... cell_index_t>
+    template <std::size_t prediction_stencil_radius, class Field, class... index_t, class... cell_index_t>
     void portion(auto& result,
                  const Field& f,
                  std::size_t level,
@@ -702,7 +704,7 @@ namespace samurai
             return f(level, indices...);
         };
 
-        detail::portion_impl<prediction_order, Field>(result, get_f, level, delta_l, i, ii);
+        detail::portion_impl<prediction_stencil_radius, Field>(result, get_f, level, delta_l, i, ii);
     }
 
     template <class Field, class... index_t, class... cell_index_t>
@@ -713,10 +715,10 @@ namespace samurai
                  const std::tuple<typename Field::interval_t, index_t...>& i,
                  const std::tuple<cell_index_t...>& ii)
     {
-        portion<Field::mesh_t::config::prediction_order>(result, f, level, delta_l, i, ii);
+        portion<Field::mesh_t::config::prediction_stencil_radius>(result, f, level, delta_l, i, ii);
     }
 
-    template <std::size_t prediction_order, class Field, class... index_t, class... cell_index_t>
+    template <std::size_t prediction_stencil_radius, class Field, class... index_t, class... cell_index_t>
     auto portion(const Field& f,
                  std::size_t level,
                  std::size_t delta_l,
@@ -729,7 +731,7 @@ namespace samurai
                 return zeros_like(f(level, indices...));
             },
             i);
-        portion<prediction_order>(result, f, level, delta_l, i, ii);
+        portion<prediction_stencil_radius>(result, f, level, delta_l, i, ii);
         return result;
     }
 
@@ -740,7 +742,7 @@ namespace samurai
                  const std::tuple<typename Field::interval_t, index_t...>& i,
                  const std::tuple<cell_index_t...>& ii)
     {
-        return portion<Field::mesh_t::config::prediction_order>(f, level, delta_l, i, ii);
+        return portion<Field::mesh_t::config::prediction_stencil_radius>(f, level, delta_l, i, ii);
     }
 
     namespace detail
@@ -801,7 +803,7 @@ namespace samurai
         auto src_tuple = detail::extract_src_tuple<dim, interval_t>(src_indices);
         auto dst_tuple = detail::extract_dst_tuple<dim>(delta_l, dst_indices);
 
-        detail::portion_impl<Field::mesh_t::config::prediction_order, Field>(result, get_f, level, delta_l, src_tuple, dst_tuple);
+        detail::portion_impl<Field::mesh_t::config::prediction_stencil_radius, Field>(result, get_f, level, delta_l, src_tuple, dst_tuple);
     }
 
     template <class Field_src, class Field_dst>

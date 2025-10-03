@@ -10,13 +10,19 @@
 namespace samurai
 {
 
-    template <std::size_t dim_, std::size_t prediction_stencil_radius_ = 1>
+    template <std::size_t dim_,
+              int prediction_stencil_radius_    = 1,
+              std::size_t max_refinement_level_ = default_config::max_level,
+              class interval_t_                 = default_config::interval_t>
     class mesh_config
     {
       public:
 
-        static constexpr std::size_t dim                       = dim_;
-        static constexpr std::size_t prediction_stencil_radius = prediction_stencil_radius_;
+        static constexpr std::size_t dim                  = dim_;
+        static constexpr int prediction_stencil_radius    = prediction_stencil_radius_;
+        static constexpr std::size_t max_refinement_level = max_refinement_level_;
+
+        using interval_t = interval_t_;
 
       private:
 
@@ -233,4 +239,13 @@ namespace samurai
         }
 #endif
     };
-}
+
+    template <class mesh_cfg_t, class mesh_id_t_>
+    class complete_mesh_config
+        : public mesh_config<mesh_cfg_t::dim, mesh_cfg_t::prediction_stencil_radius, mesh_cfg_t::max_refinement_level, typename mesh_cfg_t::interval_t>
+    {
+      public:
+
+        using mesh_id_t = mesh_id_t_;
+    };
+} // namespace samurai
