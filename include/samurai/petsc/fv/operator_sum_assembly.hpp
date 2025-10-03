@@ -193,7 +193,7 @@ namespace samurai
                 for_each(m_assembly_ops,
                          [&](auto& op)
                          {
-                             // std::cout << "Assembly of " << op.name() << std::endl;
+                             // samurai::io::print("Assembly of {}\n", op.name());
                              op.assemble_scheme(A);
                              set_current_insert_mode(op.current_insert_mode());
                          });

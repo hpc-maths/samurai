@@ -182,7 +182,7 @@ namespace samurai
                 // assembly().enforce_projection_prediction(b);
                 // // Set to zero the right-hand side of the useless ghosts' equations
                 // assembly().set_0_for_useless_ghosts(b);
-                // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
+                // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); samurai::io::print("\n");
                 // assert(check_nan_or_inf(b));
                 times::timers.stop("system solve");
 
@@ -207,12 +207,12 @@ namespace samurai
                     KSPGetConvergedReasonString(m_ksp, &reason_text);
                     samurai::io::eprint("Divergence of the solver ({})\n", reason_text);
                     // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                    // std::cout << std::endl;
+                    // samurai::io::print("\n");
                     // assert(check_nan_or_inf(b));
                     assert(false && "Divergence of the solver");
                     exit(EXIT_FAILURE);
                 }
-                // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
+                // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); samurai::io::print("\n");
             }
 
           public:

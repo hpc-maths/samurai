@@ -300,12 +300,12 @@ int main(int argc, char* argv[])
         if (test_case_code == "poly")
         {
             // double hidden_constant             = samurai::compute_error_bound_hidden_constant<order>(h, error);
-            // std::cout << "hidden_constant: " << hidden_constant << std::endl;
+            // samurai::io::print("hidden_constant: {}\n", hidden_constant);
             static constexpr std::size_t order = 2;
             double h                           = mesh.cell_length(mesh.min_level());
             double hidden_constant             = 5e-2;
             double theoretical_bound           = samurai::theoretical_error_bound<order>(n_comp * hidden_constant, h);
-            // std::cout << "theoretical_bound: " << theoretical_bound << std::endl;
+            // samurai::io::print("theoretical_bound: {}\n", theoretical_bound);
             if (error > theoretical_bound)
             {
                 samurai::io::eprint("Convergence order failure: the error must be < {}.\n", theoretical_bound);

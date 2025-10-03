@@ -204,7 +204,7 @@ int main(int argc, char* argv[])
             mesh_cfg.min_level(init_mesh.min_level() + i_ref + 1).max_level(init_mesh.max_level() + i_ref + 1);
             mesh = samurai::mra::make_mesh(cl, mesh_cfg);
         }
-        // std::cout << mesh << std::endl;
+        // samurai::io::print("{}\n", fmt::streamed(mesh));
         // samurai::save("refine_mesh", mesh);
 
         // Equation: -Lap u = f   in [0, 1]^2

@@ -1047,8 +1047,7 @@ namespace samurai_new
                         auto& i, const auto& index)
                             {
                                 auto j = index[0];
-                                std::cout << "avant i = " << i << ", j = " << j
-                        << ":" << coarse_field(level, i, j) << std::endl; if
+                                samurai::io::print("avant i = {}, j = {}:{}\n", i, j, coarse_field(level, i, j)); if
                         (s(0) == 1 && s(1) == 1) // top-right
                                     coarse_field(level, i, j) =
                         fine_field(level+1, 2*i  , 2*j  ); else if (s(0) == -1
@@ -1057,9 +1056,8 @@ namespace samurai_new
                         && s(1) == -1) // bottom-left coarse_field(level, i, j)
                         = fine_field(level+1, 2*i+1, 2*j+1); else if (s(0) == 1
                         && s(1) == -1) // bottom-right coarse_field(level, i, j)
-                        = fine_field(level+1, 2*i  , 2*j+1); std::cout << "apres
-                        i = " << i << ", j = " << j << ":" <<
-                        coarse_field(level, i, j) << std::endl;
+                        = fine_field(level+1, 2*i  , 2*j+1); samurai::io::print("apres i = {}, j = {}:{}\n", i, j, coarse_field(level, i,
+                        j));
                             });
                         }*/
                     }

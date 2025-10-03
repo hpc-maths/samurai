@@ -156,9 +156,9 @@ namespace samurai_new
                     Field fine_field = multigrid::prolong(coarse_field, fine_ctx->mesh(), coarse_ctx->prediction_stencil_radius);
                     samurai::petsc::copy(fine_field, y);
 
-                    // std::cout << "prolongated vector (marche):" << std::endl;
+                    // samurai::io::print("prolongated vector (marche):\n");
                     // VecView(y, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                    // std::cout << std::endl;
+                    // samurai::io::print("\n");
                 }
                 else
                 {

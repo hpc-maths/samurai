@@ -137,7 +137,7 @@ namespace samurai
                     {
                         if (std::isnan(this->derived_cast().m_storage.data()[static_cast<std::size_t>(i)]))
                         {
-                            // std::cerr << "READ NaN at level " << level << ", in interval " << interval << std::endl;
+                            // samurai::io::eprint("READ NaN at level {}, in interval {}\n", level, interval);
                             auto ii   = i - interval_tmp.index;
                             auto cell = this->derived_cast().mesh().get_cell(level, static_cast<int>(ii), index...);
                             samurai::io::eprint("READ NaN in {}\n", fmt::streamed(cell));
@@ -176,7 +176,7 @@ namespace samurai
                     {
                         if (std::isnan(this->derived_cast().m_storage.data()[static_cast<std::size_t>(i)]))
                         {
-                            // std::cerr << "READ NaN at level " << level << ", in interval " << interval << std::endl;
+                            // samurai::io::eprint("READ NaN at level {}, in interval {}\n", level, interval);
                             auto ii   = i - interval_tmp.index;
                             auto cell = this->derived_cast().mesh().get_cell(level, static_cast<int>(ii), index);
                             samurai::io::eprint("READ NaN in {}\n", fmt::streamed(cell));

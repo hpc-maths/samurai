@@ -135,7 +135,7 @@ xt::xtensor<double, 1> prediction(const Field& f,
     auto it = mem_map.find({item, level_g, level, i});
     if (it != mem_map.end())
     {
-        // std::cout<<std::endl<<"Found by memoization";
+        // samurai::io::print("\nFound by memoization");
         return it->second;
     }
     else
@@ -145,7 +145,7 @@ xt::xtensor<double, 1> prediction(const Field& f,
         xt::xtensor<double, 1> out = xt::empty<double>({i.size() / i.step}); // xt::eval(f(item, level_g, i));
         auto mask                  = mesh.exists(mesh_id_t::cells_and_ghosts, level_g + level, i);
 
-        // std::cout << level_g + level << " " << i << " " << mask << "\n";
+        // samurai::io::print("{} {} {}\n", level_g + level, i, mask);
         if (xt::all(mask))
         {
             return xt::eval(f(item, level_g + level, i));
