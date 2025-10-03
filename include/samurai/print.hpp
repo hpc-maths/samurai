@@ -95,7 +95,6 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
                 return current_rank() == 0;
 #else
-                // Without MPI, current_rank() is always 0; root prints by default
                 return true;
 #endif
             }
@@ -105,7 +104,6 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
                 return current_rank() == r.value;
 #else
-                // Without MPI, only rank 0 exists
                 return r.value == 0;
 #endif
             }
