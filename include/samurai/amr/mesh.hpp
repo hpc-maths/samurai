@@ -117,8 +117,8 @@ namespace samurai::amr
     {
         cl_type cl;
         auto ghost_width = cfg().ghost_width();
-        for_each_interval(this->cells()[mesh_id_t::cells, ghost_width],
-                          [&](std::size_t level, const auto& interval, const auto& index_yz)
+        for_each_interval(this->cells()[mesh_id_t::cells],
+                          [&, ghost_width](std::size_t level, const auto& interval, const auto& index_yz)
                           {
                               lcl_type& lcl = cl[level];
                               static_nested_loop<dim - 1>(
