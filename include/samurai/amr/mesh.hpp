@@ -127,7 +127,7 @@ namespace samurai::amr
                                   [&](auto stencil)
                                   {
                                       auto index = xt::eval(index_yz + stencil);
-                                      lcl[index].add_interval({interval.start - cfg().ghost_width(), interval.end + cfg().ghost_width()});
+                                      lcl[index].add_interval({interval.start - ghost_width, interval.end + ghost_width});
                                   });
                           });
         this->cells()[mesh_id_t::cells_and_ghosts] = {cl, false};
