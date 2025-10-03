@@ -5,6 +5,8 @@
 #include "../../field.hpp"
 #include "../../static_algorithm.hpp"
 #include "../../timers.hpp"
+#include "../../print.hpp"
+#include <fmt/ostream.h>
 #include "utils.hpp"
 
 namespace samurai
@@ -181,7 +183,8 @@ namespace samurai
             {
                 if (input_field.mesh().is_periodic())
                 {
-                    std::cerr << "Error: apply_directional_bc() not implemented for non-box domains with periodic directions." << std::endl;
+                    samurai::io::eprint(
+                        "Error: apply_directional_bc() not implemented for non-box domains with periodic directions.\n");
                     assert(false);
                     return;
                 }
@@ -320,7 +323,7 @@ namespace samurai
                     return m_dirichlet_config[d];
                 }
             }
-            std::cerr << "No Dirichlet config found for direction " << direction << std::endl;
+            samurai::io::eprint("No Dirichlet config found for direction {}\n", fmt::streamed(direction));
             assert(false);
             return m_dirichlet_config[0];
         }
@@ -373,7 +376,7 @@ namespace samurai
                     return m_neumann_config[d];
                 }
             }
-            std::cerr << "No Neumann config found for direction " << direction << std::endl;
+            samurai::io::eprint("No Neumann config found for direction {}\n", fmt::streamed(direction));
             assert(false);
             return m_neumann_config[0];
         }

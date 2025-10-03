@@ -1,13 +1,16 @@
 #pragma once
 
+
 #include <iostream>
+#include "print.hpp"
+#include <fmt/ostream.h>
 
 #define SAMURAI_ASSERT(condition, msg)                                                                                \
     do                                                                                                                \
     {                                                                                                                 \
         if (!(condition))                                                                                             \
         {                                                                                                             \
-            std::cerr << "Assertion failed \nin " << __FILE__ << "\n @line " << __LINE__ << ": " << msg << std::endl; \
+            samurai::io::eprint("Assertion failed \nin {} \n @line {}: {}\n", __FILE__, __LINE__, fmt::streamed(msg)); \
             std::terminate();                                                                                         \
         }                                                                                                             \
     } while (false)
@@ -16,13 +19,13 @@
 #define SAMURAI_LOG(msg)                                \
     do                                                  \
     {                                                   \
-        std::cerr << "SMR::Log:: " << msg << std::endl; \
+        samurai::io::eprint("SMR::Log:: {}\n", fmt::streamed(msg)); \
     } while (0)
 
 #define SAMURAI_TRACE(msg)                                                        \
     do                                                                            \
     {                                                                             \
-        std::cerr << "SMR::Trace[line " << __LINE__ << "] :" << msg << std::endl; \
+        samurai::io::eprint("SMR::Trace[line {}] :{}\n", __LINE__, fmt::streamed(msg)); \
     } while (0)
 // #else
 // #define MGS_LOG( msg )

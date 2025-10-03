@@ -2,6 +2,7 @@
 
 #include "block_assembly.hpp"
 #include "linear_solver.hpp"
+#include "../print.hpp"
 
 namespace samurai
 {
@@ -71,7 +72,7 @@ namespace samurai
                 {
                     if (m_A == nullptr)
                     {
-                        std::cerr << "The matrix must be assemble before calling set_pc_fieldsplit()." << std::endl;
+                        samurai::io::eprint("The matrix must be assemble before calling set_pc_fieldsplit().\n");
                         exit(EXIT_FAILURE);
                     }
                     IS IS_fields[cols];

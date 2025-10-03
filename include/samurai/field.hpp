@@ -258,7 +258,7 @@ namespace samurai
                 if (xt::any(xt::isnan(data)))
                 {
                     // std::cout << data << std::endl;
-                    std::cerr << "READ NaN at level " << level << ", " << interval << std::endl;
+                    samurai::io::eprint("READ NaN at level {}, {}\n", level, fmt::streamed(interval));
                 }
 #endif
                 return data;

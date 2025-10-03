@@ -1,6 +1,7 @@
 #pragma once
 #include <petsc.h>
 #include <xtensor/containers/xfixed.hpp>
+#include "../print.hpp"
 
 namespace samurai
 {
@@ -160,7 +161,7 @@ namespace samurai
                 {
                     is_nan_or_inf = true;
                     VecView(v, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                    std::cout << std::endl;
+                    samurai::io::print(samurai::io::root, "\n");
                     break;
                 }
             }

@@ -1,6 +1,8 @@
 #pragma once
 #include "../schemes/block_operator.hpp"
 #include "utils.hpp"
+#include "../print.hpp"
+#include <fmt/format.h>
 #include "zero_block_assembly.hpp"
 
 namespace samurai
@@ -121,8 +123,12 @@ namespace samurai
                                 }
                                 else if (op.matrix_rows() != block_rows)
                                 {
-                                    std::cerr << "Assembly failure: incompatible number of rows of block (" << row << ", " << col
-                                              << "): " << op.matrix_rows() << " (expected " << block_rows << ")" << std::endl;
+                                    samurai::io::eprint(
+                                        "Assembly failure: incompatible number of rows of block ({}, {}): {} (expected {})\n",
+                                        row,
+                                        col,
+                                        op.matrix_rows(),
+                                        block_rows);
                                     exit(EXIT_FAILURE);
                                 }
                             }
@@ -154,8 +160,12 @@ namespace samurai
                                 }
                                 else if (op.matrix_cols() != block_cols)
                                 {
-                                    std::cerr << "Assembly failure: incompatible number of columns of block (" << row << ", " << col
-                                              << "): " << op.matrix_cols() << " (expected " << block_cols << ")" << std::endl;
+                                    samurai::io::eprint(
+                                        "Assembly failure: incompatible number of columns of block ({}, {}): {} (expected {})\n",
+                                        row,
+                                        col,
+                                        op.matrix_cols(),
+                                        block_cols);
                                     exit(EXIT_FAILURE);
                                 }
                             }
@@ -192,8 +202,12 @@ namespace samurai
                                              }
                                              else
                                              {
-                                                 std::cerr << "unknown " << i << " is not compatible with the scheme (" << row << ", "
-                                                           << col << ") (named '" << op.name() << "')" << std::endl;
+                                                 samurai::io::eprint(
+                                                     "unknown {} is not compatible with the scheme ({}, {}) (named '{}')\n",
+                                                     i,
+                                                     row,
+                                                     col,
+                                                     op.name());
                                                  assert(false);
                                                  exit(EXIT_FAILURE);
                                              }
@@ -241,8 +255,10 @@ namespace samurai
                     {
                         if (row == col && op.matrix_rows() != op.matrix_cols())
                         {
-                            std::cerr << "Function 'create_vector()' is ambiguous in this context, because the block (" << row << ", " << col
-                                      << ") is not square. Use 'create_applicable_vector()' or 'create_rhs_vector()' instead." << std::endl;
+                            samurai::io::eprint(
+                                "Function 'create_vector()' is ambiguous in this context, because the block ({}, {}) is not square. Use 'create_applicable_vector()' or 'create_rhs_vector()' instead.\n",
+                                row,
+                                col);
                             exit(EXIT_FAILURE);
                         }
                     });

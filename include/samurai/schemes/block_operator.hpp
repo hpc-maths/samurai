@@ -1,5 +1,6 @@
 #pragma once
 #include "../utils.hpp"
+#include "../print.hpp"
 
 namespace samurai
 {
@@ -94,8 +95,12 @@ namespace samurai
                                          using op_field_t = typename operator_t::field_t;
                                          if constexpr (!std::is_same_v<std::decay_t<decltype(u)>, op_field_t>)
                                          {
-                                             std::cerr << "unknown " << i << " is not compatible with the scheme (" << row << ", " << col
-                                                       << ") (named '" << op.name() << "')" << std::endl;
+                                            samurai::io::eprint(
+                                                "unknown {} is not compatible with the scheme ({}, {}) (named '{}')\n",
+                                                i,
+                                                row,
+                                                col,
+                                                op.name());
                                              assert(false);
                                              exit(EXIT_FAILURE);
                                          }

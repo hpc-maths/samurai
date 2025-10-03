@@ -2,6 +2,8 @@
 // #include "../../../petsc/fv/flux_based_scheme_assembly.hpp"
 #include "../explicit_FV_scheme.hpp"
 #include "flux_based_scheme__lin_hom.hpp"
+#include "../../../print.hpp"
+#include <fmt/ostream.h>
 
 namespace samurai
 {
@@ -287,9 +289,9 @@ namespace samurai
 #ifdef SAMURAI_CHECK_NAN
                                     if (std::isnan(field_value(input_field, stencil.cells()[c], field_j)))
                                     {
-                                        std::cerr
-                                            << "NaN detected when computing the flux on the boundary interfaces: " << stencil.cells()[c]
-                                            << std::endl;
+                                        samurai::io::eprint(
+                                            "NaN detected when computing the flux on the boundary interfaces: {}\n",
+                                            fmt::streamed(stencil.cells()[c]));
                                         assert(false);
                                     }
 #endif

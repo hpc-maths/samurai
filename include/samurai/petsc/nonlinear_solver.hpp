@@ -3,6 +3,7 @@
 #include "fv/flux_based_scheme_assembly.hpp"
 #include "fv/operator_sum_assembly.hpp"
 #include "utils.hpp"
+#include "../print.hpp"
 #include <petsc.h>
 
 namespace samurai
@@ -133,8 +134,8 @@ namespace samurai
 
                 if (assembly().undefined_unknown())
                 {
-                    std::cerr << "Undefined unknown(s) for this non-linear system. Please set the unknowns using the instruction '[solver].set_unknown(u);' or '[solver].set_unknowns(u1, u2...);'."
-                              << std::endl;
+                    samurai::io::eprint(
+                        "Undefined unknown(s) for this non-linear system. Please set the unknowns using the instruction '[solver].set_unknown(u);' or '[solver].set_unknowns(u1, u2...).\n");
                     assert(false && "Undefined unknown(s)");
                     exit(EXIT_FAILURE);
                 }
@@ -266,13 +267,13 @@ namespace samurai
                     using namespace std::string_literals;
                     const char* reason_text;
                     SNESGetConvergedReasonString(m_snes, &reason_text);
-                    std::cerr << "Divergence of the non-linear solver ("s + reason_text + ")" << std::endl;
-                    // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                    // std::cout << std::endl;
-                    // assert(check_nan_or_inf(b));
-                    assert(false && "Divergence of the solver");
-                    exit(EXIT_FAILURE);
-                }
+                    samurai::io::eprint("Divergence of the non-linear solver ({})\n", reason_text);
+                // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
+                // std::cout << std::endl;
+                // assert(check_nan_or_inf(b));
+                assert(false && "Divergence of the solver");
+                exit(EXIT_FAILURE);
+            }
                 // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
             }
 

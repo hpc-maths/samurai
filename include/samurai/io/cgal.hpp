@@ -166,7 +166,7 @@ namespace samurai
             CGALMesh cgal_mesh;
             if (!PMP::IO::read_polygon_mesh(input_file, cgal_mesh) || cgal_mesh.is_empty())
             {
-                std::cerr << "Invalid input file." << std::endl;
+                samurai::io::eprint("Invalid input file.\n");
                 return CGALMesh();
             }
 
