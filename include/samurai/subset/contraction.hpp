@@ -34,7 +34,6 @@ namespace samurai
       public:
 
         SAMURAI_SET_TYPEDEFS
-        //~ SAMURAI_SET_CONSTEXPRS
 
         using contraction_t    = std::array<value_t, Base::dim>;
         using do_contraction_t = std::array<bool, Base::dim>;
@@ -80,6 +79,18 @@ namespace samurai
         inline bool empty_impl() const
         {
             return Base::empty_default_impl();
+        }
+
+        template <std::size_t d>
+        inline void init_get_traverser_work_impl(const std::size_t n_traversers, std::integral_constant<std::size_t, d> d_ic) const
+        {
+            m_set.init_get_traverser_work(n_traversers, d_ic);
+        }
+
+        template <std::size_t d>
+        inline void clear_get_traverser_work_impl(std::integral_constant<std::size_t, d> d_ic) const
+        {
+            m_set.clear_get_traverser_work(d_ic);
         }
 
         template <class index_t, std::size_t d>

@@ -34,7 +34,6 @@ namespace samurai
       public:
 
         SAMURAI_SET_TYPEDEFS
-        //~ SAMURAI_SET_CONSTEXPRS
 
         using const_interval_iterator = typename std::vector<interval_t>::const_iterator;
 
@@ -58,6 +57,16 @@ namespace samurai
             return m_lca.empty();
         }
 
+        template <std::size_t d>
+        inline void init_get_traverser_work_impl(const std::size_t, std::integral_constant<std::size_t, d>) const
+        {
+        }
+
+        template <std::size_t d>
+        inline void clear_get_traverser_work_impl(std::integral_constant<std::size_t, d>) const
+        {
+        }
+
         template <class index_t, std::size_t d>
         inline traverser_t<d> get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d> d_ic) const
         {
@@ -67,6 +76,8 @@ namespace samurai
                                              d_ic,
                                              std::integral_constant<std::size_t, Base::dim - 1>{});
         }
+
+      private:
 
         template <class index_t, std::size_t d, std::size_t dCur>
         inline traverser_t<d> get_traverser_impl_detail(const index_t& index,
@@ -122,8 +133,6 @@ namespace samurai
                 return get_traverser_impl_detail(index, begin_x_interval, end_x_interval, d_ic, std::integral_constant<std::size_t, dCur - 1>{});
             }
         }
-
-      private:
 
         const LCA& m_lca;
     };

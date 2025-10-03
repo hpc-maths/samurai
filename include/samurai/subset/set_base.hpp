@@ -73,6 +73,18 @@ namespace samurai
             return derived_cast().empty_impl();
         }
 
+        template <std::size_t d>
+        inline void init_get_traverser_work(const std::size_t n_traversers, std::integral_constant<std::size_t, d> d_ic) const
+        {
+            derived_cast().init_get_traverser_work_impl(n_traversers, d_ic);
+        }
+
+        template <std::size_t d>
+        inline void clear_get_traverser_work(std::integral_constant<std::size_t, d> d_ic) const
+        {
+            derived_cast().clear_get_traverser_work_impl(d_ic);
+        }
+
         template <class index_t, std::size_t d>
         inline traverser_t<d> get_traverser(const index_t& index, std::integral_constant<std::size_t, d> d_ic) const
         {
@@ -122,6 +134,8 @@ namespace samurai
         {
             using current_interval_t = typename traverser_t<d>::current_interval_t;
 
+            init_get_traverser_work(1, d_ic);
+
             for (traverser_t<d> traverser = get_traverser(index, d_ic); !traverser.is_empty(); traverser.next_interval())
             {
                 current_interval_t interval = traverser.current_interval();
@@ -141,6 +155,9 @@ namespace samurai
                     }
                 }
             }
+
+            clear_get_traverser_work(d_ic);
+
             return true;
         }
     };
@@ -153,8 +170,6 @@ namespace samurai
                                                                 \
     using interval_t = typename Base::interval_t;               \
     using value_t    = typename Base::value_t;
-
-#define SAMURAI_SET_CONSTEXPRS static constexpr std::size_t dim = Base::dim;
 
     template <typename T>
     struct IsSet : std::bool_constant<std::is_base_of<SetBase<T>, T>::value>

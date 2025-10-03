@@ -15,6 +15,8 @@ namespace samurai
             using traverser_t        = typename Set::template traverser_t<d>;
             using current_interval_t = typename traverser_t::current_interval_t;
 
+            set.init_get_traverser_work(1, d_ic);
+
             for (traverser_t traverser = set.get_traverser(index, d_ic); !traverser.is_empty(); traverser.next_interval())
             {
                 current_interval_t interval = traverser.current_interval();
@@ -31,6 +33,8 @@ namespace samurai
                     }
                 }
             }
+
+            set.clear_get_traverser_work(d_ic);
         }
     }
 

@@ -29,14 +29,10 @@ namespace samurai
 
         SAMURAI_SET_TRAVERSER_TYPEDEFS
 
-        using SetTraverserIterator    = typename std::vector<SetTraverser>::iterator;
-        using SetTraverserOffsetRange = MemoryPool<SetTraverser>::OffsetRange;
-        using SetTraverserOffset      = MemoryPool<SetTraverser>::Distance;
+        using SetTraverserIterator = typename std::vector<SetTraverser>::iterator;
 
-        ExpansionTraverser(const SetTraverserOffset first_set_traverser_offset,
-                           const SetTraverserOffset bound_set_traverser_offset,
-                           const value_t expansion)
-            : m_set_traverser_offsets(first_set_traverser_offset, bound_set_traverser_offset)
+        ExpansionTraverser(SetTraverserIterator begin_set_traverser, SetTraverserIterator end_set_traverser, const value_t expansion)
+            : m_set_traversers(begin_set_traverser, end_set_traverser)
             , m_expansion(expansion)
         {
             assert(m_expansion > 0);
@@ -50,14 +46,11 @@ namespace samurai
 
         inline void next_interval_impl()
         {
-            auto& memory_pool = MemoryPool<SetTraverser>::getInstance();
-
             m_current_interval.start = std::numeric_limits<value_t>::max();
 
             // We find the start of the interval, i.e. the smallest set_traverser.current_interval().start
-            for (auto offset = m_set_traverser_offsets.first; offset != m_set_traverser_offsets.bound; ++offset)
+            for (const SetTraverser& set_traverser : m_set_traversers)
             {
-                const SetTraverser& set_traverser = memory_pool.at(offset);
                 if (!set_traverser.is_empty() && (set_traverser.current_interval().start - m_expansion < m_current_interval.start))
                 {
                     m_current_interval.start = set_traverser.current_interval().start - m_expansion;
@@ -71,18 +64,16 @@ namespace samurai
             {
                 is_done = true;
                 // advance set traverses that are behind current interval
-                for (auto offset = m_set_traverser_offsets.first; offset != m_set_traverser_offsets.bound; ++offset)
+                for (SetTraverser& set_traverser : m_set_traversers)
                 {
-                    SetTraverser& set_traverser = memory_pool.at(offset);
                     while (!set_traverser.is_empty() && set_traverser.current_interval().end + m_expansion <= m_current_interval.end)
                     {
                         set_traverser.next_interval();
                     }
                 }
                 // try to find a new end
-                for (auto offset = m_set_traverser_offsets.first; offset != m_set_traverser_offsets.bound; ++offset)
+                for (const SetTraverser& set_traverser : m_set_traversers)
                 {
-                    const SetTraverser& set_traverser = memory_pool.at(offset);
                     // there is an overlap
                     if (!set_traverser.is_empty() && set_traverser.current_interval().start - m_expansion <= m_current_interval.end)
                     {
@@ -100,9 +91,10 @@ namespace samurai
 
       private:
 
-        SetTraverserOffsetRange m_set_traverser_offsets;
+        std::span<SetTraverser> m_set_traversers;
         value_t m_expansion;
         interval_t m_current_interval;
+        bool m_isEmpty;
     };
 
 } // namespace samurai
