@@ -6,8 +6,6 @@
 #include <array>
 #include <set>
 
-#include <fmt/format.h>
-#include <fmt/ostream.h>
 
 #include "cell_array.hpp"
 #include "cell_list.hpp"

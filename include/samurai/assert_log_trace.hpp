@@ -1,7 +1,6 @@
 #pragma once
 
 #include "print.hpp"
-#include <fmt/ostream.h>
 #include <iostream>
 
 #define SAMURAI_ASSERT(condition, msg)                                                                                 \

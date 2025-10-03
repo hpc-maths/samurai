@@ -13,7 +13,6 @@
 #include "../operators_base.hpp"
 #include "../print.hpp"
 #include "../utils.hpp"
-#include <fmt/ostream.h>
 
 namespace samurai
 {

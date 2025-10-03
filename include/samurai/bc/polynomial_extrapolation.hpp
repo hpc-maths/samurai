@@ -4,8 +4,6 @@
 #pragma once
 #include "../print.hpp"
 #include "bc.hpp"
-#include <fmt/format.h>
-#include <fmt/ostream.h>
 
 namespace samurai
 {

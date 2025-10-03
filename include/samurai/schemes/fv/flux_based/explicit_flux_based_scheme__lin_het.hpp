@@ -3,7 +3,6 @@
 #include "../../../print.hpp"
 #include "../explicit_FV_scheme.hpp"
 #include "flux_based_scheme__lin_het.hpp"
-#include <fmt/ostream.h>
 
 namespace samurai
 {

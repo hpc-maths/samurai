@@ -2,8 +2,6 @@
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #pragma once
-#include <fmt/format.h>
-#include <fmt/ostream.h>
 
 #include <algorithm>
 

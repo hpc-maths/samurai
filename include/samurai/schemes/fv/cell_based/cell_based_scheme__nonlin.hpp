@@ -1,7 +1,6 @@
 #pragma once
 #include "../../../print.hpp"
 #include "cell_based_scheme.hpp"
-#include <fmt/ostream.h>
 
 namespace samurai
 {

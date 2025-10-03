@@ -7,7 +7,6 @@
 #include "../../static_algorithm.hpp"
 #include "../../timers.hpp"
 #include "utils.hpp"
-#include <fmt/ostream.h>
 
 namespace samurai
 {

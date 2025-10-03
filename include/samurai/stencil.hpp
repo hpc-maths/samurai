@@ -2,8 +2,6 @@
 #include "indices.hpp"
 #include "print.hpp"
 #include "static_algorithm.hpp"
-#include <fmt/format.h>
-#include <fmt/ostream.h>
 
 namespace samurai
 {

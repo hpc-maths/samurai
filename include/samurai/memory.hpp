@@ -6,8 +6,6 @@
 #include <numeric>
 
 #include "print.hpp"
-#include <fmt/format.h>
-#include <fmt/ostream.h>
 
 #include "level_cell_array.hpp"
 

@@ -16,8 +16,6 @@
 
 #include "print.hpp"
 #include <fmt/color.h>
-#include <fmt/format.h>
-#include <fmt/ostream.h>
 
 #include "algorithm.hpp"
 #include "box.hpp"

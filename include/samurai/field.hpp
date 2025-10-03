@@ -2,8 +2,6 @@
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #pragma once
-#include <fmt/format.h>
-#include <fmt/ostream.h>
 
 #include <algorithm>
 #include <array>
@@ -14,7 +12,6 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
-#include <fmt/format.h>
 
 #include <xtensor/containers/xtensor.hpp>
 #include <xtensor/views/xview.hpp>

@@ -6,7 +6,6 @@
 #include "../../schemes/fv/FV_scheme.hpp"
 #include "../../schemes/fv/scheme_operators.hpp"
 #include "../matrix_assembly.hpp"
-#include <fmt/ostream.h>
 
 namespace samurai
 {
