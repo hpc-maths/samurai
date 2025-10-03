@@ -9,6 +9,7 @@
 #include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
+#include <samurai/print.hpp>
 #include <samurai/stencil_field.hpp>
 
 #include "../../LBM/boundary_conditions.hpp"

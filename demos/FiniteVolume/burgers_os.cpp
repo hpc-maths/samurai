@@ -12,6 +12,7 @@
 namespace fs = std::filesystem;
 
 #include <numbers>
+#include <xtensor/xio.hpp>
 
 #include "convection_nonlin_os.hpp"
 

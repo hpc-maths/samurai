@@ -10,6 +10,7 @@
 #include <samurai/mr/operators.hpp>
 #include <samurai/numeric/prediction.hpp>
 #include <samurai/numeric/projection.hpp>
+#include <samurai/print.hpp>
 #include <samurai/static_algorithm.hpp>
 #include <samurai/stencil_field.hpp>
 
