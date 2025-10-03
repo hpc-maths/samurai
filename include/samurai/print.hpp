@@ -92,12 +92,22 @@ namespace samurai
 
             inline bool should_print(root_t)
             {
+#ifdef SAMURAI_WITH_MPI
                 return current_rank() == 0;
+#else
+                // Without MPI, current_rank() is always 0; root prints by default
+                return true;
+#endif
             }
 
             inline bool should_print(rank_t r)
             {
+#ifdef SAMURAI_WITH_MPI
                 return current_rank() == r.value;
+#else
+                // Without MPI, only rank 0 exists
+                return r.value == 0;
+#endif
             }
 
             // Scoped printing helper
