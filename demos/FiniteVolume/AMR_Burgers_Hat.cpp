@@ -197,7 +197,6 @@ int main(int argc, char* argv[])
     auto& app = samurai::initialize("Finite volume example for the Burgers equation in 2d using AMR", argc, argv);
 
     constexpr std::size_t dim = 1; // cppcheck-suppress unreadVariable
-    using Config              = samurai::amr::Config<dim>;
 
     // Simulation parameters
     double left_box  = -3;
@@ -225,8 +224,6 @@ int main(int argc, char* argv[])
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
     app.add_option("--start-level", start_level, "Start level of AMR")->capture_default_str()->group("AMR parameters");
-    app.add_option("--min-level", min_level, "Minimum level of AMR")->capture_default_str()->group("AMR parameters");
-    app.add_option("--max-level", max_level, "Maximum level of AMR")->capture_default_str()->group("AMR parameters");
     app.add_option("--with-correction", correction, "Apply flux correction at the interface of two refinement levels")
         ->capture_default_str()
         ->group("AMR parameters");
@@ -236,12 +233,13 @@ int main(int argc, char* argv[])
     SAMURAI_PARSE(argc, argv);
 
     const samurai::Box<double, dim> box({left_box}, {right_box});
-    samurai::amr::Mesh<Config> mesh;
-    auto phi = samurai::make_scalar_field<double>("phi", mesh);
+    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
+    auto mesh   = samurai::amr::make_Mesh(config);
+    auto phi    = samurai::make_scalar_field<double>("phi", mesh);
 
     if (restart_file.empty())
     {
-        mesh = {box, start_level, min_level, max_level};
+        mesh = samurai::amr::make_Mesh(config, box, start_level);
         init_solution(phi);
     }
     else

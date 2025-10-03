@@ -84,8 +84,6 @@ namespace samurai
     {
         using field_value_t = typename Field::value_type;
 
-        static_assert(Field::mesh_t::config::ghost_width >= 3, "WENO5 requires at least 3 ghosts.");
-
         static constexpr std::size_t dim = Field::dim;
 
         static constexpr std::size_t stencil_size = 6;

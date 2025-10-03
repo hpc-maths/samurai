@@ -248,7 +248,7 @@ namespace samurai
 
         INIT_OPERATOR(compute_detail_op)
 
-        template <class T1, class T2, std::size_t order = T2::mesh_t::config::prediction_order>
+        template <class T1, class T2, std::size_t order = T2::mesh_t::config::prediction_stencil_radius>
         inline void operator()(Dim<1>, T1& detail, const T2& field) const
         {
             if constexpr (order == 0)
@@ -265,7 +265,7 @@ namespace samurai
             }
         }
 
-        template <class T1, class T2, std::size_t order = T2::mesh_t::config::prediction_order>
+        template <class T1, class T2, std::size_t order = T2::mesh_t::config::prediction_stencil_radius>
         inline void operator()(Dim<2>, T1& detail, const T2& field) const
         {
             if constexpr (order == 0)
@@ -311,7 +311,7 @@ namespace samurai
             }
         }
 
-        template <class T1, class T2, std::size_t order = T2::mesh_t::config::prediction_order>
+        template <class T1, class T2, std::size_t order = T2::mesh_t::config::prediction_stencil_radius>
         inline void operator()(Dim<3>, T1& detail, const T2& field) const
         {
             if constexpr (order == 0)

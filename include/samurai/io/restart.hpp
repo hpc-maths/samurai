@@ -409,7 +409,8 @@ namespace samurai
 
         ca_type ca;
         load(file, ca);
-        Mesh new_mesh{ca, min_level, max_level};
+        auto mesh_cfg = mesh_config<Mesh::dim>().min_level(min_level).max_level(max_level);
+        Mesh new_mesh{mesh_cfg, ca};
         std::swap(mesh, new_mesh);
         load_fields(file, mesh, fields...);
     }
