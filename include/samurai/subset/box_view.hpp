@@ -35,8 +35,6 @@ namespace samurai
 
         SAMURAI_SET_TYPEDEFS
 
-        //~ SAMURAI_SET_CONSTEXPRS
-
         BoxView(const std::size_t level, const B& box)
             : m_level(level)
             , m_box(box)
@@ -64,6 +62,16 @@ namespace samurai
             return (m_box.min_corner()[d + 1] <= index[d] && index[d] < m_box.max_corner()[d + 1])
                      ? traverser_t<d>(m_box.min_corner()[d], m_box.max_corner()[d])
                      : traverser_t<d>(0, 0);
+        }
+
+        template <std::size_t d>
+        constexpr inline void init_get_traverser_work_impl(const std::size_t, std::integral_constant<std::size_t, d>) const
+        {
+        }
+
+        template <std::size_t d>
+        inline void clear_get_traverser_work_impl(std::integral_constant<std::size_t, d>) const
+        {
         }
 
       private:

@@ -74,7 +74,6 @@ namespace samurai
       public:
 
         SAMURAI_SET_TYPEDEFS
-        //~ SAMURAI_SET_CONSTEXPRS
 
         using Childrens = std::tuple<Sets...>;
 
@@ -126,6 +125,26 @@ namespace samurai
         inline bool empty_impl() const
         {
             return Base::empty_default_impl();
+        }
+
+        template <std::size_t d>
+        inline void init_get_traverser_work_impl(const std::size_t n_traversers, std::integral_constant<std::size_t, d> d_ic) const
+        {
+            static_for<0, nIntervals>::apply(
+                [this, n_traversers, d_ic](const auto i) -> void
+                {
+                    std::get<i>(m_sets).init_get_traverser_work(n_traversers, d_ic);
+                });
+        }
+
+        template <std::size_t d>
+        inline void clear_get_traverser_work_impl(std::integral_constant<std::size_t, d> d_ic) const
+        {
+            static_for<0, nIntervals>::apply(
+                [this, d_ic](const auto i) -> void
+                {
+                    std::get<i>(m_sets).clear_get_traverser_work(d_ic);
+                });
         }
 
         template <class index_t, std::size_t d>
