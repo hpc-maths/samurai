@@ -415,7 +415,7 @@ int main(int argc, char* argv[])
             tic();
             for (std::size_t nb_ite = 0; nb_ite <= N; ++nb_ite)
             {
-                // std::cout<<std::endl<<"   Iteration number =
+                // samurai::io::print("\n   Iteration number = ");
                 // "<<nb_ite<<std::endl;
 
                 if (nb_ite == N)

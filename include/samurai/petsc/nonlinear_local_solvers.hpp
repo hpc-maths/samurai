@@ -264,7 +264,7 @@ namespace samurai
                 }
 
                 // MatView(B, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                // std::cout << std::endl;
+                // samurai::io::print("\n");
 
                 VecRestoreArrayRead(x, &x_data);
 
@@ -287,12 +287,12 @@ namespace samurai
                     SNESGetConvergedReasonString(snes, &reason_text);
                     samurai::io::eprint("Divergence of the non-linear solver ({})\n", reason_text);
                     // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                    // std::cout << std::endl;
+                    // samurai::io::print("\n");
                     // assert(check_nan_or_inf(b));
                     assert(false && "Divergence of the solver");
                     exit(EXIT_FAILURE);
                 }
-                // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
+                // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); samurai::io::print("\n");
             }
 
           public:

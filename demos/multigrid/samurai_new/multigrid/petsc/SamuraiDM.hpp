@@ -72,7 +72,7 @@ namespace samurai_new
 
             static PetscErrorCode Coarsen(DM fine_dm, MPI_Comm /*comm*/, DM* coarse_dm)
             {
-                // std::cout << "Coarsen - begin" << std::endl;
+                // samurai::io::print("Coarsen - begin\n");
                 LevelContext<Dsctzr>* fine_ctx;
                 DMShellGetContext(fine_dm, &fine_ctx);
 
@@ -84,10 +84,9 @@ namespace samurai_new
                 DMShellCreate(PetscObjectComm(reinterpret_cast<PetscObject>(fine_dm)), coarse_dm);
                 DefineShellFunctions(*coarse_dm, *coarse_ctx);
 
-                // DMShellCreate(PetscObjectComm((PetscObject)fine_dm),
-                // coarse_dm); DefineShellFunctions(*coarse_dm, *coarse_ctx);
-                // std::cout << "Coarsen (create level " << coarse_ctx->level <<
-                // ")" << std::endl;
+                // DMShellCreate(PetscObjectComm((PetscObject)fine_dm), coarse_dm);
+                // DefineShellFunctions(*coarse_dm, *coarse_ctx);
+                // samurai::io::print("Coarsen (create level {})\n", coarse_ctx->level);
                 return 0;
             }
 
@@ -97,8 +96,7 @@ namespace samurai_new
                 DMShellGetContext(shell, &ctx);
 
                 ctx->assembly().create_matrix(*A);
-                // std::cout << "CreateMatrix - level " << ctx->level <<
-                // std::endl;
+                // samurai::io::print("CreateMatrix - level {}\n", ctx->level);
 
                 MatSetDM(*A, shell); // Why???
                 return 0;
@@ -116,7 +114,7 @@ namespace samurai_new
                 ctx->assembly().assemble_matrix(jac);
 
                 // MatView(jac, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                // std::cout << std::endl;
+                // samurai::io::print("\n");
                 return 0;
             }
 
@@ -147,9 +145,9 @@ namespace samurai_new
                 MatShellGetContext(P, &coarse_ctx);
                 fine_ctx = coarse_ctx->finer;
 
-                // std::cout << "coarse vector x:" << std::endl;
-                // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout
-                // << std::endl;
+                // samurai::io::print("coarse vector x:\n");
+                // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
+                // samurai::io::print("\n");
 
                 if (coarse_ctx->transfer_ops == TransferOperators::MatrixFree_Fields)
                 {
@@ -172,9 +170,9 @@ namespace samurai_new
                     VecRestoreArrayRead(x, &xarray);
                     VecRestoreArray(y, &yarray);
 
-                    /*std::cout << "prolongated vector (marche):" << std::endl;
-                    VecView(y, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout
-                    << std::endl;
+                    /*samurai::io::print("prolongated vector (marche):\n");
+                    VecView(y, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
+                    samurai::io::print("\n");
 
                     // With matrix
                     std::size_t nf = fine_ctx->mesh().nb_cells();
@@ -191,17 +189,18 @@ namespace samurai_new
                     fine_ctx->mesh(), P2); MatAssemblyBegin(P2,
                     MAT_FINAL_ASSEMBLY); MatAssemblyEnd(P2, MAT_FINAL_ASSEMBLY);
 
-                    std::cout << "prolongated vector with matrix (marche pas):"
-                    << std::endl; Vec y2; VecCreateSeq(PETSC_COMM_SELF, nf,
-                    &y2); MatMult(P2, x, y2); VecView(y2,
-                    PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout <<
-                    std::endl;*/
+                    samurai::io::print("prolongated vector with matrix (marche pas):\n");
+                    Vec y2; VecCreateSeq(PETSC_COMM_SELF, nf, &y2);
+                    MatMult(P2, x, y2);
+                    VecView(y2, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
+                    samurai::io::print("\n");*/
                 }
 
-                // std::cout << "prolongated vector:" << std::endl;
-                // VecView(y, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout
-                // << std::endl; PetscReal norm; VecNorm(y, NORM_2, &norm);
-                // std::cout << "prolongated vector norm:" << norm << std::endl;
+                // samurai::io::print("prolongated vector:\n");
+                // VecView(y, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
+                // samurai::io::print("\n");
+                // PetscReal norm; VecNorm(y, NORM_2, &norm);
+                // samurai::io::print("prolongated vector norm:{}\n", norm);
 
                 assert(samurai::petsc::check_nan_or_inf(y) && "Nan or Inf after prolongation");
                 return 0;
@@ -231,8 +230,8 @@ namespace samurai_new
                 MatAssemblyBegin(*P, MAT_FINAL_ASSEMBLY);
                 MatAssemblyEnd(*P, MAT_FINAL_ASSEMBLY);
 
-                // MatView(*P, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout
-                // << std::endl;
+                // MatView(*P, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
+                // samurai::io::print("\n");
 
                 *scaling = nullptr; // Why???
 
@@ -260,9 +259,9 @@ namespace samurai_new
                 MatShellGetContext(R, &fine_ctx);
                 LevelContext<Dsctzr>* coarse_ctx = fine_ctx->coarser;
 
-                // std::cout << "restriction - fine vector:" << std::endl;
-                // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout
-                // << std::endl;
+                // samurai::io::print("restriction - fine vector:\n");
+                // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
+                // samurai::io::print("\n");
 
                 if (coarse_ctx->transfer_ops == TransferOperators::MatrixFree_Fields)
                 {
@@ -282,10 +281,11 @@ namespace samurai_new
                     VecRestoreArray(y, &yarray);
                 }
 
-                // std::cout << "restriction - restricted vector:" << std::endl;
-                // VecView(y, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout
-                // << std::endl; PetscReal norm; VecNorm(y, NORM_2, &norm);
-                // std::cout << "restricted vector norm:" << norm << std::endl;
+                // samurai::io::print("restriction - restricted vector:\n");
+                // VecView(y, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
+                // samurai::io::print("\n");
+                // PetscReal norm; VecNorm(y, NORM_2, &norm);
+                // samurai::io::print("restricted vector norm:{}\n", norm);
 
                 assert(samurai::petsc::check_nan_or_inf(y) && "Nan or Inf after restriction");
                 return 0;
@@ -320,31 +320,30 @@ namespace samurai_new
                 MatAssemblyEnd(*R, MAT_FINAL_ASSEMBLY);
 
                 // MatView(*R, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                // std::cout << std::endl;
+                // samurai::io::print("\n");
 
                 return 0;
             }
 
             static PetscErrorCode CreateGlobalVector(DM shell, Vec* x)
             {
-                // std::cout << "CreateGlobalVector - begin " << std::endl;
+                // samurai::io::print("CreateGlobalVector - begin\n");
                 LevelContext<Dsctzr>* ctx;
                 DMShellGetContext(shell, &ctx);
                 VecCreateSeq(PETSC_COMM_SELF, static_cast<PetscInt>(ctx->mesh().nb_cells()), x);
                 VecSetDM(*x, shell);
-                // std::cout << "CreateGlobalVector - level " << ctx->level <<
-                // std::endl;
+                // samurai::io::print("CreateGlobalVector - level {}\n", ctx->level);
                 return 0;
             }
 
             static PetscErrorCode CreateLocalVector(DM shell, Vec* x)
             {
-                // std::cout << "CreateLocalVector - begin" << std::endl;
+                // samurai::io::print("CreateLocalVector - begin\n");
                 LevelContext<Dsctzr>* ctx;
                 DMShellGetContext(shell, &ctx);
                 VecCreateSeq(PETSC_COMM_SELF, static_cast<PetscInt>(ctx->mesh().nb_cells()), x);
                 VecSetDM(*x, shell);
-                // std::cout << "CreateLocalVector - end" << std::endl;
+                // samurai::io::print("CreateLocalVector - end\n");
                 return 0;
             }
         };

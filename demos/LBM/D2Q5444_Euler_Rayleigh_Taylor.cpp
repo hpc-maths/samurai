@@ -511,7 +511,7 @@ void one_time_step(Field& f,
             std::size_t j = max_level - (lev_p_1);
             double coeff  = 1. / (1 << (2 * j)); // ATTENTION A LA DIMENSION 2 !!!!
 
-            // std::cout<<std::endl<<"Level = "<<level<<std::endl;
+            // samurai::io::print("\nLevel = {}\n", level);
 
             auto leaves = samurai::intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level]);
 
@@ -566,7 +566,7 @@ void one_time_step(Field& f,
                     auto k = interval; // Logical index in x
                     auto h = index[0]; // Logical index in y
 
-                    // std::cout<<std::endl<<"East : "<<k<<"  | 
+                    // samurai::io::print("\nEast : {}  | ", k);
                     // "<<h<<std::endl;
 
                     std::array<unsigned short int, 3> vld_flx{0, 2, 6};
@@ -605,7 +605,7 @@ void one_time_step(Field& f,
                     auto k = interval; // Logical index in x
                     auto h = index[0]; // Logical index in y
 
-                    // std::cout<<std::endl<<"NorthEast : "<<k<<"  | 
+                    // samurai::io::print("\nNorthEast : {}  | ", k);
                     // "<<h<<std::endl;
 
                     std::array<unsigned short int, 2> vld_flx{0, 2};
@@ -649,7 +649,7 @@ void one_time_step(Field& f,
                     auto k = interval; // Logical index in x
                     auto h = index[0]; // Logical index in y
 
-                    // std::cout<<std::endl<<"SouthEast : "<<k<<"  | 
+                    // samurai::io::print("\nSouthEast : {}  | ", k);
                     // "<<h<<std::endl;
 
                     std::array<unsigned short int, 2> vld_flx{0, 6};
@@ -690,7 +690,7 @@ void one_time_step(Field& f,
                 {
                     auto k = interval; // Logical index in x
                     auto h = index[0]; // Logical index in y
-                    // std::cout<<std::endl<<"West : "<<k<<"  | 
+                    // samurai::io::print("\nWest : {}  | ", k);
                     // "<<h<<std::endl;
 
                     std::array<unsigned short int, 3> vld_flx{2, 4, 6};
@@ -728,7 +728,7 @@ void one_time_step(Field& f,
                 {
                     auto k = interval; // Logical index in x
                     auto h = index[0]; // Logical index in y
-                    // std::cout<<std::endl<<"NorthWest : "<<k<<"  | 
+                    // samurai::io::print("\nNorthWest : {}  | ", k);
                     // "<<h<<std::endl;
 
                     std::array<unsigned short int, 2> vld_flx{2, 4};
@@ -770,7 +770,7 @@ void one_time_step(Field& f,
                 {
                     auto k = interval; // Logical index in x
                     auto h = index[0]; // Logical index in y
-                    // std::cout<<std::endl<<"SouthWest : "<<k<<"  | 
+                    // samurai::io::print("\nSouthWest : {}  | ", k);
                     // "<<h<<std::endl;
 
                     std::array<unsigned short int, 2> vld_flx{4, 6};
@@ -811,7 +811,7 @@ void one_time_step(Field& f,
                 {
                     auto k = interval; // Logical index in x
                     auto h = index[0]; // Logical index in y
-                    // std::cout<<std::endl<<"North : "<<k<<"  | 
+                    // samurai::io::print("\nNorth : {}  | ", k);
                     // "<<h<<std::endl;
 
                     std::array<unsigned short int, 3> vld_flx{0, 2, 4};
@@ -850,7 +850,7 @@ void one_time_step(Field& f,
                 {
                     auto k = interval; // Logical index in x
                     auto h = index[0]; // Logical index in y
-                    // std::cout<<std::endl<<"South : "<<k<<"  | 
+                    // samurai::io::print("\nSouth : {}  | ", k);
                     // "<<h<<std::endl;
 
                     std::array<unsigned short int, 3> vld_flx{0, 4, 6};

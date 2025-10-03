@@ -221,7 +221,7 @@ namespace samurai
                 }
 
                 // MatView(B, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                // std::cout << std::endl;
+                // samurai::io::print("\n");
 
                 // Put back the real unknown: we need its B.C. for the evaluation of the non-linear function
                 assembly.set_unknown(*real_system_unknown);
@@ -243,7 +243,7 @@ namespace samurai
                 // assembly().set_0_for_useless_ghosts(b);
 
                 // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                // std::cout << std::endl;
+                // samurai::io::print("\n");
                 // assert(check_nan_or_inf(b));
             }
 
@@ -269,12 +269,12 @@ namespace samurai
                     SNESGetConvergedReasonString(m_snes, &reason_text);
                     samurai::io::eprint("Divergence of the non-linear solver ({})\n", reason_text);
                     // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                    // std::cout << std::endl;
+                    // samurai::io::print("\n");
                     // assert(check_nan_or_inf(b));
                     assert(false && "Divergence of the solver");
                     exit(EXIT_FAILURE);
                 }
-                // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
+                // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); samurai::io::print("\n");
             }
 
           public:

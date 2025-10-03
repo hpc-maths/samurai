@@ -116,7 +116,7 @@ namespace samurai
                 }
 
                 this->assemble_matrix();
-                // MatView(m_A, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
+                // MatView(m_A, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); samurai::io::print("\n");
                 KSPSetOperators(m_ksp, m_A, m_A);
 
                 PC pc;

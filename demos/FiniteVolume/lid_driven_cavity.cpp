@@ -437,20 +437,19 @@ int main(int argc, char* argv[])
         // Vec nest_result           = nestedAssembly.create_rhs_vector(result_nest);
         // MatMult(nestedA, nest_x, nest_result);
 
-        // std::cout << std::setprecision(15);
-        // std::cout << std::fixed;
+        // samurai::io::print("(setprecision 15, fixed)\n");
         // samurai::for_each_cell(
         //     mesh[mesh_id_t::reference],
         //     [&](auto cell)
         //     {
-        //         std::cout << round(result_velocity_mono[cell][0] * 1.e8) / 1.e8 << std::endl;
+        //         samurai::io::print("{}\n", round(result_velocity_mono[cell][0] * 1.e8) / 1.e8);
         //         if (round(result_velocity_mono[cell][0] * 1.e5) / 1.e5 != round(result_velocity_nest[cell][0] * 1.e5) / 1.e5)
         //         {
-        //             std::cout << result_velocity_mono[cell][0] << " =? " << result_velocity_nest[cell][0] << std::endl;
+        //             samurai::io::print("{} =? {}\n", result_velocity_mono[cell][0], result_velocity_nest[cell][0]);
         //         }
         //         if (result_pressure_mono[cell] != result_pressure_nest[cell])
         //         {
-        //             std::cout << result_pressure_mono[cell] << " =? " << result_pressure_nest[cell] << std::endl;
+        //             samurai::io::print("{} =? {}\n", result_pressure_mono[cell], result_pressure_nest[cell]);
         //         }
         //     });
     }

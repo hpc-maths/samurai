@@ -194,7 +194,7 @@ namespace samurai
 
                 // for (std::size_t row = 0; row < nnz.size(); ++row)
                 // {
-                //     std::cout << "nnz[" << row << "] = " << nnz[row] << std::endl;
+                //     samurai::io::print("nnz[{}] = {}\n", row, nnz[row]);
                 // }
                 if (!m_is_block)
                 {
@@ -246,7 +246,7 @@ namespace samurai
 
             virtual ~MatrixAssembly()
             {
-                // std::cout << "Destruction of '" << name() << "'" << std::endl;
+                // samurai::io::print("Destruction of '{}'\n", name());
                 m_is_deleted = true;
             }
 

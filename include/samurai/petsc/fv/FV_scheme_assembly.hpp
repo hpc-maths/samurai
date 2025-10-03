@@ -96,7 +96,7 @@ namespace samurai
                     exit(EXIT_FAILURE);
                 }
                 m_n_cells = mesh().nb_cells();
-                // std::cout << "reset " << this->name() << ", rows = " << matrix_rows() << std::endl;
+                // samurai::io::print("reset {}, rows = {}\n", this->name(), matrix_rows());
                 m_is_row_empty.resize(static_cast<std::size_t>(matrix_rows()));
                 std::fill(m_is_row_empty.begin(), m_is_row_empty.end(), true);
 
@@ -430,7 +430,7 @@ namespace samurai
 
             void assemble_boundary_conditions(Mat& A) override
             {
-                // std::cout << "assemble_boundary_conditions of " << this->name() << std::endl;
+                // samurai::io::print("assemble_boundary_conditions of {}\n", this->name());
                 if (current_insert_mode() == ADD_VALUES)
                 {
                     // Must flush to use INSERT_VALUES instead of ADD_VALUES
@@ -512,7 +512,7 @@ namespace samurai
 
             virtual void enforce_bc(Vec& b) const
             {
-                // std::cout << "enforce_bc of " << this->name() << std::endl;
+                // samurai::io::print("enforce_bc of {}\n", this->name());
                 if (!this->is_block())
                 {
                     PetscInt b_rows;
@@ -600,7 +600,7 @@ namespace samurai
                     MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
                     set_current_insert_mode(INSERT_VALUES);
                 }
-                // std::cout << "insert_value_on_diag_for_useless_ghosts of " << this->name() << std::endl;
+                // samurai::io::print("insert_value_on_diag_for_useless_ghosts of {}\n", this->name());
                 for (std::size_t i = 0; i < m_is_row_empty.size(); i++)
                 {
                     if (m_is_row_empty[i])

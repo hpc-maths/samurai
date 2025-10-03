@@ -154,7 +154,7 @@ namespace samurai
         cfg.parse_args();
         for (std::size_t i = 0; i < max_level - min_level; ++i)
         {
-            // std::cout << "MR mesh adaptation " << i << std::endl;
+            // samurai::io::print("MR mesh adaptation {}\n", i);
             m_detail.resize();
             m_detail.fill(0);
             m_tag.resize();

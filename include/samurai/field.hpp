@@ -155,7 +155,7 @@ namespace samurai
             {
                 auto interval_tmp = this->derived_cast().get_interval(level, interval, index);
 
-                // std::cout << "READ OR WRITE: " << level << " " << interval << " " << (... << index) << std::endl;
+                // samurai::io::print("READ OR WRITE: {} {} ...\n", level, interval);
                 return view(m_storage, {interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step});
             }
 
@@ -165,7 +165,7 @@ namespace samurai
                                    const xt::xtensor_fixed<interval_value_t, xt::xshape<dim - 1>>& index) const
             {
                 auto interval_tmp = this->derived_cast().get_interval(level, interval, index);
-                // std::cout << "READ: " << level << " " << interval << " " << (... << index) << std::endl;
+                // samurai::io::print("READ: {} {} ...\n", level, interval);
                 auto data = view(m_storage, {interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step});
 
 #ifdef SAMURAI_CHECK_NAN
@@ -254,7 +254,7 @@ namespace samurai
 
                 if (xt::any(xt::isnan(data)))
                 {
-                    // std::cout << data << std::endl;
+                    // samurai::io::print("{}\n", fmt::streamed(data));
                     samurai::io::eprint("READ NaN at level {}, {}\n", level, fmt::streamed(interval));
                 }
 #endif
