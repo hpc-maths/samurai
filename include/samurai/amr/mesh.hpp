@@ -116,13 +116,14 @@ namespace samurai::amr
     inline void Mesh<Config>::update_sub_mesh_impl()
     {
         cl_type cl;
-        for_each_interval(this->cells()[mesh_id_t::cells],
+        auto ghost_width = cfg().ghost_width();
+        for_each_interval(this->cells()[mesh_id_t::cells, ghost_width],
                           [&](std::size_t level, const auto& interval, const auto& index_yz)
                           {
                               lcl_type& lcl = cl[level];
                               static_nested_loop<dim - 1>(
-                                  -cfg().ghost_width(),
-                                  cfg().ghost_width() + 1,
+                                  -ghost_width,
+                                  ghost_width + 1,
                                   [&](auto stencil)
                                   {
                                       auto index = xt::eval(index_yz + stencil);
