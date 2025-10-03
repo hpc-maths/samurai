@@ -6,7 +6,6 @@
 #include <array>
 #include <set>
 
-
 #include "cell_array.hpp"
 #include "cell_list.hpp"
 #include "domain_builder.hpp"
