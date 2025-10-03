@@ -5,6 +5,7 @@
 #include "../../explicit_scheme.hpp"
 #include "../FV_scheme.hpp"
 #include "flux_definition.hpp"
+#include "../../../print.hpp"
 
 namespace samurai
 {
@@ -24,8 +25,8 @@ namespace samurai
         // cppcheck-suppress knownConditionTrueFalse
         if (args::finer_level_flux != 0 && cfg::dim > 1 && cfg::stencil_size > 4 && !args::refine_boundary)
         {
-            std::cout << "Warning: for stencils larger than 4, computing fluxes at max_level may cause issues close to the boundary."
-                      << std::endl;
+            samurai::io::print(samurai::io::root,
+                               "Warning: for stencils larger than 4, computing fluxes at max_level may cause issues close to the boundary.\n");
         }
 
         return FluxBasedScheme<cfg, bdry_cfg>(flux_definition);

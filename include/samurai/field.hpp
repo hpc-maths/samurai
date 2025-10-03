@@ -29,6 +29,7 @@ namespace fs = std::filesystem;
 #include "numeric/gauss_legendre.hpp"
 #include "storage/containers.hpp"
 #include "timers.hpp"
+#include "print.hpp"
 
 namespace samurai
 {
@@ -536,7 +537,8 @@ namespace samurai
             //                   level_field[cell] = cell.level;
             //               });
             // save(fs::current_path(), "mesh_throw", {true, true}, this->mesh(), coords, level_field);
-            (std::cout << ... << index) << std::endl;
+            ((samurai::io::print("{} ", index)), ...);
+            samurai::io::print("\n");
             throw std::out_of_range(fmt::format("FIELD ERROR on level {}: try to find interval {}", level, interval));
         }
 
@@ -756,7 +758,7 @@ namespace samurai
 
         if (field1.mesh() != field2.mesh())
         {
-            std::cout << "mesh different" << std::endl;
+            samurai::io::print(samurai::io::root, "mesh different\n");
             return false;
         }
 
@@ -1174,7 +1176,8 @@ namespace samurai
             //                   level_field[cell] = cell.level;
             //               });
             // save(fs::current_path(), "mesh_throw", {true, true}, this->mesh(), coords, level_field);
-            (std::cout << ... << index) << std::endl;
+            ((samurai::io::print("{} ", index)), ...);
+            samurai::io::print("\n");
             throw std::out_of_range(fmt::format("FIELD ERROR on level {}: try to find interval {}", level, interval));
         }
 
@@ -1393,7 +1396,7 @@ namespace samurai
 
         if (field1.mesh() != field2.mesh())
         {
-            std::cout << "mesh different" << std::endl;
+            samurai::io::print(samurai::io::root, "mesh different\n");
             return false;
         }
 

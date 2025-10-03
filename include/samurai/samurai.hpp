@@ -97,7 +97,7 @@ namespace samurai
         if (args::timers) // cppcheck-suppress knownConditionTrueFalse
         {
             times::timers.stop("total runtime");
-            std::cout << std::endl;
+            samurai::io::print(samurai::io::root, "\n");
             times::timers.print();
         }
 #ifdef SAMURAI_WITH_MPI

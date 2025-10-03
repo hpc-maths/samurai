@@ -1,5 +1,6 @@
 #pragma once
 #include "flux_based_scheme.hpp"
+#include "../../../print.hpp"
 
 namespace samurai
 {
@@ -103,8 +104,8 @@ namespace samurai
         {
             if (enable && dim > 1 && stencil_size > 4 && !args::refine_boundary) // cppcheck-suppress knownConditionTrueFalse
             {
-                std::cout << "Warning: for stencils larger than 4, computing fluxes at max_level may cause issues close to the boundary."
-                          << std::endl;
+                samurai::io::print(samurai::io::root,
+                                   "Warning: for stencils larger than 4, computing fluxes at max_level may cause issues close to the boundary.\n");
             }
             m_finer_level_flux = enable ? -1 : 0;
         }

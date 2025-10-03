@@ -849,13 +849,13 @@ namespace samurai
                         [&](const auto& i, const auto& index)
                         {
                             // delete cell
-                            std::cout << fmt::format("fall intersection between {} {} on level {} in {} {}",
-                                                     world.rank(),
-                                                     neighbour.rank,
-                                                     level,
-                                                     i,
-                                                     index[0])
-                                      << std::endl;
+                            samurai::io::print(samurai::io::root,
+                                               "fall intersection between {} {} on level {} in {} {}\n",
+                                               world.rank(),
+                                               neighbour.rank,
+                                               level,
+                                               fmt::streamed(i),
+                                               fmt::streamed(index[0]));
                         });
                 }
             }
