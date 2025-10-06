@@ -9,6 +9,7 @@
 #include <samurai/io/hdf5.hpp>
 #include <samurai/io/restart.hpp>
 #include <samurai/mesh.hpp>
+#include <samurai/mesh_config.hpp>
 #include <samurai/mr/operators.hpp>
 #include <samurai/samurai.hpp>
 
@@ -51,16 +52,10 @@ struct fmt::formatter<SimpleID> : formatter<string_view>
     }
 };
 
-template <std::size_t dim_>
-struct AMRConfig
+template <std::size_t dim_, int prediction_stencil_radius_ = 1, std::size_t max_refinement_level_ = 20, class interval_t_ = samurai::Interval<int>>
+struct AMRConfig : samurai::mesh_config<dim_, prediction_stencil_radius_, max_refinement_level_, interval_t_>
 {
-    static constexpr std::size_t dim                       = dim_;
-    static constexpr std::size_t max_refinement_level      = 20;
-    static constexpr int max_stencil_width                 = 2;
-    static constexpr int ghost_width                       = 2;
-    static constexpr std::size_t prediction_stencil_radius = 1;
-    using interval_t                                       = samurai::Interval<int>;
-    using mesh_id_t                                        = SimpleID;
+    using mesh_id_t = SimpleID;
 };
 
 template <class Config>
@@ -104,17 +99,19 @@ class AMRMesh : public samurai::Mesh_base<AMRMesh<Config>, Config>
     inline void update_sub_mesh_impl()
     {
         cl_type cl;
-        for_each_interval(
-            this->cells()[mesh_id_t::cells],
-            [&](std::size_t level, const auto& interval, const auto& index_yz)
-            {
-                samurai::static_nested_loop<dim - 1, -config::ghost_width, config::ghost_width + 1>(
-                    [&](auto stencil)
-                    {
-                        auto index = xt::eval(index_yz + stencil);
-                        cl[level][index].add_interval({interval.start - config::ghost_width, interval.end + config::ghost_width});
-                    });
-            });
+        auto ghost_width = this->cfg().ghost_width();
+        for_each_interval(this->cells()[mesh_id_t::cells],
+                          [&](std::size_t level, const auto& interval, const auto& index_yz)
+                          {
+                              samurai::static_nested_loop<dim - 1>(
+                                  -ghost_width,
+                                  ghost_width + 1,
+                                  [&](auto stencil)
+                                  {
+                                      auto index = xt::eval(index_yz + stencil);
+                                      cl[level][index].add_interval({interval.start - ghost_width, interval.end + ghost_width});
+                                  });
+                          });
         this->cells()[mesh_id_t::cells_and_ghosts] = {cl, false};
     }
 };
@@ -630,7 +627,7 @@ int main(int argc, char* argv[])
     SAMURAI_PARSE(argc, argv);
 
     const samurai::Box<double, dim> box(min_corner, max_corner);
-    auto config = samurai::mesh_config<dim>().min_level(4).max_level(8);
+    auto config = samurai::mesh_config<dim>().min_level(4).max_level(8).max_stencil_radius(2);
     AMRMesh<Config> mesh;
 
     auto phi = samurai::make_scalar_field<double>("phi", mesh);
