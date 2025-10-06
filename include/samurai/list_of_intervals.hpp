@@ -62,6 +62,11 @@ namespace samurai
 
         void add_point(value_t point);
         void add_interval(const interval_t& interval);
+
+        void clear()
+        {
+            std::forward_list<Interval<TValue, TIndex>>::clear();
+        }
     };
 
     ////////////////////////////////////

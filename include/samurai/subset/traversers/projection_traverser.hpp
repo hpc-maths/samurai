@@ -3,16 +3,11 @@
 
 #pragma once
 
+#include "../projection_type.hpp"
 #include "set_traverser_base.hpp"
 
 namespace samurai
 {
-    enum class ProjectionType
-    {
-        COARSEN,
-        REFINE
-    };
-
     template <class SetTraverser>
     class ProjectionTraverser;
 

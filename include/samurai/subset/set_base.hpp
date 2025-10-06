@@ -7,6 +7,7 @@
 
 #include <utility>
 
+#include "../samurai_config.hpp"
 #include "traversers/set_traverser_base.hpp"
 
 namespace samurai
@@ -23,6 +24,9 @@ namespace samurai
 
     template <class Set>
     class Projection;
+
+    template <class Set>
+    class ProjectionLOI;
 
     template <class Set, class Func>
     void apply(const SetBase<Set>& set, Func&& func);
@@ -45,6 +49,8 @@ namespace samurai
 
         using to_lca_t       = LevelCellArray<DerivedTraits::dim(), interval_t>;
         using to_lca_coord_t = typename to_lca_t::coords_t;
+
+        using ProjectionMethod = std::conditional_t<default_config::prediction_with_list_of_intervals, ProjectionLOI<Derived>, Projection<Derived>>;
 
         static constexpr std::size_t dim = DerivedTraits::dim();
 
@@ -91,7 +97,7 @@ namespace samurai
             return derived_cast().get_traverser_impl(index, d_ic);
         }
 
-        inline Projection<Derived> on(const std::size_t level);
+        inline ProjectionMethod on(const std::size_t level);
 
         template <class Func>
         void operator()(Func&& func) const
@@ -185,14 +191,15 @@ namespace samurai
 } // namespace samurai
 
 #include "projection.hpp"
+#include "projection_loi.hpp"
 
 namespace samurai
 {
 
     template <class Derived>
-    Projection<Derived> SetBase<Derived>::on(const std::size_t level)
+    auto SetBase<Derived>::on(const std::size_t level) -> ProjectionMethod
     {
-        return Projection<Derived>(derived_cast(), level);
+        return ProjectionMethod(derived_cast(), level);
     }
 
 }
