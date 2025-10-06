@@ -280,9 +280,9 @@ namespace samurai
             }(std::make_index_sequence<std::tuple_size_v<std::decay_t<decltype(coeff_arrays)>>>{});
 
             auto end = std::apply(
-                [](auto&... coeff_arrays)
+                [](auto&... arrays)
                 {
-                    return std::make_tuple(coeff_arrays.size()...);
+                    return std::make_tuple(arrays.size()...);
                 },
                 coeff_arrays);
 
@@ -657,9 +657,9 @@ namespace samurai
                  const std::tuple<typename Field::interval_t, index_t...>& i,
                  const std::tuple<cell_index_t...>& ii)
     {
-        auto get_f = [&](std::size_t level, const auto&... indices)
+        auto get_f = [&](std::size_t lvl, const auto&... indices)
         {
-            return f(element, level, indices...);
+            return f(element, lvl, indices...);
         };
         detail::portion_impl<Field::mesh_t::config::prediction_order, Field>(result, f, get_f, level, delta_l, i, ii);
     }
@@ -690,9 +690,9 @@ namespace samurai
                  const std::tuple<typename Field::interval_t, index_t...>& i,
                  const std::tuple<cell_index_t...>& ii)
     {
-        auto get_f = [&](std::size_t level, const auto&... indices)
+        auto get_f = [&](std::size_t lvl, const auto&... indices)
         {
-            return f(level, indices...);
+            return f(lvl, indices...);
         };
 
         detail::portion_impl<prediction_order, Field>(result, get_f, level, delta_l, i, ii);
@@ -772,21 +772,21 @@ namespace samurai
         using interval_t                 = typename Field::interval_t;
         static_assert(dim <= 3, "Not implemented for dim > 3");
 
-        auto get_f = [&](std::size_t level, const auto&... indices)
+        auto get_f = [&](std::size_t lvl, const auto&... indices)
         {
             if constexpr (Field::is_scalar)
             {
-                return f(level, indices...);
+                return f(lvl, indices...);
             }
             else
             {
                 if constexpr (Field::is_soa)
                 {
-                    return xt::view(f(level, indices...), xt::all(), 0);
+                    return xt::view(f(lvl, indices...), xt::all(), 0);
                 }
                 else
                 {
-                    return xt::view(f(level, indices...), 0);
+                    return xt::view(f(lvl, indices...), 0);
                 }
             }
         };

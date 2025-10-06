@@ -40,10 +40,10 @@ namespace samurai
         template <class... TFields>
         void set_inv_max_field(auto& inv_max_fields, const Field_tuple<TFields...>& field)
         {
-            auto f = [](auto& inv_max_fields, const auto& field, auto& dec)
+            auto f = [](auto& inv_max_fields_var, const auto& fld, auto& offset)
             {
-                set_inv_max_field(inv_max_fields, field, dec);
-                dec += field.n_comp;
+                set_inv_max_field(inv_max_fields_var, fld, offset);
+                offset += fld.n_comp;
             };
 
             std::size_t dec = 0;
