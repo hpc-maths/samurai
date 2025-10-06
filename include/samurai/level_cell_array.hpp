@@ -47,10 +47,6 @@ namespace samurai
         {
         }
 
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
-
         const coord_type index() const
         {
             iterator it = this->base();
