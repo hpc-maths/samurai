@@ -459,6 +459,7 @@ namespace samurai
                 {5, {5, 33}}
             };
             std::size_t ie = 0;
+            fmt::print("====================================================\n");
             apply(union_(ca_1[7], ca_2[7]).on(6),
                   [&](auto& i, auto& index)
                   {
@@ -1306,6 +1307,10 @@ namespace samurai
         cl[4][{2, 4}].add_interval({0, 18});
 
         ca = {cl, true};
+
+        std::cout << self(ca[4]).on(3).to_lca() << std::endl;
+
+        fmt::print("===============================================\n");
 
         // Test self-similarity at different scales
         bool found = false;

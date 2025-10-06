@@ -52,6 +52,8 @@ namespace samurai
         static constexpr int graduation_width          = 1;
         static constexpr int prediction_stencil_radius = 1;
 
+        static constexpr bool prediction_with_list_of_intervals = true;
+
         using index_t    = signed long long int;
         using value_t    = int;
         using interval_t = Interval<value_t, index_t>;

@@ -8,8 +8,6 @@
 #include "set_base.hpp"
 #include "traversers/projection_traverser.hpp"
 
-#include <fmt/core.h>
-
 namespace samurai
 {
 
@@ -143,14 +141,14 @@ namespace samurai
                 {
                     const std::size_t old_capacity = childTraversers.capacity();
 
-                    const value_t ymin = _index[d] << m_shift;
-                    const value_t ymax = (_index[d] + 1) << m_shift;
+                    const value_t ymin   = _index[d] << m_shift;
+                    const value_t ybound = (_index[d] + 1) << m_shift;
 
                     xt::xtensor_fixed<value_t, xt::xshape<Base::dim - 1>> index(_index << m_shift);
 
                     const auto childTraversers_begin = childTraversers.end();
 
-                    for (index[d] = ymin; index[d] != ymax; ++index[d])
+                    for (index[d] = ymin; index[d] != ybound; ++index[d])
                     {
                         childTraversers.push_back(m_set.get_traverser(index, d_ic));
                         if (childTraversers.back().is_empty())
