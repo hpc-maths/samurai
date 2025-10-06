@@ -497,7 +497,6 @@ namespace samurai
         typename iterator::offset_type_iterator offset_index;
         typename iterator::iterator_container current_index;
         typename iterator::coord_type index;
-        index.fill(0);
 
         for (std::size_t d = 0; d < dim; ++d)
         {
@@ -518,7 +517,6 @@ namespace samurai
         typename iterator::offset_type_iterator offset_index;
         typename iterator::iterator_container current_index;
         typename iterator::coord_type index;
-        index.fill(0);
 
         for (std::size_t d = 0; d < dim; ++d)
         {
@@ -541,7 +539,6 @@ namespace samurai
         typename const_iterator::offset_type_iterator offset_index;
         typename const_iterator::iterator_container current_index;
         typename const_iterator::coord_type index;
-        index.fill(0);
 
         for (std::size_t d = 0; d < dim; ++d)
         {
@@ -564,7 +561,6 @@ namespace samurai
         typename const_iterator::offset_type_iterator offset_index;
         typename const_iterator::iterator_container current_index;
         typename const_iterator::coord_type index;
-        index.fill(0);
 
         for (std::size_t d = 0; d < dim; ++d)
         {
