@@ -244,10 +244,6 @@ int main(int argc, char* argv[])
     // Time integration
     double cfl = 0.95;
 
-    // Multiresolution parameters
-    std::size_t min_level = 1;
-    std::size_t max_level = 7;
-
     // Output parameters
     fs::path path        = fs::current_path();
     std::string filename = "burgers_mra";
@@ -267,10 +263,10 @@ int main(int argc, char* argv[])
     //--------------------//
 
     Box box({left_box}, {right_box});
-    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).max_stencil_radius(2).graduation_width(2);
+    auto config = samurai::mesh_config<dim>().min_level(1).max_level(7).max_stencil_radius(2).graduation_width(2);
     auto mesh   = samurai::make_MRMesh(config, box);
     // samurai::MRMesh<Config> mesh{box, min_level, max_level};
-    auto max_level_config = samurai::mesh_config<dim>().min_level(max_level).max_level(max_level).max_stencil_radius(2);
+    auto max_level_config = samurai::mesh_config<dim>().min_level(mesh.max_level()).max_level(mesh.max_level()).max_stencil_radius(2);
     auto max_level_mesh   = samurai::make_MRMesh(max_level_config, box);
 
     auto u    = samurai::make_scalar_field<double>("u", mesh);

@@ -4,14 +4,16 @@
 #pragma once
 
 #include "arguments.hpp"
+#include "cell_array.hpp"
 #include "samurai_config.hpp"
+
 #include <array>
 
 namespace samurai
 {
 
     template <std::size_t dim_,
-              int prediction_stencil_radius_    = 1,
+              int prediction_stencil_radius_    = default_config::prediction_stencil_radius,
               std::size_t max_refinement_level_ = default_config::max_level,
               class interval_t_                 = default_config::interval_t>
     class mesh_config
@@ -23,6 +25,13 @@ namespace samurai
         static constexpr std::size_t max_refinement_level = max_refinement_level_;
 
         using interval_t = interval_t_;
+
+        using cell_t   = Cell<dim, interval_t>;
+        using cl_type  = CellList<dim, interval_t, max_refinement_level>;
+        using lcl_type = typename cl_type::lcl_type;
+
+        using ca_type  = CellArray<dim, interval_t, max_refinement_level>;
+        using lca_type = typename ca_type::lca_type;
 
       private:
 
@@ -39,7 +48,8 @@ namespace samurai
 
         std::array<bool, dim> m_periodic;
 
-        bool m_disable_args_parse = false;
+        bool m_disable_args_parse          = false;
+        bool m_disable_minimal_ghost_width = false;
 
       public:
 
@@ -327,7 +337,14 @@ namespace samurai
          */
         auto& disable_args_parse()
         {
-            m_disable_args_parse = false;
+            m_disable_args_parse = true;
+            return *this;
+        }
+
+        // disable_minimal_ghost_width --------------------
+        auto& disable_minimal_ghost_width()
+        {
+            m_disable_minimal_ghost_width = true;
             return *this;
         }
 
@@ -370,6 +387,13 @@ namespace samurai
             }
 
             m_ghost_width = std::max(m_max_stencil_radius, static_cast<int>(prediction_stencil_radius));
+
+            if (!m_disable_minimal_ghost_width)
+            {
+                // 2 is because prediction_stencil_radius=1, if >1 we don't know what to do...
+                // The idea is to have enough ghosts at the boundary for the reconstruction and the transfer to work.
+                m_max_stencil_radius = std::max(m_max_stencil_radius, 2);
+            }
         }
 
       private:

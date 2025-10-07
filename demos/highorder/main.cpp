@@ -199,7 +199,8 @@ int main(int argc, char* argv[])
                                                });
                                        });
             // mesh = {cl, mesh.min_level() + 1, mesh.max_level() + 1};
-            auto mesh_cfg = samurai::mesh_config<dim>().min_level(init_mesh.min_level() + i_ref + 1).max_level(init_mesh.max_level() + i_ref + 1);
+            auto mesh_cfg = mesh.cfg();
+            mesh_cfg.min_level(init_mesh.min_level() + i_ref + 1).max_level(init_mesh.max_level() + i_ref + 1);
             mesh = samurai::make_MRMesh(mesh_cfg, cl);
         }
         // std::cout << mesh << std::endl;

@@ -89,9 +89,9 @@ auto create_uniform_mesh(std::size_t level)
     min_level   = level;
     max_level   = level;
 
-    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
+    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).disable_minimal_ghost_width();
     return samurai::amr::make_Mesh(config, box, start_level); // amr::Mesh
-    // return Mesh(box, /*start_level,*/ min_level, max_level); // MRMesh
+    // return samurai::make_MRMesh(box, /*start_level,*/ min_level, max_level); // MRMesh
 }
 
 template <std::size_t dim>
@@ -101,9 +101,9 @@ template <std::size_t dim>
     min_level = level - 1;
     max_level = level;
 
-    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
+    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).disable_minimal_ghost_width();
 
-    using cl_type = typename decltype(samurai::amr::make_Mesh(config))::cl_type;
+    using cl_type = typename decltype(config)::cl_type;
 
     int i = 1 << min_level;
 
@@ -116,7 +116,7 @@ template <std::size_t dim>
     static_assert(dim == 1, "create_refined_mesh() not implemented for this dimension");
 
     return samurai::amr::make_Mesh(config, cl); // amr::Mesh
-    // return Mesh(box, /*start_level,*/ min_level, max_level); // MRMesh
+    // return samurai::make_MRMesh(box, /*start_level,*/ min_level, max_level); // MRMesh
 }
 
 int main(int argc, char* argv[])
@@ -126,9 +126,8 @@ int main(int argc, char* argv[])
     constexpr std::size_t dim     = 2;
     constexpr unsigned int n_comp = 1;
     constexpr bool is_soa         = true;
-    using Field                   = decltype(samurai::make_vector_field<double, n_comp, is_soa>(
-        "type",
-        std::declval<decltype(create_uniform_mesh<dim>(1))&>())); // samurai::VectorField<Mesh, double, n_comp, is_soa>;
+    using Mesh                    = decltype(create_uniform_mesh<dim>(1));
+    using Field                   = samurai::VectorField<Mesh, double, n_comp, is_soa>;
 
     PetscMPIInt size;
     PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size));

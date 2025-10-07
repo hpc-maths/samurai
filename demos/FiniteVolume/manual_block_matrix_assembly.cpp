@@ -192,11 +192,8 @@ int main(int argc, char* argv[])
 
     std::cout << "------------------------- Begin -------------------------" << std::endl;
 
-    std::size_t min_level = 3;
-    std::size_t max_level = 3;
-
     Box box({0, 0}, {1, 1});
-    auto mesh_cfg = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
+    auto mesh_cfg = samurai::mesh_config<dim>().min_level(3).max_level(3);
     auto mesh_e   = samurai::make_MRMesh(mesh_cfg, box);
     auto mesh_s   = samurai::make_MRMesh(mesh_cfg, box);
 
