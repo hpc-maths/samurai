@@ -252,7 +252,7 @@ int main(int argc, char* argv[])
     auto tag = samurai::make_scalar_field<int>("tag", mesh);
     const xt::xtensor_fixed<int, xt::xshape<2, 1>> stencil_grad{{1}, {-1}};
 
-    const double dx      = mesh.cell_length(max_level);
+    const double dx      = mesh.min_cell_length();
     double dt            = 0.99 * dx;
     const double dt_save = Tf / static_cast<double>(nfiles);
 
