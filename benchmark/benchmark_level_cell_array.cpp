@@ -169,6 +169,8 @@ void LEVELCELLARRAY_empty_lcl_to_lca(benchmark::State& state)
         auto lca = samurai::LevelCellArray<dim, TInterval>(lcl);
         benchmark::DoNotOptimize(lca);
     }
+
+    state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(total_intervals));
 }
 
 // Mesure : Construction d'un LevelCellArray à partir d'un LevelCellList composé de n intervalles dans une direction
@@ -285,6 +287,8 @@ void LEVELCELLARRAY_nb_cells(benchmark::State& state)
         auto nb = lca.nb_cells();
         benchmark::DoNotOptimize(nb);
     }
+
+    state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(total_intervals));
 }
 
 // Mesure : Récupération de la taille de cellule d'un LevelCellArray
@@ -324,6 +328,8 @@ void LEVELCELLARRAY_max_indices(benchmark::State& state)
         auto max = lca.max_indices();
         benchmark::DoNotOptimize(max);
     }
+
+    state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(total_intervals));
 }
 
 // Mesure : Récupération du min d'indide d'un LevelCellArray
@@ -347,6 +353,8 @@ void LEVELCELLARRAY_min_indices(benchmark::State& state)
         auto min = lca.min_indices();
         benchmark::DoNotOptimize(min);
     }
+
+    state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(total_intervals));
 }
 
 // Mesure : Récupération du minmax d'indice d'un LevelCellArray
@@ -370,6 +378,8 @@ void LEVELCELLARRAY_minmax_indices(benchmark::State& state)
         auto minmax = lca.minmax_indices();
         benchmark::DoNotOptimize(minmax);
     }
+
+    state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(total_intervals));
 }
 
 // Mesure : Test d'égalité entre deux LevelCellArrays égaux de taille n
@@ -394,6 +404,8 @@ void LEVELCELLARRAY_equal(benchmark::State& state)
         auto is_equal = (lca == lca2);
         benchmark::DoNotOptimize(is_equal);
     }
+
+    state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(total_intervals));
 }
 
 // Mesure : Récupération du niveau bas d'un LevelCellArray

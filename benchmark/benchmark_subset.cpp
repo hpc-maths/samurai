@@ -247,6 +247,8 @@ void SUBSET_unified_benchmark_mixed_levels(benchmark::State& state, Gen1&& gen1,
         benchmark::DoNotOptimize(total_cells);
         benchmark::DoNotOptimize(subset);
     }
+
+    state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(total_intervals));
 }
 
 ///////////////////////////////////////////////////////////////////
@@ -346,6 +348,8 @@ void SUBSET_translate(benchmark::State& state)
         benchmark::DoNotOptimize(total_cells);
         benchmark::DoNotOptimize(subset);
     }
+
+    state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(total_intervals));
 }
 
 template <unsigned int dim, unsigned int level1, unsigned int level2>
@@ -384,6 +388,8 @@ void SUBSET_translate_and_intersect(benchmark::State& state)
         benchmark::DoNotOptimize(total_cells);
         benchmark::DoNotOptimize(subset);
     }
+
+    state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(total_intervals));
 }
 
 template <unsigned int dim, unsigned int level1, unsigned int level2>
@@ -423,6 +429,8 @@ void SUBSET_translate_and_intersect_and_project(benchmark::State& state)
         benchmark::DoNotOptimize(total_cells);
         benchmark::DoNotOptimize(subset);
     }
+
+    state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(total_intervals));
 }
 
 template <unsigned int dim, unsigned int level>
@@ -457,6 +465,8 @@ void SUBSET_translate_and_project(benchmark::State& state)
         benchmark::DoNotOptimize(total_cells);
         benchmark::DoNotOptimize(subset);
     }
+
+    state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(total_intervals));
 }
 
 template <unsigned int dim, unsigned int level>
@@ -487,6 +497,8 @@ void SUBSET_self(benchmark::State& state)
         benchmark::DoNotOptimize(total_cells);
         benchmark::DoNotOptimize(subset);
     }
+
+    state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(total_intervals));
 }
 
 template <unsigned int dim, unsigned int level>
@@ -518,6 +530,8 @@ void SUBSET_self_and_project(benchmark::State& state)
         benchmark::DoNotOptimize(total_cells);
         benchmark::DoNotOptimize(subset);
     }
+
+    state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(total_intervals));
 }
 
 ///////////////////////////////////////////////////////////////////

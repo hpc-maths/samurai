@@ -129,6 +129,8 @@ void CELLARRAY_cl_ca_multi(benchmark::State& state)
     state.counters["ns/interval"]  = benchmark::Counter(nb_intervals,
                                                        benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
     state.counters["dim"]          = dim;
+
+    state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(nb_intervals));
 }
 
 // Mesure : Récupération du niveau bas d'un CellList

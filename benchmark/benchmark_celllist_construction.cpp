@@ -144,6 +144,8 @@ void CELLLIST_add_interval_begin(benchmark::State& state)
     state.counters["intervals"]   = static_cast<double>(total_intervals);
     state.counters["ns/interval"] = benchmark::Counter(total_intervals,
                                                        benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
+
+    state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(total_intervals));
 }
 
 // Mesure : Copie de CellList par opérateur d'assignation
@@ -165,6 +167,8 @@ void CELLLIST_copy_assignment(benchmark::State& state)
     state.counters["intervals"]   = static_cast<double>(total_intervals);
     state.counters["ns/interval"] = benchmark::Counter(total_intervals,
                                                        benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
+
+    state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(total_intervals));
 }
 
 ////////////////////////////////////////////////////////////

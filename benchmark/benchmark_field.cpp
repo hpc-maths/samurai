@@ -102,6 +102,10 @@ void FIELD_fill_uniform(benchmark::State& state)
     {
         u.fill(1.0);
     }
+
+    state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(total_cells));
+    state.SetBytesProcessed(state.iterations() * static_cast<int64_t>(total_cells) * static_cast<int64_t>(n_comp)
+                            * static_cast<int64_t>(sizeof(double)) * 1);
 }
 
 // Mesure ; Remplissage d'un champ 1D de taille de coté n ,en utilisant for_each_cell (mesure d'overhead)
@@ -129,6 +133,10 @@ void FIELD_for_each_cell_fill_uniform(benchmark::State& state)
                           u[cell] = 1.0;
                       });
     }
+
+    state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(total_cells));
+    state.SetBytesProcessed(state.iterations() * static_cast<int64_t>(total_cells) * static_cast<int64_t>(n_comp)
+                            * static_cast<int64_t>(sizeof(double)) * 1);
 }
 
 // Weird : MPI issue ??? wtf ???
@@ -153,6 +161,10 @@ void FIELD_equal_uniform(benchmark::State& state)
     {
         v = u;
     }
+
+    state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(total_cells));
+    state.SetBytesProcessed(state.iterations() * static_cast<int64_t>(total_cells) * static_cast<int64_t>(1)
+                            * static_cast<int64_t>(sizeof(double)) * 2);
 }
 
 // Mesure : Ajout d'un scalaire à un champ par broadcasting
@@ -179,6 +191,10 @@ void FIELD_add_scalar_uniform(benchmark::State& state)
         v = u + 2.0;
         benchmark::DoNotOptimize(v[0]);
     }
+
+    state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(total_cells));
+    state.SetBytesProcessed(state.iterations() * static_cast<int64_t>(total_cells) * static_cast<int64_t>(n_comp)
+                            * static_cast<int64_t>(sizeof(double)) * 2);
 }
 
 // Mesure : Ajout d'un scalaire à un champ par "for_each_cell"
@@ -208,6 +224,10 @@ void FIELD_for_each_cell_add_scalar_uniform(benchmark::State& state)
                           v[cell] = u[cell] + 1.0;
                       });
     }
+
+    state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(total_cells));
+    state.SetBytesProcessed(state.iterations() * static_cast<int64_t>(total_cells) * static_cast<int64_t>(n_comp)
+                            * static_cast<int64_t>(sizeof(double)) * 2);
 }
 
 // Mesure : Somme de deux champs 1D par expression
@@ -237,6 +257,10 @@ void FIELD_add_uniform(benchmark::State& state)
         w = u + v;
         benchmark::DoNotOptimize(w[0]);
     }
+
+    state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(total_cells));
+    state.SetBytesProcessed(state.iterations() * static_cast<int64_t>(total_cells) * static_cast<int64_t>(n_comp)
+                            * static_cast<int64_t>(sizeof(double)) * 3);
 }
 
 // Mesure : Somme de deux champs 1D par "for_each_cell"
@@ -268,6 +292,10 @@ void FIELD_for_each_cell_add_uniform(benchmark::State& state)
                           w[cell] = u[cell] + v[cell];
                       });
     }
+
+    state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(total_cells));
+    state.SetBytesProcessed(state.iterations() * static_cast<int64_t>(total_cells) * static_cast<int64_t>(n_comp)
+                            * static_cast<int64_t>(sizeof(double)) * 3);
 }
 
 // Mesure : Expression complexe avec plusieurs opérations arithmétiques
@@ -305,6 +333,10 @@ void FIELD_complex_expression_uniform(benchmark::State& state)
         u = 2.0 + v + (w * x) / z;
         benchmark::DoNotOptimize(u[0]);
     }
+
+    state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(total_cells));
+    state.SetBytesProcessed(state.iterations() * static_cast<int64_t>(total_cells) * static_cast<int64_t>(n_comp)
+                            * static_cast<int64_t>(sizeof(double)) * 5);
 }
 
 // Mesure : Expression complexe avec plusieurs opérations arithmétiques (version for_each_cell)
@@ -345,6 +377,10 @@ void FIELD_for_each_cell_complex_expression_uniform(benchmark::State& state)
                           u[cell] = 2.0 + v[cell] + (w[cell] * x[cell]) / z[cell];
                       });
     }
+
+    state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(total_cells));
+    state.SetBytesProcessed(state.iterations() * static_cast<int64_t>(total_cells) * static_cast<int64_t>(n_comp)
+                            * static_cast<int64_t>(sizeof(double)) * 5);
 }
 
 BENCHMARK_TEMPLATE(FIELD_make_field_uniform, 1, 1)->Arg(16);

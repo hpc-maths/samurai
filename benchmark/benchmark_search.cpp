@@ -104,6 +104,8 @@ void FIND_find_unified(benchmark::State& state, const std::function<xt::xtensor_
     state.counters["nb_intervals"]   = nb_intervals;
     state.counters["nb_intervals_x"] = nb_intervals_x;
     state.counters["dimension"]      = dim;
+
+    state.SetItemsProcessed(state.iterations());
 }
 
 // Fonctions spécialisées pour chaque politique
