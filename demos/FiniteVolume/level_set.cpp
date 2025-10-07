@@ -90,7 +90,7 @@ void AMR_criteria(const Field& f, Tag& tag)
     samurai::for_each_cell(mesh[mesh_id_t::cells],
                            [&](auto cell)
                            {
-                               const double dx = mesh.cell_length(max_level);
+                               const double dx = mesh.cell_length(mesh.max_level());
 
                                if (std::abs(f[cell]) < 1.2 * 5 * std::sqrt(2.) * dx)
                                {
@@ -253,7 +253,6 @@ int main(int argc, char* argv[])
     auto& app = samurai::initialize("Finite volume example with a level set in 2d using AMR", argc, argv);
 
     constexpr std::size_t dim = 2;
-    using Config              = samurai::amr::Config<dim, 2>;
 
     // Simulation parameters
     xt::xtensor_fixed<double, xt::xshape<dim>> min_corner = {0., 0.};
@@ -265,8 +264,6 @@ int main(int argc, char* argv[])
 
     // AMR parameters
     std::size_t start_level = 8;
-    std::size_t min_level   = 4;
-    std::size_t max_level   = 8;
     bool correction         = false;
 
     // Output parameters
@@ -281,8 +278,6 @@ int main(int argc, char* argv[])
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
     app.add_option("--start-level", start_level, "Start level of AMR")->capture_default_str()->group("AMR parameters");
-    app.add_option("--min-level", min_level, "Minimum level of AMR")->capture_default_str()->group("AMR parameters");
-    app.add_option("--max-level", max_level, "Maximum level of AMR")->capture_default_str()->group("AMR parameters");
     app.add_option("--with-correction", correction, "Apply flux correction at the interface of two refinement levels")
         ->capture_default_str()
         ->group("AMR parameters");
@@ -292,12 +287,13 @@ int main(int argc, char* argv[])
     SAMURAI_PARSE(argc, argv);
 
     const samurai::Box<double, dim> box(min_corner, max_corner);
-    samurai::amr::Mesh<Config> mesh;
-    auto phi = samurai::make_scalar_field<double>("phi", mesh);
+    auto config = samurai::mesh_config<dim>().min_level(4).max_level(8).max_stencil_radius(2);
+    auto mesh   = samurai::amr::make_Mesh(config);
+    auto phi    = samurai::make_scalar_field<double>("phi", mesh);
 
     if (restart_file.empty())
     {
-        mesh = {box, start_level, min_level, max_level};
+        mesh = samurai::amr::make_Mesh(config, box, start_level);
         init_level_set(phi);
     }
     else
@@ -305,7 +301,7 @@ int main(int argc, char* argv[])
         samurai::load(restart_file, mesh, phi);
     }
 
-    double dt            = cfl * mesh.cell_length(max_level);
+    double dt            = cfl * mesh.cell_length(mesh.max_level());
     const double dt_save = Tf / static_cast<double>(nfiles);
 
     auto u = init_velocity(mesh);
@@ -373,9 +369,9 @@ int main(int argc, char* argv[])
             // TVD-RK2
             samurai::update_ghost(phi);
             phihat.resize();
-            phihat = phi - dt_fict * H_wrap(phi, phi_0, max_level);
+            phihat = phi - dt_fict * H_wrap(phi, phi_0, mesh.max_level());
             samurai::update_ghost(phihat);
-            phinp1 = .5 * phi_0 + .5 * (phihat - dt_fict * H_wrap(phihat, phi_0, max_level));
+            phinp1 = .5 * phi_0 + .5 * (phihat - dt_fict * H_wrap(phihat, phi_0, mesh.max_level()));
 
             std::swap(phi.array(), phinp1.array());
         }

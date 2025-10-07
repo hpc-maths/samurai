@@ -366,25 +366,26 @@ namespace samurai
     template <class Field>
     void update_further_ghosts_by_polynomial_extrapolation(std::size_t level, const DirectionVector<Field::dim>& direction, Field& field)
     {
-        static constexpr std::size_t ghost_width                     = Field::mesh_t::config::ghost_width;
+        int ghost_width                                              = field.mesh().ghost_width();
         static constexpr std::size_t max_stencil_size_implemented_PE = PolynomialExtrapolation<Field, 2>::max_stencil_size_implemented_PE;
 
         // 1. We fill the ghosts that are further than those filled by the B.C. (where there are boundary cells)
 
-        std::size_t ghost_layers_filled_by_bc = 0;
+        int ghost_layers_filled_by_bc = 0;
         for (auto& bc : field.get_bc())
         {
             ghost_layers_filled_by_bc = std::max(ghost_layers_filled_by_bc, bc->stencil_size() / 2);
         }
 
         // We populate the ghosts sequentially from the closest to the farthest.
-        for (std::size_t ghost_layer = ghost_layers_filled_by_bc + 1; ghost_layer <= ghost_width; ++ghost_layer)
+        for (int ghost_layer = ghost_layers_filled_by_bc + 1; ghost_layer <= ghost_width; ++ghost_layer)
         {
-            std::size_t stencil_s = 2 * ghost_layer;
-            static_for<2, std::min(max_stencil_size_implemented_PE, 2 * ghost_width) + 1>::apply(
-                [&](auto integral_constant_i)
+            int stencil_s = 2 * ghost_layer;
+            // static_for<2, std::min(max_stencil_size_implemented_PE, 2 * ghost_width) + 1>::apply(
+            static_for<2, max_stencil_size_implemented_PE + 1>::apply(
+                [&](auto stencil_size_)
                 {
-                    static constexpr std::size_t stencil_size = integral_constant_i();
+                    static constexpr int stencil_size = static_cast<int>(stencil_size_());
 
                     if constexpr (stencil_size % 2 == 0) // (because PolynomialExtrapolation is only implemented for even stencil_size)
                     {
@@ -405,13 +406,14 @@ namespace samurai
 
         const std::size_t ghost_layers_filled_by_projection_bc = 1;
 
-        for (std::size_t ghost_layer = ghost_layers_filled_by_projection_bc + 1; ghost_layer <= ghost_width; ++ghost_layer)
+        for (int ghost_layer = ghost_layers_filled_by_projection_bc + 1; ghost_layer <= ghost_width; ++ghost_layer)
         {
-            std::size_t stencil_s = 2 * ghost_layer;
-            static_for<2, std::min(max_stencil_size_implemented_PE, 2 * ghost_width) + 1>::apply(
-                [&](auto integral_constant_i)
+            int stencil_s = 2 * ghost_layer;
+            // static_for<2, std::min(max_stencil_size_implemented_PE, 2 * ghost_width) + 1>::apply(
+            static_for<2, max_stencil_size_implemented_PE + 1>::apply(
+                [&](auto stencil_size_)
                 {
-                    static constexpr std::size_t stencil_size = integral_constant_i();
+                    static constexpr int stencil_size = static_cast<int>(stencil_size_());
 
                     if constexpr (stencil_size % 2 == 0) // (because PolynomialExtrapolation is only implemented for even stencil_size)
                     {
