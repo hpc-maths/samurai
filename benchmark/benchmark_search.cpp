@@ -1,10 +1,7 @@
-#include <array>
 #include <benchmark/benchmark.h>
-#include <experimental/random>
 #include <functional>
 
 #include <xtensor/xfixed.hpp>
-#include <xtensor/xrandom.hpp>
 
 #include <samurai/algorithm.hpp>
 #include <samurai/cell_array.hpp>

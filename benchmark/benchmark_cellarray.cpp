@@ -1,10 +1,7 @@
-#include <array>
 #include <benchmark/benchmark.h>
 #include <cmath>
-#include <experimental/random>
 
 #include <xtensor/xfixed.hpp>
-#include <xtensor/xrandom.hpp>
 
 #include <samurai/algorithm.hpp>
 #include <samurai/box.hpp>
