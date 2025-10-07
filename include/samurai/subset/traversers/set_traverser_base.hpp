@@ -12,9 +12,6 @@ namespace samurai
     struct SetTraverserTraits;
 
     template <class Derived>
-    class SetTraverserBase;
-
-    template <class Derived>
     class SetTraverserBase
     {
       public:

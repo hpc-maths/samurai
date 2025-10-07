@@ -34,7 +34,7 @@ namespace samurai
         template <size_t I>
         using IthChild = std::tuple_element<I, Childrens>::type;
 
-        static constexpr std::size_t nIntervals = std::tuple_size_v<Childrens>;
+        static constexpr std::size_t nIntervals = std::tuple_size<Childrens>::value;
 
         UnionTraverser(const std::array<std::size_t, nIntervals>& shifts, const SetTraversers&... set_traversers)
             : m_set_traversers(set_traversers...)
