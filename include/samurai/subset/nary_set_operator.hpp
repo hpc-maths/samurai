@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "nary_set_operator_types.hpp"
 #include "set_base.hpp"
 #include "traversers/difference_id_traverser.hpp"
 #include "traversers/difference_traverser.hpp"
