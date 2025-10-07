@@ -48,22 +48,42 @@ namespace samurai
             m_periodic.fill(false);
         }
 
+        // m_max_stencil_radius ---------------------------
+
+        /**
+         * @brief set max stencil radius in chained config
+         *
+         * @param stencil_radius
+         * @return auto& returns this object
+         */
         auto& max_stencil_radius(int stencil_radius)
         {
             m_max_stencil_radius = stencil_radius;
             return *this;
         }
 
+        /**
+         * @brief get a reference on max stencil radius
+         */
         auto& max_stencil_radius()
         {
             return m_max_stencil_radius;
         }
 
-        auto& max_stencil_radius() const
+        /**
+         * @brief get a reference on max stencil radius
+         */
+        const auto& max_stencil_radius() const
         {
             return m_max_stencil_radius;
         }
 
+        /**
+         * @brief set stencil radius from a size (size is twice the size of the radius)
+         *
+         * @param stencil_size
+         * @return auto& returns this object
+         */
         auto& max_stencil_size(int stencil_size)
         {
             m_max_stencil_radius = stencil_size / 2;
@@ -74,114 +94,246 @@ namespace samurai
             return *this;
         }
 
+        /**
+         * @brief get value of max stencil size
+         */
         auto max_stencil_size() const
         {
             return m_max_stencil_radius * 2;
         }
 
-        auto ghost_width() const
-        {
-            return m_ghost_width;
-        }
+        // m_graduation_width -----------------------------
 
+        /**
+         * @brief set graduation width in chained config
+         *
+         * @param grad_width
+         * @return auto& returns this object
+         */
         auto& graduation_width(std::size_t grad_width)
         {
             m_graduation_width = grad_width;
             return *this;
         }
 
-        auto& graduation_width() const
+        /**
+         * @brief get a reference on graduation width
+         */
+        auto& graduation_width()
         {
             return m_graduation_width;
         }
 
+        /**
+         * @brief get a reference on graduation width
+         */
+        const auto& graduation_width() const
+        {
+            return m_graduation_width;
+        }
+
+        // m_ghost_width ----------------------------------
+
+        /**
+         * @brief get a reference on ghost width
+         */
+        const auto& ghost_width() const
+        {
+            return m_ghost_width;
+        }
+
+        // m_min_level ------------------------------------
+
+        /**
+         * @brief set min level in chained config
+         *
+         * @param level
+         * @return auto& returns this object
+         */
         auto& min_level(std::size_t level)
         {
             m_min_level = level;
             return *this;
         }
 
+        /**
+         * @brief get a reference on min level
+         */
         auto& min_level()
         {
             return m_min_level;
         }
 
-        auto& min_level() const
+        /**
+         * @brief get a reference on min level
+         */
+        const auto& min_level() const
         {
             return m_min_level;
         }
 
+        // m_max_level ------------------------------------
+
+        /**
+         * @brief set max level in chained config
+         *
+         * @param level
+         * @return auto& returns this object
+         */
         auto& max_level(std::size_t level)
         {
             m_max_level = level;
             return *this;
         }
 
+        /**
+         * @brief get a reference on max level
+         */
         auto& max_level()
         {
             return m_max_level;
         }
 
-        auto& max_level() const
+        /**
+         * @brief get a reference on max level
+         */
+        const auto& max_level() const
         {
             return m_max_level;
         }
 
+        // m_approx_box_tol -------------------------------
+
+        /**
+         * @brief set approximation box tolerance in chained config
+         *
+         * @param tol
+         * @return auto& returns this object
+         */
         auto& approx_box_tol(double tol)
         {
             m_approx_box_tol = tol;
             return *this;
         }
 
-        auto& approx_box_tol() const
+        /**
+         * @brief get a reference on approximation box tolerance
+         */
+        auto& approx_box_tol()
         {
             return m_approx_box_tol;
         }
 
+        /**
+         * @brief get a reference on approximation box tolerance
+         */
+        const auto& approx_box_tol() const
+        {
+            return m_approx_box_tol;
+        }
+
+        // m_scaling_factor -------------------------------
+
+        /**
+         * @brief set scaling factor in chained config
+         *
+         * @param factor
+         * @return auto& returns this object
+         */
         auto& scaling_factor(double factor)
         {
             m_scaling_factor = factor;
             return *this;
         }
 
-        auto& scaling_factor() const
-        {
-            return m_scaling_factor;
-        }
-
+        /**
+         * @brief get a reference on scaling factor
+         */
         auto& scaling_factor()
         {
             return m_scaling_factor;
         }
 
+        /**
+         * @brief get a reference on scaling factor
+         */
+        const auto& scaling_factor() const
+        {
+            return m_scaling_factor;
+        }
+
+        // m_periodic -------------------------------------
+
+        /**
+         * @brief set periodicity in chained config
+         *
+         * @param periodicity
+         * @return auto& returns this object
+         */
         auto& periodic(std::array<bool, dim> const& periodicity)
         {
             m_periodic = periodicity;
             return *this;
         }
 
+        /**
+         * @brief set periodicity in chained config with a value to fill in each direction
+         *
+         * @param periodicity
+         * @return auto& returns this object
+         */
         auto& periodic(bool periodicity)
         {
             m_periodic.fill(periodicity);
             return *this;
         }
 
-        auto& periodic() const
+        /**
+         * @brief get a reference on periodicity array
+         */
+        auto& periodic()
         {
             return m_periodic;
         }
 
-        auto& periodic(std::size_t i) const
+        /**
+         * @brief get a reference on periodicity array
+         */
+        const auto& periodic() const
+        {
+            return m_periodic;
+        }
+
+        /**
+         * @brief get a reference on periodicity in direction i
+         */
+        auto& periodic(std::size_t i)
         {
             return m_periodic[i];
         }
 
+        /**
+         * @brief get a reference on periodicity in direction i
+         */
+        const auto& periodic(std::size_t i) const
+        {
+            return m_periodic[i];
+        }
+
+        // m_disable_args_parse ---------------------------
+
+        /**
+         * @brief disable argument parse
+         */
         auto& disable_args_parse()
         {
             m_disable_args_parse = false;
             return *this;
         }
 
+        /**
+         * @brief parse arguments and set value to default samurai config value if needed
+         */
         void parse_args()
         {
             if (!m_disable_args_parse)
