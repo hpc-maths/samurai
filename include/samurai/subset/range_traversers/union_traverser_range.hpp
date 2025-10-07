@@ -36,7 +36,7 @@ namespace samurai
             reference operator*() const
             {
                 return std::apply(
-                    [](const auto&... innerIterators)
+                    [](const auto&... innerIterators) -> void
                     {
                         return reference((*innerIterators)...);
                     },
@@ -98,7 +98,7 @@ namespace samurai
         Iterator begin_impl()
         {
             return std::apply(
-                [](auto&... innerIterators)
+                [](auto&... innerIterators) -> Iterator
                 {
                     return Iterator(innerIterators.begin()...);
                 },
@@ -108,7 +108,7 @@ namespace samurai
         Iterator end_impl()
         {
             return std::apply(
-                [](auto&... innerIterators)
+                [](auto&... innerIterators) -> Iterator
                 {
                     return Iterator(innerIterators.end()...);
                 },
@@ -118,7 +118,7 @@ namespace samurai
         const_Iterator begin_impl() const
         {
             return std::apply(
-                [](const auto&... innerIterators)
+                [](const auto&... innerIterators) -> const_Iterator
                 {
                     return const_Iterator(innerIterators.cbegin()...);
                 },
@@ -128,7 +128,7 @@ namespace samurai
         const_Iterator end_impl() const
         {
             return std::apply(
-                [](const auto&... innerIterators)
+                [](const auto&... innerIterators) -> const_Iterator
                 {
                     return const_Iterator(innerIterators.cend()...);
                 },
