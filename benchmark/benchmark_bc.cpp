@@ -6,6 +6,7 @@
 #include <xtensor/xrandom.hpp>
 
 #include <samurai/algorithm.hpp>
+#include <samurai/bc.hpp>
 #include <samurai/amr/mesh.hpp>
 #include <samurai/box.hpp>
 #include <samurai/cell_array.hpp>
@@ -51,9 +52,9 @@ template <unsigned int dim, unsigned int n_comp, typename BCType, unsigned int o
 void BC_homogeneous(benchmark::State& state)
 {
     samurai::Box<double, dim> box = unitary_box<dim>();
-    using Config                  = samurai::UniformConfig<dim, order>; // Utilisation de l'ordre comme paramètre
-    auto mesh                     = samurai::UniformMesh<Config>(box, state.range(0));
-    auto u                        = make_field<double, n_comp>("u", mesh);
+    using Config                  = samurai::UniformConfig<dim, static_cast<int>(order)>; // ghost_width = order
+    auto mesh                     = samurai::UniformMesh<Config>(box, static_cast<std::size_t>(state.range(0)));
+    auto u                        = samurai::make_vector_field<double, n_comp>("u", mesh);
 
     u.fill(1.0);
 
@@ -61,10 +62,15 @@ void BC_homogeneous(benchmark::State& state)
     state.counters["Dimension"]   = dim;
     state.counters["Composantes"] = n_comp;
     state.counters["Ordre"]       = order;
-    state.counters["Type BC"]     = std::is_same_v<BCType, samurai::Dirichlet<dim>> ? 0 : 1; // 0 pour Dirichlet, 1 pour Neumann
+    state.counters["Type BC"]     = std::is_same_v<BCType, samurai::Dirichlet<order>> ? 0 : 1; // 0 pour Dirichlet, 1 pour Neumann
+
+    auto& bc_container = u.get_bc();
 
     for (auto _ : state)
     {
+        state.PauseTiming();
+        bc_container.clear();
+        state.ResumeTiming();
         samurai::make_bc<BCType>(u);
     }
 }
@@ -82,7 +88,7 @@ BENCHMARK_TEMPLATE(BC_homogeneous, 3, 1, samurai::Neumann<1>, 1)->DenseRange(1, 
 BENCHMARK_TEMPLATE(BC_homogeneous, 1, 100, samurai::Neumann<1>, 1)->DenseRange(1, 1);
 
 // Tests Dirichlet ordre 3
-BENCHMARK_TEMPLATE(BC_homogeneous, 1, 1, samurai::Dirichlet<2>, 3)->DenseRange(1, 1);
-BENCHMARK_TEMPLATE(BC_homogeneous, 2, 1, samurai::Dirichlet<2>, 3)->DenseRange(1, 1);
-BENCHMARK_TEMPLATE(BC_homogeneous, 3, 1, samurai::Dirichlet<2>, 3)->DenseRange(1, 1);
-BENCHMARK_TEMPLATE(BC_homogeneous, 1, 100, samurai::Dirichlet<2>, 3)->DenseRange(1, 1);
+BENCHMARK_TEMPLATE(BC_homogeneous, 1, 1, samurai::Dirichlet<3>, 3)->DenseRange(1, 1);
+BENCHMARK_TEMPLATE(BC_homogeneous, 2, 1, samurai::Dirichlet<3>, 3)->DenseRange(1, 1);
+BENCHMARK_TEMPLATE(BC_homogeneous, 3, 1, samurai::Dirichlet<3>, 3)->DenseRange(1, 1);
+BENCHMARK_TEMPLATE(BC_homogeneous, 1, 100, samurai::Dirichlet<3>, 3)->DenseRange(1, 1);
