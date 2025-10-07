@@ -144,14 +144,13 @@ int main(int argc, char* argv[])
     Box box_left(box_corner1, 0.5 * (box_corner1 + box_corner2));
     Box box_right(0.5 * (box_corner1 + box_corner2), box_corner2);
 
-    samurai::LevelCellArray<1> lca_left(max_level, box_left, {-1}, 0.05, 2);
-    samurai::LevelCellArray<1> lca_right(max_level, box_right, {-1}, 0.05, 2);
+    samurai::LevelCellArray<1> lca_left(max_level, box_left, {-1}, -1., 2);
+    samurai::LevelCellArray<1> lca_right(max_level, box_right, {-1}, -1., 2);
 
     auto config = samurai::mesh_config<dim>()
                       .min_level(min_level)
                       .max_level(max_level)
                       .periodic(true)
-                      .approx_box_tol(0.05)
                       .scaling_factor(2)
                       .max_stencil_radius(1)
                       .graduation_width(2);

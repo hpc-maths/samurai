@@ -122,8 +122,6 @@ int main(int argc, char* argv[])
 
     if (restart_file.empty())
     {
-        auto mesh_cfg = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
-        mesh          = {mesh_cfg, box};
         u.resize();
         // Initial solution
         samurai::for_each_cell(mesh,
