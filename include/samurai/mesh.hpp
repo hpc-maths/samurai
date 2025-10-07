@@ -340,7 +340,6 @@ namespace samurai
         // partition_mesh(start_level, b);
         //  load_balancing();
 
-        double scaling_factor_ = 0.;
 #else
         double scaling_factor_ = m_config.scaling_factor();
         compute_scaling_factor(domain_builder, scaling_factor_);
@@ -751,18 +750,7 @@ namespace samurai
     template <class D, class Config>
     inline double Mesh_base<D, Config>::min_cell_length() const
     {
-        if (args::finer_level_flux != 0)
-        {
-            return cell_length(max_level());
-        }
-        else
-        {
-#ifdef SAMURAI_WITH_MPI
-            return cell_length(max_level());
-#else
-            return cell_length(m_cells[mesh_id_t::cells].max_level());
-#endif
-        }
+        return cell_length(max_level());
     }
 
     template <class D, class Config>
