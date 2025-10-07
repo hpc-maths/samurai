@@ -6,8 +6,8 @@
 #include <xtensor/xrandom.hpp>
 
 #include <samurai/algorithm.hpp>
-#include <samurai/bc.hpp>
 #include <samurai/amr/mesh.hpp>
+#include <samurai/bc.hpp>
 #include <samurai/box.hpp>
 #include <samurai/cell_array.hpp>
 #include <samurai/cell_list.hpp>
