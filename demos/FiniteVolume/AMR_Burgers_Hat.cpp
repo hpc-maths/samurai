@@ -208,8 +208,6 @@ int main(int argc, char* argv[])
 
     // AMR parameters
     std::size_t start_level = 7;
-    std::size_t min_level   = 2;
-    std::size_t max_level   = 7;
     bool correction         = false;
 
     // Output parameters
@@ -233,7 +231,7 @@ int main(int argc, char* argv[])
     SAMURAI_PARSE(argc, argv);
 
     const samurai::Box<double, dim> box({left_box}, {right_box});
-    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
+    auto config = samurai::mesh_config<dim>().min_level(2).max_level(7).max_stencil_size(2).disable_minimal_ghost_width();
     auto mesh   = samurai::amr::make_Mesh(config);
     auto phi    = samurai::make_scalar_field<double>("phi", mesh);
 

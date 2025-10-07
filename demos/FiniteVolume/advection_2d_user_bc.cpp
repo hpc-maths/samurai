@@ -107,10 +107,6 @@ int main(int argc, char* argv[])
     double t   = 0.;
     std::string restart_file;
 
-    // Multiresolution parameters
-    std::size_t min_level = 4;
-    std::size_t max_level = 10;
-
     // Output parameters
     fs::path path        = fs::current_path();
     std::string filename = "FV_advection_2d";
@@ -130,7 +126,7 @@ int main(int argc, char* argv[])
     SAMURAI_PARSE(argc, argv);
 
     const samurai::Box<double, dim> box(min_corner, max_corner);
-    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
+    auto config = samurai::mesh_config<dim>().min_level(4).max_level(10).max_stencil_size(2).disable_minimal_ghost_width();
     auto mesh   = samurai::make_MRMesh(config, box);
     auto u      = samurai::make_scalar_field<double>("u", mesh);
 

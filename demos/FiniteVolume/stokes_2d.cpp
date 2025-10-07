@@ -190,7 +190,7 @@ int main(int argc, char* argv[])
     PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
 
     auto box    = samurai::Box<double, dim>({0, 0}, {1, 1});
-    auto config = samurai::mesh_config<dim>().min_level(5).max_level(5).max_stencil_radius(2);
+    auto config = samurai::mesh_config<dim>().min_level(5).max_level(5).max_stencil_size(2);
     auto mesh   = samurai::make_MRMesh(config, box);
 
     using mesh_id_t = typename decltype(mesh)::mesh_id_t;

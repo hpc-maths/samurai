@@ -153,7 +153,7 @@ int main(int argc, char* argv[])
                       .periodic(true)
                       .approx_box_tol(0.05)
                       .scaling_factor(2)
-                      .max_stencil_radius(2)
+                      .max_stencil_radius(1)
                       .graduation_width(2);
     config.parse_args();
     std::cout << "  max_level = " << config.max_level() << "   min_level = " << config.min_level() << std::endl;

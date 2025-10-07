@@ -516,7 +516,7 @@ namespace samurai
 
         if (field.mesh().max_stencil_radius() < 2)
         {
-            std::cerr << "The reconstruction function requires at least 2 ghosts on the boundary.\nTo fix this issue, set mesh_config.max_stencil_radius(2) or mesh_config.max_stencil_size(4)."
+            std::cerr << "The reconstruction function requires at least 2 ghosts on the boundary.\nTo fix this issue, remove mesh_config.disable_minimal_ghost_width()."
                       << std::endl;
             exit(EXIT_FAILURE);
         }
@@ -819,7 +819,7 @@ namespace samurai
 
         if (field_src.mesh().max_stencil_radius() < 2)
         {
-            std::cerr << "The transfert function requires at least 2 ghosts on the boundary.\nTo fix this issue, set mesh_config.max_stencil_radius(2) or mesh_config.max_stencil_size(4)."
+            std::cerr << "The transfer function requires at least 2 ghosts on the boundary.\nTo fix this issue, remove mesh_config.disable_minimal_ghost_width()."
                       << std::endl;
             exit(EXIT_FAILURE);
         }

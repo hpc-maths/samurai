@@ -82,10 +82,6 @@ int main(int argc, char* argv[])
     double t0            = 0.;
     std::string restart_file;
 
-    // Multiresolution parameters
-    std::size_t min_level = 4;
-    std::size_t max_level = dim == 1 ? 5 : 8;
-
     // Output parameters
     fs::path path              = fs::current_path();
     std::string filename       = "heat_" + std::to_string(dim) + "D";
@@ -118,7 +114,7 @@ int main(int argc, char* argv[])
     box_corner1.fill(left_box);
     box_corner2.fill(right_box);
     Box box(box_corner1, box_corner2);
-    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level);
+    auto config = samurai::mesh_config<dim>().min_level(4).max_level(dim == 1 ? 5 : 8).max_stencil_size(2).disable_minimal_ghost_width();
     auto mesh   = samurai::make_MRMesh(config);
 
     auto u = samurai::make_scalar_field<double>("u", mesh);

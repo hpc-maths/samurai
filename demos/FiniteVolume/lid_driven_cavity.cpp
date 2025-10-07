@@ -148,7 +148,7 @@ int main(int argc, char* argv[])
     // where v = velocity
     //       p = pressure
 
-    auto config = samurai::mesh_config<dim>().min_level(3).max_level(6).max_stencil_radius(2);
+    auto config = samurai::mesh_config<dim>().min_level(3).max_level(6).max_stencil_size(2);
     auto mesh   = samurai::make_MRMesh(config, box);
 
     using mesh_id_t = typename decltype(mesh)::mesh_id_t;
