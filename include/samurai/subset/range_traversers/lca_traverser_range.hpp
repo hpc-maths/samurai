@@ -83,9 +83,13 @@ namespace samurai
     template <class LCA>
     class LCATraverserRange : public SetTraverserRangeBase<LCATraverserRange<LCA>>
     {
-        using Self                                                         = LCATraverserRange<LCA> : public
-            : SAMURAI_SET_TRAVERSER_RANGE_TYPEDEFS using interval_iterator = typename std::vector<interval_t>::const_iterator;
-        using offset_iterator                                              = typename std::vector<std::size_t>::iterator;
+        using Self = LCATraverserRange<LCA>;
+
+      public:
+
+        SAMURAI_SET_TRAVERSER_RANGE_TYPEDEFS
+        using interval_iterator = typename std::vector<interval_t>::const_iterator;
+        using offset_iterator   = typename std::vector<std::size_t>::iterator;
 
         LCATraverserRange(const interval_iterator first_interval, const offset_iterator first_offsets, const offset_iterator last_offsets)
             : m_first_interval(first_interval)

@@ -13,7 +13,7 @@ namespace samurai
     class LevelCellArray;
 
     template <bool isConst, class LCA>
-    class LCATraverserRangeItem : public SetTraverserBase<LCATraverserRangeItem<LCA>>
+    class LCATraverserRangeItem : public SetTraverserBase<LCATraverserRangeItem<isConst, LCA>>
     {
         using Self = LCATraverserRangeItem<isConst, LCA>;
 
