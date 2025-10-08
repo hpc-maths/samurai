@@ -14,6 +14,9 @@
 #include <samurai/subset/node.hpp>
 #include <xtensor/xtensor_forward.hpp>
 
+#include <fmt/ranges.h>
+#include <samurai/io/hdf5.hpp>
+
 namespace samurai
 {
     TEST(subset, lower_bound)
@@ -144,9 +147,9 @@ namespace samurai
 
     TEST(subset, compute_min)
     {
-        EXPECT_EQ(1, compute_min(3, 4, 1, 4));
-        EXPECT_EQ(0, compute_min(0, 0, 0, 0));
-        EXPECT_EQ(-1, compute_min(-1, -1, -1, -1));
+        EXPECT_EQ(1, vmin(3, 4, 1, 4));
+        EXPECT_EQ(0, vmin(0, 0, 0, 0));
+        EXPECT_EQ(-1, vmin(-1, -1, -1, -1));
     }
 
     TEST(subset, check_dim)
@@ -224,8 +227,9 @@ namespace samurai
                       EXPECT_EQ(interval_t(0, 20), i);
                   });
 
-            EXPECT_EQ(set.on(5).level(), 5);
-            apply(set,
+            auto set2 = set.on(5);
+            EXPECT_EQ(set2.level(), 5);
+            apply(set2,
                   [](auto& i, auto)
                   {
                       EXPECT_EQ(interval_t(0, 40), i);
@@ -454,6 +458,7 @@ namespace samurai
                 {5, {5, 33}}
             };
             std::size_t ie = 0;
+            fmt::print("====================================================\n");
             apply(union_(ca_1[7], ca_2[7]).on(6),
                   [&](auto& i, auto& index)
                   {
@@ -508,6 +513,134 @@ namespace samurai
                       EXPECT_EQ(ie, 0);
                       EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
                   });
+        }
+    }
+
+    TEST(subset, expand)
+    {
+        using interval_t = typename LevelCellArray<2>::interval_t;
+        using expected_t = std::vector<std::pair<int, interval_t>>;
+
+        LevelCellArray<2> ca;
+
+        ca.add_interval_back({0, 1}, {0});
+
+        {
+            const auto translated_ca = translate(ca, {3 + 1, 0});
+            const auto joined_cas    = union_(ca, translated_ca);
+
+            const auto set = expand(joined_cas, 3);
+
+            expected_t expected{
+                {-3, {-3, 8}},
+                {-2, {-3, 8}},
+                {-1, {-3, 8}},
+                {0,  {-3, 8}},
+                {1,  {-3, 8}},
+                {2,  {-3, 8}},
+                {3,  {-3, 8}}
+            };
+
+            bool is_set_empty = true;
+            std::size_t ie    = 0;
+            set(
+                [&expected, &is_set_empty, &ie](const auto& x_interval, const auto& yz)
+                {
+                    is_set_empty = false;
+                    EXPECT_EQ(expected[ie++], std::make_pair(yz[0], x_interval));
+                });
+            EXPECT_EQ(ie, expected.size());
+            EXPECT_FALSE(is_set_empty);
+        }
+
+        {
+            const auto translated_ca = translate(ca, {0, 3 + 1});
+            const auto joined_cas    = union_(ca, translated_ca);
+
+            const auto set = expand(joined_cas, 3);
+
+            expected_t expected{
+                {-3, {-3, 4}},
+                {-2, {-3, 4}},
+                {-1, {-3, 4}},
+                {0,  {-3, 4}},
+                {1,  {-3, 4}},
+                {2,  {-3, 4}},
+                {3,  {-3, 4}},
+                {4,  {-3, 4}},
+                {5,  {-3, 4}},
+                {6,  {-3, 4}},
+                {7,  {-3, 4}}
+            };
+
+            bool is_set_empty = true;
+            std::size_t ie    = 0;
+            set(
+                [&expected, &is_set_empty, &ie](const auto& x_interval, const auto& yz)
+                {
+                    is_set_empty = false;
+                    EXPECT_EQ(expected[ie++], std::make_pair(yz[0], x_interval));
+                });
+            EXPECT_EQ(ie, expected.size());
+            EXPECT_FALSE(is_set_empty);
+        }
+        {
+            const auto translated_ca = translate(ca, {3 + 1, 3 + 1});
+            const auto joined_cas    = union_(ca, translated_ca);
+
+            const auto set = expand(joined_cas, 3);
+
+            expected_t expected{
+                {-3, {-3, 4}},
+                {-2, {-3, 4}},
+                {-1, {-3, 4}},
+                {0,  {-3, 4}},
+                {1,  {-3, 8}},
+                {2,  {-3, 8}},
+                {3,  {-3, 8}},
+                {4,  {1, 8} },
+                {5,  {1, 8} },
+                {6,  {1, 8} },
+                {7,  {1, 8} }
+            };
+
+            bool is_set_empty = true;
+            std::size_t ie    = 0;
+            set(
+                [&expected, &is_set_empty, &ie](const auto& x_interval, const auto& yz)
+                {
+                    is_set_empty = false;
+                    EXPECT_EQ(expected[ie++], std::make_pair(yz[0], x_interval));
+                });
+            EXPECT_EQ(ie, expected.size());
+            EXPECT_FALSE(is_set_empty);
+
+            const auto lca_joined_cas = joined_cas.to_lca();
+            const auto lca_set        = set.to_lca();
+        }
+    }
+
+    TEST(subset, contract)
+    {
+        LevelCellArray<2> ca;
+
+        ca.add_interval_back({0, 1}, {0});
+
+        {
+            const auto translated_ca = translate(ca, {3 + 1, 0});
+            const auto joined_cas    = union_(ca, translated_ca);
+
+            const auto set = contract(joined_cas, 1);
+
+            bool is_set_empty = true;
+            set(
+                [&is_set_empty](const auto& x_interval, const auto& yz)
+                {
+                    fmt::print("x_interval = {} -- yz = {}", x_interval, yz[0]);
+                    is_set_empty = false;
+                });
+            EXPECT_TRUE(is_set_empty);
+            //~ EXPECT_TRUE(set.empty());
         }
     }
 
@@ -1171,6 +1304,10 @@ namespace samurai
         cl[4][{2, 4}].add_interval({0, 18});
 
         ca = {cl, true};
+
+        std::cout << self(ca[4]).on(3).to_lca() << std::endl;
+
+        fmt::print("===============================================\n");
 
         // Test self-similarity at different scales
         bool found = false;

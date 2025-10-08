@@ -815,16 +815,18 @@ namespace samurai
             {
                 if constexpr (dim == 2)
                 {
-                    m_corners.push_back(difference(
-                        m_domain,
-                        union_(translate(m_domain, direction_t{-direction[0], 0}), translate(m_domain, direction_t{0, -direction[1]}))));
+                    m_corners.push_back(difference(m_domain,
+                                                   union_(translate(m_domain, direction_t{-direction[0], 0}),
+                                                          translate(m_domain, direction_t{0, -direction[1]})))
+                                            .to_lca());
                 }
                 else if constexpr (dim == 3)
                 {
                     m_corners.push_back(difference(m_domain,
                                                    union_(translate(m_domain, direction_t{-direction[0], 0, 0}),
                                                           translate(m_domain, direction_t{0, -direction[1], 0}),
-                                                          translate(m_domain, direction_t{0, 0, -direction[2]}))));
+                                                          translate(m_domain, direction_t{0, 0, -direction[2]})))
+                                            .to_lca());
                 }
             });
     }
