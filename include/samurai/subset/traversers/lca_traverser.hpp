@@ -4,7 +4,6 @@
 #pragma once
 
 #include "set_traverser_base.hpp"
-#include <concepts>
 
 namespace samurai
 {

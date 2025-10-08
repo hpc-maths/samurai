@@ -11,6 +11,10 @@ namespace samurai
     template <class UndefinedSetTraverserRange>
     struct SetTraverserRangeTraits;
 
+    /*
+     * For the sake of conscision, the ranges are only forward range
+     * but they could easily be converted to a random_access range.
+     */
     template <class Derived>
     class SetTraverserRangeBase
     {
@@ -18,8 +22,7 @@ namespace samurai
 
         using DerivedTraits = SetTraverserRangeTraits<Derived>;
 
-        using Iterator       = typename DerivedTraits::Iterator;
-        using const_Iterator = typename DerivedTraits::const_Iterator;
+        using Iterator = typename DerivedTraits::Iterator;
 
         const Derived& derived_cast() const
         {
@@ -36,14 +39,9 @@ namespace samurai
             derived_cast().begin_impl();
         }
 
-        const_Iterator begin() const
+        Iterator end()
         {
-            derived_cast().begin_impl();
-        }
-
-        const_Iterator cbegin() const
-        {
-            derived_cast().begin_impl();
+            derived_cast().end_impl();
         }
     };
 
@@ -52,9 +50,8 @@ namespace samurai
     {
     };
 
-#define SAMURAI_SET_TRAVERSER_RANGE_TYPEDEFS        \
-    using Base           = SetTraverserBase<Self>;  \
-    using Iterator       = typename Base::Iterator; \
-    using const_Iterator = typename Base::const_Iterator;
+#define SAMURAI_SET_TRAVERSER_RANGE_TYPEDEFS \
+    using Base     = SetTraverserBase<Self>; \
+    using Iterator = typename Base::Iterator;
 
 } // namespace samurai

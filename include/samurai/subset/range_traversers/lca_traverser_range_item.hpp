@@ -6,16 +6,27 @@
 #include <cstddef>
 #include <utility>
 
+#include "../traversers/set_traverser_base.hpp"
+
 namespace samurai
 {
 
     template <std::size_t Dim, class TInterval>
     class LevelCellArray;
 
-    template <bool isConst, class LCA>
-    class LCATraverserRangeItem : public SetTraverserBase<LCATraverserRangeItem<isConst, LCA>>
+    template <class LCA>
+    struct SetTraverserTraits<LCATraverserRangeItem<LCA>>
     {
-        using Self = LCATraverserRangeItem<isConst, LCA>;
+        static_assert(std::same_as<LevelCellArray<LCA::dim, typename LCA::interval_t>, LCA>);
+
+        using interval_t         = typename LCA::interval_t;
+        using current_interval_t = const interval_t&;
+    };
+
+    template <class LCA>
+    class LCATraverserRangeItem : public SetTraverserBase<LCATraverserRangeItem<LCA>>
+    {
+        using Self = LCATraverserRangeItem<LCA>;
 
       public:
 
@@ -37,7 +48,6 @@ namespace samurai
         }
 
         inline void next_interval_impl()
-            requires(!isConst)
         {
             ++m_offset;
         }

@@ -3,13 +3,15 @@
 
 #pragma once
 
-#include "../../box.hpp"
 #include "../../interval.hpp"
 #include "set_traverser_base.hpp"
 #include <concepts>
 
 namespace samurai
 {
+    template <class value_t, std::size_t dim_>
+    class Box;
+
     template <class B>
     class BoxTraverser;
 
