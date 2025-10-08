@@ -26,17 +26,16 @@ namespace samurai
         using interval_iterator = typename std::vector<interval_t>::const_iterator;
         using offset_iterator   = typename std::vector<std::size_t>::iterator;
 
-        template <bool isConst>
-        class _Iterator
+        class Iterator
         {
           public:
 
             using iterator_category = std::forward_iterator_tag;
             using difference_type   = std::ptrdiff_t;
-            using value_type        = LCATraverserRangeItem<isConst, LCA>;
-            using reference         = LCATraverserRangeItem<isConst, LCA>;
+            using value_type        = LCATraverserRangeItem<LCA>;
+            using reference         = LCATraverserRangeItem<LCA>;
 
-            _Iterator(const interval_iterator first_interval, const offset_iterator offset)
+            Iterator(const interval_iterator first_interval, const offset_iterator offset)
                 : m_first_interval(first_interval)
                 , m_offset(offset)
             {
@@ -47,25 +46,25 @@ namespace samurai
                 return reference(m_first_interval, m_offset);
             }
 
-            _Iterator& operator++()
+            Iterator& operator++()
             {
                 ++m_offset;
                 return *this;
             }
 
-            _Iterator operator++(int)
+            Iterator operator++(int)
             {
-                _Iterator tmp = *this;
+                Iterator tmp = *this;
                 ++(*this);
                 return tmp;
             }
 
-            friend bool operator==(const _Iterator& a, const _Iterator& b)
+            friend bool operator==(const Iterator& a, const Iterator& b)
             {
                 return a.m_first_interval == b.m_first_interval and a.m_offset == b.m_offset;
             };
 
-            friend bool operator!=(const _Iterator& a, const _Iterator& b)
+            friend bool operator!=(const Iterator& a, const Iterator& b)
             {
                 return a.m_ptr != b.m_ptr or a.m_offset != b.m_offset;
             };
@@ -75,9 +74,6 @@ namespace samurai
             interval_iterator m_first_interval;
             offset_iterator m_offset;
         };
-
-        using Iterator       = _Iterator<false>;
-        using const_Iterator = _Iterator<true>;
     };
 
     template <class LCA>
@@ -106,16 +102,6 @@ namespace samurai
         Iterator end_impl()
         {
             return Iterator(m_first_interval, std::prev(m_last_offsets));
-        }
-
-        const_Iterator begin_impl() const
-        {
-            return const_Iterator(m_first_interval, m_first_offsets);
-        }
-
-        const_Iterator end_impl() const
-        {
-            return const_Iterator(m_first_interval, std::prev(m_last_offsets));
         }
 
       private:

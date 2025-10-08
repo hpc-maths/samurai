@@ -17,22 +17,21 @@ namespace samurai
         static_assert(IsSetTraverserRange<SetTraverserRange>::value);
 
         using ChildIterator       = typename SetTraverserRange::Iterator;
-        using const_ChildIterator = typename SetTraverserRange::const_Iterator;
+        using const_ChildIterator = typename SetTraverserRange::constIterator;
 
         using Translation = typename ChildIterator::value_type::value_type;
 
-        template <class Inner_Iterator>
-        class _Iterator
+        class Iterator
         {
           public:
 
             using iterator_category = std::forward_iterator_tag;
             using difference_type   = std::ptrdiff_t;
-            using value_type        = TranslationTraverser<typename Inner_Iterator::value_type>;
+            using value_type        = TranslationTraverser<typename InnerIterator::value_type>;
             using reference         = value_type;
 
-            _Iterator(const Inner_Iterator inner_Iterator, const Translation& translation)
-                : m_innerIterator(inner_Iterator)
+            Iterator(const InnerIterator innerIterator, const Translation& translation)
+                : m_innerIterator(innerIterator)
                 , m_translation(translation)
             {
             }
@@ -42,37 +41,34 @@ namespace samurai
                 return reference(*m_innerIterator, m_translation);
             }
 
-            _Iterator& operator++()
+            Iterator& operator++()
             {
                 ++m_innerIterator;
                 return *this;
             }
 
-            _Iterator operator++(int)
+            Iterator operator++(int)
             {
-                _Iterator tmp = *this;
+                Iterator tmp = *this;
                 ++(*this);
                 return tmp;
             }
 
-            friend bool operator==(const _Iterator& a, const _Iterator& b)
+            friend bool operator==(const Iterator& a, const Iterator& b)
             {
                 return a.m_innerIterator == b.m_innerIterator;
             };
 
-            friend bool operator!=(const _Iterator& a, const _Iterator& b)
+            friend bool operator!=(const Iterator& a, const Iterator& b)
             {
                 return a.m_innerIterator != b.m_innerIterator;
             };
 
           private:
 
-            Inner_Iterator m_innerIterator;
+            ChildIterator m_innerIterator;
             Translation m_translation;
         };
-
-        using Iterator       = _Iterator<ChildIterator>;
-        using const_Iterator = _Iterator<const_ChildIterator>;
     };
 
     template <class SetTraverserRange>
@@ -100,16 +96,6 @@ namespace samurai
         Iterator end_impl()
         {
             return Iterator(m_set_traverser_range.end(), m_translation);
-        }
-
-        const_Iterator begin_impl() const
-        {
-            return const_Iterator(m_set_traverser_range.cbegin(), m_translation);
-        }
-
-        const_Iterator end_impl() const
-        {
-            return const_Iterator(m_set_traverser_range.cend(), m_translation);
         }
 
       private:
