@@ -180,7 +180,7 @@ namespace samurai
 
 #ifdef SAMURAI_WITH_MPI
                 // std::cout << "[" << mpi::communicator().rank() << "] PETSC_nonlinear_function: update_unknown" << std::endl;
-                assembly.update_unknown(x);
+                assembly.copy_unknown(x, x_field);
 #else
                 copy(x, x_field); // This is really bad... TODO: create a field constructor that takes a double*
 #endif
@@ -224,7 +224,7 @@ namespace samurai
                 assembly.set_unknown(x_field);
 
 #ifdef SAMURAI_WITH_MPI
-                assembly.update_unknown(x);
+                assembly.copy_unknown(x, x_field);
 #else
                 copy(x, x_field); // This is really bad... TODO: create a field constructor that takes a double*
 #endif
