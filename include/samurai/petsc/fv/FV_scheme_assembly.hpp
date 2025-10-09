@@ -37,6 +37,7 @@ namespace samurai
             using cfg_t                                            = typename Scheme::cfg_t;
             using bdry_cfg_t                                       = typename Scheme::bdry_cfg;
             using field_t                                          = typename Scheme::field_t;
+            using input_field_t                                    = field_t;
             using output_field_t                                   = typename cfg_t::output_field_t;
             using mesh_t                                           = typename field_t::mesh_t;
             using mesh_id_t                                        = typename mesh_t::mesh_id_t;
@@ -68,11 +69,12 @@ namespace samurai
           protected:
 
             Scheme m_scheme;
-            field_t* m_unknown    = nullptr;
-            std::size_t m_n_cells = 0;
+            field_t* m_unknown = nullptr;
+
+            std::size_t m_n_cells       = 0;
+            std::size_t m_n_owned_cells = 0;
             std::vector<bool> m_is_row_empty;
 #ifdef SAMURAI_WITH_MPI
-            std::size_t m_n_owned_cells = 0;
             std::vector<PetscInt> m_local_cell_indices;
             std::vector<PetscInt> m_global_cell_indices;
             std::vector<int> m_ownership; // store the owner rank of each cell
@@ -116,6 +118,8 @@ namespace samurai
                 m_n_cells = mesh().nb_cells();
 #ifdef SAMURAI_WITH_MPI
                 create_local_to_global_mappings();
+#else
+                m_n_owned_cells = m_n_cells;
 #endif
                 m_is_row_empty.resize(static_cast<std::size_t>(matrix_rows()));
                 std::fill(m_is_row_empty.begin(), m_is_row_empty.end(), true);
@@ -132,14 +136,16 @@ namespace samurai
             template <class OtherScheme>
             void reset(const FVSchemeAssembly<OtherScheme>& other)
             {
-                m_n_cells             = other.m_n_cells;
+                m_n_cells       = other.m_n_cells;
+                m_n_owned_cells = other.m_n_owned_cells;
+#ifdef SAMURAI_WITH_MPI
                 m_local_cell_indices  = other.m_local_cell_indices;
                 m_global_cell_indices = other.m_global_cell_indices;
                 m_ownership           = other.m_ownership;
-                m_n_owned_cells       = other.m_n_owned_cells;
 
                 m_local_to_global_rows = other.m_local_to_global_rows;
                 m_local_to_global_cols = other.m_local_to_global_cols;
+#endif
 
                 m_is_row_empty.resize(static_cast<std::size_t>(matrix_rows()));
                 std::fill(m_is_row_empty.begin(), m_is_row_empty.end(), true);
@@ -150,6 +156,7 @@ namespace samurai
                 }
             }
 
+#ifdef SAMURAI_WITH_MPI
             void set_local_to_global_mappings(Mat& A) const override
             {
                 // Sets the local to global mapping for the rows and columns, which allows to use the local numbering when inserting
@@ -245,6 +252,7 @@ namespace samurai
                     exit(EXIT_FAILURE);
                 }
             }
+#endif
 
             auto ghost_recursion()
             {
@@ -324,7 +332,13 @@ namespace samurai
             void set_unknown(field_t& unknown)
             {
                 m_unknown = &unknown;
-                m_n_cells = unknown.mesh().nb_cells();
+
+                m_n_cells = unknown.mesh().nb_cells(); // Why??
+#ifdef SAMURAI_WITH_MPI
+                // create_local_to_global_mappings();  ????
+#else
+                m_n_owned_cells = m_n_cells;
+#endif
             }
 
             auto& unknown() const
@@ -350,20 +364,12 @@ namespace samurai
 
             PetscInt matrix_rows() const override
             {
-#ifdef SAMURAI_WITH_MPI
                 return static_cast<PetscInt>(m_n_owned_cells * output_n_comp);
-#else
-                return static_cast<PetscInt>(m_n_cells * output_n_comp);
-#endif
             }
 
             PetscInt matrix_cols() const override
             {
-#ifdef SAMURAI_WITH_MPI
                 return static_cast<PetscInt>(m_n_owned_cells * input_n_comp);
-#else
-                return static_cast<PetscInt>(m_n_cells * input_n_comp);
-#endif
             }
 
             inline PetscInt local_col_index(PetscInt cell_index, [[maybe_unused]] unsigned int field_j) const
@@ -377,7 +383,7 @@ namespace samurai
                 }
                 else if constexpr (detail::is_soa_v<field_t>)
                 {
-                    return m_col_shift + static_cast<PetscInt>(field_j * m_n_cells) + cell_index;
+                    return m_col_shift + static_cast<PetscInt>(field_j * m_n_owned_cells) + cell_index;
                 }
                 else
                 {
@@ -396,7 +402,7 @@ namespace samurai
                 }
                 else if constexpr (detail::is_soa_v<field_t>)
                 {
-                    return m_col_shift + static_cast<PetscInt>(field_j * m_n_cells) + cell_index;
+                    return m_col_shift + static_cast<PetscInt>(field_j * m_n_owned_cells) + cell_index;
                 }
                 else
                 {
@@ -415,7 +421,7 @@ namespace samurai
                 }
                 else if constexpr (detail::is_soa_v<field_t>)
                 {
-                    return m_row_shift + static_cast<PetscInt>(field_i * m_n_cells) + cell_index;
+                    return m_row_shift + static_cast<PetscInt>(field_i * m_n_owned_cells) + cell_index;
                 }
                 else
                 {
@@ -434,12 +440,22 @@ namespace samurai
                 }
                 else if constexpr (detail::is_soa_v<field_t>)
                 {
-                    return m_row_shift + static_cast<PetscInt>(field_i * m_n_cells) + cell_index;
+                    return m_row_shift + static_cast<PetscInt>(field_i * m_n_owned_cells) + cell_index;
                 }
                 else
                 {
                     return m_row_shift + cell_index * static_cast<PetscInt>(output_n_comp) + static_cast<PetscInt>(field_i);
                 }
+            }
+
+            inline PetscInt global_col_index(std::size_t cell_index, unsigned int field_j) const
+            {
+                return global_col_index(static_cast<PetscInt>(cell_index), field_j);
+            }
+
+            inline PetscInt global_row_index(std::size_t cell_index, unsigned int field_i) const
+            {
+                return global_row_index(static_cast<PetscInt>(cell_index), field_i);
             }
 
             inline PetscInt global_col_index(const cell_t& cell, unsigned int field_j) const
@@ -450,6 +466,16 @@ namespace samurai
             inline PetscInt global_row_index(const cell_t& cell, unsigned int field_i) const
             {
                 return global_row_index(static_cast<PetscInt>(cell.index), field_i);
+            }
+
+            inline PetscInt local_col_index(std::size_t cell_index, unsigned int field_j) const
+            {
+                return local_col_index(static_cast<PetscInt>(cell_index), field_j);
+            }
+
+            inline PetscInt local_row_index(std::size_t cell_index, unsigned int field_i) const
+            {
+                return local_row_index(static_cast<PetscInt>(cell_index), field_i);
             }
 
             inline PetscInt local_col_index(const cell_t& cell, unsigned int field_j) const
@@ -479,97 +505,108 @@ namespace samurai
             //                           Vectors                           //
             //-------------------------------------------------------------//
 
-#ifdef SAMURAI_WITH_MPI
-
           private:
 
-            Vec create_petsc_vector(PetscInt n) const
+            Vec create_petsc_vector(PetscInt local_size) const
             {
                 Vec v;
                 VecCreate(PETSC_COMM_WORLD, &v);
+#ifdef SAMURAI_WITH_MPI
                 VecSetType(v, VECMPI);
+#else
+                VecSetType(v, VECSEQ);
+#endif
                 VecSetFromOptions(v);
-                VecSetSizes(v, n, PETSC_DETERMINE);
+                VecSetSizes(v, local_size, PETSC_DETERMINE);
                 return v;
             }
 
           public:
 
-            Vec create_solution_vector(const field_t& field) const
+            Vec create_solution_vector(const input_field_t& field) const
             {
+#ifdef SAMURAI_WITH_MPI
                 Vec v = create_petsc_vector(matrix_cols());
                 VecSetLocalToGlobalMapping(v, m_local_to_global_cols);
-
-                // Copy data from the field to the vector
-                for_each_cell(field.mesh()[mesh_id_t::reference],
-                              [&](const auto& cell)
-                              {
-                                  if (is_locally_owned(cell))
-                                  {
-                                      for (unsigned int j = 0; j < input_n_comp; ++j)
-                                      {
-                                          auto vec_row = local_col_index(static_cast<PetscInt>(cell.index), j);
-                                          VecSetValueLocal(v, vec_row, field_value(field, cell, j), INSERT_VALUES);
-                                      }
-                                  }
-                              });
+                copy_unknown(field, v);
+#else
+                Vec v = create_petsc_vector_from(field);
+#endif
+                PetscObjectSetName(reinterpret_cast<PetscObject>(v), field.name().data());
                 return v;
             }
 
-            Vec create_rhs_vector(const output_field_t& field) const
+            void copy_unknown(const input_field_t& field, Vec& v) const
             {
-                Vec v = create_petsc_vector(matrix_rows());
-                VecSetLocalToGlobalMapping(v, m_local_to_global_rows);
-
-                copy_rhs(field, v);
-                return v;
-            }
-
-            void copy_rhs(const output_field_t& field, Vec& v) const
-            {
-                // Copy data from the field to the vector
                 double* v_data;
                 VecGetArray(v, &v_data);
-                for (std::size_t cell_index = 0; cell_index < m_local_cell_indices.size(); ++cell_index)
+                for (std::size_t cell_index = 0; cell_index < m_n_cells; ++cell_index)
                 {
                     if (is_locally_owned(cell_index))
                     {
-                        for (unsigned int i = 0; i < output_n_comp; ++i)
+                        for (unsigned int j = 0; j < input_n_comp; ++j)
                         {
-                            auto vec_row    = local_row_index(static_cast<PetscInt>(cell_index), i);
-                            v_data[vec_row] = field_value(field, static_cast<index_t>(cell_index), i);
+                            auto vec_row    = local_col_index(cell_index, j);
+                            v_data[vec_row] = field_value(field, cell_index, j);
                         }
                     }
                 }
                 VecRestoreArray(v, &v_data);
             }
 
-            void update_unknown(Vec& v) const
+            void copy_unknown(const Vec& v, input_field_t& field) const
             {
-                update_unknown(v, unknown());
-            }
-
-            void update_unknown(const Vec& v, field_t& unknown_field) const
-            {
-                // Copy data from the vector to the field
                 const double* v_data;
                 VecGetArrayRead(v, &v_data);
-
-                for_each_cell(mesh()[mesh_id_t::reference],
-                              [&](const auto& cell)
-                              {
-                                  if (is_locally_owned(cell))
-                                  {
-                                      for (unsigned int j = 0; j < input_n_comp; ++j)
-                                      {
-                                          auto vec_row                        = local_col_index(static_cast<PetscInt>(cell.index), j);
-                                          field_value(unknown_field, cell, j) = v_data[vec_row];
-                                      }
-                                  }
-                              });
+                for (std::size_t cell_index = 0; cell_index < m_n_cells; ++cell_index)
+                {
+                    if (is_locally_owned(cell_index))
+                    {
+                        for (unsigned int j = 0; j < input_n_comp; ++j)
+                        {
+                            auto vec_row                      = local_col_index(cell_index, j);
+                            field_value(field, cell_index, j) = v_data[vec_row];
+                        }
+                    }
+                }
                 VecRestoreArrayRead(v, &v_data);
             }
+
+            void update_unknown(Vec& v) const
+            {
+                copy_unknown(v, unknown());
+            }
+
+            Vec create_rhs_vector(const output_field_t& field) const
+            {
+#ifdef SAMURAI_WITH_MPI
+                Vec v = create_petsc_vector(matrix_rows());
+                VecSetLocalToGlobalMapping(v, m_local_to_global_rows);
+                copy_rhs(field, v);
+#else
+                Vec v = create_petsc_vector_from(field);
 #endif
+                PetscObjectSetName(reinterpret_cast<PetscObject>(v), field.name().data());
+                return v;
+            }
+
+            void copy_rhs(const output_field_t& field, Vec& v) const
+            {
+                double* v_data;
+                VecGetArray(v, &v_data);
+                for (std::size_t cell_index = 0; cell_index < m_n_cells; ++cell_index)
+                {
+                    if (is_locally_owned(cell_index))
+                    {
+                        for (unsigned int i = 0; i < output_n_comp; ++i)
+                        {
+                            auto vec_row    = local_row_index(cell_index, i);
+                            v_data[vec_row] = field_value(field, cell_index, i);
+                        }
+                    }
+                }
+                VecRestoreArray(v, &v_data);
+            }
 
             template <class int_type>
             inline void set_is_row_not_empty(int_type row_number)
