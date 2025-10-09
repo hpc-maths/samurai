@@ -165,6 +165,11 @@ namespace samurai
                 return largest_stencil_assembly().create_rhs_vector(field);
             }
 
+            void copy_rhs(const output_field_t& field, Vec& v) const
+            {
+                largest_stencil_assembly().copy_rhs(field, v);
+            }
+
             Vec create_solution_vector(const input_field_t& field) const
             {
                 return largest_stencil_assembly().create_solution_vector(field);

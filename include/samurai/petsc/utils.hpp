@@ -76,7 +76,7 @@ namespace samurai
             std::size_t n = f.mesh().nb_cells() * Field::n_comp;
 
             PetscInt n_vec;
-            VecGetSize(v, &n_vec);
+            VecGetLocalSize(v, &n_vec);
             assert(static_cast<PetscInt>(n) == n_vec);
 
             const double* arr;
