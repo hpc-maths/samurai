@@ -180,7 +180,7 @@ namespace samurai
                         for_each_cell(mesh(),
                                       [&](auto& cell)
                                       {
-                                          nnz[static_cast<std::size_t>(this->row_index(cell, field_i))] += scheme_nnz_i;
+                                          nnz[static_cast<std::size_t>(this->local_row_index(cell, field_i))] += scheme_nnz_i;
                                       });
                     }
                 }
@@ -192,7 +192,7 @@ namespace samurai
                                   {
                                       for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                                       {
-                                          nnz[static_cast<std::size_t>(this->row_index(cell, field_i))] += scheme_nnz_i;
+                                          nnz[static_cast<std::size_t>(this->local_row_index(cell, field_i))] += scheme_nnz_i;
                                       }
                                   });
                 }
@@ -208,17 +208,17 @@ namespace samurai
             void assemble_scheme(Mat& A) override
             {
                 // std::cout << "assemble_scheme() of " << this->name() << std::endl;
-                std::cout << "[" << mpi::communicator().rank() << "] assemble_scheme() of " << this->name() << std::endl;
+                // std::cout << "[" << mpi::communicator().rank() << "] assemble_scheme() of " << this->name() << std::endl;
 
-                ISLocalToGlobalMapping rowmap, colmap;
-                MatGetLocalToGlobalMapping(A, &rowmap, &colmap);
-                if (!rowmap)
-                {
-                    std::cout << "[" << mpi::communicator().rank() << "] assemble_scheme(" << this->name()
-                              << ") - Local to global mapping not set!" << std::endl;
-                    assert(false && "Local to global mappings not set");
-                    exit(EXIT_FAILURE);
-                }
+                // ISLocalToGlobalMapping rowmap, colmap;
+                // MatGetLocalToGlobalMapping(A, &rowmap, &colmap);
+                // if (!rowmap)
+                // {
+                //     std::cout << "[" << mpi::communicator().rank() << "] assemble_scheme(" << this->name()
+                //               << ") - Local to global mapping not set!" << std::endl;
+                //     assert(false && "Local to global mappings not set");
+                //     exit(EXIT_FAILURE);
+                // }
 
                 if (this->current_insert_mode() == INSERT_VALUES)
                 {

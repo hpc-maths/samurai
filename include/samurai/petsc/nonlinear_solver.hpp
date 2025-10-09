@@ -346,20 +346,14 @@ namespace samurai
                 {
                     this->setup();
                 }
-#ifdef SAMURAI_WITH_MPI
+
                 Vec b = assembly().create_rhs_vector(rhs);
                 Vec x = assembly().create_solution_vector(assembly().unknown());
 
-                VecAssemblyBegin(x);
-                VecAssemblyEnd(x);
-#else
-                Vec b = create_petsc_vector_from(rhs);
-                Vec x = create_petsc_vector_from(assembly().unknown());
-#endif
                 this->prepare_rhs_and_solve(b, x);
 
 #ifdef SAMURAI_WITH_MPI
-                assembly().update_unknown(x);
+                assembly().copy_unknown(x, assembly().unknown());
 #endif
                 VecDestroy(&b);
                 VecDestroy(&x);

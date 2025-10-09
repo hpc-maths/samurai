@@ -216,28 +216,25 @@ namespace samurai
                 //     sleep(1); // to avoid jumbled output
                 // }
 
-                std::cout << "\n\t> [" << world.rank() << "] sparsity_pattern_scheme" << std::endl;
+                // std::cout << "\n\t> [" << world.rank() << "] sparsity_pattern_scheme" << std::endl;
                 sparsity_pattern_scheme(d_nnz, o_nnz);
 
                 if (m_include_bc)
                 {
-                    std::cout << "\n\t> [" << world.rank() << "] sparsity_pattern_boundary" << std::endl;
+                    // std::cout << "\n\t> [" << world.rank() << "] sparsity_pattern_boundary" << std::endl;
                     sparsity_pattern_boundary(d_nnz, o_nnz);
-                    // world.barrier(); // TO REMOVE
                 }
                 if (m_assemble_proj_pred)
                 {
-                    std::cout << "\n\t> [" << world.rank() << "] sparsity_pattern_projection" << std::endl;
+                    // std::cout << "\n\t> [" << world.rank() << "] sparsity_pattern_projection" << std::endl;
                     sparsity_pattern_projection(d_nnz, o_nnz);
-                    std::cout << "\n\t> [" << world.rank() << "] sparsity_pattern_prediction" << std::endl;
+                    // std::cout << "\n\t> [" << world.rank() << "] sparsity_pattern_prediction" << std::endl;
                     sparsity_pattern_prediction(d_nnz, o_nnz);
-                    // world.barrier(); // TO REMOVE
                 }
                 if (m_insert_value_on_diag_for_useless_ghosts)
                 {
-                    std::cout << "\n\t> [" << world.rank() << "] sparsity_pattern_useless_ghosts" << std::endl;
+                    // std::cout << "\n\t> [" << world.rank() << "] sparsity_pattern_useless_ghosts" << std::endl;
                     sparsity_pattern_useless_ghosts(d_nnz);
-                    // world.barrier(); // TO REMOVE
                 }
 
                 if (!m_is_block)
@@ -259,12 +256,12 @@ namespace samurai
                     // std::cout << "Total number of non-zeros on rank " << world.rank() << ": " << sum_nnz << std::endl;
                     // std::cout << std::endl;
 
-                    std::cout << "\n\t> [" << world.rank() << "] MatMPIAIJSetPreallocation" << std::endl;
+                    // std::cout << "\n\t> [" << world.rank() << "] MatMPIAIJSetPreallocation" << std::endl;
                     MatMPIAIJSetPreallocation(A, PETSC_DEFAULT, d_nnz.data(), PETSC_DEFAULT, o_nnz.data());
                     // MatMPIAIJSetPreallocation(A, 10, nullptr, 10, nullptr);
                     // std::cout << "\n\t> [" << world.rank() << "] MatMPIAIJSetPreallocation <done>" << std::endl;
 
-                    std::cout << "\n\t> [" << world.rank() << "] create_matrix done" << std::endl;
+                    // std::cout << "\n\t> [" << world.rank() << "] create_matrix done" << std::endl;
                 }
 #else
                 // Number of non-zeros per row. 0 by default.
@@ -309,13 +306,13 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
                 mpi::communicator world;
 
-                std::cout << "\n\t> [" << world.rank() << "] start assemble_matrix" << std::endl;
+                // std::cout << "\n\t> [" << world.rank() << "] start assemble_matrix" << std::endl;
 
                 // if (world.rank() == 1)
                 // {
                 //     sleep(1);
                 // }
-                std::cout << "\n\t> [" << world.rank() << "] assemble_scheme" << std::endl;
+                // std::cout << "\n\t> [" << world.rank() << "] assemble_scheme" << std::endl;
 #endif
                 assemble_scheme(A);
 
@@ -326,10 +323,10 @@ namespace samurai
                     // {
                     //     sleep(1);
                     // }
-                    std::cout << "\n\t> [" << world.rank() << "] assemble_boundary_conditions" << std::endl;
+                    // std::cout << "\n\t> [" << world.rank() << "] assemble_boundary_conditions" << std::endl;
 #endif
                     assemble_boundary_conditions(A);
-                    std::cout << "\n\t> [" << world.rank() << "] assemble_boundary_conditions <done>" << std::endl;
+                    // std::cout << "\n\t> [" << world.rank() << "] assemble_boundary_conditions <done>" << std::endl;
                 }
                 if (m_assemble_proj_pred)
                 {
@@ -338,7 +335,7 @@ namespace samurai
                     // {
                     //     sleep(1);
                     // }
-                    std::cout << "\n\t> [" << world.rank() << "] assemble_projection" << std::endl;
+                    // std::cout << "\n\t> [" << world.rank() << "] assemble_projection" << std::endl;
 #endif
                     assemble_projection(A);
 #ifdef SAMURAI_WITH_MPI
@@ -346,7 +343,7 @@ namespace samurai
                     // {
                     //     sleep(1);
                     // }
-                    std::cout << "\n\t> [" << world.rank() << "] assemble_prediction" << std::endl;
+                    // std::cout << "\n\t> [" << world.rank() << "] assemble_prediction" << std::endl;
 #endif
                     assemble_prediction(A);
                 }
@@ -357,7 +354,7 @@ namespace samurai
                     // {
                     //     sleep(1);
                     // }
-                    std::cout << "\n\t> [" << world.rank() << "] insert_value_on_diag_for_useless_ghosts" << std::endl;
+                    // std::cout << "\n\t> [" << world.rank() << "] insert_value_on_diag_for_useless_ghosts" << std::endl;
 #endif
                     insert_value_on_diag_for_useless_ghosts(A);
                 }
@@ -373,7 +370,7 @@ namespace samurai
                     if (final_assembly)
                     {
 #ifdef SAMURAI_WITH_MPI
-                        std::cout << "\n\t> [" << world.rank() << "] ASSEMBLY" << std::endl;
+                        // std::cout << "\n\t> [" << world.rank() << "] ASSEMBLY" << std::endl;
 #endif
                         MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
                         MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
@@ -389,7 +386,6 @@ namespace samurai
             }
 
 #ifdef SAMURAI_WITH_MPI
-
             /**
              * @brief Sets the local to global mapping for the rows and columns, which allows to use the local numbering when inserting
              * values into the matrix.

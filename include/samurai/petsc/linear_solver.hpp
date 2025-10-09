@@ -184,9 +184,6 @@ namespace samurai
                 // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
                 // assert(check_nan_or_inf(b));
 
-                VecAssemblyBegin(b);
-                VecAssemblyEnd(b);
-
                 // VecView(b, PETSC_VIEWER_STDOUT_WORLD);
                 // std::cout << std::endl;
 
@@ -368,22 +365,15 @@ namespace samurai
                     setup();
                 }
 
-#ifdef SAMURAI_WITH_MPI
                 Vec b = assembly().create_rhs_vector(rhs);
                 Vec x = assembly().create_solution_vector(assembly().unknown());
 
-                VecAssemblyBegin(x);
-                VecAssemblyEnd(x);
-#else
-                Vec b = create_petsc_vector_from(rhs);
-                Vec x = create_petsc_vector_from(assembly().unknown());
-#endif
                 PetscObjectSetName(reinterpret_cast<PetscObject>(b), "b");
 
                 this->prepare_rhs_and_solve(b, x);
 
 #ifdef SAMURAI_WITH_MPI
-                assembly().update_unknown(x);
+                assembly().copy_unknown(x, assembly().unknown());
 #endif
                 VecDestroy(&b);
                 VecDestroy(&x);

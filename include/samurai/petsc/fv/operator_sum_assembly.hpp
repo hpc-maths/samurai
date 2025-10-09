@@ -175,9 +175,9 @@ namespace samurai
                 return largest_stencil_assembly().create_solution_vector(field);
             }
 
-            void update_unknown(Vec& v) const
+            void copy_unknown(const Vec& v, input_field_t& field) const
             {
-                largest_stencil_assembly().update_unknown(v);
+                largest_stencil_assembly().copy_unknown(v, field);
             }
 
 #ifdef SAMURAI_WITH_MPI
@@ -375,10 +375,12 @@ namespace samurai
                          });
             }
 
+#ifdef SAMURAI_WITH_MPI
             void set_local_to_global_mappings(Mat& A) const override
             {
                 largest_stencil_assembly().set_local_to_global_mappings(A);
             }
+#endif
         };
 
     } // end namespace petsc
