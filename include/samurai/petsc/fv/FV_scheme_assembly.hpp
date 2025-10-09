@@ -233,8 +233,8 @@ namespace samurai
                                                  /*PETSC_USE_POINTER,*/ PETSC_COPY_VALUES,
                                                  &m_local_to_global_rows);
 
-                    std::cout << "[" << mpi::communicator().rank() << "] Created local to global mapping for rows of matrix '" << name()
-                              << "'\n";
+                    // std::cout << "[" << mpi::communicator().rank() << "] Created local to global mapping for rows of matrix '" << name()
+                    //           << "'\n";
                     // ISLocalToGlobalMappingView(m_local_to_global_rows, PETSC_VIEWER_STDOUT_WORLD);
 
                     m_local_to_global_cols = m_local_to_global_rows;
@@ -307,13 +307,18 @@ namespace samurai
                 return recursion;
             }
 
-            inline bool is_locally_owned([[maybe_unused]] const cell_t& cell) const
+            inline bool is_locally_owned([[maybe_unused]] std::size_t cell_index) const
             {
 #ifdef SAMURAI_WITH_MPI
-                return m_ownership[static_cast<std::size_t>(cell.index)] == mpi::communicator().rank();
+                return m_ownership[cell_index] == mpi::communicator().rank();
 #else
                 return true;
 #endif
+            }
+
+            inline bool is_locally_owned(const cell_t& cell) const
+            {
+                return is_locally_owned(static_cast<std::size_t>(cell.index));
             }
 
             void set_unknown(field_t& unknown)
@@ -516,23 +521,35 @@ namespace samurai
                 Vec v = create_petsc_vector(matrix_rows());
                 VecSetLocalToGlobalMapping(v, m_local_to_global_rows);
 
-                // Copy data from the field to the vector
-                for_each_cell(field.mesh()[mesh_id_t::reference],
-                              [&](const auto& cell)
-                              {
-                                  if (is_locally_owned(cell))
-                                  {
-                                      for (unsigned int i = 0; i < output_n_comp; ++i)
-                                      {
-                                          auto vec_row = local_row_index(static_cast<PetscInt>(cell.index), i);
-                                          VecSetValueLocal(v, vec_row, field_value(field, cell, i), INSERT_VALUES);
-                                      }
-                                  }
-                              });
+                copy_rhs(field, v);
                 return v;
             }
 
+            void copy_rhs(const output_field_t& field, Vec& v) const
+            {
+                // Copy data from the field to the vector
+                double* v_data;
+                VecGetArray(v, &v_data);
+                for (std::size_t cell_index = 0; cell_index < m_local_cell_indices.size(); ++cell_index)
+                {
+                    if (is_locally_owned(cell_index))
+                    {
+                        for (unsigned int i = 0; i < output_n_comp; ++i)
+                        {
+                            auto vec_row    = local_row_index(static_cast<PetscInt>(cell_index), i);
+                            v_data[vec_row] = field_value(field, static_cast<index_t>(cell_index), i);
+                        }
+                    }
+                }
+                VecRestoreArray(v, &v_data);
+            }
+
             void update_unknown(Vec& v) const
+            {
+                update_unknown(v, unknown());
+            }
+
+            void update_unknown(const Vec& v, field_t& unknown_field) const
             {
                 // Copy data from the vector to the field
                 const double* v_data;
@@ -545,8 +562,8 @@ namespace samurai
                                   {
                                       for (unsigned int j = 0; j < input_n_comp; ++j)
                                       {
-                                          auto vec_row                    = local_col_index(static_cast<PetscInt>(cell.index), j);
-                                          field_value(unknown(), cell, j) = v_data[vec_row];
+                                          auto vec_row                        = local_col_index(static_cast<PetscInt>(cell.index), j);
+                                          field_value(unknown_field, cell, j) = v_data[vec_row];
                                       }
                                   }
                               });
@@ -782,15 +799,15 @@ namespace samurai
 
             void assemble_boundary_conditions(Mat& A) override
             {
-                std::cout << "[" << mpi::communicator().rank() << "] assemble_boundary_conditions of " << this->name() << std::endl;
+                // std::cout << "[" << mpi::communicator().rank() << "] assemble_boundary_conditions of " << this->name() << std::endl;
                 if (current_insert_mode() == ADD_VALUES)
                 {
                     // Must flush to use INSERT_VALUES instead of ADD_VALUES
-                    std::cout << "[" << mpi::communicator().rank() << "] Flushing assembly to switch to INSERT_VALUES mode\n";
+                    // std::cout << "[" << mpi::communicator().rank() << "] Flushing assembly to switch to INSERT_VALUES mode\n";
                     MatAssemblyBegin(A, MAT_FLUSH_ASSEMBLY);
                     MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
                     set_current_insert_mode(INSERT_VALUES);
-                    std::cout << "[" << mpi::communicator().rank() << "] end flush" << std::endl;
+                    // std::cout << "[" << mpi::communicator().rank() << "] end flush" << std::endl;
                 }
 
                 if (mesh().is_periodic())
@@ -896,15 +913,22 @@ namespace samurai
                     }
                 }
 
+                double* b_data;
+                VecGetArray(b, &b_data);
+
                 iterate_on_boundary(
                     [&](auto& cells, auto& equations, auto& towards_out, auto* bc)
                     {
-                        enforce_bc(b, cells, equations, bc, towards_out);
+                        enforce_bc(b_data, cells, equations, bc, towards_out);
                     });
+
+                VecRestoreArray(b, &b_data);
             }
 
+          private:
+
             template <class CellList, class CoeffList, class BoundaryCondition>
-            void enforce_bc(Vec& b,
+            void enforce_bc(double* b_data,
                             CellList& cells,
                             std::array<CoeffList, nb_bdry_ghosts>& equations,
                             const BoundaryCondition* bc,
@@ -938,7 +962,7 @@ namespace samurai
                             bc_value = bc->value(towards_out, cell, boundary_point)(field_i); // TODO: call get_value() only once instead of
                                                                                               // once per field_i
                         }
-                        VecSetValueLocal(b, equation_row, coeff * bc_value, INSERT_VALUES);
+                        b_data[equation_row] += coeff * bc_value;
                     }
                 }
             }
@@ -1014,6 +1038,8 @@ namespace samurai
 
             void set_0_for_all_ghosts(Vec& b) const
             {
+                double* b_data;
+                VecGetArray(b, &b_data);
                 for (std::size_t level = 0; level <= mesh().max_level(); ++level)
                 {
                     auto ghosts = difference(mesh()[mesh_id_t::reference][level], mesh()[mesh_id_t::cells][level]);
@@ -1026,11 +1052,12 @@ namespace samurai
                                       {
                                           for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                                           {
-                                              VecSetValueLocal(b, local_row_index(ghost, field_i), 0, INSERT_VALUES);
+                                              b_data[local_row_index(ghost, field_i)] = 0;
                                           }
                                       }
                                   });
                 }
+                VecRestoreArray(b, &b_data);
             }
 
             //-------------------------------------------------------------//
