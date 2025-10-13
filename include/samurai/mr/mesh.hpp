@@ -522,13 +522,13 @@ namespace samurai
     }
 
     template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, MRMeshId>>
-    auto make_MRMesh(const mesh_config_t& cfg, const typename MRMesh<complete_mesh_config_t>::cl_type& cl)
+    auto make_MRMesh(mesh_config_t& cfg, const typename MRMesh<complete_mesh_config_t>::cl_type& cl)
     {
         return MRMesh<complete_mesh_config_t>(cfg, cl);
     }
 
     template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, MRMeshId>>
-    auto make_MRMesh(const mesh_config_t& cfg, const typename MRMesh<complete_mesh_config_t>::ca_type& ca)
+    auto make_MRMesh(mesh_config_t& cfg, const typename MRMesh<complete_mesh_config_t>::ca_type& ca)
     {
         return MRMesh<complete_mesh_config_t>(cfg, ca);
     }
