@@ -121,14 +121,14 @@ namespace samurai
     }
 
     template <class Config>
-    inline MRMesh<Config>::MRMesh(const mesh_config<Config::dim>& config, const cl_type& cl)
-        : base_type(config, cl)
+    inline MRMesh<Config>::MRMesh(mesh_config<Config::dim>& config, const cl_type& cl)
+        : base_type(config.start_level(config.max_level()), cl)
     {
     }
 
     template <class Config>
-    inline MRMesh<Config>::MRMesh(const mesh_config<Config::dim>& config, const ca_type& ca)
-        : base_type(config, ca)
+    inline MRMesh<Config>::MRMesh(mesh_config<Config::dim>& config, const ca_type& ca)
+        : base_type(config.start_level(config.max_level()), ca)
     {
     }
 
