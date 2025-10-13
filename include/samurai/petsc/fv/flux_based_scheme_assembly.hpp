@@ -188,6 +188,11 @@ namespace samurai
 
             void assemble_scheme(Mat& A) override
             {
+                if constexpr (cfg_t::scheme_type == SchemeType::NonLinear || cfg_t::scheme_type == SchemeType::LinearHeterogeneous)
+                {
+                    scheme().update_ghosts_if_needed(unknown());
+                }
+
                 // std::cout << "assemble_scheme() of " << this->name() << std::endl;
                 // std::cout << "[" << mpi::communicator().rank() << "] assemble_scheme() of " << this->name() << std::endl;
 
