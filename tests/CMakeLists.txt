@@ -32,6 +32,7 @@ set(SAMURAI_TESTS
     test_portion.cpp
     test_restart.cpp
     test_scaling.cpp
+    test_stencil.cpp
     test_subset.cpp
     test_utils.cpp
 )
