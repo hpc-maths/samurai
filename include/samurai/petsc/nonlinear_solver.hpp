@@ -12,8 +12,9 @@ namespace samurai
         template <class Assembly>
         class NonLinearSolverBase
         {
-            using scheme_t = typename Assembly::scheme_t;
-            using field_t  = typename scheme_t::field_t;
+            using scheme_t       = typename Assembly::scheme_t;
+            using input_field_t  = typename scheme_t::input_field_t;
+            using output_field_t = typename scheme_t::output_field_t;
 
           protected:
 
@@ -21,6 +22,9 @@ namespace samurai
             SNES m_snes      = nullptr;
             Mat m_J          = nullptr;
             bool m_is_set_up = false;
+
+            input_field_t m_worker_input_field;
+            output_field_t m_worker_output_field;
 
           public:
 
@@ -164,27 +168,34 @@ namespace samurai
 
                 auto self      = reinterpret_cast<NonLinearSolverBase*>(ctx); // this
                 auto& assembly = self->assembly();
-                auto& mesh     = assembly.unknown().mesh();
+                // auto& mesh     = assembly.unknown().mesh();
+
+                auto& x_field = self->m_worker_input_field;
+                auto& f_field = self->m_worker_output_field;
 
                 // Wrap a field structure around the data of the Petsc vector x
-                field_t x_field("newton", mesh);
+                // unknown_field_t x_field("newton", mesh);
 
                 // Transfer B.C. to the new field (required to be able to apply the explicit scheme)
-                x_field.copy_bc_from(assembly.unknown());
+                // x_field.copy_bc_from(assembly.unknown());
 
                 // Save unknown because it will be temporarily replaced
-                auto real_system_unknown = assembly.unknown_ptr();
+                // auto real_system_unknown = assembly.unknown_ptr();
 
                 // Replace the unknown with the current Newton iterate (so that the Jacobian matrix is computed at that specific point)
-                assembly.set_unknown(x_field);
+                // assembly.set_unknown(self->m_worker_input_field);
 
                 assembly.copy_unknown(x, x_field);
 
                 // Apply explicit scheme
-                auto f_field = self->scheme()(x_field);
+                // auto f_field = self->scheme()(self->m_worker_input_field);
+                // self->m_worker_output_field = self->scheme()(self->m_worker_input_field);
+                f_field.fill(0);
+                self->scheme().apply(f_field, x_field);
+                // self->m_worker_output_field = self->scheme()(self->m_worker_input_field);
 
                 // Put back the real unknown: we need its B.C. for the evaluation of the non-linear function
-                assembly.set_unknown(*real_system_unknown);
+                // assembly.set_unknown(*real_system_unknown);
 
                 assembly.copy_rhs(f_field, f);
                 self->prepare_rhs(f);
@@ -203,11 +214,13 @@ namespace samurai
                 auto& assembly = self->assembly();
 
                 // Wrap a field structure around the data of the Petsc vector x
-                field_t x_field("newton_jac_x", assembly.unknown().mesh());
+                // unknown_field_t x_field("newton_jac_x", assembly.unknown().mesh());
+
+                auto& x_field = self->m_worker_input_field;
 
                 // Transfer B.C. to the new field,
                 // so that the assembly process has B.C. to enforce in the matrix
-                x_field.copy_bc_from(assembly.unknown());
+                // x_field.copy_bc_from(assembly.unknown());
 
                 // Save unknown because it will be temporarily replaced
                 auto real_system_unknown = assembly.unknown_ptr();
@@ -216,7 +229,7 @@ namespace samurai
                 assembly.set_unknown(x_field);
 
                 assembly.copy_unknown(x, x_field);
-                update_ghost_mr(x_field);
+                // update_ghost_mr(x_field);
 
                 // Assembly of the Jacobian matrix.
                 // In this case, jac = B, but Petsc recommends we assemble B for more general cases.
@@ -310,26 +323,35 @@ namespace samurai
 
           public:
 
-            using scheme_t = Scheme;
-            using Field    = typename scheme_t::field_t;
-            using Mesh     = typename Field::mesh_t;
+            using scheme_t       = Scheme;
+            using input_field_t  = typename scheme_t::input_field_t;
+            using output_field_t = typename scheme_t::output_field_t;
+            using Mesh           = typename input_field_t::mesh_t;
 
             using base_class::assembly;
             using base_class::m_is_set_up;
             using base_class::m_J;
+            using base_class::m_worker_input_field;
+            using base_class::m_worker_output_field;
 
             explicit NonLinearSolver(const scheme_t& scheme)
                 : base_class(scheme)
             {
             }
 
-            void set_unknown(Field& unknown)
+            void set_unknown(input_field_t& unknown)
             {
                 assembly().set_unknown(unknown);
+
+                m_worker_input_field = input_field_t("worker_input", unknown.mesh());
+                m_worker_input_field.copy_bc_from(unknown);
             }
 
-            void solve(Field& rhs)
+            void solve(output_field_t& rhs)
             {
+                m_worker_output_field = output_field_t("worker_output", rhs.mesh());
+                m_worker_output_field.copy_bc_from(rhs);
+
                 if (!m_is_set_up)
                 {
                     this->setup();
@@ -347,7 +369,7 @@ namespace samurai
                 VecDestroy(&x);
             }
 
-            void solve(Field& unknown, Field& rhs)
+            void solve(input_field_t& unknown, output_field_t& rhs)
             {
                 set_unknown(unknown);
                 solve(rhs);

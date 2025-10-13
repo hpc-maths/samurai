@@ -569,6 +569,7 @@ namespace samurai
                         }
                     }
                 }
+                field.ghosts_updated() = false;
                 VecRestoreArrayRead(v, &v_data);
             }
 
