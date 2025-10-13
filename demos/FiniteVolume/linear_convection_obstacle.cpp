@@ -75,7 +75,6 @@ int main(int argc, char* argv[])
 
     auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).max_stencil_size(6);
     auto mesh   = samurai::make_MRMesh(config, domain);
-    // Mesh mesh(domain, min_level, max_level);
 
     // Initial solution
     auto u = samurai::make_scalar_field<double>("u",
@@ -115,7 +114,7 @@ int main(int argc, char* argv[])
 
     if (dt == 0)
     {
-        double dx             = mesh.cell_length(mesh.max_level());
+        double dx             = mesh.min_cell_length();
         auto a                = xt::abs(constant_velocity);
         double sum_velocities = xt::sum(xt::abs(constant_velocity))();
         dt                    = cfl * dx / sum_velocities;

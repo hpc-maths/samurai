@@ -190,7 +190,7 @@ int main(int argc, char* argv[])
     //   Time iteration   //
     //--------------------//
 
-    double dx = mesh.cell_length(mesh.max_level());
+    double dx = mesh.cmin_cell_length();
     dt        = cfl * dx / velocity(0);
 
     while (t != Tf)

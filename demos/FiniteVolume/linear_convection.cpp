@@ -137,7 +137,7 @@ int main(int argc, char* argv[])
 
     if (dt == 0)
     {
-        double dx             = mesh.cell_length(mesh.max_level());
+        double dx             = mesh.min_cell_length();
         auto a                = xt::abs(velocity);
         double sum_velocities = xt::sum(xt::abs(velocity))();
         dt                    = cfl * dx / sum_velocities;

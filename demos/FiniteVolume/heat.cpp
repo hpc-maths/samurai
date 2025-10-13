@@ -169,7 +169,7 @@ int main(int argc, char* argv[])
 
     if (explicit_scheme)
     {
-        double dx = mesh.cell_length(mesh.max_level());
+        double dx = mesh.min_cell_length();
         dt        = cfl * (dx * dx) / (pow(2, dim) * diff_coeff);
     }
 

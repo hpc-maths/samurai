@@ -135,8 +135,6 @@ namespace samurai
 
         std::size_t max_level = mesh.max_level();
 
-        constexpr int ghost_width = mesh_t::config::prediction_stencil_radius; // cppcheck-suppress unreadVariable
-
         for (std::size_t level = max_level; level > 0; --level)
         {
             /**
@@ -159,7 +157,17 @@ namespace samurai
 
             auto subset_2 = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level]);
 
-            subset_2.apply_op(tag_to_keep<ghost_width>(tag, CellFlag::refine));
+            auto ghost_width = mesh.cfg().graduation_width();
+            // maximum ghost width is set to 9
+            static_for<1, 10>::apply(
+                [&](auto static_ghost_width_)
+                {
+                    static constexpr int static_ghost_width = static_cast<int>(static_ghost_width_());
+                    if (ghost_width == static_ghost_width)
+                    {
+                        subset_2.apply_op(tag_to_keep<static_ghost_width>(tag, CellFlag::refine));
+                    }
+                });
 
             /**
              *      K     C                          K     K

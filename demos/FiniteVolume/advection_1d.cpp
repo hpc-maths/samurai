@@ -101,7 +101,6 @@ int main(int argc, char* argv[])
 
     if (restart_file.empty())
     {
-        // mesh = {box, min_level, max_level, std::array<bool, dim>{is_periodic}};
         mesh = {config, box};
         init(u);
     }
@@ -110,7 +109,7 @@ int main(int argc, char* argv[])
         samurai::load(restart_file, mesh, u);
     }
 
-    double dt            = cfl * mesh.cell_length(mesh.max_level());
+    double dt            = cfl * mesh.min_cell_length();
     const double dt_save = Tf / static_cast<double>(nfiles);
 
     if (!is_periodic)
