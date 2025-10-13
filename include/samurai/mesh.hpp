@@ -166,7 +166,7 @@ namespace samurai
         Mesh_base(const mesh_config<Config::dim>& config, const ca_type& ca);
         Mesh_base(mesh_config<Config::dim>& config, const samurai::Box<double, dim>& b);
 
-        Mesh_base(const mesh_config<Config::dim>& config, const samurai::DomainBuilder<dim>& domain_builder);
+        Mesh_base(mesh_config<Config::dim>& config, const samurai::DomainBuilder<dim>& domain_builder);
 
         // cppcheck-suppress uninitMemberVar
         Mesh_base(const samurai::Box<double, dim>&, std::size_t, std::size_t, std::size_t, double, double)
@@ -315,7 +315,7 @@ namespace samurai
     //     }
 
     template <class D, class Config>
-    Mesh_base<D, Config>::Mesh_base(const mesh_config<Config::dim>& config, const samurai::DomainBuilder<dim>& domain_builder)
+    Mesh_base<D, Config>::Mesh_base(mesh_config<Config::dim>& config, const samurai::DomainBuilder<dim>& domain_builder)
         : m_config(config)
     {
         m_config.parse_args();
@@ -456,7 +456,7 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline Mesh_base<D, Config>::Mesh_base(mesh_config<Config::dim> const& config, const ca_type& ca)
+    inline Mesh_base<D, Config>::Mesh_base(const mesh_config<Config::dim>& config, const ca_type& ca)
         : m_config{config}
     {
         m_config.parse_args();

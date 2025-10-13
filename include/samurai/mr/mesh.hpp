@@ -79,8 +79,8 @@ namespace samurai
         MRMesh() = default;
         MRMesh(const ca_type& ca, const self_type& ref_mesh);
         MRMesh(const cl_type& cl, const self_type& ref_mesh);
-        MRMesh(mesh_config<Config::dim>& config, const cl_type& cl);
-        MRMesh(mesh_config<Config::dim>& config, const ca_type& ca);
+        MRMesh(const mesh_config<Config::dim>& config, const cl_type& cl);
+        MRMesh(const mesh_config<Config::dim>& config, const ca_type& ca);
         MRMesh(mesh_config<Config::dim>& config, const samurai::Box<double, dim>& b);
         MRMesh(mesh_config<Config::dim>& config, const samurai::DomainBuilder<dim>& domain_builder);
 
@@ -121,13 +121,13 @@ namespace samurai
     }
 
     template <class Config>
-    inline MRMesh<Config>::MRMesh(mesh_config<Config::dim>& config, const cl_type& cl)
+    inline MRMesh<Config>::MRMesh(const mesh_config<Config::dim>& config, const cl_type& cl)
         : base_type(config.start_level(config.max_level()), cl)
     {
     }
 
     template <class Config>
-    inline MRMesh<Config>::MRMesh(mesh_config<Config::dim>& config, const ca_type& ca)
+    inline MRMesh<Config>::MRMesh(const mesh_config<Config::dim>& config, const ca_type& ca)
         : base_type(config.start_level(config.max_level()), ca)
     {
     }
@@ -522,13 +522,13 @@ namespace samurai
     }
 
     template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, MRMeshId>>
-    auto make_MRMesh(mesh_config_t& cfg, const typename MRMesh<complete_mesh_config_t>::cl_type& cl)
+    auto make_MRMesh(const mesh_config_t& cfg, const typename MRMesh<complete_mesh_config_t>::cl_type& cl)
     {
         return MRMesh<complete_mesh_config_t>(cfg, cl);
     }
 
     template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, MRMeshId>>
-    auto make_MRMesh(mesh_config_t& cfg, const typename MRMesh<complete_mesh_config_t>::ca_type& ca)
+    auto make_MRMesh(const mesh_config_t& cfg, const typename MRMesh<complete_mesh_config_t>::ca_type& ca)
     {
         return MRMesh<complete_mesh_config_t>(cfg, ca);
     }

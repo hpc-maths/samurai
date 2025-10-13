@@ -73,6 +73,19 @@ namespace samurai
         }
 
         /**
+         * @brief copy config and set max stencil radius in chained const config
+         *
+         * @param stencil_radius
+         * @return auto returns a new mesh_config
+         */
+        auto max_stencil_radius(int stencil_radius) const
+        {
+            auto copy = *this;
+            copy.max_stencil_radius(stencil_radius);
+            return copy;
+        }
+
+        /**
          * @brief get a reference on max stencil radius
          */
         auto& max_stencil_radius()
@@ -105,6 +118,19 @@ namespace samurai
         }
 
         /**
+         * @brief copy config and set stencil radius from a size in chained const config
+         *
+         * @param stencil_size
+         * @return auto returns a new mesh_config
+         */
+        auto max_stencil_size(int stencil_size) const
+        {
+            auto copy = *this;
+            copy.max_stencil_size(stencil_size);
+            return copy;
+        }
+
+        /**
          * @brief get value of max stencil size
          */
         auto max_stencil_size() const
@@ -124,6 +150,19 @@ namespace samurai
         {
             m_graduation_width = grad_width;
             return *this;
+        }
+
+        /**
+         * @brief copy config and set graduation width in chained const config
+         *
+         * @param grad_width
+         * @return auto returns a new mesh_config
+         */
+        auto graduation_width(std::size_t grad_width) const
+        {
+            auto copy = *this;
+            copy.graduation_width(grad_width);
+            return copy;
         }
 
         /**
@@ -167,6 +206,19 @@ namespace samurai
         }
 
         /**
+         * @brief copy config and set min level in chained const config
+         *
+         * @param level
+         * @return auto returns a new mesh_config
+         */
+        auto min_level(std::size_t level) const
+        {
+            auto copy = *this;
+            copy.min_level(level);
+            return copy;
+        }
+
+        /**
          * @brief get a reference on min level
          */
         auto& min_level()
@@ -194,6 +246,19 @@ namespace samurai
         {
             m_max_level = level;
             return *this;
+        }
+
+        /**
+         * @brief copy config and set max level in chained const config
+         *
+         * @param level
+         * @return auto returns a new mesh_config
+         */
+        auto max_level(std::size_t level) const
+        {
+            auto copy = *this;
+            copy.max_level(level);
+            return copy;
         }
 
         /**
@@ -227,6 +292,19 @@ namespace samurai
         }
 
         /**
+         * @brief copy config and set start level in chained const config
+         *
+         * @param level
+         * @return auto returns a new mesh_config
+         */
+        auto start_level(std::size_t level) const
+        {
+            auto copy = *this;
+            copy.start_level(level);
+            return copy;
+        }
+
+        /**
          * @brief get a reference on start level
          */
         auto& start_level()
@@ -254,6 +332,19 @@ namespace samurai
         {
             m_approx_box_tol = tol;
             return *this;
+        }
+
+        /**
+         * @brief copy config and set approximation box tolerance in chained const config
+         *
+         * @param tol
+         * @return auto returns a new mesh_config
+         */
+        auto approx_box_tol(double tol) const
+        {
+            auto copy = *this;
+            copy.approx_box_tol(tol);
+            return copy;
         }
 
         /**
@@ -287,6 +378,19 @@ namespace samurai
         }
 
         /**
+         * @brief copy config and set scaling factor in chained const config
+         *
+         * @param factor
+         * @return auto returns a new mesh_config
+         */
+        auto scaling_factor(double factor) const
+        {
+            auto copy = *this;
+            copy.scaling_factor(factor);
+            return copy;
+        }
+
+        /**
          * @brief get a reference on scaling factor
          */
         auto& scaling_factor()
@@ -317,6 +421,19 @@ namespace samurai
         }
 
         /**
+         * @brief copy config and set periodicity in chained const config
+         *
+         * @param factor
+         * @return auto returns a new mesh_config
+         */
+        auto periodic(std::array<bool, dim> const& periodicity) const
+        {
+            auto copy = *this;
+            copy.periodic(periodicity);
+            return copy;
+        }
+
+        /**
          * @brief set periodicity in chained config with a value to fill in each direction
          *
          * @param periodicity
@@ -326,6 +443,19 @@ namespace samurai
         {
             m_periodic.fill(periodicity);
             return *this;
+        }
+
+        /**
+         * @brief copy config and set periodicity in chained const config
+         *
+         * @param factor
+         * @return auto returns a new mesh_config
+         */
+        auto periodic(bool periodicity) const
+        {
+            auto copy = *this;
+            copy.periodic(periodicity);
+            return copy;
         }
 
         /**
