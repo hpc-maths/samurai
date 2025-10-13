@@ -80,9 +80,9 @@ namespace samurai
          */
         auto max_stencil_radius(int stencil_radius) const
         {
-            auto copy = *this;
-            copy.max_stencil_radius(stencil_radius);
-            return copy;
+            auto copy_ = *this;
+            copy_.max_stencil_radius(stencil_radius);
+            return copy_;
         }
 
         /**
@@ -125,9 +125,9 @@ namespace samurai
          */
         auto max_stencil_size(int stencil_size) const
         {
-            auto copy = *this;
-            copy.max_stencil_size(stencil_size);
-            return copy;
+            auto copy_ = *this;
+            copy_.max_stencil_size(stencil_size);
+            return copy_;
         }
 
         /**
@@ -160,9 +160,9 @@ namespace samurai
          */
         auto graduation_width(std::size_t grad_width) const
         {
-            auto copy = *this;
-            copy.graduation_width(grad_width);
-            return copy;
+            auto copy_ = *this;
+            copy_.graduation_width(grad_width);
+            return copy_;
         }
 
         /**
@@ -213,9 +213,9 @@ namespace samurai
          */
         auto min_level(std::size_t level) const
         {
-            auto copy = *this;
-            copy.min_level(level);
-            return copy;
+            auto copy_ = *this;
+            copy_.min_level(level);
+            return copy_;
         }
 
         /**
@@ -256,9 +256,9 @@ namespace samurai
          */
         auto max_level(std::size_t level) const
         {
-            auto copy = *this;
-            copy.max_level(level);
-            return copy;
+            auto copy_ = *this;
+            copy_.max_level(level);
+            return copy_;
         }
 
         /**
@@ -299,9 +299,9 @@ namespace samurai
          */
         auto start_level(std::size_t level) const
         {
-            auto copy = *this;
-            copy.start_level(level);
-            return copy;
+            auto copy_ = *this;
+            copy_.start_level(level);
+            return copy_;
         }
 
         /**
@@ -342,9 +342,9 @@ namespace samurai
          */
         auto approx_box_tol(double tol) const
         {
-            auto copy = *this;
-            copy.approx_box_tol(tol);
-            return copy;
+            auto copy_ = *this;
+            copy_.approx_box_tol(tol);
+            return copy_;
         }
 
         /**
@@ -385,9 +385,9 @@ namespace samurai
          */
         auto scaling_factor(double factor) const
         {
-            auto copy = *this;
-            copy.scaling_factor(factor);
-            return copy;
+            auto copy_ = *this;
+            copy_.scaling_factor(factor);
+            return copy_;
         }
 
         /**
@@ -428,9 +428,9 @@ namespace samurai
          */
         auto periodic(std::array<bool, dim> const& periodicity) const
         {
-            auto copy = *this;
-            copy.periodic(periodicity);
-            return copy;
+            auto copy_ = *this;
+            copy_.periodic(periodicity);
+            return copy_;
         }
 
         /**
@@ -453,9 +453,9 @@ namespace samurai
          */
         auto periodic(bool periodicity) const
         {
-            auto copy = *this;
-            copy.periodic(periodicity);
-            return copy;
+            auto copy_ = *this;
+            copy_.periodic(periodicity);
+            return copy_;
         }
 
         /**
