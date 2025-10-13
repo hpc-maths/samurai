@@ -90,7 +90,7 @@ void AMR_criteria(const Field& f, Tag& tag)
     samurai::for_each_cell(mesh[mesh_id_t::cells],
                            [&](auto cell)
                            {
-                               const double dx = mesh.cell_length(mesh.max_level());
+                               const double dx = mesh.min_cell_length();
 
                                if (std::abs(f[cell]) < 1.2 * 5 * std::sqrt(2.) * dx)
                                {
@@ -301,7 +301,7 @@ int main(int argc, char* argv[])
         samurai::load(restart_file, mesh, phi);
     }
 
-    double dt            = cfl * mesh.cell_length(mesh.max_level());
+    double dt            = cfl * mesh.min_cell_length();
     const double dt_save = Tf / static_cast<double>(nfiles);
 
     auto u = init_velocity(mesh);

@@ -141,7 +141,7 @@ int main(int argc, char* argv[])
     }
     samurai::make_bc<Mybc>(u, 0.);
 
-    double dt            = cfl * mesh.cell_length(mesh.max_level());
+    double dt            = cfl * mesh.min_cell_length();
     const double dt_save = Tf / static_cast<double>(nfiles);
 
     auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);
