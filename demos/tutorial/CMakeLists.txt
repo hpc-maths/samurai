@@ -21,7 +21,7 @@ foreach(demo_entry ${TUTORIAL_DEMOS})
     list(GET demo_parts 1 executable_name)
 
     add_executable(${executable_name} ${source_file})
-    target_link_libraries(${executable_name} PRIVATE samurai CLI11::CLI11)
+    target_link_libraries(${executable_name} PRIVATE samurai)
 endforeach()
 
 # Specific options for MSVC
