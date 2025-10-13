@@ -79,8 +79,8 @@ namespace samurai
         MRMesh() = default;
         MRMesh(const ca_type& ca, const self_type& ref_mesh);
         MRMesh(const cl_type& cl, const self_type& ref_mesh);
-        MRMesh(const mesh_config<Config::dim>& config, const cl_type& cl);
-        MRMesh(const mesh_config<Config::dim>& config, const ca_type& ca);
+        MRMesh(mesh_config<Config::dim>& config, const cl_type& cl);
+        MRMesh(mesh_config<Config::dim>& config, const ca_type& ca);
         MRMesh(mesh_config<Config::dim>& config, const samurai::Box<double, dim>& b);
         MRMesh(mesh_config<Config::dim>& config, const samurai::DomainBuilder<dim>& domain_builder);
 
