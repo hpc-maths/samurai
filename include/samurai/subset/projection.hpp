@@ -50,7 +50,7 @@ namespace samurai
     class Projection : public SetBase<Projection<Set>>
     {
         using Self                = Projection<Set>;
-        using ChildTraverserArray = detail::ProjectionWork<Set, std::make_index_sequence<Set::dim>>::Type;
+        using ChildTraverserArray = typename detail::ProjectionWork<Set, std::make_index_sequence<Set::dim>>::Type;
 
       public:
 

@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <span>
+
 #include "../projection_type.hpp"
 #include "set_traverser_base.hpp"
 
