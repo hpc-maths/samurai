@@ -7,5 +7,5 @@ if(${WITH_PETSC})
 
     add_executable(highorder main.cpp)
     target_compile_definitions(highorder PUBLIC SAMURAI_WITH_PETSC)
-    target_link_libraries(highorder samurai CLI11::CLI11 ${PETSC_LINK_LIBRARIES})
+    target_link_libraries(highorder samurai ${PETSC_LINK_LIBRARIES})
 endif()
