@@ -258,7 +258,7 @@ int main(int argc, char* argv[])
     app.add_option("--nb-bubbles", nb_bubbles, "Number of bubbles")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--start-level", start_level, "Start level of AMR")->capture_default_str()->group("Adaptation parameters");
+    app.add_option("--initial-level", start_level, "Start level of AMR")->capture_default_str()->group("Adaptation parameters");
     app.add_option("--minimum-level", min_level, "Minimum level of AMR")->capture_default_str()->group("Adaptation parameters");
     app.add_option("--maximum-level", max_level, "Maximum level of AMR")->capture_default_str()->group("Adaptation parameters");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");

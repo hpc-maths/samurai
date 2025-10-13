@@ -164,9 +164,9 @@ namespace samurai
         Mesh_base(const cl_type& cl, const self_type& ref_mesh);
         Mesh_base(const mesh_config<Config::dim>& config, const cl_type& cl);
         Mesh_base(const mesh_config<Config::dim>& config, const ca_type& ca);
-        Mesh_base(mesh_config<Config::dim>& config, const samurai::Box<double, dim>& b, std::size_t start_level);
+        Mesh_base(mesh_config<Config::dim>& config, const samurai::Box<double, dim>& b);
 
-        Mesh_base(const mesh_config<Config::dim>& config, const samurai::DomainBuilder<dim>& domain_builder, std::size_t start_level);
+        Mesh_base(const mesh_config<Config::dim>& config, const samurai::DomainBuilder<dim>& domain_builder);
 
         // cppcheck-suppress uninitMemberVar
         Mesh_base(const samurai::Box<double, dim>&, std::size_t, std::size_t, std::size_t, double, double)
@@ -259,16 +259,16 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline Mesh_base<D, Config>::Mesh_base(mesh_config<Config::dim>& config, const samurai::Box<double, dim>& b, std::size_t start_level)
-        : m_domain{start_level, b, (config.parse_args(), config.approx_box_tol()), config.scaling_factor()}
+    inline Mesh_base<D, Config>::Mesh_base(mesh_config<Config::dim>& config, const samurai::Box<double, dim>& b)
+        : m_domain{config.start_level(), b, (config.parse_args(), config.approx_box_tol()), config.scaling_factor()}
         , m_periodic{config.periodic()}
         , m_config(config)
     {
 #ifdef SAMURAI_WITH_MPI
-        partition_mesh(start_level, b);
+        partition_mesh(m_config().start_level(), b);
         // load_balancing();
 #else
-        this->m_cells[mesh_id_t::cells][start_level] = {start_level, b, config.approx_box_tol(), config.scaling_factor()};
+        this->m_cells[mesh_id_t::cells][m_config.start_level()] = {m_config.start_level(), b, config.approx_box_tol(), config.scaling_factor()};
 #endif
         construct_subdomain();
         construct_union();
@@ -315,9 +315,7 @@ namespace samurai
     //     }
 
     template <class D, class Config>
-    Mesh_base<D, Config>::Mesh_base(const mesh_config<Config::dim>& config,
-                                    const samurai::DomainBuilder<dim>& domain_builder,
-                                    [[maybe_unused]] std::size_t start_level)
+    Mesh_base<D, Config>::Mesh_base(const mesh_config<Config::dim>& config, const samurai::DomainBuilder<dim>& domain_builder)
         : m_config(config)
     {
         m_config.parse_args();
@@ -337,7 +335,7 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
         std::cerr << "MPI is not implemented with DomainBuilder." << std::endl;
         std::exit(EXIT_FAILURE);
-        // partition_mesh(start_level, b);
+        // partition_mesh(m_config.start_level(), b);
         //  load_balancing();
 
 #else
@@ -346,7 +344,10 @@ namespace samurai
         m_config.scaling_factor() = scaling_factor_;
 
         // Build the domain by adding and removing boxes
-        cl_type domain_cl = construct_initial_mesh(domain_builder, start_level, m_config.approx_box_tol(), m_config.scaling_factor());
+        cl_type domain_cl = construct_initial_mesh(domain_builder,
+                                                   m_config.start_level(),
+                                                   m_config.approx_box_tol(),
+                                                   m_config.scaling_factor());
 
         this->m_cells[mesh_id_t::cells] = {domain_cl, false};
 #endif

@@ -207,8 +207,7 @@ int main(int argc, char* argv[])
     std::string restart_file;
 
     // AMR parameters
-    std::size_t start_level = 7;
-    bool correction         = false;
+    bool correction = false;
 
     // Output parameters
     fs::path path        = fs::current_path();
@@ -221,7 +220,6 @@ int main(int argc, char* argv[])
     app.add_option("--Ti", t, "Initial time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--start-level", start_level, "Start level of AMR")->capture_default_str()->group("AMR parameters");
     app.add_option("--with-correction", correction, "Apply flux correction at the interface of two refinement levels")
         ->capture_default_str()
         ->group("AMR parameters");
@@ -231,13 +229,13 @@ int main(int argc, char* argv[])
     SAMURAI_PARSE(argc, argv);
 
     const samurai::Box<double, dim> box({left_box}, {right_box});
-    auto config = samurai::mesh_config<dim>().min_level(2).max_level(7).max_stencil_size(2).disable_minimal_ghost_width();
+    auto config = samurai::mesh_config<dim>().min_level(2).max_level(7).max_stencil_size(2).start_level(7).disable_minimal_ghost_width();
     auto mesh   = samurai::amr::make_Mesh(config);
     auto phi    = samurai::make_scalar_field<double>("phi", mesh);
 
     if (restart_file.empty())
     {
-        mesh = samurai::amr::make_Mesh(config, box, start_level);
+        mesh = samurai::amr::make_Mesh(config, box);
         init_solution(phi);
     }
     else

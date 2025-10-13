@@ -11,6 +11,7 @@ namespace samurai
         // Mesh arguments
         static std::size_t min_level        = std::numeric_limits<std::size_t>::max();
         static std::size_t max_level        = std::numeric_limits<std::size_t>::max();
+        static std::size_t start_level      = std::numeric_limits<std::size_t>::max();
         static std::size_t graduation_width = std::numeric_limits<std::size_t>::max();
         static int max_stencil_radius       = std::numeric_limits<int>::max();
 
@@ -32,8 +33,8 @@ namespace samurai
     {
         app.add_option("--min-level", args::min_level, "The minimum level of the mesh")->group("SAMURAI");
         app.add_option("--max-level", args::max_level, "The maximum level of the mesh")->group("SAMURAI");
+        app.add_option("--start-level", args::max_level, "Start level of AMR")->group("SAMURAI");
         app.add_option("--graduation-width", args::graduation_width, "The graduation width of the mesh")->group("SAMURAI");
-        // app.add_option("--graduation-width", args::graduation_width, "The graduation width of the mesh")->group("SAMURAI");
         app.add_option("--max-stencil-radius", args::max_stencil_radius, "The maximum number of neighbour in each direction")->group("SAMURAI");
 
 #ifdef SAMURAI_WITH_MPI
