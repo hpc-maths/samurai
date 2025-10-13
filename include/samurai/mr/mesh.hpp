@@ -134,13 +134,13 @@ namespace samurai
 
     template <class Config>
     inline MRMesh<Config>::MRMesh(mesh_config<Config::dim>& config, const samurai::Box<double, dim>& b)
-        : base_type(config, b, (config.parse_args(), config.max_level()))
+        : base_type(config.start_level(config.max_level()), b)
     {
     }
 
     template <class Config>
     inline MRMesh<Config>::MRMesh(mesh_config<Config::dim>& config, const samurai::DomainBuilder<dim>& domain_builder)
-        : base_type(config, domain_builder, (config.parse_args(), config.max_level()))
+        : base_type(config.start_level(config.max_level()), domain_builder)
     {
     }
 
