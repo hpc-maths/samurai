@@ -498,38 +498,70 @@ namespace samurai
     template <std::size_t stencil_size, std::size_t dim>
     Stencil<stencil_size, dim> convert_for_direction(const Stencil<stencil_size, dim>& stencil_in_x, const DirectionVector<dim>& direction)
     {
-        Stencil<stencil_size, dim> stencil_in_d;
+        Stencil<stencil_size, dim> rotated_stencil;
         if constexpr (dim == 1)
         {
-            stencil_in_d = direction[0] * stencil_in_x;
+            rotated_stencil = direction[0] * stencil_in_x;
         }
         else
         {
             // We apply to each vector in the stencil the rotation matrix
             // that converts the first canonical vector, i.e. {1, 0}, into 'direction'.
 
-            auto d = find_direction_index(direction);
-            // If d is the x-direction, then we choose any other direction (e.g. the next one)
-            // to perform the rotation.
-            d = d == 0 ? d + 1 : d;
+            DirectionVector<dim> e1; // first canonical vector
+            e1.fill(0);
+            e1(0) = 1;
 
-            stencil_in_d = stencil_in_x; // 1 on the diagonal of the rotation matrix
+            const auto& dir = direction; // just to have a shorter variable name
 
-            int cos = direction(0);
-            int sin = direction(d);
-            static_for<0, stencil_size>::apply( // for (int i=0; i<stencil_size; i++)
-                [&](auto integral_constant_i)
+            rotated_stencil = stencil_in_x;
+            for (std::size_t d1 = 0; d1 < dim; ++d1)
+            {
+                std::size_t d2 = (d1 + 1) % dim;
+
+                // Compute the rotation that transforms e1 into dir in the plane (d1, d2)
+
+                if (e1(d1) == dir(d1) && e1(d2) == dir(d2))
                 {
-                    static constexpr std::size_t i = decltype(integral_constant_i)::value;
+                    continue; // no rotation needed in this plane
+                }
+                if ((e1(d1) == 0 && e1(d2) == 0) || (dir(d1) == 0 && dir(d2) == 0))
+                {
+                    // since one of them is 0, no possible rotation in this plane that would transform e1 into dir
+                    continue;
+                }
 
-                    auto v_in_x = xt::view(stencil_in_x, i); // vector in direction x (canonical basis)
-                    auto v_in_d = xt::view(stencil_in_d, i); // vector in direction d (=rotation of v_in_x)
+                // Rotation in the plane (d1, d2)
+                int cos = (e1(d1) * dir(d1) + e1(d2) * dir(d2));
+                int sin = (e1(d1) * dir(d2) - e1(d2) * dir(d1));
 
-                    v_in_d(0) = cos * v_in_x(0) - sin * v_in_x(d);
-                    v_in_d(d) = sin * v_in_x(0) + cos * v_in_x(d);
-                });
+                // Apply the rotation matrix
+                // [ cos -sin ]
+                // [ sin  cos ]
+                // to e1 and to each vector in the stencil
+
+                int rotated_d1 = cos * e1(d1) - sin * e1(d2);
+                int rotated_d2 = sin * e1(d1) + cos * e1(d2);
+
+                e1(d1) = rotated_d1;
+                e1(d2) = rotated_d2;
+
+                static_for<0, stencil_size>::apply(
+                    [&](auto _i)
+                    {
+                        static constexpr std::size_t i = _i();
+
+                        auto v = xt::view(rotated_stencil, i); // rotated stencil vector
+
+                        rotated_d1 = cos * v(d1) - sin * v(d2);
+                        rotated_d2 = sin * v(d1) + cos * v(d2);
+
+                        v(d1) = rotated_d1;
+                        v(d2) = rotated_d2;
+                    });
+            }
         }
-        return stencil_in_d;
+        return rotated_stencil;
     }
 
     template <class Mesh, std::size_t stencil_size_>
