@@ -178,27 +178,19 @@ namespace samurai
                 // Replace the unknown with the current Newton iterate (so that the Jacobian matrix is computed at that specific point)
                 assembly.set_unknown(x_field);
 
-#ifdef SAMURAI_WITH_MPI
-                // std::cout << "[" << mpi::communicator().rank() << "] PETSC_nonlinear_function: update_unknown" << std::endl;
                 assembly.copy_unknown(x, x_field);
-#else
-                copy(x, x_field); // This is really bad... TODO: create a field constructor that takes a double*
-#endif
+
                 // Apply explicit scheme
                 auto f_field = self->scheme()(x_field);
 
                 // Put back the real unknown: we need its B.C. for the evaluation of the non-linear function
                 assembly.set_unknown(*real_system_unknown);
 
-#ifdef SAMURAI_WITH_MPI
                 assembly.copy_rhs(f_field, f);
-#else
-                copy(f_field, f);
-#endif
                 self->prepare_rhs(f);
 
                 times::timers.start("nonlinear system solve");
-                return 0; // PETSC_SUCCESS
+                return PETSC_SUCCESS;
             }
 
             static PetscErrorCode PETSC_jacobian_function(SNES /*snes*/, Vec x, Mat jac, Mat B, void* ctx)
@@ -223,11 +215,7 @@ namespace samurai
                 // Replace the unknown with the current Newton iterate (so that the Jacobian matrix is computed at that specific point)
                 assembly.set_unknown(x_field);
 
-#ifdef SAMURAI_WITH_MPI
                 assembly.copy_unknown(x, x_field);
-#else
-                copy(x, x_field); // This is really bad... TODO: create a field constructor that takes a double*
-#endif
                 update_ghost_mr(x_field);
 
                 // Assembly of the Jacobian matrix.
@@ -248,7 +236,7 @@ namespace samurai
                 assembly.set_unknown(*real_system_unknown);
 
                 times::timers.start("nonlinear system solve");
-                return 0; // PETSC_SUCCESS
+                return PETSC_SUCCESS;
             }
 
           protected:
