@@ -71,7 +71,7 @@ class Mesh : public samurai::Mesh_base<Mesh<Config>, Config>
 
     // Constructor from a given box (domain)
     inline Mesh(samurai::mesh_config<Config::dim>& cfg, const samurai::Box<double, dim>& b, std::size_t start_level)
-        : base_type(cfg.approx_box_tol(0).scaling_factor(1), b, start_level)
+        : base_type(cfg.approx_box_tol(0).scaling_factor(1).start_level(start_level), b)
     {
     }
 

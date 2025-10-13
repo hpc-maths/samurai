@@ -89,8 +89,8 @@ auto create_uniform_mesh(std::size_t level)
     min_level   = level;
     max_level   = level;
 
-    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).disable_minimal_ghost_width();
-    return samurai::amr::make_Mesh(config, box, start_level); // amr::Mesh
+    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).start_level(start_level).disable_minimal_ghost_width();
+    return samurai::amr::make_Mesh(config, box); // amr::Mesh
     // return samurai::make_MRMesh(box, /*start_level,*/ min_level, max_level); // MRMesh
 }
 
