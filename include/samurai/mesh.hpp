@@ -265,7 +265,7 @@ namespace samurai
         , m_config(config)
     {
 #ifdef SAMURAI_WITH_MPI
-        partition_mesh(m_config().start_level(), b);
+        partition_mesh(m_config.start_level(), b);
         // load_balancing();
 #else
         this->m_cells[mesh_id_t::cells][m_config.start_level()] = {m_config.start_level(), b, config.approx_box_tol(), config.scaling_factor()};
