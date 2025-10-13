@@ -13,7 +13,6 @@ namespace samurai
         class NonLinearSolverBase
         {
             using scheme_t       = typename Assembly::scheme_t;
-            using input_field_t  = typename scheme_t::input_field_t;
             using output_field_t = typename scheme_t::output_field_t;
 
           protected:
@@ -23,7 +22,6 @@ namespace samurai
             Mat m_J          = nullptr;
             bool m_is_set_up = false;
 
-            input_field_t m_worker_input_field;
             output_field_t m_worker_output_field;
 
           public:
@@ -161,43 +159,25 @@ namespace samurai
             static PetscErrorCode PETSC_nonlinear_function(SNES /*snes*/, Vec x, Vec f, void* ctx)
             {
                 times::timers.stop("nonlinear system solve");
-                // const char* x_name;
-                // PetscObjectGetName(reinterpret_cast<PetscObject>(x), &x_name);
-                // const char* f_name;
-                // PetscObjectGetName(reinterpret_cast<PetscObject>(f), &f_name);
 
                 auto self      = reinterpret_cast<NonLinearSolverBase*>(ctx); // this
                 auto& assembly = self->assembly();
-                // auto& mesh     = assembly.unknown().mesh();
 
-                auto& x_field = self->m_worker_input_field;
-                auto& f_field = self->m_worker_output_field;
-
-                // Wrap a field structure around the data of the Petsc vector x
-                // unknown_field_t x_field("newton", mesh);
-
-                // Transfer B.C. to the new field (required to be able to apply the explicit scheme)
-                // x_field.copy_bc_from(assembly.unknown());
-
-                // Save unknown because it will be temporarily replaced
-                // auto real_system_unknown = assembly.unknown_ptr();
-
-                // Replace the unknown with the current Newton iterate (so that the Jacobian matrix is computed at that specific point)
-                // assembly.set_unknown(self->m_worker_input_field);
+                // Ideally, we would like to wrap a field structure around the data of the Petsc vectors x and f,
+                // but we don't have such a Field constructor.
+                // So, instead, we use worker fields and copy the data.
+                auto& x_field = assembly.unknown();          // for x, we reuse the unknown field
+                auto& f_field = self->m_worker_output_field; // for f, we use an actual worker field
 
                 assembly.copy_unknown(x, x_field);
 
-                // Apply explicit scheme
-                // auto f_field = self->scheme()(self->m_worker_input_field);
-                // self->m_worker_output_field = self->scheme()(self->m_worker_input_field);
-                f_field.fill(0);
+                // Apply explicit scheme: f = scheme(x)
+                f_field.fill(0); // initialize to zero because we accumulate the results
                 self->scheme().apply(f_field, x_field);
-                // self->m_worker_output_field = self->scheme()(self->m_worker_input_field);
 
-                // Put back the real unknown: we need its B.C. for the evaluation of the non-linear function
-                // assembly.set_unknown(*real_system_unknown);
-
+                // Copy the result into the Petsc vector f
                 assembly.copy_rhs(f_field, f);
+                // Set to zero the right-hand side of the ghost equations and apply BCs attached to the unknown field
                 self->prepare_rhs(f);
 
                 times::timers.start("nonlinear system solve");
@@ -213,23 +193,10 @@ namespace samurai
                 auto self      = reinterpret_cast<NonLinearSolverBase*>(ctx); // this
                 auto& assembly = self->assembly();
 
-                // Wrap a field structure around the data of the Petsc vector x
-                // unknown_field_t x_field("newton_jac_x", assembly.unknown().mesh());
-
-                auto& x_field = self->m_worker_input_field;
-
-                // Transfer B.C. to the new field,
-                // so that the assembly process has B.C. to enforce in the matrix
-                // x_field.copy_bc_from(assembly.unknown());
-
-                // Save unknown because it will be temporarily replaced
-                auto real_system_unknown = assembly.unknown_ptr();
-
-                // Replace the unknown with the current Newton iterate (so that the Jacobian matrix is computed at that specific point)
-                assembly.set_unknown(x_field);
-
-                assembly.copy_unknown(x, x_field);
-                // update_ghost_mr(x_field);
+                // Ideally, we would like to wrap a field structure around the data of the Petsc vector x,
+                // but we don't have such a Field constructor.
+                // So, instead, we reuse the unknown field and copy the data.
+                assembly.copy_unknown(x, assembly.unknown());
 
                 // Assembly of the Jacobian matrix.
                 // In this case, jac = B, but Petsc recommends we assemble B for more general cases.
@@ -244,9 +211,6 @@ namespace samurai
 
                 // MatView(B, PETSC_VIEWER_STDOUT_(PETSC_COMM_WORLD));
                 // std::cout << std::endl;
-
-                // Put back the real unknown: we need its B.C. for the evaluation of the non-linear function
-                assembly.set_unknown(*real_system_unknown);
 
                 times::timers.start("nonlinear system solve");
                 return PETSC_SUCCESS;
@@ -331,7 +295,6 @@ namespace samurai
             using base_class::assembly;
             using base_class::m_is_set_up;
             using base_class::m_J;
-            using base_class::m_worker_input_field;
             using base_class::m_worker_output_field;
 
             explicit NonLinearSolver(const scheme_t& scheme)
@@ -342,15 +305,11 @@ namespace samurai
             void set_unknown(input_field_t& unknown)
             {
                 assembly().set_unknown(unknown);
-
-                m_worker_input_field = input_field_t("worker_input", unknown.mesh());
-                m_worker_input_field.copy_bc_from(unknown);
             }
 
             void solve(output_field_t& rhs)
             {
                 m_worker_output_field = output_field_t("worker_output", rhs.mesh());
-                m_worker_output_field.copy_bc_from(rhs);
 
                 if (!m_is_set_up)
                 {
