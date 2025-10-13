@@ -58,7 +58,7 @@ namespace samurai
     class ProjectionLOI : public SetBase<ProjectionLOI<Set>>
     {
         using Self            = ProjectionLOI<Set>;
-        using ListOfIntervals = detail::ProjectionLOIWork<Set, std::make_index_sequence<Set::dim>>::Type;
+        using ListOfIntervals = typename detail::ProjectionLOIWork<Set, std::make_index_sequence<Set::dim>>::Type;
 
       public:
 
