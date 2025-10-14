@@ -30,6 +30,11 @@ namespace samurai
         template <std::size_t d>
         using traverser_t = UnionTraverser<typename Sets::template traverser_t<d>...>;
 
+        struct Workspace
+        {
+            std::tuple<typename Sets::Workspace...> children_workspaces;
+        };
+
         static constexpr std::size_t dim()
         {
             return std::tuple_element_t<0, std::tuple<Sets...>>::dim;
@@ -43,6 +48,11 @@ namespace samurai
 
         template <std::size_t d>
         using traverser_t = IntersectionTraverser<typename Sets::template traverser_t<d>...>;
+
+        struct Workspace
+        {
+            std::tuple<typename Sets::Workspace...> children_workspaces;
+        };
 
         static constexpr std::size_t dim()
         {
@@ -59,6 +69,11 @@ namespace samurai
         using traverser_t = std::conditional_t<d == 0,
                                                DifferenceTraverser<typename Sets::template traverser_t<d>...>,
                                                DifferenceIdTraverser<typename Sets::template traverser_t<d>...>>;
+
+        struct Workspace
+        {
+            std::tuple<typename Sets::Workspace...> children_workspaces;
+        };
 
         static constexpr std::size_t dim()
         {
@@ -128,38 +143,33 @@ namespace samurai
         }
 
         template <std::size_t d>
-        inline void init_get_traverser_work_impl(const std::size_t n_traversers, std::integral_constant<std::size_t, d> d_ic) const
+        inline void
+        init_workspace_impl(const std::size_t n_traversers, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
             static_for<0, nIntervals>::apply(
-                [this, n_traversers, d_ic](const auto i) -> void
+                [this, n_traversers, d_ic, &workspace](const auto i) -> void
                 {
-                    std::get<i>(m_sets).init_get_traverser_work(n_traversers, d_ic);
-                });
-        }
-
-        template <std::size_t d>
-        inline void clear_get_traverser_work_impl(std::integral_constant<std::size_t, d> d_ic) const
-        {
-            static_for<0, nIntervals>::apply(
-                [this, d_ic](const auto i) -> void
-                {
-                    std::get<i>(m_sets).clear_get_traverser_work(d_ic);
+                    std::get<i>(m_sets).init_workspace(n_traversers, d_ic, std::get<i>(workspace.children_workspaces));
                 });
         }
 
         template <class index_t, std::size_t d>
-        inline traverser_t<d> get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d> d_ic) const
+        inline traverser_t<d> get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
-            return get_traverser_impl_detail(index, d_ic, std::make_index_sequence<nIntervals>{});
+            return get_traverser_impl_detail(index, d_ic, std::make_index_sequence<nIntervals>{}, workspace);
         }
 
       private:
 
         template <class index_t, std::size_t d, std::size_t... Is>
-        traverser_t<d>
-        get_traverser_impl_detail(const index_t& index, std::integral_constant<std::size_t, d> d_ic, std::index_sequence<Is...>) const
+        traverser_t<d> get_traverser_impl_detail(const index_t& index,
+                                                 std::integral_constant<std::size_t, d> d_ic,
+                                                 std::index_sequence<Is...>,
+                                                 Workspace& workspace) const
         {
-            return traverser_t<d>(m_shifts, std::get<Is>(m_sets).get_traverser(index >> m_shifts[Is], d_ic)...);
+            return traverser_t<d>(
+                m_shifts,
+                std::get<Is>(m_sets).get_traverser(index >> m_shifts[Is], d_ic, std::get<Is>(workspace.children_workspaces))...);
         }
 
         Childrens m_sets;

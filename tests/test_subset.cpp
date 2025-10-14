@@ -1308,10 +1308,6 @@ namespace samurai
 
         ca = {cl, true};
 
-        std::cout << self(ca[4]).on(3).to_lca() << std::endl;
-
-        fmt::print("===============================================\n");
-
         // Test self-similarity at different scales
         bool found = false;
         apply(intersection(ca[3], self(ca[4]).on(3)),

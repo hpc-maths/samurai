@@ -20,6 +20,10 @@ namespace samurai
         template <std::size_t>
         using traverser_t = BoxTraverser<B>;
 
+        struct Workspace
+        {
+        };
+
         static constexpr std::size_t dim()
         {
             return B::dim;
@@ -57,7 +61,7 @@ namespace samurai
         }
 
         template <class index_t, std::size_t d>
-        inline traverser_t<d> get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d>) const
+        inline traverser_t<d> get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d>, Workspace) const
         {
             return (m_box.min_corner()[d + 1] <= index[d] && index[d] < m_box.max_corner()[d + 1])
                      ? traverser_t<d>(m_box.min_corner()[d], m_box.max_corner()[d])
@@ -65,12 +69,7 @@ namespace samurai
         }
 
         template <std::size_t d>
-        constexpr inline void init_get_traverser_work_impl(const std::size_t, std::integral_constant<std::size_t, d>) const
-        {
-        }
-
-        template <std::size_t d>
-        inline void clear_get_traverser_work_impl(std::integral_constant<std::size_t, d>) const
+        inline constexpr void init_workspace_impl(const std::size_t, std::integral_constant<std::size_t, d>, Workspace) const
         {
         }
 
