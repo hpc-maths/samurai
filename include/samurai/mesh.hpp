@@ -260,7 +260,7 @@ namespace samurai
 
     template <class D, class Config>
     inline Mesh_base<D, Config>::Mesh_base(mesh_config<Config::dim>& config, const samurai::Box<double, dim>& b)
-        : m_domain{config.start_level(), b, (config.parse_args(), config.approx_box_tol()), config.scaling_factor()}
+        : m_domain{(config.parse_args(), config.start_level()), b, config.approx_box_tol(), config.scaling_factor()}
         , m_periodic{config.periodic()}
         , m_config(config)
     {

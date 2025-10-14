@@ -122,25 +122,25 @@ namespace samurai
 
     template <class Config>
     inline MRMesh<Config>::MRMesh(const mesh_config<Config::dim>& config, const cl_type& cl)
-        : base_type(config.start_level(config.max_level()), cl)
+        : base_type(config, cl)
     {
     }
 
     template <class Config>
     inline MRMesh<Config>::MRMesh(const mesh_config<Config::dim>& config, const ca_type& ca)
-        : base_type(config.start_level(config.max_level()), ca)
+        : base_type(config, ca)
     {
     }
 
     template <class Config>
     inline MRMesh<Config>::MRMesh(mesh_config<Config::dim>& config, const samurai::Box<double, dim>& b)
-        : base_type(config.start_level(config.max_level()), b)
+        : base_type(config, b)
     {
     }
 
     template <class Config>
     inline MRMesh<Config>::MRMesh(mesh_config<Config::dim>& config, const samurai::DomainBuilder<dim>& domain_builder)
-        : base_type(config.start_level(config.max_level()), domain_builder)
+        : base_type(config, domain_builder)
     {
     }
 
@@ -524,27 +524,43 @@ namespace samurai
     template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, MRMeshId>>
     auto make_MRMesh(const mesh_config_t& cfg, const typename MRMesh<complete_mesh_config_t>::cl_type& cl)
     {
+        auto mesh_cfg = cfg.clone();
+        mesh_cfg.parse_args();
+        mesh_cfg.start_level() = mesh_cfg.max_level();
+
         return MRMesh<complete_mesh_config_t>(cfg, cl);
     }
 
     template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, MRMeshId>>
     auto make_MRMesh(const mesh_config_t& cfg, const typename MRMesh<complete_mesh_config_t>::ca_type& ca)
     {
+        auto mesh_cfg = cfg.clone();
+        mesh_cfg.parse_args();
+        mesh_cfg.start_level() = mesh_cfg.max_level();
+
         return MRMesh<complete_mesh_config_t>(cfg, ca);
     }
 
     template <class mesh_config_t>
-    auto make_MRMesh(mesh_config_t& cfg, const samurai::Box<double, mesh_config_t::dim>& b)
+    auto make_MRMesh(const mesh_config_t& cfg, const samurai::Box<double, mesh_config_t::dim>& b)
     {
         using complete_cfg_t = complete_mesh_config<mesh_config_t, MRMeshId>;
-        return MRMesh<complete_cfg_t>(cfg, b);
+
+        auto mesh_cfg = cfg.clone();
+        mesh_cfg.parse_args();
+        mesh_cfg.start_level() = mesh_cfg.max_level();
+        return MRMesh<complete_cfg_t>(mesh_cfg, b);
     }
 
     template <class mesh_config_t>
-    auto make_MRMesh(mesh_config_t& cfg, const samurai::DomainBuilder<mesh_config_t::dim>& domain_builder)
+    auto make_MRMesh(const mesh_config_t& cfg, const samurai::DomainBuilder<mesh_config_t::dim>& domain_builder)
     {
         using complete_cfg_t = complete_mesh_config<mesh_config_t, MRMeshId>;
-        return MRMesh<complete_cfg_t>(cfg, domain_builder);
+
+        auto mesh_cfg = cfg.clone();
+        mesh_cfg.parse_args();
+        mesh_cfg.start_level() = mesh_cfg.max_level();
+        return MRMesh<complete_cfg_t>(mesh_cfg, domain_builder);
     }
 } // namespace samurai
 
