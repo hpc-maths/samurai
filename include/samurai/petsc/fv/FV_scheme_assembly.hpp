@@ -748,7 +748,7 @@ namespace samurai
                             {
                                 std::size_t row = static_cast<std::size_t>(local_row_index(static_cast<PetscInt>(ghost_cell_index), field_i));
 #ifdef SAMURAI_WITH_MPI
-                                if (m_ownership[static_cast<std::size_t>(cell_cell_index)] == mpi::communicator().rank())
+                                if (is_locally_owned(static_cast<std::size_t>(cell_cell_index)))
                                     d_nnz.at(row) = 2;
                                 else
                                 {
@@ -1155,6 +1155,12 @@ namespace samurai
                 //                                                  1 +25=21 in 2D
                 static constexpr std::size_t pred_stencil_size = 1 + ce_pow(2 * prediction_radius + 1, dim);
 
+#ifdef SAMURAI_WITH_MPI
+                auto ranks           = mpi::communicator().size();
+                PetscInt o_nnz_value = ranks == 1 ? 0 : pred_stencil_size / 2; // assume (rough estimate) that half of the
+                                                                               // stencil can be on the other process
+#endif
+
                 for_each_prediction_ghost(mesh(),
                                           [&](const auto& ghost)
                                           {
@@ -1163,8 +1169,7 @@ namespace samurai
                                                   std::size_t row = static_cast<std::size_t>(local_row_index(ghost, field_i));
 #ifdef SAMURAI_WITH_MPI
                                                   d_nnz.at(row) = pred_stencil_size;
-                                                  o_nnz.at(row) = pred_stencil_size / 2; // assume (rough estimate) that half of the
-                                                                                         // stencil can be on the other process
+                                                  o_nnz.at(row) = o_nnz_value;
 #else
                                                   if constexpr (ghost_elimination_enabled)
                                                   {
