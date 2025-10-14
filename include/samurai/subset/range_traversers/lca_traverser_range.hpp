@@ -66,7 +66,7 @@ namespace samurai
 
             friend bool operator!=(const Iterator& a, const Iterator& b)
             {
-                return a.m_ptr != b.m_ptr or a.m_offset != b.m_offset;
+                return a.m_first_interval != b.m_first_interval or a.m_offset != b.m_offset;
             };
 
           private:
