@@ -30,7 +30,7 @@ namespace samurai
 
         SAMURAI_SET_TRAVERSER_TYPEDEFS
 
-        ProjectionLOITraverser(SetTraverser set_traverser, const ProjectionType projectionType, const std::size_t shift)
+        ProjectionLOITraverser(SetTraverser set_traverser, [[maybe_unused]] const ProjectionType projectionType, const std::size_t shift)
             : m_set_traverser(set_traverser)
             , m_shift(shift)
             , m_projectionType(ProjectionType::REFINE)

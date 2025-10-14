@@ -42,23 +42,24 @@ namespace samurai
             {
                 if (m_projectionType == ProjectionType::COARSEN)
                 {
-                    m_current_interval.start = coarsen_start(m_set_traversers[0].current_interval());
-                    m_current_interval.end   = coarsen_end(m_set_traversers[0].current_interval());
+                    m_current_interval.start = coarsen_start(m_set_traversers.front().current_interval());
+                    m_current_interval.end   = coarsen_end(m_set_traversers.front().current_interval());
 
-                    m_set_traversers[0].next_interval();
+                    m_set_traversers.front().next_interval();
 
                     // when coarsening, two disjoint intervals may be merged.
                     // we need to check if the next_interval overlaps
-                    for (; !m_set_traversers[0].is_empty() && coarsen_start(m_set_traversers[0].current_interval()) <= m_current_interval.end;
-                         m_set_traversers[0].next_interval())
+                    for (; !m_set_traversers.front().is_empty()
+                           && coarsen_start(m_set_traversers.front().current_interval()) <= m_current_interval.end;
+                         m_set_traversers.front().next_interval())
                     {
-                        m_current_interval.end = coarsen_end(m_set_traversers[0].current_interval());
+                        m_current_interval.end = coarsen_end(m_set_traversers.front().current_interval());
                     }
                 }
                 else
                 {
-                    m_current_interval.start = m_set_traversers[0].current_interval().start << shift;
-                    m_current_interval.end   = m_set_traversers[0].current_interval().end << shift;
+                    m_current_interval.start = m_set_traversers.front().current_interval().start << shift;
+                    m_current_interval.end   = m_set_traversers.front().current_interval().end << shift;
                 }
             }
         }
@@ -87,12 +88,12 @@ namespace samurai
             }
             else
             {
-                m_set_traversers[0].next_interval();
-                m_isEmpty = m_set_traversers[0].is_empty();
+                m_set_traversers.front().next_interval();
+                m_isEmpty = m_set_traversers.front().is_empty();
                 if (!m_isEmpty)
                 {
-                    m_current_interval.start = m_set_traversers[0].current_interval().start << m_shift;
-                    m_current_interval.end   = m_set_traversers[0].current_interval().end << m_shift;
+                    m_current_interval.start = m_set_traversers.front().current_interval().start << m_shift;
+                    m_current_interval.end   = m_set_traversers.front().current_interval().end << m_shift;
                 }
             }
         }
