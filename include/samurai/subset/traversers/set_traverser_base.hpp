@@ -8,7 +8,13 @@
 
 namespace samurai
 {
-    template <class SetTraverser>
+    /**
+     * Traits used by `SetTraverserBase<UndefinedSetTraverser>`
+     * it must define:
+     * 1. an interval_t class
+     * 2. a current_interval_t class
+     */
+    template <class UndefinedSetTraverser>
     struct SetTraverserTraits;
 
     template <class Derived>

@@ -10,32 +10,13 @@
 namespace samurai
 {
 
-    template <class Set>
-    class Expansion;
-
-    template <class Set>
-    struct SetTraits<Expansion<Set>>
-    {
-        static_assert(IsSet<Set>::value);
-
-        template <std::size_t d>
-        using traverser_t = std::conditional_t<d == Set::dim - 1,
-                                               LastDimExpansionTraverser<typename Set::template traverser_t<d>>,
-                                               ExpansionTraverser<typename Set::template traverser_t<d>>>;
-
-        static constexpr std::size_t dim()
-        {
-            return Set::dim;
-        }
-    };
-
     namespace detail
     {
         template <class Set, typename Seq>
-        struct ExpansionWork;
+        struct ExpansionWorkspace;
 
         template <class Set, std::size_t... ds>
-        struct ExpansionWork<Set, std::index_sequence<ds...>>
+        struct ExpansionWorkspace<Set, std::index_sequence<ds...>>
         {
             template <std::size_t d>
             using child_traverser_t = typename Set::template traverser_t<d>;
@@ -51,10 +32,34 @@ namespace samurai
     } // namespace detail
 
     template <class Set>
+    class Expansion;
+
+    template <class Set>
+    struct SetTraits<Expansion<Set>>
+    {
+        static_assert(IsSet<Set>::value);
+
+        template <std::size_t d>
+        using traverser_t = std::conditional_t<d == Set::dim - 1,
+                                               LastDimExpansionTraverser<typename Set::template traverser_t<d>>,
+                                               ExpansionTraverser<typename Set::template traverser_t<d>>>;
+
+        struct Workspace
+        {
+            typename detail::ExpansionWorkspace<Set, std::make_index_sequence<Set::dim - 1>>::Type expansion_workspace;
+            typename Set::Workspace child_workspace;
+        };
+
+        static constexpr std::size_t dim()
+        {
+            return Set::dim;
+        }
+    };
+
+    template <class Set>
     class Expansion : public SetBase<Expansion<Set>>
     {
-        using Self                = Expansion<Set>;
-        using ChildTraverserArray = typename detail::ExpansionWork<Set, std::make_index_sequence<Set::dim - 1>>::Type;
+        using Self = Expansion<Set>;
 
       public:
 
@@ -84,20 +89,6 @@ namespace samurai
             }
         }
 
-        // we need to define a custom copy and move constructor because
-        // we do not want to copy m_work_offsetRanges
-        Expansion(const Expansion& other)
-            : m_set(other.m_set)
-            , m_expansions(other.m_expansions)
-        {
-        }
-
-        Expansion(Expansion&& other)
-            : m_set(other.m_set)
-            , m_expansions(other.m_expansions)
-        {
-        }
-
         inline std::size_t level_impl() const
         {
             return m_set.level();
@@ -114,46 +105,35 @@ namespace samurai
         }
 
         template <std::size_t d>
-        inline void init_get_traverser_work_impl(const std::size_t n_traversers, std::integral_constant<std::size_t, d> d_ic) const
+        inline void
+        init_workspace_impl(const std::size_t n_traversers, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
             if constexpr (d == Base::dim - 1)
             {
-                m_set.init_get_traverser_work_impl(n_traversers, d_ic);
+                m_set.init_workspace(n_traversers, d_ic, workspace.child_workspace);
             }
             else
             {
                 const std::size_t my_work_size = n_traversers * 2 * std::size_t(m_expansions[d + 1] + 1);
 
-                auto& childTraversers = std::get<d>(m_work_childTraversers);
+                auto& childTraversers = std::get<d>(workspace.expansion_workspace);
                 childTraversers.clear();
                 childTraversers.reserve(my_work_size);
 
-                m_set.init_get_traverser_work_impl(my_work_size, d_ic);
+                m_set.init_workspace(my_work_size, d_ic, workspace.child_workspace);
             }
-        }
-
-        template <std::size_t d>
-        inline void clear_get_traverser_work_impl(std::integral_constant<std::size_t, d> d_ic) const
-        {
-            if constexpr (d != Base::dim - 1)
-            {
-                auto& childTraversers = std::get<d>(m_work_childTraversers);
-
-                childTraversers.clear();
-            }
-            m_set.clear_get_traverser_work(d_ic);
         }
 
         template <class index_t, std::size_t d>
-        inline traverser_t<d> get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d> d_ic) const
+        inline traverser_t<d> get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
             if constexpr (d == Base::dim - 1)
             {
-                return traverser_t<d>(m_set.get_traverser(index, d_ic), m_expansions[d]);
+                return traverser_t<d>(m_set.get_traverser(index, d_ic, workspace.child_workspace), m_expansions[d]);
             }
             else
             {
-                auto& childTraversers = std::get<d>(m_work_childTraversers);
+                auto& childTraversers = std::get<d>(workspace.expansion_workspace);
 
                 xt::xtensor_fixed<value_t, xt::xshape<Base::dim - 1>> tmp_index(index);
 
@@ -162,14 +142,14 @@ namespace samurai
                 for (value_t width = 0; width != m_expansions[d + 1] + 1; ++width)
                 {
                     tmp_index[d + 1] = index[d + 1] + width;
-                    childTraversers.push_back(m_set.get_traverser(tmp_index, d_ic));
+                    childTraversers.push_back(m_set.get_traverser(tmp_index, d_ic, workspace.child_workspace));
                     if (childTraversers.back().is_empty())
                     {
                         childTraversers.pop_back();
                     }
 
                     tmp_index[d + 1] = index[d + 1] - width;
-                    childTraversers.push_back(m_set.get_traverser(tmp_index, d_ic));
+                    childTraversers.push_back(m_set.get_traverser(tmp_index, d_ic, workspace.child_workspace));
                     if (childTraversers.back().is_empty())
                     {
                         childTraversers.pop_back();
@@ -184,8 +164,6 @@ namespace samurai
 
         Set m_set;
         expansion_t m_expansions;
-
-        mutable ChildTraverserArray m_work_childTraversers;
     };
 
     template <class Set>

@@ -11,23 +11,6 @@
 namespace samurai
 {
 
-    template <class Set>
-    class Projection;
-
-    template <class Set>
-    struct SetTraits<Projection<Set>>
-    {
-        static_assert(IsSet<Set>::value);
-
-        template <std::size_t d>
-        using traverser_t = ProjectionTraverser<typename Set::template traverser_t<d>>;
-
-        static constexpr std::size_t dim()
-        {
-            return Set::dim;
-        }
-    };
-
     namespace detail
     {
         template <class Set, typename Seq>
@@ -45,6 +28,29 @@ namespace samurai
             using Type = std::tuple<array_of_child_traverser_t<ds>...>;
         };
     } // namespace detail
+
+    template <class Set>
+    class Projection;
+
+    template <class Set>
+    struct SetTraits<Projection<Set>>
+    {
+        static_assert(IsSet<Set>::value);
+
+        template <std::size_t d>
+        using traverser_t = ProjectionTraverser<typename Set::template traverser_t<d>>;
+
+        struct Workspace
+        {
+            typename detail::ProjectionWork<Set, std::make_index_sequence<Set::dim>>::Type projection_workspace;
+            typename Set::Workspace child_workspace;
+        };
+
+        static constexpr std::size_t dim()
+        {
+            return Set::dim;
+        }
+    };
 
     template <class Set>
     class Projection : public SetBase<Projection<Set>>
@@ -72,24 +78,6 @@ namespace samurai
             }
         }
 
-        // we need to define a custom copy and move constructor because
-        // we do not want to copy m_work_offsetRanges
-        Projection(const Projection& other)
-            : m_set(other.m_set)
-            , m_level(other.m_level)
-            , m_projectionType(other.m_projectionType)
-            , m_shift(other.m_shift)
-        {
-        }
-
-        Projection(Projection&& other)
-            : m_set(std::move(other.m_set))
-            , m_level(std::move(other.m_level))
-            , m_projectionType(std::move(other.m_projectionType))
-            , m_shift(std::move(other.m_shift))
-        {
-        }
-
         inline std::size_t level_impl() const
         {
             return m_level;
@@ -106,34 +94,26 @@ namespace samurai
         }
 
         template <std::size_t d>
-        inline void init_get_traverser_work_impl(const std::size_t n_traversers, std::integral_constant<std::size_t, d> d_ic) const
+        inline void
+        init_workspace_impl(const std::size_t n_traversers, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
             const std::size_t my_work_size_per_traverser = (m_projectionType == ProjectionType::COARSEN and d != Base::dim - 1)
                                                              ? (1 << m_shift)
                                                              : 1;
             const std::size_t my_work_size               = n_traversers * my_work_size_per_traverser;
 
-            auto& childTraversers = std::get<d>(m_work_childTraversers);
+            auto& childTraversers = std::get<d>(workspace.projection_workspace);
             childTraversers.clear();
             childTraversers.reserve(my_work_size);
 
-            m_set.init_get_traverser_work(my_work_size, d_ic);
-        }
-
-        template <std::size_t d>
-        inline void clear_get_traverser_work_impl(std::integral_constant<std::size_t, d> d_ic) const
-        {
-            auto& childTraversers = std::get<d>(m_work_childTraversers);
-
-            childTraversers.clear();
-
-            m_set.clear_get_traverser_work(d_ic);
+            m_set.init_workspace(my_work_size, d_ic, workspace.child_workspace);
         }
 
         template <class index_t, std::size_t d>
-        inline traverser_t<d> get_traverser_impl(const index_t& _index, std::integral_constant<std::size_t, d> d_ic) const
+        inline traverser_t<d>
+        get_traverser_impl(const index_t& _index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
-            auto& childTraversers = std::get<d>(m_work_childTraversers);
+            auto& childTraversers = std::get<d>(workspace.projection_workspace);
 
             if (m_projectionType == ProjectionType::COARSEN)
             {
@@ -150,7 +130,7 @@ namespace samurai
 
                     for (index[d] = ymin; index[d] != ybound; ++index[d])
                     {
-                        childTraversers.push_back(m_set.get_traverser(index, d_ic));
+                        childTraversers.push_back(m_set.get_traverser(index, d_ic, workspace.child_workspace));
                         if (childTraversers.back().is_empty())
                         {
                             childTraversers.pop_back();
@@ -163,13 +143,13 @@ namespace samurai
                 }
                 else
                 {
-                    childTraversers.push_back(m_set.get_traverser(_index << m_shift, d_ic));
+                    childTraversers.push_back(m_set.get_traverser(_index << m_shift, d_ic, workspace.child_workspace));
                     return traverser_t<d>(std::prev(childTraversers.end()), m_projectionType, m_shift);
                 }
             }
             else
             {
-                childTraversers.push_back(m_set.get_traverser(_index >> m_shift, d_ic));
+                childTraversers.push_back(m_set.get_traverser(_index >> m_shift, d_ic, workspace.child_workspace));
                 return traverser_t<d>(std::prev(childTraversers.end()), m_projectionType, m_shift);
             }
         }
@@ -180,8 +160,6 @@ namespace samurai
         std::size_t m_level;
         ProjectionType m_projectionType;
         std::size_t m_shift;
-
-        mutable ChildTraverserArray m_work_childTraversers;
     };
 
 } // namespace samurai

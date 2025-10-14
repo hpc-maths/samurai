@@ -8,7 +8,6 @@
 #include <utility>
 
 #include "../samurai_config.hpp"
-#include "traverser_ranges/set_traverser_range_base.hpp"
 #include "traversers/set_traverser_base.hpp"
 
 namespace samurai
@@ -17,7 +16,14 @@ namespace samurai
     //// Forward Declarations
     ////////////////////////////////////////////////////////////////////////
 
-    template <class Set>
+    /**
+     * Traits used by `SetBase<UndefinedSet>`
+     * it must define:
+     * 1. a template type traverser_t
+     * 2. a Workspace class
+     * 3. a constexpr dim() method
+     */
+    template <class UndefinedSet>
     struct SetTraits;
 
     template <class Derived>
@@ -45,9 +51,7 @@ namespace samurai
 
         template <std::size_t d>
         using traverser_t = typename DerivedTraits::template traverser_t<d>;
-
-        template <std::size_t d>
-        using traverser_range_t = typename DerivedTraits::template traverser_range_t<d>;
+        using Workspace   = typename DerivedTraits::Workspace;
 
         using interval_t = typename traverser_t<0>::interval_t;
         using value_t    = typename interval_t::value_t;
@@ -85,29 +89,15 @@ namespace samurai
         }
 
         template <std::size_t d>
-        inline void init_get_traverser_work(const std::size_t n_traversers, std::integral_constant<std::size_t, d> d_ic) const
+        inline void init_workspace(const std::size_t n_traversers, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
-            derived_cast().init_get_traverser_work_impl(n_traversers, d_ic);
-        }
-
-        template <std::size_t d>
-        inline void clear_get_traverser_work(std::integral_constant<std::size_t, d> d_ic) const
-        {
-            derived_cast().clear_get_traverser_work_impl(d_ic);
+            derived_cast().init_workspace_impl(n_traversers, d_ic, workspace);
         }
 
         template <class index_t, std::size_t d>
-        inline traverser_t<d> get_traverser(const index_t& index, std::integral_constant<std::size_t, d> d_ic) const
+        inline traverser_t<d> get_traverser(const index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
-            return derived_cast().get_traverser_impl(index, d_ic);
-        }
-
-        template <class index_min_t, class index_max_t, std::size_t d>
-        inline traverser_range_t<d>
-        get_traverser_range(const index_min_t& index_min, const index_max_t& index_max, std::integral_constant<std::size_t, d> d_ic) const
-            requires(d != dim - 1)
-        {
-            return derived_cast().get_traverser_range_impl(index_min, index_max, d_ic);
+            return derived_cast().get_traverser_impl(index, d_ic, workspace);
         }
 
         inline ProjectionMethod on(const std::size_t level);
@@ -145,17 +135,18 @@ namespace samurai
         inline bool empty_default_impl() const
         {
             xt::xtensor_fixed<int, xt::xshape<dim - 1>> index;
-            return empty_default_impl_rec(index, std::integral_constant<std::size_t, dim - 1>{});
+            Workspace workspace;
+            return empty_default_impl_rec(index, std::integral_constant<std::size_t, dim - 1>{}, workspace);
         }
 
         template <class index_t, std::size_t d>
-        bool empty_default_impl_rec(index_t& index, std::integral_constant<std::size_t, d> d_ic) const
+        bool empty_default_impl_rec(index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
             using current_interval_t = typename traverser_t<d>::current_interval_t;
 
-            init_get_traverser_work(1, d_ic);
+            init_workspace(1, d_ic, workspace);
 
-            for (traverser_t<d> traverser = get_traverser(index, d_ic); !traverser.is_empty(); traverser.next_interval())
+            for (traverser_t<d> traverser = get_traverser(index, d_ic, workspace); !traverser.is_empty(); traverser.next_interval())
             {
                 current_interval_t interval = traverser.current_interval();
 
@@ -167,7 +158,7 @@ namespace samurai
                 {
                     for (index[d - 1] = interval.start; index[d - 1] != interval.end; ++index[d - 1])
                     {
-                        if (not empty_default_impl_rec(index, std::integral_constant<std::size_t, d - 1>{}))
+                        if (not empty_default_impl_rec(index, std::integral_constant<std::size_t, d - 1>{}, workspace))
                         {
                             return false;
                         }
@@ -175,22 +166,19 @@ namespace samurai
                 }
             }
 
-            clear_get_traverser_work(d_ic);
-
             return true;
         }
     };
 
-#define SAMURAI_SET_TYPEDEFS                                                \
-    using Base = SetBase<Self>;                                             \
-                                                                            \
-    template <std::size_t d>                                                \
-    using traverser_t = typename Base::template traverser_t<d>;             \
-                                                                            \
-    template <std::size_t d>                                                \
-    using traverser_range_t = typename Base::template traverser_range_t<d>; \
-                                                                            \
-    using interval_t = typename Base::interval_t;                           \
+#define SAMURAI_SET_TYPEDEFS                                    \
+    using Base = SetBase<Self>;                                 \
+                                                                \
+    template <std::size_t d>                                    \
+    using traverser_t = typename Base::template traverser_t<d>; \
+                                                                \
+    using Workspace = typename Base::Workspace;                 \
+                                                                \
+    using interval_t = typename Base::interval_t;               \
     using value_t    = typename Base::value_t;
 
     template <typename T>

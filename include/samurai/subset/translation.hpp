@@ -23,6 +23,11 @@ namespace samurai
         template <std::size_t d>
         using traverser_t = TranslationTraverser<typename Set::template traverser_t<d>>;
 
+        struct Workspace
+        {
+            typename Set::Workspace child_workspace;
+        };
+
         static constexpr std::size_t dim()
         {
             return Set::dim;
@@ -63,21 +68,17 @@ namespace samurai
         }
 
         template <std::size_t d>
-        inline void init_get_traverser_work_impl(const std::size_t n_traversers, std::integral_constant<std::size_t, d> d_ic) const
+        inline void
+        init_workspace_impl(const std::size_t n_traversers, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
-            m_set.init_get_traverser_work(n_traversers, d_ic);
-        }
-
-        template <std::size_t d>
-        inline void clear_get_traverser_work_impl(std::integral_constant<std::size_t, d> d_ic) const
-        {
-            m_set.clear_get_traverser_work(d_ic);
+            m_set.init_workspace(n_traversers, d_ic, workspace.child_workspace);
         }
 
         template <class index_t, std::size_t d>
-        inline traverser_t<d> get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d> d_ic) const
+        inline traverser_t<d> get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
-            return traverser_t<d>(m_set.get_traverser_impl(index - xt::view(m_translation, xt::range(1, _)), d_ic), m_translation[d]);
+            return traverser_t<d>(m_set.get_traverser_impl(index - xt::view(m_translation, xt::range(1, _)), d_ic, workspace.child_workspace),
+                                  m_translation[d]);
         }
 
       private:
