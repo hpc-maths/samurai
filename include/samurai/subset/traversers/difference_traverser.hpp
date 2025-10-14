@@ -33,7 +33,7 @@ namespace samurai
         using Childrens = std::tuple<SetTraversers...>;
 
         template <size_t I>
-        using IthChild = std::tuple_element<I, Childrens>::type;
+        using IthChild = typename std::tuple_element<I, Childrens>::type;
 
         static constexpr std::size_t nIntervals = std::tuple_size_v<Childrens>;
 

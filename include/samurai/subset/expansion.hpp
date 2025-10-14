@@ -54,7 +54,7 @@ namespace samurai
     class Expansion : public SetBase<Expansion<Set>>
     {
         using Self                = Expansion<Set>;
-        using ChildTraverserArray = detail::ExpansionWork<Set, std::make_index_sequence<Set::dim - 1>>::Type;
+        using ChildTraverserArray = typename detail::ExpansionWork<Set, std::make_index_sequence<Set::dim - 1>>::Type;
 
       public:
 

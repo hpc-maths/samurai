@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "../samurai_config.hpp"
+#include "traverser_ranges/set_traverser_range_base.hpp"
 #include "traversers/set_traverser_base.hpp"
 
 namespace samurai
@@ -44,8 +45,12 @@ namespace samurai
 
         template <std::size_t d>
         using traverser_t = typename DerivedTraits::template traverser_t<d>;
-        using interval_t  = typename traverser_t<0>::interval_t;
-        using value_t     = typename interval_t::value_t;
+
+        template <std::size_t d>
+        using traverser_range_t = typename DerivedTraits::template traverser_range_t<d>;
+
+        using interval_t = typename traverser_t<0>::interval_t;
+        using value_t    = typename interval_t::value_t;
 
         using to_lca_t       = LevelCellArray<DerivedTraits::dim(), interval_t>;
         using to_lca_coord_t = typename to_lca_t::coords_t;
@@ -95,6 +100,14 @@ namespace samurai
         inline traverser_t<d> get_traverser(const index_t& index, std::integral_constant<std::size_t, d> d_ic) const
         {
             return derived_cast().get_traverser_impl(index, d_ic);
+        }
+
+        template <class index_min_t, class index_max_t, std::size_t d>
+        inline traverser_range_t<d>
+        get_traverser_range(const index_min_t& index_min, const index_max_t& index_max, std::integral_constant<std::size_t, d> d_ic) const
+            requires(d != dim - 1)
+        {
+            return derived_cast().get_traverser_range_impl(index_min, index_max, d_ic);
         }
 
         inline ProjectionMethod on(const std::size_t level);
@@ -168,13 +181,16 @@ namespace samurai
         }
     };
 
-#define SAMURAI_SET_TYPEDEFS                                    \
-    using Base = SetBase<Self>;                                 \
-                                                                \
-    template <std::size_t d>                                    \
-    using traverser_t = typename Base::template traverser_t<d>; \
-                                                                \
-    using interval_t = typename Base::interval_t;               \
+#define SAMURAI_SET_TYPEDEFS                                                \
+    using Base = SetBase<Self>;                                             \
+                                                                            \
+    template <std::size_t d>                                                \
+    using traverser_t = typename Base::template traverser_t<d>;             \
+                                                                            \
+    template <std::size_t d>                                                \
+    using traverser_range_t = typename Base::template traverser_range_t<d>; \
+                                                                            \
+    using interval_t = typename Base::interval_t;                           \
     using value_t    = typename Base::value_t;
 
     template <typename T>

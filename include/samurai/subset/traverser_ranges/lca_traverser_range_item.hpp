@@ -15,6 +15,9 @@ namespace samurai
     class LevelCellArray;
 
     template <class LCA>
+    class LCATraverserRangeItem;
+
+    template <class LCA>
     struct SetTraverserTraits<LCATraverserRangeItem<LCA>>
     {
         static_assert(std::same_as<LevelCellArray<LCA::dim, typename LCA::interval_t>, LCA>);
@@ -33,7 +36,7 @@ namespace samurai
         SAMURAI_SET_TRAVERSER_TYPEDEFS
 
         using interval_iterator = typename std::vector<interval_t>::const_iterator;
-        using offset_iterator   = typename std::vector<std::size_t>::iterator;
+        using offset_iterator   = typename std::vector<std::ptrdiff_t>::iterator;
 
         LCATraverserRangeItem(const interval_iterator first_interval, const offset_iterator offset)
             : m_first_interval(first_interval)
@@ -60,8 +63,8 @@ namespace samurai
       private:
 
         interval_iterator m_first_interval;
-        std::size_t& m_offset;
-        std::size_t m_offset_bound;
+        std::ptrdiff_t& m_offset;
+        std::ptrdiff_t m_offset_bound;
     };
 
 } // namespace samurai

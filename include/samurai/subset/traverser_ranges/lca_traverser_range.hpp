@@ -23,7 +23,7 @@ namespace samurai
     {
         static_assert(std::same_as<LevelCellArray<LCA::dim, typename LCA::interval_t>, LCA>);
 
-        using interval_iterator = typename std::vector<interval_t>::const_iterator;
+        using interval_iterator = typename std::vector<typename LCA::interval_t>::const_iterator;
         using offset_iterator   = typename std::vector<std::size_t>::iterator;
 
         class Iterator
@@ -62,12 +62,12 @@ namespace samurai
             friend bool operator==(const Iterator& a, const Iterator& b)
             {
                 return a.m_first_interval == b.m_first_interval and a.m_offset == b.m_offset;
-            };
+            }
 
             friend bool operator!=(const Iterator& a, const Iterator& b)
             {
                 return a.m_first_interval != b.m_first_interval or a.m_offset != b.m_offset;
-            };
+            }
 
           private:
 
@@ -84,7 +84,7 @@ namespace samurai
       public:
 
         SAMURAI_SET_TRAVERSER_RANGE_TYPEDEFS
-        using interval_iterator = typename std::vector<interval_t>::const_iterator;
+        using interval_iterator = typename std::vector<typename LCA::interval_t>::const_iterator;
         using offset_iterator   = typename std::vector<std::size_t>::iterator;
 
         LCATraverserRange(const interval_iterator first_interval, const offset_iterator first_offsets, const offset_iterator last_offsets)
@@ -101,7 +101,7 @@ namespace samurai
 
         Iterator end_impl()
         {
-            return Iterator(m_first_interval, std::prev(m_last_offsets));
+            return Iterator(m_first_interval, m_last_offsets);
         }
 
       private:
