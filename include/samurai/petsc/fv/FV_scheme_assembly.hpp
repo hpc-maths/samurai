@@ -226,31 +226,29 @@ namespace samurai
                     ISLocalToGlobalMappingDestroy(&m_local_to_global_cols);
                 }
 
-                if constexpr (input_n_comp == 1 && output_n_comp == 1)
-                {
-                    std::vector<PetscInt> local_to_global(m_local_cell_indices.size());
-                    for (std::size_t i = 0; i < m_local_cell_indices.size(); ++i)
-                    {
-                        local_to_global[static_cast<std::size_t>(m_local_cell_indices[i])] = m_global_cell_indices[i];
-                    }
-                    ISLocalToGlobalMappingCreate(PETSC_COMM_WORLD,
-                                                 1,
-                                                 static_cast<PetscInt>(local_to_global.size()),
-                                                 local_to_global.data(),
-                                                 /*PETSC_USE_POINTER,*/ PETSC_COPY_VALUES,
-                                                 &m_local_to_global_rows);
+                static_assert(!detail::is_soa_v<input_field_t> || input_n_comp == 1, "Unimplemented: SOA field with multiple components");
+                static_assert(!detail::is_soa_v<output_field_t> || output_n_comp == 1, "Unimplemented: SOA field with multiple components");
+                static_assert(input_n_comp == output_n_comp, "Unimplemented: different number of input and output components");
 
-                    // std::cout << "[" << mpi::communicator().rank() << "] Created local to global mapping for rows of matrix '" << name()
-                    //           << "'\n";
-                    // ISLocalToGlobalMappingView(m_local_to_global_rows, PETSC_VIEWER_STDOUT_WORLD);
-
-                    m_local_to_global_cols = m_local_to_global_rows;
-                }
-                else
+                std::vector<PetscInt> local_to_global(m_local_cell_indices.size());
+                for (std::size_t i = 0; i < m_local_cell_indices.size(); ++i)
                 {
-                    std::cerr << "Unimplemented: local to global mapping with multiple components for matrix '" << name() << "'\n";
-                    exit(EXIT_FAILURE);
+                    local_to_global[static_cast<std::size_t>(m_local_cell_indices[i])] = m_global_cell_indices[i];
                 }
+                PetscInt block_size = output_n_comp;
+                ISLocalToGlobalMappingCreate(PETSC_COMM_WORLD,
+                                             block_size,
+                                             static_cast<PetscInt>(local_to_global.size()),
+                                             local_to_global.data(),
+                                             /*PETSC_USE_POINTER,*/ PETSC_COPY_VALUES,
+                                             &m_local_to_global_rows);
+
+                // std::cout << "[" << mpi::communicator().rank() << "] Created local to global mapping for rows of matrix '" <<
+                // name()
+                //           << "'\n";
+                // ISLocalToGlobalMappingView(m_local_to_global_rows, PETSC_VIEWER_STDOUT_WORLD);
+
+                m_local_to_global_cols = m_local_to_global_rows;
             }
 #endif
 
@@ -571,11 +569,6 @@ namespace samurai
                 }
                 field.ghosts_updated() = false;
                 VecRestoreArrayRead(v, &v_data);
-            }
-
-            void update_unknown(Vec& v) const
-            {
-                copy_unknown(v, unknown());
             }
 
             Vec create_rhs_vector(const output_field_t& field) const
@@ -911,9 +904,9 @@ namespace samurai
                 iterate_on_periodic_ghosts(
                     [&](auto ghost_cell_index, auto cell_cell_index)
                     {
-                        if (is_periodic_row_empty[static_cast<std::size_t>(ghost_cell_index)]) // to avoid multiple insertions when a ghost
-                                                                                               // is periodic in several directions
-                                                                                               // (external corners)
+                        if (is_periodic_row_empty[static_cast<std::size_t>(ghost_cell_index)]) // to avoid multiple insertions when a
+                                                                                               // ghost is periodic in several
+                                                                                               // directions (external corners)
                         {
                             for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                             {
@@ -997,8 +990,8 @@ namespace samurai
                         }
                         else
                         {
-                            bc_value = bc->value(towards_out, cell, boundary_point)(field_i); // TODO: call get_value() only once instead of
-                                                                                              // once per field_i
+                            bc_value = bc->value(towards_out, cell, boundary_point)(field_i); // TODO: call get_value() only once
+                                                                                              // instead of once per field_i
                         }
                         b_data[equation_row] += coeff * bc_value;
                     }
@@ -1040,8 +1033,8 @@ namespace samurai
                 {
                     if (m_is_row_empty[i]
                         // #ifdef SAMURAI_WITH_MPI
-                        //                         && m_ownership[static_cast<std::size_t>(i)] == rank // only insert for the ghosts owned
-                        //                         by the current process
+                        //                         && m_ownership[static_cast<std::size_t>(i)] == rank // only insert for the ghosts
+                        //                         owned by the current process
                         // #endif
                     )
                     {
