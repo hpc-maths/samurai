@@ -459,7 +459,6 @@ namespace samurai
                 {5, {5, 33}}
             };
             std::size_t ie = 0;
-            fmt::print("====================================================\n");
             apply(union_(ca_1[7], ca_2[7]).on(6),
                   [&](auto& i, auto& index)
                   {

@@ -22,6 +22,11 @@ namespace samurai
 
         struct Workspace
         {
+            // we do not need the offsets for the last dim
+            // the offset at dimension d will be initialized when calling
+            // get_traverser_impl<d+1>
+            std::array<std::ptrdiff_t, LCA::dim - 1> start_offset;
+            std::array<std::ptrdiff_t, LCA::dim - 1> end_offset;
         };
 
         static constexpr std::size_t dim()
@@ -39,20 +44,8 @@ namespace samurai
 
         SAMURAI_SET_TYPEDEFS
 
-        using const_interval_iterator = typename std::vector<interval_t>::const_iterator;
-
         explicit LCAView(const LCA& lca)
             : m_lca(lca)
-        {
-        }
-
-        LCAView(const LCAView& other)
-            : m_lca(other.m_lca)
-        {
-        }
-
-        LCAView(LCAView&& other)
-            : m_lca(std::move(other.m_lca))
         {
         }
 
@@ -72,78 +65,55 @@ namespace samurai
         }
 
         template <std::size_t d>
-        inline constexpr void init_workspace_impl(const std::size_t, std::integral_constant<std::size_t, d>, Workspace) const
+        inline constexpr void init_workspace_impl(const std::size_t, std::integral_constant<std::size_t, d>, Workspace&) const
         {
         }
 
         template <class index_t, std::size_t d>
-        inline traverser_t<d> get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace) const
+        inline traverser_t<d> get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d>, Workspace& workspace) const
         {
-            return get_traverser_impl_detail(index,
-                                             m_lca[Base::dim - 1].cbegin(),
-                                             m_lca[Base::dim - 1].cend(),
-                                             d_ic,
-                                             std::integral_constant<std::size_t, Base::dim - 1>{});
-        }
-
-      private:
-
-        template <class index_t, std::size_t d, std::size_t dCur>
-        inline traverser_t<d> get_traverser_impl_detail(const index_t& index,
-                                                        const_interval_iterator begin_y_interval,
-                                                        const_interval_iterator end_y_interval,
-                                                        std::integral_constant<std::size_t, d> d_ic,
-                                                        std::integral_constant<std::size_t, dCur>) const
-        {
-            if constexpr (dCur != Base::dim - 1)
+            if constexpr (d == Base::dim - 1)
             {
-                const auto& y         = index[dCur];
-                const auto& y_offsets = m_lca.offsets(dCur + 1);
-                // we need to find an interval that contains y.
-                const auto y_interval_it = std::find_if(begin_y_interval,
-                                                        end_y_interval,
-                                                        [y](const auto& y_interval)
-                                                        {
-                                                            return y_interval.contains(y);
-                                                        });
-                if (y_interval_it != end_y_interval)
-                {
-                    const std::size_t y_offset_idx = std::size_t(y + y_interval_it->index);
-
-                    const_interval_iterator begin_x_interval = m_lca[dCur].cbegin() + ptrdiff_t(y_offsets[y_offset_idx]);
-                    const_interval_iterator end_x_interval   = m_lca[dCur].cbegin() + ptrdiff_t(y_offsets[y_offset_idx + 1]);
-
-                    if constexpr (d == dCur)
-                    {
-                        return traverser_t<d>(begin_x_interval, end_x_interval);
-                    }
-                    else
-                    {
-                        return get_traverser_impl_detail(index,
-                                                         begin_x_interval,
-                                                         end_x_interval,
-                                                         d_ic,
-                                                         std::integral_constant<std::size_t, dCur - 1>{});
-                    }
-                }
-                else
-                {
-                    return traverser_t<d>(m_lca[d].cend(), m_lca[d].cend());
-                }
-            }
-            else if constexpr (d != dCur)
-            {
-                return get_traverser_impl_detail(index,
-                                                 m_lca[dCur].cbegin(),
-                                                 m_lca[dCur].cend(),
-                                                 d_ic,
-                                                 std::integral_constant<std::size_t, dCur - 1>{});
+                return traverser_t<d>(m_lca[d].cbegin(), m_lca[d].cend());
             }
             else
             {
-                return traverser_t<d>(m_lca[dCur].cbegin(), m_lca[dCur].cend());
+                // In 3d, we would be in the y dimension
+                // we need to find an interval that contains the prescibed z.
+                const auto& z_intervals     = m_lca[d + 1];
+                const auto begin_z_interval = (d == Base::dim - 2) ? z_intervals.cbegin()
+                                                                   : z_intervals.cbegin() + workspace.start_offset[d + 1];
+                const auto end_z_interval = (d == Base::dim - 2) ? z_intervals.cend() : z_intervals.cbegin() + workspace.end_offset[d + 1];
+
+                const auto z = index[d];
+
+                const auto z_interval_it = std::find_if(begin_z_interval,
+                                                        end_z_interval,
+                                                        [z](const auto& z_interval)
+                                                        {
+                                                            return z_interval.contains(z);
+                                                        });
+
+                const auto& y_intervals = m_lca[d];
+
+                auto& y_start_offset = workspace.start_offset[d];
+                auto& y_end_offset   = workspace.end_offset[d];
+
+                if (z_interval_it == end_z_interval)
+                {
+                    y_start_offset = y_end_offset;
+                    return traverser_t<d>(y_intervals.cend(), y_intervals.cend());
+                }
+                const auto& y_offsets   = m_lca.offsets(d + 1);
+                const auto y_offset_idx = std::size_t(z_interval_it->index + z);
+
+                y_start_offset = std::ptrdiff_t(y_offsets[y_offset_idx]);
+                y_end_offset   = std::ptrdiff_t(y_offsets[y_offset_idx + 1]);
+                return traverser_t<d>(y_intervals.cbegin() + y_start_offset, y_intervals.cbegin() + y_end_offset);
             }
         }
+
+      private:
 
         const LCA& m_lca;
     };
