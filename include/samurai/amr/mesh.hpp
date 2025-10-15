@@ -52,7 +52,7 @@ namespace samurai::amr
         Mesh(const cl_type& cl, const self_type& ref_mesh);
         Mesh(const mesh_config<Config::dim>& config, const cl_type& cl);
         Mesh(const mesh_config<Config::dim>& config, const ca_type& ca);
-        Mesh(mesh_config<Config::dim>& config, const Box<double, dim>& b);
+        Mesh(const mesh_config<Config::dim>& config, const Box<double, dim>& b);
 
         void update_sub_mesh_impl();
 
@@ -88,7 +88,7 @@ namespace samurai::amr
     }
 
     template <class Config>
-    inline Mesh<Config>::Mesh(mesh_config<Config::dim>& config, const Box<double, dim>& b)
+    inline Mesh<Config>::Mesh(const mesh_config<Config::dim>& config, const Box<double, dim>& b)
         : base_type(config, b)
     {
     }
@@ -188,7 +188,7 @@ namespace samurai::amr
     }
 
     template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, AMR_Id>>
-    auto make_Mesh(const mesh_config_t&)
+    auto make_empty_Mesh(const mesh_config_t&)
     {
         return Mesh<complete_mesh_config_t>();
     }
@@ -196,20 +196,33 @@ namespace samurai::amr
     template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, AMR_Id>>
     auto make_Mesh(const mesh_config_t& cfg, const typename Mesh<complete_mesh_config_t>::cl_type& cl)
     {
-        return Mesh<complete_mesh_config_t>(cfg, cl);
+        auto mesh_cfg = cfg;
+        mesh_cfg.parse_args();
+        mesh_cfg.start_level() = mesh_cfg.max_level();
+
+        return Mesh<complete_mesh_config_t>(mesh_cfg, cl);
     }
 
     template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, AMR_Id>>
     auto make_Mesh(const mesh_config_t& cfg, const typename Mesh<complete_mesh_config_t>::ca_type& ca)
     {
-        return Mesh<complete_mesh_config_t>(cfg, ca);
+        auto mesh_cfg = cfg;
+        mesh_cfg.parse_args();
+        mesh_cfg.start_level() = mesh_cfg.max_level();
+
+        return Mesh<complete_mesh_config_t>(mesh_cfg, ca);
     }
 
     template <class mesh_config_t>
-    auto make_Mesh(mesh_config_t& cfg, const samurai::Box<double, mesh_config_t::dim>& b)
+    auto make_Mesh(const mesh_config_t& cfg, const samurai::Box<double, mesh_config_t::dim>& b)
     {
         using complete_cfg_t = complete_mesh_config<mesh_config_t, AMR_Id>;
-        return Mesh<complete_cfg_t>(cfg, b);
+
+        auto mesh_cfg = cfg;
+        mesh_cfg.parse_args();
+        mesh_cfg.start_level() = mesh_cfg.max_level();
+
+        return Mesh<complete_cfg_t>(mesh_cfg, b);
     }
 } // namespace samurai::amr
 

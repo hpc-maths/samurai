@@ -6,7 +6,7 @@ namespace samurai
     auto create_meshes(std::size_t level)
     {
         using Config  = mesh_config<1>;
-        using Mesh    = decltype(amr::make_Mesh(std::declval<Config>()));
+        using Mesh    = decltype(amr::make_empty_Mesh(std::declval<Config>()));
         using cl_type = typename Mesh::cl_type;
 
         cl_type cl1;
@@ -23,7 +23,7 @@ namespace samurai
     TEST(set, for_each_interval)
     {
         using Config    = mesh_config<1>;
-        using Mesh      = decltype(amr::make_Mesh(std::declval<Config>()));
+        using Mesh      = decltype(amr::make_empty_Mesh(std::declval<Config>()));
         using mesh_id_t = typename Mesh::mesh_id_t;
 
         std::size_t level = 1;
@@ -47,7 +47,7 @@ namespace samurai
     TEST(set, for_each_cell)
     {
         using Config    = mesh_config<1>;
-        using Mesh      = decltype(amr::make_Mesh(std::declval<Config>()));
+        using Mesh      = decltype(amr::make_empty_Mesh(std::declval<Config>()));
         using mesh_id_t = typename Mesh::mesh_id_t;
 
         std::size_t level = 1;

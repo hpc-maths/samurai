@@ -230,7 +230,7 @@ int main(int argc, char* argv[])
 
     const samurai::Box<double, dim> box({left_box}, {right_box});
     auto config = samurai::mesh_config<dim>().min_level(2).max_level(7).max_stencil_size(2).start_level(7).disable_minimal_ghost_width();
-    auto mesh   = samurai::amr::make_Mesh(config);
+    auto mesh   = samurai::amr::make_empty_Mesh(config);
     auto phi    = samurai::make_scalar_field<double>("phi", mesh);
 
     if (restart_file.empty())

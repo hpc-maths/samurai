@@ -87,7 +87,7 @@ int main(int argc, char* argv[])
     box_corner2.fill(right_box);
     Box box(box_corner1, box_corner2);
     auto config = samurai::mesh_config<dim>().min_level(3).max_level(6).max_stencil_size(2).disable_minimal_ghost_width();
-    auto mesh   = samurai::make_MRMesh(config);
+    auto mesh   = samurai::make_empty_MRMesh(config);
 
     auto u    = samurai::make_scalar_field<double>("u", mesh);
     auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);

@@ -286,7 +286,7 @@ int main(int argc, char* argv[])
 
     const samurai::Box<double, dim> box(min_corner, max_corner);
     auto config = samurai::mesh_config<dim>().min_level(4).max_level(8).start_level(8).max_stencil_radius(2);
-    auto mesh   = samurai::amr::make_Mesh(config);
+    auto mesh   = samurai::amr::make_empty_Mesh(config);
     auto phi    = samurai::make_scalar_field<double>("phi", mesh);
 
     if (restart_file.empty())
