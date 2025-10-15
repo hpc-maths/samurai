@@ -263,9 +263,8 @@ int main(int argc, char* argv[])
     //--------------------//
 
     Box box({left_box}, {right_box});
-    auto config = samurai::mesh_config<dim>().min_level(1).max_level(7).max_stencil_radius(2).graduation_width(2);
-    auto mesh   = samurai::make_MRMesh(config, box);
-    // samurai::MRMesh<Config> mesh{box, min_level, max_level};
+    auto config           = samurai::mesh_config<dim>().min_level(1).max_level(7).max_stencil_radius(2).graduation_width(2);
+    auto mesh             = samurai::make_MRMesh(config, box);
     auto max_level_config = samurai::mesh_config<dim>().min_level(mesh.max_level()).max_level(mesh.max_level()).max_stencil_radius(2);
     auto max_level_mesh   = samurai::make_MRMesh(max_level_config, box);
 

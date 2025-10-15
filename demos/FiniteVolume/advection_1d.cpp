@@ -96,8 +96,7 @@ int main(int argc, char* argv[])
 
     auto config = samurai::mesh_config<dim>().min_level(6).max_level(12).periodic(is_periodic).max_stencil_size(2).disable_minimal_ghost_width();
     auto mesh = samurai::make_MRMesh(config, box);
-    // samurai::MRMesh<Config> mesh;
-    auto u = samurai::make_scalar_field<double>("u", mesh);
+    auto u    = samurai::make_scalar_field<double>("u", mesh);
 
     if (restart_file.empty())
     {

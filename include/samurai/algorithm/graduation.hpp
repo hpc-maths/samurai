@@ -158,6 +158,7 @@ namespace samurai
             auto subset_2 = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level]);
 
             auto ghost_width = mesh.cfg().graduation_width();
+            assert(ghost_width < 10 && "Graduation not implemented for ghost_width higher than 10");
             // maximum ghost width is set to 9
             static_for<1, 10>::apply(
                 [&](auto static_ghost_width_)
