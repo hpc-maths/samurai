@@ -40,6 +40,7 @@ namespace samurai
 
         ProjectionLOITraverser(SetTraverser set_traverser, SetTraverserIterator first_interval, SetTraverserIterator bound_interval)
             : m_set_traverser(set_traverser)
+            , m_shift(0)
             , m_first_interval(first_interval)
             , m_bound_interval(bound_interval)
             , m_projectionType(ProjectionType::COARSEN)
