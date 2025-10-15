@@ -49,6 +49,84 @@ namespace samurai
         }
     }
 
+    namespace utils
+    {
+
+        template <typename T, std::size_t N>
+        std::array<T, N> pow2(const std::array<T, N>& input, const std::size_t shift = 1)
+        {
+            std::array<T, N> output;
+            for (std::size_t i = 0; i != N; ++i)
+            {
+                output[i] = input[i] << shift;
+            }
+
+            return output;
+        }
+
+        template <typename T, std::size_t N>
+        std::array<T, N> sumAndPow2(const std::array<T, N>& input, const T& value, const std::size_t shift = 1)
+        {
+            std::array<T, N> output;
+            for (std::size_t i = 0; i != N; ++i)
+            {
+                output[i] = (input[i] + value) << shift;
+            }
+
+            return output;
+        }
+
+        template <typename T, std::size_t N>
+        std::array<T, N> powMinus2(const std::array<T, N>& input, const std::size_t shift = 1)
+        {
+            std::array<T, N> output;
+            for (std::size_t i = 0; i != N; ++i)
+            {
+                output[i] = input[i] >> shift;
+            }
+
+            return output;
+        }
+
+        template <typename T, std::size_t N>
+        xt::xtensor_fixed<T, xt::xshape<N>> pow2(const xt::xtensor_fixed<T, xt::xshape<N>>& input, const std::size_t shift = 1)
+        {
+            xt::xtensor_fixed<T, xt::xshape<N>> output;
+            for (std::size_t i = 0; i != N; ++i)
+            {
+                output[i] = input[i] << shift;
+            }
+
+            return output;
+        }
+
+        template <typename T, std::size_t N>
+        xt::xtensor_fixed<T, xt::xshape<N>>
+        sumAndPow2(const xt::xtensor_fixed<T, xt::xshape<N>>& input, const T& value, const std::size_t shift = 1)
+        {
+            xt::xtensor_fixed<T, xt::xshape<N>> output;
+            for (std::size_t i = 0; i != N; ++i)
+            {
+                output[i] = (input[i] + value) << shift;
+            }
+
+            return output;
+        }
+
+        template <typename T, std::size_t N>
+        xt::xtensor_fixed<T, xt::xshape<N>> powMinus2(const xt::xtensor_fixed<T, xt::xshape<N>>& input, const std::size_t shift = 1)
+        {
+            xt::xtensor_fixed<T, xt::xshape<N>> output;
+            for (std::size_t i = 0; i != N; ++i)
+            {
+                output[i] = input[i] >> shift;
+            }
+
+            return output;
+        }
+
+    }
+
     ////////////////////////////////////////////////////////////////////////
     //// intervals args
     ////////////////////////////////////////////////////////////////////////

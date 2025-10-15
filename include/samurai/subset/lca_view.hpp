@@ -69,8 +69,8 @@ namespace samurai
         {
         }
 
-        template <class index_t, std::size_t d>
-        inline traverser_t<d> get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d>, Workspace& workspace) const
+        template <std::size_t d>
+        inline traverser_t<d> get_traverser_impl(const yz_index_t& index, std::integral_constant<std::size_t, d>, Workspace& workspace) const
         {
             if constexpr (d == Base::dim - 1)
             {

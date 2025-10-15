@@ -109,9 +109,9 @@ namespace samurai
             m_set.init_workspace(my_work_size, d_ic, workspace.child_workspace);
         }
 
-        template <class index_t, std::size_t d>
+        template <std::size_t d>
         inline traverser_t<d>
-        get_traverser_impl(const index_t& _index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
+        get_traverser_impl(const yz_index_t& _index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
             auto& childTraversers = std::get<d>(workspace.projection_workspace);
 
