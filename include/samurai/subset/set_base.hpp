@@ -56,6 +56,8 @@ namespace samurai
         using interval_t = typename traverser_t<0>::interval_t;
         using value_t    = typename interval_t::value_t;
 
+        using yz_index_t = xt::xtensor_fixed<value_t, xt::xshape<DerivedTraits::dim() - 1>>;
+
         using to_lca_t       = LevelCellArray<DerivedTraits::dim(), interval_t>;
         using to_lca_coord_t = typename to_lca_t::coords_t;
 
@@ -94,8 +96,8 @@ namespace samurai
             derived_cast().init_workspace_impl(n_traversers, d_ic, workspace);
         }
 
-        template <class index_t, std::size_t d>
-        inline traverser_t<d> get_traverser(const index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
+        template <std::size_t d>
+        inline traverser_t<d> get_traverser(const yz_index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
             return derived_cast().get_traverser_impl(index, d_ic, workspace);
         }
@@ -134,13 +136,13 @@ namespace samurai
 
         inline bool empty_default_impl() const
         {
-            xt::xtensor_fixed<int, xt::xshape<dim - 1>> index;
+            yz_index_t index;
             Workspace workspace;
             return empty_default_impl_rec(index, std::integral_constant<std::size_t, dim - 1>{}, workspace);
         }
 
-        template <class index_t, std::size_t d>
-        bool empty_default_impl_rec(index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
+        template <std::size_t d>
+        bool empty_default_impl_rec(yz_index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
             using current_interval_t = typename traverser_t<d>::current_interval_t;
 
@@ -179,7 +181,9 @@ namespace samurai
     using Workspace = typename Base::Workspace;                 \
                                                                 \
     using interval_t = typename Base::interval_t;               \
-    using value_t    = typename Base::value_t;
+    using value_t    = typename Base::value_t;                  \
+                                                                \
+    using yz_index_t = typename Base::yz_index_t;
 
     template <typename T>
     struct IsSet : std::bool_constant<std::is_base_of<SetBase<T>, T>::value>

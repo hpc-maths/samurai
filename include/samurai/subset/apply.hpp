@@ -9,10 +9,10 @@ namespace samurai
 {
     namespace detail
     {
-        template <class Set, class Func, class Index, std::size_t d>
+        template <class Set, class Func, std::size_t d>
         void apply_rec(const SetBase<Set>& set,
                        Func&& func,
-                       Index& index,
+                       typename SetBase<Set>::yz_index_t& yz_index,
                        std::integral_constant<std::size_t, d> d_ic,
                        typename SetBase<Set>::Workspace& workspace)
         {
@@ -21,19 +21,19 @@ namespace samurai
 
             set.init_workspace(1, d_ic, workspace);
 
-            for (traverser_t traverser = set.get_traverser(index, d_ic, workspace); !traverser.is_empty(); traverser.next_interval())
+            for (traverser_t traverser = set.get_traverser(yz_index, d_ic, workspace); !traverser.is_empty(); traverser.next_interval())
             {
                 current_interval_t interval = traverser.current_interval();
 
                 if constexpr (d == 0)
                 {
-                    func(interval, index);
+                    func(interval, yz_index);
                 }
                 else
                 {
-                    for (index[d - 1] = interval.start; index[d - 1] != interval.end; ++index[d - 1])
+                    for (yz_index[d - 1] = interval.start; yz_index[d - 1] != interval.end; ++yz_index[d - 1])
                     {
-                        apply_rec(set, std::forward<Func>(func), index, std::integral_constant<std::size_t, d - 1>{}, workspace);
+                        apply_rec(set, std::forward<Func>(func), yz_index, std::integral_constant<std::size_t, d - 1>{}, workspace);
                     }
                 }
             }
@@ -43,15 +43,16 @@ namespace samurai
     template <class Set, class Func>
     void apply(const SetBase<Set>& set, Func&& func)
     {
-        using Workspace = typename SetBase<Set>::Workspace;
+        using Workspace  = typename Set::Workspace;
+        using yz_index_t = typename Set::yz_index_t;
 
         constexpr std::size_t dim = Set::dim;
 
-        xt::xtensor_fixed<int, xt::xshape<dim - 1>> index;
+        yz_index_t yz_index;
         if (set.exist())
         {
             Workspace workspace;
-            detail::apply_rec(set, std::forward<Func>(func), index, std::integral_constant<std::size_t, dim - 1>{}, workspace);
+            detail::apply_rec(set, std::forward<Func>(func), yz_index, std::integral_constant<std::size_t, dim - 1>{}, workspace);
         }
     }
 }

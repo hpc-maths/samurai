@@ -74,11 +74,18 @@ namespace samurai
             m_set.init_workspace(n_traversers, d_ic, workspace.child_workspace);
         }
 
-        template <class index_t, std::size_t d>
-        inline traverser_t<d> get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
+        template <std::size_t d>
+        inline traverser_t<d>
+        get_traverser_impl(const yz_index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
-            return traverser_t<d>(m_set.get_traverser_impl(index - xt::view(m_translation, xt::range(1, _)), d_ic, workspace.child_workspace),
-                                  m_translation[d]);
+            yz_index_t child_index;
+
+            for (std::size_t i = 0; i != Base::dim - 1; ++i)
+            {
+                child_index[i] = index[i] - m_translation[i + 1];
+            }
+
+            return traverser_t<d>(m_set.get_traverser_impl(child_index, d_ic, workspace.child_workspace), m_translation[d]);
         }
 
       private:
