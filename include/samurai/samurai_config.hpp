@@ -20,7 +20,7 @@ namespace samurai
         static constexpr std::size_t graduation_width = 1;
         static constexpr std::size_t prediction_order = 1;
 
-        static constexpr bool prediction_with_list_of_intervals = true;
+        static constexpr bool projection_with_list_of_intervals = false;
 
         using index_t    = signed long long int;
         using value_t    = int;
