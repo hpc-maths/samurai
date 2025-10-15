@@ -95,7 +95,7 @@ int main(int argc, char* argv[])
 
     const samurai::Box<double, dim> box(min_corner, max_corner);
     auto config = samurai::mesh_config<dim>().min_level(4).max_level(10).max_stencil_size(2).disable_minimal_ghost_width();
-    auto mesh   = samurai::make_MRMesh(config);
+    auto mesh   = samurai::make_empty_MRMesh(config);
     auto u      = samurai::make_scalar_field<double>("u", mesh);
 
     if (restart_file.empty())

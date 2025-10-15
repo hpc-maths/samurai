@@ -164,9 +164,9 @@ namespace samurai
         Mesh_base(const cl_type& cl, const self_type& ref_mesh);
         Mesh_base(const mesh_config<Config::dim>& config, const cl_type& cl);
         Mesh_base(const mesh_config<Config::dim>& config, const ca_type& ca);
-        Mesh_base(mesh_config<Config::dim>& config, const samurai::Box<double, dim>& b);
+        Mesh_base(const mesh_config<Config::dim>& config, const samurai::Box<double, dim>& b);
 
-        Mesh_base(mesh_config<Config::dim>& config, const samurai::DomainBuilder<dim>& domain_builder);
+        Mesh_base(const mesh_config<Config::dim>& config, const samurai::DomainBuilder<dim>& domain_builder);
 
         // cppcheck-suppress uninitMemberVar
         Mesh_base(const samurai::Box<double, dim>&, std::size_t, std::size_t, std::size_t, double, double)
@@ -260,8 +260,8 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline Mesh_base<D, Config>::Mesh_base(mesh_config<Config::dim>& config, const samurai::Box<double, dim>& b)
-        : m_domain{(config.parse_args(), config.start_level()), b, config.approx_box_tol(), config.scaling_factor()}
+    inline Mesh_base<D, Config>::Mesh_base(const mesh_config<Config::dim>& config, const samurai::Box<double, dim>& b)
+        : m_domain{config.start_level(), b, config.approx_box_tol(), config.scaling_factor()}
         , m_config(config)
     {
 #ifdef SAMURAI_WITH_MPI
@@ -282,7 +282,7 @@ namespace samurai
     }
 
     template <class D, class Config>
-    Mesh_base<D, Config>::Mesh_base(mesh_config<Config::dim>& config, const samurai::DomainBuilder<dim>& domain_builder)
+    Mesh_base<D, Config>::Mesh_base(const mesh_config<Config::dim>& config, const samurai::DomainBuilder<dim>& domain_builder)
         : m_config(config)
     {
         m_config.parse_args();
