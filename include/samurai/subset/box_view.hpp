@@ -60,8 +60,8 @@ namespace samurai
             return !exist_impl();
         }
 
-        template <class index_t, std::size_t d>
-        inline traverser_t<d> get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d>, Workspace) const
+        template <std::size_t d>
+        inline traverser_t<d> get_traverser_impl(const yz_index_t& index, std::integral_constant<std::size_t, d>, Workspace) const
         {
             return (m_box.min_corner()[d + 1] <= index[d] && index[d] < m_box.max_corner()[d + 1])
                      ? traverser_t<d>(m_box.min_corner()[d], m_box.max_corner()[d])

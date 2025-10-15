@@ -124,8 +124,9 @@ namespace samurai
             }
         }
 
-        template <class index_t, std::size_t d>
-        inline traverser_t<d> get_traverser_impl(const index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
+        template <std::size_t d>
+        inline traverser_t<d>
+        get_traverser_impl(const yz_index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
             if constexpr (d == Base::dim - 1)
             {
@@ -135,20 +136,21 @@ namespace samurai
             {
                 auto& childTraversers = std::get<d>(workspace.expansion_workspace);
 
-                xt::xtensor_fixed<value_t, xt::xshape<Base::dim - 1>> tmp_index(index);
+                yz_index_t tmp_index(index);
 
                 const auto childTraversers_begin = childTraversers.end();
 
                 for (value_t width = 0; width != m_expansions[d + 1] + 1; ++width)
                 {
-                    tmp_index[d + 1] = index[d + 1] + width;
+                    // it's d and not d+1 because tmp_index represents m_expansions[1,..,dim]
+                    tmp_index[d] = index[d] + width;
                     childTraversers.push_back(m_set.get_traverser(tmp_index, d_ic, workspace.child_workspace));
                     if (childTraversers.back().is_empty())
                     {
                         childTraversers.pop_back();
                     }
-
-                    tmp_index[d + 1] = index[d + 1] - width;
+                    // same
+                    tmp_index[d] = index[d] - width;
                     childTraversers.push_back(m_set.get_traverser(tmp_index, d_ic, workspace.child_workspace));
                     if (childTraversers.back().is_empty())
                     {
