@@ -7,6 +7,7 @@
 #include "../static_algorithm.hpp"
 #include "set_base.hpp"
 #include "traversers/projection_traverser.hpp"
+#include "utils.hpp"
 
 namespace samurai
 {
@@ -124,7 +125,7 @@ namespace samurai
                     const value_t ymin   = _index[d] << m_shift;
                     const value_t ybound = (_index[d] + 1) << m_shift;
 
-                    xt::xtensor_fixed<value_t, xt::xshape<Base::dim - 1>> index(_index << m_shift);
+                    yz_index_t index(utils::pow2(_index, m_shift));
 
                     const auto childTraversers_begin = childTraversers.end();
 
@@ -143,13 +144,13 @@ namespace samurai
                 }
                 else
                 {
-                    childTraversers.push_back(m_set.get_traverser(_index << m_shift, d_ic, workspace.child_workspace));
+                    childTraversers.push_back(m_set.get_traverser(utils::pow2(_index, m_shift), d_ic, workspace.child_workspace));
                     return traverser_t<d>(std::prev(childTraversers.end()), m_projectionType, m_shift);
                 }
             }
             else
             {
-                childTraversers.push_back(m_set.get_traverser(_index >> m_shift, d_ic, workspace.child_workspace));
+                childTraversers.push_back(m_set.get_traverser(utils::powMinus2(_index, m_shift), d_ic, workspace.child_workspace));
                 return traverser_t<d>(std::prev(childTraversers.end()), m_projectionType, m_shift);
             }
         }

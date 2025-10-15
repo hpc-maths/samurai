@@ -101,7 +101,6 @@ namespace samurai
 
                 if (z_interval_it == end_z_interval)
                 {
-                    y_start_offset = y_end_offset;
                     return traverser_t<d>(y_intervals.cend(), y_intervals.cend());
                 }
                 const auto& y_offsets   = m_lca.offsets(d + 1);
