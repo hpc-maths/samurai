@@ -27,11 +27,7 @@ namespace samurai
 
                 if constexpr (d == 0)
                 {
-                    using tensor = typename Set::xt_yz_index_t;
-                    tensor tensor_yz_index;
-                    std::copy(yz_index.cbegin(), yz_index.cend(), tensor_yz_index.begin());
-
-                    func(interval, tensor_yz_index);
+                    func(interval, yz_index);
                 }
                 else
                 {

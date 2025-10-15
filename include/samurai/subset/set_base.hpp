@@ -56,8 +56,8 @@ namespace samurai
         using interval_t = typename traverser_t<0>::interval_t;
         using value_t    = typename interval_t::value_t;
 
-        using yz_index_t    = std::array<value_t, DerivedTraits::dim() - 1>;
-        using xt_yz_index_t = xt::xtensor_fixed<value_t, xt::xshape<DerivedTraits::dim() - 1>>;
+        //~ using yz_index_t    = std::array<value_t, DerivedTraits::dim() - 1>;
+        using yz_index_t = xt::xtensor_fixed<value_t, xt::xshape<DerivedTraits::dim() - 1>>;
 
         using to_lca_t       = LevelCellArray<DerivedTraits::dim(), interval_t>;
         using to_lca_coord_t = typename to_lca_t::coords_t;
@@ -184,8 +184,7 @@ namespace samurai
     using interval_t = typename Base::interval_t;               \
     using value_t    = typename Base::value_t;                  \
                                                                 \
-    using yz_index_t    = typename Base::yz_index_t;            \
-    using xt_yz_index_t = typename Base::xt_yz_index_t;
+    using yz_index_t = typename Base::yz_index_t;
 
     template <typename T>
     struct IsSet : std::bool_constant<std::is_base_of<SetBase<T>, T>::value>
