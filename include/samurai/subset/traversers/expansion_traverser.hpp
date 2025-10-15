@@ -94,7 +94,6 @@ namespace samurai
         std::span<SetTraverser> m_set_traversers;
         value_t m_expansion;
         interval_t m_current_interval;
-        bool m_isEmpty;
     };
 
 } // namespace samurai
