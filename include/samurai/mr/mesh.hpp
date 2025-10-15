@@ -503,7 +503,7 @@ namespace samurai
     {
         auto mesh_cfg = cfg;
         mesh_cfg.parse_args();
-        mesh_cfg.start_level() = mesh_cfg.max_level();
+        mesh_cfg.start_level() = mesh_cfg.max_level(); // cppcheck-suppress unreadVariable
 
         return MRMesh<complete_mesh_config_t>(cfg, cl);
     }
@@ -513,7 +513,7 @@ namespace samurai
     {
         auto mesh_cfg = cfg;
         mesh_cfg.parse_args();
-        mesh_cfg.start_level() = mesh_cfg.max_level();
+        mesh_cfg.start_level() = mesh_cfg.max_level(); // cppcheck-suppress unreadVariable
 
         return MRMesh<complete_mesh_config_t>(cfg, ca);
     }
@@ -525,7 +525,7 @@ namespace samurai
 
         auto mesh_cfg = cfg;
         mesh_cfg.parse_args();
-        mesh_cfg.start_level() = mesh_cfg.max_level();
+        mesh_cfg.start_level() = mesh_cfg.max_level(); // cppcheck-suppress unreadVariable
 
         return MRMesh<complete_cfg_t>(mesh_cfg, b);
     }
@@ -537,7 +537,7 @@ namespace samurai
 
         auto mesh_cfg = cfg;
         mesh_cfg.parse_args();
-        mesh_cfg.start_level() = mesh_cfg.max_level();
+        mesh_cfg.start_level() = mesh_cfg.max_level(); // cppcheck-suppress unreadVariable
 
         return MRMesh<complete_cfg_t>(mesh_cfg, domain_builder);
     }
