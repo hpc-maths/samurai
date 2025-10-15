@@ -110,7 +110,7 @@ namespace samurai
         {
             assert(n_traversers == 1);
 
-            m_set.init_get_traverser_work(n_traversers, d_ic, workspace.child_workspace);
+            m_set.init_workspace(n_traversers, d_ic, workspace.child_workspace);
         }
 
         template <class index_t, std::size_t d>
@@ -167,7 +167,8 @@ namespace samurai
 
             m_set.init_workspace(1, dCur_ic, child_workspace);
 
-            for (child_traverser_t traverser = m_set.get_traverser(index, dCur_ic); !traverser.is_empty(); traverser.next_interval())
+            for (child_traverser_t traverser = m_set.get_traverser(index, dCur_ic, child_workspace); !traverser.is_empty();
+                 traverser.next_interval())
             {
                 child_current_interval_t interval = traverser.current_interval();
 
