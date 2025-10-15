@@ -25,25 +25,6 @@ namespace samurai::amr
         // reference = cells_and_ghosts
     };
 
-    // template <std::size_t dim_,
-    //           std::size_t max_stencil_width_         = default_config::ghost_width,
-    //           std::size_t graduation_width_          = default_config::graduation_width,
-    //           std::size_t max_refinement_level_      = default_config::max_level,
-    //           std::size_t prediction_stencil_radius_ = default_config::prediction_stencil_radius,
-    //           class TInterval                        = default_config::interval_t>
-    // struct Config
-    // {
-    //     static constexpr std::size_t dim                  = dim_;
-    //     static constexpr std::size_t max_refinement_level = max_refinement_level_;
-    //     static constexpr int max_stencil_width            = max_stencil_width_;
-    //     static constexpr int prediction_stencil_radius    = prediction_stencil_radius_;
-    //     static constexpr int ghost_width      = std::max(static_cast<int>(max_stencil_width),
-    //     static_cast<int>(prediction_stencil_radius)); static constexpr int graduation_width = graduation_width_;
-
-    //     using interval_t = TInterval;
-    //     using mesh_id_t  = AMR_Id;
-    // };
-
     /////////////////////////
     // AMR mesh definition //
     /////////////////////////
@@ -118,7 +99,7 @@ namespace samurai::amr
         cl_type cl;
         auto ghost_width = cfg().ghost_width();
         for_each_interval(this->cells()[mesh_id_t::cells],
-                          [&, ghost_width](std::size_t level, const auto& interval, const auto& index_yz)
+                          [&](std::size_t level, const auto& interval, const auto& index_yz)
                           {
                               lcl_type& lcl = cl[level];
                               static_nested_loop<dim - 1>(

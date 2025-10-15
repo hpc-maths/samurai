@@ -103,17 +103,9 @@ namespace samurai
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
-        // assert(layer > 0 && layer <= Field::mesh_t::config::max_stencil_width);
-
         auto& mesh = field.mesh();
 
-#ifndef NDEBUG
-        if (!(layer > 0 && layer <= mesh.max_stencil_radius()))
-        {
-            std::cerr << " " << std::endl;
-            exit(EXIT_FAILURE);
-        }
-#endif
+        assert(layer > 0 && layer <= mesh.max_stencil_radius());
 
         auto domain = self(mesh.domain()).on(proj_level);
 
@@ -401,7 +393,7 @@ namespace samurai
     template <class Field>
     void update_outer_ghosts(std::size_t level, Field& field)
     {
-        static_assert(std::remove_cvref_t<decltype(field.mesh().cfg())>::prediction_stencil_radius <= 1);
+        static_assert(Field::mesh_t::config::prediction_stencil_radius <= 1);
 
         constexpr std::size_t dim = Field::dim;
 

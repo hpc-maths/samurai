@@ -381,7 +381,6 @@ namespace samurai
         for (int ghost_layer = ghost_layers_filled_by_bc + 1; ghost_layer <= ghost_width; ++ghost_layer)
         {
             int stencil_s = 2 * ghost_layer;
-            // static_for<2, std::min(max_stencil_size_implemented_PE, 2 * ghost_width) + 1>::apply(
             static_for<2, max_stencil_size_implemented_PE + 1>::apply(
                 [&](auto stencil_size_)
                 {
@@ -409,7 +408,6 @@ namespace samurai
         for (int ghost_layer = ghost_layers_filled_by_projection_bc + 1; ghost_layer <= ghost_width; ++ghost_layer)
         {
             int stencil_s = 2 * ghost_layer;
-            // static_for<2, std::min(max_stencil_size_implemented_PE, 2 * ghost_width) + 1>::apply(
             static_for<2, max_stencil_size_implemented_PE + 1>::apply(
                 [&](auto stencil_size_)
                 {

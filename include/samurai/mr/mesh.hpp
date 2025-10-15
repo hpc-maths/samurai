@@ -30,30 +30,6 @@ namespace samurai
         reference        = all_cells
     };
 
-    // template <std::size_t dim_,
-    //           // std::size_t max_stencil_width_ = default_config::ghost_width,
-    //           // std::size_t graduation_width_     = default_config::graduation_width,
-    //           std::size_t prediction_stencil_radius_     = default_config::prediction_stencil_radius,
-    //           std::size_t max_refinement_level_ = default_config::max_level,
-    //           class TInterval                   = default_config::interval_t>
-    // struct MRConfig
-    // {
-    //     // static constexpr std::size_t dim                  = dim_;
-    //     // static constexpr std::size_t max_refinement_level = max_refinement_level_;
-    //     // // static constexpr int max_stencil_width            = max_stencil_width_;
-    //     // // static constexpr std::size_t graduation_width     = graduation_width_;
-    //     // static constexpr int prediction_stencil_radius = prediction_stencil_radius_;
-
-    //     // // static constexpr int ghost_width = std::max(std::max(2 *
-    //     // // static_cast<int>(graduation_width) - 1,
-    //     // //                                                      static_cast<int>(max_stencil_width)),
-    //     // //                                             static_cast<int>(prediction_stencil_radius));
-    //     // // static constexpr int ghost_width = std::max(static_cast<int>(max_stencil_width_),
-    //     static_cast<int>(prediction_stencil_radius));
-    //     // using interval_t = TInterval;
-    //     // using mesh_id_t  = MRMeshId;
-    // };
-
     template <class Config>
     class MRMesh : public samurai::Mesh_base<MRMesh<Config>, Config>
     {
