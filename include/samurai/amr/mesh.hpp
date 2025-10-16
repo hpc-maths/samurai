@@ -198,7 +198,6 @@ namespace samurai::amr
     {
         auto mesh_cfg = cfg;
         mesh_cfg.parse_args();
-        mesh_cfg.start_level() = mesh_cfg.max_level();
 
         return Mesh<complete_mesh_config_t>(mesh_cfg, cl);
     }
@@ -208,7 +207,6 @@ namespace samurai::amr
     {
         auto mesh_cfg = cfg;
         mesh_cfg.parse_args();
-        mesh_cfg.start_level() = mesh_cfg.max_level();
 
         return Mesh<complete_mesh_config_t>(mesh_cfg, ca);
     }
@@ -220,7 +218,6 @@ namespace samurai::amr
 
         auto mesh_cfg = cfg;
         mesh_cfg.parse_args();
-        mesh_cfg.start_level() = mesh_cfg.max_level();
 
         return Mesh<complete_cfg_t>(mesh_cfg, b);
     }

@@ -378,12 +378,6 @@ namespace samurai
             return *this;
         }
 
-        auto clone() const
-        {
-            auto copy_ = *this;
-            return copy_;
-        }
-
         /**
          * @brief parse arguments and set value to default samurai config value if needed
          */
