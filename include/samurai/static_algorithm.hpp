@@ -188,6 +188,12 @@ namespace samurai
         detail::static_nested_loop_impl<nloops>(start, end, step, std::forward<Func>(f), index, std::integral_constant<std::size_t, 0>{});
     }
 
+    template <std::size_t nloops, class Func>
+    inline void static_nested_loop(int start, int end, Func&& f)
+    {
+        static_nested_loop<nloops>(start, end, 1, std::forward<Func>(f));
+    }
+
     /**
      * constexpr power function
      */
