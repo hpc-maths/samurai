@@ -33,7 +33,7 @@ namespace samurai
     {
         app.add_option("--min-level", args::min_level, "The minimum level of the mesh")->group("SAMURAI");
         app.add_option("--max-level", args::max_level, "The maximum level of the mesh")->group("SAMURAI");
-        app.add_option("--start-level", args::max_level, "Start level of AMR")->group("SAMURAI");
+        app.add_option("--start-level", args::start_level, "Start level of AMR")->group("SAMURAI");
         app.add_option("--graduation-width", args::graduation_width, "The graduation width of the mesh")->group("SAMURAI");
         app.add_option("--max-stencil-radius", args::max_stencil_radius, "The maximum number of neighbour in each direction")->group("SAMURAI");
 
