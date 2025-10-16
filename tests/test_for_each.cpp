@@ -14,7 +14,7 @@ namespace samurai
         cl_type cl2;
         cl2[level][{}].add_interval({0, 3});
 
-        auto mesh_cfg = mesh_config<1>().min_level(level).max_level(level);
+        auto mesh_cfg = mesh_config<1>().min_level(level).max_level(level).disable_minimal_ghost_width();
         auto m1       = amr::make_Mesh(mesh_cfg, cl1);
         auto m2       = amr::make_Mesh(mesh_cfg, cl2);
         return std::make_tuple(m1, m2);
@@ -46,15 +46,17 @@ namespace samurai
 
     TEST(set, for_each_cell)
     {
-        using Config    = mesh_config<1>;
-        using Mesh      = decltype(amr::make_empty_Mesh(std::declval<Config>()));
-        using mesh_id_t = typename Mesh::mesh_id_t;
+        using Config = mesh_config<1>;
 
         std::size_t level = 1;
         auto meshes       = create_meshes(level);
         auto& m1          = std::get<0>(meshes);
         auto& m2          = std::get<1>(meshes);
-        auto set          = intersection(m1[mesh_id_t::cells][level], m2[mesh_id_t::cells][level]);
+
+        using Mesh      = std::tuple_element_t<0, decltype(meshes)>;
+        using mesh_id_t = Mesh::mesh_id_t;
+
+        auto set = intersection(m1[mesh_id_t::cells][level], m2[mesh_id_t::cells][level]);
 
         /** Cell indices in m1:
          *
