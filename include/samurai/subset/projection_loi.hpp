@@ -156,6 +156,13 @@ namespace samurai
             }
         }
 
+        template <std::size_t d>
+        inline traverser_t<d>
+        get_traverser_unordered_impl(const yz_index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
+        {
+            return get_traverser_impl(index, d_ic, workspace);
+        }
+
       private:
 
         template <std::size_t d, std::size_t dCur>
