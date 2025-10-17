@@ -69,6 +69,13 @@ namespace samurai
         }
 
         template <std::size_t d>
+        inline traverser_t<d>
+        get_traverser_unordered_impl(const yz_index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace) const
+        {
+            return get_traverser_impl(index, d_ic, Workspace{});
+        }
+
+        template <std::size_t d>
         inline constexpr void init_workspace_impl(const std::size_t, std::integral_constant<std::size_t, d>, Workspace) const
         {
         }

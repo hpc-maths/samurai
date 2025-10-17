@@ -144,14 +144,14 @@ namespace samurai
                 {
                     // it's d and not d+1 because tmp_index represents m_expansions[1,..,dim]
                     tmp_index[d] = index[d] + width;
-                    childTraversers.push_back(m_set.get_traverser(tmp_index, d_ic, workspace.child_workspace));
+                    childTraversers.push_back(m_set.get_traverser_unordered(tmp_index, d_ic, workspace.child_workspace));
                     if (childTraversers.back().is_empty())
                     {
                         childTraversers.pop_back();
                     }
                     // same
                     tmp_index[d] = index[d] - width;
-                    childTraversers.push_back(m_set.get_traverser(tmp_index, d_ic, workspace.child_workspace));
+                    childTraversers.push_back(m_set.get_traverser_unordered(tmp_index, d_ic, workspace.child_workspace));
                     if (childTraversers.back().is_empty())
                     {
                         childTraversers.pop_back();
@@ -159,6 +159,20 @@ namespace samurai
                 }
 
                 return traverser_t<d>(childTraversers_begin, childTraversers.end(), m_expansions[d]);
+            }
+        }
+
+        template <std::size_t d>
+        inline traverser_t<d>
+        get_traverser_unordered_impl(const yz_index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
+        {
+            if constexpr (d == Base::dim - 1)
+            {
+                return traverser_t<d>(m_set.get_traverser_unordered(index, d_ic, workspace.child_workspace), m_expansions[d]);
+            }
+            else
+            {
+                return get_traverser_impl(index, d_ic, workspace);
             }
         }
 
