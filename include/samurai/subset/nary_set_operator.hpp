@@ -160,6 +160,13 @@ namespace samurai
             return get_traverser_impl_detail(index, d_ic, std::make_index_sequence<nIntervals>{}, workspace);
         }
 
+        template <std::size_t d>
+        inline traverser_t<d>
+        get_traverser_unordered_impl(const yz_index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
+        {
+            return get_traverser_unordered_impl_detail(index, d_ic, std::make_index_sequence<nIntervals>{}, workspace);
+        }
+
       private:
 
         template <std::size_t d, std::size_t... Is>
@@ -172,6 +179,18 @@ namespace samurai
                                   std::get<Is>(m_sets).get_traverser(utils::powMinus2(index, m_shifts[Is]),
                                                                      d_ic,
                                                                      std::get<Is>(workspace.children_workspaces))...);
+        }
+
+        template <std::size_t d, std::size_t... Is>
+        traverser_t<d> get_traverser_unordered_impl_detail(const yz_index_t& index,
+                                                           std::integral_constant<std::size_t, d> d_ic,
+                                                           std::index_sequence<Is...>,
+                                                           Workspace& workspace) const
+        {
+            return traverser_t<d>(m_shifts,
+                                  std::get<Is>(m_sets).get_traverser_unordered(utils::powMinus2(index, m_shifts[Is]),
+                                                                               d_ic,
+                                                                               std::get<Is>(workspace.children_workspaces))...);
         }
 
         Childrens m_sets;

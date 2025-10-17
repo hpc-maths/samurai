@@ -88,6 +88,20 @@ namespace samurai
             return traverser_t<d>(m_set.get_traverser_impl(child_index, d_ic, workspace.child_workspace), m_translation[d]);
         }
 
+        template <std::size_t d>
+        inline traverser_t<d>
+        get_traverser_unordered_impl(const yz_index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
+        {
+            yz_index_t child_index;
+
+            for (std::size_t i = 0; i != Base::dim - 1; ++i)
+            {
+                child_index[i] = index[i] - m_translation[i + 1];
+            }
+
+            return traverser_t<d>(m_set.get_traverser_unordered_impl(child_index, d_ic, workspace.child_workspace), m_translation[d]);
+        }
+
       private:
 
         Set m_set;

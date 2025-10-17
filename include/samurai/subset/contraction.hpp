@@ -100,6 +100,13 @@ namespace samurai
             return traverser_t<d>(m_set.get_traverser(index, d_ic, workspace.child_workspace), m_contraction[d]);
         }
 
+        template <std::size_t d>
+        inline traverser_t<d>
+        get_traverser_unordered_impl(const yz_index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
+        {
+            return traverser_t<d>(m_set.get_traverser_unordered(index, d_ic, workspace.child_workspace), m_contraction[d]);
+        }
+
       private:
 
         Set m_set;

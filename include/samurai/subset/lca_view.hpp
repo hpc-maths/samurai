@@ -22,11 +22,18 @@ namespace samurai
 
         struct Workspace
         {
+            Workspace()
+            {
+                start_offset_guess.fill(0);
+            }
+
             // we do not need the offsets for the last dim
             // the offset at dimension d will be initialized when calling
             // get_traverser_impl<d+1>
             std::array<std::ptrdiff_t, LCA::dim - 1> start_offset;
             std::array<std::ptrdiff_t, LCA::dim - 1> end_offset;
+
+            std::array<std::ptrdiff_t, LCA::dim - 1> start_offset_guess;
         };
 
         static constexpr std::size_t dim()
@@ -39,6 +46,8 @@ namespace samurai
     class LCAView : public SetBase<LCAView<LCA>>
     {
         using Self = LCAView<LCA>;
+
+        using const_interval_iterator = typename std::vector<typename LCA::interval_t>::const_iterator;
 
       public:
 
@@ -101,6 +110,7 @@ namespace samurai
 
                 if (z_interval_it == end_z_interval)
                 {
+                    y_start_offset = y_end_offset;
                     return traverser_t<d>(y_intervals.cend(), y_intervals.cend());
                 }
                 const auto& y_offsets   = m_lca.offsets(d + 1);
@@ -110,6 +120,66 @@ namespace samurai
                 y_end_offset   = std::ptrdiff_t(y_offsets[y_offset_idx + 1]);
                 return traverser_t<d>(y_intervals.cbegin() + y_start_offset, y_intervals.cbegin() + y_end_offset);
             }
+        }
+
+        template <std::size_t d>
+        inline traverser_t<d>
+        get_traverser_unordered_impl(const yz_index_t& index, std::integral_constant<std::size_t, d>, Workspace& workspace) const
+        {
+            ptrdiff_t start_offset = 0;
+            ptrdiff_t end_offset   = std::ssize(m_lca[Base::dim - 1]);
+
+            for (std::size_t dim = Base::dim - 1; dim != d; --dim)
+            {
+                const auto y             = index[dim - 1];
+                const auto& y_intervals  = m_lca[dim];
+                auto& start_offset_guess = workspace.start_offset_guess[dim - 1];
+
+                const auto begin_y_intervals = y_intervals.cbegin() + start_offset;
+                const auto end_y_intervals   = y_intervals.cbegin() + end_offset;
+                const auto y_intervals_size  = std::distance(begin_y_intervals, end_y_intervals);
+                // if guess was wrong for the higer dimensions, the guess is wrong an may even be out of [begin_y_intervals,
+                // end_y_intervals) we thus need to cap start_offset to ensure begin_y_intervals <= begin_y_intervals_guess <=
+                // end_y_intervals
+                const auto begin_y_intervals_guess = begin_y_intervals + std::min(start_offset, y_intervals_size);
+
+                assert(begin_y_intervals <= begin_y_intervals_guess and begin_y_intervals_guess <= end_y_intervals);
+
+                // we know the interval that contains y is likely to be in the range [begin_y_intervals_guess, end_y_intervals)
+                // first we try to find it within [begin_y_intervals_guess, end_y_intervals)
+                // hopefully, *begin_y_intervals_guess contains y.
+                auto y_interval_it = std::find_if(begin_y_intervals_guess,
+                                                  end_y_intervals,
+                                                  [y](const auto& y_interval)
+                                                  {
+                                                      return y_interval.contains(y);
+                                                  });
+                if (y_interval_it == end_y_intervals)
+                {
+                    // we did not find an interval that contains y in [begin_y_intervals_guess, end_y_intervals)
+                    // we try to find it in [begin_y_intervals, begin_y_intervals_guess)
+                    y_interval_it = std::find_if(begin_y_intervals,
+                                                 begin_y_intervals_guess,
+                                                 [y](const auto& y_interval)
+                                                 {
+                                                     return y_interval.contains(y);
+                                                 });
+                    if (y_interval_it == begin_y_intervals_guess)
+                    {
+                        // there is no interval that contains y
+                        return traverser_t<d>(m_lca[d].cend(), m_lca[d].cend());
+                    }
+                }
+                start_offset_guess = std::distance(begin_y_intervals, y_interval_it);
+                assert(0 <= start_offset_guess and start_offset_guess < std::distance(begin_y_intervals, end_y_intervals));
+
+                const auto& y_offsets   = m_lca.offsets(dim);
+                const auto y_offset_idx = std::size_t(y + y_interval_it->index);
+
+                start_offset = ptrdiff_t(y_offsets[y_offset_idx]);
+                end_offset   = ptrdiff_t(y_offsets[y_offset_idx + 1]);
+            }
+            return traverser_t<d>(m_lca[d].cbegin() + start_offset, m_lca[d].cbegin() + end_offset);
         }
 
       private:

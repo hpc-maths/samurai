@@ -56,7 +56,6 @@ namespace samurai
         using interval_t = typename traverser_t<0>::interval_t;
         using value_t    = typename interval_t::value_t;
 
-        //~ using yz_index_t    = std::array<value_t, DerivedTraits::dim() - 1>;
         using yz_index_t = xt::xtensor_fixed<value_t, xt::xshape<DerivedTraits::dim() - 1>>;
 
         using to_lca_t       = LevelCellArray<DerivedTraits::dim(), interval_t>;
@@ -97,10 +96,19 @@ namespace samurai
             derived_cast().init_workspace_impl(n_traversers, d_ic, workspace);
         }
 
+        //// Only works for increasing index
         template <std::size_t d>
         inline traverser_t<d> get_traverser(const yz_index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
             return derived_cast().get_traverser_impl(index, d_ic, workspace);
+        }
+
+        //// Works for random indexes but might be slower
+        template <std::size_t d>
+        inline traverser_t<d>
+        get_traverser_unordered(const yz_index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
+        {
+            return derived_cast().get_traverser_unordered_impl(index, d_ic, workspace);
         }
 
         inline ProjectionMethod on(const std::size_t level);
