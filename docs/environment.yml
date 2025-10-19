@@ -8,3 +8,4 @@ dependencies:
   - doxygen
   - pydata-sphinx-theme
   - python=3.11
+  - myst-parser
