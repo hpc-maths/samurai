@@ -24,6 +24,7 @@ EmptyLineBeforeAccessModifier: Always
 ExperimentalAutoDetectBinPacking: true
 IndentWidth: 4
 InsertBraces: true
+InsertNewlineAtEOF: true
 KeepEmptyLinesAtTheStartOfBlocks: false
 NamespaceIndentation: All
 PackConstructorInitializers: Never
