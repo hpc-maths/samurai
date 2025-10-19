@@ -1,3 +1,5 @@
+find_package(cxxopts)
+
 # 1D Paper - Verification of the error estimates
 
 add_executable(lbm-test-D1Q2 test_D1Q2.cpp)
