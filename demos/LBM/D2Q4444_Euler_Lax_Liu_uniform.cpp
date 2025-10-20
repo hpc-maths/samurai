@@ -8,6 +8,7 @@
 
 #include <samurai/field.hpp>
 #include <samurai/io/hdf5.hpp>
+#include <samurai/print.hpp>
 #include <samurai/samurai.hpp>
 #include <samurai/statistics.hpp>
 #include <samurai/uniform_mesh.hpp>
@@ -355,7 +356,7 @@ int main(int argc, char* argv[])
 
         if (result.count("help"))
         {
-            std::cout << options.help() << "\n";
+            samurai::io::print("{}\n", options.help());
         }
         else
         {
@@ -414,7 +415,7 @@ int main(int argc, char* argv[])
             tic();
             for (std::size_t nb_ite = 0; nb_ite <= N; ++nb_ite)
             {
-                // std::cout<<std::endl<<"   Iteration number =
+                // samurai::io::print("\n   Iteration number = ");
                 // "<<nb_ite<<std::endl;
 
                 if (nb_ite == N)
@@ -427,13 +428,12 @@ int main(int argc, char* argv[])
                 // samurai::statistics("D2Q4444_Euler_Lax_Liu", mesh);
             }
             auto duration = toc();
-            std::cout << "nb_ite: " << N << " execution time: " << duration
-                      << " MLUPS: " << N * (1 << level) * (1 << level) / duration / 1e6 << std::endl;
+            samurai::io::print("nb_ite: {} execution time: {} MLUPS: {}\n", N, duration, N * (1 << level) * (1 << level) / duration / 1e6);
         }
     }
     catch (const cxxopts::OptionException& e)
     {
-        std::cout << options.help() << "\n";
+        samurai::io::print("{}\n", options.help());
     }
     samurai::finalize();
     return 0;

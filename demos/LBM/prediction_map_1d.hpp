@@ -72,7 +72,7 @@ class prediction_map
     {
         for (auto& c : coeff)
         {
-            std::cout << "( " << c.first << ", ): " << c.second << "\n";
+            out << "( " << c.first << ", ): " << c.second << "\n";
         }
     }
 

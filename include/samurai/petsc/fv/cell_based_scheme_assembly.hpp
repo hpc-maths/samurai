@@ -159,7 +159,7 @@ namespace samurai
 
             void assemble_scheme(Mat& A) override
             {
-                // std::cout << "assemble_scheme() of " << this->name() << std::endl;
+                // samurai::io::print("assemble_scheme() of {}\n", this->name());
 
                 if (this->current_insert_mode() == INSERT_VALUES)
                 {
@@ -174,9 +174,9 @@ namespace samurai
                     unknown(),
                     [&](const auto& cells, const auto& coeffs)
                     {
-                        // std::cout << "coeffs: " << std::endl;
+                        // samurai::io::print("coeffs:\n");
                         // for (std::size_t i=0; i<stencil_size; i++)
-                        //     std::cout << i << ": " << coeffs[i] << std::endl;
+                        //     samurai::io::print("{}: {}\n", i, coeffs[i]);
 
                         // Global rows and columns
                         std::array<PetscInt, cfg_t::stencil_size * output_n_comp> rows;

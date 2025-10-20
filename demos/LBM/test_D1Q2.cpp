@@ -11,6 +11,7 @@
 #include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh_with_overleaves.hpp>
+#include <samurai/print.hpp>
 #include <samurai/reconstruction.hpp>
 #include <samurai/samurai.hpp>
 
@@ -369,7 +370,7 @@ int main(int argc, char* argv[])
 
         if (result.count("help"))
         {
-            std::cout << options.help() << "\n";
+            samurai::io::print(samurai::io::root, "{}\n", options.help());
         }
         else
         {
@@ -445,11 +446,11 @@ int main(int argc, char* argv[])
 
             for (auto s : s_vect)
             {
-                std::cout << std::endl << "Relaxation parameter s = " << s;
+                samurai::io::print(samurai::io::root, "\nRelaxation parameter s = {}", s);
 
                 std::string prefix(case_name + "_s_" + std::to_string(s) + "_");
 
-                std::cout << std::endl << "Testing time behavior" << std::endl;
+                samurai::io::print(samurai::io::root, "\nTesting time behavior\n");
                 {
                     double eps = 1.0e-4; // This remains fixed
 
@@ -492,7 +493,7 @@ int main(int argc, char* argv[])
                                                / static_cast<double>(meshR.nb_cells(mesh_id_t::cells))
                                         << std::endl;
 
-                        std::cout << std::endl << "n = " << nb_ite << "   Time = " << t << " Diff = " << error[1] << std::endl;
+                        samurai::io::print(samurai::io::root, "\nn = {}   Time = {} Diff = {}\n", nb_ite, t, error[1]);
                         ;
 
                         one_time_step(f, update_bc_for_level, s, lambda, ad_vel, test_number, finest_collision);
@@ -500,7 +501,7 @@ int main(int argc, char* argv[])
                         t += dt;
                     }
 
-                    std::cout << std::endl;
+                    samurai::io::print(samurai::io::root, "\n");
 
                     out_time_frames.close();
                     out_error_exact_ref.close();
@@ -508,7 +509,7 @@ int main(int argc, char* argv[])
                     out_compression.close();
                 }
 
-                std::cout << std::endl << "Testing eps behavior" << std::endl;
+                samurai::io::print(samurai::io::root, "\nTesting eps behavior\n");
                 {
                     double eps         = 0.1;
                     std::size_t N_test = 50;
@@ -525,7 +526,7 @@ int main(int argc, char* argv[])
 
                     for (std::size_t n_test = 0; n_test < N_test; ++n_test)
                     {
-                        std::cout << std::endl << "Test " << n_test << " eps = " << eps;
+                        samurai::io::print(samurai::io::root, "\nTest {} eps = {}", n_test, eps);
 
                         mesh_t mesh{box, min_level, max_level};
                         mesh_t meshR{box, max_level, max_level}; // This is the reference scheme
@@ -555,7 +556,7 @@ int main(int argc, char* argv[])
                         }
 
                         auto error = compute_error(f, fR, update_bc_for_level, t, ad_vel, test_number);
-                        std::cout << "Diff = " << error[1] << std::endl;
+                        samurai::io::print(samurai::io::root, "Diff = {}\n", error[1]);
 
                         std::size_t max_level_effective = mesh.min_level();
 
@@ -589,7 +590,7 @@ int main(int argc, char* argv[])
 
     catch (const cxxopts::OptionException& e)
     {
-        std::cout << options.help() << "\n";
+        samurai::io::print(samurai::io::root, "{}\n", options.help());
     }
 
     samurai::finalize();

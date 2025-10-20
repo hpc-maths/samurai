@@ -1,15 +1,15 @@
 #pragma once
 #include <samurai/algorithm.hpp>
+#include <samurai/print.hpp>
 
 template <class Mesh>
 void print_mesh(Mesh& mesh)
 {
-    std::cout << mesh << std::endl;
+    samurai::io::print("{}\n", fmt::streamed(mesh));
     samurai::for_each_cell(mesh,
                            [](const auto& cell)
                            {
-                               std::cout << "level: " << cell.level << ", cell index: " << cell.index << ", center: " << cell.center(0)
-                                         << std::endl;
+                               samurai::io::print("level: {}, cell index: {}, center: {}\n", cell.level, cell.index, cell.center(0));
                            });
 }
 

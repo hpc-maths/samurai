@@ -18,7 +18,7 @@ namespace samurai
 
     //     LevelCellArray<1> lca{lcl};
 
-    //     std::cout << lca << "\n\n";
+    //     samurai::io::print("{}\n\n", fmt::streamed(lca));
     // }
 
     template <std::size_t size>

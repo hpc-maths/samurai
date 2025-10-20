@@ -2,6 +2,7 @@
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #include <iostream>
+#include <samurai/print.hpp>
 
 #include <filesystem>
 
@@ -309,7 +310,7 @@ int main(int argc, char* argv[])
         bb_xcenter = bb0_xcenter + aa * xt::cos(omega * t);
         bb_ycenter = bb_ycenter + dt * dy;
 
-        std::cout << fmt::format("iteration -> {} t -> {}", nt++, t) << std::endl;
+        samurai::io::print(samurai::io::root, "iteration -> {} t -> {}\n", nt++, t);
 
         for (std::size_t rep = 0; rep < 10; ++rep)
         {

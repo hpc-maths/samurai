@@ -4,6 +4,7 @@
 #include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
+#include <samurai/print.hpp>
 #include <samurai/samurai.hpp>
 #include <samurai/schemes/fv.hpp>
 
@@ -191,7 +192,7 @@ int main(int argc, char* argv[])
     using Config                     = samurai::MRConfig<dim>;
     using Box                        = samurai::Box<double, dim>;
 
-    std::cout << "------------------------- Begin -------------------------" << std::endl;
+    samurai::io::print("------------------------- Begin -------------------------\n");
 
     std::size_t min_level = 3;
     std::size_t max_level = 3;
@@ -275,18 +276,18 @@ int main(int argc, char* argv[])
     // Insert the coefficients into the matrix
     assembly.assemble_matrix(J);
 
-    std::cout << "Useless ghost rows: ";
+    samurai::io::print("Useless ghost rows: ");
     // assembly.get<0, 0>().for_each_useless_ghost_row(
     assembly.for_each_useless_ghost_row(
         [](auto row)
         {
-            std::cout << row << " ";
+            samurai::io::print("{} ", row);
         });
-    std::cout << std::endl;
+    samurai::io::print("\n");
 
     Vec v = assembly.create_vector(u_e, aux_Ce, u_s);
     VecView(v, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-    std::cout << std::endl;
+    samurai::io::print("\n");
 
     samurai::finalize();
     return 0;

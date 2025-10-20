@@ -1,6 +1,8 @@
 #pragma once
+#include "../../print.hpp"
 #include "../../schemes/fv/scheme_operators.hpp"
 #include "../matrix_assembly.hpp"
+#include <fmt/format.h>
 
 namespace samurai
 {
@@ -130,10 +132,12 @@ namespace samurai
                          {
                              if (op.matrix_rows() != rows)
                              {
-                                 std::cerr << "Invalid '+' operation: all schemes must generate the same number of matrix rows." << std::endl;
-                                 std::cerr << "                       '" << std::get<0>(m_assembly_ops).name()
-                                           << "': " << std::get<0>(m_assembly_ops).matrix_rows() << ", " << op.name() << ": "
-                                           << op.matrix_rows() << std::endl;
+                                 samurai::io::eprint("Invalid '+' operation: all schemes must generate the same number of matrix rows.\n");
+                                 samurai::io::eprint("                       '{}' : {}, {}: {}\n",
+                                                     std::get<0>(m_assembly_ops).name(),
+                                                     std::get<0>(m_assembly_ops).matrix_rows(),
+                                                     op.name(),
+                                                     op.matrix_rows());
                                  assert(false);
                              }
                          });
@@ -148,11 +152,12 @@ namespace samurai
                          {
                              if (op.matrix_cols() != cols)
                              {
-                                 std::cerr << "Invalid '+' operation: all schemes must generate the same number of matrix columns."
-                                           << std::endl;
-                                 std::cerr << "                       '" << std::get<0>(m_assembly_ops).name()
-                                           << "': " << std::get<0>(m_assembly_ops).matrix_cols() << ", " << op.name() << ": "
-                                           << op.matrix_cols() << std::endl;
+                                 samurai::io::eprint("Invalid '+' operation: all schemes must generate the same number of matrix columns.\n");
+                                 samurai::io::eprint("                       '{}' : {}, {}: {}\n",
+                                                     std::get<0>(m_assembly_ops).name(),
+                                                     std::get<0>(m_assembly_ops).matrix_cols(),
+                                                     op.name(),
+                                                     op.matrix_cols());
                                  assert(false);
                              }
                          });
@@ -188,7 +193,7 @@ namespace samurai
                 for_each(m_assembly_ops,
                          [&](auto& op)
                          {
-                             // std::cout << "Assembly of " << op.name() << std::endl;
+                             // samurai::io::print("Assembly of {}\n", op.name());
                              op.assemble_scheme(A);
                              set_current_insert_mode(op.current_insert_mode());
                          });

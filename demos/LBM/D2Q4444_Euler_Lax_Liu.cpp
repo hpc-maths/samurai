@@ -10,6 +10,7 @@
 #include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh_with_overleaves.hpp>
+#include <samurai/print.hpp>
 #include <samurai/samurai.hpp>
 #include <samurai/statistics.hpp>
 
@@ -779,7 +780,7 @@ int main(int argc, char* argv[])
 
         if (result.count("help"))
         {
-            std::cout << options.help() << "\n";
+            samurai::io::print("{}\n", options.help());
         }
         else
         {
@@ -880,7 +881,7 @@ int main(int argc, char* argv[])
 
             for (std::size_t nb_ite = 0; nb_ite <= N; ++nb_ite)
             {
-                std::cout << std::endl << "   Iteration number = " << nb_ite << std::endl;
+                samurai::io::print("\n   Iteration number = {}\n", nb_ite);
 
                 if (max_level > min_level)
                 {
@@ -890,7 +891,7 @@ int main(int argc, char* argv[])
                 if (nb_ite == N)
                 {
                     auto error_density = compute_error(f, f_ref, update_bc_for_level);
-                    std::cout << std::endl << "#### Epsilon = " << eps << "   error = " << error_density << std::endl;
+                    samurai::io::print("\n#### Epsilon = {}   error = {}\n", eps, error_density);
                     save_solution(f, eps, nb_ite, std::string("final_"));
                     save_reconstructed(f, f_ref, update_bc_for_level, eps, nb_ite);
                 }
@@ -923,7 +924,7 @@ int main(int argc, char* argv[])
     }
     catch (const cxxopts::OptionException& e)
     {
-        std::cout << options.help() << "\n";
+        samurai::io::print("{}\n", options.help());
     }
     samurai::finalize();
     return 0;

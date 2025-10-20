@@ -317,15 +317,15 @@ namespace samurai
         template <class T1>
         inline auto left_flux(const T1& u, double lb) const
         {
-            // std::cout << "left flux " << level << " " << i << " " << lb << std::endl;
-            // std::cout << flux(u(level, i - 1), u(level, i), lb) << std::endl;
+            // samurai::io::print("left flux {} {} {}\n", level, i, lb);
+            // samurai::io::print("{}\n", flux(u(level, i - 1), u(level, i), lb));
             return flux(u(level, i - 1), u(level, i), lb);
         }
 
         template <class T1>
         inline auto right_flux(const T1& u, double lb) const
         {
-            // std::cout << flux(u(level, i), u(level, i + 1), lb) << std::endl;
+            // samurai::io::print("{}\n", flux(u(level, i), u(level, i + 1), lb));
             return flux(u(level, i), u(level, i + 1), lb);
         }
     };

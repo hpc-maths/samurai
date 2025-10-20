@@ -37,7 +37,7 @@ The output of
 
 .. code-block:: c++
 
-    std::cout << ca << std::endl;
+    samurai::io::print("{}\\n", fmt::streamed(ca));
 
 is
 
@@ -84,7 +84,7 @@ Once again, we use the `operator()` of the subset
 
     set([&](const auto& i, auto)
     {
-        std::cout << "Intersection found in " << i << std::endl;
+        samurai::io::print("Intersection found in {}\\n", i);
     });
 
 This operator takes a lambda function with two parameters: the first one is the interval in the x-direction, whereas the second argument is an array of size `dim - 1` with the coordinates of the other dimensions.
@@ -107,7 +107,7 @@ Then if we want the result on level `0`, we employ
 
     set.on(0)([&](const auto& i, auto)
     {
-        std::cout << "intersection found in " << i << std::endl;
+        samurai::io::print("intersection found in {}\\n", i);
     });
 
 The output is
@@ -123,7 +123,7 @@ It is also possible to compute this intersection on a level which does not actua
 
     set.on(3)([&](const auto& i, auto)
     {
-        std::cout << "intersection found in " << i << std::endl;
+        samurai::io::print("intersection found in {}\\n", i);
     });
 
 The corresponding output is

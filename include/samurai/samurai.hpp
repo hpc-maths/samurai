@@ -4,7 +4,6 @@
 
 #ifdef SAMURAI_WITH_MPI
 #include <boost/mpi.hpp>
-#include <fstream>
 namespace mpi = boost::mpi;
 #endif
 #ifdef SAMURAI_WITH_PETSC
@@ -12,11 +11,12 @@ namespace mpi = boost::mpi;
 #endif
 
 #include "arguments.hpp"
+#include "print.hpp"
 #include "timers.hpp"
 
 namespace samurai
 {
-    static CLI::App app;
+    inline CLI::App app;
 
 #ifdef SAMURAI_WITH_PETSC
 #define SAMURAI_PARSE(argc, argv)       \
@@ -67,13 +67,7 @@ namespace samurai
 
 #ifdef SAMURAI_WITH_MPI
         MPI_Init(&argc, &argv);
-        // redirect stdout to /dev/null for all ranks except rank 0
-        mpi::communicator world;
-        if (!args::dont_redirect_output && world.rank() != 0) // cppcheck-suppress knownConditionTrueFalse
-        {
-            static std::ofstream null_stream("/dev/null");
-            std::cout.rdbuf(null_stream.rdbuf());
-        }
+        // No output redirection: fmt wrapper handles output uniformly across ranks
 #endif
         times::timers.start("total runtime");
 
@@ -103,7 +97,7 @@ namespace samurai
         if (args::timers) // cppcheck-suppress knownConditionTrueFalse
         {
             times::timers.stop("total runtime");
-            std::cout << std::endl;
+            samurai::io::print(samurai::io::root, "\n");
             times::timers.print();
         }
 #ifdef SAMURAI_WITH_MPI

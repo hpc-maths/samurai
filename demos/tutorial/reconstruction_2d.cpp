@@ -10,6 +10,7 @@
 #include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
+#include <samurai/print.hpp>
 #include <samurai/reconstruction.hpp>
 #include <samurai/samurai.hpp>
 #include <samurai/uniform_mesh.hpp>
@@ -148,7 +149,7 @@ int main(int argc, char* argv[])
     auto t1            = std::chrono::high_resolution_clock::now();
     auto u_reconstruct = reconstruction(u);
     auto t2            = std::chrono::high_resolution_clock::now();
-    std::cout << "execution time " << std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count() << std::endl;
+    samurai::io::print("execution time {}\n", std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count());
 
     auto error = samurai::make_scalar_field<double>("error", u_reconstruct.mesh());
     samurai::for_each_interval(u_reconstruct.mesh(),

@@ -1,4 +1,4 @@
-#include <iostream>
+#include <samurai/print.hpp>
 
 #include <samurai/cell_array.hpp>
 #include <samurai/cell_list.hpp>
@@ -24,8 +24,8 @@ int main()
                                u[cell] = cell.indices[0];
                            });
 
-    std::cout << "before projection" << std::endl;
-    std::cout << u << std::endl;
+    samurai::io::print("before projection\n");
+    samurai::io::print("{}\n", fmt::streamed(u));
 
     // Make projection on the intersection
     auto subset = samurai::intersection(ca[0], ca[1]).on(0);
@@ -35,8 +35,8 @@ int main()
             u(0, i) = 0.5 * (u(1, 2 * i) + u(1, 2 * i + 1));
         });
 
-    std::cout << "after projection" << std::endl;
-    std::cout << u << std::endl;
+    samurai::io::print("after projection\n");
+    samurai::io::print("{}\n", fmt::streamed(u));
 
     return 0;
 }

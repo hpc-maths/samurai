@@ -13,6 +13,7 @@
 #include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh_with_overleaves.hpp>
+#include <samurai/print.hpp>
 #include <samurai/samurai.hpp>
 
 #include "boundary_conditions.hpp"
@@ -583,7 +584,7 @@ int main(int argc, char* argv[])
 
         if (result.count("help"))
         {
-            std::cout << options.help() << "\n";
+            samurai::io::print("{}\n", options.help());
         }
         else
         {
@@ -629,19 +630,14 @@ int main(int argc, char* argv[])
 
             for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
             {
-                std::cout << std::endl << "Iteration " << nb_ite << " Time = " << t;
+                samurai::io::print("\nIteration {} Time = {}", nb_ite, t);
 
                 MRadaptation(eps, 0.); // Regularity 0
 
                 save_solution(f, eps, nb_ite, lambda);
 
                 auto error = compute_error(f, fR, update_bc_for_level, t, lambda, g);
-
-                std::cout << std::endl
-                          << "Error h = " << error[0] << std::endl
-                          << "Diff h = " << error[1] << std::endl
-                          << "Error q = " << error[2] << std::endl
-                          << "Diff q = " << error[3];
+                samurai::io::print("\nError h = {}\nDiff h = {}\nError q = {}\nDiff q = {}", error[0], error[1], error[2], error[3]);
 
                 tic();
                 one_time_step_overleaves(f, pred_coeff_separate, update_bc_for_level, s, lambda, g);
@@ -654,9 +650,9 @@ int main(int argc, char* argv[])
     }
     catch (const cxxopts::OptionException& e)
     {
-        std::cout << options.help() << "\n";
+        samurai::io::print("{}\n", options.help());
     }
-    std::cout << std::endl;
+    samurai::io::print("\n");
     samurai::finalize();
     return 0;
 }

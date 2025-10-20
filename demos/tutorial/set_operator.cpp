@@ -2,6 +2,7 @@
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #include <iostream>
+#include <samurai/print.hpp>
 
 #include <samurai/cell_array.hpp>
 #include <samurai/cell_list.hpp>
@@ -61,33 +62,33 @@ int main()
 
     ca = {cl, true};
 
-    std::cout << ca << "\n";
+    samurai::io::print(samurai::io::root, "{}\n", fmt::streamed(ca));
 
     auto subset = samurai::intersection(ca[0], ca[1]);
 
     subset(
         [&](const auto& i, auto)
         {
-            std::cout << "intersection found in " << i << std::endl;
+            samurai::io::print(samurai::io::root, "intersection found in {}\n", fmt::streamed(i));
         });
 
     subset.on(0)(
         [&](const auto& i, auto)
         {
-            std::cout << "intersection found in " << i << std::endl;
+            samurai::io::print(samurai::io::root, "intersection found in {}\n", fmt::streamed(i));
         });
 
     subset.on(3)(
         [&](const auto& i, auto)
         {
-            std::cout << "intersection found in " << i << std::endl;
+            samurai::io::print(samurai::io::root, "intersection found in {}\n", fmt::streamed(i));
         });
 
     auto subset_d = samurai::difference(ca[0], ca[1]);
     subset_d(
         [&](const auto& i, auto)
         {
-            std::cout << "difference found in " << i << std::endl;
+            samurai::io::print(samurai::io::root, "difference found in {}\n", fmt::streamed(i));
         });
 
     auto u = samurai::make_scalar_field<double>("u", ca);
@@ -105,11 +106,11 @@ int main()
             u(0, i) = 0.5 * (u(1, 2 * i) + u(1, 2 * i + 1));
         });
 
-    std::cout << u << "\n";
+    samurai::io::print(samurai::io::root, "{}\n", fmt::streamed(u));
 
     subset1.on(0).apply_op(projection(u));
 
-    std::cout << u << "\n";
+    samurai::io::print(samurai::io::root, "{}\n", fmt::streamed(u));
 
     samurai::finalize();
     return 0;

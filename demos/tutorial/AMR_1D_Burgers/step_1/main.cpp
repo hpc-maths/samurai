@@ -7,6 +7,7 @@
 #include <samurai/cell_array.hpp>
 #include <samurai/field.hpp>
 #include <samurai/io/hdf5.hpp>
+#include <samurai/print.hpp>
 #include <samurai/samurai.hpp>
 
 #include "init_sol.hpp"
@@ -52,7 +53,7 @@ int main(int argc, char* argv[])
     auto phi = init_sol(mesh);
     /////////////////////////////////
 
-    std::cout << mesh << "\n";
+    samurai::io::print("{}\n", fmt::streamed(mesh));
 
     samurai::save(path, filename, mesh, phi);
 

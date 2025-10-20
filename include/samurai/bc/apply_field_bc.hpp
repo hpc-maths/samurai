@@ -2,9 +2,11 @@
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #pragma once
+#include <fmt/format.h>
 
 #include "../boundary.hpp"
 #include "../concepts.hpp"
+#include "../print.hpp"
 #include "polynomial_extrapolation.hpp"
 
 namespace samurai
@@ -44,7 +46,7 @@ namespace samurai
         }
         else
         {
-            std::cerr << "Unknown BC type" << std::endl;
+            samurai::io::eprint("Unknown BC type\n");
             exit(EXIT_FAILURE);
         }
     }

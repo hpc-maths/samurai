@@ -1,4 +1,5 @@
 #pragma once
+#include "../../../print.hpp"
 #include "flux_based_scheme.hpp"
 
 namespace samurai
@@ -103,8 +104,9 @@ namespace samurai
         {
             if (enable && dim > 1 && stencil_size > 4 && !args::refine_boundary) // cppcheck-suppress knownConditionTrueFalse
             {
-                std::cout << "Warning: for stencils larger than 4, computing fluxes at max_level may cause issues close to the boundary."
-                          << std::endl;
+                samurai::io::print(
+                    samurai::io::root,
+                    "Warning: for stencils larger than 4, computing fluxes at max_level may cause issues close to the boundary.\n");
             }
             m_finer_level_flux = enable ? -1 : 0;
         }
@@ -595,8 +597,8 @@ namespace samurai
 
                 if (!jacobian_function)
                 {
-                    std::cerr << "The jacobian function of operator '" << this->name() << "' has not been implemented." << std::endl;
-                    std::cerr << "Use option -snes_mf or -snes_fd for an automatic computation of the jacobian matrix." << std::endl;
+                    samurai::io::eprint("The jacobian function of operator '{}' has not been implemented.\n", this->name());
+                    samurai::io::eprint("Use option -snes_mf or -snes_fd for an automatic computation of the jacobian matrix.\n");
                     exit(EXIT_FAILURE);
                 }
 
