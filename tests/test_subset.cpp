@@ -2,7 +2,7 @@
 #include <filesystem>
 #include <span>
 #include <tuple>
-#include <xtensor/xfixed.hpp>
+#include <xtensor/containers/xfixed.hpp>
 
 #include <gtest/gtest.h>
 

@@ -5,9 +5,9 @@
 
 #include <array>
 
-#include <xtensor/xfixed.hpp>
-#include <xtensor/xio.hpp>
-#include <xtensor/xview.hpp>
+#include <xtensor/containers/xfixed.hpp>
+#include <xtensor/io/xio.hpp>
+#include <xtensor/views/xview.hpp>
 
 namespace samurai
 {

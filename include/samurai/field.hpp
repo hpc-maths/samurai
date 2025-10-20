@@ -14,8 +14,8 @@ namespace fs = std::filesystem;
 
 #include <fmt/format.h>
 
-#include <xtensor/xtensor.hpp>
-#include <xtensor/xview.hpp>
+#include <xtensor/containers/xtensor.hpp>
+#include <xtensor/views/xview.hpp>
 
 #include "algorithm.hpp"
 #include "bc/bc.hpp"

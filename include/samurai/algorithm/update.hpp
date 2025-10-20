@@ -5,7 +5,7 @@
 
 #include <algorithm>
 
-#include <xtensor/xfixed.hpp>
+#include <xtensor/containers/xfixed.hpp>
 
 #include "../algorithm.hpp"
 #include "../bc/apply_field_bc.hpp"
@@ -26,7 +26,7 @@ using namespace xt::placeholders;
 
 #ifdef SAMURAI_WITH_MPI
 #include <boost/mpi.hpp>
-#include <xtensor/xmasked_view.hpp>
+#include <xtensor/views/xmasked_view.hpp>
 namespace mpi = boost::mpi;
 #endif
 

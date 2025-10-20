@@ -1,6 +1,6 @@
 #pragma once
 #include <petsc.h>
-#include <xtensor/xfixed.hpp>
+#include <xtensor/containers/xfixed.hpp>
 
 namespace samurai
 {

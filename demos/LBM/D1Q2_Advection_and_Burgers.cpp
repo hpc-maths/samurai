@@ -7,7 +7,7 @@
 
 #include <cxxopts.hpp>
 
-#include <xtensor/xio.hpp>
+#include <xtensor/io/xio.hpp>
 
 #include <samurai/field.hpp>
 #include <samurai/io/hdf5.hpp>

@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include <xtensor/xfixed.hpp>
+#include <xtensor/containers/xfixed.hpp>
 
 #include <samurai/algorithm.hpp>
 #include <samurai/field.hpp>

@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
-#include <xtensor/xarray.hpp>
-#include <xtensor/xfixed.hpp>
+#include <xtensor/containers/xarray.hpp>
+#include <xtensor/containers/xfixed.hpp>
 
 #include <samurai/cell.hpp>
 #include <samurai/interval.hpp>

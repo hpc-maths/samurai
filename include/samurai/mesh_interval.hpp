@@ -1,6 +1,6 @@
 #pragma once
-#include <xtensor/xfixed.hpp>
-#include <xtensor/xview.hpp>
+#include <xtensor/containers/xfixed.hpp>
+#include <xtensor/views/xview.hpp>
 
 using namespace xt::placeholders;
 

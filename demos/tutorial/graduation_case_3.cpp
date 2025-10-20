@@ -5,7 +5,7 @@
 
 #include <filesystem>
 
-#include <xtensor/xmasked_view.hpp>
+#include <xtensor/views/xmasked_view.hpp>
 
 #include <samurai/box.hpp>
 #include <samurai/cell_array.hpp>

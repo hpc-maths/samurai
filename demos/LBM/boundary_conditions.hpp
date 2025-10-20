@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <xtensor/xfixed.hpp>
+#include <xtensor/containers/xfixed.hpp>
 
 #include <samurai/operators_base.hpp>
 #include <samurai/subset/node.hpp>

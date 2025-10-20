@@ -4,8 +4,8 @@
 #pragma once
 
 #include "utils.hpp"
-#include <xtensor/xfixed.hpp>
-#include <xtensor/xio.hpp>
+#include <xtensor/containers/xfixed.hpp>
+#include <xtensor/io/xio.hpp>
 
 namespace samurai
 {
