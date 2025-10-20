@@ -111,7 +111,6 @@ jobs:
                       package: "clang-18"
                       cc: "clang-18"
                       cxx: "clang++-18"
-        runs-on: ${{ matrix.os }}
         steps:
             - uses: actions/checkout@v4
 
