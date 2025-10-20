@@ -148,7 +148,7 @@ int main(int argc, char* argv[])
     // where v = velocity
     //       p = pressure
 
-    auto config = samurai::mesh_config<dim>().min_level(3).max_level(6).max_stencil_size(2);
+    auto config = samurai::mesh_config<dim>().min_level(3).max_level(6).max_stencil_radius(2);
     auto mesh   = samurai::make_MRMesh(config, box);
 
     using mesh_id_t = typename decltype(mesh)::mesh_id_t;
@@ -230,6 +230,9 @@ int main(int argc, char* argv[])
     // 2nd mesh
     auto config2 = samurai::mesh_config<dim>().min_level(1).max_level(mesh.max_level()).max_stencil_size(6).disable_args_parse();
     auto mesh2   = samurai::make_MRMesh(config2, box);
+
+    std::cout << config2.start_level() << " " << config2.min_level() << " " << config2.max_level() << std::endl;
+    std::cout << mesh2.cfg().start_level() << " " << mesh2.cfg().min_level() << " " << mesh2.cfg().max_level() << std::endl;
 
     // Ink data fields
     auto ink     = samurai::make_scalar_field<double>("ink", mesh2);
