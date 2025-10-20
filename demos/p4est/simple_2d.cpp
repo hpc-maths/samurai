@@ -86,7 +86,7 @@ void refine_1(mesh_t& mesh, std::size_t max_level)
                                        }
                                    });
 
-        mesh = {cl};
+        mesh = samurai::make_MRMesh(mesh.cfg(), cl);
     }
 }
 
@@ -187,7 +187,7 @@ void refine_2(mesh_t& mesh, std::size_t max_level)
                                        }
                                    });
 
-        mesh = {mesh.cfg(), cl};
+        mesh = samurai::make_MRMesh(mesh.cfg(), cl);
     }
 }
 
