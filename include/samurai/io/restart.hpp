@@ -246,7 +246,9 @@ namespace samurai
 
         lca = {min_level};
 
-        auto origin_point   = H5Easy::load<typename lca_type::coords_t>(file, "/mesh/origin_point");
+        // HighFive v3 does not support xfixed_container so we have to load into an xtensor_container first
+        // auto origin_point   = H5Easy::load<typename lca_type::coords_t>(file, "/mesh/origin_point");
+        auto origin_point   = H5Easy::load<xt::xtensor<double, 1>>(file, "/mesh/origin_point");
         auto scaling_factor = H5Easy::load<double>(file, "/mesh/scaling_factor");
 
         lca.set_origin_point(origin_point);
