@@ -6,8 +6,6 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
-#define H5_USE_XTENSOR
-
 #include <highfive/H5Easy.hpp>
 #include <highfive/H5PropertyList.hpp>
 
