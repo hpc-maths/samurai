@@ -626,13 +626,14 @@ int main(int argc, char* argv[])
 
     const samurai::Box<double, dim> box(min_corner, max_corner);
     auto config = samurai::mesh_config<dim>().min_level(4).max_level(8).start_level(8).max_stencil_radius(2);
+    config.parse_args();
     AMRMesh<Config> mesh;
 
     auto phi = samurai::make_scalar_field<double>("phi", mesh);
 
     if (restart_file.empty())
     {
-        mesh = {config, box};
+        mesh = AMRMesh<Config>(config, box);
         init_level_set(phi);
     }
     else
