@@ -2,7 +2,9 @@
 #include <filesystem>
 #include <span>
 #include <tuple>
+
 #include <xtensor/containers/xfixed.hpp>
+#include <xtensor/core/xtensor_forward.hpp>
 
 #include <gtest/gtest.h>
 
@@ -12,7 +14,6 @@
 #include <samurai/level_cell_array.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/subset/node.hpp>
-#include <xtensor/xtensor_forward.hpp>
 
 namespace samurai
 {
