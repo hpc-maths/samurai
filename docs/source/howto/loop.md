@@ -24,6 +24,20 @@ You can also access and modify the values of a samurai field while looping over 
 
 In this example, we create a scalar field named "u" on the multi-resolution mesh. Inside the loop, we compute the center coordinates of each cell and set the value of the field at that cell to a Gaussian function centered at (0.5, 0.5).
 
+```{note}
+You can observe that the operator `[]` is used to access the value of the field at a specific cell. The cell is defined by the class [Cell](../api/cell.rst)
+```
+
+````{note}
+If you use a `VectorField`, you can access to a component of the vector by using the operator `[]` such as
+
+```{code-block} cpp
+field[cell][component_index] = value;
+```
+
+````
+
+
 ## Looping over intervals
 
 Another way to iterate over the cells of a samurai mesh is to use intervals. You can use the `for_each_interval` function to loop over intervals. Here is an example:
@@ -38,4 +52,23 @@ Let's see how to set the values of a scalar field using intervals:
 
 ```{literalinclude} snippet/loop/for_each_interval_field.cpp
   :language: c++
+```
+
+````{note}
+If you have a vector field, you can access a component of the vector using:
+
+```{code-block} cpp
+field(component_index, level, i, j, ...) = value
+```
+
+or
+
+```{code-block} cpp
+field(component_index, level, i, index) = value
+```
+
+````
+
+```{warning}
+When you use the syntax `field(level, i, ...)`, you construct a view on the field at the specified level and indices given by the interval. Then, you can't use math functions of the stl such as `std::sin`, `std::exp`, etc. on this view. If you want to use xtensor math functions such as `xt::sin`, `xt::exp`, etc.
 ```

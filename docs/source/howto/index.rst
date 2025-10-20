@@ -13,4 +13,7 @@ the software. These guides are intended to be straightforward and easy to follow
    mesh.md
    field.md
    loop.md
+   options.md
+   save.md
    plot.md
+   timers.md
