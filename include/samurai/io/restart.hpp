@@ -227,7 +227,7 @@ namespace samurai
     template <std::size_t dim_, class interval_t>
     void load(const HighFive::File& file, LevelCellArray<dim_, interval_t>& lca)
     {
-        using lca_type = LevelCellArray<dim_, interval_t>;
+        // using lca_type = LevelCellArray<dim_, interval_t>;
 
         auto dim = H5Easy::load<std::size_t>(file, "/mesh/dim");
         if (dim != dim_)
