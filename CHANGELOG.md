@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.27.0](https://github.com/hpc-maths/samurai/compare/v0.26.1...v0.27.0) (2025-10-20)
+
+
+### Features
+
+* automatic update_ghost_mr() ([#370](https://github.com/hpc-maths/samurai/issues/370)) ([de19ff4](https://github.com/hpc-maths/samurai/commit/de19ff480f62c8a44711d1bc4123e9acc4b64c5e))
+* periodic BC in implicit ([#375](https://github.com/hpc-maths/samurai/issues/375)) ([5946747](https://github.com/hpc-maths/samurai/commit/59467470f06ef3849ad601498c9d5e71abe68800))
+* PETSc dependency managed by samurai ([#365](https://github.com/hpc-maths/samurai/issues/365)) ([9f6036f](https://github.com/hpc-maths/samurai/commit/9f6036f548d3c4f81d798c11f549fcc84e9f49e7))
+* schemes require `output_field` instead of `output_n_comp` ([#368](https://github.com/hpc-maths/samurai/issues/368)) ([18142c7](https://github.com/hpc-maths/samurai/commit/18142c7d857e6f2626b913e69082d4bc10f12097))
+
+
+### Bug Fixes
+
+* Fix rotation stencil ([#391](https://github.com/hpc-maths/samurai/issues/391)) ([9081575](https://github.com/hpc-maths/samurai/commit/9081575ffe1bfd0d1664ab931f1ae20d2ddeab58))
+* h_face ([#371](https://github.com/hpc-maths/samurai/issues/371)) ([5742dfb](https://github.com/hpc-maths/samurai/commit/5742dfb5a00eaeb6d485415b03d0d241fdbb7b05))
+* save issue in demos ([#384](https://github.com/hpc-maths/samurai/issues/384)) ([61f56b3](https://github.com/hpc-maths/samurai/commit/61f56b33e644a8a8a17bd1360c7f57414fe446b0))
+* set HighFive version to 2.10 to fix libdeps error in CI ([#376](https://github.com/hpc-maths/samurai/issues/376)) ([5112594](https://github.com/hpc-maths/samurai/commit/51125942f3136ee114cb52aef95409617d5eabd3))
+* timers output formatting and deviation computation ([#381](https://github.com/hpc-maths/samurai/issues/381)) ([2216ff4](https://github.com/hpc-maths/samurai/commit/2216ff4f0a8cd185b5bd77462d0b7f8171b3485b))
+
+
+### Performance Improvements
+
+* some performance improvement in for_each_interface ([#373](https://github.com/hpc-maths/samurai/issues/373)) ([e4a62ca](https://github.com/hpc-maths/samurai/commit/e4a62ca157f8a88a5253944057d69b501c0ba906))
+
 ## [0.26.1](https://github.com/hpc-maths/samurai/compare/v0.26.0...v0.26.1) (2025-07-25)
 
 
