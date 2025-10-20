@@ -288,8 +288,6 @@ namespace samurai
     Mesh_base<D, Config>::Mesh_base(const mesh_config<Config::dim>& config, const samurai::DomainBuilder<dim>& domain_builder)
         : m_config(config)
     {
-        m_config.parse_args();
-
         if (std::any_of(config.periodic().begin(),
                         config.periodic().end(),
                         [](bool b)
@@ -336,9 +334,6 @@ namespace samurai
     inline Mesh_base<D, Config>::Mesh_base(const mesh_config<Config::dim>& config, const cl_type& cl)
         : m_config(config)
     {
-        m_config.parse_args();
-        m_config.periodic().fill(false);
-
         this->m_cells[mesh_id_t::cells] = {cl};
 
         construct_subdomain();
@@ -357,9 +352,6 @@ namespace samurai
     inline Mesh_base<D, Config>::Mesh_base(const mesh_config<Config::dim>& config, const ca_type& ca)
         : m_config{config}
     {
-        m_config.parse_args();
-        m_config.periodic().fill(false);
-
         this->m_cells[mesh_id_t::cells] = ca;
 
         construct_subdomain();
