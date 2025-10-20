@@ -4,7 +4,7 @@
 #pragma once
 
 #include "../collapsable.hpp"
-#include <xtensor/xfixed.hpp>
+#include <xtensor/containers/xfixed.hpp>
 
 namespace samurai
 {

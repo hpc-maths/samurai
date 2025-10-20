@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <xtensor/xfixed.hpp>
+#include <xtensor/containers/xfixed.hpp>
 
 #include "field_expression.hpp"
 #include "utils.hpp"

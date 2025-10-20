@@ -1,11 +1,11 @@
-name: samurai-env
+name: samurai-mpi-2-env
 channels:
   - conda-forge
 dependencies:
   - cmake
   - ninja
-  - xtensor<0.26
-  - highfive<3.0
+  - xtensor>0.25
+  - highfive>=3.0
   - fmt
   - pugixml
   - cli11<2.5

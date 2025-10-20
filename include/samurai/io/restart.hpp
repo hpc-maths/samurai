@@ -6,8 +6,6 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
-#define H5_USE_XTENSOR
-
 #include <highfive/H5Easy.hpp>
 #include <highfive/H5PropertyList.hpp>
 
@@ -104,7 +102,8 @@ namespace samurai
             H5Easy::dump(file, "/mesh/dim", dim);
             H5Easy::dump(file, "/mesh/min_level", lca.level());
             H5Easy::dump(file, "/mesh/max_level", lca.level());
-            H5Easy::dump(file, "/mesh/origin_point", lca.origin_point());
+            // HighFive v3 does not support xfixed_container so we have to dump from an xtensor_container first
+            H5Easy::dump(file, "/mesh/origin_point", xt::xtensor<double, 1>{lca.origin_point()});
             H5Easy::dump(file, "/mesh/scaling_factor", lca.scaling_factor());
         }
 
@@ -138,7 +137,8 @@ namespace samurai
         H5Easy::dump(file, "/mesh/dim", dim);
         H5Easy::dump(file, "/mesh/min_level", min_level);
         H5Easy::dump(file, "/mesh/max_level", max_level);
-        H5Easy::dump(file, "/mesh/origin_point", ca.origin_point());
+        // HighFive v3 does not support xfixed_container so we have to dump from an xtensor_container first
+        H5Easy::dump(file, "/mesh/origin_point", xt::xtensor<double, 1>{ca.origin_point()});
         H5Easy::dump(file, "/mesh/scaling_factor", ca.scaling_factor());
 
         for (std::size_t level = min_level; level <= max_level; ++level)
@@ -227,7 +227,7 @@ namespace samurai
     template <std::size_t dim_, class interval_t>
     void load(const HighFive::File& file, LevelCellArray<dim_, interval_t>& lca)
     {
-        using lca_type = LevelCellArray<dim_, interval_t>;
+        // using lca_type = LevelCellArray<dim_, interval_t>;
 
         auto dim = H5Easy::load<std::size_t>(file, "/mesh/dim");
         if (dim != dim_)
@@ -246,7 +246,9 @@ namespace samurai
 
         lca = {min_level};
 
-        auto origin_point   = H5Easy::load<typename lca_type::coords_t>(file, "/mesh/origin_point");
+        // HighFive v3 does not support xfixed_container so we have to load into an xtensor_container first
+        // auto origin_point   = H5Easy::load<typename lca_type::coords_t>(file, "/mesh/origin_point");
+        auto origin_point   = H5Easy::load<xt::xtensor<double, 1>>(file, "/mesh/origin_point");
         auto scaling_factor = H5Easy::load<double>(file, "/mesh/scaling_factor");
 
         lca.set_origin_point(origin_point);
@@ -270,7 +272,7 @@ namespace samurai
     template <std::size_t dim_, class interval_t, std::size_t max_size>
     void load(const HighFive::File& file, CellArray<dim_, interval_t, max_size>& ca)
     {
-        using ca_type = CellArray<dim_, interval_t, max_size>;
+        // using ca_type = CellArray<dim_, interval_t, max_size>;
 
         auto dim = H5Easy::load<std::size_t>(file, "/mesh/dim");
         if (dim != dim_)
@@ -279,9 +281,11 @@ namespace samurai
                 fmt::format("The dimension of the mesh is not the same as the one of the mesh to be loaded. {} != {}", dim, dim_));
         }
 
-        auto min_level      = H5Easy::load<std::size_t>(file, "/mesh/min_level");
-        auto max_level      = H5Easy::load<std::size_t>(file, "/mesh/max_level");
-        auto origin_point   = H5Easy::load<typename ca_type::coords_t>(file, "/mesh/origin_point");
+        auto min_level = H5Easy::load<std::size_t>(file, "/mesh/min_level");
+        auto max_level = H5Easy::load<std::size_t>(file, "/mesh/max_level");
+        // HighFive v3 does not support xfixed_container so we have to load into an xtensor_container first
+        // auto origin_point   = H5Easy::load<typename ca_type::coords_t>(file, "/mesh/origin_point");
+        auto origin_point   = H5Easy::load<xt::xtensor<double, 1>>(file, "/mesh/origin_point");
         auto scaling_factor = H5Easy::load<double>(file, "/mesh/scaling_factor");
 
         ca.clear();

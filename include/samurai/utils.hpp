@@ -12,7 +12,7 @@
 #include <tuple>
 #include <type_traits>
 
-#include <xtensor/xfixed.hpp>
+#include <xtensor/containers/xfixed.hpp>
 
 namespace samurai
 {

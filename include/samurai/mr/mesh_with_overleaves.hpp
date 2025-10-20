@@ -5,7 +5,7 @@
 
 #include <fmt/format.h>
 
-#include <xtensor/xtensor.hpp>
+#include <xtensor/containers/xtensor.hpp>
 
 #include "../box.hpp"
 #include "../mesh.hpp"

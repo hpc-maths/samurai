@@ -2,7 +2,7 @@
 // SPDX-License-Identifier:  BSD-3-Clause
 #include <array>
 
-#include <xtensor/xfixed.hpp>
+#include <xtensor/containers/xfixed.hpp>
 
 // -----------------------------
 

@@ -10,8 +10,8 @@
 #include <samurai/operators_base.hpp>
 
 #include <fmt/format.h>
-#include <xtensor/xfixed.hpp>
-#include <xtensor/xmasked_view.hpp>
+#include <xtensor/containers/xfixed.hpp>
+#include <xtensor/views/xmasked_view.hpp>
 
 enum class AMR_Id
 {

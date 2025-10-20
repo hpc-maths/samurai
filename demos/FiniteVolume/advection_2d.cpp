@@ -3,7 +3,7 @@
 
 #include <array>
 
-#include <xtensor/xfixed.hpp>
+#include <xtensor/containers/xfixed.hpp>
 
 #include <samurai/algorithm.hpp>
 #include <samurai/bc.hpp>

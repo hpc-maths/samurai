@@ -5,8 +5,8 @@
 
 #include <xtl/xtype_traits.hpp>
 
-#include <xtensor/xexpression.hpp>
-#include <xtensor/xmath.hpp>
+#include <xtensor/core/xexpression.hpp>
+#include <xtensor/core/xmath.hpp>
 
 #include "cell.hpp"
 #include "interval.hpp"
@@ -26,7 +26,7 @@ namespace samurai
     };
 
     template <class... E>
-    struct field_comparable : xtl::conjunction<is_field_expression<E>...>
+    struct field_comparable : std::conjunction<is_field_expression<E>...>
     {
     };
 

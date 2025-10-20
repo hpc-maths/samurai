@@ -132,8 +132,8 @@ if(SAMURAI_FIELD_CONTAINER MATCHES xtensor)
   list(APPEND DEPENDENCIES_CONFIGURED xtensor)
   find_package(xtensor CONFIG REQUIRED)
 
-  if (xtensor_VERSION VERSION_GREATER_EQUAL "0.26.0")
-    message(FATAL_ERROR "xtensor version ${xtensor_VERSION} is too new. Maximum allowed version is 0.25.")
+  if (xtensor_VERSION VERSION_LESS_EQUAL "0.25.0")
+    message(FATAL_ERROR "xtensor version ${xtensor_VERSION} is too old. Minimum allowed version is 0.26.")
   endif()
 
   target_link_system_libraries(
@@ -250,7 +250,7 @@ endif()
 
 # Package the project
 package_project(
-  TARGETS samurai project_options project_warnings libdeps
+  TARGETS samurai project_options project_warnings
   INTERFACE_DEPENDENCIES_CONFIGURED ${DEPENDENCIES_CONFIGURED}
   INTERFACE_INCLUDES ${INCLUDE_DIR}
 )

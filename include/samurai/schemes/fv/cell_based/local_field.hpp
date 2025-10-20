@@ -1,5 +1,5 @@
 #pragma once
-#include <xtensor/xadapt.hpp>
+#include <xtensor/containers/xadapt.hpp>
 
 namespace samurai
 {
