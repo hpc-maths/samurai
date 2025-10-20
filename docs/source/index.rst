@@ -6,6 +6,7 @@
    :hidden:
    :maxdepth: 1
 
+   how-to <howto/index>
    tutorial <tutorial/index>
    reference <reference/index>
    api <api/index>

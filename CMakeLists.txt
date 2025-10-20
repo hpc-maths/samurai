@@ -188,6 +188,7 @@ target_compile_features(samurai INTERFACE cxx_std_20)
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 OPTION(BUILD_BENCHMARKS "samurai benchmark suite" OFF)
+OPTION(BUILD_SNIPPETS "samurai snippets for the documentation" OFF)
 OPTION(BUILD_DEMOS "samurai build all demos" OFF)
 OPTION(BUILD_TESTS "samurai test suite" OFF)
 OPTION(SPLIT_TESTS "samurai split each test and create an executable for each" OFF)
@@ -206,6 +207,10 @@ endif()
 
 if(BUILD_BENCHMARKS)
   add_subdirectory(benchmark)
+endif()
+
+if(BUILD_SNIPPETS)
+  add_subdirectory(docs/source/howto/snippet)
 endif()
 
 if(BUILD_TESTS)
