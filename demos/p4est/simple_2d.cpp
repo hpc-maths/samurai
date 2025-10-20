@@ -86,7 +86,7 @@ void refine_1(mesh_t& mesh, std::size_t max_level)
                                        }
                                    });
 
-        mesh = samurai::make_MRMesh(mesh.cfg(), cl);
+        mesh = {cl};
     }
 }
 
