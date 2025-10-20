@@ -18,6 +18,7 @@ namespace mpi = boost::mpi;
 #endif
 
 #include "../cell_array.hpp"
+#include "../concepts.hpp"
 #include "../interval.hpp"
 #include "../level_cell_array.hpp"
 #include "../mesh.hpp"
@@ -196,6 +197,7 @@ namespace samurai
     }
 
     template <class Mesh, class... Fields>
+        requires IsMesh<Mesh>
     void dump(const std::string& filename, const Mesh& mesh, const Fields&... fields)
     {
         dump(fs::current_path(), filename, mesh, fields...);
@@ -427,6 +429,7 @@ namespace samurai
     }
 
     template <class Mesh, class... Fields>
+        requires IsMesh<Mesh>
     void load(const std::string& filename, Mesh& mesh, Fields&... fields)
     {
         load(fs::current_path(), filename, mesh, fields...);
