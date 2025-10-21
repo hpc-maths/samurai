@@ -99,18 +99,25 @@ namespace samurai
     template <class LCA_OR_SET, size_t dim_min = 0, size_t dim_max = LCA_OR_SET::dim>
     auto nestedExpand(const LCA_OR_SET& lca, const int width)
     {
-        static constexpr std::size_t index_size = LCA_OR_SET::dim;
-        using index_type                        = typename detail::NestedExpand<index_size, dim_max - 1, dim_min>::index_type;
-        index_type idx;
-        for (size_t i = 0; i != dim_min; ++i)
+        if constexpr (default_config::use_native_expand)
         {
-            idx[i] = 0;
+            return expand(lca, width);
         }
-        for (size_t i = dim_max; i != index_size; ++i)
+        else
         {
-            idx[i] = 0;
+            static constexpr std::size_t index_size = LCA_OR_SET::dim;
+            using index_type                        = typename detail::NestedExpand<index_size, dim_max - 1, dim_min>::index_type;
+            index_type idx;
+            for (size_t i = 0; i != dim_min; ++i)
+            {
+                idx[i] = 0;
+            }
+            for (size_t i = dim_max; i != index_size; ++i)
+            {
+                idx[i] = 0;
+            }
+            return detail::NestedExpand<index_size, dim_max - 1, dim_min>::run(idx, lca, width);
         }
-        return detail::NestedExpand<index_size, dim_max - 1, dim_min>::run(idx, lca, width);
     }
 
     template <size_t index_size, size_t dim_min, size_t dim_max, typename Function>
