@@ -6,10 +6,10 @@
 int main()
 {
     static constexpr std::size_t dim = 2;
-    using config_t                   = samurai::MRConfig<dim>;
 
     samurai::Box<double, dim> box({-1.0, -1.0}, {1.0, 1.0});
-    samurai::MRMesh<config_t> mesh(box, 0, 2); // min level 0, max level 2
+    auto config = samurai::mesh_config<dim>().min_level(0).max_level(2);
+    auto mesh   = samurai::make_MRMesh(config, box);
 
     auto field = samurai::make_scalar_field<double>("u", mesh);
 
