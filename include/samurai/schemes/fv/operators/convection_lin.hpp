@@ -89,8 +89,6 @@ namespace samurai
     template <class Field>
     auto make_convection_weno5(const VelocityVector<Field::dim>& velocity)
     {
-        static_assert(Field::mesh_t::config::ghost_width >= 3, "WENO5 requires at least 3 ghosts.");
-
         static constexpr std::size_t dim          = Field::dim;
         static constexpr bool is_soa              = detail::is_soa_v<Field>;
         static constexpr std::size_t stencil_size = 6;
@@ -259,8 +257,6 @@ namespace samurai
         requires IsField<VelocityField>
     auto make_convection_weno5(VelocityField& velocity_field)
     {
-        static_assert(Field::mesh_t::config::ghost_width >= 3, "WENO5 requires at least 3 ghosts.");
-
         static constexpr std::size_t dim = Field::dim;
         static constexpr bool is_soa     = detail::is_soa_v<Field>;
 

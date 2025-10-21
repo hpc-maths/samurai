@@ -42,8 +42,8 @@ int main(int argc, char* argv[])
     fs::path path        = fs::current_path();
     std::string filename = "graduation_case_3";
 
-    app.add_option("--start-level", start_level, "where to start the mesh generator")->capture_default_str();
-    app.add_option("--max-level", max_level, "Maximum level of the mesh generator")->capture_default_str();
+    app.add_option("--starting-level", start_level, "where to start the mesh generator")->capture_default_str();
+    app.add_option("--maximum-level", max_level, "Maximum level of the mesh generator")->capture_default_str();
     app.add_flag("--with-graduation", with_graduation, "Make the mesh graduated")->capture_default_str();
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
