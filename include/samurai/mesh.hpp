@@ -350,7 +350,7 @@ namespace samurai
 
     template <class D, class Config>
     inline Mesh_base<D, Config>::Mesh_base(const mesh_config<Config::dim>& config, const ca_type& ca)
-        : m_config{config}
+        : m_config(config)
     {
         this->m_cells[mesh_id_t::cells] = ca;
 
