@@ -2,6 +2,8 @@
 #include "../../schemes/fv/scheme_operators.hpp"
 #include "../matrix_assembly.hpp"
 
+// #include "FV_scheme_assembly.hpp"
+
 namespace samurai
 {
     namespace petsc
@@ -79,6 +81,11 @@ namespace samurai
                 return m_sum_scheme;
             }
 
+            const auto& numbering() const
+            {
+                return largest_stencil_assembly().numbering();
+            }
+
             void set_row_shift(PetscInt shift) override
             {
                 MatrixAssembly::set_row_shift(shift);
@@ -98,6 +105,50 @@ namespace samurai
                          [&](auto& op)
                          {
                              op.set_col_shift(shift);
+                         });
+            }
+
+            void set_rank_row_shift(PetscInt shift) override
+            {
+                MatrixAssembly::set_rank_row_shift(shift);
+
+                for_each(m_assembly_ops,
+                         [&](auto& op)
+                         {
+                             op.set_rank_row_shift(shift);
+                         });
+            }
+
+            void set_rank_col_shift(PetscInt shift) override
+            {
+                MatrixAssembly::set_rank_col_shift(shift);
+
+                for_each(m_assembly_ops,
+                         [&](auto& op)
+                         {
+                             op.set_rank_col_shift(shift);
+                         });
+            }
+
+            void set_ghosts_row_shift(PetscInt shift) override
+            {
+                MatrixAssembly::set_ghosts_row_shift(shift);
+
+                for_each(m_assembly_ops,
+                         [&](auto& op)
+                         {
+                             op.set_ghosts_row_shift(shift);
+                         });
+            }
+
+            void set_ghosts_col_shift(PetscInt shift) override
+            {
+                MatrixAssembly::set_ghosts_col_shift(shift);
+
+                for_each(m_assembly_ops,
+                         [&](auto& op)
+                         {
+                             op.set_ghosts_col_shift(shift);
                          });
             }
 
@@ -123,41 +174,51 @@ namespace samurai
                          });
             }
 
-            PetscInt matrix_rows() const override
+            PetscInt owned_matrix_rows() const override
             {
-                auto rows = std::get<0>(m_assembly_ops).matrix_rows();
+                auto rows = std::get<0>(m_assembly_ops).owned_matrix_rows();
                 for_each(m_assembly_ops,
                          [&](auto& op)
                          {
-                             if (op.matrix_rows() != rows)
+                             if (op.owned_matrix_rows() != rows)
                              {
                                  std::cerr << "Invalid '+' operation: all schemes must generate the same number of matrix rows." << std::endl;
                                  std::cerr << "                       '" << std::get<0>(m_assembly_ops).name()
-                                           << "': " << std::get<0>(m_assembly_ops).matrix_rows() << ", " << op.name() << ": "
-                                           << op.matrix_rows() << std::endl;
+                                           << "': " << std::get<0>(m_assembly_ops).owned_matrix_rows() << ", " << op.name() << ": "
+                                           << op.owned_matrix_rows() << std::endl;
                                  assert(false);
                              }
                          });
                 return rows;
             }
 
-            PetscInt matrix_cols() const override
+            PetscInt owned_matrix_cols() const override
             {
-                auto cols = std::get<0>(m_assembly_ops).matrix_cols();
+                auto cols = std::get<0>(m_assembly_ops).owned_matrix_cols();
                 for_each(m_assembly_ops,
                          [&](auto& op)
                          {
-                             if (op.matrix_cols() != cols)
+                             if (op.owned_matrix_cols() != cols)
                              {
                                  std::cerr << "Invalid '+' operation: all schemes must generate the same number of matrix columns."
                                            << std::endl;
                                  std::cerr << "                       '" << std::get<0>(m_assembly_ops).name()
-                                           << "': " << std::get<0>(m_assembly_ops).matrix_cols() << ", " << op.name() << ": "
-                                           << op.matrix_cols() << std::endl;
+                                           << "': " << std::get<0>(m_assembly_ops).owned_matrix_cols() << ", " << op.name() << ": "
+                                           << op.owned_matrix_cols() << std::endl;
                                  assert(false);
                              }
                          });
                 return cols;
+            }
+
+            PetscInt local_matrix_rows() const override
+            {
+                return largest_stencil_assembly().local_matrix_rows();
+            }
+
+            PetscInt local_matrix_cols() const override
+            {
+                return largest_stencil_assembly().local_matrix_cols();
             }
 
             Vec create_rhs_vector(const output_field_t& field) const
@@ -375,13 +436,91 @@ namespace samurai
                          });
             }
 
+            // template <class OtherScheme>
+            // void reset(const FVSchemeAssembly<OtherScheme>& other)
+            // {
+            //     for_each(m_assembly_ops,
+            //              [&](auto& op)
+            //              {
+            //                  // reset the other schemes by giving the all the costly information to avoid recomputing it
+            //                  op.reset(other);
+            //              });
+            // }
+
+            /**
+             * This function is called in case of block_assembly.
+             */
+            template <std::size_t rows_, std::size_t cols_, class... Operators_>
+            void reset(BlockAssembly<true, rows_, cols_, Operators_...>& block_assembly)
+            {
+                for_each(m_assembly_ops,
+                         [&](auto& op)
+                         {
+                             // reset the other schemes by giving the all the costly information to avoid recomputing it
+                             op.reset(block_assembly);
+                         });
+            }
+
+            // void reset(Numbering& numbering)
+            // {
+            //     for_each(m_assembly_ops,
+            //              [&](auto& op)
+            //              {
+            //                  // reset the other schemes by giving the all the costly information to avoid recomputing it
+            //                  op.reset(numbering);
+            //              });
+            // }
+
+            // template <class... OtherOperators>
+            // void reset(const Assembly<OperatorSum<OtherOperators...>>& other)
+            // {
+            //     for_each(m_assembly_ops,
+            //              [&](auto& op)
+            //              {
+            //                  // reset the other schemes by giving the all the costly information to avoid recomputing it
+            //                  op.reset(other.largest_stencil_assembly());
+            //              });
+            // }
+
+            // template <class T>
+            // concept is_sum_assembly = std::is_same_v<T, OperatorSum<Operators...>>;
+
 #ifdef SAMURAI_WITH_MPI
+            void compute_block_numbering(Numbering& numbering)
+            {
+                largest_stencil_assembly().compute_block_numbering(numbering);
+            }
+
             void set_local_to_global_mappings(Mat& A) const override
             {
                 largest_stencil_assembly().set_local_to_global_mappings(A);
             }
+
+            void compute_local_to_global_rows(std::vector<PetscInt>& local_to_global_rows)
+            {
+                largest_stencil_assembly().compute_local_to_global_rows(local_to_global_rows);
+            }
+
+            void compute_local_to_global_cols(std::vector<PetscInt>& local_to_global_cols)
+            {
+                largest_stencil_assembly().compute_local_to_global_cols(local_to_global_cols);
+            }
 #endif
         };
+
+        // template <class T>
+        // struct is_operator_sum_assembly : std::false_type
+        // {
+        // };
+
+        // // Specialization: true if T = Assembly<OperatorSum<...>>
+        // template <class... Operators>
+        // struct is_operator_sum_assembly<Assembly<OperatorSum<Operators...>>> : std::true_type
+        // {
+        // };
+
+        // template <class T>
+        // concept IsOperatorSumAssembly = is_operator_sum_assembly<T>::value;
 
     } // end namespace petsc
 } // end namespace samurai

@@ -43,7 +43,7 @@ namespace samurai
 
             void _configure_solver()
             {
-                KSPCreate(PETSC_COMM_SELF, &m_ksp);
+                KSPCreate(PETSC_COMM_WORLD, &m_ksp);
                 KSPSetFromOptions(m_ksp);
             }
 
@@ -98,7 +98,7 @@ namespace samurai
                               "The number of unknown fields passed to solve() must equal "
                               "the number of columns of the block operator.");
                 assembly().set_unknown(unknown_tuple);
-                assembly().reset();
+                // assembly().reset();
             }
 
             void setup() override
@@ -115,7 +115,7 @@ namespace samurai
                 }
 
                 this->assemble_matrix();
-                // MatView(m_A, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
+                // MatView(m_A, PETSC_VIEWER_STDOUT_(PETSC_COMM_WORLD)); std::cout << std::endl;
                 KSPSetOperators(m_ksp, m_A, m_A);
 
                 PC pc;
@@ -143,13 +143,17 @@ namespace samurai
                     setup();
                 }
                 Vec b = assembly().create_rhs_vector(rhs_tuple);
-                Vec x = assembly().create_solution_vector();
+                Vec x = assembly().create_solution_vector_from_unknown_fields();
                 this->prepare_rhs_and_solve(b, x);
 
+#ifdef SAMURAI_WITH_MPI
+                assembly().update_unknowns(x);
+#else
                 if constexpr (is_monolithic)
                 {
                     assembly().update_unknowns(x);
                 }
+#endif
 
                 VecDestroy(&b);
                 VecDestroy(&x);
