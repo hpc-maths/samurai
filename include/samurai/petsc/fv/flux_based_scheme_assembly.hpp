@@ -62,14 +62,7 @@ namespace samurai
             //                     Sparsity pattern                        //
             //-------------------------------------------------------------//
 
-            void sparsity_pattern_scheme(
-#ifdef SAMURAI_WITH_MPI
-                std::vector<PetscInt>& d_nnz,
-                std::vector<PetscInt>& o_nnz
-#else
-                std::vector<PetscInt>& nnz
-#endif
-            ) const override
+            void sparsity_pattern_scheme(std::vector<PetscInt>& d_nnz, [[maybe_unused]] std::vector<PetscInt>& o_nnz) const override
             {
                 // std::cout << "[" << mpi::communicator().rank() << "] sparsity_pattern_scheme() of interior interfaces" << std::endl;
                 auto& flux_def = scheme().flux_definition();
@@ -124,21 +117,21 @@ namespace samurai
                                         auto it_ghost = this->m_ghost_recursion.find(comput_cells[c].index);
                                         if (it_ghost == this->m_ghost_recursion.end())
                                         {
-                                            nnz[row_cell_0] += static_cast<PetscInt>(input_n_comp);
-                                            nnz[row_cell_1] += static_cast<PetscInt>(input_n_comp);
+                                            d_nnz[row_cell_0] += static_cast<PetscInt>(input_n_comp);
+                                            d_nnz[row_cell_1] += static_cast<PetscInt>(input_n_comp);
                                         }
                                         else
                                         {
                                             auto& linear_comb = it_ghost->second;
-                                            nnz[row_cell_0] += static_cast<PetscInt>(linear_comb.size() * input_n_comp);
-                                            nnz[row_cell_1] += static_cast<PetscInt>(linear_comb.size() * input_n_comp);
+                                            d_nnz[row_cell_0] += static_cast<PetscInt>(linear_comb.size() * input_n_comp);
+                                            d_nnz[row_cell_1] += static_cast<PetscInt>(linear_comb.size() * input_n_comp);
                                         }
                                     }
                                 }
                                 else
                                 {
-                                    nnz[row_cell_0] += static_cast<PetscInt>(stencil_size * input_n_comp);
-                                    nnz[row_cell_1] += static_cast<PetscInt>(stencil_size * input_n_comp);
+                                    d_nnz[row_cell_0] += static_cast<PetscInt>(stencil_size * input_n_comp);
+                                    d_nnz[row_cell_1] += static_cast<PetscInt>(stencil_size * input_n_comp);
                                 }
 #endif
                             }
@@ -174,7 +167,7 @@ namespace samurai
                                         }
                                     }
 #else
-                                    nnz[row_cell] += static_cast<PetscInt>(stencil_size * input_n_comp);
+                                    d_nnz[row_cell] += static_cast<PetscInt>(stencil_size * input_n_comp);
 #endif
                                 }
                             });

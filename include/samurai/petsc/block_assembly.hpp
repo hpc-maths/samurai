@@ -539,12 +539,9 @@ namespace samurai
 
           private:
 
-#ifdef SAMURAI_WITH_MPI
             Numbering m_numbering;
-
             ISLocalToGlobalMapping m_local_to_global_rows = nullptr;
             ISLocalToGlobalMapping m_local_to_global_cols = nullptr;
-#endif
 
           public:
 
@@ -568,7 +565,11 @@ namespace samurai
             void reset() override
             {
                 m_numbering.n_cells = mesh().nb_cells();
+#ifdef SAMURAI_WITH_MPI
                 compute_ownership(mesh(), m_numbering);
+#else
+                m_numbering.n_owned_cells = m_numbering.n_cells;
+#endif
 
                 for_each_assembly_op(
                     [&](auto& op, auto, auto)
@@ -579,21 +580,15 @@ namespace samurai
                 // Check compatibility of dimensions and set dimensions for blocks that must fit into the matrix
                 this->check_and_set_sizes();
 
-#ifdef SAMURAI_WITH_MPI
                 PetscInt n_owned_rows = this->owned_matrix_rows();
                 PetscInt n_owned_cols = this->owned_matrix_cols();
 
-                // PetscInt n_not_owned_rows = this->local_matrix_rows() - n_owned_rows;
-                // PetscInt n_not_owned_cols = this->local_matrix_cols() - n_owned_cols;
-
+#ifdef SAMURAI_WITH_MPI
                 PetscInt rank_shift_owned_rows = compute_rank_shift(n_owned_rows);
                 PetscInt rank_shift_owned_cols = rank_shift_owned_rows;
-                // PetscInt rank_shift_not_owned_rows = compute_rank_shift(n_not_owned_rows);
-                // PetscInt rank_shift_not_owned_cols = rank_shift_not_owned_rows;
                 if (n_owned_cols != n_owned_rows)
                 {
                     rank_shift_owned_cols = compute_rank_shift(n_owned_cols);
-                    // rank_shift_not_owned_cols = compute_rank_shift(n_not_owned_cols);
                 }
 
                 for_each_assembly_op(
@@ -602,29 +597,6 @@ namespace samurai
                         op.set_rank_row_shift(rank_shift_owned_rows);
                         op.set_rank_col_shift(rank_shift_owned_cols);
                     });
-
-                // PetscInt rank_row_shift = 0;
-                // PetscInt rank_col_shift = 0;
-                // for_each_assembly_op(
-                //     [&](auto& op, auto, auto col)
-                //     {
-                //         op.set_rank_row_shift(rank_row_shift);
-                //         op.set_rank_col_shift(rank_col_shift);
-
-                //         PetscInt offset       = 0;
-                //         PetscInt n_owned_cols = op.owned_matrix_cols();
-                //         MPI_Exscan(&n_owned_cols, &offset, 1, MPIU_INT, MPI_SUM, PETSC_COMM_WORLD);
-                //         rank_col_shift += offset;
-                //         if (col == cols - 1)
-                //         {
-                //             rank_col_shift = 0;
-
-                //             offset                = 0;
-                //             PetscInt n_owned_rows = op.owned_matrix_rows();
-                //             MPI_Exscan(&n_owned_rows, &offset, 1, MPIU_INT, MPI_SUM, PETSC_COMM_WORLD);
-                //             rank_row_shift += offset;
-                //         }
-                //     });
 
 #endif
                 // Set row_shift and col_shift for each block assembly operator
@@ -659,22 +631,6 @@ namespace samurai
                     });
 
 #ifdef SAMURAI_WITH_MPI
-                // // Set ghosts shifts (i.e. shifts for MPI ghost variables)
-                // PetscInt ghosts_row_shift = n_owned_rows;
-                // PetscInt ghosts_col_shift = n_owned_cols;
-                // for_each_assembly_op(
-                //     [&](auto& op, auto, auto col)
-                //     {
-                //         op.set_ghosts_row_shift(ghosts_row_shift);
-                //         op.set_ghosts_col_shift(ghosts_col_shift);
-                //         ghosts_col_shift += op.local_matrix_cols() - op.owned_matrix_cols();
-                //         if (col == cols - 1)
-                //         {
-                //             ghosts_col_shift = n_owned_cols;
-                //             ghosts_row_shift += op.local_matrix_rows() - op.owned_matrix_rows();
-                //         }
-                //     });
-
                 // if (mpi::communicator().rank() == 1)
                 // {
                 //     sleep(1); // to have ordered output
@@ -788,7 +744,6 @@ namespace samurai
                 return total_cols;
             }
 
-#ifdef SAMURAI_WITH_MPI
             void sparsity_pattern_scheme(std::vector<PetscInt>& d_nnz, std::vector<PetscInt>& o_nnz) const override
             {
                 for_each_assembly_op(
@@ -833,60 +788,15 @@ namespace samurai
                         }
                     });
             }
-#else
-            void sparsity_pattern_scheme(std::vector<PetscInt>& nnz) const override
-            {
-                for_each_assembly_op(
-                    [&](auto& op, auto, auto)
-                    {
-                        op.sparsity_pattern_scheme(nnz);
-                    });
-            }
 
-            void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const override
-            {
-                for_each_assembly_op(
-                    [&](auto& op, auto, auto)
-                    {
-                        if (op.include_bc())
-                        {
-                            op.sparsity_pattern_boundary(nnz);
-                        }
-                    });
-            }
-
-            void sparsity_pattern_projection(std::vector<PetscInt>& nnz) const override
-            {
-                for_each_assembly_op(
-                    [&](auto& op, auto, auto)
-                    {
-                        if (op.assemble_proj_pred())
-                        {
-                            op.sparsity_pattern_projection(nnz);
-                        }
-                    });
-            }
-
-            void sparsity_pattern_prediction(std::vector<PetscInt>& nnz) const override
-            {
-                for_each_assembly_op(
-                    [&](auto& op, auto, auto)
-                    {
-                        if (op.assemble_proj_pred())
-                        {
-                            op.sparsity_pattern_prediction(nnz);
-                        }
-                    });
-            }
-#endif
-            void sparsity_pattern_useless_ghosts(std::vector<PetscInt>& nnz) override
+            void sparsity_pattern_useless_ghosts(std::vector<PetscInt>& d_nnz) override
             {
                 for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
                         if (op.must_insert_value_on_diag_for_useless_ghosts())
                         {
-                            op.sparsity_pattern_useless_ghosts(nnz);
+                            op.sparsity_pattern_useless_ghosts(d_nnz);
                         }
                     });
             }
@@ -1158,7 +1068,6 @@ namespace samurai
                 return IS_array;
             }
 
-#ifdef SAMURAI_WITH_MPI
             void set_local_to_global_mappings(Mat& A) const override
             {
                 // Sets the local to global mapping for the rows and columns, which allows to use the local numbering when inserting
@@ -1172,7 +1081,6 @@ namespace samurai
 
                 MatSetLocalToGlobalMapping(A, m_local_to_global_rows, m_local_to_global_cols);
             }
-#endif
 
             void create_local_to_global_mappings()
             {

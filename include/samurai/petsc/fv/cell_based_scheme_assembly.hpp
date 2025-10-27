@@ -123,7 +123,7 @@ namespace samurai
                     });
             }
 #else
-            void sparsity_pattern_scheme(std::vector<PetscInt>& nnz) const override
+            void sparsity_pattern_scheme(std::vector<PetscInt>& d_nnz, std::vector<PetscInt>&) const override
             {
                 if constexpr (stencil_size == 0)
                 {
@@ -180,7 +180,7 @@ namespace samurai
                         for_each_cell(mesh(),
                                       [&](auto& cell)
                                       {
-                                          nnz[static_cast<std::size_t>(this->local_row_index(cell, field_i))] += scheme_nnz_i;
+                                          d_nnz[static_cast<std::size_t>(this->local_row_index(cell, field_i))] += scheme_nnz_i;
                                       });
                     }
                 }
@@ -192,7 +192,7 @@ namespace samurai
                                   {
                                       for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                                       {
-                                          nnz[static_cast<std::size_t>(this->local_row_index(cell, field_i))] += scheme_nnz_i;
+                                          d_nnz[static_cast<std::size_t>(this->local_row_index(cell, field_i))] += scheme_nnz_i;
                                       }
                                   });
                 }

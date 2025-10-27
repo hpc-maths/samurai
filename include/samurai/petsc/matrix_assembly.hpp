@@ -43,11 +43,12 @@ namespace samurai
             PetscInt m_rows             = 0;
             PetscInt m_cols             = 0;
 
-#ifdef SAMURAI_WITH_MPI
-            // Petsc takes a reference to the nnz vectors, so we must keep them alive as long as the matrix is alive
-            std::vector<PetscInt> m_d_nnz; // number of non-zeros in the diagonal part of the local submatrix
-            std::vector<PetscInt> m_o_nnz; // number of non-zeros in the off-diagonal part of the local submatrix
-#endif
+            // ----- Number of non-zeroes for matrix preallocation ----- //
+
+            //  Petsc takes a reference to the nnz vectors, so we must keep them alive as long as the matrix is alive
+            std::vector<PetscInt> m_d_nnz; // number of non-zeros in the diagonal part of the local submatrix (if no MPI, this is simply
+                                           // nnz)
+            std::vector<PetscInt> m_o_nnz; // number of non-zeros in the off-diagonal part of the local submatrix (if no MPI, this is empty)
 
           public:
 
@@ -264,21 +265,21 @@ namespace samurai
                 // Preallocation of the non-zero entries //
                 //---------------------------------------//
 
-#ifdef SAMURAI_WITH_MPI
-                mpi::communicator world;
-
                 // Number of non-zeros per row in the diagonal and off-diagonal part of the local submatrix. 0 by default.
                 auto& d_nnz = m_d_nnz;
                 auto& o_nnz = m_o_nnz;
                 d_nnz.resize(static_cast<std::size_t>(n_owned_rows));
-                o_nnz.resize(static_cast<std::size_t>(n_owned_rows));
                 std::fill(d_nnz.begin(), d_nnz.end(), 0);
+#ifdef SAMURAI_WITH_MPI
+                o_nnz.resize(static_cast<std::size_t>(n_owned_rows));
                 std::fill(o_nnz.begin(), o_nnz.end(), 0);
 
+                mpi::communicator world;
                 // if (world.rank() == 1)
                 // {
                 //     sleep(1); // to avoid jumbled output
                 // }
+#endif
 
                 // std::cout << "\n\t> [" << world.rank() << "] sparsity_pattern_scheme" << std::endl;
                 sparsity_pattern_scheme(d_nnz, o_nnz);
@@ -303,6 +304,7 @@ namespace samurai
 
                 if (!m_is_block)
                 {
+#ifdef SAMURAI_WITH_MPI
                     // if (world.rank() == 1)
                     // {
                     //     sleep(1); // to avoid jumbled output
@@ -321,40 +323,14 @@ namespace samurai
                     // std::cout << std::endl;
 
                     // std::cout << "\n\t> [" << world.rank() << "] MatMPIAIJSetPreallocation" << std::endl;
+
                     MatMPIAIJSetPreallocation(A, PETSC_DEFAULT, d_nnz.data(), PETSC_DEFAULT, o_nnz.data());
                     // MatMPIAIJSetPreallocation(A, 10, nullptr, 10, nullptr);
-                    // std::cout << "\n\t> [" << world.rank() << "] MatMPIAIJSetPreallocation <done>" << std::endl;
-
+#else
+                    MatSeqAIJSetPreallocation(A, PETSC_DEFAULT, d_nnz.data());
+#endif
                     // std::cout << "\n\t> [" << world.rank() << "] create_matrix done" << std::endl;
                 }
-#else
-                // Number of non-zeros per row. 0 by default.
-                std::vector<PetscInt> nnz(static_cast<std::size_t>(n_local_rows), 0);
-
-                sparsity_pattern_scheme(nnz);
-                if (m_include_bc)
-                {
-                    sparsity_pattern_boundary(nnz);
-                }
-                if (m_assemble_proj_pred)
-                {
-                    sparsity_pattern_projection(nnz);
-                    sparsity_pattern_prediction(nnz);
-                }
-                if (m_insert_value_on_diag_for_useless_ghosts)
-                {
-                    sparsity_pattern_useless_ghosts(nnz);
-                }
-
-                // for (std::size_t row = 0; row < nnz.size(); ++row)
-                // {
-                //     std::cout << "nnz[" << row << "] = " << nnz[row] << std::endl;
-                // }
-                if (!m_is_block)
-                {
-                    MatSeqAIJSetPreallocation(A, PETSC_DEFAULT, nnz.data());
-                }
-#endif
                 // MatSetOption(A, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
                 times::timers.stop("matrix assembly");
             }
@@ -467,13 +443,11 @@ namespace samurai
 
           public:
 
-#ifdef SAMURAI_WITH_MPI
             /**
              * @brief Sets the local to global mapping for the rows and columns, which allows to use the local numbering when inserting
              * values into the matrix.
              */
             virtual void set_local_to_global_mappings(Mat& A) const = 0;
-
             /**
              * @brief Sets the sparsity pattern of the matrix for the interior of the domain (cells only).
              * @param d_nnz that stores, for each row index, the number of non-zero coefficients in the diagonal (local-local) block.
@@ -498,29 +472,6 @@ namespace samurai
              * @param o_nnz that stores, for each row index, the number of non-zero coefficients in the off-diagonal (local-neighb.) block.
              */
             virtual void sparsity_pattern_prediction(std::vector<PetscInt>& d_nnz, std::vector<PetscInt>& o_nnz) const = 0;
-#else
-            /**
-             * @brief Sets the sparsity pattern of the matrix for the interior of the domain (cells only).
-             * @param nnz that stores, for each row index in the matrix, the number of non-zero coefficients.
-             */
-            virtual void sparsity_pattern_scheme(std::vector<PetscInt>& nnz) const = 0;
-            /**
-             * @brief Sets the sparsity pattern of the matrix for the boundary conditions.
-             * @param nnz that stores, for each row index in the matrix, the number of non-zero coefficients.
-             */
-            virtual void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const = 0;
-            /**
-             * @brief Sets the sparsity pattern of the matrix for the projection ghosts.
-             * @param nnz that stores, for each row index in the matrix, the number of non-zero coefficients.
-             */
-            virtual void sparsity_pattern_projection(std::vector<PetscInt>& nnz) const = 0;
-            /**
-             * @brief Sets the sparsity pattern of the matrix for the prediction ghosts.
-             * @param nnz that stores, for each row index in the matrix, the number of non-zero coefficients.
-             */
-            virtual void sparsity_pattern_prediction(std::vector<PetscInt>& nnz) const = 0;
-
-#endif
             /**
              * @brief Inserts coefficients into the matrix.
              * This function defines the scheme in the inside of the domain.
