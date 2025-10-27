@@ -155,7 +155,6 @@ namespace samurai
                 }
 
                 compute_numbering();
-                // m_numbering->n_cells = mesh().nb_cells();
 #ifdef SAMURAI_WITH_MPI
                 if (!m_is_block)
                 {
@@ -283,7 +282,7 @@ namespace samurai
                     std::cout << "[" << mpi::communicator().rank() << "] Computing local to global rows for matrix '" << name() << "'\n";
                 }
 #endif
-                for (std::size_t cell_index = 0; cell_index < m_numbering->n_cells; ++cell_index)
+                for (std::size_t cell_index = 0; cell_index < m_numbering->n_local_cells; ++cell_index)
                 {
                     for (unsigned int c = 0; c < static_cast<std::size_t>(output_n_comp); ++c)
                     {
@@ -301,7 +300,7 @@ namespace samurai
 
             void compute_local_to_global_cols(std::vector<PetscInt>& local_to_global_cols)
             {
-                for (std::size_t cell_index = 0; cell_index < m_numbering->n_cells; ++cell_index)
+                for (std::size_t cell_index = 0; cell_index < m_numbering->n_local_cells; ++cell_index)
                 {
                     for (unsigned int c = 0; c < static_cast<std::size_t>(input_n_comp); ++c)
                     {
@@ -439,11 +438,11 @@ namespace samurai
             {
                 m_unknown = &unknown;
 
-                //                 m_numbering->n_cells = unknown.mesh().nb_cells(); // Why??
+                //                 m_numbering->n_local_cells = unknown.mesh().nb_cells(); // Why??
                 // #ifdef SAMURAI_WITH_MPI
                 //                 // create_local_to_global_mappings();  ????
                 // #else
-                //                 m_numbering->n_owned_cells = m_numbering->n_cells;
+                //                 m_numbering->n_owned_cells = m_numbering->n_local_cells;
                 // #endif
             }
 
@@ -480,12 +479,12 @@ namespace samurai
 
             PetscInt local_matrix_rows() const override
             {
-                return static_cast<PetscInt>(m_numbering->n_cells * output_n_comp);
+                return static_cast<PetscInt>(m_numbering->n_local_cells * output_n_comp);
             }
 
             PetscInt local_matrix_cols() const override
             {
-                return static_cast<PetscInt>(m_numbering->n_cells * input_n_comp);
+                return static_cast<PetscInt>(m_numbering->n_local_cells * input_n_comp);
             }
 
             inline PetscInt local_col_index(PetscInt cell_index, unsigned int field_j) const
@@ -612,7 +611,7 @@ namespace samurai
             {
                 double* v_data;
                 VecGetArray(v, &v_data);
-                for (std::size_t cell_index = 0; cell_index < m_numbering->n_cells; ++cell_index)
+                for (std::size_t cell_index = 0; cell_index < m_numbering->n_local_cells; ++cell_index)
                 {
                     if (is_locally_owned(cell_index))
                     {
@@ -630,7 +629,7 @@ namespace samurai
             {
                 const double* v_data;
                 VecGetArrayRead(v, &v_data);
-                for (std::size_t cell_index = 0; cell_index < m_numbering->n_cells; ++cell_index)
+                for (std::size_t cell_index = 0; cell_index < m_numbering->n_local_cells; ++cell_index)
                 {
                     if (is_locally_owned(cell_index))
                     {
@@ -662,7 +661,7 @@ namespace samurai
             {
                 double* v_data;
                 VecGetArray(v, &v_data);
-                for (std::size_t cell_index = 0; cell_index < m_numbering->n_cells; ++cell_index)
+                for (std::size_t cell_index = 0; cell_index < m_numbering->n_local_cells; ++cell_index)
                 {
                     if (is_locally_owned(cell_index))
                     {

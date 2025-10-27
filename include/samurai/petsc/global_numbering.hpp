@@ -10,7 +10,7 @@ namespace samurai
 
         struct Numbering
         {
-            std::size_t n_cells       = 0;
+            std::size_t n_local_cells = 0;
             std::size_t n_owned_cells = 0;
 #ifdef SAMURAI_WITH_MPI
             // Owner rank of each cell in the local mesh
@@ -28,9 +28,9 @@ namespace samurai
             template <class Mesh>
             void compute_ownership(const Mesh& mesh)
             {
-                n_cells = mesh.nb_cells();
+                n_local_cells = mesh.nb_cells();
 #ifndef SAMURAI_WITH_MPI
-                n_owned_cells = n_cells;
+                n_owned_cells = n_local_cells;
 #else
                 using mesh_id_t = typename Mesh::mesh_id_t;
 
@@ -45,7 +45,7 @@ namespace samurai
                 constexpr int UNSET = -1;
 
                 // Stores the owner rank of each cell
-                ownership.resize(n_cells);
+                ownership.resize(n_local_cells);
                 std::fill(ownership.begin(), ownership.end(), UNSET);
 
                 for (std::size_t level = min_level; level <= max_level; ++level)
@@ -152,9 +152,9 @@ namespace samurai
                 }
 
                 // Renumbering of the cells
-                cell_indices.resize(n_cells);
+                cell_indices.resize(n_local_cells);
                 PetscInt new_cell_index = 0;
-                for (std::size_t cell_index = 0; cell_index < n_cells; ++cell_index)
+                for (std::size_t cell_index = 0; cell_index < n_local_cells; ++cell_index)
                 {
                     if (ownership[cell_index] == rank)
                     {
@@ -162,7 +162,7 @@ namespace samurai
                     }
                 }
                 new_cell_index = 0;
-                for (std::size_t cell_index = 0; cell_index < n_cells; ++cell_index)
+                for (std::size_t cell_index = 0; cell_index < n_local_cells; ++cell_index)
                 {
                     if (ownership[cell_index] != rank)
                     {
@@ -240,7 +240,7 @@ namespace samurai
             std::fill(owned_local_index_begin, owned_local_index_end, UNSET);
             std::fill(owned_global_index_begin, owned_global_index_end, UNSET);
 
-            auto n_ghost_unknowns = (numbering.n_cells - numbering.n_owned_cells) * static_cast<std::size_t>(n_unknowns_per_cell);
+            auto n_ghost_unknowns = (numbering.n_local_cells - numbering.n_owned_cells) * static_cast<std::size_t>(n_unknowns_per_cell);
             assert(local_indices.size() - static_cast<std::size_t>(block_shift_ghosts) >= n_ghost_unknowns);
             auto ghost_local_index_begin  = local_indices.begin() + static_cast<std::ptrdiff_t>(block_shift_ghosts);
             auto ghost_local_index_end    = ghost_local_index_begin + static_cast<std::ptrdiff_t>(n_ghost_unknowns);
