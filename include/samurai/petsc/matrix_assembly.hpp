@@ -22,10 +22,24 @@ namespace samurai
 
           protected:
 
-            bool m_is_block             = false; // is a block in a monolithic block matrix
+            // ----- For blocks in a monolithic block matrix ----- //
+
+            bool m_is_block = false; // is this a block in a monolithic block matrix?
+
+            PetscInt m_row_shift = 0; // row origin of the block in the local matrix
+            PetscInt m_col_shift = 0; // column origin of the block in the local matrix
+
+            PetscInt m_rank_row_shift = 0; // first row owned by the current MPI process in the global matrix
+            PetscInt m_rank_col_shift = 0; // first column owned by the current MPI process in the global matrix
+
+            // The local indices are ordered this way: 1. all the owned variables of all blocks, 2. all the 'ghost' variables of all blocks.
+            // The previous parameters m_row/col_shift are used for owned variables, while the following ones are used for 'ghost'
+            // variables.
+            PetscInt m_ghosts_row_shift = 0;
+            PetscInt m_ghosts_col_shift = 0;
+
+            // The following parameters are used only for manual block assemblies in a block matrix
             bool m_fit_block_dimensions = false; // computes dimensions according to the block's position
-            PetscInt m_row_shift        = 0;
-            PetscInt m_col_shift        = 0;
             PetscInt m_rows             = 0;
             PetscInt m_cols             = 0;
 
@@ -127,31 +141,81 @@ namespace samurai
                 return m_col_shift;
             }
 
+            virtual void set_rank_row_shift(PetscInt shift)
+            {
+                m_rank_row_shift = shift;
+            }
+
+            virtual void set_rank_col_shift(PetscInt shift)
+            {
+                m_rank_col_shift = shift;
+            }
+
+            PetscInt rank_row_shift() const
+            {
+                return m_rank_row_shift;
+            }
+
+            PetscInt rank_col_shift() const
+            {
+                return m_rank_col_shift;
+            }
+
+            virtual void set_ghosts_row_shift(PetscInt shift)
+            {
+                m_ghosts_row_shift = shift;
+            }
+
+            virtual void set_ghosts_col_shift(PetscInt shift)
+            {
+                m_ghosts_col_shift = shift;
+            }
+
+            PetscInt ghosts_row_shift() const
+            {
+                return m_ghosts_row_shift;
+            }
+
+            PetscInt ghosts_col_shift() const
+            {
+                return m_ghosts_col_shift;
+            }
+
             /**
-             * @brief Returns the number of matrix rows.
+             * @brief Returns the number of matrix rows owned by the current process.
              */
-            virtual PetscInt matrix_rows() const
+            virtual PetscInt owned_matrix_rows() const
             {
                 return m_rows;
             }
 
             /**
-             * @brief Returns the number of matrix columns.
+             * @brief Returns the number of matrix columns owned by the current process.
              */
-            virtual PetscInt matrix_cols() const
+            virtual PetscInt owned_matrix_cols() const
             {
                 return m_cols;
             }
 
-            void set_matrix_rows(PetscInt rows)
+            void set_owned_matrix_rows(PetscInt rows)
             {
                 m_rows = rows;
             }
 
-            void set_matrix_cols(PetscInt cols)
+            void set_owned_matrix_cols(PetscInt cols)
             {
                 m_cols = cols;
             }
+
+            /**
+             * @brief Returns the number of matrix rows locally present in the current process.
+             */
+            virtual PetscInt local_matrix_rows() const = 0;
+
+            /**
+             * @brief Returns the number of matrix columns locally present in the current process.
+             */
+            virtual PetscInt local_matrix_cols() const = 0;
 
             InsertMode current_insert_mode() const
             {
@@ -177,8 +241,8 @@ namespace samurai
                 // Matrix creation //
                 //-----------------//
 
-                auto m = matrix_rows();
-                auto n = matrix_cols();
+                auto n_owned_rows = owned_matrix_rows();
+                auto n_owned_cols = owned_matrix_cols();
 
                 MatCreate(PETSC_COMM_WORLD, &A);
 #ifdef SAMURAI_WITH_MPI
@@ -187,9 +251,9 @@ namespace samurai
                 MatSetType(A, MATSEQAIJ);
 #endif
 
-                PetscInt global_nrows = PETSC_DETERMINE;
-                PetscInt global_ncols = PETSC_DETERMINE;
-                MatSetSizes(A, m, n, global_nrows, global_ncols);
+                PetscInt n_global_rows = PETSC_DETERMINE;
+                PetscInt n_global_cols = PETSC_DETERMINE;
+                MatSetSizes(A, n_owned_rows, n_owned_cols, n_global_rows, n_global_cols);
                 MatSetFromOptions(A);
                 PetscObjectSetName(reinterpret_cast<PetscObject>(A), m_name.c_str());
 
@@ -206,8 +270,8 @@ namespace samurai
                 // Number of non-zeros per row in the diagonal and off-diagonal part of the local submatrix. 0 by default.
                 auto& d_nnz = m_d_nnz;
                 auto& o_nnz = m_o_nnz;
-                d_nnz.resize(static_cast<std::size_t>(m));
-                o_nnz.resize(static_cast<std::size_t>(m));
+                d_nnz.resize(static_cast<std::size_t>(n_owned_rows));
+                o_nnz.resize(static_cast<std::size_t>(n_owned_rows));
                 std::fill(d_nnz.begin(), d_nnz.end(), 0);
                 std::fill(o_nnz.begin(), o_nnz.end(), 0);
 
@@ -246,7 +310,7 @@ namespace samurai
 
                     // std::cout << "\n\t> [" << world.rank() << "] Preallocation of" << std::endl;
                     // int sum_nnz = 0;
-                    // for (std::size_t row = 0; row < static_cast<std::size_t>(m); ++row)
+                    // for (std::size_t row = 0; row < static_cast<std::size_t>(n_owned_rows); ++row)
                     // {
                     //     std::cout << "[G"
                     //                  "] d_nnz[L"
@@ -265,7 +329,7 @@ namespace samurai
                 }
 #else
                 // Number of non-zeros per row. 0 by default.
-                std::vector<PetscInt> nnz(static_cast<std::size_t>(m), 0);
+                std::vector<PetscInt> nnz(static_cast<std::size_t>(n_local_rows), 0);
 
                 sparsity_pattern_scheme(nnz);
                 if (m_include_bc)
@@ -385,6 +449,24 @@ namespace samurai
                 m_is_deleted = true;
             }
 
+          protected:
+
+            Vec create_petsc_vector(PetscInt local_size) const
+            {
+                Vec v;
+                VecCreate(PETSC_COMM_WORLD, &v);
+#ifdef SAMURAI_WITH_MPI
+                VecSetType(v, VECMPI);
+#else
+                VecSetType(v, VECSEQ);
+#endif
+                VecSetFromOptions(v);
+                VecSetSizes(v, local_size, PETSC_DETERMINE);
+                return v;
+            }
+
+          public:
+
 #ifdef SAMURAI_WITH_MPI
             /**
              * @brief Sets the local to global mapping for the rows and columns, which allows to use the local numbering when inserting
@@ -467,7 +549,8 @@ namespace samurai
 
             virtual void sparsity_pattern_useless_ghosts(std::vector<PetscInt>& nnz)
             {
-                for (std::size_t row = static_cast<std::size_t>(m_row_shift); row < static_cast<std::size_t>(m_row_shift + matrix_rows());
+                for (std::size_t row = static_cast<std::size_t>(m_row_shift);
+                     row < static_cast<std::size_t>(m_row_shift + owned_matrix_rows());
                      ++row)
                 {
                     if (nnz[row] == 0)

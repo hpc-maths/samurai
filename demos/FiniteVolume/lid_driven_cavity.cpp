@@ -132,10 +132,6 @@ int main(int argc, char* argv[])
         fs::create_directory(path);
     }
 
-    PetscMPIInt size;
-    PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size));
-    PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
-
     auto box = samurai::Box<double, dim>({0, 0}, {1, 1});
 
     std::cout << "lid-driven cavity" << std::endl;

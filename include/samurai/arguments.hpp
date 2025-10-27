@@ -19,9 +19,10 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
         static bool dont_redirect_output = false;
 #endif
-        static int finer_level_flux   = 0;
-        static bool refine_boundary   = false;
-        static bool save_debug_fields = false;
+        static int finer_level_flux       = 0;
+        static bool refine_boundary       = false;
+        static bool save_debug_fields     = false;
+        static bool print_petsc_numbering = false;
 
         // MRA arguments
         static double epsilon    = std::numeric_limits<double>::infinity();
@@ -50,6 +51,9 @@ namespace samurai
             ->capture_default_str()
             ->group("SAMURAI");
         app.add_flag("--refine-boundary", args::refine_boundary, "Keep the boundary refined at max_level")->capture_default_str()->group("SAMURAI");
+        app.add_flag("--print-petsc-numbering", args::print_petsc_numbering, "Print the local and global numbering used for PETSc")
+            ->capture_default_str()
+            ->group("SAMURAI");
         app.add_flag("--save-debug-fields", args::save_debug_fields, "Add debug fields during save process (coordinates, indices, levels, ...)")
             ->capture_default_str()
             ->group("SAMURAI");

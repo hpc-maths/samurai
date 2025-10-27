@@ -21,12 +21,12 @@ struct Coupling_auxCe_e : public samurai::petsc::ManualAssembly<aux_t> // <...>:
         this->set_name("Coupling_auxCe_e");
     }
 
-    PetscInt matrix_rows() const override
+    PetscInt owned_matrix_rows() const override
     {
         return static_cast<PetscInt>(mesh_e.nb_cells());
     }
 
-    PetscInt matrix_cols() const override
+    PetscInt owned_matrix_cols() const override
     {
         return static_cast<PetscInt>(this->unknown().size());
     }
@@ -70,12 +70,12 @@ struct Coupling_e_auxCe : public samurai::petsc::ManualAssembly<field_t>
         this->set_name("Coupling_e_auxCe");
     }
 
-    PetscInt matrix_rows() const override
+    PetscInt owned_matrix_rows() const override
     {
         return static_cast<PetscInt>(aux_Ce.size());
     }
 
-    PetscInt matrix_cols() const override
+    PetscInt owned_matrix_cols() const override
     {
         return static_cast<PetscInt>(this->unknown().mesh().nb_cells());
     }
@@ -98,12 +98,12 @@ struct Coupling_auxCe_auxCe : public samurai::petsc::ManualAssembly<aux_t>
         this->set_name("Coupling_auxCe_auxCe");
     }
 
-    PetscInt matrix_rows() const override
+    PetscInt owned_matrix_rows() const override
     {
         return static_cast<PetscInt>(this->unknown().size());
     }
 
-    PetscInt matrix_cols() const override
+    PetscInt owned_matrix_cols() const override
     {
         return static_cast<PetscInt>(this->unknown().size());
     }
@@ -130,12 +130,12 @@ struct Coupling_s_auxCe : public samurai::petsc::ManualAssembly<field_t>
         this->set_name("Coupling_s_auxCe");
     }
 
-    PetscInt matrix_rows() const override
+    PetscInt owned_matrix_rows() const override
     {
         return static_cast<PetscInt>(aux_Ce->size());
     }
 
-    PetscInt matrix_cols() const override
+    PetscInt owned_matrix_cols() const override
     {
         return static_cast<PetscInt>(this->unknown().mesh().nb_cells());
     }
@@ -162,12 +162,12 @@ struct Coupling_auxCe_s : public samurai::petsc::ManualAssembly<aux_t>
         this->set_name("Coupling_auxCe_s");
     }
 
-    PetscInt matrix_rows() const override
+    PetscInt owned_matrix_rows() const override
     {
         return static_cast<PetscInt>(mesh_s.nb_cells());
     }
 
-    PetscInt matrix_cols() const override
+    PetscInt owned_matrix_cols() const override
     {
         return static_cast<PetscInt>(this->unknown().size());
     }

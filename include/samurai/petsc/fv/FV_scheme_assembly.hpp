@@ -13,6 +13,9 @@ namespace samurai
 {
     namespace petsc
     {
+        template <bool is_monolithic, std::size_t rows_, std::size_t cols_, class... Operators>
+        class BlockAssembly;
+
         /**
          * Finite Volume scheme.
          * This is the base class of CellBasedSchemeAssembly and FluxBasedSchemeAssembly.
@@ -31,6 +34,9 @@ namespace samurai
 
             using MatrixAssembly::m_col_shift;
             using MatrixAssembly::m_row_shift;
+
+            using MatrixAssembly::m_ghosts_col_shift;
+            using MatrixAssembly::m_ghosts_row_shift;
 
           public:
 
@@ -71,16 +77,15 @@ namespace samurai
             Scheme m_scheme;
             field_t* m_unknown = nullptr;
 
-            std::size_t m_n_cells       = 0;
-            std::size_t m_n_owned_cells = 0;
-            std::vector<bool> m_is_row_empty;
-#ifdef SAMURAI_WITH_MPI
-            std::vector<PetscInt> m_local_cell_indices;
-            std::vector<PetscInt> m_global_cell_indices;
-            std::vector<int> m_ownership; // store the owner rank of each cell
+            Numbering* m_numbering = nullptr;
+            bool m_owns_numbering  = false;
 
+            std::vector<bool> m_is_row_empty;
+
+#ifdef SAMURAI_WITH_MPI
             ISLocalToGlobalMapping m_local_to_global_rows = nullptr;
             ISLocalToGlobalMapping m_local_to_global_cols = nullptr;
+            bool m_owns_local_to_global_mappings          = false;
 #endif
 
             // Ghost recursion
@@ -97,6 +102,36 @@ namespace samurai
                 this->set_name(scheme.name());
             }
 
+            ~FVSchemeAssembly() override
+            {
+                if (m_owns_numbering)
+                {
+                    delete m_numbering;
+                }
+                // destroy_local_to_global_mappings();
+            }
+
+            // void destroy_local_to_global_mappings()
+            // {
+            //     if (m_owns_local_to_global_mappings)
+            //     {
+            //         if (m_local_to_global_rows)
+            //         {
+            //             std::cout << "[" << mpi::communicator().rank() << "] Destroying local to global mapping for rows of matrix '"
+            //                       << name() << "' " << m_local_to_global_rows << "\n";
+            //             ISLocalToGlobalMappingDestroy(&m_local_to_global_rows);
+            //         }
+            //         if (m_local_to_global_cols != m_local_to_global_rows && m_local_to_global_cols)
+            //         {
+            //             std::cout << "[" << mpi::communicator().rank() << "] Destroying local to global mapping for cols of matrix '"
+            //                       << name() << "' " << m_local_to_global_cols << "\n";
+            //             ISLocalToGlobalMappingDestroy(&m_local_to_global_cols);
+            //         }
+            //         m_local_to_global_rows = nullptr;
+            //         m_local_to_global_cols = nullptr;
+            //     }
+            // }
+
             auto& scheme()
             {
                 return m_scheme;
@@ -107,6 +142,11 @@ namespace samurai
                 return m_scheme;
             }
 
+            const auto& numbering() const
+            {
+                return m_numbering;
+            }
+
             void reset() override
             {
                 if (!m_unknown)
@@ -115,13 +155,19 @@ namespace samurai
                     assert(false);
                     exit(EXIT_FAILURE);
                 }
-                m_n_cells = mesh().nb_cells();
+
+                compute_numbering();
+                // m_numbering->n_cells = mesh().nb_cells();
 #ifdef SAMURAI_WITH_MPI
-                create_local_to_global_mappings();
-#else
-                m_n_owned_cells = m_n_cells;
+                if (!m_is_block)
+                {
+                    m_ghosts_row_shift = owned_matrix_rows();
+                    m_ghosts_col_shift = owned_matrix_cols();
+                    // destroy_local_to_global_mappings();
+                    create_local_to_global_mappings();
+                }
 #endif
-                m_is_row_empty.resize(static_cast<std::size_t>(matrix_rows()));
+                m_is_row_empty.resize(static_cast<std::size_t>(owned_matrix_rows()));
                 std::fill(m_is_row_empty.begin(), m_is_row_empty.end(), true);
 
                 if constexpr (ghost_elimination_enabled)
@@ -131,23 +177,19 @@ namespace samurai
             }
 
             /**
-             * This function is called in case of sum_assembly or block_assembly.
+             * This function is called in case of sum_assembly.
              */
             template <class OtherScheme>
             void reset(const FVSchemeAssembly<OtherScheme>& other)
             {
-                m_n_cells       = other.m_n_cells;
-                m_n_owned_cells = other.m_n_owned_cells;
+                m_numbering = other.m_numbering;
 #ifdef SAMURAI_WITH_MPI
-                m_local_cell_indices  = other.m_local_cell_indices;
-                m_global_cell_indices = other.m_global_cell_indices;
-                m_ownership           = other.m_ownership;
-
                 m_local_to_global_rows = other.m_local_to_global_rows;
                 m_local_to_global_cols = other.m_local_to_global_cols;
+                m_ghosts_row_shift     = owned_matrix_rows();
+                m_ghosts_col_shift     = owned_matrix_cols();
 #endif
-
-                m_is_row_empty.resize(static_cast<std::size_t>(matrix_rows()));
+                m_is_row_empty.resize(static_cast<std::size_t>(owned_matrix_rows()));
                 std::fill(m_is_row_empty.begin(), m_is_row_empty.end(), true);
 
                 if constexpr (ghost_elimination_enabled)
@@ -156,101 +198,180 @@ namespace samurai
                 }
             }
 
+            /**
+             * This function is called in case of block_assembly.
+             */
+            template <std::size_t rows_, std::size_t cols_, class... Operators>
+            void reset(BlockAssembly<true, rows_, cols_, Operators...>& block_assembly)
+            {
+                m_numbering = &block_assembly.numbering();
+#ifdef SAMURAI_WITH_MPI
+                // m_local_to_global_rows = block_assembly.local_to_global_rows();
+                // m_local_to_global_cols = block_assembly.local_to_global_cols();
+#endif
+                m_is_row_empty.resize(static_cast<std::size_t>(owned_matrix_rows()));
+                std::fill(m_is_row_empty.begin(), m_is_row_empty.end(), true);
+
+                if constexpr (ghost_elimination_enabled)
+                {
+                    m_ghost_recursion = block_assembly.first_block().m_ghost_recursion;
+                }
+            }
+
 #ifdef SAMURAI_WITH_MPI
             void set_local_to_global_mappings(Mat& A) const override
             {
                 // Sets the local to global mapping for the rows and columns, which allows to use the local numbering when inserting
                 // values into the matrix.
-
-                // if (m_local_to_global_rows == nullptr || m_local_to_global_cols == nullptr)
-                // {
-                //     std::cerr << "Local to global mappings not set for matrix '" << name() << "'!" << std::endl;
-                //     assert(false && "Local to global mappings not set");
-                //     exit(EXIT_FAILURE);
-                // }
-
-                // ISLocalToGlobalMapping local_to_global_rows = nullptr;
-                // ISLocalToGlobalMapping local_to_global_cols = nullptr;
-
-                // if constexpr (input_n_comp == 1 && output_n_comp == 1)
-                // {
-                //     std::vector<PetscInt> local_to_global(m_local_cell_indices.size());
-                //     for (std::size_t i = 0; i < m_local_cell_indices.size(); ++i)
-                //     {
-                //         local_to_global[static_cast<std::size_t>(m_local_cell_indices[i])] = m_global_cell_indices[i];
-                //     }
-                //     ISLocalToGlobalMappingCreate(PETSC_COMM_WORLD,
-                //                                  1,
-                //                                  static_cast<PetscInt>(local_to_global.size()),
-                //                                  local_to_global.data(),
-                //                                  /*PETSC_USE_POINTER,*/ PETSC_COPY_VALUES,
-                //                                  &m_local_to_global_rows);
-
-                //     std::cout << "[" << mpi::communicator().rank() << "] Created local to global mapping for rows of matrix '" << name()
-                //               << "'\n";
-                //     // ISLocalToGlobalMappingView(m_local_to_global_rows, PETSC_VIEWER_STDOUT_WORLD);
-
-                //     m_local_to_global_cols = m_local_to_global_rows;
-                // }
-                // else
-                // {
-                //     std::cerr << "Unimplemented: local to global mapping with multiple components for matrix '" << name() << "'\n";
-                //     exit(EXIT_FAILURE);
-                // }
-
                 if (m_local_to_global_rows == nullptr || m_local_to_global_cols == nullptr)
                 {
                     std::cerr << "Local to global mappings not set for matrix '" << name() << "'!" << std::endl;
                     assert(false && "Local to global mappings not set");
                     exit(EXIT_FAILURE);
                 }
-
                 MatSetLocalToGlobalMapping(A, m_local_to_global_rows, m_local_to_global_cols);
+                // Note that in this last instruction, PETSc takes the ownership of mapping objects, so we must not
+                // destroy them ourselves.
             }
+#endif
+
+          private:
+
+            void compute_numbering()
+            {
+                if (m_numbering == nullptr)
+                {
+                    m_numbering      = new Numbering();
+                    m_owns_numbering = true;
+                }
+                // std::cout << "[" << mpi::communicator().rank() << "] Computing global numbering for matrix '" << name() << "'\n";
+                m_owns_numbering = true;
+
+                m_numbering->n_cells = mesh().nb_cells();
+#ifdef SAMURAI_WITH_MPI
+                compute_ownership(mesh(), *m_numbering);
+
+                assert(input_n_comp == output_n_comp && "unimplemented");
+
+                PetscInt rank_row_shift = compute_rank_shift(owned_matrix_rows());
+
+                m_numbering->local_indices.resize(static_cast<std::size_t>(local_matrix_rows()));
+                m_numbering->global_indices.resize(static_cast<std::size_t>(local_matrix_rows()));
+                compute_global_numbering<output_n_comp>(mesh(),
+                                                        *m_numbering,
+                                                        rank_row_shift,
+                                                        0 /*block_row_shift*/,
+                                                        owned_matrix_rows() /*block_ghosts_shift*/);
+#else
+                m_numbering->n_owned_cells = m_numbering->n_cells;
+#endif
+            }
+
+          public:
+
+            void compute_block_numbering(Numbering& numbering)
+            {
+                assert(input_n_comp == output_n_comp && "unimplemented");
+
+                // if (mpi::communicator().rank() == 1)
+                // {
+                //     sleep(1); // to have ordered output
+                // }
+
+                // std::cout << "[" << mpi::communicator().rank() << "] Computing global numbering for block '" << name() << "'\n";
+                compute_global_numbering<output_n_comp>(mesh(), numbering, m_rank_row_shift, m_row_shift, m_ghosts_row_shift);
+            }
+
+            void compute_local_to_global_rows(std::vector<PetscInt>& local_to_global_rows)
+            {
+                // static_assert(!detail::is_soa_v<output_field_t> || output_n_comp == 1, "Unimplemented: SOA field with multiple
+                // components");
+                // if (mpi::communicator().rank() == 0)
+                // {
+                //     sleep(8); // to have ordered output
+                // }
+                if (args::print_petsc_numbering)
+                {
+                    mpi::communicator().barrier();
+                    sleep(static_cast<unsigned int>(mpi::communicator().rank()));
+                    std::cout << "[" << mpi::communicator().rank() << "] Computing local to global rows for matrix '" << name() << "'\n";
+                }
+
+                for (std::size_t cell_index = 0; cell_index < m_numbering->n_cells; ++cell_index)
+                {
+                    for (unsigned int c = 0; c < static_cast<std::size_t>(output_n_comp); ++c)
+                    {
+                        auto local_index  = local_row_index(static_cast<PetscInt>(cell_index), c);
+                        auto global_index = global_row_index(static_cast<PetscInt>(cell_index), c);
+
+                        local_to_global_rows.at(static_cast<std::size_t>(local_index)) = global_index;
+
+                        // std::cout << "[" << mpi::communicator().rank() << "] (owned by "
+                        //           << m_numbering->ownership[static_cast<std::size_t>(cell_index)] << ") L" << local_index << " G"
+                        //           << global_index << "\n";
+                    }
+                }
+            }
+
+            void compute_local_to_global_cols(std::vector<PetscInt>& local_to_global_cols)
+            {
+                // static_assert(!detail::is_soa_v<input_field_t> || input_n_comp == 1, "Unimplemented: SOA field with multiple
+                // components");
+
+                for (std::size_t cell_index = 0; cell_index < m_numbering->n_cells; ++cell_index)
+                {
+                    for (unsigned int c = 0; c < static_cast<std::size_t>(input_n_comp); ++c)
+                    {
+                        auto local_index  = local_col_index(static_cast<PetscInt>(cell_index), c);
+                        auto global_index = global_col_index(static_cast<PetscInt>(cell_index), c);
+
+                        local_to_global_cols.at(static_cast<std::size_t>(local_index)) = global_index;
+                    }
+                }
+            }
+
+          private:
 
             void create_local_to_global_mappings()
             {
-                // std::cout << "[" << mpi::communicator().rank() << "] Computing global numbering for matrix '" << name() << "'\n";
-                compute_global_numbering(mesh(), m_local_cell_indices, m_global_cell_indices, m_ownership, m_n_owned_cells);
+                // std::vector<PetscInt> local_to_global(m_numbering->local_cell_indices.size());
+                // for (std::size_t i = 0; i < m_numbering->local_cell_indices.size(); ++i)
+                // {
+                //     local_to_global[static_cast<std::size_t>(m_numbering->local_cell_indices[i])] = m_numbering->global_cell_indices[i];
+                // }
+                // create_local_to_global_mappings(local_to_global, local_to_global);
 
-                if (m_local_to_global_rows)
-                {
-                    std::cout << "[" << mpi::communicator().rank() << "] Destroying local to global mapping for rows of matrix '" << name()
-                              << "'\n";
-                    ISLocalToGlobalMappingDestroy(&m_local_to_global_rows);
-                }
-                if (m_local_to_global_cols != m_local_to_global_rows)
-                {
-                    std::cout << "[" << mpi::communicator().rank() << "] Destroying local to global mapping for cols of matrix '" << name()
-                              << "'\n";
-                    ISLocalToGlobalMappingDestroy(&m_local_to_global_cols);
-                }
+                std::vector<PetscInt> local_to_global_rows(static_cast<std::size_t>(local_matrix_rows()));
+                compute_local_to_global_rows(local_to_global_rows);
 
-                static_assert(!detail::is_soa_v<input_field_t> || input_n_comp == 1, "Unimplemented: SOA field with multiple components");
-                static_assert(!detail::is_soa_v<output_field_t> || output_n_comp == 1, "Unimplemented: SOA field with multiple components");
-                static_assert(input_n_comp == output_n_comp, "Unimplemented: different number of input and output components");
-
-                std::vector<PetscInt> local_to_global(m_local_cell_indices.size());
-                for (std::size_t i = 0; i < m_local_cell_indices.size(); ++i)
-                {
-                    local_to_global[static_cast<std::size_t>(m_local_cell_indices[i])] = m_global_cell_indices[i];
-                }
-                PetscInt block_size = output_n_comp;
                 ISLocalToGlobalMappingCreate(PETSC_COMM_WORLD,
-                                             block_size,
-                                             static_cast<PetscInt>(local_to_global.size()),
-                                             local_to_global.data(),
+                                             1, // block_size
+                                             static_cast<PetscInt>(local_to_global_rows.size()),
+                                             local_to_global_rows.data(),
                                              /*PETSC_USE_POINTER,*/ PETSC_COPY_VALUES,
                                              &m_local_to_global_rows);
 
-                // std::cout << "[" << mpi::communicator().rank() << "] Created local to global mapping for rows of matrix '" <<
-                // name()
-                //           << "'\n";
                 // ISLocalToGlobalMappingView(m_local_to_global_rows, PETSC_VIEWER_STDOUT_WORLD);
 
-                m_local_to_global_cols = m_local_to_global_rows;
+                if constexpr (input_n_comp == output_n_comp)
+                {
+                    m_local_to_global_cols = m_local_to_global_rows;
+                }
+                else
+                {
+                    std::vector<PetscInt> local_to_global_cols(static_cast<std::size_t>(local_matrix_cols()));
+                    compute_local_to_global_cols(local_to_global_cols);
+
+                    ISLocalToGlobalMappingCreate(PETSC_COMM_WORLD,
+                                                 1, // block_size
+                                                 static_cast<PetscInt>(local_to_global_cols.size()),
+                                                 local_to_global_cols.data(),
+                                                 /*PETSC_USE_POINTER,*/ PETSC_COPY_VALUES,
+                                                 &m_local_to_global_cols);
+                }
+
+                m_owns_local_to_global_mappings = true;
             }
-#endif
 
             auto ghost_recursion()
             {
@@ -313,10 +434,12 @@ namespace samurai
                 return recursion;
             }
 
+          protected:
+
             inline bool is_locally_owned([[maybe_unused]] std::size_t cell_index) const
             {
 #ifdef SAMURAI_WITH_MPI
-                return m_ownership[cell_index] == mpi::communicator().rank();
+                return m_numbering->ownership[cell_index] == mpi::communicator().rank();
 #else
                 return true;
 #endif
@@ -327,16 +450,18 @@ namespace samurai
                 return is_locally_owned(static_cast<std::size_t>(cell.index));
             }
 
+          public:
+
             void set_unknown(field_t& unknown)
             {
                 m_unknown = &unknown;
 
-                m_n_cells = unknown.mesh().nb_cells(); // Why??
-#ifdef SAMURAI_WITH_MPI
-                // create_local_to_global_mappings();  ????
-#else
-                m_n_owned_cells = m_n_cells;
-#endif
+                //                 m_numbering->n_cells = unknown.mesh().nb_cells(); // Why??
+                // #ifdef SAMURAI_WITH_MPI
+                //                 // create_local_to_global_mappings();  ????
+                // #else
+                //                 m_numbering->n_owned_cells = m_numbering->n_cells;
+                // #endif
             }
 
             auto& unknown() const
@@ -360,90 +485,68 @@ namespace samurai
                 return unknown().mesh();
             }
 
-            PetscInt matrix_rows() const override
+            PetscInt owned_matrix_rows() const override
             {
-                return static_cast<PetscInt>(m_n_owned_cells * output_n_comp);
+                return static_cast<PetscInt>(m_numbering->n_owned_cells * output_n_comp);
             }
 
-            PetscInt matrix_cols() const override
+            PetscInt owned_matrix_cols() const override
             {
-                return static_cast<PetscInt>(m_n_owned_cells * input_n_comp);
+                return static_cast<PetscInt>(m_numbering->n_owned_cells * input_n_comp);
             }
 
-            inline PetscInt local_col_index(PetscInt cell_index, [[maybe_unused]] unsigned int field_j) const
+            PetscInt local_matrix_rows() const override
+            {
+                return static_cast<PetscInt>(m_numbering->n_cells * output_n_comp);
+            }
+
+            PetscInt local_matrix_cols() const override
+            {
+                return static_cast<PetscInt>(m_numbering->n_cells * input_n_comp);
+            }
+
+            inline PetscInt local_col_index(PetscInt cell_index, unsigned int field_j) const
             {
 #ifdef SAMURAI_WITH_MPI
-                cell_index = m_local_cell_indices[static_cast<std::size_t>(cell_index)];
+                auto shift = is_locally_owned(static_cast<std::size_t>(cell_index)) ? m_col_shift : m_ghosts_col_shift;
+                auto index = m_numbering->unknown_index<input_n_comp>(shift, static_cast<std::size_t>(cell_index), static_cast<int>(field_j));
+                return m_numbering->local_indices[index];
+#else
+                return m_numbering->unknown_index<input_n_comp>(m_col_shift, static_cast<std::size_t>(cell_index), static_cast<int>(field_j));
 #endif
-                if constexpr (field_t::is_scalar)
-                {
-                    return m_col_shift + cell_index;
-                }
-                else if constexpr (detail::is_soa_v<field_t>)
-                {
-                    return m_col_shift + static_cast<PetscInt>(field_j * m_n_owned_cells) + cell_index;
-                }
-                else
-                {
-                    return m_col_shift + cell_index * static_cast<PetscInt>(input_n_comp) + static_cast<PetscInt>(field_j);
-                }
             }
 
-            inline PetscInt global_col_index(PetscInt cell_index, [[maybe_unused]] unsigned int field_j) const
+            inline PetscInt global_col_index(PetscInt cell_index, unsigned int field_j) const
             {
 #ifdef SAMURAI_WITH_MPI
-                cell_index = m_global_cell_indices[static_cast<std::size_t>(cell_index)];
+                auto shift = is_locally_owned(static_cast<std::size_t>(cell_index)) ? m_col_shift : m_ghosts_col_shift;
+                auto index = m_numbering->unknown_index<input_n_comp>(shift, static_cast<std::size_t>(cell_index), static_cast<int>(field_j));
+                return m_numbering->global_indices[index];
+#else
+                return local_col_index(cell_index, field_j);
 #endif
-                if constexpr (field_t::is_scalar)
-                {
-                    return m_col_shift + cell_index;
-                }
-                else if constexpr (detail::is_soa_v<field_t>)
-                {
-                    return m_col_shift + static_cast<PetscInt>(field_j * m_n_owned_cells) + cell_index;
-                }
-                else
-                {
-                    return m_col_shift + cell_index * static_cast<PetscInt>(input_n_comp) + static_cast<PetscInt>(field_j);
-                }
             }
 
-            inline PetscInt local_row_index(PetscInt cell_index, [[maybe_unused]] unsigned int field_i) const
+            inline PetscInt local_row_index(PetscInt cell_index, unsigned int field_i) const
             {
 #ifdef SAMURAI_WITH_MPI
-                cell_index = m_local_cell_indices[static_cast<std::size_t>(cell_index)];
+                auto shift = is_locally_owned(static_cast<std::size_t>(cell_index)) ? m_row_shift : m_ghosts_row_shift;
+                auto index = m_numbering->unknown_index<output_n_comp>(shift, static_cast<std::size_t>(cell_index), static_cast<int>(field_i));
+                return m_numbering->local_indices[index];
+#else
+                return m_numbering->unknown_index<output_n_comp>(m_row_shift, static_cast<std::size_t>(cell_index), static_cast<int>(field_i));
 #endif
-                if constexpr (output_n_comp == 1)
-                {
-                    return m_row_shift + cell_index;
-                }
-                else if constexpr (detail::is_soa_v<field_t>)
-                {
-                    return m_row_shift + static_cast<PetscInt>(field_i * m_n_owned_cells) + cell_index;
-                }
-                else
-                {
-                    return m_row_shift + cell_index * static_cast<PetscInt>(output_n_comp) + static_cast<PetscInt>(field_i);
-                }
             }
 
-            inline PetscInt global_row_index(PetscInt cell_index, [[maybe_unused]] unsigned int field_i) const
+            inline PetscInt global_row_index(PetscInt cell_index, unsigned int field_i) const
             {
 #ifdef SAMURAI_WITH_MPI
-                cell_index = m_global_cell_indices[static_cast<std::size_t>(cell_index)];
+                auto shift = is_locally_owned(static_cast<std::size_t>(cell_index)) ? m_row_shift : m_ghosts_row_shift;
+                auto index = m_numbering->unknown_index<output_n_comp>(shift, static_cast<std::size_t>(cell_index), static_cast<int>(field_i));
+                return m_numbering->global_indices[index];
+#else
+                return m_numbering->unknown_index<output_n_comp>(m_row_shift, static_cast<std::size_t>(cell_index), static_cast<int>(field_i));
 #endif
-                if constexpr (output_n_comp == 1)
-                {
-                    return m_row_shift + cell_index;
-                }
-                else if constexpr (detail::is_soa_v<field_t>)
-                {
-                    return m_row_shift + static_cast<PetscInt>(field_i * m_n_owned_cells) + cell_index;
-                }
-                else
-                {
-                    return m_row_shift + cell_index * static_cast<PetscInt>(output_n_comp) + static_cast<PetscInt>(field_i);
-                }
             }
 
             inline PetscInt global_col_index(std::size_t cell_index, unsigned int field_j) const
@@ -503,29 +606,13 @@ namespace samurai
             //                           Vectors                           //
             //-------------------------------------------------------------//
 
-          private:
-
-            Vec create_petsc_vector(PetscInt local_size) const
-            {
-                Vec v;
-                VecCreate(PETSC_COMM_WORLD, &v);
-#ifdef SAMURAI_WITH_MPI
-                VecSetType(v, VECMPI);
-#else
-                VecSetType(v, VECSEQ);
-#endif
-                VecSetFromOptions(v);
-                VecSetSizes(v, local_size, PETSC_DETERMINE);
-                return v;
-            }
-
           public:
 
             Vec create_solution_vector(const input_field_t& field) const
             {
 #ifdef SAMURAI_WITH_MPI
-                Vec v = create_petsc_vector(matrix_cols());
-                VecSetLocalToGlobalMapping(v, m_local_to_global_cols);
+                Vec v = create_petsc_vector(owned_matrix_cols());
+                // VecSetLocalToGlobalMapping(v, m_local_to_global_cols);
                 copy_unknown(field, v);
 #else
                 Vec v = create_petsc_vector_from(field);
@@ -538,7 +625,7 @@ namespace samurai
             {
                 double* v_data;
                 VecGetArray(v, &v_data);
-                for (std::size_t cell_index = 0; cell_index < m_n_cells; ++cell_index)
+                for (std::size_t cell_index = 0; cell_index < m_numbering->n_cells; ++cell_index)
                 {
                     if (is_locally_owned(cell_index))
                     {
@@ -556,7 +643,7 @@ namespace samurai
             {
                 const double* v_data;
                 VecGetArrayRead(v, &v_data);
-                for (std::size_t cell_index = 0; cell_index < m_n_cells; ++cell_index)
+                for (std::size_t cell_index = 0; cell_index < m_numbering->n_cells; ++cell_index)
                 {
                     if (is_locally_owned(cell_index))
                     {
@@ -574,8 +661,8 @@ namespace samurai
             Vec create_rhs_vector(const output_field_t& field) const
             {
 #ifdef SAMURAI_WITH_MPI
-                Vec v = create_petsc_vector(matrix_rows());
-                VecSetLocalToGlobalMapping(v, m_local_to_global_rows);
+                Vec v = create_petsc_vector(owned_matrix_rows());
+                // VecSetLocalToGlobalMapping(v, m_local_to_global_rows);
                 copy_rhs(field, v);
 #else
                 Vec v = create_petsc_vector_from(field);
@@ -588,7 +675,7 @@ namespace samurai
             {
                 double* v_data;
                 VecGetArray(v, &v_data);
-                for (std::size_t cell_index = 0; cell_index < m_n_cells; ++cell_index)
+                for (std::size_t cell_index = 0; cell_index < m_numbering->n_cells; ++cell_index)
                 {
                     if (is_locally_owned(cell_index))
                     {
@@ -935,10 +1022,11 @@ namespace samurai
                 {
                     PetscInt b_rows;
                     VecGetLocalSize(b, &b_rows);
-                    if (b_rows != this->matrix_cols())
+                    if (b_rows != this->owned_matrix_cols())
                     {
                         std::cerr << "Operator '" << this->name() << "': the number of rows in vector (" << b_rows
-                                  << ") does not equal the number of columns of the matrix (" << this->matrix_cols() << ")" << std::endl;
+                                  << ") does not equal the number of columns of the matrix (" << this->owned_matrix_cols() << ")"
+                                  << std::endl;
                         assert(false);
                         return;
                     }
@@ -1229,7 +1317,7 @@ namespace samurai
                                     if (error)
                                     {
                                         std::cerr << scheme().name() << ": failure to insert projection coefficient at (" << ghost_index
-                                                  << ", " << m_col_shift + local_col_index(children[i], field_i) << ")." << std::endl;
+                                                  << ", " << local_col_index(children[i], field_i) << ")." << std::endl;
                                         assert(false);
                                         exit(EXIT_FAILURE);
                                     }
