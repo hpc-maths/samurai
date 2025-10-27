@@ -129,10 +129,6 @@ int main(int argc, char* argv[])
     constexpr bool is_soa         = true;
     using Field                   = samurai::VectorField<Mesh, double, n_comp, is_soa>;
 
-    PetscMPIInt size;
-    PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size));
-    PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
-
     //----------------//
     //   Parameters   //
     //----------------//
