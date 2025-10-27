@@ -242,12 +242,8 @@ namespace samurai
                     m_owns_numbering = true;
                 }
                 // std::cout << "[" << mpi::communicator().rank() << "] Computing global numbering for matrix '" << name() << "'\n";
-                m_owns_numbering = true;
-
-                m_numbering->n_cells = mesh().nb_cells();
+                m_numbering->compute_ownership(mesh());
 #ifdef SAMURAI_WITH_MPI
-                compute_ownership(mesh(), *m_numbering);
-
                 assert(input_n_comp == output_n_comp && "unimplemented");
 
                 PetscInt rank_row_shift = compute_rank_shift(owned_matrix_rows());
@@ -259,8 +255,6 @@ namespace samurai
                                                         rank_row_shift,
                                                         0 /*block_row_shift*/,
                                                         owned_matrix_rows() /*block_ghosts_shift*/);
-#else
-                m_numbering->n_owned_cells = m_numbering->n_cells;
 #endif
             }
 
