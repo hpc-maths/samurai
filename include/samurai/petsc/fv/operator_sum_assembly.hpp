@@ -241,7 +241,6 @@ namespace samurai
                 largest_stencil_assembly().copy_unknown(v, field);
             }
 
-#ifdef SAMURAI_WITH_MPI
             void sparsity_pattern_scheme(std::vector<PetscInt>& d_nnz, std::vector<PetscInt>& o_nnz) const override
             {
                 // The scheme with largest stencil allocates the number of non-zeros.
@@ -265,31 +264,6 @@ namespace samurai
             {
                 largest_stencil_assembly().sparsity_pattern_prediction(d_nnz, o_nnz);
             }
-#else
-            void sparsity_pattern_scheme(std::vector<PetscInt>& nnz) const override
-            {
-                // The scheme with largest stencil allocates the number of non-zeros.
-                largest_stencil_assembly().sparsity_pattern_scheme(nnz);
-            }
-
-            void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const override
-            {
-                // Only one scheme assembles the boundary conditions.
-                // We arbitrarily choose the one with largest stencil,
-                // because we already use it to allocate the number of non-zeros in the scheme.
-                largest_stencil_assembly().sparsity_pattern_boundary(nnz);
-            }
-
-            void sparsity_pattern_projection(std::vector<PetscInt>& nnz) const override
-            {
-                largest_stencil_assembly().sparsity_pattern_projection(nnz);
-            }
-
-            void sparsity_pattern_prediction(std::vector<PetscInt>& nnz) const override
-            {
-                largest_stencil_assembly().sparsity_pattern_prediction(nnz);
-            }
-#endif
 
             void assemble_scheme(Mat& A) override
             {
@@ -485,7 +459,6 @@ namespace samurai
             // template <class T>
             // concept is_sum_assembly = std::is_same_v<T, OperatorSum<Operators...>>;
 
-#ifdef SAMURAI_WITH_MPI
             void compute_block_numbering(Numbering& numbering)
             {
                 largest_stencil_assembly().compute_block_numbering(numbering);
@@ -505,7 +478,6 @@ namespace samurai
             {
                 largest_stencil_assembly().compute_local_to_global_cols(local_to_global_cols);
             }
-#endif
         };
 
         // template <class T>

@@ -82,11 +82,9 @@ namespace samurai
 
             std::vector<bool> m_is_row_empty;
 
-#ifdef SAMURAI_WITH_MPI
             ISLocalToGlobalMapping m_local_to_global_rows = nullptr;
             ISLocalToGlobalMapping m_local_to_global_cols = nullptr;
             bool m_owns_local_to_global_mappings          = false;
-#endif
 
             // Ghost recursion
             using cell_coeff_pair_t     = std::pair<index_t, double>;
@@ -182,19 +180,19 @@ namespace samurai
             template <class OtherScheme>
             void reset(const FVSchemeAssembly<OtherScheme>& other)
             {
-                m_numbering = other.m_numbering;
-#ifdef SAMURAI_WITH_MPI
+                m_numbering            = other.m_numbering;
                 m_local_to_global_rows = other.m_local_to_global_rows;
                 m_local_to_global_cols = other.m_local_to_global_cols;
                 m_ghosts_row_shift     = owned_matrix_rows();
                 m_ghosts_col_shift     = owned_matrix_cols();
-#endif
+
                 m_is_row_empty.resize(static_cast<std::size_t>(owned_matrix_rows()));
                 std::fill(m_is_row_empty.begin(), m_is_row_empty.end(), true);
 
                 if constexpr (ghost_elimination_enabled)
                 {
-                    m_ghost_recursion = other.m_ghost_recursion;
+                    // m_ghost_recursion = other.m_ghost_recursion;
+                    m_ghost_recursion = ghost_recursion(); // not optimized...
                 }
             }
 
@@ -214,11 +212,11 @@ namespace samurai
 
                 if constexpr (ghost_elimination_enabled)
                 {
-                    m_ghost_recursion = block_assembly.first_block().m_ghost_recursion;
+                    // m_ghost_recursion = block_assembly.first_block().m_ghost_recursion;
+                    m_ghost_recursion = ghost_recursion(); // not optimized...
                 }
             }
 
-#ifdef SAMURAI_WITH_MPI
             void set_local_to_global_mappings(Mat& A) const override
             {
                 // Sets the local to global mapping for the rows and columns, which allows to use the local numbering when inserting
@@ -233,7 +231,6 @@ namespace samurai
                 // Note that in this last instruction, PETSc takes the ownership of mapping objects, so we must not
                 // destroy them ourselves.
             }
-#endif
 
           private:
 
@@ -284,19 +281,14 @@ namespace samurai
 
             void compute_local_to_global_rows(std::vector<PetscInt>& local_to_global_rows)
             {
-                // static_assert(!detail::is_soa_v<output_field_t> || output_n_comp == 1, "Unimplemented: SOA field with multiple
-                // components");
-                // if (mpi::communicator().rank() == 0)
-                // {
-                //     sleep(8); // to have ordered output
-                // }
+#ifdef SAMURAI_WITH_MPI
                 if (args::print_petsc_numbering)
                 {
                     mpi::communicator().barrier();
                     sleep(static_cast<unsigned int>(mpi::communicator().rank()));
                     std::cout << "[" << mpi::communicator().rank() << "] Computing local to global rows for matrix '" << name() << "'\n";
                 }
-
+#endif
                 for (std::size_t cell_index = 0; cell_index < m_numbering->n_cells; ++cell_index)
                 {
                     for (unsigned int c = 0; c < static_cast<std::size_t>(output_n_comp); ++c)
@@ -315,9 +307,6 @@ namespace samurai
 
             void compute_local_to_global_cols(std::vector<PetscInt>& local_to_global_cols)
             {
-                // static_assert(!detail::is_soa_v<input_field_t> || input_n_comp == 1, "Unimplemented: SOA field with multiple
-                // components");
-
                 for (std::size_t cell_index = 0; cell_index < m_numbering->n_cells; ++cell_index)
                 {
                     for (unsigned int c = 0; c < static_cast<std::size_t>(input_n_comp); ++c)
@@ -512,7 +501,9 @@ namespace samurai
                 auto index = m_numbering->unknown_index<input_n_comp>(shift, static_cast<std::size_t>(cell_index), static_cast<int>(field_j));
                 return m_numbering->local_indices[index];
 #else
-                return m_numbering->unknown_index<input_n_comp>(m_col_shift, static_cast<std::size_t>(cell_index), static_cast<int>(field_j));
+                return m_numbering->unknown_index<input_n_comp, PetscInt>(m_col_shift,
+                                                                          static_cast<std::size_t>(cell_index),
+                                                                          static_cast<int>(field_j));
 #endif
             }
 
@@ -534,7 +525,9 @@ namespace samurai
                 auto index = m_numbering->unknown_index<output_n_comp>(shift, static_cast<std::size_t>(cell_index), static_cast<int>(field_i));
                 return m_numbering->local_indices[index];
 #else
-                return m_numbering->unknown_index<output_n_comp>(m_row_shift, static_cast<std::size_t>(cell_index), static_cast<int>(field_i));
+                return m_numbering->unknown_index<output_n_comp, PetscInt>(m_row_shift,
+                                                                           static_cast<std::size_t>(cell_index),
+                                                                           static_cast<int>(field_i));
 #endif
             }
 
@@ -545,7 +538,7 @@ namespace samurai
                 auto index = m_numbering->unknown_index<output_n_comp>(shift, static_cast<std::size_t>(cell_index), static_cast<int>(field_i));
                 return m_numbering->global_indices[index];
 #else
-                return m_numbering->unknown_index<output_n_comp>(m_row_shift, static_cast<std::size_t>(cell_index), static_cast<int>(field_i));
+                return local_row_index(cell_index, field_i);
 #endif
             }
 
@@ -810,14 +803,7 @@ namespace samurai
 
           public:
 
-            void sparsity_pattern_boundary(
-#ifdef SAMURAI_WITH_MPI
-                std::vector<PetscInt>& d_nnz,
-                std::vector<PetscInt>& o_nnz
-#else
-                std::vector<PetscInt>& nnz
-#endif
-            ) const override
+            void sparsity_pattern_boundary(std::vector<PetscInt>& d_nnz, [[maybe_unused]] std::vector<PetscInt>& o_nnz) const override
             {
                 if (mesh().is_periodic())
                 {
@@ -836,7 +822,7 @@ namespace samurai
                                     o_nnz.at(row) = 1;
                                 }
 #else
-                                nnz[row] = 2;
+                                d_nnz[row] = 2;
 #endif
                             }
                         });
@@ -845,30 +831,24 @@ namespace samurai
                 iterate_on_boundary(
                     [&](auto& cells, auto& equations, auto&, auto*)
                     {
-#ifdef SAMURAI_WITH_MPI
                         sparsity_pattern_bc(d_nnz, o_nnz, cells, equations);
-#else
-                        sparsity_pattern_bc(nnz, cells, equations);
-#endif
                     });
             }
 
           protected:
 
-#ifdef SAMURAI_WITH_MPI
             template <class CellList, class CoeffList>
             void sparsity_pattern_bc(std::vector<PetscInt>& d_nnz,
-                                     std::vector<PetscInt>& o_nnz,
+                                     [[maybe_unused]] std::vector<PetscInt>& o_nnz,
                                      CellList& cells,
                                      std::array<CoeffList, nb_bdry_ghosts>& equations) const
             {
-                mpi::communicator world;
-
                 for (std::size_t e = 0; e < nb_bdry_ghosts; ++e)
                 {
                     const auto& eq    = equations[e];
                     const auto& ghost = cells[eq.ghost_index];
 
+#ifdef SAMURAI_WITH_MPI
                     if (!is_locally_owned(ghost))
                     {
                         continue;
@@ -891,23 +871,14 @@ namespace samurai
                             }
                         }
                     }
-                }
-            }
 #else
-            template <class CellList, class CoeffList>
-            void sparsity_pattern_bc(std::vector<PetscInt>& nnz, CellList& cells, std::array<CoeffList, nb_bdry_ghosts>& equations) const
-            {
-                for (std::size_t e = 0; e < nb_bdry_ghosts; ++e)
-                {
-                    const auto& eq    = equations[e];
-                    const auto& ghost = cells[eq.ghost_index];
                     for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                     {
-                        nnz.at(static_cast<std::size_t>(local_row_index(ghost, field_i))) = bdry_stencil_size;
+                        d_nnz.at(static_cast<std::size_t>(local_row_index(ghost, field_i))) = bdry_stencil_size;
                     }
+#endif
                 }
             }
-#endif
 
             //-------------------------------------------------------------//
             //             Assemble the boundary conditions                //
@@ -1183,14 +1154,7 @@ namespace samurai
             //                  Projection / prediction                    //
             //-------------------------------------------------------------//
 
-            void sparsity_pattern_projection(
-#ifdef SAMURAI_WITH_MPI
-                std::vector<PetscInt>& d_nnz,
-                std::vector<PetscInt>& o_nnz
-#else
-                std::vector<PetscInt>& nnz
-#endif
-            ) const override
+            void sparsity_pattern_projection(std::vector<PetscInt>& d_nnz, [[maybe_unused]] std::vector<PetscInt>& o_nnz) const override
             {
                 // ----  Projection stencil size
                 // cell + 2^dim children --> 1+2=3 in 1D
@@ -1209,25 +1173,18 @@ namespace samurai
 #else
                                                 if constexpr (ghost_elimination_enabled)
                                                 {
-                                                    nnz[row] = static_cast<PetscInt>(m_ghost_recursion.at(ghost.index).size());
+                                                    d_nnz[row] = static_cast<PetscInt>(m_ghost_recursion.at(ghost.index).size());
                                                 }
                                                 else
                                                 {
-                                                    nnz[row] = proj_stencil_size;
+                                                    d_nnz[row] = proj_stencil_size;
                                              }
 #endif
                                               }
                                           });
             }
 
-            void sparsity_pattern_prediction(
-#ifdef SAMURAI_WITH_MPI
-                std::vector<PetscInt>& d_nnz,
-                std::vector<PetscInt>& o_nnz
-#else
-                std::vector<PetscInt>& nnz
-#endif
-            ) const override
+            void sparsity_pattern_prediction(std::vector<PetscInt>& d_nnz, [[maybe_unused]] std::vector<PetscInt>& o_nnz) const override
             {
                 // ----  Prediction stencil size
                 // Order 1: cell + hypercube of 3 coarser cells --> 1 + 3= 4 in 1D
@@ -1254,12 +1211,12 @@ namespace samurai
 #else
                                                   if constexpr (ghost_elimination_enabled)
                                                   {
-                                                      nnz[row] = static_cast<PetscInt>(
+                                                      d_nnz[row] = static_cast<PetscInt>(
                                                           m_ghost_recursion.at(ghost.index).size());
                                                   }
                                                   else
                                                   {
-                                                      nnz[row] = pred_stencil_size;
+                                                      d_nnz[row] = pred_stencil_size;
                                                   }
 #endif
                                               }

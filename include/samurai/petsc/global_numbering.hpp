@@ -42,6 +42,7 @@ namespace samurai
             }
         };
 
+#ifdef SAMURAI_WITH_MPI
         template <class Mesh>
         void compute_ownership(const Mesh& mesh, Numbering& numbering)
         {
@@ -436,5 +437,6 @@ namespace samurai
                      petsc_cell_indices_field);
             }
         }
+#endif
     }
 }

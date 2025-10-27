@@ -25,7 +25,6 @@ namespace samurai
                 this->set_name("0");
             }
 
-#ifdef SAMURAI_WITH_MPI
             void sparsity_pattern_scheme(std::vector<PetscInt>&, std::vector<PetscInt>&) const override
             {
             }
@@ -41,23 +40,6 @@ namespace samurai
             void sparsity_pattern_prediction(std::vector<PetscInt>&, std::vector<PetscInt>&) const override
             {
             }
-#else
-            void sparsity_pattern_scheme(std::vector<PetscInt>&) const override
-            {
-            }
-
-            void sparsity_pattern_boundary(std::vector<PetscInt>&) const override
-            {
-            }
-
-            void sparsity_pattern_projection(std::vector<PetscInt>&) const override
-            {
-            }
-
-            void sparsity_pattern_prediction(std::vector<PetscInt>&) const override
-            {
-            }
-#endif
 
             void assemble_scheme(Mat&) override
             {
