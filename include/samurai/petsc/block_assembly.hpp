@@ -564,12 +564,7 @@ namespace samurai
 
             void reset() override
             {
-                m_numbering.n_cells = mesh().nb_cells();
-#ifdef SAMURAI_WITH_MPI
-                compute_ownership(mesh(), m_numbering);
-#else
-                m_numbering.n_owned_cells = m_numbering.n_cells;
-#endif
+                m_numbering.compute_ownership(mesh());
 
                 for_each_assembly_op(
                     [&](auto& op, auto, auto)

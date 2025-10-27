@@ -25,6 +25,153 @@ namespace samurai
             std::vector<PetscInt> global_indices;
 #endif
 
+            template <class Mesh>
+            void compute_ownership(const Mesh& mesh)
+            {
+                n_cells = mesh.nb_cells();
+#ifndef SAMURAI_WITH_MPI
+                n_owned_cells = n_cells;
+#else
+                using mesh_id_t = typename Mesh::mesh_id_t;
+
+                mpi::communicator world;
+                int rank = world.rank();
+
+                std::size_t min_level = mesh[mesh_id_t::reference].min_level();
+                std::size_t max_level = mesh[mesh_id_t::reference].max_level();
+
+                // auto& ownership = numbering.ownership;
+
+                constexpr int UNSET = -1;
+
+                // Stores the owner rank of each cell
+                ownership.resize(n_cells);
+                std::fill(ownership.begin(), ownership.end(), UNSET);
+
+                for (std::size_t level = min_level; level <= max_level; ++level)
+                {
+                    // All cells and ghosts that intersect with the subdomain are owned by the current rank
+                    auto local_cells_and_ghosts = intersection(mesh[mesh_id_t::reference][level], self(mesh.subdomain()).on(level));
+                    for_each_cell(mesh,
+                                  local_cells_and_ghosts,
+                                  [&](auto& cell)
+                                  {
+                                      ownership[static_cast<std::size_t>(cell.index)] = rank;
+                                  });
+
+                    // All the boundary ghosts of locally owned boundary cells are also owned by the local rank
+                    auto domain_bdry_outer_layer = domain_boundary_outer_layer(mesh, level, Mesh::config::ghost_width);
+                    auto boundary_ghosts         = intersection(domain_bdry_outer_layer, mesh[mesh_id_t::reference][level]);
+                    for_each_cell(mesh,
+                                  boundary_ghosts,
+                                  [&](auto& ghost)
+                                  {
+                                      ownership[static_cast<std::size_t>(ghost.index)] = rank;
+                                  });
+                }
+
+                for (auto& neighbour : mesh.mpi_neighbourhood())
+                {
+                    for (std::size_t level = min_level; level <= max_level; ++level)
+                    {
+                        // Ghosts that intersect with a neighbour subdomain are owned by the neighbour rank
+                        auto neighbour_cells_and_ghosts = intersection(mesh[mesh_id_t::reference][level],
+                                                                       self(neighbour.mesh.subdomain()).on(level));
+                        for_each_cell(mesh,
+                                      neighbour_cells_and_ghosts,
+                                      [&](auto& cell)
+                                      {
+                                          // assert(ownership[static_cast<std::size_t>(cell.index)] == UNSET);
+                                          if (ownership[static_cast<std::size_t>(cell.index)] == UNSET)
+                                          {
+                                              ownership[static_cast<std::size_t>(cell.index)] = neighbour.rank;
+                                          }
+                                          else
+                                          {
+                                              std::cout << fmt::format("rank {}: cell {} on level {} owned by {}\n",
+                                                                       rank,
+                                                                       cell.index,
+                                                                       level,
+                                                                       ownership[static_cast<std::size_t>(cell.index)]);
+                                              ownership[static_cast<std::size_t>(cell.index)] = 10;
+                                              assert(false);
+                                          }
+                                      });
+
+                        // All the boundary ghosts of attached to boundary cells owned by a neighbour are also owned by that neighbour
+                        auto domain_bdry_outer_layer = domain_boundary_outer_layer(neighbour.mesh, level, Mesh::config::ghost_width);
+                        auto boundary_ghosts         = intersection(domain_bdry_outer_layer, mesh[mesh_id_t::reference][level]);
+                        for_each_cell(mesh,
+                                      boundary_ghosts,
+                                      [&](auto& ghost)
+                                      {
+                                          assert(ownership[static_cast<std::size_t>(ghost.index)] == UNSET);
+                                          ownership[static_cast<std::size_t>(ghost.index)] = neighbour.rank;
+                                      });
+                    }
+                }
+
+                // For the remaining cells and ghosts, if the reference intersects with the reference of a neighbour,
+                // then the smallest rank owns the intersecting cells/ghosts
+                for (auto& neighbour : mesh.mpi_neighbourhood())
+                {
+                    int min_rank = std::min(rank, neighbour.rank);
+
+                    for (std::size_t level = min_level; level <= max_level; ++level)
+                    {
+                        auto intersecting_cells_and_ghosts = intersection(mesh[mesh_id_t::reference][level],
+                                                                          neighbour.mesh[mesh_id_t::reference][level]);
+                        for_each_cell(mesh,
+                                      intersecting_cells_and_ghosts,
+                                      [&](auto& cell)
+                                      {
+                                          auto cell_index = static_cast<std::size_t>(cell.index);
+                                          if (ownership[cell_index] == UNSET)
+                                          {
+                                              ownership[cell_index] = min_rank;
+                                          }
+                                      });
+                    }
+                }
+
+                // Finally, the cells and ghosts that are not owned by any rank (ownership == UNSET) are owned by the current rank.
+                for_each_cell(mesh[mesh_id_t::reference],
+                              [&](auto& cell)
+                              {
+                                  auto cell_index = static_cast<std::size_t>(cell.index);
+                                  if (ownership[cell_index] == UNSET)
+                                  {
+                                      ownership[cell_index] = rank;
+                                  }
+                              });
+
+                n_owned_cells = 0;
+                for (std::size_t i = 0; i < ownership.size(); ++i)
+                {
+                    n_owned_cells += (ownership[i] == rank) ? 1 : 0;
+                }
+
+                // Renumbering of the cells
+                cell_indices.resize(n_cells);
+                PetscInt new_cell_index = 0;
+                for (std::size_t cell_index = 0; cell_index < n_cells; ++cell_index)
+                {
+                    if (ownership[cell_index] == rank)
+                    {
+                        cell_indices[cell_index] = new_cell_index++;
+                    }
+                }
+                new_cell_index = 0;
+                for (std::size_t cell_index = 0; cell_index < n_cells; ++cell_index)
+                {
+                    if (ownership[cell_index] != rank)
+                    {
+                        cell_indices[cell_index] = new_cell_index++;
+                    }
+                }
+#endif
+            }
+
             template <int n_unknowns_per_cell, typename return_type = std::size_t>
             inline return_type unknown_index(PetscInt shift, std::size_t cell_index, [[maybe_unused]] int component_index) const
             {
@@ -43,147 +190,6 @@ namespace samurai
         };
 
 #ifdef SAMURAI_WITH_MPI
-        template <class Mesh>
-        void compute_ownership(const Mesh& mesh, Numbering& numbering)
-        {
-            using mesh_id_t = typename Mesh::mesh_id_t;
-
-            mpi::communicator world;
-            int rank = world.rank();
-
-            std::size_t min_level = mesh[mesh_id_t::reference].min_level();
-            std::size_t max_level = mesh[mesh_id_t::reference].max_level();
-
-            auto& ownership = numbering.ownership;
-
-            constexpr int UNSET = -1;
-
-            // Stores the owner rank of each cell
-            ownership.resize(numbering.n_cells);
-            std::fill(ownership.begin(), ownership.end(), UNSET);
-
-            for (std::size_t level = min_level; level <= max_level; ++level)
-            {
-                // All cells and ghosts that intersect with the subdomain are owned by the current rank
-                auto local_cells_and_ghosts = intersection(mesh[mesh_id_t::reference][level], self(mesh.subdomain()).on(level));
-                for_each_cell(mesh,
-                              local_cells_and_ghosts,
-                              [&](auto& cell)
-                              {
-                                  ownership[static_cast<std::size_t>(cell.index)] = rank;
-                              });
-
-                // All the boundary ghosts of locally owned boundary cells are also owned by the local rank
-                auto domain_bdry_outer_layer = domain_boundary_outer_layer(mesh, level, Mesh::config::ghost_width);
-                auto boundary_ghosts         = intersection(domain_bdry_outer_layer, mesh[mesh_id_t::reference][level]);
-                for_each_cell(mesh,
-                              boundary_ghosts,
-                              [&](auto& ghost)
-                              {
-                                  ownership[static_cast<std::size_t>(ghost.index)] = rank;
-                              });
-            }
-
-            for (auto& neighbour : mesh.mpi_neighbourhood())
-            {
-                for (std::size_t level = min_level; level <= max_level; ++level)
-                {
-                    // Ghosts that intersect with a neighbour subdomain are owned by the neighbour rank
-                    auto neighbour_cells_and_ghosts = intersection(mesh[mesh_id_t::reference][level],
-                                                                   self(neighbour.mesh.subdomain()).on(level));
-                    for_each_cell(mesh,
-                                  neighbour_cells_and_ghosts,
-                                  [&](auto& cell)
-                                  {
-                                      // assert(ownership[static_cast<std::size_t>(cell.index)] == UNSET);
-                                      if (ownership[static_cast<std::size_t>(cell.index)] == UNSET)
-                                      {
-                                          ownership[static_cast<std::size_t>(cell.index)] = neighbour.rank;
-                                      }
-                                      else
-                                      {
-                                          std::cout << fmt::format("rank {}: cell {} on level {} owned by {}\n",
-                                                                   rank,
-                                                                   cell.index,
-                                                                   level,
-                                                                   ownership[static_cast<std::size_t>(cell.index)]);
-                                          ownership[static_cast<std::size_t>(cell.index)] = 10;
-                                          assert(false);
-                                      }
-                                  });
-
-                    // All the boundary ghosts of attached to boundary cells owned by a neighbour are also owned by that neighbour
-                    auto domain_bdry_outer_layer = domain_boundary_outer_layer(neighbour.mesh, level, Mesh::config::ghost_width);
-                    auto boundary_ghosts         = intersection(domain_bdry_outer_layer, mesh[mesh_id_t::reference][level]);
-                    for_each_cell(mesh,
-                                  boundary_ghosts,
-                                  [&](auto& ghost)
-                                  {
-                                      assert(ownership[static_cast<std::size_t>(ghost.index)] == UNSET);
-                                      ownership[static_cast<std::size_t>(ghost.index)] = neighbour.rank;
-                                  });
-                }
-            }
-
-            // For the remaining cells and ghosts, if the reference intersects with the reference of a neighbour,
-            // then the smallest rank owns the intersecting cells/ghosts
-            for (auto& neighbour : mesh.mpi_neighbourhood())
-            {
-                int min_rank = std::min(rank, neighbour.rank);
-
-                for (std::size_t level = min_level; level <= max_level; ++level)
-                {
-                    auto intersecting_cells_and_ghosts = intersection(mesh[mesh_id_t::reference][level],
-                                                                      neighbour.mesh[mesh_id_t::reference][level]);
-                    for_each_cell(mesh,
-                                  intersecting_cells_and_ghosts,
-                                  [&](auto& cell)
-                                  {
-                                      auto cell_index = static_cast<std::size_t>(cell.index);
-                                      if (ownership[cell_index] == UNSET)
-                                      {
-                                          ownership[cell_index] = min_rank;
-                                      }
-                                  });
-                }
-            }
-
-            // Finally, the cells and ghosts that are not owned by any rank (ownership == UNSET) are owned by the current rank.
-            for_each_cell(mesh[mesh_id_t::reference],
-                          [&](auto& cell)
-                          {
-                              auto cell_index = static_cast<std::size_t>(cell.index);
-                              if (ownership[cell_index] == UNSET)
-                              {
-                                  ownership[cell_index] = rank;
-                              }
-                          });
-
-            numbering.n_owned_cells = 0;
-            for (std::size_t i = 0; i < ownership.size(); ++i)
-            {
-                numbering.n_owned_cells += (ownership[i] == rank) ? 1 : 0;
-            }
-
-            // Renumbering of the cells
-            numbering.cell_indices.resize(numbering.n_cells);
-            PetscInt new_cell_index = 0;
-            for (std::size_t cell_index = 0; cell_index < numbering.n_cells; ++cell_index)
-            {
-                if (ownership[cell_index] == rank)
-                {
-                    numbering.cell_indices[cell_index] = new_cell_index++;
-                }
-            }
-            new_cell_index = 0;
-            for (std::size_t cell_index = 0; cell_index < numbering.n_cells; ++cell_index)
-            {
-                if (ownership[cell_index] != rank)
-                {
-                    numbering.cell_indices[cell_index] = new_cell_index++;
-                }
-            }
-        }
 
         PetscInt compute_rank_shift(PetscInt n_values)
         {
@@ -217,12 +223,12 @@ namespace samurai
 
             auto owned_unknown_index = [&](std::size_t cell_index, int i_comp)
             {
-                return numbering.unknown_index<n_unknowns_per_cell, std::size_t>(block_shift_owned, cell_index, i_comp);
+                return numbering.template unknown_index<n_unknowns_per_cell, std::size_t>(block_shift_owned, cell_index, i_comp);
             };
 
             auto ghost_unknown_index = [&](std::size_t cell_index, int i_comp)
             {
-                return numbering.unknown_index<n_unknowns_per_cell, std::size_t>(block_shift_ghosts, cell_index, i_comp);
+                return numbering.template unknown_index<n_unknowns_per_cell, std::size_t>(block_shift_ghosts, cell_index, i_comp);
             };
 
             auto n_owned_unknowns = numbering.n_owned_cells * static_cast<std::size_t>(n_unknowns_per_cell);
