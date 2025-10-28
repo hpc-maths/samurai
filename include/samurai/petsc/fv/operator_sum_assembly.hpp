@@ -464,9 +464,9 @@ namespace samurai
             // template <class T>
             // concept is_sum_assembly = std::is_same_v<T, OperatorSum<Operators...>>;
 
-            void compute_block_numbering(Numbering& numbering)
+            void compute_block_numbering()
             {
-                largest_stencil_assembly().compute_block_numbering(numbering);
+                largest_stencil_assembly().compute_block_numbering();
             }
 
             const std::vector<PetscInt>& local_to_global_rows() const override

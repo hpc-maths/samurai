@@ -563,6 +563,7 @@ namespace samurai
 
           private:
 
+            CellOwnership m_ownership;
             Numbering m_numbering;
 
           public:
@@ -579,6 +580,11 @@ namespace samurai
                     });
             }
 
+            CellOwnership& ownership()
+            {
+                return m_ownership;
+            }
+
             Numbering& numbering()
             {
                 return m_numbering;
@@ -586,7 +592,7 @@ namespace samurai
 
             void reset() override
             {
-                m_numbering.compute_ownership(mesh());
+                m_ownership.compute(mesh());
 
                 for_each_assembly_op(
                     [&](auto& op, auto, auto)
@@ -680,13 +686,14 @@ namespace samurai
                 //         }
                 //     });
 
+                m_numbering.ownership = &m_ownership;
                 m_numbering.resize(this->local_matrix_rows());
                 for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
                         if (row == col)
                         {
-                            op.compute_block_numbering(m_numbering);
+                            op.compute_block_numbering();
                         }
                     });
 
