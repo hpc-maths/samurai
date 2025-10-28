@@ -247,8 +247,7 @@ namespace samurai
 
                 PetscInt rank_row_shift = compute_rank_shift(owned_matrix_rows());
 
-                m_numbering->local_indices.resize(static_cast<std::size_t>(local_matrix_rows()));
-                m_numbering->global_indices.resize(static_cast<std::size_t>(local_matrix_rows()));
+                m_numbering->resize(local_matrix_rows());
                 compute_global_numbering<output_n_comp>(mesh(),
                                                         *m_numbering,
                                                         rank_row_shift,
