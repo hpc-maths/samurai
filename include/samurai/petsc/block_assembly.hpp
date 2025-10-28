@@ -540,8 +540,6 @@ namespace samurai
           private:
 
             Numbering m_numbering;
-            ISLocalToGlobalMapping m_local_to_global_rows = nullptr;
-            ISLocalToGlobalMapping m_local_to_global_cols = nullptr;
 
           public:
 
@@ -578,6 +576,7 @@ namespace samurai
                 PetscInt n_owned_rows = this->owned_matrix_rows();
                 PetscInt n_owned_cols = this->owned_matrix_cols();
 
+                // Set row_shift and col_shift for each block assembly operator
 #ifdef SAMURAI_WITH_MPI
                 PetscInt rank_shift_owned_rows = compute_rank_shift(n_owned_rows);
                 PetscInt rank_shift_owned_cols = rank_shift_owned_rows;
@@ -592,9 +591,7 @@ namespace samurai
                         op.set_rank_row_shift(rank_shift_owned_rows);
                         op.set_rank_col_shift(rank_shift_owned_cols);
                     });
-
 #endif
-                // Set row_shift and col_shift for each block assembly operator
                 PetscInt owned_row_shift = 0;
                 PetscInt owned_col_shift = 0;
                 for_each_assembly_op(
@@ -669,9 +666,20 @@ namespace samurai
                         }
                     });
 
-                // destroy_local_to_global_mappings();
-                create_local_to_global_mappings();
+                for_each_assembly_op(
+                    [&](auto& op, auto row, auto col)
+                    {
+                        if (col == row)
+                        {
+                            op.compute_local_to_global_rows(m_numbering.local_to_global_mapping);
+                        }
+                    });
 #endif
+            }
+
+            const std::vector<PetscInt>& local_to_global_rows() const override
+            {
+                return m_numbering.local_to_global_mapping;
             }
 
             const auto& mesh() const
@@ -1055,70 +1063,10 @@ namespace samurai
                             {
                                 idx[i] = op.col_shift() + static_cast<PetscInt>(i);
                             }
-                            ISCreateGeneral(PETSC_COMM_SELF, static_cast<PetscInt>(idx.size()), idx.data(), PETSC_COPY_VALUES, &IS_array[col]);
+                            ISCreateGeneral(PETSC_COMM_WORLD, static_cast<PetscInt>(idx.size()), idx.data(), PETSC_COPY_VALUES, &IS_array[col]);
                         }
                     });
                 return IS_array;
-            }
-
-            void set_local_to_global_mappings(Mat& A) const override
-            {
-                // Sets the local to global mapping for the rows and columns, which allows to use the local numbering when inserting
-                // values into the matrix.
-                if (m_local_to_global_rows == nullptr || m_local_to_global_cols == nullptr)
-                {
-                    std::cerr << "Local to global mappings not set for block matrix '" << name() << "'!" << std::endl;
-                    assert(false && "Local to global mappings not set");
-                    exit(EXIT_FAILURE);
-                }
-
-                MatSetLocalToGlobalMapping(A, m_local_to_global_rows, m_local_to_global_cols);
-            }
-
-            void create_local_to_global_mappings()
-            {
-                std::vector<PetscInt> local_to_global_rows(static_cast<std::size_t>(local_matrix_rows()));
-                for_each_assembly_op(
-                    [&](auto& op, auto row, auto col)
-                    {
-                        if (col == row)
-                        {
-                            op.compute_local_to_global_rows(local_to_global_rows);
-                        }
-                    });
-
-                ISLocalToGlobalMappingCreate(PETSC_COMM_WORLD,
-                                             1,
-                                             static_cast<PetscInt>(local_to_global_rows.size()),
-                                             local_to_global_rows.data(),
-                                             PETSC_COPY_VALUES,
-                                             &m_local_to_global_rows);
-
-                // std::cout << "[" << mpi::communicator().rank() << "] Created ISLocalToGlobalMapping for rows of matrix '" << name() <<
-                // "'\n"; ISLocalToGlobalMappingView(m_local_to_global_rows, PETSC_VIEWER_STDOUT_WORLD);
-
-                if (local_matrix_rows() == local_matrix_cols())
-                {
-                    m_local_to_global_cols = m_local_to_global_rows;
-                }
-                else
-                {
-                    std::vector<PetscInt> local_to_global_cols(static_cast<std::size_t>(local_matrix_cols()));
-                    for_each_assembly_op(
-                        [&](auto& op, auto row, auto col)
-                        {
-                            if (row == col)
-                            {
-                                op.compute_local_to_global_cols(local_to_global_cols);
-                            }
-                        });
-                    ISLocalToGlobalMappingCreate(PETSC_COMM_WORLD,
-                                                 1,
-                                                 static_cast<PetscInt>(local_to_global_cols.size()),
-                                                 local_to_global_cols.data(),
-                                                 PETSC_COPY_VALUES,
-                                                 &m_local_to_global_cols);
-                }
             }
         };
 

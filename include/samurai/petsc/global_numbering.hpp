@@ -10,19 +10,21 @@ namespace samurai
 
         struct Numbering
         {
-            std::size_t n_local_cells = 0;
+            std::size_t n_local_cells = 0; // owned cells + ghost cells
             std::size_t n_owned_cells = 0;
 #ifdef SAMURAI_WITH_MPI
             // Owner rank of each cell in the local mesh
             std::vector<int> ownership;
             // Renumbering of the cells: first all the owned cells, then all the ghosts.
             // This is used to split the ordering of the unknowns (first all the owned unknowns, then all the ghosts).
-            // Note that the cells start at index 0, and the ghosts also start at index 0!
+            // Note that the cell numbers start at index 0, and the ghost numbers also start at index 0!
             std::vector<int> cell_indices;
             // Local index in the PETSc vector/matrix for each local unknown
             std::vector<PetscInt> local_indices;
             // Global index in the PETSc vector/matrix for each local unknown
             std::vector<PetscInt> global_indices;
+            // Mapping from local to global unknown indices
+            std::vector<PetscInt> local_to_global_mapping;
 #endif
 
             template <class Mesh>
@@ -172,10 +174,11 @@ namespace samurai
 #endif
             }
 
-            inline void resize(PetscInt n_unknowns)
+            inline void resize(PetscInt n_local_unknowns)
             {
-                local_indices.resize(static_cast<std::size_t>(n_unknowns));
-                global_indices.resize(static_cast<std::size_t>(n_unknowns));
+                local_indices.resize(static_cast<std::size_t>(n_local_unknowns));
+                global_indices.resize(static_cast<std::size_t>(n_local_unknowns));
+                local_to_global_mapping.resize(static_cast<std::size_t>(n_local_unknowns));
             }
 
             template <int n_unknowns_per_cell, typename return_type = std::size_t>
