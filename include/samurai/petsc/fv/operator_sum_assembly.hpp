@@ -464,19 +464,14 @@ namespace samurai
                 largest_stencil_assembly().compute_block_numbering(numbering);
             }
 
-            void set_local_to_global_mappings(Mat& A) const override
+            const std::vector<PetscInt>& local_to_global_rows() const override
             {
-                largest_stencil_assembly().set_local_to_global_mappings(A);
+                return largest_stencil_assembly().local_to_global_rows();
             }
 
             void compute_local_to_global_rows(std::vector<PetscInt>& local_to_global_rows)
             {
                 largest_stencil_assembly().compute_local_to_global_rows(local_to_global_rows);
-            }
-
-            void compute_local_to_global_cols(std::vector<PetscInt>& local_to_global_cols)
-            {
-                largest_stencil_assembly().compute_local_to_global_cols(local_to_global_cols);
             }
         };
 

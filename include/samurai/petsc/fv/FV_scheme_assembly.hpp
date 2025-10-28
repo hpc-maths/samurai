@@ -82,10 +82,6 @@ namespace samurai
 
             std::vector<bool> m_is_row_empty;
 
-            ISLocalToGlobalMapping m_local_to_global_rows = nullptr;
-            ISLocalToGlobalMapping m_local_to_global_cols = nullptr;
-            bool m_owns_local_to_global_mappings          = false;
-
             // Ghost recursion
             using cell_coeff_pair_t     = std::pair<index_t, double>;
             using CellLinearCombination = std::vector<cell_coeff_pair_t>;
@@ -160,8 +156,7 @@ namespace samurai
                 {
                     m_ghosts_row_shift = owned_matrix_rows();
                     m_ghosts_col_shift = owned_matrix_cols();
-                    // destroy_local_to_global_mappings();
-                    create_local_to_global_mappings();
+                    compute_local_to_global_rows(m_numbering->local_to_global_mapping);
                 }
 #endif
                 m_is_row_empty.resize(static_cast<std::size_t>(owned_matrix_rows()));
@@ -179,11 +174,9 @@ namespace samurai
             template <class OtherScheme>
             void reset(const FVSchemeAssembly<OtherScheme>& other)
             {
-                m_numbering            = other.m_numbering;
-                m_local_to_global_rows = other.m_local_to_global_rows;
-                m_local_to_global_cols = other.m_local_to_global_cols;
-                m_ghosts_row_shift     = owned_matrix_rows();
-                m_ghosts_col_shift     = owned_matrix_cols();
+                m_numbering        = other.m_numbering;
+                m_ghosts_row_shift = owned_matrix_rows();
+                m_ghosts_col_shift = owned_matrix_cols();
 
                 m_is_row_empty.resize(static_cast<std::size_t>(owned_matrix_rows()));
                 std::fill(m_is_row_empty.begin(), m_is_row_empty.end(), true);
@@ -216,19 +209,9 @@ namespace samurai
                 }
             }
 
-            void set_local_to_global_mappings(Mat& A) const override
+            const std::vector<PetscInt>& local_to_global_rows() const override
             {
-                // Sets the local to global mapping for the rows and columns, which allows to use the local numbering when inserting
-                // values into the matrix.
-                if (m_local_to_global_rows == nullptr || m_local_to_global_cols == nullptr)
-                {
-                    std::cerr << "Local to global mappings not set for matrix '" << name() << "'!" << std::endl;
-                    assert(false && "Local to global mappings not set");
-                    exit(EXIT_FAILURE);
-                }
-                MatSetLocalToGlobalMapping(A, m_local_to_global_rows, m_local_to_global_cols);
-                // Note that in this last instruction, PETSc takes the ownership of mapping objects, so we must not
-                // destroy them ourselves.
+                return m_numbering->local_to_global_mapping;
             }
 
           private:
@@ -271,7 +254,7 @@ namespace samurai
                 compute_global_numbering<output_n_comp>(mesh(), numbering, m_rank_row_shift, m_row_shift, m_ghosts_row_shift);
             }
 
-            void compute_local_to_global_rows(std::vector<PetscInt>& local_to_global_rows)
+            void compute_local_to_global_rows(std::vector<PetscInt>& local_to_global_mapping)
             {
 #ifdef SAMURAI_WITH_MPI
                 if (args::print_petsc_numbering)
@@ -288,7 +271,7 @@ namespace samurai
                         auto local_index  = local_row_index(static_cast<PetscInt>(cell_index), c);
                         auto global_index = global_row_index(static_cast<PetscInt>(cell_index), c);
 
-                        local_to_global_rows.at(static_cast<std::size_t>(local_index)) = global_index;
+                        local_to_global_mapping.at(static_cast<std::size_t>(local_index)) = global_index;
 
                         // std::cout << "[" << mpi::communicator().rank() << "] (owned by "
                         //           << m_numbering->ownership[static_cast<std::size_t>(cell_index)] << ") L" << local_index << " G"
@@ -297,62 +280,7 @@ namespace samurai
                 }
             }
 
-            void compute_local_to_global_cols(std::vector<PetscInt>& local_to_global_cols)
-            {
-                for (std::size_t cell_index = 0; cell_index < m_numbering->n_local_cells; ++cell_index)
-                {
-                    for (unsigned int c = 0; c < static_cast<std::size_t>(input_n_comp); ++c)
-                    {
-                        auto local_index  = local_col_index(static_cast<PetscInt>(cell_index), c);
-                        auto global_index = global_col_index(static_cast<PetscInt>(cell_index), c);
-
-                        local_to_global_cols.at(static_cast<std::size_t>(local_index)) = global_index;
-                    }
-                }
-            }
-
           private:
-
-            void create_local_to_global_mappings()
-            {
-                // std::vector<PetscInt> local_to_global(m_numbering->local_cell_indices.size());
-                // for (std::size_t i = 0; i < m_numbering->local_cell_indices.size(); ++i)
-                // {
-                //     local_to_global[static_cast<std::size_t>(m_numbering->local_cell_indices[i])] = m_numbering->global_cell_indices[i];
-                // }
-                // create_local_to_global_mappings(local_to_global, local_to_global);
-
-                std::vector<PetscInt> local_to_global_rows(static_cast<std::size_t>(local_matrix_rows()));
-                compute_local_to_global_rows(local_to_global_rows);
-
-                ISLocalToGlobalMappingCreate(PETSC_COMM_WORLD,
-                                             1, // block_size
-                                             static_cast<PetscInt>(local_to_global_rows.size()),
-                                             local_to_global_rows.data(),
-                                             /*PETSC_USE_POINTER,*/ PETSC_COPY_VALUES,
-                                             &m_local_to_global_rows);
-
-                // ISLocalToGlobalMappingView(m_local_to_global_rows, PETSC_VIEWER_STDOUT_WORLD);
-
-                if constexpr (input_n_comp == output_n_comp)
-                {
-                    m_local_to_global_cols = m_local_to_global_rows;
-                }
-                else
-                {
-                    std::vector<PetscInt> local_to_global_cols(static_cast<std::size_t>(local_matrix_cols()));
-                    compute_local_to_global_cols(local_to_global_cols);
-
-                    ISLocalToGlobalMappingCreate(PETSC_COMM_WORLD,
-                                                 1, // block_size
-                                                 static_cast<PetscInt>(local_to_global_cols.size()),
-                                                 local_to_global_cols.data(),
-                                                 /*PETSC_USE_POINTER,*/ PETSC_COPY_VALUES,
-                                                 &m_local_to_global_cols);
-                }
-
-                m_owns_local_to_global_mappings = true;
-            }
 
             auto ghost_recursion()
             {
