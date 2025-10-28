@@ -20,8 +20,6 @@ namespace samurai
 
             InsertMode m_current_insert_mode = INSERT_VALUES;
 
-            ISLocalToGlobalMapping m_local_to_global_rows = nullptr;
-
           protected:
 
             // ----- For blocks in a monolithic block matrix ----- //
@@ -265,21 +263,37 @@ namespace samurai
                 // Local to global mapping //
                 //-------------------------//
 
-                auto local_to_global_rows = this->local_to_global_rows();
-                assert(local_matrix_rows() == local_matrix_cols()
-                       && "The matrix must be square to use the same local to global mapping for rows and columns.");
-                assert(local_to_global_rows.size() == static_cast<std::size_t>(local_matrix_rows()));
+                PetscInt n_local_rows = local_matrix_rows();
+                PetscInt n_local_cols = local_matrix_cols();
 
+                auto& local_to_global_rows = this->local_to_global_rows();
+                assert(local_to_global_rows.size() == static_cast<std::size_t>(n_local_rows));
+
+                ISLocalToGlobalMapping is_local_to_global_mapping_rows;
                 ISLocalToGlobalMappingCreate(PETSC_COMM_WORLD,
                                              1, // block_size
-                                             local_matrix_rows(),
+                                             n_local_rows,
                                              local_to_global_rows.data(),
                                              /*PETSC_USE_POINTER,*/ PETSC_COPY_VALUES,
-                                             &m_local_to_global_rows);
+                                             &is_local_to_global_mapping_rows);
+
+                ISLocalToGlobalMapping is_local_to_global_mapping_cols = is_local_to_global_mapping_rows;
+                if (n_local_rows != n_local_cols)
+                {
+                    auto& local_to_global_cols = this->local_to_global_cols();
+                    assert(local_to_global_cols.size() == static_cast<std::size_t>(n_local_cols));
+
+                    ISLocalToGlobalMappingCreate(PETSC_COMM_WORLD,
+                                                 1, // block_size
+                                                 n_local_cols,
+                                                 local_to_global_cols.data(),
+                                                 /*PETSC_USE_POINTER,*/ PETSC_COPY_VALUES,
+                                                 &is_local_to_global_mapping_cols);
+                }
 
                 // Sets the local to global mapping for the rows and columns, which allows to use the local numbering when inserting
                 // values into the matrix.
-                MatSetLocalToGlobalMapping(A, m_local_to_global_rows, m_local_to_global_rows);
+                MatSetLocalToGlobalMapping(A, is_local_to_global_mapping_rows, is_local_to_global_mapping_cols);
                 // Note that in this last instruction, PETSc takes the ownership of mapping objects, so we must not
                 // destroy them ourselves.
 #endif
@@ -447,29 +461,14 @@ namespace samurai
                 m_is_deleted = true;
             }
 
-          protected:
-
-            Vec create_petsc_vector(PetscInt local_size) const
-            {
-                Vec v;
-                VecCreate(PETSC_COMM_WORLD, &v);
-#ifdef SAMURAI_WITH_MPI
-                VecSetType(v, VECMPI);
-#else
-                VecSetType(v, VECSEQ);
-#endif
-                VecSetFromOptions(v);
-                VecSetSizes(v, local_size, PETSC_DETERMINE);
-                return v;
-            }
-
           public:
 
             /**
-             * @brief Sets the local to global mapping for the rows, which allows to use the local numbering when inserting
+             * @brief Sets the local to global mapping for the rows and cols, which allows to use the local numbering when inserting
              * values into the matrix.
              */
             virtual const std::vector<PetscInt>& local_to_global_rows() const = 0;
+            virtual const std::vector<PetscInt>& local_to_global_cols() const = 0;
             /**
              * @brief Sets the sparsity pattern of the matrix for the interior of the domain (cells only).
              * @param d_nnz that stores, for each row index, the number of non-zero coefficients in the diagonal (local-local) block.

@@ -6,6 +6,21 @@ namespace samurai
 {
     namespace petsc
     {
+
+        Vec create_petsc_vector(PetscInt local_size)
+        {
+            Vec v;
+            VecCreate(PETSC_COMM_WORLD, &v);
+#ifdef SAMURAI_WITH_MPI
+            VecSetType(v, VECMPI);
+#else
+            VecSetType(v, VECSEQ);
+#endif
+            VecSetFromOptions(v);
+            VecSetSizes(v, local_size, PETSC_DETERMINE);
+            return v;
+        }
+
         template <class Field>
         Vec create_petsc_vector_from(Field& f)
         {

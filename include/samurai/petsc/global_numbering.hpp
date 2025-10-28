@@ -19,6 +19,7 @@ namespace samurai
             // This is used to split the ordering of the unknowns (first all the owned unknowns, then all the ghosts).
             // Note that the cell numbers start at index 0, and the ghost numbers also start at index 0!
             std::vector<int> cell_indices;
+
             // Local index in the PETSc vector/matrix for each local unknown
             std::vector<PetscInt> local_indices;
             // Global index in the PETSc vector/matrix for each local unknown

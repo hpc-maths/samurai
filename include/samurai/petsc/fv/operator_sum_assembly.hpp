@@ -241,6 +241,11 @@ namespace samurai
                 largest_stencil_assembly().copy_unknown(v, field);
             }
 
+            void copy_unknown(const input_field_t& field, Vec& v) const
+            {
+                largest_stencil_assembly().copy_unknown(field, v);
+            }
+
             void sparsity_pattern_scheme(std::vector<PetscInt>& d_nnz, std::vector<PetscInt>& o_nnz) const override
             {
                 // The scheme with largest stencil allocates the number of non-zeros.
@@ -467,6 +472,11 @@ namespace samurai
             const std::vector<PetscInt>& local_to_global_rows() const override
             {
                 return largest_stencil_assembly().local_to_global_rows();
+            }
+
+            const std::vector<PetscInt>& local_to_global_cols() const override
+            {
+                return largest_stencil_assembly().local_to_global_cols();
             }
 
             void compute_local_to_global_rows(std::vector<PetscInt>& local_to_global_rows)

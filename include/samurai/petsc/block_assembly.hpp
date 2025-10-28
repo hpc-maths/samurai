@@ -386,7 +386,7 @@ namespace samurai
                              i++;
                          });
                 Vec b;
-                VecCreateNest(PETSC_COMM_SELF, rows, NULL, b_blocks.data(), &b);
+                VecCreateNest(PETSC_COMM_WORLD, rows, NULL, b_blocks.data(), &b);
                 PetscObjectSetName(reinterpret_cast<PetscObject>(b), "right-hand side");
                 return b;
             }
@@ -460,7 +460,7 @@ namespace samurai
                     });
             }
 
-            Vec create_solution_vector() const
+            Vec create_solution_vector_from_unknown_fields() const
             {
                 std::array<Vec, cols> x_blocks;
                 for_each_assembly_op(
@@ -468,12 +468,17 @@ namespace samurai
                     {
                         if (row == 0)
                         {
+#ifdef SAMURAI_WITH_MPI
+                            x_blocks[col] = create_petsc_vector(op.owned_matrix_cols());
+                            op.copy_unknown(op.unknown(), x_blocks[col]);
+#else
                             x_blocks[col] = create_petsc_vector_from(op.unknown());
+#endif
                             PetscObjectSetName(reinterpret_cast<PetscObject>(x_blocks[col]), op.unknown().name().c_str());
                         }
                     });
                 Vec x;
-                VecCreateNest(PETSC_COMM_SELF, cols, NULL, x_blocks.data(), &x);
+                VecCreateNest(PETSC_COMM_WORLD, cols, NULL, x_blocks.data(), &x);
                 PetscObjectSetName(reinterpret_cast<PetscObject>(x), "solution");
                 return x;
             }
@@ -487,11 +492,16 @@ namespace samurai
                          [&](auto& f)
                          {
                              this->for_each_assembly_op(
-                                 [&](auto&, auto row, auto col)
+                                 [&]([[maybe_unused]] auto& op, auto row, auto col)
                                  {
                                      if (row == 0 && col == i)
                                      {
+#ifdef SAMURAI_WITH_MPI
+                                         x_blocks[col] = create_petsc_vector(op.owned_matrix_cols());
+                                         op.copy_unknown(f, x_blocks[col]);
+#else
                                          x_blocks[col] = create_petsc_vector_from(f);
+#endif
                                          //  if constexpr (has_name<decltype(f)>())
                                          //  {
                                          //      PetscObjectSetName(reinterpret_cast<PetscObject>(x_blocks[col]), f.name().c_str());
@@ -501,7 +511,7 @@ namespace samurai
                              i++;
                          });
                 Vec x;
-                VecCreateNest(PETSC_COMM_SELF, cols, NULL, x_blocks.data(), &x);
+                VecCreateNest(PETSC_COMM_WORLD, cols, NULL, x_blocks.data(), &x);
                 return x;
             }
 
@@ -517,6 +527,20 @@ namespace samurai
             {
                 auto tuple = block_operator().tie_unknowns(fields...);
                 return create_vector(tuple);
+            }
+
+            void update_unknowns(const Vec& x) const
+            {
+                for_each_assembly_op(
+                    [&](auto& op, auto row, auto)
+                    {
+                        if (row == 0)
+                        {
+                            Vec x_block;
+                            VecNestGetSubVec(x, static_cast<PetscInt>(row), &x_block);
+                            op.copy_unknown(x_block, op.unknown());
+                        }
+                    });
             }
         };
 
@@ -680,6 +704,11 @@ namespace samurai
             const std::vector<PetscInt>& local_to_global_rows() const override
             {
                 return m_numbering.local_to_global_mapping;
+            }
+
+            const std::vector<PetscInt>& local_to_global_cols() const override
+            {
+                assert(false && "Not implemented yet");
             }
 
             const auto& mesh() const
@@ -947,7 +976,7 @@ namespace samurai
                     {
                         if (row == col)
                         {
-                            op.copy_unknown(x, op.unknown());
+                            op.copy_unknown(op.unknown(), x);
                         }
                     });
 
