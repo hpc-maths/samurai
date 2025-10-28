@@ -172,6 +172,12 @@ namespace samurai
 #endif
             }
 
+            inline void resize(PetscInt n_unknowns)
+            {
+                local_indices.resize(static_cast<std::size_t>(n_unknowns));
+                global_indices.resize(static_cast<std::size_t>(n_unknowns));
+            }
+
             template <int n_unknowns_per_cell, typename return_type = std::size_t>
             inline return_type unknown_index(PetscInt shift, std::size_t cell_index, [[maybe_unused]] int component_index) const
             {

@@ -659,9 +659,7 @@ namespace samurai
                 //         }
                 //     });
 
-                auto n_local_rows = this->local_matrix_rows();
-                m_numbering.local_indices.resize(static_cast<std::size_t>(n_local_rows));
-                m_numbering.global_indices.resize(static_cast<std::size_t>(n_local_rows));
+                m_numbering.resize(this->local_matrix_rows());
                 for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
