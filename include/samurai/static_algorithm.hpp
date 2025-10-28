@@ -7,6 +7,8 @@
 
 #include <xtensor/containers/xfixed.hpp>
 
+#include "level_cell_array.hpp"
+
 namespace samurai
 {
     template <std::size_t Dim, class TInterval>
