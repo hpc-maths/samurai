@@ -141,6 +141,9 @@ namespace samurai
                 return m_numbering;
             }
 
+            /**
+             * This function is called in case of stand-alone assembly (e.g., Poisson equation).
+             */
             void reset() override
             {
                 if (!m_unknown)
@@ -169,7 +172,7 @@ namespace samurai
             }
 
             /**
-             * This function is called in case of sum_assembly.
+             * This function is called in case of sum_assembly (e.g., heat equation).
              */
             template <class OtherScheme>
             void reset(const FVSchemeAssembly<OtherScheme>& other)
@@ -189,16 +192,13 @@ namespace samurai
             }
 
             /**
-             * This function is called in case of block_assembly.
+             * This function is called in case of monolithic block_assembly (e.g., Stokes equation).
              */
             template <std::size_t rows_, std::size_t cols_, class... Operators>
             void reset(BlockAssembly<true, rows_, cols_, Operators...>& block_assembly)
             {
                 m_numbering = &block_assembly.numbering();
-#ifdef SAMURAI_WITH_MPI
-                // m_local_to_global_rows = block_assembly.local_to_global_rows();
-                // m_local_to_global_cols = block_assembly.local_to_global_cols();
-#endif
+
                 m_is_row_empty.resize(static_cast<std::size_t>(owned_matrix_rows()));
                 std::fill(m_is_row_empty.begin(), m_is_row_empty.end(), true);
 
@@ -212,6 +212,11 @@ namespace samurai
             const std::vector<PetscInt>& local_to_global_rows() const override
             {
                 return m_numbering->local_to_global_mapping;
+            }
+
+            const std::vector<PetscInt>& local_to_global_cols() const override
+            {
+                assert(false && "Not implemented yet");
             }
 
           private:
