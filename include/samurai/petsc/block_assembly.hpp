@@ -24,6 +24,8 @@ namespace samurai
             block_operator_t m_block_operator;
             std::tuple<Assembly<Operators>...> m_assembly_ops;
 
+            CellOwnership m_ownership;
+
           public:
 
             explicit BlockAssemblyBase(const block_operator_t& block_op)
@@ -58,6 +60,16 @@ namespace samurai
             auto& block_operator() const
             {
                 return m_block_operator;
+            }
+
+            CellOwnership& ownership()
+            {
+                return m_ownership;
+            }
+
+            const CellOwnership& ownership() const
+            {
+                return m_ownership;
             }
 
             template <class Func>
@@ -103,6 +115,11 @@ namespace samurai
             const auto& first_block() const
             {
                 return std::get<0>(m_assembly_ops);
+            }
+
+            const auto& mesh() const
+            {
+                return first_block().unknown().mesh();
             }
 
             // void reset_blocks()
@@ -309,6 +326,7 @@ namespace samurai
             using block_operator_t = typename base_class::block_operator_t;
             using base_class::cols;
             using base_class::for_each_assembly_op;
+            using base_class::ownership;
             using base_class::rows;
 
           private:
@@ -357,10 +375,12 @@ namespace samurai
 
             void reset()
             {
+                ownership().compute(this->mesh());
+
                 for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
-                        op.reset();
+                        op.reset(*this);
                     });
 
                 // Check compatibility of dimensions and set dimensions for blocks that must fit into the matrix
@@ -559,11 +579,11 @@ namespace samurai
             using block_operator_t = typename base_class::block_operator_t;
             using base_class::cols;
             using base_class::for_each_assembly_op;
+            using base_class::ownership;
             using base_class::rows;
 
           private:
 
-            CellOwnership m_ownership;
             Numbering m_numbering;
 
           public:
@@ -580,11 +600,6 @@ namespace samurai
                     });
             }
 
-            CellOwnership& ownership()
-            {
-                return m_ownership;
-            }
-
             Numbering& numbering()
             {
                 return m_numbering;
@@ -592,7 +607,7 @@ namespace samurai
 
             void reset() override
             {
-                m_ownership.compute(mesh());
+                ownership().compute(this->mesh());
 
                 for_each_assembly_op(
                     [&](auto& op, auto, auto)
@@ -686,7 +701,7 @@ namespace samurai
                 //         }
                 //     });
 
-                m_numbering.ownership = &m_ownership;
+                m_numbering.ownership = &ownership();
                 m_numbering.resize(this->local_matrix_rows());
                 for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
@@ -716,11 +731,6 @@ namespace samurai
             const std::vector<PetscInt>& local_to_global_cols() const override
             {
                 assert(false && "Not implemented yet");
-            }
-
-            const auto& mesh() const
-            {
-                return this->template get<0, 0>().unknown().mesh();
             }
 
           public:

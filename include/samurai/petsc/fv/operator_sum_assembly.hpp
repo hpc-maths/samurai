@@ -429,8 +429,8 @@ namespace samurai
             /**
              * This function is called in case of block_assembly.
              */
-            template <std::size_t rows_, std::size_t cols_, class... Operators_>
-            void reset(BlockAssembly<true, rows_, cols_, Operators_...>& block_assembly)
+            template <bool is_monolithic, std::size_t rows_, std::size_t cols_, class... Operators_>
+            void reset(BlockAssembly<is_monolithic, rows_, cols_, Operators_...>& block_assembly)
             {
                 for_each(m_assembly_ops,
                          [&](auto& op)
