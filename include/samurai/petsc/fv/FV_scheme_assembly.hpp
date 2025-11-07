@@ -218,6 +218,24 @@ namespace samurai
                 }
             }
 
+            /**
+             * This function is called in case of nested block_assembly (e.g., Stokes equation).
+             */
+            template <std::size_t rows_, std::size_t cols_, class... Operators>
+            void reset(BlockAssembly<false, rows_, cols_, Operators...>& block_assembly)
+            {
+                m_ownership = &block_assembly.ownership();
+                compute_numbering();
+
+                m_is_row_empty.resize(static_cast<std::size_t>(owned_matrix_rows()));
+                std::fill(m_is_row_empty.begin(), m_is_row_empty.end(), true);
+
+                if constexpr (ghost_elimination_enabled)
+                {
+                    m_ghost_recursion = ghost_recursion(); // not optimized...
+                }
+            }
+
             const std::vector<PetscInt>& local_to_global_rows() const override
             {
                 return m_numbering->local_to_global_mapping;
@@ -236,6 +254,7 @@ namespace samurai
                 {
                     m_ownership      = new CellOwnership();
                     m_owns_ownership = true;
+                    m_ownership->compute(mesh());
                 }
                 if (m_numbering == nullptr)
                 {
@@ -244,7 +263,6 @@ namespace samurai
                     m_numbering->ownership = m_ownership;
                 }
                 // std::cout << "[" << mpi::communicator().rank() << "] Computing global numbering for matrix '" << name() << "'\n";
-                m_ownership->compute(mesh());
 #ifdef SAMURAI_WITH_MPI
                 assert(input_n_comp == output_n_comp && "unimplemented");
 
