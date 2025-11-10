@@ -35,7 +35,6 @@ namespace samurai
             : m_set_traversers(begin_set_traverser, end_set_traverser)
             , m_expansion(expansion)
         {
-            assert(m_expansion > 0);
             next_interval_impl();
         }
 
