@@ -49,6 +49,7 @@ namespace samurai
 
         inline current_interval_t current_interval() const
         {
+            assert(!is_empty());
             return derived_cast().current_interval_impl();
         }
     };

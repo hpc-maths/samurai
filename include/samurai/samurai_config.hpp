@@ -53,7 +53,7 @@ namespace samurai
         static constexpr int prediction_stencil_radius = 1;
 
         static constexpr bool projection_with_list_of_intervals = true;
-        static constexpr bool use_native_expand                 = false;
+        static constexpr bool use_native_expand                 = true;
 
         using index_t    = signed long long int;
         using value_t    = int;

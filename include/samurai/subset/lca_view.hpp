@@ -129,11 +129,11 @@ namespace samurai
             ptrdiff_t start_offset = 0;
             ptrdiff_t end_offset   = std::ssize(m_lca[Base::dim - 1]);
 
-            for (std::size_t dim = Base::dim - 1; dim != d; --dim)
+            for (std::size_t dCur = Base::dim - 1; dCur != d; --dCur)
             {
-                const auto y             = index[dim - 1];
-                const auto& y_intervals  = m_lca[dim];
-                auto& start_offset_guess = workspace.start_offset_guess[dim - 1];
+                const auto y             = index[dCur - 1];
+                const auto& y_intervals  = m_lca[dCur];
+                auto& start_offset_guess = workspace.start_offset_guess[dCur - 1];
 
                 const auto begin_y_intervals = y_intervals.cbegin() + start_offset;
                 const auto end_y_intervals   = y_intervals.cbegin() + end_offset;
@@ -173,7 +173,7 @@ namespace samurai
                 start_offset_guess = std::distance(begin_y_intervals, y_interval_it);
                 assert(0 <= start_offset_guess and start_offset_guess < std::distance(begin_y_intervals, end_y_intervals));
 
-                const auto& y_offsets   = m_lca.offsets(dim);
+                const auto& y_offsets   = m_lca.offsets(dCur);
                 const auto y_offset_idx = std::size_t(y + y_interval_it->index);
 
                 start_offset = ptrdiff_t(y_offsets[y_offset_idx]);
