@@ -63,9 +63,16 @@ namespace samurai
         template <std::size_t d>
         inline traverser_t<d> get_traverser_impl(const yz_index_t& index, std::integral_constant<std::size_t, d>, Workspace) const
         {
-            return (m_box.min_corner()[d + 1] <= index[d] && index[d] < m_box.max_corner()[d + 1])
-                     ? traverser_t<d>(m_box.min_corner()[d], m_box.max_corner()[d])
-                     : traverser_t<d>(0, 0);
+            if constexpr (d == Base::dim - 1)
+            {
+                return traverser_t<d>(m_box.min_corner()[d], m_box.max_corner()[d]);
+            }
+            else
+            {
+                return (m_box.min_corner()[d + 1] <= index[d] && index[d] < m_box.max_corner()[d + 1])
+                         ? traverser_t<d>(m_box.min_corner()[d], m_box.max_corner()[d])
+                         : traverser_t<d>(0, 0);
+            }
         }
 
         template <std::size_t d>
@@ -85,5 +92,11 @@ namespace samurai
         std::size_t m_level;
         const B& m_box;
     };
+
+    template <class B>
+    BoxView<B> asBoxView(const std::size_t level, const B& box)
+    {
+        return BoxView<B>(level, box);
+    }
 
 } // namespace samurai

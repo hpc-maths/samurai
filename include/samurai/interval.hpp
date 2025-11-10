@@ -377,6 +377,17 @@ namespace samurai
     {
         return i1.start < i2.start;
     }
+
+    template <typename T>
+    struct IsInterval : std::false_type
+    {
+    };
+
+    template <class value_t, class index_t>
+    struct IsInterval<Interval<value_t, index_t>> : std::true_type
+    {
+    };
+
 } // namespace samurai
 
 template <class TValue, class TIndex>

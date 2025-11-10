@@ -53,6 +53,7 @@ namespace samurai
         {
             typename detail::ProjectionLOIWork<Set, std::make_index_sequence<Set::dim>>::Type projection_workspace;
             typename Set::Workspace child_workspace;
+            typename Set::Workspace tmp_child_workspace;
         };
 
         static constexpr std::size_t dim()
@@ -70,8 +71,6 @@ namespace samurai
       public:
 
         SAMURAI_SET_TYPEDEFS
-
-        using ChildWorkspace = typename Set::Workspace;
 
         ProjectionLOI(const Set& set, const std::size_t level)
             : m_set(set)
@@ -128,13 +127,11 @@ namespace samurai
                     yz_index_t index_max(utils::sumAndPow2(index, 1, m_shift));
 
                     yz_index_t index_rec;
-                    ChildWorkspace child_workspace;
                     fill_list_of_interval_rec(index_min,
                                               index_max,
                                               index_rec,
                                               d_ic,
                                               std::integral_constant<std::size_t, Base::dim - 1>{},
-                                              child_workspace,
                                               workspace);
 
                     return traverser_t<d>(m_set.get_traverser(utils::pow2(index, m_shift), d_ic, workspace.child_workspace),
@@ -171,11 +168,13 @@ namespace samurai
                                               yz_index_t& index,
                                               std::integral_constant<std::size_t, d> d_ic,
                                               std::integral_constant<std::size_t, dCur> dCur_ic,
-                                              ChildWorkspace& child_workspace,
-                                              Workspace& workspace_to_fill) const
+                                              Workspace& workspace) const
         {
             using child_traverser_t        = typename Set::template traverser_t<dCur>;
             using child_current_interval_t = typename child_traverser_t::current_interval_t;
+            using ChildWorkspace           = typename Set::Workspace;
+
+            ChildWorkspace& child_workspace = workspace.tmp_child_workspace;
 
             m_set.init_workspace(1, dCur_ic, child_workspace);
 
@@ -186,22 +185,16 @@ namespace samurai
 
                 if constexpr (dCur == d)
                 {
-                    std::get<d>(workspace_to_fill.projection_workspace).add_interval(interval >> m_shift);
+                    std::get<d>(workspace.projection_workspace).add_interval(interval >> m_shift);
                 }
                 else
                 {
                     const auto index_start = std::max(interval.start, index_min[dCur - 1]);
-                    const auto index_end   = std::min(interval.end, index_max[dCur - 1]);
+                    const auto index_bound = std::min(interval.end, index_max[dCur - 1]);
 
-                    for (index[dCur - 1] = index_start; index[dCur - 1] < index_end; ++index[dCur - 1])
+                    for (index[dCur - 1] = index_start; index[dCur - 1] < index_bound; ++index[dCur - 1])
                     {
-                        fill_list_of_interval_rec(index_min,
-                                                  index_max,
-                                                  index,
-                                                  d_ic,
-                                                  std::integral_constant<std::size_t, dCur - 1>{},
-                                                  child_workspace,
-                                                  workspace_to_fill);
+                        fill_list_of_interval_rec(index_min, index_max, index, d_ic, std::integral_constant<std::size_t, dCur - 1>{}, workspace);
                     }
                 }
             }
