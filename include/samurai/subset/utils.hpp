@@ -160,14 +160,14 @@ namespace samurai
     namespace detail
     {
         template <class Tuple, class Func, std::size_t... Is>
-        Func enumerate_items(Tuple& tuple, Func&& func, std::index_sequence<Is...>)
+        Func enumerate_items(Tuple& tuple, Func func, std::index_sequence<Is...>)
         {
             (func(Is, std::get<Is>(tuple)), ...);
             return func;
         }
 
         template <class Tuple, class Func, std::size_t... Is>
-        Func enumerate_const_items(const Tuple& tuple, Func&& func, std::index_sequence<Is...>)
+        Func enumerate_const_items(const Tuple& tuple, Func func, std::index_sequence<Is...>)
         {
             (func(Is, std::get<Is>(tuple)), ...);
             return func;
@@ -175,7 +175,7 @@ namespace samurai
     }
 
     template <class Tuple, class Func>
-    Func enumerate_items(Tuple& tuple, Func func)
+    Func enumerate_items(Tuple& tuple, Func&& func)
     {
         constexpr std::size_t N = std::tuple_size_v<std::decay_t<Tuple>>;
 
@@ -187,7 +187,7 @@ namespace samurai
     {
         constexpr std::size_t N = std::tuple_size_v<std::decay_t<Tuple>>;
 
-        return detail::enumerate_const_items(tuple, std::forward<Func>(func), std::make_index_sequence<N>{});
+        return detail::enumerate_const_items(tuple, unc, std::make_index_sequence<N>{});
     }
 
 } // namespace samurai
