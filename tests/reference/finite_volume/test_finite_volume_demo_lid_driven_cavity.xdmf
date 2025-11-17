@@ -2,14 +2,14 @@
 <Xdmf>
     <Domain>
         <Grid Name="mesh">
-            <Topology TopologyType="Quadrilateral" NumberOfElements="2563">
-                <DataItem Dimensions="10252" Format="HDF">test_finite_volume_demo_lid_driven_cavity.h5:/mesh/connectivity</DataItem>
+            <Topology TopologyType="Quadrilateral" NumberOfElements="2560">
+                <DataItem Dimensions="10240" Format="HDF">test_finite_volume_demo_lid_driven_cavity.h5:/mesh/connectivity</DataItem>
             </Topology>
             <Geometry GeometryType="XYZ">
-                <DataItem Dimensions="8469" Format="HDF">test_finite_volume_demo_lid_driven_cavity.h5:/mesh/points</DataItem>
+                <DataItem Dimensions="8463" Format="HDF">test_finite_volume_demo_lid_driven_cavity.h5:/mesh/points</DataItem>
             </Geometry>
             <Attribute Name="ink" Center="Cell">
-                <DataItem Dimensions="2563" Format="HDF" Precision="8">test_finite_volume_demo_lid_driven_cavity.h5:/mesh/fields/ink</DataItem>
+                <DataItem Dimensions="2560" Format="HDF" Precision="8">test_finite_volume_demo_lid_driven_cavity.h5:/mesh/fields/ink</DataItem>
             </Attribute>
         </Grid>
     </Domain>
