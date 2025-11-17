@@ -63,11 +63,11 @@ namespace samurai
                     field_value_t v;
                     if constexpr (Field::is_scalar)
                     {
-                        v = field[left];
+                        v = 0.5 * (field[left] + field[right]);
                     }
                     else
                     {
-                        v = field[left](d);
+                        v = 0.5 * (field[left](d) + field[right](d));
                     }
 
                     flux = v >= 0 ? f(field[left]) : f(field[right]);
@@ -120,16 +120,17 @@ namespace samurai
 
                 weno5[d].cons_flux_function = [f](FluxValue<cfg>& flux, const StencilData<cfg>& /*data*/, const StencilValues<cfg>& u)
                 {
-                    static constexpr std::size_t stencil_center = 2;
+                    static constexpr std::size_t left  = 2;
+                    static constexpr std::size_t right = 3;
 
                     field_value_t v;
                     if constexpr (Field::is_scalar)
                     {
-                        v = u[stencil_center];
+                        v = 0.5 * (u[left] + u[right]);
                     }
                     else
                     {
-                        v = u[stencil_center](d);
+                        v = 0.5 * (u[left](d) + u[right](d));
                     }
 
                     if (v >= 0)
