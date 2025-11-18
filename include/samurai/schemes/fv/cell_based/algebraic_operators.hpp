@@ -51,7 +51,7 @@ namespace samurai
             }
 
             multiplied_scheme.local_jacobian_function() = nullptr;
-            if constexpr (cfg::stencil_size > 1)
+            if constexpr (cfg::stencil_size == 1)
             {
                 if (scheme.local_jacobian_function())
                 {
