@@ -64,194 +64,194 @@ namespace samurai
                 }
             }
         }
-    }
 
-    std::ostringstream name;
-    if (scalar == static_cast<int>(scalar))
-    {
-        name << static_cast<int>(scalar) << " * " << scheme.name();
-    }
-    else
-    {
-        name << std::setprecision(1) << std::scientific << scalar << " * " << scheme.name();
-    }
-    multiplied_scheme.set_name(name.str());
-    return multiplied_scheme;
-}
-
-/**
- * Binary '+' operator if same config
- */
-template <class cfg, class bdry_cfg>
-auto operator+(const CellBasedScheme<cfg, bdry_cfg>& scheme1, const CellBasedScheme<cfg, bdry_cfg>& scheme2)
-{
-    CellBasedScheme<cfg, bdry_cfg> addition_scheme(scheme1); // copy
-
-    addition_scheme.set_name(scheme1.name() + " + " + scheme2.name());
-    if constexpr (cfg::scheme_type == SchemeType::LinearHomogeneous)
-    {
-        addition_scheme.coefficients_func() = [=](double h)
+        std::ostringstream name;
+        if (scalar == static_cast<int>(scalar))
         {
-            return scheme1.coefficients(h) + scheme2.coefficients(h);
-        };
-    }
-    else // SchemeType::NonLinear
-    {
-        using stencil_cells_t = typename CellBasedScheme<cfg, bdry_cfg>::stencil_cells_t;
-        using field_t         = typename CellBasedScheme<cfg, bdry_cfg>::field_t;
-
-        addition_scheme.scheme_function() = nullptr;
-        if (scheme1.scheme_function() && scheme2.scheme_function())
+            name << static_cast<int>(scalar) << " * " << scheme.name();
+        }
+        else
         {
-            addition_scheme.scheme_function() = [=](stencil_cells_t& cells, const field_t& field)
+            name << std::setprecision(1) << std::scientific << scalar << " * " << scheme.name();
+        }
+        multiplied_scheme.set_name(name.str());
+        return multiplied_scheme;
+    }
+
+    /**
+     * Binary '+' operator if same config
+     */
+    template <class cfg, class bdry_cfg>
+    auto operator+(const CellBasedScheme<cfg, bdry_cfg>& scheme1, const CellBasedScheme<cfg, bdry_cfg>& scheme2)
+    {
+        CellBasedScheme<cfg, bdry_cfg> addition_scheme(scheme1); // copy
+
+        addition_scheme.set_name(scheme1.name() + " + " + scheme2.name());
+        if constexpr (cfg::scheme_type == SchemeType::LinearHomogeneous)
+        {
+            addition_scheme.coefficients_func() = [=](double h)
             {
-                return scheme1.scheme_function()(cells, field) + scheme2.scheme_function()(cells, field);
+                return scheme1.coefficients(h) + scheme2.coefficients(h);
             };
         }
-
-        addition_scheme.local_scheme_function() = nullptr;
-        if (scheme1.local_scheme_function() && scheme2.local_scheme_function())
+        else // SchemeType::NonLinear
         {
-            addition_scheme.local_scheme_function() = [=](stencil_cells_t& cells, const field_t& field)
-            {
-                return scheme1.local_scheme_function()(cells, field) + scheme2.local_scheme_function()(cells, field);
-            };
-        }
+            using stencil_cells_t = typename CellBasedScheme<cfg, bdry_cfg>::stencil_cells_t;
+            using field_t         = typename CellBasedScheme<cfg, bdry_cfg>::field_t;
 
-        addition_scheme.jacobian_function() = nullptr;
-        if (scheme1.jacobian_function() && scheme2.jacobian_function())
-        {
-            addition_scheme.jacobian_function() = [=](stencil_cells_t& cells, const field_t& field)
+            addition_scheme.scheme_function() = nullptr;
+            if (scheme1.scheme_function() && scheme2.scheme_function())
             {
-                return scheme1.jacobian_function()(cells, field) + scheme2.jacobian_function()(cells, field);
-            };
-        }
+                addition_scheme.scheme_function() = [=](stencil_cells_t& cells, const field_t& field)
+                {
+                    return scheme1.scheme_function()(cells, field) + scheme2.scheme_function()(cells, field);
+                };
+            }
 
-        addition_scheme.local_jacobian_function() = nullptr;
-        if (scheme1.local_jacobian_function() && scheme2.local_jacobian_function())
-        {
-            addition_scheme.local_jacobian_function() = [=](stencil_cells_t& cells, const field_t& field)
+            addition_scheme.local_scheme_function() = nullptr;
+            if (scheme1.local_scheme_function() && scheme2.local_scheme_function())
             {
-                return scheme1.local_jacobian_function()(cells, field) + scheme2.local_jacobian_function()(cells, field);
-            };
+                addition_scheme.local_scheme_function() = [=](stencil_cells_t& cells, const field_t& field)
+                {
+                    return scheme1.local_scheme_function()(cells, field) + scheme2.local_scheme_function()(cells, field);
+                };
+            }
+
+            addition_scheme.jacobian_function() = nullptr;
+            if (scheme1.jacobian_function() && scheme2.jacobian_function())
+            {
+                addition_scheme.jacobian_function() = [=](stencil_cells_t& cells, const field_t& field)
+                {
+                    return scheme1.jacobian_function()(cells, field) + scheme2.jacobian_function()(cells, field);
+                };
+            }
+
+            addition_scheme.local_jacobian_function() = nullptr;
+            if (scheme1.local_jacobian_function() && scheme2.local_jacobian_function())
+            {
+                addition_scheme.local_jacobian_function() = [=](stencil_cells_t& cells, const field_t& field)
+                {
+                    return scheme1.local_jacobian_function()(cells, field) + scheme2.local_jacobian_function()(cells, field);
+                };
+            }
         }
+        return addition_scheme;
     }
-    return addition_scheme;
-}
 
-/**
- * Binary '+' operator if different SchemeType (NonLinear and Linear) but same stencil of size 1
- */
-template <class lin_cfg,
-          class nonlin_cfg,
-          class bdry_cfg,
-          std::enable_if_t<nonlin_cfg::scheme_type == SchemeType::NonLinear && lin_cfg::scheme_type == SchemeType::LinearHomogeneous
-                               && lin_cfg::stencil_size == nonlin_cfg::stencil_size && lin_cfg::stencil_size == 1,
-                           bool> = true>
-auto operator+(const CellBasedScheme<lin_cfg, bdry_cfg>& lin_scheme, const CellBasedScheme<nonlin_cfg, bdry_cfg>& nonlin_scheme)
-{
-    using stencil_cells_t = typename CellBasedScheme<nonlin_cfg, bdry_cfg>::stencil_cells_t;
-    using field_t         = typename CellBasedScheme<nonlin_cfg, bdry_cfg>::field_t;
-
-    static constexpr bool can_collapse = lin_cfg::input_field_t::is_scalar && lin_cfg::output_field_t::is_scalar;
-
-    CellBasedScheme<nonlin_cfg, bdry_cfg> addition_scheme(nonlin_scheme); // copy
-
-    addition_scheme.set_name(lin_scheme.name() + " + " + nonlin_scheme.name());
-    if constexpr (lin_cfg::scheme_type == SchemeType::LinearHomogeneous)
+    /**
+     * Binary '+' operator if different SchemeType (NonLinear and Linear) but same stencil of size 1
+     */
+    template <class lin_cfg,
+              class nonlin_cfg,
+              class bdry_cfg,
+              std::enable_if_t<nonlin_cfg::scheme_type == SchemeType::NonLinear && lin_cfg::scheme_type == SchemeType::LinearHomogeneous
+                                   && lin_cfg::stencil_size == nonlin_cfg::stencil_size && lin_cfg::stencil_size == 1,
+                               bool> = true>
+    auto operator+(const CellBasedScheme<lin_cfg, bdry_cfg>& lin_scheme, const CellBasedScheme<nonlin_cfg, bdry_cfg>& nonlin_scheme)
     {
-        addition_scheme.scheme_function() = [=](SchemeValue<nonlin_cfg>& value, const stencil_cells_t& cell, const field_t& field)
-        {
-            nonlin_scheme.scheme_function()(value, cell, field);
+        using stencil_cells_t = typename CellBasedScheme<nonlin_cfg, bdry_cfg>::stencil_cells_t;
+        using field_t         = typename CellBasedScheme<nonlin_cfg, bdry_cfg>::field_t;
 
-            StencilCoeffs<lin_cfg> coeffs;
-            auto h = cell.length;
-            lin_scheme.coefficients(coeffs, h);
-            value += mat_vec<detail::is_soa_v<field_t>, can_collapse>(coeffs, field[cell]);
-        };
+        static constexpr bool can_collapse = lin_cfg::input_field_t::is_scalar && lin_cfg::output_field_t::is_scalar;
 
-        addition_scheme.local_scheme_function() = nullptr;
-        if (nonlin_scheme.local_scheme_function())
+        CellBasedScheme<nonlin_cfg, bdry_cfg> addition_scheme(nonlin_scheme); // copy
+
+        addition_scheme.set_name(lin_scheme.name() + " + " + nonlin_scheme.name());
+        if constexpr (lin_cfg::scheme_type == SchemeType::LinearHomogeneous)
         {
-            addition_scheme.local_scheme_function() = [=](SchemeValue<nonlin_cfg>& value, const stencil_cells_t& cell, const auto& field)
+            addition_scheme.scheme_function() = [=](SchemeValue<nonlin_cfg>& value, const stencil_cells_t& cell, const field_t& field)
             {
-                nonlin_scheme.local_scheme_function()(value, cell, field);
+                nonlin_scheme.scheme_function()(value, cell, field);
 
                 StencilCoeffs<lin_cfg> coeffs;
                 auto h = cell.length;
                 lin_scheme.coefficients(coeffs, h);
                 value += mat_vec<detail::is_soa_v<field_t>, can_collapse>(coeffs, field[cell]);
             };
-        }
 
-        addition_scheme.jacobian_function() = nullptr;
-        if (nonlin_scheme.jacobian_function())
-        {
-            addition_scheme.jacobian_function() = [=](StencilJacobian<nonlin_cfg>& jac, const stencil_cells_t& cell, const field_t& field)
+            addition_scheme.local_scheme_function() = nullptr;
+            if (nonlin_scheme.local_scheme_function())
             {
-                nonlin_scheme.jacobian_function()(jac, cell, field);
+                addition_scheme.local_scheme_function() = [=](SchemeValue<nonlin_cfg>& value, const stencil_cells_t& cell, const auto& field)
+                {
+                    nonlin_scheme.local_scheme_function()(value, cell, field);
 
-                StencilCoeffs<lin_cfg> coeffs;
-                auto h = cell.length;
-                lin_scheme.coefficients(coeffs, h);
-                jac += coeffs[0];
-            };
-        }
+                    StencilCoeffs<lin_cfg> coeffs;
+                    auto h = cell.length;
+                    lin_scheme.coefficients(coeffs, h);
+                    value += mat_vec<detail::is_soa_v<field_t>, can_collapse>(coeffs, field[cell]);
+                };
+            }
 
-        addition_scheme.local_jacobian_function() = nullptr;
-        if (nonlin_scheme.local_jacobian_function())
-        {
-            addition_scheme.local_jacobian_function() = [=](StencilJacobian<nonlin_cfg>& jac, const stencil_cells_t& cell, const auto& field)
+            addition_scheme.jacobian_function() = nullptr;
+            if (nonlin_scheme.jacobian_function())
             {
-                nonlin_scheme.local_jacobian_function()(jac, cell, field);
+                addition_scheme.jacobian_function() = [=](StencilJacobian<nonlin_cfg>& jac, const stencil_cells_t& cell, const field_t& field)
+                {
+                    nonlin_scheme.jacobian_function()(jac, cell, field);
 
-                StencilCoeffs<lin_cfg> coeffs;
-                auto h = cell.length;
-                lin_scheme.coefficients(coeffs, h);
-                jac += coeffs[0];
-            };
+                    StencilCoeffs<lin_cfg> coeffs;
+                    auto h = cell.length;
+                    lin_scheme.coefficients(coeffs, h);
+                    jac += coeffs[0];
+                };
+            }
+
+            addition_scheme.local_jacobian_function() = nullptr;
+            if (nonlin_scheme.local_jacobian_function())
+            {
+                addition_scheme.local_jacobian_function() =
+                    [=](StencilJacobian<nonlin_cfg>& jac, const stencil_cells_t& cell, const auto& field)
+                {
+                    nonlin_scheme.local_jacobian_function()(jac, cell, field);
+
+                    StencilCoeffs<lin_cfg> coeffs;
+                    auto h = cell.length;
+                    lin_scheme.coefficients(coeffs, h);
+                    jac += coeffs[0];
+                };
+            }
         }
+        return addition_scheme;
     }
-    return addition_scheme;
-}
 
-/**
- * Unary '-' operator
- */
-template <class cfg, class bdry_cfg>
-auto operator-(const CellBasedScheme<cfg, bdry_cfg>& scheme)
-{
-    return (-1) * scheme;
-}
+    /**
+     * Unary '-' operator
+     */
+    template <class cfg, class bdry_cfg>
+    auto operator-(const CellBasedScheme<cfg, bdry_cfg>& scheme)
+    {
+        return (-1) * scheme;
+    }
 
-template <class cfg, class bdry_cfg>
-auto operator-(CellBasedScheme<cfg, bdry_cfg>& scheme)
-{
-    return (-1) * scheme;
-}
+    template <class cfg, class bdry_cfg>
+    auto operator-(CellBasedScheme<cfg, bdry_cfg>& scheme)
+    {
+        return (-1) * scheme;
+    }
 
-template <class cfg, class bdry_cfg>
-auto operator-(CellBasedScheme<cfg, bdry_cfg>&& scheme)
-{
-    return (-1) * scheme;
-}
+    template <class cfg, class bdry_cfg>
+    auto operator-(CellBasedScheme<cfg, bdry_cfg>&& scheme)
+    {
+        return (-1) * scheme;
+    }
 
-/**
- * Binary '-' operator if same config
- */
-template <class cfg, class bdry_cfg>
-auto operator-(const CellBasedScheme<cfg, bdry_cfg>& scheme1, const CellBasedScheme<cfg, bdry_cfg>& scheme2)
-{
-    return scheme1 + ((-1) * scheme2);
-}
+    /**
+     * Binary '-' operator if same config
+     */
+    template <class cfg, class bdry_cfg>
+    auto operator-(const CellBasedScheme<cfg, bdry_cfg>& scheme1, const CellBasedScheme<cfg, bdry_cfg>& scheme2)
+    {
+        return scheme1 + ((-1) * scheme2);
+    }
 
-/**
- * Binary '-' operator if different SchemeType (NonLinear and LinearHomogeneous) but same stencil
- */
-template <class cfg1, class cfg2, class bdry_cfg>
-auto operator-(const CellBasedScheme<cfg1, bdry_cfg>& scheme1, const CellBasedScheme<cfg2, bdry_cfg>& scheme2)
-{
-    return scheme1 + ((-1) * scheme2);
-}
+    /**
+     * Binary '-' operator if different SchemeType (NonLinear and LinearHomogeneous) but same stencil
+     */
+    template <class cfg1, class cfg2, class bdry_cfg>
+    auto operator-(const CellBasedScheme<cfg1, bdry_cfg>& scheme1, const CellBasedScheme<cfg2, bdry_cfg>& scheme2)
+    {
+        return scheme1 + ((-1) * scheme2);
+    }
 
 } // end namespace samurai
