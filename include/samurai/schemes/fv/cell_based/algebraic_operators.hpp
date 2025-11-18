@@ -51,14 +51,17 @@ namespace samurai
             }
 
             multiplied_scheme.local_jacobian_function() = nullptr;
-            if (scheme.local_jacobian_function())
+            if constexpr (cfg::stencil_size == 1)
             {
-                multiplied_scheme.local_jacobian_function() =
-                    [=](StencilJacobian<cfg>& jacobian, const stencil_cells_t& cells, const auto& field)
+                if (scheme.local_jacobian_function())
                 {
-                    scheme.local_jacobian_function()(jacobian, cells, field);
-                    jacobian *= scalar;
-                };
+                    multiplied_scheme.local_jacobian_function() =
+                        [=](StencilJacobian<cfg>& jacobian, const stencil_cells_t& cells, const auto& field)
+                    {
+                        scheme.local_jacobian_function()(jacobian, cells, field);
+                        jacobian *= scalar;
+                    };
+                }
             }
         }
 

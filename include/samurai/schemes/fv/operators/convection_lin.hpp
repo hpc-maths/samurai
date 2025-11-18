@@ -35,11 +35,10 @@ namespace samurai
 
                 if (velocity(d) >= 0) // use the left values
                 {
-                    upwind[d].cons_flux_function = [&](double)
+                    upwind[d].cons_flux_function = [&](FluxStencilCoeffs<cfg>& coeffs, double)
                     {
                         // Return type: 2 matrices (left, right) of size output_n_comp x n_comp.
                         // In this case, of size n_comp x n_comp.
-                        FluxStencilCoeffs<cfg> coeffs;
                         if constexpr (Field::is_scalar)
                         {
                             coeffs[left]  = velocity(d);
@@ -52,7 +51,6 @@ namespace samurai
                             xt::col(coeffs[left], d)  = velocity(d);
                             xt::col(coeffs[right], d) = 0;
                         }
-                        return coeffs;
                     };
                 }
                 else // use the right values

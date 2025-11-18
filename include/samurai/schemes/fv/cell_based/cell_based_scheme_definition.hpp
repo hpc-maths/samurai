@@ -103,7 +103,7 @@ namespace samurai
         // same as 'scheme_func', but with 'LocalField<field_t>' instead of 'field_t'
         using local_scheme_func = std::function<void(SchemeValue<cfg>&, const stencil_cells_t&, const LocalField<field_t>&)>;
         // same as 'jacobian_func', but with 'LocalField<field_t>' instead of 'field_t'
-        using local_jacobian_func = std::function<void(JacobianMatrix<cfg>&, const stencil_cells_t&, const LocalField<field_t>&)>;
+        using local_jacobian_func = std::function<void(StencilJacobian<cfg>&, const stencil_cells_t&, const LocalField<field_t>&)>;
 
         scheme_func scheme_function     = nullptr;
         jacobian_func jacobian_function = nullptr;
