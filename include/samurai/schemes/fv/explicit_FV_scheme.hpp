@@ -75,6 +75,18 @@ namespace samurai
 
         virtual void apply(output_field_t& output_field, input_field_t& input_field)
         {
+            static constexpr int scheme_stencil_size = static_cast<int>(scheme_t::cfg_t::stencil_size);
+            int mesh_stencil_size                    = input_field.mesh().cfg().max_stencil_size();
+
+            if (scheme_stencil_size > mesh_stencil_size)
+            {
+                std::cerr << "The stencil size required by the scheme '" << scheme().name() << "' (" << scheme_stencil_size
+                          << ") is larger than the max_stencil_size parameter of the mesh (" << mesh_stencil_size
+                          << ").\nYou can set it with mesh_config.max_stencil_radius(" << scheme_stencil_size / 2
+                          << ") or mesh_config.max_stencil_size(" << scheme_stencil_size << ")." << std::endl;
+                exit(EXIT_FAILURE);
+            }
+
             for (std::size_t d = 0; d < dim; ++d)
             {
                 apply(d, output_field, input_field);
