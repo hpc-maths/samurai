@@ -315,7 +315,7 @@ namespace samurai
 
                 PetscInt rank_row_shift = compute_rank_shift(owned_matrix_rows());
 
-                std::cout << "[" << mpi::communicator().rank() << "] Computing row numbering for matrix '" << name() << "'\n";
+                // std::cout << "[" << mpi::communicator().rank() << "] Computing row numbering for matrix '" << name() << "'\n";
                 m_row_numbering->resize(local_matrix_rows());
                 compute_global_numbering<output_n_comp>(mesh(),
                                                         *m_row_numbering,

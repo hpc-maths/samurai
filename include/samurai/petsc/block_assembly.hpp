@@ -75,33 +75,19 @@ namespace samurai
             template <class Func>
             void for_each_assembly_op(Func&& f)
             {
-                std::size_t i = 0;
-                for_each(m_assembly_ops,
-                         [&](auto& op)
-                         {
-                             auto row = i / cols;
-                             auto col = i % cols;
-                             f(op, row, col);
-                             i++;
-                         });
+                static_for<0, rows>::apply(
+                    [&](auto row)
+                    {
+                        static_for<0, cols>::apply(
+                            [&](auto col)
+                            {
+                                f(get<row, col>(), row, col);
+                            });
+                    });
             }
 
             template <class Func>
             void for_each_assembly_op(Func&& f) const
-            {
-                std::size_t i = 0;
-                for_each(m_assembly_ops,
-                         [&](const auto& op)
-                         {
-                             auto row = i / cols;
-                             auto col = i % cols;
-                             f(op, row, col);
-                             i++;
-                         });
-            }
-
-            template <class Func>
-            void for_each_assembly_op__static(Func&& f)
             {
                 static_for<0, rows>::apply(
                     [&](auto row)
@@ -340,7 +326,6 @@ namespace samurai
             using block_operator_t = typename base_class::block_operator_t;
             using base_class::cols;
             using base_class::for_each_assembly_op;
-            using base_class::for_each_assembly_op__static;
             using base_class::ownership;
             using base_class::rows;
 
@@ -406,7 +391,7 @@ namespace samurai
                     });
 
                 // The off-diagonal blocks are reset using the numbering of the diagonal blocks
-                for_each_assembly_op__static(
+                for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
                         if constexpr (row != col)
