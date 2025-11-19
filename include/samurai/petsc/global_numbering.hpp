@@ -299,6 +299,27 @@ namespace samurai
                      petsc_cell_indices_field);
             }
         }
+
+        bool has_duplicates(const std::vector<PetscInt>& local_to_global_mapping)
+        {
+            bool duplicate_found = false;
+            for (std::size_t i = 0; i < local_to_global_mapping.size(); ++i)
+            {
+                for (std::size_t j = i + 1; j < local_to_global_mapping.size(); ++j)
+                {
+                    if (local_to_global_mapping[i] == local_to_global_mapping[j])
+                    {
+                        duplicate_found = true;
+                        break;
+                    }
+                }
+                if (duplicate_found)
+                {
+                    break;
+                }
+            }
+            return duplicate_found;
+        }
 #endif
     }
 }

@@ -81,9 +81,42 @@ namespace samurai
                 return m_sum_scheme;
             }
 
-            const auto& numbering() const
+            const auto& row_numbering() const
             {
-                return largest_stencil_assembly().numbering();
+                return largest_stencil_assembly().row_numbering();
+            }
+
+            auto& row_numbering()
+            {
+                return largest_stencil_assembly().row_numbering();
+            }
+
+            const auto& col_numbering() const
+            {
+                return largest_stencil_assembly().col_numbering();
+            }
+
+            auto& col_numbering()
+            {
+                return largest_stencil_assembly().col_numbering();
+            }
+
+            void set_row_numbering(Numbering& numbering)
+            {
+                for_each(m_assembly_ops,
+                         [&](auto& op)
+                         {
+                             op.set_row_numbering(numbering);
+                         });
+            }
+
+            void set_col_numbering(const Numbering& numbering)
+            {
+                for_each(m_assembly_ops,
+                         [&](auto& op)
+                         {
+                             op.set_col_numbering(numbering);
+                         });
             }
 
             void set_row_shift(PetscInt shift) override
@@ -171,6 +204,17 @@ namespace samurai
                          [&](auto& op)
                          {
                              op.is_block(is_block);
+                         });
+            }
+
+            void is_block_in_nested_matrix(bool is_block) override
+            {
+                MatrixAssembly::is_block_in_nested_matrix(is_block);
+
+                for_each(m_assembly_ops,
+                         [&](auto& op)
+                         {
+                             op.is_block_in_nested_matrix(is_block);
                          });
             }
 
@@ -464,6 +508,23 @@ namespace samurai
             // template <class T>
             // concept is_sum_assembly = std::is_same_v<T, OperatorSum<Operators...>>;
 
+            void compute_numbering()
+            {
+                largest_stencil_assembly().compute_numbering();
+
+                std::size_t i = 0;
+                for_each(m_assembly_ops,
+                         [&](auto& op)
+                         {
+                             if (i != scheme_t::largest_stencil_index)
+                             {
+                                 op.set_row_numbering(largest_stencil_assembly().row_numbering());
+                                 op.set_col_numbering(largest_stencil_assembly().col_numbering());
+                             }
+                             ++i;
+                         });
+            }
+
             void compute_block_numbering()
             {
                 largest_stencil_assembly().compute_block_numbering();
@@ -482,6 +543,11 @@ namespace samurai
             void compute_local_to_global_rows(std::vector<PetscInt>& local_to_global_rows)
             {
                 largest_stencil_assembly().compute_local_to_global_rows(local_to_global_rows);
+            }
+
+            void compute_local_to_global_rows()
+            {
+                largest_stencil_assembly().compute_local_to_global_rows();
             }
         };
 

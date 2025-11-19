@@ -29,7 +29,7 @@ template <class Field>
 }
 
 template <class Solver>
-void configure_direct_solver(Solver& solver)
+void configure_monolithic_solver(Solver& solver)
 {
     KSP ksp = solver.Ksp();
     PC pc;
@@ -122,9 +122,12 @@ void configure_saddle_point_solver(Solver& block_solver)
 
     PC schur_pc;
     KSPGetPC(schur_ksp, &schur_pc);
+#ifdef SAMURAI_WITH_MPI
+    PCSetType(schur_pc, PCJACOBI); // (equiv. '-fieldsplit_pressure_[np1]_pc_type none')
+#else
     KSPSetType(schur_ksp, KSPPREONLY); // (equiv. '-fieldsplit_pressure_[np1]_ksp_type preonly')
     PCSetType(schur_pc, PCQR);         // (equiv. '-fieldsplit_pressure_[np1]_pc_type qr')
-    // PCSetType(schur_pc, PCJACOBI); // (equiv. '-fieldsplit_pressure_[np1]_pc_type none')
+#endif
     KSPSetFromOptions(schur_ksp); // KSP and PC overwritten by user value if needed
 
     // If a tolerance is set by the user ('-ksp-rtol XXX'), then we set that
@@ -140,7 +143,7 @@ void configure_solver(Solver& solver)
 {
     if constexpr (Solver::is_monolithic)
     {
-        configure_direct_solver(solver);
+        configure_monolithic_solver(solver);
     }
     else
     {
@@ -154,7 +157,7 @@ int main(int argc, char* argv[])
 
     constexpr std::size_t dim        = 2;
     static constexpr bool is_soa     = false;
-    static constexpr bool monolithic = true;
+    static constexpr bool monolithic = false;
 
     //----------------//
     //   Parameters   //
