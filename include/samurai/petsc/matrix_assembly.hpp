@@ -24,7 +24,8 @@ namespace samurai
 
             // ----- For blocks in a monolithic block matrix ----- //
 
-            bool m_is_block = false; // is this a block in a monolithic block matrix?
+            bool m_is_block                  = false; // is this a block in a monolithic block matrix?
+            bool m_is_block_in_nested_matrix = false; // is this a block in a nested block matrix?
 
             PetscInt m_row_shift = 0; // row origin of the block in the local matrix
             PetscInt m_col_shift = 0; // column origin of the block in the local matrix
@@ -110,6 +111,16 @@ namespace samurai
             bool is_block() const
             {
                 return m_is_block;
+            }
+
+            virtual void is_block_in_nested_matrix(bool is_block)
+            {
+                m_is_block_in_nested_matrix = is_block;
+            }
+
+            bool is_block_in_nested_matrix() const
+            {
+                return m_is_block_in_nested_matrix;
             }
 
             void fit_block_dimensions(bool value)
@@ -236,7 +247,11 @@ namespace samurai
             {
                 times::timers.start("matrix assembly");
 
-                reset();
+                assert(!m_is_block);
+                if (!m_is_block_in_nested_matrix)
+                {
+                    reset();
+                }
 
                 //-----------------//
                 // Matrix creation //

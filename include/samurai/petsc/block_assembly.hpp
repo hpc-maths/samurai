@@ -100,6 +100,20 @@ namespace samurai
                          });
             }
 
+            template <class Func>
+            void for_each_assembly_op__static(Func&& f)
+            {
+                static_for<0, rows>::apply(
+                    [&](auto row)
+                    {
+                        static_for<0, cols>::apply(
+                            [&](auto col)
+                            {
+                                f(get<row, col>(), row, col);
+                            });
+                    });
+            }
+
             template <std::size_t row, std::size_t col>
             auto& get()
             {
@@ -326,6 +340,7 @@ namespace samurai
             using block_operator_t = typename base_class::block_operator_t;
             using base_class::cols;
             using base_class::for_each_assembly_op;
+            using base_class::for_each_assembly_op__static;
             using base_class::ownership;
             using base_class::rows;
 
@@ -339,9 +354,10 @@ namespace samurai
                 : base_class(block_op)
             {
                 for_each_assembly_op(
-                    [&](auto&, auto row, auto col)
+                    [&](auto& op, auto row, auto col)
                     {
                         block(row, col) = nullptr;
+                        op.is_block_in_nested_matrix(true);
                     });
             }
 
@@ -355,7 +371,7 @@ namespace samurai
                         // std::cout << "create_matrix (" << row << ", " << col << ")" << std::endl;
                         op.create_matrix(block(row, col));
                     });
-                MatCreateNest(PETSC_COMM_SELF, rows, PETSC_IGNORE, cols, PETSC_IGNORE, m_blocks.data(), &A);
+                MatCreateNest(PETSC_COMM_WORLD, rows, PETSC_IGNORE, cols, PETSC_IGNORE, m_blocks.data(), &A);
             }
 
             void assemble_matrix(Mat& A, bool final_assembly = true)
@@ -377,10 +393,29 @@ namespace samurai
             {
                 ownership().compute(this->mesh());
 
+                // Computes numbering for diagonal blocks
                 for_each_assembly_op(
-                    [&](auto& op, auto, auto)
+                    [&](auto& op, auto row, auto col)
                     {
-                        op.reset(*this);
+                        if (row == col)
+                        {
+                            op.reset(*this);
+                            op.compute_numbering();
+                            op.compute_local_to_global_rows();
+                        }
+                    });
+
+                // The off-diagonal blocks are reset using the numbering of the diagonal blocks
+                for_each_assembly_op__static(
+                    [&](auto& op, auto row, auto col)
+                    {
+                        if constexpr (row != col)
+                        {
+                            op.reset(*this);
+
+                            op.set_row_numbering(this->template get<row, row>().row_numbering());
+                            op.set_col_numbering(this->template get<col, col>().col_numbering());
+                        }
                     });
 
                 // Check compatibility of dimensions and set dimensions for blocks that must fit into the matrix
@@ -397,13 +432,19 @@ namespace samurai
             Vec create_rhs_vector(const std::tuple<Fields&...>& sources) const
             {
                 std::array<Vec, rows> b_blocks;
-                std::size_t i = 0;
+                std::size_t i_source = 0;
                 for_each(sources,
                          [&](auto& s)
                          {
-                             b_blocks[i] = create_petsc_vector_from(s);
-                             PetscObjectSetName(reinterpret_cast<PetscObject>(b_blocks[i]), s.name().c_str());
-                             i++;
+                             this->for_each_assembly_op(
+                                 [&]([[maybe_unused]] auto& op, auto row, auto col)
+                                 {
+                                     if (row == col && row == i_source)
+                                     {
+                                         b_blocks[row] = op.create_rhs_vector(s);
+                                     }
+                                 });
+                             i_source++;
                          });
                 Vec b;
                 VecCreateNest(PETSC_COMM_WORLD, rows, NULL, b_blocks.data(), &b);
@@ -486,15 +527,9 @@ namespace samurai
                 for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
-                        if (row == 0)
+                        if (row == col)
                         {
-#ifdef SAMURAI_WITH_MPI
-                            x_blocks[col] = create_petsc_vector(op.owned_matrix_cols());
-                            op.copy_unknown(op.unknown(), x_blocks[col]);
-#else
-                            x_blocks[col] = create_petsc_vector_from(op.unknown());
-#endif
-                            PetscObjectSetName(reinterpret_cast<PetscObject>(x_blocks[col]), op.unknown().name().c_str());
+                            x_blocks[col] = op.create_solution_vector(op.unknown());
                         }
                     });
                 Vec x;
@@ -507,28 +542,23 @@ namespace samurai
             Vec create_applicable_vector(const std::tuple<Fields&...>& fields) const
             {
                 std::array<Vec, cols> x_blocks;
-                std::size_t i = 0;
+                std::size_t i_field = 0;
                 for_each(fields,
                          [&](auto& f)
                          {
                              this->for_each_assembly_op(
                                  [&]([[maybe_unused]] auto& op, auto row, auto col)
                                  {
-                                     if (row == 0 && col == i)
+                                     if (row == col && col == i_field)
                                      {
-#ifdef SAMURAI_WITH_MPI
-                                         x_blocks[col] = create_petsc_vector(op.owned_matrix_cols());
-                                         op.copy_unknown(f, x_blocks[col]);
-#else
-                                         x_blocks[col] = create_petsc_vector_from(f);
-#endif
+                                         x_blocks[col] = op.create_solution_vector(f);
                                          //  if constexpr (has_name<decltype(f)>())
                                          //  {
                                          //      PetscObjectSetName(reinterpret_cast<PetscObject>(x_blocks[col]), f.name().c_str());
                                          //  }
                                      }
                                  });
-                             i++;
+                             i_field++;
                          });
                 Vec x;
                 VecCreateNest(PETSC_COMM_WORLD, cols, NULL, x_blocks.data(), &x);
