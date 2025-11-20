@@ -399,21 +399,15 @@ namespace samurai
 
                 // std::cout << "\n\t> [" << world.rank() << "] start assemble_matrix" << std::endl;
 
-                // if (world.rank() == 1)
-                // {
-                //     sleep(1);
-                // }
-                // std::cout << "\n\t> [" << world.rank() << "] assemble_scheme" << std::endl;
+                // sleep(static_cast<unsigned int>(world.rank()));
+                // std::cout << "\n\t> [" << world.rank() << "] assemble_scheme '" << name() << "'" << std::endl;
 #endif
                 assemble_scheme(A);
 
                 if (m_include_bc)
                 {
 #ifdef SAMURAI_WITH_MPI
-                    // if (world.rank() == 1)
-                    // {
-                    //     sleep(1);
-                    // }
+                    // sleep(static_cast<unsigned int>(world.rank()));
                     // std::cout << "\n\t> [" << world.rank() << "] assemble_boundary_conditions" << std::endl;
 #endif
                     assemble_boundary_conditions(A);
@@ -422,18 +416,12 @@ namespace samurai
                 if (m_assemble_proj_pred)
                 {
 #ifdef SAMURAI_WITH_MPI
-                    // if (world.rank() == 1)
-                    // {
-                    //     sleep(1);
-                    // }
+                    // sleep(static_cast<unsigned int>(world.rank()));
                     // std::cout << "\n\t> [" << world.rank() << "] assemble_projection" << std::endl;
 #endif
                     assemble_projection(A);
 #ifdef SAMURAI_WITH_MPI
-                    // if (world.rank() == 1)
-                    // {
-                    //     sleep(1);
-                    // }
+                    // sleep(static_cast<unsigned int>(world.rank()));
                     // std::cout << "\n\t> [" << world.rank() << "] assemble_prediction" << std::endl;
 #endif
                     assemble_prediction(A);
@@ -441,10 +429,7 @@ namespace samurai
                 if (m_insert_value_on_diag_for_useless_ghosts)
                 {
 #ifdef SAMURAI_WITH_MPI
-                    // if (world.rank() == 1)
-                    // {
-                    //     sleep(1);
-                    // }
+                    // sleep(static_cast<unsigned int>(world.rank()));
                     // std::cout << "\n\t> [" << world.rank() << "] insert_value_on_diag_for_useless_ghosts" << std::endl;
 #endif
                     insert_value_on_diag_for_useless_ghosts(A);

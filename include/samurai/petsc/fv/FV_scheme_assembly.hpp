@@ -299,7 +299,7 @@ namespace samurai
                 {
                     m_ownership      = new CellOwnership();
                     m_owns_ownership = true;
-                    std::cout << "[" << mpi::communicator().rank() << "] Computing ownership for matrix '" << name() << "'\n";
+                    // std::cout << "[" << mpi::communicator().rank() << "] Computing ownership for matrix '" << name() << "'\n";
                     m_ownership->compute(mesh());
                 }
                 if (m_row_numbering == nullptr)
@@ -1181,6 +1181,10 @@ namespace samurai
                 // cell + 2^dim children --> 1+2=3 in 1D
                 //                           1+4=5 in 2D
                 static constexpr std::size_t proj_stencil_size = 1 + (1 << dim);
+#ifdef SAMURAI_WITH_MPI
+                // assume that half the stencil can be on other processes
+                PetscInt o_nnz_value = mpi::communicator().size() == 1 ? 0 : proj_stencil_size / 2;
+#endif
 
                 for_each_projection_ghost(mesh(),
                                           [&](auto& ghost)
@@ -1189,8 +1193,11 @@ namespace samurai
                                               {
                                                   std::size_t row = static_cast<std::size_t>(local_row_index(ghost, field_i));
 #ifdef SAMURAI_WITH_MPI
-                                                  d_nnz.at(row) = proj_stencil_size;
-                                                  o_nnz.at(row) = 0; // all children are owned by the same process
+                                                  if (is_locally_owned(ghost))
+                                                  {
+                                                      d_nnz.at(row) = proj_stencil_size;
+                                                      o_nnz.at(row) = o_nnz_value;
+                                                  }
 #else
                                                 if constexpr (ghost_elimination_enabled)
                                                 {
@@ -1215,9 +1222,8 @@ namespace samurai
                 static constexpr std::size_t pred_stencil_size = 1 + ce_pow(2 * prediction_radius + 1, dim);
 
 #ifdef SAMURAI_WITH_MPI
-                auto ranks           = mpi::communicator().size();
-                PetscInt o_nnz_value = ranks == 1 ? 0 : pred_stencil_size / 2; // assume (rough estimate) that half of the
-                                                                               // stencil can be on the other process
+                // assume that the whole stencil can be on another process
+                PetscInt o_nnz_value = mpi::communicator().size() == 1 ? 0 : pred_stencil_size;
 #endif
 
                 for_each_prediction_ghost(mesh(),
@@ -1227,8 +1233,11 @@ namespace samurai
                                               {
                                                   std::size_t row = static_cast<std::size_t>(local_row_index(ghost, field_i));
 #ifdef SAMURAI_WITH_MPI
-                                                  d_nnz.at(row) = pred_stencil_size;
-                                                  o_nnz.at(row) = o_nnz_value;
+                                                  if (is_locally_owned(ghost))
+                                                  {
+                                                      d_nnz.at(row) = pred_stencil_size;
+                                                      o_nnz.at(row) = o_nnz_value;
+                                                  }
 #else
                                                   if constexpr (ghost_elimination_enabled)
                                                   {

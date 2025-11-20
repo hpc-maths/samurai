@@ -245,19 +245,26 @@ namespace samurai
                                         auto comput_cell_col = local_col_index(comput_cells[c], field_j);
                                         if (left_cell_is_locally_owned)
                                         {
-                                            // std::cout << "[" << mpi::communicator().rank() << "] Diff A[L" << left_cell_row << ", L"
-                                            //           << comput_cell_col << "] = A[G" << global_row_index(interface_cells[0], field_i)
-                                            //           << ", G" << global_col_index(comput_cells[c], field_j) << "] = " << left_cell_coeff
-                                            //           << std::endl;
+                                            // if (mpi::communicator().rank() == 1)
+                                            // {
+                                            //     std::cout << "[" << mpi::communicator().rank() << "] Diff A[L" << left_cell_row << ", L"
+                                            //               << comput_cell_col << "] = A[G" << global_row_index(interface_cells[0],
+                                            //               field_i)
+                                            //               << ", G" << global_col_index(comput_cells[c], field_j)
+                                            //               << "] = " << left_cell_coeff << std::endl;
+                                            // }
                                             MatSetValueLocal(A, left_cell_row, comput_cell_col, left_cell_coeff, ADD_VALUES);
                                         }
                                         if (right_cell_is_locally_owned)
                                         {
-                                            // std::cout << "[" << mpi::communicator().rank() << "] Diff A[L" << right_cell_row << ", L"
-                                            //           << comput_cell_col << "] = A[G" << global_row_index(interface_cells[1], field_i)
-                                            //           << ", G" << global_col_index(comput_cells[c], field_j) << "] = " <<
-                                            //           right_cell_coeff
-                                            //           << std::endl;
+                                            // if (mpi::communicator().rank() == 1)
+                                            // {
+                                            //     std::cout << "[" << mpi::communicator().rank() << "] Diff A[L" << right_cell_row << ", L"
+                                            //               << comput_cell_col << "] = A[G" << global_row_index(interface_cells[1],
+                                            //               field_i)
+                                            //               << ", G" << global_col_index(comput_cells[c], field_j)
+                                            //               << "] = " << right_cell_coeff << std::endl;
+                                            // }
                                             MatSetValueLocal(A, right_cell_row, comput_cell_col, right_cell_coeff, ADD_VALUES);
                                         }
                                     }
@@ -296,9 +303,12 @@ namespace samurai
                                     {
                                         double coeff         = scheme().cell_coeff(coeffs, c, field_i, field_j);
                                         auto comput_cell_col = local_col_index(comput_cells[c], field_j);
-                                        // std::cout << "[" << mpi::communicator().rank() << "] Diff A[L" << cell_row << ", L"
-                                        //           << comput_cell_col << "] = A[G" << global_row_index(cell, field_i) << ", G"
-                                        //           << global_col_index(comput_cells[c], field_j) << "] = " << coeff << std::endl;
+                                        // if (mpi::communicator().rank() == 1)
+                                        // {
+                                        //     std::cout << "[" << mpi::communicator().rank() << "] boundary A[L" << cell_row << ", L"
+                                        //               << comput_cell_col << "] = A[G" << global_row_index(cell, field_i) << ", G"
+                                        //               << global_col_index(comput_cells[c], field_j) << "] = " << coeff << std::endl;
+                                        // }
                                         MatSetValueLocal(A, cell_row, comput_cell_col, coeff, ADD_VALUES);
                                     }
                                 }
