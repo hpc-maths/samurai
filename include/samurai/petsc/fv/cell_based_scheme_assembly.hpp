@@ -238,6 +238,7 @@ namespace samurai
                     unknown(),
                     [&](const auto& cells, const auto& coeffs)
                     {
+                        assert(is_locally_owned(cells[cfg_t::center_index]));
                         // std::cout << "coeffs: " << std::endl;
                         // for (std::size_t i=0; i<stencil_size; i++)
                         //     std::cout << i << ": " << coeffs[i] << std::endl;
