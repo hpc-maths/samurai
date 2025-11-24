@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.1](https://github.com/hpc-maths/samurai/compare/v0.27.0...v0.27.1) (2025-11-24)
+
+
+### Bug Fixes
+
+* Use average velocity in upwind (and fix compilation issues) ([#396](https://github.com/hpc-maths/samurai/issues/396)) ([8771dc6](https://github.com/hpc-maths/samurai/commit/8771dc6d775114f54167f7c76f2a19ed453bb4fa))
+
 ## [0.27.0](https://github.com/hpc-maths/samurai/compare/v0.26.1...v0.27.0) (2025-10-20)
 
 
