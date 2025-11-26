@@ -120,6 +120,7 @@ namespace samurai
         // std::vector<int>& neighbouring_ranks();
         std::vector<mpi_subdomain_t>& mpi_neighbourhood();
         const std::vector<mpi_subdomain_t>& mpi_neighbourhood() const;
+        const coords_t& gravity_center() const;
         cl_type
         construct_initial_mesh(const DomainBuilder<dim>& domain_builder, std::size_t start_level, double approx_box_tol, double scaling_factor);
         void compute_scaling_factor(const samurai::DomainBuilder<dim>& domain_builder, double& scaling_factor);
@@ -207,6 +208,7 @@ namespace samurai
         void renumbering();
 
         void find_neighbourhood();
+        void compute_gravity_center();
 
         void partition_mesh(std::size_t start_level, const Box<double, dim>& global_box);
         void load_balancing();
@@ -220,6 +222,7 @@ namespace samurai
         std::vector<lca_type> m_corners;
         // std::vector<int> m_neighbouring_ranks;
         std::vector<mpi_subdomain_t> m_mpi_neighbourhood;
+        coords_t m_gravity_center;
 
         mesh_config<dim> m_config;
 
@@ -282,6 +285,7 @@ namespace samurai
 
         set_origin_point(origin_point());
         set_scaling_factor(scaling_factor());
+        compute_gravity_center();
     }
 
     template <class D, class Config>
@@ -328,6 +332,7 @@ namespace samurai
 
         set_origin_point(domain_builder.origin_point());
         set_scaling_factor(m_config.scaling_factor());
+        compute_gravity_center();
     }
 
     template <class D, class Config>
@@ -346,6 +351,7 @@ namespace samurai
 
         set_origin_point(cl.origin_point());
         set_scaling_factor(cl.scaling_factor());
+        compute_gravity_center();
     }
 
     template <class D, class Config>
@@ -376,6 +382,7 @@ namespace samurai
 
         set_origin_point(ca.origin_point());
         set_scaling_factor(ca.scaling_factor());
+        compute_gravity_center();
     }
 
     template <class D, class Config>
@@ -395,6 +402,7 @@ namespace samurai
 
         set_origin_point(ref_mesh.origin_point());
         set_scaling_factor(ref_mesh.scaling_factor());
+        compute_gravity_center();
     }
 
     template <class D, class Config>
@@ -414,6 +422,7 @@ namespace samurai
 
         set_origin_point(ref_mesh.origin_point());
         set_scaling_factor(ref_mesh.scaling_factor());
+        compute_gravity_center();
     }
 
     template <class D, class Config>
@@ -669,9 +678,8 @@ namespace samurai
 
     template <class D, class Config>
     template <class E>
-    inline auto Mesh_base<D, Config>::get_interval(std::size_t level,
-                                                   const interval_t& interval,
-                                                   const xt::xexpression<E>& index) const -> const interval_t&
+    inline auto Mesh_base<D, Config>::get_interval(std::size_t level, const interval_t& interval, const xt::xexpression<E>& index) const
+        -> const interval_t&
     {
         return m_cells[mesh_id_t::reference].get_interval(level, interval, index);
     }
@@ -758,6 +766,34 @@ namespace samurai
     inline auto Mesh_base<D, Config>::mpi_neighbourhood() const -> const std::vector<mpi_subdomain_t>&
     {
         return m_mpi_neighbourhood;
+    }
+
+    template <class D, class Config>
+    const typename Mesh_base<D, Config>::coords_t& Mesh_base<D, Config>::gravity_center() const
+    {
+        return m_gravity_center;
+    }
+
+    template <class D, class Config>
+    void Mesh_base<D, Config>::compute_gravity_center()
+    {
+        m_gravity_center.fill(0);
+        double total_volume = 0;
+        for_each_interval(m_cells[mesh_id_t::cells],
+                          [&](std::size_t level, auto& i, auto& index)
+                          {
+                              auto length            = cell_length(level);
+                              double interval_volume = static_cast<double>(i.size()) * std::pow(length, dim);
+                              coords_t interval_center;
+                              interval_center[0] = origin_point()[0] + length * 0.5 * static_cast<double>(i.start + i.end);
+                              for (std::size_t d = 1; d < dim; ++d)
+                              {
+                                  interval_center[d] = origin_point()[d] + length * (static_cast<double>(index[d - 1]) + 0.5);
+                              }
+                              m_gravity_center += interval_volume * interval_center;
+                              total_volume += interval_volume;
+                          });
+        m_gravity_center /= total_volume;
     }
 
     template <class D, class Config>
@@ -869,6 +905,11 @@ namespace samurai
         }
 
         mpi::wait_all(req.begin(), req.end());
+
+        for (auto& neighbour : m_mpi_neighbourhood)
+        {
+            neighbour.mesh.compute_gravity_center();
+        }
 #endif
     }
 

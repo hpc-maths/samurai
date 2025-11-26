@@ -746,6 +746,7 @@ namespace samurai
             const std::vector<PetscInt>& local_to_global_cols() const override
             {
                 assert(false && "Not implemented yet");
+                return m_numbering.local_to_global_mapping; // just to return something
             }
 
           public:
