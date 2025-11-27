@@ -41,32 +41,23 @@ namespace samurai
     }
 #endif
 
-#ifdef SAMURAI_WITH_PETSC
-    void petsc_initialize(int& argc, char**& argv)
-    {
-        samurai::times::timers.start("petsc init");
-        PetscInitialize(&argc, &argv, 0, nullptr);
-
-        // If on, Petsc will issue warnings saying that the options managed by CLI are unused
-        PetscOptionsSetValue(NULL, "-options_left", "off");
-        samurai::times::timers.stop("petsc init");
-    }
-
-    void petsc_finalize()
-    {
-        samurai::times::timers.start("petsc finalize");
-        PetscFinalize();
-        samurai::times::timers.stop("petsc finalize");
-    }
-#endif
-
     inline auto& initialize(const std::string& description, int& argc, char**& argv)
     {
         app.description(description);
         read_samurai_arguments(app, argc, argv);
 
-#ifdef SAMURAI_WITH_MPI
+        // sleep(8);
+
+#if defined(SAMURAI_WITH_PETSC)
+        // MPI_Init() in called by PetscInitialize()
+        PetscInitialize(&argc, &argv, 0, nullptr);
+        // If on, Petsc will issue warnings saying that the options managed by CLI are unused
+        PetscOptionsSetValue(NULL, "-options_left", "off");
+#elif defined(SAMURAI_WITH_MPI)
         MPI_Init(&argc, &argv);
+#endif
+
+#if defined(SAMURAI_WITH_MPI)
         // redirect stdout to /dev/null for all ranks except rank 0
         mpi::communicator world;
         if (!args::dont_redirect_output && world.rank() != 0) // cppcheck-suppress knownConditionTrueFalse
@@ -77,9 +68,6 @@ namespace samurai
 #endif
         times::timers.start("total runtime");
 
-#ifdef SAMURAI_WITH_PETSC
-        petsc_initialize(argc, argv);
-#endif
         return app;
     }
 
@@ -97,16 +85,15 @@ namespace samurai
 
     inline void finalize()
     {
-#ifdef SAMURAI_WITH_PETSC
-        petsc_finalize();
-#endif
         if (args::timers) // cppcheck-suppress knownConditionTrueFalse
         {
             times::timers.stop("total runtime");
             std::cout << std::endl;
             times::timers.print();
         }
-#ifdef SAMURAI_WITH_MPI
+#if defined(SAMURAI_WITH_PETSC)
+        PetscFinalize();
+#elif defined(SAMURAI_WITH_MPI)
         MPI_Finalize();
 #endif
     }
