@@ -199,24 +199,8 @@ namespace samurai
                                               auto nghb_diff     = cell.center() - neighbour.mesh.gravity_center();
                                               auto nghb_distance = std::sqrt(samurai::math::sum(nghb_diff * nghb_diff));
 
-                                              if (distance < nghb_distance)
-                                              {
-                                                  owner_rank[static_cast<std::size_t>(cell.index)] = rank;
-                                                  std::cout << fmt::format("[{}] Cell {} on level {} owned by rank {} (gravity center)\n",
-                                                                           world.rank(),
-                                                                           cell.index,
-                                                                           level,
-                                                                           rank);
-                                              }
-                                              else
-                                              {
-                                                  owner_rank[static_cast<std::size_t>(cell.index)] = neighbour.rank;
-                                                  std::cout << fmt::format("[{}] Cell {} on level {} owned by rank {} (gravity center)\n",
-                                                                           world.rank(),
-                                                                           cell.index,
-                                                                           level,
-                                                                           neighbour.rank);
-                                              }
+                                              owner_rank[static_cast<std::size_t>(cell.index)] = distance < nghb_distance ? rank
+                                                                                                                          : neighbour.rank;
                                           }
                                       });
                     }

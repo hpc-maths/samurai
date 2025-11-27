@@ -551,6 +551,22 @@ namespace samurai
             virtual void reset()
             {
             }
+
+            void destroy_local_to_global_mappings(Mat& A)
+            {
+                ISLocalToGlobalMapping rmap = NULL, cmap = NULL;
+                MatGetLocalToGlobalMapping(A, &rmap, &cmap);
+
+                if (rmap == cmap)
+                {
+                    ISLocalToGlobalMappingDestroy(&rmap);
+                }
+                else
+                {
+                    ISLocalToGlobalMappingDestroy(&rmap);
+                    ISLocalToGlobalMappingDestroy(&cmap);
+                }
+            }
         };
 
         template <class Scheme, class check = void>

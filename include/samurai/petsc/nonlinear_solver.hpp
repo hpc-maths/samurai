@@ -43,6 +43,7 @@ namespace samurai
             {
                 if (m_J)
                 {
+                    m_assembly.destroy_local_to_global_mappings(m_J);
                     MatDestroy(&m_J);
                     m_J = nullptr;
                 }
@@ -275,6 +276,7 @@ namespace samurai
             virtual void reset()
             {
                 destroy_petsc_objects();
+                m_assembly.reset();
                 m_is_set_up = false;
                 configure_solver();
             }
