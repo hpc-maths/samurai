@@ -31,7 +31,6 @@ namespace samurai
             explicit LinearSolverBase(const scheme_t& scheme)
                 : m_assembly(scheme)
             {
-                _configure_solver();
             }
 
             virtual ~LinearSolverBase()
@@ -45,6 +44,7 @@ namespace samurai
             {
                 if (m_A)
                 {
+                    m_assembly.destroy_local_to_global_mappings(m_A);
                     MatDestroy(&m_A);
                     m_A = nullptr;
                 }
@@ -106,19 +106,10 @@ namespace samurai
                 return m_assembly;
             }
 
-          private:
-
-            void _configure_solver()
-            {
-                KSPCreate(PETSC_COMM_WORLD, &m_ksp);
-                KSPSetFromOptions(m_ksp);
-            }
-
           protected:
 
             virtual void configure_solver()
             {
-                _configure_solver();
             }
 
           public:
@@ -231,6 +222,7 @@ namespace samurai
             virtual void reset()
             {
                 destroy_petsc_objects();
+                m_assembly.reset();
                 m_is_set_up = false;
                 configure_solver();
             }
@@ -276,6 +268,7 @@ namespace samurai
 
             void _configure_solver()
             {
+#ifdef ENABLE_MG
                 KSP user_ksp;
                 KSPCreate(PETSC_COMM_WORLD, &user_ksp);
                 KSPSetFromOptions(user_ksp);
@@ -283,11 +276,10 @@ namespace samurai
                 KSPGetPC(user_ksp, &user_pc);
                 PCType user_pc_type;
                 PCGetType(user_pc, &user_pc_type);
-#ifdef ENABLE_MG
-                m_use_samurai_mg = strcmp(user_pc_type, PCMG) == 0;
-#endif
-                KSPDestroy(&user_ksp);
 
+                m_use_samurai_mg = strcmp(user_pc_type, PCMG) == 0;
+                KSPDestroy(&user_ksp);
+#endif
                 KSPCreate(PETSC_COMM_WORLD, &m_ksp);
                 KSPSetFromOptions(m_ksp);
 #ifdef ENABLE_MG
