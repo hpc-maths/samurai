@@ -205,7 +205,8 @@ namespace samurai
                     // Return type: 2 matrices (left, right) of size output_n_comp x n_comp.
                     // In this case, of size n_comp x n_comp.
 
-                    auto& cells   = data.cells;
+                    const auto& cells = data.cells;
+
                     auto velocity = 0.5 * (velocity_field[cells[left]] + velocity_field[cells[right]]);
                     if (velocity(d) >= 0) // use the left values
                     {
