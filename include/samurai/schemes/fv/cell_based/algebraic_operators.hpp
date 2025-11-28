@@ -14,9 +14,10 @@ namespace samurai
         multiplied_scheme.set_name(std::to_string(scalar) + " * " + scheme.name());
         if constexpr (cfg::scheme_type == SchemeType::LinearHomogeneous)
         {
-            multiplied_scheme.coefficients_func() = [=](double h)
+            multiplied_scheme.coefficients_func() = [=](StencilCoeffs<cfg>& coeffs, double h)
             {
-                return scalar * scheme.coefficients(h);
+                scheme.coefficients(coeffs, h);
+                coeffs *= scalar;
             };
         }
         else // SchemeType::NonLinear

@@ -90,8 +90,11 @@ namespace samurai
         template <class scheme_function_t>
         void set_scheme_function(scheme_function_t scheme_function)
         {
-            m_scheme_definition.scheme_function       = scheme_function;
-            m_scheme_definition.local_scheme_function = scheme_function;
+            m_scheme_definition.scheme_function = scheme_function;
+            if constexpr (cfg::stencil_size == 1)
+            {
+                m_scheme_definition.local_scheme_function = scheme_function;
+            }
         }
 
         void contribution(SchemeValue<cfg>& value, const stencil_cells_t& stencil_cells, input_field_t& field) const
