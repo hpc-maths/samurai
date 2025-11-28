@@ -11,6 +11,7 @@
 #include "cell_array.hpp"
 #include "cell_list.hpp"
 #include "domain_builder.hpp"
+#include "petsc/cell_ownership.hpp"
 #include "static_algorithm.hpp"
 #include "stencil.hpp"
 #include "subset/node.hpp"
@@ -87,6 +88,8 @@ namespace samurai
 
         using mpi_subdomain_t = MPI_Subdomain<D>;
 
+        using CellOwnership = samurai::petsc::CellOwnership;
+
         std::size_t nb_cells(mesh_id_t mesh_id = mesh_id_t::reference) const;
         std::size_t nb_cells(std::size_t level, mesh_id_t mesh_id = mesh_id_t::reference) const;
 
@@ -148,6 +151,9 @@ namespace samurai
         void to_stream(std::ostream& os) const;
 
         const lca_type& corner(const DirectionVector<dim>& direction) const;
+
+        CellOwnership& cell_ownership();
+        const CellOwnership& cell_ownership() const;
 
       protected:
 
@@ -229,6 +235,10 @@ namespace samurai
             ar & m_min_level;
             ar & m_max_level;
         }
+#endif
+
+#ifdef SAMURAI_WITH_PETSC
+        CellOwnership m_cell_ownership;
 #endif
     };
 
@@ -883,6 +893,18 @@ namespace samurai
             });
 
         return m_corners[i_direction];
+    }
+
+    template <class D, class Config>
+    inline samurai::petsc::CellOwnership& Mesh_base<D, Config>::cell_ownership()
+    {
+        return m_cell_ownership;
+    }
+
+    template <class D, class Config>
+    inline const samurai::petsc::CellOwnership& Mesh_base<D, Config>::cell_ownership() const
+    {
+        return m_cell_ownership;
     }
 
     template <class D, class Config>

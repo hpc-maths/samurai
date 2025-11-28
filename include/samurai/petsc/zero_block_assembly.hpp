@@ -11,8 +11,8 @@ namespace samurai
         template <>
         struct Assembly<int> : public MatrixAssembly
         {
-            using scheme_t = int;  // deactivate compatibility test in block_operator.tie_unknowns()
-            using field_t  = void; // deactivate compatibility test during assembly
+            using scheme_t      = int;  // deactivate compatibility test in block_operator.tie_unknowns()
+            using input_field_t = void; // deactivate compatibility test during assembly
 
             explicit Assembly(int value)
             {

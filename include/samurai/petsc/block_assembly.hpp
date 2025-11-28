@@ -2,6 +2,7 @@
 #include "../schemes/block_operator.hpp"
 // #include "fv/operator_sum_assembly.hpp"
 #include "global_numbering.hpp"
+#include "manual_assembly.hpp"
 #include "utils.hpp"
 #include "zero_block_assembly.hpp"
 
@@ -23,8 +24,6 @@ namespace samurai
 
             block_operator_t m_block_operator;
             std::tuple<Assembly<Operators>...> m_assembly_ops;
-
-            CellOwnership m_ownership;
 
           public:
 
@@ -60,16 +59,6 @@ namespace samurai
             auto& block_operator() const
             {
                 return m_block_operator;
-            }
-
-            CellOwnership& ownership()
-            {
-                return m_ownership;
-            }
-
-            const CellOwnership& ownership() const
-            {
-                return m_ownership;
             }
 
             template <class Func>
@@ -121,34 +110,6 @@ namespace samurai
             {
                 return first_block().unknown().mesh();
             }
-
-            // void reset_blocks()
-            // {
-            //     // computes global numbering and other costly information
-            //     auto& first_block = this->template get<0, 0>();
-            //     first_block.reset();
-
-            //     using first_block_t = std::decay_t<decltype(first_block)>;
-
-            //     for_each_assembly_op(
-            //         [&](auto& op, auto row, auto col)
-            //         {
-            //             if (row != 0 || col != 0)
-            //             {
-            //                 //  reset the other schemes by giving the all the costly information to avoid recomputing it
-            //                 if constexpr (IsOperatorSumAssembly<first_block_t>)
-            //                 {
-            //                     // Special case for operator sum: we must reset the largest stencil only
-            //                     op.reset(first_block.largest_stencil_assembly());
-            //                 }
-            //                 else
-            //                 {
-            //                     op.reset(first_block);
-            //                 }
-            //             }
-            //             // op.reset(numbering);
-            //         });
-            // }
 
             void check_and_set_sizes()
             {
@@ -305,6 +266,21 @@ namespace samurai
                         }
                     });
             }
+
+            // Mark the cell ownership as 'not computed' to force recomputation
+            void reset_cell_ownership()
+            {
+                for_each_assembly_op(
+                    [&](auto& op, auto, auto)
+                    {
+                        using op_t             = std::decay_t<decltype(op)>;
+                        using op_input_field_t = typename op_t::input_field_t;
+                        if constexpr (!std::is_base_of_v<ManualAssembly<op_input_field_t>, op_t> && !std::is_same_v<Assembly<int>, op_t>)
+                        {
+                            op.mesh().cell_ownership().is_computed = false;
+                        }
+                    });
+            }
         };
 
         template <bool monolithic, std::size_t rows_, std::size_t cols_, class... Operators>
@@ -326,7 +302,6 @@ namespace samurai
             using block_operator_t = typename base_class::block_operator_t;
             using base_class::cols;
             using base_class::for_each_assembly_op;
-            using base_class::ownership;
             using base_class::rows;
 
           private:
@@ -376,7 +351,7 @@ namespace samurai
 
             void reset()
             {
-                ownership().compute(this->mesh());
+                reset_cell_ownership();
 
                 // Computes numbering for diagonal blocks
                 for_each_assembly_op(
@@ -411,6 +386,20 @@ namespace samurai
             {
                 auto i = row * cols + col;
                 return m_blocks[i];
+            }
+
+            void destroy_local_to_global_mappings(Mat& A)
+            {
+                for_each_assembly_op(
+                    [&](auto& op, auto row, auto col)
+                    {
+                        if constexpr (row == col)
+                        {
+                            Mat block_mat;
+                            MatNestGetSubMat(A, static_cast<PetscInt>(row), static_cast<PetscInt>(col), &block_mat);
+                            op.destroy_local_to_global_mappings(block_mat);
+                        }
+                    });
             }
 
             template <class... Fields>
@@ -594,7 +583,6 @@ namespace samurai
             using block_operator_t = typename base_class::block_operator_t;
             using base_class::cols;
             using base_class::for_each_assembly_op;
-            using base_class::ownership;
             using base_class::rows;
 
           private:
@@ -622,7 +610,7 @@ namespace samurai
 
             void reset() override
             {
-                ownership().compute(this->mesh());
+                reset_cell_ownership();
 
                 for_each_assembly_op(
                     [&](auto& op, auto, auto)
@@ -716,7 +704,6 @@ namespace samurai
                 //         }
                 //     });
 
-                m_numbering.ownership = &ownership();
                 m_numbering.resize(this->local_matrix_rows());
                 for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
