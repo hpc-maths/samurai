@@ -351,7 +351,7 @@ namespace samurai
 
             void reset()
             {
-                reset_cell_ownership();
+                this->reset_cell_ownership();
 
                 // Computes numbering for diagonal blocks
                 for_each_assembly_op(
@@ -610,7 +610,7 @@ namespace samurai
 
             void reset() override
             {
-                reset_cell_ownership();
+                this->reset_cell_ownership();
 
                 for_each_assembly_op(
                     [&](auto& op, auto, auto)
