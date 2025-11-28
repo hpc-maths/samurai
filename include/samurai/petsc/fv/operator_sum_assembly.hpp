@@ -62,6 +62,16 @@ namespace samurai
                 return !unknown_ptr();
             }
 
+            const auto& mesh() const
+            {
+                return unknown().mesh();
+            }
+
+            auto& mesh()
+            {
+                return unknown().mesh();
+            }
+
             void set_unknown(input_field_t& unknown)
             {
                 for_each(m_assembly_ops,

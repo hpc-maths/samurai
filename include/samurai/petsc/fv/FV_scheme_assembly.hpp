@@ -4,10 +4,9 @@
 #include "../../numeric/prediction.hpp"
 #include "../../schemes/fv/FV_scheme.hpp"
 #include "../../schemes/fv/scheme_operators.hpp"
-#include "../matrix_assembly.hpp"
-#ifdef SAMURAI_WITH_MPI
+#include "../compute_cell_ownership.hpp"
 #include "../global_numbering.hpp"
-#endif
+#include "../matrix_assembly.hpp"
 
 namespace samurai
 {
@@ -77,9 +76,6 @@ namespace samurai
             Scheme m_scheme;
             field_t* m_unknown = nullptr;
 
-            CellOwnership* m_ownership = nullptr;
-            bool m_owns_ownership      = false;
-
             Numbering* m_row_numbering = nullptr;
             Numbering* m_col_numbering = nullptr;
             bool m_owns_numbering      = false;
@@ -102,11 +98,6 @@ namespace samurai
 
             ~FVSchemeAssembly() override
             {
-                if (m_owns_ownership)
-                {
-                    delete m_ownership;
-                    m_ownership = nullptr;
-                }
                 if (m_owns_numbering)
                 {
                     assert(m_row_numbering == m_col_numbering);
@@ -194,6 +185,7 @@ namespace samurai
                     exit(EXIT_FAILURE);
                 }
 
+                compute_cell_ownership(mesh());
                 compute_numbering();
 #ifdef SAMURAI_WITH_MPI
                 if (!m_is_block) // change into assert?
@@ -219,7 +211,7 @@ namespace samurai
             template <class OtherScheme>
             void reset(const FVSchemeAssembly<OtherScheme>& other)
             {
-                m_ownership        = other.m_ownership;
+                compute_cell_ownership(mesh());
                 m_row_numbering    = other.m_row_numbering;
                 m_col_numbering    = other.m_col_numbering;
                 m_ghosts_row_shift = owned_matrix_rows();
@@ -241,7 +233,7 @@ namespace samurai
             template <std::size_t rows_, std::size_t cols_, class... Operators>
             void reset(BlockAssembly<true, rows_, cols_, Operators...>& block_assembly)
             {
-                m_ownership     = &block_assembly.ownership();
+                compute_cell_ownership(mesh());
                 m_row_numbering = &block_assembly.numbering();
                 m_col_numbering = m_row_numbering;
 
@@ -259,9 +251,9 @@ namespace samurai
              * This function is called in case of nested block_assembly (e.g., Stokes equation).
              */
             template <std::size_t rows_, std::size_t cols_, class... Operators>
-            void reset(BlockAssembly<false, rows_, cols_, Operators...>& block_assembly)
+            void reset(BlockAssembly<false, rows_, cols_, Operators...>& /*block_assembly*/)
             {
-                m_ownership = &block_assembly.ownership();
+                compute_cell_ownership(mesh());
 
                 m_ghosts_row_shift = owned_matrix_rows();
                 m_ghosts_col_shift = owned_matrix_cols();
@@ -295,19 +287,11 @@ namespace samurai
              */
             void compute_numbering()
             {
-                if (m_ownership == nullptr)
-                {
-                    m_ownership      = new CellOwnership();
-                    m_owns_ownership = true;
-                    // std::cout << "[" << mpi::communicator().rank() << "] Computing ownership for matrix '" << name() << "'\n";
-                    m_ownership->compute(mesh());
-                }
                 if (m_row_numbering == nullptr)
                 {
                     assert(m_col_numbering == nullptr);
-                    m_row_numbering            = new Numbering();
-                    m_row_numbering->ownership = m_ownership;
-                    m_owns_numbering           = true;
+                    m_row_numbering  = new Numbering();
+                    m_owns_numbering = true;
                 }
                 // std::cout << "[" << mpi::communicator().rank() << "] Computing global numbering for matrix '" << name() << "'\n";
 #ifdef SAMURAI_WITH_MPI
@@ -352,7 +336,7 @@ namespace samurai
                     std::cout << "[" << mpi::communicator().rank() << "] Computing local to global rows for matrix '" << name() << "'\n";
                 }
 #endif
-                for (std::size_t cell_index = 0; cell_index < m_ownership->n_local_cells; ++cell_index)
+                for (std::size_t cell_index = 0; cell_index < cell_ownership().n_local_cells; ++cell_index)
                 {
                     for (unsigned int c = 0; c < static_cast<std::size_t>(output_n_comp); ++c)
                     {
@@ -441,7 +425,7 @@ namespace samurai
             inline bool is_locally_owned([[maybe_unused]] std::size_t cell_index) const
             {
 #ifdef SAMURAI_WITH_MPI
-                return m_ownership->owner_rank[cell_index] == mpi::communicator().rank();
+                return cell_ownership().owner_rank[cell_index] == mpi::communicator().rank();
 #else
                 return true;
 #endif
@@ -482,41 +466,53 @@ namespace samurai
                 return !m_unknown;
             }
 
-            auto& mesh() const
+            const auto& mesh() const
             {
                 return unknown().mesh();
             }
 
+            auto& mesh()
+            {
+                return unknown().mesh();
+            }
+
+            const auto& cell_ownership() const
+            {
+                return mesh().cell_ownership();
+            }
+
             PetscInt owned_matrix_rows() const override
             {
-                return static_cast<PetscInt>(m_ownership->n_owned_cells * output_n_comp);
+                return static_cast<PetscInt>(cell_ownership().n_owned_cells * output_n_comp);
             }
 
             PetscInt owned_matrix_cols() const override
             {
-                return static_cast<PetscInt>(m_ownership->n_owned_cells * input_n_comp);
+                return static_cast<PetscInt>(cell_ownership().n_owned_cells * input_n_comp);
             }
 
             PetscInt local_matrix_rows() const override
             {
-                return static_cast<PetscInt>(m_ownership->n_local_cells * output_n_comp);
+                return static_cast<PetscInt>(cell_ownership().n_local_cells * output_n_comp);
             }
 
             PetscInt local_matrix_cols() const override
             {
-                return static_cast<PetscInt>(m_ownership->n_local_cells * input_n_comp);
+                return static_cast<PetscInt>(cell_ownership().n_local_cells * input_n_comp);
             }
 
             inline PetscInt local_col_index(PetscInt cell_index, unsigned int field_j) const
             {
 #ifdef SAMURAI_WITH_MPI
                 auto shift = is_locally_owned(static_cast<std::size_t>(cell_index)) ? m_col_shift : m_ghosts_col_shift;
-                auto index = m_col_numbering->unknown_index<input_n_comp>(shift,
+                auto index = m_col_numbering->unknown_index<input_n_comp>(cell_ownership(),
+                                                                          shift,
                                                                           static_cast<std::size_t>(cell_index),
                                                                           static_cast<int>(field_j));
                 return m_col_numbering->local_indices[index];
 #else
-                return m_col_numbering->unknown_index<input_n_comp, PetscInt>(m_col_shift,
+                return m_col_numbering->unknown_index<input_n_comp, PetscInt>(cell_ownership(),
+                                                                              m_col_shift,
                                                                               static_cast<std::size_t>(cell_index),
                                                                               static_cast<int>(field_j));
 #endif
@@ -526,7 +522,8 @@ namespace samurai
             {
 #ifdef SAMURAI_WITH_MPI
                 auto shift = is_locally_owned(static_cast<std::size_t>(cell_index)) ? m_col_shift : m_ghosts_col_shift;
-                auto index = m_col_numbering->unknown_index<input_n_comp>(shift,
+                auto index = m_col_numbering->unknown_index<input_n_comp>(cell_ownership(),
+                                                                          shift,
                                                                           static_cast<std::size_t>(cell_index),
                                                                           static_cast<int>(field_j));
                 return m_col_numbering->global_indices[index];
@@ -539,12 +536,14 @@ namespace samurai
             {
 #ifdef SAMURAI_WITH_MPI
                 auto shift = is_locally_owned(static_cast<std::size_t>(cell_index)) ? m_row_shift : m_ghosts_row_shift;
-                auto index = m_row_numbering->unknown_index<output_n_comp>(shift,
+                auto index = m_row_numbering->unknown_index<output_n_comp>(cell_ownership(),
+                                                                           shift,
                                                                            static_cast<std::size_t>(cell_index),
                                                                            static_cast<int>(field_i));
                 return m_row_numbering->local_indices[index];
 #else
-                return m_row_numbering->unknown_index<output_n_comp, PetscInt>(m_row_shift,
+                return m_row_numbering->unknown_index<output_n_comp, PetscInt>(cell_ownership(),
+                                                                               m_row_shift,
                                                                                static_cast<std::size_t>(cell_index),
                                                                                static_cast<int>(field_i));
 #endif
@@ -554,7 +553,8 @@ namespace samurai
             {
 #ifdef SAMURAI_WITH_MPI
                 auto shift = is_locally_owned(static_cast<std::size_t>(cell_index)) ? m_row_shift : m_ghosts_row_shift;
-                auto index = m_row_numbering->unknown_index<output_n_comp>(shift,
+                auto index = m_row_numbering->unknown_index<output_n_comp>(cell_ownership(),
+                                                                           shift,
                                                                            static_cast<std::size_t>(cell_index),
                                                                            static_cast<int>(field_i));
                 return m_row_numbering->global_indices[index];
@@ -639,7 +639,7 @@ namespace samurai
             {
                 double* v_data;
                 VecGetArray(v, &v_data);
-                for (std::size_t cell_index = 0; cell_index < m_ownership->n_local_cells; ++cell_index)
+                for (std::size_t cell_index = 0; cell_index < cell_ownership().n_local_cells; ++cell_index)
                 {
                     if (is_locally_owned(cell_index))
                     {
@@ -657,7 +657,7 @@ namespace samurai
             {
                 const double* v_data;
                 VecGetArrayRead(v, &v_data);
-                for (std::size_t cell_index = 0; cell_index < m_ownership->n_local_cells; ++cell_index)
+                for (std::size_t cell_index = 0; cell_index < cell_ownership().n_local_cells; ++cell_index)
                 {
                     if (is_locally_owned(cell_index))
                     {
@@ -689,7 +689,7 @@ namespace samurai
             {
                 double* v_data;
                 VecGetArray(v, &v_data);
-                for (std::size_t cell_index = 0; cell_index < m_ownership->n_local_cells; ++cell_index)
+                for (std::size_t cell_index = 0; cell_index < cell_ownership().n_local_cells; ++cell_index)
                 {
                     if (is_locally_owned(cell_index))
                     {

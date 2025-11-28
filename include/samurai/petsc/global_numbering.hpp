@@ -10,15 +10,13 @@ namespace samurai
 
         struct Numbering
         {
-            CellOwnership* ownership = nullptr;
-#ifdef SAMURAI_WITH_MPI
             // Local index in the PETSc vector/matrix for each local unknown
             std::vector<PetscInt> local_indices;
             // Global index in the PETSc vector/matrix for each local unknown
             std::vector<PetscInt> global_indices;
             // Mapping from local to global unknown indices
             std::vector<PetscInt> local_to_global_mapping;
-#endif
+
             inline void resize(PetscInt n_local_unknowns)
             {
                 local_indices.resize(static_cast<std::size_t>(n_local_unknowns));
@@ -27,10 +25,13 @@ namespace samurai
             }
 
             template <int n_unknowns_per_cell, typename return_type = std::size_t>
-            inline return_type unknown_index(PetscInt shift, std::size_t cell_index, [[maybe_unused]] int component_index) const
+            inline return_type unknown_index([[maybe_unused]] const CellOwnership& ownership,
+                                             PetscInt shift,
+                                             std::size_t cell_index,
+                                             [[maybe_unused]] int component_index) const
             {
 #ifdef SAMURAI_WITH_MPI
-                cell_index = static_cast<std::size_t>(ownership->cell_indices[cell_index]);
+                cell_index = static_cast<std::size_t>(ownership.cell_indices[cell_index]);
 #endif
                 if constexpr (n_unknowns_per_cell == 1)
                 {
@@ -66,7 +67,7 @@ namespace samurai
 
             assert(rank == 0 || rank_shift > 0);
 
-            const auto& ownership = *numbering.ownership;
+            const auto& ownership = mesh.cell_ownership();
 
             std::size_t min_level = mesh[mesh_id_t::reference].min_level();
             std::size_t max_level = mesh[mesh_id_t::reference].max_level();
@@ -78,12 +79,12 @@ namespace samurai
 
             auto owned_unknown_index = [&](std::size_t cell_index, int i_comp)
             {
-                return numbering.template unknown_index<n_unknowns_per_cell, std::size_t>(block_shift_owned, cell_index, i_comp);
+                return numbering.template unknown_index<n_unknowns_per_cell, std::size_t>(ownership, block_shift_owned, cell_index, i_comp);
             };
 
             auto ghost_unknown_index = [&](std::size_t cell_index, int i_comp)
             {
-                return numbering.template unknown_index<n_unknowns_per_cell, std::size_t>(block_shift_ghosts, cell_index, i_comp);
+                return numbering.template unknown_index<n_unknowns_per_cell, std::size_t>(ownership, block_shift_ghosts, cell_index, i_comp);
             };
 
             auto n_owned_unknowns = ownership.n_owned_cells * static_cast<std::size_t>(n_unknowns_per_cell);
