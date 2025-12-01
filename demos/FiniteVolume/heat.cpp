@@ -40,8 +40,13 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
                                level_[cell] = cell.level;
                            });
 
+#ifdef SAMURAI_WITH_MPI
+    mpi::communicator world;
+    samurai::save(path, fmt::format("{}_size_{}{}", filename, world.size(), suffix), mesh, u, level_);
+#else
     samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
     samurai::dump(path, fmt::format("{}_restart{}", filename, suffix), mesh, u);
+#endif
 }
 
 int main(int argc, char* argv[])
