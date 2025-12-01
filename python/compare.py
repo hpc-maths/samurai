@@ -87,14 +87,16 @@ def compare_meshes(file1, file2):
                 np.abs(field1[field][:][index1] - field2[field][:][index2]) > tol
             )
             # ind = np.where(field1[field][:][index1] != field2[field][:][index2])
-            print(
-                field1[field][:][index1[ind]],
-                field2[field][:][index2[ind]],
-                np.abs(field1[field][:][index1[ind]] - field2[field][:][index2[ind]]),
-            )
+            print(f"-- Values {file1}")
+            print(field1[field][:][index1[ind]])
+            print(f"-- Values {file2}")
+            print(field2[field][:][index2[ind]])
+            print("-- Difference:")
+            print(np.abs(field1[field][:][index1[ind]] - field2[field][:][index2[ind]]))
+            print("-- Coordinates (x,y,z):")
             print(cells1[index1[ind]], cells2[index2[ind]])
             # print(np.abs(field1[field][:][index1[ind]]-field2[field][:][index2[ind]]))
-            print(f"{field} is not the same")
+            print(f"{field} is not the same between {file1} and {file2}")
             sys.exit()
     print(f"files {file1} and {file2} are the same")
 
