@@ -185,6 +185,7 @@ namespace samurai
                     exit(EXIT_FAILURE);
                 }
 
+                mesh().cell_ownership().is_computed = false;
                 compute_cell_ownership(mesh());
                 compute_numbering();
 #ifdef SAMURAI_WITH_MPI
@@ -306,8 +307,8 @@ namespace samurai
                                                         rank_row_shift,
                                                         0 /*block_row_shift*/,
                                                         owned_matrix_rows() /*block_ghosts_shift*/);
-                m_col_numbering = m_row_numbering;
 #endif
+                m_col_numbering = m_row_numbering;
             }
 
             /**
