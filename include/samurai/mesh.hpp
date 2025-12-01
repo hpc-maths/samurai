@@ -895,6 +895,7 @@ namespace samurai
         return m_corners[i_direction];
     }
 
+#ifdef SAMURAI_WITH_PETSC
     template <class D, class Config>
     inline samurai::petsc::CellOwnership& Mesh_base<D, Config>::cell_ownership()
     {
@@ -906,6 +907,7 @@ namespace samurai
     {
         return m_cell_ownership;
     }
+#endif
 
     template <class D, class Config>
     inline void Mesh_base<D, Config>::update_mesh_neighbour()
