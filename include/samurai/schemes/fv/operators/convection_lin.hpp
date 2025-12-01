@@ -55,9 +55,8 @@ namespace samurai
                 }
                 else // use the right values
                 {
-                    upwind[d].cons_flux_function = [&](double)
+                    upwind[d].cons_flux_function = [&](FluxStencilCoeffs<cfg>& coeffs, double)
                     {
-                        FluxStencilCoeffs<cfg> coeffs;
                         if constexpr (Field::is_scalar)
                         {
                             coeffs[left]  = 0;
@@ -70,7 +69,6 @@ namespace samurai
                             xt::col(coeffs[left], d)  = 0;
                             xt::col(coeffs[right], d) = velocity(d);
                         }
-                        return coeffs;
                     };
                 }
             });
@@ -178,7 +176,7 @@ namespace samurai
      */
     template <class Field, class VelocityField>
         requires IsField<VelocityField>
-    auto make_convection_upwind(const VelocityField& velocity_field)
+    auto make_convection_upwind(VelocityField& velocity_field)
     {
         static_assert(Field::dim == VelocityField::dim && VelocityField::n_comp == VelocityField::dim);
 
@@ -202,11 +200,12 @@ namespace samurai
                 static constexpr std::size_t left  = 0;
                 static constexpr std::size_t right = 1;
 
-                upwind[d].cons_flux_function = [&](const auto& cells)
+                upwind[d].cons_flux_function = [&](FluxStencilCoeffs<cfg>& coeffs, const StencilData<cfg>& data)
                 {
                     // Return type: 2 matrices (left, right) of size output_n_comp x n_comp.
                     // In this case, of size n_comp x n_comp.
-                    FluxStencilCoeffs<cfg> coeffs;
+
+                    const auto& cells = data.cells;
 
                     auto velocity = 0.5 * (velocity_field[cells[left]] + velocity_field[cells[right]]);
                     if (velocity(d) >= 0) // use the left values
@@ -239,7 +238,6 @@ namespace samurai
                             xt::col(coeffs[right], d) = velocity(d);
                         }
                     }
-                    return coeffs;
                 };
             });
 
