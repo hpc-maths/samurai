@@ -39,11 +39,6 @@ namespace samurai
             PetscInt m_ghosts_row_shift = 0;
             PetscInt m_ghosts_col_shift = 0;
 
-            // The following parameters are used only for manual block assemblies in a block matrix
-            bool m_fit_block_dimensions = false; // computes dimensions according to the block's position
-            PetscInt m_rows             = 0;
-            PetscInt m_cols             = 0;
-
             // ----- Number of non-zeroes for matrix preallocation ----- //
 
             //  Petsc takes a reference to the nnz vectors, so we must keep them alive as long as the matrix is alive
@@ -123,16 +118,6 @@ namespace samurai
                 return m_is_block_in_nested_matrix;
             }
 
-            void fit_block_dimensions(bool value)
-            {
-                m_fit_block_dimensions = value;
-            }
-
-            bool fit_block_dimensions() const
-            {
-                return m_fit_block_dimensions;
-            }
-
             virtual void set_row_shift(PetscInt shift)
             {
                 m_row_shift = shift;
@@ -196,28 +181,12 @@ namespace samurai
             /**
              * @brief Returns the number of matrix rows owned by the current process.
              */
-            virtual PetscInt owned_matrix_rows() const
-            {
-                return m_rows;
-            }
+            virtual PetscInt owned_matrix_rows() const = 0;
 
             /**
              * @brief Returns the number of matrix columns owned by the current process.
              */
-            virtual PetscInt owned_matrix_cols() const
-            {
-                return m_cols;
-            }
-
-            void set_owned_matrix_rows(PetscInt rows)
-            {
-                m_rows = rows;
-            }
-
-            void set_owned_matrix_cols(PetscInt cols)
-            {
-                m_cols = cols;
-            }
+            virtual PetscInt owned_matrix_cols() const = 0;
 
             /**
              * @brief Returns the number of matrix rows locally present in the current process.

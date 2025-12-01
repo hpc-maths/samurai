@@ -69,6 +69,8 @@ namespace samurai
 
             const auto& ownership = mesh.cell_ownership();
 
+            assert(mesh.nb_cells() == ownership.n_local_cells);
+
             std::size_t min_level = mesh[mesh_id_t::reference].min_level();
             std::size_t max_level = mesh[mesh_id_t::reference].max_level();
 

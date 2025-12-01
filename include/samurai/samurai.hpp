@@ -13,6 +13,7 @@ namespace mpi = boost::mpi;
 
 #include "arguments.hpp"
 #include "timers.hpp"
+#include <thread>
 
 namespace samurai
 {
@@ -46,7 +47,7 @@ namespace samurai
         app.description(description);
         read_samurai_arguments(app, argc, argv);
 
-        // sleep(8);
+        // std::this_thread::sleep_for(std::chrono::seconds(8));
 
 #if defined(SAMURAI_WITH_PETSC)
         // MPI_Init() in called by PetscInitialize()

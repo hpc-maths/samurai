@@ -1,11 +1,25 @@
 #pragma once
 #include <petsc.h>
+#include <type_traits>
 #include <xtensor/containers/xfixed.hpp>
 
 namespace samurai
 {
     namespace petsc
     {
+        // Concept to check if a type is xt::xtensor
+        template <typename T>
+        struct is_xtensor_impl : std::false_type
+        {
+        };
+
+        template <typename T, std::size_t N, xt::layout_type L, class A>
+        struct is_xtensor_impl<xt::xtensor<T, N, L, A>> : std::true_type
+        {
+        };
+
+        template <typename T>
+        concept is_xtensor = is_xtensor_impl<std::remove_cv_t<T>>::value;
 
         Vec create_petsc_vector(PetscInt local_size)
         {
