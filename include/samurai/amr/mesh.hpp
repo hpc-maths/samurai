@@ -25,6 +25,28 @@ namespace samurai::amr
         // reference = cells_and_ghosts
     };
 
+    template <std::size_t dim_,
+              std::size_t max_stencil_width_    = default_config::ghost_width,
+              std::size_t graduation_width_     = default_config::graduation_width,
+              std::size_t max_refinement_level_ = default_config::max_level,
+              std::size_t prediction_order_     = default_config::prediction_order,
+              class TInterval                   = default_config::interval_t>
+    struct [[deprecated("Use samurai::mesh_config instead")]] Config
+    {
+        static constexpr std::size_t dim                  = dim_;
+        static constexpr std::size_t max_refinement_level = max_refinement_level_;
+
+        // deprecated interface
+        [[deprecated("Use max_stencil_radius() method instead")]] static constexpr int max_stencil_width = max_stencil_width_;
+        [[deprecated("Use prediction_stencil_radius instead")]] static constexpr int prediction_order    = prediction_order_;
+        [[deprecated("Use graduation_width() method instead")]] static constexpr int graduation_width    = graduation_width_;
+        [[deprecated("Use ghost_width() method instead")]] static constexpr int ghost_width = std::max(static_cast<int>(max_stencil_width),
+                                                                                                       static_cast<int>(prediction_order));
+
+        using interval_t = TInterval;
+        using mesh_id_t  = AMR_Id;
+    };
+
     /////////////////////////
     // AMR mesh definition //
     /////////////////////////
@@ -90,6 +112,42 @@ namespace samurai::amr
     template <class Config>
     inline Mesh<Config>::Mesh(const mesh_config<Config::dim>& config, const Box<double, dim>& b)
         : base_type(config, b)
+    {
+    }
+
+    template <class Config>
+    inline Mesh<Config>::Mesh(const cl_type& cl, std::size_t min_level, std::size_t max_level)
+        : base_type(mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
+                        .max_stencil_radius(Config::max_stencil_width)
+                        .graduation_width(Config::graduation_width)
+                        .start_level(max_level)
+                        .min_level(min_level)
+                        .max_level(max_level),
+                    cl)
+    {
+    }
+
+    template <class Config>
+    inline Mesh<Config>::Mesh(const ca_type& ca, std::size_t min_level, std::size_t max_level)
+        : base_type(mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
+                        .max_stencil_radius(Config::max_stencil_width)
+                        .graduation_width(Config::graduation_width)
+                        .start_level(max_level)
+                        .min_level(min_level)
+                        .max_level(max_level),
+                    ca)
+    {
+    }
+
+    template <class Config>
+    inline Mesh<Config>::Mesh(const Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level)
+        : base_type(mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
+                        .max_stencil_radius(Config::max_stencil_width)
+                        .graduation_width(Config::graduation_width)
+                        .start_level(start_level)
+                        .min_level(min_level)
+                        .max_level(max_level),
+                    b)
     {
     }
 
