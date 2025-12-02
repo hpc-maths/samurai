@@ -76,6 +76,10 @@ namespace samurai::amr
         Mesh(const mesh_config<Config::dim>& config, const ca_type& ca);
         Mesh(const mesh_config<Config::dim>& config, const Box<double, dim>& b);
 
+        Mesh(const cl_type& cl, std::size_t min_level, std::size_t max_level);
+        Mesh(const ca_type& ca, std::size_t min_level, std::size_t max_level);
+        Mesh(const Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level);
+
         void update_sub_mesh_impl();
 
         using base_type::cfg;
