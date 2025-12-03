@@ -23,6 +23,7 @@ namespace samurai
         static bool refine_boundary       = false;
         static bool save_debug_fields     = false;
         static bool print_petsc_numbering = false;
+        static int sleep_at_startup       = 0;
 
         // MRA arguments
         static double epsilon    = std::numeric_limits<double>::infinity();
@@ -44,6 +45,11 @@ namespace samurai
             ->group("IO");
 #endif
         app.add_flag("--timers", args::timers, "Print timers at the end of the program")->capture_default_str()->group("Tools");
+        app.add_option("--sleep-at-startup",
+                       args::sleep_at_startup,
+                       "Sleep for a given number of seconds at startup (useful to attach a debugger when running with mpirun/mpiexec)")
+            ->capture_default_str()
+            ->group("SAMURAI");
         app.add_option(
                "--finer-level-flux",
                args::finer_level_flux,
