@@ -38,6 +38,8 @@ namespace samurai
               class TInterval                   = default_config::interval_t>
     struct [[deprecated("Use samurai::mesh_config instead")]] MRConfig
     {
+        // cppcheck-suppress-begin unusedStructMember
+
         static constexpr std::size_t dim                  = dim_;
         static constexpr std::size_t max_refinement_level = max_refinement_level_;
 
@@ -45,12 +47,13 @@ namespace samurai
         [[deprecated("Use max_stencil_radius() method instead")]] static constexpr int max_stencil_width      = max_stencil_width_;
         [[deprecated("Use prediction_stencil_radius instead")]] static constexpr int prediction_order         = prediction_order_;
         [[deprecated("Use graduation_width() method instead")]] static constexpr std::size_t graduation_width = graduation_width_;
-        [[deprecated("Use ghost_width() method instead")]] static constexpr int ghost_width                   = std::max(
-            static_cast<int>(max_stencil_width),
-            static_cast<int>(prediction_order)); // cppcheck-suppress unusedStructMember
+        [[deprecated("Use ghost_width() method instead")]] static constexpr int ghost_width = std::max(static_cast<int>(max_stencil_width),
+                                                                                                       static_cast<int>(prediction_order));
 
         // new interface
-        static constexpr int prediction_stencil_radius = prediction_order_; // cppcheck-suppress unusedStructMember
+        static constexpr int prediction_stencil_radius = prediction_order_;
+
+        // cppcheck-suppress-end unusedStructMember
 
         using interval_t = TInterval;
         using mesh_id_t  = MRMeshId;
