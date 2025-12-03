@@ -42,16 +42,15 @@ namespace samurai
         static constexpr std::size_t max_refinement_level = max_refinement_level_;
 
         // deprecated interface
-        [[deprecated("Use max_stencil_radius() method instead")]] static constexpr int max_stencil_width = max_stencil_width_;
-        [[deprecated("Use prediction_stencil_radius instead")]] static constexpr int prediction_order    = prediction_order_;
-
-        // removed interface
+        [[deprecated("Use max_stencil_radius() method instead")]] static constexpr int max_stencil_width      = max_stencil_width_;
+        [[deprecated("Use prediction_stencil_radius instead")]] static constexpr int prediction_order         = prediction_order_;
         [[deprecated("Use graduation_width() method instead")]] static constexpr std::size_t graduation_width = graduation_width_;
-        [[deprecated("Use ghost_width() method instead")]] static constexpr int ghost_width = std::max(static_cast<int>(max_stencil_width),
-                                                                                                       static_cast<int>(prediction_order));
+        [[deprecated("Use ghost_width() method instead")]] static constexpr int ghost_width                   = std::max(
+            static_cast<int>(max_stencil_width),
+            static_cast<int>(prediction_order)); // cppcheck-suppress unusedStructMember
 
         // new interface
-        static constexpr int prediction_stencil_radius = prediction_order_;
+        static constexpr int prediction_stencil_radius = prediction_order_; // cppcheck-suppress unusedStructMember
 
         using interval_t = TInterval;
         using mesh_id_t  = MRMeshId;
