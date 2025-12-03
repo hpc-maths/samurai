@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <numeric>
+
 #include "box.hpp"
 
 namespace samurai
@@ -81,15 +83,20 @@ namespace samurai
         {
             double largest_subdivision = m_added_boxes[0].min_length();
 
-            // The largest subdivision must be smaller than the smallest legnth of all boxes
-            for (const auto& box : m_added_boxes)
+            auto gcd_loop = [](double largest_subdiv, const auto& boxes)
             {
-                largest_subdivision = gcd_float(largest_subdivision, box.min_length());
-            }
-            for (const auto& box : m_removed_boxes)
-            {
-                largest_subdivision = gcd_float(largest_subdivision, box.min_length());
-            }
+                return std::accumulate(boxes.begin(),
+                                       boxes.end(),
+                                       largest_subdiv,
+                                       [](double l, const auto& box)
+                                       {
+                                           return gcd_float(l, box.min_length());
+                                       });
+            };
+
+            // The largest subdivision must be smaller than the smallest length of all boxes
+            largest_subdivision = gcd_loop(largest_subdivision, m_added_boxes);
+            largest_subdivision = gcd_loop(largest_subdivision, m_removed_boxes);
 
             // The largest subdivision must be smaller than the smallest length of all differences
             for (const auto& box : m_added_boxes)
@@ -99,10 +106,7 @@ namespace samurai
                     if (rbox.intersects(box))
                     {
                         std::vector<box_t> diff = box.difference(rbox);
-                        for (const auto& dbox : diff)
-                        {
-                            largest_subdivision = gcd_float(largest_subdivision, dbox.min_length());
-                        }
+                        largest_subdivision     = gcd_loop(largest_subdivision, diff);
                     }
                 }
             }

@@ -5,10 +5,10 @@
 int main()
 {
     static constexpr std::size_t dim = 2;
-    using config_t                   = samurai::MRConfig<dim>;
 
     samurai::Box<double, dim> box({0.0, 0.0}, {1.0, 1.0});
-    samurai::MRMesh<config_t> mesh(box, 2, 5); // min level 2, max level 5
+    auto config = samurai::mesh_config<dim>().min_level(2).max_level(5);
+    auto mesh   = samurai::make_MRMesh(config, box);
 
     samurai::save("output_path", "mesh_filename", mesh);
     // or
