@@ -9,6 +9,24 @@ namespace samurai
     namespace petsc
     {
 
+        struct MismatchInfo
+        {
+            std::size_t cell_index;
+            std::vector<int> possible_owners;
+            int owner_rank;
+
+            std::size_t cell_index_on_neighbour;
+
+            template <class Archive>
+            void serialize(Archive& ar, const unsigned int /*version*/)
+            {
+                ar & cell_index;
+                ar & possible_owners;
+                ar & owner_rank;
+                ar & cell_index_on_neighbour;
+            }
+        };
+
         template <class Mesh>
         void save_numbering(const Mesh& mesh)
         {
@@ -165,6 +183,24 @@ namespace samurai
                                   }
                               });
 
+                // For the projection ghosts that have no children in this rank, we look for children in neighbour ranks
+                for (auto& neighbour : mesh.mpi_neighbourhood())
+                {
+                    auto projection_ghosts_nghb = intersection(mesh[mesh_id_t::reference][level],
+                                                               neighbour.mesh[mesh_id_t::reference][level + 1])
+                                                      .on(level);
+                    for_each_cell(mesh,
+                                  projection_ghosts_nghb,
+                                  [&](auto& ghost)
+                                  {
+                                      auto& ghost_owner_rank = owner_rank.at(static_cast<std::size_t>(ghost.index));
+                                      if (ghost_owner_rank == UNSET)
+                                      {
+                                          ghost_owner_rank = neighbour.rank;
+                                      }
+                                  });
+                }
+
                 if (level == 0)
                 {
                     break;
@@ -236,22 +272,24 @@ namespace samurai
                 }
             }
 
-#ifndef NDEBUG
-            //---------------------------------------//
-            // Check that there is no owner mismatch //
-            //---------------------------------------//
+            //--------------------------------------------//
+            // Look for owner mismatches and correct them //
+            //--------------------------------------------//
+            // An owner mismatch is when two neighbouring ranks disagree on the owner of a cell.
+            // Mismatches can happen when two neighbouring ranks have intersecting ghosts although they are not registered in the
+            // neighbourhood of each other.
 
-            bool owner_mismatch = false;
+            // We register, for all cells, the possible owners (neighbour ranks that also have this cell).
+            // This will be used to choose another owner in case of mismatch.
+            std::vector<std::vector<int>> possible_owners(n_local_cells);
 
-            // SEND
-            std::vector<mpi::request> req;
-            std::vector<std::vector<PetscInt>> to_send_by_neighbour(mesh.mpi_neighbourhood().size());
-            std::size_t i_neigh = 0;
-            for (auto& neighbour : mesh.mpi_neighbourhood())
+            for (std::size_t cell_index = 0; cell_index < n_local_cells; ++cell_index)
             {
-                auto& to_send = to_send_by_neighbour[i_neigh];
-
-                for (std::size_t level = min_level; level <= max_level; ++level)
+                possible_owners[cell_index].push_back(rank);
+            }
+            for (std::size_t level = min_level; level <= max_level; ++level)
+            {
+                for (auto& neighbour : mesh.mpi_neighbourhood())
                 {
                     auto intersecting_cells_and_ghosts = intersection(mesh[mesh_id_t::reference][level],
                                                                       neighbour.mesh[mesh_id_t::reference][level]);
@@ -259,66 +297,160 @@ namespace samurai
                                   intersecting_cells_and_ghosts,
                                   [&](auto& cell)
                                   {
-                                      to_send.push_back(owner_rank[static_cast<std::size_t>(cell.index)]);
+                                      possible_owners[static_cast<std::size_t>(cell.index)].push_back(neighbour.rank);
                                   });
                 }
-                req.push_back(world.isend(neighbour.rank /* dest */, neighbour.rank /* tag */, to_send));
-                i_neigh++;
             }
 
-            // RECEIVE
-            for (auto& neighbour : mesh.mpi_neighbourhood())
+            // The process of checking for mismatches and correcting them is repeated until no mismatch is found.
+            int n_mismatch_checks         = 0;
+            const int max_mismatch_checks = world.size() + 2; // arbitrary limit
+
+            while (n_mismatch_checks < max_mismatch_checks)
             {
-                std::vector<PetscInt> to_recv;
-                std::size_t read = 0;
-                world.recv(neighbour.rank /* source */, rank /* tag */, to_recv);
-                for (std::size_t level = 0; level <= max_level; ++level)
+                bool owner_mismatch = false;
+                std::vector<std::vector<MismatchInfo>> mismatches(mesh.mpi_neighbourhood().size());
+
+                // SEND
+                std::vector<mpi::request> req;
+                std::vector<std::vector<PetscInt>> to_send_by_neighbour(mesh.mpi_neighbourhood().size());
+                std::size_t i_neigh = 0;
+                for (auto& neighbour : mesh.mpi_neighbourhood())
                 {
-                    auto intersecting_cells_and_ghosts = intersection(neighbour.mesh[mesh_id_t::reference][level],
-                                                                      mesh[mesh_id_t::reference][level]);
-                    for_each_cell(mesh,
-                                  intersecting_cells_and_ghosts,
-                                  [&](auto& cell)
-                                  {
-                                      auto neighbour_owner_rank = to_recv[read++];
-                                      // assert(owner_rank[static_cast<std::size_t>(cell.index)] == neighbour_owner_rank);
-                                      if (owner_rank[static_cast<std::size_t>(cell.index)] != neighbour_owner_rank)
+                    auto& to_send = to_send_by_neighbour[i_neigh];
+
+                    for (std::size_t level = min_level; level <= max_level; ++level)
+                    {
+                        auto intersecting_cells_and_ghosts = intersection(mesh[mesh_id_t::reference][level],
+                                                                          neighbour.mesh[mesh_id_t::reference][level]);
+                        for_each_cell(mesh,
+                                      intersecting_cells_and_ghosts,
+                                      [&](auto& cell)
                                       {
-                                          owner_mismatch = true;
-                                          std::cout << fmt::format(
-                                              "[{}] Error: owner mismatch in cell {} on level {} (owned by {} != {} on [{}])\n",
-                                              world.rank(),
-                                              cell.index,
-                                              level,
-                                              owner_rank[static_cast<std::size_t>(cell.index)],
-                                              neighbour_owner_rank,
-                                              neighbour.rank);
-                                          owner_rank[static_cast<std::size_t>(cell.index)] = world.size() * 2; // mark error
-                                      }
-                                  });
+                                          to_send.push_back(owner_rank[static_cast<std::size_t>(cell.index)]);
+                                          to_send.push_back(static_cast<PetscInt>(cell.index));
+                                      });
+                    }
+                    req.push_back(world.isend(neighbour.rank /* dest */, neighbour.rank /* tag */, to_send));
+                    i_neigh++;
                 }
-            }
 
-            mpi::wait_all(req.begin(), req.end());
-
-            if (owner_mismatch)
-            {
-                auto owner_rank_field = make_scalar_field<int>("owner_rank", mesh);
-                for (std::size_t cell_index = 0; cell_index < mesh.nb_cells(); ++cell_index)
+                // RECEIVE
+                std::size_t i_neighbour = 0;
+                for (auto& neighbour : mesh.mpi_neighbourhood())
                 {
-                    owner_rank_field[cell_index] = owner_rank[cell_index];
-                }
-                auto samurai_cell_indices_field = make_scalar_field<std::size_t>("samurai_cell_index", mesh);
-                for (std::size_t cell_index = 0; cell_index < mesh.nb_cells(); ++cell_index)
-                {
-                    samurai_cell_indices_field[cell_index] = static_cast<std::size_t>(cell_index);
-                }
-                save(fs::current_path(), "owner_mismatch", {true, true}, mesh, owner_rank_field, samurai_cell_indices_field);
+                    std::vector<PetscInt> to_recv;
+                    std::size_t read = 0;
+                    world.recv(neighbour.rank /* source */, rank /* tag */, to_recv);
+                    for (std::size_t level = 0; level <= max_level; ++level)
+                    {
+                        auto intersecting_cells_and_ghosts = intersection(neighbour.mesh[mesh_id_t::reference][level],
+                                                                          mesh[mesh_id_t::reference][level]);
+                        for_each_cell(mesh,
+                                      intersecting_cells_and_ghosts,
+                                      [&](auto& cell)
+                                      {
+                                          auto neighbour_owner_rank    = to_recv[read++];
+                                          auto cell_index_on_neighbour = to_recv[read++];
+                                          if (owner_rank[static_cast<std::size_t>(cell.index)] != neighbour_owner_rank)
+                                          {
+                                              owner_mismatch = true;
+                                              mismatches[i_neighbour].emplace_back(static_cast<std::size_t>(cell.index),
+                                                                                   possible_owners[static_cast<std::size_t>(cell.index)],
+                                                                                   owner_rank[static_cast<std::size_t>(cell.index)],
+                                                                                   cell_index_on_neighbour);
 
-                std::cerr << "Cell ownership mismatch detected. Exiting." << std::endl;
-                exit(EXIT_FAILURE);
+                                              // std::cout << fmt::format(
+                                              //     "[{}] Error: owner mismatch in cell {} on level {} (owned here by {} != {} on [{}] with
+                                              //     cell_index {})\n", rank, cell.index, level,
+                                              //     owner_rank[static_cast<std::size_t>(cell.index)],
+                                              //     neighbour_owner_rank,
+                                              //     neighbour.rank,
+                                              //     cell_index_on_neighbour);
+                                              // owner_rank[static_cast<std::size_t>(cell.index)] = world.size() * 2; // mark error
+                                          }
+                                      });
+                    }
+                    i_neighbour++;
+                }
+
+                mpi::wait_all(req.begin(), req.end());
+
+                owner_mismatch = mpi::all_reduce(world, owner_mismatch, std::logical_or());
+                if (!owner_mismatch)
+                {
+                    // No more mismatches, get out
+                    break;
+                }
+                // else // export for analysis
+                // {
+                //     auto owner_rank_field = make_scalar_field<int>("owner_rank", mesh);
+                //     for (std::size_t cell_index = 0; cell_index < mesh.nb_cells(); ++cell_index)
+                //     {
+                //         owner_rank_field[cell_index] = owner_rank[cell_index];
+                //     }
+                //     auto samurai_cell_indices_field = make_scalar_field<std::size_t>("samurai_cell_index", mesh);
+                //     for (std::size_t cell_index = 0; cell_index < mesh.nb_cells(); ++cell_index)
+                //     {
+                //         samurai_cell_indices_field[cell_index] = static_cast<std::size_t>(cell_index);
+                //     }
+                //     save(fs::current_path(), "owner_mismatch", {true, true}, mesh, owner_rank_field, samurai_cell_indices_field);
+
+                //     std::cerr << "Cell ownership mismatch detected. Exiting." << std::endl;
+                //     exit(EXIT_FAILURE);
+                // }
+
+                // Send mismatches to neighbours
+                req.clear();
+                i_neighbour = 0;
+                for (auto& neighbour : mesh.mpi_neighbourhood())
+                {
+                    req.push_back(world.isend(neighbour.rank /* dest */, neighbour.rank /* tag */, mismatches[i_neighbour]));
+                    i_neighbour++;
+                }
+
+                // Receive mismatches from neighbours and change owner ranks if needed
+                i_neighbour = 0;
+                for (auto& neighbour : mesh.mpi_neighbourhood())
+                {
+                    std::vector<MismatchInfo> neighbour_mismatches;
+                    world.recv(neighbour.rank /* source */, rank /* tag */, neighbour_mismatches);
+                    for (auto& neighbour_mismatch : neighbour_mismatches)
+                    {
+                        // If the owner_rank I have chosen is not in the possible_owners of the neighbour, we must choose another one that
+                        // is possible for both.
+                        auto& my_cell_index = neighbour_mismatch.cell_index_on_neighbour;
+                        if (std::find(neighbour_mismatch.possible_owners.begin(),
+                                      neighbour_mismatch.possible_owners.end(),
+                                      owner_rank[my_cell_index])
+                            == neighbour_mismatch.possible_owners.end())
+                        {
+                            // Find the intersection between the neighbour's possible_owners and my possible_owners
+                            std::vector<int> intersection;
+                            for (auto& neighbour_possible_owner : neighbour_mismatch.possible_owners)
+                            {
+                                if (std::find(possible_owners[my_cell_index].begin(),
+                                              possible_owners[my_cell_index].end(),
+                                              neighbour_possible_owner)
+                                    != possible_owners[my_cell_index].end())
+                                {
+                                    intersection.push_back(neighbour_possible_owner);
+                                }
+                            }
+                            assert(!intersection.empty() && "There must be at least one possible owner in the intersection");
+                            // Update possible_owners to the intersection
+                            possible_owners[my_cell_index] = intersection;
+                            // Choose the minimum rank in the intersection as the new owner
+                            owner_rank[my_cell_index] = *std::min_element(possible_owners[my_cell_index].begin(),
+                                                                          possible_owners[my_cell_index].end());
+                        }
+                        // else, the owner rank is acceptable for both ranks, we don't change it
+                    }
+                    neighbour_mismatches.clear();
+                    i_neighbour++;
+                }
+                mpi::wait_all(req.begin(), req.end());
             }
-#endif
 
             //--------------------------//
             // Renumbering of the cells //

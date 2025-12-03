@@ -418,7 +418,12 @@ namespace samurai
                         // std::cout << "\n\t> [" << world.rank() << "] ASSEMBLY" << std::endl;
 #endif
                         MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
-                        MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+                        PetscErrorCode ierr = MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+                        if (ierr != PETSC_SUCCESS)
+                        {
+                            std::cerr << "Error during MatAssemblyEnd of matrix '" << name() << "'." << std::endl;
+                            exit(EXIT_FAILURE);
+                        }
                     }
                 }
                 times::timers.stop("matrix assembly");

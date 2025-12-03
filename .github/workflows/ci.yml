@@ -287,10 +287,10 @@ jobs:
               run: |
                   cd build
                   set -e  # Stop on first failure
-                  mpiexec -n 1 ./demos/FiniteVolume/finite-volume-heat --Tf 0.1 --max-level 9
-                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-heat --Tf 0.1 --max-level 9
-                  mpiexec -n 3 ./demos/FiniteVolume/finite-volume-heat --Tf 0.1 --max-level 9
-                  mpiexec -n 4 ./demos/FiniteVolume/finite-volume-heat --Tf 0.1 --max-level 9
+                  mpiexec -n 1 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu --Tf 0.1 --max-level 8
+                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu --Tf 0.1 --max-level 8
+                  mpiexec -n 3 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu --Tf 0.1 --max-level 8
+                  mpiexec -n 4 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu --Tf 0.1 --max-level 8
                   ls
                   python ../python/compare.py heat_2D_size_1_ite_ heat_2D_size_2_ite_ --start 1 --end 9
                   python ../python/compare.py heat_2D_size_1_ite_ heat_2D_size_3_ite_ --start 1 --end 9

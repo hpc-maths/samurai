@@ -160,7 +160,7 @@ int main(int argc, char* argv[])
     using Mesh                       = samurai::MRMesh<Config>;
     using mesh_id_t                  = typename Mesh::mesh_id_t;
     static constexpr bool is_soa     = false;
-    static constexpr bool monolithic = false;
+    static constexpr bool monolithic = true;
 
     //----------------//
     //   Parameters   //
