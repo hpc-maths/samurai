@@ -47,7 +47,7 @@ namespace samurai
         app.description(description);
         read_samurai_arguments(app, argc, argv);
 
-        // std::this_thread::sleep_for(std::chrono::seconds(8));
+        std::this_thread::sleep_for(std::chrono::seconds(args::sleep_at_startup));
 
 #if defined(SAMURAI_WITH_PETSC)
         // MPI_Init() in called by PetscInitialize()
