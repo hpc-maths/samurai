@@ -147,7 +147,7 @@ namespace samurai
                             flux_def[d].stencil,
                             [&](auto& cell, [[maybe_unused]] auto& comput_cells)
                             {
-                                if (!this->is_locally_owned(cell))
+                                if (!this->is_locally_owned(cell)) // cppcheck-suppress knownConditionTrueFalse
                                 {
                                     return;
                                 }
@@ -289,7 +289,7 @@ namespace samurai
                         unknown(),
                         [&](auto& cell, auto& comput_cells, auto& coeffs)
                         {
-                            if (!is_locally_owned(cell))
+                            if (!is_locally_owned(cell)) // cppcheck-suppress knownConditionTrueFalse
                             {
                                 return;
                             }
