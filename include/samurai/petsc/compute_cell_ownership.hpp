@@ -187,7 +187,8 @@ namespace samurai
                 for (auto& neighbour : mesh.mpi_neighbourhood())
                 {
                     auto projection_ghosts_nghb = intersection(mesh[mesh_id_t::reference][level],
-                                                               neighbour.mesh[mesh_id_t::reference][level + 1])
+                                                               difference(neighbour.mesh[mesh_id_t::reference][level + 1],
+                                                                          mesh[mesh_id_t::reference][level + 1]))
                                                       .on(level);
                     for_each_cell(mesh,
                                   projection_ghosts_nghb,
@@ -305,11 +306,17 @@ namespace samurai
             // The process of checking for mismatches and correcting them is repeated until no mismatch is found.
             int n_mismatch_checks         = 0;
             const int max_mismatch_checks = world.size() + 2; // arbitrary limit
+            bool owner_mismatch           = false;
+            std::vector<std::vector<MismatchInfo>> mismatches(mesh.mpi_neighbourhood().size());
 
             while (n_mismatch_checks < max_mismatch_checks)
             {
-                bool owner_mismatch = false;
-                std::vector<std::vector<MismatchInfo>> mismatches(mesh.mpi_neighbourhood().size());
+                for (auto& m : mismatches)
+                {
+                    m.clear();
+                }
+                owner_mismatch = false;
+                n_mismatch_checks++;
 
                 // SEND
                 std::vector<mpi::request> req;
@@ -450,6 +457,43 @@ namespace samurai
                     i_neighbour++;
                 }
                 mpi::wait_all(req.begin(), req.end());
+            }
+
+            if (n_mismatch_checks == max_mismatch_checks && owner_mismatch)
+            {
+                auto owner_rank_field = make_scalar_field<int>("owner_rank", mesh);
+                for (std::size_t cell_index = 0; cell_index < mesh.nb_cells(); ++cell_index)
+                {
+                    owner_rank_field[cell_index] = owner_rank[cell_index];
+                }
+                std::size_t i_neigh = 0;
+                for (auto& neighbour : mesh.mpi_neighbourhood())
+                {
+                    for (auto& mismatch : mismatches[i_neigh])
+                    {
+                        std::cout << fmt::format(
+                            "[{}] Mismatch for cell {} (owned here by {} and owned by another on [{}] with cell_index {})\n",
+                            rank,
+                            mismatch.cell_index,
+                            owner_rank[mismatch.cell_index],
+                            neighbour.rank,
+                            mismatch.cell_index_on_neighbour);
+                        owner_rank_field[mismatch.cell_index] = 2 * world.size(); // mark error
+                    }
+                    i_neigh++;
+                }
+
+                auto samurai_cell_indices_field = make_scalar_field<std::size_t>("samurai_cell_index", mesh);
+                for (std::size_t cell_index = 0; cell_index < mesh.nb_cells(); ++cell_index)
+                {
+                    samurai_cell_indices_field[cell_index] = static_cast<std::size_t>(cell_index);
+                }
+                save(fs::current_path(), "owner_mismatch", {true, true}, mesh, owner_rank_field, samurai_cell_indices_field);
+
+                std::cerr << "Error: cell ownership mismatch detected. Maximum number of correction passes reached (" << max_mismatch_checks
+                          << ")." << std::endl;
+                std::cerr << fmt::format("[{}] See 'owner_mismatch.xdmf' for details.\n", rank);
+                exit(EXIT_FAILURE);
             }
 
             //--------------------------//

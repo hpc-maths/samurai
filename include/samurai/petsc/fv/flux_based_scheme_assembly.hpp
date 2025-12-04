@@ -147,7 +147,7 @@ namespace samurai
                             flux_def[d].stencil,
                             [&](auto& cell, [[maybe_unused]] auto& comput_cells)
                             {
-                                if (!is_locally_owned(cell))
+                                if (!this->is_locally_owned(cell))
                                 {
                                     return;
                                 }
