@@ -8,16 +8,50 @@
 #include <samurai/samurai.hpp>
 #include <samurai/schemes/fv.hpp>
 
-template <class Solver>
-void configure_direct_solver(Solver& solver)
+template <class Solver, class PressureField, class VelocityField>
+void configure_monolithic_solver(Solver& solver, const PressureField& constant_pressure, const VelocityField& zero_velocity)
 {
     KSP ksp = solver.Ksp();
     PC pc;
     KSPGetPC(ksp, &pc);
     KSPSetType(ksp, KSPPREONLY); // (equiv. '-ksp_type preonly')
-    PCSetType(pc, PCQR);         // (equiv. '-pc_type qr')
+#if defined(PETSC_HAVE_MUMPS)
+    // We use MUMPS because it can handle null spaces (unlike the default petsc LU)
+    PCSetType(pc, PCLU);                          // (equiv. '-pc_type lu')
+    PCFactorSetMatSolverType(pc, MATSOLVERMUMPS); // (equiv. '-pc_factor_mat_solver_type mumps')
+#else
+    // If MUMPS is not installed, we fallback on QR because it can handle singular systems
+    PCSetType(pc, PCQR); // (equiv. '-pc_type qr')
+#endif
     // KSP and PC overwritten by user value if needed
     KSPSetFromOptions(ksp);
+
+    solver.after_matrix_assembly = [&](KSP& ksp, Mat& A)
+    {
+        // Set the null space (constant pressures) so that iterative solvers can orthogonalize residuals against it
+        Vec constant_pressure_vector = solver.assembly().create_vector(zero_velocity, constant_pressure);
+        VecNormalize(constant_pressure_vector, NULL);
+
+        MatNullSpace nullspace;
+        MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &constant_pressure_vector, &nullspace);
+        MatSetNullSpace(A, nullspace);
+        MatNullSpaceDestroy(&nullspace);
+        VecDestroy(&constant_pressure_vector);
+
+        // If using MUMPS, set option ICNTL(24)=1 to enable the detection of null pivots (because the matrix is singular)
+        PetscBool is_mumps = PETSC_FALSE;
+        const char* stype;
+        PC pc;
+        KSPGetPC(ksp, &pc);
+        PCFactorGetMatSolverType(pc, &stype);
+        PetscStrcmp(stype, MATSOLVERMUMPS, &is_mumps);
+        if (is_mumps)
+        {
+            Mat F;
+            PCFactorGetMatrix(pc, &F);
+            MatMumpsSetIcntl(F, 24, 1); // (equiv. '-mat_mumps_icntl_24 1')
+        }
+    };
 }
 
 //
@@ -78,12 +112,12 @@ void configure_saddle_point_solver(Solver& block_solver)
     KSPSetTolerances(schur_ksp, ksp_rtol, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT); // (equiv. '-fieldsplit_pressure_ksp_rtol XXX')
 }
 
-template <class Solver>
-void configure_solver(Solver& solver)
+template <class Solver, class PressureField, class VelocityField>
+void configure_solver(Solver& solver, const PressureField& constant_pressure, const VelocityField& zero_velocity)
 {
     if constexpr (Solver::is_monolithic)
     {
-        configure_direct_solver(solver);
+        configure_monolithic_solver(solver, constant_pressure, zero_velocity);
     }
     else
     {
@@ -157,6 +191,10 @@ int main(int argc, char* argv[])
     using VelocityField = decltype(velocity);
     using PressureField = decltype(pressure_np1);
 
+    // Fields for the null space of the system (constant pressure)
+    auto constant_pressure = samurai::make_scalar_field<double>("constant_pressure", mesh, 1.0);
+    auto zero_velocity     = samurai::make_vector_field<double, dim, is_soa>("zero_velocity", mesh, 0.0);
+
     // Multi-resolution: the mesh will be adapted according to the velocity
     auto MRadaptation = samurai::make_MRAdapt(velocity);
     auto mra_config   = samurai::mra_config().epsilon(1e-1).regularity(3);
@@ -215,7 +253,7 @@ int main(int argc, char* argv[])
     // Linear solver
     auto stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
     stokes_solver.set_unknowns(velocity_np1, pressure_np1);
-    configure_solver(stokes_solver);
+    configure_solver(stokes_solver, constant_pressure, zero_velocity);
 
     //-------------------- 2 ----------------------------------------------------------------
     //
@@ -293,13 +331,8 @@ int main(int argc, char* argv[])
         nsave++;
     }
 
-    bool mesh_has_changed = false;
+    bool mesh_has_changed = min_level != max_level;
     bool dt_has_changed   = false;
-
-    std::size_t min_level_n   = mesh[mesh_id_t::cells].min_level();
-    std::size_t max_level_n   = mesh[mesh_id_t::cells].max_level();
-    std::size_t min_level_np1 = min_level_n;
-    std::size_t max_level_np1 = max_level_n;
 
     double t = 0;
     while (t != Tf)
@@ -318,17 +351,14 @@ int main(int argc, char* argv[])
         if (mesh.min_level() != mesh.max_level())
         {
             MRadaptation(mra_config);
-            min_level_np1    = mesh[mesh_id_t::cells].min_level();
-            max_level_np1    = mesh[mesh_id_t::cells].max_level();
-            mesh_has_changed = !(samurai::is_uniform(mesh) && min_level_n == min_level_np1 && max_level_n == max_level_np1);
-            if (mesh_has_changed)
-            {
-                velocity_np1.resize();
-                pressure_np1.resize();
-                zero.resize();
-                rhs.resize();
-            }
-            std::cout << ", levels " << min_level_np1 << "-" << max_level_np1;
+            velocity_np1.resize();
+            pressure_np1.resize();
+            zero.resize();
+            rhs.resize();
+            constant_pressure.resize();
+            zero_velocity.resize();
+            constant_pressure.fill(1.0);
+            zero_velocity.fill(0.0);
         }
         std::cout << std::endl;
 
@@ -341,7 +371,7 @@ int main(int argc, char* argv[])
             }
             stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
             stokes_solver.set_unknowns(velocity_np1, pressure_np1);
-            configure_solver(stokes_solver);
+            configure_solver(stokes_solver, constant_pressure, zero_velocity);
         }
 
         // Solve Stokes system
@@ -362,8 +392,6 @@ int main(int argc, char* argv[])
         // Prepare next step
         samurai::swap(velocity, velocity_np1);
         samurai::swap(ink, ink_np1);
-        min_level_n = min_level_np1;
-        max_level_n = max_level_np1;
 
         // Save the results
         if (t >= static_cast<double>(nsave) * dt_save || t == Tf)

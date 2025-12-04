@@ -296,6 +296,16 @@ jobs:
                   python ../python/compare.py heat_2D_size_1_ite_ heat_2D_size_3_ite_ --start 1 --end 9
                   python ../python/compare.py heat_2D_size_1_ite_ heat_2D_size_4_ite_ --start 1 --end 9
 
+            - name: MPI test finite-volume-lid-driven-cavity
+              shell: bash -l {0}
+              run: |
+                  cd build
+                  set -e  # Stop on first failure
+                  mpiexec -n 1 ./demos/FiniteVolume/finite-volume-lid-driven-cavity --filename ldc_ink_size_1 --Tf 0.1 --nfiles 1 --min-level 8 --max-level 8
+                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-lid-driven-cavity --filename ldc_ink_size_2 --Tf 0.1 --nfiles 1 --min-level 8 --max-level 8
+                  ls
+                  python ../python/compare.py ldc_ink_size_1 ldc_ink_size_2 --tol 1e-12
+
     macos-mamba:
         needs: [pre-commit, cppcheck]
         runs-on: macos-14

@@ -17,6 +17,9 @@ parser.add_argument(
 parser.add_argument(
     "--end", type=int, required=False, default=None, help="iteration end"
 )
+parser.add_argument(
+    "--tol", type=float, required=False, default=1e-14, help="tolerance for field comparison"
+)
 args = parser.parse_args()
 
 
@@ -54,7 +57,7 @@ def construct_fields(mesh):
         return output
 
 
-def compare_meshes(file1, file2):
+def compare_meshes(file1, file2, tol):
     mesh1 = h5py.File(file1, "r")["mesh"]
     mesh2 = h5py.File(file2, "r")["mesh"]
     cells1 = construct_cells(mesh1)
@@ -75,7 +78,6 @@ def compare_meshes(file1, file2):
     field1 = construct_fields(mesh1)
     field2 = construct_fields(mesh2)
 
-    tol = 1e-14
     for field in field1.keys():
         if not field in field2.keys():
             print(f"{field} is not in second file")
@@ -103,9 +105,10 @@ def compare_meshes(file1, file2):
 
 if args.start is not None and args.end is not None:
     for i in range(args.start, args.end + 1):
-        compare_meshes(f"{args.file1}{i}.h5", f"{args.file2}{i}.h5")
+        compare_meshes(f"{args.file1}{i}.h5", f"{args.file2}{i}.h5", args.tol)
 else:
     compare_meshes(
         f"{args.file1}.h5",
         f"{args.file2}.h5",
+        args.tol
     )
