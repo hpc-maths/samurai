@@ -38,6 +38,9 @@ namespace samurai
                 _destroy_petsc_objects();
             }
 
+            std::function<void(KSP&, Mat&)> after_matrix_assembly = nullptr;
+            std::function<void(KSP&, Mat&)> after_setup           = nullptr;
+
           private:
 
             void _destroy_petsc_objects()
@@ -145,6 +148,10 @@ namespace samurai
                 // MatIsSymmetric(m_A, 0, &is_symmetric);
 
                 KSPSetOperators(m_ksp, m_A, m_A);
+                if (after_matrix_assembly)
+                {
+                    after_matrix_assembly(m_ksp, m_A);
+                }
 
                 times::timers.start("solver setup");
                 PetscErrorCode err = KSPSetUp(m_ksp);
@@ -155,6 +162,11 @@ namespace samurai
                     std::cerr << "The setup of the solver failed!" << std::endl;
                     assert(false && "Failed solver setup");
                     exit(EXIT_FAILURE);
+                }
+
+                if (after_setup)
+                {
+                    after_setup(m_ksp, m_A);
                 }
                 m_is_set_up = true;
             }

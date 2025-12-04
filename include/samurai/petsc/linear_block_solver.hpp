@@ -21,6 +21,8 @@ namespace samurai
 
           public:
 
+            using base_class::after_matrix_assembly;
+            using base_class::after_setup;
             using base_class::assembly;
 
           private:
@@ -118,6 +120,11 @@ namespace samurai
                 // MatView(m_A, PETSC_VIEWER_STDOUT_(PETSC_COMM_WORLD)); std::cout << std::endl;
                 KSPSetOperators(m_ksp, m_A, m_A);
 
+                if (after_matrix_assembly)
+                {
+                    after_matrix_assembly(m_ksp, m_A);
+                }
+
                 PC pc;
                 KSPGetPC(m_ksp, &pc);
 
@@ -126,6 +133,11 @@ namespace samurai
                 PCSetUp(pc);
                 // KSPSetUp(m_ksp); // PETSc fails at KSPSolve() for some reason.
                 times::timers.stop("solver setup");
+
+                if (after_setup)
+                {
+                    after_setup(m_ksp, m_A);
+                }
 
                 m_is_set_up = true;
             }

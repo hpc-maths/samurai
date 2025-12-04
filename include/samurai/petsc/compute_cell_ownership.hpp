@@ -444,7 +444,23 @@ namespace samurai
                                     intersection.push_back(neighbour_possible_owner);
                                 }
                             }
-                            assert(!intersection.empty() && "There must be at least one possible owner in the intersection");
+                            if (intersection.empty())
+                            {
+                                std::cerr << fmt::format(
+                                    "[{}] Error: cannot resolve ownership mismatch for cell {} (cell_index {} in rank [{}]). ",
+                                    rank,
+                                    my_cell_index,
+                                    neighbour_mismatch.cell_index,
+                                    neighbour.rank);
+                                std::cerr << fmt::format("[{}] Possible owners: [{}] --> ({}), [{}] --> ({}).\n",
+                                                         rank,
+                                                         rank,
+                                                         fmt::join(possible_owners[my_cell_index], ", "),
+                                                         neighbour.rank,
+                                                         fmt::join(neighbour_mismatch.possible_owners, ", "));
+                                n_mismatch_checks = max_mismatch_checks; // to exit second loop
+                                break;
+                            }
                             // Update possible_owners to the intersection
                             possible_owners[my_cell_index] = intersection;
                             // Choose the minimum rank in the intersection as the new owner
