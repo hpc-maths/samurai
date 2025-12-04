@@ -62,12 +62,12 @@ namespace samurai
                 return !unknown_ptr();
             }
 
-            const auto& mesh() const
+            const auto& mesh() const // cppcheck-suppress functionRedefined
             {
                 return unknown().mesh();
             }
 
-            auto& mesh()
+            auto& mesh() // cppcheck-suppress functionRedefined
             {
                 return unknown().mesh();
             }
@@ -91,27 +91,27 @@ namespace samurai
                 return m_sum_scheme;
             }
 
-            const auto& row_numbering() const
+            const auto& row_numbering() const // cppcheck-suppress functionRedefined
             {
                 return largest_stencil_assembly().row_numbering();
             }
 
-            auto& row_numbering()
+            auto& row_numbering() // cppcheck-suppress functionRedefined
             {
                 return largest_stencil_assembly().row_numbering();
             }
 
-            const auto& col_numbering() const
+            const auto& col_numbering() const // cppcheck-suppress functionRedefined
             {
                 return largest_stencil_assembly().col_numbering();
             }
 
-            auto& col_numbering()
+            auto& col_numbering() // cppcheck-suppress functionRedefined
             {
                 return largest_stencil_assembly().col_numbering();
             }
 
-            void set_row_numbering(Numbering& numbering)
+            void set_row_numbering(Numbering& numbering) // cppcheck-suppress functionRedefined
             {
                 for_each(m_assembly_ops,
                          [&](auto& op)
@@ -120,7 +120,7 @@ namespace samurai
                          });
             }
 
-            void set_col_numbering(const Numbering& numbering)
+            void set_col_numbering(const Numbering& numbering) // cppcheck-suppress functionRedefined
             {
                 for_each(m_assembly_ops,
                          [&](auto& op)
@@ -280,22 +280,22 @@ namespace samurai
                 return largest_stencil_assembly().create_rhs_vector(field);
             }
 
-            void copy_rhs(const output_field_t& field, Vec& v) const
+            void copy_rhs(const output_field_t& field, Vec& v) const // cppcheck-suppress functionRedefined
             {
                 largest_stencil_assembly().copy_rhs(field, v);
             }
 
-            Vec create_solution_vector(const input_field_t& field) const
+            Vec create_solution_vector(const input_field_t& field) const // cppcheck-suppress functionRedefined
             {
                 return largest_stencil_assembly().create_solution_vector(field);
             }
 
-            void copy_unknown(const Vec& v, input_field_t& field) const
+            void copy_unknown(const Vec& v, input_field_t& field) const // cppcheck-suppress functionRedefined
             {
                 largest_stencil_assembly().copy_unknown(v, field);
             }
 
-            void copy_unknown(const input_field_t& field, Vec& v) const
+            void copy_unknown(const input_field_t& field, Vec& v) const // cppcheck-suppress functionRedefined
             {
                 largest_stencil_assembly().copy_unknown(field, v);
             }
@@ -518,7 +518,7 @@ namespace samurai
             // template <class T>
             // concept is_sum_assembly = std::is_same_v<T, OperatorSum<Operators...>>;
 
-            void compute_numbering()
+            void compute_numbering() // cppcheck-suppress functionRedefined
             {
                 largest_stencil_assembly().compute_numbering();
 
@@ -550,7 +550,7 @@ namespace samurai
                 return largest_stencil_assembly().local_to_global_cols();
             }
 
-            void compute_local_to_global_rows(std::vector<PetscInt>& local_to_global_rows)
+            void compute_local_to_global_rows(std::vector<PetscInt>& local_to_global_rows) // cppcheck-suppress functionRedefined
             {
                 largest_stencil_assembly().compute_local_to_global_rows(local_to_global_rows);
             }
