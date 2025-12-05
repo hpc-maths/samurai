@@ -56,6 +56,12 @@ namespace samurai
                           }
                       });
 
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        error_norm    = mpi::all_reduce(world, error_norm, std::plus<double>());
+        solution_norm = mpi::all_reduce(world, solution_norm, std::plus<double>());
+#endif
+
         error_norm    = sqrt(error_norm);
         solution_norm = sqrt(solution_norm);
 

@@ -12,8 +12,8 @@ namespace samurai
         template <class Assembly>
         class NonLinearSolverBase
         {
-            using scheme_t = typename Assembly::scheme_t;
-            using field_t  = typename scheme_t::field_t;
+            using scheme_t       = typename Assembly::scheme_t;
+            using output_field_t = typename scheme_t::output_field_t;
 
           protected:
 
@@ -21,6 +21,8 @@ namespace samurai
             SNES m_snes      = nullptr;
             Mat m_J          = nullptr;
             bool m_is_set_up = false;
+
+            output_field_t m_worker_output_field;
 
           public:
 
@@ -41,6 +43,7 @@ namespace samurai
             {
                 if (m_J)
                 {
+                    m_assembly.destroy_local_to_global_mappings(m_J);
                     MatDestroy(&m_J);
                     m_J = nullptr;
                 }
@@ -111,7 +114,7 @@ namespace samurai
 
             void _configure_solver()
             {
-                SNESCreate(PETSC_COMM_SELF, &m_snes);
+                SNESCreate(PETSC_COMM_WORLD, &m_snes);
                 SNESSetType(m_snes, SNESNEWTONLS);
             }
 
@@ -157,32 +160,29 @@ namespace samurai
             static PetscErrorCode PETSC_nonlinear_function(SNES /*snes*/, Vec x, Vec f, void* ctx)
             {
                 times::timers.stop("nonlinear system solve");
-                // const char* x_name;
-                // PetscObjectGetName(reinterpret_cast<PetscObject>(x), &x_name);
-                // const char* f_name;
-                // PetscObjectGetName(reinterpret_cast<PetscObject>(f), &f_name);
 
                 auto self      = reinterpret_cast<NonLinearSolverBase*>(ctx); // this
                 auto& assembly = self->assembly();
-                auto& mesh     = assembly.unknown().mesh();
 
-                // Wrap a field structure around the data of the Petsc vector x
-                field_t x_field("newton", mesh);
-                copy(x, x_field); // This is really bad... TODO: create a field constructor that takes a double*
+                // Ideally, we would like to wrap a field structure around the data of the Petsc vectors x and f,
+                // but we don't have such a Field constructor.
+                // So, instead, we use worker fields and copy the data.
+                auto& x_field = assembly.unknown();          // for x, we reuse the unknown field
+                auto& f_field = self->m_worker_output_field; // for f, we use an actual worker field
 
-                // Transfer B.C. to the new field (required to be able to apply the explicit scheme)
-                x_field.copy_bc_from(assembly.unknown());
+                assembly.copy_unknown(x, x_field);
 
-                // Apply explicit scheme
+                // Apply explicit scheme: f = scheme(x)
+                f_field.fill(0); // initialize to zero because we accumulate the results
+                self->scheme().apply(f_field, x_field);
 
-                update_ghost_mr(x_field);
-                auto f_field = self->scheme()(x_field);
-
-                copy(f_field, f);
+                // Copy the result into the Petsc vector f
+                assembly.copy_rhs(f_field, f);
+                // Set to zero the right-hand side of the ghost equations and apply BCs attached to the unknown field
                 self->prepare_rhs(f);
 
                 times::timers.start("nonlinear system solve");
-                return 0; // PETSC_SUCCESS
+                return PETSC_SUCCESS;
             }
 
             static PetscErrorCode PETSC_jacobian_function(SNES /*snes*/, Vec x, Mat jac, Mat B, void* ctx)
@@ -194,19 +194,10 @@ namespace samurai
                 auto self      = reinterpret_cast<NonLinearSolverBase*>(ctx); // this
                 auto& assembly = self->assembly();
 
-                // Wrap a field structure around the data of the Petsc vector x
-                field_t x_field("newton_jac_x", assembly.unknown().mesh());
-                copy(x, x_field); // This is really bad... TODO: create a field constructor that takes a double*
-
-                // Transfer B.C. to the new field,
-                // so that the assembly process has B.C. to enforce in the matrix
-                x_field.copy_bc_from(assembly.unknown());
-                update_ghost_mr(x_field);
-
-                // Save unknown...
-                auto real_system_unknown = assembly.unknown_ptr();
-                // and replace it with the current Newton iterate (so that the Jacobian matrix is computed at that specific point)
-                assembly.set_unknown(x_field);
+                // Ideally, we would like to wrap a field structure around the data of the Petsc vector x,
+                // but we don't have such a Field constructor.
+                // So, instead, we reuse the unknown field and copy the data.
+                assembly.copy_unknown(x, assembly.unknown());
 
                 // Assembly of the Jacobian matrix.
                 // In this case, jac = B, but Petsc recommends we assemble B for more general cases.
@@ -219,14 +210,11 @@ namespace samurai
                     MatAssemblyEnd(jac, MAT_FINAL_ASSEMBLY);
                 }
 
-                // MatView(B, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
+                // MatView(B, PETSC_VIEWER_STDOUT_(PETSC_COMM_WORLD));
                 // std::cout << std::endl;
 
-                // Put back the real unknown: we need its B.C. for the evaluation of the non-linear function
-                assembly.set_unknown(*real_system_unknown);
-
                 times::timers.start("nonlinear system solve");
-                return 0; // PETSC_SUCCESS
+                return PETSC_SUCCESS;
             }
 
           protected:
@@ -241,7 +229,7 @@ namespace samurai
                 // Set to zero the right-hand side of the useless ghosts' equations
                 // assembly().set_0_for_useless_ghosts(b);
 
-                // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
+                // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_WORLD));
                 // std::cout << std::endl;
                 // assert(check_nan_or_inf(b));
             }
@@ -267,13 +255,13 @@ namespace samurai
                     const char* reason_text;
                     SNESGetConvergedReasonString(m_snes, &reason_text);
                     std::cerr << "Divergence of the non-linear solver ("s + reason_text + ")" << std::endl;
-                    // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
+                    // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_WORLD));
                     // std::cout << std::endl;
                     // assert(check_nan_or_inf(b));
                     assert(false && "Divergence of the solver");
                     exit(EXIT_FAILURE);
                 }
-                // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
+                // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_WORLD)); std::cout << std::endl;
             }
 
           public:
@@ -288,6 +276,7 @@ namespace samurai
             virtual void reset()
             {
                 destroy_petsc_objects();
+                m_assembly.reset();
                 m_is_set_up = false;
                 configure_solver();
             }
@@ -300,39 +289,48 @@ namespace samurai
 
           public:
 
-            using scheme_t = Scheme;
-            using Field    = typename scheme_t::field_t;
-            using Mesh     = typename Field::mesh_t;
+            using scheme_t       = Scheme;
+            using input_field_t  = typename scheme_t::input_field_t;
+            using output_field_t = typename scheme_t::output_field_t;
+            using Mesh           = typename input_field_t::mesh_t;
 
             using base_class::assembly;
             using base_class::m_is_set_up;
             using base_class::m_J;
+            using base_class::m_worker_output_field;
 
             explicit NonLinearSolver(const scheme_t& scheme)
                 : base_class(scheme)
             {
             }
 
-            void set_unknown(Field& unknown)
+            void set_unknown(input_field_t& unknown)
             {
                 assembly().set_unknown(unknown);
             }
 
-            void solve(Field& rhs)
+            void solve(output_field_t& rhs)
             {
+                m_worker_output_field = output_field_t("worker_output", rhs.mesh());
+
                 if (!m_is_set_up)
                 {
                     this->setup();
                 }
-                Vec b = create_petsc_vector_from(rhs);
-                Vec x = create_petsc_vector_from(assembly().unknown());
+
+                Vec b = assembly().create_rhs_vector(rhs);
+                Vec x = assembly().create_solution_vector(assembly().unknown());
+
                 this->prepare_rhs_and_solve(b, x);
 
+#ifdef SAMURAI_WITH_MPI
+                assembly().copy_unknown(x, assembly().unknown());
+#endif
                 VecDestroy(&b);
                 VecDestroy(&x);
             }
 
-            void solve(Field& unknown, Field& rhs)
+            void solve(input_field_t& unknown, output_field_t& rhs)
             {
                 set_unknown(unknown);
                 solve(rhs);

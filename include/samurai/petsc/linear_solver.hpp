@@ -31,7 +31,6 @@ namespace samurai
             explicit LinearSolverBase(const scheme_t& scheme)
                 : m_assembly(scheme)
             {
-                _configure_solver();
             }
 
             virtual ~LinearSolverBase()
@@ -39,12 +38,16 @@ namespace samurai
                 _destroy_petsc_objects();
             }
 
+            std::function<void(KSP&, Mat&)> after_matrix_assembly = nullptr;
+            std::function<void(KSP&, Mat&)> after_setup           = nullptr;
+
           private:
 
             void _destroy_petsc_objects()
             {
                 if (m_A)
                 {
+                    m_assembly.destroy_local_to_global_mappings(m_A);
                     MatDestroy(&m_A);
                     m_A = nullptr;
                 }
@@ -106,19 +109,10 @@ namespace samurai
                 return m_assembly;
             }
 
-          private:
-
-            void _configure_solver()
-            {
-                KSPCreate(PETSC_COMM_SELF, &m_ksp);
-                KSPSetFromOptions(m_ksp);
-            }
-
           protected:
 
             virtual void configure_solver()
             {
-                _configure_solver();
             }
 
           public:
@@ -154,6 +148,10 @@ namespace samurai
                 // MatIsSymmetric(m_A, 0, &is_symmetric);
 
                 KSPSetOperators(m_ksp, m_A, m_A);
+                if (after_matrix_assembly)
+                {
+                    after_matrix_assembly(m_ksp, m_A);
+                }
 
                 times::timers.start("solver setup");
                 PetscErrorCode err = KSPSetUp(m_ksp);
@@ -164,6 +162,11 @@ namespace samurai
                     std::cerr << "The setup of the solver failed!" << std::endl;
                     assert(false && "Failed solver setup");
                     exit(EXIT_FAILURE);
+                }
+
+                if (after_setup)
+                {
+                    after_setup(m_ksp, m_A);
                 }
                 m_is_set_up = true;
             }
@@ -183,6 +186,10 @@ namespace samurai
                 // assembly().set_0_for_useless_ghosts(b);
                 // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
                 // assert(check_nan_or_inf(b));
+
+                // VecView(b, PETSC_VIEWER_STDOUT_WORLD);
+                // std::cout << std::endl;
+
                 times::timers.stop("system solve");
 
                 solve_system(b, x);
@@ -192,7 +199,8 @@ namespace samurai
             {
                 times::timers.start("system solve");
 
-                // Solve the system
+                // std::cout << "[" << mpi::communicator().rank() << "] linear solver: KSPSolve..." << std::endl;
+                //  Solve the system
                 KSPSolve(m_ksp, b, x);
 
                 times::timers.stop("system solve");
@@ -226,6 +234,7 @@ namespace samurai
             virtual void reset()
             {
                 destroy_petsc_objects();
+                m_assembly.reset();
                 m_is_set_up = false;
                 configure_solver();
             }
@@ -271,19 +280,19 @@ namespace samurai
 
             void _configure_solver()
             {
+#ifdef ENABLE_MG
                 KSP user_ksp;
-                KSPCreate(PETSC_COMM_SELF, &user_ksp);
+                KSPCreate(PETSC_COMM_WORLD, &user_ksp);
                 KSPSetFromOptions(user_ksp);
                 PC user_pc;
                 KSPGetPC(user_ksp, &user_pc);
                 PCType user_pc_type;
                 PCGetType(user_pc, &user_pc_type);
-#ifdef ENABLE_MG
-                m_use_samurai_mg = strcmp(user_pc_type, PCMG) == 0;
-#endif
-                KSPDestroy(&user_ksp);
 
-                KSPCreate(PETSC_COMM_SELF, &m_ksp);
+                m_use_samurai_mg = strcmp(user_pc_type, PCMG) == 0;
+                KSPDestroy(&user_ksp);
+#endif
+                KSPCreate(PETSC_COMM_WORLD, &m_ksp);
                 KSPSetFromOptions(m_ksp);
 #ifdef ENABLE_MG
                 if (m_use_samurai_mg)
@@ -332,18 +341,23 @@ namespace samurai
                 }
                 if (!m_use_samurai_mg)
                 {
+                    // std::cout << "[" << mpi::communicator().rank() << "] linear solver: Create  matrix..." << std::endl;
                     assembly().create_matrix(m_A);
+                    // std::cout << "[" << mpi::communicator().rank() << "] linear solver: Assemble matrix..." << std::endl;
                     assembly().assemble_matrix(m_A);
                     PetscObjectSetName(reinterpret_cast<PetscObject>(m_A), "A");
 
                     // PetscBool is_symmetric;
                     // MatIsSymmetric(m_A, 0, &is_symmetric);
 
+                    // std::cout << "[" << mpi::communicator().rank() << "] linear solver: KSPSetOperators..." << std::endl;
                     KSPSetOperators(m_ksp, m_A, m_A);
                 }
 
                 times::timers.start("solver setup");
+                // std::cout << "[" << mpi::communicator().rank() << "] linear solver: KSPSetUp..." << std::endl;
                 KSPSetUp(m_ksp);
+                // std::cout << "[" << mpi::communicator().rank() << "] linear solver: KSPSetUp done" << std::endl;
                 times::timers.stop("solver setup");
                 m_is_set_up = true;
             }
@@ -354,11 +368,17 @@ namespace samurai
                 {
                     setup();
                 }
-                Vec b = create_petsc_vector_from(rhs);
+
+                Vec b = assembly().create_rhs_vector(rhs);
+                Vec x = assembly().create_solution_vector(assembly().unknown());
+
                 PetscObjectSetName(reinterpret_cast<PetscObject>(b), "b");
-                Vec x = create_petsc_vector_from(assembly().unknown());
+
                 this->prepare_rhs_and_solve(b, x);
 
+#ifdef SAMURAI_WITH_MPI
+                assembly().copy_unknown(x, assembly().unknown());
+#endif
                 VecDestroy(&b);
                 VecDestroy(&x);
             }

@@ -40,8 +40,13 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
                                level_[cell] = cell.level;
                            });
 
+#ifdef SAMURAI_WITH_MPI
+    mpi::communicator world;
+    samurai::save(path, fmt::format("{}_size_{}{}", filename, world.size(), suffix), mesh, u, level_);
+#else
     samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
     samurai::dump(path, fmt::format("{}_restart{}", filename, suffix), mesh, u);
+#endif
 }
 
 int main(int argc, char* argv[])
@@ -108,10 +113,6 @@ int main(int argc, char* argv[])
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_flag("--save-final-state-only", save_final_state_only, "Save final state only")->group("Output");
     SAMURAI_PARSE(argc, argv);
-
-    PetscMPIInt size;
-    PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size));
-    PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
 
     //--------------------//
     // Problem definition //

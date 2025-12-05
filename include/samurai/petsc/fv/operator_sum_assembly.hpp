@@ -2,6 +2,8 @@
 #include "../../schemes/fv/scheme_operators.hpp"
 #include "../matrix_assembly.hpp"
 
+// #include "FV_scheme_assembly.hpp"
+
 namespace samurai
 {
     namespace petsc
@@ -11,9 +13,10 @@ namespace samurai
         {
           public:
 
-            using scheme_t = OperatorSum<Operators...>;
-            using field_t  = typename scheme_t::field_t;
-            using cell_t   = typename field_t::mesh_t::cell_t;
+            using scheme_t       = OperatorSum<Operators...>;
+            using input_field_t  = typename scheme_t::field_t;
+            using output_field_t = typename scheme_t::output_field_t;
+            using cell_t         = typename input_field_t::mesh_t::cell_t;
 
           private:
 
@@ -59,7 +62,17 @@ namespace samurai
                 return !unknown_ptr();
             }
 
-            void set_unknown(field_t& unknown)
+            const auto& mesh() const // cppcheck-suppress duplInheritedMember
+            {
+                return unknown().mesh();
+            }
+
+            auto& mesh() // cppcheck-suppress duplInheritedMember
+            {
+                return unknown().mesh();
+            }
+
+            void set_unknown(input_field_t& unknown)
             {
                 for_each(m_assembly_ops,
                          [&](auto& op)
@@ -68,7 +81,7 @@ namespace samurai
                          });
             }
 
-            auto& scheme() // cppcheck-suppress functionRedefined
+            auto& scheme() // cppcheck-suppress duplInheritedMember
             {
                 return m_sum_scheme;
             }
@@ -76,6 +89,44 @@ namespace samurai
             auto& scheme() const
             {
                 return m_sum_scheme;
+            }
+
+            const auto& row_numbering() const // cppcheck-suppress duplInheritedMember
+            {
+                return largest_stencil_assembly().row_numbering();
+            }
+
+            auto& row_numbering() // cppcheck-suppress duplInheritedMember
+            {
+                return largest_stencil_assembly().row_numbering();
+            }
+
+            const auto& col_numbering() const // cppcheck-suppress duplInheritedMember
+            {
+                return largest_stencil_assembly().col_numbering();
+            }
+
+            auto& col_numbering() // cppcheck-suppress duplInheritedMember
+            {
+                return largest_stencil_assembly().col_numbering();
+            }
+
+            void set_row_numbering(Numbering& numbering) // cppcheck-suppress duplInheritedMember
+            {
+                for_each(m_assembly_ops,
+                         [&](auto& op)
+                         {
+                             op.set_row_numbering(numbering);
+                         });
+            }
+
+            void set_col_numbering(const Numbering& numbering) // cppcheck-suppress duplInheritedMember
+            {
+                for_each(m_assembly_ops,
+                         [&](auto& op)
+                         {
+                             op.set_col_numbering(numbering);
+                         });
             }
 
             void set_row_shift(PetscInt shift) override
@@ -97,6 +148,50 @@ namespace samurai
                          [&](auto& op)
                          {
                              op.set_col_shift(shift);
+                         });
+            }
+
+            void set_rank_row_shift(PetscInt shift) override
+            {
+                MatrixAssembly::set_rank_row_shift(shift);
+
+                for_each(m_assembly_ops,
+                         [&](auto& op)
+                         {
+                             op.set_rank_row_shift(shift);
+                         });
+            }
+
+            void set_rank_col_shift(PetscInt shift) override
+            {
+                MatrixAssembly::set_rank_col_shift(shift);
+
+                for_each(m_assembly_ops,
+                         [&](auto& op)
+                         {
+                             op.set_rank_col_shift(shift);
+                         });
+            }
+
+            void set_ghosts_row_shift(PetscInt shift) override
+            {
+                MatrixAssembly::set_ghosts_row_shift(shift);
+
+                for_each(m_assembly_ops,
+                         [&](auto& op)
+                         {
+                             op.set_ghosts_row_shift(shift);
+                         });
+            }
+
+            void set_ghosts_col_shift(PetscInt shift) override
+            {
+                MatrixAssembly::set_ghosts_col_shift(shift);
+
+                for_each(m_assembly_ops,
+                         [&](auto& op)
+                         {
+                             op.set_ghosts_col_shift(shift);
                          });
             }
 
@@ -122,65 +217,111 @@ namespace samurai
                          });
             }
 
-            PetscInt matrix_rows() const override
+            void is_block_in_nested_matrix(bool is_block) override
             {
-                auto rows = std::get<0>(m_assembly_ops).matrix_rows();
+                MatrixAssembly::is_block_in_nested_matrix(is_block);
+
                 for_each(m_assembly_ops,
                          [&](auto& op)
                          {
-                             if (op.matrix_rows() != rows)
+                             op.is_block_in_nested_matrix(is_block);
+                         });
+            }
+
+            PetscInt owned_matrix_rows() const override
+            {
+                auto rows = std::get<0>(m_assembly_ops).owned_matrix_rows();
+                for_each(m_assembly_ops,
+                         [&](auto& op)
+                         {
+                             if (op.owned_matrix_rows() != rows)
                              {
                                  std::cerr << "Invalid '+' operation: all schemes must generate the same number of matrix rows." << std::endl;
                                  std::cerr << "                       '" << std::get<0>(m_assembly_ops).name()
-                                           << "': " << std::get<0>(m_assembly_ops).matrix_rows() << ", " << op.name() << ": "
-                                           << op.matrix_rows() << std::endl;
+                                           << "': " << std::get<0>(m_assembly_ops).owned_matrix_rows() << ", " << op.name() << ": "
+                                           << op.owned_matrix_rows() << std::endl;
                                  assert(false);
                              }
                          });
                 return rows;
             }
 
-            PetscInt matrix_cols() const override
+            PetscInt owned_matrix_cols() const override
             {
-                auto cols = std::get<0>(m_assembly_ops).matrix_cols();
+                auto cols = std::get<0>(m_assembly_ops).owned_matrix_cols();
                 for_each(m_assembly_ops,
                          [&](auto& op)
                          {
-                             if (op.matrix_cols() != cols)
+                             if (op.owned_matrix_cols() != cols)
                              {
                                  std::cerr << "Invalid '+' operation: all schemes must generate the same number of matrix columns."
                                            << std::endl;
                                  std::cerr << "                       '" << std::get<0>(m_assembly_ops).name()
-                                           << "': " << std::get<0>(m_assembly_ops).matrix_cols() << ", " << op.name() << ": "
-                                           << op.matrix_cols() << std::endl;
+                                           << "': " << std::get<0>(m_assembly_ops).owned_matrix_cols() << ", " << op.name() << ": "
+                                           << op.owned_matrix_cols() << std::endl;
                                  assert(false);
                              }
                          });
                 return cols;
             }
 
-            void sparsity_pattern_scheme(std::vector<PetscInt>& nnz) const override
+            PetscInt local_matrix_rows() const override
             {
-                // The scheme with largest stencil allocates the number of non-zeros.
-                largest_stencil_assembly().sparsity_pattern_scheme(nnz);
+                return largest_stencil_assembly().local_matrix_rows();
             }
 
-            void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const override
+            PetscInt local_matrix_cols() const override
+            {
+                return largest_stencil_assembly().local_matrix_cols();
+            }
+
+            Vec create_rhs_vector(const output_field_t& field) const // cppcheck-suppress duplInheritedMember
+            {
+                return largest_stencil_assembly().create_rhs_vector(field);
+            }
+
+            void copy_rhs(const output_field_t& field, Vec& v) const // cppcheck-suppress duplInheritedMember
+            {
+                largest_stencil_assembly().copy_rhs(field, v);
+            }
+
+            Vec create_solution_vector(const input_field_t& field) const // cppcheck-suppress duplInheritedMember
+            {
+                return largest_stencil_assembly().create_solution_vector(field);
+            }
+
+            void copy_unknown(const Vec& v, input_field_t& field) const // cppcheck-suppress duplInheritedMember
+            {
+                largest_stencil_assembly().copy_unknown(v, field);
+            }
+
+            void copy_unknown(const input_field_t& field, Vec& v) const // cppcheck-suppress duplInheritedMember
+            {
+                largest_stencil_assembly().copy_unknown(field, v);
+            }
+
+            void sparsity_pattern_scheme(std::vector<PetscInt>& d_nnz, std::vector<PetscInt>& o_nnz) const override
+            {
+                // The scheme with largest stencil allocates the number of non-zeros.
+                largest_stencil_assembly().sparsity_pattern_scheme(d_nnz, o_nnz);
+            }
+
+            void sparsity_pattern_boundary(std::vector<PetscInt>& d_nnz, std::vector<PetscInt>& o_nnz) const override
             {
                 // Only one scheme assembles the boundary conditions.
                 // We arbitrarily choose the one with largest stencil,
                 // because we already use it to allocate the number of non-zeros in the scheme.
-                largest_stencil_assembly().sparsity_pattern_boundary(nnz);
+                largest_stencil_assembly().sparsity_pattern_boundary(d_nnz, o_nnz);
             }
 
-            void sparsity_pattern_projection(std::vector<PetscInt>& nnz) const override
+            void sparsity_pattern_projection(std::vector<PetscInt>& d_nnz, std::vector<PetscInt>& o_nnz) const override
             {
-                largest_stencil_assembly().sparsity_pattern_projection(nnz);
+                largest_stencil_assembly().sparsity_pattern_projection(d_nnz, o_nnz);
             }
 
-            void sparsity_pattern_prediction(std::vector<PetscInt>& nnz) const override
+            void sparsity_pattern_prediction(std::vector<PetscInt>& d_nnz, std::vector<PetscInt>& o_nnz) const override
             {
-                largest_stencil_assembly().sparsity_pattern_prediction(nnz);
+                largest_stencil_assembly().sparsity_pattern_prediction(d_nnz, o_nnz);
             }
 
             void assemble_scheme(Mat& A) override
@@ -312,13 +453,127 @@ namespace samurai
 
             void reset() override
             {
+                // computes global numbering and other costly information
+                largest_stencil_assembly().reset();
+
+                std::size_t i = 0;
                 for_each(m_assembly_ops,
                          [&](auto& op)
                          {
-                             op.reset();
+                             if (i != scheme_t::largest_stencil_index)
+                             {
+                                 // reset the other schemes by giving the all the costly information to avoid recomputing it
+                                 op.reset(largest_stencil_assembly());
+                             }
+                             ++i;
                          });
             }
+
+            // template <class OtherScheme>
+            // void reset(const FVSchemeAssembly<OtherScheme>& other)
+            // {
+            //     for_each(m_assembly_ops,
+            //              [&](auto& op)
+            //              {
+            //                  // reset the other schemes by giving the all the costly information to avoid recomputing it
+            //                  op.reset(other);
+            //              });
+            // }
+
+            /**
+             * This function is called in case of block_assembly.
+             */
+            template <bool is_monolithic, std::size_t rows_, std::size_t cols_, class... Operators_>
+            void reset(BlockAssembly<is_monolithic, rows_, cols_, Operators_...>& block_assembly)
+            {
+                for_each(m_assembly_ops,
+                         [&](auto& op)
+                         {
+                             // reset the other schemes by giving the all the costly information to avoid recomputing it
+                             op.reset(block_assembly);
+                         });
+            }
+
+            // void reset(Numbering& numbering)
+            // {
+            //     for_each(m_assembly_ops,
+            //              [&](auto& op)
+            //              {
+            //                  // reset the other schemes by giving the all the costly information to avoid recomputing it
+            //                  op.reset(numbering);
+            //              });
+            // }
+
+            // template <class... OtherOperators>
+            // void reset(const Assembly<OperatorSum<OtherOperators...>>& other)
+            // {
+            //     for_each(m_assembly_ops,
+            //              [&](auto& op)
+            //              {
+            //                  // reset the other schemes by giving the all the costly information to avoid recomputing it
+            //                  op.reset(other.largest_stencil_assembly());
+            //              });
+            // }
+
+            // template <class T>
+            // concept is_sum_assembly = std::is_same_v<T, OperatorSum<Operators...>>;
+
+            void compute_numbering() // cppcheck-suppress duplInheritedMember
+            {
+                largest_stencil_assembly().compute_numbering();
+
+                std::size_t i = 0;
+                for_each(m_assembly_ops,
+                         [&](auto& op)
+                         {
+                             if (i != scheme_t::largest_stencil_index)
+                             {
+                                 op.set_row_numbering(largest_stencil_assembly().row_numbering());
+                                 op.set_col_numbering(largest_stencil_assembly().col_numbering());
+                             }
+                             ++i;
+                         });
+            }
+
+            void compute_block_numbering() // cppcheck-suppress duplInheritedMember
+            {
+                largest_stencil_assembly().compute_block_numbering();
+            }
+
+            const std::vector<PetscInt>& local_to_global_rows() const override
+            {
+                return largest_stencil_assembly().local_to_global_rows();
+            }
+
+            const std::vector<PetscInt>& local_to_global_cols() const override
+            {
+                return largest_stencil_assembly().local_to_global_cols();
+            }
+
+            void compute_local_to_global_rows(std::vector<PetscInt>& local_to_global_rows) // cppcheck-suppress duplInheritedMember
+            {
+                largest_stencil_assembly().compute_local_to_global_rows(local_to_global_rows);
+            }
+
+            void compute_local_to_global_rows() // cppcheck-suppress duplInheritedMember
+            {
+                largest_stencil_assembly().compute_local_to_global_rows();
+            }
         };
+
+        // template <class T>
+        // struct is_operator_sum_assembly : std::false_type
+        // {
+        // };
+
+        // // Specialization: true if T = Assembly<OperatorSum<...>>
+        // template <class... Operators>
+        // struct is_operator_sum_assembly<Assembly<OperatorSum<Operators...>>> : std::true_type
+        // {
+        // };
+
+        // template <class T>
+        // concept IsOperatorSumAssembly = is_operator_sum_assembly<T>::value;
 
     } // end namespace petsc
 } // end namespace samurai

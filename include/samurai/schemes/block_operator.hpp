@@ -91,7 +91,7 @@ namespace samurai
                                      // Verify type compatibility only if not ZeroBlock
                                      if constexpr (!std::is_same_v<operator_t, int>)
                                      {
-                                         using op_field_t = typename operator_t::field_t;
+                                         using op_field_t = typename operator_t::input_field_t;
                                          if constexpr (!std::is_same_v<std::decay_t<decltype(u)>, op_field_t>)
                                          {
                                              std::cerr << "unknown " << i << " is not compatible with the scheme (" << row << ", " << col

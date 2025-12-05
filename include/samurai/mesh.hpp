@@ -11,6 +11,7 @@
 #include "cell_array.hpp"
 #include "cell_list.hpp"
 #include "domain_builder.hpp"
+#include "petsc/cell_ownership.hpp"
 #include "static_algorithm.hpp"
 #include "stencil.hpp"
 #include "subset/node.hpp"
@@ -87,6 +88,8 @@ namespace samurai
 
         using mpi_subdomain_t = MPI_Subdomain<D>;
 
+        using CellOwnership = samurai::petsc::CellOwnership;
+
         std::size_t nb_cells(mesh_id_t mesh_id = mesh_id_t::reference) const;
         std::size_t nb_cells(std::size_t level, mesh_id_t mesh_id = mesh_id_t::reference) const;
 
@@ -113,6 +116,7 @@ namespace samurai
         // std::vector<int>& neighbouring_ranks();
         std::vector<mpi_subdomain_t>& mpi_neighbourhood();
         const std::vector<mpi_subdomain_t>& mpi_neighbourhood() const;
+        const coords_t& gravity_center() const;
         cl_type
         construct_initial_mesh(const DomainBuilder<dim>& domain_builder, std::size_t start_level, double approx_box_tol, double scaling_factor);
         void compute_scaling_factor(const samurai::DomainBuilder<dim>& domain_builder, double& scaling_factor);
@@ -147,6 +151,9 @@ namespace samurai
         void to_stream(std::ostream& os) const;
 
         const lca_type& corner(const DirectionVector<dim>& direction) const;
+
+        CellOwnership& cell_ownership();
+        const CellOwnership& cell_ownership() const;
 
       protected:
 
@@ -193,6 +200,7 @@ namespace samurai
         void renumbering();
 
         void find_neighbourhood();
+        void compute_gravity_center();
 
         void partition_mesh(std::size_t start_level, const Box<double, dim>& global_box);
         void load_balancing();
@@ -209,6 +217,7 @@ namespace samurai
         std::vector<lca_type> m_corners;
         // std::vector<int> m_neighbouring_ranks;
         std::vector<mpi_subdomain_t> m_mpi_neighbourhood;
+        coords_t m_gravity_center;
 
 #ifdef SAMURAI_WITH_MPI
         friend class boost::serialization::access;
@@ -226,6 +235,10 @@ namespace samurai
             ar & m_min_level;
             ar & m_max_level;
         }
+#endif
+
+#ifdef SAMURAI_WITH_PETSC
+        CellOwnership m_cell_ownership;
 #endif
     };
 
@@ -276,6 +289,7 @@ namespace samurai
 
         set_origin_point(origin_point());
         set_scaling_factor(scaling_factor());
+        compute_gravity_center();
     }
 
     template <class D, class Config>
@@ -314,6 +328,7 @@ namespace samurai
 
         set_origin_point(domain_builder.origin_point());
         set_scaling_factor(scaling_factor_);
+        compute_gravity_center();
     }
 
     template <class D, class Config>
@@ -347,6 +362,7 @@ namespace samurai
 
         set_origin_point(origin_point());
         set_scaling_factor(scaling_factor());
+        compute_gravity_center();
     }
 
     template <class D, class Config>
@@ -369,6 +385,7 @@ namespace samurai
 
         set_origin_point(cl.origin_point());
         set_scaling_factor(cl.scaling_factor());
+        compute_gravity_center();
     }
 
     template <class D, class Config>
@@ -403,6 +420,7 @@ namespace samurai
 
         set_origin_point(ca.origin_point());
         set_scaling_factor(ca.scaling_factor());
+        compute_gravity_center();
     }
 
     template <class D, class Config>
@@ -425,6 +443,7 @@ namespace samurai
 
         set_origin_point(ref_mesh.origin_point());
         set_scaling_factor(ref_mesh.scaling_factor());
+        compute_gravity_center();
     }
 
     template <class D, class Config>
@@ -447,6 +466,7 @@ namespace samurai
 
         set_origin_point(ref_mesh.origin_point());
         set_scaling_factor(ref_mesh.scaling_factor());
+        compute_gravity_center();
     }
 
     template <class D, class Config>
@@ -764,6 +784,34 @@ namespace samurai
     }
 
     template <class D, class Config>
+    const typename Mesh_base<D, Config>::coords_t& Mesh_base<D, Config>::gravity_center() const
+    {
+        return m_gravity_center;
+    }
+
+    template <class D, class Config>
+    void Mesh_base<D, Config>::compute_gravity_center()
+    {
+        m_gravity_center.fill(0);
+        double total_volume = 0;
+        for_each_interval(m_cells[mesh_id_t::cells],
+                          [&](std::size_t level, auto& i, auto& index)
+                          {
+                              auto length            = cell_length(level);
+                              double interval_volume = static_cast<double>(i.size()) * std::pow(length, dim);
+                              coords_t interval_center;
+                              interval_center[0] = origin_point()[0] + length * 0.5 * static_cast<double>(i.start + i.end);
+                              for (std::size_t d = 1; d < dim; ++d)
+                              {
+                                  interval_center[d] = origin_point()[d] + length * (static_cast<double>(index[d - 1]) + 0.5);
+                              }
+                              m_gravity_center += interval_volume * interval_center;
+                              total_volume += interval_volume;
+                          });
+        m_gravity_center /= total_volume;
+    }
+
+    template <class D, class Config>
     inline void Mesh_base<D, Config>::swap(Mesh_base<D, Config>& mesh) noexcept
     {
         using std::swap;
@@ -847,6 +895,20 @@ namespace samurai
         return m_corners[i_direction];
     }
 
+#ifdef SAMURAI_WITH_PETSC
+    template <class D, class Config>
+    inline samurai::petsc::CellOwnership& Mesh_base<D, Config>::cell_ownership()
+    {
+        return m_cell_ownership;
+    }
+
+    template <class D, class Config>
+    inline const samurai::petsc::CellOwnership& Mesh_base<D, Config>::cell_ownership() const
+    {
+        return m_cell_ownership;
+    }
+#endif
+
     template <class D, class Config>
     inline void Mesh_base<D, Config>::update_mesh_neighbour()
     {
@@ -873,6 +935,11 @@ namespace samurai
         }
 
         mpi::wait_all(req.begin(), req.end());
+
+        for (auto& neighbour : m_mpi_neighbourhood)
+        {
+            neighbour.mesh.compute_gravity_center();
+        }
 #endif
     }
 
