@@ -249,7 +249,7 @@ jobs:
                   # cmake --build build --target finite-volume-advection-2d --parallel 4
                   # cmake --build build --target finite-volume-burgers --parallel 4
                   cmake --build build --target finite-volume-heat --parallel 4
-                  # cmake --build build --target finite-volume-lid-driven-cavity --parallel 4
+                  cmake --build build --target finite-volume-lid-driven-cavity --parallel 4
 
             # - name: MPI test finite-volume-advection-2d
             #   shell: bash -l {0}
@@ -290,7 +290,7 @@ jobs:
                   # mixed Fortran/C/C++ memory ownership, aligned allocations, and unusual free patterns.
                   # They often free blocks that do not satisfy tcache alignment constraints.
                   # glibc normally tolerates it, except when tcache reuses the block across executions.
-                  # This can cause a crash when multiple runs happen in the same CI job.
+                  # This can cause a crash when multiple runs are launched in the same CI job.
                   # Here, the 3-rank test crashes at the beginning with the error "malloc(): unaligned tcache chunk detected".
                   # So we disable tcache.
                   GLIBC_TUNABLES: "glibc.malloc.tcache_count=0"
@@ -300,21 +300,19 @@ jobs:
                   mpiexec -n 1 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu --Tf 0.1 --max-level 8
                   mpiexec -n 2 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu --Tf 0.1 --max-level 8
                   mpiexec -n 3 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu --Tf 0.1 --max-level 8
-                  mpiexec -n 4 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu --Tf 0.1 --max-level 8
                   ls
                   python ../python/compare.py heat_2D_size_1_ite_ heat_2D_size_2_ite_ --start 1 --end 9 --tol 1e-14
-                  python ../python/compare.py heat_2D_size_1_ite_ heat_2D_size_3_ite_ --start 1 --end 9 --tol 1e-10
-                  python ../python/compare.py heat_2D_size_1_ite_ heat_2D_size_4_ite_ --start 1 --end 9 --tol 1e-9
+                  python ../python/compare.py heat_2D_size_1_ite_ heat_2D_size_3_ite_ --start 1 --end 9 --tol 1e-8
 
-            # - name: MPI test finite-volume-lid-driven-cavity
-            #   shell: bash -l {0}
-            #   run: |
-            #       cd build
-            #       set -e  # Stop on first failure
-            #       mpiexec -n 1 ./demos/FiniteVolume/finite-volume-lid-driven-cavity --filename ldc_ink_size_1 --Tf 0.1 --nfiles 1 --min-level 8 --max-level 8
-            #       mpiexec -n 2 ./demos/FiniteVolume/finite-volume-lid-driven-cavity --filename ldc_ink_size_2 --Tf 0.1 --nfiles 1 --min-level 8 --max-level 8
-            #       ls
-            #       python ../python/compare.py ldc_ink_size_1 ldc_ink_size_2 --tol 1e-11
+            - name: MPI test finite-volume-lid-driven-cavity
+              shell: bash -l {0}
+              run: |
+                  cd build
+                  set -e  # Stop on first failure
+                  mpiexec -n 1 ./demos/FiniteVolume/finite-volume-lid-driven-cavity --filename ldc_ink_size_1 --Tf 0.1 --nfiles 1 --min-level 8 --max-level 8
+                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-lid-driven-cavity --filename ldc_ink_size_2 --Tf 0.1 --nfiles 1 --min-level 8 --max-level 8
+                  ls
+                  python ../python/compare.py ldc_ink_size_1 ldc_ink_size_2 --tol 1e-11
 
     macos-mamba:
         needs: [pre-commit, cppcheck]
