@@ -1053,7 +1053,7 @@ namespace samurai
                 {
                     auto eq           = equations[e];
                     const auto& ghost = cells[eq.ghost_index];
-                    if (!is_locally_owned(ghost))
+                    if (!is_locally_owned(ghost)) // cppcheck-suppress knownConditionTrueFalse
                     {
                         continue;
                     }
@@ -1160,7 +1160,7 @@ namespace samurai
                                   ghosts,
                                   [&](auto& ghost)
                                   {
-                                      if (is_locally_owned(ghost))
+                                      if (is_locally_owned(ghost)) // cppcheck-suppress knownConditionTrueFalse
                                       {
                                           for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                                           {
