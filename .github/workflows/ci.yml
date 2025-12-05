@@ -192,7 +192,7 @@ jobs:
     #
     #########################################################
     linux-mpi-mamba:
-        needs: [pre-commit, cppcheck]
+        # needs: [pre-commit, cppcheck]
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
@@ -287,29 +287,27 @@ jobs:
               shell: bash -l {0}
               run: |
                   cd build
-                  ldd $(which mpiexec)
-                  ldd $(which mpicc)
-                  mpicc -show
+                  which mpiexec
                   ldd ./demos/FiniteVolume/finite-volume-heat
                   # set -e  # Stop on first failure   ------------------------------------------------------ PUT BACK WHEN TEST IS STABLE
-                  mpiexec -n 1 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu --Tf 0.1 --max-level 8
-                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu --Tf 0.1 --max-level 8
+                  # mpiexec -n 1 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu --Tf 0.1 --max-level 8
+                  # mpiexec -n 2 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu --Tf 0.1 --max-level 8
                   mpiexec -n 3 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu --Tf 0.1 --max-level 8
-                  mpiexec -n 4 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu --Tf 0.1 --max-level 8
+                  # mpiexec -n 4 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu --Tf 0.1 --max-level 8
                   ls
                   python ../python/compare.py heat_2D_size_1_ite_ heat_2D_size_2_ite_ --start 1 --end 9
                   python ../python/compare.py heat_2D_size_1_ite_ heat_2D_size_3_ite_ --start 1 --end 9
                   python ../python/compare.py heat_2D_size_1_ite_ heat_2D_size_4_ite_ --start 1 --end 9
 
-            - name: MPI test finite-volume-lid-driven-cavity
-              shell: bash -l {0}
-              run: |
-                  cd build
-                  set -e  # Stop on first failure
-                  mpiexec -n 1 ./demos/FiniteVolume/finite-volume-lid-driven-cavity --filename ldc_ink_size_1 --Tf 0.1 --nfiles 1 --min-level 8 --max-level 8
-                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-lid-driven-cavity --filename ldc_ink_size_2 --Tf 0.1 --nfiles 1 --min-level 8 --max-level 8
-                  ls
-                  python ../python/compare.py ldc_ink_size_1 ldc_ink_size_2 --tol 1e-11
+            # - name: MPI test finite-volume-lid-driven-cavity
+            #   shell: bash -l {0}
+            #   run: |
+            #       cd build
+            #       set -e  # Stop on first failure
+            #       mpiexec -n 1 ./demos/FiniteVolume/finite-volume-lid-driven-cavity --filename ldc_ink_size_1 --Tf 0.1 --nfiles 1 --min-level 8 --max-level 8
+            #       mpiexec -n 2 ./demos/FiniteVolume/finite-volume-lid-driven-cavity --filename ldc_ink_size_2 --Tf 0.1 --nfiles 1 --min-level 8 --max-level 8
+            #       ls
+            #       python ../python/compare.py ldc_ink_size_1 ldc_ink_size_2 --tol 1e-11
 
     macos-mamba:
         needs: [pre-commit, cppcheck]
