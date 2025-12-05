@@ -287,6 +287,10 @@ jobs:
               shell: bash -l {0}
               run: |
                   cd build
+                  ldd $(which mpiexec)
+                  ldd $(which mpicc)
+                  mpicc -show
+                  ldd ./demos/FiniteVolume/finite-volume-heat
                   # set -e  # Stop on first failure   ------------------------------------------------------ PUT BACK WHEN TEST IS STABLE
                   mpiexec -n 1 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu --Tf 0.1 --max-level 8
                   mpiexec -n 2 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu --Tf 0.1 --max-level 8
