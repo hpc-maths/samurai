@@ -12,18 +12,22 @@ namespace samurai
         struct MismatchInfo
         {
             std::size_t cell_index;
+            std::size_t level;
             std::vector<int> possible_owners;
             int owner_rank;
 
             std::size_t cell_index_on_neighbour;
+            int owner_rank_on_neighbour;
 
             template <class Archive>
             void serialize(Archive& ar, const unsigned int /*version*/)
             {
                 ar & cell_index;
+                ar & level;
                 ar & possible_owners;
                 ar & owner_rank;
                 ar & cell_index_on_neighbour;
+                ar & owner_rank_on_neighbour;
             }
         };
 
@@ -308,8 +312,9 @@ namespace samurai
             const int max_mismatch_checks = world.size() + 2; // arbitrary limit
             bool owner_mismatch           = false;
             std::vector<std::vector<MismatchInfo>> mismatches(mesh.mpi_neighbourhood().size());
+            bool unsolvable_mismatch_found = false;
 
-            while (n_mismatch_checks < max_mismatch_checks)
+            while (n_mismatch_checks < max_mismatch_checks && !unsolvable_mismatch_found)
             {
                 for (auto& m : mismatches)
                 {
@@ -359,13 +364,16 @@ namespace samurai
                                       {
                                           auto neighbour_owner_rank    = to_recv[read++];
                                           auto cell_index_on_neighbour = to_recv[read++];
+                                          // MISMATCH DETECTED!!!
                                           if (owner_rank[static_cast<std::size_t>(cell.index)] != neighbour_owner_rank)
                                           {
                                               owner_mismatch = true;
                                               mismatches[i_neighbour].emplace_back(static_cast<std::size_t>(cell.index),
+                                                                                   level,
                                                                                    possible_owners[static_cast<std::size_t>(cell.index)],
                                                                                    owner_rank[static_cast<std::size_t>(cell.index)],
-                                                                                   cell_index_on_neighbour);
+                                                                                   cell_index_on_neighbour,
+                                                                                   neighbour_owner_rank);
 
                                               // std::cout << fmt::format(
                                               //     "[{}] Error: owner mismatch in cell {} on level {} (owned here by {} != {} on [{}] with
@@ -458,7 +466,7 @@ namespace samurai
                                                          fmt::join(possible_owners[my_cell_index], ", "),
                                                          neighbour.rank,
                                                          fmt::join(neighbour_mismatch.possible_owners, ", "));
-                                n_mismatch_checks = max_mismatch_checks; // to exit second loop
+                                unsolvable_mismatch_found = true;
                                 break;
                             }
                             // Update possible_owners to the intersection
@@ -475,7 +483,8 @@ namespace samurai
                 mpi::wait_all(req.begin(), req.end());
             }
 
-            if (n_mismatch_checks == max_mismatch_checks && owner_mismatch)
+            // Print the mismatches
+            if ((n_mismatch_checks == max_mismatch_checks || unsolvable_mismatch_found) && owner_mismatch)
             {
                 auto owner_rank_field = make_scalar_field<int>("owner_rank", mesh);
                 for (std::size_t cell_index = 0; cell_index < mesh.nb_cells(); ++cell_index)
@@ -488,10 +497,12 @@ namespace samurai
                     for (auto& mismatch : mismatches[i_neigh])
                     {
                         std::cout << fmt::format(
-                            "[{}] Mismatch for cell {} (owned here by {} and owned by another on [{}] with cell_index {})\n",
+                            "[{}] Mismatch for cell {} at level {} (owned here by {} and owned by {} on [{}] with cell_index {})\n",
                             rank,
                             mismatch.cell_index,
+                            mismatch.level,
                             owner_rank[mismatch.cell_index],
+                            mismatch.owner_rank_on_neighbour,
                             neighbour.rank,
                             mismatch.cell_index_on_neighbour);
                         owner_rank_field[mismatch.cell_index] = 2 * world.size(); // mark error
@@ -505,10 +516,15 @@ namespace samurai
                     samurai_cell_indices_field[cell_index] = static_cast<std::size_t>(cell_index);
                 }
                 save(fs::current_path(), "owner_mismatch", {true, true}, mesh, owner_rank_field, samurai_cell_indices_field);
-
-                std::cerr << "Error: cell ownership mismatch detected. Maximum number of correction passes reached (" << max_mismatch_checks
-                          << ")." << std::endl;
-                std::cerr << fmt::format("[{}] See 'owner_mismatch.xdmf' for details.\n", rank);
+                std::cerr << fmt::format("[{}] Error: cell ownership mismatch detected. ", rank);
+                if (!unsolvable_mismatch_found)
+                {
+                    std::cerr << fmt::format("Maximum number of correction passes reached ({}). ", max_mismatch_checks);
+                }
+                std::cerr << fmt::format("See 'owner_mismatch.xdmf' for details.\n", rank);
+                std::cerr << fmt::format(
+                    "[{}] This usually happens when low level ghosts are shared between subdomains that are not in each other's direct neighbourhood. To solve this issue, try increasing the min level.\n",
+                    rank);
                 exit(EXIT_FAILURE);
             }
 
