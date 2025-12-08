@@ -297,6 +297,8 @@ jobs:
               run: |
                   cd build
                   set -e  # Stop on first failure
+                  # The MUMPS conda package is compiled with OpenMP. We set the number of threads to 1 to have deterministic output.
+                  export OMP_NUM_THREADS=1
                   mpiexec -n 1 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu --Tf 0.1 --max-level 8
                   mpiexec -n 2 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu --Tf 0.1 --max-level 8
                   mpiexec -n 3 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu --Tf 0.1 --max-level 8
@@ -309,6 +311,8 @@ jobs:
               run: |
                   cd build
                   set -e  # Stop on first failure
+                  # The MUMPS conda package is compiled with OpenMP. We set the number of threads to 1 to have deterministic output.
+                  export OMP_NUM_THREADS=1
                   mpiexec -n 1 ./demos/FiniteVolume/finite-volume-lid-driven-cavity --filename ldc_ink_size_1 --Tf 0.1 --nfiles 1 --min-level 8 --max-level 8
                   mpiexec -n 2 ./demos/FiniteVolume/finite-volume-lid-driven-cavity --filename ldc_ink_size_2 --Tf 0.1 --nfiles 1 --min-level 8 --max-level 8
                   ls
