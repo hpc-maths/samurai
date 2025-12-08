@@ -16,12 +16,10 @@ void configure_monolithic_solver(Solver& solver, const PressureField& constant_p
     KSPGetPC(ksp, &pc);
     KSPSetType(ksp, KSPPREONLY); // (equiv. '-ksp_type preonly')
 #if defined(PETSC_HAVE_MUMPS)
-    std::cout << "Configuring monolithic solver with MUMPS direct solver..." << std::endl;
     // We use MUMPS because it can handle null spaces (unlike the default petsc LU)
     PCSetType(pc, PCLU);                          // (equiv. '-pc_type lu')
     PCFactorSetMatSolverType(pc, MATSOLVERMUMPS); // (equiv. '-pc_factor_mat_solver_type mumps')
 #else
-    std::cout << "Configuring monolithic solver with fallback QR direct solver..." << std::endl;
     // If MUMPS is not installed, we fallback on QR because it can handle singular systems
     PCSetType(pc, PCQR); // (equiv. '-pc_type qr')
 #endif

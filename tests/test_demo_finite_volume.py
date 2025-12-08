@@ -237,10 +237,10 @@ def test_finite_volume_demo_nagumo(scheme, config):
 
 
 @pytest.mark.h5diff()
-# @pytest.mark.skipif(
-#     sys.platform == "darwin",
-#     reason="skipped on macos because libpthread is missing on github worker",
-# )
+@pytest.mark.skipif(
+    sys.platform == "darwin",
+    reason="skipped on macos because libpthread is missing on github worker",
+)
 def test_finite_volume_demo_lid_driven_cavity(config):
     cmd = [
         get_executable(
@@ -254,17 +254,19 @@ def test_finite_volume_demo_lid_driven_cavity(config):
         "--min-level=3",
         "--max-level=6",
         "--Tf=0.03",
-        "-pc_type", "lu",
-        "-pc_factor_mat_solver_type", "superlu",
+        # "-pc_type", "lu",
+        # "-pc_factor_mat_solver_type", "superlu",
     ]
-    # env = os.environ.copy()
-    # # The MUMPS conda package is compiled with OpenMP. We set the number of threads to 1 to have deterministic output.
-    # env["OMP_NUM_THREADS"] = "1"
-    # env["MKL_NUM_THREADS"] = "1"
-    # env["NUMEXPR_NUM_THREADS"] = "1"
-    # env["OPENBLAS_NUM_THREADS"] = "1"
-    # env["VECLIB_MAXIMUM_THREADS"] = "1"
-    output = subprocess.run(cmd, check=True, capture_output=True)#, env=env)
+    env = os.environ.copy()
+    # The MUMPS conda package is compiled with OpenMP. We set the number of threads to 1 to have deterministic output.
+    env["OMP_NUM_THREADS"] = "1"
+    env["OMP_DYNAMIC"] = "FALSE"
+    env["OMP_NESTED"] = "FALSE"
+    env["MKL_NUM_THREADS"] = "1"
+    env["NUMEXPR_NUM_THREADS"] = "1"
+    env["OPENBLAS_NUM_THREADS"] = "1"
+    env["VECLIB_MAXIMUM_THREADS"] = "1"
+    output = subprocess.run(cmd, check=True, capture_output=True, env=env)
 
 
 @pytest.mark.h5diff()
