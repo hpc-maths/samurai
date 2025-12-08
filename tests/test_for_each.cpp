@@ -15,8 +15,8 @@ namespace samurai
         cl2[level][{}].add_interval({0, 3});
 
         auto mesh_cfg = mesh_config<1>().min_level(level).max_level(level).disable_minimal_ghost_width();
-        auto m1       = amr::make_Mesh(mesh_cfg, cl1);
-        auto m2       = amr::make_Mesh(mesh_cfg, cl2);
+        auto m1       = amr::make_Mesh(cl1, mesh_cfg);
+        auto m2       = amr::make_Mesh(cl2, mesh_cfg);
         return std::make_tuple(m1, m2);
     }
 

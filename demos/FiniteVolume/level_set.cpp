@@ -291,7 +291,7 @@ int main(int argc, char* argv[])
 
     if (restart_file.empty())
     {
-        mesh = samurai::amr::make_Mesh(config, box);
+        mesh = samurai::amr::make_Mesh(box, config);
         init_level_set(phi);
     }
     else

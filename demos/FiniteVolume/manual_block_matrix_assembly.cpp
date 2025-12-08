@@ -194,8 +194,8 @@ int main(int argc, char* argv[])
 
     Box box({0, 0}, {1, 1});
     auto mesh_cfg = samurai::mesh_config<dim>().min_level(3).max_level(3);
-    auto mesh_e   = samurai::make_MRMesh(mesh_cfg, box);
-    auto mesh_s   = samurai::make_MRMesh(mesh_cfg, box);
+    auto mesh_e   = samurai::make_MRMesh(box, mesh_cfg);
+    auto mesh_s   = samurai::make_MRMesh(box, mesh_cfg);
 
     //-------------------------------//
     // Fields and auxiliary unknowns //

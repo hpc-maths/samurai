@@ -94,7 +94,7 @@ namespace samurai
         max_corner.fill(1);
         Box<double, dim> box(min_corner, max_corner);
         auto mesh_cfg = mesh_config<dim>().min_level(4).max_level(4);
-        auto mesh     = make_MRMesh(mesh_cfg, box);
+        auto mesh     = make_MRMesh(box, mesh_cfg);
         test_save(mesh);
         args::save_debug_fields = true;
         test_save(mesh);

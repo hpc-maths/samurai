@@ -94,7 +94,7 @@ int main(int argc, char* argv[])
 
     if (restart_file.empty())
     {
-        mesh = samurai::make_MRMesh(config, box);
+        mesh = samurai::make_MRMesh(box, config);
         u.resize();
         // Initial solution: crenel
         samurai::for_each_cell(mesh,

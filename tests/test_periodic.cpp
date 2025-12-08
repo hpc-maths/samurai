@@ -54,7 +54,7 @@ namespace samurai
         // Multiresolution parameters
         Box<double, dim> box(min_corner, max_corner);
         auto mesh_cfg   = samurai::mesh_config<dim>().min_level(3).max_level(6).periodic(true).graduation_width(1);
-        auto mesh       = samurai::make_MRMesh(mesh_cfg, box);
+        auto mesh       = samurai::make_MRMesh(box, mesh_cfg);
         using mesh_id_t = typename decltype(mesh)::mesh_id_t;
 
         double dt = 1;

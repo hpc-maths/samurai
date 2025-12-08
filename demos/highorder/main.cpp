@@ -149,7 +149,7 @@ int main(int argc, char* argv[])
     .graduation_width(4)
     .max_stencil_size(4);
     // clang-format on
-    auto init_mesh = samurai::make_MRMesh(config, box);
+    auto init_mesh = samurai::make_MRMesh(box, config);
 
     using mesh_t    = decltype(init_mesh);
     using mesh_id_t = typename mesh_t::mesh_id_t;
@@ -201,7 +201,7 @@ int main(int argc, char* argv[])
             // mesh = {cl, mesh.min_level() + 1, mesh.max_level() + 1};
             auto mesh_cfg = mesh.cfg();
             mesh_cfg.min_level(init_mesh.min_level() + i_ref + 1).max_level(init_mesh.max_level() + i_ref + 1);
-            mesh = samurai::make_MRMesh(mesh_cfg, cl);
+            mesh = samurai::make_MRMesh(cl, mesh_cfg);
         }
         // std::cout << mesh << std::endl;
         // samurai::save("refine_mesh", mesh);

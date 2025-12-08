@@ -57,10 +57,10 @@ int main()
     auto box                  = samurai::Box<double, dim>({0., 0., 0.}, {1., 1., 1.});
 
     auto mesh_cfg = samurai::mesh_config<dim>().min_level(2).max_level(8);
-    auto mesh1    = samurai::make_MRMesh(mesh_cfg, box);
+    auto mesh1    = samurai::make_MRMesh(box, mesh_cfg);
     auto f1       = init_field(mesh1, 0);
 
-    auto mesh2 = samurai::make_MRMesh(mesh_cfg, box);
+    auto mesh2 = samurai::make_MRMesh(box, mesh_cfg);
     auto f2    = init_field(mesh2, 0.1);
 
     auto adapt_1 = samurai::make_MRAdapt(f1);

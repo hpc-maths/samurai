@@ -162,11 +162,11 @@ namespace samurai
         Mesh_base() = default; // cppcheck-suppress uninitMemberVar
         Mesh_base(const ca_type& ca, const self_type& ref_mesh);
         Mesh_base(const cl_type& cl, const self_type& ref_mesh);
-        Mesh_base(const mesh_config<Config::dim>& config, const cl_type& cl);
-        Mesh_base(const mesh_config<Config::dim>& config, const ca_type& ca);
-        Mesh_base(const mesh_config<Config::dim>& config, const samurai::Box<double, dim>& b);
+        Mesh_base(const cl_type& cl, const mesh_config<Config::dim>& config);
+        Mesh_base(const ca_type& ca, const mesh_config<Config::dim>& config);
+        Mesh_base(const samurai::Box<double, dim>& b, const mesh_config<Config::dim>& config);
 
-        Mesh_base(const mesh_config<Config::dim>& config, const samurai::DomainBuilder<dim>& domain_builder);
+        Mesh_base(const samurai::DomainBuilder<dim>& domain_builder, const mesh_config<Config::dim>& config);
 
         // cppcheck-suppress uninitMemberVar
         Mesh_base(const samurai::Box<double, dim>&, std::size_t, std::size_t, std::size_t, double, double)
@@ -260,7 +260,7 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline Mesh_base<D, Config>::Mesh_base(const mesh_config<Config::dim>& config, const samurai::Box<double, dim>& b)
+    inline Mesh_base<D, Config>::Mesh_base(const samurai::Box<double, dim>& b, const mesh_config<Config::dim>& config)
         : m_domain{config.start_level(), b, config.approx_box_tol(), config.scaling_factor()}
         , m_config(config)
     {
@@ -285,7 +285,7 @@ namespace samurai
     }
 
     template <class D, class Config>
-    Mesh_base<D, Config>::Mesh_base(const mesh_config<Config::dim>& config, const samurai::DomainBuilder<dim>& domain_builder)
+    Mesh_base<D, Config>::Mesh_base(const samurai::DomainBuilder<dim>& domain_builder, const mesh_config<Config::dim>& config)
         : m_config(config)
     {
         if (std::any_of(config.periodic().begin(),
@@ -331,7 +331,7 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline Mesh_base<D, Config>::Mesh_base(const mesh_config<Config::dim>& config, const cl_type& cl)
+    inline Mesh_base<D, Config>::Mesh_base(const cl_type& cl, const mesh_config<Config::dim>& config)
         : m_config(config)
     {
         this->m_cells[mesh_id_t::cells] = {cl};
@@ -349,7 +349,7 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline Mesh_base<D, Config>::Mesh_base(const mesh_config<Config::dim>& config, const ca_type& ca)
+    inline Mesh_base<D, Config>::Mesh_base(const ca_type& ca, const mesh_config<Config::dim>& config)
         : m_config(config)
     {
         this->m_cells[mesh_id_t::cells] = ca;

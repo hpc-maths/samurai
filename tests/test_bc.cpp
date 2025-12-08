@@ -60,7 +60,7 @@ namespace samurai
 
         Box<double, dim> box = {{0}, {1}};
         auto mesh_cfg        = mesh_config<dim>().min_level(2).max_level(4);
-        auto mesh            = make_MRMesh(mesh_cfg, box);
+        auto mesh            = make_MRMesh(box, mesh_cfg);
         auto u               = make_scalar_field<double>("u", mesh);
 
         make_bc<Dirichlet<1>>(u,

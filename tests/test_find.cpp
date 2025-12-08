@@ -14,7 +14,7 @@ namespace samurai
         Box box({-1., -1.}, {1., 1.});
 
         auto mesh_cfg = mesh_config<dim>().min_level(2).max_level(6);
-        auto mesh     = make_MRMesh(mesh_cfg, box);
+        auto mesh     = make_MRMesh(box, mesh_cfg);
 
         auto u = samurai::make_scalar_field<double>("u",
                                                     mesh,

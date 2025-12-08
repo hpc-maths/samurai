@@ -54,7 +54,7 @@ The mesh is created by the following code:
     box_corner1.fill(left_box);
     box_corner2.fill(right_box);
     Box box(box_corner1, box_corner2);
-    auto mesh = samurai::make_MRMesh(config, box);
+    auto mesh = samurai::make_MRMesh(box, config);
 
 Here, we have used the mesh type :code:`MRMesh`, but any other type of mesh can be chosen.
 Then, solution fields at two time steps (:math:`u_n` and :math:`u_{n+1}`) are declared, and boundary conditions are attached:

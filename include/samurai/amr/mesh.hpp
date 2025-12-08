@@ -72,9 +72,9 @@ namespace samurai::amr
         Mesh() = default;
         Mesh(const ca_type& ca, const self_type& ref_mesh);
         Mesh(const cl_type& cl, const self_type& ref_mesh);
-        Mesh(const mesh_config<Config::dim>& config, const cl_type& cl);
-        Mesh(const mesh_config<Config::dim>& config, const ca_type& ca);
-        Mesh(const mesh_config<Config::dim>& config, const Box<double, dim>& b);
+        Mesh(const cl_type& cl, const mesh_config<Config::dim>& config);
+        Mesh(const ca_type& ca, const mesh_config<Config::dim>& config);
+        Mesh(const Box<double, dim>& b, const mesh_config<Config::dim>& config);
 
         Mesh(const cl_type& cl, std::size_t min_level, std::size_t max_level);
         Mesh(const ca_type& ca, std::size_t min_level, std::size_t max_level);
@@ -102,56 +102,56 @@ namespace samurai::amr
     }
 
     template <class Config>
-    inline Mesh<Config>::Mesh(const mesh_config<Config::dim>& config, const cl_type& cl)
-        : base_type(config, cl)
+    inline Mesh<Config>::Mesh(const cl_type& cl, const mesh_config<Config::dim>& config)
+        : base_type(cl, config)
     {
     }
 
     template <class Config>
-    inline Mesh<Config>::Mesh(const mesh_config<Config::dim>& config, const ca_type& ca)
-        : base_type(config, ca)
+    inline Mesh<Config>::Mesh(const ca_type& ca, const mesh_config<Config::dim>& config)
+        : base_type(ca, config)
     {
     }
 
     template <class Config>
-    inline Mesh<Config>::Mesh(const mesh_config<Config::dim>& config, const Box<double, dim>& b)
-        : base_type(config, b)
+    inline Mesh<Config>::Mesh(const Box<double, dim>& b, const mesh_config<Config::dim>& config)
+        : base_type(b, config)
     {
     }
 
     template <class Config>
     inline Mesh<Config>::Mesh(const cl_type& cl, std::size_t min_level, std::size_t max_level)
-        : base_type(mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
+        : base_type(cl,
+                    mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
                         .max_stencil_radius(Config::max_stencil_width)
                         .graduation_width(Config::graduation_width)
                         .start_level(max_level)
                         .min_level(min_level)
-                        .max_level(max_level),
-                    cl)
+                        .max_level(max_level))
     {
     }
 
     template <class Config>
     inline Mesh<Config>::Mesh(const ca_type& ca, std::size_t min_level, std::size_t max_level)
-        : base_type(mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
+        : base_type(ca,
+                    mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
                         .max_stencil_radius(Config::max_stencil_width)
                         .graduation_width(Config::graduation_width)
                         .start_level(max_level)
                         .min_level(min_level)
-                        .max_level(max_level),
-                    ca)
+                        .max_level(max_level))
     {
     }
 
     template <class Config>
     inline Mesh<Config>::Mesh(const Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level)
-        : base_type(mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
+        : base_type(b,
+                    mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
                         .max_stencil_radius(Config::max_stencil_width)
                         .graduation_width(Config::graduation_width)
                         .start_level(start_level)
                         .min_level(min_level)
-                        .max_level(max_level),
-                    b)
+                        .max_level(max_level))
     {
     }
 
@@ -256,32 +256,32 @@ namespace samurai::amr
     }
 
     template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, AMR_Id>>
-    auto make_Mesh(const mesh_config_t& cfg, const typename Mesh<complete_mesh_config_t>::cl_type& cl)
+    auto make_Mesh(const typename Mesh<complete_mesh_config_t>::cl_type& cl, const mesh_config_t& cfg)
     {
         auto mesh_cfg = cfg;
         mesh_cfg.parse_args();
 
-        return Mesh<complete_mesh_config_t>(mesh_cfg, cl);
+        return Mesh<complete_mesh_config_t>(cl, mesh_cfg);
     }
 
     template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, AMR_Id>>
-    auto make_Mesh(const mesh_config_t& cfg, const typename Mesh<complete_mesh_config_t>::ca_type& ca)
+    auto make_Mesh(const typename Mesh<complete_mesh_config_t>::ca_type& ca, const mesh_config_t& cfg)
     {
         auto mesh_cfg = cfg;
         mesh_cfg.parse_args();
 
-        return Mesh<complete_mesh_config_t>(mesh_cfg, ca);
+        return Mesh<complete_mesh_config_t>(ca, mesh_cfg);
     }
 
     template <class mesh_config_t>
-    auto make_Mesh(const mesh_config_t& cfg, const samurai::Box<double, mesh_config_t::dim>& b)
+    auto make_Mesh(const samurai::Box<double, mesh_config_t::dim>& b, const mesh_config_t& cfg)
     {
         using complete_cfg_t = complete_mesh_config<mesh_config_t, AMR_Id>;
 
         auto mesh_cfg = cfg;
         mesh_cfg.parse_args();
 
-        return Mesh<complete_cfg_t>(mesh_cfg, b);
+        return Mesh<complete_cfg_t>(b, mesh_cfg);
     }
 } // namespace samurai::amr
 

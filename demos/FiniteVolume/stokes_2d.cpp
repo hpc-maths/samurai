@@ -191,7 +191,7 @@ int main(int argc, char* argv[])
 
     auto box    = samurai::Box<double, dim>({0, 0}, {1, 1});
     auto config = samurai::mesh_config<dim>().min_level(5).max_level(5).max_stencil_size(2);
-    auto mesh   = samurai::make_MRMesh(config, box);
+    auto mesh   = samurai::make_MRMesh(box, config);
 
     using mesh_id_t = typename decltype(mesh)::mesh_id_t;
 

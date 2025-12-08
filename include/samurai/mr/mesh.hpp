@@ -84,10 +84,10 @@ namespace samurai
         MRMesh() = default;
         MRMesh(const ca_type& ca, const self_type& ref_mesh);
         MRMesh(const cl_type& cl, const self_type& ref_mesh);
-        MRMesh(const mesh_config<Config::dim>& config, const cl_type& cl);
-        MRMesh(const mesh_config<Config::dim>& config, const ca_type& ca);
-        MRMesh(const mesh_config<Config::dim>& config, const samurai::Box<double, dim>& b);
-        MRMesh(const mesh_config<Config::dim>& config, const samurai::DomainBuilder<dim>& domain_builder);
+        MRMesh(const cl_type& cl, const mesh_config<Config::dim>& config);
+        MRMesh(const ca_type& ca, const mesh_config<Config::dim>& config);
+        MRMesh(const samurai::Box<double, dim>& b, const mesh_config<Config::dim>& config);
+        MRMesh(const samurai::DomainBuilder<dim>& domain_builder, const mesh_config<Config::dim>& config);
 
         // deprecated constructors
         MRMesh(const samurai::Box<double, dim>& b,
@@ -126,26 +126,26 @@ namespace samurai
     }
 
     template <class Config>
-    inline MRMesh<Config>::MRMesh(const mesh_config<Config::dim>& config, const cl_type& cl)
-        : base_type(config, cl)
+    inline MRMesh<Config>::MRMesh(const cl_type& cl, const mesh_config<Config::dim>& config)
+        : base_type(cl, config)
     {
     }
 
     template <class Config>
-    inline MRMesh<Config>::MRMesh(const mesh_config<Config::dim>& config, const ca_type& ca)
-        : base_type(config, ca)
+    inline MRMesh<Config>::MRMesh(const ca_type& ca, const mesh_config<Config::dim>& config)
+        : base_type(ca, config)
     {
     }
 
     template <class Config>
-    inline MRMesh<Config>::MRMesh(const mesh_config<Config::dim>& config, const samurai::Box<double, dim>& b)
-        : base_type(config, b)
+    inline MRMesh<Config>::MRMesh(const samurai::Box<double, dim>& b, const mesh_config<Config::dim>& config)
+        : base_type(b, config)
     {
     }
 
     template <class Config>
-    inline MRMesh<Config>::MRMesh(const mesh_config<Config::dim>& config, const samurai::DomainBuilder<dim>& domain_builder)
-        : base_type(config, domain_builder)
+    inline MRMesh<Config>::MRMesh(const samurai::DomainBuilder<dim>& domain_builder, const mesh_config<Config::dim>& config)
+        : base_type(domain_builder, config)
     {
     }
 
@@ -155,15 +155,15 @@ namespace samurai
                                   std::size_t max_level,
                                   double approx_box_tol,
                                   double scaling_factor_)
-        : base_type(mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
+        : base_type(b,
+                    mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
                         .max_stencil_radius(Config::max_stencil_width)
                         .graduation_width(Config::graduation_width)
                         .start_level(max_level)
                         .min_level(min_level)
                         .max_level(max_level)
                         .approx_box_tol(approx_box_tol)
-                        .scaling_factor(scaling_factor_),
-                    b)
+                        .scaling_factor(scaling_factor_))
     {
     }
 
@@ -173,15 +173,15 @@ namespace samurai
                                   std::size_t max_level,
                                   double approx_box_tol,
                                   double scaling_factor_)
-        : base_type(mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
+        : base_type(domain_builder,
+                    mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
                         .max_stencil_radius(Config::max_stencil_width)
                         .graduation_width(Config::graduation_width)
                         .start_level(max_level)
                         .min_level(min_level)
                         .max_level(max_level)
                         .approx_box_tol(approx_box_tol)
-                        .scaling_factor(scaling_factor_),
-                    domain_builder)
+                        .scaling_factor(scaling_factor_))
     {
     }
 
@@ -192,7 +192,8 @@ namespace samurai
                                   const std::array<bool, dim>& periodic,
                                   double approx_box_tol,
                                   double scaling_factor_)
-        : base_type(mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
+        : base_type(b,
+                    mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
                         .max_stencil_radius(Config::max_stencil_width)
                         .graduation_width(Config::graduation_width)
                         .start_level(max_level)
@@ -200,8 +201,7 @@ namespace samurai
                         .max_level(max_level)
                         .periodic(periodic)
                         .approx_box_tol(approx_box_tol)
-                        .scaling_factor(scaling_factor_),
-                    b)
+                        .scaling_factor(scaling_factor_))
     {
     }
 
@@ -553,27 +553,27 @@ namespace samurai
     }
 
     template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, MRMeshId>>
-    auto make_MRMesh(const mesh_config_t& cfg, const typename MRMesh<complete_mesh_config_t>::cl_type& cl)
+    auto make_MRMesh(const typename MRMesh<complete_mesh_config_t>::cl_type& cl, const mesh_config_t& cfg)
     {
         auto mesh_cfg = cfg;
         mesh_cfg.parse_args();
         mesh_cfg.start_level() = mesh_cfg.max_level(); // cppcheck-suppress unreadVariable
 
-        return MRMesh<complete_mesh_config_t>(cfg, cl);
+        return MRMesh<complete_mesh_config_t>(cl, mesh_cfg);
     }
 
     template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, MRMeshId>>
-    auto make_MRMesh(const mesh_config_t& cfg, const typename MRMesh<complete_mesh_config_t>::ca_type& ca)
+    auto make_MRMesh(const typename MRMesh<complete_mesh_config_t>::ca_type& ca, const mesh_config_t& cfg)
     {
         auto mesh_cfg = cfg;
         mesh_cfg.parse_args();
         mesh_cfg.start_level() = mesh_cfg.max_level(); // cppcheck-suppress unreadVariable
 
-        return MRMesh<complete_mesh_config_t>(cfg, ca);
+        return MRMesh<complete_mesh_config_t>(ca, mesh_cfg);
     }
 
     template <class mesh_config_t>
-    auto make_MRMesh(const mesh_config_t& cfg, const samurai::Box<double, mesh_config_t::dim>& b)
+    auto make_MRMesh(const samurai::Box<double, mesh_config_t::dim>& b, const mesh_config_t& cfg)
     {
         using complete_cfg_t = complete_mesh_config<mesh_config_t, MRMeshId>;
 
@@ -581,11 +581,11 @@ namespace samurai
         mesh_cfg.parse_args();
         mesh_cfg.start_level() = mesh_cfg.max_level(); // cppcheck-suppress unreadVariable
 
-        return MRMesh<complete_cfg_t>(mesh_cfg, b);
+        return MRMesh<complete_cfg_t>(b, mesh_cfg);
     }
 
     template <class mesh_config_t>
-    auto make_MRMesh(const mesh_config_t& cfg, const samurai::DomainBuilder<mesh_config_t::dim>& domain_builder)
+    auto make_MRMesh(const samurai::DomainBuilder<mesh_config_t::dim>& domain_builder, const mesh_config_t& cfg)
     {
         using complete_cfg_t = complete_mesh_config<mesh_config_t, MRMeshId>;
 
@@ -593,7 +593,7 @@ namespace samurai
         mesh_cfg.parse_args();
         mesh_cfg.start_level() = mesh_cfg.max_level(); // cppcheck-suppress unreadVariable
 
-        return MRMesh<complete_cfg_t>(mesh_cfg, domain_builder);
+        return MRMesh<complete_cfg_t>(domain_builder, mesh_cfg);
     }
 } // namespace samurai
 

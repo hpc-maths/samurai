@@ -103,7 +103,7 @@ int main(int argc, char* argv[])
     box_corner2.fill(right_box);
     Box box(box_corner1, box_corner2);
     auto config = samurai::mesh_config<dim>().min_level(4).max_level(8).disable_minimal_ghost_width();
-    auto mesh   = samurai::make_MRMesh(config, box);
+    auto mesh   = samurai::make_MRMesh(box, config);
     auto u      = samurai::make_vector_field<double, n_comp>("u", mesh);
 
     double z0 = left_box / 5;    // wave initial position

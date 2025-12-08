@@ -19,7 +19,7 @@ namespace samurai
         Box box(box_corner1, box_corner2);
         auto mesh_cfg = samurai::mesh_config<dim>().min_level(2).max_level(5).disable_minimal_ghost_width();
 
-        return make_MRMesh(mesh_cfg, box);
+        return make_MRMesh(box, mesh_cfg);
     }
 
     TEST(restart, restart_lca)

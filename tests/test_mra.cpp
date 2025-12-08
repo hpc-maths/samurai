@@ -16,7 +16,7 @@ namespace samurai
         const std::size_t max_level = 10;
 
         auto mesh_cfg = mesh_config<dim>().min_level(min_level).max_level(max_level);
-        return make_MRMesh(mesh_cfg, box);
+        return make_MRMesh(box, mesh_cfg);
     }
 
     void init_field(auto& u, double factor = 1.0)
