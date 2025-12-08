@@ -237,10 +237,10 @@ def get_executable(path, filename):
 
 
 @pytest.mark.h5diff()
-@pytest.mark.skipif(
-    sys.platform == "darwin",
-    reason="skipped on macos because libpthread is missing on github worker",
-)
+# @pytest.mark.skipif(
+#     sys.platform == "darwin",
+#     reason="skipped on macos because libpthread is missing on github worker",
+# )
 def test_finite_volume_demo_lid_driven_cavity(config):
     cmd = [
         get_executable(
@@ -269,6 +269,8 @@ def test_finite_volume_demo_lid_driven_cavity(config):
     env["VECLIB_MAXIMUM_THREADS"] = "1"
     env["OMP_DISPLAY_ENV"] = "TRUE"
     output = subprocess.run(cmd, check=True, capture_output=True, env=env)
+    print(output.stdout.decode())
+    print(output.stderr.decode())
 
 
 # @pytest.mark.h5diff()

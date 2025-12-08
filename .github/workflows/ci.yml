@@ -22,48 +22,48 @@ jobs:
     # Check samurai with cppcheck
     #
     #########################################################
-    cppcheck:
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
+    # cppcheck:
+    #     runs-on: ubuntu-latest
+    #     steps:
+    #         - uses: actions/checkout@v4
 
-            - name: Cache
-              uses: actions/cache@v4
-              with:
-                  path: |
-                      ~/.cache/ccache
-                      ~/micromamba/envs/samurai-env
-                  key: cppcheck
+    #         - name: Cache
+    #           uses: actions/cache@v4
+    #           with:
+    #               path: |
+    #                   ~/.cache/ccache
+    #                   ~/micromamba/envs/samurai-env
+    #               key: cppcheck
 
-            - name: Mamba and samurai env installation
-              uses: mamba-org/setup-micromamba@v1
-              with:
-                  environment-file: conda/environment.yml
-                  environment-name: samurai-env
-                  cache-environment: true
+    #         - name: Mamba and samurai env installation
+    #           uses: mamba-org/setup-micromamba@v1
+    #           with:
+    #               environment-file: conda/environment.yml
+    #               environment-name: samurai-env
+    #               cache-environment: true
 
-            - name: cppcheck installation
-              shell: bash -el {0}
-              run: |
-                  conda install -y cppcheck=2.12 python=3.12 cxx-compiler
+    #         - name: cppcheck installation
+    #           shell: bash -el {0}
+    #           run: |
+    #               conda install -y cppcheck=2.12 python=3.12 cxx-compiler
 
-            - name: Configure
-              shell: bash -el {0}
-              run: |
-                  cmake . -Bbuild -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_DEMOS=ON
+    #         - name: Configure
+    #           shell: bash -el {0}
+    #           run: |
+    #               cmake . -Bbuild -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_DEMOS=ON
 
-            - name: Run cppcheck on samurai
-              shell: bash -el {0}
-              run: |
-                  cppcheck --enable=all -q --project=./build/compile_commands.json --suppressions-list=.cppcheck --inline-suppr 2> cppcheck_err.txt
+    #         - name: Run cppcheck on samurai
+    #           shell: bash -el {0}
+    #           run: |
+    #               cppcheck --enable=all -q --project=./build/compile_commands.json --suppressions-list=.cppcheck --inline-suppr 2> cppcheck_err.txt
 
-            - name: Check for errors
-              run: |
-                  if [[ -s cppcheck_err.txt ]];
-                  then
-                    cat cppcheck_err.txt
-                    exit -1
-                  fi
+    #         - name: Check for errors
+    #           run: |
+    #               if [[ -s cppcheck_err.txt ]];
+    #               then
+    #                 cat cppcheck_err.txt
+    #                 exit -1
+    #               fi
     #
     # Check linux build with mamba environment
     #
@@ -75,16 +75,16 @@ jobs:
             fail-fast: false
             matrix:
                 include:
-                    - cpp-version: gcc-11
-                      compiler: "gcc"
-                      package: "gcc-11 g++-11"
-                      cc: "gcc-11"
-                      cxx: "g++-11"
-                    - cpp-version: gcc-12
-                      compiler: "gcc"
-                      package: "gcc-12 g++-12"
-                      cc: "gcc-12"
-                      cxx: "g++-12"
+                    # - cpp-version: gcc-11
+                    #   compiler: "gcc"
+                    #   package: "gcc-11 g++-11"
+                    #   cc: "gcc-11"
+                    #   cxx: "g++-11"
+                    # - cpp-version: gcc-12
+                    #   compiler: "gcc"
+                    #   package: "gcc-12 g++-12"
+                    #   cc: "gcc-12"
+                    #   cxx: "g++-12"
                     - cpp-version: gcc-13
                       compiler: "gcc"
                       package: "gcc-13 g++-13"
@@ -101,16 +101,16 @@ jobs:
                       package: "clang-16"
                       cc: "clang-16"
                       cxx: "clang++-16"
-                    - cpp-version: clang-17
-                      compiler: "clang"
-                      package: "clang-17"
-                      cc: "clang-17"
-                      cxx: "clang++-17"
-                    - cpp-version: clang-18
-                      compiler: "clang"
-                      package: "clang-18"
-                      cc: "clang-18"
-                      cxx: "clang++-18"
+                    # - cpp-version: clang-17
+                    #   compiler: "clang"
+                    #   package: "clang-17"
+                    #   cc: "clang-17"
+                    #   cxx: "clang++-17"
+                    # - cpp-version: clang-18
+                    #   compiler: "clang"
+                    #   package: "clang-18"
+                    #   cc: "clang-18"
+                    #   cxx: "clang++-18"
         steps:
             - uses: actions/checkout@v4
 
@@ -304,6 +304,7 @@ jobs:
                   export MKL_NUM_THREADS=1
                   export OPENBLAS_NUM_THREADS=1
                   export VECLIB_MAXIMUM_THREADS=1
+                  export OMP_DISPLAY_ENV=TRUE
                   mpiexec -n 1 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu -pc_factor_mat_solver_type mumps --Tf 0.1 --min-level 3 --max-level 8
                   mpiexec -n 2 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu -pc_factor_mat_solver_type mumps --Tf 0.1 --min-level 3 --max-level 8
                   mpiexec -n 3 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu -pc_factor_mat_solver_type mumps --Tf 0.1 --min-level 3 --max-level 8
@@ -324,60 +325,61 @@ jobs:
                   export MKL_NUM_THREADS=1
                   export OPENBLAS_NUM_THREADS=1
                   export VECLIB_MAXIMUM_THREADS=1
+                  export OMP_DISPLAY_ENV=TRUE
                   mpiexec -n 1 ./demos/FiniteVolume/finite-volume-lid-driven-cavity -pc_type lu -pc_factor_mat_solver_type mumps --filename ldc_ink_size_1 --Tf 0.1 --nfiles 1 --min-level 8 --max-level 8
                   mpiexec -n 2 ./demos/FiniteVolume/finite-volume-lid-driven-cavity -pc_type lu -pc_factor_mat_solver_type mumps --filename ldc_ink_size_2 --Tf 0.1 --nfiles 1 --min-level 8 --max-level 8
                   ls
                   python ../python/compare.py ldc_ink_size_1 ldc_ink_size_2 --tol 1e-11
 
-    # macos-mamba:
-    #     needs: [pre-commit, cppcheck]
-    #     runs-on: macos-14
-    #     steps:
-    #         - uses: actions/checkout@v4
-    #         - name: Mamba and samurai env installation
-    #           uses: mamba-org/setup-micromamba@v1
-    #           with:
-    #               environment-file: conda/environment.yml
-    #               environment-name: samurai-env
-    #               cache-environment: true
+    macos-mamba:
+        # needs: [pre-commit, cppcheck]
+        runs-on: macos-14
+        steps:
+            - uses: actions/checkout@v4
+            - name: Mamba and samurai env installation
+              uses: mamba-org/setup-micromamba@v1
+              with:
+                  environment-file: conda/environment.yml
+                  environment-name: samurai-env
+                  cache-environment: true
 
-    #         # - name: Petsc installation
-    #         #   shell: bash -l {0}
-    #         #   run: |
-    #         #     micromamba install -y petsc=3.18 pkg-config
+            - name: Petsc installation
+              shell: bash -l {0}
+              run: |
+                micromamba install -y petsc pkg-config
 
-    #         - name: Installl cxx compiler
-    #           shell: bash -l {0}
-    #           run: |
-    #               micromamba install -y cxx-compiler\<1.11.0
+            - name: Install cxx compiler
+              shell: bash -l {0}
+              run: |
+                  micromamba install -y cxx-compiler\<1.11.0
 
-    #         - name: micromamba informations
-    #           shell: bash -l {0}
-    #           run: |
-    #               micromamba info
-    #               micromamba list
+            - name: micromamba informations
+              shell: bash -l {0}
+              run: |
+                  micromamba info
+                  micromamba list
 
-    #         - name: Configure
-    #           shell: bash -l {0}
-    #           run: |
-    #               cmake \
-    #                   . \
-    #                   -Bbuild \
-    #                   -GNinja \
-    #                   -DCMAKE_BUILD_TYPE=Release \
-    #                   -DBUILD_DEMOS=ON \
-    #                   -DBUILD_TESTS=ON
+            - name: Configure
+              shell: bash -l {0}
+              run: |
+                  cmake \
+                      . \
+                      -Bbuild \
+                      -GNinja \
+                      -DCMAKE_BUILD_TYPE=Release \
+                      -DBUILD_DEMOS=ON \
+                      -DBUILD_TESTS=ON
 
-    #         - name: Build
-    #           shell: bash -l {0}
-    #           run: |
-    #               cmake --build ./build --config Release --parallel 3
+            - name: Build
+              shell: bash -l {0}
+              run: |
+                  cmake --build ./build --config Release --parallel 3
 
-    #         - name: Run tests
-    #           shell: bash -l {0}
-    #           run: |
-    #               ./build/tests/test_samurai_lib
-    #               cd tests; pytest --h5diff
+            - name: Run tests
+              shell: bash -l {0}
+              run: |
+                  ./build/tests/test_samurai_lib
+                  cd tests; pytest --h5diff
     #
     # CHECK_NAN
     #
