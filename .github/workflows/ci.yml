@@ -381,7 +381,7 @@ jobs:
               shell: bash -l {0}
               run: |
                   # ./build/tests/test_samurai_lib
-                  cd tests; pytest test_demo_finite_volume.py -v --h5diff
+                  cd tests; pytest test_demo_finite_volume.py -v -s --h5diff
     #
     # CHECK_NAN
     #
