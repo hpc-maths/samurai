@@ -269,7 +269,7 @@ def test_finite_volume_demo_lid_driven_cavity(config):
     env["NUMEXPR_NUM_THREADS"] = "1"
     env["OPENBLAS_NUM_THREADS"] = "1"
     env["VECLIB_MAXIMUM_THREADS"] = "1"
-    env["OMP_DISPLAY_ENV"] = "TRUE"
+    # env["OMP_DISPLAY_ENV"] = "TRUE"
     env["SCOTCH_DETERMINISTIC"] = "1"
     output = subprocess.run(cmd, check=True, capture_output=True, env=env)
     print(output.stdout.decode())

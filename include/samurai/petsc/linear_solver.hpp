@@ -190,6 +190,14 @@ namespace samurai
                 // VecView(b, PETSC_VIEWER_STDOUT_WORLD);
                 // std::cout << std::endl;
 
+                MatNullSpace ns = NULL;
+                MatGetNullSpace(m_A, &ns);
+                if (ns)
+                {
+                    /* remove nullspace components from b (in place) so b \in Range(A) */
+                    MatNullSpaceRemove(ns, b);
+                }
+
                 times::timers.stop("system solve");
 
                 solve_system(b, x);
