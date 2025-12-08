@@ -55,7 +55,7 @@ int main(int argc, char* argv[])
 
     const samurai::Box<double, dim> box({-3}, {3});
     auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).start_level(start_level);
-    Mesh<MeshConfig<dim>> mesh(config, box);
+    Mesh<MeshConfig<dim>> mesh(box, config);
 
     auto phi = init_sol(mesh);
 

@@ -286,7 +286,7 @@ int main()
     };
     using Config  = samurai::amr::Config<dim>;
     auto mesh_cfg = samurai::mesh_config<dim>().min_level(2).max_level(8).start_level(6).max_stencil_radius(3);
-    samurai::amr::Mesh<Config> mesh(mesh_cfg, box);
+    samurai::amr::Mesh<Config> mesh(box, mesh_cfg);
 
     auto field = init_field(mesh);
 
