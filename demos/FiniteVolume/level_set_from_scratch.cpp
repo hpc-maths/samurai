@@ -81,18 +81,18 @@ class AMRMesh : public samurai::Mesh_base<AMRMesh<Config>, Config>
     {
     }
 
-    inline AMRMesh(const samurai::mesh_config<Config::dim>& cfg, const cl_type& cl)
-        : base_type(cfg, cl)
+    inline AMRMesh(const cl_type& cl, const samurai::mesh_config<Config::dim>& cfg)
+        : base_type(cl, cfg)
     {
     }
 
-    inline AMRMesh(const samurai::mesh_config<Config::dim>& cfg, const ca_type& ca)
-        : base_type(cfg, ca)
+    inline AMRMesh(const ca_type& ca, const samurai::mesh_config<Config::dim>& cfg)
+        : base_type(ca, cfg)
     {
     }
 
-    inline AMRMesh(samurai::mesh_config<Config::dim>& cfg, const samurai::Box<double, dim>& b)
-        : base_type(cfg, b)
+    inline AMRMesh(const samurai::Box<double, dim>& b, samurai::mesh_config<Config::dim>& cfg)
+        : base_type(b, cfg)
     {
     }
 
@@ -633,7 +633,7 @@ int main(int argc, char* argv[])
 
     if (restart_file.empty())
     {
-        mesh = AMRMesh<Config>(config, box);
+        mesh = AMRMesh<Config>(box, config);
         init_level_set(phi);
     }
     else
