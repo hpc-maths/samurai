@@ -257,6 +257,7 @@ def test_finite_volume_demo_lid_driven_cavity(config):
         # "-pc_type", "lu",
         # "-pc_factor_mat_solver_type", "superlu",
         "-malloc_debug", "-malloc_dump",
+        "-mat_ordering_type", "amd"
     ]
     env = os.environ.copy()
     # The MUMPS conda package is compiled with OpenMP. We set the number of threads to 1 to have deterministic output.
@@ -268,6 +269,7 @@ def test_finite_volume_demo_lid_driven_cavity(config):
     env["OPENBLAS_NUM_THREADS"] = "1"
     env["VECLIB_MAXIMUM_THREADS"] = "1"
     env["OMP_DISPLAY_ENV"] = "TRUE"
+    env["SCOTCH_DETERMINISTIC"] = "1"
     output = subprocess.run(cmd, check=True, capture_output=True, env=env)
     print(output.stdout.decode())
     print(output.stderr.decode())
