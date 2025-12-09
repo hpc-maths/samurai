@@ -206,14 +206,14 @@ namespace samurai
                          });
             }
 
-            void is_block(bool is_block) override
+            void is_block_in_monolithic_matrix(bool is_block) override
             {
-                MatrixAssembly::is_block(is_block);
+                MatrixAssembly::is_block_in_monolithic_matrix(is_block);
 
                 for_each(m_assembly_ops,
                          [&](auto& op)
                          {
-                             op.is_block(is_block);
+                             op.is_block_in_monolithic_matrix(is_block);
                          });
             }
 

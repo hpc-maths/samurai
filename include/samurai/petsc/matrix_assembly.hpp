@@ -24,8 +24,8 @@ namespace samurai
 
             // ----- For blocks in a monolithic block matrix ----- //
 
-            bool m_is_block                  = false; // is this a block in a monolithic block matrix?
-            bool m_is_block_in_nested_matrix = false; // is this a block in a nested block matrix?
+            bool m_is_block_in_monolithic_matrix = false; // is this a block in a monolithic block matrix?
+            bool m_is_block_in_nested_matrix     = false; // is this a block in a nested block matrix?
 
             PetscInt m_row_shift = 0; // row origin of the block in the local matrix
             PetscInt m_col_shift = 0; // column origin of the block in the local matrix
@@ -98,14 +98,14 @@ namespace samurai
                 return m_diag_value_for_useless_ghosts;
             }
 
-            virtual void is_block(bool is_block)
+            virtual void is_block_in_monolithic_matrix(bool is_block)
             {
-                m_is_block = is_block;
+                m_is_block_in_monolithic_matrix = is_block;
             }
 
-            bool is_block() const
+            bool is_block_in_monolithic_matrix() const
             {
-                return m_is_block;
+                return m_is_block_in_monolithic_matrix;
             }
 
             virtual void is_block_in_nested_matrix(bool is_block)
@@ -216,7 +216,7 @@ namespace samurai
             {
                 times::timers.start("matrix assembly");
 
-                assert(!m_is_block);
+                assert(!m_is_block_in_monolithic_matrix);
                 if (!m_is_block_in_nested_matrix)
                 {
                     reset();
@@ -322,7 +322,7 @@ namespace samurai
                     sparsity_pattern_useless_ghosts(d_nnz);
                 }
 
-                if (!m_is_block)
+                if (!m_is_block_in_monolithic_matrix)
                 {
 #ifdef SAMURAI_WITH_MPI
                     // if (world.rank() == 1)
@@ -404,7 +404,7 @@ namespace samurai
                     insert_value_on_diag_for_useless_ghosts(A);
                 }
 
-                if (!m_is_block)
+                if (!m_is_block_in_monolithic_matrix)
                 {
                     PetscBool is_symmetric = matrix_is_symmetric() ? PETSC_TRUE : PETSC_FALSE;
                     MatSetOption(A, MAT_SYMMETRIC, is_symmetric);

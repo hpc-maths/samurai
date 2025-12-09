@@ -189,7 +189,7 @@ namespace samurai
                 compute_cell_ownership(mesh());
                 compute_numbering();
 #ifdef SAMURAI_WITH_MPI
-                if (!m_is_block) // change into assert?
+                if (!m_is_block_in_monolithic_matrix)
                 {
                     m_ghosts_row_shift = owned_matrix_rows();
                     m_ghosts_col_shift = owned_matrix_cols();
@@ -1011,7 +1011,7 @@ namespace samurai
             virtual void enforce_bc(Vec& b) const
             {
                 // std::cout << "enforce_bc of " << this->name() << std::endl;
-                if (!this->is_block())
+                if (!this->is_block_in_monolithic_matrix())
                 {
                     PetscInt b_rows;
                     VecGetLocalSize(b, &b_rows);

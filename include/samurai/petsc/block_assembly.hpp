@@ -599,7 +599,7 @@ namespace samurai
                 for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
-                        op.is_block(true);
+                        op.is_block_in_monolithic_matrix(true);
                     });
             }
 
