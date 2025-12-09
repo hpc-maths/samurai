@@ -75,16 +75,16 @@ jobs:
             fail-fast: false
             matrix:
                 include:
-                    # - cpp-version: gcc-11
-                    #   compiler: "gcc"
-                    #   package: "gcc-11 g++-11"
-                    #   cc: "gcc-11"
-                    #   cxx: "g++-11"
-                    # - cpp-version: gcc-12
-                    #   compiler: "gcc"
-                    #   package: "gcc-12 g++-12"
-                    #   cc: "gcc-12"
-                    #   cxx: "g++-12"
+                    - cpp-version: gcc-11
+                      compiler: "gcc"
+                      package: "gcc-11 g++-11"
+                      cc: "gcc-11"
+                      cxx: "g++-11"
+                    - cpp-version: gcc-12
+                      compiler: "gcc"
+                      package: "gcc-12 g++-12"
+                      cc: "gcc-12"
+                      cxx: "g++-12"
                     - cpp-version: gcc-13
                       compiler: "gcc"
                       package: "gcc-13 g++-13"
@@ -101,16 +101,16 @@ jobs:
                       package: "clang-16"
                       cc: "clang-16"
                       cxx: "clang++-16"
-                    # - cpp-version: clang-17
-                    #   compiler: "clang"
-                    #   package: "clang-17"
-                    #   cc: "clang-17"
-                    #   cxx: "clang++-17"
-                    # - cpp-version: clang-18
-                    #   compiler: "clang"
-                    #   package: "clang-18"
-                    #   cc: "clang-18"
-                    #   cxx: "clang++-18"
+                    - cpp-version: clang-17
+                      compiler: "clang"
+                      package: "clang-17"
+                      cc: "clang-17"
+                      cxx: "clang++-17"
+                    - cpp-version: clang-18
+                      compiler: "clang"
+                      package: "clang-18"
+                      cc: "clang-18"
+                      cxx: "clang++-18"
         steps:
             - uses: actions/checkout@v4
 
@@ -167,27 +167,26 @@ jobs:
                       -DCMAKE_BUILD_TYPE=Debug \
                       -DWITH_PETSC=ON \
                       -DBUILD_DEMOS=ON \
-                      # -DBUILD_TESTS=ON
+                      -DBUILD_TESTS=ON
 
             - name: Build
               shell: bash -l {0}
               run: |
                   cmake --build build --target all --parallel 2
-                  # cmake --build build --target finite-volume-lid-driven-cavity
 
-            # - name: Test with googletest
-            #   shell: bash -l {0}
-            #   run: |
-            #       export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
-            #       cd build
-            #       ./tests/test_samurai_lib
+            - name: Test with googletest
+              shell: bash -l {0}
+              run: |
+                  export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
+                  cd build
+                  ./tests/test_samurai_lib
 
             - name: Test with pytest
               shell: bash -l {0}
               run: |
                   export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
                   cd tests
-                  pytest test_demo_finite_volume.py -v -s --h5diff
+                  pytest -v -s --h5diff
     #
     # Check linux build with mamba environment
     #
@@ -247,42 +246,42 @@ jobs:
             - name: Build
               shell: bash -l {0}
               run: |
-                  # cmake --build build --target finite-volume-advection-2d --parallel 4
-                  # cmake --build build --target finite-volume-burgers --parallel 4
+                  cmake --build build --target finite-volume-advection-2d --parallel 4
+                  cmake --build build --target finite-volume-burgers --parallel 4
                   cmake --build build --target finite-volume-heat --parallel 4
                   cmake --build build --target finite-volume-lid-driven-cavity --parallel 4
 
-            # - name: MPI test finite-volume-advection-2d
-            #   shell: bash -l {0}
-            #   run: |
-            #       cd build
-            #       set -e  # Stop on first failure
-            #       mpiexec -n 1 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 20
-            #       mpiexec -n 2 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 20
-            #       mpiexec -n 3 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 20
-            #       mpiexec -n 4 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 20
-            #       mpiexec -n 9 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 20
-            #       ls
-            #       python ../python/compare.py FV_advection_2d_size_1_ite_ FV_advection_2d_size_2_ite_ --start 1 --end 19
-            #       python ../python/compare.py FV_advection_2d_size_1_ite_ FV_advection_2d_size_3_ite_ --start 1 --end 19
-            #       python ../python/compare.py FV_advection_2d_size_1_ite_ FV_advection_2d_size_4_ite_ --start 1 --end 19
-            #       python ../python/compare.py FV_advection_2d_size_1_ite_ FV_advection_2d_size_9_ite_ --start 1 --end 19
+            - name: MPI test finite-volume-advection-2d
+              shell: bash -l {0}
+              run: |
+                  cd build
+                  set -e  # Stop on first failure
+                  mpiexec -n 1 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 20
+                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 20
+                  mpiexec -n 3 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 20
+                  mpiexec -n 4 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 20
+                  mpiexec -n 9 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 20
+                  ls
+                  python ../python/compare.py FV_advection_2d_size_1_ite_ FV_advection_2d_size_2_ite_ --start 1 --end 19
+                  python ../python/compare.py FV_advection_2d_size_1_ite_ FV_advection_2d_size_3_ite_ --start 1 --end 19
+                  python ../python/compare.py FV_advection_2d_size_1_ite_ FV_advection_2d_size_4_ite_ --start 1 --end 19
+                  python ../python/compare.py FV_advection_2d_size_1_ite_ FV_advection_2d_size_9_ite_ --start 1 --end 19
 
-            # - name: MPI test finite-volume-burgers
-            #   shell: bash -l {0}
-            #   run: |
-            #       cd build
-            #       set -e  # Stop on first failure
-            #       mpiexec -n 1 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 20 --max-level 8
-            #       mpiexec -n 2 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 20 --max-level 8
-            #       mpiexec -n 3 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 20 --max-level 8
-            #       mpiexec -n 4 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 20 --max-level 8
-            #       mpiexec -n 6 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 20 --max-level 8
-            #       ls
-            #       python ../python/compare.py burgers_2D_size_1_ite_ burgers_2D_size_2_ite_ --start 1 --end 19
-            #       python ../python/compare.py burgers_2D_size_1_ite_ burgers_2D_size_3_ite_ --start 1 --end 19
-            #       python ../python/compare.py burgers_2D_size_1_ite_ burgers_2D_size_4_ite_ --start 1 --end 19
-            #       python ../python/compare.py burgers_2D_size_1_ite_ burgers_2D_size_6_ite_ --start 1 --end 19
+            - name: MPI test finite-volume-burgers
+              shell: bash -l {0}
+              run: |
+                  cd build
+                  set -e  # Stop on first failure
+                  mpiexec -n 1 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 20 --max-level 8
+                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 20 --max-level 8
+                  mpiexec -n 3 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 20 --max-level 8
+                  mpiexec -n 4 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 20 --max-level 8
+                  mpiexec -n 6 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 20 --max-level 8
+                  ls
+                  python ../python/compare.py burgers_2D_size_1_ite_ burgers_2D_size_2_ite_ --start 1 --end 19
+                  python ../python/compare.py burgers_2D_size_1_ite_ burgers_2D_size_3_ite_ --start 1 --end 19
+                  python ../python/compare.py burgers_2D_size_1_ite_ burgers_2D_size_4_ite_ --start 1 --end 19
+                  python ../python/compare.py burgers_2D_size_1_ite_ burgers_2D_size_6_ite_ --start 1 --end 19
 
             - name: MPI test finite-volume-heat
               shell: bash -l {0}
@@ -382,8 +381,8 @@ jobs:
             - name: Run tests
               shell: bash -l {0}
               run: |
-                  # ./build/tests/test_samurai_lib
-                  cd tests; pytest test_demo_finite_volume.py -v -s --h5diff
+                  ./build/tests/test_samurai_lib
+                  cd tests; pytest -v -s --h5diff
     #
     # CHECK_NAN
     #
