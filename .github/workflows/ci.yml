@@ -306,11 +306,11 @@ jobs:
                   export OPENBLAS_NUM_THREADS=1
                   export VECLIB_MAXIMUM_THREADS=1
                   export SCOTCH_DETERMINISTIC=1
-                  mpiexec -n 1 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel --Tf 0.1 --min-level 3 --max-level 8
-                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel --Tf 0.1 --min-level 3 --max-level 8
-                  mpiexec -n 3 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel --Tf 0.1 --min-level 3 --max-level 8
+                  mpiexec -n 1 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -mat_ordering_type amd --Tf 0.1 --min-level 3 --max-level 8
+                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -mat_ordering_type amd --Tf 0.1 --min-level 3 --max-level 8
+                  mpiexec -n 3 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -mat_ordering_type amd --Tf 0.1 --min-level 3 --max-level 8
                   ls
-                  python ../python/compare.py heat_2D_size_1_ite_ heat_2D_size_2_ite_ --start 1 --end 9 --tol 1e-5 # Loose tolerance needed due to the known bugs in the mesh? Try with a stricter tol when the bugs are fixed.
+                  python ../python/compare.py heat_2D_size_1_ite_ heat_2D_size_2_ite_ --start 1 --end 9 --tol 1e-14 # Loose tolerance needed due to the known bugs in the mesh? Try with a stricter tol when the bugs are fixed.
                   python ../python/compare.py heat_2D_size_1_ite_ heat_2D_size_3_ite_ --start 1 --end 9 --tol 1e-3
                   rm -f heat_2D*
 
