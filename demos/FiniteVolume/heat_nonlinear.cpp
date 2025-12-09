@@ -55,14 +55,14 @@ auto make_nonlinear_diffusion()
 
     using cfg = samurai::FluxConfig<samurai::SchemeType::NonLinear, stencil_size, output_field_t, input_field_t>;
 
-    samurai::FluxDefinition<cfg> flux;
+    samurai::FluxDefinition<cfg> flux_definition;
 
     samurai::static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
         [&](auto _d)
         {
             static constexpr std::size_t d = _d();
 
-            flux[d].cons_flux_function =
+            flux_definition[d].cons_flux_function =
                 [](samurai::FluxValue<cfg>& flux, const samurai::StencilData<cfg>& data, const samurai::StencilValues<cfg>& u)
             {
                 static constexpr std::size_t L = 0;
@@ -76,7 +76,7 @@ auto make_nonlinear_diffusion()
                 flux = _u * grad_u; // (1)
             };
 
-            flux[d].cons_jacobian_function =
+            flux_definition[d].cons_jacobian_function =
                 [](samurai::StencilJacobian<cfg>& jac, const samurai::StencilData<cfg>& data, const samurai::StencilValues<cfg>& u)
             {
                 static constexpr std::size_t L = 0;
@@ -92,7 +92,7 @@ auto make_nonlinear_diffusion()
             };
         });
 
-    auto scheme = samurai::make_flux_based_scheme(flux);
+    auto scheme = samurai::make_flux_based_scheme(flux_definition);
     scheme.set_name("nonlinear_diffusion");
     return scheme;
 }

@@ -81,7 +81,7 @@ namespace samurai
             }
 
             template <class Anything>
-            void reset(const Anything&)
+            void reset(const Anything&) override
             {
             }
 

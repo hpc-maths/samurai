@@ -447,13 +447,6 @@ namespace samurai
             void set_unknown(field_t& unknown)
             {
                 m_unknown = &unknown;
-
-                //                 m_row_numbering->n_local_cells = unknown.mesh().nb_cells(); // Why??
-                // #ifdef SAMURAI_WITH_MPI
-                //                 // create_local_to_global_mappings();  ????
-                // #else
-                //                 m_row_numbering->n_owned_cells = m_row_numbering->n_local_cells;
-                // #endif
             }
 
             auto& unknown() const

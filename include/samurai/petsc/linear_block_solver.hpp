@@ -36,7 +36,7 @@ namespace samurai
             static constexpr BlockAssemblyType assembly_type = assembly_type_;
 
             [[deprecated("Use assembly_type == samurai::petsc::BlockAssemblyType::Monolithic instead")]]
-            static constexpr bool is_monolithic = (assembly_type == BlockAssemblyType::Monolithic);
+            static constexpr bool is_monolithic = (assembly_type == BlockAssemblyType::Monolithic); // cppcheck-suppress unreadVariable
 
             explicit LinearBlockSolver(const block_operator_t& block_op)
                 : base_class(block_op)
@@ -103,7 +103,6 @@ namespace samurai
                               "The number of unknown fields passed to solve() must equal "
                               "the number of columns of the block operator.");
                 assembly().set_unknown(unknown_tuple);
-                // assembly().reset();
             }
 
             void setup() override
