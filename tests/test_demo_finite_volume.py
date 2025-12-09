@@ -254,24 +254,9 @@ def test_finite_volume_demo_lid_driven_cavity(config):
         "--min-level=3",
         "--max-level=6",
         "--Tf=0.03",
-        "-pc_type", "qr",
-        # "-pc_factor_mat_solver_type", "superlu",
-        # "-malloc_debug", "-malloc_dump",
-        # "-mat_ordering_type", "amd",
-        # "-ksp_view",
+        "-pc_type", "qr" # we use QR because MUMPS yields different results on macos and linux, so the comparison fails on the CI
     ]
-    # env = os.environ.copy()
-    # # The MUMPS conda package is compiled with OpenMP. We set the number of threads to 1 to have deterministic output.
-    # env["OMP_NUM_THREADS"] = "1"
-    # env["OMP_DYNAMIC"] = "FALSE"
-    # env["OMP_MAX_ACTIVE_LEVELS"] = "1"
-    # env["MKL_NUM_THREADS"] = "1"
-    # env["NUMEXPR_NUM_THREADS"] = "1"
-    # env["OPENBLAS_NUM_THREADS"] = "1"
-    # env["VECLIB_MAXIMUM_THREADS"] = "1"
-    # # env["OMP_DISPLAY_ENV"] = "TRUE"
-    # env["SCOTCH_DETERMINISTIC"] = "1"
-    output = subprocess.run(cmd, check=True, capture_output=True)#, env=env)
+    output = subprocess.run(cmd, check=True, capture_output=True)
 
 
 # @pytest.mark.h5diff()
