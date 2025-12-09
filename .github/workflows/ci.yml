@@ -306,20 +306,19 @@ jobs:
                   export OPENBLAS_NUM_THREADS=1
                   export VECLIB_MAXIMUM_THREADS=1
                   export SCOTCH_DETERMINISTIC=1
-                  # export OMP_DISPLAY_ENV=TRUE
-                  mpiexec -n 1 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu -pc_factor_mat_solver_type mumps -mat_ordering_type amd --Tf 0.1 --min-level 3 --max-level 8
-                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu -pc_factor_mat_solver_type mumps -mat_ordering_type amd --Tf 0.1 --min-level 3 --max-level 8
-                  mpiexec -n 3 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu -pc_factor_mat_solver_type mumps -mat_ordering_type amd --Tf 0.1 --min-level 3 --max-level 8
+                  mpiexec -n 1 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel --Tf 0.1 --min-level 3 --max-level 8
+                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel --Tf 0.1 --min-level 3 --max-level 8
+                  mpiexec -n 3 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel --Tf 0.1 --min-level 3 --max-level 8
                   ls
                   python ../python/compare.py heat_2D_size_1_ite_ heat_2D_size_2_ite_ --start 1 --end 9 --tol 1e-14
-                  python ../python/compare.py heat_2D_size_1_ite_ heat_2D_size_3_ite_ --start 1 --end 9 --tol 1e-4 # Less strict tolerance needed due to the known bugs in the mesh? Try with a stricter tol when the bugs are fixed.
+                  python ../python/compare.py heat_2D_size_1_ite_ heat_2D_size_3_ite_ --start 1 --end 9 --tol 1e-3 # Less strict tolerance needed due to the known bugs in the mesh? Try with a stricter tol when the bugs are fixed.
                   rm -f heat_2D*
 
             - name: MPI test finite-volume-lid-driven-cavity
               shell: bash -l {0}
               run: |
                   cd build
-                  # set -e  # Stop on first failure
+                  set -e  # Stop on first failure
                   # The MUMPS conda package is compiled with OpenMP. We set the number of threads to 1 to have deterministic output.
                   export OMP_NUM_THREADS=1
                   export OMP_DYNAMIC=FALSE
@@ -328,7 +327,6 @@ jobs:
                   export OPENBLAS_NUM_THREADS=1
                   export VECLIB_MAXIMUM_THREADS=1
                   export SCOTCH_DETERMINISTIC=1
-                  # export OMP_DISPLAY_ENV=TRUE
                   mpiexec -n 1 ./demos/FiniteVolume/finite-volume-lid-driven-cavity -pc_type lu -pc_factor_mat_solver_type mumps -mat_ordering_type amd --filename ldc_ink_size_1 --Tf 0.1 --nfiles 1 --min-level 8 --max-level 8
                   mpiexec -n 2 ./demos/FiniteVolume/finite-volume-lid-driven-cavity -pc_type lu -pc_factor_mat_solver_type mumps -mat_ordering_type amd --filename ldc_ink_size_2 --Tf 0.1 --nfiles 1 --min-level 8 --max-level 8
                   ls

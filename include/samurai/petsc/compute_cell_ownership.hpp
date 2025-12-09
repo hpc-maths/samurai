@@ -535,7 +535,7 @@ namespace samurai
             n_owned_cells = 0;
             for (std::size_t i = 0; i < owner_rank.size(); ++i)
             {
-                n_owned_cells += (owner_rank[i] == rank) ? 1 : 0;
+                n_owned_cells += (owner_rank[i] == rank) ? 1L : 0;
             }
 
             cell_indices.resize(n_local_cells);

@@ -108,14 +108,16 @@ namespace samurai
                                 {
                                     for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                                     {
-                                        d_nnz[static_cast<std::size_t>(this->local_row_index(cells[cfg_t::center_index], field_i))] += input_n_comp;
+                                        d_nnz[static_cast<std::size_t>(this->local_row_index(cells[cfg_t::center_index],
+                                                                                             field_i))] += static_cast<PetscInt>(input_n_comp);
                                     }
                                 }
                                 else
                                 {
                                     for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                                     {
-                                        o_nnz[static_cast<std::size_t>(this->local_row_index(cells[cfg_t::center_index], field_i))] += input_n_comp;
+                                        o_nnz[static_cast<std::size_t>(this->local_row_index(cells[cfg_t::center_index],
+                                                                                             field_i))] += static_cast<PetscInt>(input_n_comp);
                                     }
                                 }
                             }
