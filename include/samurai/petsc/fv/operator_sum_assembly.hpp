@@ -37,6 +37,16 @@ namespace samurai
                 this->set_name(sum_scheme.name());
             }
 
+            void set_scheme(const scheme_t& s)
+            {
+                m_sum_scheme = s;
+                static_for<0, sizeof...(Operators)>::apply(
+                    [&](auto i)
+                    {
+                        std::get<i>(m_assembly_ops).set_scheme(std::get<i>(s.operators()));
+                    });
+            }
+
             constexpr const auto& largest_stencil_assembly() const
             {
                 return std::get<scheme_t::largest_stencil_index>(m_assembly_ops);

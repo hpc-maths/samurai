@@ -170,6 +170,11 @@ namespace samurai
                 VecDestroy(&b);
                 VecDestroy(&x);
             }
+
+            void set_block_operator(const block_operator_t& block_op)
+            {
+                this->set_scheme(block_op);
+            }
         };
 
     } // end namespace petsc

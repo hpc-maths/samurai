@@ -22,9 +22,10 @@ namespace samurai
           protected:
 
             Assembly m_assembly;
-            KSP m_ksp        = nullptr;
-            Mat m_A          = nullptr;
-            bool m_is_set_up = false;
+            KSP m_ksp                     = nullptr;
+            Mat m_A                       = nullptr;
+            bool m_is_set_up              = false;
+            bool m_reuse_allocated_matrix = false;
 
           public:
 
@@ -49,7 +50,8 @@ namespace samurai
                 {
                     m_assembly.destroy_local_to_global_mappings(m_A);
                     MatDestroy(&m_A);
-                    m_A = nullptr;
+                    m_A                      = nullptr;
+                    m_reuse_allocated_matrix = false;
                 }
                 if (m_ksp)
                 {
@@ -119,20 +121,25 @@ namespace samurai
 
             void assemble_matrix()
             {
-                if (m_A == nullptr)
+                if (assembly().undefined_unknown())
                 {
-                    if (assembly().undefined_unknown())
-                    {
-                        std::cerr << "Undefined unknown(s) for this linear system. Please set the unknowns using the instruction '[solver].set_unknown(u);' or '[solver].set_unknowns(u1, u2...);'."
-                                  << std::endl;
-                        assert(false && "Undefined unknown(s)");
-                        exit(EXIT_FAILURE);
-                    }
-
-                    assembly().create_matrix(m_A);
-                    assembly().assemble_matrix(m_A);
-                    PetscObjectSetName(reinterpret_cast<PetscObject>(m_A), "A");
+                    std::cerr << "Undefined unknown(s) for this linear system. Please set the unknowns using the instruction '[solver].set_unknown(u);' or '[solver].set_unknowns(u1, u2...);'."
+                              << std::endl;
+                    assert(false && "Undefined unknown(s)");
+                    exit(EXIT_FAILURE);
                 }
+
+                if (m_reuse_allocated_matrix)
+                {
+                    MatZeroEntries(m_A);
+                }
+                else
+                {
+                    assembly().create_matrix(m_A);
+                }
+                assembly().assemble_matrix(m_A);
+
+                PetscObjectSetName(reinterpret_cast<PetscObject>(m_A), "A");
             }
 
             virtual void setup()
@@ -242,9 +249,16 @@ namespace samurai
             virtual void reset()
             {
                 destroy_petsc_objects();
-                m_assembly.reset();
+                m_assembly.is_set_up(false);
                 m_is_set_up = false;
                 configure_solver();
+            }
+
+            void set_scheme(const scheme_t& s)
+            {
+                m_assembly.set_scheme(s);
+                m_is_set_up              = false;
+                m_reuse_allocated_matrix = true;
             }
         };
 

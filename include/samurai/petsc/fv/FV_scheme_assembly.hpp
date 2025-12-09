@@ -139,6 +139,11 @@ namespace samurai
                 return m_scheme;
             }
 
+            void set_scheme(const Scheme& s)
+            {
+                m_scheme = s;
+            }
+
             const auto& row_numbering() const
             {
                 assert(m_row_numbering != nullptr);

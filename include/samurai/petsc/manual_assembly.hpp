@@ -30,9 +30,18 @@ namespace samurai
 
           public:
 
+            void set_scheme(const scheme_t&)
+            {
+            }
+
             UnknownField& unknown() const
             {
                 return *m_unknown;
+            }
+
+            UnknownField* unknown_ptr() const
+            {
+                return m_unknown;
             }
 
             void set_unknown(UnknownField& unknown)

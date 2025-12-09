@@ -572,9 +572,8 @@ namespace samurai
                               });
                 save_numbering(mesh);
             }
-
-            ownership.is_computed = true;
 #endif
+            ownership.is_computed = true;
         }
 
     }

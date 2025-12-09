@@ -363,14 +363,14 @@ int main(int argc, char* argv[])
         std::cout << std::endl;
 
         // Update solver
-        if (mesh_has_changed || dt_has_changed)
+        if (dt_has_changed)
         {
-            if (dt_has_changed)
-            {
-                stokes = samurai::make_block_operator<2, 2>(id + dt * diff, dt * grad, -div, zero_op);
-            }
-            stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
-            stokes_solver.set_unknowns(velocity_np1, pressure_np1);
+            stokes = samurai::make_block_operator<2, 2>(id + dt * diff, dt * grad, -div, zero_op);
+            stokes_solver.set_block_operator(stokes);
+        }
+        if (mesh_has_changed)
+        {
+            stokes_solver.reset();
             configure_solver(stokes_solver, constant_pressure, zero_velocity);
         }
 

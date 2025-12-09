@@ -45,6 +45,21 @@ namespace samurai
                     });
             }
 
+            void set_block_operator(const block_operator_t& block_op)
+            {
+                m_block_operator = block_op;
+                for_each_assembly_op(
+                    [&](auto& op, auto row, auto col)
+                    {
+                        op.set_scheme(m_block_operator.template get<row, col>());
+                    });
+            }
+
+            void set_scheme(const block_operator_t& block_op)
+            {
+                set_block_operator(block_op);
+            }
+
             // template <class OperatorType>
             // static Assembly<OperatorType> to_assembly(OperatorType& op)
             // {
@@ -240,7 +255,11 @@ namespace samurai
                 for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
-                        undefined = undefined || !op.unknown_ptr();
+                        using op_t = std::decay_t<decltype(op)>;
+                        if constexpr (!std::is_same_v<op_t, ZeroBlockAssembly>)
+                        {
+                            undefined = undefined || !op.unknown_ptr();
+                        }
                     });
                 return undefined;
             }
@@ -251,7 +270,7 @@ namespace samurai
                 for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
-                        if (row == col)
+                        if constexpr (row == col)
                         {
                             names[col] = op.unknown().name();
                         }
@@ -318,6 +337,7 @@ namespace samurai
           private:
 
             std::array<Mat, rows * cols> m_blocks;
+            bool m_is_set_up = false;
 
           public:
 
@@ -334,7 +354,11 @@ namespace samurai
 
             void create_matrix(Mat& A)
             {
-                reset();
+                if (!m_is_set_up)
+                {
+                    reset();
+                    m_is_set_up = true;
+                }
 
                 for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
@@ -358,6 +382,16 @@ namespace samurai
                     MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
                     MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
                 }
+            }
+
+            void is_set_up(bool value)
+            {
+                m_is_set_up = value;
+                for_each_assembly_op(
+                    [&](auto& op, auto, auto)
+                    {
+                        op.is_set_up(value);
+                    });
             }
 
             void reset()
@@ -421,14 +455,17 @@ namespace samurai
             void enforce_bc(Vec& b) const
             {
                 for_each_assembly_op(
-                    [&](auto& op, auto row, auto)
+                    [&](auto& op, auto row, auto col)
                     {
-                        if (op.include_bc())
+                        if constexpr (row == col)
                         {
-                            // std::cout << "enforce_bc (" << row << ", " << col << ") on b[" << row << "]" << std::endl;
-                            Vec b_block;
-                            VecNestGetSubVec(b, static_cast<PetscInt>(row), &b_block);
-                            op.enforce_bc(b_block);
+                            if (op.include_bc())
+                            {
+                                // std::cout << "enforce_bc (" << row << ", " << col << ") on b[" << row << "]" << std::endl;
+                                Vec b_block;
+                                VecNestGetSubVec(b, static_cast<PetscInt>(row), &b_block);
+                                op.enforce_bc(b_block);
+                            }
                         }
                     });
             }
@@ -478,7 +515,7 @@ namespace samurai
                 for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
-                        if (row == col) // only on diagonal blocks
+                        if constexpr (row == col)
                         {
                             Vec b_block;
                             VecNestGetSubVec(b, static_cast<PetscInt>(row), &b_block);
@@ -493,7 +530,7 @@ namespace samurai
                 for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
-                        if (row == col)
+                        if constexpr (row == col)
                         {
                             x_blocks[col] = op.create_solution_vector(op.unknown());
                         }
@@ -528,7 +565,7 @@ namespace samurai
                 this->for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
-                        if (row == col)
+                        if constexpr (row == col)
                         {
                             b_blocks[row] = op.create_rhs_vector(std::get<row>(sources));
                         }
@@ -558,7 +595,7 @@ namespace samurai
                 for_each_assembly_op(
                     [&](auto& op, auto row, auto)
                     {
-                        if (row == 0)
+                        if constexpr (row == col)
                         {
                             Vec x_block;
                             VecNestGetSubVec(x, static_cast<PetscInt>(row), &x_block);
@@ -600,6 +637,16 @@ namespace samurai
                     [&](auto& op, auto, auto)
                     {
                         op.is_block_in_monolithic_matrix(true);
+                    });
+            }
+
+            void is_set_up(bool value) override
+            {
+                MatrixAssembly::is_set_up(value);
+                for_each_assembly_op(
+                    [&](auto& op, auto, auto)
+                    {
+                        op.is_set_up(value);
                     });
             }
 
@@ -910,7 +957,7 @@ namespace samurai
                 for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
-                        if (row == col)
+                        if constexpr (row == col)
                         {
                             op.set_diag_value_for_useless_ghosts(value);
                         }
@@ -935,7 +982,7 @@ namespace samurai
                 for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
-                        if (row == col)
+                        if constexpr (row == col)
                         {
                             op.for_each_useless_ghost_row(std::forward<Func>(f));
                         }
@@ -982,7 +1029,7 @@ namespace samurai
                 for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
-                        if (row == col)
+                        if constexpr (row == col)
                         {
                             op.copy_unknown(op.unknown(), x);
                         }
@@ -1009,12 +1056,15 @@ namespace samurai
             void enforce_bc(Vec& b) const
             {
                 for_each_assembly_op(
-                    [&](auto& op, auto, auto)
+                    [&](auto& op, auto row, auto col)
                     {
-                        if (op.include_bc())
+                        if constexpr (row == col)
                         {
-                            // std::cout << "enforce_bc (" << row << ", " << col << ") on b[" << row << "]" << std::endl;
-                            op.enforce_bc(b);
+                            if (op.include_bc())
+                            {
+                                // std::cout << "enforce_bc (" << row << ", " << col << ") on b[" << row << "]" << std::endl;
+                                op.enforce_bc(b);
+                            }
                         }
                     });
             }
@@ -1048,7 +1098,7 @@ namespace samurai
                 for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
-                        if (row == col) // only on diagonal blocks
+                        if constexpr (row == col)
                         {
                             op.set_0_for_all_ghosts(b);
                         }
@@ -1058,9 +1108,9 @@ namespace samurai
             void update_unknowns(const Vec& x) const
             {
                 for_each_assembly_op(
-                    [&](auto& op, auto row, auto)
+                    [&](auto& op, auto row, auto col)
                     {
-                        if (row == 0)
+                        if constexpr (row == col)
                         {
                             op.copy_unknown(x, op.unknown());
                         }

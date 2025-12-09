@@ -10,6 +10,7 @@ namespace samurai
         {
           private:
 
+            bool m_is_set_up   = false; // if false, then reset() must be called before assembling the matrix
             bool m_is_deleted  = false;
             std::string m_name = "(unnamed)";
 
@@ -56,6 +57,16 @@ namespace samurai
             void set_name(const std::string& name)
             {
                 m_name = name;
+            }
+
+            bool is_set_up() const
+            {
+                return m_is_set_up;
+            }
+
+            virtual void is_set_up(bool value)
+            {
+                m_is_set_up = value;
             }
 
             bool include_bc() const
@@ -217,9 +228,10 @@ namespace samurai
                 times::timers.start("matrix assembly");
 
                 assert(!m_is_block_in_monolithic_matrix);
-                if (!m_is_block_in_nested_matrix)
+                if (!m_is_block_in_nested_matrix && !m_is_set_up)
                 {
                     reset();
+                    m_is_set_up = true;
                 }
 
                 //-----------------//

@@ -36,6 +36,10 @@ namespace samurai
                 this->set_name("0");
             }
 
+            void set_scheme(const scheme_t&)
+            {
+            }
+
             PetscInt owned_matrix_rows() const override
             {
                 return m_owned_rows;

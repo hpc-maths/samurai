@@ -76,97 +76,97 @@ def get_executable(path, filename):
 #     output = subprocess.run(cmd, check=True, capture_output=True)
 
 
-# @pytest.mark.h5diff()
+@pytest.mark.h5diff()
 # @pytest.mark.skipif(
 #     sys.platform == "darwin",
 #     reason="skipped on macos because libpthread is missing on github worker",
 # )
-# @pytest.mark.parametrize("time_scheme", ["explicit", "implicit"])
-# def test_finite_volume_demo_heat(time_scheme, config):
-#     cmd = [
-#         get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-heat"),
-#         "--path",
-#         config["path"],
-#         "--filename",
-#         config["filename"],
-#         "--save-final-state-only",
-#         "--init-sol=dirac",
-#         "--Tf=0.1",
-#         "--min-level=3",
-#         "--max-level=6",
-#     ]
-#     if time_scheme == "explicit":
-#         cmd.append("--explicit")
-#     else:
-#         cmd.extend(["-ksp_type", "preonly", "-pc_type", "lu"])
-#     output = subprocess.run(cmd, check=True, capture_output=True)
+@pytest.mark.parametrize("time_scheme", ["explicit", "implicit"])
+def test_finite_volume_demo_heat(time_scheme, config):
+    cmd = [
+        get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-heat"),
+        "--path",
+        config["path"],
+        "--filename",
+        config["filename"],
+        "--save-final-state-only",
+        "--init-sol=dirac",
+        "--Tf=0.1",
+        "--min-level=3",
+        "--max-level=6",
+    ]
+    if time_scheme == "explicit":
+        cmd.append("--explicit")
+    else:
+        cmd.extend(["-ksp_type", "preonly", "-pc_type", "lu"])
+    output = subprocess.run(cmd, check=True, capture_output=True)
 
 
-# @pytest.mark.h5diff()
+@pytest.mark.h5diff()
 # @pytest.mark.skipif(
 #     sys.platform == "darwin",
 #     reason="skipped on macos because libpthread is missing on github worker",
 # )
-# @pytest.mark.parametrize("time_scheme", ["explicit", "implicit"])
-# def test_finite_volume_demo_heat_heterogeneous(time_scheme, config):
-#     cmd = [
-#         get_executable(
-#             Path("../build/demos/FiniteVolume/"), "finite-volume-heat-heterogeneous"
-#         ),
-#         "--path",
-#         config["path"],
-#         "--filename",
-#         config["filename"],
-#         "--save-final-state-only",
-#         "--Tf=0.1",
-#         "--min-level=3",
-#         "--max-level=6",
-#     ]
-#     if time_scheme == "explicit":
-#         cmd.append("--explicit")
-#     else:
-#         cmd.extend(["-ksp_type", "preonly", "-pc_type", "lu"])
-#     output = subprocess.run(cmd, check=True, capture_output=True)
+@pytest.mark.parametrize("time_scheme", ["explicit", "implicit"])
+def test_finite_volume_demo_heat_heterogeneous(time_scheme, config):
+    cmd = [
+        get_executable(
+            Path("../build/demos/FiniteVolume/"), "finite-volume-heat-heterogeneous"
+        ),
+        "--path",
+        config["path"],
+        "--filename",
+        config["filename"],
+        "--save-final-state-only",
+        "--Tf=0.1",
+        "--min-level=3",
+        "--max-level=6",
+    ]
+    if time_scheme == "explicit":
+        cmd.append("--explicit")
+    else:
+        cmd.extend(["-ksp_type", "preonly", "-pc_type", "lu"])
+    output = subprocess.run(cmd, check=True, capture_output=True)
 
 
-# @pytest.mark.h5diff()
+@pytest.mark.h5diff()
 # @pytest.mark.skipif(
 #     sys.platform == "darwin",
 #     reason="skipped on macos because libpthread is missing on github worker",
 # )
-# def test_finite_volume_demo_stokes_stationary(config):
-#     cmd = [
-#         get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-stokes-2d"),
-#         "--path",
-#         config["path"],
-#         "--filename",
-#         config["filename"],
-#         "--test-case=s",
-#         "--min-level=5",
-#         "--max-level=5",
-#     ]
-#     output = subprocess.run(cmd, check=True, capture_output=True)
+def test_finite_volume_demo_stokes_stationary(config):
+    cmd = [
+        get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-stokes-2d"),
+        "--path",
+        config["path"],
+        "--filename",
+        config["filename"],
+        "--test-case=s",
+        "--min-level=5",
+        "--max-level=5",
+    ]
+    output = subprocess.run(cmd, check=True, capture_output=True)
 
 
-# @pytest.mark.h5diff()
+@pytest.mark.h5diff()
 # @pytest.mark.skipif(
 #     sys.platform == "darwin",
 #     reason="skipped on macos because libpthread is missing on github worker",
 # )
-# def test_finite_volume_demo_stokes_nonstationary(config):
-#     cmd = [
-#         get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-stokes-2d"),
-#         "--path",
-#         config["path"],
-#         "--filename",
-#         config["filename"],
-#         "--test-case=ns",
-#         "--nfiles=1",
-#         "--min-level=3",
-#         "--max-level=6",
-#         "--Tf=0.1",
-#     ]
-#     output = subprocess.run(cmd, check=True, capture_output=True)
+def test_finite_volume_demo_stokes_nonstationary(config):
+    cmd = [
+        get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-stokes-2d"),
+        "--path",
+        config["path"],
+        "--filename",
+        config["filename"],
+        "--test-case=ns",
+        "--nfiles=1",
+        "--min-level=3",
+        "--max-level=6",
+        "--Tf=0.1",
+    ]
+    output = subprocess.run(cmd, check=True, capture_output=True)
 
 
 # @pytest.mark.h5diff()
@@ -204,36 +204,36 @@ def get_executable(path, filename):
 #     ]
 #     output = subprocess.run(cmd, check=True, capture_output=True)
 
-# @pytest.mark.h5diff()
+@pytest.mark.h5diff()
 # @pytest.mark.skipif(
 #     sys.platform == "darwin",
 #     reason="skipped on macos because libpthread is missing on github worker",
 # )
-# @pytest.mark.parametrize("scheme", ["imp_diff_imp_react", "exp_diff_imp_react", "imp_diff_exp_react", "exp_diff_exp_react"])
-# def test_finite_volume_demo_nagumo(scheme, config):
-#     cmd = [
-#         get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-nagumo"),
-#         "--path",
-#         config["path"],
-#         "--filename",
-#         config["filename"],
-#         "--save-final-state-only",
-#         "--min-level=4",
-#         "--max-level=8",
-#         "-ksp_type",
-#         "preonly",
-#         "-pc_type",
-#         "lu",
-#     ]
-#     if scheme == "imp_diff_imp_react":
-#         cmd.extend(["--Tf=0.1", "--dt=0.02"])
-#     elif scheme == "exp_diff_imp_react":
-#         cmd.extend(["--Tf=0.01", "--explicit-diffusion"])
-#     elif scheme == "imp_diff_exp_react":
-#         cmd.extend(["--Tf=0.1", "--dt=0.02", "--explicit-reaction"])
-#     elif scheme == "exp_diff_exp_react":
-#         cmd.extend(["--Tf=0.01", "--explicit-diffusion", "--explicit-reaction"])
-#     output = subprocess.run(cmd, check=True, capture_output=True)
+@pytest.mark.parametrize("scheme", ["imp_diff_imp_react", "exp_diff_imp_react", "imp_diff_exp_react", "exp_diff_exp_react"])
+def test_finite_volume_demo_nagumo(scheme, config):
+    cmd = [
+        get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-nagumo"),
+        "--path",
+        config["path"],
+        "--filename",
+        config["filename"],
+        "--save-final-state-only",
+        "--min-level=4",
+        "--max-level=8",
+        "-ksp_type",
+        "preonly",
+        "-pc_type",
+        "lu",
+    ]
+    if scheme == "imp_diff_imp_react":
+        cmd.extend(["--Tf=0.1", "--dt=0.02"])
+    elif scheme == "exp_diff_imp_react":
+        cmd.extend(["--Tf=0.01", "--explicit-diffusion"])
+    elif scheme == "imp_diff_exp_react":
+        cmd.extend(["--Tf=0.1", "--dt=0.02", "--explicit-reaction"])
+    elif scheme == "exp_diff_exp_react":
+        cmd.extend(["--Tf=0.01", "--explicit-diffusion", "--explicit-reaction"])
+    output = subprocess.run(cmd, check=True, capture_output=True)
 
 
 @pytest.mark.h5diff()
@@ -259,44 +259,44 @@ def test_finite_volume_demo_lid_driven_cavity(config):
     output = subprocess.run(cmd, check=True, capture_output=True)
 
 
-# @pytest.mark.h5diff()
+@pytest.mark.h5diff()
 # @pytest.mark.skipif(
 #     sys.platform == "darwin",
 #     reason="skipped on macos because libpthread is missing on github worker",
 # )
-# @pytest.mark.parametrize("time_scheme", ["explicit", "implicit"])
-# def test_finite_volume_demo_linear_convection(time_scheme, config):
-#     cmd = [
-#         get_executable(
-#             Path("../build/demos/FiniteVolume/"), "finite-volume-linear-convection"
-#         ),
-#         "--path",
-#         config["path"],
-#         "--filename",
-#         config["filename"],
-#         "--nfiles=1",
-#         "--min-level=1",
-#         "--max-level=6",
-#         "--Tf=0.1",
-#     ]
-#     if time_scheme == "implicit":
-#         cmd.append("--implicit")
-#     output = subprocess.run(cmd, check=True, capture_output=True)
+@pytest.mark.parametrize("time_scheme", ["explicit", "implicit"])
+def test_finite_volume_demo_linear_convection(time_scheme, config):
+    cmd = [
+        get_executable(
+            Path("../build/demos/FiniteVolume/"), "finite-volume-linear-convection"
+        ),
+        "--path",
+        config["path"],
+        "--filename",
+        config["filename"],
+        "--nfiles=1",
+        "--min-level=1",
+        "--max-level=6",
+        "--Tf=0.1",
+    ]
+    if time_scheme == "implicit":
+        cmd.append("--implicit")
+    output = subprocess.run(cmd, check=True, capture_output=True)
 
-# @pytest.mark.h5diff()
-# def test_finite_volume_demo_obstacle_linear_convection(config):
-#     cmd = [
-#         get_executable(
-#             Path("../build/demos/FiniteVolume/"), "finite-volume-linear-convection-obstacle"
-#         ),
-#         "--path",
-#         config["path"],
-#         "--filename",
-#         config["filename"],
-#         "--nfiles=1",
-#         "--Tf=0.3",
-#     ]
-#     output = subprocess.run(cmd, check=True, capture_output=True)
+@pytest.mark.h5diff()
+def test_finite_volume_demo_obstacle_linear_convection(config):
+    cmd = [
+        get_executable(
+            Path("../build/demos/FiniteVolume/"), "finite-volume-linear-convection-obstacle"
+        ),
+        "--path",
+        config["path"],
+        "--filename",
+        config["filename"],
+        "--nfiles=1",
+        "--Tf=0.3",
+    ]
+    output = subprocess.run(cmd, check=True, capture_output=True)
 
 
 # @pytest.mark.parametrize("max_level", range(8, 14))

@@ -157,7 +157,7 @@ int main(int argc, char* argv[])
 
     constexpr std::size_t dim        = 2;
     static constexpr bool is_soa     = false;
-    static constexpr bool monolithic = true;
+    static constexpr bool monolithic = false;
 
     //----------------//
     //   Parameters   //
