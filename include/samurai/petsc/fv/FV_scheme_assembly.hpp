@@ -12,7 +12,7 @@ namespace samurai
 {
     namespace petsc
     {
-        template <bool is_monolithic, std::size_t rows_, std::size_t cols_, class... Operators>
+        template <BlockAssemblyType assembly_type_, std::size_t rows_, std::size_t cols_, class... Operators>
         class BlockAssembly;
 
         /**
@@ -237,7 +237,7 @@ namespace samurai
              * This function is called in case of monolithic block_assembly (e.g., Stokes equation).
              */
             template <std::size_t rows_, std::size_t cols_, class... Operators>
-            void reset(BlockAssembly<true, rows_, cols_, Operators...>& block_assembly)
+            void reset(BlockAssembly<BlockAssemblyType::Monolithic, rows_, cols_, Operators...>& block_assembly)
             {
                 compute_cell_ownership(mesh());
                 m_row_numbering = &block_assembly.numbering();
@@ -257,7 +257,7 @@ namespace samurai
              * This function is called in case of nested block_assembly (e.g., Stokes equation).
              */
             template <std::size_t rows_, std::size_t cols_, class... Operators>
-            void reset(BlockAssembly<false, rows_, cols_, Operators...>& /*block_assembly*/)
+            void reset(BlockAssembly<BlockAssemblyType::NestedMatrices, rows_, cols_, Operators...>& /*block_assembly*/)
             {
                 compute_cell_ownership(mesh());
 

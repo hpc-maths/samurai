@@ -305,7 +305,7 @@ int main(int argc, char* argv[])
     //-----------------//
 
     // Create an assembly object in order to assemble the matrix associated to the block operator
-    auto assembly = samurai::petsc::make_assembly<true>(block_op); // <true>: monolithic, <false>: nested
+    auto assembly = samurai::petsc::make_assembly<samurai::petsc::BlockAssemblyType::Monolithic>(block_op);
     // Disable the assembly of the BC for the diffusion operators
     assembly.template get<0, 0>().include_bc(false);
     assembly.template get<2, 2>().include_bc(false);

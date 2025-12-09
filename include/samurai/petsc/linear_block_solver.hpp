@@ -10,10 +10,10 @@ namespace samurai
         /**
          * Block solver
          */
-        template <bool monolithic, std::size_t rows_, std::size_t cols_, class... Operators>
-        class LinearBlockSolver : public LinearSolverBase<BlockAssembly<monolithic, rows_, cols_, Operators...>>
+        template <BlockAssemblyType assembly_type_, std::size_t rows_, std::size_t cols_, class... Operators>
+        class LinearBlockSolver : public LinearSolverBase<BlockAssembly<assembly_type_, rows_, cols_, Operators...>>
         {
-            using assembly_t = BlockAssembly<monolithic, rows_, cols_, Operators...>;
+            using assembly_t = BlockAssembly<assembly_type_, rows_, cols_, Operators...>;
             using base_class = LinearSolverBase<assembly_t>;
             using base_class::m_A;
             using base_class::m_is_set_up;
@@ -33,7 +33,10 @@ namespace samurai
 
           public:
 
-            static constexpr bool is_monolithic = monolithic;
+            static constexpr BlockAssemblyType assembly_type = assembly_type_;
+
+            [[deprecated("Use assembly_type == samurai::petsc::BlockAssemblyType::Monolithic instead")]]
+            static constexpr bool is_monolithic = (assembly_type == BlockAssemblyType::Monolithic);
 
             explicit LinearBlockSolver(const block_operator_t& block_op)
                 : base_class(block_op)
@@ -59,7 +62,7 @@ namespace samurai
             void set_pc_fieldsplit(PC& pc)
             {
                 PCSetType(pc, PCFIELDSPLIT);
-                if constexpr (is_monolithic)
+                if constexpr (assembly_type == BlockAssemblyType::Monolithic)
                 {
                     auto IS_fields   = assembly().create_fields_IS();
                     auto field_names = assembly().field_names();
@@ -105,7 +108,7 @@ namespace samurai
 
             void setup() override
             {
-                if constexpr (is_monolithic)
+                if constexpr (assembly_type == BlockAssemblyType::Monolithic)
                 {
                     base_class::setup();
                     return;
@@ -161,12 +164,11 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
                 assembly().update_unknowns(x);
 #else
-                if constexpr (is_monolithic)
+                if constexpr (assembly_type == BlockAssemblyType::Monolithic)
                 {
                     assembly().update_unknowns(x);
                 }
 #endif
-
                 VecDestroy(&b);
                 VecDestroy(&x);
             }

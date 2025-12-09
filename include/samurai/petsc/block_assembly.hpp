@@ -313,7 +313,7 @@ namespace samurai
             }
         };
 
-        template <bool monolithic, std::size_t rows_, std::size_t cols_, class... Operators>
+        template <BlockAssemblyType assembly_type_, std::size_t rows_, std::size_t cols_, class... Operators>
         class BlockAssembly
         {
         };
@@ -322,7 +322,8 @@ namespace samurai
          * Assemble block matrix using PETSc nested matrices.
          */
         template <std::size_t rows_, std::size_t cols_, class... Operators>
-        class BlockAssembly<false, rows_, cols_, Operators...> : public BlockAssemblyBase<rows_, cols_, Operators...>
+        class BlockAssembly<BlockAssemblyType::NestedMatrices, rows_, cols_, Operators...>
+            : public BlockAssemblyBase<rows_, cols_, Operators...>
         {
             using base_class = BlockAssemblyBase<rows_, cols_, Operators...>;
 
@@ -609,8 +610,8 @@ namespace samurai
          * Assemble block matrix as a monolithic matrix.
          */
         template <std::size_t rows_, std::size_t cols_, class... Operators>
-        class BlockAssembly<true, rows_, cols_, Operators...> : public BlockAssemblyBase<rows_, cols_, Operators...>,
-                                                                public MatrixAssembly
+        class BlockAssembly<BlockAssemblyType::Monolithic, rows_, cols_, Operators...> : public BlockAssemblyBase<rows_, cols_, Operators...>,
+                                                                                         public MatrixAssembly
         {
             using base_class = BlockAssemblyBase<rows_, cols_, Operators...>;
 
@@ -1163,16 +1164,30 @@ namespace samurai
         // template <std::size_t rows_, std::size_t cols_, class... Operators>
         // using MonolithicBlockAssembly = BlockAssembly<true, rows_, cols_, Operators...>;
 
-        template <bool monolithic, std::size_t rows_, std::size_t cols_, class... Operators>
+        template <BlockAssemblyType assembly_type_, std::size_t rows_, std::size_t cols_, class... Operators>
         auto make_assembly(const BlockOperator<rows_, cols_, Operators...>& block_op)
         {
-            return BlockAssembly<monolithic, rows_, cols_, Operators...>(block_op);
+            return BlockAssembly<assembly_type_, rows_, cols_, Operators...>(block_op);
+        }
+
+        template <bool monolithic, std::size_t rows_, std::size_t cols_, class... Operators>
+        [[deprecated("Use make_assembly<samurai::petsc::BlockAssemblyType::Monolithic/NestedMatrices> instead")]]
+        auto make_assembly(const BlockOperator<rows_, cols_, Operators...>& block_op)
+        {
+            if (monolithic)
+            {
+                return BlockAssembly<BlockAssemblyType::Monolithic, rows_, cols_, Operators...>(block_op);
+            }
+            else
+            {
+                return BlockAssembly<BlockAssemblyType::NestedMatrices, rows_, cols_, Operators...>(block_op);
+            }
         }
 
         template <std::size_t rows_, std::size_t cols_, class... Operators>
         auto make_assembly(const BlockOperator<rows_, cols_, Operators...>& block_op)
         {
-            return make_assembly<true>(block_op);
+            return make_assembly<BlockAssemblyType::Monolithic>(block_op);
         }
 
         /**

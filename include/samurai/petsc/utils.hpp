@@ -7,6 +7,13 @@ namespace samurai
 {
     namespace petsc
     {
+
+        enum class BlockAssemblyType
+        {
+            Monolithic,
+            NestedMatrices
+        };
+
         // Concept to check if a type is xt::xtensor
         template <typename T>
         struct is_xtensor_impl : std::false_type

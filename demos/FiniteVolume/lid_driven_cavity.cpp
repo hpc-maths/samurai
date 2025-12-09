@@ -115,7 +115,7 @@ void configure_saddle_point_solver(Solver& block_solver)
 template <class Solver, class PressureField, class VelocityField>
 void configure_solver(Solver& solver, const PressureField& constant_pressure, const VelocityField& zero_velocity)
 {
-    if constexpr (Solver::is_monolithic)
+    if constexpr (Solver::assembly_type == samurai::petsc::BlockAssemblyType::Monolithic)
     {
         configure_monolithic_solver(solver, constant_pressure, zero_velocity);
     }
@@ -130,9 +130,6 @@ int main(int argc, char* argv[])
     auto& app = samurai::initialize("Lid-driven cavity", argc, argv);
 
     constexpr std::size_t dim = 2;
-
-    static constexpr bool is_soa     = false;
-    static constexpr bool monolithic = true;
 
     //----------------//
     //   Parameters   //
@@ -184,8 +181,8 @@ int main(int argc, char* argv[])
     using mesh_id_t = typename decltype(mesh)::mesh_id_t;
 
     // Fields for the Navier-Stokes equations
-    auto velocity     = samurai::make_vector_field<double, dim, is_soa>("velocity", mesh);
-    auto velocity_np1 = samurai::make_vector_field<double, dim, is_soa>("velocity_np1", mesh);
+    auto velocity     = samurai::make_vector_field<double, dim>("velocity", mesh);
+    auto velocity_np1 = samurai::make_vector_field<double, dim>("velocity_np1", mesh);
     auto pressure_np1 = samurai::make_scalar_field<double>("pressure_np1", mesh);
 
     using VelocityField = decltype(velocity);
@@ -193,7 +190,7 @@ int main(int argc, char* argv[])
 
     // Fields for the null space of the system (constant pressure)
     auto constant_pressure = samurai::make_scalar_field<double>("constant_pressure", mesh, 1.0);
-    auto zero_velocity     = samurai::make_vector_field<double, dim, is_soa>("zero_velocity", mesh, 0.0);
+    auto zero_velocity     = samurai::make_vector_field<double, dim>("zero_velocity", mesh, 0.0);
 
     // Multi-resolution: the mesh will be adapted according to the velocity
     auto MRadaptation = samurai::make_MRAdapt(velocity);
@@ -247,11 +244,11 @@ int main(int argc, char* argv[])
     // clang-format on
 
     // Fields for the right-hand side of the system
-    auto rhs  = samurai::make_vector_field<double, dim, is_soa>("rhs", mesh);
+    auto rhs  = samurai::make_vector_field<double, dim>("rhs", mesh);
     auto zero = samurai::make_scalar_field<double>("zero", mesh);
 
     // Linear solver
-    auto stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
+    auto stokes_solver = samurai::petsc::make_solver<samurai::petsc::BlockAssemblyType::Monolithic>(stokes);
     stokes_solver.set_unknowns(velocity_np1, pressure_np1);
     configure_solver(stokes_solver, constant_pressure, zero_velocity);
 
@@ -269,7 +266,7 @@ int main(int argc, char* argv[])
     auto ink     = samurai::make_scalar_field<double>("ink", mesh2);
     auto ink_np1 = samurai::make_scalar_field<double>("ink_np1", mesh2);
     // Field to store the Navier-Stokes velocity transferred to the 2nd mesh
-    auto velocity2 = samurai::make_vector_field<dim, is_soa>("velocity2", mesh2);
+    auto velocity2 = samurai::make_vector_field<dim>("velocity2", mesh2);
 
     using InkField = decltype(ink);
 
@@ -428,7 +425,7 @@ int main(int argc, char* argv[])
         } // end time loop
 
         // srand(time(NULL));
-        // auto x_velocity = samurai::make_vector_field<double, dim, is_soa>("x_velocity", mesh);
+        // auto x_velocity = samurai::make_vector_field<double, dim>("x_velocity", mesh);
         // auto x_pressure = samurai::make_scalar_field<double>("x_pressure", mesh);
         // samurai::for_each_cell(mesh[mesh_id_t::reference],
         //                        [&](auto cell)
@@ -443,7 +440,7 @@ int main(int argc, char* argv[])
         // monolithicAssembly.create_matrix(monolithicA);
         // monolithicAssembly.assemble_matrix(monolithicA);
         // Vec mono_x                = monolithicAssembly.create_applicable_vector(x); // copy
-        // auto result_velocity_mono = samurai::make_vector_field<double, dim, is_soa>("result_velocity", mesh);
+        // auto result_velocity_mono = samurai::make_vector_field<double, dim>("result_velocity", mesh);
         // auto result_pressure_mono = samurai::make_scalar_field<double>("result_pressure", mesh);
         // auto result_mono          = stokes.tie_rhs(result_velocity_mono, result_pressure_mono);
         // Vec mono_result           = monolithicAssembly.create_rhs_vector(result_mono); // copy
@@ -455,7 +452,7 @@ int main(int argc, char* argv[])
         // nestedAssembly.create_matrix(nestedA);
         // nestedAssembly.assemble_matrix(nestedA);
         // Vec nest_x                = nestedAssembly.create_applicable_vector(x);
-        // auto result_velocity_nest = samurai::make_vector_field<double, dim, is_soa>("result_velocity", mesh);
+        // auto result_velocity_nest = samurai::make_vector_field<double, dim>("result_velocity", mesh);
         // auto result_pressure_nest = samurai::make_scalar_field<double>("result_pressure", mesh);
         // auto result_nest          = stokes.tie_rhs(result_velocity_nest, result_pressure_nest);
         // Vec nest_result           = nestedAssembly.create_rhs_vector(result_nest);

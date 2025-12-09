@@ -377,7 +377,7 @@ jobs:
             - name: Build
               shell: bash -l {0}
               run: |
-                  cmake --build ./build --config Release --target finite-volume-lid-driven-cavity --parallel 3
+                  cmake --build ./build --config Release --parallel 3
 
             - name: Run tests
               shell: bash -l {0}
