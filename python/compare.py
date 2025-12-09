@@ -98,8 +98,7 @@ def compare_meshes(file1, file2, tol):
             print("-- Coordinates (x,y,z):")
             print(cells1[index1[ind]], cells2[index2[ind]])
             # print(np.abs(field1[field][:][index1[ind]]-field2[field][:][index2[ind]]))
-            print(f"{field} is not the same between {file1} and {file2}")
-            sys.exit()
+            sys.exit(f"{field} is not the same between {file1} and {file2}")
     print(f"files {file1} and {file2} are the same")
 
 

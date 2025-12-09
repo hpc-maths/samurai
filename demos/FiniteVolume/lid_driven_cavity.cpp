@@ -47,7 +47,6 @@ void configure_monolithic_solver(Solver& solver, const PressureField& constant_p
         PetscStrcmp(stype, MATSOLVERMUMPS, &is_mumps);
         if (is_mumps)
         {
-            std::cout << "Setting MUMPS ICNTL(24)=1 to handle singular matrix." << std::endl;
             Mat F;
             PCFactorGetMatrix(pc, &F);
             MatMumpsSetIcntl(F, 24, 1); // (equiv. '-mat_mumps_icntl_24 1')
