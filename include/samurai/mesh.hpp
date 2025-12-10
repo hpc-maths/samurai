@@ -23,6 +23,30 @@
 namespace mpi = boost::mpi;
 #endif
 
+#ifdef SAMURAI_WITH_MPI
+// Résolution d'un bug : S'il y a trop de rangs MPI et un min_level trop faible, alors il est parfois
+// impossible de décomposer le problème (--> segfault). Il faut alors imposer un min_level limite le temps d'un fix
+bool is_invalid_mpi_size(std::size_t min_level)
+{
+    boost::mpi::communicator world;
+    int mpi_size = world.size();
+
+    // à vérifier :
+    // - en 1d ?
+    return (mpi_size > std::pow(2, min_level));
+}
+
+void validate_mpi_min_level(std::size_t min_level)
+{
+    if (is_invalid_mpi_size(min_level))
+    {
+        std::cerr << "ERROR: MPI size (" << boost::mpi::communicator().size() << ") is too large for min_level = " << min_level
+                  << ". Please ensure that mpi_size <= 2^min_level." << std::endl;
+        MPI_Abort(MPI_COMM_WORLD, 1);
+    }
+}
+#endif
+
 namespace samurai
 {
 
@@ -264,6 +288,7 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
         partition_mesh(start_level, b);
         // load_balancing();
+        validate_mpi_min_level(min_level);
 #else
         this->m_cells[mesh_id_t::cells][start_level] = {start_level, b, approx_box_tol, scaling_factor_};
 #endif
@@ -334,6 +359,8 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
         partition_mesh(start_level, b);
         // load_balancing();
+
+        validate_mpi_min_level(min_level);
 #else
         this->m_cells[mesh_id_t::cells][start_level] = {start_level, b, approx_box_tol, scaling_factor_};
 #endif
