@@ -105,29 +105,7 @@ namespace samurai
                     m_row_numbering = nullptr;
                     m_col_numbering = nullptr;
                 }
-                // destroy_local_to_global_mappings();
             }
-
-            // void destroy_local_to_global_mappings()
-            // {
-            //     if (m_owns_local_to_global_mappings)
-            //     {
-            //         if (m_local_to_global_rows)
-            //         {
-            //             std::cout << "[" << mpi::communicator().rank() << "] Destroying local to global mapping for rows of matrix '"
-            //                       << name() << "' " << m_local_to_global_rows << "\n";
-            //             ISLocalToGlobalMappingDestroy(&m_local_to_global_rows);
-            //         }
-            //         if (m_local_to_global_cols != m_local_to_global_rows && m_local_to_global_cols)
-            //         {
-            //             std::cout << "[" << mpi::communicator().rank() << "] Destroying local to global mapping for cols of matrix '"
-            //                       << name() << "' " << m_local_to_global_cols << "\n";
-            //             ISLocalToGlobalMappingDestroy(&m_local_to_global_cols);
-            //         }
-            //         m_local_to_global_rows = nullptr;
-            //         m_local_to_global_cols = nullptr;
-            //     }
-            // }
 
             auto& scheme()
             {
@@ -275,15 +253,15 @@ namespace samurai
 
             const std::vector<PetscInt>& local_to_global_rows() const override
             {
-                // assert(!has_duplicates(m_row_numbering->local_to_global_mapping)
-                //        && "local to global mapping (rows) has duplicate global indices");
+                assert(!has_duplicates(m_row_numbering->local_to_global_mapping)
+                       && "local to global mapping (rows) has duplicate global indices");
                 return m_row_numbering->local_to_global_mapping;
             }
 
             const std::vector<PetscInt>& local_to_global_cols() const override
             {
-                // assert(!has_duplicates(m_col_numbering->local_to_global_mapping)
-                //        && "local to global mapping (cols) has duplicate global indices");
+                assert(!has_duplicates(m_col_numbering->local_to_global_mapping)
+                       && "local to global mapping (cols) has duplicate global indices");
                 return m_col_numbering->local_to_global_mapping;
             }
 
@@ -299,13 +277,11 @@ namespace samurai
                     m_row_numbering  = new Numbering();
                     m_owns_numbering = true;
                 }
-                // std::cout << "[" << mpi::communicator().rank() << "] Computing global numbering for matrix '" << name() << "'\n";
 #ifdef SAMURAI_WITH_MPI
                 assert(input_n_comp == output_n_comp && "we compute the numbering only for square matrices or blocks");
 
                 PetscInt rank_row_shift = compute_rank_shift(owned_matrix_rows());
 
-                // std::cout << "[" << mpi::communicator().rank() << "] Computing row numbering for matrix '" << name() << "'\n";
                 m_row_numbering->resize(local_matrix_rows());
                 compute_global_numbering<output_n_comp>(mesh(),
                                                         *m_row_numbering,
@@ -1105,18 +1081,9 @@ namespace samurai
                     MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
                     set_current_insert_mode(INSERT_VALUES);
                 }
-                // #ifdef SAMURAI_WITH_MPI
-                //                 int rank = mpi::communicator().rank();
-                // #endif
-                // std::cout << "insert_value_on_diag_for_useless_ghosts of " << this->name() << std::endl;
                 for (std::size_t i = 0; i < m_is_row_empty.size(); i++)
                 {
-                    if (m_is_row_empty[i]
-                        // #ifdef SAMURAI_WITH_MPI
-                        //                         && m_ownership[static_cast<std::size_t>(i)] == rank // only insert for the ghosts
-                        //                         owned by the current process
-                        // #endif
-                    )
+                    if (m_is_row_empty[i])
                     {
                         auto error = MatSetValueLocal(A,
                                                       m_block_row_shift + static_cast<PetscInt>(i),

@@ -2,8 +2,6 @@
 #include "../../schemes/fv/scheme_operators.hpp"
 #include "../matrix_assembly.hpp"
 
-// #include "FV_scheme_assembly.hpp"
-
 namespace samurai
 {
     namespace petsc
@@ -479,17 +477,6 @@ namespace samurai
                          });
             }
 
-            // template <class OtherScheme>
-            // void reset(const FVSchemeAssembly<OtherScheme>& other)
-            // {
-            //     for_each(m_assembly_ops,
-            //              [&](auto& op)
-            //              {
-            //                  // reset the other schemes by giving the all the costly information to avoid recomputing it
-            //                  op.reset(other);
-            //              });
-            // }
-
             /**
              * This function is called in case of block_assembly.
              */
@@ -503,30 +490,6 @@ namespace samurai
                              op.reset(block_assembly);
                          });
             }
-
-            // void reset(Numbering& numbering)
-            // {
-            //     for_each(m_assembly_ops,
-            //              [&](auto& op)
-            //              {
-            //                  // reset the other schemes by giving the all the costly information to avoid recomputing it
-            //                  op.reset(numbering);
-            //              });
-            // }
-
-            // template <class... OtherOperators>
-            // void reset(const Assembly<OperatorSum<OtherOperators...>>& other)
-            // {
-            //     for_each(m_assembly_ops,
-            //              [&](auto& op)
-            //              {
-            //                  // reset the other schemes by giving the all the costly information to avoid recomputing it
-            //                  op.reset(other.largest_stencil_assembly());
-            //              });
-            // }
-
-            // template <class T>
-            // concept is_sum_assembly = std::is_same_v<T, OperatorSum<Operators...>>;
 
             void compute_numbering() // cppcheck-suppress duplInheritedMember
             {
@@ -570,20 +533,6 @@ namespace samurai
                 largest_stencil_assembly().compute_local_to_global_rows();
             }
         };
-
-        // template <class T>
-        // struct is_operator_sum_assembly : std::false_type
-        // {
-        // };
-
-        // // Specialization: true if T = Assembly<OperatorSum<...>>
-        // template <class... Operators>
-        // struct is_operator_sum_assembly<Assembly<OperatorSum<Operators...>>> : std::true_type
-        // {
-        // };
-
-        // template <class T>
-        // concept IsOperatorSumAssembly = is_operator_sum_assembly<T>::value;
 
     } // end namespace petsc
 } // end namespace samurai

@@ -319,61 +319,31 @@ namespace samurai
                 std::fill(o_nnz.begin(), o_nnz.end(), 0);
 
                 mpi::communicator world;
-                // if (world.rank() == 1)
-                // {
-                //     sleep(1); // to avoid jumbled output
-                // }
 #endif
 
-                // std::cout << "\n\t> [" << world.rank() << "] sparsity_pattern_scheme" << std::endl;
                 sparsity_pattern_scheme(d_nnz, o_nnz);
 
                 if (m_include_bc)
                 {
-                    // std::cout << "\n\t> [" << world.rank() << "] sparsity_pattern_boundary" << std::endl;
                     sparsity_pattern_boundary(d_nnz, o_nnz);
                 }
                 if (m_assemble_proj_pred)
                 {
-                    // std::cout << "\n\t> [" << world.rank() << "] sparsity_pattern_projection" << std::endl;
                     sparsity_pattern_projection(d_nnz, o_nnz);
-                    // std::cout << "\n\t> [" << world.rank() << "] sparsity_pattern_prediction" << std::endl;
                     sparsity_pattern_prediction(d_nnz, o_nnz);
                 }
                 if (m_insert_value_on_diag_for_useless_ghosts)
                 {
-                    // std::cout << "\n\t> [" << world.rank() << "] sparsity_pattern_useless_ghosts" << std::endl;
                     sparsity_pattern_useless_ghosts(d_nnz);
                 }
 
                 if (!m_is_block_in_monolithic_matrix)
                 {
 #ifdef SAMURAI_WITH_MPI
-                    // if (world.rank() == 1)
-                    // {
-                    //     sleep(1); // to avoid jumbled output
-                    // }
-
-                    // std::cout << "\n\t> [" << world.rank() << "] Preallocation of" << std::endl;
-                    // int sum_nnz = 0;
-                    // for (std::size_t row = 0; row < static_cast<std::size_t>(n_owned_rows); ++row)
-                    // {
-                    //     std::cout << "[G"
-                    //                  "] d_nnz[L"
-                    //               << row << "] = " << d_nnz[row] << ", o_nnz[L" << row << "] = " << o_nnz[row] << std::endl;
-                    //     sum_nnz += d_nnz[row] + o_nnz[row];
-                    // }
-                    // std::cout << "Total number of non-zeros on rank " << world.rank() << ": " << sum_nnz << std::endl;
-                    // std::cout << std::endl;
-
-                    // std::cout << "\n\t> [" << world.rank() << "] MatMPIAIJSetPreallocation" << std::endl;
-
                     MatMPIAIJSetPreallocation(A, PETSC_DEFAULT, d_nnz.data(), PETSC_DEFAULT, o_nnz.data());
-                    // MatMPIAIJSetPreallocation(A, 10, nullptr, 10, nullptr);
 #else
                     MatSeqAIJSetPreallocation(A, PETSC_DEFAULT, d_nnz.data());
 #endif
-                    // std::cout << "\n\t> [" << world.rank() << "] create_matrix done" << std::endl;
                 }
                 // MatSetOption(A, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
                 times::timers.stop("matrix assembly");
@@ -387,44 +357,19 @@ namespace samurai
             {
                 times::timers.start("matrix assembly");
 
-#ifdef SAMURAI_WITH_MPI
-                mpi::communicator world;
-
-                // std::cout << "\n\t> [" << world.rank() << "] start assemble_matrix" << std::endl;
-
-                // sleep(static_cast<unsigned int>(world.rank()));
-                // std::cout << "\n\t> [" << world.rank() << "] assemble_scheme '" << name() << "'" << std::endl;
-#endif
                 assemble_scheme(A);
 
                 if (m_include_bc)
                 {
-#ifdef SAMURAI_WITH_MPI
-                    // sleep(static_cast<unsigned int>(world.rank()));
-                    // std::cout << "\n\t> [" << world.rank() << "] assemble_boundary_conditions" << std::endl;
-#endif
                     assemble_boundary_conditions(A);
-                    // std::cout << "\n\t> [" << world.rank() << "] assemble_boundary_conditions <done>" << std::endl;
                 }
                 if (m_assemble_proj_pred)
                 {
-#ifdef SAMURAI_WITH_MPI
-                    // sleep(static_cast<unsigned int>(world.rank()));
-                    // std::cout << "\n\t> [" << world.rank() << "] assemble_projection" << std::endl;
-#endif
                     assemble_projection(A);
-#ifdef SAMURAI_WITH_MPI
-                    // sleep(static_cast<unsigned int>(world.rank()));
-                    // std::cout << "\n\t> [" << world.rank() << "] assemble_prediction" << std::endl;
-#endif
                     assemble_prediction(A);
                 }
                 if (m_insert_value_on_diag_for_useless_ghosts)
                 {
-#ifdef SAMURAI_WITH_MPI
-                    // sleep(static_cast<unsigned int>(world.rank()));
-                    // std::cout << "\n\t> [" << world.rank() << "] insert_value_on_diag_for_useless_ghosts" << std::endl;
-#endif
                     insert_value_on_diag_for_useless_ghosts(A);
                 }
 
@@ -438,9 +383,6 @@ namespace samurai
 
                     if (final_assembly)
                     {
-#ifdef SAMURAI_WITH_MPI
-                        // std::cout << "\n\t> [" << world.rank() << "] ASSEMBLY" << std::endl;
-#endif
                         MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
                         PetscErrorCode ierr = MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
                         if (ierr != PETSC_SUCCESS)

@@ -203,11 +203,6 @@ namespace samurai
                     set_current_insert_mode(ADD_VALUES);
                 }
 
-                // if (mpi::communicator().rank() == 1)
-                // {
-                //     sleep(1);
-                // }
-
                 // Interior interfaces
                 scheme().template for_each_interior_interface_and_coeffs<Run::Sequential, Get::Cells, /* include_periodic = */ false>(
                     unknown(),
@@ -253,7 +248,7 @@ namespace samurai
                                         {
                                             // if (mpi::communicator().rank() == 1)
                                             // {
-                                            //     std::cout << "[" << mpi::communicator().rank() << "] Diff A[L" << left_cell_row << ", L"
+                                            //     std::cout << "[" << mpi::communicator().rank() << "] A[L" << left_cell_row << ", L"
                                             //               << comput_cell_col << "] = A[G" << global_row_index(interface_cells[0],
                                             //               field_i)
                                             //               << ", G" << global_col_index(comput_cells[c], field_j)
@@ -265,7 +260,7 @@ namespace samurai
                                         {
                                             // if (mpi::communicator().rank() == 1)
                                             // {
-                                            //     std::cout << "[" << mpi::communicator().rank() << "] Diff A[L" << right_cell_row << ", L"
+                                            //     std::cout << "[" << mpi::communicator().rank() << "] A[L" << right_cell_row << ", L"
                                             //               << comput_cell_col << "] = A[G" << global_row_index(interface_cells[1],
                                             //               field_i)
                                             //               << ", G" << global_col_index(comput_cells[c], field_j)
