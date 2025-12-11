@@ -22,48 +22,48 @@ jobs:
     # Check samurai with cppcheck
     #
     #########################################################
-    # cppcheck:
-    #     runs-on: ubuntu-latest
-    #     steps:
-    #         - uses: actions/checkout@v4
+    cppcheck:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
 
-    #         - name: Cache
-    #           uses: actions/cache@v4
-    #           with:
-    #               path: |
-    #                   ~/.cache/ccache
-    #                   ~/micromamba/envs/samurai-env
-    #               key: cppcheck
+            - name: Cache
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      ~/.cache/ccache
+                      ~/micromamba/envs/samurai-env
+                  key: cppcheck
 
-    #         - name: Mamba and samurai env installation
-    #           uses: mamba-org/setup-micromamba@v1
-    #           with:
-    #               environment-file: conda/environment.yml
-    #               environment-name: samurai-env
-    #               cache-environment: true
+            - name: Mamba and samurai env installation
+              uses: mamba-org/setup-micromamba@v1
+              with:
+                  environment-file: conda/environment.yml
+                  environment-name: samurai-env
+                  cache-environment: true
 
-    #         - name: cppcheck installation
-    #           shell: bash -el {0}
-    #           run: |
-    #               conda install -y cppcheck=2.12 python=3.12 cxx-compiler
+            - name: cppcheck installation
+              shell: bash -el {0}
+              run: |
+                  conda install -y cppcheck=2.12 python=3.12 cxx-compiler
 
-    #         - name: Configure
-    #           shell: bash -el {0}
-    #           run: |
-    #               cmake . -Bbuild -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_DEMOS=ON
+            - name: Configure
+              shell: bash -el {0}
+              run: |
+                  cmake . -Bbuild -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DBUILD_DEMOS=ON
 
-    #         - name: Run cppcheck on samurai
-    #           shell: bash -el {0}
-    #           run: |
-    #               cppcheck --enable=all -q --project=./build/compile_commands.json --suppressions-list=.cppcheck --inline-suppr 2> cppcheck_err.txt
+            - name: Run cppcheck on samurai
+              shell: bash -el {0}
+              run: |
+                  cppcheck --enable=all -q --project=./build/compile_commands.json --suppressions-list=.cppcheck --inline-suppr 2> cppcheck_err.txt
 
-    #         - name: Check for errors
-    #           run: |
-    #               if [[ -s cppcheck_err.txt ]];
-    #               then
-    #                 cat cppcheck_err.txt
-    #                 exit -1
-    #               fi
+            - name: Check for errors
+              run: |
+                  if [[ -s cppcheck_err.txt ]];
+                  then
+                    cat cppcheck_err.txt
+                    exit -1
+                  fi
     #
     # Check linux build with mamba environment
     #
@@ -168,10 +168,6 @@ jobs:
                       -DWITH_PETSC=ON \
                       -DBUILD_DEMOS=ON \
                       -DBUILD_TESTS=ON
-
-            - name: Show memory before build
-              shell: bash -l {0}
-              run: free -h
 
             - name: Build
               shell: bash -l {0}

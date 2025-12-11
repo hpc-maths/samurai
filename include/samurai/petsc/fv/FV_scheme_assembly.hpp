@@ -963,6 +963,10 @@ namespace samurai
                                                                                                // ghost is periodic in several
                                                                                                // directions (external corners)
                         {
+                            if (!is_locally_owned(static_cast<std::size_t>(ghost_cell_index)))
+                            {
+                                return;
+                            }
                             for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                             {
                                 PetscInt row = local_row_index(static_cast<PetscInt>(ghost_cell_index), field_i);
