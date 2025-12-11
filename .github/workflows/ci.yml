@@ -167,7 +167,8 @@ jobs:
                       -DCMAKE_BUILD_TYPE=Release \
                       -DWITH_PETSC=ON \
                       -DBUILD_DEMOS=ON \
-                      -DBUILD_TESTS=ON
+                      -DBUILD_TESTS=ON \
+                      -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF
 
             - name: Show memory before build
               shell: bash -l {0}
