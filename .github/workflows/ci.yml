@@ -168,7 +168,8 @@ jobs:
                       -DWITH_PETSC=ON \
                       -DBUILD_DEMOS=ON \
                       -DBUILD_TESTS=ON \
-                      -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF
+                      -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF \
+                      -DCMAKE_CXX_FLAGS_RELEASE="-O2 -flto"
 
             - name: Show memory before build
               shell: bash -l {0}
