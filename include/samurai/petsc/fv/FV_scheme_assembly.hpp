@@ -31,8 +31,8 @@ namespace samurai
 
           protected:
 
-            using MatrixAssembly::m_col_shift;
-            using MatrixAssembly::m_row_shift;
+            using MatrixAssembly::m_block_col_shift;
+            using MatrixAssembly::m_block_row_shift;
 
             using MatrixAssembly::m_ghosts_col_shift;
             using MatrixAssembly::m_ghosts_row_shift;
@@ -329,7 +329,7 @@ namespace samurai
                 // }
 
                 // std::cout << "[" << mpi::communicator().rank() << "] Computing global numbering for block '" << name() << "'\n";
-                compute_global_numbering<output_n_comp>(mesh(), *m_row_numbering, m_rank_row_shift, m_row_shift, m_ghosts_row_shift);
+                compute_global_numbering<output_n_comp>(mesh(), *m_row_numbering, m_rank_row_shift, m_block_row_shift, m_ghosts_row_shift);
             }
 
             void compute_local_to_global_rows(std::vector<PetscInt>& local_to_global_mapping)
@@ -504,7 +504,7 @@ namespace samurai
             inline PetscInt local_col_index(PetscInt cell_index, unsigned int field_j) const
             {
 #ifdef SAMURAI_WITH_MPI
-                auto shift = is_locally_owned(static_cast<std::size_t>(cell_index)) ? m_col_shift : m_ghosts_col_shift;
+                auto shift = is_locally_owned(static_cast<std::size_t>(cell_index)) ? m_block_col_shift : m_ghosts_col_shift;
                 auto index = m_col_numbering->unknown_index<input_n_comp>(cell_ownership(),
                                                                           shift,
                                                                           static_cast<std::size_t>(cell_index),
@@ -512,7 +512,7 @@ namespace samurai
                 return m_col_numbering->local_indices[index];
 #else
                 return m_col_numbering->unknown_index<input_n_comp, PetscInt>(cell_ownership(),
-                                                                              m_col_shift,
+                                                                              m_block_col_shift,
                                                                               static_cast<std::size_t>(cell_index),
                                                                               static_cast<int>(field_j));
 #endif
@@ -521,7 +521,7 @@ namespace samurai
             inline PetscInt global_col_index(PetscInt cell_index, unsigned int field_j) const
             {
 #ifdef SAMURAI_WITH_MPI
-                auto shift = is_locally_owned(static_cast<std::size_t>(cell_index)) ? m_col_shift : m_ghosts_col_shift;
+                auto shift = is_locally_owned(static_cast<std::size_t>(cell_index)) ? m_block_col_shift : m_ghosts_col_shift;
                 auto index = m_col_numbering->unknown_index<input_n_comp>(cell_ownership(),
                                                                           shift,
                                                                           static_cast<std::size_t>(cell_index),
@@ -535,7 +535,7 @@ namespace samurai
             inline PetscInt local_row_index(PetscInt cell_index, unsigned int field_i) const
             {
 #ifdef SAMURAI_WITH_MPI
-                auto shift = is_locally_owned(static_cast<std::size_t>(cell_index)) ? m_row_shift : m_ghosts_row_shift;
+                auto shift = is_locally_owned(static_cast<std::size_t>(cell_index)) ? m_block_row_shift : m_ghosts_row_shift;
                 auto index = m_row_numbering->unknown_index<output_n_comp>(cell_ownership(),
                                                                            shift,
                                                                            static_cast<std::size_t>(cell_index),
@@ -543,7 +543,7 @@ namespace samurai
                 return m_row_numbering->local_indices[index];
 #else
                 return m_row_numbering->unknown_index<output_n_comp, PetscInt>(cell_ownership(),
-                                                                               m_row_shift,
+                                                                               m_block_row_shift,
                                                                                static_cast<std::size_t>(cell_index),
                                                                                static_cast<int>(field_i));
 #endif
@@ -552,7 +552,7 @@ namespace samurai
             inline PetscInt global_row_index(PetscInt cell_index, unsigned int field_i) const
             {
 #ifdef SAMURAI_WITH_MPI
-                auto shift = is_locally_owned(static_cast<std::size_t>(cell_index)) ? m_row_shift : m_ghosts_row_shift;
+                auto shift = is_locally_owned(static_cast<std::size_t>(cell_index)) ? m_block_row_shift : m_ghosts_row_shift;
                 auto index = m_row_numbering->unknown_index<output_n_comp>(cell_ownership(),
                                                                            shift,
                                                                            static_cast<std::size_t>(cell_index),
@@ -706,8 +706,8 @@ namespace samurai
             template <class int_type>
             inline void set_is_row_not_empty(int_type local_row_number)
             {
-                assert(local_row_number - m_row_shift >= 0);
-                m_is_row_empty[static_cast<std::size_t>(local_row_number - m_row_shift)] = false;
+                assert(local_row_number - m_block_row_shift >= 0);
+                m_is_row_empty[static_cast<std::size_t>(local_row_number - m_block_row_shift)] = false;
             }
 
           protected:
@@ -1091,7 +1091,7 @@ namespace samurai
                 {
                     if (m_is_row_empty[i])
                     {
-                        f(m_row_shift + static_cast<PetscInt>(i));
+                        f(m_block_row_shift + static_cast<PetscInt>(i));
                     }
                 }
             }
@@ -1119,14 +1119,14 @@ namespace samurai
                     )
                     {
                         auto error = MatSetValueLocal(A,
-                                                      m_row_shift + static_cast<PetscInt>(i),
-                                                      m_col_shift + static_cast<PetscInt>(i),
+                                                      m_block_row_shift + static_cast<PetscInt>(i),
+                                                      m_block_col_shift + static_cast<PetscInt>(i),
                                                       this->diag_value_for_useless_ghosts(),
                                                       INSERT_VALUES);
                         if (error)
                         {
                             std::cerr << scheme().name() << ": failure to insert diagonal coefficient at ("
-                                      << m_row_shift + static_cast<PetscInt>(i) << ", " << m_col_shift + static_cast<PetscInt>(i)
+                                      << m_block_row_shift + static_cast<PetscInt>(i) << ", " << m_block_col_shift + static_cast<PetscInt>(i)
                                       << "), i.e. (" << i << ", " << i << ") in the block." << std::endl;
                             assert(false);
                             exit(EXIT_FAILURE);
@@ -1142,7 +1142,7 @@ namespace samurai
                 {
                     if (m_is_row_empty[i])
                     {
-                        VecSetValueLocal(b, m_row_shift + static_cast<PetscInt>(i), 0, INSERT_VALUES);
+                        VecSetValueLocal(b, m_block_row_shift + static_cast<PetscInt>(i), 0, INSERT_VALUES);
                     }
                 }
             }

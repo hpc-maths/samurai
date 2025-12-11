@@ -13,17 +13,17 @@ template <class Mesh_e>
 struct Coupling_auxCe_e : public samurai::petsc::ManualAssembly<aux_t> // <...>: type of field the block applies to
                                                                        // (= unknown field type if the block must be inversed)
 {
-    const Mesh_e& mesh_e;
+    const Mesh_e* mesh_e; // use a pointer instead of a reference to avoid issues with the copy constructor
 
     explicit Coupling_auxCe_e(const Mesh_e& m)
-        : mesh_e(m)
+        : mesh_e(&m)
     {
         this->set_name("Coupling_auxCe_e");
     }
 
     PetscInt local_matrix_rows() const override
     {
-        return static_cast<PetscInt>(mesh_e.cell_ownership().n_local_cells);
+        return static_cast<PetscInt>(mesh_e->cell_ownership().n_local_cells);
     }
 
     PetscInt local_matrix_cols() const override
@@ -33,7 +33,7 @@ struct Coupling_auxCe_e : public samurai::petsc::ManualAssembly<aux_t> // <...>:
 
     PetscInt owned_matrix_rows() const override
     {
-        return static_cast<PetscInt>(mesh_e.cell_ownership().n_owned_cells);
+        return static_cast<PetscInt>(mesh_e->cell_ownership().n_owned_cells);
     }
 
     PetscInt owned_matrix_cols() const override
@@ -43,11 +43,11 @@ struct Coupling_auxCe_e : public samurai::petsc::ManualAssembly<aux_t> // <...>:
 
     void sparsity_pattern_scheme(std::vector<PetscInt>& d_nnz, std::vector<PetscInt>& /*o_nnz*/) const override
     {
-        samurai::for_each_boundary_interface__direction(mesh_e,
+        samurai::for_each_boundary_interface__direction(*mesh_e,
                                                         {1, 0},
                                                         [&](auto& cell, auto&)
                                                         {
-                                                            std::size_t row = static_cast<std::size_t>(this->row_shift() + cell.index);
+                                                            std::size_t row = static_cast<std::size_t>(this->block_row_shift() + cell.index);
                                                             d_nnz[row] += 2;
                                                         });
     }
@@ -55,12 +55,12 @@ struct Coupling_auxCe_e : public samurai::petsc::ManualAssembly<aux_t> // <...>:
     void assemble_scheme(Mat& A) override
     {
         PetscInt i = 0;
-        samurai::for_each_boundary_interface__direction(mesh_e,
+        samurai::for_each_boundary_interface__direction(*mesh_e,
                                                         {1, 0},
                                                         [&](auto& cell, auto&)
                                                         {
-                                                            PetscInt row = this->row_shift() + static_cast<PetscInt>(cell.index);
-                                                            PetscInt col = this->col_shift() + i;
+                                                            PetscInt row = this->block_row_shift() + static_cast<PetscInt>(cell.index);
+                                                            PetscInt col = this->block_col_shift() + i;
                                                             double coeff = 123;                                   // random...
                                                             MatSetValueLocal(A, row, col, coeff, ADD_VALUES);     // 1st aux variable
                                                             MatSetValueLocal(A, row, col + 1, coeff, ADD_VALUES); // 2nd aux variable
@@ -72,17 +72,17 @@ struct Coupling_auxCe_e : public samurai::petsc::ManualAssembly<aux_t> // <...>:
 template <class field_t>
 struct Coupling_e_auxCe : public samurai::petsc::ManualAssembly<field_t>
 {
-    const aux_t& aux_Ce;
+    const aux_t* aux_Ce;
 
     explicit Coupling_e_auxCe(const aux_t& t)
-        : aux_Ce(t)
+        : aux_Ce(&t)
     {
         this->set_name("Coupling_e_auxCe");
     }
 
     PetscInt local_matrix_rows() const override
     {
-        return static_cast<PetscInt>(aux_Ce.size());
+        return static_cast<PetscInt>(aux_Ce->size());
     }
 
     PetscInt local_matrix_cols() const override
@@ -92,7 +92,7 @@ struct Coupling_e_auxCe : public samurai::petsc::ManualAssembly<field_t>
 
     PetscInt owned_matrix_rows() const override
     {
-        return static_cast<PetscInt>(aux_Ce.size());
+        return static_cast<PetscInt>(aux_Ce->size());
     }
 
     PetscInt owned_matrix_cols() const override
@@ -194,17 +194,17 @@ struct Coupling_s_auxCe : public samurai::petsc::ManualAssembly<field_t>
 template <class Mesh_s>
 struct Coupling_auxCe_s : public samurai::petsc::ManualAssembly<aux_t>
 {
-    const Mesh_s& mesh_s;
+    const Mesh_s* mesh_s;
 
     explicit Coupling_auxCe_s(const Mesh_s& m)
-        : mesh_s(m)
+        : mesh_s(&m)
     {
         this->set_name("Coupling_auxCe_s");
     }
 
     PetscInt local_matrix_rows() const override
     {
-        return static_cast<PetscInt>(mesh_s.cell_ownership().n_local_cells);
+        return static_cast<PetscInt>(mesh_s->cell_ownership().n_local_cells);
     }
 
     PetscInt local_matrix_cols() const override
@@ -214,7 +214,7 @@ struct Coupling_auxCe_s : public samurai::petsc::ManualAssembly<aux_t>
 
     PetscInt owned_matrix_rows() const override
     {
-        return static_cast<PetscInt>(mesh_s.cell_ownership().n_owned_cells);
+        return static_cast<PetscInt>(mesh_s->cell_ownership().n_owned_cells);
     }
 
     PetscInt owned_matrix_cols() const override
@@ -325,6 +325,11 @@ int main(int argc, char* argv[])
     Vec v = assembly.create_vector(u_e, aux_Ce, u_s);
     VecView(v, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
     std::cout << std::endl;
+
+    // Just to check that it compiles
+    auto solver = samurai::petsc::make_solver(block_op);
+    solver.set_unknowns(u_e, aux_Ce, u_s);
+    solver.set_block_operator(block_op);
 
     samurai::finalize();
     return 0;

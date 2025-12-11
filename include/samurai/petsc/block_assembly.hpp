@@ -693,8 +693,8 @@ namespace samurai
                 for_each_assembly_op(
                     [&](auto& op, auto, auto col)
                     {
-                        op.set_row_shift(owned_row_shift);
-                        op.set_col_shift(owned_col_shift);
+                        op.set_block_row_shift(owned_row_shift);
+                        op.set_block_col_shift(owned_col_shift);
                         owned_col_shift += op.owned_matrix_cols();
                         if (col == cols - 1)
                         {
@@ -739,7 +739,7 @@ namespace samurai
                 //         if (col == 0)
                 //         {
                 //             std::cout << "[" << mpi::communicator().rank() << "] (" << row << ", " << col
-                //                       << "): owned_col_shift = " << op.col_shift() << std::endl;
+                //                       << "): owned_col_shift = " << op.block_col_shift() << std::endl;
                 //         }
                 //     });
                 // for_each_assembly_op(
@@ -918,7 +918,7 @@ namespace samurai
 
                 auto computed_range_start = this->template get<0, 0>().rank_row_shift();
                 auto computed_range_end   = this->template get<rows - 1, rows - 1>().rank_row_shift()
-                                        + this->template get<rows - 1, rows - 1>().row_shift()
+                                        + this->template get<rows - 1, rows - 1>().block_row_shift()
                                         + this->template get<rows - 1, rows - 1>().owned_matrix_rows();
 
                 assert(range_start == computed_range_start);
@@ -1154,8 +1154,8 @@ namespace samurai
                                  {
                                      if (col == 0 && row == i)
                                      {
-                                         // copy(s, b, op.row_shift());
-                                         copy(op.row_shift(), b, result_field);
+                                         // copy(s, b, op.block_row_shift());
+                                         copy(op.block_row_shift(), b, result_field);
                                      }
                                  });
                              i++;
@@ -1173,7 +1173,7 @@ namespace samurai
                             std::vector<PetscInt> idx(static_cast<std::size_t>(op.owned_matrix_cols()));
                             for (std::size_t i = 0; i < idx.size(); ++i)
                             {
-                                idx[i] = op.col_shift() + static_cast<PetscInt>(i);
+                                idx[i] = op.block_col_shift() + static_cast<PetscInt>(i);
                             }
                             ISCreateGeneral(PETSC_COMM_WORLD, static_cast<PetscInt>(idx.size()), idx.data(), PETSC_COPY_VALUES, &IS_array[col]);
                         }

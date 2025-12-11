@@ -28,8 +28,8 @@ namespace samurai
             bool m_is_block_in_monolithic_matrix = false; // is this a block in a monolithic block matrix?
             bool m_is_block_in_nested_matrix     = false; // is this a block in a nested block matrix?
 
-            PetscInt m_row_shift = 0; // row origin of the block in the local matrix
-            PetscInt m_col_shift = 0; // column origin of the block in the local matrix
+            PetscInt m_block_row_shift = 0; // row origin of the block in the local monolithic matrix
+            PetscInt m_block_col_shift = 0; // column origin of the block in the local monolithic matrix
 
             PetscInt m_rank_row_shift = 0; // first row owned by the current MPI process in the global matrix
             PetscInt m_rank_col_shift = 0; // first column owned by the current MPI process in the global matrix
@@ -129,24 +129,36 @@ namespace samurai
                 return m_is_block_in_nested_matrix;
             }
 
-            virtual void set_row_shift(PetscInt shift)
+            virtual void set_block_row_shift(PetscInt shift)
             {
-                m_row_shift = shift;
+                m_block_row_shift = shift;
             }
 
-            virtual void set_col_shift(PetscInt shift)
+            virtual void set_block_col_shift(PetscInt shift)
             {
-                m_col_shift = shift;
+                m_block_col_shift = shift;
             }
 
+            [[deprecated("Use block_row_shift() instead")]]
             PetscInt row_shift() const
             {
-                return m_row_shift;
+                return m_block_row_shift;
             }
 
+            [[deprecated("Use block_col_shift() instead")]]
             PetscInt col_shift() const
             {
-                return m_col_shift;
+                return m_block_col_shift;
+            }
+
+            PetscInt block_row_shift() const
+            {
+                return m_block_row_shift;
+            }
+
+            PetscInt block_col_shift() const
+            {
+                return m_block_col_shift;
             }
 
             virtual void set_rank_row_shift(PetscInt shift)
@@ -507,8 +519,8 @@ namespace samurai
 
             virtual void sparsity_pattern_useless_ghosts(std::vector<PetscInt>& nnz)
             {
-                for (std::size_t row = static_cast<std::size_t>(m_row_shift);
-                     row < static_cast<std::size_t>(m_row_shift + owned_matrix_rows());
+                for (std::size_t row = static_cast<std::size_t>(m_block_row_shift);
+                     row < static_cast<std::size_t>(m_block_row_shift + owned_matrix_rows());
                      ++row)
                 {
                     if (nnz[row] == 0)

@@ -102,7 +102,7 @@ namespace samurai
                         exit(EXIT_FAILURE);
                     }
 #endif
-                    copy(field, x, this->col_shift());
+                    copy(field, x, this->block_col_shift());
                 }
                 else
                 {

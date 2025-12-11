@@ -139,25 +139,25 @@ namespace samurai
                          });
             }
 
-            void set_row_shift(PetscInt shift) override
+            void set_block_row_shift(PetscInt shift) override
             {
-                MatrixAssembly::set_row_shift(shift);
+                MatrixAssembly::set_block_row_shift(shift);
 
                 for_each(m_assembly_ops,
                          [&](auto& op)
                          {
-                             op.set_row_shift(shift);
+                             op.set_block_row_shift(shift);
                          });
             }
 
-            void set_col_shift(PetscInt shift) override
+            void set_block_col_shift(PetscInt shift) override
             {
-                MatrixAssembly::set_col_shift(shift);
+                MatrixAssembly::set_block_col_shift(shift);
 
                 for_each(m_assembly_ops,
                          [&](auto& op)
                          {
-                             op.set_col_shift(shift);
+                             op.set_block_col_shift(shift);
                          });
             }
 

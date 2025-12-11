@@ -45,8 +45,7 @@ namespace samurai
         template <std::size_t rows, std::size_t cols, class... Operators>
         auto make_solver(const BlockOperator<rows, cols, Operators...>& block_operator)
         {
-            static constexpr bool default_monolithic = true;
-            return make_solver<default_monolithic, rows, cols, Operators...>(block_operator);
+            return make_solver<BlockAssemblyType::Monolithic, rows, cols, Operators...>(block_operator);
         }
 
         // Non-linear solver
