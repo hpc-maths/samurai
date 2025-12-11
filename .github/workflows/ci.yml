@@ -164,7 +164,7 @@ jobs:
                       . \
                       -Bbuild \
                       -GNinja \
-                      -DCMAKE_BUILD_TYPE=Debug \
+                      -DCMAKE_BUILD_TYPE=Release \
                       -DWITH_PETSC=ON \
                       -DBUILD_DEMOS=ON \
                       -DBUILD_TESTS=ON
