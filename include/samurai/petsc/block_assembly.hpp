@@ -758,6 +758,11 @@ namespace samurai
                     {
                         if constexpr (row == col)
                         {
+                            if (args::print_petsc_numbering)
+                            {
+                                std::cout << "[" << mpi::communicator().rank() << "] Computing numbering for block (" << row << ", " << col
+                                          << ") '" << op.name() << "'" << std::endl;
+                            }
                             op.compute_block_numbering();
                         }
                     });
@@ -901,6 +906,25 @@ namespace samurai
 
             void assemble_scheme(Mat& A) override
             {
+#if defined(SAMURAI_WITH_MPI) && !defined(NDEBUG)
+                PetscInt range_start, range_end;
+                MatGetOwnershipRange(A, &range_start, &range_end);
+
+                if (args::print_petsc_numbering)
+                {
+                    std::cout << "[" << mpi::communicator().rank() << "] PETSc ownership range: [" << range_start << ", " << range_end
+                              << "]" << std::endl;
+                }
+
+                auto computed_range_start = this->template get<0, 0>().rank_row_shift();
+                auto computed_range_end   = this->template get<rows - 1, rows - 1>().rank_row_shift()
+                                        + this->template get<rows - 1, rows - 1>().row_shift()
+                                        + this->template get<rows - 1, rows - 1>().owned_matrix_rows();
+
+                assert(range_start == computed_range_start);
+                assert(range_end == computed_range_end);
+#endif
+
                 InsertMode insert_mode;
                 for_each_assembly_op(
                     [&](auto& op, auto row, auto col)

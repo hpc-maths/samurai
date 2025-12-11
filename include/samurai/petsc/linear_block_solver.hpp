@@ -36,7 +36,7 @@ namespace samurai
             static constexpr BlockAssemblyType assembly_type = assembly_type_;
 
             [[deprecated("Use assembly_type == samurai::petsc::BlockAssemblyType::Monolithic instead")]]
-            static constexpr bool is_monolithic = (assembly_type == BlockAssemblyType::Monolithic); // cppcheck-suppress unreadVariable
+            static constexpr bool is_monolithic = (assembly_type == BlockAssemblyType::Monolithic); // cppcheck-suppress unusedStructMember
 
             explicit LinearBlockSolver(const block_operator_t& block_op)
                 : base_class(block_op)
