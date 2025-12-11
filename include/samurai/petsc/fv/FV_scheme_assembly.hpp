@@ -159,7 +159,7 @@ namespace samurai
             /**
              * This function is called in case of stand-alone assembly (e.g., Poisson equation).
              */
-            void reset() override
+            void setup() override
             {
                 if (!m_unknown)
                 {
@@ -193,7 +193,7 @@ namespace samurai
              * This function is called in case of sum_assembly (e.g., heat equation).
              */
             template <class OtherScheme>
-            void reset(const FVSchemeAssembly<OtherScheme>& other)
+            void setup(const FVSchemeAssembly<OtherScheme>& other)
             {
                 compute_cell_ownership(mesh());
                 m_row_numbering    = other.m_row_numbering;
@@ -215,7 +215,7 @@ namespace samurai
              * This function is called in case of monolithic block_assembly (e.g., Stokes equation).
              */
             template <std::size_t rows_, std::size_t cols_, class... Operators>
-            void reset(BlockAssembly<BlockAssemblyType::Monolithic, rows_, cols_, Operators...>& block_assembly)
+            void setup(BlockAssembly<BlockAssemblyType::Monolithic, rows_, cols_, Operators...>& block_assembly)
             {
                 compute_cell_ownership(mesh());
                 m_row_numbering = &block_assembly.numbering();
@@ -235,7 +235,7 @@ namespace samurai
              * This function is called in case of nested block_assembly (e.g., Stokes equation).
              */
             template <std::size_t rows_, std::size_t cols_, class... Operators>
-            void reset(BlockAssembly<BlockAssemblyType::NestedMatrices, rows_, cols_, Operators...>& /*block_assembly*/)
+            void setup(BlockAssembly<BlockAssemblyType::NestedMatrices, rows_, cols_, Operators...>& /*block_assembly*/)
             {
                 compute_cell_ownership(mesh());
 

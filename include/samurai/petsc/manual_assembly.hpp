@@ -64,7 +64,7 @@ namespace samurai
              * This function is called in case of monolithic block_assembly
              */
             template <std::size_t rows_, std::size_t cols_, class... Operators>
-            void reset(BlockAssembly<BlockAssemblyType::Monolithic, rows_, cols_, Operators...>& block_assembly)
+            void setup(BlockAssembly<BlockAssemblyType::Monolithic, rows_, cols_, Operators...>& block_assembly)
             {
                 m_row_numbering = &block_assembly.numbering();
                 m_col_numbering = m_row_numbering;
@@ -74,7 +74,7 @@ namespace samurai
              * This function is called in case of nested block_assembly
              */
             template <std::size_t rows_, std::size_t cols_, class... Operators>
-            void reset(BlockAssembly<BlockAssemblyType::NestedMatrices, rows_, cols_, Operators...>& /*block_assembly*/)
+            void setup(BlockAssembly<BlockAssemblyType::NestedMatrices, rows_, cols_, Operators...>& /*block_assembly*/)
             {
                 m_ghosts_row_shift = owned_matrix_rows();
                 m_ghosts_col_shift = owned_matrix_cols();

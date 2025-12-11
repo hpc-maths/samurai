@@ -459,10 +459,10 @@ namespace samurai
                 return is_spd;
             }
 
-            void reset() override
+            void setup() override
             {
                 // computes global numbering and other costly information
-                largest_stencil_assembly().reset();
+                largest_stencil_assembly().setup();
 
                 std::size_t i = 0;
                 for_each(m_assembly_ops,
@@ -470,8 +470,8 @@ namespace samurai
                          {
                              if (i != scheme_t::largest_stencil_index)
                              {
-                                 // reset the other schemes by giving the all the costly information to avoid recomputing it
-                                 op.reset(largest_stencil_assembly());
+                                 // set up the other schemes by giving the all the costly information to avoid recomputing it
+                                 op.setup(largest_stencil_assembly());
                              }
                              ++i;
                          });
@@ -481,13 +481,13 @@ namespace samurai
              * This function is called in case of block_assembly.
              */
             template <BlockAssemblyType assembly_type_, std::size_t rows_, std::size_t cols_, class... Operators_>
-            void reset(BlockAssembly<assembly_type_, rows_, cols_, Operators_...>& block_assembly)
+            void setup(BlockAssembly<assembly_type_, rows_, cols_, Operators_...>& block_assembly)
             {
                 for_each(m_assembly_ops,
                          [&](auto& op)
                          {
-                             // reset the other schemes by giving the all the costly information to avoid recomputing it
-                             op.reset(block_assembly);
+                             // set up the other schemes by giving the all the costly information to avoid recomputing it
+                             op.setup(block_assembly);
                          });
             }
 

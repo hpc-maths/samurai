@@ -125,7 +125,7 @@ int main(int argc, char* argv[])
 
     constexpr std::size_t dim     = 2;
     constexpr unsigned int n_comp = 1;
-    constexpr bool is_soa         = true;
+    constexpr bool is_soa         = false;
     using Mesh                    = decltype(create_uniform_mesh<dim>(1));
     using Field                   = samurai::VectorField<Mesh, double, n_comp, is_soa>;
 

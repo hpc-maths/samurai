@@ -276,7 +276,7 @@ namespace samurai
             virtual void reset()
             {
                 destroy_petsc_objects();
-                m_assembly.reset();
+                m_assembly.is_set_up(false);
                 m_is_set_up = false;
                 configure_solver();
             }

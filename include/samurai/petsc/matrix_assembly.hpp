@@ -10,7 +10,7 @@ namespace samurai
         {
           private:
 
-            bool m_is_set_up   = false; // if false, then reset() must be called before assembling the matrix
+            bool m_is_set_up   = false; // if false, then setup() must be called before assembling the matrix
             bool m_is_deleted  = false;
             std::string m_name = "(unnamed)";
 
@@ -242,7 +242,7 @@ namespace samurai
                 assert(!m_is_block_in_monolithic_matrix);
                 if (!m_is_block_in_nested_matrix && !m_is_set_up)
                 {
-                    reset();
+                    setup();
                     m_is_set_up = true;
                 }
 
@@ -488,7 +488,7 @@ namespace samurai
                 return false;
             }
 
-            virtual void reset()
+            virtual void setup()
             {
             }
 

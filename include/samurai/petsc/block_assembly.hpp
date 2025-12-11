@@ -357,7 +357,7 @@ namespace samurai
             {
                 if (!m_is_set_up)
                 {
-                    reset();
+                    setup();
                     m_is_set_up = true;
                 }
 
@@ -395,14 +395,14 @@ namespace samurai
                     });
             }
 
-            void reset()
+            void setup()
             {
                 this->reset_cell_ownership();
 
                 for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
-                        op.reset(*this);
+                        op.setup(*this);
                     });
 
 #ifdef SAMURAI_WITH_MPI
@@ -417,7 +417,7 @@ namespace samurai
                         }
                     });
 
-                // The off-diagonal blocks are reset using the numbering of the diagonal blocks
+                // The off-diagonal blocks are set up using the numbering of the diagonal blocks
                 for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
@@ -656,14 +656,14 @@ namespace samurai
                 return m_numbering;
             }
 
-            void reset() override
+            void setup() override
             {
                 this->reset_cell_ownership();
 
                 for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
-                        op.reset(*this);
+                        op.setup(*this);
                     });
 
                 // Check compatibility of dimensions and set dimensions for blocks that must fit into the matrix
