@@ -169,9 +169,15 @@ jobs:
                       -DBUILD_DEMOS=ON \
                       -DBUILD_TESTS=ON
 
+            - name: Show memory before build
+              run: free -h
+
             - name: Build
               shell: bash -l {0}
               run: |
+                  set -o pipefail
+                  (ninja || true)
+                  dmesg | tail -n 50
                   cmake --build build --target all #--parallel 2
 
             - name: Test with googletest
