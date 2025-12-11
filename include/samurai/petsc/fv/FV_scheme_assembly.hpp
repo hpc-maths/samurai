@@ -703,10 +703,10 @@ namespace samurai
             }
 
             template <class int_type>
-            inline void set_is_row_not_empty(int_type row_number)
+            inline void set_is_row_not_empty(int_type local_row_number)
             {
-                assert(row_number - m_row_shift >= 0);
-                m_is_row_empty[static_cast<std::size_t>(row_number - m_row_shift)] = false;
+                assert(local_row_number - m_row_shift >= 0);
+                m_is_row_empty[static_cast<std::size_t>(local_row_number - m_row_shift)] = false;
             }
 
           protected:
@@ -1287,6 +1287,11 @@ namespace samurai
                         mesh(),
                         [&](auto level, PetscInt ghost, const std::array<PetscInt, static_cast<std::size_t>(number_of_children)>& children)
                         {
+                            if (!is_locally_owned(static_cast<std::size_t>(ghost))) // cppcheck-suppress knownConditionTrueFalse
+                            {
+                                return;
+                            }
+
                             double h       = mesh().cell_length(level);
                             double scaling = 1. / (h * h);
                             for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
@@ -1366,6 +1371,11 @@ namespace samurai
                     mesh(),
                     [&](auto& ghost)
                     {
+                        if (!is_locally_owned(ghost)) // cppcheck-suppress knownConditionTrueFalse
+                        {
+                            return;
+                        }
+
                         double h       = mesh().cell_length(ghost.level);
                         double scaling = 1. / (h * h);
                         for (unsigned int field_i = 0; field_i < input_n_comp; ++field_i)
@@ -1433,6 +1443,11 @@ namespace samurai
                     mesh(),
                     [&](auto& ghost)
                     {
+                        if (!is_locally_owned(ghost)) // cppcheck-suppress knownConditionTrueFalse
+                        {
+                            return;
+                        }
+
                         double h       = mesh().cell_length(ghost.level);
                         double scaling = 1. / (h * h);
                         for (unsigned int field_i = 0; field_i < input_n_comp; ++field_i)
@@ -1516,6 +1531,11 @@ namespace samurai
                     mesh(),
                     [&](auto& ghost)
                     {
+                        if (!is_locally_owned(ghost)) // cppcheck-suppress knownConditionTrueFalse
+                        {
+                            return;
+                        }
+
                         double h       = mesh().cell_length(ghost.level);
                         double scaling = 1. / (h * h);
                         for (unsigned int field_i = 0; field_i < input_n_comp; ++field_i)

@@ -53,6 +53,7 @@ namespace samurai
             }
 
             save(fs::current_path(), "petsc_indices", {true, true}, mesh, owner_rank_field, samurai_cell_indices_field, petsc_cell_indices_field);
+            std::cout << "PETSc numbering saved to 'petsc_indices.xdmf'." << std::endl;
         }
 
         template <class Mesh>
