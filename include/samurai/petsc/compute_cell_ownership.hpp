@@ -171,7 +171,8 @@ namespace samurai
                               projection_ghosts,
                               [&](auto& ghost)
                               {
-                                  auto& ghost_owner_rank = owner_rank.at(static_cast<std::size_t>(ghost.index));
+                                  assert(static_cast<std::size_t>(ghost.index) < owner_rank.size());
+                                  auto& ghost_owner_rank = owner_rank[static_cast<std::size_t>(ghost.index)];
                                   if (ghost_owner_rank == UNSET)
                                   {
                                       index_ghost = xt::view(ghost.indices, xt::range(1, Mesh::dim));
@@ -182,7 +183,7 @@ namespace samurai
                                                     [&](auto& child)
                                                     {
                                                         ghost_owner_rank = std::min(ghost_owner_rank,
-                                                                                    owner_rank.at(static_cast<std::size_t>(child.index)));
+                                                                                    owner_rank[static_cast<std::size_t>(child.index)]);
                                                     });
                                       proj_ghost_lca.clear();
                                   }
@@ -199,7 +200,7 @@ namespace samurai
                                   projection_ghosts_nghb,
                                   [&](auto& ghost)
                                   {
-                                      auto& ghost_owner_rank = owner_rank.at(static_cast<std::size_t>(ghost.index));
+                                      auto& ghost_owner_rank = owner_rank[static_cast<std::size_t>(ghost.index)];
                                       if (ghost_owner_rank == UNSET)
                                       {
                                           ghost_owner_rank = neighbour.rank;

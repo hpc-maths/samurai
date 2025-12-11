@@ -90,22 +90,26 @@ namespace samurai
                                     {
                                         if (cell_0_locally_owned)
                                         {
-                                            d_nnz.at(row_cell_0) += static_cast<PetscInt>(input_n_comp);
+                                            assert(row_cell_0 < d_nnz.size());
+                                            d_nnz[row_cell_0] += static_cast<PetscInt>(input_n_comp);
                                         }
                                         if (cell_1_locally_owned)
                                         {
-                                            d_nnz.at(row_cell_1) += static_cast<PetscInt>(input_n_comp);
+                                            assert(row_cell_1 < d_nnz.size());
+                                            d_nnz[row_cell_1] += static_cast<PetscInt>(input_n_comp);
                                         }
                                     }
                                     else
                                     {
                                         if (cell_0_locally_owned)
                                         {
-                                            o_nnz.at(row_cell_0) += static_cast<PetscInt>(input_n_comp);
+                                            assert(row_cell_0 < o_nnz.size());
+                                            o_nnz[row_cell_0] += static_cast<PetscInt>(input_n_comp);
                                         }
                                         if (cell_1_locally_owned)
                                         {
-                                            o_nnz.at(row_cell_1) += static_cast<PetscInt>(input_n_comp);
+                                            assert(row_cell_1 < o_nnz.size());
+                                            o_nnz[row_cell_1] += static_cast<PetscInt>(input_n_comp);
                                         }
                                     }
                                 }
@@ -159,11 +163,13 @@ namespace samurai
                                     {
                                         if (is_locally_owned(comput_cells[c]))
                                         {
-                                            d_nnz.at(row_cell) += static_cast<PetscInt>(input_n_comp);
+                                            assert(row_cell < d_nnz.size());
+                                            d_nnz[row_cell] += static_cast<PetscInt>(input_n_comp);
                                         }
                                         else
                                         {
-                                            o_nnz.at(row_cell) += static_cast<PetscInt>(input_n_comp);
+                                            assert(row_cell < o_nnz.size());
+                                            o_nnz[row_cell] += static_cast<PetscInt>(input_n_comp);
                                         }
                                     }
 #else

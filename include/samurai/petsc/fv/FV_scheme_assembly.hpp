@@ -349,7 +349,8 @@ namespace samurai
                         auto local_index  = local_row_index(static_cast<PetscInt>(cell_index), c);
                         auto global_index = global_row_index(static_cast<PetscInt>(cell_index), c);
 
-                        local_to_global_mapping.at(static_cast<std::size_t>(local_index)) = global_index;
+                        assert(static_cast<std::size_t>(local_index) < local_to_global_mapping.size());
+                        local_to_global_mapping[static_cast<std::size_t>(local_index)] = global_index;
 
                         // std::cout << "[" << mpi::communicator().rank() << "] (owned by "
                         //           << m_row_numbering->ownership[static_cast<std::size_t>(cell_index)] << ") L" << local_index << " G"
@@ -835,11 +836,11 @@ namespace samurai
                                 std::size_t row = static_cast<std::size_t>(local_row_index(static_cast<PetscInt>(ghost_cell_index), field_i));
 #ifdef SAMURAI_WITH_MPI
                                 if (is_locally_owned(static_cast<std::size_t>(cell_cell_index)))
-                                    d_nnz.at(row) = 2;
+                                    d_nnz[row] = 2;
                                 else
                                 {
-                                    d_nnz.at(row) = 1;
-                                    o_nnz.at(row) = 1;
+                                    d_nnz[row] = 1;
+                                    o_nnz[row] = 1;
                                 }
 #else
                                 d_nnz[row] = 2;
@@ -880,21 +881,21 @@ namespace samurai
                         {
                             for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                             {
-                                d_nnz.at(static_cast<std::size_t>(local_row_index(ghost, field_i))) += 1;
+                                d_nnz[static_cast<std::size_t>(local_row_index(ghost, field_i))] += 1;
                             }
                         }
                         else
                         {
                             for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                             {
-                                o_nnz.at(static_cast<std::size_t>(local_row_index(ghost, field_i))) += 1;
+                                o_nnz[static_cast<std::size_t>(local_row_index(ghost, field_i))] += 1;
                             }
                         }
                     }
 #else
                     for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                     {
-                        d_nnz.at(static_cast<std::size_t>(local_row_index(ghost, field_i))) = bdry_stencil_size;
+                        d_nnz[static_cast<std::size_t>(local_row_index(ghost, field_i))] = bdry_stencil_size;
                     }
 #endif
                 }
@@ -1194,8 +1195,8 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
                                                   if (is_locally_owned(ghost))
                                                   {
-                                                      d_nnz.at(row) = proj_stencil_size;
-                                                      o_nnz.at(row) = o_nnz_value;
+                                                      d_nnz[row] = proj_stencil_size;
+                                                      o_nnz[row] = o_nnz_value;
                                                   }
 #else
                                                 if constexpr (ghost_elimination_enabled)
@@ -1234,8 +1235,8 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
                                                   if (is_locally_owned(ghost))
                                                   {
-                                                      d_nnz.at(row) = pred_stencil_size;
-                                                      o_nnz.at(row) = o_nnz_value;
+                                                      d_nnz[row] = pred_stencil_size;
+                                                      o_nnz[row] = o_nnz_value;
                                                   }
 #else
                                                   if constexpr (ghost_elimination_enabled)
