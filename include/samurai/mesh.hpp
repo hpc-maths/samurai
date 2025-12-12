@@ -932,6 +932,7 @@ namespace samurai
 
         for (auto& neighbour : m_mpi_neighbourhood)
         {
+            neighbour.mesh.set_origin_point(this->origin_point()); // the origin point is not serialized, so we have to set it again
             neighbour.mesh.compute_gravity_center();
         }
 #endif
