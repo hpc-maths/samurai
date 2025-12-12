@@ -6,7 +6,7 @@ namespace samurai
     auto create_meshes(std::size_t level)
     {
         using Config  = mesh_config<1>;
-        using Mesh    = decltype(amr::make_empty_Mesh(std::declval<Config>()));
+        using Mesh    = decltype(amr::make_empty_mesh(std::declval<Config>()));
         using cl_type = typename Mesh::cl_type;
 
         cl_type cl1;
