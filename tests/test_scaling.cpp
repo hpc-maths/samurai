@@ -17,7 +17,7 @@ namespace samurai
         Box box(box_corner1, box_corner2);
         auto mesh_cfg = samurai::mesh_config<dim>().min_level(level).max_level(level);
 
-        return samurai::make_MRMesh(box, mesh_cfg);
+        return samurai::mra::make_mesh(box, mesh_cfg);
     }
 
     /**

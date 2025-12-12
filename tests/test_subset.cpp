@@ -486,7 +486,7 @@ namespace samurai
             static constexpr std::size_t dim = 2;
             const Box<double, dim> box({0, 0}, {1, 1});
             auto mesh_cfg = samurai::mesh_config<dim>().min_level(0).max_level(3);
-            auto mesh     = samurai::make_MRMesh(box, mesh_cfg);
+            auto mesh     = samurai::mra::make_mesh(box, mesh_cfg);
             auto& domain  = mesh.domain();
 
             xt::xtensor_fixed<int, xt::xshape<2>> dir = {0, 1 << (3 - 1)};

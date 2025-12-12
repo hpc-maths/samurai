@@ -155,7 +155,7 @@ int main(int argc, char* argv[])
                       .max_stencil_radius(1)
                       .graduation_width(2);
 
-    auto mesh = samurai::make_MRMesh(box, config);
+    auto mesh = samurai::mra::make_mesh(box, config);
     auto u    = samurai::make_scalar_field<double>("u", mesh);
     auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);
 

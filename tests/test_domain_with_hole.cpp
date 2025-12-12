@@ -36,7 +36,7 @@ namespace samurai
                 domain_with_hole_cl[level][index_y].add_interval({interval});
             });
 
-        auto mesh = samurai::make_MRMesh(domain_with_hole_cl, mesh_cfg);
+        auto mesh = samurai::mra::make_mesh(domain_with_hole_cl, mesh_cfg);
 
         EXPECT_EQ(mesh.nb_cells(mesh_id_t::cells), domain_lca.nb_cells() - hole_lca.nb_cells());
     }

@@ -290,7 +290,7 @@ int main()
     const double epsilon_MR = 2.e-4; // Threshold used by multiresolution
 
     auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).max_stencil_radius(2);
-    auto mesh   = samurai::make_MRMesh(box, config); // Constructing mesh from the box
+    auto mesh   = samurai::mra::make_mesh(box, config); // Constructing mesh from the box
 
     using mesh_id_t = typename decltype(mesh)::mesh_id_t;
 

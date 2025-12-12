@@ -94,7 +94,7 @@ int main(int argc, char* argv[])
     .graduation_width(2)
     .max_stencil_radius(2);
     // clang-format on
-    auto mrmesh = samurai::make_MRMesh(box, config);
+    auto mrmesh = samurai::mra::make_mesh(box, config);
     UMesh umesh{box, mrmesh.max_level(), 0, 1};
 
     using mrmesh_id_t = typename decltype(mrmesh)::mesh_id_t;

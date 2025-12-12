@@ -545,55 +545,58 @@ namespace samurai
         }
     }
 
-    // create an empty mesh
-    template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, MRMeshId>>
-    auto make_empty_MRMesh(const mesh_config_t&)
+    namespace mra
     {
-        return MRMesh<complete_mesh_config_t>();
-    }
+        // create an empty mesh
+        template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, MRMeshId>>
+        auto make_empty_mesh(const mesh_config_t&)
+        {
+            return MRMesh<complete_mesh_config_t>();
+        }
 
-    template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, MRMeshId>>
-    auto make_MRMesh(const typename MRMesh<complete_mesh_config_t>::cl_type& cl, const mesh_config_t& cfg)
-    {
-        auto mesh_cfg = cfg;
-        mesh_cfg.parse_args();
-        mesh_cfg.start_level() = mesh_cfg.max_level(); // cppcheck-suppress unreadVariable
+        template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, MRMeshId>>
+        auto make_mesh(const typename MRMesh<complete_mesh_config_t>::cl_type& cl, const mesh_config_t& cfg)
+        {
+            auto mesh_cfg = cfg;
+            mesh_cfg.parse_args();
+            mesh_cfg.start_level() = mesh_cfg.max_level(); // cppcheck-suppress unreadVariable
 
-        return MRMesh<complete_mesh_config_t>(cl, mesh_cfg);
-    }
+            return MRMesh<complete_mesh_config_t>(cl, mesh_cfg);
+        }
 
-    template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, MRMeshId>>
-    auto make_MRMesh(const typename MRMesh<complete_mesh_config_t>::ca_type& ca, const mesh_config_t& cfg)
-    {
-        auto mesh_cfg = cfg;
-        mesh_cfg.parse_args();
-        mesh_cfg.start_level() = mesh_cfg.max_level(); // cppcheck-suppress unreadVariable
+        template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, MRMeshId>>
+        auto make_mesh(const typename MRMesh<complete_mesh_config_t>::ca_type& ca, const mesh_config_t& cfg)
+        {
+            auto mesh_cfg = cfg;
+            mesh_cfg.parse_args();
+            mesh_cfg.start_level() = mesh_cfg.max_level(); // cppcheck-suppress unreadVariable
 
-        return MRMesh<complete_mesh_config_t>(ca, mesh_cfg);
-    }
+            return MRMesh<complete_mesh_config_t>(ca, mesh_cfg);
+        }
 
-    template <class mesh_config_t>
-    auto make_MRMesh(const samurai::Box<double, mesh_config_t::dim>& b, const mesh_config_t& cfg)
-    {
-        using complete_cfg_t = complete_mesh_config<mesh_config_t, MRMeshId>;
+        template <class mesh_config_t>
+        auto make_mesh(const samurai::Box<double, mesh_config_t::dim>& b, const mesh_config_t& cfg)
+        {
+            using complete_cfg_t = complete_mesh_config<mesh_config_t, MRMeshId>;
 
-        auto mesh_cfg = cfg;
-        mesh_cfg.parse_args();
-        mesh_cfg.start_level() = mesh_cfg.max_level(); // cppcheck-suppress unreadVariable
+            auto mesh_cfg = cfg;
+            mesh_cfg.parse_args();
+            mesh_cfg.start_level() = mesh_cfg.max_level(); // cppcheck-suppress unreadVariable
 
-        return MRMesh<complete_cfg_t>(b, mesh_cfg);
-    }
+            return MRMesh<complete_cfg_t>(b, mesh_cfg);
+        }
 
-    template <class mesh_config_t>
-    auto make_MRMesh(const samurai::DomainBuilder<mesh_config_t::dim>& domain_builder, const mesh_config_t& cfg)
-    {
-        using complete_cfg_t = complete_mesh_config<mesh_config_t, MRMeshId>;
+        template <class mesh_config_t>
+        auto make_mesh(const samurai::DomainBuilder<mesh_config_t::dim>& domain_builder, const mesh_config_t& cfg)
+        {
+            using complete_cfg_t = complete_mesh_config<mesh_config_t, MRMeshId>;
 
-        auto mesh_cfg = cfg;
-        mesh_cfg.parse_args();
-        mesh_cfg.start_level() = mesh_cfg.max_level(); // cppcheck-suppress unreadVariable
+            auto mesh_cfg = cfg;
+            mesh_cfg.parse_args();
+            mesh_cfg.start_level() = mesh_cfg.max_level(); // cppcheck-suppress unreadVariable
 
-        return MRMesh<complete_cfg_t>(domain_builder, mesh_cfg);
+            return MRMesh<complete_cfg_t>(domain_builder, mesh_cfg);
+        }
     }
 } // namespace samurai
 

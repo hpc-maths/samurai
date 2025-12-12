@@ -87,12 +87,12 @@ int main(int argc, char* argv[])
     box_corner2.fill(right_box);
     Box box(box_corner1, box_corner2);
     auto config = samurai::mesh_config<dim>().min_level(1).max_level(dim == 1 ? 6 : 4).periodic(true).max_stencil_size(6);
-    auto mesh   = samurai::make_empty_MRMesh(config);
+    auto mesh   = samurai::mra::make_empty_mesh(config);
     auto u      = samurai::make_scalar_field<double>("u", mesh);
 
     if (restart_file.empty())
     {
-        mesh = samurai::make_MRMesh(box, config);
+        mesh = samurai::mra::make_mesh(box, config);
         // Initial solution
         u = samurai::make_scalar_field<double>("u",
                                                mesh,

@@ -264,9 +264,9 @@ int main(int argc, char* argv[])
 
     Box box({left_box}, {right_box});
     auto config           = samurai::mesh_config<dim>().min_level(1).max_level(7).max_stencil_radius(2).graduation_width(2);
-    auto mesh             = samurai::make_MRMesh(box, config);
+    auto mesh             = samurai::mra::make_mesh(box, config);
     auto max_level_config = samurai::mesh_config<dim>().min_level(mesh.max_level()).max_level(mesh.max_level()).max_stencil_radius(2);
-    auto max_level_mesh   = samurai::make_MRMesh(box, max_level_config);
+    auto max_level_mesh   = samurai::mra::make_mesh(box, max_level_config);
 
     auto u    = samurai::make_scalar_field<double>("u", mesh);
     auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);

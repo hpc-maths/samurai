@@ -90,8 +90,8 @@ auto create_uniform_mesh(std::size_t level)
     max_level   = level;
 
     auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).start_level(start_level).disable_minimal_ghost_width();
-    return samurai::amr::make_Mesh(box, config); // amr::Mesh
-    // return samurai::make_MRMesh(box, config); // MRMesh
+    return samurai::amr::make_mesh(box, config); // amr::Mesh
+    // return samurai::mra::make_mesh(box, config); // MRMesh
 }
 
 template <std::size_t dim>
@@ -115,8 +115,8 @@ template <std::size_t dim>
     }
     static_assert(dim == 1, "create_refined_mesh() not implemented for this dimension");
 
-    return samurai::amr::make_Mesh(cl, config); // amr::Mesh
-    // return samurai::make_MRMesh(cl, config); // MRMesh
+    return samurai::amr::make_mesh(cl, config); // amr::Mesh
+    // return samurai::mra::make_mesh(cl, config); // MRMesh
 }
 
 int main(int argc, char* argv[])

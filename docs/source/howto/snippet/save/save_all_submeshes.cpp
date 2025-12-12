@@ -12,7 +12,7 @@ int main()
 
     samurai::Box<double, dim> box({0.0, 0.0}, {1.0, 1.0});
     auto config = samurai::mesh_config<dim>().min_level(2).max_level(5);
-    auto mesh   = samurai::make_MRMesh(box, config);
+    auto mesh   = samurai::mra::make_mesh(box, config);
 
     auto field_1 = samurai::make_scalar_field<double>("u", mesh);
     auto field_2 = samurai::make_vector_field<double, 3>("v", mesh);

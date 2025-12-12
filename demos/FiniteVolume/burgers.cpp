@@ -107,7 +107,7 @@ int main_dim(int argc, char* argv[])
     Box box(box_corner1, box_corner2);
 
     auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).max_stencil_size(6);
-    auto mesh   = samurai::make_empty_MRMesh(config);
+    auto mesh   = samurai::mra::make_empty_mesh(config);
 
     auto u    = samurai::make_vector_field<n_comp>("u", mesh);
     auto u1   = samurai::make_vector_field<n_comp>("u1", mesh);
@@ -116,7 +116,7 @@ int main_dim(int argc, char* argv[])
 
     if (restart_file.empty())
     {
-        mesh = samurai::make_MRMesh(box, config);
+        mesh = samurai::mra::make_mesh(box, config);
         u.resize();
 
         // Initial solution

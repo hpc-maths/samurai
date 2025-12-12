@@ -250,13 +250,13 @@ namespace samurai::amr
     }
 
     template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, AMR_Id>>
-    auto make_empty_Mesh(const mesh_config_t&)
+    auto make_empty_mesh(const mesh_config_t&)
     {
         return Mesh<complete_mesh_config_t>();
     }
 
     template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, AMR_Id>>
-    auto make_Mesh(const typename Mesh<complete_mesh_config_t>::cl_type& cl, const mesh_config_t& cfg)
+    auto make_mesh(const typename Mesh<complete_mesh_config_t>::cl_type& cl, const mesh_config_t& cfg)
     {
         auto mesh_cfg = cfg;
         mesh_cfg.parse_args();
@@ -265,7 +265,7 @@ namespace samurai::amr
     }
 
     template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, AMR_Id>>
-    auto make_Mesh(const typename Mesh<complete_mesh_config_t>::ca_type& ca, const mesh_config_t& cfg)
+    auto make_mesh(const typename Mesh<complete_mesh_config_t>::ca_type& ca, const mesh_config_t& cfg)
     {
         auto mesh_cfg = cfg;
         mesh_cfg.parse_args();
@@ -274,7 +274,7 @@ namespace samurai::amr
     }
 
     template <class mesh_config_t>
-    auto make_Mesh(const samurai::Box<double, mesh_config_t::dim>& b, const mesh_config_t& cfg)
+    auto make_mesh(const samurai::Box<double, mesh_config_t::dim>& b, const mesh_config_t& cfg)
     {
         using complete_cfg_t = complete_mesh_config<mesh_config_t, AMR_Id>;
 

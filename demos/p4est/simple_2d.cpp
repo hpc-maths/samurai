@@ -187,7 +187,7 @@ void refine_2(mesh_t& mesh, std::size_t max_level)
                                        }
                                    });
 
-        mesh = samurai::make_MRMesh(cl, mesh.cfg());
+        mesh = samurai::mra::make_mesh(cl, mesh.cfg());
     }
 }
 
@@ -236,7 +236,7 @@ int main(int argc, char* argv[])
     toc();
     std::cout << "nb_cells: " << mesh_1.nb_cells() << "\n";
 
-    auto mesh_2     = samurai::make_MRMesh(cl, config);
+    auto mesh_2     = samurai::mra::make_mesh(cl, config);
     using mesh_id_t = typename decltype(mesh_2)::mesh_id_t;
 
     tic();

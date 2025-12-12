@@ -74,7 +74,7 @@ int main(int argc, char* argv[])
     domain.remove({0.0, 0.0}, {0.4, 0.4});
 
     auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).max_stencil_size(6);
-    auto mesh   = samurai::make_MRMesh(domain, config);
+    auto mesh   = samurai::mra::make_mesh(domain, config);
 
     // Initial solution
     auto u = samurai::make_scalar_field<double>("u",
