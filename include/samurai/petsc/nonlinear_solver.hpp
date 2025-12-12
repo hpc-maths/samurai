@@ -18,18 +18,22 @@ namespace samurai
           protected:
 
             Assembly m_assembly;
-            SNES m_snes      = nullptr;
-            Mat m_J          = nullptr;
-            bool m_is_set_up = false;
+            SNES m_snes                   = nullptr;
+            Mat m_J                       = nullptr;
+            bool m_is_set_up              = false;
+            bool m_reuse_allocated_matrix = false;
 
             output_field_t m_worker_output_field;
 
           public:
 
+            // User callback to configure the solver
+            std::function<void(SNES&, KSP&, PC&)> configure = nullptr;
+
             explicit NonLinearSolverBase(const scheme_t& scheme)
                 : m_assembly(scheme)
             {
-                _configure_solver();
+                SNESCreate(PETSC_COMM_WORLD, &m_snes);
             }
 
             virtual ~NonLinearSolverBase()
@@ -45,7 +49,8 @@ namespace samurai
                 {
                     m_assembly.destroy_local_to_global_mappings(m_J);
                     MatDestroy(&m_J);
-                    m_J = nullptr;
+                    m_J                      = nullptr;
+                    m_reuse_allocated_matrix = false;
                 }
                 if (m_snes)
                 {
@@ -110,19 +115,10 @@ namespace samurai
                 return assembly().scheme();
             }
 
-          private:
-
-            void _configure_solver()
-            {
-                SNESCreate(PETSC_COMM_WORLD, &m_snes);
-                SNESSetType(m_snes, SNESNEWTONLS);
-            }
-
           protected:
 
-            virtual void configure_solver()
+            virtual void default_solver_configuration()
             {
-                _configure_solver();
             }
 
           public:
@@ -146,10 +142,22 @@ namespace samurai
                 SNESSetFunction(m_snes, nullptr, PETSC_nonlinear_function, this);
 
                 // Jacobian matrix
-                assembly().create_matrix(m_J);
-                // assembly().assemble_matrix(m_J);
+                if (!m_reuse_allocated_matrix)
+                {
+                    assembly().create_matrix(m_J);
+                }
+
+                // Jacobian function
                 SNESSetJacobian(m_snes, m_J, m_J, PETSC_jacobian_function, this);
 
+                KSP ksp;
+                PC pc;
+                SNESGetKSP(m_snes, &ksp);
+                KSPGetPC(ksp, &pc);
+                if (configure)
+                {
+                    configure(m_snes, ksp, pc);
+                }
                 SNESSetFromOptions(m_snes);
 
                 m_is_set_up = true;
@@ -276,9 +284,23 @@ namespace samurai
             virtual void reset()
             {
                 destroy_petsc_objects();
+                SNESCreate(PETSC_COMM_WORLD, &m_snes);
                 m_assembly.is_set_up(false);
                 m_is_set_up = false;
-                configure_solver();
+                default_solver_configuration();
+            }
+
+            void set_scheme(const scheme_t& s)
+            {
+                m_assembly.set_scheme(s);
+                if (m_snes)
+                {
+                    SNESDestroy(&m_snes);
+                    SNESCreate(PETSC_COMM_WORLD, &m_snes);
+                }
+                default_solver_configuration();
+                m_is_set_up              = false;
+                m_reuse_allocated_matrix = true;
             }
         };
 

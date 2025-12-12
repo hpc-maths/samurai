@@ -29,6 +29,11 @@ namespace samurai
 
           public:
 
+            // User callbacks to configure the solver
+            std::function<void(KSP&, PC&)> configure                   = nullptr;
+            std::function<void(KSP&, PC&, Mat&)> after_matrix_assembly = nullptr;
+            std::function<void(KSP&, PC&, Mat&)> after_setup           = nullptr;
+
             explicit LinearSolverBase(const scheme_t& scheme)
                 : m_assembly(scheme)
             {
@@ -39,11 +44,6 @@ namespace samurai
             {
                 _destroy_petsc_objects();
             }
-
-            // User callbacks to configure the solver
-            std::function<void(KSP&, PC&)> configure                   = nullptr;
-            std::function<void(KSP&, PC&, Mat&)> after_matrix_assembly = nullptr;
-            std::function<void(KSP&, PC&, Mat&)> after_setup           = nullptr;
 
           private:
 
@@ -151,8 +151,6 @@ namespace samurai
                 {
                     return;
                 }
-
-                std::cout << "Setting up the linear solver..." << std::endl;
 
                 PC pc;
                 KSPGetPC(m_ksp, &pc);
