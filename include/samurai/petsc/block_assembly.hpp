@@ -1,6 +1,5 @@
 #pragma once
 #include "../schemes/block_operator.hpp"
-// #include "fv/operator_sum_assembly.hpp"
 #include "global_numbering.hpp"
 #include "manual_assembly.hpp"
 #include "utils.hpp"
@@ -719,39 +718,6 @@ namespace samurai
                     });
 
 #ifdef SAMURAI_WITH_MPI
-                // if (mpi::communicator().rank() == 1)
-                // {
-                //     sleep(1); // to have ordered output
-                // }
-
-                // for_each_assembly_op(
-                //     [&](auto& op, auto row, auto col)
-                //     {
-                //         if (col == 0)
-                //         {
-                //             std::cout << "[" << mpi::communicator().rank() << "] (" << row << ", " << col
-                //                       << "): rank_col_shift = " << op.rank_col_shift() << std::endl;
-                //         }
-                //     });
-                // for_each_assembly_op(
-                //     [&](auto& op, auto row, auto col)
-                //     {
-                //         if (col == 0)
-                //         {
-                //             std::cout << "[" << mpi::communicator().rank() << "] (" << row << ", " << col
-                //                       << "): owned_col_shift = " << op.block_col_shift() << std::endl;
-                //         }
-                //     });
-                // for_each_assembly_op(
-                //     [&](auto& op, auto row, auto col)
-                //     {
-                //         if (col == 0)
-                //         {
-                //             std::cout << "[" << mpi::communicator().rank() << "] (" << row << ", " << col
-                //                       << "): ghosts_col_shift = " << op.ghosts_col_shift() << std::endl;
-                //         }
-                //     });
-
                 m_numbering.resize(this->local_matrix_rows());
                 for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
