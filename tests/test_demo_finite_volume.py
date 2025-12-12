@@ -93,8 +93,6 @@ def test_finite_volume_demo_heat(time_scheme, config):
     ]
     if time_scheme == "explicit":
         cmd.append("--explicit")
-    else:
-        cmd.extend(["-ksp_type", "preonly", "-pc_type", "lu"])
     output = subprocess.run(cmd, check=True, capture_output=True)
 
 

@@ -186,6 +186,11 @@ int main(int argc, char* argv[])
 
     auto back_euler_solver = samurai::petsc::make_solver(id + dt * diff);
     back_euler_solver.set_unknown(unp1);
+    back_euler_solver.configure = [](KSP& ksp, PC& pc)
+    {
+        KSPSetType(ksp, KSPPREONLY); // (equiv. '-ksp_type preonly')
+        PCSetType(pc, PCLU);         // (equiv. '-pc_type lu')
+    };
 
     double t = t0;
     while (t != Tf)

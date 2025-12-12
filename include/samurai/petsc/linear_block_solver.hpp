@@ -24,6 +24,7 @@ namespace samurai
             using base_class::after_matrix_assembly;
             using base_class::after_setup;
             using base_class::assembly;
+            using base_class::configure;
 
           private:
 
@@ -41,23 +42,9 @@ namespace samurai
             explicit LinearBlockSolver(const block_operator_t& block_op)
                 : base_class(block_op)
             {
-                _configure_solver();
-            }
-
-          private:
-
-            void _configure_solver()
-            {
-                KSPCreate(PETSC_COMM_WORLD, &m_ksp);
-                KSPSetFromOptions(m_ksp);
             }
 
           public:
-
-            void configure_solver() override
-            {
-                _configure_solver();
-            }
 
             void set_pc_fieldsplit(PC& pc)
             {
@@ -110,38 +97,49 @@ namespace samurai
                 if constexpr (assembly_type == BlockAssemblyType::Monolithic)
                 {
                     base_class::setup();
-                    return;
                 }
-
-                if (m_is_set_up)
+                else // NestedMatrices
                 {
-                    return;
+                    if (m_is_set_up)
+                    {
+                        return;
+                    }
+
+                    PC pc;
+                    KSPGetPC(m_ksp, &pc);
+                    if (configure)
+                    {
+                        configure(m_ksp, pc);
+                    }
+                    KSPSetFromOptions(m_ksp);
+
+                    this->assemble_matrix();
+                    // MatView(m_A, PETSC_VIEWER_STDOUT_(PETSC_COMM_WORLD)); std::cout << std::endl;
+                    KSPSetOperators(m_ksp, m_A, m_A);
+
+                    if (after_matrix_assembly)
+                    {
+                        after_matrix_assembly(m_ksp, pc, m_A);
+                    }
+
+                    times::timers.start("solver setup");
+                    PetscErrorCode err = PCSetUp(pc);
+                    // PetscErrorCode err = KSPSetUp(m_ksp); // PETSc fails at KSPSolve() for some reason.
+                    if (err != PETSC_SUCCESS)
+                    {
+                        std::cerr << "The setup of the solver failed!" << std::endl;
+                        assert(false && "Failed solver setup");
+                        exit(EXIT_FAILURE);
+                    }
+                    times::timers.stop("solver setup");
+
+                    if (after_setup)
+                    {
+                        after_setup(m_ksp, pc, m_A);
+                    }
+
+                    m_is_set_up = true;
                 }
-
-                this->assemble_matrix();
-                // MatView(m_A, PETSC_VIEWER_STDOUT_(PETSC_COMM_WORLD)); std::cout << std::endl;
-                KSPSetOperators(m_ksp, m_A, m_A);
-
-                if (after_matrix_assembly)
-                {
-                    after_matrix_assembly(m_ksp, m_A);
-                }
-
-                PC pc;
-                KSPGetPC(m_ksp, &pc);
-
-                KSPSetFromOptions(m_ksp);
-                times::timers.start("solver setup");
-                PCSetUp(pc);
-                // KSPSetUp(m_ksp); // PETSc fails at KSPSolve() for some reason.
-                times::timers.stop("solver setup");
-
-                if (after_setup)
-                {
-                    after_setup(m_ksp, m_A);
-                }
-
-                m_is_set_up = true;
             }
 
             template <class... Fields>

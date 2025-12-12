@@ -593,7 +593,7 @@ namespace samurai
             void update_unknowns(const Vec& x) const
             {
                 for_each_assembly_op(
-                    [&](auto& op, auto row, auto)
+                    [&](auto& op, auto row, auto col)
                     {
                         if constexpr (row == col)
                         {

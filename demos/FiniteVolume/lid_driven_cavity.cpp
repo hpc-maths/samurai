@@ -8,123 +8,6 @@
 #include <samurai/samurai.hpp>
 #include <samurai/schemes/fv.hpp>
 
-template <class Solver, class PressureField, class VelocityField>
-void configure_monolithic_solver(Solver& solver, const PressureField& constant_pressure, const VelocityField& zero_velocity)
-{
-    KSP ksp = solver.Ksp();
-    PC pc;
-    KSPGetPC(ksp, &pc);
-    KSPSetType(ksp, KSPPREONLY); // (equiv. '-ksp_type preonly')
-#if defined(PETSC_HAVE_MUMPS)
-    // We use MUMPS because it can handle null spaces (unlike the default petsc LU)
-    PCSetType(pc, PCLU);                          // (equiv. '-pc_type lu')
-    PCFactorSetMatSolverType(pc, MATSOLVERMUMPS); // (equiv. '-pc_factor_mat_solver_type mumps')
-#else
-    // If MUMPS is not installed, we fallback on QR because it can handle singular systems
-    PCSetType(pc, PCQR); // (equiv. '-pc_type qr')
-#endif
-    // KSP and PC overwritten by user value if needed
-    KSPSetFromOptions(ksp);
-
-    solver.after_matrix_assembly = [&](KSP& ksp, Mat& A)
-    {
-        // Set the null space (constant pressures) so that iterative solvers can orthogonalize residuals against it
-        Vec constant_pressure_vector = solver.assembly().create_vector(zero_velocity, constant_pressure);
-        VecNormalize(constant_pressure_vector, NULL);
-
-        MatNullSpace nullspace;
-        MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &constant_pressure_vector, &nullspace);
-        MatSetNullSpace(A, nullspace);
-        MatNullSpaceDestroy(&nullspace);
-        VecDestroy(&constant_pressure_vector);
-
-        // If using MUMPS, set option ICNTL(24)=1 to enable the detection of null pivots (because the matrix is singular)
-        PetscBool is_mumps = PETSC_FALSE;
-        const char* stype;
-        PC pc;
-        KSPGetPC(ksp, &pc);
-        PCFactorGetMatSolverType(pc, &stype);
-        PetscStrcmp(stype, MATSOLVERMUMPS, &is_mumps);
-        if (is_mumps)
-        {
-            Mat F;
-            PCFactorGetMatrix(pc, &F);
-            MatMumpsSetIcntl(F, 24, 1); // (equiv. '-mat_mumps_icntl_24 1')
-        }
-    };
-}
-
-//
-// Configuration of the PETSc solver for the Stokes problem
-//
-template <class Solver>
-void configure_saddle_point_solver(Solver& block_solver)
-{
-    // The matrix has the saddle-point structure
-    //           | A    B |
-    //           | B^T  C |
-
-    // The Schur complement eliminating the first variable (here, the velocity) is
-    //            Schur = C - B^T * A^-1 * B
-    // We define the preconditioner
-    //            S = C - B^T * ksp(A) * B
-    // where ksp(A) is a solver for A.
-
-    KSP ksp = block_solver.Ksp();
-    PC pc;
-    KSPGetPC(ksp, &pc);
-
-    block_solver.assemble_matrix(); // if nested matrix, must be called before calling set_pc_fieldsplit().
-
-    block_solver.set_pc_fieldsplit(pc);
-    PCFieldSplitSetType(pc, PC_COMPOSITE_SCHUR); // Schur complement preconditioner (equiv. '-pc_fieldsplit_type schur')
-    PCFieldSplitSetSchurPre(pc, PC_FIELDSPLIT_SCHUR_PRE_SELFP, PETSC_NULLPTR); // (equiv. '-pc_fieldsplit_schur_precondition selfp')
-    PCFieldSplitSetSchurFactType(pc, PC_FIELDSPLIT_SCHUR_FACT_FULL);           // (equiv. '-pc_fieldsplit_schur_fact_type full')
-
-    // Configure the sub-solvers
-    block_solver.setup(); // KSPSetUp() or PCSetUp() must be called before calling PCFieldSplitSchurGetSubKSP(), because the matrices are
-                          // needed.
-    KSP* sub_ksp;
-    PCFieldSplitSchurGetSubKSP(pc, nullptr, &sub_ksp);
-    KSP A_ksp     = sub_ksp[0];
-    KSP schur_ksp = sub_ksp[1];
-
-    // Set LU by default for the A block (diffusion). Consider using 'hypre' for large problems,
-    // using the option '-fieldsplit_velocity_[np1]_pc_type hypre'.
-    PC A_pc;
-    KSPGetPC(A_ksp, &A_pc);
-    KSPSetType(A_ksp, KSPPREONLY); // (equiv. '-fieldsplit_velocity_[np1]_ksp_type preonly')
-    PCSetType(A_pc, PCLU);         // (equiv. '-fieldsplit_velocity_[np1]_pc_type lu')
-    KSPSetFromOptions(A_ksp);      // KSP and PC overwritten by user value if needed
-
-    PC schur_pc;
-    KSPGetPC(schur_ksp, &schur_pc);
-    KSPSetType(schur_ksp, KSPPREONLY); // (equiv. '-fieldsplit_pressure_[np1]_ksp_type preonly')
-    PCSetType(schur_pc, PCQR);         // (equiv. '-fieldsplit_pressure_[np1]_pc_type qr')
-    // PCSetType(schur_pc, PCJACOBI); // (equiv. '-fieldsplit_pressure_[np1]_pc_type none')
-    KSPSetFromOptions(schur_ksp); // KSP and PC overwritten by user value if needed
-
-    // If a tolerance is set by the user ('-ksp-rtol XXX'), then we set that
-    // tolerance to all the sub-solvers
-    PetscReal ksp_rtol;
-    KSPGetTolerances(ksp, &ksp_rtol, PETSC_IGNORE, PETSC_IGNORE, PETSC_IGNORE);
-    KSPSetTolerances(A_ksp, ksp_rtol, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT);     // (equiv. '-fieldsplit_velocity_ksp_rtol XXX')
-    KSPSetTolerances(schur_ksp, ksp_rtol, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT); // (equiv. '-fieldsplit_pressure_ksp_rtol XXX')
-}
-
-template <class Solver, class PressureField, class VelocityField>
-void configure_solver(Solver& solver, const PressureField& constant_pressure, const VelocityField& zero_velocity)
-{
-    if constexpr (Solver::assembly_type == samurai::petsc::BlockAssemblyType::Monolithic)
-    {
-        configure_monolithic_solver(solver, constant_pressure, zero_velocity);
-    }
-    else
-    {
-        configure_saddle_point_solver(solver); // works also for monolithic
-    }
-}
-
 int main(int argc, char* argv[])
 {
     auto& app = samurai::initialize("Lid-driven cavity", argc, argv);
@@ -247,10 +130,47 @@ int main(int argc, char* argv[])
     auto rhs  = samurai::make_vector_field<double, dim>("rhs", mesh);
     auto zero = samurai::make_scalar_field<double>("zero", mesh);
 
+    //--------------------------------------------------------------------------------
     // Linear solver
+
     auto stokes_solver = samurai::petsc::make_solver<samurai::petsc::BlockAssemblyType::Monolithic>(stokes);
     stokes_solver.set_unknowns(velocity_np1, pressure_np1);
-    configure_solver(stokes_solver, constant_pressure, zero_velocity);
+    stokes_solver.configure = [&](KSP& ksp, PC& pc)
+    {
+        KSPSetType(ksp, KSPPREONLY); // (equiv. '-ksp_type preonly')
+#if defined(PETSC_HAVE_MUMPS)
+        // We use MUMPS because it can handle null spaces (unlike the default petsc LU)
+        PCSetType(pc, PCLU);                          // (equiv. '-pc_type lu')
+        PCFactorSetMatSolverType(pc, MATSOLVERMUMPS); // (equiv. '-pc_factor_mat_solver_type mumps')
+#else
+        // If MUMPS is not installed, we fallback on QR because it can handle singular systems
+        PCSetType(pc, PCQR); // (equiv. '-pc_type qr')
+#endif
+    };
+    stokes_solver.after_matrix_assembly = [&](KSP&, PC& pc, Mat& A)
+    {
+        // Set the null space (constant pressures) so that iterative solvers can orthogonalize residuals against it
+        Vec constant_pressure_vector = stokes_solver.assembly().create_vector(zero_velocity, constant_pressure);
+        VecNormalize(constant_pressure_vector, NULL);
+
+        MatNullSpace nullspace;
+        MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &constant_pressure_vector, &nullspace);
+        MatSetNullSpace(A, nullspace);
+        MatNullSpaceDestroy(&nullspace);
+        VecDestroy(&constant_pressure_vector);
+
+        // If using MUMPS, set option ICNTL(24)=1 to enable the detection of null pivots (because the matrix is singular)
+        PetscBool is_mumps = PETSC_FALSE;
+        const char* stype;
+        PCFactorGetMatSolverType(pc, &stype);
+        PetscStrcmp(stype, MATSOLVERMUMPS, &is_mumps);
+        if (is_mumps)
+        {
+            Mat F;
+            PCFactorGetMatrix(pc, &F);
+            MatMumpsSetIcntl(F, 24, 1); // (equiv. '-mat_mumps_icntl_24 1')
+        }
+    };
 
     //-------------------- 2 ----------------------------------------------------------------
     //
@@ -362,13 +282,13 @@ int main(int argc, char* argv[])
         // Update solver
         if (dt_has_changed)
         {
+            // Reconstruct the block operator with the new dt
             stokes = samurai::make_block_operator<2, 2>(id + dt * diff, dt * grad, -div, zero_op);
             stokes_solver.set_block_operator(stokes);
         }
         if (mesh_has_changed)
         {
             stokes_solver.reset();
-            configure_solver(stokes_solver, constant_pressure, zero_velocity);
         }
 
         // Solve Stokes system

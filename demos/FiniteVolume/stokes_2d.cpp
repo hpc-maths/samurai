@@ -28,60 +28,11 @@ template <class Field>
     return !is_nan_or_inf;
 }
 
-template <class Solver>
-void configure_monolithic_solver(Solver& solver)
-{
-    KSP ksp = solver.Ksp();
-    PC pc;
-    KSPGetPC(ksp, &pc);
-    KSPSetType(ksp, KSPPREONLY); // (equiv. '-ksp_type preonly')
-    PCSetType(pc, PCQR);         // (equiv. '-pc_type qr')
-    // PetscBool use_superlu = PETSC_FALSE;
-    // #if defined(PETSC_HAVE_SUPERLU)
-    //     use_superlu = PETSC_TRUE;
-    // #endif
-    //     PetscBool use_mumps             = PETSC_FALSE;
-    //     PetscBool solver_package_is_set = PETSC_FALSE;
-    //     std::string pc_factor_mat_solver_type_str(100, '\0');
-    //     PetscOptionsGetString(NULL,
-    //                           NULL,
-    //                           "-pc_factor_mat_solver_type",
-    //                           pc_factor_mat_solver_type_str.data(),
-    //                           pc_factor_mat_solver_type_str.size(),
-    //                           &solver_package_is_set);
-    //     if (solver_package_is_set)
-    //     {
-    //         pc_factor_mat_solver_type_str = pc_factor_mat_solver_type_str.substr(0, pc_factor_mat_solver_type_str.find('\0'));
-    //     }
-    // #if defined(PETSC_HAVE_MUMPS)
-    //     if (!use_superlu || pc_factor_mat_solver_type_str == MATSOLVERMUMPS)
-    //     {
-    //         use_mumps   = PETSC_TRUE;
-    //         use_superlu = PETSC_FALSE;
-    //     }
-    // #endif
-    //     if (use_superlu)
-    //     {
-    // #if defined(PETSC_HAVE_SUPERLU)
-    //         PCFactorSetMatSolverType(pc, MATSOLVERSUPERLU); // (equiv. '-pc_factor_mat_solver_type superlu')
-    // #endif
-    //     }
-    //     else if (use_mumps)
-    //     {
-    // #if defined(PETSC_HAVE_MUMPS)
-    //         PCFactorSetMatSolverType(pc, MATSOLVERMUMPS); // (equiv. '-pc_factor_mat_solver_type mumps')
-    // #endif
-    //     }
-    // KSP and PC overwritten by user value if needed
-    KSPSetFromOptions(ksp);
-    // If neither SuperLU nor MUMPS is installed, you can try: -ksp_type gmres -pc_type ilu
-}
-
 //
 // Configuration of the PETSc solver for the Stokes problem
 //
 template <class Solver>
-void configure_saddle_point_solver(Solver& block_solver)
+void configure_solver(Solver& block_solver)
 {
     // The matrix has the saddle-point structure
     //           | A    B |
@@ -93,71 +44,59 @@ void configure_saddle_point_solver(Solver& block_solver)
     //            S = C - B^T * ksp(A) * B
     // where ksp(A) is a solver for A.
 
-    KSP ksp = block_solver.Ksp();
-    PC pc;
-    KSPGetPC(ksp, &pc);
-
-    block_solver.assemble_matrix(); // if nested matrix, must be called before calling set_pc_fieldsplit().
-
-    block_solver.set_pc_fieldsplit(pc);
-    PCFieldSplitSetType(pc, PC_COMPOSITE_SCHUR); // Schur complement preconditioner (equiv. '-pc_fieldsplit_type schur')
-    PCFieldSplitSetSchurPre(pc, PC_FIELDSPLIT_SCHUR_PRE_SELFP, PETSC_NULLPTR); // (equiv. '-pc_fieldsplit_schur_precondition selfp')
-    PCFieldSplitSetSchurFactType(pc, PC_FIELDSPLIT_SCHUR_FACT_FULL);           // (equiv. '-pc_fieldsplit_schur_fact_type full')
+    block_solver.after_matrix_assembly = [&](KSP&, PC& pc, Mat&)
+    {
+        // The nested matrices must be assembled before calling set_pc_fieldsplit().
+        block_solver.set_pc_fieldsplit(pc);
+        PCFieldSplitSetType(pc, PC_COMPOSITE_SCHUR); // Schur complement preconditioner (equiv. '-pc_fieldsplit_type schur')
+        PCFieldSplitSetSchurPre(pc, PC_FIELDSPLIT_SCHUR_PRE_SELFP, PETSC_NULLPTR); // (equiv. '-pc_fieldsplit_schur_precondition selfp')
+        PCFieldSplitSetSchurFactType(pc, PC_FIELDSPLIT_SCHUR_FACT_FULL);           // (equiv. '-pc_fieldsplit_schur_fact_type full')
+    };
 
     // Configure the sub-solvers
-    block_solver.setup(); // KSPSetUp() or PCSetUp() must be called before calling PCFieldSplitSchurGetSubKSP(), because the matrices are
-                          // needed.
-    KSP* sub_ksp;
-    PCFieldSplitSchurGetSubKSP(pc, nullptr, &sub_ksp);
-    KSP A_ksp     = sub_ksp[0];
-    KSP schur_ksp = sub_ksp[1];
+    block_solver.after_setup = [&](KSP& ksp, PC& pc, Mat&)
+    {
+        // KSPSetUp() or PCSetUp() must be called before calling PCFieldSplitSchurGetSubKSP(), because the matrices are needed.
+        KSP* sub_ksp;
+        PCFieldSplitSchurGetSubKSP(pc, nullptr, &sub_ksp);
+        KSP A_ksp     = sub_ksp[0];
+        KSP schur_ksp = sub_ksp[1];
 
-    // Set LU by default for the A block (diffusion). Consider using 'hypre' for large problems,
-    // using the option '-fieldsplit_velocity_[np1]_pc_type hypre'.
-    PC A_pc;
-    KSPGetPC(A_ksp, &A_pc);
-    KSPSetType(A_ksp, KSPPREONLY); // (equiv. '-fieldsplit_velocity_[np1]_ksp_type preonly')
-    PCSetType(A_pc, PCLU);         // (equiv. '-fieldsplit_velocity_[np1]_pc_type lu')
-    KSPSetFromOptions(A_ksp);      // KSP and PC overwritten by user value if needed
+        // Set LU by default for the A block (diffusion). Consider using 'hypre' for large problems,
+        // using the option '-fieldsplit_velocity_[np1]_pc_type hypre'.
+        PC A_pc;
+        KSPGetPC(A_ksp, &A_pc);
+        KSPSetType(A_ksp, KSPPREONLY); // (equiv. '-fieldsplit_velocity_[np1]_ksp_type preonly')
+        PCSetType(A_pc, PCLU);         // (equiv. '-fieldsplit_velocity_[np1]_pc_type lu')
+        KSPSetFromOptions(A_ksp);      // KSP and PC overwritten by user value if needed
 
-    PC schur_pc;
-    KSPGetPC(schur_ksp, &schur_pc);
+        PC schur_pc;
+        KSPGetPC(schur_ksp, &schur_pc);
 #ifdef SAMURAI_WITH_MPI
-    PCSetType(schur_pc, PCJACOBI); // (equiv. '-fieldsplit_pressure_[np1]_pc_type none')
+        PCSetType(schur_pc, PCJACOBI); // (equiv. '-fieldsplit_pressure_[np1]_pc_type none')
 #else
-    KSPSetType(schur_ksp, KSPPREONLY); // (equiv. '-fieldsplit_pressure_[np1]_ksp_type preonly')
-    PCSetType(schur_pc, PCQR);         // (equiv. '-fieldsplit_pressure_[np1]_pc_type qr')
+        KSPSetType(schur_ksp, KSPPREONLY); // (equiv. '-fieldsplit_pressure_[np1]_ksp_type preonly')
+        PCSetType(schur_pc, PCQR);         // (equiv. '-fieldsplit_pressure_[np1]_pc_type qr')
 #endif
-    KSPSetFromOptions(schur_ksp); // KSP and PC overwritten by user value if needed
+        KSPSetFromOptions(schur_ksp); // KSP and PC overwritten by user value if needed
 
-    // If a tolerance is set by the user ('-ksp-rtol XXX'), then we set that
-    // tolerance to all the sub-solvers
-    PetscReal ksp_rtol;
-    KSPGetTolerances(ksp, &ksp_rtol, PETSC_IGNORE, PETSC_IGNORE, PETSC_IGNORE);
-    KSPSetTolerances(A_ksp, ksp_rtol, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT);     // (equiv. '-fieldsplit_velocity_ksp_rtol XXX')
-    KSPSetTolerances(schur_ksp, ksp_rtol, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT); // (equiv. '-fieldsplit_pressure_ksp_rtol XXX')
-}
-
-template <class Solver>
-void configure_solver(Solver& solver)
-{
-    if constexpr (Solver::is_monolithic)
-    {
-        configure_monolithic_solver(solver);
-    }
-    else
-    {
-        configure_saddle_point_solver(solver); // works also for monolithic
-    }
+        // If a tolerance is set by the user ('-ksp-rtol XXX'), then we set that
+        // tolerance to all the sub-solvers
+        PetscReal ksp_rtol;
+        KSPGetTolerances(ksp, &ksp_rtol, PETSC_IGNORE, PETSC_IGNORE, PETSC_IGNORE);
+        KSPSetTolerances(A_ksp, ksp_rtol, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT);     // (equiv. '-fieldsplit_velocity_ksp_rtol XXX')
+        KSPSetTolerances(schur_ksp, ksp_rtol, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT); // (equiv. '-fieldsplit_pressure_ksp_rtol XXX')
+    };
 }
 
 int main(int argc, char* argv[])
 {
     auto& app = samurai::initialize("Stokes problem", argc, argv);
 
-    constexpr std::size_t dim        = 2;
-    static constexpr bool is_soa     = false;
-    static constexpr bool monolithic = false;
+    constexpr std::size_t dim = 2;
+
+    static constexpr bool is_soa                                     = false;
+    static constexpr samurai::petsc::BlockAssemblyType assembly_type = samurai::petsc::BlockAssemblyType::NestedMatrices;
 
     //----------------//
     //   Parameters   //
@@ -269,7 +208,7 @@ int main(int argc, char* argv[])
 
         // Linear solver
         std::cout << "Solving Stokes system..." << std::endl;
-        auto stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
+        auto stokes_solver = samurai::petsc::make_solver<assembly_type>(stokes);
 
         stokes_solver.set_unknowns(velocity, pressure);
         configure_solver(stokes_solver);
@@ -417,7 +356,7 @@ int main(int argc, char* argv[])
         // clang-format on
 
         // Linear solver
-        auto stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
+        auto stokes_solver = samurai::petsc::make_solver<assembly_type>(stokes);
 
         stokes_solver.set_unknowns(velocity_np1, pressure_np1);
         configure_solver(stokes_solver);
@@ -494,15 +433,14 @@ int main(int argc, char* argv[])
                                                   });
 
             // Update solver
-            if (mesh_has_changed || dt_has_changed)
+            if (dt_has_changed)
             {
-                if (dt_has_changed)
-                {
-                    stokes = samurai::make_block_operator<2, 2>(id + dt * diff, dt * grad, -div, zero_op);
-                }
-                stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
-                stokes_solver.set_unknowns(velocity_np1, pressure_np1);
-                configure_solver(stokes_solver);
+                stokes = samurai::make_block_operator<2, 2>(id + dt * diff, dt * grad, -div, zero_op);
+                stokes_solver.set_block_operator(stokes);
+            }
+            if (mesh_has_changed)
+            {
+                stokes_solver.reset();
             }
 
             // Solve the linear equation

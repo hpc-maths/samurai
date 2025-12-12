@@ -32,6 +32,7 @@ namespace samurai
             explicit LinearSolverBase(const scheme_t& scheme)
                 : m_assembly(scheme)
             {
+                KSPCreate(PETSC_COMM_WORLD, &m_ksp);
             }
 
             virtual ~LinearSolverBase()
@@ -39,8 +40,10 @@ namespace samurai
                 _destroy_petsc_objects();
             }
 
-            std::function<void(KSP&, Mat&)> after_matrix_assembly = nullptr;
-            std::function<void(KSP&, Mat&)> after_setup           = nullptr;
+            // User callbacks to configure the solver
+            std::function<void(KSP&, PC&)> configure                   = nullptr;
+            std::function<void(KSP&, PC&, Mat&)> after_matrix_assembly = nullptr;
+            std::function<void(KSP&, PC&, Mat&)> after_setup           = nullptr;
 
           private:
 
@@ -113,7 +116,7 @@ namespace samurai
 
           protected:
 
-            virtual void configure_solver()
+            virtual void default_solver_configuration()
             {
             }
 
@@ -149,6 +152,16 @@ namespace samurai
                     return;
                 }
 
+                std::cout << "Setting up the linear solver..." << std::endl;
+
+                PC pc;
+                KSPGetPC(m_ksp, &pc);
+                if (configure)
+                {
+                    configure(m_ksp, pc);
+                }
+                KSPSetFromOptions(m_ksp);
+
                 assemble_matrix();
 
                 // PetscBool is_symmetric;
@@ -157,7 +170,7 @@ namespace samurai
                 KSPSetOperators(m_ksp, m_A, m_A);
                 if (after_matrix_assembly)
                 {
-                    after_matrix_assembly(m_ksp, m_A);
+                    after_matrix_assembly(m_ksp, pc, m_A);
                 }
 
                 times::timers.start("solver setup");
@@ -173,7 +186,7 @@ namespace samurai
 
                 if (after_setup)
                 {
-                    after_setup(m_ksp, m_A);
+                    after_setup(m_ksp, pc, m_A);
                 }
                 m_is_set_up = true;
             }
@@ -248,9 +261,10 @@ namespace samurai
             virtual void reset()
             {
                 destroy_petsc_objects();
+                KSPCreate(PETSC_COMM_WORLD, &m_ksp);
                 m_assembly.is_set_up(false);
                 m_is_set_up = false;
-                configure_solver();
+                default_solver_configuration();
             }
 
             void set_scheme(const scheme_t& s)
@@ -259,9 +273,9 @@ namespace samurai
                 if (m_ksp)
                 {
                     KSPDestroy(&m_ksp);
-                    m_ksp = nullptr;
+                    KSPCreate(PETSC_COMM_WORLD, &m_ksp);
                 }
-                configure_solver();
+                default_solver_configuration();
                 m_is_set_up              = false;
                 m_reuse_allocated_matrix = true;
             }
@@ -292,7 +306,7 @@ namespace samurai
             explicit LinearSolver(const scheme_t& scheme)
                 : base_class(scheme)
             {
-                _configure_solver();
+                //_default_solver_configuration();
             }
 
 #ifdef ENABLE_MG
@@ -303,9 +317,9 @@ namespace samurai
             }
 #endif
 
-          private:
+          protected:
 
-            void _configure_solver()
+            void default_solver_configuration() override
             {
 #ifdef ENABLE_MG
                 KSP user_ksp;
@@ -319,7 +333,6 @@ namespace samurai
                 m_use_samurai_mg = strcmp(user_pc_type, PCMG) == 0;
                 KSPDestroy(&user_ksp);
 #endif
-                KSPCreate(PETSC_COMM_WORLD, &m_ksp);
                 KSPSetFromOptions(m_ksp);
 #ifdef ENABLE_MG
                 if (m_use_samurai_mg)
@@ -336,14 +349,6 @@ namespace samurai
                     _samurai_mg.apply_as_pc(m_ksp);
                 }
 #endif
-                m_is_set_up = false;
-            }
-
-          protected:
-
-            void configure_solver() override
-            {
-                _configure_solver();
             }
 
           public:
@@ -353,12 +358,14 @@ namespace samurai
                 assembly().set_unknown(unknown);
             }
 
+#ifdef ENABLE_MG
             void setup() override
             {
                 if (m_is_set_up)
                 {
                     return;
                 }
+
                 if (assembly().undefined_unknown())
                 {
                     std::cerr << "Undefined unknown for this linear system. Please set the unknown using the instruction '[solver].set_unknown(u);'."
@@ -383,12 +390,13 @@ namespace samurai
                 times::timers.stop("solver setup");
                 m_is_set_up = true;
             }
+#endif
 
             void solve(const Field& rhs)
             {
                 if (!m_is_set_up)
                 {
-                    setup();
+                    this->setup();
                 }
 
                 Vec b = assembly().create_rhs_vector(rhs);
