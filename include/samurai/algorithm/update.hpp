@@ -4,7 +4,6 @@
 #pragma once
 
 #include <algorithm>
-#include <type_traits>
 
 #include <xtensor/containers/xfixed.hpp>
 
