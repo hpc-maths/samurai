@@ -317,8 +317,6 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
                 o_nnz.resize(static_cast<std::size_t>(n_owned_rows));
                 std::fill(o_nnz.begin(), o_nnz.end(), 0);
-
-                mpi::communicator world;
 #endif
 
                 sparsity_pattern_scheme(d_nnz, o_nnz);

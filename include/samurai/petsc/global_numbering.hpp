@@ -256,6 +256,7 @@ namespace samurai
                 }
             }
         }
+#endif
 
         bool has_duplicates(const std::vector<PetscInt>& local_to_global_mapping)
         {
@@ -277,6 +278,5 @@ namespace samurai
             }
             return duplicate_found;
         }
-#endif
     }
 }
