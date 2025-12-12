@@ -231,9 +231,6 @@ int main(int argc, char* argv[])
     auto config2 = samurai::mesh_config<dim>().min_level(1).max_level(mesh.max_level()).max_stencil_size(6).disable_args_parse();
     auto mesh2   = samurai::mra::make_mesh(box, config2);
 
-    std::cout << config2.start_level() << " " << config2.min_level() << " " << config2.max_level() << std::endl;
-    std::cout << mesh2.cfg().start_level() << " " << mesh2.cfg().min_level() << " " << mesh2.cfg().max_level() << std::endl;
-
     // Ink data fields
     auto ink     = samurai::make_scalar_field<double>("ink", mesh2);
     auto ink_np1 = samurai::make_scalar_field<double>("ink_np1", mesh2);
