@@ -103,7 +103,7 @@ namespace samurai
         cl[2][{0}].add_interval({4, 8});
 
         auto mesh_cfg = mesh_config<2>().min_level(1).max_level(2);
-        auto mesh     = make_MRMesh(cl, mesh_cfg);
+        auto mesh     = mra::make_mesh(cl, mesh_cfg);
         auto field    = make_scalar_field<std::size_t>("u", mesh);
 
         std::size_t index = 0;

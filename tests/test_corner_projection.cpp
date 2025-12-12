@@ -15,7 +15,7 @@ namespace samurai
         Box box({-1., -1.}, {1., 1.});
 
         auto mesh_cfg = mesh_config<dim>().min_level(2).max_level(6);
-        auto mesh     = make_MRMesh(box, mesh_cfg);
+        auto mesh     = mra::make_mesh(box, mesh_cfg);
 
         using Mesh       = decltype(mesh);
         using interval_t = typename Mesh::interval_t;

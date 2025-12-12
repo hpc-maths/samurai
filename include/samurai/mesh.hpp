@@ -171,7 +171,7 @@ namespace samurai
         // cppcheck-suppress uninitMemberVar
         Mesh_base(const samurai::Box<double, dim>&, std::size_t, std::size_t, std::size_t, double, double)
         {
-            std::cerr << "Delete min_level and max_level from CLI11 options and use mesh_config object and the make_Mesh function"
+            std::cerr << "Delete min_level and max_level from CLI11 options and use mesh_config object and the make_mesh function"
                       << std::endl;
             exit(EXIT_FAILURE);
         }
@@ -186,7 +186,7 @@ namespace samurai
         // cppcheck-suppress uninitMemberVar
         Mesh_base(const samurai::Box<double, dim>&, std::size_t, std::size_t, std::size_t, const std::array<bool, dim>&, double, double)
         {
-            std::cerr << "Delete min_level and max_level from CLI11 options and use mesh_config object and the make_Mesh function"
+            std::cerr << "Delete min_level and max_level from CLI11 options and use mesh_config object and the make_mesh function"
                       << std::endl;
             exit(EXIT_FAILURE);
         }
