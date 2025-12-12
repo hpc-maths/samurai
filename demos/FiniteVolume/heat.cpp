@@ -184,6 +184,9 @@ int main(int argc, char* argv[])
         save(path, filename, u, fmt::format("_ite_{}", nsave++));
     }
 
+    auto back_euler_solver = samurai::petsc::make_solver(id + dt * diff);
+    back_euler_solver.set_unknown(unp1);
+
     double t = t0;
     while (t != Tf)
     {
@@ -193,12 +196,17 @@ int main(int argc, char* argv[])
         {
             dt += Tf - t;
             t = Tf;
+            back_euler_solver.set_scheme(id + dt * diff);
         }
         std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt) << std::flush;
 
         // Mesh adaptation
         MRadaptation(mra_config);
         unp1.resize();
+        if (mesh.min_level() != mesh.max_level())
+        {
+            back_euler_solver.reset();
+        }
 
         if (explicit_scheme)
         {
@@ -206,8 +214,8 @@ int main(int argc, char* argv[])
         }
         else
         {
-            auto back_euler = id + dt * diff;
-            samurai::petsc::solve(back_euler, unp1, u); // solves the linear equation   [Id + dt*Diff](unp1) = u
+            // solves the linear equation   [Id + dt*Diff](unp1) = u
+            back_euler_solver.solve(u);
         }
 
         // u <-- unp1
@@ -245,6 +253,8 @@ int main(int argc, char* argv[])
     {
         save(path, filename, u);
     }
+
+    back_euler_solver.destroy_petsc_objects();
 
     samurai::finalize();
     return 0;

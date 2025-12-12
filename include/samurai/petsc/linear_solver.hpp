@@ -256,6 +256,12 @@ namespace samurai
             void set_scheme(const scheme_t& s)
             {
                 m_assembly.set_scheme(s);
+                if (m_ksp)
+                {
+                    KSPDestroy(&m_ksp);
+                    m_ksp = nullptr;
+                }
+                configure_solver();
                 m_is_set_up              = false;
                 m_reuse_allocated_matrix = true;
             }
