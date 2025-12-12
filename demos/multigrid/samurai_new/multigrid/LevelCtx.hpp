@@ -35,13 +35,13 @@ namespace samurai_new
         TransferOperators transfer_ops;
         int prediction_stencil_radius;
 
-        LevelContext(Dsctzr& d, Mesh& m, TransferOperators to, int pred_order)
+        LevelContext(Dsctzr& d, Mesh& m, TransferOperators to, int pred_stencil_radius)
             : _mesh(m)
             , _discretizer(d)
         {
             level                     = 0;
             transfer_ops              = to;
-            prediction_stencil_radius = pred_order;
+            prediction_stencil_radius = pred_stencil_radius;
         }
 
         LevelContext(LevelContext& fine_ctx)
