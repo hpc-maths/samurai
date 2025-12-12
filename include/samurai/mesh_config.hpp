@@ -26,33 +26,6 @@ namespace samurai
 
         using interval_t = interval_t_;
 
-        using cell_t   = Cell<dim, interval_t>;
-        using cl_type  = CellList<dim, interval_t, max_refinement_level>;
-        using lcl_type = typename cl_type::lcl_type;
-
-        using ca_type  = CellArray<dim, interval_t, max_refinement_level>;
-        using lca_type = typename ca_type::lca_type;
-
-      private:
-
-        int m_max_stencil_radius       = 1;
-        std::size_t m_graduation_width = default_config::graduation_width;
-        int m_ghost_width              = default_config::ghost_width;
-
-        std::size_t m_min_level   = 0;
-        std::size_t m_max_level   = 6;
-        std::size_t m_start_level = 6;
-
-        double m_approx_box_tol = 0.05;
-        double m_scaling_factor = 0;
-
-        std::array<bool, dim> m_periodic;
-
-        bool m_disable_args_parse          = false;
-        bool m_disable_minimal_ghost_width = false;
-
-      public:
-
         mesh_config()
         {
             m_periodic.fill(false);
@@ -405,14 +378,6 @@ namespace samurai
                 {
                     m_start_level = args::start_level;
                 }
-                // if (args::approx_box_tol != std::numeric_limits<double>::infinity())
-                // {
-                //     m_approx_box_tol = args::approx_box_tol;
-                // }
-                // if (args::scaling_factor != std::numeric_limits<double>::infinity())
-                // {
-                //     m_scaling_factor = args::scaling_factor;
-                // }
                 if (m_max_level < m_min_level)
                 {
                     std::cerr << "Max level must be greater than min level." << std::endl;
@@ -438,16 +403,32 @@ namespace samurai
         template <class Archive>
         void serialize(Archive& ar, const unsigned long)
         {
-            // ar & m_max_stencil_radius;
-            // ar & m_graduation_width;
-            // ar & m_ghost_width;
+            ar & m_max_stencil_radius;
+            ar & m_graduation_width;
+            ar & m_ghost_width;
             ar & m_min_level;
             ar & m_max_level;
-            // ar & m_approx_box_tol;
-            // ar & m_scaling_factor;
-            // ar & m_disable_args_parse;
+            ar & m_approx_box_tol;
+            ar & m_scaling_factor;
+            ar & m_disable_args_parse;
         }
 #endif
+
+        int m_max_stencil_radius       = 1;
+        std::size_t m_graduation_width = default_config::graduation_width;
+        int m_ghost_width              = default_config::ghost_width;
+
+        std::size_t m_min_level   = 0;
+        std::size_t m_max_level   = 6;
+        std::size_t m_start_level = 6;
+
+        double m_approx_box_tol = 0.05;
+        double m_scaling_factor = 0;
+
+        std::array<bool, dim> m_periodic;
+
+        bool m_disable_args_parse          = false;
+        bool m_disable_minimal_ghost_width = false;
     };
 
     template <class mesh_cfg_t, class mesh_id_t_>
