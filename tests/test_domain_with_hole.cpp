@@ -12,7 +12,7 @@ namespace samurai
         std::size_t level = 3;
         auto mesh_cfg     = mesh_config<dim>().min_level(level).max_level(level);
 
-        using Mesh      = decltype(make_empty_MRMesh(mesh_cfg));
+        using Mesh      = decltype(mra::make_empty_mesh(mesh_cfg));
         using mesh_id_t = typename Mesh::mesh_id_t;
         using cl_t      = typename Mesh::cl_type;
         using lca_t     = typename Mesh::lca_type;
