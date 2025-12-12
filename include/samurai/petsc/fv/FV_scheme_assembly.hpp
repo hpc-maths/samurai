@@ -898,6 +898,13 @@ namespace samurai
 
                 if (mesh().is_periodic())
                 {
+#ifdef SAMURAI_WITH_MPI
+                    if (mpi::communicator().size() > 1)
+                    {
+                        std::cerr << "Periodic boundary conditions are not supported with MPI." << std::endl;
+                        exit(EXIT_FAILURE);
+                    }
+#endif
                     assemble_periodic_bc(A);
                 }
 
@@ -963,7 +970,7 @@ namespace samurai
                                                                                                // ghost is periodic in several
                                                                                                // directions (external corners)
                         {
-                            if (!is_locally_owned(static_cast<std::size_t>(ghost_cell_index)))
+                            if (!is_locally_owned(static_cast<std::size_t>(ghost_cell_index))) // cppcheck-suppress knownConditionTrueFalse
                             {
                                 return;
                             }
