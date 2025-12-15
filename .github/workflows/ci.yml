@@ -69,7 +69,7 @@ jobs:
     #
     #########################################################
     linux-mamba:
-        # needs: [pre-commit, cppcheck]
+        needs: [pre-commit, cppcheck]
         runs-on: ubuntu-latest
         strategy:
             fail-fast: false
@@ -196,7 +196,7 @@ jobs:
     #
     #########################################################
     linux-mpi-mamba:
-        # needs: [pre-commit, cppcheck]
+        needs: [pre-commit, cppcheck]
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
@@ -338,7 +338,7 @@ jobs:
                   python ../python/compare.py ldc_ink_size_1 ldc_ink_size_2 --tol 1e-11
 
     macos-mamba:
-        # needs: [pre-commit, cppcheck]
+        needs: [pre-commit, cppcheck]
         runs-on: macos-14
         steps:
             - uses: actions/checkout@v4
@@ -392,7 +392,7 @@ jobs:
     #
     #########################################################
     linux-mamba-check-nan:
-        # needs: [pre-commit, cppcheck]
+        needs: [pre-commit, cppcheck]
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
@@ -462,7 +462,7 @@ jobs:
     #
     #########################################################
     linux-mamba-check-nan-mpi:
-        # needs: [pre-commit, cppcheck]
+        needs: [pre-commit, cppcheck]
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
@@ -537,7 +537,7 @@ jobs:
     #
     #########################################################
     compile_snippets:
-        # needs: [pre-commit, cppcheck]
+        needs: [pre-commit, cppcheck]
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
