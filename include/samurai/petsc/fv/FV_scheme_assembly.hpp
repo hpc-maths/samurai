@@ -680,6 +680,24 @@ namespace samurai
                 VecRestoreArray(v, &v_data);
             }
 
+            void copy_rhs(const Vec& v, output_field_t& field) const
+            {
+                const double* v_data;
+                VecGetArrayRead(v, &v_data);
+                for (std::size_t cell_index = 0; cell_index < cell_ownership().n_local_cells; ++cell_index)
+                {
+                    if (is_locally_owned(cell_index))
+                    {
+                        for (unsigned int i = 0; i < output_n_comp; ++i)
+                        {
+                            auto vec_row                      = local_row_index(cell_index, i);
+                            field_value(field, cell_index, i) = v_data[vec_row];
+                        }
+                    }
+                }
+                VecRestoreArrayRead(v, &v_data);
+            }
+
             template <class int_type>
             SAMURAI_INLINE void set_is_row_not_empty(int_type local_row_number)
             {

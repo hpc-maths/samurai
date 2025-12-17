@@ -1,6 +1,7 @@
 #pragma once
 
 #include "linear_block_solver.hpp"
+#include "nonlinear_block_solver.hpp"
 #include "nonlinear_local_solvers.hpp"
 #include "nonlinear_solver.hpp"
 
@@ -36,6 +37,7 @@ namespace samurai
 
         // Linear block solver (choice monolithic or not)
         template <BlockAssemblyType assembly_type, std::size_t rows, std::size_t cols, class... Operators>
+            requires(scheme_type_of_block_operator<Operators...>() != SchemeType::NonLinear)
         auto make_solver(const BlockOperator<rows, cols, Operators...>& block_operator)
         {
             return LinearBlockSolver<assembly_type, rows, cols, Operators...>(block_operator);
@@ -60,6 +62,22 @@ namespace samurai
         auto make_solver(const CellBasedScheme<cfg, bdry_cfg>& scheme)
         {
             return NonLinearLocalSolvers<CellBasedScheme<cfg, bdry_cfg>>(scheme);
+        }
+
+        // Non-linear block solver
+        template <BlockAssemblyType assembly_type, std::size_t rows, std::size_t cols, class... Operators>
+            requires(scheme_type_of_block_operator<Operators...>() == SchemeType::NonLinear)
+        auto make_solver(const BlockOperator<rows, cols, Operators...>& block_operator)
+        {
+            return NonLinearBlockSolver<assembly_type, rows, cols, Operators...>(block_operator);
+        }
+
+        // Non-linear block solver (monolithic)
+        template <std::size_t rows, std::size_t cols, class... Operators>
+            requires(scheme_type_of_block_operator<Operators...>() == SchemeType::NonLinear)
+        auto make_solver(const BlockOperator<rows, cols, Operators...>& block_operator)
+        {
+            return make_solver<BlockAssemblyType::Monolithic, rows, cols, Operators...>(block_operator);
         }
 
         /**

@@ -414,6 +414,10 @@ namespace samurai
             auto& flux_def = flux_definition()[d];
 
             auto flux_function = flux_def.flux_function ? flux_def.flux_function : flux_def.flux_function_as_conservative();
+            if (!flux_function)
+            {
+                return;
+            }
 
             FluxParameters<enable_finer_level_flux> flux_params;
             flux_params.max_level        = mesh.max_level();
@@ -532,6 +536,10 @@ namespace samurai
             auto& flux_def = flux_definition()[d];
 
             auto flux_function = flux_def.flux_function ? flux_def.flux_function : flux_def.flux_function_as_conservative();
+            if (!flux_function)
+            {
+                return;
+            }
 
             for_each_level(mesh,
                            [&](auto level)

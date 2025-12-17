@@ -31,6 +31,9 @@ namespace samurai
         using input_field_t                       = Field;
         using output_field_t                      = Field;
 
+        static constexpr std::size_t left  = 0;
+        static constexpr std::size_t right = 1;
+
         static_assert(dim == n_comp || n_comp == 1,
                       "make_convection_upwind() is not implemented for this field size in this space dimension.");
 
@@ -57,9 +60,6 @@ namespace samurai
 
                 upwind[d].cons_flux_function = [f](FluxValue<cfg>& flux, const StencilData<cfg>& /*data*/, const StencilValues<cfg>& field)
                 {
-                    static constexpr std::size_t left  = 0;
-                    static constexpr std::size_t right = 1;
-
                     field_value_t v;
                     if constexpr (Field::is_scalar)
                     {
@@ -71,6 +71,88 @@ namespace samurai
                     }
 
                     flux = v >= 0 ? f(field[left]) : f(field[right]);
+                };
+
+                upwind[d].cons_jacobian_function = [](samurai::StencilJacobian<cfg>& jac,
+                                                      const samurai::StencilData<cfg>& /*data*/,
+                                                      const samurai::StencilValues<cfg>& field)
+                {
+                    field_value_t v;
+                    if constexpr (Field::is_scalar)
+                    {
+                        v = 0.5 * (field[left] + field[right]);
+                    }
+                    else
+                    {
+                        v = 0.5 * (field[left](d) + field[right](d));
+                    }
+
+                    if constexpr (Field::is_scalar)
+                    {
+                        if (v >= 0)
+                        {
+                            jac[right] = 0.;
+                            jac[left]  = 2. * field[left];
+                        }
+                        else
+                        {
+                            jac[left]  = 0.;
+                            jac[right] = 2. * field[right];
+                        }
+                    }
+                    else
+                    {
+                        if (v >= 0)
+                        {
+                            jac[left].fill(0.0);
+                            jac[right].fill(0.0);
+
+                            if (d == 0)
+                            {
+                                jac[left](d, d) = 2.0 * field[left](d);
+                                jac[left](0, 1) = 0.;
+                                jac[left](1, 0) = field[left](1);
+                                jac[left](1, 1) = field[left](0);
+                            }
+                            else if (d == 1)
+                            {
+                                jac[left](0, 0) = field[left](1);
+                                jac[left](0, 1) = field[left](0);
+                                jac[left](1, 0) = 0.;
+                                jac[left](d, d) = 2.0 * field[left](d);
+                            }
+                            else
+                            {
+                                std::cerr << "Not implemented for dim > 2" << std::endl;
+                                std::exit(EXIT_FAILURE);
+                            }
+                        }
+                        else
+                        {
+                            jac[right].fill(0.0);
+                            jac[left].fill(0.0);
+
+                            if (d == 0)
+                            {
+                                jac[right](d, d) = 2.0 * field[right](d);
+                                jac[right](0, 1) = 0.;
+                                jac[right](1, 0) = field[right](1);
+                                jac[right](1, 1) = field[right](0);
+                            }
+                            else if (d == 1)
+                            {
+                                jac[right](0, 0) = field[right](1);
+                                jac[right](0, 1) = field[right](0);
+                                jac[right](1, 0) = 0.;
+                                jac[right](d, d) = 2.0 * field[right](d);
+                            }
+                            else
+                            {
+                                std::cerr << "Not implemented for dim > 2" << std::endl;
+                                std::exit(EXIT_FAILURE);
+                            }
+                        }
+                    }
                 };
             });
 
