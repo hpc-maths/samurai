@@ -1,11 +1,13 @@
 {
-    "@context": "https://doi.org/10.5063/schema/codemeta-2.0",
-    {
-        "numpex-catalog": "https://numpex.github.io/sw-catalog/terms-1.0/index.jsonld#",
-        "Role": "https://schema.org/Role",
-        "roleName": "https://schema.org/roleName",
-        "url": "https://schema.org/url"
-    },
+    "@context": [
+        "https://doi.org/10.5063/schema/codemeta-2.0",
+        {
+            "numpex-catalog": "https://numpex.github.io/sw-catalog/terms-1.0/index.jsonld#",
+            "Role": "https://schema.org/Role",
+            "roleName": "https://schema.org/roleName",
+            "url": "https://schema.org/url"
+        }
+    ],
     "@type": "SoftwareSourceCode",
     "applicationCategory": "scientific computing",
     "author": [
