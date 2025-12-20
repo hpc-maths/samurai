@@ -1,6 +1,14 @@
 {
-    "@context": "https://doi.org/10.5063/schema/codemeta-2.0",
-    "type": "SoftwareSourceCode",
+    "@context": [
+        "https://doi.org/10.5063/schema/codemeta-2.0",
+        {
+            "numpex-catalog": "https://numpex.github.io/sw-catalog/terms-1.0/index.jsonld#",
+            "Role": "https://schema.org/Role",
+            "roleName": "https://schema.org/roleName",
+            "url": "https://schema.org/url"
+        }
+    ],
+    "@type": "SoftwareSourceCode",
     "applicationCategory": "scientific computing",
     "author": [
         {
@@ -49,7 +57,7 @@
         }
     ],
     "dateCreated": "2018-12-01",
-    "dateModified": "2024-04-06",
+    "dateModified": "2025-12-20",
     "datePublished": "2023-04-18",
     "description": "The use of mesh adaptation methods in numerical simulation allows to drastically reduce the memory footprint and the computational costs. There are different kinds of methods: AMR patch-based, AMR cell-based, multiresolution cell-based or point-based, ...\n\nDifferent open source software is available to the community to manage mesh adaptation: AMReX for patch-based AMR, p4est and pablo for cell-based adaptation.\n\nThe strength of samurai is that it allows to implement all the above mentioned mesh adaptation methods from the same data structure. The mesh is represented as intervals and a set algebra allows to efficiently search for subsets among these intervals. Samurai also offers a flexible and pleasant interface to easily implement numerical methods.",
     "downloadUrl": "https://github.com/hpc-maths/samurai/releases",
@@ -67,5 +75,23 @@
         "MacOS"
     ],
     "programmingLanguage": "C++",
-    "version": "0.12.0"
+    "version": "0.27.1",
+    "codeRepository": "https://github.com/hpc-maths/samurai",
+    "numpex-catalog:annotatedLink": [
+        {
+            "@type": "Role",
+            "roleName": "numpex-catalog:documentation",
+            "url": "https://hpc-math-samurai.readthedocs.io/"
+        },
+        {
+            "@type": "Role",
+            "roleName": "numpex-catalog:discussion",
+            "url": "https://github.com/hpc-maths/samurai/discussions"
+        },
+        {
+            "@type": "Role",
+            "roleName": "numpex-catalog:spack_package",
+            "url": "https://github.com/spack/spack-packages/blob/develop/repos/spack_repo/builtin/packages/samurai/package.py"
+        }
+    ]
 }
