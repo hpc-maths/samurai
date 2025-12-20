@@ -88,11 +88,6 @@
             "roleName": "numpex-catalog:discussion",
             "url": "https://github.com/hpc-maths/samurai/discussions"
         },
-        // {
-        //     "@type": "Role",
-        //     "roleName": "numpex-catalog:guix_package",
-        //     "url": "https://guix.example.com/supercomputesim.scm"
-        // },
         {
             "@type": "Role",
             "roleName": "numpex-catalog:spack_package",
