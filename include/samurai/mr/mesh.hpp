@@ -33,24 +33,30 @@ namespace samurai
     template <std::size_t dim_,
               std::size_t max_stencil_width_    = default_config::ghost_width,
               std::size_t graduation_width_     = default_config::graduation_width,
-              std::size_t prediction_order_     = default_config::prediction_order,
+              std::size_t prediction_order_     = default_config::prediction_stencil_radius,
               std::size_t max_refinement_level_ = default_config::max_level,
               class TInterval                   = default_config::interval_t>
-    struct MRConfig
+    struct [[deprecated("Use samurai::mesh_config instead")]] MRConfig
     {
+        // cppcheck-suppress-begin unusedStructMember
+
         static constexpr std::size_t dim                  = dim_;
         static constexpr std::size_t max_refinement_level = max_refinement_level_;
-        static constexpr int max_stencil_width            = max_stencil_width_;
-        static constexpr std::size_t graduation_width     = graduation_width_;
-        static constexpr int prediction_order             = prediction_order_;
 
-        // static constexpr int ghost_width = std::max(std::max(2 *
-        // static_cast<int>(graduation_width) - 1,
-        //                                                      static_cast<int>(max_stencil_width)),
-        //                                             static_cast<int>(prediction_order));
-        static constexpr int ghost_width = std::max(static_cast<int>(max_stencil_width), static_cast<int>(prediction_order));
-        using interval_t                 = TInterval;
-        using mesh_id_t                  = MRMeshId;
+        // deprecated interface
+        [[deprecated("Use max_stencil_radius() method instead")]] static constexpr int max_stencil_width      = max_stencil_width_;
+        [[deprecated("Use prediction_stencil_radius instead")]] static constexpr int prediction_order         = prediction_order_;
+        [[deprecated("Use graduation_width() method instead")]] static constexpr std::size_t graduation_width = graduation_width_;
+        [[deprecated("Use ghost_width() method instead")]] static constexpr int ghost_width = std::max(static_cast<int>(max_stencil_width),
+                                                                                                       static_cast<int>(prediction_order));
+
+        // new interface
+        static constexpr int prediction_stencil_radius = prediction_order_;
+
+        // cppcheck-suppress-end unusedStructMember
+
+        using interval_t = TInterval;
+        using mesh_id_t  = MRMeshId;
     };
 
     template <class Config>
@@ -72,11 +78,18 @@ namespace samurai
         using ca_type  = typename base_type::ca_type;
         using lca_type = typename base_type::lca_type;
 
+        using base_type::ghost_width;
+        using base_type::max_stencil_radius;
+
         MRMesh() = default;
         MRMesh(const ca_type& ca, const self_type& ref_mesh);
         MRMesh(const cl_type& cl, const self_type& ref_mesh);
-        MRMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level);
-        MRMesh(const ca_type& ca, std::size_t min_level, std::size_t max_level);
+        MRMesh(const cl_type& cl, const mesh_config<Config::dim>& config);
+        MRMesh(const ca_type& ca, const mesh_config<Config::dim>& config);
+        MRMesh(const samurai::Box<double, dim>& b, const mesh_config<Config::dim>& config);
+        MRMesh(const samurai::DomainBuilder<dim>& domain_builder, const mesh_config<Config::dim>& config);
+
+        // deprecated constructors
         MRMesh(const samurai::Box<double, dim>& b,
                std::size_t min_level,
                std::size_t max_level,
@@ -113,14 +126,26 @@ namespace samurai
     }
 
     template <class Config>
-    inline MRMesh<Config>::MRMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level)
-        : base_type(cl, min_level, max_level)
+    inline MRMesh<Config>::MRMesh(const cl_type& cl, const mesh_config<Config::dim>& config)
+        : base_type(cl, config)
     {
     }
 
     template <class Config>
-    inline MRMesh<Config>::MRMesh(const ca_type& ca, std::size_t min_level, std::size_t max_level)
-        : base_type(ca, min_level, max_level)
+    inline MRMesh<Config>::MRMesh(const ca_type& ca, const mesh_config<Config::dim>& config)
+        : base_type(ca, config)
+    {
+    }
+
+    template <class Config>
+    inline MRMesh<Config>::MRMesh(const samurai::Box<double, dim>& b, const mesh_config<Config::dim>& config)
+        : base_type(b, config)
+    {
+    }
+
+    template <class Config>
+    inline MRMesh<Config>::MRMesh(const samurai::DomainBuilder<dim>& domain_builder, const mesh_config<Config::dim>& config)
+        : base_type(domain_builder, config)
     {
     }
 
@@ -130,7 +155,15 @@ namespace samurai
                                   std::size_t max_level,
                                   double approx_box_tol,
                                   double scaling_factor_)
-        : base_type(b, max_level, min_level, max_level, approx_box_tol, scaling_factor_)
+        : base_type(b,
+                    mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
+                        .max_stencil_radius(Config::max_stencil_width)
+                        .graduation_width(Config::graduation_width)
+                        .start_level(max_level)
+                        .min_level(min_level)
+                        .max_level(max_level)
+                        .approx_box_tol(approx_box_tol)
+                        .scaling_factor(scaling_factor_))
     {
     }
 
@@ -140,7 +173,15 @@ namespace samurai
                                   std::size_t max_level,
                                   double approx_box_tol,
                                   double scaling_factor_)
-        : base_type(domain_builder, max_level, min_level, max_level, approx_box_tol, scaling_factor_)
+        : base_type(domain_builder,
+                    mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
+                        .max_stencil_radius(Config::max_stencil_width)
+                        .graduation_width(Config::graduation_width)
+                        .start_level(max_level)
+                        .min_level(min_level)
+                        .max_level(max_level)
+                        .approx_box_tol(approx_box_tol)
+                        .scaling_factor(scaling_factor_))
     {
     }
 
@@ -151,7 +192,16 @@ namespace samurai
                                   const std::array<bool, dim>& periodic,
                                   double approx_box_tol,
                                   double scaling_factor_)
-        : base_type(b, max_level, min_level, max_level, periodic, approx_box_tol, scaling_factor_)
+        : base_type(b,
+                    mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
+                        .max_stencil_radius(Config::max_stencil_width)
+                        .graduation_width(Config::graduation_width)
+                        .start_level(max_level)
+                        .min_level(min_level)
+                        .max_level(max_level)
+                        .periodic(periodic)
+                        .approx_box_tol(approx_box_tol)
+                        .scaling_factor(scaling_factor_))
     {
     }
 
@@ -186,18 +236,19 @@ namespace samurai
         //
         // level 0 |.......|-------|.......|       |.......|-------|.......|
         //
-        for_each_interval(
-            this->cells()[mesh_id_t::cells],
-            [&](std::size_t level, const auto& interval, const auto& index_yz)
-            {
-                lcl_type& lcl = cell_list[level];
-                static_nested_loop<dim - 1, -config::max_stencil_width, config::max_stencil_width + 1>(
-                    [&](auto stencil)
-                    {
-                        auto index = xt::eval(index_yz + stencil);
-                        lcl[index].add_interval({interval.start - config::max_stencil_width, interval.end + config::max_stencil_width});
-                    });
-            });
+        for_each_interval(this->cells()[mesh_id_t::cells],
+                          [&](std::size_t level, const auto& interval, const auto& index_yz)
+                          {
+                              lcl_type& lcl = cell_list[level];
+                              static_nested_loop<dim - 1>(
+                                  -max_stencil_radius(),
+                                  max_stencil_radius() + 1,
+                                  [&](auto stencil)
+                                  {
+                                      auto index = xt::eval(index_yz + stencil);
+                                      lcl[index].add_interval({interval.start - max_stencil_radius(), interval.end + max_stencil_radius()});
+                                  });
+                          });
         this->cells()[mesh_id_t::cells_and_ghosts] = {cell_list, false};
 
         // Add cells for the MRA
@@ -213,12 +264,12 @@ namespace samurai
                     {
                         lcl_type& lcl = cell_list[level - 1];
 
-                        static_nested_loop<dim - 1, -config::prediction_order, config::prediction_order + 1>(
+                        static_nested_loop<dim - 1, -config::prediction_stencil_radius, config::prediction_stencil_radius + 1>(
                             [&](auto stencil)
                             {
                                 auto new_interval = interval >> 1;
-                                lcl[(index_yz >> 1) + stencil].add_interval(
-                                    {new_interval.start - config::prediction_order, new_interval.end + config::prediction_order});
+                                lcl[(index_yz >> 1) + stencil].add_interval({new_interval.start - config::prediction_stencil_radius,
+                                                                             new_interval.end + config::prediction_stencil_radius});
                             });
                     });
 
@@ -231,12 +282,12 @@ namespace samurai
                         {
                             lcl_type& lcl = cell_list[level - 2];
 
-                            static_nested_loop<dim - 1, -config::prediction_order, config::prediction_order + 1>(
+                            static_nested_loop<dim - 1, -config::prediction_stencil_radius, config::prediction_stencil_radius + 1>(
                                 [&](auto stencil)
                                 {
                                     auto new_interval = interval >> 2;
-                                    lcl[(index_yz >> 2) + stencil].add_interval(
-                                        {new_interval.start - config::prediction_order, new_interval.end + config::prediction_order});
+                                    lcl[(index_yz >> 2) + stencil].add_interval({new_interval.start - config::prediction_stencil_radius,
+                                                                                 new_interval.end + config::prediction_stencil_radius});
                                 });
                         }
                     });
@@ -261,12 +312,12 @@ namespace samurai
                             {
                                 lcl_type& lclm1 = cell_list[level - 1];
 
-                                static_nested_loop<dim - 1, -config::prediction_order, config::prediction_order + 1>(
+                                static_nested_loop<dim - 1, -config::prediction_stencil_radius, config::prediction_stencil_radius + 1>(
                                     [&](auto stencil)
                                     {
                                         auto new_interval = interval >> 1;
-                                        lclm1[(index_yz >> 1) + stencil].add_interval(
-                                            {new_interval.start - config::prediction_order, new_interval.end + config::prediction_order});
+                                        lclm1[(index_yz >> 1) + stencil].add_interval({new_interval.start - config::prediction_stencil_radius,
+                                                                                       new_interval.end + config::prediction_stencil_radius});
                                     });
                             }
                         });
@@ -313,8 +364,8 @@ namespace samurai
                         box_t box;
                         for (std::size_t d = 0; d < dim; ++d)
                         {
-                            box.min_corner()[d] = (neighbor_min_indices[d] >> delta_l) - config::ghost_width;
-                            box.max_corner()[d] = (neighbor_max_indices[d] >> delta_l) + config::ghost_width;
+                            box.min_corner()[d] = (neighbor_min_indices[d] >> delta_l) - ghost_width();
+                            box.max_corner()[d] = (neighbor_max_indices[d] >> delta_l) + ghost_width();
                         }
                         neighbourhood_extended_subdomain[neighbor_id][level] = {level, box};
                     }
@@ -329,8 +380,8 @@ namespace samurai
 
                 for (std::size_t d = 0; d < dim; ++d)
                 {
-                    min_corner[d] = (subdomain_min_indices[d] >> delta_l) - config::ghost_width;
-                    max_corner[d] = (subdomain_max_indices[d] >> delta_l) + config::ghost_width;
+                    min_corner[d] = (subdomain_min_indices[d] >> delta_l) - ghost_width();
+                    max_corner[d] = (subdomain_max_indices[d] >> delta_l) + ghost_width();
                 }
                 lca_type lca_extended_subdomain(level, box_t(min_corner, max_corner));
                 for (std::size_t d = 0; d < dim; ++d)
@@ -339,13 +390,13 @@ namespace samurai
                     {
                         shift[d] = (domain_max_indices[d] - domain_min_indices[d]) >> delta_l;
 
-                        min_corner[d] = (domain_min_indices[d] >> delta_l) - config::ghost_width;
-                        max_corner[d] = (domain_min_indices[d] >> delta_l) + config::ghost_width;
+                        min_corner[d] = (domain_min_indices[d] >> delta_l) - ghost_width();
+                        max_corner[d] = (domain_min_indices[d] >> delta_l) + ghost_width();
 
                         lca_type lca_min(level, box_t(min_corner, max_corner));
 
-                        min_corner[d] = (domain_max_indices[d] >> delta_l) - config::ghost_width;
-                        max_corner[d] = (domain_max_indices[d] >> delta_l) + config::ghost_width;
+                        min_corner[d] = (domain_max_indices[d] >> delta_l) - ghost_width();
+                        max_corner[d] = (domain_max_indices[d] >> delta_l) + ghost_width();
 
                         lca_type lca_max(level, box_t(min_corner, max_corner));
 
@@ -390,8 +441,8 @@ namespace samurai
 
                         /* reset variables for next iterations. */
                         shift[d]      = 0;
-                        min_corner[d] = (subdomain_min_indices[d] >> delta_l) - config::ghost_width;
-                        max_corner[d] = (subdomain_max_indices[d] >> delta_l) + config::ghost_width;
+                        min_corner[d] = (subdomain_min_indices[d] >> delta_l) - ghost_width();
+                        max_corner[d] = (subdomain_max_indices[d] >> delta_l) + ghost_width();
                     }
                 }
             }
@@ -421,7 +472,7 @@ namespace samurai
             {
                 for (std::size_t level = 0; level <= this->max_level(); ++level)
                 {
-                    auto expr = intersection(nestedExpand(self(this->subdomain()).on(level), config::ghost_width),
+                    auto expr = intersection(nestedExpand(self(this->subdomain()).on(level), ghost_width()),
                                              neighbour.mesh[mesh_id_t::reference][level]);
                     expr(
                         [&](const auto& interval, const auto& index_yz)
@@ -434,7 +485,7 @@ namespace samurai
                         if (this->is_periodic(d))
                         {
                             auto domain_shift = get_periodic_shift(this->domain(), level, d);
-                            auto expr_left    = intersection(nestedExpand(self(this->subdomain()).on(level), config::ghost_width),
+                            auto expr_left    = intersection(nestedExpand(self(this->subdomain()).on(level), ghost_width()),
                                                           translate(neighbour.mesh[mesh_id_t::reference][level], -domain_shift));
                             expr_left(
                                 [&](const auto& interval, const auto& index_yz)
@@ -443,7 +494,7 @@ namespace samurai
                                     lcl[index_yz].add_interval(interval);
                                 });
 
-                            auto expr_right = intersection(nestedExpand(self(this->subdomain()).on(level), config::ghost_width),
+                            auto expr_right = intersection(nestedExpand(self(this->subdomain()).on(level), ghost_width()),
                                                            translate(neighbour.mesh[mesh_id_t::reference][level], domain_shift));
                             expr_right(
                                 [&](const auto& interval, const auto& index_yz)
@@ -491,6 +542,60 @@ namespace samurai
                 out[iout++] = true;
             }
             return out;
+        }
+    }
+
+    namespace mra
+    {
+        // create an empty mesh
+        template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, MRMeshId>>
+        auto make_empty_mesh(const mesh_config_t&)
+        {
+            return MRMesh<complete_mesh_config_t>();
+        }
+
+        template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, MRMeshId>>
+        auto make_mesh(const typename MRMesh<complete_mesh_config_t>::cl_type& cl, const mesh_config_t& cfg)
+        {
+            auto mesh_cfg = cfg;
+            mesh_cfg.parse_args();
+            mesh_cfg.start_level() = mesh_cfg.max_level(); // cppcheck-suppress unreadVariable
+
+            return MRMesh<complete_mesh_config_t>(cl, mesh_cfg);
+        }
+
+        template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, MRMeshId>>
+        auto make_mesh(const typename MRMesh<complete_mesh_config_t>::ca_type& ca, const mesh_config_t& cfg)
+        {
+            auto mesh_cfg = cfg;
+            mesh_cfg.parse_args();
+            mesh_cfg.start_level() = mesh_cfg.max_level(); // cppcheck-suppress unreadVariable
+
+            return MRMesh<complete_mesh_config_t>(ca, mesh_cfg);
+        }
+
+        template <class mesh_config_t>
+        auto make_mesh(const samurai::Box<double, mesh_config_t::dim>& b, const mesh_config_t& cfg)
+        {
+            using complete_cfg_t = complete_mesh_config<mesh_config_t, MRMeshId>;
+
+            auto mesh_cfg = cfg;
+            mesh_cfg.parse_args();
+            mesh_cfg.start_level() = mesh_cfg.max_level(); // cppcheck-suppress unreadVariable
+
+            return MRMesh<complete_cfg_t>(b, mesh_cfg);
+        }
+
+        template <class mesh_config_t>
+        auto make_mesh(const samurai::DomainBuilder<mesh_config_t::dim>& domain_builder, const mesh_config_t& cfg)
+        {
+            using complete_cfg_t = complete_mesh_config<mesh_config_t, MRMeshId>;
+
+            auto mesh_cfg = cfg;
+            mesh_cfg.parse_args();
+            mesh_cfg.start_level() = mesh_cfg.max_level(); // cppcheck-suppress unreadVariable
+
+            return MRMesh<complete_cfg_t>(domain_builder, mesh_cfg);
         }
     }
 } // namespace samurai

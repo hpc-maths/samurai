@@ -37,7 +37,6 @@ int main(int argc, char* argv[])
     auto& app = samurai::initialize("Finite volume example for the linear convection equation", argc, argv);
 
     static constexpr std::size_t dim = 2;
-    using Config                     = samurai::MRConfig<dim, 3>;
     using Box                        = samurai::Box<double, dim>;
     using point_t                    = typename Box::point_t;
 
@@ -59,10 +58,6 @@ int main(int argc, char* argv[])
     double t   = 0.;
     std::string restart_file;
 
-    // Multiresolution parameters
-    std::size_t min_level = 1;
-    std::size_t max_level = dim == 1 ? 6 : 4;
-
     // Output parameters
     fs::path path        = fs::current_path();
     std::string filename = "linear_convection_" + std::to_string(dim) + "D";
@@ -76,8 +71,6 @@ int main(int argc, char* argv[])
     app.add_flag("--implicit", implicit_scheme, "Implicit scheme instead of explicit")->group("Simulation parameters");
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
-    app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
@@ -93,14 +86,13 @@ int main(int argc, char* argv[])
     box_corner1.fill(left_box);
     box_corner2.fill(right_box);
     Box box(box_corner1, box_corner2);
-    std::array<bool, dim> periodic;
-    periodic.fill(true);
-    samurai::MRMesh<Config> mesh;
-    auto u = samurai::make_scalar_field<double>("u", mesh);
+    auto config = samurai::mesh_config<dim>().min_level(1).max_level(dim == 1 ? 6 : 4).periodic(true).max_stencil_size(6);
+    auto mesh   = samurai::mra::make_empty_mesh(config);
+    auto u      = samurai::make_scalar_field<double>("u", mesh);
 
     if (restart_file.empty())
     {
-        mesh = {box, min_level, max_level, periodic};
+        mesh = samurai::mra::make_mesh(box, config);
         // Initial solution
         u = samurai::make_scalar_field<double>("u",
                                                mesh,
@@ -145,7 +137,7 @@ int main(int argc, char* argv[])
 
     if (dt == 0)
     {
-        double dx             = mesh.cell_length(max_level);
+        double dx             = mesh.min_cell_length();
         auto a                = xt::abs(velocity);
         double sum_velocities = xt::sum(xt::abs(velocity))();
         dt                    = cfl * dx / sum_velocities;

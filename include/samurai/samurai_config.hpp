@@ -15,10 +15,10 @@ namespace samurai
 
     namespace default_config
     {
-        static constexpr std::size_t max_level        = 20;
-        static constexpr std::size_t ghost_width      = 1;
-        static constexpr std::size_t graduation_width = 1;
-        static constexpr std::size_t prediction_order = 1;
+        static constexpr std::size_t max_level         = 20;
+        static constexpr int ghost_width               = 1;
+        static constexpr int graduation_width          = 1;
+        static constexpr int prediction_stencil_radius = 1;
 
         using index_t    = signed long long int;
         using value_t    = int;
@@ -26,7 +26,7 @@ namespace samurai
 
         inline auto default_prediction_fn = [](auto& new_field, const auto& old_field) // cppcheck-suppress constParameterReference
         {
-            constexpr std::size_t pred_order = std::decay_t<decltype(new_field)>::mesh_t::config::prediction_order;
+            constexpr std::size_t pred_order = std::decay_t<decltype(new_field)>::mesh_t::config::prediction_stencil_radius;
             return prediction<pred_order, true>(new_field, old_field);
         };
     }

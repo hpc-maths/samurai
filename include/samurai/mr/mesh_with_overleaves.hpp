@@ -28,21 +28,21 @@ namespace samurai
     };
 
     template <std::size_t dim_,
-              std::size_t max_stencil_width_    = default_config::ghost_width,
-              std::size_t graduation_width_     = default_config::graduation_width,
-              std::size_t max_refinement_level_ = default_config::max_level,
-              std::size_t prediction_order_     = default_config::prediction_order,
-              class TInterval                   = default_config::interval_t>
+              std::size_t max_stencil_width_         = default_config::ghost_width,
+              std::size_t graduation_width_          = default_config::graduation_width,
+              std::size_t max_refinement_level_      = default_config::max_level,
+              std::size_t prediction_stencil_radius_ = default_config::prediction_stencil_radius,
+              class TInterval                        = default_config::interval_t>
     struct MROConfig
     {
-        static constexpr std::size_t dim                  = dim_;
-        static constexpr std::size_t max_refinement_level = max_refinement_level_;
-        static constexpr std::size_t max_stencil_width    = max_stencil_width_;
-        static constexpr std::size_t graduation_width     = graduation_width_;
-        static constexpr std::size_t prediction_order     = prediction_order_;
+        static constexpr std::size_t dim                       = dim_;
+        static constexpr std::size_t max_refinement_level      = max_refinement_level_;
+        static constexpr std::size_t max_stencil_width         = max_stencil_width_;
+        static constexpr std::size_t graduation_width          = graduation_width_;
+        static constexpr std::size_t prediction_stencil_radius = prediction_stencil_radius_;
 
         static constexpr int ghost_width = std::max(std::max(2 * static_cast<int>(graduation_width) - 1, static_cast<int>(max_stencil_width)),
-                                                    static_cast<int>(prediction_order));
+                                                    static_cast<int>(prediction_stencil_radius));
         using interval_t = TInterval;
         using mesh_id_t  = MROMeshId;
     };

@@ -11,12 +11,12 @@ namespace samurai
     auto init_mesh()
     {
         constexpr std::size_t dim   = 2;
-        using Config                = samurai::MRConfig<dim>;
         auto box                    = samurai::Box<double, dim>({0., 0.}, {1., 1.});
         const std::size_t min_level = 2;
         const std::size_t max_level = 10;
 
-        return samurai::MRMesh<Config>(box, min_level, max_level);
+        auto mesh_cfg = mesh_config<dim>().min_level(min_level).max_level(max_level);
+        return mra::make_mesh(box, mesh_cfg);
     }
 
     void init_field(auto& u, double factor = 1.0)

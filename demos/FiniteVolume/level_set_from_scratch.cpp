@@ -9,6 +9,7 @@
 #include <samurai/io/hdf5.hpp>
 #include <samurai/io/restart.hpp>
 #include <samurai/mesh.hpp>
+#include <samurai/mesh_config.hpp>
 #include <samurai/mr/operators.hpp>
 #include <samurai/samurai.hpp>
 
@@ -51,16 +52,10 @@ struct fmt::formatter<SimpleID> : formatter<string_view>
     }
 };
 
-template <std::size_t dim_>
-struct AMRConfig
+template <std::size_t dim_, int prediction_stencil_radius_ = 1, std::size_t max_refinement_level_ = 20, class interval_t_ = samurai::Interval<int>>
+struct AMRConfig : samurai::mesh_config<dim_, prediction_stencil_radius_, max_refinement_level_, interval_t_>
 {
-    static constexpr std::size_t dim                  = dim_;
-    static constexpr std::size_t max_refinement_level = 20;
-    static constexpr int max_stencil_width            = 2;
-    static constexpr int ghost_width                  = 2;
-    static constexpr std::size_t prediction_order     = 1;
-    using interval_t                                  = samurai::Interval<int>;
-    using mesh_id_t                                   = SimpleID;
+    using mesh_id_t = SimpleID;
 };
 
 template <class Config>
@@ -86,35 +81,37 @@ class AMRMesh : public samurai::Mesh_base<AMRMesh<Config>, Config>
     {
     }
 
-    inline AMRMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level)
-        : base_type(cl, min_level, max_level)
+    inline AMRMesh(const cl_type& cl, const samurai::mesh_config<Config::dim>& cfg)
+        : base_type(cl, cfg)
     {
     }
 
-    inline AMRMesh(const ca_type& ca, std::size_t min_level, std::size_t max_level)
-        : base_type(ca, min_level, max_level)
+    inline AMRMesh(const ca_type& ca, const samurai::mesh_config<Config::dim>& cfg)
+        : base_type(ca, cfg)
     {
     }
 
-    inline AMRMesh(const samurai::Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level)
-        : base_type(b, start_level, min_level, max_level)
+    inline AMRMesh(const samurai::Box<double, dim>& b, samurai::mesh_config<Config::dim>& cfg)
+        : base_type(b, cfg)
     {
     }
 
     inline void update_sub_mesh_impl()
     {
         cl_type cl;
-        for_each_interval(
-            this->cells()[mesh_id_t::cells],
-            [&](std::size_t level, const auto& interval, const auto& index_yz)
-            {
-                samurai::static_nested_loop<dim - 1, -config::ghost_width, config::ghost_width + 1>(
-                    [&](auto stencil)
-                    {
-                        auto index = xt::eval(index_yz + stencil);
-                        cl[level][index].add_interval({interval.start - config::ghost_width, interval.end + config::ghost_width});
-                    });
-            });
+        auto ghost_width = this->cfg().ghost_width();
+        for_each_interval(this->cells()[mesh_id_t::cells],
+                          [&](std::size_t level, const auto& interval, const auto& index_yz)
+                          {
+                              samurai::static_nested_loop<dim - 1>(
+                                  -ghost_width,
+                                  ghost_width + 1,
+                                  [&](auto stencil)
+                                  {
+                                      auto index = xt::eval(index_yz + stencil);
+                                      cl[level][index].add_interval({interval.start - ghost_width, interval.end + ghost_width});
+                                  });
+                          });
         this->cells()[mesh_id_t::cells_and_ghosts] = {cl, false};
     }
 };
@@ -335,7 +332,7 @@ void AMR_criteria(const Field& f, Tag& tag)
     samurai::for_each_cell(mesh[SimpleID::cells],
                            [&](auto cell)
                            {
-                               const double dx = mesh.cell_length(max_level);
+                               const double dx = mesh.min_cell_length();
 
                                if (std::abs(f[cell]) < 1.2 * 5 * std::sqrt(2.) * dx)
                                {
@@ -606,10 +603,7 @@ int main(int argc, char* argv[])
     std::string restart_file;
 
     // AMR parameters
-    std::size_t start_level = 8;
-    std::size_t min_level   = 4;
-    std::size_t max_level   = 8;
-    bool correction         = false;
+    bool correction = false;
 
     // Output parameters
     fs::path path        = fs::current_path();
@@ -622,9 +616,6 @@ int main(int argc, char* argv[])
     app.add_option("--Ti", t, "Initial time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--start-level", start_level, "Start level of AMR")->capture_default_str()->group("AMR parameters");
-    app.add_option("--min-level", min_level, "Minimum level of AMR")->capture_default_str()->group("AMR parameters");
-    app.add_option("--max-level", max_level, "Maximum level of AMR")->capture_default_str()->group("AMR parameters");
     app.add_flag("--with-correction", correction, "Apply flux correction at the interface of two refinement levels")
         ->capture_default_str()
         ->group("AMR parameters");
@@ -634,13 +625,15 @@ int main(int argc, char* argv[])
     SAMURAI_PARSE(argc, argv);
 
     const samurai::Box<double, dim> box(min_corner, max_corner);
+    auto config = samurai::mesh_config<dim>().min_level(4).max_level(8).start_level(8).max_stencil_radius(2);
+    config.parse_args();
     AMRMesh<Config> mesh;
 
     auto phi = samurai::make_scalar_field<double>("phi", mesh);
 
     if (restart_file.empty())
     {
-        mesh = {box, max_level, min_level, max_level};
+        mesh = AMRMesh<Config>(box, config);
         init_level_set(phi);
     }
     else
@@ -648,7 +641,7 @@ int main(int argc, char* argv[])
         samurai::load(restart_file, mesh, phi);
     }
 
-    double dt            = cfl * mesh.cell_length(max_level);
+    double dt            = cfl * mesh.min_cell_length();
     const double dt_save = Tf / static_cast<double>(nfiles);
 
     // We initialize the level set function
@@ -715,9 +708,9 @@ int main(int argc, char* argv[])
             update_ghosts(phi, u);
             auto phihat = samurai::make_scalar_field<double>("phi", mesh);
             samurai::make_bc<samurai::Neumann<1>>(phihat, 0.);
-            phihat = phi - dt_fict * H_wrap(phi, phi_0, max_level);
+            phihat = phi - dt_fict * H_wrap(phi, phi_0, mesh.max_level());
             update_ghosts(phihat, u);
-            phinp1 = .5 * phi_0 + .5 * (phihat - dt_fict * H_wrap(phihat, phi_0, max_level));
+            phinp1 = .5 * phi_0 + .5 * (phihat - dt_fict * H_wrap(phihat, phi_0, mesh.max_level()));
             std::swap(phi.array(), phinp1.array());
         }
 

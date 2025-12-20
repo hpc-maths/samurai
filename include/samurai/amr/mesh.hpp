@@ -29,16 +29,19 @@ namespace samurai::amr
               std::size_t max_stencil_width_    = default_config::ghost_width,
               std::size_t graduation_width_     = default_config::graduation_width,
               std::size_t max_refinement_level_ = default_config::max_level,
-              std::size_t prediction_order_     = default_config::prediction_order,
+              std::size_t prediction_order_     = default_config::prediction_stencil_radius,
               class TInterval                   = default_config::interval_t>
-    struct Config
+    struct [[deprecated("Use samurai::mesh_config instead")]] Config
     {
         static constexpr std::size_t dim                  = dim_;
         static constexpr std::size_t max_refinement_level = max_refinement_level_;
-        static constexpr int max_stencil_width            = max_stencil_width_;
-        static constexpr int prediction_order             = prediction_order_;
-        static constexpr int ghost_width      = std::max(static_cast<int>(max_stencil_width), static_cast<int>(prediction_order));
-        static constexpr int graduation_width = graduation_width_;
+
+        // deprecated interface
+        [[deprecated("Use max_stencil_radius() method instead")]] static constexpr int max_stencil_width = max_stencil_width_;
+        [[deprecated("Use prediction_stencil_radius instead")]] static constexpr int prediction_order    = prediction_order_;
+        [[deprecated("Use graduation_width() method instead")]] static constexpr int graduation_width    = graduation_width_;
+        [[deprecated("Use ghost_width() method instead")]] static constexpr int ghost_width = std::max(static_cast<int>(max_stencil_width),
+                                                                                                       static_cast<int>(prediction_order));
 
         using interval_t = TInterval;
         using mesh_id_t  = AMR_Id;
@@ -69,11 +72,17 @@ namespace samurai::amr
         Mesh() = default;
         Mesh(const ca_type& ca, const self_type& ref_mesh);
         Mesh(const cl_type& cl, const self_type& ref_mesh);
+        Mesh(const cl_type& cl, const mesh_config<Config::dim>& config);
+        Mesh(const ca_type& ca, const mesh_config<Config::dim>& config);
+        Mesh(const Box<double, dim>& b, const mesh_config<Config::dim>& config);
+
         Mesh(const cl_type& cl, std::size_t min_level, std::size_t max_level);
         Mesh(const ca_type& ca, std::size_t min_level, std::size_t max_level);
         Mesh(const Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level);
 
         void update_sub_mesh_impl();
+
+        using base_type::cfg;
     };
 
     /////////////////////////////
@@ -93,20 +102,56 @@ namespace samurai::amr
     }
 
     template <class Config>
+    inline Mesh<Config>::Mesh(const cl_type& cl, const mesh_config<Config::dim>& config)
+        : base_type(cl, config)
+    {
+    }
+
+    template <class Config>
+    inline Mesh<Config>::Mesh(const ca_type& ca, const mesh_config<Config::dim>& config)
+        : base_type(ca, config)
+    {
+    }
+
+    template <class Config>
+    inline Mesh<Config>::Mesh(const Box<double, dim>& b, const mesh_config<Config::dim>& config)
+        : base_type(b, config)
+    {
+    }
+
+    template <class Config>
     inline Mesh<Config>::Mesh(const cl_type& cl, std::size_t min_level, std::size_t max_level)
-        : base_type(cl, min_level, max_level)
+        : base_type(cl,
+                    mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
+                        .max_stencil_radius(Config::max_stencil_width)
+                        .graduation_width(Config::graduation_width)
+                        .start_level(max_level)
+                        .min_level(min_level)
+                        .max_level(max_level))
     {
     }
 
     template <class Config>
     inline Mesh<Config>::Mesh(const ca_type& ca, std::size_t min_level, std::size_t max_level)
-        : base_type(ca, min_level, max_level)
+        : base_type(ca,
+                    mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
+                        .max_stencil_radius(Config::max_stencil_width)
+                        .graduation_width(Config::graduation_width)
+                        .start_level(max_level)
+                        .min_level(min_level)
+                        .max_level(max_level))
     {
     }
 
     template <class Config>
     inline Mesh<Config>::Mesh(const Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level)
-        : base_type(b, start_level, min_level, max_level)
+        : base_type(b,
+                    mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
+                        .max_stencil_radius(Config::max_stencil_width)
+                        .graduation_width(Config::graduation_width)
+                        .start_level(start_level)
+                        .min_level(min_level)
+                        .max_level(max_level))
     {
     }
 
@@ -114,15 +159,18 @@ namespace samurai::amr
     inline void Mesh<Config>::update_sub_mesh_impl()
     {
         cl_type cl;
+        auto ghost_width = cfg().ghost_width();
         for_each_interval(this->cells()[mesh_id_t::cells],
                           [&](std::size_t level, const auto& interval, const auto& index_yz)
                           {
                               lcl_type& lcl = cl[level];
-                              static_nested_loop<dim - 1, -config::ghost_width, config::ghost_width + 1>(
+                              static_nested_loop<dim - 1>(
+                                  -ghost_width,
+                                  ghost_width + 1,
                                   [&](auto stencil)
                                   {
                                       auto index = xt::eval(index_yz + stencil);
-                                      lcl[index].add_interval({interval.start - config::ghost_width, interval.end + config::ghost_width});
+                                      lcl[index].add_interval({interval.start - ghost_width, interval.end + ghost_width});
                                   });
                           });
         this->cells()[mesh_id_t::cells_and_ghosts] = {cl, false};
@@ -176,11 +224,12 @@ namespace samurai::amr
                 [&](const auto& interval, const auto& index_yz)
                 {
                     // add ghosts for the prediction
-                    static_nested_loop<dim - 1, -config::prediction_order, config::prediction_order + 1>(
+                    static_nested_loop<dim - 1, -config::prediction_stencil_radius, config::prediction_stencil_radius + 1>(
                         [&](auto stencil)
                         {
                             auto index = xt::eval(index_yz + stencil);
-                            lcl[index].add_interval({interval.start - config::prediction_order, interval.end + config::prediction_order});
+                            lcl[index].add_interval(
+                                {interval.start - config::prediction_stencil_radius, interval.end + config::prediction_stencil_radius});
                         });
                 });
         }
@@ -199,7 +248,42 @@ namespace samurai::amr
             this->cells()[mesh_id_t::all_cells][level] = {lcl};
         }
     }
-}
+
+    template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, AMR_Id>>
+    auto make_empty_mesh(const mesh_config_t&)
+    {
+        return Mesh<complete_mesh_config_t>();
+    }
+
+    template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, AMR_Id>>
+    auto make_mesh(const typename Mesh<complete_mesh_config_t>::cl_type& cl, const mesh_config_t& cfg)
+    {
+        auto mesh_cfg = cfg;
+        mesh_cfg.parse_args();
+
+        return Mesh<complete_mesh_config_t>(cl, mesh_cfg);
+    }
+
+    template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, AMR_Id>>
+    auto make_mesh(const typename Mesh<complete_mesh_config_t>::ca_type& ca, const mesh_config_t& cfg)
+    {
+        auto mesh_cfg = cfg;
+        mesh_cfg.parse_args();
+
+        return Mesh<complete_mesh_config_t>(ca, mesh_cfg);
+    }
+
+    template <class mesh_config_t>
+    auto make_mesh(const samurai::Box<double, mesh_config_t::dim>& b, const mesh_config_t& cfg)
+    {
+        using complete_cfg_t = complete_mesh_config<mesh_config_t, AMR_Id>;
+
+        auto mesh_cfg = cfg;
+        mesh_cfg.parse_args();
+
+        return Mesh<complete_cfg_t>(b, mesh_cfg);
+    }
+} // namespace samurai::amr
 
 template <>
 struct fmt::formatter<samurai::amr::AMR_Id> : formatter<string_view>

@@ -62,7 +62,7 @@ bool update_mesh(Field& f, const Tag& tag)
                                    }
                                });
 
-    mesh_t new_mesh(cell_list, mesh.min_level(), mesh.max_level());
+    mesh_t new_mesh(cell_list, mesh.cfg());
 
     if (new_mesh == mesh)
     {

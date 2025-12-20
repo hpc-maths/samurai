@@ -11,6 +11,7 @@
 #include "cell_array.hpp"
 #include "cell_list.hpp"
 #include "domain_builder.hpp"
+#include "mesh_config.hpp"
 #include "static_algorithm.hpp"
 #include "stencil.hpp"
 #include "subset/node.hpp"
@@ -98,12 +99,18 @@ namespace samurai
         std::size_t min_level() const;
         std::size_t& min_level();
 
+        std::size_t graduation_width() const;
+        int ghost_width() const;
+        int max_stencil_radius() const;
+        auto& cfg() const;
+
         auto& origin_point() const;
         void set_origin_point(const coords_t& origin_point);
         double scaling_factor() const;
         void set_scaling_factor(double scaling_factor);
         void scale_domain(double domain_scaling_factor);
         double cell_length(std::size_t level) const;
+        double min_cell_length() const;
         const lca_type& domain() const;
         const lca_type& subdomain() const;
         const ca_type& get_union() const;
@@ -155,27 +162,34 @@ namespace samurai
         Mesh_base() = default; // cppcheck-suppress uninitMemberVar
         Mesh_base(const ca_type& ca, const self_type& ref_mesh);
         Mesh_base(const cl_type& cl, const self_type& ref_mesh);
-        Mesh_base(const cl_type& cl, std::size_t min_level, std::size_t max_level);
-        Mesh_base(const ca_type& ca, std::size_t min_level, std::size_t max_level);
-        Mesh_base(const samurai::Box<double, dim>& b,
-                  std::size_t start_level,
-                  std::size_t min_level,
-                  std::size_t max_level,
-                  double approx_box_tol = lca_type::default_approx_box_tol,
-                  double scaling_factor = 0);
+        Mesh_base(const cl_type& cl, const mesh_config<Config::dim>& config);
+        Mesh_base(const ca_type& ca, const mesh_config<Config::dim>& config);
+        Mesh_base(const samurai::Box<double, dim>& b, const mesh_config<Config::dim>& config);
+
+        Mesh_base(const samurai::DomainBuilder<dim>& domain_builder, const mesh_config<Config::dim>& config);
+
+        // cppcheck-suppress uninitMemberVar
+        Mesh_base(const samurai::Box<double, dim>&, std::size_t, std::size_t, std::size_t, double, double)
+        {
+            std::cerr << "Delete min_level and max_level from CLI11 options and use mesh_config object and the make_mesh function"
+                      << std::endl;
+            exit(EXIT_FAILURE);
+        }
+
         Mesh_base(const samurai::DomainBuilder<dim>& domain_builder,
                   std::size_t start_level,
                   std::size_t min_level,
                   std::size_t max_level,
                   double approx_box_tol = lca_type::default_approx_box_tol,
                   double scaling_factor = 0);
-        Mesh_base(const samurai::Box<double, dim>& b,
-                  std::size_t start_level,
-                  std::size_t min_level,
-                  std::size_t max_level,
-                  const std::array<bool, dim>& periodic,
-                  double approx_box_tol = lca_type::default_approx_box_tol,
-                  double scaling_factor = 0);
+
+        // cppcheck-suppress uninitMemberVar
+        Mesh_base(const samurai::Box<double, dim>&, std::size_t, std::size_t, std::size_t, const std::array<bool, dim>&, double, double)
+        {
+            std::cerr << "Delete min_level and max_level from CLI11 options and use mesh_config object and the make_mesh function"
+                      << std::endl;
+            exit(EXIT_FAILURE);
+        }
 
         derived_type& derived_cast() & noexcept;
         const derived_type& derived_cast() const& noexcept;
@@ -201,14 +215,13 @@ namespace samurai
 
         lca_type m_domain;
         lca_type m_subdomain;
-        std::size_t m_min_level;
-        std::size_t m_max_level;
-        std::array<bool, dim> m_periodic;
         mesh_t m_cells;
         ca_type m_union;
         std::vector<lca_type> m_corners;
         // std::vector<int> m_neighbouring_ranks;
         std::vector<mpi_subdomain_t> m_mpi_neighbourhood;
+
+        mesh_config<dim> m_config;
 
 #ifdef SAMURAI_WITH_MPI
         friend class boost::serialization::access;
@@ -223,8 +236,7 @@ namespace samurai
             ar & m_domain;
             ar & m_subdomain;
             ar & m_union;
-            ar & m_min_level;
-            ar & m_max_level;
+            ar & m_config;
         }
 #endif
     };
@@ -248,24 +260,18 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline Mesh_base<D, Config>::Mesh_base(const samurai::Box<double, dim>& b,
-                                           std::size_t start_level,
-                                           std::size_t min_level,
-                                           std::size_t max_level,
-                                           double approx_box_tol,
-                                           double scaling_factor_)
-        : m_domain{start_level, b, approx_box_tol, scaling_factor_}
-        , m_min_level{min_level}
-        , m_max_level{max_level}
+    inline Mesh_base<D, Config>::Mesh_base(const samurai::Box<double, dim>& b, const mesh_config<Config::dim>& config)
+        : m_domain{config.start_level(), b, config.approx_box_tol(), config.scaling_factor()}
+        , m_config(config)
     {
-        assert(min_level <= max_level);
-        m_periodic.fill(false);
-
 #ifdef SAMURAI_WITH_MPI
-        partition_mesh(start_level, b);
+        partition_mesh(m_config.start_level(), b);
         // load_balancing();
 #else
-        this->m_cells[mesh_id_t::cells][start_level] = {start_level, b, approx_box_tol, scaling_factor_};
+        this->m_cells[mesh_id_t::cells][m_config.start_level()] = {m_config.start_level(),
+                                                                   b,
+                                                                   m_config.approx_box_tol(),
+                                                                   m_config.scaling_factor()};
 #endif
         construct_subdomain();
         construct_union();
@@ -279,28 +285,36 @@ namespace samurai
     }
 
     template <class D, class Config>
-    Mesh_base<D, Config>::Mesh_base(const samurai::DomainBuilder<dim>& domain_builder,
-                                    [[maybe_unused]] std::size_t start_level,
-                                    std::size_t min_level,
-                                    std::size_t max_level,
-                                    [[maybe_unused]] double approx_box_tol,
-                                    double scaling_factor_)
-        : m_min_level{min_level}
-        , m_max_level{max_level}
+    Mesh_base<D, Config>::Mesh_base(const samurai::DomainBuilder<dim>& domain_builder, const mesh_config<Config::dim>& config)
+        : m_config(config)
     {
-        assert(min_level <= max_level);
-        m_periodic.fill(false);
+        if (std::any_of(config.periodic().begin(),
+                        config.periodic().end(),
+                        [](bool b)
+                        {
+                            return b;
+                        }))
+        {
+            std::cerr << "Periodicity is not implemented with DomainBuilder." << std::endl;
+            exit(EXIT_FAILURE);
+        }
 
 #ifdef SAMURAI_WITH_MPI
         std::cerr << "MPI is not implemented with DomainBuilder." << std::endl;
-        std::exit(1);
-        // partition_mesh(start_level, b);
+        std::exit(EXIT_FAILURE);
+        // partition_mesh(m_config.start_level(), b);
         //  load_balancing();
+
 #else
+        double scaling_factor_ = m_config.scaling_factor();
         compute_scaling_factor(domain_builder, scaling_factor_);
+        m_config.scaling_factor() = scaling_factor_;
 
         // Build the domain by adding and removing boxes
-        cl_type domain_cl = construct_initial_mesh(domain_builder, start_level, approx_box_tol, scaling_factor_);
+        cl_type domain_cl = construct_initial_mesh(domain_builder,
+                                                   m_config.start_level(),
+                                                   m_config.approx_box_tol(),
+                                                   m_config.scaling_factor());
 
         this->m_cells[mesh_id_t::cells] = {domain_cl, false};
 #endif
@@ -313,50 +327,13 @@ namespace samurai
         update_mesh_neighbour();
 
         set_origin_point(domain_builder.origin_point());
-        set_scaling_factor(scaling_factor_);
+        set_scaling_factor(m_config.scaling_factor());
     }
 
     template <class D, class Config>
-    inline Mesh_base<D, Config>::Mesh_base(const samurai::Box<double, dim>& b,
-                                           std::size_t start_level,
-                                           std::size_t min_level,
-                                           std::size_t max_level,
-                                           const std::array<bool, dim>& periodic,
-                                           double approx_box_tol,
-                                           double scaling_factor_)
-        : m_domain{start_level, b, approx_box_tol, scaling_factor_}
-        , m_min_level{min_level}
-        , m_max_level{max_level}
-        , m_periodic{periodic}
+    inline Mesh_base<D, Config>::Mesh_base(const cl_type& cl, const mesh_config<Config::dim>& config)
+        : m_config(config)
     {
-        assert(min_level <= max_level);
-
-#ifdef SAMURAI_WITH_MPI
-        partition_mesh(start_level, b);
-        // load_balancing();
-#else
-        this->m_cells[mesh_id_t::cells][start_level] = {start_level, b, approx_box_tol, scaling_factor_};
-#endif
-
-        construct_subdomain();
-        construct_union();
-        update_sub_mesh();
-        construct_corners();
-        renumbering();
-        update_mesh_neighbour();
-
-        set_origin_point(origin_point());
-        set_scaling_factor(scaling_factor());
-    }
-
-    template <class D, class Config>
-    inline Mesh_base<D, Config>::Mesh_base(const cl_type& cl, std::size_t min_level, std::size_t max_level)
-        : m_min_level{min_level}
-        , m_max_level{max_level}
-    {
-        m_periodic.fill(false);
-        assert(min_level <= max_level);
-
         this->m_cells[mesh_id_t::cells] = {cl};
 
         construct_subdomain();
@@ -372,13 +349,9 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline Mesh_base<D, Config>::Mesh_base(const ca_type& ca, std::size_t min_level, std::size_t max_level)
-        : m_min_level{min_level}
-        , m_max_level{max_level}
+    inline Mesh_base<D, Config>::Mesh_base(const ca_type& ca, const mesh_config<Config::dim>& config)
+        : m_config(config)
     {
-        m_periodic.fill(false);
-        assert(min_level <= max_level);
-
         this->m_cells[mesh_id_t::cells] = ca;
 
         construct_subdomain();
@@ -408,11 +381,8 @@ namespace samurai
     template <class D, class Config>
     inline Mesh_base<D, Config>::Mesh_base(const ca_type& ca, const self_type& ref_mesh)
         : m_domain(ref_mesh.m_domain)
-        , m_min_level(ref_mesh.m_min_level)
-        , m_max_level(ref_mesh.m_max_level)
-        , m_periodic(ref_mesh.m_periodic)
         , m_mpi_neighbourhood(ref_mesh.m_mpi_neighbourhood)
-
+        , m_config(ref_mesh.m_config)
     {
         m_cells[mesh_id_t::cells] = ca;
 
@@ -430,11 +400,8 @@ namespace samurai
     template <class D, class Config>
     inline Mesh_base<D, Config>::Mesh_base(const cl_type& cl, const self_type& ref_mesh)
         : m_domain(ref_mesh.m_domain)
-        , m_min_level(ref_mesh.m_min_level)
-        , m_max_level(ref_mesh.m_max_level)
-        , m_periodic(ref_mesh.m_periodic)
         , m_mpi_neighbourhood(ref_mesh.m_mpi_neighbourhood)
-
+        , m_config(ref_mesh.m_config)
     {
         m_cells[mesh_id_t::cells] = {cl, false};
 
@@ -460,7 +427,7 @@ namespace samurai
         // negartive directions, we actually need 2 times the stencil width inside the hole.
 
         // min_level where the BC can be applied
-        std::size_t min_level_bc = m_min_level;
+        std::size_t min_level_bc = min_level();
         if (scaling_factor <= 0)
         {
             scaling_factor = domain_builder.largest_subdivision();
@@ -468,7 +435,7 @@ namespace samurai
             auto largest_cell_length = samurai::cell_length(scaling_factor, min_level_bc);
             for (const auto& box : domain_builder.removed_boxes())
             {
-                while (box.min_length() < 2 * largest_cell_length * config::max_stencil_width)
+                while (box.min_length() < 2 * largest_cell_length * max_stencil_radius())
                 {
                     scaling_factor /= 2;
                     largest_cell_length /= 2;
@@ -480,10 +447,10 @@ namespace samurai
             auto largest_cell_length = samurai::cell_length(scaling_factor, min_level_bc);
             for (const auto& box : domain_builder.removed_boxes())
             {
-                if (box.min_length() < 2 * largest_cell_length * config::max_stencil_width)
+                if (box.min_length() < 2 * largest_cell_length * max_stencil_radius())
                 {
                     std::cerr << "The hole " << box << " is too small to apply the BC at level " << min_level_bc
-                              << " with the given scaling factor. We need to be able to construct " << (2 * config::max_stencil_width)
+                              << " with the given scaling factor. We need to be able to construct " << (2 * max_stencil_radius())
                               << " ghosts in each direction inside the hole." << std::endl;
                     std::cerr << "Please choose a smaller scaling factor or enlarge the hole." << std::endl;
                     std::exit(1);
@@ -576,25 +543,49 @@ namespace samurai
     template <class D, class Config>
     inline std::size_t Mesh_base<D, Config>::max_level() const
     {
-        return m_max_level;
+        return m_config.max_level();
     }
 
     template <class D, class Config>
     inline std::size_t& Mesh_base<D, Config>::max_level()
     {
-        return m_max_level;
+        return m_config.max_level();
     }
 
     template <class D, class Config>
     inline std::size_t Mesh_base<D, Config>::min_level() const
     {
-        return m_min_level;
+        return m_config.min_level();
     }
 
     template <class D, class Config>
     inline std::size_t& Mesh_base<D, Config>::min_level()
     {
-        return m_min_level;
+        return m_config.min_level();
+    }
+
+    template <class D, class Config>
+    inline std::size_t Mesh_base<D, Config>::graduation_width() const
+    {
+        return m_config.graduation_width();
+    }
+
+    template <class D, class Config>
+    inline int Mesh_base<D, Config>::ghost_width() const
+    {
+        return m_config.ghost_width();
+    }
+
+    template <class D, class Config>
+    inline int Mesh_base<D, Config>::max_stencil_radius() const
+    {
+        return m_config.max_stencil_radius();
+    }
+
+    template <class D, class Config>
+    inline auto& Mesh_base<D, Config>::cfg() const
+    {
+        return m_config;
     }
 
     template <class D, class Config>
@@ -643,6 +634,12 @@ namespace samurai
     inline double Mesh_base<D, Config>::cell_length(std::size_t level) const
     {
         return samurai::cell_length(scaling_factor(), level);
+    }
+
+    template <class D, class Config>
+    inline double Mesh_base<D, Config>::min_cell_length() const
+    {
+        return cell_length(max_level());
     }
 
     template <class D, class Config>
@@ -731,8 +728,8 @@ namespace samurai
     template <class D, class Config>
     inline bool Mesh_base<D, Config>::is_periodic() const
     {
-        return std::any_of(m_periodic.cbegin(),
-                           m_periodic.cend(),
+        return std::any_of(m_config.periodic().cbegin(),
+                           m_config.periodic().cend(),
                            [](bool v)
                            {
                                return v;
@@ -742,13 +739,13 @@ namespace samurai
     template <class D, class Config>
     inline bool Mesh_base<D, Config>::is_periodic(std::size_t d) const
     {
-        return m_periodic[d];
+        return m_config.periodic(d);
     }
 
     template <class D, class Config>
     inline auto Mesh_base<D, Config>::periodicity() const -> const std::array<bool, dim>&
     {
-        return m_periodic;
+        return m_config.periodic();
     }
 
     template <class D, class Config>
@@ -772,8 +769,7 @@ namespace samurai
         swap(m_subdomain, mesh.m_subdomain);
         swap(m_mpi_neighbourhood, mesh.m_mpi_neighbourhood);
         swap(m_union, mesh.m_union);
-        swap(m_max_level, mesh.m_max_level);
-        swap(m_min_level, mesh.m_min_level);
+        swap(m_config, mesh.m_config);
     }
 
     template <class D, class Config>
@@ -941,7 +937,7 @@ namespace samurai
     inline void Mesh_base<D, Config>::construct_domain()
     {
 #ifdef SAMURAI_WITH_MPI
-        lcl_type lcl = {m_max_level};
+        lcl_type lcl = {max_level()};
         mpi::communicator world;
         std::vector<lca_type> all_subdomains(static_cast<std::size_t>(world.size()));
         mpi::all_gather(world, m_subdomain, all_subdomains);
@@ -965,12 +961,12 @@ namespace samurai
     inline void Mesh_base<D, Config>::construct_subdomain()
     {
         // lcl_type lcl = {m_cells[mesh_id_t::cells].max_level()};
-        lcl_type lcl = {m_max_level};
+        lcl_type lcl = {max_level()};
 
         for_each_interval(m_cells[mesh_id_t::cells],
                           [&](std::size_t level, const auto& i, const auto& index)
                           {
-                              std::size_t shift = m_max_level - level;
+                              std::size_t shift = max_level() - level;
                               interval_t to_add = i << shift;
                               auto shift_index  = index << shift;
                               static_nested_loop<dim - 1>(0,
@@ -995,7 +991,7 @@ namespace samurai
     template <class D, class Config>
     inline void Mesh_base<D, Config>::construct_union()
     {
-        std::size_t max_lvl = m_max_level;
+        std::size_t max_lvl = max_level();
 
         // Construction of union cells
         // ===========================
@@ -1046,7 +1042,7 @@ namespace samurai
                 }
                 for (std::size_t d = 0; d < dim; ++d)
                 {
-                    if (m_periodic[d])
+                    if (m_config.periodic(d))
                     {
                         auto shift             = get_periodic_shift(m_domain, m_subdomain.level(), d);
                         auto periodic_set_left = intersection(nestedExpand(m_subdomain, 1), translate(neighbours[i], -shift));

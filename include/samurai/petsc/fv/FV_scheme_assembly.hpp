@@ -28,25 +28,25 @@ namespace samurai
 
           public:
 
-            using cfg_t                                           = typename Scheme::cfg_t;
-            using bdry_cfg_t                                      = typename Scheme::bdry_cfg;
-            using field_t                                         = typename Scheme::field_t;
-            using output_field_t                                  = typename cfg_t::output_field_t;
-            using mesh_t                                          = typename field_t::mesh_t;
-            using mesh_id_t                                       = typename mesh_t::mesh_id_t;
-            using interval_t                                      = typename mesh_t::interval_t;
-            using mesh_interval_t                                 = typename mesh_t::mesh_interval_t;
-            using field_value_type                                = typename field_t::value_type; // double
-            using coord_index_t                                   = typename interval_t::coord_index_t;
-            using index_t                                         = typename interval_t::index_t;
-            static constexpr std::size_t dim                      = field_t::dim;
-            static constexpr std::size_t input_n_comp             = field_t::n_comp;
-            static constexpr std::size_t output_n_comp            = output_field_t::n_comp;
-            static constexpr std::size_t prediction_order         = mesh_t::config::prediction_order;
-            static constexpr std::size_t bdry_neighbourhood_width = bdry_cfg_t::neighbourhood_width;
-            static constexpr std::size_t bdry_stencil_size        = bdry_cfg_t::stencil_size;
-            static constexpr std::size_t nb_bdry_ghosts           = bdry_cfg_t::nb_ghosts;
-            using cell_t                                          = Cell<dim, interval_t>;
+            using cfg_t                                            = typename Scheme::cfg_t;
+            using bdry_cfg_t                                       = typename Scheme::bdry_cfg;
+            using field_t                                          = typename Scheme::field_t;
+            using output_field_t                                   = typename cfg_t::output_field_t;
+            using mesh_t                                           = typename field_t::mesh_t;
+            using mesh_id_t                                        = typename mesh_t::mesh_id_t;
+            using interval_t                                       = typename mesh_t::interval_t;
+            using mesh_interval_t                                  = typename mesh_t::mesh_interval_t;
+            using field_value_type                                 = typename field_t::value_type; // double
+            using coord_index_t                                    = typename interval_t::coord_index_t;
+            using index_t                                          = typename interval_t::index_t;
+            static constexpr std::size_t dim                       = field_t::dim;
+            static constexpr std::size_t input_n_comp              = field_t::n_comp;
+            static constexpr std::size_t output_n_comp             = output_field_t::n_comp;
+            static constexpr std::size_t prediction_stencil_radius = mesh_t::config::prediction_stencil_radius;
+            static constexpr std::size_t bdry_neighbourhood_width  = bdry_cfg_t::neighbourhood_width;
+            static constexpr std::size_t bdry_stencil_size         = bdry_cfg_t::stencil_size;
+            static constexpr std::size_t nb_bdry_ghosts            = bdry_cfg_t::nb_ghosts;
+            using cell_t                                           = Cell<dim, interval_t>;
 
             using dirichlet_t = DirichletImpl<nb_bdry_ghosts, field_t>;
             using neumann_t   = NeumannImpl<nb_bdry_ghosts, field_t>;
@@ -695,7 +695,7 @@ namespace samurai
                                 //                                                  1 + 9=10 in 2D
                                 // Order 2: cell + hypercube of 5 coarser cells --> 1 + 5= 6 in 1D
                                 //                                                  1 +25=21 in 2D
-                                static constexpr std::size_t pred_stencil_size = 1 + ce_pow(2 * prediction_order + 1, dim);
+                                static constexpr std::size_t pred_stencil_size = 1 + ce_pow(2 * prediction_stencil_radius + 1, dim);
 
                                 nnz[static_cast<std::size_t>(row_index(ghost, field_i))] = pred_stencil_size;
                             }
@@ -828,19 +828,20 @@ namespace samurai
                             auto ig      = ii >> 1;
                             double isign = (ii & 1) ? -1 : 1;
 
-                            auto interpx = samurai::interp_coeffs<2 * prediction_order + 1>(isign);
+                            auto interpx = samurai::interp_coeffs<2 * prediction_stencil_radius + 1>(isign);
 
                             auto parent_index = this->col_index(static_cast<PetscInt>(this->mesh().get_index(ghost.level - 1, ig)), field_i);
                             MatSetValue(A, ghost_index, parent_index, -scaling, current_insert_mode());
 
                             for (std::size_t ci = 0; ci < interpx.size(); ++ci)
                             {
-                                if (ci != prediction_order)
+                                if (ci != prediction_stencil_radius)
                                 {
                                     double value           = -interpx[ci];
                                     auto coarse_cell_index = this->col_index(
                                         static_cast<PetscInt>(
-                                            this->mesh().get_index(ghost.level - 1, ig + static_cast<coord_index_t>(ci - prediction_order))),
+                                            this->mesh().get_index(ghost.level - 1,
+                                                                   ig + static_cast<coord_index_t>(ci - prediction_stencil_radius))),
                                         field_i);
                                     MatSetValue(A, ghost_index, coarse_cell_index, scaling * value, current_insert_mode());
                                 }
@@ -859,17 +860,17 @@ namespace samurai
                 auto ig      = ii >> 1;
                 double isign = (ii & 1) ? -1 : 1;
 
-                auto interpx = samurai::interp_coeffs<2 * prediction_order + 1>(isign);
+                auto interpx = samurai::interp_coeffs<2 * prediction_stencil_radius + 1>(isign);
 
                 auto parent_index = this->mesh().get_index(ghost.level - 1, ig);
                 linear_comb.emplace_back(parent_index, 1.);
 
                 for (std::size_t ci = 0; ci < interpx.size(); ++ci)
                 {
-                    if (ci != prediction_order)
+                    if (ci != prediction_stencil_radius)
                     {
                         auto coarse_cell_index = this->mesh().get_index(ghost.level - 1,
-                                                                        ig + static_cast<coord_index_t>(ci - prediction_order));
+                                                                        ig + static_cast<coord_index_t>(ci - prediction_stencil_radius));
                         linear_comb.emplace_back(coarse_cell_index, interpx[ci]);
                     }
                 }
@@ -896,8 +897,8 @@ namespace samurai
                             double isign = (ii & 1) ? -1 : 1;
                             double jsign = (j & 1) ? -1 : 1;
 
-                            auto interpx = samurai::interp_coeffs<2 * prediction_order + 1>(isign);
-                            auto interpy = samurai::interp_coeffs<2 * prediction_order + 1>(jsign);
+                            auto interpx = samurai::interp_coeffs<2 * prediction_stencil_radius + 1>(isign);
+                            auto interpy = samurai::interp_coeffs<2 * prediction_stencil_radius + 1>(jsign);
 
                             auto parent_index = this->col_index(static_cast<PetscInt>(this->mesh().get_index(ghost.level - 1, ig, jg)),
                                                                 field_i);
@@ -907,14 +908,15 @@ namespace samurai
                             {
                                 for (std::size_t cj = 0; cj < interpy.size(); ++cj)
                                 {
-                                    if (ci != prediction_order || cj != prediction_order)
+                                    if (ci != prediction_stencil_radius || cj != prediction_stencil_radius)
                                     {
                                         double value           = -interpx[ci] * interpy[cj];
-                                        auto coarse_cell_index = this->col_index(static_cast<PetscInt>(this->mesh().get_index(
-                                                                                     ghost.level - 1,
-                                                                                     ig + static_cast<coord_index_t>(ci - prediction_order),
-                                                                                     jg + static_cast<coord_index_t>(cj - prediction_order))),
-                                                                                 field_i);
+                                        auto coarse_cell_index = this->col_index(
+                                            static_cast<PetscInt>(
+                                                this->mesh().get_index(ghost.level - 1,
+                                                                       ig + static_cast<coord_index_t>(ci - prediction_stencil_radius),
+                                                                       jg + static_cast<coord_index_t>(cj - prediction_stencil_radius))),
+                                            field_i);
                                         MatSetValue(A, ghost_index, coarse_cell_index, scaling * value, current_insert_mode());
                                     }
                                 }
@@ -936,8 +938,8 @@ namespace samurai
                 double isign = (ii & 1) ? -1 : 1;
                 double jsign = (j & 1) ? -1 : 1;
 
-                auto interpx = samurai::interp_coeffs<2 * prediction_order + 1>(isign);
-                auto interpy = samurai::interp_coeffs<2 * prediction_order + 1>(jsign);
+                auto interpx = samurai::interp_coeffs<2 * prediction_stencil_radius + 1>(isign);
+                auto interpy = samurai::interp_coeffs<2 * prediction_stencil_radius + 1>(jsign);
 
                 auto parent_index = this->mesh().get_index(ghost.level - 1, ig, jg);
                 linear_comb.emplace_back(parent_index, 1.);
@@ -946,11 +948,11 @@ namespace samurai
                 {
                     for (std::size_t cj = 0; cj < interpy.size(); ++cj)
                     {
-                        if (ci != prediction_order || cj != prediction_order)
+                        if (ci != prediction_stencil_radius || cj != prediction_stencil_radius)
                         {
                             auto coarse_cell_index = this->mesh().get_index(ghost.level - 1,
-                                                                            ig + static_cast<coord_index_t>(ci - prediction_order),
-                                                                            jg + static_cast<coord_index_t>(cj - prediction_order));
+                                                                            ig + static_cast<coord_index_t>(ci - prediction_stencil_radius),
+                                                                            jg + static_cast<coord_index_t>(cj - prediction_stencil_radius));
                             linear_comb.emplace_back(coarse_cell_index, interpx[ci] * interpy[cj]);
                         }
                     }
@@ -981,9 +983,9 @@ namespace samurai
                             double jsign = (j & 1) ? -1 : 1;
                             double ksign = (k & 1) ? -1 : 1;
 
-                            auto interpx = samurai::interp_coeffs<2 * prediction_order + 1>(isign);
-                            auto interpy = samurai::interp_coeffs<2 * prediction_order + 1>(jsign);
-                            auto interpz = samurai::interp_coeffs<2 * prediction_order + 1>(ksign);
+                            auto interpx = samurai::interp_coeffs<2 * prediction_stencil_radius + 1>(isign);
+                            auto interpy = samurai::interp_coeffs<2 * prediction_stencil_radius + 1>(jsign);
+                            auto interpz = samurai::interp_coeffs<2 * prediction_stencil_radius + 1>(ksign);
 
                             auto parent_index = this->col_index(static_cast<PetscInt>(this->mesh().get_index(ghost.level - 1, ig, jg, kg)),
                                                                 field_i);
@@ -995,15 +997,16 @@ namespace samurai
                                 {
                                     for (std::size_t ck = 0; ck < interpz.size(); ++ck)
                                     {
-                                        if (ci != prediction_order || cj != prediction_order || ck != prediction_order)
+                                        if (ci != prediction_stencil_radius || cj != prediction_stencil_radius
+                                            || ck != prediction_stencil_radius)
                                         {
                                             double value           = -interpx[ci] * interpy[cj] * interpz[ck];
                                             auto coarse_cell_index = this->col_index(
-                                                static_cast<PetscInt>(
-                                                    this->mesh().get_index(ghost.level - 1,
-                                                                           ig + static_cast<coord_index_t>(ci - prediction_order),
-                                                                           jg + static_cast<coord_index_t>(cj - prediction_order),
-                                                                           kg + static_cast<coord_index_t>(ck - prediction_order))),
+                                                static_cast<PetscInt>(this->mesh().get_index(
+                                                    ghost.level - 1,
+                                                    ig + static_cast<coord_index_t>(ci - prediction_stencil_radius),
+                                                    jg + static_cast<coord_index_t>(cj - prediction_stencil_radius),
+                                                    kg + static_cast<coord_index_t>(ck - prediction_stencil_radius))),
                                                 field_i);
                                             MatSetValue(A, ghost_index, coarse_cell_index, scaling * value, current_insert_mode());
                                         }
@@ -1030,9 +1033,9 @@ namespace samurai
                 double jsign = (j & 1) ? -1 : 1;
                 double ksign = (k & 1) ? -1 : 1;
 
-                auto interpx = samurai::interp_coeffs<2 * prediction_order + 1>(isign);
-                auto interpy = samurai::interp_coeffs<2 * prediction_order + 1>(jsign);
-                auto interpz = samurai::interp_coeffs<2 * prediction_order + 1>(ksign);
+                auto interpx = samurai::interp_coeffs<2 * prediction_stencil_radius + 1>(isign);
+                auto interpy = samurai::interp_coeffs<2 * prediction_stencil_radius + 1>(jsign);
+                auto interpz = samurai::interp_coeffs<2 * prediction_stencil_radius + 1>(ksign);
 
                 auto parent_index = this->mesh().get_index(ghost.level - 1, ig, jg, kg);
                 linear_comb.emplace_back(parent_index, 1.);
@@ -1043,12 +1046,13 @@ namespace samurai
                     {
                         for (std::size_t ck = 0; ck < interpz.size(); ++ck)
                         {
-                            if (ci != prediction_order || cj != prediction_order || ck != prediction_order)
+                            if (ci != prediction_stencil_radius || cj != prediction_stencil_radius || ck != prediction_stencil_radius)
                             {
-                                auto coarse_cell_index = this->mesh().get_index(ghost.level - 1,
-                                                                                ig + static_cast<coord_index_t>(ci - prediction_order),
-                                                                                jg + static_cast<coord_index_t>(cj - prediction_order),
-                                                                                kg + static_cast<coord_index_t>(ck - prediction_order));
+                                auto coarse_cell_index = this->mesh().get_index(
+                                    ghost.level - 1,
+                                    ig + static_cast<coord_index_t>(ci - prediction_stencil_radius),
+                                    jg + static_cast<coord_index_t>(cj - prediction_stencil_radius),
+                                    kg + static_cast<coord_index_t>(ck - prediction_stencil_radius));
                                 linear_comb.emplace_back(coarse_cell_index, interpx[ci] * interpy[cj] * interpz[ck]);
                             }
                         }

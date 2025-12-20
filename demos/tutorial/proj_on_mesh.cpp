@@ -54,15 +54,13 @@ int main()
     samurai::initialize();
 
     constexpr std::size_t dim = 3;
-    using Config              = samurai::MRConfig<dim>;
     auto box                  = samurai::Box<double, dim>({0., 0., 0.}, {1., 1., 1.});
 
-    const std::size_t min_level = 2;
-    const std::size_t max_level = 8;
-    auto mesh1                  = samurai::MRMesh<Config>(box, min_level, max_level);
-    auto f1                     = init_field(mesh1, 0);
+    auto mesh_cfg = samurai::mesh_config<dim>().min_level(2).max_level(8);
+    auto mesh1    = samurai::mra::make_mesh(box, mesh_cfg);
+    auto f1       = init_field(mesh1, 0);
 
-    auto mesh2 = samurai::MRMesh<Config>(box, min_level, max_level);
+    auto mesh2 = samurai::mra::make_mesh(box, mesh_cfg);
     auto f2    = init_field(mesh2, 0.1);
 
     auto adapt_1 = samurai::make_MRAdapt(f1);

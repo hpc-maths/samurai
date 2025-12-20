@@ -64,14 +64,14 @@ class Mesh : public samurai::Mesh_base<Mesh<Config>, Config>
     Mesh() = default;
 
     // Constructor starting from a cell list
-    inline Mesh(const cl_type& cl, std::size_t min_level, std::size_t max_level)
-        : base_type(cl, min_level, max_level)
+    inline Mesh(const cl_type& cl, const samurai::mesh_config<Config::dim>& cfg)
+        : base_type(cl, cfg)
     {
     }
 
     // Constructor from a given box (domain)
-    inline Mesh(const samurai::Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level)
-        : base_type(b, start_level, min_level, max_level, 0, 1)
+    inline Mesh(const samurai::Box<double, dim>& b, samurai::mesh_config<Config::dim>& cfg)
+        : base_type(b, cfg.approx_box_tol(0).scaling_factor(1))
     {
     }
 

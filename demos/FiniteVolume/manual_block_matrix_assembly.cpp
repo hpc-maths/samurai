@@ -188,17 +188,14 @@ int main(int argc, char* argv[])
     samurai::initialize(argc, argv);
 
     static constexpr std::size_t dim = 2;
-    using Config                     = samurai::MRConfig<dim>;
     using Box                        = samurai::Box<double, dim>;
 
     std::cout << "------------------------- Begin -------------------------" << std::endl;
 
-    std::size_t min_level = 3;
-    std::size_t max_level = 3;
-
     Box box({0, 0}, {1, 1});
-    samurai::MRMesh<Config> mesh_e{box, min_level, max_level};
-    samurai::MRMesh<Config> mesh_s{box, min_level, max_level};
+    auto mesh_cfg = samurai::mesh_config<dim>().min_level(3).max_level(3);
+    auto mesh_e   = samurai::mra::make_mesh(box, mesh_cfg);
+    auto mesh_s   = samurai::mra::make_mesh(box, mesh_cfg);
 
     //-------------------------------//
     // Fields and auxiliary unknowns //

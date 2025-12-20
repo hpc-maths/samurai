@@ -187,7 +187,7 @@ void refine_2(mesh_t& mesh, std::size_t max_level)
                                        }
                                    });
 
-        mesh = {cl, mesh.min_level(), mesh.max_level()};
+        mesh = samurai::mra::make_mesh(cl, mesh.cfg());
     }
 }
 
@@ -201,17 +201,15 @@ int main(int argc, char* argv[])
 
     constexpr size_t dim = 2;
 
-    // Adaptation parameters
-    std::size_t max_level = 9;
-
     // Output parameters
     fs::path path        = fs::current_path();
     std::string filename = "simple_2d";
 
-    app.add_option("--max-level", max_level, "Maximum level of the adaptation")->capture_default_str()->group("Adaptation parameters");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     SAMURAI_PARSE(argc, argv);
+    auto config = samurai::mesh_config<dim>().min_level(1).max_level(9);
+    config.parse_args();
 
     if (!fs::exists(path))
     {
@@ -232,19 +230,17 @@ int main(int argc, char* argv[])
     std::cout << "nb_cells: " << mesh_1.nb_cells() << "\n";
 
     tic();
-    refine_1(mesh_1, max_level);
+    refine_1(mesh_1, config.max_level());
     auto duration = toc();
     std::cout << "Version 1: " << duration << "s" << std::endl;
     toc();
     std::cout << "nb_cells: " << mesh_1.nb_cells() << "\n";
 
-    // samurai::CellArray<dim> mesh_2(cl);
-    using Config    = samurai::MRConfig<dim>;
-    using mesh_id_t = typename samurai::MRMesh<Config>::mesh_id_t;
-    samurai::MRMesh<Config> mesh_2(cl, 1, max_level);
+    auto mesh_2     = samurai::mra::make_mesh(cl, config);
+    using mesh_id_t = typename decltype(mesh_2)::mesh_id_t;
 
     tic();
-    refine_2(mesh_2, max_level);
+    refine_2(mesh_2, config.max_level());
     duration = toc();
     std::cout << "Version 2: " << duration << "s" << std::endl;
     std::cout << "nb_cells: " << mesh_2.nb_cells(mesh_id_t::cells) << "\n";

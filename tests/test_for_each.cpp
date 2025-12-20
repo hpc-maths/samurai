@@ -5,8 +5,8 @@ namespace samurai
 {
     auto create_meshes(std::size_t level)
     {
-        using Config  = amr::Config<1>;
-        using Mesh    = amr::Mesh<Config>;
+        using Config  = mesh_config<1>;
+        using Mesh    = decltype(amr::make_empty_mesh(std::declval<Config>()));
         using cl_type = typename Mesh::cl_type;
 
         cl_type cl1;
@@ -14,22 +14,23 @@ namespace samurai
         cl_type cl2;
         cl2[level][{}].add_interval({0, 3});
 
-        auto m1 = Mesh(cl1, level, level);
-        auto m2 = Mesh(cl2, level, level);
+        auto mesh_cfg = mesh_config<1>().min_level(level).max_level(level).disable_minimal_ghost_width();
+        auto m1       = amr::make_mesh(cl1, mesh_cfg);
+        auto m2       = amr::make_mesh(cl2, mesh_cfg);
         return std::make_tuple(m1, m2);
     }
 
     TEST(set, for_each_interval)
     {
-        using Config    = amr::Config<1>;
-        using Mesh      = amr::Mesh<Config>;
-        using mesh_id_t = typename Mesh::mesh_id_t;
-
         std::size_t level = 1;
         auto meshes       = create_meshes(level);
         auto& m1          = std::get<0>(meshes);
         auto& m2          = std::get<1>(meshes);
-        auto set          = intersection(m1[mesh_id_t::cells][level], m2[mesh_id_t::cells][level]);
+
+        using Mesh      = std::tuple_element_t<0, decltype(meshes)>;
+        using mesh_id_t = Mesh::mesh_id_t;
+
+        auto set = intersection(m1[mesh_id_t::cells][level], m2[mesh_id_t::cells][level]);
 
         int nb_intervals = 0;
         for_each_interval(set,
@@ -45,15 +46,15 @@ namespace samurai
 
     TEST(set, for_each_cell)
     {
-        using Config    = amr::Config<1>;
-        using Mesh      = amr::Mesh<Config>;
-        using mesh_id_t = typename Mesh::mesh_id_t;
-
         std::size_t level = 1;
         auto meshes       = create_meshes(level);
         auto& m1          = std::get<0>(meshes);
         auto& m2          = std::get<1>(meshes);
-        auto set          = intersection(m1[mesh_id_t::cells][level], m2[mesh_id_t::cells][level]);
+
+        using Mesh      = std::tuple_element_t<0, decltype(meshes)>;
+        using mesh_id_t = Mesh::mesh_id_t;
+
+        auto set = intersection(m1[mesh_id_t::cells][level], m2[mesh_id_t::cells][level]);
 
         /** Cell indices in m1:
          *

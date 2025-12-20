@@ -90,14 +90,7 @@ int main(int argc, char* argv[])
 {
     auto& app = samurai::initialize("3d reconstruction of an adapted solution using multiresolution", argc, argv);
 
-    constexpr size_t dim                     = 3;
-    constexpr std::size_t max_stencil_width_ = 2;
-    // constexpr std::size_t graduation_width_ =
-    // samurai::default_config::graduation_width;
-    constexpr std::size_t graduation_width_     = 2;
-    constexpr std::size_t max_refinement_level_ = samurai::default_config::max_level;
-    constexpr std::size_t prediction_order_     = 1;
-    using MRConfig = samurai::MRConfig<dim, max_stencil_width_, graduation_width_, prediction_order_, max_refinement_level_>;
+    constexpr size_t dim = 3;
 
     Case test_case{Case::abs};
     const std::map<std::string, Case> map{
@@ -106,17 +99,11 @@ int main(int argc, char* argv[])
         {"tanh", Case::tanh}
     };
 
-    // Adaptation parameters
-    std::size_t min_level = 2;
-    std::size_t max_level = 5;
-
     // Output parameters
     fs::path path        = fs::current_path();
     std::string filename = "reconstruction_3d";
 
     app.add_option("--case", test_case, "Test case")->capture_default_str()->transform(CLI::CheckedTransformer(map, CLI::ignore_case));
-    app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
-    app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
 
@@ -127,17 +114,24 @@ int main(int argc, char* argv[])
         fs::create_directory(path);
     }
 
-    using MRMesh      = samurai::MRMesh<MRConfig>;
-    using mrmesh_id_t = typename MRMesh::mesh_id_t;
-
     using UConfig = samurai::UniformConfig<dim>;
     using UMesh   = samurai::UniformMesh<UConfig>;
 
     const samurai::Box<double, dim> box({-1, -1, -1}, {1, 1, 1});
-    MRMesh mrmesh{box, min_level, max_level, 0, 1};
-    UMesh umesh{box, max_level, 0, 1};
+    // clang-format off
+    auto config = samurai::mesh_config<dim>()
+    .min_level(2)
+    .max_level(5)
+    .scaling_factor(1)
+    .graduation_width(2)
+    .max_stencil_radius(2);
+    // clang-format on
+    auto mrmesh = samurai::mra::make_mesh(box, config);
+    UMesh umesh{box, mrmesh.max_level(), 0, 1};
     auto u       = init(mrmesh, test_case);
     auto u_exact = init(umesh, test_case);
+
+    using mrmesh_id_t = typename decltype(mrmesh)::mesh_id_t;
 
     auto MRadaptation = samurai::make_MRAdapt(u);
     auto mra_config   = samurai::mra_config().regularity(2);

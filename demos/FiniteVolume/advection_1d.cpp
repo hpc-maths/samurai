@@ -62,7 +62,6 @@ int main(int argc, char* argv[])
     auto& app = samurai::initialize("Finite volume example for the advection equation in 1d using multiresolution", argc, argv);
 
     constexpr std::size_t dim = 1; // cppcheck-suppress unreadVariable
-    using Config              = samurai::MRConfig<dim>;
 
     // Simulation parameters
     double left_box  = -2;
@@ -73,10 +72,6 @@ int main(int argc, char* argv[])
     double cfl       = 0.95;
     double t         = 0.;
     std::string restart_file;
-
-    // Multiresolution parameters
-    std::size_t min_level = 6;
-    std::size_t max_level = 12;
 
     // Output parameters
     fs::path path        = fs::current_path();
@@ -91,8 +86,6 @@ int main(int argc, char* argv[])
     app.add_option("--Ti", t, "Initial time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
-    app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
@@ -100,12 +93,14 @@ int main(int argc, char* argv[])
     SAMURAI_PARSE(argc, argv);
 
     const samurai::Box<double, dim> box({left_box}, {right_box});
-    samurai::MRMesh<Config> mesh;
-    auto u = samurai::make_scalar_field<double>("u", mesh);
+
+    auto config = samurai::mesh_config<dim>().min_level(6).max_level(12).periodic(is_periodic).max_stencil_size(2).disable_minimal_ghost_width();
+    auto mesh = samurai::mra::make_empty_mesh(config);
+    auto u    = samurai::make_scalar_field<double>("u", mesh);
 
     if (restart_file.empty())
     {
-        mesh = {box, min_level, max_level, std::array<bool, dim>{is_periodic}};
+        mesh = samurai::mra::make_mesh(box, config);
         init(u);
     }
     else
@@ -113,7 +108,7 @@ int main(int argc, char* argv[])
         samurai::load(restart_file, mesh, u);
     }
 
-    double dt            = cfl * mesh.cell_length(max_level);
+    double dt            = cfl * mesh.min_cell_length();
     const double dt_save = Tf / static_cast<double>(nfiles);
 
     if (!is_periodic)

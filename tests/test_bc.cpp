@@ -57,10 +57,10 @@ namespace samurai
     TEST(bc, scalar_function)
     {
         static constexpr std::size_t dim = 1;
-        using config                     = MRConfig<dim>;
 
         Box<double, dim> box = {{0}, {1}};
-        auto mesh            = MRMesh<config>(box, 2, 4);
+        auto mesh_cfg        = mesh_config<dim>().min_level(2).max_level(4);
+        auto mesh            = mra::make_mesh(box, mesh_cfg);
         auto u               = make_scalar_field<double>("u", mesh);
 
         make_bc<Dirichlet<1>>(u,

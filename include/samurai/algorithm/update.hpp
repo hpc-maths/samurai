@@ -36,7 +36,7 @@ namespace samurai
     void update_ghost(Field& field, Fields&... fields)
     {
         using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
-        constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
+        constexpr std::size_t pred_order = Field::mesh_t::config::prediction_stencil_radius;
 
         auto& mesh            = field.mesh();
         std::size_t max_level = mesh.max_level();
@@ -61,7 +61,7 @@ namespace samurai
     void update_ghost_mro(Field& field)
     {
         using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
-        constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
+        constexpr std::size_t pred_order = Field::mesh_t::config::prediction_stencil_radius;
         auto& mesh                       = field.mesh();
 
         std::size_t max_level = mesh.max_level();
@@ -102,9 +102,9 @@ namespace samurai
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
-        assert(layer > 0 && layer <= Field::mesh_t::config::max_stencil_width);
-
         auto& mesh = field.mesh();
+
+        assert(layer > 0 && layer <= mesh.max_stencil_radius());
 
         auto domain = self(mesh.domain()).on(proj_level);
 
@@ -125,7 +125,7 @@ namespace samurai
             // We don't want to fill by projection the ghosts that have been/will be filled by the B.C. in other directions.
             // This can happen when there is a hole in the domain.
 
-            std::size_t n_bc_ghosts = Field::mesh_t::config::max_stencil_width;
+            int n_bc_ghosts = mesh.max_stencil_radius();
             if (!field.get_bc().empty())
             {
                 n_bc_ghosts = field.get_bc().front()->stencil_size() / 2;
@@ -278,7 +278,7 @@ namespace samurai
 
         auto& mesh = field.mesh();
 
-        std::size_t n_bc_ghosts = Field::mesh_t::config::max_stencil_width;
+        int n_bc_ghosts = mesh.max_stencil_radius();
         if (!field.get_bc().empty())
         {
             n_bc_ghosts = field.get_bc().front()->stencil_size() / 2;
@@ -392,7 +392,7 @@ namespace samurai
     template <class Field>
     void update_outer_ghosts(std::size_t level, Field& field)
     {
-        static_assert(Field::mesh_t::config::prediction_order <= 1);
+        static_assert(Field::mesh_t::config::prediction_stencil_radius <= 1);
 
         constexpr std::size_t dim = Field::dim;
 
@@ -432,12 +432,12 @@ namespace samurai
                         // - the B.C. is projected onto the lower ghosts
                         // - those lower ghosts are projected onto the even lower ghosts
 
-                        std::size_t n_bc_ghosts = Field::mesh_t::config::max_stencil_width;
+                        int n_bc_ghosts = mesh.max_stencil_radius();
                         if (!field.get_bc().empty())
                         {
-                            n_bc_ghosts = field.get_bc().front()->stencil_size() / 2;
+                            n_bc_ghosts = static_cast<int>(field.get_bc().front()->stencil_size()) / 2;
                         }
-                        int max_coarse_layer = static_cast<int>(n_bc_ghosts % 2 == 0 ? n_bc_ghosts / 2 : (n_bc_ghosts + 1) / 2);
+                        int max_coarse_layer = n_bc_ghosts % 2 == 0 ? n_bc_ghosts / 2 : (n_bc_ghosts + 1) / 2;
                         for (int layer = 1; layer <= max_coarse_layer; ++layer)
                         {
                             project_bc(level, direction, layer, field); // project from level+1 to level
@@ -525,7 +525,7 @@ namespace samurai
     void update_ghost_mr(Field& field, Fields&... other_fields)
     {
         using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
-        constexpr std::size_t pred_order = Field::mesh_t::config::prediction_order;
+        constexpr std::size_t pred_order = Field::mesh_t::config::prediction_stencil_radius;
 
         times::timers.start("ghost update");
 
@@ -602,7 +602,7 @@ namespace samurai
         using interval_t = typename Field::mesh_t::interval_t;
         using coord_t    = typename lca_t::coord_type;
 
-        static constexpr std::size_t ghost_width = Field::mesh_t::config::ghost_width;
+        int ghost_width = field.mesh().ghost_width();
 
         ArrayOfIntervalAndPoint<interval_t, coord_t> interval_list;
 
@@ -954,7 +954,6 @@ namespace samurai
         using field_value_t = typename Field::value_type;
 #endif
         using mesh_id_t        = typename Field::mesh_t::mesh_id_t;
-        using config           = typename Field::mesh_t::config;
         using lca_type         = typename Field::mesh_t::lca_type;
         using interval_value_t = typename Field::interval_t::value_t;
         using box_t            = Box<interval_value_t, Field::dim>;
@@ -977,8 +976,8 @@ namespace samurai
 
         for (std::size_t d = 0; d < dim; ++d)
         {
-            min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
-            max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
+            min_corner[d] = (min_indices[d] >> delta_l) - mesh.ghost_width();
+            max_corner[d] = (max_indices[d] >> delta_l) + mesh.ghost_width();
             shift[d]      = 0;
         }
 #ifdef SAMURAI_WITH_MPI
@@ -997,23 +996,23 @@ namespace samurai
                 const auto shift_interval = shift[0];
                 const auto shift_index    = xt::view(shift, xt::range(1, _));
 
-                min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
+                min_corner[d] = (min_indices[d] >> delta_l) - mesh.ghost_width();
                 max_corner[d] = (min_indices[d] >> delta_l);
 
                 lca_type lca_min_m(level, box_t(min_corner, max_corner));
 
-                min_corner[d] = (max_indices[d] >> delta_l) - config::ghost_width;
+                min_corner[d] = (max_indices[d] >> delta_l) - mesh.ghost_width();
                 max_corner[d] = (max_indices[d] >> delta_l);
 
                 lca_type lca_max_m(level, box_t(min_corner, max_corner));
 
                 min_corner[d] = (min_indices[d] >> delta_l);
-                max_corner[d] = (min_indices[d] >> delta_l) + config::ghost_width;
+                max_corner[d] = (min_indices[d] >> delta_l) + mesh.ghost_width();
 
                 lca_type lca_min_p(level, box_t(min_corner, max_corner));
 
                 min_corner[d] = (max_indices[d] >> delta_l);
-                max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
+                max_corner[d] = (max_indices[d] >> delta_l) + mesh.ghost_width();
 
                 lca_type lca_max_p(level, box_t(min_corner, max_corner));
 
@@ -1084,8 +1083,8 @@ namespace samurai
 #endif // SAMURAI_WITH_MPI
                 /* reset variables for next iterations. */
                 shift[d]      = 0;
-                min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
-                max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
+                min_corner[d] = (min_indices[d] >> delta_l) - mesh.ghost_width();
+                max_corner[d] = (max_indices[d] >> delta_l) + mesh.ghost_width();
             }
         }
     }
@@ -1125,7 +1124,6 @@ namespace samurai
         using tag_value_type = typename Tag::value_type;
 #endif
         using mesh_id_t           = typename Tag::mesh_t::mesh_id_t;
-        using config              = typename Tag::mesh_t::config;
         using lca_type            = typename Tag::mesh_t::lca_type;
         using interval_value_t    = typename Tag::interval_t::value_t;
         using box_t               = Box<interval_value_t, Tag::dim>;
@@ -1147,8 +1145,8 @@ namespace samurai
         for (std::size_t d = 0; d < dim; ++d)
         {
             shift[d]      = 0;
-            min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
-            max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
+            min_corner[d] = (min_indices[d] >> delta_l) - mesh.ghost_width();
+            max_corner[d] = (max_indices[d] >> delta_l) + mesh.ghost_width();
         }
 #ifdef SAMURAI_WITH_MPI
         using tag_value_type = typename Tag::value_type;
@@ -1167,23 +1165,23 @@ namespace samurai
                 const auto shift_interval = shift[0];
                 const auto shift_index    = xt::view(shift, xt::range(1, _));
 
-                min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
+                min_corner[d] = (min_indices[d] >> delta_l) - mesh.ghost_width();
                 max_corner[d] = (min_indices[d] >> delta_l);
 
                 lca_type lca_min_m(level, box_t(min_corner, max_corner));
 
-                min_corner[d] = (max_indices[d] >> delta_l) - config::ghost_width;
+                min_corner[d] = (max_indices[d] >> delta_l) - mesh.ghost_width();
                 max_corner[d] = (max_indices[d] >> delta_l);
 
                 lca_type lca_max_m(level, box_t(min_corner, max_corner));
 
                 min_corner[d] = (min_indices[d] >> delta_l);
-                max_corner[d] = (min_indices[d] >> delta_l) + config::ghost_width;
+                max_corner[d] = (min_indices[d] >> delta_l) + mesh.ghost_width();
 
                 lca_type lca_min_p(level, box_t(min_corner, max_corner));
 
                 min_corner[d] = (max_indices[d] >> delta_l);
-                max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
+                max_corner[d] = (max_indices[d] >> delta_l) + mesh.ghost_width();
 
                 lca_type lca_max_p(level, box_t(min_corner, max_corner));
 
@@ -1313,8 +1311,8 @@ namespace samurai
 #endif // SAMURAI_WITH_MPI
                 /* reset variables for next iterations. */
                 shift[d]      = 0;
-                min_corner[d] = (min_indices[d] >> delta_l) - config::ghost_width;
-                max_corner[d] = (max_indices[d] >> delta_l) + config::ghost_width;
+                min_corner[d] = (min_indices[d] >> delta_l) - mesh.ghost_width();
+                max_corner[d] = (max_indices[d] >> delta_l) + mesh.ghost_width();
             }
         }
     }

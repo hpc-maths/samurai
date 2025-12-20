@@ -153,9 +153,6 @@ int main(int argc, char* argv[])
     auto& app = samurai::initialize("Stokes problem", argc, argv);
 
     constexpr std::size_t dim        = 2;
-    using Config                     = samurai::MRConfig<dim, 2>;
-    using Mesh                       = samurai::MRMesh<Config>;
-    using mesh_id_t                  = typename Mesh::mesh_id_t;
     static constexpr bool is_soa     = false;
     static constexpr bool monolithic = true;
 
@@ -165,10 +162,8 @@ int main(int argc, char* argv[])
 
     std::string test_case = "ns";
 
-    std::size_t min_level = 5;
-    std::size_t max_level = 5;
-    double Tf             = 1.;
-    double dt             = Tf / 100;
+    double Tf = 1.;
+    double dt = Tf / 100;
 
     std::size_t nfiles = 50;
 
@@ -180,8 +175,6 @@ int main(int argc, char* argv[])
         ->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
-    app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
@@ -196,8 +189,11 @@ int main(int argc, char* argv[])
     PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size));
     PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
 
-    auto box  = samurai::Box<double, dim>({0, 0}, {1, 1});
-    auto mesh = Mesh(box, min_level, max_level);
+    auto box    = samurai::Box<double, dim>({0, 0}, {1, 1});
+    auto config = samurai::mesh_config<dim>().min_level(5).max_level(5).max_stencil_size(2);
+    auto mesh   = samurai::mra::make_mesh(box, config);
+
+    using mesh_id_t = typename decltype(mesh)::mesh_id_t;
 
     //--------------------//
     // Stationary problem //
@@ -467,7 +463,7 @@ int main(int argc, char* argv[])
             std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t_np1, dt);
 
             // Mesh adaptation
-            if (min_level != max_level)
+            if (mesh.min_level() != mesh.max_level())
             {
                 MRadaptation(mra_config);
                 min_level_np1    = mesh[mesh_id_t::cells].min_level();
@@ -548,7 +544,7 @@ int main(int argc, char* argv[])
                 samurai::save(path, fmt::format("{}_ite_{}", filename, nsave), velocity.mesh(), velocity, div_velocity);
             }
 
-            if (min_level != max_level)
+            if (mesh.min_level() != mesh.max_level())
             {
                 // Reconstruction on the finest level
                 auto velocity_recons = samurai::reconstruction(velocity);

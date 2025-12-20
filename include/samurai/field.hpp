@@ -702,6 +702,14 @@ namespace samurai
     template <class Bc_derived>
     inline auto VectorField<mesh_t, value_t, n_comp_, SOA>::attach_bc(const Bc_derived& bc)
     {
+        if (bc.stencil_size() > this->mesh().cfg().max_stencil_size())
+        {
+            std::cerr << "The stencil size required by this boundary condition (" << bc.stencil_size()
+                      << ") is larger than the max_stencil_size parameter of the mesh (" << this->mesh().cfg().max_stencil_size()
+                      << ").\nYou can set it with mesh_config.max_stencil_radius(" << bc.stencil_size() / 2
+                      << ") or mesh_config.max_stencil_size(" << bc.stencil_size() << ")." << std::endl;
+            exit(EXIT_FAILURE);
+        }
         p_bc.push_back(bc.clone());
         return p_bc.back().get();
     }
@@ -1331,6 +1339,14 @@ namespace samurai
     template <class Bc_derived>
     inline auto ScalarField<mesh_t, value_t>::attach_bc(const Bc_derived& bc)
     {
+        if (bc.stencil_size() > this->mesh().cfg().max_stencil_size())
+        {
+            std::cerr << "The stencil size required by this boundary condition (" << bc.stencil_size()
+                      << ") is larger than the max_stencil_size parameter of the mesh (" << this->mesh().cfg().max_stencil_size()
+                      << ").\nYou can set it with mesh_config.max_stencil_radius(" << bc.stencil_size() / 2
+                      << ") or mesh_config.max_stencil_size(" << bc.stencil_size() << ")." << std::endl;
+            exit(EXIT_FAILURE);
+        }
         p_bc.push_back(bc.clone());
         return p_bc.back().get();
     }

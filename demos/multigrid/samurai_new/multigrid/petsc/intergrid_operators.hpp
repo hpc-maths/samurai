@@ -11,7 +11,7 @@ namespace samurai_new
         {
 
             template <class Mesh>
-            void prolong(const Mesh& coarse_mesh, const Mesh& fine_mesh, const double* carray, double* farray, int prediction_order)
+            void prolong(const Mesh& coarse_mesh, const Mesh& fine_mesh, const double* carray, double* farray, int prediction_stencil_radius)
             {
                 using mesh_id_t                  = typename Mesh::mesh_id_t;
                 static constexpr std::size_t dim = Mesh::dim;
@@ -46,7 +46,7 @@ namespace samurai_new
                             {
                                 auto i_f = fine_mesh.get_index(level, (2 * i).start);
                                 auto i_c = coarse_mesh.get_index(level - 1, i.start);
-                                if (prediction_order == 0)
+                                if (prediction_stencil_radius == 0)
                                 {
                                     for (std::size_t ii = 0; ii < i.size(); ++ii)
                                     {
@@ -55,7 +55,7 @@ namespace samurai_new
                                         farray[i_f + 2 * ii + 1] = carray[i_c + ii];
                                     }
                                 }
-                                else if (prediction_order == 1)
+                                else if (prediction_stencil_radius == 1)
                                 {
                                     for (std::size_t ii = 0; ii < i.size(); ++ii)
                                     {
@@ -74,7 +74,7 @@ namespace samurai_new
                                 auto i_f_2j   = fine_mesh.get_index(level, (2 * i).start, 2 * j);
                                 auto i_f_2jp1 = fine_mesh.get_index(level, (2 * i).start, 2 * j + 1);
 
-                                if (prediction_order == 0)
+                                if (prediction_stencil_radius == 0)
                                 {
                                     for (std::size_t ii = 0; ii < i.size(); ++ii)
                                     {
@@ -85,7 +85,7 @@ namespace samurai_new
                                         farray[i_f_2jp1 + 2 * ii + 1] = carray[i_c_j + ii];
                                     }
                                 }
-                                else if (prediction_order == 1)
+                                else if (prediction_stencil_radius == 1)
                                 {
                                     auto i_c_jm1 = coarse_mesh.get_index(level - 1, i.start, j - 1);
                                     auto i_c_jp1 = coarse_mesh.get_index(level - 1, i.start, j + 1);
@@ -198,7 +198,7 @@ namespace samurai_new
             }
 
             template <class Mesh>
-            void set_prolong_matrix(const Mesh& coarse_mesh, const Mesh& fine_mesh, Mat& P, int prediction_order)
+            void set_prolong_matrix(const Mesh& coarse_mesh, const Mesh& fine_mesh, Mat& P, int prediction_stencil_radius)
             {
                 using mesh_id_t                  = typename Mesh::mesh_id_t;
                 static constexpr std::size_t dim = Mesh::dim;
@@ -235,7 +235,7 @@ namespace samurai_new
                             {
                                 auto i_f = static_cast<int>(fine_mesh.get_index(level, (2 * i).start));
                                 auto i_c = static_cast<int>(coarse_mesh.get_index(level - 1, i.start));
-                                if (prediction_order == 0)
+                                if (prediction_stencil_radius == 0)
                                 {
                                     for (int ii = 0; ii < static_cast<int>(i.size()); ++ii)
                                     {
@@ -244,7 +244,7 @@ namespace samurai_new
                                         MatSetValue(P, i_f + 2 * ii + 1, i_c + ii, 1, INSERT_VALUES);
                                     }
                                 }
-                                else if (prediction_order == 1)
+                                else if (prediction_stencil_radius == 1)
                                 {
                                     for (int ii = 0; ii < static_cast<int>(i.size()); ++ii)
                                     {
@@ -273,7 +273,7 @@ namespace samurai_new
                                 auto i_f_2j   = static_cast<int>(fine_mesh.get_index(level, (2 * i).start, 2 * j));
                                 auto i_f_2jp1 = static_cast<int>(fine_mesh.get_index(level, (2 * i).start, 2 * j + 1));
 
-                                if (prediction_order == 0)
+                                if (prediction_stencil_radius == 0)
                                 {
                                     for (int ii = 0; ii < static_cast<int>(i.size()); ++ii)
                                     {
@@ -291,7 +291,7 @@ namespace samurai_new
                                         MatSetValue(P, fine_top_right, coarse, 1, INSERT_VALUES);
                                     }
                                 }
-                                else if (prediction_order == 1)
+                                else if (prediction_stencil_radius == 1)
                                 {
                                     auto i_c_jm1 = static_cast<int>(coarse_mesh.get_index(level - 1, i.start, j - 1));
                                     auto i_c_jp1 = static_cast<int>(coarse_mesh.get_index(level - 1, i.start, j + 1));
@@ -487,7 +487,7 @@ namespace samurai_new
             }
 
             template <class Field>
-            Field prolong(const Field& coarse_field, typename Field::mesh_t& fine_mesh, int prediction_order)
+            Field prolong(const Field& coarse_field, typename Field::mesh_t& fine_mesh, int prediction_stencil_radius)
             {
                 using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
                 static constexpr std::size_t dim = Field::mesh_t::dim;
@@ -512,11 +512,11 @@ namespace samurai_new
 
                     // Coarse cells to fine cells: prediction
                     auto others = samurai::intersection(cm[level - 1], fm[level]).on(level - 1);
-                    if (prediction_order == 0)
+                    if (prediction_stencil_radius == 0)
                     {
                         others.apply_op(samurai::prediction<0, true>(fine_field, coarse_field));
                     }
-                    else if (prediction_order == 1)
+                    else if (prediction_stencil_radius == 1)
                     {
                         others.apply_op(samurai::prediction<1, true>(fine_field, coarse_field));
                     }
