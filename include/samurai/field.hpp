@@ -12,8 +12,8 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
-#include <xtensor/io/xio.hpp>
 #include <xtensor/containers/xtensor.hpp>
+#include <xtensor/io/xio.hpp>
 #include <xtensor/views/xview.hpp>
 
 #include "algorithm.hpp"
