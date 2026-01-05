@@ -1,4 +1,4 @@
-#include <iostream>
+#include <samurai/print.hpp>
 
 #include <samurai/box.hpp>
 #include <samurai/cell_array.hpp>
@@ -14,7 +14,7 @@ int main()
 
     ca_box[start_level] = {start_level, box};
 
-    std::cout << ca_box << std::endl;
+    samurai::io::print("{}\n", fmt::streamed(ca_box));
 
     samurai::save("2d_mesh_box", ca_box);
     return 0;

@@ -1,7 +1,9 @@
 #pragma once
+#include "../print.hpp"
 #include "../schemes/block_operator.hpp"
 #include "utils.hpp"
 #include "zero_block_assembly.hpp"
+#include <fmt/format.h>
 
 namespace samurai
 {
@@ -121,8 +123,11 @@ namespace samurai
                                 }
                                 else if (op.matrix_rows() != block_rows)
                                 {
-                                    std::cerr << "Assembly failure: incompatible number of rows of block (" << row << ", " << col
-                                              << "): " << op.matrix_rows() << " (expected " << block_rows << ")" << std::endl;
+                                    samurai::io::eprint("Assembly failure: incompatible number of rows of block ({}, {}): {} (expected {})\n",
+                                                        row,
+                                                        col,
+                                                        op.matrix_rows(),
+                                                        block_rows);
                                     exit(EXIT_FAILURE);
                                 }
                             }
@@ -154,8 +159,12 @@ namespace samurai
                                 }
                                 else if (op.matrix_cols() != block_cols)
                                 {
-                                    std::cerr << "Assembly failure: incompatible number of columns of block (" << row << ", " << col
-                                              << "): " << op.matrix_cols() << " (expected " << block_cols << ")" << std::endl;
+                                    samurai::io::eprint(
+                                        "Assembly failure: incompatible number of columns of block ({}, {}): {} (expected {})\n",
+                                        row,
+                                        col,
+                                        op.matrix_cols(),
+                                        block_cols);
                                     exit(EXIT_FAILURE);
                                 }
                             }
@@ -192,8 +201,11 @@ namespace samurai
                                              }
                                              else
                                              {
-                                                 std::cerr << "unknown " << i << " is not compatible with the scheme (" << row << ", "
-                                                           << col << ") (named '" << op.name() << "')" << std::endl;
+                                                 samurai::io::eprint("unknown {} is not compatible with the scheme ({}, {}) (named '{}')\n",
+                                                                     i,
+                                                                     row,
+                                                                     col,
+                                                                     op.name());
                                                  assert(false);
                                                  exit(EXIT_FAILURE);
                                              }
@@ -241,8 +253,10 @@ namespace samurai
                     {
                         if (row == col && op.matrix_rows() != op.matrix_cols())
                         {
-                            std::cerr << "Function 'create_vector()' is ambiguous in this context, because the block (" << row << ", " << col
-                                      << ") is not square. Use 'create_applicable_vector()' or 'create_rhs_vector()' instead." << std::endl;
+                            samurai::io::eprint(
+                                "Function 'create_vector()' is ambiguous in this context, because the block ({}, {}) is not square. Use 'create_applicable_vector()' or 'create_rhs_vector()' instead.\n",
+                                row,
+                                col);
                             exit(EXIT_FAILURE);
                         }
                     });
@@ -293,7 +307,7 @@ namespace samurai
                 for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
-                        // std::cout << "create_matrix (" << row << ", " << col << ")" << std::endl;
+                        // samurai::io::print("create_matrix ({}, {})\n", row, col);
                         op.create_matrix(block(row, col));
                     });
                 MatCreateNest(PETSC_COMM_SELF, rows, PETSC_IGNORE, cols, PETSC_IGNORE, m_blocks.data(), &A);
@@ -304,7 +318,7 @@ namespace samurai
                 for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
-                        // std::cout << "assemble_matrix (" << row << ", " << col << ") '" << op.name() << "'" << std::endl;
+                        // samurai::io::print("assemble_matrix ({}, {}) '{}'\n", row, col, op.name());
                         op.assemble_matrix(block(row, col));
                     });
                 if (final_assembly)
@@ -357,7 +371,7 @@ namespace samurai
                     {
                         if (op.include_bc())
                         {
-                            // std::cout << "enforce_bc (" << row << ", " << col << ") on b[" << row << "]" << std::endl;
+                            // samurai::io::print("enforce_bc ({}, {}) on b[{}]\n", row, col, row);
                             Vec b_block;
                             VecNestGetSubVec(b, static_cast<PetscInt>(row), &b_block);
                             op.enforce_bc(b_block);
@@ -633,7 +647,7 @@ namespace samurai
                         {
                             op.set_current_insert_mode(insert_mode);
                         }
-                        // std::cout << "assemble_scheme (" << row << ", " << col << ") '" << op.name() << "'" << std::endl;
+                        // samurai::io::print("assemble_scheme ({}, {}) '{}'\n", row, col, op.name());
                         op.assemble_scheme(A);
                         insert_mode = op.current_insert_mode();
                     });
@@ -778,7 +792,7 @@ namespace samurai
                     {
                         if (op.include_bc())
                         {
-                            // std::cout << "enforce_bc (" << row << ", " << col << ") on b[" << row << "]" << std::endl;
+                            // samurai::io::print("enforce_bc ({}, {}) on b[{}]\n", row, col, row);
                             op.enforce_bc(b);
                         }
                     });

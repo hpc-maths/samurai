@@ -2,6 +2,7 @@
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #pragma once
+#include <fmt/format.h>
 
 #include <xtensor/containers/xtensor.hpp>
 #include <xtensor/views/xmasked_view.hpp>
@@ -9,6 +10,7 @@
 #include "../array_of_interval_and_point.hpp"
 #include "../cell_flag.hpp"
 #include "../mesh.hpp"
+#include "../print.hpp"
 #include "../stencil.hpp"
 #include "../subset/node.hpp"
 #include "../subset/utils.hpp"
@@ -310,7 +312,7 @@ namespace samurai
                                          isIntersectionEmpty);
                             break;
                         default:
-                            std::cerr << "Warning: Unsupported number of periodic directions (" << directions.size() << ")." << std::endl;
+                            samurai::io::eprint("Warning: Unsupported number of periodic directions ({}) .\n", directions.size());
                     }
                 }
             }

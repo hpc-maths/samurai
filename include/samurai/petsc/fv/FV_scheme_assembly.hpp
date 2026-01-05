@@ -2,6 +2,7 @@
 #include "../../algorithm/update.hpp"
 #include "../../boundary.hpp"
 #include "../../numeric/prediction.hpp"
+#include "../../print.hpp"
 #include "../../schemes/fv/FV_scheme.hpp"
 #include "../../schemes/fv/scheme_operators.hpp"
 #include "../matrix_assembly.hpp"
@@ -90,12 +91,12 @@ namespace samurai
             {
                 if (!m_unknown)
                 {
-                    std::cerr << "Undefined unknown for operator " << scheme().name() << ". Assembly initialization failed!" << std::endl;
+                    samurai::io::eprint("Undefined unknown for operator {}. Assembly initialization failed!\n", this->name());
                     assert(false);
                     exit(EXIT_FAILURE);
                 }
                 m_n_cells = mesh().nb_cells();
-                // std::cout << "reset " << this->name() << ", rows = " << matrix_rows() << std::endl;
+                // samurai::io::print("reset {}, rows = {}\n", this->name(), matrix_rows());
                 m_is_row_empty.resize(static_cast<std::size_t>(matrix_rows()));
                 std::fill(m_is_row_empty.begin(), m_is_row_empty.end(), true);
 
@@ -280,8 +281,10 @@ namespace samurai
 
                     if (cfg_t::stencil_size > 1 && unknown().get_bc().empty())
                     {
-                        std::cerr << "Failure to assemble the boundary conditions in the operator '" << this->name()
-                                  << "': no boundary condition attached to the field '" << unknown().name() << "'." << std::endl;
+                        samurai::io::eprint(
+                            "Failure to assemble the boundary conditions in the operator '{}': no boundary condition attached to the field '{}'.\n",
+                            this->name(),
+                            unknown().name());
                         assert(false);
                         continue;
                     }
@@ -329,8 +332,8 @@ namespace samurai
                                 }
                                 else
                                 {
-                                    std::cerr << "Unknown boundary condition type. Only Dirichlet and Neumann are implemented at the moment."
-                                              << std::endl;
+                                    samurai::io::eprint(
+                                        "Unknown boundary condition type. Only Dirichlet and Neumann are implemented at the moment.\n");
                                 }
                             }
                         }
@@ -427,7 +430,7 @@ namespace samurai
 
             void assemble_boundary_conditions(Mat& A) override
             {
-                // std::cout << "assemble_boundary_conditions of " << this->name() << std::endl;
+                // samurai::io::print("assemble_boundary_conditions of {}\n", this->name());
                 if (current_insert_mode() == ADD_VALUES)
                 {
                     // Must flush to use INSERT_VALUES instead of ADD_VALUES
@@ -509,15 +512,18 @@ namespace samurai
 
             virtual void enforce_bc(Vec& b) const
             {
-                // std::cout << "enforce_bc of " << this->name() << std::endl;
+                // samurai::io::print("enforce_bc of {}\n", this->name());
                 if (!this->is_block())
                 {
                     PetscInt b_rows;
                     VecGetSize(b, &b_rows);
                     if (b_rows != this->matrix_cols())
                     {
-                        std::cerr << "Operator '" << this->name() << "': the number of rows in vector (" << b_rows
-                                  << ") does not equal the number of columns of the matrix (" << this->matrix_cols() << ")" << std::endl;
+                        samurai::io::eprint(
+                            "Operator '{}': the number of rows in vector ({}) does not equal the number of columns of the matrix ({})\n",
+                            this->name(),
+                            b_rows,
+                            this->matrix_cols());
                         assert(false);
                         return;
                     }
@@ -594,7 +600,7 @@ namespace samurai
                     MatAssemblyEnd(A, MAT_FLUSH_ASSEMBLY);
                     set_current_insert_mode(INSERT_VALUES);
                 }
-                // std::cout << "insert_value_on_diag_for_useless_ghosts of " << this->name() << std::endl;
+                // samurai::io::print("insert_value_on_diag_for_useless_ghosts of {}\n", this->name());
                 for (std::size_t i = 0; i < m_is_row_empty.size(); i++)
                 {
                     if (m_is_row_empty[i])
@@ -606,9 +612,12 @@ namespace samurai
                                                  INSERT_VALUES);
                         if (error)
                         {
-                            std::cerr << scheme().name() << ": failure to insert diagonal coefficient at ("
-                                      << m_row_shift + static_cast<PetscInt>(i) << ", " << m_col_shift + static_cast<PetscInt>(i)
-                                      << "), i.e. (" << i << ", " << i << ") in the block." << std::endl;
+                            samurai::io::eprint("{}: failure to insert diagonal coefficient at ({}, {}), i.e. ({}, {}) in the block.\n",
+                                                scheme().name(),
+                                                m_row_shift + static_cast<PetscInt>(i),
+                                                m_col_shift + static_cast<PetscInt>(i),
+                                                i,
+                                                i);
                             assert(false);
                             exit(EXIT_FAILURE);
                         }
@@ -753,8 +762,10 @@ namespace samurai
                                                              current_insert_mode());
                                     if (error)
                                     {
-                                        std::cerr << scheme().name() << ": failure to insert projection coefficient at (" << ghost_index
-                                                  << ", " << m_col_shift + col_index(children[i], field_i) << ")." << std::endl;
+                                        samurai::io::eprint("{}: failure to insert projection coefficient at ({}, {}).\n",
+                                                            scheme().name(),
+                                                            ghost_index,
+                                                            m_col_shift + col_index(children[i], field_i));
                                         assert(false);
                                         exit(EXIT_FAILURE);
                                     }

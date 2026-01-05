@@ -12,6 +12,7 @@
 namespace fs = std::filesystem;
 
 #include <numbers>
+#include <xtensor/io/xio.hpp>
 
 #include "convection_nonlin_os.hpp"
 
@@ -51,7 +52,7 @@ void check_diff(auto& field, auto& lca_left, auto& lca_right)
             set(
                 [&](auto& i, auto)
                 {
-                    std::cout << "Difference found !! " << level << " " << i << "\n";
+                    samurai::io::print("Difference found !! {} {}\n", level, i);
                     auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
                     samurai::for_each_cell(mesh,
                                            [&](const auto& cell)
@@ -67,11 +68,11 @@ void check_diff(auto& field, auto& lca_left, auto& lca_right)
                 {
                     if (xt::any(xt::abs(field(level, i) - field(level, i + (1 << level))) > 1e-13))
                     {
-                        std::cout << fmt::format("\nDifference found at level {} on interval {}:\n", level, i);
-                        std::cout << fmt::format("\tleft = {}\n", field(level, i));
-                        std::cout << fmt::format("\tright = {}\n", field(level, i + (1 << level)));
-                        std::cout << fmt::format("\terror = {}\n", xt::abs(field(level, i) - field(level, i + (1 << level))));
-                        std::cout << mesh << std::endl;
+                        samurai::io::print("\nDifference found at level {} on interval {}:\n", level, i);
+                        samurai::io::print("\tleft = {}\n", fmt::streamed(field(level, i)));
+                        samurai::io::print("\tright = {}\n", fmt::streamed(field(level, i + (1 << level))));
+                        samurai::io::print("\terror = {}\n", fmt::streamed(xt::abs(field(level, i) - field(level, i + (1 << level)))));
+                        samurai::io::print("{}\n", fmt::streamed(mesh));
                         auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
                         samurai::for_each_cell(mesh,
                                                [&](const auto& cell)
@@ -94,7 +95,7 @@ int main(int argc, char* argv[])
     using Box     = samurai::Box<double, dim>;
     using point_t = typename Box::point_t;
 
-    std::cout << "------------------------- Burgers 1D -------------------------" << std::endl;
+    samurai::io::print("------------------------- Burgers 1D -------------------------\n");
 
     //--------------------//
     // Program parameters //
@@ -131,6 +132,8 @@ int main(int argc, char* argv[])
     app.allow_extras();
 
     SAMURAI_PARSE(argc, argv);
+
+    samurai::io::print("  max_level = {}   min_level = {}\n", max_level, min_level);
 
     //--------------------//
     // Problem definition //
@@ -200,7 +203,7 @@ int main(int argc, char* argv[])
             dt += Tf - t;
             t = Tf;
         }
-        std::cout << fmt::format("iteration {}: t = {:.12f}, dt = {}", nt++, t, dt) << std::flush;
+        samurai::io::print(samurai::io::root, "{}", fmt::format("iteration {}: t = {:.12f}, dt = {}", nt++, t, dt));
 
         // Mesh adaptation
         MRadaptation(mra_config);
@@ -211,7 +214,7 @@ int main(int argc, char* argv[])
         }
         catch (...)
         {
-            std::cout << "Exception caught in check_diff after adaptation" << std::endl;
+            samurai::io::print("Exception caught in check_diff after adaptation\n");
             samurai::finalize();
             return 1;
         }
@@ -229,7 +232,7 @@ int main(int argc, char* argv[])
         }
         catch (...)
         {
-            std::cout << "Exception caught in check_diff after integration" << std::endl;
+            samurai::io::print("Exception caught in check_diff after integration\n");
             samurai::finalize();
             return 1;
         }
@@ -237,13 +240,13 @@ int main(int argc, char* argv[])
         // Save the result
         if (nfiles == 0 || t >= static_cast<double>(nsave) * dt_save || t == Tf)
         {
-            std::cout << "  (saving results)" << std::flush;
+            samurai::io::print("  (saving results)");
             std::string suffix = (nfiles != 1) ? fmt::format("_level_{}_{}_ite_{}", min_level, max_level, nsave) : "";
             save(path, filename, u, suffix);
             nsave++;
         }
 
-        std::cout << std::endl;
+        samurai::io::print("\n");
     }
 
     samurai::finalize();

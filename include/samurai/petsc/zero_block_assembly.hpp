@@ -1,4 +1,5 @@
 #pragma once
+#include "../print.hpp"
 #include "matrix_assembly.hpp"
 
 namespace samurai
@@ -18,7 +19,7 @@ namespace samurai
             {
                 if (value != 0)
                 {
-                    std::cerr << "Unimplemented Assembly(" << value << ")" << std::endl;
+                    samurai::io::eprint("Unimplemented Assembly({})\n", value);
                     exit(EXIT_FAILURE);
                 }
                 this->fit_block_dimensions(true);

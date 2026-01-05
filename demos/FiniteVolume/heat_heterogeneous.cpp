@@ -5,6 +5,7 @@
 #include <samurai/io/restart.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
+#include <samurai/print.hpp>
 #include <samurai/samurai.hpp>
 #include <samurai/schemes/fv.hpp>
 
@@ -40,7 +41,7 @@ int main(int argc, char* argv[])
     using Box                        = samurai::Box<double, dim>;
     using point_t                    = typename Box::point_t;
 
-    std::cout << "------------------------- Heat -------------------------" << std::endl;
+    samurai::io::print("------------------------- Heat -------------------------\n");
 
     //--------------------//
     // Program parameters //
@@ -170,7 +171,7 @@ int main(int argc, char* argv[])
             dt += Tf - t;
             t = Tf;
         }
-        std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt) << std::flush;
+        samurai::io::print(samurai::io::root, "{}", fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt));
 
         // Mesh adaptation
         MRadaptation(mra_config);
@@ -197,7 +198,7 @@ int main(int argc, char* argv[])
             save(path, filename, u, fmt::format("_ite_{}", nsave++));
         }
 
-        std::cout << std::endl;
+        samurai::io::print("\n");
     }
 
     if (save_final_state_only)

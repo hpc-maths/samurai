@@ -4,6 +4,7 @@
 #include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
+#include <samurai/print.hpp>
 #include <samurai/samurai.hpp>
 #include <samurai/schemes/fv.hpp>
 
@@ -203,7 +204,7 @@ int main(int argc, char* argv[])
             mesh_cfg.min_level(init_mesh.min_level() + i_ref + 1).max_level(init_mesh.max_level() + i_ref + 1);
             mesh = samurai::mra::make_mesh(cl, mesh_cfg);
         }
-        // std::cout << mesh << std::endl;
+        // samurai::io::print("{}\n", fmt::streamed(mesh));
         // samurai::save("refine_mesh", mesh);
 
         // Equation: -Lap u = f   in [0, 1]^2
@@ -278,29 +279,28 @@ int main(int argc, char* argv[])
         double h = mesh.cell_length(mesh.min_level());
 
         double error = L2_error(u, exact_func);
-        std::cout.precision(2);
-        std::cout << "refinement: " << ite << std::endl;
-        std::cout << "L2-error         : " << std::scientific << error;
+
+        samurai::io::print(samurai::io::root, "refinement: {}\n", ite);
+        samurai::io::print(samurai::io::root, "L2-error         : {:e}", error);
         if (h_coarse != -1)
         {
             double convergence_order = samurai::convergence_order(h, error, h_coarse, error_coarse);
-            std::cout << " (order = " << std::defaultfloat << convergence_order << ")";
+            samurai::io::print(samurai::io::root, " (order = {})", convergence_order);
         }
-        std::cout << std::endl;
+        samurai::io::print(samurai::io::root, "\n");
 
         auto u_recons = samurai::reconstruction(u);
 
         double error_recons = L2_error(u_recons, exact_func);
 
-        std::cout.precision(2);
-        std::cout << "L2-error (recons): " << std::scientific << error_recons;
+        samurai::io::print(samurai::io::root, "L2-error (recons): {:e}", error_recons);
 
         if (h_coarse != -1)
         {
             double convergence_order = samurai::convergence_order(h, error_recons, h_coarse, error_recons_coarse);
-            std::cout << " (order = " << std::defaultfloat << convergence_order << ")";
+            samurai::io::print(samurai::io::root, " (order = {})", convergence_order);
         }
-        std::cout << std::endl;
+        samurai::io::print(samurai::io::root, "\n");
 
         auto error_field = samurai::make_scalar_field<double>("error", mesh);
         samurai::for_each_cell(mesh,

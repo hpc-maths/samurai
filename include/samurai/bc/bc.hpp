@@ -497,10 +497,11 @@ namespace samurai
         for (std::size_t d = 0; d < 2 * dim; ++d)
         {
             DirectionVector<dim> stencil = xt::view(cartesian_directions<dim>(), d);
-            lca_t lca_temp               = intersection(m_set, difference(translate(domain, d), domain));
+            // Select boundary cells along "stencil" (consistent with Everywhere::get_region)
+            lca_t lca_temp = intersection(m_set, difference(domain, translate(domain, -stencil)));
             if (!lca_temp.empty())
             {
-                dir.emplace_back(-d);
+                dir.emplace_back(stencil);
                 lca.emplace_back(std::move(lca_temp));
             }
         }
@@ -668,7 +669,6 @@ namespace samurai
         }
         bcvalue_impl bcvalue = bc.p_bcvalue->clone();
         std::swap(p_bcvalue, bcvalue);
-        m_domain = bc.m_domain;
         m_region = bc.m_region;
         return *this;
     }

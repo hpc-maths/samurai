@@ -154,7 +154,7 @@ namespace samurai
         cfg.parse_args();
         for (std::size_t i = 0; i < max_level - min_level; ++i)
         {
-            // std::cout << "MR mesh adaptation " << i << std::endl;
+            // samurai::io::print("MR mesh adaptation {}\n", i);
             m_detail.resize();
             m_detail.fill(0);
             m_tag.resize();
@@ -413,7 +413,7 @@ namespace samurai
         requires(!IsField<Prediction_fn>) && (IsField<TFields> && ...)
     auto make_MRAdapt(Prediction_fn&& prediction_fn, TFields&... fields)
     {
-        std::cout << "Use custom prediction function for MRAdapt" << std::endl;
+        samurai::io::print(samurai::io::root, "Use custom prediction function for MRAdapt\n");
         return Adapt<false, Prediction_fn, TFields...>(std::forward<Prediction_fn>(prediction_fn), fields...);
     }
 

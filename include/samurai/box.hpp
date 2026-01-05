@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "print.hpp"
 #include "utils.hpp"
 #include <xtensor/containers/xfixed.hpp>
 #include <xtensor/io/xio.hpp>
@@ -177,7 +178,7 @@ namespace samurai
         if (d == dim - 1 && box.is_valid())
         {
             boxes.push_back(box);
-            // std::cout << box << std::endl;
+            // samurai::io::print("{}\n", fmt::streamed(box));
         }
 
         difference_impl_rec(box, intersection, d + 1, boxes);
@@ -187,7 +188,7 @@ namespace samurai
         if (d == dim - 1 && box.is_valid() && box != intersection) // The intersection is what we want to remove, so we don't add it
         {
             boxes.push_back(box);
-            // std::cout << box << std::endl;
+            // samurai::io::print("{}\n", fmt::streamed(box));
         }
 
         difference_impl_rec(box, intersection, d + 1, boxes);
@@ -197,7 +198,7 @@ namespace samurai
         if (d == dim - 1 && box.is_valid())
         {
             boxes.push_back(box);
-            // std::cout << box << std::endl;
+            // samurai::io::print("{}\n", fmt::streamed(box));
         }
 
         difference_impl_rec(box, intersection, d + 1, boxes);
@@ -309,9 +310,9 @@ namespace samurai
                 // ... and no tolerance is allowed, we raise an error.
                 if (tol == 0)
                 {
-                    std::cerr << "The box " << box << " cannot be exactly represented with a reasonable cell length. ";
-                    std::cerr << "You can modify the box's dimensions or you can set a tolerance so it can be approximately represented."
-                              << std::endl;
+                    samurai::io::eprint(
+                        "The box {} cannot be exactly represented with a reasonable cell length. You can modify the box's dimensions or you can set a tolerance so it can be approximately represented.\n",
+                        fmt::streamed(box));
                     std::exit(1);
                 }
 
@@ -325,7 +326,7 @@ namespace samurai
                     subdivision_length /= 2;
                     approx_length = xt::ceil(box.length() / subdivision_length) * subdivision_length;
                     error         = xt::abs(approx_length - box.length());
-                    // std::cout << "Approximation error: " << error << std::endl;
+                    // samurai::io::print("Approximation error: {}\n", error);
                 }
             }
             else if (tol > 0)
@@ -340,7 +341,7 @@ namespace samurai
                         subdivision_length *= 2;
                         approx_length = xt::ceil(box.length() / subdivision_length) * subdivision_length;
                         error         = xt::abs(approx_length - box.length());
-                        // std::cout << "Approximation error: " << error << std::endl;
+                        // samurai::io::print("Approximation error: {}\n", error);
                     }
                     subdivision_length /= 2;
                     approx_length = xt::ceil(box.length() / subdivision_length) * subdivision_length;

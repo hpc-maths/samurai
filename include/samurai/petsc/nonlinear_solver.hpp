@@ -1,4 +1,5 @@
 #pragma once
+#include "../print.hpp"
 #include "fv/cell_based_scheme_assembly.hpp"
 #include "fv/flux_based_scheme_assembly.hpp"
 #include "fv/operator_sum_assembly.hpp"
@@ -133,8 +134,8 @@ namespace samurai
 
                 if (assembly().undefined_unknown())
                 {
-                    std::cerr << "Undefined unknown(s) for this non-linear system. Please set the unknowns using the instruction '[solver].set_unknown(u);' or '[solver].set_unknowns(u1, u2...);'."
-                              << std::endl;
+                    samurai::io::eprint(
+                        "Undefined unknown(s) for this non-linear system. Please set the unknowns using the instruction '[solver].set_unknown(u);' or '[solver].set_unknowns(u1, u2...).\n");
                     assert(false && "Undefined unknown(s)");
                     exit(EXIT_FAILURE);
                 }
@@ -220,7 +221,7 @@ namespace samurai
                 }
 
                 // MatView(B, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                // std::cout << std::endl;
+                // samurai::io::print("\n");
 
                 // Put back the real unknown: we need its B.C. for the evaluation of the non-linear function
                 assembly.set_unknown(*real_system_unknown);
@@ -242,7 +243,7 @@ namespace samurai
                 // assembly().set_0_for_useless_ghosts(b);
 
                 // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                // std::cout << std::endl;
+                // samurai::io::print("\n");
                 // assert(check_nan_or_inf(b));
             }
 
@@ -266,14 +267,14 @@ namespace samurai
                     using namespace std::string_literals;
                     const char* reason_text;
                     SNESGetConvergedReasonString(m_snes, &reason_text);
-                    std::cerr << "Divergence of the non-linear solver ("s + reason_text + ")" << std::endl;
+                    samurai::io::eprint("Divergence of the non-linear solver ({})\n", reason_text);
                     // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                    // std::cout << std::endl;
+                    // samurai::io::print("\n");
                     // assert(check_nan_or_inf(b));
                     assert(false && "Divergence of the solver");
                     exit(EXIT_FAILURE);
                 }
-                // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
+                // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); samurai::io::print("\n");
             }
 
           public:

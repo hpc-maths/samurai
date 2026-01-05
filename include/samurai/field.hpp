@@ -12,9 +12,8 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
-#include <fmt/format.h>
-
 #include <xtensor/containers/xtensor.hpp>
+#include <xtensor/io/xio.hpp>
 #include <xtensor/views/xview.hpp>
 
 #include "algorithm.hpp"
@@ -25,6 +24,7 @@ namespace fs = std::filesystem;
 #include "field_expression.hpp"
 #include "mesh_holder.hpp"
 #include "numeric/gauss_legendre.hpp"
+#include "print.hpp"
 #include "storage/containers.hpp"
 #include "timers.hpp"
 
@@ -137,10 +137,10 @@ namespace samurai
                     {
                         if (std::isnan(this->derived_cast().m_storage.data()[static_cast<std::size_t>(i)]))
                         {
-                            // std::cerr << "READ NaN at level " << level << ", in interval " << interval << std::endl;
+                            // samurai::io::eprint("READ NaN at level {}, in interval {}\n", level, interval);
                             auto ii   = i - interval_tmp.index;
                             auto cell = this->derived_cast().mesh().get_cell(level, static_cast<int>(ii), index...);
-                            std::cerr << "READ NaN in " << cell << std::endl;
+                            samurai::io::eprint("READ NaN in {}\n", fmt::streamed(cell));
                             break;
                         }
                     }
@@ -155,7 +155,7 @@ namespace samurai
             {
                 auto interval_tmp = this->derived_cast().get_interval(level, interval, index);
 
-                // std::cout << "READ OR WRITE: " << level << " " << interval << " " << (... << index) << std::endl;
+                // samurai::io::print("READ OR WRITE: {} {} ...\n", level, interval);
                 return view(m_storage, {interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step});
             }
 
@@ -165,7 +165,7 @@ namespace samurai
                                    const xt::xtensor_fixed<interval_value_t, xt::xshape<dim - 1>>& index) const
             {
                 auto interval_tmp = this->derived_cast().get_interval(level, interval, index);
-                // std::cout << "READ: " << level << " " << interval << " " << (... << index) << std::endl;
+                // samurai::io::print("READ: {} {} ...\n", level, interval);
                 auto data = view(m_storage, {interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step});
 
 #ifdef SAMURAI_CHECK_NAN
@@ -176,10 +176,10 @@ namespace samurai
                     {
                         if (std::isnan(this->derived_cast().m_storage.data()[static_cast<std::size_t>(i)]))
                         {
-                            // std::cerr << "READ NaN at level " << level << ", in interval " << interval << std::endl;
+                            // samurai::io::eprint("READ NaN at level {}, in interval {}\n", level, interval);
                             auto ii   = i - interval_tmp.index;
                             auto cell = this->derived_cast().mesh().get_cell(level, static_cast<int>(ii), index);
-                            std::cerr << "READ NaN in " << cell << std::endl;
+                            samurai::io::eprint("READ NaN in {}\n", fmt::streamed(cell));
                             break;
                         }
                     }
@@ -254,8 +254,8 @@ namespace samurai
 
                 if (xt::any(xt::isnan(data)))
                 {
-                    // std::cout << data << std::endl;
-                    std::cerr << "READ NaN at level " << level << ", " << interval << std::endl;
+                    // samurai::io::print("{}\n", fmt::streamed(data));
+                    samurai::io::eprint("READ NaN at level {}, {}\n", level, fmt::streamed(interval));
                 }
 #endif
                 return data;
@@ -534,7 +534,8 @@ namespace samurai
             //                   level_field[cell] = cell.level;
             //               });
             // save(fs::current_path(), "mesh_throw", {true, true}, this->mesh(), coords, level_field);
-            (std::cout << ... << index) << std::endl;
+            ((samurai::io::print("{} ", fmt::streamed(index))), ...);
+            samurai::io::print("\n");
             throw std::out_of_range(fmt::format("FIELD ERROR on level {}: try to find interval {}", level, interval));
         }
 
@@ -754,7 +755,7 @@ namespace samurai
 
         if (field1.mesh() != field2.mesh())
         {
-            std::cout << "mesh different" << std::endl;
+            samurai::io::print(samurai::io::root, "mesh different\n");
             return false;
         }
 
@@ -1172,7 +1173,8 @@ namespace samurai
             //                   level_field[cell] = cell.level;
             //               });
             // save(fs::current_path(), "mesh_throw", {true, true}, this->mesh(), coords, level_field);
-            (std::cout << ... << index) << std::endl;
+            ((samurai::io::print("{} ", fmt::streamed(index))), ...);
+            samurai::io::print("\n");
             throw std::out_of_range(fmt::format("FIELD ERROR on level {}: try to find interval {}", level, interval));
         }
 
@@ -1391,7 +1393,7 @@ namespace samurai
 
         if (field1.mesh() != field2.mesh())
         {
-            std::cout << "mesh different" << std::endl;
+            samurai::io::print(samurai::io::root, "mesh different\n");
             return false;
         }
 

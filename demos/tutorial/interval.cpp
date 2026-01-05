@@ -1,7 +1,7 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-#include <iostream>
+#include <samurai/print.hpp>
 
 #include <samurai/cell_array.hpp>
 #include <samurai/cell_list.hpp>
@@ -20,7 +20,7 @@ int main()
 
     const samurai::CellArray<dim> ca{cl};
 
-    std::cout << ca << std::endl;
+    samurai::io::print("{}\n", fmt::streamed(ca));
 
     constexpr std::size_t start_level = 3;
     const samurai::Box<double, dim> box({-1, -1}, {1, 1});
@@ -28,7 +28,7 @@ int main()
 
     ca_box[start_level] = {start_level, box};
 
-    std::cout << ca_box << std::endl;
+    samurai::io::print("{}\n", fmt::streamed(ca_box));
 
     return 0;
 }

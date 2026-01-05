@@ -82,7 +82,7 @@ void run_simulation(Field& u,
 {
     auto& mesh = u.mesh();
 
-    std::cout << std::endl << "max-level-flux enabled: " << scheme.enable_max_level_flux() << std::endl;
+    samurai::io::print("\nmax-level-flux enabled: {}\n", scheme.enable_max_level_flux());
 
     if (scheme.enable_max_level_flux())
     {
@@ -162,7 +162,7 @@ void run_simulation(Field& u,
             dt += Tf - t;
             t = Tf;
         }
-        std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt) << std::flush;
+        samurai::io::print(samurai::io::root, "iteration {}: t = {:.2f}, dt = {}\n", nt++, t, dt);
 
         // Mesh adaptation
         MRadaptation(mra_config);
@@ -179,8 +179,7 @@ void run_simulation(Field& u,
         auto u_recons = samurai::reconstruction(u);
 
         // Error
-        std::cout << ", L2-error: " << std::scientific;
-        std::cout.precision(2);
+        samurai::io::print(", L2-error: ");
         if (init_sol == "hat")
         {
             double error = samurai::L2_error(u,
@@ -188,14 +187,14 @@ void run_simulation(Field& u,
                                              {
                                                  return hat_exact_solution(coord[0], t);
                                              });
-            std::cout << "[w.r.t. exact, no recons] " << error;
+            samurai::io::print("[w.r.t. exact, no recons] {}", error);
 
             error = samurai::L2_error(u_recons,
                                       [&](const auto& coord)
                                       {
                                           return hat_exact_solution(coord[0], t);
                                       });
-            std::cout << ", [w.r.t. exact, recons] " << error;
+            samurai::io::print(", [w.r.t. exact, recons] {}", error);
         }
 
         double error = 0;
@@ -206,7 +205,7 @@ void run_simulation(Field& u,
                                    error += std::pow(u_max[cell] - u_recons[cell2], 2) * std::pow(cell.length, 1);
                                });
         error = std::sqrt(error);
-        std::cout << ", [w.r.t. max level, recons] " << error;
+        samurai::io::print(", [w.r.t. max level, recons] {}", error);
 
         // Save the result
         if (t >= static_cast<double>(nsave) * dt_save || t == Tf)
@@ -219,7 +218,7 @@ void run_simulation(Field& u,
             nsave++;
         }
 
-        std::cout << std::endl;
+        samurai::io::print("\n");
     }
 }
 
@@ -230,7 +229,7 @@ int main(int argc, char* argv[])
 
     auto& app = samurai::initialize("Finite volume example for the Burgers equation in 1d", argc, argv);
 
-    std::cout << "------------------------- Burgers -------------------------" << std::endl;
+    samurai::io::print("------------------------- Burgers -------------------------\n");
 
     //--------------------//
     // Program parameters //
@@ -296,12 +295,12 @@ int main(int argc, char* argv[])
     scheme.enable_max_level_flux(true);
     run_simulation(u, unp1, u_max, unp1_max, scheme, cfl, mra_config, init_sol, nfiles, path, filename, nsave);
 
-    std::cout << std::endl;
-    std::cout << "Run the following commands to view the results:" << std::endl;
-    std::cout << "max-level-flux disabled:" << std::endl;
-    std::cout << "     python ../python/read_mesh.py " << filename << "_recons_ite_ --field u --start 0 --end " << nsave << std::endl;
-    std::cout << "max-level-flux enabled:" << std::endl;
-    std::cout << "     python ../python/read_mesh.py " << filename << "_mlf_recons_ite_ --field u --start 0 --end " << nsave << std::endl;
+    samurai::io::print("\n");
+    samurai::io::print("Run the following commands to view the results:\n");
+    samurai::io::print("max-level-flux disabled:\n");
+    samurai::io::print("     python ../python/read_mesh.py {}_recons_ite_ --field u --start 0 --end {}\n", filename, nsave);
+    samurai::io::print("max-level-flux enabled:\n");
+    samurai::io::print("     python ../python/read_mesh.py {}_mlf_recons_ite_ --field u --start 0 --end {}\n", filename, nsave);
 
     samurai::finalize();
     return 0;

@@ -5,7 +5,7 @@
 
 #include <numeric>
 
-#include <fmt/format.h>
+#include "print.hpp"
 
 #include "level_cell_array.hpp"
 
@@ -47,7 +47,7 @@ namespace samurai
             std::size_t mem_id = memory_usage(mesh[id]);
             if (verbose)
             {
-                std::cout << fmt::format("Mesh {}: {}", id, mem_id) << std::endl;
+                samurai::io::print("Mesh {}: {}\n", id, mem_id);
             }
             mem += mem_id;
         }

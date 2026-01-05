@@ -1,6 +1,7 @@
 #pragma once
 
 // #define ENABLE_MG
+#include "../print.hpp"
 #include "fv/cell_based_scheme_assembly.hpp"
 #include "fv/flux_based_scheme_assembly.hpp"
 #include "fv/operator_sum_assembly.hpp"
@@ -129,8 +130,8 @@ namespace samurai
                 {
                     if (assembly().undefined_unknown())
                     {
-                        std::cerr << "Undefined unknown(s) for this linear system. Please set the unknowns using the instruction '[solver].set_unknown(u);' or '[solver].set_unknowns(u1, u2...);'."
-                                  << std::endl;
+                        samurai::io::eprint(
+                            "Undefined unknown(s) for this linear system. Please set the unknowns using the instruction '[solver].set_unknown(u);' or '[solver].set_unknowns(u1, u2...).\n");
                         assert(false && "Undefined unknown(s)");
                         exit(EXIT_FAILURE);
                     }
@@ -161,7 +162,7 @@ namespace samurai
 
                 if (err != PETSC_SUCCESS)
                 {
-                    std::cerr << "The setup of the solver failed!" << std::endl;
+                    samurai::io::eprint("The setup of the solver failed!\n");
                     assert(false && "Failed solver setup");
                     exit(EXIT_FAILURE);
                 }
@@ -181,7 +182,7 @@ namespace samurai
                 // assembly().enforce_projection_prediction(b);
                 // // Set to zero the right-hand side of the useless ghosts' equations
                 // assembly().set_0_for_useless_ghosts(b);
-                // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
+                // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); samurai::io::print("\n");
                 // assert(check_nan_or_inf(b));
                 times::timers.stop("system solve");
 
@@ -204,14 +205,14 @@ namespace samurai
                     using namespace std::string_literals;
                     const char* reason_text;
                     KSPGetConvergedReasonString(m_ksp, &reason_text);
-                    std::cerr << "Divergence of the solver ("s + reason_text + ")" << std::endl;
+                    samurai::io::eprint("Divergence of the solver ({})\n", reason_text);
                     // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                    // std::cout << std::endl;
+                    // samurai::io::print("\n");
                     // assert(check_nan_or_inf(b));
                     assert(false && "Divergence of the solver");
                     exit(EXIT_FAILURE);
                 }
-                // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
+                // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); samurai::io::print("\n");
             }
 
           public:
@@ -290,9 +291,7 @@ namespace samurai
                 {
                     if constexpr (Mesh::dim > 2)
                     {
-                        std::cerr << "Samurai Multigrid is not implemented for "
-                                     "dim > 2."
-                                  << std::endl;
+                        samurai::io::eprint("Samurai Multigrid is not implemented for dim > 2.\n");
                         assert(false);
                         exit(EXIT_FAILURE);
                     }
@@ -325,8 +324,8 @@ namespace samurai
                 }
                 if (assembly().undefined_unknown())
                 {
-                    std::cerr << "Undefined unknown for this linear system. Please set the unknown using the instruction '[solver].set_unknown(u);'."
-                              << std::endl;
+                    samurai::io::eprint(
+                        "Undefined unknown for this linear system. Please set the unknown using the instruction '[solver].set_unknown(u);'.\n");
                     assert(false && "Undefined unknown");
                     exit(EXIT_FAILURE);
                 }

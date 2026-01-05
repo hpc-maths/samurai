@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../print.hpp"
 #include "block_assembly.hpp"
 #include "linear_solver.hpp"
 
@@ -71,7 +72,7 @@ namespace samurai
                 {
                     if (m_A == nullptr)
                     {
-                        std::cerr << "The matrix must be assemble before calling set_pc_fieldsplit()." << std::endl;
+                        samurai::io::eprint("The matrix must be assemble before calling set_pc_fieldsplit().\n");
                         exit(EXIT_FAILURE);
                     }
                     IS IS_fields[cols];
@@ -115,7 +116,7 @@ namespace samurai
                 }
 
                 this->assemble_matrix();
-                // MatView(m_A, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
+                // MatView(m_A, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); samurai::io::print("\n");
                 KSPSetOperators(m_ksp, m_A, m_A);
 
                 PC pc;

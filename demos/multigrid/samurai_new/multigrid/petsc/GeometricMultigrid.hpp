@@ -1,5 +1,6 @@
 #pragma once
 #include "SamuraiDM.hpp"
+#include <samurai/print.hpp>
 
 namespace samurai_new
 {
@@ -81,47 +82,47 @@ namespace samurai_new
                     }
                     else
                     {
-                        std::cout << "ERROR: unknown value for argument --smooth" << std::endl << std::endl;
+                        samurai::io::eprint("ERROR: unknown value for argument --smooth\n\n");
                     }
                 }
 
-                std::cout << "Samurai multigrid: " << std::endl;
+                samurai::io::print(samurai::io::root, "Samurai multigrid: \n");
 
-                std::cout << "    smoothers         : ";
+                samurai::io::print(samurai::io::root, "    smoothers         : ");
                 if (smoother == GaussSeidel)
                 {
-                    std::cout << "Gauss-Seidel (pre: lexico., post: antilexico.)";
+                    samurai::io::print(samurai::io::root, "Gauss-Seidel (pre: lexico., post: antilexico.)");
                 }
                 else if (smoother == SymGaussSeidel)
                 {
-                    std::cout << "symmetric Gauss-Seidel";
+                    samurai::io::print(samurai::io::root, "symmetric Gauss-Seidel");
                 }
                 else if (smoother == Petsc)
                 {
-                    std::cout << "petsc options";
+                    samurai::io::print(samurai::io::root, "petsc options");
                 }
-                std::cout << std::endl;
+                samurai::io::print(samurai::io::root, "\n");
 
-                std::cout << "    transfer operators: ";
+                samurai::io::print(samurai::io::root, "    transfer operators: ");
                 if (transfer_ops == TransferOperators::Assembled)
                 {
-                    std::cout << "P assembled, R assembled";
+                    samurai::io::print(samurai::io::root, "P assembled, R assembled");
                 }
                 else if (transfer_ops == TransferOperators::Assembled_PTranspose)
                 {
-                    std::cout << "P assembled, R = P^T";
+                    samurai::io::print(samurai::io::root, "P assembled, R = P^T");
                 }
                 else if (transfer_ops == TransferOperators::MatrixFree_Arrays)
                 {
-                    std::cout << "P mat-free, R mat-free (via double*)";
+                    samurai::io::print(samurai::io::root, "P mat-free, R mat-free (via double*)");
                 }
                 else if (transfer_ops == TransferOperators::MatrixFree_Fields)
                 {
-                    std::cout << "P mat-free, R mat-free (via Fields)";
+                    samurai::io::print(samurai::io::root, "P mat-free, R mat-free (via Fields)");
                 }
-                std::cout << std::endl;
+                samurai::io::print(samurai::io::root, "\n");
 
-                std::cout << "    prediction order  : " << prediction_stencil_radius << std::endl;
+                samurai::io::print(samurai::io::root, "    prediction order  : {}\n", prediction_stencil_radius);
 
                 _samuraiDM = new SamuraiDM<Dsctzr>(PETSC_COMM_SELF, *_discretizer, *_mesh, transfer_ops, prediction_stencil_radius);
                 KSPSetDM(ksp, _samuraiDM->PetscDM());
@@ -147,7 +148,7 @@ namespace samurai_new
                     levels = std::max(static_cast<int>(_mesh->max_level()) - 3, 2);
                     levels = std::min(levels, 8);
                 }
-                std::cout << "    levels            : " << levels << std::endl;
+                samurai::io::print(samurai::io::root, "    levels            : {}\n", levels);
                 PCMGSetLevels(mg, levels, nullptr);
 
                 // All of the following must be called after PCMGSetLevels()

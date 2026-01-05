@@ -138,7 +138,7 @@ int main(int argc, char* argv[])
 
     auto box = samurai::Box<double, dim>({0, 0}, {1, 1});
 
-    std::cout << "lid-driven cavity" << std::endl;
+    samurai::io::print("lid-driven cavity\n");
 
     //-------------------- 1 -----------------------------------------------------------------
     //
@@ -316,7 +316,7 @@ int main(int argc, char* argv[])
             t              = Tf;
             dt_has_changed = true;
         }
-        std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt);
+        samurai::io::print(samurai::io::root, "{}", fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt));
 
         // Mesh adaptation for Navier-Stokes
         if (mesh.min_level() != mesh.max_level())
@@ -332,9 +332,9 @@ int main(int argc, char* argv[])
                 zero.resize();
                 rhs.resize();
             }
-            std::cout << ", levels " << min_level_np1 << "-" << max_level_np1;
+            samurai::io::print(", levels {}-{}", min_level_np1, max_level_np1);
         }
-        std::cout << std::endl;
+        samurai::io::print("\n");
 
         // Update solver
         if (mesh_has_changed || dt_has_changed)
@@ -437,20 +437,19 @@ int main(int argc, char* argv[])
         // Vec nest_result           = nestedAssembly.create_rhs_vector(result_nest);
         // MatMult(nestedA, nest_x, nest_result);
 
-        // std::cout << std::setprecision(15);
-        // std::cout << std::fixed;
+        // samurai::io::print("(setprecision 15, fixed)\n");
         // samurai::for_each_cell(
         //     mesh[mesh_id_t::reference],
         //     [&](auto cell)
         //     {
-        //         std::cout << round(result_velocity_mono[cell][0] * 1.e8) / 1.e8 << std::endl;
+        //         samurai::io::print("{}\n", round(result_velocity_mono[cell][0] * 1.e8) / 1.e8);
         //         if (round(result_velocity_mono[cell][0] * 1.e5) / 1.e5 != round(result_velocity_nest[cell][0] * 1.e5) / 1.e5)
         //         {
-        //             std::cout << result_velocity_mono[cell][0] << " =? " << result_velocity_nest[cell][0] << std::endl;
+        //             samurai::io::print("{} =? {}\n", result_velocity_mono[cell][0], result_velocity_nest[cell][0]);
         //         }
         //         if (result_pressure_mono[cell] != result_pressure_nest[cell])
         //         {
-        //             std::cout << result_pressure_mono[cell] << " =? " << result_pressure_nest[cell] << std::endl;
+        //             samurai::io::print("{} =? {}\n", result_pressure_mono[cell], result_pressure_nest[cell]);
         //         }
         //     });
     }

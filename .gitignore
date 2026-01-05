@@ -9,6 +9,11 @@ __pycache__
 .cache
 *.old
 
+# Editor swap files
+*.swp
+*.swo
+*.swn
+
 # Created by https://www.toptal.com/developers/gitignore/api/cmake,linux,macos,visualstudiocode,python
 # Edit at https://www.toptal.com/developers/gitignore?templates=cmake,linux,macos,visualstudiocode,python
 

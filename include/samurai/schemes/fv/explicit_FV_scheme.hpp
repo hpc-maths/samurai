@@ -1,4 +1,5 @@
 #pragma once
+#include "../../print.hpp"
 #include "../explicit_scheme.hpp"
 #include "FV_scheme.hpp"
 
@@ -95,7 +96,7 @@ namespace samurai
 
         virtual void apply(std::size_t /* d */, output_field_t& /* output_field */, input_field_t& /* input_field */)
         {
-            std::cerr << "The scheme '" << scheme().name() << "' cannot be applied by direction." << std::endl;
+            samurai::io::eprint("The scheme '{}' cannot be applied by direction.\n", scheme().name());
             assert(false);
             exit(EXIT_FAILURE);
         }

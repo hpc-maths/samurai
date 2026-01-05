@@ -13,6 +13,7 @@
 #include "../field.hpp"
 #include "../numeric/prediction.hpp"
 #include "../numeric/projection.hpp"
+#include "../print.hpp"
 #include "../subset/node.hpp"
 #include "../timers.hpp"
 #include "graduation.hpp"
@@ -180,14 +181,21 @@ namespace samurai
 #ifdef SAMURAI_CHECK_NAN
                                     if (xt::any(xt::isnan(field(children_level, {ii_child, ii_child + 1}, index_child))))
                                     {
-                                        std::cerr << std::endl;
+                                        samurai::io::eprint("\n");
 #ifdef SAMURAI_WITH_MPI
                                         mpi::communicator world;
-                                        std::cerr << "[" << world.rank() << "] ";
+                                        samurai::io::eprint("[{}] ", world.rank());
 #endif
-                                        std::cerr << "NaN found in field(" << children_level << "," << ii_child << "," << index_child
-                                                  << ") during projection of the B.C. into the cell at (" << proj_level << ", " << ii << ", "
-                                                  << index << ")   (dir = " << direction << ", layer = " << layer << ")" << std::endl;
+                                        samurai::io::eprint(
+                                            "NaN found in field({}, {}, {}) during projection of the B.C. into the cell at ({}, {}, {})   (dir = {}, layer = {})\n",
+                                            children_level,
+                                            ii_child,
+                                            fmt::streamed(index_child),
+                                            proj_level,
+                                            ii,
+                                            fmt::streamed(index),
+                                            fmt::streamed(direction),
+                                            layer);
 #ifndef NDEBUG
                                         save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
 #endif
@@ -217,9 +225,14 @@ namespace samurai
                         // However, it can happen in normal conditions if the domain has a hole, so we don't raise an error in that case.
                         if (mesh.domain().is_box())
                         {
-                            std::cerr << "No children found for the ghost at level " << proj_level << ", i = " << ii
-                                      << ", index = " << index << " during projection of the B.C. into the cell at level " << proj_level
-                                      << ", i=" << i_cell << ", index=" << index << std::endl;
+                            samurai::io::eprint(
+                                "No children found for the ghost at level {}, i = {}, index = {} during projection of the B.C. into the cell at level {}, i = {}, index = {}\n",
+                                proj_level,
+                                ii,
+                                fmt::streamed(index),
+                                proj_level,
+                                fmt::streamed(i_cell),
+                                fmt::streamed(index));
                             save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
                             assert(false);
                         }
@@ -322,14 +335,18 @@ namespace samurai
 #ifdef SAMURAI_CHECK_NAN
                     if (xt::any(xt::isnan(field(pred_level - 1, i_cell >> 1, index >> 1))))
                     {
-                        std::cerr << std::endl;
+                        samurai::io::eprint("\n");
 #ifdef SAMURAI_WITH_MPI
                         mpi::communicator world;
-                        std::cerr << "[" << world.rank() << "] ";
+                        samurai::io::eprint("[{}] ", world.rank());
 #endif
-                        std::cerr << "NaN found in field(" << (pred_level - 1) << "," << (i_cell >> 1) << "," << (index >> 1)
-                                  << ") during prediction of the B.C. into the cell at (" << pred_level << ", " << ii << ", " << index
-                                  << ") " << std::endl;
+                        samurai::io::eprint("NaN found in field({}, {}, {}) during prediction of the B.C. into the cell at ({}, {}, {})\n",
+                                            (pred_level - 1),
+                                            fmt::streamed(i_cell >> 1),
+                                            fmt::streamed(index >> 1),
+                                            pred_level,
+                                            ii,
+                                            fmt::streamed(index));
 #ifndef NDEBUG
                         samurai::save(fs::current_path(), "update_ghosts", {true, true}, field.mesh(), field);
 #endif
@@ -830,13 +847,13 @@ namespace samurai
                         [&](const auto& i, const auto& index)
                         {
                             // delete cell
-                            std::cout << fmt::format("fall intersection between {} {} on level {} in {} {}",
-                                                     world.rank(),
-                                                     neighbour.rank,
-                                                     level,
-                                                     i,
-                                                     index[0])
-                                      << std::endl;
+                            samurai::io::print(samurai::io::root,
+                                               "fall intersection between {} {} on level {} in {} {}\n",
+                                               world.rank(),
+                                               neighbour.rank,
+                                               level,
+                                               fmt::streamed(i),
+                                               fmt::streamed(index[0]));
                         });
                 }
             }

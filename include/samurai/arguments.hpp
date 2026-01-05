@@ -15,18 +15,18 @@ namespace samurai
         static std::size_t graduation_width = std::numeric_limits<std::size_t>::max();
         static int max_stencil_radius       = std::numeric_limits<int>::max();
 
-        static bool timers = false;
+        inline bool timers = false;
 #ifdef SAMURAI_WITH_MPI
-        static bool dont_redirect_output = false;
+        inline bool print_root_only = false;
 #endif
-        static int finer_level_flux   = 0;
-        static bool refine_boundary   = false;
-        static bool save_debug_fields = false;
+        inline int finer_level_flux   = 0;
+        inline bool refine_boundary   = false;
+        inline bool save_debug_fields = false;
 
         // MRA arguments
-        static double epsilon    = std::numeric_limits<double>::infinity();
-        static double regularity = std::numeric_limits<double>::infinity();
-        static bool rel_detail   = false;
+        inline double epsilon    = std::numeric_limits<double>::infinity();
+        inline double regularity = std::numeric_limits<double>::infinity();
+        inline bool rel_detail   = false;
     }
 
     inline void read_samurai_arguments(CLI::App& app, int& argc, char**& argv)
@@ -38,7 +38,7 @@ namespace samurai
         app.add_option("--max-stencil-radius", args::max_stencil_radius, "The maximum number of neighbour in each direction")->group("SAMURAI");
 
 #ifdef SAMURAI_WITH_MPI
-        app.add_flag("--dont-redirect-output", args::dont_redirect_output, "Redirect the output for all ranks different of 0")
+        app.add_flag("--print-root-only", args::print_root_only, "Print on root rank only by default for samurai::io::print/eprint")
             ->capture_default_str()
             ->group("IO");
 #endif

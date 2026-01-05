@@ -5,6 +5,7 @@
 #include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
+#include <samurai/print.hpp>
 #include <samurai/samurai.hpp>
 #include <samurai/schemes/fv.hpp>
 
@@ -21,7 +22,7 @@ template <class Field>
         if (std::isnan(value) || std::isinf(value) || (abs(value) < 1e-300 && abs(value) != 0))
         {
             is_nan_or_inf = true;
-            std::cout << f << std::endl;
+            samurai::io::print("{}\n", fmt::streamed(f));
             break;
         }
     }
@@ -199,11 +200,11 @@ int main(int argc, char* argv[])
     // Stationary problem //
     //--------------------//
 
-    std::cout << "Problem solved: ";
+    samurai::io::print("Problem solved: ");
 
     if (test_case == "s")
     {
-        std::cout << "stationary" << std::endl;
+        samurai::io::print("stationary\n");
         if (filename.empty())
         {
             filename = "stokes";
@@ -269,14 +270,14 @@ int main(int argc, char* argv[])
         zero.fill(0);
 
         // Linear solver
-        std::cout << "Solving Stokes system..." << std::endl;
+        samurai::io::print("Solving Stokes system...\n");
         auto stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
 
         stokes_solver.set_unknowns(velocity, pressure);
         configure_solver(stokes_solver);
 
         stokes_solver.solve(f, zero);
-        std::cout << stokes_solver.iterations() << " iterations" << std::endl << std::endl;
+        samurai::io::print("{} iterations\n\n", stokes_solver.iterations());
 
         // Error
         double error = L2_error(velocity,
@@ -288,11 +289,10 @@ int main(int argc, char* argv[])
                                     auto v_y      = -v_x;
                                     return samurai::Array<double, dim, is_soa>{v_x, v_y};
                                 });
-        std::cout.precision(2);
-        std::cout << "L2-error on the velocity: " << std::scientific << error << std::endl;
+        samurai::io::print("L2-error on the velocity: {:.2e}\n", error);
 
         // Save solution
-        std::cout << "Saving solution..." << std::endl;
+        samurai::io::print("Saving solution...\n");
 
         samurai::save(path, filename, mesh, velocity);
         samurai::save(path, "pressure", mesh, pressure);
@@ -333,7 +333,7 @@ int main(int argc, char* argv[])
 
     else if (test_case == "ns")
     {
-        std::cout << "non stationary" << std::endl;
+        samurai::io::print("non stationary\n");
 
         if (filename.empty())
         {
@@ -460,7 +460,7 @@ int main(int argc, char* argv[])
                 t_np1          = Tf;
                 dt_has_changed = true;
             }
-            std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t_np1, dt);
+            samurai::io::print(samurai::io::root, "{}", fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t_np1, dt));
 
             // Mesh adaptation
             if (mesh.min_level() != mesh.max_level())
@@ -476,9 +476,9 @@ int main(int argc, char* argv[])
                     rhs.resize();
                     zero.resize();
                 }
-                std::cout << ", levels " << min_level_np1 << "-" << max_level_np1;
+                samurai::io::print(", levels {}-{}", min_level_np1, max_level_np1);
             }
-            std::cout.flush();
+            // flush no-op with fmt
 
             // Boundary conditions
             velocity_np1.get_bc().clear();
@@ -532,8 +532,7 @@ int main(int argc, char* argv[])
                                     {
                                         return exact_velocity(t_n, coord);
                                     });
-            std::cout.precision(2);
-            std::cout << ", L2-error: " << std::scientific << error;
+            samurai::io::print(", L2-error: {:.2e}", error);
 
             // Divergence
             auto div_velocity = div(velocity);
@@ -554,8 +553,7 @@ int main(int argc, char* argv[])
                                                         {
                                                             return exact_velocity(t_n, coord);
                                                         });
-                std::cout.precision(2);
-                std::cout << ", L2-error (recons): " << std::scientific << error_recons;
+                samurai::io::print(", L2-error (recons): {:.2e}", error_recons);
                 // Save
                 if (nfiles != 1)
                 {
@@ -566,7 +564,7 @@ int main(int argc, char* argv[])
             {
                 nsave++;
             }
-            std::cout << std::endl;
+            samurai::io::print("\n");
         }
 
         if (nfiles == 1)
@@ -576,7 +574,7 @@ int main(int argc, char* argv[])
     }
     else
     {
-        std::cerr << "Unknown test case. Allowed options are 's' = stationary, 'ns' = non-stationary." << std::endl;
+        samurai::io::eprint("Unknown test case. Allowed options are 's' = stationary, 'ns' = non-stationary.\n");
     }
 
     samurai::finalize();

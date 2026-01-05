@@ -10,6 +10,7 @@
 #include <samurai/io/hdf5.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh_with_overleaves.hpp>
+#include <samurai/print.hpp>
 #include <samurai/samurai.hpp>
 
 #include "boundary_conditions.hpp"
@@ -1359,7 +1360,7 @@ int main(int argc, char* argv[])
 
         if (result.count("help"))
         {
-            std::cout << options.help() << "\n";
+            samurai::io::print("{}\n", options.help());
         }
         else
         {
@@ -1424,7 +1425,7 @@ int main(int argc, char* argv[])
 
             for (std::size_t nb_ite = 0; nb_ite < N; ++nb_ite)
             {
-                std::cout << std::endl << "Iteration number = " << nb_ite << std::endl;
+                samurai::io::print("\nIteration number = {}\n", nb_ite);
                 time_frames << nb_ite * dt << std::endl;
 
                 if (max_level > min_level)
@@ -1440,7 +1441,7 @@ int main(int argc, char* argv[])
                 }
 
                 auto CDCL = one_time_step(f, update_bc_for_level, pred_coeff, rho0, u0, lambda, mu, zeta, radius, momenti);
-                std::cout << std::endl << "CD = " << CDCL.first << "   CL = " << CDCL.second << std::endl;
+                samurai::io::print("\nCD = {}   CL = {}\n", CDCL.first, CDCL.second);
                 CD << CDCL.first << std::endl;
                 CL << CDCL.second << std::endl;
 
@@ -1457,7 +1458,7 @@ int main(int argc, char* argv[])
     }
     catch (const cxxopts::OptionException& e)
     {
-        std::cout << options.help() << "\n";
+        samurai::io::print("{}\n", options.help());
     }
     samurai::finalize();
     return 0;
