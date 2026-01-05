@@ -27,6 +27,7 @@ endif()
 # Create Python module
 pybind11_add_module(samurai_python
     src/bindings/main.cpp
+    src/bindings/box_bindings.cpp
 )
 
 # Set target properties

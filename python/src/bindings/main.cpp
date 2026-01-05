@@ -9,11 +9,8 @@
 
 #include <pybind11/pybind11.h>
 
-// Samurai includes (will be added progressively as bindings are implemented)
-// #include <samurai/box.hpp>
-// #include <samurai/mesh.hpp>
-// #include <samurai/field.hpp>
-// #include <samurai/algorithm.hpp>
+// Binding initialization headers
+#include "box_bindings.hpp"
 
 namespace py = pybind11;
 
@@ -33,19 +30,23 @@ PYBIND11_MODULE(samurai_python, m) {
         .. autosummary::
            :toctree: _generate
 
-           Box
-           Mesh
-           Field
+           Box1D
+           Box2D
+           Box3D
     )pbdoc";
 
     // Version attribute
     m.attr("__version__") = SAMURAI_PYTHON_VERSION;
 
-    // TODO: Add submodule initializers as they are implemented
-    // init_core(m);
-    // init_algorithms(m);
-    // init_operators(m);
-    // init_io(m);
+    // Initialize Box bindings
+    init_box_bindings(m);
+
+    // TODO: Add more submodule initializers as they are implemented
+    // init_mesh_bindings(m);
+    // init_field_bindings(m);
+    // init_algorithm_bindings(m);
+    // init_operator_bindings(m);
+    // init_io_bindings(m);
 
     // Placeholder: Basic test function
     m.def("test_function", []() {
