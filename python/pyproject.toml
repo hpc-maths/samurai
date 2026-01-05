@@ -1,0 +1,114 @@
+[build-system]
+requires = [
+    "scikit-build-core >=0.4.0",
+    "pybind11 >=2.10.0",
+]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "samurai"
+version = "0.28.0"
+description = "Adaptive Mesh Refinement (AMR) and Multiresolution Analysis library"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "BSD-3-Clause"}
+authors = [
+    {name = "Samurai Development Team", email = "samurai@lists.sciencesconf.org"},
+]
+maintainers = [
+    {name = "Samurai Development Team", email = "samurai@lists.sciencesconf.org"},
+]
+keywords = [
+    "AMR",
+    "adaptive-mesh-refinement",
+    "multiresolution",
+    "finite-volume",
+    "lattice-boltzmann",
+    "scientific-computing",
+    "PDE",
+    "numerical-methods",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: C++",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "numpy >=1.20",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest >=7.0",
+    "pytest-cov >=3.0",
+    "h5py >=3.0",
+]
+dev = [
+    "black >=22.0",
+    "isort >=5.0",
+    "mypy >=1.0",
+    "pre-commit >=3.0",
+]
+docs = [
+    "sphinx >=5.0",
+    "sphinx-rtd-theme >=1.0",
+    "breathe >=4.0",
+]
+viz = [
+    "matplotlib >=3.0",
+    "ipywidgets >=7.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/hpc-maths/samurai"
+Documentation = "https://hpc-math-samurai.readthedocs.io"
+Repository = "https://github.com/hpc-maths/samurai"
+Issues = "https://github.com/hpc-maths/samurai/issues"
+
+[tool.scikit-build]
+cmake_minimum-version = "3.16"
+cmake-source-dir = "."
+build-dir = "build/{wheel_tag}"
+wheel.py-api = "py3"
+# Ninja is faster than make for parallel builds
+cmake.args = ["-GNinja"]
+# Optimize for release
+cmake.build-type = "Release"
+# Build in parallel
+jobs = 4
+
+[tool.scikit-build.metadata]
+version-provider = "scikit_build_core.metadata.regex"
+# Read version from version.txt in parent directory
+
+[tool.black]
+line-length = 100
+target-version = ["py38", "py39", "py310", "py311"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false  # Will be enabled gradually
+disallow_incomplete_defs = false
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+pythonpath = ["."]

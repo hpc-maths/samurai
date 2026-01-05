@@ -227,6 +227,12 @@ if(SAMURAI_CONTAINER_LAYOUT_COL_MAJOR)
   target_compile_definitions(samurai INTERFACE SAMURAI_CONTAINER_LAYOUT_COL_MAJOR)
 endif()
 
+# Python Bindings
+option(BUILD_PYTHON_BINDINGS "Build Python bindings (requires pybind11)" OFF)
+if(BUILD_PYTHON_BINDINGS)
+  add_subdirectory(python)
+endif()
+
 if(NOT SAMURAI_FIELD_CONTAINER IN_LIST FIELD_CONTAINER_LIST)
   message(FATAL_ERROR "SAMURAI_FIELD_CONTAINER must be one of: ${FIELD_CONTAINER_LIST}")
 else()
