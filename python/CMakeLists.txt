@@ -28,6 +28,7 @@ endif()
 pybind11_add_module(samurai_python
     src/bindings/main.cpp
     src/bindings/box_bindings.cpp
+    src/bindings/mesh_config_bindings.cpp
 )
 
 # Set target properties

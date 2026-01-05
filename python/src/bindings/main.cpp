@@ -11,6 +11,7 @@
 
 // Binding initialization headers
 #include "box_bindings.hpp"
+#include "mesh_config_bindings.hpp"
 
 namespace py = pybind11;
 
@@ -33,13 +34,17 @@ PYBIND11_MODULE(samurai_python, m) {
            Box1D
            Box2D
            Box3D
+           MeshConfig1D
+           MeshConfig2D
+           MeshConfig3D
     )pbdoc";
 
     // Version attribute
     m.attr("__version__") = SAMURAI_PYTHON_VERSION;
 
-    // Initialize Box bindings
+    // Initialize bindings
     init_box_bindings(m);
+    init_mesh_config_bindings(m);
 
     // TODO: Add more submodule initializers as they are implemented
     // init_mesh_bindings(m);
