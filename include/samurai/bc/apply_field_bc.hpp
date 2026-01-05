@@ -157,7 +157,7 @@ namespace samurai
     auto translated_outer_neighbours(const Mesh& mesh, std::size_t level, const DirectionVector<Mesh::dim>& direction)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
-        static_assert(layers <= 5, "not implemented for layers > 10");
+        static_assert(layers <= 5, "not implemented for layers > 5");
 
         // Technically, if mesh.domain().is_box(), then we can only test that the furthest layer of ghosts exists
         // (i.e. the set return by the case stencil_size == 2 below).
@@ -313,7 +313,12 @@ namespace samurai
         requires(IsField<Field> && (IsField<Fields> && ...))
     void apply_field_bc(Field& field, Fields&... other_fields)
     {
-        apply_field_bc(field, other_fields...);
+        // Apply to the first field, then recurse on the remaining fields
+        apply_field_bc(field);
+        if constexpr (sizeof...(other_fields) > 0)
+        {
+            apply_field_bc(other_fields...);
+        }
     }
 
     template <class Field>
