@@ -61,8 +61,6 @@ int main(int argc, char* argv[])
     auto config = samurai::mesh_config<dim>().min_level(3).max_level(6).max_stencil_radius(2);
     auto mesh   = samurai::mra::make_mesh(box, config);
 
-    using mesh_id_t = typename decltype(mesh)::mesh_id_t;
-
     // Fields for the Navier-Stokes equations
     auto velocity     = samurai::make_vector_field<double, dim>("velocity", mesh);
     auto velocity_np1 = samurai::make_vector_field<double, dim>("velocity_np1", mesh);
@@ -248,7 +246,7 @@ int main(int argc, char* argv[])
         nsave++;
     }
 
-    bool mesh_has_changed = min_level != max_level;
+    bool mesh_has_changed = mesh.min_level() != mesh.max_level();
     bool dt_has_changed   = false;
 
     double t = 0;

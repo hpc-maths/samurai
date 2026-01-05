@@ -1197,7 +1197,7 @@ namespace samurai
                 //                                                  1 + 9=10 in 2D
                 // Order 2: cell + hypercube of 5 coarser cells --> 1 + 5= 6 in 1D
                 //                                                  1 +25=21 in 2D
-                static constexpr std::size_t pred_stencil_size = 1 + ce_pow(2 * prediction_radius + 1, dim);
+                static constexpr std::size_t pred_stencil_size = 1 + ce_pow(2 * prediction_stencil_radius + 1, dim);
 
 #ifdef SAMURAI_WITH_MPI
                 // assume that the whole stencil can be on another process
