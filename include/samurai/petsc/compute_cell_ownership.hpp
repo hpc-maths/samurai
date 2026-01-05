@@ -102,7 +102,7 @@ namespace samurai
             for (std::size_t level = min_level; level <= max_level; ++level)
             {
                 // All the boundary ghosts of locally owned boundary cells are also locally owned.
-                auto domain_bdry_outer_layer = domain_boundary_outer_layer(mesh, level, Mesh::config::ghost_width);
+                auto domain_bdry_outer_layer = domain_boundary_outer_layer(mesh, level, mesh.ghost_width());
                 auto boundary_ghosts         = intersection(domain_bdry_outer_layer, mesh[mesh_id_t::reference][level]);
                 for_each_cell(mesh,
                               boundary_ghosts,
@@ -123,7 +123,7 @@ namespace samurai
                                   });
 
                     // Boundary ghosts associated with neighbour's boundary cells are also owned by that neighbour
-                    auto nghb_domain_bdry_outer_layer = domain_boundary_outer_layer(neighbour.mesh, level, Mesh::config::ghost_width);
+                    auto nghb_domain_bdry_outer_layer = domain_boundary_outer_layer(neighbour.mesh, level, neighbour.mesh.ghost_width());
                     auto nghb_boundary_ghosts         = intersection(nghb_domain_bdry_outer_layer, mesh[mesh_id_t::reference][level]);
                     for_each_cell(mesh,
                                   nghb_boundary_ghosts,
@@ -142,7 +142,7 @@ namespace samurai
             {
                 for (auto& neighbour : mesh.mpi_neighbourhood())
                 {
-                    auto nghb_domain_bdry_outer_layer = domain_boundary_outer_layer(neighbour.mesh, level + 1, Mesh::config::ghost_width);
+                    auto nghb_domain_bdry_outer_layer = domain_boundary_outer_layer(neighbour.mesh, level + 1, neighbour.mesh.ghost_width());
                     auto nghb_domain_bdry_outer_layer_no_children = difference(nghb_domain_bdry_outer_layer,
                                                                                mesh[mesh_id_t::reference][level + 1]);
                     auto nghb_boundary_ghosts = intersection(nghb_domain_bdry_outer_layer_no_children, mesh[mesh_id_t::reference][level])
