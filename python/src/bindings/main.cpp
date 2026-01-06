@@ -13,6 +13,7 @@
 #include "box_bindings.hpp"
 #include "mesh_config_bindings.hpp"
 #include "mesh_bindings.hpp"
+#include "field_bindings.hpp"
 
 namespace py = pybind11;
 
@@ -41,6 +42,12 @@ PYBIND11_MODULE(samurai_python, m) {
            MRMesh1D
            MRMesh2D
            MRMesh3D
+           ScalarField1D
+           ScalarField2D
+           VectorField1D_2
+           VectorField1D_3
+           VectorField2D_2
+           VectorField2D_3
     )pbdoc";
 
     // Version attribute
@@ -50,9 +57,9 @@ PYBIND11_MODULE(samurai_python, m) {
     init_box_bindings(m);
     init_mesh_config_bindings(m);
     init_mesh_bindings(m);
+    init_field_bindings(m);
 
     // TODO: Add more submodule initializers as they are implemented
-    // init_field_bindings(m);
     // init_algorithm_bindings(m);
     // init_operator_bindings(m);
     // init_io_bindings(m);
