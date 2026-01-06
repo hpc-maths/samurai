@@ -36,6 +36,7 @@ pybind11_add_module(samurai_python
     src/bindings/operator_bindings.cpp
     src/bindings/bc_bindings.cpp
     src/bindings/mra_config_bindings.cpp
+    src/bindings/adapt_bindings.cpp
 )
 
 # Set target properties
@@ -54,7 +55,7 @@ target_link_libraries(samurai_python
 # Include directories
 target_include_directories(samurai_python
     PRIVATE
-        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/../include
         ${Python_INCLUDE_DIRS}
 )
 
