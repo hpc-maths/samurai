@@ -237,7 +237,6 @@ class TestForEachInterval2D:
 class TestForEachInterval3D:
     """Tests for for_each_interval with 3D mesh."""
 
-    @pytest.mark.skip(reason="3D support not yet implemented")
     def test_3d_index_structure(self):
         """Test that 3D indices are two-element tuples."""
         box = sam.Box3D([0.0, 0.0, 0.0], [1.0, 1.0, 1.0])
@@ -258,7 +257,6 @@ class TestForEachInterval3D:
             assert isinstance(idx, tuple), f"Index should be tuple, got {type(idx)}"
             assert len(idx) == 2, f"Index should have 2 elements for 3D, got {len(idx)} elements"
 
-    @pytest.mark.skip(reason="3D support not yet implemented")
     def test_3d_y_z_non_negative(self):
         """Test that y and z indices are non-negative."""
         box = sam.Box3D([0.0, 0.0, 0.0], [1.0, 1.0, 1.0])
@@ -280,7 +278,6 @@ class TestForEachInterval3D:
             assert y >= 0, f"Y-index should be non-negative, got {y}"
             assert z >= 0, f"Z-index should be non-negative, got {z}"
 
-    @pytest.mark.skip(reason="3D support not yet implemented")
     def test_3d_interval_count(self):
         """Test that 3D mesh generates intervals."""
         box = sam.Box3D([0.0, 0.0, 0.0], [1.0, 1.0, 1.0])

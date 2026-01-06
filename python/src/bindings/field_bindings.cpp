@@ -418,14 +418,18 @@ void bind_vector_field(py::module_& m, const std::string& name) {
 
 // Module initialization function for Field bindings
 void init_field_bindings(py::module_& m) {
-    // Bind ScalarField classes for dimensions 1 and 2 (3D deferred)
+    // Bind ScalarField classes for dimensions 1, 2, and 3
     bind_scalar_field<1>(m, "ScalarField1D");
     bind_scalar_field<2>(m, "ScalarField2D");
-    // bind_scalar_field<3>(m, "ScalarField3D");  // Defer to later
+    bind_scalar_field<3>(m, "ScalarField3D");
 
     // Bind VectorField classes for 2 components (AOS layout)
     bind_vector_field<2, 2, false>(m, "VectorField2D_2");
     bind_vector_field<2, 3, false>(m, "VectorField2D_3");
+
+    // Bind VectorField classes for 3D (AOS layout)
+    bind_vector_field<3, 2, false>(m, "VectorField3D_2");
+    bind_vector_field<3, 3, false>(m, "VectorField3D_3");
 
     // Factory functions for convenience - using overloaded functions
     // 1D scalar field factory
@@ -450,6 +454,17 @@ void init_field_bindings(py::module_& m) {
         "Create a 2D scalar field"
     );
 
+    // 3D scalar field factory
+    m.def("make_scalar_field",
+        [](MRMesh<3>& mesh, const std::string& field_name, double init_value) {
+            return samurai::make_scalar_field<double>(field_name, mesh, init_value);
+        },
+        py::arg("mesh"),
+        py::arg("name"),
+        py::arg("init_value") = 0.0,
+        "Create a 3D scalar field"
+    );
+
     // VectorField factory function - dispatch based on n_components
     m.def("make_vector_field",
         [](MRMesh<2>& mesh, const std::string& field_name, std::size_t n_components, double init_value) -> py::object {
@@ -470,10 +485,33 @@ void init_field_bindings(py::module_& m) {
         "Create a 2D vector field with specified number of components"
     );
 
+    // 3D VectorField factory function
+    m.def("make_vector_field",
+        [](MRMesh<3>& mesh, const std::string& field_name, std::size_t n_components, double init_value) -> py::object {
+            if (n_components == 2) {
+                auto field = samurai::make_vector_field<double, 2, false>(field_name, mesh, init_value);
+                return py::cast(std::move(field));
+            } else if (n_components == 3) {
+                auto field = samurai::make_vector_field<double, 3, false>(field_name, mesh, init_value);
+                return py::cast(std::move(field));
+            } else {
+                throw std::runtime_error("Unsupported n_components: " + std::to_string(n_components));
+            }
+        },
+        py::arg("mesh"),
+        py::arg("name"),
+        py::arg("n_components"),
+        py::arg("init_value") = 0.0,
+        "Create a 3D vector field with specified number of components"
+    );
+
     // Also expose them in a submodule for better organization
     py::module_ field = m.def_submodule("field", "Field classes");
     field.attr("ScalarField1D") = m.attr("ScalarField1D");
     field.attr("ScalarField2D") = m.attr("ScalarField2D");
+    field.attr("ScalarField3D") = m.attr("ScalarField3D");
     field.attr("VectorField2D_2") = m.attr("VectorField2D_2");
     field.attr("VectorField2D_3") = m.attr("VectorField2D_3");
+    field.attr("VectorField3D_2") = m.attr("VectorField3D_2");
+    field.attr("VectorField3D_3") = m.attr("VectorField3D_3");
 }
