@@ -109,7 +109,7 @@ def main():
 
     print("Performing initial mesh adaptation...")
     MRadaptation(mra_config)
-    sam.update_ghost_mr(u)
+    # Note: No ghost update needed here - will be done in loop before first use
 
     # Create output directory
     output_path.mkdir(parents=True, exist_ok=True)
@@ -142,23 +142,24 @@ def main():
     print("-" * 54)
 
     while t < Tf:
-        # Apply upwind operator
-        upwind_result = sam.upwind(velocity, u)
-
-        # Euler time step: unp1 = u - dt * upwind(a, u)
-        # Use the arithmetic operators: field - scalar * field
-        unp1 = u - dt * upwind_result
-
-        # Swap arrays (efficient: no memory allocation)
-        sam.swap_field_arrays_2d(u, unp1)
-
-        # Adapt mesh
+        # 1. Adapt mesh FIRST (as in C++ version)
         MRadaptation(mra_config)
+
+        # 2. Update BCs and ghost cells BEFORE computing fluxes
         sam.update_ghost_mr(u)
 
-        # Update time
+        # 3. Update time
         t += dt
         nt += 1
+
+        # 4. Apply upwind operator with FRESH ghost values
+        upwind_result = sam.upwind(velocity, u)
+
+        # 5. Euler time step: unp1 = u - dt * upwind(a, u)
+        unp1 = u - dt * upwind_result
+
+        # 6. Swap arrays (efficient: no memory allocation)
+        sam.swap_field_arrays_2d(u, unp1)
 
         # Print progress and save
         if nt % save_interval == 0 or t >= Tf:
