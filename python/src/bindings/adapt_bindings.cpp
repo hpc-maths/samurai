@@ -3,11 +3,26 @@
 // Bindings for make_MRAdapt and update_ghost_mr functions
 
 #include <samurai/mr/adapt.hpp>
+#include <samurai/mr/mesh.hpp>
+#include <samurai/mesh_config.hpp>
+#include <samurai/field.hpp>
 #include <samurai/algorithm/update.hpp>
 #include <pybind11/pybind11.h>
 #include <memory>
 
 namespace py = pybind11;
+
+// ============================================================
+// Type aliases matching field_bindings.cpp pattern
+// ============================================================
+
+using default_interval = samurai::Interval<double, std::size_t>;
+
+template <std::size_t dim>
+using MRMesh = samurai::MRMesh<samurai::complete_mesh_config<samurai::mesh_config<dim>, samurai::MRMeshId>>;
+
+template <std::size_t dim>
+using ScalarField = samurai::ScalarField<MRMesh<dim>, double>;
 
 // ============================================================
 // Python-callable wrapper for Adapt objects
@@ -50,6 +65,50 @@ private:
 };
 
 // ============================================================
+// Dimension-specific factory functions
+// Following pattern from operator_bindings.cpp (upwind_1d, upwind_2d, upwind_3d)
+// ============================================================
+
+// 1D update_ghost_mr wrapper
+void update_ghost_mr_1d(ScalarField<1>& field)
+{
+    samurai::update_ghost_mr(field);
+}
+
+// 2D update_ghost_mr wrapper
+void update_ghost_mr_2d(ScalarField<2>& field)
+{
+    samurai::update_ghost_mr(field);
+}
+
+// 3D update_ghost_mr wrapper
+void update_ghost_mr_3d(ScalarField<3>& field)
+{
+    samurai::update_ghost_mr(field);
+}
+
+// 1D make_MRAdapt wrapper
+PyAdapt make_mr_adapt_1d(ScalarField<1>& field)
+{
+    auto adapt_obj = samurai::make_MRAdapt(field);
+    return PyAdapt(std::move(adapt_obj));
+}
+
+// 2D make_MRAdapt wrapper
+PyAdapt make_mr_adapt_2d(ScalarField<2>& field)
+{
+    auto adapt_obj = samurai::make_MRAdapt(field);
+    return PyAdapt(std::move(adapt_obj));
+}
+
+// 3D make_MRAdapt wrapper
+PyAdapt make_mr_adapt_3d(ScalarField<3>& field)
+{
+    auto adapt_obj = samurai::make_MRAdapt(field);
+    return PyAdapt(std::move(adapt_obj));
+}
+
+// ============================================================
 // Module initialization
 // ============================================================
 
@@ -84,11 +143,43 @@ void init_adapt_bindings(py::module_& m)
             "Perform mesh adaptation with the given configuration."
         );
 
-    // Note: The actual make_MRAdapt and update_ghost_mr bindings are complex
-    // due to template type resolution issues with pybind11.
-    // They will need to be implemented using a different approach,
-    // possibly by exposing them through the ScalarField classes directly.
-    // For now, these are placeholder functions.
+    // Bind update_ghost_mr for all dimensions
+    // Following pattern from operator_bindings.cpp where multiple functions
+    // are bound with the same Python name
+    m.def("update_ghost_mr",
+        &update_ghost_mr_1d,
+        py::arg("field"),
+        "Update ghost cells for multiresolution analysis (1D)"
+    );
 
-    (void)m; // Suppress unused warning
+    m.def("update_ghost_mr",
+        &update_ghost_mr_2d,
+        py::arg("field"),
+        "Update ghost cells for multiresolution analysis (2D)"
+    );
+
+    m.def("update_ghost_mr",
+        &update_ghost_mr_3d,
+        py::arg("field"),
+        "Update ghost cells for multiresolution analysis (3D)"
+    );
+
+    // Bind make_MRAdapt for all dimensions
+    m.def("make_MRAdapt",
+        &make_mr_adapt_1d,
+        py::arg("field"),
+        "Create multiresolution adaptation object (1D)"
+    );
+
+    m.def("make_MRAdapt",
+        &make_mr_adapt_2d,
+        py::arg("field"),
+        "Create multiresolution adaptation object (2D)"
+    );
+
+    m.def("make_MRAdapt",
+        &make_mr_adapt_3d,
+        py::arg("field"),
+        "Create multiresolution adaptation object (3D)"
+    );
 }

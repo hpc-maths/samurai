@@ -32,11 +32,12 @@ class TestMRAdaptCreation:
 
         box = sam.Box1D([0.0], [1.0])
         mesh = sam.MRMesh1D(box, config)
-        field = sam.make_scalar_field_1d(mesh, "u", 0.0)
+        field = sam.ScalarField1D("u", mesh, 0.0)
 
         # Create adaptation object
         MRadaptation = sam.make_MRAdapt(field)
         assert MRadaptation is not None
+        assert type(MRadaptation).__name__ == "MRAdapt"
 
     def test_create_mr_adapt_2d(self):
         """Test creating MRAdapt for 2D field."""
@@ -47,11 +48,12 @@ class TestMRAdaptCreation:
 
         box = sam.Box2D([0.0, 0.0], [1.0, 1.0])
         mesh = sam.MRMesh2D(box, config)
-        field = sam.make_scalar_field_2d(mesh, "u", 0.0)
+        field = sam.ScalarField2D("u", mesh, 0.0)
 
         # Create adaptation object
         MRadaptation = sam.make_MRAdapt(field)
         assert MRadaptation is not None
+        assert type(MRadaptation).__name__ == "MRAdapt"
 
     def test_create_mr_adapt_3d(self):
         """Test creating MRAdapt for 3D field."""
@@ -62,11 +64,12 @@ class TestMRAdaptCreation:
 
         box = sam.Box3D([0.0, 0.0, 0.0], [1.0, 1.0, 1.0])
         mesh = sam.MRMesh3D(box, config)
-        field = sam.make_scalar_field_3d(mesh, "u", 0.0)
+        field = sam.ScalarField3D("u", mesh, 0.0)
 
         # Create adaptation object
         MRadaptation = sam.make_MRAdapt(field)
         assert MRadaptation is not None
+        assert type(MRadaptation).__name__ == "MRAdapt"
 
 
 class TestMRAdaptCallable:
@@ -81,10 +84,7 @@ class TestMRAdaptCallable:
 
         box = sam.Box1D([0.0], [1.0])
         mesh = sam.MRMesh1D(box, config_mesh)
-        field = sam.make_scalar_field_1d(mesh, "u", 0.0)
-
-        # Set initial data using for_each_cell
-        sam.for_each_cell(mesh, lambda cell: setattr(field, 'cell_value', 0.5))
+        field = sam.ScalarField1D("u", mesh, 0.0)
 
         # Create adaptation config
         mra_config = sam.MRAConfig()
@@ -104,7 +104,7 @@ class TestMRAdaptCallable:
 
         box = sam.Box2D([0.0, 0.0], [1.0, 1.0])
         mesh = sam.MRMesh2D(box, config_mesh)
-        field = sam.make_scalar_field_2d(mesh, "u", 0.0)
+        field = sam.ScalarField2D("u", mesh, 0.0)
 
         # Create adaptation config
         mra_config = sam.MRAConfig()
@@ -122,7 +122,7 @@ class TestMRAdaptCallable:
 
         box = sam.Box1D([0.0], [1.0])
         mesh = sam.MRMesh1D(box, config_mesh)
-        field = sam.make_scalar_field_1d(mesh, "u", 0.0)
+        field = sam.ScalarField1D("u", mesh, 0.0)
 
         mra_config = sam.MRAConfig()
         mra_config.epsilon = 1e-2
@@ -146,7 +146,7 @@ class TestUpdateGhostMr:
 
         box = sam.Box1D([0.0], [1.0])
         mesh = sam.MRMesh1D(box, config_mesh)
-        field = sam.make_scalar_field_1d(mesh, "u", 0.0)
+        field = sam.ScalarField1D("u", mesh, 0.0)
 
         # Should not raise
         sam.update_ghost_mr(field)
@@ -159,7 +159,7 @@ class TestUpdateGhostMr:
 
         box = sam.Box2D([0.0, 0.0], [1.0, 1.0])
         mesh = sam.MRMesh2D(box, config_mesh)
-        field = sam.make_scalar_field_2d(mesh, "u", 0.0)
+        field = sam.ScalarField2D("u", mesh, 0.0)
 
         # Should not raise
         sam.update_ghost_mr(field)
@@ -172,7 +172,7 @@ class TestUpdateGhostMr:
 
         box = sam.Box3D([0.0, 0.0, 0.0], [1.0, 1.0, 1.0])
         mesh = sam.MRMesh3D(box, config_mesh)
-        field = sam.make_scalar_field_3d(mesh, "u", 0.0)
+        field = sam.ScalarField3D("u", mesh, 0.0)
 
         # Should not raise
         sam.update_ghost_mr(field)
@@ -190,10 +190,10 @@ class TestAdaptationPipeline:
 
         box = sam.Box1D([0.0], [1.0])
         mesh = sam.MRMesh1D(box, config_mesh)
-        field = sam.make_scalar_field_1d(mesh, "u", 0.0)
+        field = sam.ScalarField1D("u", mesh, 0.0)
 
         # Apply boundary conditions
-        sam.make_dirichlet_bc_1d(field, 0.0)
+        sam.make_dirichlet_bc(field, 0.0)
 
         # Create adaptation objects
         MRadaptation = sam.make_MRAdapt(field)
@@ -215,10 +215,10 @@ class TestAdaptationPipeline:
 
         box = sam.Box2D([0.0, 0.0], [1.0, 1.0])
         mesh = sam.MRMesh2D(box, config_mesh)
-        field = sam.make_scalar_field_2d(mesh, "u", 0.0)
+        field = sam.ScalarField2D("u", mesh, 0.0)
 
         # Apply boundary conditions
-        sam.make_dirichlet_bc_2d(field, 0.0)
+        sam.make_dirichlet_bc(field, 0.0)
 
         # Create adaptation objects
         MRadaptation = sam.make_MRAdapt(field)
@@ -239,9 +239,9 @@ class TestAdaptationPipeline:
 
         box = sam.Box1D([0.0], [1.0])
         mesh = sam.MRMesh1D(box, config_mesh)
-        field = sam.make_scalar_field_1d(mesh, "u", 0.0)
+        field = sam.ScalarField1D("u", mesh, 0.0)
 
-        sam.make_dirichlet_bc_1d(field, 0.0)
+        sam.make_dirichlet_bc(field, 0.0)
 
         MRadaptation = sam.make_MRAdapt(field)
         mra_config = sam.MRAConfig()
@@ -264,7 +264,7 @@ class TestMRAConfigIntegration:
 
         box = sam.Box1D([0.0], [1.0])
         mesh = sam.MRMesh1D(box, config_mesh)
-        field = sam.make_scalar_field_1d(mesh, "u", 0.0)
+        field = sam.ScalarField1D("u", mesh, 0.0)
 
         MRadaptation = sam.make_MRAdapt(field)
 
@@ -282,7 +282,7 @@ class TestMRAConfigIntegration:
 
         box = sam.Box1D([0.0], [1.0])
         mesh = sam.MRMesh1D(box, config_mesh)
-        field = sam.make_scalar_field_1d(mesh, "u", 0.0)
+        field = sam.ScalarField1D("u", mesh, 0.0)
 
         MRadaptation = sam.make_MRAdapt(field)
 
@@ -300,7 +300,7 @@ class TestMRAConfigIntegration:
 
         box = sam.Box1D([0.0], [1.0])
         mesh = sam.MRMesh1D(box, config_mesh)
-        field = sam.make_scalar_field_1d(mesh, "u", 1.0)  # Non-zero values
+        field = sam.ScalarField1D("u", mesh, 1.0)  # Non-zero values
 
         MRadaptation = sam.make_MRAdapt(field)
 
