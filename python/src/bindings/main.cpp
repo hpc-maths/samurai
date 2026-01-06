@@ -16,6 +16,7 @@
 #include "field_bindings.hpp"
 #include "interval_bindings.hpp"
 #include "algorithm_bindings.hpp"
+#include "operator_bindings.hpp"
 
 namespace py = pybind11;
 
@@ -54,6 +55,7 @@ PYBIND11_MODULE(samurai_python, m) {
            VectorField3D_2
            VectorField3D_3
            Interval
+           upwind
     )pbdoc";
 
     // Version attribute
@@ -66,9 +68,9 @@ PYBIND11_MODULE(samurai_python, m) {
     init_field_bindings(m);
     init_interval_bindings(m);
     init_algorithm_bindings(m);
+    init_operator_bindings(m);
 
     // TODO: Add more submodule initializers as they are implemented
-    // init_operator_bindings(m);
     // init_io_bindings(m);
 
     // Placeholder: Basic test function
