@@ -18,6 +18,7 @@
 #include "algorithm_bindings.hpp"
 #include "operator_bindings.hpp"
 #include "bc_bindings.hpp"
+#include "mra_config_bindings.hpp"
 
 namespace py = pybind11;
 
@@ -56,6 +57,7 @@ PYBIND11_MODULE(samurai_python, m) {
            VectorField3D_2
            VectorField3D_3
            Interval
+           MRAConfig
            upwind
     )pbdoc";
 
@@ -71,6 +73,7 @@ PYBIND11_MODULE(samurai_python, m) {
     init_algorithm_bindings(m);
     init_operator_bindings(m);
     init_bc_bindings(m);
+    init_mra_config_bindings(m);
 
     // TODO: Add more submodule initializers as they are implemented
     // init_io_bindings(m);
