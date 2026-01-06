@@ -1,0 +1,317 @@
+name: Build Python Wheels
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      test-only:
+        description: 'Build wheels without publishing'
+        required: false
+        default: 'false'
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write  # Required for PyPI trusted publishing
+
+jobs:
+  #
+  # Build wheels across all platforms and Python versions
+  #
+  #########################################################
+  build-wheels:
+    name: "Build wheels on ${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Needed for setuptools_scm if we use it
+
+      - name: Set up QEMU (for ARM64)
+        if: runner.os == 'Linux'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
+
+      - name: Build wheels with cibuildwheel
+        uses: pypa/cibuildwheel@v2.21.3
+        env:
+          # Python versions to build
+          CIBW_BUILD: cp39-* cp310-* cp311-* cp312-* cp313-*
+
+          # Skip 32-bit builds and PyPy
+          CIBW_SKIP: "*-win32 *-manylinux_i686 pp* *-musllinux_*"
+
+          # Test command (runs after wheel is built)
+          CIBW_TEST_REQUIRES: pytest numpy h5py
+          CIBW_TEST_COMMAND: pytest {project}/python/tests -v --tb=short
+
+          # Dependencies to install before building
+          CIBW_BEFORE_BUILD: |
+            pip install cmake ninja pybind11
+
+          # CMake configuration
+          CIBW_CMAKE: |
+            -DBUILD_PYTHON_BINDINGS=ON
+            -DBUILD_DEMOS=OFF
+            -DBUILD_TESTS=OFF
+            -DCMAKE_BUILD_TYPE=Release
+            -GNinja
+
+          # macOS-specific settings
+          CIBW_MACOS_ENVIRONMENT: MACOSX_DEPLOYMENT_TARGET=10.15
+          CIBW_ENVIRONMENT_MACOS: >
+            CC=clang
+            CXX=clang++
+
+          # Linux-specific (manylinux)
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux2014
+          CIBW_MANYLINUX_I686_IMAGE: manylinux2014
+          CIBW_MANYLINUX_AARCH64_IMAGE: manylinux2014
+          CIBW_MANYLINUX_PPC64LE_IMAGE: manylinux2014
+          CIBW_MANYLINUX_S390X_IMAGE: manylinux2014
+
+          # Linux: install system dependencies before building
+          CIBW_BEFORE_ALL_LINUX: |
+            yum install -y eigen3-devel
+
+          # Windows-specific
+          CIBW_ENVIRONMENT_WINDOWS: >
+
+      - name: Display built wheels
+        run: ls -lh wheelhouse/
+
+      - name: Upload wheels as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: wheelhouse/*.whl
+          retention-days: 7
+
+  #
+  # Build source distribution (sdist)
+  #
+  #########################################################
+  build-sdist:
+    name: "Build source distribution"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+
+      - name: Build sdist
+        run: |
+          python -m build --sdist --outdir dist/
+
+      - name: Display sdist
+        run: ls -lh dist/
+
+      - name: Upload sdist as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+          retention-days: 7
+
+  #
+  # Test wheels on clean environments
+  #
+  #########################################################
+  test-wheels:
+    name: "Test wheels on ${{ matrix.os }} (Python ${{ matrix.python-version }})"
+    needs: [build-wheels, build-sdist]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ['3.9', '3.11', '3.12']
+        exclude:
+          # Reduce matrix size
+          - os: windows-latest
+            python-version: '3.9'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Download wheels
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-${{ matrix.os }}
+          path: wheels/
+          merge-multiple: true
+
+      - name: Download sdist
+        uses: actions/download-artifact@v4
+        with:
+          name: sdist
+          path: sdist/
+
+      - name: Install wheel
+        run: |
+          pip install wheels/samurai*.whl
+
+      - name: Install test dependencies
+        run: |
+          pip install pytest pytest-cov h5py matplotlib
+
+      - name: Verify installation
+        run: |
+          python -c "import samurai; print(f'✓ Samurai version: {samurai.__version__}')"
+          python -c "import samurai as sam; print(f'✓ Available: {dir(sam)[:5]}')"
+
+      - name: Run Python tests
+        run: |
+          pytest python/tests/ -v --tb=short
+
+      - name: Run demo
+        run: |
+          python python/examples/advection_2d.py --max_level 4 --Tf 0.01 --nfiles 3
+
+  #
+  # Publish to PyPI (only on tags, not manual dispatch)
+  #
+  #########################################################
+  publish-pypi:
+    name: "Publish to PyPI"
+    needs: [build-wheels, build-sdist, test-wheels]
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push' &&
+      startsWith(github.ref, 'refs/tags/v') &&
+      github.event.inputs.test-only != 'true'
+
+    steps:
+      - name: Download all wheels
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          path: dist/
+          merge-multiple: true
+
+      - name: Download sdist
+        uses: actions/download-artifact@v4
+        with:
+          name: sdist
+          path: dist/
+          merge-multiple: true
+
+      - name: Display all distributions
+        run: |
+          ls -lh dist/
+          echo "=== Wheel summary ==="
+          ls dist/*.whl | wc -l
+          echo "wheels ready for upload"
+
+      - name: Check distributions with twine
+        run: |
+          pip install twine
+          twine check dist/*
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+          skip-existing: true
+          verbose: true
+
+  #
+  # Create GitHub Release with wheels
+  #
+  #########################################################
+  github-release:
+    name: "Create GitHub Release"
+    needs: [publish-pypi]
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push' &&
+      startsWith(github.ref, 'refs/tags/v')
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: '*'
+          path: release-assets/
+          merge-multiple: true
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Generate changelog from git commits since last tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            echo "## Changes since $PREV_TAG" > changelog.md
+            git log --pretty=format:"- %s" "$PREV_TAG..HEAD" >> changelog.md
+          else
+            echo "# Release ${GITHUB_REF#refs/tags/}" > changelog.md
+            git log --pretty=format:"- %s" >> changelog.md
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: changelog.md
+          files: |
+            release-assets/*.whl
+            release-assets/*.tar.gz
+          draft: false
+          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  #
+  # Build status summary
+  #
+  #########################################################
+  build-summary:
+    name: "Build summary"
+    needs: [build-wheels, build-sdist]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Download all artifacts info
+        uses: actions/download-artifact@v4
+        with:
+          pattern: '*'
+          path: artifacts-info/
+
+      - name: Generate summary
+        run: |
+          echo "# 📦 Wheel Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Built Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          find artifacts-info/ -name "*.whl" -o -name "*.tar.gz" | sort >> $GITHUB_STEP_SUMMARY || true

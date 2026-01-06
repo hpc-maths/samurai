@@ -1,0 +1,318 @@
+name: Python Bindings CI
+
+on:
+  pull_request:
+    paths:
+      - 'python/**'
+      - 'include/samurai/**'
+      - 'CMakeLists.txt'
+      - '.github/workflows/python-ci.yml'
+  push:
+    branches:
+      - pybind11
+      - master
+      - main
+  workflow_dispatch:
+
+# Cancel previous runs for the same PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  #
+  # Quick smoke test: build and import on Python 3.11
+  #
+  #########################################################
+  quick-test:
+    name: "Quick smoke test (Python 3.11, Ubuntu)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/ccache
+            ~/micromamba-root/envs/samurai-env
+          key: python-quick-test-${{ hashFiles('python/CMakeLists.txt', 'python/pyproject.toml') }}
+          restore-keys: |
+            python-quick-test-
+
+      - name: Mamba and samurai env installation
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: conda/environment.yml
+          environment-name: samurai-env
+          cache-environment: true
+
+      - name: Build Python bindings
+        shell: bash -l {0}
+        run: |
+          cmake . \
+            -Bbuild \
+            -GNinja \
+            -DBUILD_PYTHON_BINDINGS=ON \
+            -DBUILD_TESTS=OFF \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build samurai_python module
+        shell: bash -l {0}
+        run: |
+          cmake --build build --target samurai_python -j4
+
+      - name: Install Python test dependencies
+        shell: bash -l {0}
+        run: |
+          pip install pytest pytest-cov h5py
+
+      - name: Run Python tests
+        shell: bash -l {0}
+        run: |
+          cd python
+          pytest tests/ -v --tb=short --cov=. --cov-report=xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: python/coverage.xml
+          flags: python-bindings
+          name: python-quick-test
+
+  #
+  # Test matrix: Python versions × Operating systems
+  #
+  #########################################################
+  test-matrix:
+    name: "Python ${{ matrix.python-version }} on ${{ matrix.os }}"
+    needs: quick-test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14]
+        python-version: ['3.9', '3.10', '3.11', '3.12']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/ccache
+            ~/micromamba-root/envs/samurai-env
+          key: python-${{ matrix.os }}-py${{ matrix.python-version }}-${{ hashFiles('python/CMakeLists.txt') }}
+          restore-keys: |
+            python-${{ matrix.os }}-py${{ matrix.python-version }}-
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt update
+          sudo apt install -y cmake ninja-build libhdf5-dev ccache
+
+      - name: Install system dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install cmake ninja hdf5 ccache
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy h5py pytest pybind11
+
+      - name: Configure CMake
+        run: |
+          cmake . \
+            -Bbuild \
+            -GNinja \
+            -DBUILD_PYTHON_BINDINGS=ON \
+            -DPython_EXECUTABLE=$(which python) \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build samurai_python module
+        run: |
+          cmake --build build --target samurai_python -j4
+
+      - name: Run Python tests
+        run: |
+          export PYTHONPATH="${PWD}/build/python:${PYTHONPATH}"
+          cd python
+          pytest tests/ -v --tb=short
+
+      - name: Test Python import
+        run: |
+          export PYTHONPATH="${PWD}/build/python:${PYTHONPATH}"
+          python -c "import samurai; print(f'Samurai version: {samurai.__version__}')"
+
+  #
+  # Windows test (Python 3.11 only)
+  #
+  #########################################################
+  windows-test:
+    name: "Windows (Python 3.11, MSVC)"
+    needs: quick-test
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/ccache
+            ~/AppData/Local/Temp/chocolatey
+          key: python-windows-${{ hashFiles('python/CMakeLists.txt') }}
+          restore-keys: |
+            python-windows-
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy h5py pytest pybind11
+
+      - name: Configure CMake
+        shell: cmd
+        run: |
+          cmake . ^
+            -Bbuild ^
+            -G "Visual Studio 17 2022" ^
+            -DBUILD_PYTHON_BINDINGS=ON ^
+            -DBUILD_TESTS=OFF ^
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build samurai_python module
+        shell: cmd
+        run: |
+          cmake --build build --config Release --target samurai_python -j4
+
+      - name: Run Python tests
+        shell: cmd
+        run: |
+          set PYTHONPATH=%CD%\build\Release;%PYTHONPATH%
+          cd python
+          pytest tests/ -v --tb=short
+
+      - name: Test Python import
+        shell: cmd
+        run: |
+          set PYTHONPATH=%CD%\build\Release;%PYTHONPATH%
+          python -c "import samurai; print(f'Samurai version: {samurai.__version__}')"
+
+  #
+  # Run Python demo to validate full workflow
+  #
+  #########################################################
+  demo-validation:
+    name: "Demo validation (advection_2d)"
+    needs: quick-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/ccache
+            ~/micromamba-root/envs/samurai-env
+          key: python-demo-${{ hashFiles('python/CMakeLists.txt', 'python/examples/advection_2d.py') }}
+          restore-keys: |
+            python-demo-
+
+      - name: Mamba and samurai env installation
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: conda/environment.yml
+          environment-name: samurai-env
+          cache-environment: true
+
+      - name: Build Python bindings
+        shell: bash -l {0}
+        run: |
+          cmake . \
+            -Bbuild \
+            -GNinja \
+            -DBUILD_PYTHON_BINDINGS=ON \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --target samurai_python -j4
+
+      - name: Install h5py
+        shell: bash -l {0}
+        run: |
+          pip install h5py matplotlib
+
+      - name: Run advection_2d demo
+        shell: bash -l {0}
+        run: |
+          export PYTHONPATH="${PWD}/build/python:${PYTHONPATH}"
+          python python/examples/advection_2d.py --max_level 5 --Tf 0.02 --nfiles 5
+
+      - name: Verify output
+        shell: bash -l {0}
+        run: |
+          ls -la FV_advection_2d_*.h5 || exit 1
+
+  #
+  # Test with CHECK_NAN enabled (debug mode)
+  #
+  #########################################################
+  check-nan-test:
+    name: "CHECK_NAN debug mode"
+    needs: quick-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/ccache
+            ~/micromamba-root/envs/samurai-env
+          key: python-check-nan-${{ hashFiles('python/CMakeLists.txt') }}
+          restore-keys: |
+            python-check-nan-
+
+      - name: Mamba and samurai env installation
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: conda/environment.yml
+          environment-name: samurai-env
+          cache-environment: true
+
+      - name: Build with CHECK_NAN
+        shell: bash -l {0}
+        run: |
+          cmake . \
+            -Bbuild \
+            -GNinja \
+            -DBUILD_PYTHON_BINDINGS=ON \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DSAMURAI_CHECK_NAN=ON
+          cmake --build build --target samurai_python -j4
+
+      - name: Install Python test dependencies
+        shell: bash -l {0}
+        run: |
+          pip install pytest h5py
+
+      - name: Run Python tests in debug mode
+        shell: bash -l {0}
+        run: |
+          cd python
+          pytest tests/ -v --tb=short -k "test_mesh or test_field or test_box"

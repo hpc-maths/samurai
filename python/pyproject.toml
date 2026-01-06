@@ -112,3 +112,48 @@ disallow_incomplete_defs = false
 minversion = "7.0"
 testpaths = ["tests"]
 pythonpath = ["."]
+
+#
+# cibuildwheel configuration for building wheels across platforms
+#
+[tool.cibuildwheel]
+# Python versions to build (must match build-wheels.yml)
+build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
+
+# Skip 32-bit, PyPy, and musl builds
+skip = "pp* *-win32 *-manylinux_i686 *-musllinux_*"
+
+# Test command (runs after wheel is built in isolated environment)
+test-command = "pytest {project}/python/tests -v --tb=short"
+test-requires = "pytest numpy h5py"
+
+# Dependencies to install before building
+before-build = "pip install cmake ninja pybind11"
+
+# Build verbosity
+build-verbosity = 1
+
+#
+# Platform-specific settings
+#
+[tool.cibuildwheel.linux]
+# Use manylinux2014 for maximum compatibility
+manylinux-x86_64-image = "manylinux2014"
+manylinux-i686-image = "manylinux2014"
+manylinux-aarch64-image = "manylinux2014"
+manylinux-ppc64le-image = "manylinux2014"
+manylinux-s390x-image = "manylinux2014"
+
+# Install system dependencies before building
+before-all = "yum install -y eigen3-devel"
+
+# CMake environment
+environment = { CMAKE_BUILD_TYPE="Release" }
+
+[tool.cibuildwheel.macos]
+# macOS deployment target
+environment = { MACOSX_DEPLOYMENT_TARGET="10.15" }
+
+[tool.cibuildwheel.windows]
+# Windows-specific settings
+environment = { CMAKE_GENERATOR="Visual Studio 17 2022" }
