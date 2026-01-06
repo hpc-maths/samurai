@@ -8,9 +8,11 @@
 #include <samurai/box.hpp>
 #include <samurai/mesh_config.hpp>
 #include <samurai/cell.hpp>
+#include <samurai/algorithm.hpp>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/numpy.h>
+#include <pybind11/operators.h>
 
 namespace py = pybind11;
 
@@ -29,6 +31,91 @@ using VectorField = samurai::VectorField<MRMesh<dim>, double, n_comp, SOA>;
 
 template <std::size_t dim>
 using Cell = samurai::Cell<dim, default_interval>;
+
+// ============================================================
+// Field arithmetic operation helpers
+// ============================================================
+
+// Field - scalar operations (immediate evaluation, return new field)
+template <std::size_t dim>
+ScalarField<dim> field_sub_scalar(const ScalarField<dim>& field, double scalar)
+{
+    auto& mesh = const_cast<typename ScalarField<dim>::mesh_t&>(field.mesh());
+    auto result = samurai::make_scalar_field<double>(field.name() + "_sub", mesh);
+    result = field - scalar;
+    return result;
+}
+
+template <std::size_t dim>
+ScalarField<dim> scalar_sub_field(double scalar, const ScalarField<dim>& field)
+{
+    auto& mesh = const_cast<typename ScalarField<dim>::mesh_t&>(field.mesh());
+    auto result = samurai::make_scalar_field<double>("scalar_sub", mesh);
+    result = scalar - field;
+    return result;
+}
+
+template <std::size_t dim>
+ScalarField<dim> field_add_scalar(const ScalarField<dim>& field, double scalar)
+{
+    auto& mesh = const_cast<typename ScalarField<dim>::mesh_t&>(field.mesh());
+    auto result = samurai::make_scalar_field<double>(field.name() + "_add", mesh);
+    result = field + scalar;
+    return result;
+}
+
+template <std::size_t dim>
+ScalarField<dim> field_mul_scalar(const ScalarField<dim>& field, double scalar)
+{
+    auto& mesh = const_cast<typename ScalarField<dim>::mesh_t&>(field.mesh());
+    auto result = samurai::make_scalar_field<double>(field.name() + "_mul", mesh);
+    result = field * scalar;
+    return result;
+}
+
+template <std::size_t dim>
+ScalarField<dim> field_div_scalar(const ScalarField<dim>& field, double scalar)
+{
+    auto& mesh = const_cast<typename ScalarField<dim>::mesh_t&>(field.mesh());
+    auto result = samurai::make_scalar_field<double>(field.name() + "_div", mesh);
+    result = field / scalar;
+    return result;
+}
+
+// Field - field operations
+template <std::size_t dim>
+ScalarField<dim> field_sub_field(const ScalarField<dim>& field1, const ScalarField<dim>& field2)
+{
+    auto& mesh = const_cast<typename ScalarField<dim>::mesh_t&>(field1.mesh());
+    auto result = samurai::make_scalar_field<double>(field1.name() + "_sub", mesh);
+    result = field1 - field2;
+    return result;
+}
+
+template <std::size_t dim>
+ScalarField<dim> field_add_field(const ScalarField<dim>& field1, const ScalarField<dim>& field2)
+{
+    auto& mesh = const_cast<typename ScalarField<dim>::mesh_t&>(field1.mesh());
+    auto result = samurai::make_scalar_field<double>(field1.name() + "_add", mesh);
+    result = field1 + field2;
+    return result;
+}
+
+// Field utility operations
+template <std::size_t dim>
+ScalarField<dim> field_clone(const ScalarField<dim>& field)
+{
+    auto& mesh = const_cast<typename ScalarField<dim>::mesh_t&>(field.mesh());
+    auto result = samurai::make_scalar_field<double>(field.name() + "_clone", mesh);
+    result = field;  // Deep copy via assignment operator
+    return result;
+}
+
+template <std::size_t dim>
+void field_copy_to(ScalarField<dim>& dest, const ScalarField<dim>& src)
+{
+    dest = src;  // Uses copy assignment operator
+}
 
 // Helper to bind common Field methods
 template <class Field, class Mesh, class... Options>
@@ -172,6 +259,7 @@ void bind_scalar_field(py::module_& m, const std::string& name) {
     );
 
     // Integer-based indexing
+    // Note: For CellWrapper-based indexing from for_each_cell, use field[cell.index]
     cls.def("__getitem__",
         [](Field& f, std::size_t i) -> value_t {
             return f[i];
@@ -187,6 +275,63 @@ void bind_scalar_field(py::module_& m, const std::string& name) {
         py::arg("index"),
         py::arg("value"),
         "Set field value by flat index"
+    );
+
+    // Arithmetic operators: field +/-/* scalar
+    cls.def("__sub__", &field_sub_scalar<dim>,
+        py::arg("scalar"),
+        "Subtract scalar from field (returns new field)"
+    );
+
+    cls.def("__rsub__", &scalar_sub_field<dim>,
+        py::arg("scalar"),
+        "Subtract field from scalar (returns new field)"
+    );
+
+    cls.def("__add__", &field_add_scalar<dim>,
+        py::arg("scalar"),
+        "Add scalar to field (returns new field)"
+    );
+
+    cls.def("__radd__", &field_add_scalar<dim>,
+        py::arg("scalar"),
+        "Add scalar to field (right-hand version)"
+    );
+
+    cls.def("__mul__", &field_mul_scalar<dim>,
+        py::arg("scalar"),
+        "Multiply field by scalar (returns new field)"
+    );
+
+    cls.def("__rmul__", &field_mul_scalar<dim>,
+        py::arg("scalar"),
+        "Multiply field by scalar (right-hand version)"
+    );
+
+    cls.def("__truediv__", &field_div_scalar<dim>,
+        py::arg("scalar"),
+        "Divide field by scalar (returns new field)"
+    );
+
+    // Field-to-field operators
+    cls.def("__sub__", &field_sub_field<dim>,
+        py::arg("other"),
+        "Subtract another field (returns new field)"
+    );
+
+    cls.def("__add__", &field_add_field<dim>,
+        py::arg("other"),
+        "Add another field (returns new field)"
+    );
+
+    // Utility methods
+    cls.def("clone", &field_clone<dim>,
+        "Create a deep copy of this field"
+    );
+
+    cls.def("copy_to", &field_copy_to<dim>,
+        py::arg("dest"),
+        "Copy this field's data to destination field"
     );
 
     // String representation
@@ -540,4 +685,155 @@ void init_field_bindings(py::module_& m) {
     field.attr("VectorField2D_3") = m.attr("VectorField2D_3");
     field.attr("VectorField3D_2") = m.attr("VectorField3D_2");
     field.attr("VectorField3D_3") = m.attr("VectorField3D_3");
+
+    // ============================================================
+    // Time-stepping helper functions
+    // ============================================================
+    // Note: CellWrapper classes (Cell1D, Cell2D, Cell3D) are already bound in algorithm_bindings.cpp
+    // ============================================================
+    // Euler update: unp1 = u - dt * du
+    m.def("euler_update_1d",
+        [](ScalarField<1>& unp1, const ScalarField<1>& u, double dt, const ScalarField<1>& du) {
+            unp1 = u - dt * du;
+        },
+        py::arg("unp1"),
+        py::arg("u"),
+        py::arg("dt"),
+        py::arg("du"),
+        "Euler time step update (1D): unp1 = u - dt * du"
+    );
+
+    m.def("euler_update_2d",
+        [](ScalarField<2>& unp1, const ScalarField<2>& u, double dt, const ScalarField<2>& du) {
+            unp1 = u - dt * du;
+        },
+        py::arg("unp1"),
+        py::arg("u"),
+        py::arg("dt"),
+        py::arg("du"),
+        "Euler time step update (2D): unp1 = u - dt * du"
+    );
+
+    m.def("euler_update_3d",
+        [](ScalarField<3>& unp1, const ScalarField<3>& u, double dt, const ScalarField<3>& du) {
+            unp1 = u - dt * du;
+        },
+        py::arg("unp1"),
+        py::arg("u"),
+        py::arg("dt"),
+        py::arg("du"),
+        "Euler time step update (3D): unp1 = u - dt * du"
+    );
+
+    // RK3 stage 2: u2 = 3/4*u + 1/4*(u1 - dt*du1)
+    m.def("rk3_stage2_1d",
+        [](ScalarField<1>& u2, const ScalarField<1>& u, const ScalarField<1>& u1, double dt, const ScalarField<1>& du1) {
+            u2 = 3.0/4.0 * u + 1.0/4.0 * (u1 - dt * du1);
+        },
+        py::arg("u2"),
+        py::arg("u"),
+        py::arg("u1"),
+        py::arg("dt"),
+        py::arg("du1"),
+        "RK3 stage 2 update (1D): u2 = 3/4*u + 1/4*(u1 - dt*du1)"
+    );
+
+    m.def("rk3_stage2_2d",
+        [](ScalarField<2>& u2, const ScalarField<2>& u, const ScalarField<2>& u1, double dt, const ScalarField<2>& du1) {
+            u2 = 3.0/4.0 * u + 1.0/4.0 * (u1 - dt * du1);
+        },
+        py::arg("u2"),
+        py::arg("u"),
+        py::arg("u1"),
+        py::arg("dt"),
+        py::arg("du1"),
+        "RK3 stage 2 update (2D): u2 = 3/4*u + 1/4*(u1 - dt*du1)"
+    );
+
+    m.def("rk3_stage2_3d",
+        [](ScalarField<3>& u2, const ScalarField<3>& u, const ScalarField<3>& u1, double dt, const ScalarField<3>& du1) {
+            u2 = 3.0/4.0 * u + 1.0/4.0 * (u1 - dt * du1);
+        },
+        py::arg("u2"),
+        py::arg("u"),
+        py::arg("u1"),
+        py::arg("dt"),
+        py::arg("du1"),
+        "RK3 stage 2 update (3D): u2 = 3/4*u + 1/4*(u1 - dt*du1)"
+    );
+
+    // RK3 stage 3: unp1 = 1/3*u + 2/3*(u2 - dt*du2)
+    m.def("rk3_stage3_1d",
+        [](ScalarField<1>& unp1, const ScalarField<1>& u, const ScalarField<1>& u2, double dt, const ScalarField<1>& du2) {
+            unp1 = 1.0/3.0 * u + 2.0/3.0 * (u2 - dt * du2);
+        },
+        py::arg("unp1"),
+        py::arg("u"),
+        py::arg("u2"),
+        py::arg("dt"),
+        py::arg("du2"),
+        "RK3 stage 3 update (1D): unp1 = 1/3*u + 2/3*(u2 - dt*du2)"
+    );
+
+    m.def("rk3_stage3_2d",
+        [](ScalarField<2>& unp1, const ScalarField<2>& u, const ScalarField<2>& u2, double dt, const ScalarField<2>& du2) {
+            unp1 = 1.0/3.0 * u + 2.0/3.0 * (u2 - dt * du2);
+        },
+        py::arg("unp1"),
+        py::arg("u"),
+        py::arg("u2"),
+        py::arg("dt"),
+        py::arg("du2"),
+        "RK3 stage 3 update (2D): unp1 = 1/3*u + 2/3*(u2 - dt*du2)"
+    );
+
+    m.def("rk3_stage3_3d",
+        [](ScalarField<3>& unp1, const ScalarField<3>& u, const ScalarField<3>& u2, double dt, const ScalarField<3>& du2) {
+            unp1 = 1.0/3.0 * u + 2.0/3.0 * (u2 - dt * du2);
+        },
+        py::arg("unp1"),
+        py::arg("u"),
+        py::arg("u2"),
+        py::arg("dt"),
+        py::arg("du2"),
+        "RK3 stage 3 update (3D): unp1 = 1/3*u + 2/3*(u2 - dt*du2)"
+    );
+
+    // Field swap for efficient time stepping
+    m.def("swap_field_arrays_1d",
+        [](ScalarField<1>& f1, ScalarField<1>& f2) {
+            std::swap(f1.array(), f2.array());
+            // Also swap ghost update flags
+            bool f1_ghosts = f1.ghosts_updated();
+            f1.ghosts_updated() = f2.ghosts_updated();
+            f2.ghosts_updated() = f1_ghosts;
+        },
+        py::arg("f1"),
+        py::arg("f2"),
+        "Swap underlying data arrays of two 1D fields (efficient for time stepping)"
+    );
+
+    m.def("swap_field_arrays_2d",
+        [](ScalarField<2>& f1, ScalarField<2>& f2) {
+            std::swap(f1.array(), f2.array());
+            bool f1_ghosts = f1.ghosts_updated();
+            f1.ghosts_updated() = f2.ghosts_updated();
+            f2.ghosts_updated() = f1_ghosts;
+        },
+        py::arg("f1"),
+        py::arg("f2"),
+        "Swap underlying data arrays of two 2D fields (efficient for time stepping)"
+    );
+
+    m.def("swap_field_arrays_3d",
+        [](ScalarField<3>& f1, ScalarField<3>& f2) {
+            std::swap(f1.array(), f2.array());
+            bool f1_ghosts = f1.ghosts_updated();
+            f1.ghosts_updated() = f2.ghosts_updated();
+            f2.ghosts_updated() = f1_ghosts;
+        },
+        py::arg("f1"),
+        py::arg("f2"),
+        "Swap underlying data arrays of two 3D fields (efficient for time stepping)"
+    );
 }
