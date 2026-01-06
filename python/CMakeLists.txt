@@ -34,6 +34,7 @@ pybind11_add_module(samurai_python
     src/bindings/interval_bindings.cpp
     src/bindings/algorithm_bindings.cpp
     src/bindings/operator_bindings.cpp
+    src/bindings/bc_bindings.cpp
 )
 
 # Set target properties

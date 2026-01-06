@@ -17,6 +17,7 @@
 #include "interval_bindings.hpp"
 #include "algorithm_bindings.hpp"
 #include "operator_bindings.hpp"
+#include "bc_bindings.hpp"
 
 namespace py = pybind11;
 
@@ -69,6 +70,7 @@ PYBIND11_MODULE(samurai_python, m) {
     init_interval_bindings(m);
     init_algorithm_bindings(m);
     init_operator_bindings(m);
+    init_bc_bindings(m);
 
     // TODO: Add more submodule initializers as they are implemented
     // init_io_bindings(m);
