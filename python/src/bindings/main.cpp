@@ -20,6 +20,7 @@
 #include "bc_bindings.hpp"
 #include "mra_config_bindings.hpp"
 #include "adapt_bindings.hpp"
+#include "io_bindings.hpp"
 
 namespace py = pybind11;
 
@@ -63,6 +64,9 @@ PYBIND11_MODULE(samurai_python, m) {
            make_MRAdapt
            update_ghost_mr
            upwind
+           save
+           dump
+           load
     )pbdoc";
 
     // Version attribute
@@ -79,9 +83,11 @@ PYBIND11_MODULE(samurai_python, m) {
     init_bc_bindings(m);
     init_mra_config_bindings(m);
     init_adapt_bindings(m);
+    init_io_bindings(m);
 
     // TODO: Add more submodule initializers as they are implemented
-    // init_io_bindings(m);
+    // init_fv_bindings(m);  // Finite volume schemes
+    // init_lbm_bindings(m); // Lattice Boltzmann methods
 
     // Placeholder: Basic test function
     m.def("test_function", []() {
