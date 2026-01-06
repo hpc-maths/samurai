@@ -82,6 +82,7 @@ def main():
     config = sam.MeshConfig2D()
     config.min_level = 4      # Minimum refinement level
     config.max_level = 10     # Maximum refinement level
+    config.disable_minimal_ghost_width()  # Required for proper ghost cell handling
 
     # Create mesh and fields
     mesh = sam.MRMesh2D(box, config)

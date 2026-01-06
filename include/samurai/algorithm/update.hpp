@@ -1373,6 +1373,9 @@ namespace samurai
                 set_refine.apply_op(std::forward<PredictionOp>(prediction_op)(new_field, field));
             }
 
+            // Preserve boundary conditions from the original field
+            new_field.copy_bc_from(field);
+
             swap(field, new_field);
         }
     }

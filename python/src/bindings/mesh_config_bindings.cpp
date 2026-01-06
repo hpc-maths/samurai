@@ -136,6 +136,16 @@ void bind_mesh_config_common_methods(py::class_<Config>& cls) {
         "Get periodicity in specific direction"
     );
 
+    // Disable minimal ghost width
+    cls.def("disable_minimal_ghost_width",
+        [](Config& cfg) -> Config& {
+            cfg.disable_minimal_ghost_width();
+            return cfg;
+        },
+        "Disable minimal ghost width (returns config for chaining). "
+        "Required for reconstruction and transfer functions."
+    );
+
     // String representation
     cls.def("__repr__",
         [](const Config& cfg) {
