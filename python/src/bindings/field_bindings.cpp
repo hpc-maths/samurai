@@ -423,6 +423,10 @@ void init_field_bindings(py::module_& m) {
     bind_scalar_field<2>(m, "ScalarField2D");
     bind_scalar_field<3>(m, "ScalarField3D");
 
+    // Bind VectorField classes for 1D (AOS layout)
+    bind_vector_field<1, 2, false>(m, "VectorField1D_2");
+    bind_vector_field<1, 3, false>(m, "VectorField1D_3");
+
     // Bind VectorField classes for 2 components (AOS layout)
     bind_vector_field<2, 2, false>(m, "VectorField2D_2");
     bind_vector_field<2, 3, false>(m, "VectorField2D_3");
@@ -463,6 +467,26 @@ void init_field_bindings(py::module_& m) {
         py::arg("name"),
         py::arg("init_value") = 0.0,
         "Create a 3D scalar field"
+    );
+
+    // 1D VectorField factory function
+    m.def("make_vector_field",
+        [](MRMesh<1>& mesh, const std::string& field_name, std::size_t n_components, double init_value) -> py::object {
+            if (n_components == 2) {
+                auto field = samurai::make_vector_field<double, 2, false>(field_name, mesh, init_value);
+                return py::cast(std::move(field));
+            } else if (n_components == 3) {
+                auto field = samurai::make_vector_field<double, 3, false>(field_name, mesh, init_value);
+                return py::cast(std::move(field));
+            } else {
+                throw std::runtime_error("Unsupported n_components: " + std::to_string(n_components));
+            }
+        },
+        py::arg("mesh"),
+        py::arg("name"),
+        py::arg("n_components"),
+        py::arg("init_value") = 0.0,
+        "Create a 1D vector field with specified number of components"
     );
 
     // VectorField factory function - dispatch based on n_components
@@ -510,6 +534,8 @@ void init_field_bindings(py::module_& m) {
     field.attr("ScalarField1D") = m.attr("ScalarField1D");
     field.attr("ScalarField2D") = m.attr("ScalarField2D");
     field.attr("ScalarField3D") = m.attr("ScalarField3D");
+    field.attr("VectorField1D_2") = m.attr("VectorField1D_2");
+    field.attr("VectorField1D_3") = m.attr("VectorField1D_3");
     field.attr("VectorField2D_2") = m.attr("VectorField2D_2");
     field.attr("VectorField2D_3") = m.attr("VectorField2D_3");
     field.attr("VectorField3D_2") = m.attr("VectorField3D_2");

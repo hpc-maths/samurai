@@ -47,6 +47,8 @@ PYBIND11_MODULE(samurai_python, m) {
            ScalarField1D
            ScalarField2D
            ScalarField3D
+           VectorField1D_2
+           VectorField1D_3
            VectorField2D_2
            VectorField2D_3
            VectorField3D_2
