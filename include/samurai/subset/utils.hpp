@@ -187,7 +187,7 @@ namespace samurai
     {
         constexpr std::size_t N = std::tuple_size_v<std::decay_t<Tuple>>;
 
-        return detail::enumerate_const_items(tuple, unc, std::make_index_sequence<N>{});
+        return detail::enumerate_const_items(tuple, func, std::make_index_sequence<N>{});
     }
 
 } // namespace samurai

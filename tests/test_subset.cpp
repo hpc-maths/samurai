@@ -624,9 +624,6 @@ namespace samurai
 
     TEST(subset, expand_3d)
     {
-        using interval_t = typename LevelCellArray<3>::interval_t;
-        using expected_t = std::vector<std::pair<int, interval_t>>;
-
         constexpr size_t level = 0;
 
         LevelCellArray<3> ca(level);
@@ -1394,7 +1391,7 @@ namespace samurai
         // Test translation by exactly the cell size at different levels
         for (int level_offset = -2; level_offset <= 2; ++level_offset)
         {
-            int target_level = 5 + level_offset;
+            std::size_t target_level = static_cast<std::size_t>(5 + level_offset);
             if (target_level >= 0)
             {
                 int scale = 1 << std::abs(level_offset);

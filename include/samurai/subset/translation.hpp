@@ -6,7 +6,7 @@
 #include "set_base.hpp"
 #include "traversers/translation_traverser.hpp"
 
-#include <xtensor/xview.hpp>
+#include <xtensor/views/xview.hpp>
 using namespace xt::placeholders; // this makes `_` available
 
 namespace samurai
