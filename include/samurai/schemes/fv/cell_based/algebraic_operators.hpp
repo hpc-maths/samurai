@@ -151,7 +151,7 @@ namespace samurai
     auto operator+(const CellBasedScheme<lin_cfg, bdry_cfg>& lin_scheme, const CellBasedScheme<nonlin_cfg, bdry_cfg>& nonlin_scheme)
     {
         using stencil_cells_t = typename CellBasedScheme<nonlin_cfg, bdry_cfg>::stencil_cells_t;
-        using field_t         = typename CellBasedScheme<nonlin_cfg, bdry_cfg>::field_t;
+        using input_field_t   = typename CellBasedScheme<nonlin_cfg, bdry_cfg>::input_field_t;
 
         static constexpr bool can_collapse = lin_cfg::input_field_t::is_scalar && lin_cfg::output_field_t::is_scalar;
 
@@ -160,14 +160,14 @@ namespace samurai
         addition_scheme.set_name(lin_scheme.name() + " + " + nonlin_scheme.name());
         if constexpr (lin_cfg::scheme_type == SchemeType::LinearHomogeneous)
         {
-            addition_scheme.scheme_function() = [=](SchemeValue<nonlin_cfg>& value, const stencil_cells_t& cell, const field_t& field)
+            addition_scheme.scheme_function() = [=](SchemeValue<nonlin_cfg>& value, const stencil_cells_t& cell, const input_field_t& field)
             {
                 nonlin_scheme.scheme_function()(value, cell, field);
 
                 StencilCoeffs<lin_cfg> coeffs;
                 auto h = cell.length;
                 lin_scheme.coefficients(coeffs, h);
-                value += mat_vec<detail::is_soa_v<field_t>, can_collapse>(coeffs, field[cell]);
+                value += mat_vec<detail::is_soa_v<input_field_t>, can_collapse>(coeffs, field[cell]);
             };
 
             addition_scheme.local_scheme_function() = nullptr;
@@ -180,21 +180,29 @@ namespace samurai
                     StencilCoeffs<lin_cfg> coeffs;
                     auto h = cell.length;
                     lin_scheme.coefficients(coeffs, h);
-                    value += mat_vec<detail::is_soa_v<field_t>, can_collapse>(coeffs, field[cell]);
+                    value += mat_vec<detail::is_soa_v<input_field_t>, can_collapse>(coeffs, field[cell]);
                 };
             }
 
             addition_scheme.jacobian_function() = nullptr;
             if (nonlin_scheme.jacobian_function())
             {
-                addition_scheme.jacobian_function() = [=](StencilJacobian<nonlin_cfg>& jac, const stencil_cells_t& cell, const field_t& field)
+                addition_scheme.jacobian_function() =
+                    [=](StencilJacobian<nonlin_cfg>& jac, const stencil_cells_t& cell, const input_field_t& field)
                 {
                     nonlin_scheme.jacobian_function()(jac, cell, field);
 
                     StencilCoeffs<lin_cfg> coeffs;
                     auto h = cell.length;
                     lin_scheme.coefficients(coeffs, h);
-                    jac += coeffs[0];
+                    if constexpr (can_collapse)
+                    {
+                        jac += coeffs;
+                    }
+                    else
+                    {
+                        jac += coeffs[0];
+                    }
                 };
             }
 
@@ -209,7 +217,14 @@ namespace samurai
                     StencilCoeffs<lin_cfg> coeffs;
                     auto h = cell.length;
                     lin_scheme.coefficients(coeffs, h);
-                    jac += coeffs[0];
+                    if constexpr (can_collapse)
+                    {
+                        jac += coeffs;
+                    }
+                    else
+                    {
+                        jac += coeffs[0];
+                    }
                 };
             }
         }
