@@ -69,7 +69,7 @@ namespace samurai
             template <class LCA_OR_SET>
             static auto run(index_type& idx, const LCA_OR_SET& lca, const int width)
             {
-                static_assert(!default_config::use_native_expand);
+                assert(!default_config::use_native_expand);
 
                 if constexpr (dim != dim_min)
                 {
