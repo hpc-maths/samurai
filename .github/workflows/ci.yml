@@ -215,7 +215,7 @@ jobs:
               with:
                   environment-file: conda/mpi-environment.yml
                   environment-name: samurai-env
-                  cache-environment: true
+                  cache-environment: false
                   cache-environment-key: micromamba-${{ runner.os }}-${{ hashFiles('conda/mpi-environment.yml') }}
 
             # - name: Conda update
