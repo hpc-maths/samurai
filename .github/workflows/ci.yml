@@ -206,10 +206,9 @@ jobs:
               with:
                   path: |
                       ~/.cache/ccache
-                      ~/micromamba-root/envs/samurai-env
-                  key: linux-mpi
+                  key: ccache-${{ runner.os }}-${{ github.sha }}
                   restore-keys: |
-                      linux-mpi
+                      ccache-${{ runner.os }}-
 
             - name: Mamba and samurai env installation
               uses: mamba-org/setup-micromamba@v2
@@ -226,7 +225,7 @@ jobs:
             - name: Petsc installation
               shell: bash -l {0}
               run: |
-                  conda install -y -c conda-forge petsc pkg-config cxx-compiler
+                  conda install -y petsc pkg-config cxx-compiler
 
             - name: Conda informations
               shell: bash -l {0}
