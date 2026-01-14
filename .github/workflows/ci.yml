@@ -119,7 +119,6 @@ jobs:
               with:
                   path: |
                       ~/.cache/ccache
-                      ~/micromamba-root/envs/samurai-env
                   key: linux-${{ matrix.cpp-version }}
                   restore-keys: |
                       linux-${{ matrix.cpp-version }}
@@ -139,6 +138,7 @@ jobs:
                   environment-file: conda/environment.yml
                   environment-name: samurai-env
                   cache-environment: true
+                  cache-environment-key: ${{ runner.os }}-${{ matrix.cpp-version }}-${{ hashFiles('conda/environment.yml') }}
 
             # - name: Conda update
             #   shell: bash -l {0}
@@ -196,7 +196,7 @@ jobs:
     #
     #########################################################
     linux-mpi-mamba:
-        #needs: [pre-commit, cppcheck]
+        needs: [pre-commit, cppcheck]
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
@@ -215,24 +215,18 @@ jobs:
               with:
                   environment-file: conda/mpi-environment.yml
                   environment-name: samurai-env
-                  cache-environment: false
-                  #cache-environment-key: micromamba-${{ runner.os }}-${{ hashFiles('conda/mpi-environment.yml') }}
-                  channels: conda-forge
-                  channel-priority: strict
+                  cache-environment: true
+                  cache-environment-key: ${{ runner.os }}-${{ hashFiles('conda/mpi-environment.yml') }}
 
             # - name: Conda update
             #   shell: bash -l {0}
             #   run: |
             #       conda update --all
-            - name: Debug MPI packages
-              shell: bash -l {0}
-              run: |
-                  micromamba list -n samurai-env | grep -E '(hdf5|h5py|mpich|mpi)'
 
             - name: Petsc installation
               shell: bash -l {0}
               run: |
-                  conda install -y petsc pkg-config cxx-compiler -vv
+                  conda install -y petsc>=3.24 pkg-config cxx-compiler
 
             - name: Conda informations
               shell: bash -l {0}
@@ -408,7 +402,6 @@ jobs:
               with:
                   path: |
                       ~/.cache/ccache
-                      ~/micromamba-root/envs/samurai-env
                   key: linux-mamba-check-nan
                   restore-keys: |
                       linux-mamba-check-nan
@@ -419,6 +412,7 @@ jobs:
                   environment-file: conda/environment.yml
                   environment-name: samurai-env
                   cache-environment: true
+                  cache-environment-key: ${{ runner.os }}-${{ hashFiles('conda/environment.yml') }}
 
             - name: Petsc installation
               shell: bash -l {0}
@@ -478,7 +472,6 @@ jobs:
               with:
                   path: |
                       ~/.cache/ccache
-                      ~/micromamba-root/envs/samurai-env
                   key: linux-mamba-check-nan-mpi
                   restore-keys: |
                       linux-mamba-check-nan-mpi
@@ -489,6 +482,7 @@ jobs:
                   environment-file: conda/mpi-environment.yml
                   environment-name: samurai-env
                   cache-environment: true
+                  cache-environment-key: ${{ runner.os }}-${{ hashFiles('conda/mpi-environment.yml') }}
 
             - name: Petsc installation
               shell: bash -l {0}
@@ -554,6 +548,7 @@ jobs:
                   environment-file: conda/environment.yml
                   environment-name: samurai-env
                   cache-environment: true
+                  cache-environment-key: ${{ runner.os }}-${{ hashFiles('conda/environment.yml') }}
 
             - name: Compiler installation
               shell: bash -l {0}
