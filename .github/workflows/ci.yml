@@ -217,6 +217,8 @@ jobs:
                   environment-name: samurai-env
                   cache-environment: false
                   #cache-environment-key: micromamba-${{ runner.os }}-${{ hashFiles('conda/mpi-environment.yml') }}
+                  channels: conda-forge
+                  channel-priority: strict
 
             # - name: Conda update
             #   shell: bash -l {0}
