@@ -226,7 +226,7 @@ jobs:
             - name: Petsc installation
               shell: bash -l {0}
               run: |
-                  conda install -y petsc>=3.24 pkg-config cxx-compiler
+                  conda install -y petsc=3.24 pkg-config cxx-compiler
 
             - name: Conda informations
               shell: bash -l {0}
