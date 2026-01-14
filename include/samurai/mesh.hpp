@@ -295,7 +295,9 @@ namespace samurai
 
         set_origin_point(origin_point());
         set_scaling_factor(scaling_factor());
+#if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
         compute_gravity_center();
+#endif
     }
 
     template <class D, class Config>
@@ -342,7 +344,9 @@ namespace samurai
 
         set_origin_point(domain_builder.origin_point());
         set_scaling_factor(m_config.scaling_factor());
+#if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
         compute_gravity_center();
+#endif
     }
 
     template <class D, class Config>
@@ -361,7 +365,9 @@ namespace samurai
 
         set_origin_point(cl.origin_point());
         set_scaling_factor(cl.scaling_factor());
+#if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
         compute_gravity_center();
+#endif
     }
 
     template <class D, class Config>
@@ -392,7 +398,9 @@ namespace samurai
 
         set_origin_point(ca.origin_point());
         set_scaling_factor(ca.scaling_factor());
+#if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
         compute_gravity_center();
+#endif
     }
 
     template <class D, class Config>
@@ -412,7 +420,9 @@ namespace samurai
 
         set_origin_point(ref_mesh.origin_point());
         set_scaling_factor(ref_mesh.scaling_factor());
+#if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
         compute_gravity_center();
+#endif
     }
 
     template <class D, class Config>
@@ -432,7 +442,9 @@ namespace samurai
 
         set_origin_point(ref_mesh.origin_point());
         set_scaling_factor(ref_mesh.scaling_factor());
+#if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
         compute_gravity_center();
+#endif
     }
 
     template <class D, class Config>
@@ -934,7 +946,9 @@ namespace samurai
         for (auto& neighbour : m_mpi_neighbourhood)
         {
             neighbour.mesh.set_origin_point(this->origin_point()); // the origin point is not serialized, so we have to set it again
+#ifdef SAMURAI_WITH_PETSC
             neighbour.mesh.compute_gravity_center();
+#endif
         }
 #endif
     }
