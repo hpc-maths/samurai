@@ -227,7 +227,7 @@ jobs:
             - name: Debug MPI packages
               shell: bash -l {0}
               run: |
-                  micromamba list -n samurai-env | grep -E '^(hdf5|h5py|mpich|mpi)\s'
+                  micromamba list -n samurai-env | grep -E '(hdf5|h5py|mpich|mpi)'
 
             - name: Petsc installation
               shell: bash -l {0}
