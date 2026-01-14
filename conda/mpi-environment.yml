@@ -10,9 +10,11 @@ dependencies:
   - pugixml
   - cli11<2.5
   - pytest
-  - h5py
+  #- h5py
+  - "h5py=*=mpi_*"
   - libboost-mpi #<1.87 # MPI seems broken with 1.87 with the error : symbol not found in flat namespace '_PyBaseObject_Type'
   - libboost-devel
   - libboost-headers
-  - hdf5 * mpi_*
+  #- hdf5 * mpi_*
+  - "hdf5=*=mpi_*"
   - mpich
