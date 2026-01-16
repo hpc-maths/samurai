@@ -23,7 +23,7 @@ namespace samurai
     try                                 \
     {                                   \
         samurai::app.parse(argc, argv); \
-        app.allow_extras();             \
+        samurai::app.allow_extras();    \
     }                                   \
     catch (const CLI::ParseError& e)    \
     {                                   \
