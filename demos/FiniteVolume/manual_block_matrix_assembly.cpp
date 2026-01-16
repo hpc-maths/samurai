@@ -13,47 +13,57 @@ template <class Mesh_e>
 struct Coupling_auxCe_e : public samurai::petsc::ManualAssembly<aux_t> // <...>: type of field the block applies to
                                                                        // (= unknown field type if the block must be inversed)
 {
-    const Mesh_e& mesh_e;
+    const Mesh_e* mesh_e; // use a pointer instead of a reference to avoid issues with the copy constructor
 
     explicit Coupling_auxCe_e(const Mesh_e& m)
-        : mesh_e(m)
+        : mesh_e(&m)
     {
         this->set_name("Coupling_auxCe_e");
     }
 
-    PetscInt matrix_rows() const override
+    PetscInt local_matrix_rows() const override
     {
-        return static_cast<PetscInt>(mesh_e.nb_cells());
+        return static_cast<PetscInt>(mesh_e->cell_ownership().n_local_cells);
     }
 
-    PetscInt matrix_cols() const override
+    PetscInt local_matrix_cols() const override
     {
         return static_cast<PetscInt>(this->unknown().size());
     }
 
-    void sparsity_pattern_scheme(std::vector<PetscInt>& nnz) const override
+    PetscInt owned_matrix_rows() const override
     {
-        samurai::for_each_boundary_interface__direction(mesh_e,
+        return static_cast<PetscInt>(mesh_e->cell_ownership().n_owned_cells);
+    }
+
+    PetscInt owned_matrix_cols() const override
+    {
+        return static_cast<PetscInt>(this->unknown().size());
+    }
+
+    void sparsity_pattern_scheme(std::vector<PetscInt>& d_nnz, std::vector<PetscInt>& /*o_nnz*/) const override
+    {
+        samurai::for_each_boundary_interface__direction(*mesh_e,
                                                         {1, 0},
                                                         [&](auto& cell, auto&)
                                                         {
-                                                            std::size_t row = static_cast<std::size_t>(this->row_shift() + cell.index);
-                                                            nnz[row] += 2;
+                                                            std::size_t row = static_cast<std::size_t>(this->block_row_shift() + cell.index);
+                                                            d_nnz[row] += 2;
                                                         });
     }
 
     void assemble_scheme(Mat& A) override
     {
         PetscInt i = 0;
-        samurai::for_each_boundary_interface__direction(mesh_e,
+        samurai::for_each_boundary_interface__direction(*mesh_e,
                                                         {1, 0},
                                                         [&](auto& cell, auto&)
                                                         {
-                                                            PetscInt row = this->row_shift() + static_cast<PetscInt>(cell.index);
-                                                            PetscInt col = this->col_shift() + i;
-                                                            double coeff = 123;                              // random...
-                                                            MatSetValue(A, row, col, coeff, ADD_VALUES);     // 1st aux variable
-                                                            MatSetValue(A, row, col + 1, coeff, ADD_VALUES); // 2nd aux variable
+                                                            PetscInt row = this->block_row_shift() + static_cast<PetscInt>(cell.index);
+                                                            PetscInt col = this->block_col_shift() + i;
+                                                            double coeff = 123;                                   // random...
+                                                            MatSetValueLocal(A, row, col, coeff, ADD_VALUES);     // 1st aux variable
+                                                            MatSetValueLocal(A, row, col + 1, coeff, ADD_VALUES); // 2nd aux variable
                                                             i += 2;
                                                         });
     }
@@ -62,25 +72,35 @@ struct Coupling_auxCe_e : public samurai::petsc::ManualAssembly<aux_t> // <...>:
 template <class field_t>
 struct Coupling_e_auxCe : public samurai::petsc::ManualAssembly<field_t>
 {
-    const aux_t& aux_Ce;
+    const aux_t* aux_Ce;
 
     explicit Coupling_e_auxCe(const aux_t& t)
-        : aux_Ce(t)
+        : aux_Ce(&t)
     {
         this->set_name("Coupling_e_auxCe");
     }
 
-    PetscInt matrix_rows() const override
+    PetscInt local_matrix_rows() const override
     {
-        return static_cast<PetscInt>(aux_Ce.size());
+        return static_cast<PetscInt>(aux_Ce->size());
     }
 
-    PetscInt matrix_cols() const override
+    PetscInt local_matrix_cols() const override
     {
-        return static_cast<PetscInt>(this->unknown().mesh().nb_cells());
+        return static_cast<PetscInt>(this->unknown().mesh().cell_ownership().n_local_cells);
     }
 
-    void sparsity_pattern_scheme(std::vector<PetscInt>&) const override
+    PetscInt owned_matrix_rows() const override
+    {
+        return static_cast<PetscInt>(aux_Ce->size());
+    }
+
+    PetscInt owned_matrix_cols() const override
+    {
+        return static_cast<PetscInt>(this->unknown().mesh().cell_ownership().n_owned_cells);
+    }
+
+    void sparsity_pattern_scheme(std::vector<PetscInt>&, std::vector<PetscInt>&) const override
     {
         // TODO
     }
@@ -98,17 +118,27 @@ struct Coupling_auxCe_auxCe : public samurai::petsc::ManualAssembly<aux_t>
         this->set_name("Coupling_auxCe_auxCe");
     }
 
-    PetscInt matrix_rows() const override
+    PetscInt local_matrix_rows() const override
     {
         return static_cast<PetscInt>(this->unknown().size());
     }
 
-    PetscInt matrix_cols() const override
+    PetscInt local_matrix_cols() const override
     {
         return static_cast<PetscInt>(this->unknown().size());
     }
 
-    void sparsity_pattern_scheme(std::vector<PetscInt>&) const override
+    PetscInt owned_matrix_rows() const override
+    {
+        return static_cast<PetscInt>(this->unknown().size());
+    }
+
+    PetscInt owned_matrix_cols() const override
+    {
+        return static_cast<PetscInt>(this->unknown().size());
+    }
+
+    void sparsity_pattern_scheme(std::vector<PetscInt>&, std::vector<PetscInt>&) const override
     {
         // TODO
     }
@@ -130,17 +160,27 @@ struct Coupling_s_auxCe : public samurai::petsc::ManualAssembly<field_t>
         this->set_name("Coupling_s_auxCe");
     }
 
-    PetscInt matrix_rows() const override
+    PetscInt local_matrix_rows() const override
     {
         return static_cast<PetscInt>(aux_Ce->size());
     }
 
-    PetscInt matrix_cols() const override
+    PetscInt local_matrix_cols() const override
     {
-        return static_cast<PetscInt>(this->unknown().mesh().nb_cells());
+        return static_cast<PetscInt>(this->unknown().mesh().cell_ownership().n_local_cells);
     }
 
-    void sparsity_pattern_scheme(std::vector<PetscInt>&) const override
+    PetscInt owned_matrix_rows() const override
+    {
+        return static_cast<PetscInt>(aux_Ce->size());
+    }
+
+    PetscInt owned_matrix_cols() const override
+    {
+        return static_cast<PetscInt>(this->unknown().mesh().cell_ownership().n_owned_cells);
+    }
+
+    void sparsity_pattern_scheme(std::vector<PetscInt>&, std::vector<PetscInt>&) const override
     {
         // TODO
     }
@@ -154,25 +194,35 @@ struct Coupling_s_auxCe : public samurai::petsc::ManualAssembly<field_t>
 template <class Mesh_s>
 struct Coupling_auxCe_s : public samurai::petsc::ManualAssembly<aux_t>
 {
-    const Mesh_s& mesh_s;
+    const Mesh_s* mesh_s;
 
     explicit Coupling_auxCe_s(const Mesh_s& m)
-        : mesh_s(m)
+        : mesh_s(&m)
     {
         this->set_name("Coupling_auxCe_s");
     }
 
-    PetscInt matrix_rows() const override
+    PetscInt local_matrix_rows() const override
     {
-        return static_cast<PetscInt>(mesh_s.nb_cells());
+        return static_cast<PetscInt>(mesh_s->cell_ownership().n_local_cells);
     }
 
-    PetscInt matrix_cols() const override
+    PetscInt local_matrix_cols() const override
     {
         return static_cast<PetscInt>(this->unknown().size());
     }
 
-    void sparsity_pattern_scheme(std::vector<PetscInt>&) const override
+    PetscInt owned_matrix_rows() const override
+    {
+        return static_cast<PetscInt>(mesh_s->cell_ownership().n_owned_cells);
+    }
+
+    PetscInt owned_matrix_cols() const override
+    {
+        return static_cast<PetscInt>(this->unknown().size());
+    }
+
+    void sparsity_pattern_scheme(std::vector<PetscInt>&, std::vector<PetscInt>&) const override
     {
         // TODO
     }
@@ -255,10 +305,10 @@ int main(int argc, char* argv[])
     //-----------------//
 
     // Create an assembly object in order to assemble the matrix associated to the block operator
-    auto assembly = samurai::petsc::make_assembly<true>(block_op); // <true>: monolithic, <false>: nested
+    auto assembly = samurai::petsc::make_assembly<samurai::petsc::BlockAssemblyType::Monolithic>(block_op);
     // Disable the assembly of the BC for the diffusion operators
-    assembly.get<0, 0>().include_bc(false);
-    assembly.get<2, 2>().include_bc(false);
+    assembly.template get<0, 0>().include_bc(false);
+    assembly.template get<2, 2>().include_bc(false);
     assembly.set_diag_value_for_useless_ghosts(9);
 
     // Set the unknowns of the system (even if you don't want the solve it).
@@ -272,18 +322,14 @@ int main(int argc, char* argv[])
     // Insert the coefficients into the matrix
     assembly.assemble_matrix(J);
 
-    std::cout << "Useless ghost rows: ";
-    // assembly.get<0, 0>().for_each_useless_ghost_row(
-    assembly.for_each_useless_ghost_row(
-        [](auto row)
-        {
-            std::cout << row << " ";
-        });
-    std::cout << std::endl;
-
     Vec v = assembly.create_vector(u_e, aux_Ce, u_s);
     VecView(v, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
     std::cout << std::endl;
+
+    // Just to check that it compiles
+    auto solver = samurai::petsc::make_solver(block_op);
+    solver.set_unknowns(u_e, aux_Ce, u_s);
+    solver.set_block_operator(block_op);
 
     samurai::finalize();
     return 0;

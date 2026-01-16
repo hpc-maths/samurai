@@ -40,8 +40,13 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
                                level_[cell] = cell.level;
                            });
 
+#ifdef SAMURAI_WITH_MPI
+    mpi::communicator world;
+    samurai::save(path, fmt::format("{}_size_{}{}", filename, world.size(), suffix), mesh, u, level_);
+#else
     samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
     samurai::dump(path, fmt::format("{}_restart{}", filename, suffix), mesh, u);
+#endif
 }
 
 int main(int argc, char* argv[])
@@ -101,10 +106,6 @@ int main(int argc, char* argv[])
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_flag("--save-final-state-only", save_final_state_only, "Save final state only")->group("Output");
     SAMURAI_PARSE(argc, argv);
-
-    PetscMPIInt size;
-    PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size));
-    PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
 
     //--------------------//
     // Problem definition //
@@ -183,6 +184,14 @@ int main(int argc, char* argv[])
         save(path, filename, u, fmt::format("_ite_{}", nsave++));
     }
 
+    auto back_euler_solver = samurai::petsc::make_solver(id + dt * diff);
+    back_euler_solver.set_unknown(unp1);
+    back_euler_solver.configure = [](KSP& ksp, PC& pc)
+    {
+        KSPSetType(ksp, KSPPREONLY); // (equiv. '-ksp_type preonly')
+        PCSetType(pc, PCLU);         // (equiv. '-pc_type lu')
+    };
+
     double t = t0;
     while (t != Tf)
     {
@@ -192,12 +201,17 @@ int main(int argc, char* argv[])
         {
             dt += Tf - t;
             t = Tf;
+            back_euler_solver.set_scheme(id + dt * diff);
         }
         std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt) << std::flush;
 
         // Mesh adaptation
         MRadaptation(mra_config);
         unp1.resize();
+        if (mesh.min_level() != mesh.max_level())
+        {
+            back_euler_solver.reset();
+        }
 
         if (explicit_scheme)
         {
@@ -205,8 +219,8 @@ int main(int argc, char* argv[])
         }
         else
         {
-            auto back_euler = id + dt * diff;
-            samurai::petsc::solve(back_euler, unp1, u); // solves the linear equation   [Id + dt*Diff](unp1) = u
+            // solves the linear equation   [Id + dt*Diff](unp1) = u
+            back_euler_solver.solve(u);
         }
 
         // u <-- unp1
@@ -244,6 +258,8 @@ int main(int argc, char* argv[])
     {
         save(path, filename, u);
     }
+
+    back_euler_solver.destroy_petsc_objects();
 
     samurai::finalize();
     return 0;

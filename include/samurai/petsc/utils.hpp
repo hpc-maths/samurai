@@ -1,17 +1,53 @@
 #pragma once
 #include <petsc.h>
+#include <type_traits>
 #include <xtensor/containers/xfixed.hpp>
 
 namespace samurai
 {
     namespace petsc
     {
+
+        enum class BlockAssemblyType
+        {
+            Monolithic,
+            NestedMatrices
+        };
+
+        // Concept to check if a type is xt::xtensor
+        template <typename T>
+        struct is_xtensor_impl : std::false_type
+        {
+        };
+
+        template <typename T, std::size_t N, xt::layout_type L, class A>
+        struct is_xtensor_impl<xt::xtensor<T, N, L, A>> : std::true_type
+        {
+        };
+
+        template <typename T>
+        concept is_xtensor = is_xtensor_impl<std::remove_cv_t<T>>::value;
+
+        Vec create_petsc_vector(PetscInt local_size)
+        {
+            Vec v;
+            VecCreate(PETSC_COMM_WORLD, &v);
+#ifdef SAMURAI_WITH_MPI
+            VecSetType(v, VECMPI);
+#else
+            VecSetType(v, VECSEQ);
+#endif
+            VecSetFromOptions(v);
+            VecSetSizes(v, local_size, PETSC_DETERMINE);
+            return v;
+        }
+
         template <class Field>
         Vec create_petsc_vector_from(Field& f)
         {
             Vec v;
             auto n = static_cast<PetscInt>(f.mesh().nb_cells() * Field::n_comp);
-            VecCreateSeqWithArray(MPI_COMM_SELF, 1, n, f.array().data(), &v);
+            VecCreateSeqWithArray(PETSC_COMM_SELF, 1, n, f.array().data(), &v);
             PetscObjectSetName(reinterpret_cast<PetscObject>(v), f.name().data());
             return v;
         }
@@ -21,7 +57,7 @@ namespace samurai
         {
             Vec v;
             auto n = static_cast<PetscInt>(f.size());
-            VecCreateSeqWithArray(MPI_COMM_SELF, 1, n, f.data(), &v);
+            VecCreateSeqWithArray(PETSC_COMM_SELF, 1, n, f.data(), &v);
             return v;
         }
 
@@ -29,7 +65,7 @@ namespace samurai
         void copy(Field& f, Vec& v)
         {
             PetscInt n_vec;
-            VecGetSize(v, &n_vec);
+            VecGetLocalSize(v, &n_vec);
             assert(static_cast<PetscInt>(f.mesh().nb_cells() * Field::n_comp) == n_vec);
 
             double* v_data;
@@ -76,7 +112,7 @@ namespace samurai
             std::size_t n = f.mesh().nb_cells() * Field::n_comp;
 
             PetscInt n_vec;
-            VecGetSize(v, &n_vec);
+            VecGetLocalSize(v, &n_vec);
             assert(static_cast<PetscInt>(n) == n_vec);
 
             const double* arr;
@@ -201,7 +237,7 @@ namespace samurai
             Vec v;
             auto vec_size        = static_cast<PetscInt>(Field::n_comp);
             auto cell_data_index = Field::n_comp * static_cast<std::size_t>(cell.index);
-            VecCreateSeqWithArray(MPI_COMM_SELF, 1, vec_size, &f.array().data()[cell_data_index], &v);
+            VecCreateSeqWithArray(PETSC_COMM_SELF, 1, vec_size, &f.array().data()[cell_data_index], &v);
             return v;
         }
 

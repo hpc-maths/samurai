@@ -8,97 +8,11 @@
 #include <samurai/samurai.hpp>
 #include <samurai/schemes/fv.hpp>
 
-template <class Solver>
-void configure_direct_solver(Solver& solver)
-{
-    KSP ksp = solver.Ksp();
-    PC pc;
-    KSPGetPC(ksp, &pc);
-    KSPSetType(ksp, KSPPREONLY); // (equiv. '-ksp_type preonly')
-    PCSetType(pc, PCQR);         // (equiv. '-pc_type qr')
-    // KSP and PC overwritten by user value if needed
-    KSPSetFromOptions(ksp);
-}
-
-//
-// Configuration of the PETSc solver for the Stokes problem
-//
-template <class Solver>
-void configure_saddle_point_solver(Solver& block_solver)
-{
-    // The matrix has the saddle-point structure
-    //           | A    B |
-    //           | B^T  C |
-
-    // The Schur complement eliminating the first variable (here, the velocity) is
-    //            Schur = C - B^T * A^-1 * B
-    // We define the preconditioner
-    //            S = C - B^T * ksp(A) * B
-    // where ksp(A) is a solver for A.
-
-    KSP ksp = block_solver.Ksp();
-    PC pc;
-    KSPGetPC(ksp, &pc);
-
-    block_solver.assemble_matrix(); // if nested matrix, must be called before calling set_pc_fieldsplit().
-
-    block_solver.set_pc_fieldsplit(pc);
-    PCFieldSplitSetType(pc, PC_COMPOSITE_SCHUR); // Schur complement preconditioner (equiv. '-pc_fieldsplit_type schur')
-    PCFieldSplitSetSchurPre(pc, PC_FIELDSPLIT_SCHUR_PRE_SELFP, PETSC_NULLPTR); // (equiv. '-pc_fieldsplit_schur_precondition selfp')
-    PCFieldSplitSetSchurFactType(pc, PC_FIELDSPLIT_SCHUR_FACT_FULL);           // (equiv. '-pc_fieldsplit_schur_fact_type full')
-
-    // Configure the sub-solvers
-    block_solver.setup(); // KSPSetUp() or PCSetUp() must be called before calling PCFieldSplitSchurGetSubKSP(), because the matrices are
-                          // needed.
-    KSP* sub_ksp;
-    PCFieldSplitSchurGetSubKSP(pc, nullptr, &sub_ksp);
-    KSP A_ksp     = sub_ksp[0];
-    KSP schur_ksp = sub_ksp[1];
-
-    // Set LU by default for the A block (diffusion). Consider using 'hypre' for large problems,
-    // using the option '-fieldsplit_velocity_[np1]_pc_type hypre'.
-    PC A_pc;
-    KSPGetPC(A_ksp, &A_pc);
-    KSPSetType(A_ksp, KSPPREONLY); // (equiv. '-fieldsplit_velocity_[np1]_ksp_type preonly')
-    PCSetType(A_pc, PCLU);         // (equiv. '-fieldsplit_velocity_[np1]_pc_type lu')
-    KSPSetFromOptions(A_ksp);      // KSP and PC overwritten by user value if needed
-
-    PC schur_pc;
-    KSPGetPC(schur_ksp, &schur_pc);
-    KSPSetType(schur_ksp, KSPPREONLY); // (equiv. '-fieldsplit_pressure_[np1]_ksp_type preonly')
-    PCSetType(schur_pc, PCQR);         // (equiv. '-fieldsplit_pressure_[np1]_pc_type qr')
-    // PCSetType(schur_pc, PCJACOBI); // (equiv. '-fieldsplit_pressure_[np1]_pc_type none')
-    KSPSetFromOptions(schur_ksp); // KSP and PC overwritten by user value if needed
-
-    // If a tolerance is set by the user ('-ksp-rtol XXX'), then we set that
-    // tolerance to all the sub-solvers
-    PetscReal ksp_rtol;
-    KSPGetTolerances(ksp, &ksp_rtol, PETSC_IGNORE, PETSC_IGNORE, PETSC_IGNORE);
-    KSPSetTolerances(A_ksp, ksp_rtol, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT);     // (equiv. '-fieldsplit_velocity_ksp_rtol XXX')
-    KSPSetTolerances(schur_ksp, ksp_rtol, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT); // (equiv. '-fieldsplit_pressure_ksp_rtol XXX')
-}
-
-template <class Solver>
-void configure_solver(Solver& solver)
-{
-    if constexpr (Solver::is_monolithic)
-    {
-        configure_direct_solver(solver);
-    }
-    else
-    {
-        configure_saddle_point_solver(solver); // works also for monolithic
-    }
-}
-
 int main(int argc, char* argv[])
 {
     auto& app = samurai::initialize("Lid-driven cavity", argc, argv);
 
     constexpr std::size_t dim = 2;
-
-    static constexpr bool is_soa     = false;
-    static constexpr bool monolithic = true;
 
     //----------------//
     //   Parameters   //
@@ -132,10 +46,6 @@ int main(int argc, char* argv[])
         fs::create_directory(path);
     }
 
-    PetscMPIInt size;
-    PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size));
-    PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
-
     auto box = samurai::Box<double, dim>({0, 0}, {1, 1});
 
     std::cout << "lid-driven cavity" << std::endl;
@@ -151,15 +61,17 @@ int main(int argc, char* argv[])
     auto config = samurai::mesh_config<dim>().min_level(3).max_level(6).max_stencil_radius(2);
     auto mesh   = samurai::mra::make_mesh(box, config);
 
-    using mesh_id_t = typename decltype(mesh)::mesh_id_t;
-
     // Fields for the Navier-Stokes equations
-    auto velocity     = samurai::make_vector_field<double, dim, is_soa>("velocity", mesh);
-    auto velocity_np1 = samurai::make_vector_field<double, dim, is_soa>("velocity_np1", mesh);
+    auto velocity     = samurai::make_vector_field<double, dim>("velocity", mesh);
+    auto velocity_np1 = samurai::make_vector_field<double, dim>("velocity_np1", mesh);
     auto pressure_np1 = samurai::make_scalar_field<double>("pressure_np1", mesh);
 
     using VelocityField = decltype(velocity);
     using PressureField = decltype(pressure_np1);
+
+    // Fields for the null space of the system (constant pressure)
+    auto constant_pressure = samurai::make_scalar_field<double>("constant_pressure", mesh, 1.0);
+    auto zero_velocity     = samurai::make_vector_field<double, dim>("zero_velocity", mesh, 0.0);
 
     // Multi-resolution: the mesh will be adapted according to the velocity
     auto MRadaptation = samurai::make_MRAdapt(velocity);
@@ -213,13 +125,50 @@ int main(int argc, char* argv[])
     // clang-format on
 
     // Fields for the right-hand side of the system
-    auto rhs  = samurai::make_vector_field<double, dim, is_soa>("rhs", mesh);
+    auto rhs  = samurai::make_vector_field<double, dim>("rhs", mesh);
     auto zero = samurai::make_scalar_field<double>("zero", mesh);
 
+    //--------------------------------------------------------------------------------
     // Linear solver
-    auto stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
+
+    auto stokes_solver = samurai::petsc::make_solver<samurai::petsc::BlockAssemblyType::Monolithic>(stokes);
     stokes_solver.set_unknowns(velocity_np1, pressure_np1);
-    configure_solver(stokes_solver);
+    stokes_solver.configure = [&](KSP& ksp, PC& pc)
+    {
+        KSPSetType(ksp, KSPPREONLY); // (equiv. '-ksp_type preonly')
+#if defined(PETSC_HAVE_MUMPS)
+        // We use MUMPS because it can handle null spaces (unlike the default petsc LU)
+        PCSetType(pc, PCLU);                          // (equiv. '-pc_type lu')
+        PCFactorSetMatSolverType(pc, MATSOLVERMUMPS); // (equiv. '-pc_factor_mat_solver_type mumps')
+#else
+        // If MUMPS is not installed, we fallback on QR because it can handle singular systems
+        PCSetType(pc, PCQR); // (equiv. '-pc_type qr')
+#endif
+    };
+    stokes_solver.after_matrix_assembly = [&](KSP&, PC& pc, Mat& A)
+    {
+        // Set the null space (constant pressures) so that iterative solvers can orthogonalize residuals against it
+        Vec constant_pressure_vector = stokes_solver.assembly().create_vector(zero_velocity, constant_pressure);
+        VecNormalize(constant_pressure_vector, NULL);
+
+        MatNullSpace nullspace;
+        MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_FALSE, 1, &constant_pressure_vector, &nullspace);
+        MatSetNullSpace(A, nullspace);
+        MatNullSpaceDestroy(&nullspace);
+        VecDestroy(&constant_pressure_vector);
+
+        // If using MUMPS, set option ICNTL(24)=1 to enable the detection of null pivots (because the matrix is singular)
+        PetscBool is_mumps = PETSC_FALSE;
+        const char* stype;
+        PCFactorGetMatSolverType(pc, &stype);
+        PetscStrcmp(stype, MATSOLVERMUMPS, &is_mumps);
+        if (is_mumps)
+        {
+            Mat F;
+            PCFactorGetMatrix(pc, &F);
+            MatMumpsSetIcntl(F, 24, 1); // (equiv. '-mat_mumps_icntl_24 1')
+        }
+    };
 
     //-------------------- 2 ----------------------------------------------------------------
     //
@@ -235,7 +184,7 @@ int main(int argc, char* argv[])
     auto ink     = samurai::make_scalar_field<double>("ink", mesh2);
     auto ink_np1 = samurai::make_scalar_field<double>("ink_np1", mesh2);
     // Field to store the Navier-Stokes velocity transferred to the 2nd mesh
-    auto velocity2 = samurai::make_vector_field<dim, is_soa>("velocity2", mesh2);
+    auto velocity2 = samurai::make_vector_field<dim>("velocity2", mesh2);
 
     using InkField = decltype(ink);
 
@@ -297,13 +246,8 @@ int main(int argc, char* argv[])
         nsave++;
     }
 
-    bool mesh_has_changed = false;
+    bool mesh_has_changed = mesh.min_level() != mesh.max_level();
     bool dt_has_changed   = false;
-
-    std::size_t min_level_n   = mesh[mesh_id_t::cells].min_level();
-    std::size_t max_level_n   = mesh[mesh_id_t::cells].max_level();
-    std::size_t min_level_np1 = min_level_n;
-    std::size_t max_level_np1 = max_level_n;
 
     double t = 0;
     while (t != Tf)
@@ -322,30 +266,27 @@ int main(int argc, char* argv[])
         if (mesh.min_level() != mesh.max_level())
         {
             MRadaptation(mra_config);
-            min_level_np1    = mesh[mesh_id_t::cells].min_level();
-            max_level_np1    = mesh[mesh_id_t::cells].max_level();
-            mesh_has_changed = !(samurai::is_uniform(mesh) && min_level_n == min_level_np1 && max_level_n == max_level_np1);
-            if (mesh_has_changed)
-            {
-                velocity_np1.resize();
-                pressure_np1.resize();
-                zero.resize();
-                rhs.resize();
-            }
-            std::cout << ", levels " << min_level_np1 << "-" << max_level_np1;
+            velocity_np1.resize();
+            pressure_np1.resize();
+            zero.resize();
+            rhs.resize();
+            constant_pressure.resize();
+            zero_velocity.resize();
+            constant_pressure.fill(1.0);
+            zero_velocity.fill(0.0);
         }
         std::cout << std::endl;
 
         // Update solver
-        if (mesh_has_changed || dt_has_changed)
+        if (dt_has_changed)
         {
-            if (dt_has_changed)
-            {
-                stokes = samurai::make_block_operator<2, 2>(id + dt * diff, dt * grad, -div, zero_op);
-            }
-            stokes_solver = samurai::petsc::make_solver<monolithic>(stokes);
-            stokes_solver.set_unknowns(velocity_np1, pressure_np1);
-            configure_solver(stokes_solver);
+            // Reconstruct the block operator with the new dt
+            stokes = samurai::make_block_operator<2, 2>(id + dt * diff, dt * grad, -div, zero_op);
+            stokes_solver.set_block_operator(stokes);
+        }
+        if (mesh_has_changed)
+        {
+            stokes_solver.reset();
         }
 
         // Solve Stokes system
@@ -366,8 +307,6 @@ int main(int argc, char* argv[])
         // Prepare next step
         samurai::swap(velocity, velocity_np1);
         samurai::swap(ink, ink_np1);
-        min_level_n = min_level_np1;
-        max_level_n = max_level_np1;
 
         // Save the results
         if (t >= static_cast<double>(nsave) * dt_save || t == Tf)
@@ -404,7 +343,7 @@ int main(int argc, char* argv[])
         } // end time loop
 
         // srand(time(NULL));
-        // auto x_velocity = samurai::make_vector_field<double, dim, is_soa>("x_velocity", mesh);
+        // auto x_velocity = samurai::make_vector_field<double, dim>("x_velocity", mesh);
         // auto x_pressure = samurai::make_scalar_field<double>("x_pressure", mesh);
         // samurai::for_each_cell(mesh[mesh_id_t::reference],
         //                        [&](auto cell)
@@ -419,7 +358,7 @@ int main(int argc, char* argv[])
         // monolithicAssembly.create_matrix(monolithicA);
         // monolithicAssembly.assemble_matrix(monolithicA);
         // Vec mono_x                = monolithicAssembly.create_applicable_vector(x); // copy
-        // auto result_velocity_mono = samurai::make_vector_field<double, dim, is_soa>("result_velocity", mesh);
+        // auto result_velocity_mono = samurai::make_vector_field<double, dim>("result_velocity", mesh);
         // auto result_pressure_mono = samurai::make_scalar_field<double>("result_pressure", mesh);
         // auto result_mono          = stokes.tie_rhs(result_velocity_mono, result_pressure_mono);
         // Vec mono_result           = monolithicAssembly.create_rhs_vector(result_mono); // copy
@@ -431,7 +370,7 @@ int main(int argc, char* argv[])
         // nestedAssembly.create_matrix(nestedA);
         // nestedAssembly.assemble_matrix(nestedA);
         // Vec nest_x                = nestedAssembly.create_applicable_vector(x);
-        // auto result_velocity_nest = samurai::make_vector_field<double, dim, is_soa>("result_velocity", mesh);
+        // auto result_velocity_nest = samurai::make_vector_field<double, dim>("result_velocity", mesh);
         // auto result_pressure_nest = samurai::make_scalar_field<double>("result_pressure", mesh);
         // auto result_nest          = stokes.tie_rhs(result_velocity_nest, result_pressure_nest);
         // Vec nest_result           = nestedAssembly.create_rhs_vector(result_nest);

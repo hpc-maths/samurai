@@ -24,8 +24,8 @@ namespace samurai
             : base_class(flux_definition)
         {
             this->set_name("Diffusion");
-            this->is_symmetric(true);
-            this->is_spd(true);
+            // this->is_symmetric(true);
+            // this->is_spd(true);
 
             set_dirichlet_config();
             set_neumann_config();

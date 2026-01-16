@@ -143,6 +143,17 @@ int main(int argc, char* argv[])
         dt                    = cfl * dx / sum_velocities;
     }
 
+    // PETSc solver for the implicit scheme (Newton solver for the non-linear equation [Id + dt*Conv](unp1) = u)
+    auto back_euler_solver = samurai::petsc::make_solver(id + dt * conv);
+    back_euler_solver.set_unknown(unp1);
+    back_euler_solver.configure = [](SNES& snes, KSP& ksp, PC& pc)
+    {
+        SNESSetType(snes, SNESNEWTONLS);
+        SNESSetTolerances(snes, PETSC_CURRENT /* abstol */, 1e-5 /* rtol */, PETSC_CURRENT /* stol */, 500 /* maxit */, PETSC_CURRENT);
+        KSPSetType(ksp, KSPPREONLY);
+        PCSetType(pc, PCLU);
+    };
+
     auto MRadaptation = samurai::make_MRAdapt(u);
     auto mra_config   = samurai::mra_config();
     MRadaptation(mra_config);
@@ -162,6 +173,7 @@ int main(int argc, char* argv[])
         {
             dt += Tf - t;
             t = Tf;
+            back_euler_solver.set_scheme(id + dt * conv);
         }
         std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt) << std::flush;
 
@@ -170,25 +182,13 @@ int main(int argc, char* argv[])
         unp1.resize();
         u1.resize();
         u2.resize();
+        back_euler_solver.reset();
 
         if (implicit_scheme) // Backward Euler
         {
-            // Newton solver for non-linear equation  [Id + dt*Conv](unp1) = u
-            auto solver = samurai::petsc::make_solver(id + dt * conv);
-
-            // Configure the PETSc solver
-            SNESSetTolerances(solver.Snes(), PETSC_CURRENT /* abstol */, 1e-5 /* rtol */, PETSC_CURRENT /* stol */, 500 /* maxit */, PETSC_CURRENT);
-            KSP ksp;
-            PC pc;
-            SNESGetKSP(solver.Snes(), &ksp);
-            KSPSetType(ksp, KSPPREONLY);
-            KSPGetPC(ksp, &pc);
-            PCSetType(pc, PCLU); // Set the PC type to LU
-
             // Solve the non-linear equation   [Id + dt*Conv](unp1) = u
-            solver.set_unknown(unp1);
             unp1 = u; // set initial guess for the Newton solver
-            solver.solve(u);
+            back_euler_solver.solve(u);
         }
         else
         {
@@ -228,6 +228,8 @@ int main(int argc, char* argv[])
         std::cout << "python <<path to samurai>>/python/read_mesh.py " << filename << "_ite_ --field u level --start 0 --end " << nsave
                   << std::endl;
     }
+
+    back_euler_solver.destroy_petsc_objects();
 
     samurai::finalize();
     return 0;

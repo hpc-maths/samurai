@@ -214,6 +214,9 @@ namespace samurai
                 ar& m_offsets[d];
             }
             ar & m_level;
+            ar & m_is_box;
+            // ar & m_origin_point; // doesn't compile: xt::xtensor_fixed cannot be serialized
+            ar & m_scaling_factor;
         }
 #endif
         template <bool isIntervalListEmpty, bool isParentPointNew, size_t d>
