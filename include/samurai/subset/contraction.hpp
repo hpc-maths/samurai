@@ -113,26 +113,95 @@ namespace samurai
         contraction_t m_contraction;
     };
 
-    template <class Set>
-    auto contract(const Set& set, const typename Contraction<std::decay_t<decltype(self(set))>>::contraction_t& contraction)
+    // template <class Set>
+    // auto contract(const Set& set, const typename Contraction<std::decay_t<decltype(self(set))>>::contraction_t& contraction)
+    // {
+    //     return Contraction(self(set), contraction);
+    // }
+
+    // template <class Set>
+    // auto contract(const Set& set, const typename Contraction<std::decay_t<decltype(self(set))>>::value_t& contraction)
+    // {
+    //     return Contraction(self(set), contraction);
+    // }
+
+    // template <class Set>
+    // auto contract(const Set& set,
+    //               const typename Contraction<std::decay_t<decltype(self(set))>>::value_t& contraction,
+    //               const typename Contraction<std::decay_t<decltype(self(set))>>::do_contraction_t& do_contraction) // idk how to make
+    //               this
+    //                                                                                                                // more readable,
+    //                                                                                                                // perhaps a traits...
+    // {
+    //     return Contraction(self(set), contraction, do_contraction);
+    // }
+
+    //----------------------------------------------------------------//
+    //                        Contract                                //
+    //----------------------------------------------------------------//
+
+    template <typename T>
+    concept IsLCA = std::same_as<LevelCellArray<T::dim, typename T::interval_t>, T>;
+
+    template <std::size_t direction_index, class SubsetOrLCA>
+    auto contract_rec(const SubsetOrLCA& set, int width, const std::array<bool, SubsetOrLCA::dim>& contract_directions)
     {
-        return Contraction(self(set), contraction);
+        static constexpr std::size_t dim = SubsetOrLCA::dim;
+        if constexpr (direction_index < dim)
+        {
+            using direction_t = xt::xtensor_fixed<int, xt::xshape<dim>>;
+
+            auto contracted_in_other_dirs = contract_rec<direction_index + 1>(set, width, contract_directions);
+            direction_t dir;
+            dir.fill(0);
+            dir[direction_index] = contract_directions[direction_index] ? width : 0;
+
+            return intersection(contracted_in_other_dirs, translate(set, dir), translate(set, -dir));
+        }
+        else
+        {
+            if constexpr (IsLCA<SubsetOrLCA>)
+            {
+                return self(set);
+            }
+            else
+            {
+                return set;
+            }
+        }
     }
 
-    template <class Set>
-    auto contract(const Set& set, const typename Contraction<std::decay_t<decltype(self(set))>>::value_t& contraction)
+    /**
+     * @brief Contract a set in the specified directions.
+     *
+     * @tparam SubsetOrLCA The type of the set to contract.
+     * @param set The set or LevelCellArray to contract.
+     * @param width The contraction width.
+     * @param contract_directions An array indicating which directions to contract (true for contraction, false for no contraction).
+     * @return A new set that is contracted in the specified directions.
+     */
+    template <class SubsetOrLCA>
+    auto contract(const SubsetOrLCA& set, std::size_t width, const std::array<bool, SubsetOrLCA::dim>& contract_directions)
     {
-        return Contraction(self(set), contraction);
+        return contract_rec<0>(set, static_cast<int>(width), contract_directions);
     }
 
-    template <class Set>
-    auto contract(const Set& set,
-                  const typename Contraction<std::decay_t<decltype(self(set))>>::value_t& contraction,
-                  const typename Contraction<std::decay_t<decltype(self(set))>>::do_contraction_t& do_contraction) // idk how to make this
-                                                                                                                   // more readable,
-                                                                                                                   // perhaps a traits...
+    /**
+     * @brief Contract a set in all directions.
+     *
+     * This function is a convenience wrapper that contracts the set in all dimensions.
+     *
+     * @tparam SubsetOrLCA The type of the set to contract.
+     * @param set The set or LevelCellArray to contract.
+     * @param width The contraction width.
+     * @return A new set that is contracted in all directions.
+     */
+    template <class SubsetOrLCA>
+    auto contract(const SubsetOrLCA& set, std::size_t width)
     {
-        return Contraction(self(set), contraction, do_contraction);
+        std::array<bool, SubsetOrLCA::dim> contract_directions;
+        std::fill(contract_directions.begin(), contract_directions.end(), true);
+        return contract(set, width, contract_directions);
     }
 
 } // namespace samurai
