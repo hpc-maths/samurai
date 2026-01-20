@@ -125,13 +125,9 @@ int main(int argc, char* argv[])
 
     constexpr std::size_t dim     = 2;
     constexpr unsigned int n_comp = 1;
-    constexpr bool is_soa         = true;
+    constexpr bool is_soa         = false;
     using Mesh                    = decltype(create_uniform_mesh<dim>(1));
     using Field                   = samurai::VectorField<Mesh, double, n_comp, is_soa>;
-
-    PetscMPIInt size;
-    PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size));
-    PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "This is a uniprocessor example only!");
 
     //----------------//
     //   Parameters   //

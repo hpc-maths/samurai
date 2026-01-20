@@ -10,6 +10,7 @@ namespace samurai
         {
           private:
 
+            bool m_is_set_up   = false; // if false, then setup() must be called before assembling the matrix
             bool m_is_deleted  = false;
             std::string m_name = "(unnamed)";
 
@@ -22,12 +23,29 @@ namespace samurai
 
           protected:
 
-            bool m_is_block             = false; // is a block in a monolithic block matrix
-            bool m_fit_block_dimensions = false; // computes dimensions according to the block's position
-            PetscInt m_row_shift        = 0;
-            PetscInt m_col_shift        = 0;
-            PetscInt m_rows             = 0;
-            PetscInt m_cols             = 0;
+            // ----- For blocks in a monolithic block matrix ----- //
+
+            bool m_is_block_in_monolithic_matrix = false; // is this a block in a monolithic block matrix?
+            bool m_is_block_in_nested_matrix     = false; // is this a block in a nested block matrix?
+
+            PetscInt m_block_row_shift = 0; // row origin of the block in the local monolithic matrix
+            PetscInt m_block_col_shift = 0; // column origin of the block in the local monolithic matrix
+
+            PetscInt m_rank_row_shift = 0; // first row owned by the current MPI process in the global matrix
+            PetscInt m_rank_col_shift = 0; // first column owned by the current MPI process in the global matrix
+
+            // The local indices are ordered this way: 1. all the owned variables of all blocks, 2. all the 'ghost' variables of all blocks.
+            // The previous parameters m_row/col_shift are used for owned variables, while the following ones are used for 'ghost'
+            // variables.
+            PetscInt m_ghosts_row_shift = 0;
+            PetscInt m_ghosts_col_shift = 0;
+
+            // ----- Number of non-zeroes for matrix preallocation ----- //
+
+            //  Petsc takes a reference to the nnz vectors, so we must keep them alive as long as the matrix is alive
+            std::vector<PetscInt> m_d_nnz; // number of non-zeros in the diagonal part of the local submatrix (if no MPI, this is simply
+                                           // nnz)
+            std::vector<PetscInt> m_o_nnz; // number of non-zeros in the off-diagonal part of the local submatrix (if no MPI, this is empty)
 
           public:
 
@@ -39,6 +57,16 @@ namespace samurai
             void set_name(const std::string& name)
             {
                 m_name = name;
+            }
+
+            bool is_set_up() const
+            {
+                return m_is_set_up;
+            }
+
+            virtual void is_set_up(bool value)
+            {
+                m_is_set_up = value;
             }
 
             bool include_bc() const
@@ -81,71 +109,117 @@ namespace samurai
                 return m_diag_value_for_useless_ghosts;
             }
 
-            virtual void is_block(bool is_block)
+            virtual void is_block_in_monolithic_matrix(bool is_block)
             {
-                m_is_block = is_block;
+                m_is_block_in_monolithic_matrix = is_block;
             }
 
-            bool is_block() const
+            bool is_block_in_monolithic_matrix() const
             {
-                return m_is_block;
+                return m_is_block_in_monolithic_matrix;
             }
 
-            void fit_block_dimensions(bool value)
+            virtual void is_block_in_nested_matrix(bool is_block)
             {
-                m_fit_block_dimensions = value;
+                m_is_block_in_nested_matrix = is_block;
             }
 
-            bool fit_block_dimensions() const
+            bool is_block_in_nested_matrix() const
             {
-                return m_fit_block_dimensions;
+                return m_is_block_in_nested_matrix;
             }
 
-            virtual void set_row_shift(PetscInt shift)
+            virtual void set_block_row_shift(PetscInt shift)
             {
-                m_row_shift = shift;
+                m_block_row_shift = shift;
             }
 
-            virtual void set_col_shift(PetscInt shift)
+            virtual void set_block_col_shift(PetscInt shift)
             {
-                m_col_shift = shift;
+                m_block_col_shift = shift;
             }
 
+            [[deprecated("Use block_row_shift() instead")]]
             PetscInt row_shift() const
             {
-                return m_row_shift;
+                return m_block_row_shift;
             }
 
+            [[deprecated("Use block_col_shift() instead")]]
             PetscInt col_shift() const
             {
-                return m_col_shift;
+                return m_block_col_shift;
+            }
+
+            PetscInt block_row_shift() const
+            {
+                return m_block_row_shift;
+            }
+
+            PetscInt block_col_shift() const
+            {
+                return m_block_col_shift;
+            }
+
+            virtual void set_rank_row_shift(PetscInt shift)
+            {
+                m_rank_row_shift = shift;
+            }
+
+            virtual void set_rank_col_shift(PetscInt shift)
+            {
+                m_rank_col_shift = shift;
+            }
+
+            PetscInt rank_row_shift() const
+            {
+                return m_rank_row_shift;
+            }
+
+            PetscInt rank_col_shift() const
+            {
+                return m_rank_col_shift;
+            }
+
+            virtual void set_ghosts_row_shift(PetscInt shift)
+            {
+                m_ghosts_row_shift = shift;
+            }
+
+            virtual void set_ghosts_col_shift(PetscInt shift)
+            {
+                m_ghosts_col_shift = shift;
+            }
+
+            PetscInt ghosts_row_shift() const
+            {
+                return m_ghosts_row_shift;
+            }
+
+            PetscInt ghosts_col_shift() const
+            {
+                return m_ghosts_col_shift;
             }
 
             /**
-             * @brief Returns the number of matrix rows.
+             * @brief Returns the number of matrix rows owned by the current process.
              */
-            virtual PetscInt matrix_rows() const
-            {
-                return m_rows;
-            }
+            virtual PetscInt owned_matrix_rows() const = 0;
 
             /**
-             * @brief Returns the number of matrix columns.
+             * @brief Returns the number of matrix columns owned by the current process.
              */
-            virtual PetscInt matrix_cols() const
-            {
-                return m_cols;
-            }
+            virtual PetscInt owned_matrix_cols() const = 0;
 
-            void set_matrix_rows(PetscInt rows)
-            {
-                m_rows = rows;
-            }
+            /**
+             * @brief Returns the number of matrix rows locally present in the current process.
+             */
+            virtual PetscInt local_matrix_rows() const = 0;
 
-            void set_matrix_cols(PetscInt cols)
-            {
-                m_cols = cols;
-            }
+            /**
+             * @brief Returns the number of matrix columns locally present in the current process.
+             */
+            virtual PetscInt local_matrix_cols() const = 0;
 
             InsertMode current_insert_mode() const
             {
@@ -165,40 +239,109 @@ namespace samurai
             {
                 times::timers.start("matrix assembly");
 
-                reset();
-                auto m = matrix_rows();
-                auto n = matrix_cols();
+                assert(!m_is_block_in_monolithic_matrix);
+                if (!m_is_block_in_nested_matrix && !m_is_set_up)
+                {
+                    setup();
+                    m_is_set_up = true;
+                }
 
-                MatCreate(PETSC_COMM_SELF, &A);
-                MatSetSizes(A, m, n, m, n);
+                //-----------------//
+                // Matrix creation //
+                //-----------------//
+
+                auto n_owned_rows = owned_matrix_rows();
+                auto n_owned_cols = owned_matrix_cols();
+
+                MatCreate(PETSC_COMM_WORLD, &A);
+#ifdef SAMURAI_WITH_MPI
+                MatSetType(A, MATMPIAIJ);
+#else
+                MatSetType(A, MATSEQAIJ);
+#endif
+
+                PetscInt n_global_rows = PETSC_DETERMINE;
+                PetscInt n_global_cols = PETSC_DETERMINE;
+                MatSetSizes(A, n_owned_rows, n_owned_cols, n_global_rows, n_global_cols);
                 MatSetFromOptions(A);
                 PetscObjectSetName(reinterpret_cast<PetscObject>(A), m_name.c_str());
 
-                // Number of non-zeros per row. 0 by default.
-                std::vector<PetscInt> nnz(static_cast<std::size_t>(m), 0);
+#ifdef SAMURAI_WITH_MPI
+                //-------------------------//
+                // Local to global mapping //
+                //-------------------------//
 
-                sparsity_pattern_scheme(nnz);
+                PetscInt n_local_rows = local_matrix_rows();
+                PetscInt n_local_cols = local_matrix_cols();
+
+                auto& local_to_global_rows = this->local_to_global_rows();
+                assert(local_to_global_rows.size() == static_cast<std::size_t>(n_local_rows));
+
+                ISLocalToGlobalMapping is_local_to_global_mapping_rows;
+                ISLocalToGlobalMappingCreate(PETSC_COMM_WORLD,
+                                             1, // block_size
+                                             n_local_rows,
+                                             local_to_global_rows.data(),
+                                             /*PETSC_USE_POINTER,*/ PETSC_COPY_VALUES,
+                                             &is_local_to_global_mapping_rows);
+
+                ISLocalToGlobalMapping is_local_to_global_mapping_cols = is_local_to_global_mapping_rows;
+                if (n_local_rows != n_local_cols)
+                {
+                    auto& local_to_global_cols = this->local_to_global_cols();
+                    assert(local_to_global_cols.size() == static_cast<std::size_t>(n_local_cols));
+
+                    ISLocalToGlobalMappingCreate(PETSC_COMM_WORLD,
+                                                 1, // block_size
+                                                 n_local_cols,
+                                                 local_to_global_cols.data(),
+                                                 /*PETSC_USE_POINTER,*/ PETSC_COPY_VALUES,
+                                                 &is_local_to_global_mapping_cols);
+                }
+
+                // Sets the local to global mapping for the rows and columns, which allows to use the local numbering when inserting
+                // values into the matrix.
+                MatSetLocalToGlobalMapping(A, is_local_to_global_mapping_rows, is_local_to_global_mapping_cols);
+                // Note that in this last instruction, PETSc takes the ownership of mapping objects, so we must not
+                // destroy them ourselves.
+#endif
+                //---------------------------------------//
+                // Preallocation of the non-zero entries //
+                //---------------------------------------//
+
+                // Number of non-zeros per row in the diagonal and off-diagonal part of the local submatrix. 0 by default.
+                auto& d_nnz = m_d_nnz;
+                auto& o_nnz = m_o_nnz;
+                d_nnz.resize(static_cast<std::size_t>(n_owned_rows));
+                std::fill(d_nnz.begin(), d_nnz.end(), 0);
+#ifdef SAMURAI_WITH_MPI
+                o_nnz.resize(static_cast<std::size_t>(n_owned_rows));
+                std::fill(o_nnz.begin(), o_nnz.end(), 0);
+#endif
+
+                sparsity_pattern_scheme(d_nnz, o_nnz);
+
                 if (m_include_bc)
                 {
-                    sparsity_pattern_boundary(nnz);
+                    sparsity_pattern_boundary(d_nnz, o_nnz);
                 }
                 if (m_assemble_proj_pred)
                 {
-                    sparsity_pattern_projection(nnz);
-                    sparsity_pattern_prediction(nnz);
+                    sparsity_pattern_projection(d_nnz, o_nnz);
+                    sparsity_pattern_prediction(d_nnz, o_nnz);
                 }
                 if (m_insert_value_on_diag_for_useless_ghosts)
                 {
-                    sparsity_pattern_useless_ghosts(nnz);
+                    sparsity_pattern_useless_ghosts(d_nnz);
                 }
 
-                // for (std::size_t row = 0; row < nnz.size(); ++row)
-                // {
-                //     std::cout << "nnz[" << row << "] = " << nnz[row] << std::endl;
-                // }
-                if (!m_is_block)
+                if (!m_is_block_in_monolithic_matrix)
                 {
-                    MatSeqAIJSetPreallocation(A, PETSC_DEFAULT, nnz.data());
+#ifdef SAMURAI_WITH_MPI
+                    MatMPIAIJSetPreallocation(A, PETSC_DEFAULT, d_nnz.data(), PETSC_DEFAULT, o_nnz.data());
+#else
+                    MatSeqAIJSetPreallocation(A, PETSC_DEFAULT, d_nnz.data());
+#endif
                 }
                 // MatSetOption(A, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
                 times::timers.stop("matrix assembly");
@@ -213,6 +356,7 @@ namespace samurai
                 times::timers.start("matrix assembly");
 
                 assemble_scheme(A);
+
                 if (m_include_bc)
                 {
                     assemble_boundary_conditions(A);
@@ -227,7 +371,7 @@ namespace samurai
                     insert_value_on_diag_for_useless_ghosts(A);
                 }
 
-                if (!m_is_block)
+                if (!m_is_block_in_monolithic_matrix)
                 {
                     PetscBool is_symmetric = matrix_is_symmetric() ? PETSC_TRUE : PETSC_FALSE;
                     MatSetOption(A, MAT_SYMMETRIC, is_symmetric);
@@ -238,7 +382,12 @@ namespace samurai
                     if (final_assembly)
                     {
                         MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
-                        MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+                        PetscErrorCode ierr = MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+                        if (ierr != PETSC_SUCCESS)
+                        {
+                            std::cerr << "Error during MatAssemblyEnd of matrix '" << name() << "'." << std::endl;
+                            exit(EXIT_FAILURE);
+                        }
                     }
                 }
                 times::timers.stop("matrix assembly");
@@ -250,27 +399,38 @@ namespace samurai
                 m_is_deleted = true;
             }
 
+          public:
+
+            /**
+             * @brief Sets the local to global mapping for the rows and cols, which allows to use the local numbering when inserting
+             * values into the matrix.
+             */
+            virtual const std::vector<PetscInt>& local_to_global_rows() const = 0;
+            virtual const std::vector<PetscInt>& local_to_global_cols() const = 0;
             /**
              * @brief Sets the sparsity pattern of the matrix for the interior of the domain (cells only).
-             * @param nnz that stores, for each row index in the matrix, the number of non-zero coefficients.
+             * @param d_nnz that stores, for each row index, the number of non-zero coefficients in the diagonal (local-local) block.
+             * @param o_nnz that stores, for each row index, the number of non-zero coefficients in the off-diagonal (local-neighb.) block.
              */
-            virtual void sparsity_pattern_scheme(std::vector<PetscInt>& nnz) const = 0;
+            virtual void sparsity_pattern_scheme(std::vector<PetscInt>& d_nnz, std::vector<PetscInt>& o_nnz) const = 0;
             /**
              * @brief Sets the sparsity pattern of the matrix for the boundary conditions.
-             * @param nnz that stores, for each row index in the matrix, the number of non-zero coefficients.
+             * @param d_nnz that stores, for each row index, the number of non-zero coefficients in the diagonal (local-local) block.
+             * @param o_nnz that stores, for each row index, the number of non-zero coefficients in the off-diagonal (local-neighb.) block.
              */
-            virtual void sparsity_pattern_boundary(std::vector<PetscInt>& nnz) const = 0;
+            virtual void sparsity_pattern_boundary(std::vector<PetscInt>& d_nnz, std::vector<PetscInt>& o_nnz) const = 0;
             /**
              * @brief Sets the sparsity pattern of the matrix for the projection ghosts.
-             * @param nnz that stores, for each row index in the matrix, the number of non-zero coefficients.
+             * @param d_nnz that stores, for each row index, the number of non-zero coefficients in the diagonal (local-local) block.
+             * @param o_nnz that stores, for each row index, the number of non-zero coefficients in the off-diagonal (local-neighb.) block.
              */
-            virtual void sparsity_pattern_projection(std::vector<PetscInt>& nnz) const = 0;
+            virtual void sparsity_pattern_projection(std::vector<PetscInt>& d_nnz, std::vector<PetscInt>& o_nnz) const = 0;
             /**
              * @brief Sets the sparsity pattern of the matrix for the prediction ghosts.
-             * @param nnz that stores, for each row index in the matrix, the number of non-zero coefficients.
+             * @param d_nnz that stores, for each row index, the number of non-zero coefficients in the diagonal (local-local) block.
+             * @param o_nnz that stores, for each row index, the number of non-zero coefficients in the off-diagonal (local-neighb.) block.
              */
-            virtual void sparsity_pattern_prediction(std::vector<PetscInt>& nnz) const = 0;
-
+            virtual void sparsity_pattern_prediction(std::vector<PetscInt>& d_nnz, std::vector<PetscInt>& o_nnz) const = 0;
             /**
              * @brief Inserts coefficients into the matrix.
              * This function defines the scheme in the inside of the domain.
@@ -299,7 +459,8 @@ namespace samurai
 
             virtual void sparsity_pattern_useless_ghosts(std::vector<PetscInt>& nnz)
             {
-                for (std::size_t row = static_cast<std::size_t>(m_row_shift); row < static_cast<std::size_t>(m_row_shift + matrix_rows());
+                for (std::size_t row = static_cast<std::size_t>(m_block_row_shift);
+                     row < static_cast<std::size_t>(m_block_row_shift + owned_matrix_rows());
                      ++row)
                 {
                     if (nnz[row] == 0)
@@ -325,8 +486,24 @@ namespace samurai
                 return false;
             }
 
-            virtual void reset()
+            virtual void setup()
             {
+            }
+
+            void destroy_local_to_global_mappings(Mat& A)
+            {
+                ISLocalToGlobalMapping rmap = NULL, cmap = NULL;
+                MatGetLocalToGlobalMapping(A, &rmap, &cmap);
+
+                if (rmap == cmap)
+                {
+                    ISLocalToGlobalMappingDestroy(&rmap);
+                }
+                else
+                {
+                    ISLocalToGlobalMappingDestroy(&rmap);
+                    ISLocalToGlobalMappingDestroy(&cmap);
+                }
             }
         };
 

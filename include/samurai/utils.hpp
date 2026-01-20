@@ -388,13 +388,19 @@ namespace samurai
     inline auto& field_value(Field& f, const typename Field::index_t& cell_index, [[maybe_unused]] index_t field_i)
     {
         using size_type = typename Field::size_type;
+        return field_value(f, static_cast<size_type>(cell_index), field_i);
+    }
+
+    template <class Field, class index_t>
+    inline auto& field_value(Field& f, const typename Field::size_type& cell_index, [[maybe_unused]] index_t field_i)
+    {
         if constexpr (Field::is_scalar)
         {
-            return f[static_cast<size_type>(cell_index)];
+            return f[cell_index];
         }
         else
         {
-            return f[static_cast<size_type>(cell_index)][field_i];
+            return f[cell_index][field_i];
         }
     }
 

@@ -77,10 +77,6 @@ def test_finite_volume_demo(exec, Tf, config):
 
 
 @pytest.mark.h5diff()
-@pytest.mark.skipif(
-    sys.platform == "darwin",
-    reason="skipped on macos because libpthread is missing on github worker",
-)
 @pytest.mark.parametrize("time_scheme", ["explicit", "implicit"])
 def test_finite_volume_demo_heat(time_scheme, config):
     cmd = [
@@ -97,16 +93,10 @@ def test_finite_volume_demo_heat(time_scheme, config):
     ]
     if time_scheme == "explicit":
         cmd.append("--explicit")
-    else:
-        cmd.extend(["-ksp_type", "preonly", "-pc_type", "lu"])
     output = subprocess.run(cmd, check=True, capture_output=True)
 
 
 @pytest.mark.h5diff()
-@pytest.mark.skipif(
-    sys.platform == "darwin",
-    reason="skipped on macos because libpthread is missing on github worker",
-)
 @pytest.mark.parametrize("time_scheme", ["explicit", "implicit"])
 def test_finite_volume_demo_heat_heterogeneous(time_scheme, config):
     cmd = [
@@ -130,10 +120,6 @@ def test_finite_volume_demo_heat_heterogeneous(time_scheme, config):
 
 
 @pytest.mark.h5diff()
-@pytest.mark.skipif(
-    sys.platform == "darwin",
-    reason="skipped on macos because libpthread is missing on github worker",
-)
 def test_finite_volume_demo_stokes_stationary(config):
     cmd = [
         get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-stokes-2d"),
@@ -149,10 +135,6 @@ def test_finite_volume_demo_stokes_stationary(config):
 
 
 @pytest.mark.h5diff()
-@pytest.mark.skipif(
-    sys.platform == "darwin",
-    reason="skipped on macos because libpthread is missing on github worker",
-)
 def test_finite_volume_demo_stokes_nonstationary(config):
     cmd = [
         get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-stokes-2d"),
@@ -205,10 +187,6 @@ def test_finite_volume_demo_mra_burgers(config):
     output = subprocess.run(cmd, check=True, capture_output=True)
 
 @pytest.mark.h5diff()
-@pytest.mark.skipif(
-    sys.platform == "darwin",
-    reason="skipped on macos because libpthread is missing on github worker",
-)
 @pytest.mark.parametrize("scheme", ["imp_diff_imp_react", "exp_diff_imp_react", "imp_diff_exp_react", "exp_diff_exp_react"])
 def test_finite_volume_demo_nagumo(scheme, config):
     cmd = [
@@ -237,10 +215,6 @@ def test_finite_volume_demo_nagumo(scheme, config):
 
 
 @pytest.mark.h5diff()
-@pytest.mark.skipif(
-    sys.platform == "darwin",
-    reason="skipped on macos because libpthread is missing on github worker",
-)
 def test_finite_volume_demo_lid_driven_cavity(config):
     cmd = [
         get_executable(
@@ -254,15 +228,12 @@ def test_finite_volume_demo_lid_driven_cavity(config):
         "--min-level=3",
         "--max-level=6",
         "--Tf=0.03",
+        "-pc_type", "qr" # we use QR because MUMPS yields different results on macos and linux, so the comparison fails on the CI
     ]
     output = subprocess.run(cmd, check=True, capture_output=True)
 
 
 @pytest.mark.h5diff()
-@pytest.mark.skipif(
-    sys.platform == "darwin",
-    reason="skipped on macos because libpthread is missing on github worker",
-)
 @pytest.mark.parametrize("time_scheme", ["explicit", "implicit"])
 def test_finite_volume_demo_linear_convection(time_scheme, config):
     cmd = [
