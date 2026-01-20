@@ -55,6 +55,9 @@ namespace samurai
             auto set_at_level = intersection(mesh[mesh_id_t::pred_cells][level], mesh[mesh_id_t::reference][level - 1]).on(level);
             set_at_level.apply_op(variadic_prediction<pred_order, false>(field, fields...));
         }
+
+        field.ghosts_updated() = true;
+        ((fields.ghosts_updated() = true), ...);
     }
 
     template <class Field>
