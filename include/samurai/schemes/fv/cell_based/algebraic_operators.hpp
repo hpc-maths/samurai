@@ -195,14 +195,7 @@ namespace samurai
                     StencilCoeffs<lin_cfg> coeffs;
                     auto h = cell.length;
                     lin_scheme.coefficients(coeffs, h);
-                    if constexpr (can_collapse)
-                    {
-                        jac += coeffs;
-                    }
-                    else
-                    {
-                        jac += coeffs[0];
-                    }
+                    jac += coeffs;
                 };
             }
 
@@ -217,14 +210,7 @@ namespace samurai
                     StencilCoeffs<lin_cfg> coeffs;
                     auto h = cell.length;
                     lin_scheme.coefficients(coeffs, h);
-                    if constexpr (can_collapse)
-                    {
-                        jac += coeffs;
-                    }
-                    else
-                    {
-                        jac += coeffs[0];
-                    }
+                    jac += coeffs;
                 };
             }
         }
