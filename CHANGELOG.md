@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.28.0](https://github.com/hpc-maths/samurai/compare/v0.27.1...v0.28.0) (2026-01-22)
+
+
+### Features
+
+* add dynamic configuration for mesh ([#374](https://github.com/hpc-maths/samurai/issues/374)) ([68f9c25](https://github.com/hpc-maths/samurai/commit/68f9c25e07a7d37b86b00b991dd9e249a3ae7c31))
+* PETSc with MPI ([#399](https://github.com/hpc-maths/samurai/issues/399)) ([ec08407](https://github.com/hpc-maths/samurai/commit/ec084071e2277e81c02b9d1406bc62936f08e5e3))
+
+
+### Bug Fixes
+
+* add include ([#323](https://github.com/hpc-maths/samurai/issues/323)) ([c749583](https://github.com/hpc-maths/samurai/commit/c7495833ecf8ae64fe3cba1ab2d749649518e44b))
+* Fix '+' operator between linear and non-linear local shemes with scalar field ([#404](https://github.com/hpc-maths/samurai/issues/404)) ([f1792ad](https://github.com/hpc-maths/samurai/commit/f1792ad1acff2bcab2b3d994476202dd560002da))
+* fix collapsed stencil ([#408](https://github.com/hpc-maths/samurai/issues/408)) ([989a212](https://github.com/hpc-maths/samurai/commit/989a2121f8eea5eab62b103956976c7315100631))
+* fix macro SAMURAI_PARSE ([#406](https://github.com/hpc-maths/samurai/issues/406)) ([b39857a](https://github.com/hpc-maths/samurai/commit/b39857a2780426f96562cfd8d0a4e31c929fc681))
+* Fix signatures ([#398](https://github.com/hpc-maths/samurai/issues/398)) ([2c91ab3](https://github.com/hpc-maths/samurai/commit/2c91ab34a213c71b6be995f6b0f51333c5f1c133))
+* flag `ghosts_updated` in AMR ([#407](https://github.com/hpc-maths/samurai/issues/407)) ([c048662](https://github.com/hpc-maths/samurai/commit/c048662784dc2acb4b8a39afc60aa710e1db9a06))
+
 ## [0.27.1](https://github.com/hpc-maths/samurai/compare/v0.27.0...v0.27.1) (2025-11-24)
 
 
