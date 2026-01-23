@@ -35,6 +35,8 @@ namespace samurai
         template <bool enable_finer_level_flux>
         void _apply(std::size_t d, output_field_t& output_field, input_field_t& input_field)
         {
+            assert(input_field.ghosts_updated());
+
             // Interior interfaces
             scheme().template for_each_interior_interface<Run::Parallel, enable_finer_level_flux>( // We need the 'template' keyword...
                 d,

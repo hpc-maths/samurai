@@ -47,8 +47,9 @@ namespace samurai
           public:
 
             // User callback to configure the solver
-            std::function<void(SNES&, KSP&, PC&)> configure           = nullptr;
-            std::function<void(const worker_output_field_t&)> monitor = nullptr;
+            std::function<void(SNES&, KSP&, PC&)> configure                   = nullptr;
+            std::function<void(SNES&, KSP&, PC&, Mat&)> after_matrix_assembly = nullptr;
+            std::function<void(const worker_output_field_t&)> monitor         = nullptr;
 
             explicit NonLinearSolverBase(const scheme_t& scheme)
                 : m_assembly(scheme)
@@ -234,7 +235,7 @@ namespace samurai
                                  f_field.fill(0); // initialize to zero because we accumulate the results
                              });
 
-                    auto unknown_tuple = assembly.unknown();
+                    auto unknown_tuple = assembly.unknown(); // tuple containing references to the unknown fields
                     assembly.block_operator().apply(f_fields, unknown_tuple);
 
                     // Copy the result into the Petsc vector f
@@ -243,11 +244,14 @@ namespace samurai
                     self->prepare_rhs(x, f);
                 }
 
+#ifdef SAMURAI_CHECK_NAN
+                assert(check_nan_or_inf(f));
+#endif
                 times::timers.start("nonlinear system solve");
                 return PETSC_SUCCESS;
             }
 
-            static PetscErrorCode PETSC_jacobian_function(SNES /*snes*/, Vec x, Mat jac, Mat B, void* ctx)
+            static PetscErrorCode PETSC_jacobian_function(SNES snes, Vec x, Mat jac, Mat B, void* ctx)
             {
                 times::timers.stop("nonlinear system solve");
 
@@ -279,6 +283,15 @@ namespace samurai
                     MatAssemblyEnd(jac, MAT_FINAL_ASSEMBLY);
                 }
 
+                if (self->after_matrix_assembly)
+                {
+                    KSP ksp;
+                    PC pc;
+                    SNESGetKSP(snes, &ksp);
+                    KSPGetPC(ksp, &pc);
+                    self->after_matrix_assembly(snes, ksp, pc, B);
+                }
+
                 // MatView(B, PETSC_VIEWER_STDOUT_(PETSC_COMM_WORLD));
                 // std::cout << std::endl;
 
@@ -307,17 +320,17 @@ namespace samurai
                 }
                 else
                 {
-                    // static constexpr std::size_t cols = Assembly::cols;
-                    // static_for<0, cols>::apply(
-                    //     [&](auto col)
-                    //     {
-                    //         auto& r_field = std::get<col>(self->m_worker_output_field);
-                    //         samurai::save(fs::current_path(),
-                    //                       fmt::format("snes_residual_{}_{}", r_field.name(), it),
-                    //                       {true, true},
-                    //                       r_field.mesh(),
-                    //                       r_field);
-                    //     });
+                    static constexpr std::size_t cols = Assembly::cols;
+                    static_for<0, cols>::apply(
+                        [&](auto col)
+                        {
+                            auto& r_field = std::get<col>(self->m_worker_output_field);
+                            samurai::save(fs::current_path(),
+                                          fmt::format("snes_residual_{}_{}", r_field.name(), it),
+                                          {true, true},
+                                          r_field.mesh(),
+                                          r_field);
+                        });
                 }
 
                 return PETSC_SUCCESS;
@@ -343,6 +356,10 @@ namespace samurai
 
             void solve_system(Vec& x, const Vec& b)
             {
+#ifdef SAMURAI_CHECK_NAN
+                assert(check_nan_or_inf(x));
+                assert(check_nan_or_inf(b));
+#endif
                 // Solve the system
                 times::timers.start("nonlinear system solve");
                 SNESSolve(m_snes, b, x);
