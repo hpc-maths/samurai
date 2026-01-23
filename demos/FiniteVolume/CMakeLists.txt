@@ -17,6 +17,7 @@ level_set.cpp:finite-volume-level-set
 level_set_from_scratch.cpp:finite-volume-level-set-from-scratch
 advection_1d.cpp:finite-volume-advection-1d
 advection_2d.cpp:finite-volume-advection-2d
+advection_3d.cpp:finite-volume-advection-3d
 advection_2d_user_bc.cpp:finite-volume-advection-2d-user-bc
 scalar_burgers_2d.cpp:finite-volume-scalar-burgers-2d
 linear_convection_obstacle.cpp:finite-volume-linear-convection-obstacle
