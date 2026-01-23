@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <type_traits>
+
 namespace samurai
 {
     template <class mesh_t, class value_t>

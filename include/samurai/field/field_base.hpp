@@ -7,12 +7,15 @@
 #include <iostream>
 #include <iterator>
 #include <memory>
+#include <sstream>
+#include <type_traits>
+
+#include <fmt/format.h>
 
 #include "../algorithm.hpp"
 #include "../bc/bc.hpp"
 #include "../cell_array.hpp"
 #include "../field_expression.hpp"
-#include "../mesh_holder.hpp"
 #include "../storage/containers.hpp"
 #include "../timers.hpp"
 
@@ -25,8 +28,8 @@ namespace samurai
 
         using base_type = std::reverse_iterator<iterator>;
 
-        explicit Field_reverse_iterator(iterator&& it)
-            : base_type(std::move(it))
+        explicit Field_reverse_iterator(const iterator& it)
+            : base_type(it)
         {
         }
     };
@@ -192,7 +195,7 @@ namespace samurai
 
             Derived derived_cast() && noexcept
             {
-                return *static_cast<Derived*>(this);
+                return std::move(*static_cast<Derived*>(this));
             }
 
             // Constructor helpers
@@ -211,25 +214,11 @@ namespace samurai
 
                 if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) || (interval_tmp.start > interval.start))
                 {
-                    // using mesh_id_t  = typename mesh_t::mesh_id_t;
-                    // auto coords      = make_field<int, dim, false>("coordinates", this->mesh());
-                    // auto level_field = make_field<std::size_t, 1, false>("level", this->mesh());
-                    // for_each_cell(this->mesh()[mesh_id_t::reference],
-                    //               [&](auto& cell)
-                    //               {
-                    //                   if constexpr (dim == 1)
-                    //                   {
-                    //                       coords[cell] = cell.indices[0];
-                    //                   }
-                    //                   else
-                    //                   {
-                    //                       coords[cell] = cell.indices;
-                    //                   }
-                    //                   level_field[cell] = cell.level;
-                    //               });
-                    // save(fs::current_path(), "mesh_throw", {true, true}, this->mesh(), coords, level_field);
-                    (std::cout << ... << index) << std::endl;
-                    throw std::out_of_range(fmt::format("FIELD ERROR on level {}: try to find interval {}", level, interval));
+                    std::ostringstream idx_ss;
+                    ((idx_ss << index << ' '), ...);
+                    auto idx_str = idx_ss.str();
+                    throw std::out_of_range(
+                        fmt::format("FIELD ERROR on level {}: try to find interval {} (indices: {})", level, interval, idx_str));
                 }
 
                 return interval_tmp;

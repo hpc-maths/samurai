@@ -78,7 +78,6 @@ namespace samurai
                 auto data = view(m_storage, {interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step});
 
 #ifdef SAMURAI_CHECK_NAN
-                mpi::communicator world;
                 if (xt::any(xt::isnan(data)))
                 {
                     for (decltype(interval_tmp.index) i = interval_tmp.index + interval.start; i < interval_tmp.index + interval.end;
@@ -89,8 +88,7 @@ namespace samurai
                             // std::cerr << "READ NaN at level " << level << ", in interval " << interval << std::endl;
                             auto ii   = i - interval_tmp.index;
                             auto cell = this->derived_cast().mesh().get_cell(level, static_cast<int>(ii), index...);
-                            std::cerr << "[" << world.rank() << "] READ NaN in " << cell << std::endl;
-                            throw std::runtime_error("READ NaN");
+                            std::cerr << "READ NaN in " << cell << std::endl;
                             break;
                         }
                     }
@@ -104,8 +102,6 @@ namespace samurai
                                    const xt::xtensor_fixed<interval_value_t, xt::xshape<dim - 1>>& index)
             {
                 auto interval_tmp = this->derived_cast().get_interval(level, interval, index);
-
-                // std::cout << "READ OR WRITE: " << level << " " << interval << " " << (... << index) << std::endl;
                 return view(m_storage, {interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step});
             }
 
@@ -115,11 +111,9 @@ namespace samurai
                                    const xt::xtensor_fixed<interval_value_t, xt::xshape<dim - 1>>& index) const
             {
                 auto interval_tmp = this->derived_cast().get_interval(level, interval, index);
-                // std::cout << "READ: " << level << " " << interval << " " << (... << index) << std::endl;
                 auto data = view(m_storage, {interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step});
 
 #ifdef SAMURAI_CHECK_NAN
-                mpi::communicator world;
                 if (xt::any(xt::isnan(data)))
                 {
                     for (decltype(interval_tmp.index) i = interval_tmp.index + interval.start; i < interval_tmp.index + interval.end;
@@ -130,8 +124,7 @@ namespace samurai
                             // std::cerr << "READ NaN at level " << level << ", in interval " << interval << std::endl;
                             auto ii   = i - interval_tmp.index;
                             auto cell = this->derived_cast().mesh().get_cell(level, static_cast<int>(ii), index);
-                            std::cerr << "[" << world.rank() << "] READ NaN in " << cell << std::endl;
-                            throw std::runtime_error("READ NaN");
+                            std::cerr << "READ NaN in " << cell << std::endl;
                             break;
                         }
                     }
