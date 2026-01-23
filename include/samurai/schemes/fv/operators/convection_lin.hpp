@@ -274,8 +274,8 @@ namespace samurai
                                                        const samurai::StencilData<cfg>& data,
                                                        const samurai::StencilValues<cfg>& velocity_data)
                 {
-                    auto& cells   = data.cells;
-                    auto velocity = 0.5 * (velocity_data[left] + velocity_data[right]);
+                    const auto& cells = data.cells;
+                    auto velocity     = 0.5 * (velocity_data[left] + velocity_data[right]);
                     if (velocity(d) >= 0) // use the left values
                     {
                         if constexpr (n_comp == 1)
