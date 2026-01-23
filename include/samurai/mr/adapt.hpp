@@ -402,7 +402,7 @@ namespace samurai
     }
 
     template <class... TFields>
-        requires(IsField<TFields> && ...)
+        requires(field_like<TFields> && ...)
     auto make_MRAdapt(TFields&... fields)
     {
         using prediction_fn_t = decltype(default_config::default_prediction_fn);
@@ -410,7 +410,7 @@ namespace samurai
     }
 
     template <class Prediction_fn, class... TFields>
-        requires(!IsField<Prediction_fn>) && (IsField<TFields> && ...)
+        requires(!field_like<Prediction_fn>) && (field_like<TFields> && ...)
     auto make_MRAdapt(Prediction_fn&& prediction_fn, TFields&... fields)
     {
         std::cout << "Use custom prediction function for MRAdapt" << std::endl;
@@ -418,7 +418,7 @@ namespace samurai
     }
 
     template <bool enlarge_, class... TFields>
-        requires(IsField<TFields> && ...)
+        requires(field_like<TFields> && ...)
     auto make_MRAdapt(TFields&... fields)
     {
         using prediction_fn_t = decltype(default_config::default_prediction_fn);
@@ -426,7 +426,7 @@ namespace samurai
     }
 
     template <bool enlarge_, class Prediction_fn, class... TFields>
-        requires(!IsField<Prediction_fn>) && (IsField<TFields> && ...)
+        requires(!field_like<Prediction_fn>) && (field_like<TFields> && ...)
     auto make_MRAdapt(Prediction_fn&& prediction_fn, TFields&... fields)
     {
         return Adapt<enlarge_, Prediction_fn, TFields...>(std::forward<Prediction_fn>(prediction_fn), fields...);

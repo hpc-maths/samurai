@@ -4,7 +4,7 @@
 #pragma once
 
 #include "../boundary.hpp"
-#include "../concepts.hpp"
+#include "../field/concepts.hpp"
 #include "polynomial_extrapolation.hpp"
 
 namespace samurai
@@ -235,7 +235,7 @@ namespace samurai
     }
 
     template <class Field>
-        requires IsField<Field>
+        requires field_like<Field>
     void apply_field_bc(std::size_t level, const DirectionVector<Field::dim>& direction, Field& field)
     {
         static constexpr std::size_t max_stencil_size_implemented_BC = Bc<Field>::max_stencil_size_implemented;
@@ -256,7 +256,7 @@ namespace samurai
     }
 
     template <class Field>
-        requires IsField<Field>
+        requires field_like<Field>
     void apply_field_bc(Field& field, const DirectionVector<Field::dim>& direction)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
@@ -269,7 +269,7 @@ namespace samurai
     }
 
     template <class Field>
-        requires IsField<Field>
+        requires field_like<Field>
     void apply_field_bc(Field& field, std::size_t direction_index)
     {
         DirectionVector<Field::dim> direction;
@@ -283,7 +283,7 @@ namespace samurai
     }
 
     template <class Field>
-        requires IsField<Field>
+        requires field_like<Field>
     void apply_field_bc(std::size_t level, Field& field, std::size_t direction_index)
     {
         DirectionVector<Field::dim> direction;
@@ -297,7 +297,7 @@ namespace samurai
     }
 
     template <class Field>
-        requires IsField<Field>
+        requires field_like<Field>
     void apply_field_bc(Field& field)
     {
         for_each_cartesian_direction<Field::dim>(
@@ -308,7 +308,7 @@ namespace samurai
     }
 
     template <class Field, class... Fields>
-        requires(IsField<Field> && (IsField<Fields> && ...))
+        requires(field_like<Field> && (field_like<Fields> && ...))
     void apply_field_bc(Field& field, Fields&... other_fields)
     {
         apply_field_bc(field, other_fields...);
