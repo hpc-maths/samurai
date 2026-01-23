@@ -7,12 +7,12 @@
 
 namespace samurai
 {
-        // ------------------------------------------------------------------------
+    // ------------------------------------------------------------------------
     // class Field_tuple
     // ------------------------------------------------------------------------
 
     template <class TField, class... TFields>
-    requires(field_like<TField> && (field_like<TFields> && ...))
+        requires(field_like<TField> && (field_like<TFields> && ...))
     class Field_tuple
     {
       public:

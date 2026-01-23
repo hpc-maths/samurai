@@ -175,7 +175,8 @@ namespace samurai
         class FieldBase
         {
           protected:
-            using derived_t = Derived;
+
+            using derived_t    = Derived;
             using bc_container = std::vector<std::unique_ptr<Bc<Derived>>>;
 
             // Inline derived cast to avoid ambiguity
@@ -248,6 +249,7 @@ namespace samurai
             }
 
           public:
+
             // ================================================================
             // METADATA ACCESSORS
             // ================================================================
@@ -292,7 +294,8 @@ namespace samurai
                 if (bc.stencil_size() > this->derived_cast().mesh().cfg().max_stencil_size())
                 {
                     std::cerr << "The stencil size required by this boundary condition (" << bc.stencil_size()
-                              << ") is larger than the max_stencil_size parameter of the mesh (" << this->derived_cast().mesh().cfg().max_stencil_size()
+                              << ") is larger than the max_stencil_size parameter of the mesh ("
+                              << this->derived_cast().mesh().cfg().max_stencil_size()
                               << ").\nYou can set it with mesh_config.max_stencil_radius(" << bc.stencil_size() / 2
                               << ") or mesh_config.max_stencil_size(" << bc.stencil_size() << ")." << std::endl;
                     exit(EXIT_FAILURE);
