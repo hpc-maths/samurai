@@ -139,7 +139,7 @@ namespace samurai
                 m_storage.resize(static_cast<size_type>(this->derived_cast().mesh().nb_cells()));
                 this->derived_cast().ghosts_updated() = false;
 #ifdef SAMURAI_CHECK_NAN
-                if constexpr (std::is_floating_point_v<value_t>)
+                if constexpr (std::is_floating_point_v<value_type>)
                 {
                     this->derived_cast().storage().data().fill(std::nan(""));
                 }
