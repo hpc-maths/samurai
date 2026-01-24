@@ -175,7 +175,7 @@ namespace samurai
 
         VectorField() = default;
 
-        explicitVectorField(std::string name, mesh_t& mesh);
+        explicit VectorField(std::string name, mesh_t& mesh);
 
         VectorField(const VectorField&);
         VectorField& operator=(const VectorField&);
