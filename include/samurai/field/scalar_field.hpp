@@ -170,14 +170,16 @@ namespace samurai
     template <class mesh_t, class value_t>
     inline auto ScalarField<mesh_t, value_t>::operator=(const ScalarField& field) -> ScalarField&
     {
-        return this->assign_from(field);
+        this->assign_from(field);
+        return *this;
     }
 
     template <class mesh_t, class value_t>
     template <class E>
     inline auto ScalarField<mesh_t, value_t>::operator=(const field_expression<E>& e) -> ScalarField&
     {
-        return this->assign_expression(e);
+        this->assign_expression(e);
+        return *this;
     }
 
     // ScalarField helper functions -------------------------------------------
