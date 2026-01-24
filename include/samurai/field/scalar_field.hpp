@@ -19,7 +19,6 @@
 #include "../numeric/gauss_legendre.hpp"
 #include "../timers.hpp"
 #include "access_base.hpp"
-#include "concepts.hpp"
 #include "field_base.hpp"
 
 namespace samurai
@@ -29,7 +28,6 @@ namespace samurai
 
     namespace detail
     {
-        // Specialization for scalar field types
         template <class mesh_t, class value_t>
         struct inner_field_types<ScalarField<mesh_t, value_t>>
         {
@@ -45,7 +43,7 @@ namespace samurai
             static constexpr auto static_layout = data_type::static_layout;
         };
 
-        // ScalarField data access specialization
+        // ScalarField specialization ---------------------------------------------
         template <class mesh_t, class value_t>
         struct field_data_access<ScalarField<mesh_t, value_t>> : public field_data_access_base<ScalarField<mesh_t, value_t>>
         {
@@ -126,7 +124,7 @@ namespace samurai
 
         ScalarField() = default;
 
-        ScalarField(std::string name, mesh_t& mesh);
+        explicit ScalarField(std::string name, mesh_t& mesh);
 
         ScalarField(const ScalarField&);
         ScalarField& operator=(const ScalarField&);
