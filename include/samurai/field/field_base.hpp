@@ -19,6 +19,7 @@
 #include "../field_expression.hpp"
 #include "../storage/containers.hpp"
 #include "../timers.hpp"
+#include "concepts.hpp"
 
 namespace samurai
 {
@@ -34,30 +35,6 @@ namespace samurai
         {
         }
     };
-
-    namespace detail
-    {
-        template <class D>
-        struct crtp_field
-        {
-            using derived_type = D;
-
-            derived_type& derived_cast() & noexcept
-            {
-                return *static_cast<derived_type*>(this);
-            }
-
-            const derived_type& derived_cast() const& noexcept
-            {
-                return *static_cast<const derived_type*>(this);
-            }
-
-            derived_type derived_cast() && noexcept
-            {
-                return *static_cast<derived_type*>(this);
-            }
-        };
-    } // namespace detail
 
     // ------------------------------------------------------------------------
     // class Field_iterator
@@ -211,11 +188,15 @@ namespace samurai
 
                 if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) || (interval_tmp.start > interval.start))
                 {
-                    std::ostringstream idx_ss;
-                    ((idx_ss << index << ' '), ...);
-                    auto idx_str = idx_ss.str();
-                    throw std::out_of_range(
-                        fmt::format("FIELD ERROR on level {}: try to find interval {} (indices: {})", level, interval, idx_str));
+                    std::ostringstream oss;
+                    ((oss << index << ' '), ...);
+                    std::string idx_str = oss.str();
+                    
+                    std::ostringstream error_msg;
+                    error_msg << "Field '" << this->derived_cast().name() << "' interval query failed on level " << level
+                              << ": requested interval " << interval << " could not be found for indices [" << idx_str
+                              << "]; available interval: " << interval_tmp;
+                    throw std::out_of_range(error_msg.str());
                 }
 
                 return interval_tmp;
@@ -228,7 +209,12 @@ namespace samurai
 
                 if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) || (interval_tmp.start > interval.start))
                 {
-                    throw std::out_of_range(fmt::format("FIELD ERROR on level {}: try to find interval {}", level, interval));
+                    throw std::out_of_range(fmt::format("Field '{}' interval query failed on level {}: requested interval {} "
+                                                        "could not be found; available interval: {}",
+                                                        this->derived_cast().name(),
+                                                        level,
+                                                        interval,
+                                                        interval_tmp));
                 }
 
                 return interval_tmp;
@@ -286,12 +272,17 @@ namespace samurai
             // METADATA ACCESSORS
             // ================================================================
 
-            const std::string& name() const
+            const std::string& name() const&
             {
                 return m_name;
             }
 
-            std::string& name()
+            std::string_view name_view() const noexcept
+            {
+                return m_name;
+            }
+
+            std::string& name() &
             {
                 return m_name;
             }

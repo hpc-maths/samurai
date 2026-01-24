@@ -4,34 +4,36 @@
 
 #pragma once
 
+#include "concepts.hpp"
+#include "debug_utils.hpp"
+
 namespace samurai
 {
     namespace detail
     {
-        template <class Field, class = void>
+        template <class Field>
         struct inner_field_types;
 
-        template <class Field, class = void>
+        template <class Field>
         struct field_data_access;
 
         template <class D>
+            requires field_like<D>
         class field_data_access_base
-
         {
           public:
 
-            using derived_type               = D;
-            using inner_field_types          = inner_field_types<derived_type>;
-            static constexpr std::size_t dim = inner_field_types::dim;
-            using data_type                  = typename inner_field_types::data_type;
-            using local_data_type            = typename inner_field_types::local_data_type;
-            using value_type                 = typename inner_field_types::value_type;
-            using interval_t                 = typename inner_field_types::interval_t;
-            using interval_value_t           = typename inner_field_types::interval_value_t;
-            using index_t                    = typename inner_field_types::index_t;
-            using size_type                  = typename inner_field_types::size_type;
-            using cell_t                     = typename inner_field_types::cell_t;
-
+            using derived_type                  = D;
+            using inner_types                   = inner_field_types<derived_type>;
+            static constexpr std::size_t dim    = inner_types::dim;
+            using data_type                     = typename inner_types::data_type;
+            using local_data_type               = typename inner_types::local_data_type;
+            using value_type                    = typename inner_types::value_type;
+            using interval_t                    = typename inner_types::interval_t;
+            using interval_value_t              = typename inner_types::interval_value_t;
+            using index_t                       = typename inner_types::index_t;
+            using size_type                     = typename inner_types::size_type;
+            using cell_t                        = typename inner_types::cell_t;
             static constexpr auto static_layout = data_type::static_layout;
 
             derived_type& derived_cast() & noexcept
@@ -77,24 +79,7 @@ namespace samurai
             {
                 auto interval_tmp = this->derived_cast().get_interval(level, interval, index...);
                 auto data = view(m_storage, {interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step});
-
-#ifdef SAMURAI_CHECK_NAN
-                if (xt::any(xt::isnan(data)))
-                {
-                    for (decltype(interval_tmp.index) i = interval_tmp.index + interval.start; i < interval_tmp.index + interval.end;
-                         i += interval.step)
-                    {
-                        if (std::isnan(this->derived_cast().storage().data()[static_cast<std::size_t>(i)]))
-                        {
-                            // std::cerr << "READ NaN at level " << level << ", in interval " << interval << std::endl;
-                            auto ii   = i - interval_tmp.index;
-                            auto cell = this->derived_cast().mesh().get_cell(level, static_cast<int>(ii), index...);
-                            std::cerr << "READ NaN in " << cell << std::endl;
-                            break;
-                        }
-                    }
-                }
-#endif
+                check_nan(data, "field access");
                 return data;
             }
 
@@ -114,23 +99,7 @@ namespace samurai
                 auto interval_tmp = this->derived_cast().get_interval(level, interval, index);
                 auto data = view(m_storage, {interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step});
 
-#ifdef SAMURAI_CHECK_NAN
-                if (xt::any(xt::isnan(data)))
-                {
-                    for (decltype(interval_tmp.index) i = interval_tmp.index + interval.start; i < interval_tmp.index + interval.end;
-                         i += interval.step)
-                    {
-                        if (std::isnan(this->derived_cast().storage().data()[static_cast<std::size_t>(i)]))
-                        {
-                            // std::cerr << "READ NaN at level " << level << ", in interval " << interval << std::endl;
-                            auto ii   = i - interval_tmp.index;
-                            auto cell = this->derived_cast().mesh().get_cell(level, static_cast<int>(ii), index);
-                            std::cerr << "READ NaN in " << cell << std::endl;
-                            break;
-                        }
-                    }
-                }
-#endif
+                check_nan(data, "field access (xtensor_fixed index)");
                 return data;
             }
 

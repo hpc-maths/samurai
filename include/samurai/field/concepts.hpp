@@ -23,4 +23,14 @@ namespace samurai
 
     template <class T>
     concept field_like = field_like_helper<std::remove_cvref_t<T>>;
+
+    // Base concept for valid mesh and value type parameters (shared by scalar and vector fields)
+    // Checks that D is a field_like type with valid mesh and value types
+    template <class D>
+    concept valid_field_mesh_and_value = field_like<D> && requires {
+        requires requires(D d) {
+            typename std::decay_t<decltype(d)>::mesh_t;
+            typename std::decay_t<decltype(d)>::value_type;
+        };
+    };
 } // namespace samurai

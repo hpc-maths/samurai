@@ -19,6 +19,7 @@
 #include "../numeric/gauss_legendre.hpp"
 #include "../timers.hpp"
 #include "access_base.hpp"
+#include "concepts.hpp"
 #include "field_base.hpp"
 
 namespace samurai
@@ -28,8 +29,7 @@ namespace samurai
 
     namespace detail
     {
-        // VectorField specialization ---------------------------------------------
-
+        // VectorField specialization for n_comp components
         template <class mesh_t, class value_t, std::size_t n_comp, bool SOA>
         struct inner_field_types<VectorField<mesh_t, value_t, n_comp, SOA>>
         {
@@ -46,6 +46,7 @@ namespace samurai
             static constexpr auto static_layout = data_type::static_layout;
         };
 
+        // VectorField data access specialization
         template <class mesh_t, class value_t, std::size_t n_comp, bool SOA>
         struct field_data_access<VectorField<mesh_t, value_t, n_comp, SOA>>
             : public field_data_access_base<VectorField<mesh_t, value_t, n_comp, SOA>>
