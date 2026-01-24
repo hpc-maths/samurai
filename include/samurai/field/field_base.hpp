@@ -191,7 +191,7 @@ namespace samurai
                     std::ostringstream oss;
                     ((oss << index << ' '), ...);
                     std::string idx_str = oss.str();
-                    
+
                     std::ostringstream error_msg;
                     error_msg << "Field '" << this->derived_cast().name() << "' interval query failed on level " << level
                               << ": requested interval " << interval << " could not be found for indices [" << idx_str
