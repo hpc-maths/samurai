@@ -139,4 +139,53 @@ namespace samurai
         u.name() = "new_name";
         EXPECT_EQ(u.name(), "new_name");
     }
+
+    TEST(field, equal_operator_scalar)
+    {
+        Box<double, 1> box{{0}, {1}};
+        using Config = UniformConfig<1>;
+        auto mesh    = UniformMesh<Config>(box, 5);
+        auto u1      = make_scalar_field<double>("u", mesh, 1.0);
+        auto u2      = make_scalar_field<double>("u", mesh, 1.0);
+        auto u3      = make_scalar_field<double>("u", mesh, 2.0);
+
+        EXPECT_TRUE(u1 == u2);
+        EXPECT_FALSE(u1 != u2);
+        EXPECT_FALSE(u1 == u3);
+        EXPECT_TRUE(u1 != u3);
+
+        auto v1 = make_scalar_field<int>("v", mesh, 1);
+        auto v2 = make_scalar_field<int>("v", mesh, 1);
+        auto v3 = make_scalar_field<int>("v", mesh, 2);
+
+        EXPECT_TRUE(v1 == v2);
+        EXPECT_FALSE(v1 != v2);
+        EXPECT_FALSE(v1 == v3);
+        EXPECT_TRUE(v1 != v3);
+    }
+
+    TEST(field, equal_operator_vector)
+    {
+        Box<double, 1> box{{0}, {1}};
+        using Config = UniformConfig<1>;
+        auto mesh    = UniformMesh<Config>(box, 5);
+        auto u1      = make_vector_field<double, 3>("u", mesh, 1.0);
+        auto u2      = make_vector_field<double, 3>("u", mesh, 1.0);
+        auto u3      = make_vector_field<double, 3>("u", mesh, 2.0);
+
+        EXPECT_TRUE(u1 == u2);
+        EXPECT_FALSE(u1 != u2);
+        EXPECT_FALSE(u1 == u3);
+        EXPECT_TRUE(u1 != u3);
+
+        auto v1 = make_vector_field<int, 3>("v", mesh, 1);
+        auto v2 = make_vector_field<int, 3>("v", mesh, 1);
+        auto v3 = make_vector_field<int, 3>("v", mesh, 2);
+
+        EXPECT_TRUE(v1 == v2);
+        EXPECT_FALSE(v1 != v2);
+        EXPECT_FALSE(v1 == v3);
+        EXPECT_TRUE(v1 != v3);
+    }
+
 }

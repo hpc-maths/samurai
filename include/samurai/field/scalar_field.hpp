@@ -18,6 +18,7 @@
 #include "../mesh_holder.hpp"
 #include "../numeric/gauss_legendre.hpp"
 #include "../timers.hpp"
+#include "access_base.hpp"
 #include "field_base.hpp"
 
 namespace samurai
@@ -27,15 +28,12 @@ namespace samurai
 
     namespace detail
     {
-        template <class Field, class = void>
-        struct inner_field_types;
-
-        // ScalarField specialization ---------------------------------------------
         template <class mesh_t, class value_t>
-        struct inner_field_types<ScalarField<mesh_t, value_t>> : public crtp_field<ScalarField<mesh_t, value_t>>
+        struct inner_field_types<ScalarField<mesh_t, value_t>>
         {
             static constexpr std::size_t dim    = mesh_t::dim;
             using interval_t                    = typename mesh_t::interval_t;
+            using value_type                    = value_t;
             using index_t                       = typename interval_t::index_t;
             using interval_value_t              = typename interval_t::value_t;
             using cell_t                        = Cell<dim, interval_t>;
@@ -43,109 +41,43 @@ namespace samurai
             using local_data_type               = local_field_data_t<value_t, 1, false, true>;
             using size_type                     = typename data_type::size_type;
             static constexpr auto static_layout = data_type::static_layout;
+        };
+
+        // ScalarField specialization ---------------------------------------------
+        template <class mesh_t, class value_t>
+        struct field_data_access<ScalarField<mesh_t, value_t>> : public field_data_access_base<ScalarField<mesh_t, value_t>>
+        {
+            using base_type       = field_data_access_base<ScalarField<mesh_t, value_t>>;
+            using data_type       = typename base_type::data_type;
+            using value_type      = value_t;
+            using local_data_type = typename base_type::local_data_type;
+            using size_type       = typename data_type::size_type;
+            using cell_t          = typename base_type::cell_t;
+            using interval_t      = typename base_type::interval_t;
+
+            using base_type::static_layout;
+
+            using base_type::operator();
 
             inline const value_t& operator[](size_type i) const
             {
-                return m_storage.data()[i];
+                return this->storage().data()[i];
             }
 
             inline value_t& operator[](size_type i)
             {
-                return m_storage.data()[i];
+                return this->storage().data()[i];
             }
 
             inline const value_t& operator[](const cell_t& cell) const
             {
-                return m_storage.data()[static_cast<size_type>(cell.index)];
+                return this->storage().data()[static_cast<size_type>(cell.index)];
             }
 
             inline value_t& operator[](const cell_t& cell)
             {
-                return m_storage.data()[static_cast<size_type>(cell.index)];
+                return this->storage().data()[static_cast<size_type>(cell.index)];
             }
-
-            template <class... T>
-            inline auto operator()(const std::size_t level, const interval_t& interval, const T... index)
-            {
-                auto interval_tmp = this->derived_cast().get_interval(level, interval, index...);
-                return view(m_storage, {interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step});
-            }
-
-            template <class... T>
-            inline auto operator()(const std::size_t level, const interval_t& interval, const T... index) const
-            {
-                auto interval_tmp = this->derived_cast().get_interval(level, interval, index...);
-                auto data = view(m_storage, {interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step});
-
-#ifdef SAMURAI_CHECK_NAN
-                if (xt::any(xt::isnan(data)))
-                {
-                    for (decltype(interval_tmp.index) i = interval_tmp.index + interval.start; i < interval_tmp.index + interval.end;
-                         i += interval.step)
-                    {
-                        if (std::isnan(this->derived_cast().m_storage.data()[static_cast<std::size_t>(i)]))
-                        {
-                            // std::cerr << "READ NaN at level " << level << ", in interval " << interval << std::endl;
-                            auto ii   = i - interval_tmp.index;
-                            auto cell = this->derived_cast().mesh().get_cell(level, static_cast<int>(ii), index...);
-                            std::cerr << "READ NaN in " << cell << std::endl;
-                            break;
-                        }
-                    }
-                }
-#endif
-                return data;
-            }
-
-            inline auto operator()(const std::size_t level,
-                                   const interval_t& interval,
-                                   const xt::xtensor_fixed<interval_value_t, xt::xshape<dim - 1>>& index)
-            {
-                auto interval_tmp = this->derived_cast().get_interval(level, interval, index);
-                return view(m_storage, {interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step});
-            }
-
-            template <class... T>
-            inline auto operator()(const std::size_t level,
-                                   const interval_t& interval,
-                                   const xt::xtensor_fixed<interval_value_t, xt::xshape<dim - 1>>& index) const
-            {
-                auto interval_tmp = this->derived_cast().get_interval(level, interval, index);
-                auto data = view(m_storage, {interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step});
-
-#ifdef SAMURAI_CHECK_NAN
-                if (xt::any(xt::isnan(data)))
-                {
-                    for (decltype(interval_tmp.index) i = interval_tmp.index + interval.start; i < interval_tmp.index + interval.end;
-                         i += interval.step)
-                    {
-                        if (std::isnan(this->derived_cast().m_storage.data()[static_cast<std::size_t>(i)]))
-                        {
-                            // std::cerr << "READ NaN at level " << level << ", in interval " << interval << std::endl;
-                            auto ii   = i - interval_tmp.index;
-                            auto cell = this->derived_cast().mesh().get_cell(level, static_cast<int>(ii), index);
-                            std::cerr << "READ NaN in " << cell << std::endl;
-                            break;
-                        }
-                    }
-                }
-#endif
-                return data;
-            }
-
-            void resize()
-            {
-                m_storage.resize(static_cast<size_type>(this->derived_cast().mesh().nb_cells()));
-                this->derived_cast().m_ghosts_updated = false;
-#ifdef SAMURAI_CHECK_NAN
-                if constexpr (std::is_floating_point_v<value_t>)
-                {
-                    this->derived_cast().m_storage.data().fill(std::nan(""));
-                }
-#endif
-            }
-
-            data_type m_storage;
         };
     } // namespace detail
 
@@ -156,26 +88,28 @@ namespace samurai
     template <class mesh_t_, class value_t = double>
     class ScalarField : public field_expression<ScalarField<mesh_t_, value_t>>,
                         public inner_mesh_type<mesh_t_>,
-                        public detail::inner_field_types<ScalarField<mesh_t_, value_t>>,
+                        public detail::field_data_access<ScalarField<mesh_t_, value_t>>,
                         public detail::FieldBase<ScalarField<mesh_t_, value_t>>
     {
       public:
 
-        using self_type    = ScalarField<mesh_t_, value_t>;
-        using inner_mesh_t = inner_mesh_type<mesh_t_>;
-        using mesh_t       = mesh_t_;
+        using self_type  = ScalarField<mesh_t_, value_t>;
+        using mesh_t     = mesh_t_;
+        using value_type = value_t;
 
-        using value_type      = value_t;
-        using inner_types     = detail::inner_field_types<self_type>;
-        using data_type       = typename inner_types::data_type::container_t;
-        using local_data_type = typename inner_types::local_data_type;
-        using size_type       = typename inner_types::size_type;
-        using inner_types::operator();
-        using bc_container = std::vector<std::unique_ptr<Bc<self_type>>>;
+        using inner_mesh_t     = inner_mesh_type<mesh_t_>;
+        using data_access_type = detail::field_data_access<self_type>;
+        using size_type        = typename data_access_type::size_type;
+        using local_data_type  = typename data_access_type::local_data_type;
+        using cell_t           = typename data_access_type::cell_t;
+        using interval_t       = typename data_access_type::interval_t;
+        using data_access_type::dim;
 
-        using inner_types::dim;
-        using interval_t = typename mesh_t::interval_t;
-        using cell_t     = typename inner_types::cell_t;
+        // using bc_container = std::vector<std::unique_ptr<Bc<self_type>>>;
+
+        // using data_access_type::dim;
+        // using interval_t = typename mesh_t::interval_t;
+        // using cell_t     = typename data_access_type::cell_t;
 
         using iterator               = Field_iterator<self_type, false>;
         using const_iterator         = Field_iterator<const self_type, true>;
@@ -184,14 +118,11 @@ namespace samurai
 
         static constexpr size_type n_comp = 1;
         static constexpr bool is_scalar   = true;
-        using inner_types::static_layout;
+        using data_access_type::static_layout;
 
         ScalarField() = default;
 
         ScalarField(std::string name, mesh_t& mesh);
-
-        template <class E>
-        ScalarField(const field_expression<E>& e);
 
         ScalarField(const ScalarField&);
         ScalarField& operator=(const ScalarField&);
@@ -202,20 +133,9 @@ namespace samurai
         ~ScalarField() = default;
 
         template <class E>
+        ScalarField(const field_expression<E>& e);
+        template <class E>
         ScalarField& operator=(const field_expression<E>& e);
-
-        void fill(value_type v);
-
-      private:
-
-        std::string m_name;
-
-        bc_container p_bc;
-
-        bool m_ghosts_updated = false;
-
-        friend struct detail::inner_field_types<ScalarField<mesh_t, value_t>>;
-        friend class detail::FieldBase<ScalarField<mesh_t, value_t>>;
     };
 
     // ScalarField constructors -----------------------------------------------
@@ -223,9 +143,9 @@ namespace samurai
     template <class mesh_t, class value_t>
     inline ScalarField<mesh_t, value_t>::ScalarField(std::string name, mesh_t& mesh)
         : inner_mesh_t(mesh)
-        , inner_types()
-        , m_name(std::move(name))
+        , data_access_type()
     {
+        this->m_name = std::move(name);
         this->resize();
     }
 
@@ -241,9 +161,9 @@ namespace samurai
     template <class mesh_t, class value_t>
     inline ScalarField<mesh_t, value_t>::ScalarField(const ScalarField& field)
         : inner_mesh_t(field.mesh())
-        , inner_types(field)
-        , m_name(field.m_name)
+        , data_access_type(field)
     {
+        this->m_name = field.m_name;
         this->copy_bc_from(field);
     }
 
@@ -252,49 +172,14 @@ namespace samurai
     template <class mesh_t, class value_t>
     inline auto ScalarField<mesh_t, value_t>::operator=(const ScalarField& field) -> ScalarField&
     {
-        times::timers.start("field expressions");
-        inner_mesh_t::operator=(field.mesh());
-        m_name = field.m_name;
-        inner_types::operator=(field);
-
-        bc_container tmp;
-        std::transform(field.p_bc.cbegin(),
-                       field.p_bc.cend(),
-                       std::back_inserter(tmp),
-                       [](const auto& v)
-                       {
-                           return v->clone();
-                       });
-        std::swap(p_bc, tmp);
-        m_ghosts_updated = field.m_ghosts_updated;
-        times::timers.stop("field expressions");
-        return *this;
+        return this->assign_from(field);
     }
 
     template <class mesh_t, class value_t>
     template <class E>
     inline auto ScalarField<mesh_t, value_t>::operator=(const field_expression<E>& e) -> ScalarField&
     {
-        times::timers.start("field expressions");
-        for_each_interval(this->mesh(),
-                          [&](std::size_t level, const auto& i, const auto& index)
-                          {
-                              noalias((*this)(level, i, index)) = e.derived_cast()(level, i, index);
-                          });
-        m_ghosts_updated = false;
-        times::timers.stop("field expressions");
-        return *this;
-    }
-
-    // ScalarField methods (type-specific) ------------------------------------
-
-    // --- fill ---------------------------------------------------------------
-
-    template <class mesh_t, class value_t>
-    inline void ScalarField<mesh_t, value_t>::fill(value_type v)
-    {
-        this->m_storage.data().fill(v);
-        m_ghosts_updated = false;
+        return this->assign_expression(e);
     }
 
     // ScalarField helper functions -------------------------------------------

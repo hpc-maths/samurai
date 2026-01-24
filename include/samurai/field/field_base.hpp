@@ -8,6 +8,7 @@
 #include <iterator>
 #include <memory>
 #include <sstream>
+#include <string>
 #include <type_traits>
 
 #include <fmt/format.h>
@@ -135,9 +136,7 @@ namespace samurai
     template <class Field, bool is_const>
     inline auto Field_iterator<Field, is_const>::operator*() const
     {
-        std::size_t level = m_ca_it.level();
-        auto& index       = m_ca_it.index();
-        return (*p_field)(level, *m_ca_it, index);
+        return view(p_field->storage(), {m_ca_it->index + m_ca_it->start, m_ca_it->index + m_ca_it->end});
     }
 
     // Field_iterator methods -------------------------------------------------
@@ -182,7 +181,10 @@ namespace samurai
             using derived_t    = Derived;
             using bc_container = std::vector<std::unique_ptr<Bc<Derived>>>;
 
-            // Inline derived cast to avoid ambiguity
+            std::string m_name;
+            bc_container p_bc;
+            bool m_ghosts_updated = false;
+
             Derived& derived_cast() & noexcept
             {
                 return *static_cast<Derived*>(this);
@@ -198,12 +200,7 @@ namespace samurai
                 return std::move(*static_cast<Derived*>(this));
             }
 
-            // Constructor helpers
-            void _init_field(std::string name)
-            {
-                this->derived_cast().m_name = std::move(name);
-                this->derived_cast().resize();
-            }
+          public:
 
             // --- element access helpers -----------------------------------------
 
@@ -237,6 +234,52 @@ namespace samurai
                 return interval_tmp;
             }
 
+            // --- assignment helper -------------------------------------------
+
+            Derived& assign_from(const Derived& other)
+            {
+                if (this == &other)
+                {
+                    return this->derived_cast();
+                }
+
+                times::timers.start("field expressions");
+
+                using inner_mesh_t  = typename Derived::inner_mesh_t;
+                using data_access_t = typename Derived::data_access_type;
+
+                static_cast<inner_mesh_t&>(this->derived_cast())  = other.mesh();
+                m_name                                            = other.m_name;
+                static_cast<data_access_t&>(this->derived_cast()) = other;
+                bc_container tmp;
+                std::transform(other.p_bc.cbegin(),
+                               other.p_bc.cend(),
+                               std::back_inserter(tmp),
+                               [](const auto& v)
+                               {
+                                   return v->clone();
+                               });
+                std::swap(p_bc, tmp);
+                m_ghosts_updated = other.m_ghosts_updated;
+
+                times::timers.stop("field expressions");
+                return this->derived_cast();
+            }
+
+            template <class E>
+            Derived& assign_expression(const field_expression<E>& e)
+            {
+                times::timers.start("field expressions");
+                for_each_interval(this->derived_cast().mesh(),
+                                  [&](std::size_t level, const auto& i, const auto& index)
+                                  {
+                                      noalias(this->derived_cast()(level, i, index)) = e.derived_cast()(level, i, index);
+                                  });
+                m_ghosts_updated = false;
+                times::timers.stop("field expressions");
+                return this->derived_cast();
+            }
+
           public:
 
             // ================================================================
@@ -245,32 +288,32 @@ namespace samurai
 
             const std::string& name() const
             {
-                return this->derived_cast().m_name;
+                return m_name;
             }
 
             std::string& name()
             {
-                return this->derived_cast().m_name;
+                return m_name;
             }
 
             bool& ghosts_updated()
             {
-                return this->derived_cast().m_ghosts_updated;
+                return m_ghosts_updated;
             }
 
             bool ghosts_updated() const
             {
-                return this->derived_cast().m_ghosts_updated;
+                return m_ghosts_updated;
             }
 
             auto& array()
             {
-                return this->derived_cast().m_storage.data();
+                return this->derived_cast().storage().data();
             }
 
             const auto& array() const
             {
-                return this->derived_cast().m_storage.data();
+                return this->derived_cast().storage().data();
             }
 
             // ================================================================
@@ -289,25 +332,25 @@ namespace samurai
                               << ") or mesh_config.max_stencil_size(" << bc.stencil_size() << ")." << std::endl;
                     exit(EXIT_FAILURE);
                 }
-                this->derived_cast().p_bc.push_back(bc.clone());
-                return this->derived_cast().p_bc.back().get();
+                p_bc.push_back(bc.clone());
+                return p_bc.back().get();
             }
 
             auto& get_bc()
             {
-                return this->derived_cast().p_bc;
+                return p_bc;
             }
 
             const auto& get_bc() const
             {
-                return this->derived_cast().p_bc;
+                return p_bc;
             }
 
             void copy_bc_from(const Derived& other)
             {
                 std::transform(other.get_bc().cbegin(),
                                other.get_bc().cend(),
-                               std::back_inserter(this->derived_cast().p_bc),
+                               std::back_inserter(p_bc),
                                [](const auto& v)
                                {
                                    return v->clone();
@@ -388,7 +431,7 @@ namespace samurai
 
             void to_stream(std::ostream& os) const
             {
-                os << "Field " << this->derived_cast().m_name << "\n";
+                os << "Field " << m_name << "\n";
 
 #ifdef SAMURAI_CHECK_NAN
                 using mesh_id_t = typename std::remove_reference_t<decltype(this->derived_cast().mesh())>::mesh_id_t;
