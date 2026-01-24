@@ -56,6 +56,7 @@ namespace samurai
             using value_type      = value_t;
             using local_data_type = typename base_type::local_data_type;
             using size_type       = typename data_type::size_type;
+            using index_t         = typename base_type::index_t;
             using cell_t          = typename base_type::cell_t;
             using interval_t      = typename base_type::interval_t;
 
@@ -153,14 +154,13 @@ namespace samurai
         using mesh_t     = mesh_t_;
         using value_type = value_t;
 
-        using inner_mesh_t     = inner_mesh_type<mesh_t_>;
-        using inner_types      = detail::inner_field_types<self_type>;
+        using inner_mesh_t = inner_mesh_type<mesh_t_>;
+        // using inner_types      = detail::inner_field_types<self_type>;
         using data_access_type = detail::field_data_access<self_type>;
         using size_type        = typename data_access_type::size_type;
-        // using local_data_type  = typename inner_types::local_data_type;
-        using local_data_type = typename data_access_type::local_data_type;
-        using cell_t          = typename inner_types::cell_t;
-        // using interval_t                 = typename inner_types::interval_t;
+        using index_t          = typename data_access_type::index_t;
+        using local_data_type  = typename data_access_type::local_data_type;
+        using cell_t           = typename data_access_type::cell_t;
         using data_access_type::dim;
 
         using iterator               = Field_iterator<self_type, false>;
@@ -196,7 +196,6 @@ namespace samurai
     template <class mesh_t, class value_t, std::size_t n_comp_, bool SOA>
     inline VectorField<mesh_t, value_t, n_comp_, SOA>::VectorField(std::string name, mesh_t& mesh)
         : inner_mesh_t(mesh)
-        , data_access_type()
     {
         this->m_name = std::move(name);
         this->resize();
@@ -213,11 +212,8 @@ namespace samurai
 
     template <class mesh_t, class value_t, std::size_t n_comp_, bool SOA>
     inline VectorField<mesh_t, value_t, n_comp_, SOA>::VectorField(const VectorField& field)
-        : inner_mesh_t(field.mesh())
-        , data_access_type(field)
     {
-        this->m_name = field.m_name;
-        this->copy_bc_from(field);
+        this->assign_from(field);
     }
 
     // VectorField operators --------------------------------------------------

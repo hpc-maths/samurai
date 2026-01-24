@@ -54,6 +54,7 @@ namespace samurai
             using size_type       = typename data_type::size_type;
             using cell_t          = typename base_type::cell_t;
             using interval_t      = typename base_type::interval_t;
+            using index_t         = typename base_type::index_t;
 
             using base_type::static_layout;
 
@@ -99,6 +100,7 @@ namespace samurai
 
         using inner_mesh_t     = inner_mesh_type<mesh_t_>;
         using data_access_type = detail::field_data_access<self_type>;
+        using index_t          = typename data_access_type::index_t;
         using size_type        = typename data_access_type::size_type;
         using local_data_type  = typename data_access_type::local_data_type;
         using cell_t           = typename data_access_type::cell_t;
@@ -143,7 +145,6 @@ namespace samurai
     template <class mesh_t, class value_t>
     inline ScalarField<mesh_t, value_t>::ScalarField(std::string name, mesh_t& mesh)
         : inner_mesh_t(mesh)
-        , data_access_type()
     {
         this->m_name = std::move(name);
         this->resize();
@@ -160,11 +161,8 @@ namespace samurai
 
     template <class mesh_t, class value_t>
     inline ScalarField<mesh_t, value_t>::ScalarField(const ScalarField& field)
-        : inner_mesh_t(field.mesh())
-        , data_access_type(field)
     {
-        this->m_name = field.m_name;
-        this->copy_bc_from(field);
+        this->assign_from(field);
     }
 
     // ScalarField operators --------------------------------------------------

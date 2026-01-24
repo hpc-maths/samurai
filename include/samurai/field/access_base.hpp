@@ -28,6 +28,7 @@ namespace samurai
             using value_type                 = typename inner_field_types::value_type;
             using interval_t                 = typename inner_field_types::interval_t;
             using interval_value_t           = typename inner_field_types::interval_value_t;
+            using index_t                    = typename inner_field_types::index_t;
             using size_type                  = typename inner_field_types::size_type;
             using cell_t                     = typename inner_field_types::cell_t;
 
