@@ -186,82 +186,59 @@ namespace samurai
 
     // ScalarField helper functions -------------------------------------------
 
+    namespace detail
+    {
+        template <class value_t, class mesh_t>
+        auto make_field_with_nan_init(const std::string& name, mesh_t& mesh)
+        {
+            ScalarField<mesh_t, value_t> field(name, mesh);
+#ifdef SAMURAI_CHECK_NAN
+            if constexpr (std::is_floating_point_v<value_t>)
+            {
+                field.fill(static_cast<value_t>(std::nan("")));
+            }
+#endif
+            return field;
+        }
+    }
+
     template <class value_t = double, class mesh_t>
         requires IsMesh<mesh_t>
     auto make_scalar_field(const std::string& name, mesh_t& mesh)
     {
-        using field_t = ScalarField<mesh_t, value_t>;
-        field_t f(name, mesh);
-#ifdef SAMURAI_CHECK_NAN
-        if constexpr (std::is_floating_point_v<value_t>)
-        {
-            f.fill(static_cast<value_t>(std::nan("")));
-        }
-#endif
-        return f;
+        return detail::make_field_with_nan_init<value_t>(name, mesh);
     }
 
     template <class value_t = double, class mesh_t>
         requires IsMesh<mesh_t>
     auto make_scalar_field(const std::string& name, mesh_t& mesh, value_t init_value)
     {
-        auto field = make_scalar_field<value_t, mesh_t>(name, mesh);
+        auto field = detail::make_field_with_nan_init<value_t>(name, mesh);
         field.fill(init_value);
         return field;
     }
 
-    /**
-     * @brief Creates a ScalarField.
-     * @param name Name of the returned Field.
-     * @param f Continuous function.
-     * @param gl Gauss Legendre polynomial
-     */
     template <class value_t = double, class mesh_t, class Func, std::size_t polynomial_degree>
         requires IsMesh<mesh_t>
     auto make_scalar_field(const std::string& name, mesh_t& mesh, Func&& f, const GaussLegendre<polynomial_degree>& gl)
     {
-        auto field = make_scalar_field<value_t, mesh_t>(name, mesh);
-#ifdef SAMURAI_CHECK_NAN
-        f.fill(std::nan(""));
-#else
+        auto field = detail::make_field_with_nan_init<value_t>(name, mesh);
         field.fill(0);
-#endif
 
         for_each_cell(mesh,
                       [&](const auto& cell)
                       {
-                          const double& h = cell.length;
-                          field[cell]     = gl.template quadrature<1>(cell, f) / pow(h, mesh_t::dim);
+                          field[cell] = gl.template quadrature<1>(cell, f) / pow(cell.length, mesh_t::dim);
                       });
         return field;
     }
 
-    template <class mesh_t, class Func, std::size_t polynomial_degree>
-        requires IsMesh<mesh_t>
-    auto make_scalar_field(const std::string& name, mesh_t& mesh, Func&& f, const GaussLegendre<polynomial_degree>& gl)
-    {
-        using default_value_t = double;
-        return make_scalar_field<default_value_t>(name, mesh, std::forward<Func>(f), gl);
-    }
-
-    /**
-     * @brief Creates a ScalarField.
-     * @param name Name of the returned Field.
-     * @param f Continuous function.
-     */
-    template <class value_t = double,
-              class mesh_t,
-              class Func,
-              typename = std::enable_if_t<std::is_invocable_v<Func, typename Cell<mesh_t::dim, typename mesh_t::interval_t>::coords_t>>>
-        requires IsMesh<mesh_t>
+    template <class value_t = double, class mesh_t, class Func>
+        requires IsMesh<mesh_t> && std::is_invocable_v<Func, typename Cell<mesh_t::dim, typename mesh_t::interval_t>::coords_t>
     auto make_scalar_field(const std::string& name, mesh_t& mesh, Func&& f)
     {
-        auto field = make_scalar_field<value_t, mesh_t>(name, mesh);
-#ifdef SAMURAI_CHECK_NAN
-        field.fill(std::nan(""));
-#else
+        auto field = detail::make_field_with_nan_init<value_t>(name, mesh);
         field.fill(0);
-#endif
 
         for_each_cell(mesh,
                       [&](const auto& cell)
@@ -269,56 +246,5 @@ namespace samurai
                           field[cell] = f(cell.center());
                       });
         return field;
-    }
-
-    template <class mesh_t,
-              class Func,
-              typename = std::enable_if_t<std::is_invocable_v<Func, typename Cell<mesh_t::dim, typename mesh_t::interval_t>::coords_t>>>
-        requires IsMesh<mesh_t>
-    auto make_scalar_field(const std::string& name, mesh_t& mesh, Func&& f)
-    {
-        using default_value_t = double;
-        return make_scalar_field<default_value_t>(name, mesh, std::forward<Func>(f));
-    }
-
-    template <class mesh_t, class value_t>
-    inline bool operator==(const ScalarField<mesh_t, value_t>& field1, const ScalarField<mesh_t, value_t>& field2)
-    {
-        using mesh_id_t = typename mesh_t::mesh_id_t;
-
-        if (field1.mesh() != field2.mesh())
-        {
-            std::cout << "mesh different" << std::endl;
-            return false;
-        }
-
-        auto& mesh   = field1.mesh();
-        bool is_same = true;
-        for_each_cell(mesh[mesh_id_t::cells],
-                      [&](const auto& cell)
-                      {
-                          if constexpr (std::is_integral_v<value_t>)
-                          {
-                              if (field1[cell] != field2[cell])
-                              {
-                                  is_same = false;
-                              }
-                          }
-                          else
-                          {
-                              if (std::abs(field1[cell] - field2[cell]) > 1e-15)
-                              {
-                                  is_same = false;
-                              }
-                          }
-                      });
-
-        return is_same;
-    }
-
-    template <class mesh_t, class value_t>
-    inline bool operator!=(const ScalarField<mesh_t, value_t>& field1, const ScalarField<mesh_t, value_t>& field2)
-    {
-        return !(field1 == field2);
     }
 } // namespace samurai

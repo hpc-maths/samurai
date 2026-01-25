@@ -445,4 +445,68 @@ namespace samurai
             }
         };
     } // namespace detail
+
+    template <class Field>
+        requires std::is_base_of_v<detail::FieldBase<Field>, Field>
+    inline bool operator==(const Field& field1, const Field& field2)
+    {
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+
+        if (field1.mesh() != field2.mesh())
+        {
+            std::cout << "mesh different" << std::endl;
+            return false;
+        }
+
+        auto& mesh   = field1.mesh();
+        bool is_same = true;
+        for_each_cell(mesh[mesh_id_t::cells],
+                      [&](const auto& cell)
+                      {
+                          if constexpr (std::is_integral_v<typename Field::value_type>)
+                          {
+                              if constexpr (Field::n_comp == 1)
+                              {
+                                  if (field1[cell] != field2[cell])
+                                  {
+                                      is_same = false;
+                                  }
+                              }
+                              else
+                              {
+                                  if (xt::any(xt::not_equal(field1[cell], field2[cell])))
+                                  {
+                                      is_same = false;
+                                  }
+                              }
+                          }
+                          else
+                          {
+                              if constexpr (Field::n_comp == 1)
+                              {
+                                  if (std::abs(field1[cell] - field2[cell]) > 1e-15)
+                                  {
+                                      is_same = false;
+                                  }
+                              }
+                              else
+                              {
+                                  if (xt::any(xt::abs(field1[cell] - field2[cell]) > 1e-15))
+                                  {
+                                      is_same = false;
+                                  }
+                              }
+                          }
+                      });
+
+        return is_same;
+    }
+
+    template <class Field>
+        requires std::is_base_of_v<detail::FieldBase<Field>, Field>
+    inline bool operator!=(const Field& field1, const Field& field2)
+    {
+        return !(field1 == field2);
+    }
+
 } // namespace samurai

@@ -19,6 +19,7 @@
 #include "../numeric/gauss_legendre.hpp"
 #include "../timers.hpp"
 #include "access_base.hpp"
+#include "concepts.hpp"
 #include "field_base.hpp"
 
 namespace samurai
@@ -236,140 +237,60 @@ namespace samurai
 
     // VectorField helper functions -------------------------------------------
 
-    /**
-     * @brief Creates a VectorField.
-     * @param name Name of the returned Field.
-     * @param f Continuous function.
-     * @param gl Gauss Legendre polynomial
-     */
-    template <class value_t, std::size_t n_comp, bool SOA = false, class mesh_t, class Func, std::size_t polynomial_degree>
-    [[deprecated("Use make_vector_field() instead")]] auto
-    make_field(const std::string& name, mesh_t& mesh, Func&& f, const GaussLegendre<polynomial_degree>& gl)
+    namespace detail
     {
-        return make_vector_field<value_t, n_comp, SOA>(name, mesh, std::forward<Func>(f), gl);
+        template <class value_t, std::size_t n_comp, bool SOA, class mesh_t>
+        auto make_vector_field_with_nan_init(const std::string& name, mesh_t& mesh)
+        {
+            VectorField<mesh_t, value_t, n_comp, SOA> field(name, mesh);
+#ifdef SAMURAI_CHECK_NAN
+            if constexpr (std::is_floating_point_v<value_t>)
+            {
+                field.fill(static_cast<value_t>(std::nan("")));
+            }
+#endif
+            return field;
+        }
     }
 
-    template <std::size_t n_comp, bool SOA = false, class mesh_t, class Func, std::size_t polynomial_degree>
-    [[deprecated("Use make_vector_field() instead")]] auto
-    make_field(const std::string& name, mesh_t& mesh, Func&& f, const GaussLegendre<polynomial_degree>& gl)
-    {
-        return make_vector_field<n_comp, SOA>(name, mesh, std::forward<Func>(f), gl);
-    }
-
-    /**
-     * @brief Creates a VectorField.
-     * @param name Name of the returned Field.
-     * @param f Continuous function.
-     */
-    template <class value_t,
-              std::size_t n_comp,
-              bool SOA = false,
-              class mesh_t,
-              class Func,
-              typename = std::enable_if_t<std::is_invocable_v<Func, typename Cell<mesh_t::dim, typename mesh_t::interval_t>::coords_t>>>
-    [[deprecated("Use make_vector_field() instead")]] auto make_field(const std::string& name, mesh_t& mesh, Func&& f)
-    {
-        return make_vector_field<value_t, n_comp, SOA>(name, mesh, std::forward<Func>(f));
-    }
-
-    template <std::size_t n_comp,
-              bool SOA = false,
-              class mesh_t,
-              class Func,
-              typename = std::enable_if_t<std::is_invocable_v<Func, typename Cell<mesh_t::dim, typename mesh_t::interval_t>::coords_t>>>
-    [[deprecated("Use make_vector_field() instead")]] auto make_field(const std::string& name, mesh_t& mesh, Func&& f)
-    {
-        return make_vector_field<n_comp, SOA>(name, mesh, std::forward<Func>(f));
-    }
-
+    // Overloads with explicit value_t, n_comp, SOA
     template <class value_t, std::size_t n_comp, bool SOA = false, class mesh_t>
+        requires IsMesh<mesh_t>
     auto make_vector_field(const std::string& name, mesh_t& mesh)
     {
-        using field_t = VectorField<mesh_t, value_t, n_comp, SOA>;
-        field_t f(name, mesh);
-#ifdef SAMURAI_CHECK_NAN
-        if constexpr (std::is_floating_point_v<value_t>)
-        {
-            f.fill(static_cast<value_t>(std::nan("")));
-        }
-#endif
-        return f;
+        return detail::make_vector_field_with_nan_init<value_t, n_comp, SOA>(name, mesh);
     }
 
     template <class value_t, std::size_t n_comp, bool SOA = false, class mesh_t>
+        requires IsMesh<mesh_t>
     auto make_vector_field(const std::string& name, mesh_t& mesh, value_t init_value)
     {
-        using field_t = VectorField<mesh_t, value_t, n_comp, SOA>;
-        auto field    = field_t(name, mesh);
+        auto field = detail::make_vector_field_with_nan_init<value_t, n_comp, SOA>(name, mesh);
         field.fill(init_value);
         return field;
     }
 
-    template <std::size_t n_comp, bool SOA = false, class mesh_t>
-    auto make_vector_field(const std::string& name, mesh_t& mesh)
-    {
-        using default_value_t = double;
-        return make_vector_field<default_value_t, n_comp, SOA>(name, mesh);
-    }
-
-    template <std::size_t n_comp, bool SOA = false, class mesh_t>
-    auto make_vector_field(const std::string& name, mesh_t& mesh, double init_value)
-    {
-        using default_value_t = double;
-        return make_vector_field<default_value_t, n_comp, SOA>(name, mesh, init_value);
-    }
-
-    /**
-     * @brief Creates a VectorField.
-     * @param name Name of the returned Field.
-     * @param f Continuous function.
-     * @param gl Gauss Legendre polynomial
-     */
     template <class value_t, std::size_t n_comp, bool SOA = false, class mesh_t, class Func, std::size_t polynomial_degree>
+        requires IsMesh<mesh_t>
     auto make_vector_field(const std::string& name, mesh_t& mesh, Func&& f, const GaussLegendre<polynomial_degree>& gl)
     {
-        auto field = make_vector_field<value_t, n_comp, SOA, mesh_t>(name, mesh);
-#ifdef SAMURAI_CHECK_NAN
-        f.fill(std::nan(""));
-#else
+        auto field = detail::make_vector_field_with_nan_init<value_t, n_comp, SOA>(name, mesh);
         field.fill(0);
-#endif
 
         for_each_cell(mesh,
                       [&](const auto& cell)
                       {
-                          const double& h = cell.length;
-                          field[cell]     = gl.template quadrature<n_comp>(cell, f) / pow(h, mesh_t::dim);
+                          field[cell] = gl.template quadrature<n_comp>(cell, f) / pow(cell.length, mesh_t::dim);
                       });
         return field;
     }
 
-    template <std::size_t n_comp, bool SOA = false, class mesh_t, class Func, std::size_t polynomial_degree>
-    auto make_vector_field(const std::string& name, mesh_t& mesh, Func&& f, const GaussLegendre<polynomial_degree>& gl)
-    {
-        using default_value_t = double;
-        return make_vector_field<default_value_t, n_comp, SOA>(name, mesh, std::forward<Func>(f), gl);
-    }
-
-    /**
-     * @brief Creates a VectorField.
-     * @param name Name of the returned Field.
-     * @param f Continuous function.
-     */
-    template <class value_t,
-              std::size_t n_comp,
-              bool SOA = false,
-              class mesh_t,
-              class Func,
-              typename = std::enable_if_t<std::is_invocable_v<Func, typename Cell<mesh_t::dim, typename mesh_t::interval_t>::coords_t>>>
+    template <class value_t, std::size_t n_comp, bool SOA = false, class mesh_t, class Func>
+        requires IsMesh<mesh_t> && std::is_invocable_v<Func, typename Cell<mesh_t::dim, typename mesh_t::interval_t>::coords_t>
     auto make_vector_field(const std::string& name, mesh_t& mesh, Func&& f)
     {
-        auto field = make_vector_field<value_t, n_comp, SOA, mesh_t>(name, mesh);
-#ifdef SAMURAI_CHECK_NAN
-        field.fill(std::nan(""));
-#else
+        auto field = detail::make_vector_field_with_nan_init<value_t, n_comp, SOA>(name, mesh);
         field.fill(0);
-#endif
 
         for_each_cell(mesh,
                       [&](const auto& cell)
@@ -379,80 +300,32 @@ namespace samurai
         return field;
     }
 
-    template <std::size_t n_comp,
-              bool SOA = false,
-              class mesh_t,
-              class Func,
-              typename = std::enable_if_t<std::is_invocable_v<Func, typename Cell<mesh_t::dim, typename mesh_t::interval_t>::coords_t>>>
+    // Overloads with default value_t = double (allows make_vector_field<2, false>)
+    template <std::size_t n_comp, bool SOA = false, class mesh_t>
+        requires IsMesh<mesh_t>
+    auto make_vector_field(const std::string& name, mesh_t& mesh)
+    {
+        return make_vector_field<double, n_comp, SOA>(name, mesh);
+    }
+
+    template <std::size_t n_comp, bool SOA = false, class mesh_t>
+        requires IsMesh<mesh_t>
+    auto make_vector_field(const std::string& name, mesh_t& mesh, double init_value)
+    {
+        return make_vector_field<double, n_comp, SOA>(name, mesh, init_value);
+    }
+
+    template <std::size_t n_comp, bool SOA = false, class mesh_t, class Func, std::size_t polynomial_degree>
+        requires IsMesh<mesh_t>
+    auto make_vector_field(const std::string& name, mesh_t& mesh, Func&& f, const GaussLegendre<polynomial_degree>& gl)
+    {
+        return make_vector_field<double, n_comp, SOA>(name, mesh, std::forward<Func>(f), gl);
+    }
+
+    template <std::size_t n_comp, bool SOA = false, class mesh_t, class Func>
+        requires IsMesh<mesh_t> && std::is_invocable_v<Func, typename Cell<mesh_t::dim, typename mesh_t::interval_t>::coords_t>
     auto make_vector_field(const std::string& name, mesh_t& mesh, Func&& f)
     {
-        using default_value_t = double;
-        return make_vector_field<default_value_t, n_comp, SOA>(name, mesh, std::forward<Func>(f));
+        return make_vector_field<double, n_comp, SOA>(name, mesh, std::forward<Func>(f));
     }
-
-    template <class value_t, std::size_t n_comp, bool SOA = false, class mesh_t>
-    [[deprecated("Use make_vector_field() instead")]] auto make_field(const std::string& name, mesh_t& mesh)
-    {
-        return make_vector_field<value_t, n_comp>(name, mesh);
-    }
-
-    template <class value_t, std::size_t n_comp, bool SOA = false, class mesh_t>
-    [[deprecated("Use make_vector_field() instead")]] auto make_field(const std::string& name, mesh_t& mesh, value_t init_value)
-    {
-        return make_vector_field<value_t, n_comp>(name, mesh, init_value);
-    }
-
-    template <std::size_t n_comp, bool SOA = false, class mesh_t>
-    [[deprecated("Use make_vector_field() instead")]] auto make_field(const std::string& name, mesh_t& mesh)
-    {
-        return make_vector_field<n_comp>(name, mesh);
-    }
-
-    template <std::size_t n_comp, bool SOA = false, class mesh_t>
-    [[deprecated("Use make_vector_field() instead")]] auto make_field(const std::string& name, mesh_t& mesh, double init_value)
-    {
-        return make_vector_field<n_comp>(name, mesh, init_value);
-    }
-
-    template <class mesh_t, class value_t, std::size_t n_comp_, bool SOA>
-    inline bool operator==(const VectorField<mesh_t, value_t, n_comp_, SOA>& field1, const VectorField<mesh_t, value_t, n_comp_, SOA>& field2)
-    {
-        using mesh_id_t = typename mesh_t::mesh_id_t;
-
-        if (field1.mesh() != field2.mesh())
-        {
-            std::cout << "mesh different" << std::endl;
-            return false;
-        }
-
-        auto& mesh   = field1.mesh();
-        bool is_same = true;
-        for_each_cell(mesh[mesh_id_t::cells],
-                      [&](const auto& cell)
-                      {
-                          if constexpr (std::is_integral_v<value_t>)
-                          {
-                              if (xt::any(xt::not_equal(field1[cell], field2[cell])))
-                              {
-                                  is_same = false;
-                              }
-                          }
-                          else
-                          {
-                              if (xt::any(xt::abs(field1[cell] - field2[cell]) > 1e-15))
-                              {
-                                  is_same = false;
-                              }
-                          }
-                      });
-
-        return is_same;
-    }
-
-    template <class mesh_t, class value_t, std::size_t n_comp_, bool SOA>
-    inline bool operator!=(const VectorField<mesh_t, value_t, n_comp_, SOA>& field1, const VectorField<mesh_t, value_t, n_comp_, SOA>& field2)
-    {
-        return !(field1 == field2);
-    }
-
 } // namespace samurai
