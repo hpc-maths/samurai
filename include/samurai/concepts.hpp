@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <type_traits>
+
 namespace samurai
 {
     // MESH CONCEPTS
@@ -18,6 +20,9 @@ namespace samurai
 
     template <class Config>
     class UniformMesh;
+
+    template <class Mesh>
+    class hold;
 
     template <class T>
     struct is_mesh_impl : std::false_type
@@ -48,6 +53,14 @@ namespace samurai
     template <class T>
     constexpr bool is_mesh_impl_v{is_mesh_impl<std::decay_t<T>>::value};
 
-    template <typename T>
-    concept IsMesh = is_mesh_impl_v<T>;
+    template <class Mesh>
+    struct is_mesh_impl<hold<Mesh>> : std::bool_constant<is_mesh_impl_v<Mesh>>
+    {
+    };
+
+    template <class T>
+    inline constexpr bool mesh_like_helper = is_mesh_impl_v<std::remove_cvref_t<T>>;
+
+    template <class T>
+    concept IsMesh = mesh_like_helper<T>;
 }
