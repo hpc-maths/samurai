@@ -186,7 +186,7 @@ namespace samurai
         ~VectorField() = default;
 
         template <class E>
-        VectorField(const field_expression<E>& e);
+        explicit VectorField(const field_expression<E>& e);
         template <class E>
         VectorField& operator=(const field_expression<E>& e);
     };

@@ -3,6 +3,10 @@
 
 #pragma once
 
+#include <algorithm>
+
+#include "concepts.hpp"
+
 namespace samurai
 {
     template <class Field1, class Field2>
@@ -11,8 +15,6 @@ namespace samurai
     {
         std::swap(u1.array(), u2.array());
 
-        bool u1_ghosts_updated = u1.ghosts_updated();
-        u1.ghosts_updated()    = u2.ghosts_updated();
-        u2.ghosts_updated()    = u1_ghosts_updated;
+        std::swap(u1.ghosts_updated(), u2.ghosts_updated());
     }
 }

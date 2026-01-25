@@ -135,7 +135,7 @@ namespace samurai
         ~ScalarField() = default;
 
         template <class E>
-        ScalarField(const field_expression<E>& e);
+        explicit ScalarField(const field_expression<E>& e);
         template <class E>
         ScalarField& operator=(const field_expression<E>& e);
     };
