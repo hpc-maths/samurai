@@ -18,7 +18,7 @@ namespace samurai
         struct field_data_access;
 
         template <class D>
-            requires field_like<D>
+            requires valid_field_mesh_and_value<D>
         class field_data_access_base
         {
           public:

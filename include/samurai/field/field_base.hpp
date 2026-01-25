@@ -188,15 +188,16 @@ namespace samurai
 
                 if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) || (interval_tmp.start > interval.start))
                 {
-                    std::ostringstream oss;
-                    ((oss << index << ' '), ...);
-                    std::string idx_str = oss.str();
-
-                    std::ostringstream error_msg;
-                    error_msg << "Field '" << this->derived_cast().name() << "' interval query failed on level " << level
-                              << ": requested interval " << interval << " could not be found for indices [" << idx_str
-                              << "]; available interval: " << interval_tmp;
-                    throw std::out_of_range(error_msg.str());
+                    std::ostringstream idx_ss;
+                    ((idx_ss << index << ' '), ...);
+                    auto idx_str = idx_ss.str();
+                    throw std::out_of_range(fmt::format("Field '{}' interval query failed on level {}: requested interval {} "
+                                                        "could not be found for indices [{}]; available interval: {}",
+                                                        this->derived_cast().name(),
+                                                        level,
+                                                        interval,
+                                                        idx_str,
+                                                        interval_tmp));
                 }
 
                 return interval_tmp;

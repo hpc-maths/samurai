@@ -30,9 +30,10 @@ namespace samurai
     {
         // VectorField specialization ---------------------------------------------
 
-        template <class mesh_t, class value_t, std::size_t n_comp, bool SOA>
-        struct inner_field_types<VectorField<mesh_t, value_t, n_comp, SOA>>
+        template <class mesh_t_, class value_t, std::size_t n_comp, bool SOA>
+        struct inner_field_types<VectorField<mesh_t_, value_t, n_comp, SOA>>
         {
+            using mesh_t                     = mesh_t_;
             static constexpr std::size_t dim = mesh_t::dim;
             using value_type                 = value_t;
             using interval_t                 = typename mesh_t::interval_t;
@@ -186,7 +187,7 @@ namespace samurai
         ~VectorField() = default;
 
         template <class E>
-        explicit VectorField(const field_expression<E>& e);
+        VectorField(const field_expression<E>& e);
         template <class E>
         VectorField& operator=(const field_expression<E>& e);
     };
@@ -243,14 +244,14 @@ namespace samurai
      */
     template <class value_t, std::size_t n_comp, bool SOA = false, class mesh_t, class Func, std::size_t polynomial_degree>
     [[deprecated("Use make_vector_field() instead")]] auto
-    make_field(std::string const& name, mesh_t& mesh, Func&& f, const GaussLegendre<polynomial_degree>& gl)
+    make_field(const std::string& name, mesh_t& mesh, Func&& f, const GaussLegendre<polynomial_degree>& gl)
     {
         return make_vector_field<value_t, n_comp, SOA>(name, mesh, std::forward<Func>(f), gl);
     }
 
     template <std::size_t n_comp, bool SOA = false, class mesh_t, class Func, std::size_t polynomial_degree>
     [[deprecated("Use make_vector_field() instead")]] auto
-    make_field(std::string const& name, mesh_t& mesh, Func&& f, const GaussLegendre<polynomial_degree>& gl)
+    make_field(const std::string& name, mesh_t& mesh, Func&& f, const GaussLegendre<polynomial_degree>& gl)
     {
         return make_vector_field<n_comp, SOA>(name, mesh, std::forward<Func>(f), gl);
     }
@@ -266,7 +267,7 @@ namespace samurai
               class mesh_t,
               class Func,
               typename = std::enable_if_t<std::is_invocable_v<Func, typename Cell<mesh_t::dim, typename mesh_t::interval_t>::coords_t>>>
-    [[deprecated("Use make_vector_field() instead")]] auto make_field(std::string const& name, mesh_t& mesh, Func&& f)
+    [[deprecated("Use make_vector_field() instead")]] auto make_field(const std::string& name, mesh_t& mesh, Func&& f)
     {
         return make_vector_field<value_t, n_comp, SOA>(name, mesh, std::forward<Func>(f));
     }
@@ -276,13 +277,13 @@ namespace samurai
               class mesh_t,
               class Func,
               typename = std::enable_if_t<std::is_invocable_v<Func, typename Cell<mesh_t::dim, typename mesh_t::interval_t>::coords_t>>>
-    [[deprecated("Use make_vector_field() instead")]] auto make_field(std::string const& name, mesh_t& mesh, Func&& f)
+    [[deprecated("Use make_vector_field() instead")]] auto make_field(const std::string& name, mesh_t& mesh, Func&& f)
     {
         return make_vector_field<n_comp, SOA>(name, mesh, std::forward<Func>(f));
     }
 
     template <class value_t, std::size_t n_comp, bool SOA = false, class mesh_t>
-    auto make_vector_field(std::string const& name, mesh_t& mesh)
+    auto make_vector_field(const std::string& name, mesh_t& mesh)
     {
         using field_t = VectorField<mesh_t, value_t, n_comp, SOA>;
         field_t f(name, mesh);
@@ -296,7 +297,7 @@ namespace samurai
     }
 
     template <class value_t, std::size_t n_comp, bool SOA = false, class mesh_t>
-    auto make_vector_field(std::string const& name, mesh_t& mesh, value_t init_value)
+    auto make_vector_field(const std::string& name, mesh_t& mesh, value_t init_value)
     {
         using field_t = VectorField<mesh_t, value_t, n_comp, SOA>;
         auto field    = field_t(name, mesh);
@@ -305,14 +306,14 @@ namespace samurai
     }
 
     template <std::size_t n_comp, bool SOA = false, class mesh_t>
-    auto make_vector_field(std::string const& name, mesh_t& mesh)
+    auto make_vector_field(const std::string& name, mesh_t& mesh)
     {
         using default_value_t = double;
         return make_vector_field<default_value_t, n_comp, SOA>(name, mesh);
     }
 
     template <std::size_t n_comp, bool SOA = false, class mesh_t>
-    auto make_vector_field(std::string const& name, mesh_t& mesh, double init_value)
+    auto make_vector_field(const std::string& name, mesh_t& mesh, double init_value)
     {
         using default_value_t = double;
         return make_vector_field<default_value_t, n_comp, SOA>(name, mesh, init_value);
@@ -325,7 +326,7 @@ namespace samurai
      * @param gl Gauss Legendre polynomial
      */
     template <class value_t, std::size_t n_comp, bool SOA = false, class mesh_t, class Func, std::size_t polynomial_degree>
-    auto make_vector_field(std::string const& name, mesh_t& mesh, Func&& f, const GaussLegendre<polynomial_degree>& gl)
+    auto make_vector_field(const std::string& name, mesh_t& mesh, Func&& f, const GaussLegendre<polynomial_degree>& gl)
     {
         auto field = make_vector_field<value_t, n_comp, SOA, mesh_t>(name, mesh);
 #ifdef SAMURAI_CHECK_NAN
@@ -344,7 +345,7 @@ namespace samurai
     }
 
     template <std::size_t n_comp, bool SOA = false, class mesh_t, class Func, std::size_t polynomial_degree>
-    auto make_vector_field(std::string const& name, mesh_t& mesh, Func&& f, const GaussLegendre<polynomial_degree>& gl)
+    auto make_vector_field(const std::string& name, mesh_t& mesh, Func&& f, const GaussLegendre<polynomial_degree>& gl)
     {
         using default_value_t = double;
         return make_vector_field<default_value_t, n_comp, SOA>(name, mesh, std::forward<Func>(f), gl);
@@ -361,7 +362,7 @@ namespace samurai
               class mesh_t,
               class Func,
               typename = std::enable_if_t<std::is_invocable_v<Func, typename Cell<mesh_t::dim, typename mesh_t::interval_t>::coords_t>>>
-    auto make_vector_field(std::string const& name, mesh_t& mesh, Func&& f)
+    auto make_vector_field(const std::string& name, mesh_t& mesh, Func&& f)
     {
         auto field = make_vector_field<value_t, n_comp, SOA, mesh_t>(name, mesh);
 #ifdef SAMURAI_CHECK_NAN
@@ -383,32 +384,32 @@ namespace samurai
               class mesh_t,
               class Func,
               typename = std::enable_if_t<std::is_invocable_v<Func, typename Cell<mesh_t::dim, typename mesh_t::interval_t>::coords_t>>>
-    auto make_vector_field(std::string const& name, mesh_t& mesh, Func&& f)
+    auto make_vector_field(const std::string& name, mesh_t& mesh, Func&& f)
     {
         using default_value_t = double;
         return make_vector_field<default_value_t, n_comp, SOA>(name, mesh, std::forward<Func>(f));
     }
 
     template <class value_t, std::size_t n_comp, bool SOA = false, class mesh_t>
-    [[deprecated("Use make_vector_field() instead")]] auto make_field(std::string const& name, mesh_t& mesh)
+    [[deprecated("Use make_vector_field() instead")]] auto make_field(const std::string& name, mesh_t& mesh)
     {
         return make_vector_field<value_t, n_comp>(name, mesh);
     }
 
     template <class value_t, std::size_t n_comp, bool SOA = false, class mesh_t>
-    [[deprecated("Use make_vector_field() instead")]] auto make_field(std::string const& name, mesh_t& mesh, value_t init_value)
+    [[deprecated("Use make_vector_field() instead")]] auto make_field(const std::string& name, mesh_t& mesh, value_t init_value)
     {
         return make_vector_field<value_t, n_comp>(name, mesh, init_value);
     }
 
     template <std::size_t n_comp, bool SOA = false, class mesh_t>
-    [[deprecated("Use make_vector_field() instead")]] auto make_field(std::string const& name, mesh_t& mesh)
+    [[deprecated("Use make_vector_field() instead")]] auto make_field(const std::string& name, mesh_t& mesh)
     {
         return make_vector_field<n_comp>(name, mesh);
     }
 
     template <std::size_t n_comp, bool SOA = false, class mesh_t>
-    [[deprecated("Use make_vector_field() instead")]] auto make_field(std::string const& name, mesh_t& mesh, double init_value)
+    [[deprecated("Use make_vector_field() instead")]] auto make_field(const std::string& name, mesh_t& mesh, double init_value)
     {
         return make_vector_field<n_comp>(name, mesh, init_value);
     }
