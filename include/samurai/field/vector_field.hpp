@@ -3,21 +3,15 @@
 
 #pragma once
 
-#include <algorithm>
-#include <memory>
-#include <stdexcept>
 #include <string>
 #include <type_traits>
 
 #include <fmt/format.h>
 
 #include "../algorithm.hpp"
-#include "../bc/bc.hpp"
-#include "../cell.hpp"
 #include "../field_expression.hpp"
 #include "../mesh_holder.hpp"
 #include "../numeric/gauss_legendre.hpp"
-#include "../timers.hpp"
 #include "access_base.hpp"
 #include "concepts.hpp"
 #include "field_base.hpp"
