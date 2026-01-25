@@ -1381,13 +1381,13 @@ namespace samurai
     }
 
     template <class PredictionFn, class Mesh>
-        requires IsMesh<Mesh>
+        requires mesh_like<Mesh>
     void update_fields(PredictionFn&&, Mesh&)
     {
     }
 
     template <class Mesh>
-        requires IsMesh<Mesh>
+        requires mesh_like<Mesh>
     void update_fields(Mesh&)
     {
     }
@@ -1406,21 +1406,21 @@ namespace samurai
     }
 
     template <class PredictionFn, class Mesh, class... T>
-        requires IsMesh<Mesh> && (field_like<T> && ...)
+        requires mesh_like<Mesh> && (field_like<T> && ...)
     void update_fields(PredictionFn&& prediction_fn, Mesh& new_mesh, Field_tuple<T...>& fields)
     {
         update_fields(std::forward<PredictionFn>(prediction_fn), new_mesh, fields.elements(), std::make_index_sequence<sizeof...(T)>{});
     }
 
     template <class Mesh, class... T>
-        requires IsMesh<Mesh> && (field_like<T> && ...)
+        requires mesh_like<Mesh> && (field_like<T> && ...)
     void update_fields(Mesh& new_mesh, Field_tuple<T...>& fields)
     {
         update_fields(new_mesh, fields.elements(), std::make_index_sequence<sizeof...(T)>{});
     }
 
     template <class Mesh, class Field, class... Fields>
-        requires IsMesh<Mesh> && field_like<Field> && (field_like<Fields> && ...)
+        requires mesh_like<Mesh> && field_like<Field> && (field_like<Fields> && ...)
     void update_fields(Mesh& new_mesh, Field& field, Fields&... fields)
     {
         using prediction_fn_t = decltype(default_config::default_prediction_fn);
@@ -1429,7 +1429,7 @@ namespace samurai
     }
 
     template <class PredictionFn, class Mesh, class Field, class... Fields>
-        requires IsMesh<Mesh> && field_like<Field> && (field_like<Fields> && ...)
+        requires mesh_like<Mesh> && field_like<Field> && (field_like<Fields> && ...)
     void update_fields(PredictionFn&& prediction_fn, Mesh& new_mesh, Field& field, Fields&... fields)
     {
         detail::update_field(std::forward<PredictionFn>(prediction_fn), new_mesh, field);

@@ -233,14 +233,14 @@ namespace samurai
 
     // Overloads with explicit value_t, n_comp, SOA
     template <class value_t, std::size_t n_comp, bool SOA = false, class mesh_t>
-        requires IsMesh<mesh_t>
+        requires mesh_like<mesh_t>
     auto make_vector_field(const std::string& name, mesh_t& mesh)
     {
         return detail::make_vector_field_with_nan_init<value_t, n_comp, SOA>(name, mesh);
     }
 
     template <class value_t, std::size_t n_comp, bool SOA = false, class mesh_t>
-        requires IsMesh<mesh_t>
+        requires mesh_like<mesh_t>
     auto make_vector_field(const std::string& name, mesh_t& mesh, value_t init_value)
     {
         auto field = detail::make_vector_field_with_nan_init<value_t, n_comp, SOA>(name, mesh);
@@ -249,7 +249,7 @@ namespace samurai
     }
 
     template <class value_t, std::size_t n_comp, bool SOA = false, class mesh_t, class Func, std::size_t polynomial_degree>
-        requires IsMesh<mesh_t>
+        requires mesh_like<mesh_t>
     auto make_vector_field(const std::string& name, mesh_t& mesh, Func&& f, const GaussLegendre<polynomial_degree>& gl)
     {
         auto field = detail::make_vector_field_with_nan_init<value_t, n_comp, SOA>(name, mesh);
@@ -264,7 +264,7 @@ namespace samurai
     }
 
     template <class value_t, std::size_t n_comp, bool SOA = false, class mesh_t, class Func>
-        requires IsMesh<mesh_t> && std::is_invocable_v<Func, typename Cell<mesh_t::dim, typename mesh_t::interval_t>::coords_t>
+        requires mesh_like<mesh_t> && std::is_invocable_v<Func, typename Cell<mesh_t::dim, typename mesh_t::interval_t>::coords_t>
     auto make_vector_field(const std::string& name, mesh_t& mesh, Func&& f)
     {
         auto field = detail::make_vector_field_with_nan_init<value_t, n_comp, SOA>(name, mesh);
@@ -280,28 +280,28 @@ namespace samurai
 
     // Overloads with default value_t = double (allows make_vector_field<2, false>)
     template <std::size_t n_comp, bool SOA = false, class mesh_t>
-        requires IsMesh<mesh_t>
+        requires mesh_like<mesh_t>
     auto make_vector_field(const std::string& name, mesh_t& mesh)
     {
         return make_vector_field<double, n_comp, SOA>(name, mesh);
     }
 
     template <std::size_t n_comp, bool SOA = false, class mesh_t>
-        requires IsMesh<mesh_t>
+        requires mesh_like<mesh_t>
     auto make_vector_field(const std::string& name, mesh_t& mesh, double init_value)
     {
         return make_vector_field<double, n_comp, SOA>(name, mesh, init_value);
     }
 
     template <std::size_t n_comp, bool SOA = false, class mesh_t, class Func, std::size_t polynomial_degree>
-        requires IsMesh<mesh_t>
+        requires mesh_like<mesh_t>
     auto make_vector_field(const std::string& name, mesh_t& mesh, Func&& f, const GaussLegendre<polynomial_degree>& gl)
     {
         return make_vector_field<double, n_comp, SOA>(name, mesh, std::forward<Func>(f), gl);
     }
 
     template <std::size_t n_comp, bool SOA = false, class mesh_t, class Func>
-        requires IsMesh<mesh_t> && std::is_invocable_v<Func, typename Cell<mesh_t::dim, typename mesh_t::interval_t>::coords_t>
+        requires mesh_like<mesh_t> && std::is_invocable_v<Func, typename Cell<mesh_t::dim, typename mesh_t::interval_t>::coords_t>
     auto make_vector_field(const std::string& name, mesh_t& mesh, Func&& f)
     {
         return make_vector_field<double, n_comp, SOA>(name, mesh, std::forward<Func>(f));

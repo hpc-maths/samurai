@@ -62,5 +62,5 @@ namespace samurai
     inline constexpr bool mesh_like_helper = is_mesh_impl_v<std::remove_cvref_t<T>>;
 
     template <class T>
-    concept IsMesh = mesh_like_helper<T>;
+    concept mesh_like = mesh_like_helper<T>;
 }

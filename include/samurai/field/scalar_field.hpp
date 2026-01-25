@@ -170,14 +170,14 @@ namespace samurai
     }
 
     template <class value_t = double, class mesh_t>
-        requires IsMesh<mesh_t>
+        requires mesh_like<mesh_t>
     auto make_scalar_field(const std::string& name, mesh_t& mesh)
     {
         return detail::make_field_with_nan_init<value_t>(name, mesh);
     }
 
     template <class value_t = double, class mesh_t>
-        requires IsMesh<mesh_t>
+        requires mesh_like<mesh_t>
     auto make_scalar_field(const std::string& name, mesh_t& mesh, value_t init_value)
     {
         auto field = detail::make_field_with_nan_init<value_t>(name, mesh);
@@ -186,7 +186,7 @@ namespace samurai
     }
 
     template <class value_t = double, class mesh_t, class Func, std::size_t polynomial_degree>
-        requires IsMesh<mesh_t>
+        requires mesh_like<mesh_t>
     auto make_scalar_field(const std::string& name, mesh_t& mesh, Func&& f, const GaussLegendre<polynomial_degree>& gl)
     {
         auto field = detail::make_field_with_nan_init<value_t>(name, mesh);
@@ -201,7 +201,7 @@ namespace samurai
     }
 
     template <class value_t = double, class mesh_t, class Func>
-        requires IsMesh<mesh_t> && std::is_invocable_v<Func, typename Cell<mesh_t::dim, typename mesh_t::interval_t>::coords_t>
+        requires mesh_like<mesh_t> && std::is_invocable_v<Func, typename Cell<mesh_t::dim, typename mesh_t::interval_t>::coords_t>
     auto make_scalar_field(const std::string& name, mesh_t& mesh, Func&& f)
     {
         auto field = detail::make_field_with_nan_init<value_t>(name, mesh);
