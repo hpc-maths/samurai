@@ -3,22 +3,14 @@
 
 #pragma once
 
-#include <algorithm>
-#include <memory>
-#include <stdexcept>
 #include <string>
 #include <type_traits>
 
-#include <fmt/format.h>
-
 #include "../algorithm.hpp"
-#include "../bc/bc.hpp"
-#include "../cell.hpp"
 #include "../concepts.hpp"
 #include "../field_expression.hpp"
 #include "../mesh_holder.hpp"
 #include "../numeric/gauss_legendre.hpp"
-#include "../timers.hpp"
 #include "access_base.hpp"
 #include "field_base.hpp"
 
@@ -38,7 +30,7 @@ namespace samurai
             using value_type                    = value_t;
             using index_t                       = typename interval_t::index_t;
             using interval_value_t              = typename interval_t::value_t;
-            using cell_t                        = Cell<dim, interval_t>;
+            using cell_t                        = typename mesh_t::cell_t;
             using data_type                     = field_data_storage_t<value_t, 1>;
             using local_data_type               = local_field_data_t<value_t, 1, false, true>;
             using size_type                     = typename data_type::size_type;
@@ -49,16 +41,10 @@ namespace samurai
         template <class mesh_t, class value_t>
         struct field_data_access<ScalarField<mesh_t, value_t>> : public field_data_access_base<ScalarField<mesh_t, value_t>>
         {
-            using base_type       = field_data_access_base<ScalarField<mesh_t, value_t>>;
-            using data_type       = typename base_type::data_type;
-            using value_type      = value_t;
-            using local_data_type = typename base_type::local_data_type;
-            using size_type       = typename data_type::size_type;
-            using cell_t          = typename base_type::cell_t;
-            using interval_t      = typename base_type::interval_t;
-            using index_t         = typename base_type::index_t;
-
-            using base_type::static_layout;
+            using base_type = field_data_access_base<ScalarField<mesh_t, value_t>>;
+            using data_type = typename base_type::data_type;
+            using size_type = typename data_type::size_type;
+            using cell_t    = typename base_type::cell_t;
 
             using base_type::operator();
 
@@ -88,45 +74,31 @@ namespace samurai
     // class ScalarField
     // ------------------------------------------------------------------------
 
-    template <class mesh_t_, class value_t = double>
-    class ScalarField : public field_expression<ScalarField<mesh_t_, value_t>>,
-                        public inner_mesh_type<mesh_t_>,
-                        public detail::field_data_access<ScalarField<mesh_t_, value_t>>,
-                        public detail::FieldBase<ScalarField<mesh_t_, value_t>>
+    template <class mesh_t, class value_t = double>
+    class ScalarField : public field_expression<ScalarField<mesh_t, value_t>>,
+                        public inner_mesh_type<mesh_t>,
+                        public detail::field_data_access<ScalarField<mesh_t, value_t>>,
+                        public detail::FieldBase<ScalarField<mesh_t, value_t>>
     {
       public:
 
-        using self_type  = ScalarField<mesh_t_, value_t>;
-        using mesh_t     = mesh_t_;
-        using value_type = value_t;
+        using self_type = ScalarField<mesh_t, value_t>;
 
-        using inner_mesh_t     = inner_mesh_type<mesh_t_>;
+        using inner_mesh_t     = inner_mesh_type<mesh_t>;
         using data_access_type = detail::field_data_access<self_type>;
-        using index_t          = typename data_access_type::index_t;
         using size_type        = typename data_access_type::size_type;
-        using local_data_type  = typename data_access_type::local_data_type;
-        using cell_t           = typename data_access_type::cell_t;
-        using interval_t       = typename data_access_type::interval_t;
-        using data_access_type::dim;
-
-        // using bc_container = std::vector<std::unique_ptr<Bc<self_type>>>;
-
-        // using data_access_type::dim;
-        // using interval_t = typename mesh_t::interval_t;
-        // using cell_t     = typename data_access_type::cell_t;
-
-        using iterator               = Field_iterator<self_type, false>;
-        using const_iterator         = Field_iterator<const self_type, true>;
-        using reverse_iterator       = Field_reverse_iterator<iterator>;
-        using const_reverse_iterator = Field_reverse_iterator<const_iterator>;
 
         static constexpr size_type n_comp = 1;
         static constexpr bool is_scalar   = true;
-        using data_access_type::static_layout;
 
         ScalarField() = default;
 
         explicit ScalarField(std::string name, mesh_t& mesh);
+
+        template <class E>
+        ScalarField(const field_expression<E>& e);
+        template <class E>
+        ScalarField& operator=(const field_expression<E>& e);
 
         ScalarField(const ScalarField&);
         ScalarField& operator=(const ScalarField&);
@@ -135,11 +107,6 @@ namespace samurai
         ScalarField& operator=(ScalarField&&) noexcept = default;
 
         ~ScalarField() = default;
-
-        template <class E>
-        ScalarField(const field_expression<E>& e);
-        template <class E>
-        ScalarField& operator=(const field_expression<E>& e);
     };
 
     // ScalarField constructors -----------------------------------------------

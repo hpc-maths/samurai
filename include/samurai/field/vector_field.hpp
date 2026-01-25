@@ -40,7 +40,7 @@ namespace samurai
             using interval_t                 = typename mesh_t::interval_t;
             using index_t                    = typename interval_t::index_t;
             using interval_value_t           = typename interval_t::value_t;
-            using cell_t                     = Cell<dim, interval_t>;
+            using cell_t                     = typename mesh_t::cell_t;
             using data_type                  = field_data_storage_t<value_t, n_comp, SOA, false>;
             using local_data_type            = local_field_data_t<value_t, n_comp, SOA, false>;
             using size_type                  = typename data_type::size_type;
@@ -54,15 +54,10 @@ namespace samurai
         {
             using base_type = field_data_access_base<VectorField<mesh_t, value_t, n_comp, SOA>>;
 
-            using data_type       = typename base_type::data_type;
-            using value_type      = value_t;
-            using local_data_type = typename base_type::local_data_type;
-            using size_type       = typename data_type::size_type;
-            using index_t         = typename base_type::index_t;
-            using cell_t          = typename base_type::cell_t;
-            using interval_t      = typename base_type::interval_t;
-
-            using base_type::static_layout;
+            using data_type  = typename base_type::data_type;
+            using size_type  = typename data_type::size_type;
+            using cell_t     = typename base_type::cell_t;
+            using interval_t = typename base_type::interval_t;
 
             using base_type::operator();
 
@@ -156,28 +151,22 @@ namespace samurai
         using mesh_t     = mesh_t_;
         using value_type = value_t;
 
-        using inner_mesh_t = inner_mesh_type<mesh_t_>;
-        // using inner_types      = detail::inner_field_types<self_type>;
+        using inner_mesh_t     = inner_mesh_type<mesh_t_>;
         using data_access_type = detail::field_data_access<self_type>;
         using size_type        = typename data_access_type::size_type;
-        using index_t          = typename data_access_type::index_t;
-        using local_data_type  = typename data_access_type::local_data_type;
-        using cell_t           = typename data_access_type::cell_t;
-        using data_access_type::dim;
-
-        using iterator               = Field_iterator<self_type, false>;
-        using const_iterator         = Field_iterator<const self_type, true>;
-        using reverse_iterator       = Field_reverse_iterator<iterator>;
-        using const_reverse_iterator = Field_reverse_iterator<const_iterator>;
 
         static constexpr size_type n_comp = n_comp_;
         static constexpr bool is_soa      = SOA;
         static constexpr bool is_scalar   = false;
-        using data_access_type::static_layout;
 
         VectorField() = default;
 
         explicit VectorField(std::string name, mesh_t& mesh);
+
+        template <class E>
+        VectorField(const field_expression<E>& e);
+        template <class E>
+        VectorField& operator=(const field_expression<E>& e);
 
         VectorField(const VectorField&);
         VectorField& operator=(const VectorField&);
@@ -186,11 +175,6 @@ namespace samurai
         VectorField& operator=(VectorField&&) noexcept = default;
 
         ~VectorField() = default;
-
-        template <class E>
-        VectorField(const field_expression<E>& e);
-        template <class E>
-        VectorField& operator=(const field_expression<E>& e);
     };
 
     // VectorField constructors -----------------------------------------------

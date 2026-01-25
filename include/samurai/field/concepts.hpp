@@ -5,6 +5,8 @@
 
 #include <type_traits>
 
+#include <xtensor/containers/xtensor.hpp>
+
 namespace samurai
 {
     template <class mesh_t, class value_t>
@@ -37,4 +39,13 @@ namespace samurai
         typename detail::inner_field_types<std::remove_cvref_t<D>>::mesh_t;
         typename detail::inner_field_types<std::remove_cvref_t<D>>::value_type;
     };
+
+    template <class T>
+    inline constexpr bool xtensor_like_helper = false;
+
+    template <class EC, std::size_t N, xt::layout_type L, class Tag>
+    inline constexpr bool xtensor_like_helper<xt::xtensor_container<EC, N, L, Tag>> = true;
+
+    template <class T>
+    concept is_xtensor_container = xtensor_like_helper<std::remove_cvref_t<T>>;
 } // namespace samurai

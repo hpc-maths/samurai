@@ -74,12 +74,12 @@ namespace samurai
         using value_t    = typename interval_t::value_t;
         using index_t    = typename interval_t::index_t;
 
-        using cell_t   = Cell<dim, interval_t>;
         using cl_type  = CellList<dim, interval_t, max_refinement_level>;
         using lcl_type = typename cl_type::lcl_type;
 
         using ca_type  = CellArray<dim, interval_t, max_refinement_level>;
         using lca_type = typename ca_type::lca_type;
+        using cell_t   = typename ca_type::cell_t;
 
         using coords_t = typename lca_type::coords_t;
 
@@ -700,9 +700,8 @@ namespace samurai
 
     template <class D, class Config>
     template <class E>
-    inline auto Mesh_base<D, Config>::get_interval(std::size_t level,
-                                                   const interval_t& interval,
-                                                   const xt::xexpression<E>& index) const -> const interval_t&
+    inline auto Mesh_base<D, Config>::get_interval(std::size_t level, const interval_t& interval, const xt::xexpression<E>& index) const
+        -> const interval_t&
     {
         return m_cells[mesh_id_t::reference].get_interval(level, interval, index);
     }

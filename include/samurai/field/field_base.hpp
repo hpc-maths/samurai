@@ -5,7 +5,6 @@
 
 #include <algorithm>
 #include <iostream>
-#include <iterator>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -15,135 +14,13 @@
 
 #include "../algorithm.hpp"
 #include "../bc/bc.hpp"
-#include "../cell_array.hpp"
 #include "../field_expression.hpp"
 #include "../storage/containers.hpp"
 #include "../timers.hpp"
-#include "concepts.hpp"
+#include "field_iterator.hpp"
 
 namespace samurai
 {
-    template <class iterator>
-    class Field_reverse_iterator : public std::reverse_iterator<iterator>
-    {
-      public:
-
-        using base_type = std::reverse_iterator<iterator>;
-
-        explicit Field_reverse_iterator(const iterator& it)
-            : base_type(it)
-        {
-        }
-    };
-
-    // ------------------------------------------------------------------------
-    // class Field_iterator
-    // ------------------------------------------------------------------------
-
-    template <class Field, bool is_const>
-    class Field_iterator : public xtl::xrandom_access_iterator_base3<Field_iterator<Field, is_const>,
-                                                                     CellArray_iterator<const typename Field::mesh_t::ca_type, true>>
-    {
-      public:
-
-        using self_type   = Field_iterator<Field, is_const>;
-        using ca_iterator = CellArray_iterator<const typename Field::mesh_t::ca_type, true>;
-
-        using reference       = default_view_t<typename Field::data_type>;
-        using difference_type = typename ca_iterator::difference_type;
-
-        Field_iterator(Field* field, const ca_iterator& ca_it);
-
-        self_type& operator++();
-        self_type& operator--();
-
-        self_type& operator+=(difference_type n);
-        self_type& operator-=(difference_type n);
-
-        auto operator*() const;
-
-        bool equal(const self_type& rhs) const;
-        bool less_than(const self_type& rhs) const;
-
-      private:
-
-        Field* p_field;
-        ca_iterator m_ca_it;
-    };
-
-    // Field_iterator constructors --------------------------------------------
-
-    template <class Field, bool is_const>
-    Field_iterator<Field, is_const>::Field_iterator(Field* field, const ca_iterator& ca_it)
-        : p_field(field)
-        , m_ca_it(ca_it)
-    {
-    }
-
-    // Field_iterator operators -----------------------------------------------
-
-    template <class Field, bool is_const>
-    inline auto Field_iterator<Field, is_const>::operator++() -> self_type&
-    {
-        ++m_ca_it;
-        return *this;
-    }
-
-    template <class Field, bool is_const>
-    inline auto Field_iterator<Field, is_const>::operator--() -> self_type&
-    {
-        --m_ca_it;
-        return *this;
-    }
-
-    template <class Field, bool is_const>
-    inline auto Field_iterator<Field, is_const>::operator+=(difference_type n) -> self_type&
-    {
-        m_ca_it += n;
-        return *this;
-    }
-
-    template <class Field, bool is_const>
-    inline auto Field_iterator<Field, is_const>::operator-=(difference_type n) -> self_type&
-    {
-        m_ca_it -= n;
-        return *this;
-    }
-
-    template <class Field, bool is_const>
-    inline auto Field_iterator<Field, is_const>::operator*() const
-    {
-        return view(p_field->storage(), {m_ca_it->index + m_ca_it->start, m_ca_it->index + m_ca_it->end});
-    }
-
-    // Field_iterator methods -------------------------------------------------
-
-    template <class Field, bool is_const>
-    inline bool Field_iterator<Field, is_const>::equal(const self_type& rhs) const
-    {
-        return m_ca_it.equal(rhs.m_ca_it);
-    }
-
-    template <class Field, bool is_const>
-    inline bool Field_iterator<Field, is_const>::less_than(const self_type& rhs) const
-    {
-        return m_ca_it.less_than(rhs.m_ca_it);
-    }
-
-    // Field_iterator extern operators ----------------------------------------
-
-    template <class Field, bool is_const>
-    inline bool operator==(const Field_iterator<Field, is_const>& it1, const Field_iterator<Field, is_const>& it2)
-    {
-        return it1.equal(it2);
-    }
-
-    template <class Field, bool is_const>
-    inline bool operator<(const Field_iterator<Field, is_const>& it1, const Field_iterator<Field, is_const>& it2)
-    {
-        return it1.less_than(it2);
-    }
-
     // ------------------------------------------------------------------------
     // class FieldBase - CRTP base for common field functionality
     // ------------------------------------------------------------------------
@@ -162,281 +39,80 @@ namespace samurai
             bc_container p_bc;
             bool m_ghosts_updated = false;
 
-            Derived& derived_cast() & noexcept
-            {
-                return *static_cast<Derived*>(this);
-            }
-
-            const Derived& derived_cast() const& noexcept
-            {
-                return *static_cast<const Derived*>(this);
-            }
-
-            Derived derived_cast() && noexcept
-            {
-                return std::move(*static_cast<Derived*>(this));
-            }
+            Derived& derived_cast() & noexcept;
+            const Derived& derived_cast() const& noexcept;
+            Derived derived_cast() && noexcept;
 
           public:
+
+            using iterator               = Field_iterator<derived_t, false>;
+            using const_iterator         = Field_iterator<const derived_t, true>;
+            using reverse_iterator       = Field_reverse_iterator<iterator>;
+            using const_reverse_iterator = Field_reverse_iterator<const_iterator>;
 
             // --- element access helpers -----------------------------------------
 
             template <class... T>
-            const auto& get_interval(std::size_t level, const auto& interval, const T... index) const
-            {
-                const auto& interval_tmp = this->derived_cast().mesh().get_interval(level, interval, index...);
-
-                if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) || (interval_tmp.start > interval.start))
-                {
-                    std::ostringstream idx_ss;
-                    ((idx_ss << index << ' '), ...);
-                    auto idx_str = idx_ss.str();
-                    throw std::out_of_range(fmt::format("Field '{}' interval query failed on level {}: requested interval {} "
-                                                        "could not be found for indices [{}]; available interval: {}",
-                                                        this->derived_cast().name(),
-                                                        level,
-                                                        interval,
-                                                        idx_str,
-                                                        interval_tmp));
-                }
-
-                return interval_tmp;
-            }
+            const auto& get_interval(std::size_t level, const auto& interval, const T... index) const;
 
             template <class E>
-            const auto& get_interval(std::size_t level, const auto& interval, const xt::xexpression<E>& index) const
-            {
-                const auto& interval_tmp = this->derived_cast().mesh().get_interval(level, interval, index);
-
-                if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) || (interval_tmp.start > interval.start))
-                {
-                    throw std::out_of_range(fmt::format("Field '{}' interval query failed on level {}: requested interval {} "
-                                                        "could not be found; available interval: {}",
-                                                        this->derived_cast().name(),
-                                                        level,
-                                                        interval,
-                                                        interval_tmp));
-                }
-
-                return interval_tmp;
-            }
+            const auto& get_interval(std::size_t level, const auto& interval, const xt::xexpression<E>& index) const;
 
             // --- assignment helper -------------------------------------------
 
-            Derived& assign_from(const Derived& other)
-            {
-                if (this == &other)
-                {
-                    return this->derived_cast();
-                }
-
-                times::timers.start("field expressions");
-
-                using inner_mesh_t  = typename Derived::inner_mesh_t;
-                using data_access_t = typename Derived::data_access_type;
-
-                static_cast<inner_mesh_t&>(this->derived_cast())  = other.mesh();
-                m_name                                            = other.m_name;
-                static_cast<data_access_t&>(this->derived_cast()) = other;
-                bc_container tmp;
-                std::transform(other.p_bc.cbegin(),
-                               other.p_bc.cend(),
-                               std::back_inserter(tmp),
-                               [](const auto& v)
-                               {
-                                   return v->clone();
-                               });
-                std::swap(p_bc, tmp);
-                m_ghosts_updated = other.m_ghosts_updated;
-
-                times::timers.stop("field expressions");
-                return this->derived_cast();
-            }
+            Derived& assign_from(const Derived& other);
 
             template <class E>
-            Derived& assign_expression(const field_expression<E>& e)
-            {
-                times::timers.start("field expressions");
-                for_each_interval(this->derived_cast().mesh(),
-                                  [&](std::size_t level, const auto& i, const auto& index)
-                                  {
-                                      noalias(this->derived_cast()(level, i, index)) = e.derived_cast()(level, i, index);
-                                  });
-                m_ghosts_updated = false;
-                times::timers.stop("field expressions");
-                return this->derived_cast();
-            }
-
-          public:
+            Derived& assign_expression(const field_expression<E>& e);
 
             // ================================================================
             // METADATA ACCESSORS
             // ================================================================
 
-            const std::string& name() const&
-            {
-                return m_name;
-            }
+            const std::string& name() const&;
+            std::string_view name_view() const noexcept;
+            std::string& name() &;
 
-            std::string_view name_view() const noexcept
-            {
-                return m_name;
-            }
+            bool& ghosts_updated();
+            bool ghosts_updated() const;
 
-            std::string& name() &
-            {
-                return m_name;
-            }
-
-            bool& ghosts_updated()
-            {
-                return m_ghosts_updated;
-            }
-
-            bool ghosts_updated() const
-            {
-                return m_ghosts_updated;
-            }
-
-            auto& array()
-            {
-                return this->derived_cast().storage().data();
-            }
-
-            const auto& array() const
-            {
-                return this->derived_cast().storage().data();
-            }
+            auto& array();
+            const auto& array() const;
 
             // ================================================================
             // BOUNDARY CONDITION METHODS
             // ================================================================
 
             template <class Bc_derived>
-            auto attach_bc(const Bc_derived& bc)
-            {
-                if (bc.stencil_size() > this->derived_cast().mesh().cfg().max_stencil_size())
-                {
-                    std::cerr << "The stencil size required by this boundary condition (" << bc.stencil_size()
-                              << ") is larger than the max_stencil_size parameter of the mesh ("
-                              << this->derived_cast().mesh().cfg().max_stencil_size()
-                              << ").\nYou can set it with mesh_config.max_stencil_radius(" << bc.stencil_size() / 2
-                              << ") or mesh_config.max_stencil_size(" << bc.stencil_size() << ")." << std::endl;
-                    exit(EXIT_FAILURE);
-                }
-                p_bc.push_back(bc.clone());
-                return p_bc.back().get();
-            }
+            auto attach_bc(const Bc_derived& bc);
 
-            auto& get_bc()
-            {
-                return p_bc;
-            }
+            auto& get_bc();
+            const auto& get_bc() const;
 
-            const auto& get_bc() const
-            {
-                return p_bc;
-            }
-
-            void copy_bc_from(const Derived& other)
-            {
-                std::transform(other.get_bc().cbegin(),
-                               other.get_bc().cend(),
-                               std::back_inserter(p_bc),
-                               [](const auto& v)
-                               {
-                                   return v->clone();
-                               });
-            }
+            void copy_bc_from(const Derived& other);
 
             // ================================================================
             // ITERATOR METHODS
             // ================================================================
 
-            auto begin()
-            {
-                using mesh_id_t = typename std::remove_reference_t<decltype(this->derived_cast().mesh())>::mesh_id_t;
-                return Field_iterator<Derived, false>(&this->derived_cast(), this->derived_cast().mesh()[mesh_id_t::cells].cbegin());
-            }
-
-            auto end()
-            {
-                using mesh_id_t = typename std::remove_reference_t<decltype(this->derived_cast().mesh())>::mesh_id_t;
-                return Field_iterator<Derived, false>(&this->derived_cast(), this->derived_cast().mesh()[mesh_id_t::cells].cend());
-            }
-
-            auto begin() const
-            {
-                return cbegin();
-            }
-
-            auto end() const
-            {
-                return cend();
-            }
-
-            auto cbegin() const
-            {
-                using mesh_id_t = typename std::remove_reference_t<decltype(this->derived_cast().mesh())>::mesh_id_t;
-                return Field_iterator<const Derived, true>(&this->derived_cast(), this->derived_cast().mesh()[mesh_id_t::cells].cbegin());
-            }
-
-            auto cend() const
-            {
-                using mesh_id_t = typename std::remove_reference_t<decltype(this->derived_cast().mesh())>::mesh_id_t;
-                return Field_iterator<const Derived, true>(&this->derived_cast(), this->derived_cast().mesh()[mesh_id_t::cells].cend());
-            }
-
-            auto rbegin()
-            {
-                return typename Derived::reverse_iterator(end());
-            }
-
-            auto rend()
-            {
-                return typename Derived::reverse_iterator(begin());
-            }
-
-            auto rbegin() const
-            {
-                return rcbegin();
-            }
-
-            auto rend() const
-            {
-                return rcend();
-            }
-
-            auto rcbegin() const
-            {
-                return typename Derived::const_reverse_iterator(cend());
-            }
-
-            auto rcend() const
-            {
-                return typename Derived::const_reverse_iterator(cbegin());
-            }
+            auto begin();
+            auto end();
+            auto begin() const;
+            auto end() const;
+            auto cbegin() const;
+            auto cend() const;
+            auto rbegin();
+            auto rend();
+            auto rbegin() const;
+            auto rend() const;
+            auto rcbegin() const;
+            auto rcend() const;
 
             // ================================================================
-            // STREAM AND COMPARISON OPERATORS (moved to derived)
+            // STREAM AND COMPARISON OPERATORS
             // ================================================================
 
-            void to_stream(std::ostream& os) const
-            {
-                os << "Field " << m_name << "\n";
-
-#ifdef SAMURAI_CHECK_NAN
-                using mesh_id_t = typename std::remove_reference_t<decltype(this->derived_cast().mesh())>::mesh_id_t;
-                for_each_cell(this->derived_cast().mesh()[mesh_id_t::reference],
-#else
-                for_each_cell(this->derived_cast().mesh(),
-#endif
-                              [&](auto& cell)
-                              {
-                                  os << "\tlevel: " << cell.level << " coords: " << cell.center() << " index: " << cell.index
-                                     << ", value: " << this->derived_cast().operator[](cell) << "\n";
-                              });
-            }
+            void to_stream(std::ostream& os) const;
 
             friend std::ostream& operator<<(std::ostream& out, const Derived& field)
             {
@@ -444,6 +120,307 @@ namespace samurai
                 return out;
             }
         };
+
+        // ====================================================================
+        // FieldBase method definitions
+        // ====================================================================
+
+        // --- Protected methods ----------------------------------------------
+
+        template <class Derived>
+        inline Derived& FieldBase<Derived>::derived_cast() & noexcept
+        {
+            return *static_cast<Derived*>(this);
+        }
+
+        template <class Derived>
+        inline const Derived& FieldBase<Derived>::derived_cast() const& noexcept
+        {
+            return *static_cast<const Derived*>(this);
+        }
+
+        template <class Derived>
+        inline Derived FieldBase<Derived>::derived_cast() && noexcept
+        {
+            return std::move(*static_cast<Derived*>(this));
+        }
+
+        // --- Element access helpers -----------------------------------------
+
+        template <class Derived>
+        template <class... T>
+        inline const auto& FieldBase<Derived>::get_interval(std::size_t level, const auto& interval, const T... index) const
+        {
+            const auto& interval_tmp = this->derived_cast().mesh().get_interval(level, interval, index...);
+
+            if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) || (interval_tmp.start > interval.start))
+            {
+                std::ostringstream idx_ss;
+                ((idx_ss << index << ' '), ...);
+                auto idx_str = idx_ss.str();
+                throw std::out_of_range(fmt::format("Field '{}' interval query failed on level {}: requested interval {} "
+                                                    "could not be found for indices [{}]; available interval: {}",
+                                                    this->derived_cast().name(),
+                                                    level,
+                                                    interval,
+                                                    idx_str,
+                                                    interval_tmp));
+            }
+
+            return interval_tmp;
+        }
+
+        template <class Derived>
+        template <class E>
+        inline const auto& FieldBase<Derived>::get_interval(std::size_t level, const auto& interval, const xt::xexpression<E>& index) const
+        {
+            const auto& interval_tmp = this->derived_cast().mesh().get_interval(level, interval, index);
+
+            if ((interval_tmp.end - interval_tmp.step < interval.end - interval.step) || (interval_tmp.start > interval.start))
+            {
+                throw std::out_of_range(fmt::format("Field '{}' interval query failed on level {}: requested interval {} "
+                                                    "could not be found; available interval: {}",
+                                                    this->derived_cast().name(),
+                                                    level,
+                                                    interval,
+                                                    interval_tmp));
+            }
+
+            return interval_tmp;
+        }
+
+        // --- Assignment helpers ---------------------------------------------
+
+        template <class Derived>
+        inline Derived& FieldBase<Derived>::assign_from(const Derived& other)
+        {
+            if (this == &other)
+            {
+                return this->derived_cast();
+            }
+
+            times::timers.start("field expressions");
+
+            using inner_mesh_t  = typename Derived::inner_mesh_t;
+            using data_access_t = typename Derived::data_access_type;
+
+            static_cast<inner_mesh_t&>(this->derived_cast())  = other.mesh();
+            m_name                                            = other.m_name;
+            static_cast<data_access_t&>(this->derived_cast()) = other;
+            bc_container tmp;
+            std::transform(other.p_bc.cbegin(),
+                           other.p_bc.cend(),
+                           std::back_inserter(tmp),
+                           [](const auto& v)
+                           {
+                               return v->clone();
+                           });
+            std::swap(p_bc, tmp);
+            m_ghosts_updated = other.m_ghosts_updated;
+
+            times::timers.stop("field expressions");
+            return this->derived_cast();
+        }
+
+        template <class Derived>
+        template <class E>
+        inline Derived& FieldBase<Derived>::assign_expression(const field_expression<E>& e)
+        {
+            times::timers.start("field expressions");
+            for_each_interval(this->derived_cast().mesh(),
+                              [&](std::size_t level, const auto& i, const auto& index)
+                              {
+                                  noalias(this->derived_cast()(level, i, index)) = e.derived_cast()(level, i, index);
+                              });
+            m_ghosts_updated = false;
+            times::timers.stop("field expressions");
+            return this->derived_cast();
+        }
+
+        // --- Metadata accessors ---------------------------------------------
+
+        template <class Derived>
+        inline const std::string& FieldBase<Derived>::name() const&
+        {
+            return m_name;
+        }
+
+        template <class Derived>
+        inline std::string_view FieldBase<Derived>::name_view() const noexcept
+        {
+            return m_name;
+        }
+
+        template <class Derived>
+        inline std::string& FieldBase<Derived>::name() &
+        {
+            return m_name;
+        }
+
+        template <class Derived>
+        inline bool& FieldBase<Derived>::ghosts_updated()
+        {
+            return m_ghosts_updated;
+        }
+
+        template <class Derived>
+        inline bool FieldBase<Derived>::ghosts_updated() const
+        {
+            return m_ghosts_updated;
+        }
+
+        template <class Derived>
+        inline auto& FieldBase<Derived>::array()
+        {
+            return this->derived_cast().storage().data();
+        }
+
+        template <class Derived>
+        inline const auto& FieldBase<Derived>::array() const
+        {
+            return this->derived_cast().storage().data();
+        }
+
+        // --- Boundary condition methods -------------------------------------
+
+        template <class Derived>
+        template <class Bc_derived>
+        inline auto FieldBase<Derived>::attach_bc(const Bc_derived& bc)
+        {
+            if (bc.stencil_size() > this->derived_cast().mesh().cfg().max_stencil_size())
+            {
+                std::cerr << "The stencil size required by this boundary condition (" << bc.stencil_size()
+                          << ") is larger than the max_stencil_size parameter of the mesh ("
+                          << this->derived_cast().mesh().cfg().max_stencil_size() << ").\nYou can set it with mesh_config.max_stencil_radius("
+                          << bc.stencil_size() / 2 << ") or mesh_config.max_stencil_size(" << bc.stencil_size() << ")." << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            p_bc.push_back(bc.clone());
+            return p_bc.back().get();
+        }
+
+        template <class Derived>
+        inline auto& FieldBase<Derived>::get_bc()
+        {
+            return p_bc;
+        }
+
+        template <class Derived>
+        inline const auto& FieldBase<Derived>::get_bc() const
+        {
+            return p_bc;
+        }
+
+        template <class Derived>
+        inline void FieldBase<Derived>::copy_bc_from(const Derived& other)
+        {
+            std::transform(other.get_bc().cbegin(),
+                           other.get_bc().cend(),
+                           std::back_inserter(p_bc),
+                           [](const auto& v)
+                           {
+                               return v->clone();
+                           });
+        }
+
+        // --- Iterator methods -----------------------------------------------
+
+        template <class Derived>
+        inline auto FieldBase<Derived>::begin()
+        {
+            using mesh_id_t = derived_t::mesh_t::mesh_id_t;
+            return iterator(&this->derived_cast(), this->derived_cast().mesh()[mesh_id_t::cells].cbegin());
+        }
+
+        template <class Derived>
+        inline auto FieldBase<Derived>::end()
+        {
+            using mesh_id_t = derived_t::mesh_t::mesh_id_t;
+            return iterator(&this->derived_cast(), this->derived_cast().mesh()[mesh_id_t::cells].cend());
+        }
+
+        template <class Derived>
+        inline auto FieldBase<Derived>::begin() const
+        {
+            return cbegin();
+        }
+
+        template <class Derived>
+        inline auto FieldBase<Derived>::end() const
+        {
+            return cend();
+        }
+
+        template <class Derived>
+        inline auto FieldBase<Derived>::cbegin() const
+        {
+            using mesh_id_t = derived_t::mesh_t::mesh_id_t;
+            return const_iterator(&this->derived_cast(), this->derived_cast().mesh()[mesh_id_t::cells].cbegin());
+        }
+
+        template <class Derived>
+        inline auto FieldBase<Derived>::cend() const
+        {
+            using mesh_id_t = derived_t::mesh_t::mesh_id_t;
+            return const_iterator(&this->derived_cast(), this->derived_cast().mesh()[mesh_id_t::cells].cend());
+        }
+
+        template <class Derived>
+        inline auto FieldBase<Derived>::rbegin()
+        {
+            return reverse_iterator(end());
+        }
+
+        template <class Derived>
+        inline auto FieldBase<Derived>::rend()
+        {
+            return reverse_iterator(begin());
+        }
+
+        template <class Derived>
+        inline auto FieldBase<Derived>::rbegin() const
+        {
+            return rcbegin();
+        }
+
+        template <class Derived>
+        inline auto FieldBase<Derived>::rend() const
+        {
+            return rcend();
+        }
+
+        template <class Derived>
+        inline auto FieldBase<Derived>::rcbegin() const
+        {
+            return const_reverse_iterator(cend());
+        }
+
+        template <class Derived>
+        inline auto FieldBase<Derived>::rcend() const
+        {
+            return const_reverse_iterator(cbegin());
+        }
+
+        // --- Stream operators -----------------------------------------------
+
+        template <class Derived>
+        inline void FieldBase<Derived>::to_stream(std::ostream& os) const
+        {
+            os << "Field " << m_name << "\n";
+
+#ifdef SAMURAI_CHECK_NAN
+            using mesh_id_t = typename std::remove_reference_t<decltype(this->derived_cast().mesh())>::mesh_id_t;
+            for_each_cell(this->derived_cast().mesh()[mesh_id_t::reference],
+#else
+            for_each_cell(this->derived_cast().mesh(),
+#endif
+                          [&](auto& cell)
+                          {
+                              os << "\tlevel: " << cell.level << " coords: " << cell.center() << " index: " << cell.index
+                                 << ", value: " << this->derived_cast().operator[](cell) << "\n";
+                          });
+        }
+
     } // namespace detail
 
     template <class Field>
@@ -465,7 +442,7 @@ namespace samurai
                       {
                           if constexpr (std::is_integral_v<typename Field::value_type>)
                           {
-                              if constexpr (Field::n_comp == 1)
+                              if constexpr (Field::is_scalar)
                               {
                                   if (field1[cell] != field2[cell])
                                   {
@@ -474,6 +451,9 @@ namespace samurai
                               }
                               else
                               {
+                                  // TODO: This will not work if the container is not a xtensor container
+                                  static_assert(is_xtensor_container<typename Field::data_type::container_t>,
+                                                "Field data_type is not an xtensor expression");
                                   if (xt::any(xt::not_equal(field1[cell], field2[cell])))
                                   {
                                       is_same = false;
@@ -482,7 +462,7 @@ namespace samurai
                           }
                           else
                           {
-                              if constexpr (Field::n_comp == 1)
+                              if constexpr (Field::is_scalar)
                               {
                                   if (std::abs(field1[cell] - field2[cell]) > 1e-15)
                                   {
@@ -491,6 +471,9 @@ namespace samurai
                               }
                               else
                               {
+                                  // TODO: This will not work if the container is not a xtensor container
+                                  static_assert(is_xtensor_container<typename Field::data_type::container_t>,
+                                                "Field data_type is not an xtensor expression");
                                   if (xt::any(xt::abs(field1[cell] - field2[cell]) > 1e-15))
                                   {
                                       is_same = false;

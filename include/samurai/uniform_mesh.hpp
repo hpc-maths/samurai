@@ -46,6 +46,7 @@ namespace samurai
 
         using cl_type  = LevelCellList<dim, interval_t>;
         using ca_type  = LevelCellArray<dim, interval_t>;
+        using cell_t   = typename ca_type::cell_t;
         using coords_t = typename ca_type::coords_t;
 
         using mesh_t = MeshIDArray<ca_type, mesh_id_t>;

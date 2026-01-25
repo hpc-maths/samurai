@@ -13,6 +13,7 @@ namespace samurai
 
         static constexpr std::size_t dim = Mesh::dim;
         using interval_t                 = typename Mesh::interval_t;
+        using cell_t                     = typename Mesh::cell_t;
 
         explicit hold(Mesh& mesh)
             : m_mesh(mesh)
