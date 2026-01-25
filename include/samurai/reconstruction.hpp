@@ -523,7 +523,7 @@ namespace samurai
 
         update_ghost_mr_if_needed(field);
 
-        auto make_field_like = [](std::string const& name, auto& mesh)
+        auto make_field_like = [](const std::string& name, auto& mesh)
         {
             if constexpr (Field::is_scalar)
             {

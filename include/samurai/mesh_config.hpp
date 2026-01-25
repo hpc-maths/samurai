@@ -283,7 +283,7 @@ namespace samurai
          * @param periodicity
          * @return auto& returns this object
          */
-        auto& periodic(std::array<bool, dim> const& periodicity)
+        auto& periodic(const std::array<bool, dim>& periodicity)
         {
             m_periodic = periodicity;
             return *this;

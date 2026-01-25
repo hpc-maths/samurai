@@ -26,7 +26,7 @@ namespace samurai
         return shift >= 0 ? value << shift : value >> -shift;
     }
 
-    constexpr auto compute_min(auto const& value, auto const&... args)
+    constexpr auto compute_min(const auto& value, const auto&... args)
     {
         if constexpr (sizeof...(args) == 0u) // Single argument case!
         {
@@ -39,7 +39,7 @@ namespace samurai
         }
     }
 
-    constexpr auto compute_max(auto const& value, auto const&... args)
+    constexpr auto compute_max(const auto& value, const auto&... args)
     {
         if constexpr (sizeof...(args) == 0u) // Single argument case!
         {

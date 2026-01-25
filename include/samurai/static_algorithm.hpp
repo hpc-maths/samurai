@@ -286,13 +286,13 @@ namespace samurai
     struct static_for
     {
         template <typename lambda_t, std::size_t... Is>
-        static inline constexpr void apply_impl(lambda_t&& f, std::integer_sequence<std::size_t, Is...>)
+        inline static constexpr void apply_impl(lambda_t&& f, std::integer_sequence<std::size_t, Is...>)
         {
             (f(std::integral_constant<std::size_t, Is + begin>{}), ...);
         }
 
         template <typename lambda_t>
-        static inline constexpr void apply([[maybe_unused]] lambda_t&& f)
+        inline static constexpr void apply([[maybe_unused]] lambda_t&& f)
         {
             if constexpr (begin <= end)
             {
