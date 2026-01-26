@@ -52,6 +52,8 @@ option(WITH_OPENMP "Enable OpenMP" OFF)
 option(WITH_PETSC "Enable PETSc" OFF)
 option(SAMURAI_ENABLE_INLINE "Enable inline keyword for performance" ON)
 option(SAMURAI_FORCE_INLINE "Force aggressive inlining (takes precedence)" OFF)
+option(SAMURAI_ENABLE_PCH "Enable precompiled headers for faster builds" OFF)
+option(SAMURAI_INSTANTIATE_TEMPLATES "Pre-instantiate templates in shared library for demos" OFF)
 option(SAMURAI_CONTAINER_LAYOUT_COL_MAJOR "Set the containers' layout to column-major" OFF)
 
 set(FIELD_CONTAINER_LIST "xtensor" "eigen3")
@@ -104,6 +106,14 @@ target_link_libraries(samurai INTERFACE project_options project_warnings)
 set(INCLUDE_DIR "include") # must be relative paths
 target_include_directories(samurai INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/${INCLUDE_DIR}>"
   "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
+
+# Precompiled headers setup
+if(SAMURAI_ENABLE_PCH)
+  target_precompile_headers(samurai INTERFACE
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/demos/pch.hpp>"
+  )
+  message(STATUS "Samurai PCH enabled")
+endif()
 
 # Find dependencies:
 set(DEPENDENCIES_CONFIGURED HighFive pugixml fmt CLI11)

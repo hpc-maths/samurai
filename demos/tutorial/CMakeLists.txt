@@ -22,7 +22,12 @@ foreach(demo_entry ${TUTORIAL_DEMOS})
     list(GET demo_parts 1 executable_name)
 
     add_executable(${executable_name} ${source_file})
-    target_link_libraries(${executable_name} PRIVATE samurai)
+    target_link_libraries(${executable_name} samurai)
+
+    # Link pre-instantiated templates if enabled
+    if(SAMURAI_INSTANTIATE_TEMPLATES)
+        target_link_libraries(${executable_name} samurai_instantiations)
+    endif()
 endforeach()
 
 # Specific options for MSVC
