@@ -48,6 +48,6 @@ namespace samurai
     };
 
     template <class Scheme>
-    inline constexpr bool is_FluxBasedScheme_v = is_FluxBasedScheme<Scheme>::value;
+    constexpr bool is_FluxBasedScheme_v = is_FluxBasedScheme<Scheme>::value;
 
 } // end namespace samurai

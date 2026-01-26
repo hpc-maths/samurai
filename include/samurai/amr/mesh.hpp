@@ -90,37 +90,37 @@ namespace samurai::amr
     /////////////////////////////
 
     template <class Config>
-    inline Mesh<Config>::Mesh(const ca_type& ca, const self_type& ref_mesh)
+    SAMURAI_INLINE Mesh<Config>::Mesh(const ca_type& ca, const self_type& ref_mesh)
         : base_type(ca, ref_mesh)
     {
     }
 
     template <class Config>
-    inline Mesh<Config>::Mesh(const cl_type& cl, const self_type& ref_mesh)
+    SAMURAI_INLINE Mesh<Config>::Mesh(const cl_type& cl, const self_type& ref_mesh)
         : base_type(cl, ref_mesh)
     {
     }
 
     template <class Config>
-    inline Mesh<Config>::Mesh(const cl_type& cl, const mesh_config<Config::dim>& config)
+    SAMURAI_INLINE Mesh<Config>::Mesh(const cl_type& cl, const mesh_config<Config::dim>& config)
         : base_type(cl, config)
     {
     }
 
     template <class Config>
-    inline Mesh<Config>::Mesh(const ca_type& ca, const mesh_config<Config::dim>& config)
+    SAMURAI_INLINE Mesh<Config>::Mesh(const ca_type& ca, const mesh_config<Config::dim>& config)
         : base_type(ca, config)
     {
     }
 
     template <class Config>
-    inline Mesh<Config>::Mesh(const Box<double, dim>& b, const mesh_config<Config::dim>& config)
+    SAMURAI_INLINE Mesh<Config>::Mesh(const Box<double, dim>& b, const mesh_config<Config::dim>& config)
         : base_type(b, config)
     {
     }
 
     template <class Config>
-    inline Mesh<Config>::Mesh(const cl_type& cl, std::size_t min_level, std::size_t max_level)
+    SAMURAI_INLINE Mesh<Config>::Mesh(const cl_type& cl, std::size_t min_level, std::size_t max_level)
         : base_type(cl,
                     mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
                         .max_stencil_radius(Config::max_stencil_width)
@@ -132,7 +132,7 @@ namespace samurai::amr
     }
 
     template <class Config>
-    inline Mesh<Config>::Mesh(const ca_type& ca, std::size_t min_level, std::size_t max_level)
+    SAMURAI_INLINE Mesh<Config>::Mesh(const ca_type& ca, std::size_t min_level, std::size_t max_level)
         : base_type(ca,
                     mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
                         .max_stencil_radius(Config::max_stencil_width)
@@ -144,7 +144,7 @@ namespace samurai::amr
     }
 
     template <class Config>
-    inline Mesh<Config>::Mesh(const Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level)
+    SAMURAI_INLINE Mesh<Config>::Mesh(const Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level)
         : base_type(b,
                     mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
                         .max_stencil_radius(Config::max_stencil_width)
@@ -156,7 +156,7 @@ namespace samurai::amr
     }
 
     template <class Config>
-    inline void Mesh<Config>::update_sub_mesh_impl()
+    SAMURAI_INLINE void Mesh<Config>::update_sub_mesh_impl()
     {
         cl_type cl;
         auto ghost_width = cfg().ghost_width();

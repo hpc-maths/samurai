@@ -167,7 +167,7 @@ namespace samurai
     }
 
     template <std::size_t dim, class index_t>
-    inline std::ostream& operator<<(std::ostream& out, const prediction_map<dim, index_t>& pred)
+    SAMURAI_INLINE std::ostream& operator<<(std::ostream& out, const prediction_map<dim, index_t>& pred)
     {
         pred.to_stream(out);
         return out;
@@ -370,7 +370,7 @@ namespace samurai
         INIT_OPERATOR(reconstruction_op_)
 
         // template <std::size_t d, class T1, class T2>
-        // inline void operator()(Dim<d>, std::size_t& reconstruct_level, T1& dest, const T2& src) const
+        // SAMURAI_INLINE void operator()(Dim<d>, std::size_t& reconstruct_level, T1& dest, const T2& src) const
         // {
         //     using index_t                          = typename T2::interval_t::value_t;
         //     constexpr std::size_t prediction_stencil_radius = T2::mesh_t::config::prediction_stencil_radius;
@@ -402,7 +402,7 @@ namespace samurai
         // }
 
         template <class T1, class T2>
-        inline void operator()(Dim<1>, std::size_t& reconstruct_level, T1& dest, const T2& src) const
+        SAMURAI_INLINE void operator()(Dim<1>, std::size_t& reconstruct_level, T1& dest, const T2& src) const
         {
             using index_t                                   = typename T2::interval_t::value_t;
             constexpr std::size_t prediction_stencil_radius = T2::mesh_t::config::prediction_stencil_radius;
@@ -429,7 +429,7 @@ namespace samurai
         }
 
         template <class T1, class T2>
-        inline void operator()(Dim<2>, std::size_t& reconstruct_level, T1& dest, const T2& src) const
+        SAMURAI_INLINE void operator()(Dim<2>, std::size_t& reconstruct_level, T1& dest, const T2& src) const
 
         {
             using index_t                                   = typename T2::interval_t::value_t;
@@ -462,7 +462,7 @@ namespace samurai
         }
 
         template <class T1, class T2>
-        inline void operator()(Dim<3>, std::size_t& reconstruct_level, T1& dest, const T2& src) const
+        SAMURAI_INLINE void operator()(Dim<3>, std::size_t& reconstruct_level, T1& dest, const T2& src) const
         {
             using index_t                                   = typename T2::interval_t::value_t;
             constexpr std::size_t prediction_stencil_radius = T2::mesh_t::config::prediction_stencil_radius;
@@ -500,7 +500,7 @@ namespace samurai
     };
 
     template <class T1, class T2>
-    inline auto make_reconstruction(std::size_t& reconstruct_level, T1&& reconstruct_field, T2&& field)
+    SAMURAI_INLINE auto make_reconstruction(std::size_t& reconstruct_level, T1&& reconstruct_field, T2&& field)
     {
         return make_field_operator_function<reconstruction_op_>(reconstruct_level,
                                                                 std::forward<T1>(reconstruct_field),

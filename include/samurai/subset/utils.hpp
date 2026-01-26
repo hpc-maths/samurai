@@ -15,13 +15,13 @@ namespace samurai
     static constexpr T sentinel = std::numeric_limits<T>::max();
 
     template <class T>
-    inline T end_shift(T value, T shift)
+    SAMURAI_INLINE T end_shift(T value, T shift)
     {
         return shift >= 0 ? value << shift : ((value - 1) >> -shift) + 1;
     }
 
     template <class T>
-    inline T start_shift(T value, T shift)
+    SAMURAI_INLINE T start_shift(T value, T shift)
     {
         return shift >= 0 ? value << shift : value >> -shift;
     }

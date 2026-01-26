@@ -8,7 +8,7 @@
 namespace samurai
 {
 
-    inline auto default_function()
+    SAMURAI_INLINE auto default_function()
     {
         return [](auto, auto i, auto)
         {
@@ -16,7 +16,7 @@ namespace samurai
         };
     }
 
-    inline auto default_function_()
+    SAMURAI_INLINE auto default_function_()
     {
         return [](auto level, auto i)
         {
@@ -36,7 +36,7 @@ namespace samurai
         }
 
         template <std::size_t, bool from_diff_op = false, class Func>
-        inline auto start(const Func& f) const
+        SAMURAI_INLINE auto start(const Func& f) const
         {
             auto new_f = [&, f](auto level, auto i, auto dec)
             {
@@ -51,7 +51,7 @@ namespace samurai
         }
 
         template <std::size_t, bool from_diff_op = false, class Func>
-        inline auto end(const Func& f) const
+        SAMURAI_INLINE auto end(const Func& f) const
         {
             auto new_f = [&, f](auto level, auto i, auto dec)
             {
@@ -66,7 +66,7 @@ namespace samurai
         }
 
         template <std::size_t, bool end = false, class Func>
-        inline auto goback(const Func& f) const
+        SAMURAI_INLINE auto goback(const Func& f) const
         {
             auto new_f = [&, f](auto level, auto i)
             {
@@ -116,7 +116,7 @@ namespace samurai
         }
 
         template <std::size_t d, bool from_diff_op = false, class Func>
-        inline auto start(const Func& f) const
+        SAMURAI_INLINE auto start(const Func& f) const
         {
             auto new_f = [&, f](auto level, auto i, auto dec)
             {
@@ -136,7 +136,7 @@ namespace samurai
         }
 
         template <std::size_t d, bool from_diff_op = false, class Func>
-        inline auto end(const Func& f) const
+        SAMURAI_INLINE auto end(const Func& f) const
         {
             auto new_f = [&, f](auto level, auto i, auto dec)
             {
@@ -156,7 +156,7 @@ namespace samurai
         }
 
         template <std::size_t d, bool end = false, class Func>
-        inline auto goback(const Func& f) const
+        SAMURAI_INLINE auto goback(const Func& f) const
         {
             auto new_f = [&, f](auto level, auto i)
             {
@@ -205,7 +205,7 @@ namespace samurai
         }
 
         template <std::size_t d, bool from_diff_op = false, class Func>
-        inline auto start(const Func& f) const
+        SAMURAI_INLINE auto start(const Func& f) const
         {
             auto new_f = [&, f](auto level, auto i, auto dec)
             {
@@ -225,7 +225,7 @@ namespace samurai
         }
 
         template <std::size_t d, bool from_diff_op = false, class Func>
-        inline auto end(const Func& f) const
+        SAMURAI_INLINE auto end(const Func& f) const
         {
             auto new_f = [&, f](auto level, auto i, auto dec)
             {
@@ -244,7 +244,7 @@ namespace samurai
         }
 
         template <std::size_t d, bool end = false, class Func>
-        inline auto goback(const Func& f) const
+        SAMURAI_INLINE auto goback(const Func& f) const
         {
             auto new_f = [&, f](auto level, auto i)
             {

@@ -14,6 +14,8 @@
 
 #include <xtensor/containers/xfixed.hpp>
 
+#include "samurai_config.hpp"
+
 namespace samurai
 {
     template <class value_t, class index_t>
@@ -21,7 +23,7 @@ namespace samurai
 }
 
 template <typename T, typename Compare>
-inline void sort_indexes(const std::vector<T>& v, Compare cmp, std::vector<size_t>& idx)
+SAMURAI_INLINE void sort_indexes(const std::vector<T>& v, Compare cmp, std::vector<size_t>& idx)
 {
     // initialize original index locations
     idx.resize(v.size());
@@ -40,13 +42,13 @@ inline void sort_indexes(const std::vector<T>& v, Compare cmp, std::vector<size_
 }
 
 template <typename T, typename Compare>
-inline void sort_indexes(const std::vector<T>& v, std::vector<size_t>& idx)
+SAMURAI_INLINE void sort_indexes(const std::vector<T>& v, std::vector<size_t>& idx)
 {
     sort_indexes(v, std::less{}, idx);
 }
 
 template <class T>
-inline void hash_combine(std::size_t& seed, const T& v)
+SAMURAI_INLINE void hash_combine(std::size_t& seed, const T& v)
 {
     std::hash<T> hasher;
     seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
@@ -338,7 +340,7 @@ namespace samurai
          * @tparam T type to test
          */
         template <class T>
-        inline constexpr bool is_soa_v = is_soa<std::decay_t<T>>::value;
+        constexpr bool is_soa_v = is_soa<std::decay_t<T>>::value;
 
         /**
          * @brief test if template parameter is a samurai field (ScalarField or VectorField)
@@ -368,7 +370,7 @@ namespace samurai
          * @tparam T type to test
          */
         template <class T>
-        inline constexpr bool is_field_type_v = is_field_type<std::decay_t<T>>::value;
+        constexpr bool is_field_type_v = is_field_type<std::decay_t<T>>::value;
 
     } // namespace detail
 
@@ -379,20 +381,20 @@ namespace samurai
     }
 
     template <class Field, class index_t>
-    inline auto& field_value(Field& f, const typename Field::cell_t& cell, [[maybe_unused]] index_t field_i)
+    SAMURAI_INLINE auto& field_value(Field& f, const typename Field::cell_t& cell, [[maybe_unused]] index_t field_i)
     {
         return field_value(f, cell.index, field_i);
     }
 
     template <class Field, class index_t>
-    inline auto& field_value(Field& f, const typename Field::index_t& cell_index, [[maybe_unused]] index_t field_i)
+    SAMURAI_INLINE auto& field_value(Field& f, const typename Field::index_t& cell_index, [[maybe_unused]] index_t field_i)
     {
         using size_type = typename Field::size_type;
         return field_value(f, static_cast<size_type>(cell_index), field_i);
     }
 
     template <class Field, class index_t>
-    inline auto& field_value(Field& f, const typename Field::size_type& cell_index, [[maybe_unused]] index_t field_i)
+    SAMURAI_INLINE auto& field_value(Field& f, const typename Field::size_type& cell_index, [[maybe_unused]] index_t field_i)
     {
         if constexpr (Field::is_scalar)
         {
@@ -420,7 +422,7 @@ namespace samurai
     }
 
     // template <class Field>
-    // inline auto&
+    // SAMURAI_INLINE auto&
     // field_value(typename Field::value_type* data, const typename Field::index_t& cell_index, [[maybe_unused]] std::size_t field_i)
     // {
     //     if constexpr (Field::is_scalar)

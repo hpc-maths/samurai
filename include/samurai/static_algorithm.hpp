@@ -18,14 +18,14 @@ namespace samurai
     namespace detail
     {
         template <std::size_t nloops, int start, int end, int step, class Func>
-        inline void
+        SAMURAI_INLINE void
         static_nested_loop_impl(Func&& f, xt::xtensor_fixed<int, xt::xshape<nloops>>& index, std::integral_constant<std::size_t, nloops>)
         {
             f(index);
         }
 
         template <std::size_t nloops, int start, int end, int step, class Func, std::size_t iloop>
-        inline void
+        SAMURAI_INLINE void
         static_nested_loop_impl(Func&& f, xt::xtensor_fixed<int, xt::xshape<nloops>>& index, std::integral_constant<std::size_t, iloop>)
         {
             for (int i = start; i < end; i += step)
@@ -114,7 +114,7 @@ namespace samurai
     }
 
     template <size_t index_size, size_t dim_min, size_t dim_max, typename Function>
-    inline void nestedLoop(int i0, int i1, Function&& func)
+    SAMURAI_INLINE void nestedLoop(int i0, int i1, Function&& func)
     {
         using index_type = typename detail::NestedLoop<index_size, dim_max - 1, dim_min>::index_type;
         index_type idx;
@@ -130,13 +130,13 @@ namespace samurai
     }
 
     template <size_t index_size, typename Function>
-    inline void nestedLoop(int i0, int i1, Function&& func)
+    SAMURAI_INLINE void nestedLoop(int i0, int i1, Function&& func)
     {
         nestedLoop<index_size, 0, index_size>(i0, i1, std::forward<Function>(func));
     }
 
     template <std::size_t nloops, int start, int end, int step, class Func>
-    inline void static_nested_loop(Func&& f)
+    SAMURAI_INLINE void static_nested_loop(Func&& f)
     {
         xt::xtensor_fixed<int, xt::xshape<nloops>> index;
 
@@ -144,7 +144,7 @@ namespace samurai
     }
 
     template <std::size_t nloops, int start, int end, class Func>
-    inline void static_nested_loop(Func&& f)
+    SAMURAI_INLINE void static_nested_loop(Func&& f)
     {
         xt::xtensor_fixed<int, xt::xshape<nloops>> index;
 
@@ -155,23 +155,23 @@ namespace samurai
     namespace detail
     {
         template <std::size_t nloops, class Func>
-        inline void static_nested_loop_impl(int /*start*/,
-                                            int /*end*/,
-                                            int /*step*/,
-                                            Func&& f,
-                                            xt::xtensor_fixed<int, xt::xshape<nloops>>& index,
-                                            std::integral_constant<std::size_t, nloops>)
+        SAMURAI_INLINE void static_nested_loop_impl(int /*start*/,
+                                                    int /*end*/,
+                                                    int /*step*/,
+                                                    Func&& f,
+                                                    xt::xtensor_fixed<int, xt::xshape<nloops>>& index,
+                                                    std::integral_constant<std::size_t, nloops>)
         {
             f(index);
         }
 
         template <std::size_t nloops, class Func, std::size_t iloop>
-        inline void static_nested_loop_impl(int start,
-                                            int end,
-                                            int step,
-                                            Func&& f,
-                                            xt::xtensor_fixed<int, xt::xshape<nloops>>& index,
-                                            std::integral_constant<std::size_t, iloop>)
+        SAMURAI_INLINE void static_nested_loop_impl(int start,
+                                                    int end,
+                                                    int step,
+                                                    Func&& f,
+                                                    xt::xtensor_fixed<int, xt::xshape<nloops>>& index,
+                                                    std::integral_constant<std::size_t, iloop>)
         {
             for (int i = start; i < end; i += step)
             {
@@ -183,7 +183,7 @@ namespace samurai
     } // namespace detail
 
     template <std::size_t nloops, class Func>
-    inline void static_nested_loop(int start, int end, int step, Func&& f)
+    SAMURAI_INLINE void static_nested_loop(int start, int end, int step, Func&& f)
     {
         xt::xtensor_fixed<int, xt::xshape<nloops>> index;
 
@@ -191,7 +191,7 @@ namespace samurai
     }
 
     template <std::size_t nloops, class Func>
-    inline void static_nested_loop(int start, int end, Func&& f)
+    SAMURAI_INLINE void static_nested_loop(int start, int end, Func&& f)
     {
         static_nested_loop<nloops>(start, end, 1, std::forward<Func>(f));
     }
@@ -286,13 +286,13 @@ namespace samurai
     struct static_for
     {
         template <typename lambda_t, std::size_t... Is>
-        inline static constexpr void apply_impl(lambda_t&& f, std::integer_sequence<std::size_t, Is...>)
+        SAMURAI_INLINE static constexpr void apply_impl(lambda_t&& f, std::integer_sequence<std::size_t, Is...>)
         {
             (f(std::integral_constant<std::size_t, Is + begin>{}), ...);
         }
 
         template <typename lambda_t>
-        inline static constexpr void apply([[maybe_unused]] lambda_t&& f)
+        SAMURAI_INLINE static constexpr void apply([[maybe_unused]] lambda_t&& f)
         {
             if constexpr (begin <= end)
             {

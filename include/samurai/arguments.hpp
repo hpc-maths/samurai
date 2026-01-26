@@ -4,6 +4,8 @@
 
 #include <CLI/CLI.hpp>
 
+#include "samurai_config.hpp"
+
 namespace samurai
 {
     namespace args
@@ -31,7 +33,7 @@ namespace samurai
         static bool rel_detail   = false;
     }
 
-    inline void read_samurai_arguments(CLI::App& app, int& argc, char**& argv)
+    SAMURAI_INLINE void read_samurai_arguments(CLI::App& app, int& argc, char**& argv)
     {
         app.add_option("--min-level", args::min_level, "The minimum level of the mesh")->group("SAMURAI");
         app.add_option("--max-level", args::max_level, "The maximum level of the mesh")->group("SAMURAI");

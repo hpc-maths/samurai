@@ -15,13 +15,13 @@ namespace samurai
     class VectorField;
 
     template <class T>
-    inline constexpr bool field_like_helper = false;
+    constexpr bool field_like_helper = false;
 
     template <class mesh_t, class value_t>
-    inline constexpr bool field_like_helper<ScalarField<mesh_t, value_t>> = true;
+    constexpr bool field_like_helper<ScalarField<mesh_t, value_t>> = true;
 
     template <class mesh_t, class value_t, std::size_t n_comp, bool SOA>
-    inline constexpr bool field_like_helper<VectorField<mesh_t, value_t, n_comp, SOA>> = true;
+    constexpr bool field_like_helper<VectorField<mesh_t, value_t, n_comp, SOA>> = true;
 
     template <class T>
     concept field_like = field_like_helper<std::remove_cvref_t<T>>;
@@ -41,10 +41,10 @@ namespace samurai
     };
 
     template <class T>
-    inline constexpr bool xtensor_like_helper = false;
+    constexpr bool xtensor_like_helper = false;
 
     template <class EC, std::size_t N, xt::layout_type L, class Tag>
-    inline constexpr bool xtensor_like_helper<xt::xtensor_container<EC, N, L, Tag>> = true;
+    constexpr bool xtensor_like_helper<xt::xtensor_container<EC, N, L, Tag>> = true;
 
     template <class T>
     concept is_xtensor_container = xtensor_like_helper<std::remove_cvref_t<T>>;

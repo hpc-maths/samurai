@@ -576,12 +576,12 @@ namespace samurai
         times::timers.stop("ghost update");
     }
 
-    inline void update_ghost_mr()
+    SAMURAI_INLINE void update_ghost_mr()
     {
     }
 
     template <class... T>
-    inline void update_ghost_mr(std::tuple<T...>& fields)
+    SAMURAI_INLINE void update_ghost_mr(std::tuple<T...>& fields)
     {
         std::apply(
             [](T&... tupleArgs)
@@ -592,7 +592,7 @@ namespace samurai
     }
 
     template <class... T>
-    inline void update_ghost_mr(Field_tuple<T...>& fields)
+    SAMURAI_INLINE void update_ghost_mr(Field_tuple<T...>& fields)
     {
         update_ghost_mr(fields.elements());
     }

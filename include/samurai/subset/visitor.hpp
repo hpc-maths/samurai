@@ -35,12 +35,12 @@ namespace samurai
         {
         }
 
-        inline auto begin() const
+        SAMURAI_INLINE auto begin() const
         {
             return m_begin;
         }
 
-        inline auto end() const
+        SAMURAI_INLINE auto end() const
         {
             return m_end;
         }
@@ -89,20 +89,20 @@ namespace samurai
         }
 
         template <class Func>
-        inline auto start(const auto& it, Func& start_fct) const
+        SAMURAI_INLINE auto start(const auto& it, Func& start_fct) const
         {
             auto i = it->start << m_shift2ref;
             return start_fct(m_lca_level, i, 0);
         }
 
         template <class Func>
-        inline auto end(const auto& it, Func& end_fct) const
+        SAMURAI_INLINE auto end(const auto& it, Func& end_fct) const
         {
             auto i = it->end << m_shift2ref;
             return end_fct(m_lca_level, i, 1);
         }
 
-        inline bool is_in(auto scan) const
+        SAMURAI_INLINE bool is_in(auto scan) const
         {
             // Recall that we check if scan is inside an interval defined as [start,
             // end[. The end of the interval is not included.
@@ -116,23 +116,23 @@ namespace samurai
             return m_current != sentinel<value_t> && !((scan < m_current) ^ (!m_is_start));
         }
 
-        inline bool is_empty() const
+        SAMURAI_INLINE bool is_empty() const
         {
             return m_current == sentinel<value_t>;
         }
 
-        inline auto min() const
+        SAMURAI_INLINE auto min() const
         {
             return m_current;
         }
 
-        inline auto shift() const
+        SAMURAI_INLINE auto shift() const
         {
             return m_shift2dest;
         }
 
         template <class StartEnd>
-        inline void next_interval(StartEnd& start_and_stop)
+        SAMURAI_INLINE void next_interval(StartEnd& start_and_stop)
         {
             auto& [start_fct, end_fct] = start_and_stop; // cppcheck-suppress variableScope
 
@@ -156,7 +156,7 @@ namespace samurai
         }
 
         template <class StartEnd>
-        inline void next(auto scan, StartEnd& start_and_stop)
+        SAMURAI_INLINE void next(auto scan, StartEnd& start_and_stop)
         {
             if (m_current == std::numeric_limits<value_t>::min())
             {
@@ -214,12 +214,12 @@ namespace samurai
         {
         }
 
-        inline auto shift() const
+        SAMURAI_INLINE auto shift() const
         {
             return m_shift;
         }
 
-        inline bool is_in(auto scan) const
+        SAMURAI_INLINE bool is_in(auto scan) const
         {
             return std::apply(
                 [this, scan](auto&&... args)
@@ -229,7 +229,7 @@ namespace samurai
                 m_s);
         }
 
-        inline bool is_empty() const
+        SAMURAI_INLINE bool is_empty() const
         {
             return std::apply(
                 [this](auto&&... args)
@@ -239,7 +239,7 @@ namespace samurai
                 m_s);
         }
 
-        inline auto min() const
+        SAMURAI_INLINE auto min() const
         {
             return std::apply(
                 [](auto&&... args)

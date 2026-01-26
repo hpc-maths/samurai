@@ -7,6 +7,8 @@
 #include <xtensor/containers/xfixed.hpp>
 #include <xtensor/io/xio.hpp>
 
+#include "samurai_config.hpp"
+
 namespace samurai
 {
 
@@ -74,7 +76,7 @@ namespace samurai
      * @param max_corner The vertex with the maximum coordinates
      */
     template <class value_t, std::size_t dim_>
-    inline Box<value_t, dim_>::Box(const point_t& min_corner, const point_t& max_corner)
+    SAMURAI_INLINE Box<value_t, dim_>::Box(const point_t& min_corner, const point_t& max_corner)
         : m_min_corner{min_corner}
         , m_max_corner{max_corner}
     {
@@ -84,7 +86,7 @@ namespace samurai
      * Return the min corner of the box.
      */
     template <class value_t, std::size_t dim_>
-    inline auto Box<value_t, dim_>::min_corner() const -> const point_t&
+    SAMURAI_INLINE auto Box<value_t, dim_>::min_corner() const -> const point_t&
     {
         return m_min_corner;
     }
@@ -93,7 +95,7 @@ namespace samurai
      * Return the min corner of the box.
      */
     template <class value_t, std::size_t dim_>
-    inline auto Box<value_t, dim_>::min_corner() -> point_t&
+    SAMURAI_INLINE auto Box<value_t, dim_>::min_corner() -> point_t&
     {
         return m_min_corner;
     }
@@ -102,7 +104,7 @@ namespace samurai
      * Return the max corner of the box.
      */
     template <class value_t, std::size_t dim_>
-    inline auto Box<value_t, dim_>::max_corner() const -> const point_t&
+    SAMURAI_INLINE auto Box<value_t, dim_>::max_corner() const -> const point_t&
     {
         return m_max_corner;
     }
@@ -111,7 +113,7 @@ namespace samurai
      * Return the max corner of the box.
      */
     template <class value_t, std::size_t dim_>
-    inline auto Box<value_t, dim_>::max_corner() -> point_t&
+    SAMURAI_INLINE auto Box<value_t, dim_>::max_corner() -> point_t&
     {
         return m_max_corner;
     }
@@ -120,7 +122,7 @@ namespace samurai
      * Return the length of the box.
      */
     template <class value_t, std::size_t dim_>
-    inline auto Box<value_t, dim_>::length() const
+    SAMURAI_INLINE auto Box<value_t, dim_>::length() const
     {
         return (m_max_corner - m_min_corner);
     }
@@ -129,7 +131,7 @@ namespace samurai
      * Return the minimum length of the box.
      */
     template <class value_t, std::size_t dim_>
-    inline auto Box<value_t, dim_>::min_length() const
+    SAMURAI_INLINE auto Box<value_t, dim_>::min_length() const
     {
         return xt::amin(length())[0];
     }
@@ -138,7 +140,7 @@ namespace samurai
      * Check if the box is valid.
      */
     template <class value_t, std::size_t dim_>
-    inline bool Box<value_t, dim_>::is_valid() const
+    SAMURAI_INLINE bool Box<value_t, dim_>::is_valid() const
     {
         return xt::all(m_min_corner < m_max_corner);
     }
@@ -147,7 +149,7 @@ namespace samurai
      * Check if the box intersects with another box.
      */
     template <class value_t, std::size_t dim_>
-    inline bool Box<value_t, dim_>::intersects(const Box& other) const
+    SAMURAI_INLINE bool Box<value_t, dim_>::intersects(const Box& other) const
     {
         return xt::all(m_min_corner < other.m_max_corner) && xt::all(m_max_corner > other.m_min_corner);
     }
@@ -156,7 +158,7 @@ namespace samurai
      * Return the intersection of the box with another box.
      */
     template <class value_t, std::size_t dim_>
-    inline Box<value_t, dim_> Box<value_t, dim_>::intersection(const Box& other) const
+    SAMURAI_INLINE Box<value_t, dim_> Box<value_t, dim_>::intersection(const Box& other) const
     {
         Box<value_t, dim_> box;
         box.min_corner() = xt::maximum(m_min_corner, other.m_min_corner);
@@ -208,7 +210,7 @@ namespace samurai
      * The result is a list of boxes.
      */
     template <class value_t, std::size_t dim_>
-    inline std::vector<Box<value_t, dim_>> Box<value_t, dim_>::difference(const Box& other) const
+    SAMURAI_INLINE std::vector<Box<value_t, dim_>> Box<value_t, dim_>::difference(const Box& other) const
     {
         std::vector<Box<value_t, dim_>> boxes;
         if (!intersects(other))
@@ -231,7 +233,7 @@ namespace samurai
      * Check if the box is equal to another box.
      */
     template <class value_t, std::size_t dim_>
-    inline bool Box<value_t, dim_>::operator==(const Box& other) const
+    SAMURAI_INLINE bool Box<value_t, dim_>::operator==(const Box& other) const
     {
         return m_min_corner == other.m_min_corner && m_max_corner == other.m_max_corner;
     }
@@ -240,13 +242,13 @@ namespace samurai
      * Check if the box is different from another box.
      */
     template <class value_t, std::size_t dim_>
-    inline bool Box<value_t, dim_>::operator!=(const Box& other) const
+    SAMURAI_INLINE bool Box<value_t, dim_>::operator!=(const Box& other) const
     {
         return !(*this == other);
     }
 
     template <class value_t, std::size_t dim_>
-    inline auto Box<value_t, dim_>::operator*=(value_t v) -> Box&
+    SAMURAI_INLINE auto Box<value_t, dim_>::operator*=(value_t v) -> Box&
     {
         m_min_corner *= v;
         m_max_corner *= v;
@@ -254,21 +256,21 @@ namespace samurai
     }
 
     template <class value_t, std::size_t dim_>
-    inline auto operator*(const Box<value_t, dim_>& box, value_t v)
+    SAMURAI_INLINE auto operator*(const Box<value_t, dim_>& box, value_t v)
     {
         Box<value_t, dim_> that(box);
         return that *= v;
     }
 
     template <class value_t, std::size_t dim_>
-    inline auto operator*(value_t v, const Box<value_t, dim_>& box)
+    SAMURAI_INLINE auto operator*(value_t v, const Box<value_t, dim_>& box)
     {
         Box<value_t, dim_> that(box);
         return that *= v;
     }
 
     template <class value_t, std::size_t dim>
-    inline std::ostream& operator<<(std::ostream& out, const Box<value_t, dim>& box)
+    SAMURAI_INLINE std::ostream& operator<<(std::ostream& out, const Box<value_t, dim>& box)
     {
         out << "Box(" << box.min_corner() << ", " << box.max_corner() << ")";
         return out;

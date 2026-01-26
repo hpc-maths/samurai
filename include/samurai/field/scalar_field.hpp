@@ -48,22 +48,22 @@ namespace samurai
 
             using base_type::operator();
 
-            inline const value_t& operator[](size_type i) const
+            SAMURAI_INLINE const value_t& operator[](size_type i) const
             {
                 return this->storage().data()[i];
             }
 
-            inline value_t& operator[](size_type i)
+            SAMURAI_INLINE value_t& operator[](size_type i)
             {
                 return this->storage().data()[i];
             }
 
-            inline const value_t& operator[](const cell_t& cell) const
+            SAMURAI_INLINE const value_t& operator[](const cell_t& cell) const
             {
                 return this->storage().data()[static_cast<size_type>(cell.index)];
             }
 
-            inline value_t& operator[](const cell_t& cell)
+            SAMURAI_INLINE value_t& operator[](const cell_t& cell)
             {
                 return this->storage().data()[static_cast<size_type>(cell.index)];
             }
@@ -112,7 +112,7 @@ namespace samurai
     // ScalarField constructors -----------------------------------------------
 
     template <class mesh_t, class value_t>
-    inline ScalarField<mesh_t, value_t>::ScalarField(std::string name, mesh_t& mesh)
+    SAMURAI_INLINE ScalarField<mesh_t, value_t>::ScalarField(std::string name, mesh_t& mesh)
         : inner_mesh_t(mesh)
     {
         this->m_name = std::move(name);
@@ -121,7 +121,7 @@ namespace samurai
 
     template <class mesh_t, class value_t>
     template <class E>
-    inline ScalarField<mesh_t, value_t>::ScalarField(const field_expression<E>& e)
+    SAMURAI_INLINE ScalarField<mesh_t, value_t>::ScalarField(const field_expression<E>& e)
         : inner_mesh_t(detail::extract_mesh(e.derived_cast()))
     {
         this->resize();
@@ -129,7 +129,7 @@ namespace samurai
     }
 
     template <class mesh_t, class value_t>
-    inline ScalarField<mesh_t, value_t>::ScalarField(const ScalarField& field)
+    SAMURAI_INLINE ScalarField<mesh_t, value_t>::ScalarField(const ScalarField& field)
     {
         this->assign_from(field);
     }
@@ -137,7 +137,7 @@ namespace samurai
     // ScalarField operators --------------------------------------------------
 
     template <class mesh_t, class value_t>
-    inline auto ScalarField<mesh_t, value_t>::operator=(const ScalarField& field) -> ScalarField&
+    SAMURAI_INLINE auto ScalarField<mesh_t, value_t>::operator=(const ScalarField& field) -> ScalarField&
     {
         this->assign_from(field);
         return *this;
@@ -145,7 +145,7 @@ namespace samurai
 
     template <class mesh_t, class value_t>
     template <class E>
-    inline auto ScalarField<mesh_t, value_t>::operator=(const field_expression<E>& e) -> ScalarField&
+    SAMURAI_INLINE auto ScalarField<mesh_t, value_t>::operator=(const field_expression<E>& e) -> ScalarField&
     {
         this->assign_expression(e);
         return *this;

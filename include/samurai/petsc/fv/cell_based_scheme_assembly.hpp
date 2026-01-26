@@ -49,7 +49,7 @@ namespace samurai
           protected:
 
             // Data index in the given stencil
-            inline auto stencil_col_index(unsigned int cell_local_index, [[maybe_unused]] unsigned int field_j) const
+            SAMURAI_INLINE auto stencil_col_index(unsigned int cell_local_index, [[maybe_unused]] unsigned int field_j) const
             {
                 if constexpr (field_t::is_scalar)
                 {
@@ -65,7 +65,7 @@ namespace samurai
                 }
             }
 
-            inline auto stencil_row_index(unsigned int cell_local_index, [[maybe_unused]] unsigned int field_i) const
+            SAMURAI_INLINE auto stencil_row_index(unsigned int cell_local_index, [[maybe_unused]] unsigned int field_i) const
             {
                 if constexpr (output_n_comp == 1)
                 {

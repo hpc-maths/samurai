@@ -18,9 +18,9 @@ namespace samurai
         INIT_OPERATOR(to_coarsen_mr_op)
 
         template <class T1, class T2>
-        // inline void operator()(Dim<1>, const T1& detail, const T3&
+        // SAMURAI_INLINE void operator()(Dim<1>, const T1& detail, const T3&
         // max_detail, T2 &tag, double eps, std::size_t min_lev) const
-        inline void operator()(Dim<1>, const T1& detail, T2& tag, double eps, std::size_t min_lev) const
+        SAMURAI_INLINE void operator()(Dim<1>, const T1& detail, T2& tag, double eps, std::size_t min_lev) const
         {
             using namespace math;
             std::size_t fine_level = level + 1;
@@ -64,7 +64,7 @@ namespace samurai
         }
 
         template <class T1, class T2>
-        inline void operator()(Dim<2>, const T1& detail, T2& tag, double eps, std::size_t min_lev) const
+        SAMURAI_INLINE void operator()(Dim<2>, const T1& detail, T2& tag, double eps, std::size_t min_lev) const
         {
             using namespace math;
 
@@ -137,7 +137,7 @@ namespace samurai
         }
 
         template <class T1, class T2>
-        inline void operator()(Dim<3>, const T1& detail, T2& tag, double eps, std::size_t min_lev) const
+        SAMURAI_INLINE void operator()(Dim<3>, const T1& detail, T2& tag, double eps, std::size_t min_lev) const
         {
             using namespace math;
 
@@ -223,7 +223,7 @@ namespace samurai
     };
 
     template <class... CT>
-    inline auto to_coarsen_mr(CT&&... e)
+    SAMURAI_INLINE auto to_coarsen_mr(CT&&... e)
     {
         return make_field_operator_function<to_coarsen_mr_op>(std::forward<CT>(e)...);
     }
@@ -236,7 +236,7 @@ namespace samurai
         INIT_OPERATOR(to_refine_mr_op)
 
         template <std::size_t n_comp, bool is_soa, class T1>
-        inline auto get_mask(const T1& detail_view, double eps) const
+        SAMURAI_INLINE auto get_mask(const T1& detail_view, double eps) const
         {
             using namespace math;
 
@@ -252,7 +252,7 @@ namespace samurai
         }
 
         template <class T1, class T2>
-        inline void operator()(Dim<dim>, const T1& detail, T2& tag, double eps, std::size_t max_level) const
+        SAMURAI_INLINE void operator()(Dim<dim>, const T1& detail, T2& tag, double eps, std::size_t max_level) const
         {
             using namespace math;
             constexpr auto n_comp  = T1::n_comp;
@@ -293,7 +293,7 @@ namespace samurai
     };
 
     template <class... CT>
-    inline auto to_refine_mr(CT&&... e)
+    SAMURAI_INLINE auto to_refine_mr(CT&&... e)
     {
         return make_field_operator_function<to_refine_mr_op>(std::forward<CT>(e)...);
     }
@@ -306,7 +306,7 @@ namespace samurai
         INIT_OPERATOR(max_detail_mr_op)
 
         template <class T1>
-        inline void operator()(Dim<2>, const T1& detail, double& max_detail) const
+        SAMURAI_INLINE void operator()(Dim<2>, const T1& detail, double& max_detail) const
         {
             auto ii = 2 * i;
             ii.step = 1;
@@ -317,7 +317,7 @@ namespace samurai
     };
 
     template <class... CT>
-    inline auto max_detail_mr(CT&&... e)
+    SAMURAI_INLINE auto max_detail_mr(CT&&... e)
     {
         return make_field_operator_function<max_detail_mr_op>(std::forward<CT>(e)...);
     }

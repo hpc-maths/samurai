@@ -428,7 +428,7 @@ class weno5_op : public samurai::field_operator_base<TInterval>,
 };
 
 template <class... CT>
-inline auto weno5(CT&&... e)
+SAMURAI_INLINE auto weno5(CT&&... e)
 {
     return samurai::make_field_operator_function<weno5_op>(std::forward<CT>(e)...);
 }

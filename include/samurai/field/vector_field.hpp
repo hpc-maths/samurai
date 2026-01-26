@@ -55,42 +55,42 @@ namespace samurai
 
             using base_type::operator();
 
-            inline auto operator[](size_type i) const
+            SAMURAI_INLINE auto operator[](size_type i) const
             {
                 return view(this->storage(), i);
             }
 
-            inline auto operator[](size_type i)
+            SAMURAI_INLINE auto operator[](size_type i)
             {
                 return view(this->storage(), i);
             }
 
-            inline auto operator[](const cell_t& cell) const
+            SAMURAI_INLINE auto operator[](const cell_t& cell) const
             {
                 return view(this->storage(), static_cast<size_type>(cell.index));
             }
 
-            inline auto operator[](const cell_t& cell)
+            SAMURAI_INLINE auto operator[](const cell_t& cell)
             {
                 return view(this->storage(), static_cast<size_type>(cell.index));
             }
 
             template <class... T>
-            inline auto operator()(std::size_t item, std::size_t level, const interval_t& interval, T... index)
+            SAMURAI_INLINE auto operator()(std::size_t item, std::size_t level, const interval_t& interval, T... index)
             {
                 auto interval_tmp = this->derived_cast().get_interval(level, interval, index...);
                 return view(this->storage(), item, {interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step});
             }
 
             template <class... T>
-            inline auto operator()(std::size_t item, std::size_t level, const interval_t& interval, T... index) const
+            SAMURAI_INLINE auto operator()(std::size_t item, std::size_t level, const interval_t& interval, T... index) const
             {
                 auto interval_tmp = this->derived_cast().get_interval(level, interval, index...);
                 return view(this->storage(), item, {interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step});
             }
 
             template <class... T>
-            inline auto operator()(std::size_t item_s, std::size_t item_e, std::size_t level, const interval_t& interval, T... index)
+            SAMURAI_INLINE auto operator()(std::size_t item_s, std::size_t item_e, std::size_t level, const interval_t& interval, T... index)
             {
                 auto interval_tmp = this->derived_cast().get_interval(level, interval, index...);
                 return view(this->storage(),
@@ -99,7 +99,8 @@ namespace samurai
             }
 
             template <class... T>
-            inline auto operator()(std::size_t item_s, std::size_t item_e, std::size_t level, const interval_t& interval, T... index) const
+            SAMURAI_INLINE auto
+            operator()(std::size_t item_s, std::size_t item_e, std::size_t level, const interval_t& interval, T... index) const
             {
                 auto interval_tmp = this->derived_cast().get_interval(level, interval, index...);
                 return view(this->storage(),
@@ -108,7 +109,7 @@ namespace samurai
             }
 
             template <class E>
-            inline auto
+            SAMURAI_INLINE auto
             operator()(std::size_t item_s, std::size_t item_e, std::size_t level, const interval_t& interval, const xt::xexpression<E>& index)
             {
                 auto interval_tmp = this->derived_cast().get_interval(level, interval, index);
@@ -118,7 +119,7 @@ namespace samurai
             }
 
             template <class E>
-            inline auto
+            SAMURAI_INLINE auto
             operator()(std::size_t item_s, std::size_t item_e, std::size_t level, const interval_t& interval, const xt::xexpression<E>& index) const
             {
                 auto interval_tmp = this->derived_cast().get_interval(level, interval, index);
@@ -174,7 +175,7 @@ namespace samurai
     // VectorField constructors -----------------------------------------------
 
     template <class mesh_t, class value_t, std::size_t n_comp_, bool SOA>
-    inline VectorField<mesh_t, value_t, n_comp_, SOA>::VectorField(std::string name, mesh_t& mesh)
+    SAMURAI_INLINE VectorField<mesh_t, value_t, n_comp_, SOA>::VectorField(std::string name, mesh_t& mesh)
         : inner_mesh_t(mesh)
     {
         this->m_name = std::move(name);
@@ -183,7 +184,7 @@ namespace samurai
 
     template <class mesh_t, class value_t, std::size_t n_comp_, bool SOA>
     template <class E>
-    inline VectorField<mesh_t, value_t, n_comp_, SOA>::VectorField(const field_expression<E>& e)
+    SAMURAI_INLINE VectorField<mesh_t, value_t, n_comp_, SOA>::VectorField(const field_expression<E>& e)
         : inner_mesh_t(detail::extract_mesh(e.derived_cast()))
     {
         this->resize();
@@ -191,7 +192,7 @@ namespace samurai
     }
 
     template <class mesh_t, class value_t, std::size_t n_comp_, bool SOA>
-    inline VectorField<mesh_t, value_t, n_comp_, SOA>::VectorField(const VectorField& field)
+    SAMURAI_INLINE VectorField<mesh_t, value_t, n_comp_, SOA>::VectorField(const VectorField& field)
     {
         this->assign_from(field);
     }
@@ -199,7 +200,7 @@ namespace samurai
     // VectorField operators --------------------------------------------------
 
     template <class mesh_t, class value_t, std::size_t n_comp_, bool SOA>
-    inline auto VectorField<mesh_t, value_t, n_comp_, SOA>::operator=(const VectorField& field) -> VectorField&
+    SAMURAI_INLINE auto VectorField<mesh_t, value_t, n_comp_, SOA>::operator=(const VectorField& field) -> VectorField&
     {
         this->assign_from(field);
         return *this;
@@ -207,7 +208,7 @@ namespace samurai
 
     template <class mesh_t, class value_t, std::size_t n_comp_, bool SOA>
     template <class E>
-    inline auto VectorField<mesh_t, value_t, n_comp_, SOA>::operator=(const field_expression<E>& e) -> VectorField&
+    SAMURAI_INLINE auto VectorField<mesh_t, value_t, n_comp_, SOA>::operator=(const field_expression<E>& e) -> VectorField&
     {
         this->assign_expression(e);
         return *this;

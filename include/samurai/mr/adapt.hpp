@@ -129,7 +129,7 @@ namespace samurai
     };
 
     template <bool enlarge_, class PredictionFn, class TField, class... TFields>
-    inline Adapt<enlarge_, PredictionFn, TField, TFields...>::Adapt(PredictionFn&& prediction_fn, TField& field, TFields&... fields)
+    SAMURAI_INLINE Adapt<enlarge_, PredictionFn, TField, TFields...>::Adapt(PredictionFn&& prediction_fn, TField& field, TFields&... fields)
         : m_prediction_fn(std::forward<PredictionFn>(prediction_fn))
         , m_fields(field, fields...)
         , m_detail("detail", field.mesh())
@@ -183,13 +183,13 @@ namespace samurai
         auto box_dir();
 
         template <>
-        inline auto box_dir<1>()
+        SAMURAI_INLINE auto box_dir<1>()
         {
             return xt::xtensor_fixed<int, xt::xshape<2, 1>>{{-1}, {1}};
         }
 
         template <>
-        inline auto box_dir<2>()
+        SAMURAI_INLINE auto box_dir<2>()
         {
             return xt::xtensor_fixed<int, xt::xshape<4, 2>>{
                 {-1, 1 },
@@ -200,7 +200,7 @@ namespace samurai
         }
 
         template <>
-        inline auto box_dir<3>()
+        SAMURAI_INLINE auto box_dir<3>()
         {
             return xt::xtensor_fixed<int, xt::xshape<8, 3>>{
                 {-1, -1, -1},

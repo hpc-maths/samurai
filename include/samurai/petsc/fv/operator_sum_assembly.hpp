@@ -417,22 +417,22 @@ namespace samurai
                 largest_stencil_assembly().enforce_projection_prediction(b);
             }
 
-            inline PetscInt col_index(PetscInt cell_index, unsigned int field_j) const
+            SAMURAI_INLINE PetscInt col_index(PetscInt cell_index, unsigned int field_j) const
             {
                 return largest_stencil_assembly().col_index(cell_index, field_j);
             }
 
-            inline PetscInt row_index(PetscInt cell_index, [[maybe_unused]] unsigned int field_i) const
+            SAMURAI_INLINE PetscInt row_index(PetscInt cell_index, [[maybe_unused]] unsigned int field_i) const
             {
                 return largest_stencil_assembly().row_index(cell_index, field_i);
             }
 
-            inline PetscInt col_index(const cell_t& cell, unsigned int field_j) const
+            SAMURAI_INLINE PetscInt col_index(const cell_t& cell, unsigned int field_j) const
             {
                 return largest_stencil_assembly().col_index(cell, field_j);
             }
 
-            inline PetscInt row_index(const cell_t& cell, unsigned int field_i) const
+            SAMURAI_INLINE PetscInt row_index(const cell_t& cell, unsigned int field_i) const
             {
                 return largest_stencil_assembly().row_index(cell, field_i);
             }

@@ -54,7 +54,7 @@ namespace samurai
      * Default contructor which sets the level for each LevelCellArray.
      */
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline CellList<dim_, TInterval, max_size_>::CellList()
+    SAMURAI_INLINE CellList<dim_, TInterval, max_size_>::CellList()
     {
         for (std::size_t level = 0; level <= max_size; ++level)
         {
@@ -63,7 +63,7 @@ namespace samurai
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline CellList<dim_, TInterval, max_size_>::CellList(const coords_t& origin_point, double scaling_factor)
+    SAMURAI_INLINE CellList<dim_, TInterval, max_size_>::CellList(const coords_t& origin_point, double scaling_factor)
     {
         for (std::size_t level = 0; level <= max_size; ++level)
         {
@@ -72,19 +72,19 @@ namespace samurai
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline auto CellList<dim_, TInterval, max_size_>::operator[](std::size_t i) const -> const lcl_type&
+    SAMURAI_INLINE auto CellList<dim_, TInterval, max_size_>::operator[](std::size_t i) const -> const lcl_type&
     {
         return m_cells[i];
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline auto CellList<dim_, TInterval, max_size_>::operator[](std::size_t i) -> lcl_type&
+    SAMURAI_INLINE auto CellList<dim_, TInterval, max_size_>::operator[](std::size_t i) -> lcl_type&
     {
         return m_cells[i];
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline void CellList<dim_, TInterval, max_size_>::to_stream(std::ostream& os) const
+    SAMURAI_INLINE void CellList<dim_, TInterval, max_size_>::to_stream(std::ostream& os) const
     {
         for (std::size_t level = 0; level <= max_size; ++level)
         {
@@ -95,19 +95,19 @@ namespace samurai
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline auto& CellList<dim_, TInterval, max_size_>::origin_point() const
+    SAMURAI_INLINE auto& CellList<dim_, TInterval, max_size_>::origin_point() const
     {
         return m_cells[0].origin_point();
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline auto CellList<dim_, TInterval, max_size_>::scaling_factor() const
+    SAMURAI_INLINE auto CellList<dim_, TInterval, max_size_>::scaling_factor() const
     {
         return m_cells[0].scaling_factor();
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline void CellList<dim_, TInterval, max_size_>::clear()
+    SAMURAI_INLINE void CellList<dim_, TInterval, max_size_>::clear()
     {
         for (std::size_t level = 0; level <= max_size; ++level)
         {
@@ -116,7 +116,7 @@ namespace samurai
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline std::ostream& operator<<(std::ostream& out, const CellList<dim_, TInterval, max_size_>& cell_list)
+    SAMURAI_INLINE std::ostream& operator<<(std::ostream& out, const CellList<dim_, TInterval, max_size_>& cell_list)
     {
         cell_list.to_stream(out);
         return out;

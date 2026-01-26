@@ -59,7 +59,7 @@ namespace samurai
 
       private:
 
-        inline auto h_factor(double h_face, double h_cell) const
+        SAMURAI_INLINE auto h_factor(double h_face, double h_cell) const
         {
             double face_measure = std::pow(h_face, dim - 1);
             double cell_measure = std::pow(h_cell, dim);

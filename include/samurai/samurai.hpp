@@ -42,7 +42,7 @@ namespace samurai
     }
 #endif
 
-    inline auto& initialize(const std::string& description, int& argc, char**& argv)
+    SAMURAI_INLINE auto& initialize(const std::string& description, int& argc, char**& argv)
     {
         app.description(description);
         app.set_config("--config");
@@ -73,19 +73,19 @@ namespace samurai
         return app;
     }
 
-    inline auto& initialize(int& argc, char**& argv)
+    SAMURAI_INLINE auto& initialize(int& argc, char**& argv)
     {
         return initialize("SAMURAI", argc, argv);
     }
 
-    inline void initialize()
+    SAMURAI_INLINE void initialize()
     {
 #ifdef SAMURAI_WITH_MPI
         MPI_Init(nullptr, nullptr);
 #endif
     }
 
-    inline void finalize()
+    SAMURAI_INLINE void finalize()
     {
         if (args::timers) // cppcheck-suppress knownConditionTrueFalse
         {

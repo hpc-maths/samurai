@@ -17,7 +17,7 @@ namespace samurai
             // Mapping from local to global unknown indices
             std::vector<PetscInt> local_to_global_mapping;
 
-            inline void resize(PetscInt n_local_unknowns)
+            SAMURAI_INLINE void resize(PetscInt n_local_unknowns)
             {
                 local_indices.resize(static_cast<std::size_t>(n_local_unknowns));
                 global_indices.resize(static_cast<std::size_t>(n_local_unknowns));
@@ -25,10 +25,10 @@ namespace samurai
             }
 
             template <int n_unknowns_per_cell, typename return_type = std::size_t>
-            inline return_type unknown_index([[maybe_unused]] const CellOwnership& ownership,
-                                             PetscInt shift,
-                                             std::size_t cell_index,
-                                             [[maybe_unused]] int component_index) const
+            SAMURAI_INLINE return_type unknown_index([[maybe_unused]] const CellOwnership& ownership,
+                                                     PetscInt shift,
+                                                     std::size_t cell_index,
+                                                     [[maybe_unused]] int component_index) const
             {
 #ifdef SAMURAI_WITH_MPI
                 cell_index = static_cast<std::size_t>(ownership.cell_indices[cell_index]);

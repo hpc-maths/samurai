@@ -43,7 +43,7 @@ namespace samurai
 
         ~Timers() = default;
 
-        inline auto getElapsedTime(const std::string& tname) const
+        SAMURAI_INLINE auto getElapsedTime(const std::string& tname) const
         {
             SAMURAI_ASSERT(_times.find(tname) != _times.end(), "[Timers::getElapsedTime] Requested timer not found '" + tname + "' !");
 
@@ -61,7 +61,7 @@ namespace samurai
             }
         }
 
-        inline void start(const std::string& tname)
+        SAMURAI_INLINE void start(const std::string& tname)
         {
             if (_times.find(tname) != _times.end())
             {
@@ -73,7 +73,7 @@ namespace samurai
             }
         }
 
-        inline void stop(const std::string& tname)
+        SAMURAI_INLINE void stop(const std::string& tname)
         {
             SAMURAI_ASSERT(_times.find(tname) != _times.end(), "[Timers::stop] Requested timer not found '" + tname + "' !");
             // if (_times.find(tname) != _times.end())
@@ -272,17 +272,17 @@ namespace samurai
         std::map<std::string, Timer> _times;
 
 #ifdef SAMURAI_WITH_MPI
-        inline double _getTime() const
+        SAMURAI_INLINE double _getTime() const
         {
             return MPI_Wtime();
         }
 
-        inline double _zero_duration() const
+        SAMURAI_INLINE double _zero_duration() const
         {
             return 0.0;
         }
 #else
-        inline std::chrono::time_point<std::chrono::high_resolution_clock> _getTime() const
+        SAMURAI_INLINE std::chrono::time_point<std::chrono::high_resolution_clock> _getTime() const
         {
             // timeval now;
             // SAMURAI_ASSERT(-1 != gettimeofday(&now, 0), "[Timers::_getTime()] Error getting timeofday !");
@@ -292,12 +292,12 @@ namespace samurai
             return std::chrono::high_resolution_clock::now();
         }
 
-        inline std::chrono::microseconds _zero_duration() const
+        SAMURAI_INLINE std::chrono::microseconds _zero_duration() const
         {
             return std::chrono::microseconds(0);
         }
 #endif
-        inline int _compute_name_width(std::size_t min_width) const
+        SAMURAI_INLINE int _compute_name_width(std::size_t min_width) const
         {
             std::size_t max_name_length = 0;
             for (const auto& kv : _times)
@@ -307,7 +307,7 @@ namespace samurai
             return static_cast<int>(std::max<std::size_t>(min_width, max_name_length + 2));
         }
 
-        inline double _percent(const std::chrono::microseconds& value, const std::chrono::microseconds& total) const
+        SAMURAI_INLINE double _percent(const std::chrono::microseconds& value, const std::chrono::microseconds& total) const
         {
             return static_cast<double>(value.count() * 100) / static_cast<double>(total.count());
         }

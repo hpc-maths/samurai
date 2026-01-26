@@ -355,7 +355,7 @@ namespace samurai
     template <class NumberType1,
               class NumberType2,
               typename std::enable_if_t<std::is_arithmetic_v<NumberType1> && std::is_arithmetic_v<NumberType2>, bool> = true>
-    inline auto pow(NumberType1 base, NumberType2 exponent)
+    SAMURAI_INLINE auto pow(NumberType1 base, NumberType2 exponent)
     {
         return std::pow(base, exponent);
     }

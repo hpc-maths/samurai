@@ -5,10 +5,10 @@
 namespace samurai
 {
     template <Get get_type, class interface_iterator_t, class stencil_iterator_t, class Func>
-    inline void apply_on_interval(const typename interface_iterator_t::mesh_interval_t& mesh_interval,
-                                  interface_iterator_t& interface_it,
-                                  stencil_iterator_t& comput_stencil_it,
-                                  Func&& f)
+    SAMURAI_INLINE void apply_on_interval(const typename interface_iterator_t::mesh_interval_t& mesh_interval,
+                                          interface_iterator_t& interface_it,
+                                          stencil_iterator_t& comput_stencil_it,
+                                          Func&& f)
     {
         comput_stencil_it.init(mesh_interval);
         interface_it.init(mesh_interval);

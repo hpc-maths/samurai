@@ -59,7 +59,7 @@ namespace samurai
     };
 
     template <class T>
-    inline constexpr auto is_eigen_matrix_v = is_eigen_matrix<T>::value;
+    constexpr auto is_eigen_matrix_v = is_eigen_matrix<T>::value;
 
     //-----------//
     // Functions //
