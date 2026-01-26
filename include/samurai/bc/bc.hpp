@@ -180,7 +180,7 @@ namespace samurai
     }
 
     template <class Field>
-    inline auto ConstantBc<Field>::get_value(const direction_t&, const cell_t&, const coords_t&) const -> value_t
+    SAMURAI_INLINE auto ConstantBc<Field>::get_value(const direction_t&, const cell_t&, const coords_t&) const -> value_t
     {
         return m_v;
     }
@@ -192,7 +192,7 @@ namespace samurai
     }
 
     template <class Field>
-    inline BCVType ConstantBc<Field>::type() const
+    SAMURAI_INLINE BCVType ConstantBc<Field>::type() const
     {
         return BCVType::constant;
     }
@@ -204,7 +204,7 @@ namespace samurai
     }
 
     template <class Field>
-    inline auto FunctionBc<Field>::get_value(const direction_t& d, const cell_t& cell_in, const coords_t& coords) const -> value_t
+    SAMURAI_INLINE auto FunctionBc<Field>::get_value(const direction_t& d, const cell_t& cell_in, const coords_t& coords) const -> value_t
     {
         return m_func(d, cell_in, coords);
     }
@@ -216,7 +216,7 @@ namespace samurai
     }
 
     template <class Field>
-    inline BCVType FunctionBc<Field>::type() const
+    SAMURAI_INLINE BCVType FunctionBc<Field>::type() const
     {
         return BCVType::function;
     }
@@ -326,7 +326,7 @@ namespace samurai
 
     // Everywhere
     template <std::size_t dim, class TInterval>
-    inline auto Everywhere<dim, TInterval>::get_region(const lca_t& domain) const -> region_t
+    SAMURAI_INLINE auto Everywhere<dim, TInterval>::get_region(const lca_t& domain) const -> region_t
     {
         std::vector<direction_t> dir;
         std::vector<lca_t> lca;
@@ -379,7 +379,7 @@ namespace samurai
     }
 
     template <std::size_t dim, class TInterval, std::size_t nd>
-    inline auto OnDirection<dim, TInterval, nd>::get_region(const lca_t& domain) const -> region_t
+    SAMURAI_INLINE auto OnDirection<dim, TInterval, nd>::get_region(const lca_t& domain) const -> region_t
     {
         using namespace math;
         std::vector<direction_t> dir;
@@ -438,7 +438,7 @@ namespace samurai
     }
 
     template <std::size_t dim, class TInterval>
-    inline auto CoordsRegion<dim, TInterval>::get_region(const lca_t& domain) const -> region_t
+    SAMURAI_INLINE auto CoordsRegion<dim, TInterval>::get_region(const lca_t& domain) const -> region_t
     {
         using lcl_t = LevelCellList<dim, TInterval>;
 
@@ -490,7 +490,7 @@ namespace samurai
     }
 
     template <std::size_t dim, class TInterval, class Set>
-    inline auto SetRegion<dim, TInterval, Set>::get_region(const lca_t& domain) const -> region_t
+    SAMURAI_INLINE auto SetRegion<dim, TInterval, Set>::get_region(const lca_t& domain) const -> region_t
     {
         std::vector<direction_t> dir;
         std::vector<lca_t> lca;
@@ -675,7 +675,7 @@ namespace samurai
 
     template <class Field>
     template <class Region>
-    inline auto Bc<Field>::on(const Region& region)
+    SAMURAI_INLINE auto Bc<Field>::on(const Region& region)
     {
         if constexpr (std::is_base_of_v<BcRegion<dim, interval_t>, Region>)
         {
@@ -690,32 +690,32 @@ namespace samurai
 
     template <class Field>
     template <class... Regions>
-    inline auto Bc<Field>::on(const Regions&... regions)
+    SAMURAI_INLINE auto Bc<Field>::on(const Regions&... regions)
     {
         m_region = make_bc_region<dim, interval_t>(regions...).get_region(m_domain);
         return this;
     }
 
     template <class Field>
-    inline auto Bc<Field>::get_region() const -> const region_t&
+    SAMURAI_INLINE auto Bc<Field>::get_region() const -> const region_t&
     {
         return m_region;
     }
 
     template <class Field>
-    inline auto Bc<Field>::constant_value() -> value_t
+    SAMURAI_INLINE auto Bc<Field>::constant_value() -> value_t
     {
         return p_bcvalue->get_value({}, {}, {});
     }
 
     template <class Field>
-    inline auto Bc<Field>::value(const direction_t& d, const cell_t& cell_in, const coords_t& coords) const -> value_t
+    SAMURAI_INLINE auto Bc<Field>::value(const direction_t& d, const cell_t& cell_in, const coords_t& coords) const -> value_t
     {
         return p_bcvalue->get_value(d, cell_in, coords);
     }
 
     template <class Field>
-    inline BCVType Bc<Field>::get_value_type() const
+    SAMURAI_INLINE BCVType Bc<Field>::get_value_type() const
     {
         return p_bcvalue->type();
     }

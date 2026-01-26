@@ -76,27 +76,27 @@ class AMRMesh : public samurai::Mesh_base<AMRMesh<Config>, Config>
 
     AMRMesh() = default;
 
-    inline AMRMesh(const cl_type& cl, const self_type& ref_mesh)
+    SAMURAI_INLINE AMRMesh(const cl_type& cl, const self_type& ref_mesh)
         : base_type(cl, ref_mesh)
     {
     }
 
-    inline AMRMesh(const cl_type& cl, const samurai::mesh_config<Config::dim>& cfg)
+    SAMURAI_INLINE AMRMesh(const cl_type& cl, const samurai::mesh_config<Config::dim>& cfg)
         : base_type(cl, cfg)
     {
     }
 
-    inline AMRMesh(const ca_type& ca, const samurai::mesh_config<Config::dim>& cfg)
+    SAMURAI_INLINE AMRMesh(const ca_type& ca, const samurai::mesh_config<Config::dim>& cfg)
         : base_type(ca, cfg)
     {
     }
 
-    inline AMRMesh(const samurai::Box<double, dim>& b, samurai::mesh_config<Config::dim>& cfg)
+    SAMURAI_INLINE AMRMesh(const samurai::Box<double, dim>& b, samurai::mesh_config<Config::dim>& cfg)
         : base_type(b, cfg)
     {
     }
 
-    inline void update_sub_mesh_impl()
+    SAMURAI_INLINE void update_sub_mesh_impl()
     {
         cl_type cl;
         auto ghost_width = this->cfg().ghost_width();
@@ -124,7 +124,7 @@ class projection_op_ : public samurai::field_operator_base<dim, TInterval>
     INIT_OPERATOR(projection_op_)
 
     template <class T>
-    inline void operator()(samurai::Dim<2>, T& new_field, const T& field) const
+    SAMURAI_INLINE void operator()(samurai::Dim<2>, T& new_field, const T& field) const
     {
         new_field(level, i, j) = .25
                                * (field(level + 1, 2 * i, 2 * j) + field(level + 1, 2 * i, 2 * j + 1) + field(level + 1, 2 * i + 1, 2 * j)
@@ -133,7 +133,7 @@ class projection_op_ : public samurai::field_operator_base<dim, TInterval>
 };
 
 template <class T>
-inline auto projection(T&& new_field, T&& field)
+SAMURAI_INLINE auto projection(T&& new_field, T&& field)
 {
     return samurai::make_field_operator_function<projection_op_>(std::forward<T>(new_field), std::forward<T>(field));
 }
@@ -412,7 +412,7 @@ bool update_mesh(Field& f, Field_u& u, Tag& tag)
 }
 
 template <class Field>
-inline void amr_projection(Field& field)
+SAMURAI_INLINE void amr_projection(Field& field)
 {
     auto& mesh      = field.mesh();
     using mesh_id_t = typename Field::mesh_t::mesh_id_t;
@@ -428,7 +428,7 @@ inline void amr_projection(Field& field)
 }
 
 template <class Field>
-inline void amr_prediction(Field& field)
+SAMURAI_INLINE void amr_prediction(Field& field)
 {
     auto& mesh      = field.mesh();
     using mesh_id_t = typename Field::mesh_t::mesh_id_t;

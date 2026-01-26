@@ -11,7 +11,7 @@ namespace samurai
 {
     template <class Field1, class Field2>
         requires(field_like<Field1> && field_like<Field2>)
-    inline void swap(Field1& u1, Field2& u2)
+    SAMURAI_INLINE void swap(Field1& u1, Field2& u2)
     {
         std::swap(u1.array(), u2.array());
 

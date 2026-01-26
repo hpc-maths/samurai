@@ -76,29 +76,29 @@ namespace samurai
         field_function(Func&& f, CTA&&... e) noexcept;
 
         template <class... T>
-        inline auto operator()(const std::size_t& level, const interval_t& interval, const T&... index) const
+        SAMURAI_INLINE auto operator()(const std::size_t& level, const interval_t& interval, const T&... index) const
         {
             auto expr = evaluate(std::make_index_sequence<sizeof...(CT)>(), level, interval, index...);
             return expr;
         }
 
         template <std::size_t dim>
-        inline auto operator()(const std::size_t& level,
-                               const interval_t& interval,
-                               const xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim - 1>>& index) const
+        SAMURAI_INLINE auto operator()(const std::size_t& level,
+                                       const interval_t& interval,
+                                       const xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<dim - 1>>& index) const
         {
             auto expr = evaluate(std::make_index_sequence<sizeof...(CT)>(), level, interval, index);
             return expr;
         }
 
         template <std::size_t dim>
-        inline auto operator()(const Cell<dim, interval_t>& cell) const
+        SAMURAI_INLINE auto operator()(const Cell<dim, interval_t>& cell) const
         {
             return evaluate(std::make_index_sequence<sizeof...(CT)>(), cell);
         }
 
         template <std::size_t... I, class... T>
-        inline auto evaluate(std::index_sequence<I...>, T&&... t) const
+        SAMURAI_INLINE auto evaluate(std::index_sequence<I...>, T&&... t) const
         {
             // eval is needed by eigen to avoid a bug in the evaluation of the expression (must be fixed !)
             return eval(m_f(std::get<I>(m_e).operator()(std::forward<T>(t)...)...));
@@ -117,14 +117,14 @@ namespace samurai
 
     template <class F, class... CT>
     template <class Func, class... CTA, class>
-    inline field_function<F, CT...>::field_function(Func&& f, CTA&&... e) noexcept
+    SAMURAI_INLINE field_function<F, CT...>::field_function(Func&& f, CTA&&... e) noexcept
         : m_e(std::forward<CTA>(e)...)
         , m_f(std::forward<Func>(f))
     {
     }
 
     template <class F, class... E>
-    inline auto make_field_function(E&&... e) noexcept
+    SAMURAI_INLINE auto make_field_function(E&&... e) noexcept
     {
         using type = field_function<F, E...>;
         return type(F(), std::forward<E>(e)...);

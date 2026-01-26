@@ -44,7 +44,7 @@ namespace mpi = boost::mpi;
 
 namespace samurai
 {
-    inline std::string element_type(std::size_t dim)
+    SAMURAI_INLINE std::string element_type(std::size_t dim)
     {
         switch (dim)
         {
@@ -63,21 +63,21 @@ namespace samurai
     template <std::size_t dim>
     auto get_element(std::integral_constant<std::size_t, dim>);
 
-    inline auto get_element(std::integral_constant<std::size_t, 1>)
+    SAMURAI_INLINE auto get_element(std::integral_constant<std::size_t, 1>)
     {
         return std::array<double, 2>{
             {0, 1}
         };
     }
 
-    inline auto get_element(std::integral_constant<std::size_t, 2>)
+    SAMURAI_INLINE auto get_element(std::integral_constant<std::size_t, 2>)
     {
         return std::array<xt::xtensor_fixed<std::size_t, xt::xshape<2>>, 4>{
             {{0, 0}, {1, 0}, {1, 1}, {0, 1}}
         };
     }
 
-    inline auto get_element(std::integral_constant<std::size_t, 3>)
+    SAMURAI_INLINE auto get_element(std::integral_constant<std::size_t, 3>)
     {
         return std::array<xt::xtensor_fixed<std::size_t, xt::xshape<3>>, 8>{
             {{0, 0, 0}, {1, 0, 0}, {1, 1, 0}, {0, 1, 0}, {0, 0, 1}, {1, 0, 1}, {1, 1, 1}, {0, 1, 1}}
@@ -203,7 +203,7 @@ namespace samurai
         void save_on_mesh(pugi::xml_node& grid_parent, const std::string& prefix, const Submesh& submesh, const std::string& mesh_name);
 
         template <class Submesh, class Field>
-        inline void save_field(pugi::xml_node& grid, const std::string& prefix, const Submesh& submesh, const Field& field);
+        SAMURAI_INLINE void save_field(pugi::xml_node& grid, const std::string& prefix, const Submesh& submesh, const Field& field);
 
       private:
 
@@ -264,11 +264,11 @@ namespace samurai
     };
 
     template <class D, class Mesh, class... T>
-    inline SaveBase<D, Mesh, T...>::SaveBase(const fs::path& path,
-                                             const std::string& filename,
-                                             const options_t& options,
-                                             const Mesh& mesh,
-                                             const T&... fields)
+    SAMURAI_INLINE SaveBase<D, Mesh, T...>::SaveBase(const fs::path& path,
+                                                     const std::string& filename,
+                                                     const options_t& options,
+                                                     const Mesh& mesh,
+                                                     const T&... fields)
         : hdf5_t(path, filename)
         , m_mesh(mesh)
         , m_options(options)
@@ -278,53 +278,53 @@ namespace samurai
 
     template <class D, class Mesh, class... T>
     template <class Submesh>
-    inline void SaveBase<D, Mesh, T...>::save_fields(pugi::xml_node& grid, const std::string& prefix, const Submesh& submesh)
+    SAMURAI_INLINE void SaveBase<D, Mesh, T...>::save_fields(pugi::xml_node& grid, const std::string& prefix, const Submesh& submesh)
     {
         save_fields_impl(grid, prefix, submesh, std::make_index_sequence<sizeof...(T)>());
     }
 
     template <class D, class Mesh, class... T>
     template <class Submesh, std::size_t... I>
-    inline void SaveBase<D, Mesh, T...>::save_fields_impl(pugi::xml_node& grid,
-                                                          const std::string& prefix,
-                                                          const Submesh& submesh,
-                                                          std::index_sequence<I...>)
+    SAMURAI_INLINE void SaveBase<D, Mesh, T...>::save_fields_impl(pugi::xml_node& grid,
+                                                                  const std::string& prefix,
+                                                                  const Submesh& submesh,
+                                                                  std::index_sequence<I...>)
     {
         (this->save_field(grid, prefix, submesh, std::get<I>(m_fields)), ...);
     }
 
     template <class D, class Mesh, class... T>
-    inline void SaveBase<D, Mesh, T...>::save()
+    SAMURAI_INLINE void SaveBase<D, Mesh, T...>::save()
     {
         this->derived_cast().save();
     }
 
     template <class D, class Mesh, class... T>
-    inline auto SaveBase<D, Mesh, T...>::derived_cast() & noexcept -> derived_type&
+    SAMURAI_INLINE auto SaveBase<D, Mesh, T...>::derived_cast() & noexcept -> derived_type&
     {
         return *static_cast<derived_type*>(this);
     }
 
     template <class D, class Mesh, class... T>
-    inline auto SaveBase<D, Mesh, T...>::derived_cast() const& noexcept -> const derived_type&
+    SAMURAI_INLINE auto SaveBase<D, Mesh, T...>::derived_cast() const& noexcept -> const derived_type&
     {
         return *static_cast<const derived_type*>(this);
     }
 
     template <class D, class Mesh, class... T>
-    inline auto SaveBase<D, Mesh, T...>::derived_cast() && noexcept -> derived_type
+    SAMURAI_INLINE auto SaveBase<D, Mesh, T...>::derived_cast() && noexcept -> derived_type
     {
         return *static_cast<derived_type*>(this);
     }
 
     template <class D, class Mesh, class... T>
-    inline auto SaveBase<D, Mesh, T...>::mesh() const -> const mesh_t&
+    SAMURAI_INLINE auto SaveBase<D, Mesh, T...>::mesh() const -> const mesh_t&
     {
         return m_mesh;
     }
 
     template <class D, class Mesh, class... T>
-    inline auto SaveBase<D, Mesh, T...>::options() const -> const options_t&
+    SAMURAI_INLINE auto SaveBase<D, Mesh, T...>::options() const -> const options_t&
     {
         return m_options;
     }
@@ -345,17 +345,17 @@ namespace samurai
     };
 
     template <class D, class Mesh, class... T>
-    inline SaveCellArray<D, Mesh, T...>::SaveCellArray(const fs::path& path,
-                                                       const std::string& filename,
-                                                       const options_t& options,
-                                                       const mesh_t& mesh,
-                                                       const T&... fields)
+    SAMURAI_INLINE SaveCellArray<D, Mesh, T...>::SaveCellArray(const fs::path& path,
+                                                               const std::string& filename,
+                                                               const options_t& options,
+                                                               const mesh_t& mesh,
+                                                               const T&... fields)
         : base_class(path, filename, options, mesh, fields...)
     {
     }
 
     template <class D, class Mesh, class... T>
-    inline void SaveCellArray<D, Mesh, T...>::save()
+    SAMURAI_INLINE void SaveCellArray<D, Mesh, T...>::save()
     {
         if (this->options().by_level)
         {
@@ -447,17 +447,17 @@ namespace samurai
     };
 
     template <class D, class Mesh, class... T>
-    inline SaveLevelCellArray<D, Mesh, T...>::SaveLevelCellArray(const fs::path& path,
-                                                                 const std::string& filename,
-                                                                 const options_t& options,
-                                                                 const mesh_t& mesh,
-                                                                 const T&... fields)
+    SAMURAI_INLINE SaveLevelCellArray<D, Mesh, T...>::SaveLevelCellArray(const fs::path& path,
+                                                                         const std::string& filename,
+                                                                         const options_t& options,
+                                                                         const mesh_t& mesh,
+                                                                         const T&... fields)
         : base_class(path, filename, options, mesh, fields...)
     {
     }
 
     template <class D, class Mesh, class... T>
-    inline void SaveLevelCellArray<D, Mesh, T...>::save()
+    SAMURAI_INLINE void SaveLevelCellArray<D, Mesh, T...>::save()
     {
         if (this->options().by_mesh_id)
         {
@@ -484,7 +484,7 @@ namespace samurai
     }
 
     template <class D>
-    inline Hdf5<D>::Hdf5(const fs::path& path, const std::string& filename)
+    SAMURAI_INLINE Hdf5<D>::Hdf5(const fs::path& path, const std::string& filename)
         : h5_file(create_h5file(path, filename))
         , m_path(path)
         , m_filename(filename)
@@ -505,7 +505,7 @@ namespace samurai
     }
 
     template <class D>
-    inline Hdf5<D>::~Hdf5()
+    SAMURAI_INLINE Hdf5<D>::~Hdf5()
     {
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
@@ -518,14 +518,14 @@ namespace samurai
     }
 
     template <class D>
-    inline pugi::xml_node& Hdf5<D>::domain()
+    SAMURAI_INLINE pugi::xml_node& Hdf5<D>::domain()
     {
         return m_domain;
     }
 
     template <class D>
     template <class Submesh>
-    inline void
+    SAMURAI_INLINE void
     Hdf5<D>::save_on_mesh(pugi::xml_node& grid_parent, const std::string& prefix, const Submesh& submesh, const std::string& mesh_name)
     {
         static constexpr std::size_t dim = derived_type_save::dim;
@@ -682,7 +682,7 @@ namespace samurai
 
     template <class D>
     template <class Submesh, class Field>
-    inline void Hdf5<D>::save_field(pugi::xml_node& grid, const std::string& prefix, const Submesh& submesh, const Field& field)
+    SAMURAI_INLINE void Hdf5<D>::save_field(pugi::xml_node& grid, const std::string& prefix, const Submesh& submesh, const Field& field)
     {
         auto xfer_props = HighFive::DataTransferProps{};
 #ifdef SAMURAI_WITH_MPI
@@ -789,19 +789,19 @@ namespace samurai
     }
 
     template <class D>
-    inline auto Hdf5<D>::derived_cast() & noexcept -> derived_type_save&
+    SAMURAI_INLINE auto Hdf5<D>::derived_cast() & noexcept -> derived_type_save&
     {
         return *static_cast<derived_type_save*>(this);
     }
 
     template <class D>
-    inline auto Hdf5<D>::derived_cast() const& noexcept -> const derived_type_save&
+    SAMURAI_INLINE auto Hdf5<D>::derived_cast() const& noexcept -> const derived_type_save&
     {
         return *static_cast<const derived_type_save*>(this);
     }
 
     template <class D>
-    inline auto Hdf5<D>::derived_cast() && noexcept -> derived_type_save
+    SAMURAI_INLINE auto Hdf5<D>::derived_cast() && noexcept -> derived_type_save
     {
         return *static_cast<derived_type_save*>(this);
     }

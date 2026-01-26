@@ -50,6 +50,8 @@ option(ENABLE_COVERAGE "Activate coverage" OFF)
 option(WITH_MPI "Enable MPI" OFF)
 option(WITH_OPENMP "Enable OpenMP" OFF)
 option(WITH_PETSC "Enable PETSc" OFF)
+option(SAMURAI_ENABLE_INLINE "Enable inline keyword for performance" ON)
+option(SAMURAI_FORCE_INLINE "Force aggressive inlining (takes precedence)" OFF)
 option(SAMURAI_CONTAINER_LAYOUT_COL_MAJOR "Set the containers' layout to column-major" OFF)
 
 set(FIELD_CONTAINER_LIST "xtensor" "eigen3")
@@ -203,6 +205,14 @@ endif()
 
 if(SAMURAI_CHECK_NAN)
   target_compile_definitions(samurai INTERFACE SAMURAI_CHECK_NAN)
+endif()
+
+if(SAMURAI_ENABLE_INLINE)
+  target_compile_definitions(samurai INTERFACE SAMURAI_ENABLE_INLINE)
+endif()
+
+if(SAMURAI_FORCE_INLINE)
+  target_compile_definitions(samurai INTERFACE SAMURAI_FORCE_INLINE)
 endif()
 
 if(BUILD_BENCHMARKS)

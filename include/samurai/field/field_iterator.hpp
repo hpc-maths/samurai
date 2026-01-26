@@ -72,35 +72,35 @@ namespace samurai
     // Field_iterator operators -----------------------------------------------
 
     template <class Field, bool is_const>
-    inline auto Field_iterator<Field, is_const>::operator++() -> self_type&
+    SAMURAI_INLINE auto Field_iterator<Field, is_const>::operator++() -> self_type&
     {
         ++m_ca_it;
         return *this;
     }
 
     template <class Field, bool is_const>
-    inline auto Field_iterator<Field, is_const>::operator--() -> self_type&
+    SAMURAI_INLINE auto Field_iterator<Field, is_const>::operator--() -> self_type&
     {
         --m_ca_it;
         return *this;
     }
 
     template <class Field, bool is_const>
-    inline auto Field_iterator<Field, is_const>::operator+=(difference_type n) -> self_type&
+    SAMURAI_INLINE auto Field_iterator<Field, is_const>::operator+=(difference_type n) -> self_type&
     {
         m_ca_it += n;
         return *this;
     }
 
     template <class Field, bool is_const>
-    inline auto Field_iterator<Field, is_const>::operator-=(difference_type n) -> self_type&
+    SAMURAI_INLINE auto Field_iterator<Field, is_const>::operator-=(difference_type n) -> self_type&
     {
         m_ca_it -= n;
         return *this;
     }
 
     template <class Field, bool is_const>
-    inline auto Field_iterator<Field, is_const>::operator*() const
+    SAMURAI_INLINE auto Field_iterator<Field, is_const>::operator*() const
     {
         return view(p_field->storage(), {m_ca_it->index + m_ca_it->start, m_ca_it->index + m_ca_it->end});
     }
@@ -108,13 +108,13 @@ namespace samurai
     // Field_iterator methods -------------------------------------------------
 
     template <class Field, bool is_const>
-    inline bool Field_iterator<Field, is_const>::equal(const self_type& rhs) const
+    SAMURAI_INLINE bool Field_iterator<Field, is_const>::equal(const self_type& rhs) const
     {
         return m_ca_it.equal(rhs.m_ca_it);
     }
 
     template <class Field, bool is_const>
-    inline bool Field_iterator<Field, is_const>::less_than(const self_type& rhs) const
+    SAMURAI_INLINE bool Field_iterator<Field, is_const>::less_than(const self_type& rhs) const
     {
         return m_ca_it.less_than(rhs.m_ca_it);
     }
@@ -122,13 +122,13 @@ namespace samurai
     // Field_iterator extern operators ----------------------------------------
 
     template <class Field, bool is_const>
-    inline bool operator==(const Field_iterator<Field, is_const>& it1, const Field_iterator<Field, is_const>& it2)
+    SAMURAI_INLINE bool operator==(const Field_iterator<Field, is_const>& it1, const Field_iterator<Field, is_const>& it2)
     {
         return it1.equal(it2);
     }
 
     template <class Field, bool is_const>
-    inline bool operator<(const Field_iterator<Field, is_const>& it1, const Field_iterator<Field, is_const>& it2)
+    SAMURAI_INLINE bool operator<(const Field_iterator<Field, is_const>& it1, const Field_iterator<Field, is_const>& it2)
     {
         return it1.less_than(it2);
     }

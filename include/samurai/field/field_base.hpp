@@ -128,19 +128,19 @@ namespace samurai
         // --- Protected methods ----------------------------------------------
 
         template <class Derived>
-        inline Derived& FieldBase<Derived>::derived_cast() & noexcept
+        SAMURAI_INLINE Derived& FieldBase<Derived>::derived_cast() & noexcept
         {
             return *static_cast<Derived*>(this);
         }
 
         template <class Derived>
-        inline const Derived& FieldBase<Derived>::derived_cast() const& noexcept
+        SAMURAI_INLINE const Derived& FieldBase<Derived>::derived_cast() const& noexcept
         {
             return *static_cast<const Derived*>(this);
         }
 
         template <class Derived>
-        inline Derived FieldBase<Derived>::derived_cast() && noexcept
+        SAMURAI_INLINE Derived FieldBase<Derived>::derived_cast() && noexcept
         {
             return std::move(*static_cast<Derived*>(this));
         }
@@ -149,7 +149,7 @@ namespace samurai
 
         template <class Derived>
         template <class... T>
-        inline const auto& FieldBase<Derived>::get_interval(std::size_t level, const auto& interval, const T... index) const
+        SAMURAI_INLINE const auto& FieldBase<Derived>::get_interval(std::size_t level, const auto& interval, const T... index) const
         {
             const auto& interval_tmp = this->derived_cast().mesh().get_interval(level, interval, index...);
 
@@ -172,7 +172,8 @@ namespace samurai
 
         template <class Derived>
         template <class E>
-        inline const auto& FieldBase<Derived>::get_interval(std::size_t level, const auto& interval, const xt::xexpression<E>& index) const
+        SAMURAI_INLINE const auto&
+        FieldBase<Derived>::get_interval(std::size_t level, const auto& interval, const xt::xexpression<E>& index) const
         {
             const auto& interval_tmp = this->derived_cast().mesh().get_interval(level, interval, index);
 
@@ -192,7 +193,7 @@ namespace samurai
         // --- Assignment helpers ---------------------------------------------
 
         template <class Derived>
-        inline Derived& FieldBase<Derived>::assign_from(const Derived& other)
+        SAMURAI_INLINE Derived& FieldBase<Derived>::assign_from(const Derived& other)
         {
             if (this == &other)
             {
@@ -224,7 +225,7 @@ namespace samurai
 
         template <class Derived>
         template <class E>
-        inline Derived& FieldBase<Derived>::assign_expression(const field_expression<E>& e)
+        SAMURAI_INLINE Derived& FieldBase<Derived>::assign_expression(const field_expression<E>& e)
         {
             times::timers.start("field expressions");
             for_each_interval(this->derived_cast().mesh(),
@@ -240,43 +241,43 @@ namespace samurai
         // --- Metadata accessors ---------------------------------------------
 
         template <class Derived>
-        inline const std::string& FieldBase<Derived>::name() const&
+        SAMURAI_INLINE const std::string& FieldBase<Derived>::name() const&
         {
             return m_name;
         }
 
         template <class Derived>
-        inline std::string_view FieldBase<Derived>::name_view() const noexcept
+        SAMURAI_INLINE std::string_view FieldBase<Derived>::name_view() const noexcept
         {
             return m_name;
         }
 
         template <class Derived>
-        inline std::string& FieldBase<Derived>::name() &
+        SAMURAI_INLINE std::string& FieldBase<Derived>::name() &
         {
             return m_name;
         }
 
         template <class Derived>
-        inline bool& FieldBase<Derived>::ghosts_updated()
+        SAMURAI_INLINE bool& FieldBase<Derived>::ghosts_updated()
         {
             return m_ghosts_updated;
         }
 
         template <class Derived>
-        inline bool FieldBase<Derived>::ghosts_updated() const
+        SAMURAI_INLINE bool FieldBase<Derived>::ghosts_updated() const
         {
             return m_ghosts_updated;
         }
 
         template <class Derived>
-        inline auto& FieldBase<Derived>::array()
+        SAMURAI_INLINE auto& FieldBase<Derived>::array()
         {
             return this->derived_cast().storage().data();
         }
 
         template <class Derived>
-        inline const auto& FieldBase<Derived>::array() const
+        SAMURAI_INLINE const auto& FieldBase<Derived>::array() const
         {
             return this->derived_cast().storage().data();
         }
@@ -285,7 +286,7 @@ namespace samurai
 
         template <class Derived>
         template <class Bc_derived>
-        inline auto FieldBase<Derived>::attach_bc(const Bc_derived& bc)
+        SAMURAI_INLINE auto FieldBase<Derived>::attach_bc(const Bc_derived& bc)
         {
             if (bc.stencil_size() > this->derived_cast().mesh().cfg().max_stencil_size())
             {
@@ -300,19 +301,19 @@ namespace samurai
         }
 
         template <class Derived>
-        inline auto& FieldBase<Derived>::get_bc()
+        SAMURAI_INLINE auto& FieldBase<Derived>::get_bc()
         {
             return p_bc;
         }
 
         template <class Derived>
-        inline const auto& FieldBase<Derived>::get_bc() const
+        SAMURAI_INLINE const auto& FieldBase<Derived>::get_bc() const
         {
             return p_bc;
         }
 
         template <class Derived>
-        inline void FieldBase<Derived>::copy_bc_from(const Derived& other)
+        SAMURAI_INLINE void FieldBase<Derived>::copy_bc_from(const Derived& other)
         {
             std::transform(other.get_bc().cbegin(),
                            other.get_bc().cend(),
@@ -326,77 +327,77 @@ namespace samurai
         // --- Iterator methods -----------------------------------------------
 
         template <class Derived>
-        inline auto FieldBase<Derived>::begin()
+        SAMURAI_INLINE auto FieldBase<Derived>::begin()
         {
             using mesh_id_t = derived_t::mesh_t::mesh_id_t;
             return iterator(&this->derived_cast(), this->derived_cast().mesh()[mesh_id_t::cells].cbegin());
         }
 
         template <class Derived>
-        inline auto FieldBase<Derived>::end()
+        SAMURAI_INLINE auto FieldBase<Derived>::end()
         {
             using mesh_id_t = derived_t::mesh_t::mesh_id_t;
             return iterator(&this->derived_cast(), this->derived_cast().mesh()[mesh_id_t::cells].cend());
         }
 
         template <class Derived>
-        inline auto FieldBase<Derived>::begin() const
+        SAMURAI_INLINE auto FieldBase<Derived>::begin() const
         {
             return cbegin();
         }
 
         template <class Derived>
-        inline auto FieldBase<Derived>::end() const
+        SAMURAI_INLINE auto FieldBase<Derived>::end() const
         {
             return cend();
         }
 
         template <class Derived>
-        inline auto FieldBase<Derived>::cbegin() const
+        SAMURAI_INLINE auto FieldBase<Derived>::cbegin() const
         {
             using mesh_id_t = derived_t::mesh_t::mesh_id_t;
             return const_iterator(&this->derived_cast(), this->derived_cast().mesh()[mesh_id_t::cells].cbegin());
         }
 
         template <class Derived>
-        inline auto FieldBase<Derived>::cend() const
+        SAMURAI_INLINE auto FieldBase<Derived>::cend() const
         {
             using mesh_id_t = derived_t::mesh_t::mesh_id_t;
             return const_iterator(&this->derived_cast(), this->derived_cast().mesh()[mesh_id_t::cells].cend());
         }
 
         template <class Derived>
-        inline auto FieldBase<Derived>::rbegin()
+        SAMURAI_INLINE auto FieldBase<Derived>::rbegin()
         {
             return reverse_iterator(end());
         }
 
         template <class Derived>
-        inline auto FieldBase<Derived>::rend()
+        SAMURAI_INLINE auto FieldBase<Derived>::rend()
         {
             return reverse_iterator(begin());
         }
 
         template <class Derived>
-        inline auto FieldBase<Derived>::rbegin() const
+        SAMURAI_INLINE auto FieldBase<Derived>::rbegin() const
         {
             return rcbegin();
         }
 
         template <class Derived>
-        inline auto FieldBase<Derived>::rend() const
+        SAMURAI_INLINE auto FieldBase<Derived>::rend() const
         {
             return rcend();
         }
 
         template <class Derived>
-        inline auto FieldBase<Derived>::rcbegin() const
+        SAMURAI_INLINE auto FieldBase<Derived>::rcbegin() const
         {
             return const_reverse_iterator(cend());
         }
 
         template <class Derived>
-        inline auto FieldBase<Derived>::rcend() const
+        SAMURAI_INLINE auto FieldBase<Derived>::rcend() const
         {
             return const_reverse_iterator(cbegin());
         }
@@ -404,7 +405,7 @@ namespace samurai
         // --- Stream operators -----------------------------------------------
 
         template <class Derived>
-        inline void FieldBase<Derived>::to_stream(std::ostream& os) const
+        SAMURAI_INLINE void FieldBase<Derived>::to_stream(std::ostream& os) const
         {
             os << "Field " << m_name << "\n";
 
@@ -425,7 +426,7 @@ namespace samurai
 
     template <class Field>
         requires std::is_base_of_v<detail::FieldBase<Field>, Field>
-    inline bool operator==(const Field& field1, const Field& field2)
+    SAMURAI_INLINE bool operator==(const Field& field1, const Field& field2)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
@@ -487,7 +488,7 @@ namespace samurai
 
     template <class Field>
         requires std::is_base_of_v<detail::FieldBase<Field>, Field>
-    inline bool operator!=(const Field& field1, const Field& field2)
+    SAMURAI_INLINE bool operator!=(const Field& field1, const Field& field2)
     {
         return !(field1 == field2);
     }

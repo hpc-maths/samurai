@@ -74,17 +74,17 @@ class AMRMesh : public samurai::Mesh_base<AMRMesh<Config>, Config>
 
     using ca_type = typename base_type::ca_type;
 
-    inline AMRMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level)
+    SAMURAI_INLINE AMRMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level)
         : base_type(cl, min_level, max_level)
     {
     }
 
-    inline AMRMesh(const samurai::Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level)
+    SAMURAI_INLINE AMRMesh(const samurai::Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level)
         : base_type(b, start_level, min_level, max_level)
     {
     }
 
-    inline void update_sub_mesh_impl()
+    SAMURAI_INLINE void update_sub_mesh_impl()
     {
         cl_type cl;
         for_each_interval(this->m_cells[mesh_id_t::cells],
@@ -237,39 +237,39 @@ class diffusion_op : public samurai::field_operator_base<TInterval>,
     INIT_OPERATOR(diffusion_op)
 
     template <class T1, class T2>
-    inline auto flux(T1&& ul, T2&& ur) const
+    SAMURAI_INLINE auto flux(T1&& ul, T2&& ur) const
     {
         auto dx = ul.mesh().cell_length(level);
         return xt::eval((std::forward<T1>(ur) - std::forward<T2>(ul)) / dx);
     }
 
     template <class T1>
-    inline auto left_flux(const T1& u) const
+    SAMURAI_INLINE auto left_flux(const T1& u) const
     {
         return flux(u(level, i - 1, j), u(level, i, j));
     }
 
     template <class T1>
-    inline auto right_flux(const T1& u) const
+    SAMURAI_INLINE auto right_flux(const T1& u) const
     {
         return flux(u(level, i, j), u(level, i + 1, j));
     }
 
     template <class T1>
-    inline auto down_flux(const T1& u) const
+    SAMURAI_INLINE auto down_flux(const T1& u) const
     {
         return flux(u(level, i, j - 1), u(level, i, j));
     }
 
     template <class T1>
-    inline auto up_flux(const T1& u) const
+    SAMURAI_INLINE auto up_flux(const T1& u) const
     {
         return flux(u(level, i, j), u(level, i, j + 1));
     }
 };
 
 template <class... CT>
-inline auto diffusion(CT&&... e)
+SAMURAI_INLINE auto diffusion(CT&&... e)
 {
     return samurai::make_field_operator_function<diffusion_op>(std::forward<CT>(e)...);
 }
@@ -339,7 +339,7 @@ void RK4(Field& field, const double dt, std::size_t nbstep, Func&& bc, const dou
 }
 
 template <class Field>
-inline void amr_projection(Field& field)
+SAMURAI_INLINE void amr_projection(Field& field)
 {
     auto mesh       = field.mesh();
     using mesh_id_t = typename decltype(mesh)::mesh_id_t;
@@ -355,7 +355,7 @@ inline void amr_projection(Field& field)
 }
 
 template <class Field, class Func>
-inline void amr_prediction(Field& field, Func&& update_bc_for_level)
+SAMURAI_INLINE void amr_prediction(Field& field, Func&& update_bc_for_level)
 {
     auto mesh       = field.mesh();
     using mesh_id_t = typename decltype(mesh)::mesh_id_t;
@@ -381,7 +381,7 @@ class enlarge_AMR_op : public samurai::field_operator_base<TInterval>
     INIT_OPERATOR(enlarge_AMR_op)
 
     template <class T, class T0>
-    inline void operator()(samurai::Dim<2>, T0& tmp_flag, T& cell_flag) const
+    SAMURAI_INLINE void operator()(samurai::Dim<2>, T0& tmp_flag, T& cell_flag) const
     {
         auto keep_mask = cell_flag(level, i, j) & static_cast<int>(samurai::CellFlag::keep);
 
@@ -396,7 +396,7 @@ class enlarge_AMR_op : public samurai::field_operator_base<TInterval>
 };
 
 template <class... CT>
-inline auto enlarge_AMR(CT&&... e)
+SAMURAI_INLINE auto enlarge_AMR(CT&&... e)
 {
     return samurai::make_field_operator_function<enlarge_AMR_op>(std::forward<CT>(e)...);
 }

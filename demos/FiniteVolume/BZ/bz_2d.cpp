@@ -180,39 +180,39 @@ class diffusion_op : public samurai::field_operator_base<TInterval>,
     INIT_OPERATOR(diffusion_op)
 
     template <class T1, class T2>
-    inline auto flux(T1&& ul, T2&& ur) const
+    SAMURAI_INLINE auto flux(T1&& ul, T2&& ur) const
     {
         auto dx = u.mesh().cell_length(level);
         return xt::eval((std::forward<T1>(ur) - std::forward<T2>(ul)) / dx);
     }
 
     template <class T1>
-    inline auto left_flux(const T1& u) const
+    SAMURAI_INLINE auto left_flux(const T1& u) const
     {
         return flux(u(level, i - 1, j), u(level, i, j));
     }
 
     template <class T1>
-    inline auto right_flux(const T1& u) const
+    SAMURAI_INLINE auto right_flux(const T1& u) const
     {
         return flux(u(level, i, j), u(level, i + 1, j));
     }
 
     template <class T1>
-    inline auto down_flux(const T1& u) const
+    SAMURAI_INLINE auto down_flux(const T1& u) const
     {
         return flux(u(level, i, j - 1), u(level, i, j));
     }
 
     template <class T1>
-    inline auto up_flux(const T1& u) const
+    SAMURAI_INLINE auto up_flux(const T1& u) const
     {
         return flux(u(level, i, j), u(level, i, j + 1));
     }
 };
 
 template <class... CT>
-inline auto diffusion(CT&&... e)
+SAMURAI_INLINE auto diffusion(CT&&... e)
 {
     return samurai::make_field_operator_function<diffusion_op>(std::forward<CT>(e)...);
 }

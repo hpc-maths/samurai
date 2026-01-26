@@ -68,14 +68,14 @@ namespace samurai
             }
 
             template <class... T>
-            inline auto operator()(const std::size_t level, const interval_t& interval, const T... index)
+            SAMURAI_INLINE auto operator()(const std::size_t level, const interval_t& interval, const T... index)
             {
                 auto interval_tmp = this->derived_cast().get_interval(level, interval, index...);
                 return view(m_storage, {interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step});
             }
 
             template <class... T>
-            inline auto operator()(const std::size_t level, const interval_t& interval, const T... index) const
+            SAMURAI_INLINE auto operator()(const std::size_t level, const interval_t& interval, const T... index) const
             {
                 auto interval_tmp = this->derived_cast().get_interval(level, interval, index...);
                 auto data = view(m_storage, {interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step});
@@ -83,18 +83,18 @@ namespace samurai
                 return data;
             }
 
-            inline auto operator()(const std::size_t level,
-                                   const interval_t& interval,
-                                   const xt::xtensor_fixed<interval_value_t, xt::xshape<dim - 1>>& index)
+            SAMURAI_INLINE auto operator()(const std::size_t level,
+                                           const interval_t& interval,
+                                           const xt::xtensor_fixed<interval_value_t, xt::xshape<dim - 1>>& index)
             {
                 auto interval_tmp = this->derived_cast().get_interval(level, interval, index);
                 return view(m_storage, {interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step});
             }
 
             template <class... T>
-            inline auto operator()(const std::size_t level,
-                                   const interval_t& interval,
-                                   const xt::xtensor_fixed<interval_value_t, xt::xshape<dim - 1>>& index) const
+            SAMURAI_INLINE auto operator()(const std::size_t level,
+                                           const interval_t& interval,
+                                           const xt::xtensor_fixed<interval_value_t, xt::xshape<dim - 1>>& index) const
             {
                 auto interval_tmp = this->derived_cast().get_interval(level, interval, index);
                 auto data = view(m_storage, {interval_tmp.index + interval.start, interval_tmp.index + interval.end, interval.step});

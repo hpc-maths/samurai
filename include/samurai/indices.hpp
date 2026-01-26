@@ -4,7 +4,7 @@
 namespace samurai
 {
     template <class Mesh>
-    inline auto get_index_start(const Mesh& mesh, const typename Mesh::mesh_interval_t& mesh_interval)
+    SAMURAI_INLINE auto get_index_start(const Mesh& mesh, const typename Mesh::mesh_interval_t& mesh_interval)
     {
         static constexpr std::size_t dim = Mesh::dim;
         using value_t                    = typename Mesh::value_t;
@@ -19,7 +19,7 @@ namespace samurai
     }
 
     template <class Mesh, class Vector>
-    inline auto
+    SAMURAI_INLINE auto
     get_index_start_translated(const Mesh& mesh, const typename Mesh::mesh_interval_t& mesh_interval, const Vector& translation_vect)
     {
         static constexpr std::size_t dim = Mesh::dim;
@@ -35,7 +35,8 @@ namespace samurai
     }
 
     template <class Mesh, class Vector>
-    inline auto get_index_start_children(const Mesh& mesh, typename Mesh::mesh_interval_t& mesh_interval, const Vector& translation_vect)
+    SAMURAI_INLINE auto
+    get_index_start_children(const Mesh& mesh, typename Mesh::mesh_interval_t& mesh_interval, const Vector& translation_vect)
     {
         static constexpr std::size_t dim = Mesh::dim;
         using value_t                    = typename Mesh::value_t;
@@ -53,7 +54,7 @@ namespace samurai
      * Used to define the projection operator.
      */
     template <typename DesiredIndexType, class Mesh, class Func>
-    inline void for_each_projection_ghost_and_children_cells(const Mesh& mesh, Func&& f)
+    SAMURAI_INLINE void for_each_projection_ghost_and_children_cells(const Mesh& mesh, Func&& f)
     {
         using mesh_id_t                                 = typename Mesh::mesh_id_t;
         using mesh_interval_t                           = typename Mesh::mesh_interval_t;
@@ -139,7 +140,7 @@ namespace samurai
      * is used.
      */
     template <class Mesh, class Func>
-    inline void for_each_projection_ghost(const Mesh& mesh, Func&& f)
+    SAMURAI_INLINE void for_each_projection_ghost(const Mesh& mesh, Func&& f)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
 
@@ -159,7 +160,7 @@ namespace samurai
      * is used.
      */
     template <class Mesh, class Func>
-    inline void for_each_prediction_ghost(const Mesh& mesh, Func&& f)
+    SAMURAI_INLINE void for_each_prediction_ghost(const Mesh& mesh, Func&& f)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
 
@@ -175,7 +176,7 @@ namespace samurai
     }
 
     template <class Mesh, class Func>
-    inline void for_each_outside_ghost(const Mesh& mesh, Func&& f)
+    SAMURAI_INLINE void for_each_outside_ghost(const Mesh& mesh, Func&& f)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
 

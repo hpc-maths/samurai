@@ -15,31 +15,31 @@ namespace samurai
     }
 
     template <class Mesh, class Vector>
-    inline auto domain_boundary_layer(const Mesh& mesh, std::size_t level, const Vector& direction, std::size_t layer_width)
+    SAMURAI_INLINE auto domain_boundary_layer(const Mesh& mesh, std::size_t level, const Vector& direction, std::size_t layer_width)
     {
         return boundary_layer(mesh, mesh.domain(), level, direction, layer_width);
     }
 
     template <class Mesh, class Vector>
-    inline auto subdomain_boundary_layer(const Mesh& mesh, std::size_t level, const Vector& direction, std::size_t layer_width)
+    SAMURAI_INLINE auto subdomain_boundary_layer(const Mesh& mesh, std::size_t level, const Vector& direction, std::size_t layer_width)
     {
         return boundary_layer(mesh, mesh.subdomain(), level, direction, layer_width);
     }
 
     template <class Mesh, class Vector>
-    inline auto domain_boundary(const Mesh& mesh, std::size_t level, const Vector& direction)
+    SAMURAI_INLINE auto domain_boundary(const Mesh& mesh, std::size_t level, const Vector& direction)
     {
         return domain_boundary_layer(mesh, level, direction, 1);
     }
 
     template <class Mesh, class Vector>
-    inline auto subdomain_boundary(const Mesh& mesh, std::size_t level, const Vector& direction)
+    SAMURAI_INLINE auto subdomain_boundary(const Mesh& mesh, std::size_t level, const Vector& direction)
     {
         return subdomain_boundary_layer(mesh, level, direction, 1);
     }
 
     template <class Mesh>
-    inline auto domain_boundary(const Mesh& mesh, std::size_t level)
+    SAMURAI_INLINE auto domain_boundary(const Mesh& mesh, std::size_t level)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
 

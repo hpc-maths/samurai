@@ -11,20 +11,20 @@
 #include <samurai/subset/node.hpp>
 
 template <std::size_t dim, class TInterval>
-class projection_op : public samurai::field_operator_base<dim, TInterval>
+class my_projection_op : public samurai::field_operator_base<dim, TInterval>
 {
   public:
 
-    INIT_OPERATOR(projection_op)
+    INIT_OPERATOR(my_projection_op)
 
     template <class T>
-    inline void operator()(samurai::Dim<1>, T& field) const
+    SAMURAI_INLINE void operator()(samurai::Dim<1>, T& field) const
     {
         field(level, i) = .5 * (field(level + 1, 2 * i) + field(level + 1, 2 * i + 1));
     }
 
     template <class T>
-    inline void operator()(samurai::Dim<2>, T& field) const
+    SAMURAI_INLINE void operator()(samurai::Dim<2>, T& field) const
     {
         field(level, i, j) = .25
                            * (field(level + 1, 2 * i, 2 * j) + field(level + 1, 2 * i, 2 * j + 1) + field(level + 1, 2 * i + 1, 2 * j)
@@ -32,7 +32,7 @@ class projection_op : public samurai::field_operator_base<dim, TInterval>
     }
 
     template <class T>
-    inline void operator()(samurai::Dim<3>, T& field) const
+    SAMURAI_INLINE void operator()(samurai::Dim<3>, T& field) const
     {
         field(level, i, j, k) = .125
                               * (field(level + 1, 2 * i, 2 * j, 2 * k) + field(level + 1, 2 * i + 1, 2 * j, 2 * k)
@@ -42,9 +42,9 @@ class projection_op : public samurai::field_operator_base<dim, TInterval>
 };
 
 template <class T>
-inline auto projection(T&& field)
+SAMURAI_INLINE auto my_projection(T&& field)
 {
-    return samurai::make_field_operator_function<projection_op>(std::forward<T>(field));
+    return samurai::make_field_operator_function<my_projection_op>(std::forward<T>(field));
 }
 
 int main()
@@ -107,7 +107,7 @@ int main()
 
     std::cout << u << "\n";
 
-    subset1.on(0).apply_op(projection(u));
+    subset1.on(0).apply_op(my_projection(u));
 
     std::cout << u << "\n";
 

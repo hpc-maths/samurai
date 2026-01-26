@@ -90,7 +90,8 @@ namespace samurai
     };
 
     template <class Config>
-    inline UniformMesh<Config>::UniformMesh(const Box<double, dim>& b, std::size_t level, double approx_box_tol, double scaling_factor_)
+    SAMURAI_INLINE
+    UniformMesh<Config>::UniformMesh(const Box<double, dim>& b, std::size_t level, double approx_box_tol, double scaling_factor_)
     {
         this->m_cells[mesh_id_t::cells] = {level, b, approx_box_tol, scaling_factor_};
 
@@ -102,7 +103,7 @@ namespace samurai
     }
 
     template <class Config>
-    inline UniformMesh<Config>::UniformMesh(const cl_type& cl)
+    SAMURAI_INLINE UniformMesh<Config>::UniformMesh(const cl_type& cl)
     {
         m_cells[mesh_id_t::cells] = {cl, false};
 
@@ -114,7 +115,7 @@ namespace samurai
     }
 
     template <class Config>
-    inline UniformMesh<Config>::UniformMesh(const ca_type& ca)
+    SAMURAI_INLINE UniformMesh<Config>::UniformMesh(const ca_type& ca)
     {
         m_cells[mesh_id_t::cells] = ca;
 
@@ -126,41 +127,41 @@ namespace samurai
     }
 
     template <class Config>
-    inline std::size_t UniformMesh<Config>::nb_cells(mesh_id_t mesh_id) const
+    SAMURAI_INLINE std::size_t UniformMesh<Config>::nb_cells(mesh_id_t mesh_id) const
     {
         return m_cells[mesh_id].nb_cells();
     }
 
     template <class Config>
-    inline auto UniformMesh<Config>::operator[](mesh_id_t mesh_id) const -> const ca_type&
+    SAMURAI_INLINE auto UniformMesh<Config>::operator[](mesh_id_t mesh_id) const -> const ca_type&
     {
         return m_cells[mesh_id];
     }
 
     template <class Config>
     template <typename... T>
-    inline auto UniformMesh<Config>::get_interval(std::size_t, const interval_t& interval, T... index) const -> const interval_t&
+    SAMURAI_INLINE auto UniformMesh<Config>::get_interval(std::size_t, const interval_t& interval, T... index) const -> const interval_t&
     {
         return m_cells[mesh_id_t::reference].get_interval(interval, index...);
     }
 
     template <class Config>
     template <class T1, typename... T>
-    inline std::size_t UniformMesh<Config>::get_index(T1 i, T... index) const
+    SAMURAI_INLINE std::size_t UniformMesh<Config>::get_index(T1 i, T... index) const
     {
         auto interval = m_cells[mesh_id_t::reference].get_interval(interval_t{i, i + 1}, index...);
         return interval.index + i;
     }
 
     template <class Config>
-    inline void UniformMesh<Config>::swap(UniformMesh<Config>& mesh) noexcept
+    SAMURAI_INLINE void UniformMesh<Config>::swap(UniformMesh<Config>& mesh) noexcept
     {
         using std::swap;
         swap(m_cells, mesh.m_cells);
     }
 
     template <class Config>
-    inline void UniformMesh<Config>::update_sub_mesh()
+    SAMURAI_INLINE void UniformMesh<Config>::update_sub_mesh()
     {
         cl_type cl{this->m_cells[mesh_id_t::cells].level()};
         for_each_interval(this->m_cells[mesh_id_t::cells],
@@ -178,7 +179,7 @@ namespace samurai
     }
 
     template <class Config>
-    inline void UniformMesh<Config>::renumbering()
+    SAMURAI_INLINE void UniformMesh<Config>::renumbering()
     {
         m_cells[mesh_id_t::reference].update_index();
 
@@ -198,7 +199,7 @@ namespace samurai
     }
 
     template <class Config>
-    inline void UniformMesh<Config>::to_stream(std::ostream& os) const
+    SAMURAI_INLINE void UniformMesh<Config>::to_stream(std::ostream& os) const
     {
         for (std::size_t id = 0; id < static_cast<std::size_t>(mesh_id_t::count); ++id)
         {
@@ -210,13 +211,13 @@ namespace samurai
     }
 
     template <class Config>
-    inline auto& UniformMesh<Config>::origin_point() const
+    SAMURAI_INLINE auto& UniformMesh<Config>::origin_point() const
     {
         return m_cells[0].origin_point();
     }
 
     template <class Config>
-    inline void UniformMesh<Config>::set_origin_point(const coords_t& origin_point)
+    SAMURAI_INLINE void UniformMesh<Config>::set_origin_point(const coords_t& origin_point)
     {
         for (std::size_t i = 0; i < static_cast<std::size_t>(mesh_id_t::count); ++i)
         {
@@ -225,13 +226,13 @@ namespace samurai
     }
 
     template <class Config>
-    inline auto UniformMesh<Config>::scaling_factor() const
+    SAMURAI_INLINE auto UniformMesh<Config>::scaling_factor() const
     {
         return m_cells[0].scaling_factor();
     }
 
     template <class Config>
-    inline void UniformMesh<Config>::set_scaling_factor(double scaling_factor)
+    SAMURAI_INLINE void UniformMesh<Config>::set_scaling_factor(double scaling_factor)
     {
         for (std::size_t i = 0; i < static_cast<std::size_t>(mesh_id_t::count); ++i)
         {
@@ -240,19 +241,19 @@ namespace samurai
     }
 
     template <class Config>
-    inline double UniformMesh<Config>::cell_length(std::size_t level) const
+    SAMURAI_INLINE double UniformMesh<Config>::cell_length(std::size_t level) const
     {
         return samurai::cell_length(scaling_factor(), level);
     }
 
     template <class Config>
-    inline auto UniformMesh<Config>::cfg() const
+    SAMURAI_INLINE auto UniformMesh<Config>::cfg() const
     {
         return mesh_config<dim>();
     }
 
     template <class Config>
-    inline bool operator==(const UniformMesh<Config>& mesh1, const UniformMesh<Config>& mesh2)
+    SAMURAI_INLINE bool operator==(const UniformMesh<Config>& mesh1, const UniformMesh<Config>& mesh2)
     {
         using mesh_id_t = typename UniformMesh<Config>::mesh_id_t;
 
@@ -260,7 +261,7 @@ namespace samurai
     }
 
     template <class Config>
-    inline std::ostream& operator<<(std::ostream& out, const UniformMesh<Config>& mesh)
+    SAMURAI_INLINE std::ostream& operator<<(std::ostream& out, const UniformMesh<Config>& mesh)
     {
         mesh.to_stream(out);
         return out;

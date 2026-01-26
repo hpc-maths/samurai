@@ -13,7 +13,7 @@ namespace samurai
     {
         static constexpr Eigen::internal::all_t _;
 
-        inline auto all()
+        SAMURAI_INLINE auto all()
         {
             return Eigen::placeholders::all;
         }

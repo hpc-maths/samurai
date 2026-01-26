@@ -14,7 +14,7 @@ namespace samurai
     namespace detail
     {
         template <class InputIt, class UnaryPredicate>
-        inline constexpr std::pair<InputIt, InputIt> forward_find_if(InputIt first, InputIt last, UnaryPredicate p)
+        SAMURAI_INLINE constexpr std::pair<InputIt, InputIt> forward_find_if(InputIt first, InputIt last, UnaryPredicate p)
         {
             auto previous = first++;
             for (; first != last; ++first, ++previous)
@@ -70,21 +70,21 @@ namespace samurai
 
     /// Number of intervals stored in the list.
     template <typename TValue, typename TIndex>
-    inline std::size_t ListOfIntervals<TValue, TIndex>::size() const
+    SAMURAI_INLINE std::size_t ListOfIntervals<TValue, TIndex>::size() const
     {
         return static_cast<std::size_t>(std::distance(begin(), end()));
     }
 
     /// Add a point inside the list.
     template <typename TValue, typename TIndex>
-    inline void ListOfIntervals<TValue, TIndex>::add_point(value_t point)
+    SAMURAI_INLINE void ListOfIntervals<TValue, TIndex>::add_point(value_t point)
     {
         add_interval({point, point + 1});
     }
 
     /// Add an interval inside the list.
     template <typename TValue, typename TIndex>
-    inline void ListOfIntervals<TValue, TIndex>::add_interval(const interval_t& interval)
+    SAMURAI_INLINE void ListOfIntervals<TValue, TIndex>::add_interval(const interval_t& interval)
     {
         if (!interval.is_valid())
         {
@@ -118,7 +118,7 @@ namespace samurai
     }
 
     template <typename value_t, typename index_t>
-    inline std::ostream& operator<<(std::ostream& out, const ListOfIntervals<value_t, index_t>& interval_list)
+    SAMURAI_INLINE std::ostream& operator<<(std::ostream& out, const ListOfIntervals<value_t, index_t>& interval_list)
     {
         for (const auto& interval : interval_list)
         {

@@ -64,6 +64,6 @@ namespace samurai
     };
 
     template <class Scheme>
-    inline constexpr bool is_CellBasedScheme_v = is_CellBasedScheme<Scheme>::value;
+    constexpr bool is_CellBasedScheme_v = is_CellBasedScheme<Scheme>::value;
 
 } // end namespace samurai

@@ -78,7 +78,7 @@ namespace samurai
             apply(*this, func);
         }
 
-        inline void to_stream(std::ostream& os)
+        SAMURAI_INLINE void to_stream(std::ostream& os)
         {
             apply_op(
                 [&](const auto level, const auto& i, const auto& index)
@@ -484,7 +484,7 @@ namespace samurai
     }
 
     template <class Op, class StartEndOp, class... S>
-    inline std::ostream& operator<<(std::ostream& out, Subset<Op, StartEndOp, S...>& subset)
+    SAMURAI_INLINE std::ostream& operator<<(std::ostream& out, Subset<Op, StartEndOp, S...>& subset)
     {
         subset.to_stream(out);
         return out;

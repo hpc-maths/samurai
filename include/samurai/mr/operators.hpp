@@ -27,7 +27,7 @@ namespace samurai
         INIT_OPERATOR(maximum_op)
 
         template <class T>
-        inline void operator()(Dim<1>, T& field) const
+        SAMURAI_INLINE void operator()(Dim<1>, T& field) const
         {
             auto mask = (field(level + 1, 2 * i) & static_cast<int>(CellFlag::keep))
                       | (field(level + 1, 2 * i + 1) & static_cast<int>(CellFlag::keep));
@@ -52,7 +52,7 @@ namespace samurai
         }
 
         template <class T>
-        inline void operator()(Dim<2>, T& field) const
+        SAMURAI_INLINE void operator()(Dim<2>, T& field) const
         {
             auto mask_keep = eval((field(level + 1, 2 * i, 2 * j) & static_cast<int>(CellFlag::keep))
                                   | (field(level + 1, 2 * i + 1, 2 * j) & static_cast<int>(CellFlag::keep))
@@ -138,7 +138,7 @@ namespace samurai
         }
 
         template <class T>
-        inline void operator()(Dim<3>, T& field) const
+        SAMURAI_INLINE void operator()(Dim<3>, T& field) const
         {
             auto mask1 = (field(level + 1, 2 * i, 2 * j, 2 * k) & static_cast<int>(CellFlag::keep))
                        | (field(level + 1, 2 * i + 1, 2 * j, 2 * k) & static_cast<int>(CellFlag::keep))
@@ -195,7 +195,7 @@ namespace samurai
     };
 
     template <class T>
-    inline auto maximum(T&& field)
+    SAMURAI_INLINE auto maximum(T&& field)
     {
         return make_field_operator_function<maximum_op>(std::forward<T>(field));
     }
@@ -212,19 +212,19 @@ namespace samurai
         INIT_OPERATOR(balance_2to1_op)
 
         template <class T, class stencil_t>
-        inline void operator()(Dim<1>, T& cell_flag, const stencil_t& stencil) const
+        SAMURAI_INLINE void operator()(Dim<1>, T& cell_flag, const stencil_t& stencil) const
         {
             cell_flag(level, i - stencil[0]) |= (cell_flag(level, i) & static_cast<int>(samurai::CellFlag::keep));
         }
 
         template <class T, class stencil_t>
-        inline void operator()(Dim<2>, T& cell_flag, const stencil_t& stencil) const
+        SAMURAI_INLINE void operator()(Dim<2>, T& cell_flag, const stencil_t& stencil) const
         {
             cell_flag(level, i - stencil[0], j - stencil[1]) |= (cell_flag(level, i, j) & static_cast<int>(samurai::CellFlag::keep));
         }
 
         template <class T, class stencil_t>
-        inline void operator()(Dim<3>, T& cell_flag, const stencil_t& stencil) const
+        SAMURAI_INLINE void operator()(Dim<3>, T& cell_flag, const stencil_t& stencil) const
         {
             cell_flag(level, i - stencil[0], j - stencil[1], k - stencil[2]) |= (cell_flag(level, i, j, k)
                                                                                  & static_cast<int>(samurai::CellFlag::keep));
@@ -232,7 +232,7 @@ namespace samurai
     };
 
     template <class T, class stencil_t>
-    inline auto balance_2to1(T&& cell_flag, stencil_t&& stencil)
+    SAMURAI_INLINE auto balance_2to1(T&& cell_flag, stencil_t&& stencil)
     {
         return make_field_operator_function<balance_2to1_op>(std::forward<T>(cell_flag), std::forward<stencil_t>(stencil));
     }
@@ -249,7 +249,7 @@ namespace samurai
         INIT_OPERATOR(compute_detail_op)
 
         template <class T1, class T2, std::size_t order = T2::mesh_t::config::prediction_stencil_radius>
-        inline void operator()(Dim<1>, T1& detail, const T2& field) const
+        SAMURAI_INLINE void operator()(Dim<1>, T1& detail, const T2& field) const
         {
             if constexpr (order == 0)
             {
@@ -266,7 +266,7 @@ namespace samurai
         }
 
         template <class T1, class T2, std::size_t order = T2::mesh_t::config::prediction_stencil_radius>
-        inline void operator()(Dim<2>, T1& detail, const T2& field) const
+        SAMURAI_INLINE void operator()(Dim<2>, T1& detail, const T2& field) const
         {
             if constexpr (order == 0)
             {
@@ -312,7 +312,7 @@ namespace samurai
         }
 
         template <class T1, class T2, std::size_t order = T2::mesh_t::config::prediction_stencil_radius>
-        inline void operator()(Dim<3>, T1& detail, const T2& field) const
+        SAMURAI_INLINE void operator()(Dim<3>, T1& detail, const T2& field) const
         {
             if constexpr (order == 0)
             {
@@ -358,7 +358,7 @@ namespace samurai
     };
 
     template <class T1, class T2, std::enable_if_t<detail::is_field_type_v<T2>, int> = 0>
-    inline auto compute_detail(T1&& detail, T2&& field)
+    SAMURAI_INLINE auto compute_detail(T1&& detail, T2&& field)
     {
         return make_field_operator_function<compute_detail_op>(std::forward<T1>(detail), std::forward<T2>(field));
     }
@@ -432,7 +432,7 @@ namespace samurai
         INIT_OPERATOR(compute_detail_on_tuple_op)
 
         template <class Ranges, class T1, class T2>
-        inline void compute_detail_impl(Dim<dim> d, std::size_t i_r, const Ranges& ranges, T1& detail, const T2& field) const
+        SAMURAI_INLINE void compute_detail_impl(Dim<dim> d, std::size_t i_r, const Ranges& ranges, T1& detail, const T2& field) const
         {
             auto dest_shape = shape(detail(ranges[i_r], ranges[i_r + 1], level + 1, 2 * i, 2 * index));
             auto src_shape  = shape(field(level + 1, 2 * i, 2 * index));
@@ -452,7 +452,7 @@ namespace samurai
         }
 
         template <class T1, class T2, std::size_t... Is>
-        inline void compute_detail_impl(Dim<dim>, T1& detail, const T2& fields, std::index_sequence<Is...>) const
+        SAMURAI_INLINE void compute_detail_impl(Dim<dim>, T1& detail, const T2& fields, std::index_sequence<Is...>) const
         {
             std::array<std::size_t, std::tuple_size_v<T2> + 1> ranges;
             ranges[0]      = 0;
@@ -468,14 +468,14 @@ namespace samurai
         }
 
         template <class T1, class T2>
-        inline void operator()(Dim<dim>, T1& detail, const T2& fields) const
+        SAMURAI_INLINE void operator()(Dim<dim>, T1& detail, const T2& fields) const
         {
             compute_detail_impl(Dim<dim>(), detail, fields.elements(), std::make_index_sequence<std::tuple_size_v<typename T2::tuple_type>>{});
         }
     };
 
     template <class Field, class... T>
-    inline auto compute_detail(Field& detail, const Field_tuple<T...>& fields)
+    SAMURAI_INLINE auto compute_detail(Field& detail, const Field_tuple<T...>& fields)
     {
         return make_field_operator_function<compute_detail_on_tuple_op>(detail, fields);
     }
@@ -492,7 +492,7 @@ namespace samurai
         INIT_OPERATOR(compute_max_detail_op)
 
         template <class T, class U>
-        inline void operator()(Dim<1>, const U& detail, T& max_detail) const
+        SAMURAI_INLINE void operator()(Dim<1>, const U& detail, T& max_detail) const
         {
             auto ii       = 2 * i;
             ii.step       = 1;
@@ -502,7 +502,7 @@ namespace samurai
         }
 
         template <class T, class U>
-        inline void operator()(Dim<2>, const U& detail, T& max_detail) const
+        SAMURAI_INLINE void operator()(Dim<2>, const U& detail, T& max_detail) const
         {
             auto ii       = 2 * i;
             ii.step       = 1;
@@ -514,7 +514,7 @@ namespace samurai
         }
 
         template <class T, class U>
-        inline void operator()(Dim<3>, const U& detail, T& max_detail) const
+        SAMURAI_INLINE void operator()(Dim<3>, const U& detail, T& max_detail) const
         {
             auto ii       = 2 * i;
             ii.step       = 1;
@@ -530,7 +530,7 @@ namespace samurai
     };
 
     template <class T, class U>
-    inline auto compute_max_detail(U&& detail, T&& max_detail)
+    SAMURAI_INLINE auto compute_max_detail(U&& detail, T&& max_detail)
     {
         return make_field_operator_function<compute_max_detail_op>(std::forward<U>(detail), std::forward<T>(max_detail));
     }
@@ -547,26 +547,26 @@ namespace samurai
         INIT_OPERATOR(compute_max_detail_op_)
 
         template <class T, class U>
-        inline void operator()(Dim<1>, const U& detail, T& max_detail) const
+        SAMURAI_INLINE void operator()(Dim<1>, const U& detail, T& max_detail) const
         {
             max_detail[level] = std::max(max_detail[level], xt::amax(xt::abs(detail(level, i)))[0]);
         }
 
         template <class T, class U>
-        inline void operator()(Dim<2>, const U& detail, T& max_detail) const
+        SAMURAI_INLINE void operator()(Dim<2>, const U& detail, T& max_detail) const
         {
             max_detail[level] = std::max(max_detail[level], xt::amax(xt::abs(detail(level, i, j)))[0]);
         }
 
         template <class T, class U>
-        inline void operator()(Dim<3>, const U& detail, T& max_detail) const
+        SAMURAI_INLINE void operator()(Dim<3>, const U& detail, T& max_detail) const
         {
             max_detail[level] = std::max(max_detail[level], xt::amax(xt::abs(detail(level, i, j, k)))[0]);
         }
     };
 
     template <class T, class U>
-    inline auto compute_max_detail_(U&& detail, T&& max_detail)
+    SAMURAI_INLINE auto compute_max_detail_(U&& detail, T&& max_detail)
     {
         return make_field_operator_function<compute_max_detail_op_>(std::forward<U>(detail), std::forward<T>(max_detail));
     }
@@ -583,7 +583,7 @@ namespace samurai
         INIT_OPERATOR(to_coarsen_op)
 
         template <class T, class U, class V>
-        inline void operator()(Dim<1>, T& keep, const U& detail, double eps) const
+        SAMURAI_INLINE void operator()(Dim<1>, T& keep, const U& detail, double eps) const
         {
             auto mask = abs(detail(level + 1, 2 * i)) < eps;
             // auto mask = (.5 *
@@ -600,7 +600,7 @@ namespace samurai
         }
 
         template <class T, class U, class V>
-        inline void operator()(Dim<2>, T& keep, const U& detail, double eps) const
+        SAMURAI_INLINE void operator()(Dim<2>, T& keep, const U& detail, double eps) const
         {
             auto mask = abs(detail(level + 1, 2 * i, 2 * j)) < eps;
 
@@ -625,7 +625,7 @@ namespace samurai
         }
 
         template <class T, class U, class V>
-        inline void operator()(Dim<3>, T& keep, const U& detail, double eps) const
+        SAMURAI_INLINE void operator()(Dim<3>, T& keep, const U& detail, double eps) const
         {
             auto mask = abs(detail(level + 1, 2 * i, 2 * j, 2 * k)) < eps;
 
@@ -647,7 +647,7 @@ namespace samurai
     };
 
     template <class... CT>
-    inline auto to_coarsen(CT&&... e)
+    SAMURAI_INLINE auto to_coarsen(CT&&... e)
     {
         return make_field_operator_function<to_coarsen_op>(std::forward<CT>(e)...);
     }
@@ -664,7 +664,7 @@ namespace samurai
         INIT_OPERATOR(refine_ghost_op)
 
         template <class T>
-        inline void operator()(Dim<1>, T& flag) const
+        SAMURAI_INLINE void operator()(Dim<1>, T& flag) const
         {
             auto mask = flag(level + 1, i) & static_cast<int>(CellFlag::keep);
             apply_on_masked(flag(level, i / 2),
@@ -676,7 +676,7 @@ namespace samurai
         }
 
         template <class T>
-        inline void operator()(Dim<2>, T& flag) const
+        SAMURAI_INLINE void operator()(Dim<2>, T& flag) const
         {
             auto mask = flag(level + 1, i, j) & static_cast<int>(CellFlag::keep);
             apply_on_masked(flag(level, i / 2, j / 2),
@@ -688,7 +688,7 @@ namespace samurai
         }
 
         template <class T>
-        inline void operator()(Dim<3>, T& flag) const
+        SAMURAI_INLINE void operator()(Dim<3>, T& flag) const
         {
             auto mask = flag(level + 1, i, j, k) & static_cast<int>(CellFlag::keep);
             apply_on_masked(flag(level, i / 2, j / 2, k / 2),
@@ -701,7 +701,7 @@ namespace samurai
     };
 
     template <class... CT>
-    inline auto refine_ghost(CT&&... e)
+    SAMURAI_INLINE auto refine_ghost(CT&&... e)
     {
         return make_field_operator_function<refine_ghost_op>(std::forward<CT>(e)...);
     }
@@ -718,7 +718,7 @@ namespace samurai
         INIT_OPERATOR(enlarge_op)
 
         template <class T>
-        inline void operator()(Dim<1>, T& cell_flag) const
+        SAMURAI_INLINE void operator()(Dim<1>, T& cell_flag) const
         {
             auto keep_mask = cell_flag(level, i) & static_cast<int>(CellFlag::keep);
 
@@ -733,7 +733,7 @@ namespace samurai
         }
 
         template <class T>
-        inline void operator()(Dim<2>, T& cell_flag) const
+        SAMURAI_INLINE void operator()(Dim<2>, T& cell_flag) const
         {
             auto keep_mask = cell_flag(level, i, j) & static_cast<int>(CellFlag::keep);
 
@@ -751,7 +751,7 @@ namespace samurai
         }
 
         template <class T>
-        inline void operator()(Dim<3>, T& cell_flag) const
+        SAMURAI_INLINE void operator()(Dim<3>, T& cell_flag) const
         {
             auto keep_mask = cell_flag(level, i, j, k) & static_cast<int>(CellFlag::keep);
 
@@ -773,7 +773,7 @@ namespace samurai
     };
 
     template <class... CT>
-    inline auto enlarge(CT&&... e)
+    SAMURAI_INLINE auto enlarge(CT&&... e)
     {
         return make_field_operator_function<enlarge_op>(std::forward<CT>(e)...);
     }
@@ -790,7 +790,7 @@ namespace samurai
         INIT_OPERATOR(keep_around_refine_op)
 
         template <class T>
-        inline void operator()(Dim<1>, T& cell_flag) const
+        SAMURAI_INLINE void operator()(Dim<1>, T& cell_flag) const
         {
             auto refine_mask = cell_flag(level, i) & static_cast<int>(CellFlag::refine);
 
@@ -805,7 +805,7 @@ namespace samurai
         }
 
         template <class T>
-        inline void operator()(Dim<2>, T& cell_flag) const
+        SAMURAI_INLINE void operator()(Dim<2>, T& cell_flag) const
         {
             auto refine_mask = cell_flag(level, i, j) & static_cast<int>(CellFlag::refine);
 
@@ -824,7 +824,7 @@ namespace samurai
         }
 
         template <class T>
-        inline void operator()(Dim<3>, T& cell_flag) const
+        SAMURAI_INLINE void operator()(Dim<3>, T& cell_flag) const
         {
             auto refine_mask = cell_flag(level, i, j, k) & static_cast<int>(CellFlag::refine);
 
@@ -846,7 +846,7 @@ namespace samurai
     };
 
     template <class... CT>
-    inline auto keep_around_refine(CT&&... e)
+    SAMURAI_INLINE auto keep_around_refine(CT&&... e)
     {
         return make_field_operator_function<keep_around_refine_op>(std::forward<CT>(e)...);
     }
@@ -863,26 +863,26 @@ namespace samurai
         INIT_OPERATOR(apply_expr_op)
 
         template <class T, class E>
-        inline void operator()(Dim<1>, T& field, const field_expression<E>& e) const
+        SAMURAI_INLINE void operator()(Dim<1>, T& field, const field_expression<E>& e) const
         {
             field(level, i) = e.derived_cast()(level, i);
         }
 
         template <class T, class E>
-        inline void operator()(Dim<2>, T& field, const field_expression<E>& e) const
+        SAMURAI_INLINE void operator()(Dim<2>, T& field, const field_expression<E>& e) const
         {
             field(level, i, j) = e.derived_cast()(level, i, j);
         }
 
         template <class T, class E>
-        inline void operator()(Dim<3>, T& field, const field_expression<E>& e) const
+        SAMURAI_INLINE void operator()(Dim<3>, T& field, const field_expression<E>& e) const
         {
             field(level, i, j, k) = e.derived_cast()(level, i, j, k);
         }
     };
 
     template <class... CT>
-    inline auto apply_expr(CT&&... e)
+    SAMURAI_INLINE auto apply_expr(CT&&... e)
     {
         return make_field_operator_function<apply_expr_op>(std::forward<CT>(e)...);
     }
@@ -898,7 +898,7 @@ namespace samurai
         INIT_OPERATOR(extend_op)
 
         template <class T>
-        inline void operator()(Dim<1>, T& tag) const
+        SAMURAI_INLINE void operator()(Dim<1>, T& tag) const
         {
             auto refine_mask = tag(level, i) & static_cast<int>(samurai::CellFlag::refine);
 
@@ -915,7 +915,7 @@ namespace samurai
         }
 
         template <class T>
-        inline void operator()(Dim<2>, T& tag) const
+        SAMURAI_INLINE void operator()(Dim<2>, T& tag) const
         {
             auto refine_mask = tag(level, i, j) & static_cast<int>(samurai::CellFlag::refine);
 
@@ -943,7 +943,7 @@ namespace samurai
         }
 
         template <class T>
-        inline void operator()(Dim<3>, T& tag) const
+        SAMURAI_INLINE void operator()(Dim<3>, T& tag) const
         {
             auto refine_mask = tag(level, i, j, k) & static_cast<int>(samurai::CellFlag::refine);
 
@@ -967,7 +967,7 @@ namespace samurai
     };
 
     template <class... CT>
-    inline auto extend(CT&&... e)
+    SAMURAI_INLINE auto extend(CT&&... e)
     {
         return make_field_operator_function<extend_op>(std::forward<CT>(e)...);
     }
@@ -984,7 +984,7 @@ namespace samurai
         INIT_OPERATOR(make_graduation_op)
 
         template <class T>
-        inline void operator()(Dim<1>, T& tag) const
+        SAMURAI_INLINE void operator()(Dim<1>, T& tag) const
         {
             auto i_even = i.even_elements();
             if (i_even.is_valid())
@@ -1012,7 +1012,7 @@ namespace samurai
         }
 
         template <class T>
-        inline void operator()(Dim<2>, T& tag) const
+        SAMURAI_INLINE void operator()(Dim<2>, T& tag) const
         {
             auto i_even = i.even_elements();
             if (i_even.is_valid())
@@ -1043,7 +1043,7 @@ namespace samurai
         }
 
         template <class T>
-        inline void operator()(Dim<3>, T& tag) const
+        SAMURAI_INLINE void operator()(Dim<3>, T& tag) const
         {
             auto i_even = i.even_elements();
             if (i_even.is_valid())
@@ -1072,7 +1072,7 @@ namespace samurai
     };
 
     template <class... CT>
-    inline auto make_graduation_(CT&&... e)
+    SAMURAI_INLINE auto make_graduation_(CT&&... e)
     {
         return make_field_operator_function<make_graduation_op>(std::forward<CT>(e)...);
     }

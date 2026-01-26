@@ -68,17 +68,17 @@ class AMRMesh : public samurai::Mesh_base<AMRMesh<Config>, Config>
 
     using ca_type = typename base_type::ca_type;
 
-    inline AMRMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level)
+    SAMURAI_INLINE AMRMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level)
         : base_type(cl, min_level, max_level)
     {
     }
 
-    inline AMRMesh(const samurai::Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level)
+    SAMURAI_INLINE AMRMesh(const samurai::Box<double, dim>& b, std::size_t start_level, std::size_t min_level, std::size_t max_level)
         : base_type(b, start_level, min_level, max_level)
     {
     }
 
-    inline void update_sub_mesh_impl()
+    SAMURAI_INLINE void update_sub_mesh_impl()
     {
         cl_type cl;
         for_each_interval(this->m_cells[mesh_id_t::cells],
@@ -174,7 +174,7 @@ class weno5_op : public samurai::field_operator_base<TInterval>,
     INIT_OPERATOR(weno5_op)
 
     template <class T, class Field, class Vel>
-    inline auto vel_x_pos(T& dphi, const Field& phi, const Vel& vel) const
+    SAMURAI_INLINE auto vel_x_pos(T& dphi, const Field& phi, const Vel& vel) const
     {
         auto dx       = phi.mesh().cell_length(level);
         double inv_dx = 1. / dx;
@@ -215,7 +215,7 @@ class weno5_op : public samurai::field_operator_base<TInterval>,
     }
 
     template <class T, class Field, class Vel>
-    inline auto vel_x_neg(T& dphi, const Field& phi, const Vel& vel) const
+    SAMURAI_INLINE auto vel_x_neg(T& dphi, const Field& phi, const Vel& vel) const
     {
         auto dx       = phi.mesh().cell_length(level);
         double inv_dx = 1. / dx;
@@ -256,7 +256,7 @@ class weno5_op : public samurai::field_operator_base<TInterval>,
     }
 
     template <class T, class Field, class Vel>
-    inline auto vel_y_pos(T& dphi, const Field& phi, const Vel& vel) const
+    SAMURAI_INLINE auto vel_y_pos(T& dphi, const Field& phi, const Vel& vel) const
     {
         auto dx       = phi.mesh().cell_length(level);
         double inv_dx = 1. / dx;
@@ -297,7 +297,7 @@ class weno5_op : public samurai::field_operator_base<TInterval>,
     }
 
     template <class T, class Field, class Vel>
-    inline auto vel_y_neg(T& dphi, const Field& phi, const Vel& vel) const
+    SAMURAI_INLINE auto vel_y_neg(T& dphi, const Field& phi, const Vel& vel) const
     {
         auto dx       = phi.mesh().cell_length(level);
         double inv_dx = 1. / dx;
@@ -338,7 +338,7 @@ class weno5_op : public samurai::field_operator_base<TInterval>,
     }
 
     template <class Field, class Vel>
-    inline auto operator()(samurai::Dim<2> d, const Field& phi, const Vel& vel) const
+    SAMURAI_INLINE auto operator()(samurai::Dim<2> d, const Field& phi, const Vel& vel) const
     {
         xt::xtensor<double, 1> dphi_x = xt::zeros<double>({i.size()});
         xt::xtensor<double, 1> dphi_y = xt::zeros<double>({i.size()});
@@ -351,7 +351,7 @@ class weno5_op : public samurai::field_operator_base<TInterval>,
 };
 
 template <class... CT>
-inline auto weno5(CT&&... e)
+SAMURAI_INLINE auto weno5(CT&&... e)
 {
     return samurai::make_field_operator_function<weno5_op>(std::forward<CT>(e)...);
 }

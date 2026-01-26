@@ -19,7 +19,7 @@ namespace samurai
     namespace detail
     {
         template <class T>
-        inline T start_shift_neg(T value, T shift)
+        SAMURAI_INLINE T start_shift_neg(T value, T shift)
         {
             return shift >= 0 ? value >> shift : value << -shift;
         }
@@ -84,7 +84,7 @@ namespace samurai
         INIT_OPERATOR(graduate_op)
 
         template <std::size_t d, class T, class Stencil>
-        inline void operator()(Dim<d>, T& tag, const Stencil& s) const
+        SAMURAI_INLINE void operator()(Dim<d>, T& tag, const Stencil& s) const
         {
             using namespace xt::placeholders;
 
@@ -121,7 +121,7 @@ namespace samurai
     };
 
     template <class T, class Stencil>
-    inline auto graduate(T& tag, const Stencil& s)
+    SAMURAI_INLINE auto graduate(T& tag, const Stencil& s)
     {
         return make_field_operator_function<graduate_op>(tag, s);
     }

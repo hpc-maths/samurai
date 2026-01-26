@@ -16,20 +16,20 @@ class update_boundary_D2Q4_flat_op : public samurai::field_operator_base<dim, TI
     INIT_OPERATOR(update_boundary_D2Q4_flat_op)
 
     template <class T, class stencil_t>
-    inline void operator()(samurai::Dim<1>, T& field, const stencil_t& stencil) const
+    SAMURAI_INLINE void operator()(samurai::Dim<1>, T& field, const stencil_t& stencil) const
     {
         field(level, i) = field(level, i - stencil[0]);
     }
 
     template <class T, class stencil_t>
-    inline void operator()(samurai::Dim<2>, T& field, const stencil_t& stencil) const
+    SAMURAI_INLINE void operator()(samurai::Dim<2>, T& field, const stencil_t& stencil) const
     {
         field(level, i, j) = field(level, i - stencil[0], j - stencil[1]);
     }
 };
 
 template <class T, class stencil_t>
-inline auto update_boundary_D2Q4_flat(T&& field, stencil_t&& stencil)
+SAMURAI_INLINE auto update_boundary_D2Q4_flat(T&& field, stencil_t&& stencil)
 {
     return samurai::make_field_operator_function<update_boundary_D2Q4_flat_op>(std::forward<T>(field), std::forward<stencil_t>(stencil));
 }
@@ -42,20 +42,20 @@ class update_boundary_D2Q4_linear_op : public samurai::field_operator_base<dim, 
     INIT_OPERATOR(update_boundary_D2Q4_linear_op)
 
     template <class T, class stencil_t>
-    inline void operator()(samurai::Dim<2>, T& field, const stencil_t& stencil) const
+    SAMURAI_INLINE void operator()(samurai::Dim<2>, T& field, const stencil_t& stencil) const
     {
         field(level, i, j) = 2 * field(level, i - stencil[0], j - stencil[1]) - field(level, i - 2 * stencil[0], j - 2 * stencil[1]);
     }
 };
 
 template <class T, class stencil_t>
-inline auto update_boundary_D2Q4_linear(T&& field, stencil_t&& stencil)
+SAMURAI_INLINE auto update_boundary_D2Q4_linear(T&& field, stencil_t&& stencil)
 {
     return samurai::make_field_operator_function<update_boundary_D2Q4_linear_op>(std::forward<T>(field), std::forward<stencil_t>(stencil));
 }
 
 template <class Field>
-inline void update_bc_1D_constant_extension(Field& field, std::size_t level)
+SAMURAI_INLINE void update_bc_1D_constant_extension(Field& field, std::size_t level)
 {
     const xt::xtensor_fixed<int, xt::xshape<1>> xp{1};
     auto& mesh       = field.mesh();
@@ -94,7 +94,7 @@ inline void update_bc_1D_constant_extension(Field& field, std::size_t level)
 }
 
 template <class Field>
-inline void update_bc_D2Q4_3_Euler_constant_extension(Field& field, std::size_t level)
+SAMURAI_INLINE void update_bc_D2Q4_3_Euler_constant_extension(Field& field, std::size_t level)
 {
     const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
@@ -197,7 +197,7 @@ inline void update_bc_D2Q4_3_Euler_constant_extension(Field& field, std::size_t 
 }
 
 template <class Field>
-inline void update_bc_D2Q4_3_Euler_constant_extension_uniform(Field& field)
+SAMURAI_INLINE void update_bc_D2Q4_3_Euler_constant_extension_uniform(Field& field)
 {
     const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
@@ -295,7 +295,7 @@ inline void update_bc_D2Q4_3_Euler_constant_extension_uniform(Field& field)
 }
 
 template <class Field>
-inline void update_bc_D2Q4_3_Euler_linear_extension(Field& field, std::size_t level)
+SAMURAI_INLINE void update_bc_D2Q4_3_Euler_linear_extension(Field& field, std::size_t level)
 {
     const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};

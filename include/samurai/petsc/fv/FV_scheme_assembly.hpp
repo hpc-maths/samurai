@@ -405,7 +405,7 @@ namespace samurai
 
           protected:
 
-            inline bool is_locally_owned([[maybe_unused]] std::size_t cell_index) const
+            SAMURAI_INLINE bool is_locally_owned([[maybe_unused]] std::size_t cell_index) const
             {
 #ifdef SAMURAI_WITH_MPI
                 return cell_ownership().owner_rank[cell_index] == mpi::communicator().rank();
@@ -414,7 +414,7 @@ namespace samurai
 #endif
             }
 
-            inline bool is_locally_owned(const cell_t& cell) const
+            SAMURAI_INLINE bool is_locally_owned(const cell_t& cell) const
             {
                 return is_locally_owned(static_cast<std::size_t>(cell.index));
             }
@@ -477,7 +477,7 @@ namespace samurai
                 return static_cast<PetscInt>(cell_ownership().n_local_cells * input_n_comp);
             }
 
-            inline PetscInt local_col_index(PetscInt cell_index, unsigned int field_j) const
+            SAMURAI_INLINE PetscInt local_col_index(PetscInt cell_index, unsigned int field_j) const
             {
 #ifdef SAMURAI_WITH_MPI
                 auto shift = is_locally_owned(static_cast<std::size_t>(cell_index)) ? m_block_col_shift : m_ghosts_col_shift;
@@ -494,7 +494,7 @@ namespace samurai
 #endif
             }
 
-            inline PetscInt global_col_index(PetscInt cell_index, unsigned int field_j) const
+            SAMURAI_INLINE PetscInt global_col_index(PetscInt cell_index, unsigned int field_j) const
             {
 #ifdef SAMURAI_WITH_MPI
                 auto shift = is_locally_owned(static_cast<std::size_t>(cell_index)) ? m_block_col_shift : m_ghosts_col_shift;
@@ -508,7 +508,7 @@ namespace samurai
 #endif
             }
 
-            inline PetscInt local_row_index(PetscInt cell_index, unsigned int field_i) const
+            SAMURAI_INLINE PetscInt local_row_index(PetscInt cell_index, unsigned int field_i) const
             {
 #ifdef SAMURAI_WITH_MPI
                 auto shift = is_locally_owned(static_cast<std::size_t>(cell_index)) ? m_block_row_shift : m_ghosts_row_shift;
@@ -525,7 +525,7 @@ namespace samurai
 #endif
             }
 
-            inline PetscInt global_row_index(PetscInt cell_index, unsigned int field_i) const
+            SAMURAI_INLINE PetscInt global_row_index(PetscInt cell_index, unsigned int field_i) const
             {
 #ifdef SAMURAI_WITH_MPI
                 auto shift = is_locally_owned(static_cast<std::size_t>(cell_index)) ? m_block_row_shift : m_ghosts_row_shift;
@@ -539,48 +539,49 @@ namespace samurai
 #endif
             }
 
-            inline PetscInt global_col_index(std::size_t cell_index, unsigned int field_j) const
+            SAMURAI_INLINE PetscInt global_col_index(std::size_t cell_index, unsigned int field_j) const
             {
                 return global_col_index(static_cast<PetscInt>(cell_index), field_j);
             }
 
-            inline PetscInt global_row_index(std::size_t cell_index, unsigned int field_i) const
+            SAMURAI_INLINE PetscInt global_row_index(std::size_t cell_index, unsigned int field_i) const
             {
                 return global_row_index(static_cast<PetscInt>(cell_index), field_i);
             }
 
-            inline PetscInt global_col_index(const cell_t& cell, unsigned int field_j) const
+            SAMURAI_INLINE PetscInt global_col_index(const cell_t& cell, unsigned int field_j) const
             {
                 return global_col_index(static_cast<PetscInt>(cell.index), field_j);
             }
 
-            inline PetscInt global_row_index(const cell_t& cell, unsigned int field_i) const
+            SAMURAI_INLINE PetscInt global_row_index(const cell_t& cell, unsigned int field_i) const
             {
                 return global_row_index(static_cast<PetscInt>(cell.index), field_i);
             }
 
-            inline PetscInt local_col_index(std::size_t cell_index, unsigned int field_j) const
+            SAMURAI_INLINE PetscInt local_col_index(std::size_t cell_index, unsigned int field_j) const
             {
                 return local_col_index(static_cast<PetscInt>(cell_index), field_j);
             }
 
-            inline PetscInt local_row_index(std::size_t cell_index, unsigned int field_i) const
+            SAMURAI_INLINE PetscInt local_row_index(std::size_t cell_index, unsigned int field_i) const
             {
                 return local_row_index(static_cast<PetscInt>(cell_index), field_i);
             }
 
-            inline PetscInt local_col_index(const cell_t& cell, unsigned int field_j) const
+            SAMURAI_INLINE PetscInt local_col_index(const cell_t& cell, unsigned int field_j) const
             {
                 return local_col_index(static_cast<PetscInt>(cell.index), field_j);
             }
 
-            inline PetscInt local_row_index(const cell_t& cell, unsigned int field_i) const
+            SAMURAI_INLINE PetscInt local_row_index(const cell_t& cell, unsigned int field_i) const
             {
                 return local_row_index(static_cast<PetscInt>(cell.index), field_i);
             }
 
             template <class Coeffs>
-            inline double rhs_coeff(const Coeffs& coeffs, [[maybe_unused]] unsigned int field_i, [[maybe_unused]] unsigned int field_j) const
+            SAMURAI_INLINE double
+            rhs_coeff(const Coeffs& coeffs, [[maybe_unused]] unsigned int field_i, [[maybe_unused]] unsigned int field_j) const
             {
                 if constexpr (field_t::is_scalar && output_n_comp == 1)
                 {
@@ -680,7 +681,7 @@ namespace samurai
             }
 
             template <class int_type>
-            inline void set_is_row_not_empty(int_type local_row_number)
+            SAMURAI_INLINE void set_is_row_not_empty(int_type local_row_number)
             {
                 assert(local_row_number - m_block_row_shift >= 0);
                 m_is_row_empty[static_cast<std::size_t>(local_row_number - m_block_row_shift)] = false;
@@ -959,7 +960,7 @@ namespace samurai
 
           private:
 
-            inline void assemble_periodic_bc(Mat& A)
+            SAMURAI_INLINE void assemble_periodic_bc(Mat& A)
             {
                 std::vector<bool> is_periodic_row_empty(mesh().nb_cells(), true);
 

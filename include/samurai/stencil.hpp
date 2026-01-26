@@ -670,42 +670,42 @@ namespace samurai
             }
         }
 
-        inline const auto& mesh() const
+        SAMURAI_INLINE const auto& mesh() const
         {
             return m_mesh;
         }
 
-        inline auto& mesh_interval() const
+        SAMURAI_INLINE auto& mesh_interval() const
         {
             return *m_mesh_interval;
         }
 
-        inline auto& interval() const
+        SAMURAI_INLINE auto& interval() const
         {
             return m_mesh_interval->i;
         }
 
-        inline auto& level() const
+        SAMURAI_INLINE auto& level() const
         {
             return m_mesh_interval->level;
         }
 
-        inline const auto& stencil() const
+        SAMURAI_INLINE const auto& stencil() const
         {
             return m_stencil_analyzer.stencil;
         }
 
-        inline const auto& cells() const
+        SAMURAI_INLINE const auto& cells() const
         {
             return m_cells;
         }
 
-        inline auto& cells()
+        SAMURAI_INLINE auto& cells()
         {
             return m_cells;
         }
 
-        inline void move_next()
+        SAMURAI_INLINE void move_next()
         {
             for (cell_t& cell : m_cells)
             {
@@ -760,17 +760,17 @@ namespace samurai
             m_move_coarse_cell = false;
         }
 
-        inline auto& interval() const
+        SAMURAI_INLINE auto& interval() const
         {
             return m_fine_it->interval();
         }
 
-        inline const auto& cells() const
+        SAMURAI_INLINE const auto& cells() const
         {
             return m_cells;
         }
 
-        inline void move_next()
+        SAMURAI_INLINE void move_next()
         {
             // Move fine cell
             ++m_cells[fine].index;      // increment cell index
@@ -790,9 +790,9 @@ namespace samurai
     }
 
     template <class iterator_stencil, class Func>
-    inline void for_each_stencil_sliding_in_interval(const typename iterator_stencil::mesh_interval_t& mesh_interval,
-                                                     iterator_stencil& stencil_it,
-                                                     Func&& f)
+    SAMURAI_INLINE void for_each_stencil_sliding_in_interval(const typename iterator_stencil::mesh_interval_t& mesh_interval,
+                                                             iterator_stencil& stencil_it,
+                                                             Func&& f)
     {
         stencil_it.init(mesh_interval);
         for (std::size_t ii = 0; ii < mesh_interval.i.size(); ++ii)
@@ -803,17 +803,17 @@ namespace samurai
     }
 
     template <class Mesh, std::size_t stencil_size, class Func>
-    inline void for_each_stencil_sliding_in_interval(const Mesh& mesh,
-                                                     const typename Mesh::mesh_interval_t& mesh_interval,
-                                                     const StencilAnalyzer<stencil_size, Mesh::dim>& stencil,
-                                                     Func&& f)
+    SAMURAI_INLINE void for_each_stencil_sliding_in_interval(const Mesh& mesh,
+                                                             const typename Mesh::mesh_interval_t& mesh_interval,
+                                                             const StencilAnalyzer<stencil_size, Mesh::dim>& stencil,
+                                                             Func&& f)
     {
         auto stencil_it = make_stencil_iterator(mesh, stencil);
         for_each_stencil_sliding_in_interval(mesh_interval, stencil_it, std::forward<Func>(f));
     }
 
     template <class Mesh, std::size_t stencil_size, class Func>
-    inline void for_each_stencil(const Mesh& mesh, std::size_t level, IteratorStencil<Mesh, stencil_size>& stencil_it, Func&& f)
+    SAMURAI_INLINE void for_each_stencil(const Mesh& mesh, std::size_t level, IteratorStencil<Mesh, stencil_size>& stencil_it, Func&& f)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
         for_each_meshinterval(mesh[mesh_id_t::cells][level],
@@ -824,7 +824,7 @@ namespace samurai
     }
 
     template <class Mesh, std::size_t stencil_size, class Func>
-    inline void for_each_stencil(const Mesh& mesh, const StencilAnalyzer<stencil_size, Mesh::dim>& stencil, Func&& f)
+    SAMURAI_INLINE void for_each_stencil(const Mesh& mesh, const StencilAnalyzer<stencil_size, Mesh::dim>& stencil, Func&& f)
     {
         auto stencil_it = make_stencil_iterator(mesh, stencil);
         for_each_level(mesh,
@@ -835,7 +835,7 @@ namespace samurai
     }
 
     template <class Set, class Mesh, std::size_t stencil_size, class Func>
-    inline void for_each_stencil(Set& set, IteratorStencil<Mesh, stencil_size>& stencil_it, Func&& f)
+    SAMURAI_INLINE void for_each_stencil(Set& set, IteratorStencil<Mesh, stencil_size>& stencil_it, Func&& f)
     {
         using mesh_interval_t = typename IteratorStencil<Mesh, stencil_size>::mesh_interval_t;
         for_each_meshinterval<mesh_interval_t>(set,
@@ -846,7 +846,7 @@ namespace samurai
     }
 
     template <class Mesh, class Set, std::size_t stencil_size, class Func>
-    inline void for_each_stencil(const Mesh& mesh, Set& set, const StencilAnalyzer<stencil_size, Mesh::dim>& stencil, Func&& f)
+    SAMURAI_INLINE void for_each_stencil(const Mesh& mesh, Set& set, const StencilAnalyzer<stencil_size, Mesh::dim>& stencil, Func&& f)
     {
         auto stencil_it = make_stencil_iterator(mesh, stencil);
         for_each_stencil(set, stencil_it, std::forward<Func>(f));

@@ -24,7 +24,7 @@ namespace samurai::detail
      * @param context Description of where the check occurred
      */
     template <class Data>
-    inline void check_nan([[maybe_unused]] const Data& data, [[maybe_unused]] std::string_view context)
+    SAMURAI_INLINE void check_nan([[maybe_unused]] const Data& data, [[maybe_unused]] std::string_view context)
     {
 #ifdef SAMURAI_CHECK_NAN
         if (xt::any(xt::isnan(data)))

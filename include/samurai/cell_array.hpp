@@ -242,7 +242,7 @@ namespace samurai
      * Default contructor which sets the level for each LevelCellArray.
      */
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline CellArray<dim_, TInterval, max_size_>::CellArray()
+    SAMURAI_INLINE CellArray<dim_, TInterval, max_size_>::CellArray()
     {
         for (std::size_t level = 0; level <= max_size; ++level)
         {
@@ -258,7 +258,7 @@ namespace samurai
      * x-intervals must be computed.
      */
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline CellArray<dim_, TInterval, max_size_>::CellArray(const cl_type& cl, bool with_update_index)
+    SAMURAI_INLINE CellArray<dim_, TInterval, max_size_>::CellArray(const cl_type& cl, bool with_update_index)
     {
         for (std::size_t level = 0; level <= max_size; ++level)
         {
@@ -274,7 +274,7 @@ namespace samurai
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline bool CellArray<dim_, TInterval, max_size_>::empty() const
+    SAMURAI_INLINE bool CellArray<dim_, TInterval, max_size_>::empty() const
     {
         bool isEmpty = true;
         for (std::size_t level = 0; level <= max_size; ++level)
@@ -285,7 +285,7 @@ namespace samurai
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline void CellArray<dim_, TInterval, max_size_>::clear()
+    SAMURAI_INLINE void CellArray<dim_, TInterval, max_size_>::clear()
     {
         for (std::size_t level = 0; level <= max_size; ++level)
         {
@@ -294,13 +294,13 @@ namespace samurai
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline auto CellArray<dim_, TInterval, max_size_>::operator[](std::size_t i) const -> const lca_type&
+    SAMURAI_INLINE auto CellArray<dim_, TInterval, max_size_>::operator[](std::size_t i) const -> const lca_type&
     {
         return m_cells[i];
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline auto CellArray<dim_, TInterval, max_size_>::operator[](std::size_t i) -> lca_type&
+    SAMURAI_INLINE auto CellArray<dim_, TInterval, max_size_>::operator[](std::size_t i) -> lca_type&
     {
         return m_cells[i];
     }
@@ -314,39 +314,39 @@ namespace samurai
      */
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
     template <typename... T, typename D>
-    inline auto
-    CellArray<dim_, TInterval, max_size_>::get_interval(std::size_t level, const interval_t& interval, T... index) const -> const interval_t&
+    SAMURAI_INLINE auto CellArray<dim_, TInterval, max_size_>::get_interval(std::size_t level, const interval_t& interval, T... index) const
+        -> const interval_t&
     {
         return m_cells[level].get_interval(interval, index...);
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
     template <class E>
-    inline auto CellArray<dim_, TInterval, max_size_>::get_interval(std::size_t level,
-                                                                    const interval_t& interval,
-                                                                    const xt::xexpression<E>& index) const -> const interval_t&
+    SAMURAI_INLINE auto
+    CellArray<dim_, TInterval, max_size_>::get_interval(std::size_t level, const interval_t& interval, const xt::xexpression<E>& index) const
+        -> const interval_t&
     {
         return m_cells[level].get_interval(interval, index);
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
     template <class E>
-    inline auto
-    CellArray<dim_, TInterval, max_size_>::get_interval(std::size_t level, const xt::xexpression<E>& coord) const -> const interval_t&
+    SAMURAI_INLINE auto CellArray<dim_, TInterval, max_size_>::get_interval(std::size_t level, const xt::xexpression<E>& coord) const
+        -> const interval_t&
     {
         return m_cells[level].get_interval(coord);
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
     template <typename... T, typename D>
-    inline auto CellArray<dim_, TInterval, max_size_>::get_index(std::size_t level, value_t i, T... index) const -> index_t
+    SAMURAI_INLINE auto CellArray<dim_, TInterval, max_size_>::get_index(std::size_t level, value_t i, T... index) const -> index_t
     {
         return m_cells[level].get_index(i, index...);
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
     template <class E>
-    inline auto
+    SAMURAI_INLINE auto
     CellArray<dim_, TInterval, max_size_>::get_index(std::size_t level, value_t i, const xt::xexpression<E>& others) const -> index_t
     {
         return m_cells[level].get_index(i, others);
@@ -354,28 +354,29 @@ namespace samurai
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
     template <class E>
-    inline auto CellArray<dim_, TInterval, max_size_>::get_index(std::size_t level, const xt::xexpression<E>& coord) const -> index_t
+    SAMURAI_INLINE auto CellArray<dim_, TInterval, max_size_>::get_index(std::size_t level, const xt::xexpression<E>& coord) const -> index_t
     {
         return m_cells[level].get_index(coord);
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
     template <typename... T, typename D>
-    inline auto CellArray<dim_, TInterval, max_size_>::get_cell(std::size_t level, value_t i, T... index) const -> cell_t
+    SAMURAI_INLINE auto CellArray<dim_, TInterval, max_size_>::get_cell(std::size_t level, value_t i, T... index) const -> cell_t
     {
         return m_cells[level].get_cell(i, index...);
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
     template <class E>
-    inline auto CellArray<dim_, TInterval, max_size_>::get_cell(std::size_t level, value_t i, const xt::xexpression<E>& others) const -> cell_t
+    SAMURAI_INLINE auto
+    CellArray<dim_, TInterval, max_size_>::get_cell(std::size_t level, value_t i, const xt::xexpression<E>& others) const -> cell_t
     {
         return m_cells[level].get_cell(i, others);
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
     template <class E>
-    inline auto CellArray<dim_, TInterval, max_size_>::get_cell(std::size_t level, const xt::xexpression<E>& coord) const -> cell_t
+    SAMURAI_INLINE auto CellArray<dim_, TInterval, max_size_>::get_cell(std::size_t level, const xt::xexpression<E>& coord) const -> cell_t
     {
         return m_cells[level].get_cell(coord);
     }
@@ -385,7 +386,7 @@ namespace samurai
      * over the levels.
      */
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline std::size_t CellArray<dim_, TInterval, max_size_>::nb_cells() const
+    SAMURAI_INLINE std::size_t CellArray<dim_, TInterval, max_size_>::nb_cells() const
     {
         std::size_t size = 0;
         for (std::size_t level = 0; level <= max_size; ++level)
@@ -402,7 +403,7 @@ namespace samurai
      * @param level The level where to compute the number of cells
      */
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline std::size_t CellArray<dim_, TInterval, max_size_>::nb_cells(std::size_t level) const
+    SAMURAI_INLINE std::size_t CellArray<dim_, TInterval, max_size_>::nb_cells(std::size_t level) const
     {
         return m_cells[level].nb_cells();
     }
@@ -411,7 +412,7 @@ namespace samurai
      * Return the maximum level where the array entry is not empty.
      */
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline std::size_t CellArray<dim_, TInterval, max_size_>::max_level() const
+    SAMURAI_INLINE std::size_t CellArray<dim_, TInterval, max_size_>::max_level() const
     {
         for (std::size_t level = max_size; level != std::size_t(-1); --level)
         {
@@ -427,7 +428,7 @@ namespace samurai
      * Return the minimum level where the array entry is not empty.
      */
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline std::size_t CellArray<dim_, TInterval, max_size_>::min_level() const
+    SAMURAI_INLINE std::size_t CellArray<dim_, TInterval, max_size_>::min_level() const
     {
         for (std::size_t level = 0; level <= max_size; ++level)
         {
@@ -440,13 +441,13 @@ namespace samurai
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline auto& CellArray<dim_, TInterval, max_size_>::origin_point() const
+    SAMURAI_INLINE auto& CellArray<dim_, TInterval, max_size_>::origin_point() const
     {
         return m_cells[0].origin_point();
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline void CellArray<dim_, TInterval, max_size_>::set_origin_point(const coords_t& origin_point)
+    SAMURAI_INLINE void CellArray<dim_, TInterval, max_size_>::set_origin_point(const coords_t& origin_point)
     {
         for (std::size_t level = 0; level <= max_size; ++level)
         {
@@ -455,13 +456,13 @@ namespace samurai
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline double CellArray<dim_, TInterval, max_size_>::scaling_factor() const
+    SAMURAI_INLINE double CellArray<dim_, TInterval, max_size_>::scaling_factor() const
     {
         return m_cells[0].scaling_factor();
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline void CellArray<dim_, TInterval, max_size_>::set_scaling_factor(double scaling_factor)
+    SAMURAI_INLINE void CellArray<dim_, TInterval, max_size_>::set_scaling_factor(double scaling_factor)
     {
         for (std::size_t level = 0; level <= max_size; ++level)
         {
@@ -470,7 +471,7 @@ namespace samurai
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline double CellArray<dim_, TInterval, max_size_>::cell_length(std::size_t level) const
+    SAMURAI_INLINE double CellArray<dim_, TInterval, max_size_>::cell_length(std::size_t level) const
     {
         return samurai::cell_length(scaling_factor(), level);
     }
@@ -480,7 +481,7 @@ namespace samurai
      * Field data structure.
      */
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline void CellArray<dim_, TInterval, max_size_>::update_index()
+    SAMURAI_INLINE void CellArray<dim_, TInterval, max_size_>::update_index()
     {
         std::size_t acc_size = 0;
         for_each_interval(*this,
@@ -492,7 +493,7 @@ namespace samurai
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline void CellArray<dim_, TInterval, max_size_>::to_stream(std::ostream& os) const
+    SAMURAI_INLINE void CellArray<dim_, TInterval, max_size_>::to_stream(std::ostream& os) const
     {
         for (std::size_t level = 0; level <= max_size; ++level)
         {
@@ -512,86 +513,86 @@ namespace samurai
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline auto CellArray<dim_, TInterval, max_size_>::begin() -> iterator
+    SAMURAI_INLINE auto CellArray<dim_, TInterval, max_size_>::begin() -> iterator
     {
         return iterator(this, m_cells[min_level()].begin());
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline auto CellArray<dim_, TInterval, max_size_>::end() -> iterator
+    SAMURAI_INLINE auto CellArray<dim_, TInterval, max_size_>::end() -> iterator
     {
         return iterator(this, m_cells[max_level()].end());
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline auto CellArray<dim_, TInterval, max_size_>::begin() const -> const_iterator
+    SAMURAI_INLINE auto CellArray<dim_, TInterval, max_size_>::begin() const -> const_iterator
     {
         return cbegin();
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline auto CellArray<dim_, TInterval, max_size_>::end() const -> const_iterator
+    SAMURAI_INLINE auto CellArray<dim_, TInterval, max_size_>::end() const -> const_iterator
     {
         return cend();
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline auto CellArray<dim_, TInterval, max_size_>::cbegin() const -> const_iterator
+    SAMURAI_INLINE auto CellArray<dim_, TInterval, max_size_>::cbegin() const -> const_iterator
     {
         return const_iterator(this, m_cells[min_level()].cbegin());
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline auto CellArray<dim_, TInterval, max_size_>::cend() const -> const_iterator
+    SAMURAI_INLINE auto CellArray<dim_, TInterval, max_size_>::cend() const -> const_iterator
     {
         return const_iterator(this, m_cells[max_level()].cend());
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline auto CellArray<dim_, TInterval, max_size_>::rbegin() -> reverse_iterator
+    SAMURAI_INLINE auto CellArray<dim_, TInterval, max_size_>::rbegin() -> reverse_iterator
     {
         return reverse_iterator(end());
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline auto CellArray<dim_, TInterval, max_size_>::rend() -> reverse_iterator
+    SAMURAI_INLINE auto CellArray<dim_, TInterval, max_size_>::rend() -> reverse_iterator
     {
         return reverse_iterator(begin());
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline auto CellArray<dim_, TInterval, max_size_>::rbegin() const -> const_reverse_iterator
+    SAMURAI_INLINE auto CellArray<dim_, TInterval, max_size_>::rbegin() const -> const_reverse_iterator
     {
         return rcbegin();
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline auto CellArray<dim_, TInterval, max_size_>::rend() const -> const_reverse_iterator
+    SAMURAI_INLINE auto CellArray<dim_, TInterval, max_size_>::rend() const -> const_reverse_iterator
     {
         return rcend();
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline auto CellArray<dim_, TInterval, max_size_>::rcbegin() const -> const_reverse_iterator
+    SAMURAI_INLINE auto CellArray<dim_, TInterval, max_size_>::rcbegin() const -> const_reverse_iterator
     {
         return const_reverse_iterator(cend());
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline auto CellArray<dim_, TInterval, max_size_>::rcend() const -> const_reverse_iterator
+    SAMURAI_INLINE auto CellArray<dim_, TInterval, max_size_>::rcend() const -> const_reverse_iterator
     {
         return const_reverse_iterator(cbegin());
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline std::ostream& operator<<(std::ostream& out, const CellArray<dim_, TInterval, max_size_>& cell_array)
+    SAMURAI_INLINE std::ostream& operator<<(std::ostream& out, const CellArray<dim_, TInterval, max_size_>& cell_array)
     {
         cell_array.to_stream(out);
         return out;
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
-    inline bool operator==(const CellArray<dim_, TInterval, max_size_>& ca1, const CellArray<dim_, TInterval, max_size_>& ca2)
+    SAMURAI_INLINE bool operator==(const CellArray<dim_, TInterval, max_size_>& ca1, const CellArray<dim_, TInterval, max_size_>& ca2)
     {
         if (ca1.max_level() != ca2.max_level() || ca1.min_level() != ca2.min_level())
         {
@@ -613,14 +614,14 @@ namespace samurai
     ///////////////////////////////////////
 
     template <class CA, bool is_const>
-    inline CellArray_iterator<CA, is_const>::CellArray_iterator(CA* ca, const iterator_type& lca_it)
+    SAMURAI_INLINE CellArray_iterator<CA, is_const>::CellArray_iterator(CA* ca, const iterator_type& lca_it)
         : p_ca(ca)
         , m_lca_it(lca_it)
     {
     }
 
     template <class CA, bool is_const>
-    inline auto CellArray_iterator<CA, is_const>::operator++() -> self_type&
+    SAMURAI_INLINE auto CellArray_iterator<CA, is_const>::operator++() -> self_type&
     {
         if (m_lca_it == (*p_ca)[p_ca->max_level()].end())
         {
@@ -636,7 +637,7 @@ namespace samurai
     }
 
     template <class CA, bool is_const>
-    inline auto CellArray_iterator<CA, is_const>::operator--() -> self_type&
+    SAMURAI_INLINE auto CellArray_iterator<CA, is_const>::operator--() -> self_type&
     {
         if (m_lca_it == (*p_ca)[p_ca->min_level()].begin())
         {
@@ -652,7 +653,7 @@ namespace samurai
     }
 
     template <class CA, bool is_const>
-    inline auto CellArray_iterator<CA, is_const>::operator+=(difference_type n) -> self_type&
+    SAMURAI_INLINE auto CellArray_iterator<CA, is_const>::operator+=(difference_type n) -> self_type&
     {
         for (difference_type i = 0; i < n; ++i)
         {
@@ -662,7 +663,7 @@ namespace samurai
     }
 
     template <class CA, bool is_const>
-    inline auto CellArray_iterator<CA, is_const>::operator-=(difference_type n) -> self_type&
+    SAMURAI_INLINE auto CellArray_iterator<CA, is_const>::operator-=(difference_type n) -> self_type&
     {
         for (difference_type i = 0; i < n; ++i)
         {
@@ -672,64 +673,64 @@ namespace samurai
     }
 
     template <class CA, bool is_const>
-    inline auto CellArray_iterator<CA, is_const>::operator-(const self_type& rhs) const -> difference_type
+    SAMURAI_INLINE auto CellArray_iterator<CA, is_const>::operator-(const self_type& rhs) const -> difference_type
     {
         return m_lca_it.operator-(rhs.m_lca_it);
         // return m_current_index[0] - rhs.m_current_index[0];
     }
 
     template <class CA, bool is_const>
-    inline auto CellArray_iterator<CA, is_const>::operator*() const -> reference
+    SAMURAI_INLINE auto CellArray_iterator<CA, is_const>::operator*() const -> reference
     {
         return m_lca_it.operator*();
     }
 
     template <class CA, bool is_const>
-    inline auto CellArray_iterator<CA, is_const>::operator->() const -> pointer
+    SAMURAI_INLINE auto CellArray_iterator<CA, is_const>::operator->() const -> pointer
     {
         return m_lca_it.operator->();
     }
 
     template <class CA, bool is_const>
-    inline auto CellArray_iterator<CA, is_const>::index() const -> const coord_type&
+    SAMURAI_INLINE auto CellArray_iterator<CA, is_const>::index() const -> const coord_type&
     {
         return m_lca_it.index();
     }
 
     template <class CA, bool is_const>
-    inline std::size_t CellArray_iterator<CA, is_const>::level() const
+    SAMURAI_INLINE std::size_t CellArray_iterator<CA, is_const>::level() const
     {
         return m_lca_it.level();
     }
 
     template <class CA, bool is_const>
-    inline bool CellArray_iterator<CA, is_const>::equal(const self_type& rhs) const
+    SAMURAI_INLINE bool CellArray_iterator<CA, is_const>::equal(const self_type& rhs) const
     {
         return p_ca == rhs.p_ca && m_lca_it.level() == rhs.m_lca_it.level() && m_lca_it.equal(rhs.m_lca_it);
     }
 
     template <class CA, bool is_const>
-    inline bool CellArray_iterator<CA, is_const>::less_than(const self_type& rhs) const
+    SAMURAI_INLINE bool CellArray_iterator<CA, is_const>::less_than(const self_type& rhs) const
     {
         return p_ca == rhs.p_ca
             && (m_lca_it.level() < rhs.m_lca_it.level() || (m_lca_it.level() == rhs.m_lca_it.level() && m_lca_it.less_than(rhs.m_lca_it)));
     }
 
     template <class CA, bool is_const>
-    inline bool operator==(const CellArray_iterator<CA, is_const>& it1, const CellArray_iterator<CA, is_const>& it2)
+    SAMURAI_INLINE bool operator==(const CellArray_iterator<CA, is_const>& it1, const CellArray_iterator<CA, is_const>& it2)
     {
         return it1.equal(it2);
     }
 
     template <class CA, bool is_const>
-    inline bool operator<(const CellArray_iterator<CA, is_const>& it1, const CellArray_iterator<CA, is_const>& it2)
+    SAMURAI_INLINE bool operator<(const CellArray_iterator<CA, is_const>& it1, const CellArray_iterator<CA, is_const>& it2)
     {
         return it1.less_than(it2);
     }
 
     template <class CA, bool is_const>
-    inline bool operator==(const std::reverse_iterator<CellArray_iterator<CA, is_const>>& it1,
-                           const std::reverse_iterator<CellArray_iterator<CA, is_const>>& it2)
+    SAMURAI_INLINE bool operator==(const std::reverse_iterator<CellArray_iterator<CA, is_const>>& it1,
+                                   const std::reverse_iterator<CellArray_iterator<CA, is_const>>& it2)
     {
         return it1.base().equal(it2.base());
     }

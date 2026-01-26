@@ -16,7 +16,7 @@ namespace samurai
         INIT_OPERATOR(H_wrap_op)
 
         template <class Field>
-        inline auto operator()(Dim<2>, const Field& phi, const Field& phi_0, const std::size_t max_level) const
+        SAMURAI_INLINE auto operator()(Dim<2>, const Field& phi, const Field& phi_0, const std::size_t max_level) const
         {
             using namespace math;
             auto out = zeros_like(phi(level, i, j));
@@ -71,7 +71,7 @@ namespace samurai
     };
 
     template <class... CT>
-    inline auto H_wrap(CT&&... e)
+    SAMURAI_INLINE auto H_wrap(CT&&... e)
     {
         return make_field_operator_function<H_wrap_op>(std::forward<CT>(e)...);
     }
@@ -89,7 +89,7 @@ namespace samurai
         INIT_OPERATOR(upwind_variable_op)
 
         template <class T0, class T1, class T2, class T3>
-        inline auto flux(T0&& vel, T1&& ul, T2&& ur, double lb, T3&& r) const
+        SAMURAI_INLINE auto flux(T0&& vel, T1&& ul, T2&& ur, double lb, T3&& r) const
         {
             using namespace math;
             // // Upwind
@@ -151,7 +151,7 @@ namespace samurai
 
         // 2D
         template <class T0, class T1>
-        inline auto left_flux(const T0& vel, const T1& u, double dt) const
+        SAMURAI_INLINE auto left_flux(const T0& vel, const T1& u, double dt) const
         {
             using namespace math;
             auto vel_at_interface = eval(3. / 8 * vel(0, level, i - 1, j) + 3. / 4 * vel(0, level, i, j) - 1. / 8 * vel(0, level, i + 1, j));
@@ -184,7 +184,7 @@ namespace samurai
         }
 
         template <class T0, class T1>
-        inline auto right_flux(const T0& vel, const T1& u, double dt) const
+        SAMURAI_INLINE auto right_flux(const T0& vel, const T1& u, double dt) const
         {
             using namespace math;
             auto vel_at_interface = eval(3. / 8 * vel(0, level, i + 1, j) + 3. / 4 * vel(0, level, i, j) - 1. / 8 * vel(0, level, i - 1, j));
@@ -217,7 +217,7 @@ namespace samurai
         }
 
         template <class T0, class T1>
-        inline auto down_flux(const T0& vel, const T1& u, double dt) const
+        SAMURAI_INLINE auto down_flux(const T0& vel, const T1& u, double dt) const
         {
             using namespace math;
 
@@ -253,7 +253,7 @@ namespace samurai
         }
 
         template <class T0, class T1>
-        inline auto up_flux(const T0& vel, const T1& u, double dt) const
+        SAMURAI_INLINE auto up_flux(const T0& vel, const T1& u, double dt) const
         {
             using namespace math;
 
@@ -290,7 +290,7 @@ namespace samurai
     };
 
     template <class... CT>
-    inline auto upwind_variable(CT&&... e)
+    SAMURAI_INLINE auto upwind_variable(CT&&... e)
     {
         return make_field_operator_function<upwind_variable_op>(std::forward<CT>(e)...);
     }
@@ -304,7 +304,7 @@ namespace samurai
         INIT_OPERATOR(upwind_Burgers_op)
 
         template <class T1, class T2>
-        inline auto flux(T1&& ul, T2&& ur, double lb) const
+        SAMURAI_INLINE auto flux(T1&& ul, T2&& ur, double lb) const
         {
             using namespace math;
             return eval(.5 * (.5 * pow(std::forward<T1>(ul), 2.) + .5 * pow(std::forward<T2>(ur), 2.))
@@ -315,7 +315,7 @@ namespace samurai
 
         // 1D
         template <class T1>
-        inline auto left_flux(const T1& u, double lb) const
+        SAMURAI_INLINE auto left_flux(const T1& u, double lb) const
         {
             // std::cout << "left flux " << level << " " << i << " " << lb << std::endl;
             // std::cout << flux(u(level, i - 1), u(level, i), lb) << std::endl;
@@ -323,7 +323,7 @@ namespace samurai
         }
 
         template <class T1>
-        inline auto right_flux(const T1& u, double lb) const
+        SAMURAI_INLINE auto right_flux(const T1& u, double lb) const
         {
             // std::cout << flux(u(level, i), u(level, i + 1), lb) << std::endl;
             return flux(u(level, i), u(level, i + 1), lb);
@@ -331,7 +331,7 @@ namespace samurai
     };
 
     template <class... CT>
-    inline auto upwind_Burgers(CT&&... e)
+    SAMURAI_INLINE auto upwind_Burgers(CT&&... e)
     {
         return make_field_operator_function<upwind_Burgers_op>(std::forward<CT>(e)...);
     }
