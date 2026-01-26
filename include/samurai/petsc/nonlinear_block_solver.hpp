@@ -33,7 +33,7 @@ namespace samurai
 
           public:
 
-            static constexpr BlockAssemblyType assembly_type = assembly_type_;
+            static constexpr BlockAssemblyType assembly_type = assembly_type_; // cppcheck-suppress unusedStructMember
 
             explicit NonLinearBlockSolver(const block_operator_t& block_op)
                 : base_class(block_op)

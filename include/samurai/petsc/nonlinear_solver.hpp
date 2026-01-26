@@ -172,7 +172,7 @@ namespace samurai
                 SNESSetJacobian(m_snes, m_J, m_J, PETSC_jacobian_function, this);
 
                 // Sends the successive residuals to the user if he monitors the convergence
-                // if (monitor)
+                if (monitor)
                 {
                     SNESMonitorSet(m_snes, PETSC_monitor, this, nullptr);
                 }

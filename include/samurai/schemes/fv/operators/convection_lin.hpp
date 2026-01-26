@@ -245,7 +245,7 @@ namespace samurai
         return scheme;
     }
 
-    template <class TemperatureField, class VelocityField>
+    /*template <class TemperatureField, class VelocityField>
     auto make_dual_convection_upwind(TemperatureField& T)
     {
         static_assert(TemperatureField::dim == VelocityField::dim && VelocityField::n_comp == VelocityField::dim);
@@ -258,11 +258,11 @@ namespace samurai
         using output_field_t                      = TemperatureField;
         using parameter_field_t                   = TemperatureField;
 
-        using cfg = samurai::FluxConfig<samurai::SchemeType::NonLinear, stencil_size, output_field_t, input_field_t, parameter_field_t>;
+        using cfg = FluxConfig<SchemeType::NonLinear, stencil_size, output_field_t, input_field_t, parameter_field_t>;
 
-        samurai::FluxDefinition<cfg> upwind;
+        FluxDefinition<cfg> upwind;
 
-        samurai::static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
+        static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
             [&](auto _d)
             {
                 static constexpr std::size_t d = _d();
@@ -270,9 +270,8 @@ namespace samurai
                 static constexpr std::size_t left  = 0;
                 static constexpr std::size_t right = 1;
 
-                upwind[d].cons_jacobian_function = [&](samurai::StencilJacobian<cfg>& jac,
-                                                       const samurai::StencilData<cfg>& data,
-                                                       const samurai::StencilValues<cfg>& velocity_data)
+                upwind[d].cons_jacobian_function =
+                    [&](StencilJacobian<cfg>& jac, const StencilData<cfg>& data, const StencilValues<cfg>& velocity_data)
                 {
                     const auto& cells = data.cells;
                     auto velocity     = 0.5 * (velocity_data[left] + velocity_data[right]);
@@ -313,7 +312,7 @@ namespace samurai
         scheme.set_name("dual_convection");
         scheme.set_parameter_field(T);
         return scheme;
-    }
+    }*/
 
     /**
      * Linear convection, discretized by a WENO5 (Jiang & Shu) scheme.
@@ -384,9 +383,9 @@ namespace samurai
         constexpr std::size_t left  = 0;
         constexpr std::size_t right = 1;
 
-        using cfg = samurai::FluxConfig<samurai::SchemeType::NonLinear, stencil_size, Field, Field>;
+        using cfg = FluxConfig<SchemeType::NonLinear, stencil_size, Field, Field>;
 
-        samurai::FluxDefinition<cfg> smooth_rusanov;
+        FluxDefinition<cfg> smooth_rusanov;
 
         auto smooth_abs = [](auto x)
         {
@@ -394,51 +393,44 @@ namespace samurai
             return std::sqrt(x * x + eps * eps);
         };
 
-        // auto smooth_max = [smooth_abs](auto a, auto b)
-        // {
-        //     return 0.5 * (a + b + smooth_abs(a - b));
-        // };
-
-        samurai::static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
+        static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
             [&](auto _d)
             {
                 static constexpr std::size_t d = _d();
 
-                smooth_rusanov[d].cons_flux_function = [smooth_abs, &velocity_field](samurai::FluxValue<cfg>& flux,
-                                                                                     const samurai::StencilData<cfg>& data,
-                                                                                     const samurai::StencilValues<cfg>& u)
+                smooth_rusanov[d].cons_flux_function =
+                    [smooth_abs, &velocity_field](FluxValue<cfg>& flux, const StencilData<cfg>& data, const StencilValues<cfg>& u)
                 {
                     const auto& uL = u[left];
                     const auto& uR = u[right];
 
-                    auto v_L = velocity_field[data.cells[left]](d);
-                    auto v_R = velocity_field[data.cells[right]](d);
+                    auto vL = velocity_field[data.cells[left]](d);
+                    auto vR = velocity_field[data.cells[right]](d);
 
-                    // The textbook formula is λ = max(|v_L|, |v_R|).
-                    // In the incompressible case, there are no shocks, so v_L ≈ (v_L+v_R)/2 ≈ v_R.
-                    // Consequently, λ ≈ |(v_L+v_R)/2|.
+                    // The textbook formula is λ = max(|vL|, |vR|).
+                    // In the incompressible case, there are no shocks, so vL ≈ (vL+vR)/2 ≈ vR.
+                    // Consequently, λ ≈ |(vL+vR)/2|.
                     // Finally, to avoid non-differentiability at 0, we use a smooth approximation of the absolute value.
-                    auto lambda = smooth_abs(0.5 * (v_L + v_R));
+                    auto lambda = smooth_abs(0.5 * (vL + vR));
 
-                    auto F_L = v_L * uL;
-                    auto F_R = v_R * uR;
+                    auto F_L = vL * uL;
+                    auto F_R = vR * uR;
 
                     flux = 0.5 * (F_L + F_R - lambda * (uR - uL));
                 };
 
-                smooth_rusanov[d].cons_jacobian_function = [smooth_abs, &velocity_field](samurai::StencilJacobian<cfg>& jac,
-                                                                                         const samurai::StencilData<cfg>& data,
-                                                                                         const samurai::StencilValues<cfg>& /*u*/)
+                smooth_rusanov[d].cons_jacobian_function =
+                    [smooth_abs, &velocity_field](StencilJacobian<cfg>& jac, const StencilData<cfg>& data, const StencilValues<cfg>& /*u*/)
                 {
-                    auto v_L = velocity_field[data.cells[left]](d);
-                    auto v_R = velocity_field[data.cells[right]](d);
+                    auto vL = velocity_field[data.cells[left]](d);
+                    auto vR = velocity_field[data.cells[right]](d);
 
-                    auto lambda = smooth_abs(0.5 * (v_L + v_R));
+                    auto lambda = smooth_abs(0.5 * (vL + vR));
 
                     if constexpr (Field::is_scalar)
                     {
-                        jac[left]  = 0.5 * (v_L + lambda);
-                        jac[right] = 0.5 * (v_R - lambda);
+                        jac[left]  = 0.5 * (vL + lambda);
+                        jac[right] = 0.5 * (vR - lambda);
                     }
                     else
                     {
@@ -446,32 +438,32 @@ namespace samurai
                         jac[right].fill(0);
                         for (std::size_t i = 0; i < Field::n_comp; ++i)
                         {
-                            jac[left](i, i)  = 0.5 * (v_L + lambda);
-                            jac[right](i, i) = 0.5 * (v_R - lambda);
+                            jac[left](i, i)  = 0.5 * (vL + lambda);
+                            jac[right](i, i) = 0.5 * (vR - lambda);
                         }
                     }
                 };
             });
         auto scheme = make_flux_based_scheme(smooth_rusanov);
         scheme.set_name("smooth rusanov");
-
         return scheme;
     }
 
-    template <class TemperatureField, class VelocityField>
-    auto make_dual_convection_smooth_rusanov_incompressible(TemperatureField& T)
+    template <class Field, class VelocityField>
+    auto make_dual_convection_smooth_rusanov_incompressible(Field& u)
     {
-        static_assert(TemperatureField::dim == VelocityField::dim && VelocityField::n_comp == VelocityField::dim);
+        static_assert(Field::dim == VelocityField::dim && VelocityField::n_comp == VelocityField::dim);
+        static_assert(Field::is_scalar, "The field in parameter must be scalar");
 
         static constexpr std::size_t dim          = VelocityField::dim;
         static constexpr std::size_t stencil_size = 2;
         using input_field_t                       = VelocityField;
-        using output_field_t                      = TemperatureField;
-        using parameter_field_t                   = TemperatureField;
+        using output_field_t                      = Field;
+        using parameter_field_t                   = Field;
 
-        using cfg = samurai::FluxConfig<samurai::SchemeType::NonLinear, stencil_size, output_field_t, input_field_t, parameter_field_t>;
+        using cfg = FluxConfig<SchemeType::NonLinear, stencil_size, output_field_t, input_field_t, parameter_field_t>;
 
-        samurai::FluxDefinition<cfg> dual_rusanov;
+        FluxDefinition<cfg> dual_rusanov;
 
         auto diff_smooth_abs = [](auto x)
         {
@@ -479,7 +471,7 @@ namespace samurai
             return x / std::sqrt(x * x + eps * eps);
         };
 
-        samurai::static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
+        static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
             [&](auto _d)
             {
                 static constexpr std::size_t d = _d();
@@ -487,32 +479,31 @@ namespace samurai
                 static constexpr std::size_t left  = 0;
                 static constexpr std::size_t right = 1;
 
-                dual_rusanov[d].cons_jacobian_function = [&](samurai::StencilJacobian<cfg>& jac,
-                                                             const samurai::StencilData<cfg>& data,
-                                                             const samurai::StencilValues<cfg>& velocity_data)
+                dual_rusanov[d].cons_jacobian_function =
+                    [&](StencilJacobian<cfg>& jac, const StencilData<cfg>& data, const StencilValues<cfg>& velocity_data)
                 {
-                    auto v_L = velocity_data[left](d);
-                    auto v_R = velocity_data[right](d);
+                    auto vL = velocity_data[left](d);
+                    auto vR = velocity_data[right](d);
 
-                    auto uL = T[data.cells[left]];
-                    auto uR = T[data.cells[right]];
+                    auto uL = u[data.cells[left]];
+                    auto uR = u[data.cells[right]];
 
                     jac[left].fill(0);
                     jac[right].fill(0);
 
-                    // Differentiate lambda = smooth_abs(0.5 * (v_L + v_R)) w.r.t. v_L and v_R
-                    auto dlambda_dv_L = 0.5 * diff_smooth_abs(0.5 * (v_L + v_R));
-                    auto dlambda_dv_R = dlambda_dv_L;
+                    // Differentiate lambda = smooth_abs(0.5 * (vL + vR)) w.r.t. vL and vR
+                    auto dlambda_dvL = 0.5 * diff_smooth_abs(0.5 * (vL + vR));
+                    auto dlambda_dvR = dlambda_dvL;
 
-                    // Differentiate flux = 0.5 * (v_L*uL + v_R*uR - lambda*(uR - uL)) w.r.t. uL and uR
-                    xt::col(jac[left], d)  = 0.5 * (uL - dlambda_dv_L * (uR - uL));
-                    xt::col(jac[right], d) = 0.5 * (uR - dlambda_dv_R * (uR - uL));
+                    // Differentiate flux = 0.5 * (vL*uL + vR*uR - lambda*(uR - uL)) w.r.t. uL and uR
+                    xt::col(jac[left], d)  = 0.5 * (uL - dlambda_dvL * (uR - uL));
+                    xt::col(jac[right], d) = 0.5 * (uR - dlambda_dvR * (uR - uL));
                 };
             });
 
         auto scheme = make_flux_based_scheme(dual_rusanov);
         scheme.set_name("dual_convection");
-        scheme.set_parameter_field(T);
+        scheme.set_parameter_field(u);
         return scheme;
     }
 

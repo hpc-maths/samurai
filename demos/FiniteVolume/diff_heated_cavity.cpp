@@ -19,13 +19,8 @@ int main(int argc, char* argv[])
     //   Parameters   //
     //----------------//
 
-    // Rayleigh number
-    // Ra < 1e4 : steady laminar convection
-    // 1e4 < Ra < 1e5 : secondary instabilities, possible unsteadiness
-    // Ra > 1e5 : unsteady/turbulent flow
-    double Ra = 1e5;
-
-    double Tf = 1.0; // Final time
+    double Ra = 1e5;  // Rayleigh number
+    double Tf = 0.03; // Final time
     double dt = 1e-3;
     // double cfl = 0.01;
 
@@ -42,12 +37,14 @@ int main(int argc, char* argv[])
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
     SAMURAI_PARSE(argc, argv);
 
+    const double Pr    = 0.71;               // Prandtl number (air)
+    const double nu    = 1. / std::sqrt(Ra); // Kinematic viscosity: ν = 1/√(Ra)
+    const double alpha = nu / Pr;            // Thermal diffusivity: α = ν/Pr = 1/(Pr·√(Ra))
+
     if (!fs::exists(path))
     {
         fs::create_directory(path);
     }
-
-    auto box = samurai::Box<double, dim>({0, 0}, {1, 1});
 
     std::cout << "Differentially heated cavity (Ra = " << Ra << ")" << std::endl;
 
@@ -69,6 +66,8 @@ int main(int argc, char* argv[])
     // Field creations //
     //-----------------//
 
+    // Mesh creation
+    auto box    = samurai::Box<double, dim>({0, 0}, {1, 1});
     auto config = samurai::mesh_config<dim>().min_level(2).max_level(6).max_stencil_size(2);
     auto mesh   = samurai::mra::make_mesh(box, config);
 
@@ -80,15 +79,13 @@ int main(int argc, char* argv[])
     auto temperature     = samurai::make_scalar_field<double>("temperature", mesh);
     auto temperature_np1 = samurai::make_scalar_field<double>("temperature_np1", mesh);
 
+    // Fields for the right-hand side of the system
+    auto zero_pressure = samurai::make_scalar_field<double>("zero_pressure", mesh);
+
     // Fields for the null space of the system (constant pressure)
     auto constant_pressure = samurai::make_scalar_field<double>("constant_pressure", mesh, 1.);
     auto zero_velocity     = samurai::make_vector_field<double, dim>("zero_velocity", mesh, 0.);
     auto zero_temperature  = samurai::make_scalar_field<double>("zero_temperature", mesh, 0.);
-
-    // Fields for the right-hand side of the system
-    // auto rhs_V = samurai::make_vector_field<double, dim>("rhs_V", mesh);
-    auto zero_pressure = samurai::make_scalar_field<double>("zero_pressure", mesh);
-    // auto rhs_T = samurai::make_scalar_field<double>("rhs_T", mesh);
 
     using VelocityField    = decltype(velocity);
     using PressureField    = decltype(pressure_np1);
@@ -152,10 +149,6 @@ int main(int argc, char* argv[])
     //             |       -div               0                0          | |P_np1| = | 0 |
     //             |         0                0        I + dt*(diff+conv) | |T_np1|   |T_n|
 
-    const double Pr    = 0.71;                      // Prandtl number (air)
-    const double nu    = 1. / std::sqrt(Ra);        // Kinematic viscosity: ν = 1/√(Ra)
-    const double alpha = 1. / (Pr * std::sqrt(Ra)); // Thermal diffusivity: α = 1/(Pr·√(Ra))
-
     auto id_V   = samurai::make_identity<VelocityField>();                                 // id:   V ---> V
     auto diff_V = samurai::make_diffusion_order2<VelocityField>(nu);                       // diff: V ---> -νΔV
     auto conv_V = samurai::make_convection_smooth_rusanov_incompressible<VelocityField>(); // conv: V ---> V·∇V
@@ -176,6 +169,10 @@ int main(int argc, char* argv[])
     // If we used 'velocity' and 'temperature' instead, the non-linear function would always use the same values.
     // Luckily, in the Newton solver, we reuse the unknown fields to evaluate the non-linear function at each iteration.
 
+    // Remark that for the convection operators, we use smooth versions of the Rusanov scheme to ensure differentiability (simple upwind and
+    // WENO schemes are not differentiable).
+    // It is crucial for the Newton solver to have a differentiable operator.
+
     auto navier_stokes_euler = [&](double dt)
     {
         // clang-format off
@@ -193,18 +190,18 @@ int main(int argc, char* argv[])
 
     auto nonlin_solver = samurai::petsc::make_solver(navier_stokes_euler(dt));
     nonlin_solver.set_unknowns(velocity_np1, pressure_np1, temperature_np1);
-    nonlin_solver.configure = [&](SNES&, KSP& ksp, PC& pc)
+
+    nonlin_solver.configure = [&](SNES& snes, KSP& ksp, PC& pc)
     {
-        KSPSetType(ksp, KSPPREONLY); // (equiv. '-ksp_type preonly')
-#if defined(PETSC_HAVE_MUMPS)
-        // We use MUMPS because it can handle null spaces (unlike the default petsc LU)
+        SNESLineSearch linesearch;
+        SNESGetLineSearch(snes, &linesearch);
+        SNESLineSearchSetType(linesearch, SNESLINESEARCHCP); // (equiv. '-snes_linesearch_type cp')
+        // We use MUMPS because it can handle null spaces (unlike the default LU solver)
+        KSPSetType(ksp, KSPPREONLY);                  // (equiv. '-ksp_type preonly')
         PCSetType(pc, PCLU);                          // (equiv. '-pc_type lu')
         PCFactorSetMatSolverType(pc, MATSOLVERMUMPS); // (equiv. '-pc_factor_mat_solver_type mumps')
-#else
-        // If MUMPS is not installed, we fallback on QR because it can handle singular systems
-        PCSetType(pc, PCQR); // (equiv. '-pc_type qr')
-#endif
     };
+
     nonlin_solver.after_matrix_assembly = [&](SNES&, KSP&, PC& pc, Mat& A)
     {
         // Set the null space (constant pressures) so that iterative solvers can orthogonalize residuals against it
@@ -372,9 +369,8 @@ int main(int argc, char* argv[])
                 samurai::save(path, filename, velocity.mesh(), velocity);
             }
             nsave++;
-
-        } // end time loop
-    }
+        }
+    } // end time loop
 
     nonlin_solver.destroy_petsc_objects();
     samurai::finalize();

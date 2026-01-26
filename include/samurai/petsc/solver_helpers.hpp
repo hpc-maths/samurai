@@ -72,12 +72,26 @@ namespace samurai
             return NonLinearBlockSolver<assembly_type, rows, cols, Operators...>(block_operator);
         }
 
+        // If one wants to use a non-linear solver for a linear block operator
+        template <BlockAssemblyType assembly_type, std::size_t rows, std::size_t cols, class... Operators>
+        auto make_nonlinear_solver(const BlockOperator<rows, cols, Operators...>& block_operator)
+        {
+            return NonLinearBlockSolver<assembly_type, rows, cols, Operators...>(block_operator);
+        }
+
         // Non-linear block solver (monolithic)
         template <std::size_t rows, std::size_t cols, class... Operators>
             requires(scheme_type_of_block_operator<Operators...>() == SchemeType::NonLinear)
         auto make_solver(const BlockOperator<rows, cols, Operators...>& block_operator)
         {
             return make_solver<BlockAssemblyType::Monolithic, rows, cols, Operators...>(block_operator);
+        }
+
+        // If one wants to use a non-linear solver for a linear block operator
+        template <std::size_t rows, std::size_t cols, class... Operators>
+        auto make_nonlinear_solver(const BlockOperator<rows, cols, Operators...>& block_operator)
+        {
+            return make_nonlinear_solver<BlockAssemblyType::Monolithic, rows, cols, Operators...>(block_operator);
         }
 
         /**
