@@ -5,7 +5,7 @@
 namespace samurai
 {
     template <SchemeType scheme_type_, std::size_t stencil_size_, class output_field_t_, class input_field_t_, class parameter_field_t_ = void*>
-        requires(IsField<output_field_t_> && IsField<input_field_t_>)
+        requires(field_like<output_field_t_> && field_like<input_field_t_>)
     struct FluxConfig
     {
         static constexpr SchemeType scheme_type   = scheme_type_;

@@ -76,10 +76,10 @@ namespace samurai
 
         using self_type  = CellArray<dim_, TInterval, max_size_>;
         using interval_t = TInterval;
-        using cell_t     = Cell<dim, interval_t>;
         using value_t    = typename interval_t::value_t;
         using index_t    = typename interval_t::index_t;
         using lca_type   = LevelCellArray<dim, TInterval>;
+        using cell_t     = typename lca_type::cell_t;
         using cl_type    = CellList<dim, TInterval, max_size>;
         using coords_t   = typename lca_type::coords_t;
 

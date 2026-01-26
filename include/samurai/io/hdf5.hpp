@@ -999,7 +999,7 @@ namespace samurai
     }
 
     template <class mesh_t, class... T>
-        requires(IsMesh<mesh_t>)
+        requires(mesh_like<mesh_t>)
     void save(const fs::path& path, const std::string& filename, const Hdf5Options<mesh_t>& options, const mesh_t& mesh, const T&... fields)
     {
         static constexpr std::size_t dim = mesh_t::dim;
@@ -1041,21 +1041,21 @@ namespace samurai
     }
 
     template <class mesh_t, class... T>
-        requires(IsMesh<mesh_t>)
+        requires(mesh_like<mesh_t>)
     void save(const fs::path& path, const std::string& filename, const mesh_t& mesh, const T&... fields)
     {
         save(path, filename, {}, mesh, fields...);
     }
 
     template <class options_t, class mesh_t, class... T>
-        requires(IsMesh<mesh_t> && std::is_same_v<options_t, std::initializer_list<bool>>)
+        requires(mesh_like<mesh_t> && std::is_same_v<options_t, std::initializer_list<bool>>)
     void save(const std::string& filename, const options_t& options, const mesh_t& mesh, const T&... fields)
     {
         save(fs::current_path(), filename, options, mesh, fields...);
     }
 
     template <class mesh_t, class... T>
-        requires(IsMesh<mesh_t>)
+        requires(mesh_like<mesh_t>)
     void save(const std::string& filename, const mesh_t& mesh, const T&... fields)
     {
         save(fs::current_path(), filename, {}, mesh, fields...);

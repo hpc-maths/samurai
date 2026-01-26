@@ -523,7 +523,7 @@ namespace samurai
 
         update_ghost_mr_if_needed(field);
 
-        auto make_field_like = [](std::string const& name, auto& mesh)
+        auto make_field_like = [](const std::string& name, auto& mesh)
         {
             if constexpr (Field::is_scalar)
             {
@@ -811,8 +811,8 @@ namespace samurai
     {
         static constexpr std::size_t dim = Field_src::dim;
         using mesh_id_t                  = typename Field_src::mesh_t::mesh_id_t;
-        using interval_t                 = typename Field_src::interval_t;
-        using size_type                  = typename Field_src::inner_types::size_type;
+        using interval_t                 = typename Field_src::mesh_t::interval_t;
+        using size_type                  = typename Field_src::size_type;
         using value_t                    = typename interval_t::value_t;
         auto& mesh_src                   = field_src.mesh();
         auto& mesh_dst                   = field_dst.mesh();
@@ -864,7 +864,7 @@ namespace samurai
                                               "transfer() is not implemented with Eigen for scalar fields and vectorial fields in AOS.");
                             // In the lid-driven-cavity demo, the following line of code does not compile with Eigen.
 #else
-                                static_assert(Field_src::inner_types::static_layout == layout_type::row_major,
+                                static_assert(Field_src::static_layout == layout_type::row_major,
                                               "transfer() is not implemented when the xtensor within a field is col-major.");
                             // In the lid-driven-cavity demo, the following line of code crashes at execution in col_major.
 #endif
