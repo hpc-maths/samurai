@@ -12,6 +12,7 @@ set(TUTORIAL_DEMOS
     reconstruction_2d.cpp:tutorial-reconstruction-2d
     reconstruction_3d.cpp:tutorial-reconstruction-3d
     proj_on_mesh.cpp:tutorial-proj-on-mesh
+    use_config_file.cpp:tutorial-use-config-file
 )
 
 # Create executables for all tutorial demos
