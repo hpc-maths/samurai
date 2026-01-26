@@ -651,8 +651,8 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::get_interval(const interval_t& interval, const coord_type& index) const
-        -> const interval_t&
+    SAMURAI_INLINE auto
+    LevelCellArray<Dim, TInterval>::get_interval(const interval_t& interval, const coord_type& index) const -> const interval_t&
     {
         all_coord_type point;
         point[0] = interval.start;

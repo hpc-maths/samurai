@@ -314,25 +314,25 @@ namespace samurai
      */
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
     template <typename... T, typename D>
-    SAMURAI_INLINE auto CellArray<dim_, TInterval, max_size_>::get_interval(std::size_t level, const interval_t& interval, T... index) const
-        -> const interval_t&
+    SAMURAI_INLINE auto
+    CellArray<dim_, TInterval, max_size_>::get_interval(std::size_t level, const interval_t& interval, T... index) const -> const interval_t&
     {
         return m_cells[level].get_interval(interval, index...);
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
     template <class E>
-    SAMURAI_INLINE auto
-    CellArray<dim_, TInterval, max_size_>::get_interval(std::size_t level, const interval_t& interval, const xt::xexpression<E>& index) const
-        -> const interval_t&
+    SAMURAI_INLINE auto CellArray<dim_, TInterval, max_size_>::get_interval(std::size_t level,
+                                                                            const interval_t& interval,
+                                                                            const xt::xexpression<E>& index) const -> const interval_t&
     {
         return m_cells[level].get_interval(interval, index);
     }
 
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
     template <class E>
-    SAMURAI_INLINE auto CellArray<dim_, TInterval, max_size_>::get_interval(std::size_t level, const xt::xexpression<E>& coord) const
-        -> const interval_t&
+    SAMURAI_INLINE auto
+    CellArray<dim_, TInterval, max_size_>::get_interval(std::size_t level, const xt::xexpression<E>& coord) const -> const interval_t&
     {
         return m_cells[level].get_interval(coord);
     }

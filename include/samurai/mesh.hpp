@@ -693,17 +693,17 @@ namespace samurai
 
     template <class D, class Config>
     template <typename... T, typename U>
-    SAMURAI_INLINE auto Mesh_base<D, Config>::get_interval(std::size_t level, const interval_t& interval, T... index) const
-        -> const interval_t&
+    SAMURAI_INLINE auto
+    Mesh_base<D, Config>::get_interval(std::size_t level, const interval_t& interval, T... index) const -> const interval_t&
     {
         return m_cells[mesh_id_t::reference].get_interval(level, interval, index...);
     }
 
     template <class D, class Config>
     template <class E>
-    SAMURAI_INLINE auto
-    Mesh_base<D, Config>::get_interval(std::size_t level, const interval_t& interval, const xt::xexpression<E>& index) const
-        -> const interval_t&
+    SAMURAI_INLINE auto Mesh_base<D, Config>::get_interval(std::size_t level,
+                                                           const interval_t& interval,
+                                                           const xt::xexpression<E>& index) const -> const interval_t&
     {
         return m_cells[mesh_id_t::reference].get_interval(level, interval, index);
     }

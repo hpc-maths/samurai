@@ -460,8 +460,8 @@ namespace samurai
     } // namespace detail
 
     template <std::size_t dim, class TInterval, class index_t = typename TInterval::index_t, class coord_index_t = typename TInterval::coord_index_t>
-    SAMURAI_INLINE auto find(const LevelCellArray<dim, TInterval>& lca, const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& coord)
-        -> index_t
+    SAMURAI_INLINE auto
+    find(const LevelCellArray<dim, TInterval>& lca, const xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>& coord) -> index_t
     {
         return detail::find_impl(lca, 0, lca[dim - 1].size(), coord, std::integral_constant<std::size_t, dim - 1>{});
     }
