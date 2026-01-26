@@ -45,6 +45,7 @@ namespace samurai
     inline auto& initialize(const std::string& description, int& argc, char**& argv)
     {
         app.description(description);
+        app.set_config("--config");
         read_samurai_arguments(app, argc, argv);
 
         std::this_thread::sleep_for(std::chrono::seconds(args::sleep_at_startup));
