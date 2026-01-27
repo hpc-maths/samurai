@@ -341,7 +341,7 @@ int main(int argc, char* argv[])
             }
             else
             {
-                samurai::save(path, filename, velocity.mesh(), velocity);
+                samurai::save(path, filename, mesh, temperature);
             }
             nsave++;
         }
