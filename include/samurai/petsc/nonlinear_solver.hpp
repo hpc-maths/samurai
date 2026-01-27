@@ -48,9 +48,9 @@ namespace samurai
           public:
 
             // User callback to configure the solver
-            std::function<void(SNES&, KSP&, PC&)> configure                   = nullptr;
-            std::function<void(SNES&, KSP&, PC&, Mat&)> after_matrix_assembly = nullptr;
-            std::function<void(const worker_output_field_t&)> monitor         = nullptr;
+            std::function<void(SNES&, KSP&, PC&)> configure                                = nullptr;
+            std::function<void(SNES&, KSP&, PC&, Mat&)> after_matrix_assembly              = nullptr;
+            std::function<void(PetscInt, PetscReal, const worker_output_field_t&)> monitor = nullptr;
 
             explicit NonLinearSolverBase(const scheme_t& scheme)
                 : m_assembly(scheme)
@@ -305,7 +305,7 @@ namespace samurai
                 return PETSC_SUCCESS;
             }
 
-            static PetscErrorCode PETSC_monitor(SNES snes, PetscInt it, PetscReal /* rnorm */, void* ctx)
+            static PetscErrorCode PETSC_monitor(SNES snes, PetscInt it, PetscReal rnorm, void* ctx)
             {
                 Vec r;
                 SNESGetFunction(snes, &r, NULL, NULL);
@@ -315,29 +315,8 @@ namespace samurai
 
                 auto& r_field = self->m_worker_output_field;
                 assembly.copy_rhs(r, r_field);
-                if (self->monitor)
-                {
-                    self->monitor(r_field);
-                }
-
-                // if constexpr (!is_block_solver)
-                // {
-                //     samurai::save(fs::current_path(), fmt::format("snes_residual_{}", it), {true, true}, r_field.mesh(), r_field);
-                // }
-                // else
-                // {
-                //     static constexpr std::size_t cols = Assembly::cols;
-                //     static_for<0, cols>::apply(
-                //         [&](auto col)
-                //         {
-                //             auto& r_field = std::get<col>(self->m_worker_output_field);
-                //             samurai::save(fs::current_path(),
-                //                           fmt::format("snes_residual_{}_{}", r_field.name(), it),
-                //                           {true, true},
-                //                           r_field.mesh(),
-                //                           r_field);
-                //         });
-                // }
+                assert(self->monitor);
+                self->monitor(it, rnorm, r_field);
 
                 return PETSC_SUCCESS;
             }

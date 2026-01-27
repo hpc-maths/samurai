@@ -229,6 +229,19 @@ int main(int argc, char* argv[])
         }
     };
 
+    // When the solver doesn't converge, for debugging purposes, the following code might be useful.
+    // It saves the residual fields at each SNES iteration so that one can identify which variable doesn't decrease.
+    /*
+    nonlin_solver.monitor = [&](PetscInt it, PetscReal residual_norm, const auto& residual_fields)
+    {
+        std::cout << "\tSNES iter " << it << ", residual norm = " << residual_norm << std::endl;
+        const auto& res_velocity    = std::get<0>(residual_fields);
+        const auto& res_pressure    = std::get<1>(residual_fields);
+        const auto& res_temperature = std::get<2>(residual_fields);
+        samurai::save(path, fmt::format("snes_residual_{}", it), res_velocity.mesh(), res_velocity, res_pressure, res_temperature);
+    };
+    */
+
     nonlin_solver.stop_program_on_divergence(false);
 
     double dt_save    = nfiles == 0 ? dt : Tf / static_cast<double>(nfiles);

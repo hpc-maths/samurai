@@ -244,9 +244,11 @@ def test_finite_volume_demo_diff_heated_cavity(config):
         config["filename"],
         "--nfiles=1",
         "--Tf=0.7",
+        "-snes_view",
         "-pc_type", "qr" # we use QR because MUMPS yields different results on macos and linux, so the comparison fails on the CI
     ]
     output = subprocess.run(cmd, check=True, capture_output=True)
+    print(output.stdout.decode())
 
 
 @pytest.mark.h5diff()
