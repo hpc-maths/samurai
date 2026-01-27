@@ -20,9 +20,10 @@ int main(int argc, char* argv[])
     //----------------//
 
     double Ra = 1e5;  // Rayleigh number
-    double Tf = 0.03; // Final time
-    double dt = 1e-3;
-    // double cfl = 0.01;
+    double Pr = 0.71; // Prandtl number (air)
+
+    double Tf = 10; // Final time
+    double dt = 1e-1;
 
     std::size_t nfiles   = 0;
     fs::path path        = fs::current_path();
@@ -31,15 +32,10 @@ int main(int argc, char* argv[])
     app.add_option("--Ra", Ra, "Rayleigh number")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
-    // app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
     SAMURAI_PARSE(argc, argv);
-
-    const double Pr    = 0.71;               // Prandtl number (air)
-    const double nu    = 1. / std::sqrt(Ra); // Kinematic viscosity: ν = 1/√(Ra)
-    const double alpha = nu / Pr;            // Thermal diffusivity: α = ν/Pr = 1/(Pr·√(Ra))
 
     if (!fs::exists(path))
     {
@@ -48,18 +44,17 @@ int main(int argc, char* argv[])
 
     std::cout << "Differentially heated cavity (Ra = " << Ra << ")" << std::endl;
 
-    // Incompressible Navier-Stokes equations:
+    // Dimensionless incompressible Navier-Stokes equations (see, e.g., https://www.mdpi.com/2673-3951/6/3/66 eq. (19)-(22)):
     //
-    //              ∂V/∂t - νΔV + V·∇V + ∇P - Ra*T*e_y = 0
-    //                                             ∇·V = 0
-    //              ∂T/∂t - αΔT + V·∇T                 = 0
+    //              ∂V/∂t -   √(Pr/Ra)ΔV + V·∇V + ∇P - T*e_y = 0
+    //                                                   ∇·V = 0
+    //              ∂T/∂t - 1/√(Pr·Ra)ΔT + V·∇T              = 0
     //
     // where V = velocity,
     //       P = pressure,
     //       T = temperature,
-    // and ν   = kinematic viscosity,
-    //     α   = thermal diffusivity,
-    //     Ra  = Rayleigh number,
+    // and Ra  = Rayleigh number,
+    //     Pr  = Prandtl number,
     //     e_y = unit vector in the y direction
 
     //-----------------//
@@ -68,7 +63,7 @@ int main(int argc, char* argv[])
 
     // Mesh creation
     auto box    = samurai::Box<double, dim>({0, 0}, {1, 1});
-    auto config = samurai::mesh_config<dim>().min_level(2).max_level(6).max_stencil_size(2);
+    auto config = samurai::mesh_config<dim>().min_level(2).max_level(7).max_stencil_size(2);
     auto mesh   = samurai::mra::make_mesh(box, config);
 
     // Fields for the Navier-Stokes equations
@@ -114,6 +109,10 @@ int main(int argc, char* argv[])
     pressure_np1.copy_bc_from(pressure);
     temperature_np1.copy_bc_from(temperature);
 
+    // Multi-resolution: the mesh will be adapted according to the velocity
+    auto MRadaptation = samurai::make_MRAdapt(velocity);
+    auto mra_config   = samurai::mra_config().epsilon(1e-3).regularity(2);
+
     //--------------------//
     // Initial conditions //
     //--------------------//
@@ -150,7 +149,7 @@ int main(int argc, char* argv[])
     //             |         0                0        I + dt*(diff+conv) | |T_np1|   |T_n|
 
     auto id_V   = samurai::make_identity<VelocityField>();                                 // id:   V ---> V
-    auto diff_V = samurai::make_diffusion_order2<VelocityField>(nu);                       // diff: V ---> -νΔV
+    auto diff_V = samurai::make_diffusion_order2<VelocityField>(std::sqrt(Pr / Ra));       // diff: V ---> -√(Pr/Ra)ΔV
     auto conv_V = samurai::make_convection_smooth_rusanov_incompressible<VelocityField>(); // conv: V ---> V·∇V
     auto div_V  = samurai::make_divergence_order2<VelocityField>();                        // div:  V ---> ∇·V
 
@@ -158,9 +157,9 @@ int main(int argc, char* argv[])
     auto zero_P = samurai::make_zero_operator<PressureField>();   // zero: P ---> 0
 
     auto id_T   = samurai::make_identity<TemperatureField>();                                             // id:   T ---> T
-    auto diff_T = samurai::make_diffusion_order2<TemperatureField>(alpha);                                // diff: T ---> -αΔT
+    auto diff_T = samurai::make_diffusion_order2<TemperatureField>(1. / std::sqrt(Pr * Ra));              // diff: T ---> -1/√(Pr·Ra)ΔT
     auto conv_T = samurai::make_convection_smooth_rusanov_incompressible<TemperatureField>(velocity_np1); // conv: T ---> V·∇T
-    auto buoy_T = samurai::make_buoyancy<VelocityField, TemperatureField>(Ra); // buoy: T ---> -Ra*T*e_y (acts only in y-direction)
+    auto buoy_T = samurai::make_buoyancy<VelocityField, TemperatureField>(); // buoy: T ---> -T*e_y (acts only in y-direction)
     // used for the assembly of the Jacobian matrix: it fills the block ∂(conv_T)/∂V
     auto conv_dual = samurai::make_dual_convection_smooth_rusanov_incompressible<TemperatureField, VelocityField>(temperature_np1);
 
@@ -200,11 +199,14 @@ int main(int argc, char* argv[])
         KSPSetType(ksp, KSPPREONLY);                  // (equiv. '-ksp_type preonly')
         PCSetType(pc, PCLU);                          // (equiv. '-pc_type lu')
         PCFactorSetMatSolverType(pc, MATSOLVERMUMPS); // (equiv. '-pc_factor_mat_solver_type mumps')
+        // We set the same tolerance as that of the multiresolution
+        PetscReal atol = mesh.min_level() == mesh.max_level() ? 1e-4 : mra_config.epsilon();
+        SNESSetTolerances(snes, atol, PETSC_DETERMINE, PETSC_DETERMINE, PETSC_DETERMINE, PETSC_DETERMINE); // (equiv. '-snes_atol [atol]')
     };
 
     nonlin_solver.after_matrix_assembly = [&](SNES&, KSP&, PC& pc, Mat& A)
     {
-        // Set the null space (constant pressures) so that iterative solvers can orthogonalize residuals against it
+        // Set the null space (constant pressure) so that iterative solvers can orthogonalize residuals against it
         Vec constant_pressure_vector = nonlin_solver.assembly().create_vector(zero_velocity, constant_pressure, zero_temperature);
         VecNormalize(constant_pressure_vector, NULL);
 
@@ -227,7 +229,7 @@ int main(int argc, char* argv[])
         }
     };
 
-    // double dx = mesh.cell_length(mesh.max_level());
+    nonlin_solver.stop_program_on_divergence(false);
 
     double dt_save    = nfiles == 0 ? dt : Tf / static_cast<double>(nfiles);
     std::size_t nsave = 0, nt = 0;
@@ -240,10 +242,6 @@ int main(int argc, char* argv[])
         nsave++;
     }
 
-    // Multi-resolution: the mesh will be adapted according to the velocity
-    auto MRadaptation = samurai::make_MRAdapt(velocity);
-    auto mra_config   = samurai::mra_config().epsilon(1e-1).regularity(3);
-
     //----------------//
     // Time iteration //
     //----------------//
@@ -251,23 +249,15 @@ int main(int argc, char* argv[])
     double t = 0;
     while (t < Tf)
     {
-        // Compute dt
-        // samurai::VelocityVector<dim> max_velocity;
-        // max_velocity.fill(0);
-        // samurai::for_each_cell(velocity.mesh(),
-        //                        [&](const auto& cell)
-        //                        {
-        //                            max_velocity = xt::maximum(max_velocity, xt::abs(velocity[cell]));
-        //                        });
-        // double sum_max_velocities = xt::sum(max_velocity)();
-        // sum_max_velocities        = std::max(sum_max_velocities, 1.); // arbitrary choice to avoid division by zero
-        // dt                        = cfl * dx / sum_max_velocities;
-
         // Move to next timestep
         t += dt;
         if (t > Tf)
         {
             dt += Tf - t;
+            if (dt < 1e-10)
+            {
+                break;
+            }
             t = Tf;
             // Reconstruct the block operator with the new dt
             nonlin_solver.set_block_operator(navier_stokes_euler(dt));
@@ -309,33 +299,18 @@ int main(int argc, char* argv[])
                                    temperature_np1[cell] = temperature[cell];
                                });
         // Solve the non-linear system F(V_np1, P_np1, T_np1) = (V_n, 0, T_n)
-        nonlin_solver.solve(velocity, zero_pressure, temperature);
+        SNESConvergedReason reason_code = nonlin_solver.solve(velocity, zero_pressure, temperature);
+        if (reason_code < 0)
+        {
+            std::cout << "    Non-linear solver diverged. Reducing time step and retrying..." << std::endl;
+            t -= dt;                                                   // rollback time
+            dt *= 0.5;                                                 // reduce time step by half
+            nonlin_solver.set_block_operator(navier_stokes_euler(dt)); // Reconstruct the block operator with the new dt
+            nt--;
+            continue;
+        }
 
-        // Check for solution sanity after Newton solve
-        double max_velocity_magnitude = 0.0;
-        double max_temperature = -1e10, min_temperature = 1e10;
-        samurai::for_each_cell(
-            mesh,
-            [&](const auto& cell)
-            {
-                auto vel_mag = std::sqrt(velocity_np1[cell](0) * velocity_np1[cell](0) + velocity_np1[cell](1) * velocity_np1[cell](1));
-                max_velocity_magnitude = std::max(max_velocity_magnitude, vel_mag);
-                max_temperature        = std::max(max_temperature, temperature_np1[cell]);
-                min_temperature        = std::min(min_temperature, temperature_np1[cell]);
-            });
-
-        std::cout << fmt::format("\t max‖V‖ = {:.2e}, T ∈ [{:.3f},{:.3f}], Newton its = {} \n",
-                                 max_velocity_magnitude,
-                                 min_temperature,
-                                 max_temperature,
-                                 nonlin_solver.iterations());
-
-        // Check for physical bounds violation or excessive velocities
-        // if (max_velocity_magnitude > 1000.0 || max_temperature > 2.0 || min_temperature < -1.0)
-        // {
-        //     std::cerr << " ❌ SOLUTION DIVERGED!" << std::endl;
-        //     break;
-        // }
+        std::cout << "\tNewton its = " << nonlin_solver.iterations() << std::endl;
 
         // Remove the average pressure to avoid drift
         double avg_pressure = 0.0;

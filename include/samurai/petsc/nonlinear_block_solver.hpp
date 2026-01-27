@@ -59,7 +59,7 @@ namespace samurai
             }
 
             template <class... Fields>
-            void solve(Fields&... rhs_fields)
+            SNESConvergedReason solve(Fields&... rhs_fields)
             {
                 auto rhs_tuple = assembly().block_operator().tie_rhs(rhs_fields...);
 
@@ -84,7 +84,7 @@ namespace samurai
                 assembly().set_0_for_all_ghosts(x);
                 this->prepare_rhs(x, b);
 
-                this->solve_system(x, b);
+                SNESConvergedReason reason_code = this->solve_system(x, b);
 
 #ifdef SAMURAI_WITH_MPI
                 assembly().update_unknowns(x);
@@ -96,6 +96,7 @@ namespace samurai
 #endif
                 VecDestroy(&b);
                 VecDestroy(&x);
+                return reason_code;
             }
 
             void set_block_operator(const block_operator_t& block_op)

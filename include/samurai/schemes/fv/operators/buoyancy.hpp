@@ -4,7 +4,7 @@
 namespace samurai
 {
     template <class VelocityField, class TemperatureField>
-    auto make_buoyancy(const double& factor)
+    auto make_buoyancy(double factor = 1.0)
     {
         static_assert(VelocityField::dim >= 2, "Buoyancy operator is not implemented in 1D.");
 

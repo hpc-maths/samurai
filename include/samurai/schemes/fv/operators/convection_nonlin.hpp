@@ -251,7 +251,7 @@ namespace samurai
 
         FluxDefinition<cfg> smooth_rusanov;
 
-        constexpr double eps = 1e-8;
+        constexpr double eps = 1e-6;
         auto smooth_abs      = [](auto x)
         {
             return std::sqrt(x * x + eps * eps);
@@ -278,10 +278,16 @@ namespace samurai
                     static_for<0, dim>::apply(
                         [&](auto d2)
                         {
-                            jac(d2, d2) = u(d);
-                            jac(d2, d)  = u(d2);
+                            if constexpr (d2 != d)
+                            {
+                                jac(d2, d2) = u(d);
+                                jac(d2, d)  = u(d2);
+                            }
+                            else
+                            {
+                                jac(d, d) = 2.0 * u(d);
+                            }
                         });
-                    jac(d, d) = 2.0 * u(d);
                     return jac;
                 };
 
@@ -305,26 +311,19 @@ namespace samurai
                     auto uL = field[left];
                     auto uR = field[right];
 
-                    // samurai::JacobianMatrix<cfg> df_duL = df_du(uL);
-                    // samurai::JacobianMatrix<cfg> df_duR = df_du(uR);
+                    jac[left]  = 0.5 * df_du(uL);
+                    jac[right] = 0.5 * df_du(uR);
 
                     auto lambda = smooth_abs(0.5 * (uL(d) + uR(d)));
 
                     // Differentiate lambda w.r.t. uL(d) and uR(d) (which yields the same result)
                     auto dlambda_dud = 0.5 * diff_smooth_abs(0.5 * (uL(d) + uR(d)));
 
-                    auto Identity = eye<double, dim, dim, false>();
-
-                    jac[left]  = 0.5 * df_du(uL);
-                    jac[right] = 0.5 * df_du(uR);
-
                     // Add the lambda derivative terms (only affects d-th column)
-                    for (std::size_t i = 0; i < dim; ++i)
-                    {
-                        jac[left](i, d) -= 0.5 * dlambda_dud * (uR(i) - uL(i));
-                        jac[right](i, d) -= 0.5 * dlambda_dud * (uR(i) - uL(i));
-                    }
+                    xt::col(jac[left], d) -= 0.5 * dlambda_dud * (uR - uL);
+                    xt::col(jac[right], d) -= 0.5 * dlambda_dud * (uR - uL);
 
+                    auto Identity = eye<double, dim, dim, false>();
                     jac[left] += 0.5 * lambda * Identity;
                     jac[right] -= 0.5 * lambda * Identity;
                 };

@@ -37,10 +37,11 @@ namespace samurai
           protected:
 
             Assembly m_assembly;
-            SNES m_snes                   = nullptr;
-            Mat m_J                       = nullptr;
-            bool m_is_set_up              = false;
-            bool m_reuse_allocated_matrix = false;
+            SNES m_snes                       = nullptr;
+            Mat m_J                           = nullptr;
+            bool m_is_set_up                  = false;
+            bool m_reuse_allocated_matrix     = false;
+            bool m_stop_program_on_divergence = true;
 
             worker_output_field_t m_worker_output_field;
 
@@ -134,6 +135,11 @@ namespace samurai
             auto& scheme()
             {
                 return assembly().scheme();
+            }
+
+            void stop_program_on_divergence(bool value)
+            {
+                m_stop_program_on_divergence = value;
             }
 
           protected:
@@ -314,24 +320,24 @@ namespace samurai
                     self->monitor(r_field);
                 }
 
-                if constexpr (!is_block_solver)
-                {
-                    samurai::save(fs::current_path(), fmt::format("snes_residual_{}", it), {true, true}, r_field.mesh(), r_field);
-                }
-                else
-                {
-                    static constexpr std::size_t cols = Assembly::cols;
-                    static_for<0, cols>::apply(
-                        [&](auto col)
-                        {
-                            auto& r_field = std::get<col>(self->m_worker_output_field);
-                            samurai::save(fs::current_path(),
-                                          fmt::format("snes_residual_{}_{}", r_field.name(), it),
-                                          {true, true},
-                                          r_field.mesh(),
-                                          r_field);
-                        });
-                }
+                // if constexpr (!is_block_solver)
+                // {
+                //     samurai::save(fs::current_path(), fmt::format("snes_residual_{}", it), {true, true}, r_field.mesh(), r_field);
+                // }
+                // else
+                // {
+                //     static constexpr std::size_t cols = Assembly::cols;
+                //     static_for<0, cols>::apply(
+                //         [&](auto col)
+                //         {
+                //             auto& r_field = std::get<col>(self->m_worker_output_field);
+                //             samurai::save(fs::current_path(),
+                //                           fmt::format("snes_residual_{}_{}", r_field.name(), it),
+                //                           {true, true},
+                //                           r_field.mesh(),
+                //                           r_field);
+                //         });
+                // }
 
                 return PETSC_SUCCESS;
             }
@@ -354,7 +360,7 @@ namespace samurai
                 // assert(check_nan_or_inf(b));
             }
 
-            void solve_system(Vec& x, const Vec& b)
+            SNESConvergedReason solve_system(Vec& x, const Vec& b)
             {
 #ifdef SAMURAI_CHECK_NAN
                 assert(check_nan_or_inf(x));
@@ -367,7 +373,7 @@ namespace samurai
 
                 SNESConvergedReason reason_code;
                 SNESGetConvergedReason(m_snes, &reason_code);
-                if (reason_code < 0)
+                if (reason_code < 0 && m_stop_program_on_divergence)
                 {
                     using namespace std::string_literals;
                     const char* reason_text;
@@ -380,6 +386,7 @@ namespace samurai
                     exit(EXIT_FAILURE);
                 }
                 // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_WORLD)); std::cout << std::endl;
+                return reason_code;
             }
 
           public:
@@ -441,7 +448,7 @@ namespace samurai
                 assembly().set_unknown(unknown);
             }
 
-            void solve(output_field_t& rhs)
+            SNESConvergedReason solve(output_field_t& rhs)
             {
                 m_worker_output_field = output_field_t("worker_output", rhs.mesh());
 
@@ -450,27 +457,19 @@ namespace samurai
                     this->setup();
                 }
 
-                // update_ghost_mr(assembly().unknown());
-                // update_ghost_mr(rhs);
-
-                // samurai::save(fs::current_path(), "snes_initial_guess", {true, true}, assembly().unknown().mesh(), assembly().unknown());
-                // samurai::save(fs::current_path(), "snes_rhs_before", {true, true}, rhs.mesh(), rhs);
-
                 Vec b = assembly().create_rhs_vector(rhs);
                 Vec x = assembly().create_solution_vector(assembly().unknown());
 
-                // assembly().copy_rhs(b, rhs);
-                // samurai::save(fs::current_path(), "snes_rhs_after", {true, true}, rhs.mesh(), rhs);
-
                 this->prepare_rhs(x, b);
 
-                this->solve_system(x, b);
+                SNESConvergedReason reason_code = this->solve_system(x, b);
 
 #ifdef SAMURAI_WITH_MPI
                 assembly().copy_unknown(x, assembly().unknown());
 #endif
                 VecDestroy(&b);
                 VecDestroy(&x);
+                return reason_code;
             }
 
             void solve(input_field_t& unknown, output_field_t& rhs)

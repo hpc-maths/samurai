@@ -1,5 +1,4 @@
 #pragma once
-#include "../../../concepts.hpp"
 #include "../flux_based/flux_based_scheme__lin_het.hpp"
 #include "../flux_based/flux_based_scheme__lin_hom.hpp"
 #include "weno_impl.hpp"
@@ -390,7 +389,7 @@ namespace samurai
 
         auto smooth_abs = [](auto x)
         {
-            constexpr double eps = 1e-8;
+            constexpr double eps = 1e-6;
             return std::sqrt(x * x + eps * eps);
         };
 
@@ -468,7 +467,7 @@ namespace samurai
 
         auto diff_smooth_abs = [](auto x)
         {
-            constexpr double eps = 1e-8;
+            constexpr double eps = 1e-6;
             return x / std::sqrt(x * x + eps * eps);
         };
 
@@ -496,7 +495,7 @@ namespace samurai
                     auto dlambda_dvL = 0.5 * diff_smooth_abs(0.5 * (vL + vR));
                     auto dlambda_dvR = dlambda_dvL;
 
-                    // Differentiate flux = 0.5 * (vL*uL + vR*uR - lambda*(uR - uL)) w.r.t. uL and uR
+                    // Differentiate flux = 0.5 * (vL*uL + vR*uR - lambda*(uR - uL)) w.r.t. vL and vR
                     xt::col(jac[left], d)  = 0.5 * (uL - dlambda_dvL * (uR - uL));
                     xt::col(jac[right], d) = 0.5 * (uR - dlambda_dvR * (uR - uL));
                 };
