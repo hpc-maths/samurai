@@ -374,7 +374,7 @@ namespace samurai
     }
 
     template <class Field, class VelocityField>
-        requires IsField<VelocityField>
+        requires field_like<VelocityField>
     auto make_convection_smooth_rusanov_incompressible(VelocityField& velocity_field)
     {
         static constexpr std::size_t dim          = Field::dim;
