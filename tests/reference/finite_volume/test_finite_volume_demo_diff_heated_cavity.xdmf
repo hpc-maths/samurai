@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<Xdmf>
+    <Domain>
+        <Grid Name="mesh">
+            <Topology TopologyType="Quadrilateral" NumberOfElements="2503">
+                <DataItem Dimensions="10012" Format="HDF">test_finite_volume_demo_diff_heated_cavity.h5:/mesh/connectivity</DataItem>
+            </Topology>
+            <Geometry GeometryType="XYZ">
+                <DataItem Dimensions="8187" Format="HDF">test_finite_volume_demo_diff_heated_cavity.h5:/mesh/points</DataItem>
+            </Geometry>
+            <Attribute Name="temperature" Center="Cell">
+                <DataItem Dimensions="2503" Format="HDF" Precision="8">test_finite_volume_demo_diff_heated_cavity.h5:/mesh/fields/temperature</DataItem>
+            </Attribute>
+        </Grid>
+    </Domain>
+</Xdmf>

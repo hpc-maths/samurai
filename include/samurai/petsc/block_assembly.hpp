@@ -248,6 +248,22 @@ namespace samurai
                     });
             }
 
+            block_operator_t::input_field_t unknown() const
+            {
+                return get_diagonal_unknowns(std::make_index_sequence<std::min(rows, cols)>{});
+            }
+
+          private:
+
+            // Helper to get diagonal unknowns
+            template <std::size_t... Is>
+            auto get_diagonal_unknowns(std::index_sequence<Is...>) const
+            {
+                return std::make_tuple(std::ref(get<Is, Is>().unknown())...);
+            }
+
+          public:
+
             bool undefined_unknown() const
             {
                 bool undefined = false;
@@ -302,9 +318,11 @@ namespace samurai
                 for_each_assembly_op(
                     [&](auto& op, auto, auto)
                     {
-                        using op_t             = std::decay_t<decltype(op)>;
-                        using op_input_field_t = typename op_t::input_field_t;
-                        if constexpr (!std::is_base_of_v<ManualAssembly<op_input_field_t>, op_t> && !std::is_same_v<Assembly<int>, op_t>)
+                        using op_t              = std::decay_t<decltype(op)>;
+                        using op_input_field_t  = typename op_t::input_field_t;
+                        using op_output_field_t = typename op_t::output_field_t;
+                        if constexpr (!std::is_base_of_v<ManualAssembly<op_output_field_t, op_input_field_t>, op_t>
+                                      && !std::is_same_v<ZeroBlockAssembly, op_t>)
                         {
                             op.mesh().cell_ownership().is_computed = false;
                         }
@@ -981,27 +999,71 @@ namespace samurai
             }
 
             template <class... Fields>
-            Vec create_rhs_vector(const std::tuple<Fields&...>& sources) const
+            void copy_rhs(const std::tuple<Fields&...>& fields, Vec& b) const
             {
-                Vec b = create_petsc_vector(owned_matrix_rows());
-
                 this->for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
                         if constexpr (col == row)
                         {
-                            op.copy_rhs(std::get<col>(sources), b);
+                            op.copy_rhs(std::get<col>(fields), b);
                         }
                     });
+            }
+
+            // Same without references in the tuple
+            template <class... Fields>
+            void copy_rhs(const std::tuple<Fields...>& fields, Vec& b) const
+            {
+                this->for_each_assembly_op(
+                    [&](auto& op, auto row, auto col)
+                    {
+                        if constexpr (col == row)
+                        {
+                            op.copy_rhs(std::get<col>(fields), b);
+                        }
+                    });
+            }
+
+            template <class... Fields>
+            void copy_rhs(const Vec& b, std::tuple<Fields&...>& sources) const
+            {
+                this->for_each_assembly_op(
+                    [&](auto& op, auto row, auto col)
+                    {
+                        if constexpr (col == row)
+                        {
+                            op.copy_rhs(b, std::get<col>(sources));
+                        }
+                    });
+            }
+
+            // Same without references in the tuple
+            template <class... Fields>
+            void copy_rhs(const Vec& b, std::tuple<Fields...>& sources) const
+            {
+                this->for_each_assembly_op(
+                    [&](auto& op, auto row, auto col)
+                    {
+                        if constexpr (col == row)
+                        {
+                            op.copy_rhs(b, std::get<col>(sources));
+                        }
+                    });
+            }
+
+            template <class... Fields>
+            Vec create_rhs_vector(const std::tuple<Fields&...>& sources) const
+            {
+                Vec b = create_petsc_vector(owned_matrix_rows());
+                copy_rhs(sources, b);
                 PetscObjectSetName(reinterpret_cast<PetscObject>(b), "right-hand side");
                 return b;
             }
 
             template <class... Fields>
-            Vec create_applicable_vector(const std::tuple<Fields&...>& fields) const
+            void copy_unknowns(const std::tuple<Fields&...>& fields, Vec& x) const
             {
-                Vec x = create_petsc_vector(owned_matrix_cols());
-
                 this->for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
@@ -1010,6 +1072,13 @@ namespace samurai
                             op.copy_unknown(std::get<row>(fields), x);
                         }
                     });
+            }
+
+            template <class... Fields>
+            Vec create_applicable_vector(const std::tuple<Fields&...>& fields) const
+            {
+                Vec x = create_petsc_vector(owned_matrix_cols());
+                copy_unknowns(fields, x);
                 return x;
             }
 

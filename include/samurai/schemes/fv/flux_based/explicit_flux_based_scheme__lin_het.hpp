@@ -35,6 +35,8 @@ namespace samurai
 
         void apply(std::size_t d, output_field_t& output_field, input_field_t& input_field) override
         {
+            assert(input_field.ghosts_updated());
+
             scheme().apply_directional_bc(input_field, d);
 
             /**

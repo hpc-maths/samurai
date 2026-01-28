@@ -124,6 +124,10 @@ namespace samurai
          */
         flux_func flux_function_as_conservative() const
         {
+            if (!cons_flux_function)
+            {
+                return nullptr;
+            }
             return [&](FluxValuePair<cfg>& fluxes, auto& data, const auto& field)
             {
                 cons_flux_function(fluxes[0], data, field);

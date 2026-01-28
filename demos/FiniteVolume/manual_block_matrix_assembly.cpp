@@ -9,10 +9,11 @@
 
 using aux_t = xt::xtensor<double, 2>;
 
-template <class Mesh_e>
-struct Coupling_auxCe_e : public samurai::petsc::ManualAssembly<aux_t> // <...>: type of field the block applies to
-                                                                       // (= unknown field type if the block must be inversed)
+template <class Field_e>
+struct Coupling_auxCe_e : public samurai::petsc::ManualAssembly</* output */ Field_e, /* input */ aux_t>
 {
+    using Mesh_e = typename Field_e::mesh_t;
+
     const Mesh_e* mesh_e; // use a pointer instead of a reference to avoid issues with the copy constructor
 
     explicit Coupling_auxCe_e(const Mesh_e& m)
@@ -69,8 +70,8 @@ struct Coupling_auxCe_e : public samurai::petsc::ManualAssembly<aux_t> // <...>:
     }
 };
 
-template <class field_t>
-struct Coupling_e_auxCe : public samurai::petsc::ManualAssembly<field_t>
+template <class Field_e>
+struct Coupling_e_auxCe : public samurai::petsc::ManualAssembly</* output */ aux_t, /* input */ Field_e>
 {
     const aux_t* aux_Ce;
 
@@ -111,7 +112,7 @@ struct Coupling_e_auxCe : public samurai::petsc::ManualAssembly<field_t>
     }
 };
 
-struct Coupling_auxCe_auxCe : public samurai::petsc::ManualAssembly<aux_t>
+struct Coupling_auxCe_auxCe : public samurai::petsc::ManualAssembly<aux_t, aux_t>
 {
     Coupling_auxCe_auxCe()
     {
@@ -149,8 +150,8 @@ struct Coupling_auxCe_auxCe : public samurai::petsc::ManualAssembly<aux_t>
     }
 };
 
-template <class field_t>
-struct Coupling_s_auxCe : public samurai::petsc::ManualAssembly<field_t>
+template <class Field_s>
+struct Coupling_s_auxCe : public samurai::petsc::ManualAssembly</* output */ aux_t, /* input */ Field_s>
 {
     const aux_t* aux_Ce;
 
@@ -191,9 +192,11 @@ struct Coupling_s_auxCe : public samurai::petsc::ManualAssembly<field_t>
     }
 };
 
-template <class Mesh_s>
-struct Coupling_auxCe_s : public samurai::petsc::ManualAssembly<aux_t>
+template <class Field_s>
+struct Coupling_auxCe_s : public samurai::petsc::ManualAssembly</* output */ Field_s, /* input */ aux_t>
 {
+    using Mesh_s = typename Field_s::mesh_t;
+
     const Mesh_s* mesh_s;
 
     explicit Coupling_auxCe_s(const Mesh_s& m)
@@ -254,6 +257,9 @@ int main(int argc, char* argv[])
     auto u_e = samurai::make_scalar_field<double>("u_e", mesh_e, 0);
     auto u_s = samurai::make_scalar_field<double>("u_s", mesh_s, 1);
 
+    using Field_e = decltype(u_e);
+    using Field_s = decltype(u_s);
+
     // Count the number of cells at the interface between mesh_e and mesh_s
     std::size_t n_interface_cells = 0;
     samurai::for_each_boundary_interface__direction(mesh_e,
@@ -286,16 +292,16 @@ int main(int argc, char* argv[])
     auto id     = samurai::make_identity<decltype(u_e)>();
 
     // Definition of the matrix blocks for the couplings to the auxiliary values
-    Coupling_auxCe_e auxCe_e(mesh_e);
-    Coupling_e_auxCe<decltype(u_e)> e_auxCe(aux_Ce);
+    Coupling_auxCe_e<Field_e> auxCe_e(mesh_e);
+    Coupling_e_auxCe<Field_e> e_auxCe(aux_Ce);
     Coupling_auxCe_auxCe auxCe_auxCe;
-    Coupling_s_auxCe<decltype(u_s)> s_auxCe(aux_Ce);
-    Coupling_auxCe_s auxCe_s(mesh_s);
+    Coupling_s_auxCe<Field_s> s_auxCe(aux_Ce);
+    Coupling_auxCe_s<Field_s> auxCe_s(mesh_s);
 
     // Define the block operator
 
     // clang-format off
-    auto block_op = samurai::make_block_operator<3, 3>(id + diff_e,  auxCe_e,        0,     // simply put 0 for zero-blocks
+    auto block_op = samurai::make_block_operator<3, 3>(id + diff_e,  auxCe_e,        0,
                                                            e_auxCe, auxCe_auxCe, s_auxCe,
                                                                0,    auxCe_s,     diff_s);
     // clang-format on

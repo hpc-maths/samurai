@@ -232,6 +232,22 @@ def test_finite_volume_demo_lid_driven_cavity(config):
     ]
     output = subprocess.run(cmd, check=True, capture_output=True)
 
+@pytest.mark.h5diff()
+def test_finite_volume_demo_diff_heated_cavity(config):
+    cmd = [
+        get_executable(
+            Path("../build/demos/FiniteVolume/"), "finite-volume-diff-heated-cavity"
+        ),
+        "--path",
+        config["path"],
+        "--filename",
+        config["filename"],
+        "--nfiles=1",
+        "--Tf=0.7",
+        "-pc_type", "qr" # we use QR because MUMPS yields different results on macos and linux, so the comparison fails on the CI
+    ]
+    output = subprocess.run(cmd, check=True, capture_output=True)
+
 
 @pytest.mark.h5diff()
 @pytest.mark.parametrize("time_scheme", ["explicit", "implicit"])
