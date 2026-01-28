@@ -191,13 +191,14 @@ jobs:
                   export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
                   cd tests
 
-                  # export OMP_NUM_THREADS=1
-                  # export OMP_DYNAMIC=FALSE
-                  # export OMP_MAX_ACTIVE_LEVELS=1
-                  # export MKL_NUM_THREADS=1
-                  # export OPENBLAS_NUM_THREADS=1
-                  # export VECLIB_MAXIMUM_THREADS=1
-                  # export SCOTCH_DETERMINISTIC=1
+                  # The following options are set to have a deterministic Petsc behaviour on Linux.
+                  export OMP_NUM_THREADS=1
+                  export OMP_DYNAMIC=FALSE
+                  export OMP_MAX_ACTIVE_LEVELS=1
+                  export MKL_NUM_THREADS=1
+                  export OPENBLAS_NUM_THREADS=1
+                  export VECLIB_MAXIMUM_THREADS=1
+                  export SCOTCH_DETERMINISTIC=1
 
                   pytest -v -s --h5diff
     #

@@ -127,20 +127,10 @@ namespace samurai
     template <std::size_t rows_, std::size_t cols_, class... Operators>
     class BlockOperator
     {
-        //   private:
-
-        //     template <SchemeType scheme_type_>
-        //     struct Config
-        //     {
-        //         static constexpr SchemeType scheme_type = scheme_type_;
-        //     };
-
       public:
 
         static constexpr std::size_t rows = rows_;
         static constexpr std::size_t cols = cols_;
-
-        // using cfg_t = Config<scheme_type_of_block_operator<Operators...>()>;
 
         using output_field_t = diagonal_output_fields_t<rows_, cols_, Operators...>;
         using input_field_t  = output_field_t; // simplification: in all cases so far, input and output fields are the same

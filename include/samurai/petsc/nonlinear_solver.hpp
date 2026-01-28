@@ -214,15 +214,10 @@ namespace samurai
                     auto& f_field = self->m_worker_output_field; // for f, we use an actual worker field
 
                     assembly.copy_unknown(x, x_field);
-                    // x_field.ghosts_updated() = false;
 
                     // Apply explicit scheme: f = scheme(x)
                     f_field.fill(0); // initialize to zero because we accumulate the results
                     self->scheme().apply(f_field, x_field);
-
-                    // Vec updated_x = assembly.create_solution_vector(x_field); // update_x is x with ghosts updated
-                    //  assembly.copy_unknown(x_field, updated_x);
-                    // update_ghost_mr(f_field);
 
                     // Copy the result into the Petsc vector f
                     assembly.copy_rhs(f_field, f);
