@@ -30,35 +30,6 @@ namespace samurai
         reference        = all_cells
     };
 
-    template <std::size_t dim_,
-              std::size_t max_stencil_width_    = default_config::ghost_width,
-              std::size_t graduation_width_     = default_config::graduation_width,
-              std::size_t prediction_order_     = default_config::prediction_stencil_radius,
-              std::size_t max_refinement_level_ = default_config::max_level,
-              class TInterval                   = default_config::interval_t>
-    struct [[deprecated("Use samurai::mesh_config instead")]] MRConfig
-    {
-        // cppcheck-suppress-begin unusedStructMember
-
-        static constexpr std::size_t dim                  = dim_;
-        static constexpr std::size_t max_refinement_level = max_refinement_level_;
-
-        // deprecated interface
-        [[deprecated("Use max_stencil_radius() method instead")]] static constexpr int max_stencil_width      = max_stencil_width_;
-        [[deprecated("Use prediction_stencil_radius instead")]] static constexpr int prediction_order         = prediction_order_;
-        [[deprecated("Use graduation_width() method instead")]] static constexpr std::size_t graduation_width = graduation_width_;
-        [[deprecated("Use ghost_width() method instead")]] static constexpr int ghost_width = std::max(static_cast<int>(max_stencil_width),
-                                                                                                       static_cast<int>(prediction_order));
-
-        // new interface
-        static constexpr int prediction_stencil_radius = prediction_order_;
-
-        // cppcheck-suppress-end unusedStructMember
-
-        using interval_t = TInterval;
-        using mesh_id_t  = MRMeshId;
-    };
-
     template <class Config>
     class MRMesh : public samurai::Mesh_base<MRMesh<Config>, Config>
     {
@@ -126,26 +97,26 @@ namespace samurai
     }
 
     template <class Config>
-    SAMURAI_INLINE MRMesh<Config>::MRMesh(const cl_type& cl, const mesh_config<Config::dim>& config)
-        : base_type(cl, config)
+    SAMURAI_INLINE MRMesh<Config>::MRMesh(const cl_type& cl, const mesh_config<Config::dim>& mesh_cfg)
+        : base_type(cl, mesh_cfg)
     {
     }
 
     template <class Config>
-    SAMURAI_INLINE MRMesh<Config>::MRMesh(const ca_type& ca, const mesh_config<Config::dim>& config)
-        : base_type(ca, config)
+    SAMURAI_INLINE MRMesh<Config>::MRMesh(const ca_type& ca, const mesh_config<Config::dim>& mesh_cfg)
+        : base_type(ca, mesh_cfg)
     {
     }
 
     template <class Config>
-    SAMURAI_INLINE MRMesh<Config>::MRMesh(const samurai::Box<double, dim>& b, const mesh_config<Config::dim>& config)
-        : base_type(b, config)
+    SAMURAI_INLINE MRMesh<Config>::MRMesh(const samurai::Box<double, dim>& b, const mesh_config<Config::dim>& mesh_cfg)
+        : base_type(b, mesh_cfg)
     {
     }
 
     template <class Config>
-    SAMURAI_INLINE MRMesh<Config>::MRMesh(const samurai::DomainBuilder<dim>& domain_builder, const mesh_config<Config::dim>& config)
-        : base_type(domain_builder, config)
+    SAMURAI_INLINE MRMesh<Config>::MRMesh(const samurai::DomainBuilder<dim>& domain_builder, const mesh_config<Config::dim>& mesh_cfg)
+        : base_type(domain_builder, mesh_cfg)
     {
     }
 

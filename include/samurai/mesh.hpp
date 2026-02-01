@@ -273,9 +273,9 @@ namespace samurai
     }
 
     template <class D, class Config>
-    SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const samurai::Box<double, dim>& b, const mesh_config<Config::dim>& config)
-        : m_domain{config.start_level(), b, config.approx_box_tol(), config.scaling_factor()}
-        , m_config(config)
+    SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const samurai::Box<double, dim>& b, const mesh_config<Config::dim>& mesh_cfg)
+        : m_domain{mesh_cfg.start_level(), b, mesh_cfg.approx_box_tol(), mesh_cfg.scaling_factor()}
+        , m_config(mesh_cfg)
     {
 #ifdef SAMURAI_WITH_MPI
         partition_mesh(m_config.start_level(), b);
@@ -301,11 +301,11 @@ namespace samurai
     }
 
     template <class D, class Config>
-    Mesh_base<D, Config>::Mesh_base(const samurai::DomainBuilder<dim>& domain_builder, const mesh_config<Config::dim>& config)
-        : m_config(config)
+    Mesh_base<D, Config>::Mesh_base(const samurai::DomainBuilder<dim>& domain_builder, const mesh_config<Config::dim>& mesh_cfg)
+        : m_config(mesh_cfg)
     {
-        if (std::any_of(config.periodic().begin(),
-                        config.periodic().end(),
+        if (std::any_of(mesh_cfg.periodic().begin(),
+                        mesh_cfg.periodic().end(),
                         [](bool b)
                         {
                             return b;
@@ -350,8 +350,8 @@ namespace samurai
     }
 
     template <class D, class Config>
-    SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const cl_type& cl, const mesh_config<Config::dim>& config)
-        : m_config(config)
+    SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const cl_type& cl, const mesh_config<Config::dim>& mesh_cfg)
+        : m_config(mesh_cfg)
     {
         this->m_cells[mesh_id_t::cells] = {cl};
 
@@ -371,8 +371,8 @@ namespace samurai
     }
 
     template <class D, class Config>
-    SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const ca_type& ca, const mesh_config<Config::dim>& config)
-        : m_config(config)
+    SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const ca_type& ca, const mesh_config<Config::dim>& mesh_cfg)
+        : m_config(mesh_cfg)
     {
         this->m_cells[mesh_id_t::cells] = ca;
 

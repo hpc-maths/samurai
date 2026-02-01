@@ -382,9 +382,9 @@ namespace samurai
         {
             int stencil_s = 2 * ghost_layer;
             static_for<2, max_stencil_size_implemented_PE + 1>::apply(
-                [&](auto stencil_size_)
+                [&](auto stencil_size)
                 {
-                    static constexpr int stencil_size = static_cast<int>(stencil_size_());
+                    // static constexpr int stencil_size = static_cast<int>(stencil_size_());
 
                     if constexpr (stencil_size % 2 == 0) // (because PolynomialExtrapolation is only implemented for even stencil_size)
                     {
@@ -409,10 +409,8 @@ namespace samurai
         {
             int stencil_s = 2 * ghost_layer;
             static_for<2, max_stencil_size_implemented_PE + 1>::apply(
-                [&](auto stencil_size_)
+                [&](auto stencil_size)
                 {
-                    static constexpr int stencil_size = static_cast<int>(stencil_size_());
-
                     if constexpr (stencil_size % 2 == 0) // (because PolynomialExtrapolation is only implemented for even stencil_size)
                     {
                         if (stencil_s == stencil_size)
