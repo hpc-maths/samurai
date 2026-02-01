@@ -130,6 +130,7 @@ namespace samurai
 
     template <class mesh_t, class value_t>
     SAMURAI_INLINE ScalarField<mesh_t, value_t>::ScalarField(const ScalarField& field)
+    : inner_mesh_t(field.mesh())
     {
         this->assign_from(field);
     }
