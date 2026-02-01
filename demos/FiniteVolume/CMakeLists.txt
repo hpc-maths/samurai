@@ -43,6 +43,11 @@ if(${WITH_PETSC})
         add_executable(${executable_name} ${source_file})
         target_compile_definitions(${executable_name} PUBLIC SAMURAI_WITH_PETSC)
         target_link_libraries(${executable_name} samurai ${PETSC_LINK_LIBRARIES})
+
+        # Link pre-instantiated templates if enabled
+        if(SAMURAI_INSTANTIATE_TEMPLATES)
+          target_link_libraries(${executable_name} samurai_instantiations)
+        endif()
     endforeach()
 endif()
 
@@ -54,6 +59,11 @@ foreach(demo_entry ${STANDARD_DEMOS})
 
     add_executable(${executable_name} ${source_file})
     target_link_libraries(${executable_name} samurai)
+
+    # Link pre-instantiated templates if enabled
+    if(SAMURAI_INSTANTIATE_TEMPLATES)
+      target_link_libraries(${executable_name} samurai_instantiations)
+    endif()
 endforeach()
 
 # Specific options for MSVC

@@ -167,7 +167,10 @@ jobs:
                       -DCMAKE_BUILD_TYPE=Release \
                       -DWITH_PETSC=ON \
                       -DBUILD_DEMOS=ON \
-                      -DBUILD_TESTS=ON
+                      -DBUILD_TESTS=ON \
+                      -DSAMURAI_ENABLE_INLINE=OFF \
+                      -DSAMURAI_ENABLE_PCH=ON \
+                      -DSAMURAI_INSTANTIATE_TEMPLATES=ON
 
             - name: Build
               shell: bash -l {0}
@@ -245,7 +248,10 @@ jobs:
                       -DWITH_MPI=ON \
                       -DWITH_PETSC=ON \
                       -DBUILD_DEMOS=ON \
-                      -DBUILD_TESTS=ON
+                      -DBUILD_TESTS=ON \
+                      -DSAMURAI_ENABLE_INLINE=OFF \
+                      -DSAMURAI_ENABLE_PCH=ON \
+                      -DSAMURAI_INSTANTIATE_TEMPLATES=ON
 
             - name: Build
               shell: bash -l {0}
@@ -352,7 +358,7 @@ jobs:
             - name: Petsc installation
               shell: bash -l {0}
               run: |
-                micromamba install -y petsc pkg-config
+                  micromamba install -y petsc pkg-config
 
             - name: Install cxx compiler
               shell: bash -l {0}
@@ -375,7 +381,10 @@ jobs:
                       -DCMAKE_BUILD_TYPE=Release \
                       -DWITH_PETSC=ON \
                       -DBUILD_DEMOS=ON \
-                      -DBUILD_TESTS=ON
+                      -DBUILD_TESTS=ON \
+                      -DSAMURAI_ENABLE_INLINE=OFF \
+                      -DSAMURAI_ENABLE_PCH=ON \
+                      -DSAMURAI_INSTANTIATE_TEMPLATES=ON
 
             - name: Build
               shell: bash -l {0}
