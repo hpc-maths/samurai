@@ -180,14 +180,20 @@ namespace samurai
             }
             else
             {
-                auto& listOfIntervals = std::get<d>(workspace.expansion_workspace);
-                listOfIntervals.clear();
+                const auto expansion_func = [&expansions = m_expansions](const auto d_cur, const interval_t& interval) -> interval_t
+                {
+                    return interval_t(interval.start - expansions[d_cur], interval.end + expansions[d_cur]);
+                };
+                const auto index_range_func = [&index, &expansions = m_expansions](const auto d_cur) -> interval_t
+                {
+                    return interval_t(index[d_cur - 1] - expansions[d_cur], index[d_cur - 1] + expansions[d_cur] + 1);
+                };
 
-                yz_index_t index_rec;
+                auto& list_of_intervals = std::get<d>(workspace.expansion_workspace);
 
-                fill_list_of_interval_rec(index, index_rec, d_ic, std::integral_constant<std::size_t, Base::dim - 1>{}, workspace);
+                subset_utils::transform_to_loi(m_set, index_range_func, d_ic, expansion_func, workspace.tmp_child_workspace, list_of_intervals);
 
-                return traverser_t<d>(listOfIntervals.cbegin(), listOfIntervals.cend());
+                return traverser_t<d>(list_of_intervals.cbegin(), list_of_intervals.cend());
             }
         }
 
@@ -206,45 +212,6 @@ namespace samurai
         }
 
       private:
-
-        template <std::size_t d, std::size_t dCur>
-        void fill_list_of_interval_rec(const yz_index_t& requested_index,
-                                       yz_index_t& index,
-                                       std::integral_constant<std::size_t, d> d_ic,
-                                       std::integral_constant<std::size_t, dCur> dCur_ic,
-                                       Workspace& workspace) const
-        {
-            using child_traverser_t        = typename Set::template traverser_t<dCur>;
-            using child_current_interval_t = typename child_traverser_t::current_interval_t;
-            using child_interval_t         = typename child_traverser_t::interval_t;
-            using ChildWorkspace           = typename Set::Workspace;
-
-            ChildWorkspace& child_workspace = workspace.tmp_child_workspace;
-
-            m_set.init_workspace(1, dCur_ic, child_workspace);
-
-            for (child_traverser_t traverser = m_set.get_traverser(index, dCur_ic, child_workspace); !traverser.is_empty();
-                 traverser.next_interval())
-            {
-                child_current_interval_t interval = traverser.current_interval();
-
-                if constexpr (dCur == d)
-                {
-                    std::get<d>(workspace.expansion_workspace)
-                        .add_interval(child_interval_t(interval.start - m_expansions[d], interval.end + m_expansions[d]));
-                }
-                else
-                {
-                    const auto index_start = std::max(interval.start, requested_index[dCur - 1] - m_expansions[dCur]);
-                    const auto index_bound = std::min(interval.end, requested_index[dCur - 1] + m_expansions[dCur] + 1);
-
-                    for (index[dCur - 1] = index_start; index[dCur - 1] < index_bound; ++index[dCur - 1])
-                    {
-                        fill_list_of_interval_rec(requested_index, index, d_ic, std::integral_constant<std::size_t, dCur - 1>{}, workspace);
-                    }
-                }
-            }
-        }
 
         Set m_set;
         expansion_t m_expansions;

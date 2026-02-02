@@ -4,7 +4,12 @@
 #pragma once
 
 #include <functional>
+#include <ranges>
 #include <tuple>
+
+#include <fmt/ranges.h>
+
+#include "../list_of_intervals.hpp"
 
 namespace samurai
 {
@@ -160,34 +165,134 @@ namespace samurai
     namespace detail
     {
         template <class Tuple, class Func, std::size_t... Is>
-        Func enumerate_items(Tuple& tuple, Func func, std::index_sequence<Is...>)
+        Func&& enumerate_items(Tuple& tuple, Func&& func, std::index_sequence<Is...>)
         {
             (func(Is, std::get<Is>(tuple)), ...);
-            return func;
-        }
-
-        template <class Tuple, class Func, std::size_t... Is>
-        Func enumerate_const_items(const Tuple& tuple, Func func, std::index_sequence<Is...>)
-        {
-            (func(Is, std::get<Is>(tuple)), ...);
-            return func;
+            return std::forward<Func>(func);
         }
     }
 
     template <class Tuple, class Func>
-    Func enumerate_items(Tuple& tuple, Func&& func)
+    Func&& enumerate_items(Tuple& tuple, Func&& func)
     {
         constexpr std::size_t N = std::tuple_size_v<std::decay_t<Tuple>>;
 
-        return detail::enumerate_items(tuple, func, std::make_index_sequence<N>{});
+        return std::forward<Func>(detail::enumerate_items(tuple, func, std::make_index_sequence<N>{}));
     }
 
-    template <class Tuple, class Func>
-    Func enumerate_const_items(const Tuple& tuple, Func&& func)
+    template <std::ranges::forward_range Range, class Func>
+    Func&& enumerate_items(Range& range, Func&& func)
     {
-        constexpr std::size_t N = std::tuple_size_v<std::decay_t<Tuple>>;
+#if ((defined(_MSVC_LANG) && _MSVC_LANG >= 202302L) || __cplusplus >= 202302L)
+        for (auto& [i, item] : std::views::enumerate(range))
+        {
+            func(i, elem);
+        }
+#else
+        size_t i = 0;
+        for (auto& elem : range)
+        {
+            func(i, elem);
+            ++i;
+        }
+#endif // if using c++23
 
-        return detail::enumerate_const_items(tuple, func, std::make_index_sequence<N>{});
+        return std::forward<Func>(func);
     }
+
+    ////////////////////////////////////////////////////////////////////////
+    //// fill list of intervals
+    ////////////////////////////////////////////////////////////////////////
+
+    namespace subset_utils
+    {
+        namespace detail
+        {
+            template <typename Set, typename IndexRangeFunc, typename UnaryFunc, std::size_t D, std::size_t D_CUR>
+            void transform_to_loi_rec(const Set& set,
+                                      IndexRangeFunc&& indexRangeFunc,
+                                      std::integral_constant<std::size_t, D> d,
+                                      std::integral_constant<std::size_t, D_CUR> d_cur,
+                                      UnaryFunc&& unaryFunc,
+                                      typename Set::yz_index_t& index,
+                                      typename Set::Workspace& child_workspace,
+                                      ListOfIntervals<typename Set::value_t>& list_of_intervals)
+            {
+                using child_traverser_t        = typename Set::template traverser_t<d_cur>;
+                using child_interval_t         = typename child_traverser_t::interval_t;
+                using child_value_t            = typename child_traverser_t::value_t;
+                using child_current_interval_t = typename child_traverser_t::current_interval_t;
+
+                set.init_workspace(1, d_cur, child_workspace);
+
+                for (child_traverser_t traverser = set.get_traverser(index, d_cur, child_workspace); !traverser.is_empty();
+                     traverser.next_interval())
+                {
+                    const child_current_interval_t interval = traverser.current_interval();
+
+                    if constexpr (d_cur == d)
+                    {
+                        fmt::print("----> index = [{}] -- interval = {} -- added interval = {}\n",
+                                   fmt::join(std::cbegin(index), std::cend(index), ", "),
+                                   interval,
+                                   unaryFunc(d, interval));
+                        list_of_intervals.add_interval(unaryFunc(d, interval));
+                    }
+                    else
+                    {
+                        const child_interval_t requested_interval = indexRangeFunc(d_cur);
+
+                        // intersection between the current interval and the requested interval
+                        const child_value_t index_start = std::max(interval.start, requested_interval.start);
+                        const child_value_t index_bound = std::min(interval.end, requested_interval.end);
+
+                        fmt::print("--> interval = {} -- requested interval = {} -- actual interval = {}\n",
+                                   interval,
+                                   requested_interval,
+                                   child_interval_t(index_start, index_bound));
+
+                        // recursive filling
+                        for (index[d_cur - 1] = index_start; index[d_cur - 1] < index_bound; ++index[d_cur - 1])
+                        {
+                            transform_to_loi_rec(set,
+                                                 std::forward<IndexRangeFunc>(indexRangeFunc),
+                                                 d,
+                                                 std::integral_constant<std::size_t, d_cur - 1>{},
+                                                 std::forward<UnaryFunc>(unaryFunc),
+                                                 index,
+                                                 child_workspace,
+                                                 list_of_intervals);
+                        }
+                    }
+                }
+            }
+        } // namespace detail
+
+        template <typename Set, typename IndexRangeFunc, typename UnaryFunc, std::size_t D>
+        void transform_to_loi(const Set& set,
+                              IndexRangeFunc&& indexRangeFunc,
+                              std::integral_constant<std::size_t, D> d,
+                              UnaryFunc&& unaryFunc,
+                              typename Set::Workspace& child_workspace,
+                              ListOfIntervals<typename Set::value_t>& list_of_intervals)
+        {
+            using yz_index_t = typename Set::yz_index_t;
+
+            list_of_intervals.clear();
+
+            yz_index_t index;
+            index.fill(0); // to prevent -Wmaybe-uninitialized
+
+            detail::transform_to_loi_rec(set,
+                                         std::forward<IndexRangeFunc>(indexRangeFunc),
+                                         d,
+                                         std::integral_constant<std::size_t, Set::dim - 1>{},
+                                         std::forward<UnaryFunc>(unaryFunc),
+                                         index,
+                                         child_workspace,
+                                         list_of_intervals);
+        }
+
+    } // namespace subset_utils
 
 } // namespace samurai

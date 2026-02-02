@@ -104,11 +104,11 @@ namespace samurai
                 },
                 m_sets);
 
-            enumerate_const_items(m_sets,
-                                  [this](const auto i, const auto& set)
-                                  {
-                                      m_shifts[i] = std::size_t(m_level - set.level());
-                                  });
+            enumerate_items(m_sets,
+                            [this](const auto i, const auto& set)
+                            {
+                                m_shifts[i] = std::size_t(m_level - set.level());
+                            });
         }
 
         inline std::size_t level_impl() const

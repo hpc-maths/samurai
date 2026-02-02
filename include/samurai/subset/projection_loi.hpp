@@ -34,6 +34,9 @@ namespace samurai
     } // namespace detail
 
     template <class Set>
+    class Expansion;
+
+    template <class Set>
     class ProjectionLOI;
 
     template <class Set>
@@ -69,6 +72,8 @@ namespace samurai
         using ListOfIntervals = typename detail::ProjectionLOIWork<Set, std::make_index_sequence<Set::dim>>::Type;
 
       public:
+
+        friend class Expansion<Self>;
 
         SAMURAI_SET_TYPEDEFS
 
@@ -116,27 +121,31 @@ namespace samurai
         inline traverser_t<d>
         get_traverser_impl(const yz_index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
-            auto& listOfIntervals = std::get<d>(workspace.projection_workspace);
-            listOfIntervals.clear();
-
             if (m_projectionType == ProjectionType::COARSEN)
             {
                 if constexpr (d != Base::dim - 1)
                 {
-                    yz_index_t index_min(utils::pow2(index, m_shift));
-                    yz_index_t index_max(utils::sumAndPow2(index, 1, m_shift));
+                    const auto projection_func = [shift = m_shift](const auto /* d_cur */, const interval_t& interval) -> interval_t
+                    {
+                        return interval >> shift;
+                    };
+                    const auto index_range_func = [&index, shift = m_shift](const auto d_cur) -> interval_t
+                    {
+                        return interval_t(index[d_cur - 1] << shift, (index[d_cur - 1] + 1) << shift);
+                    };
 
-                    yz_index_t index_rec;
-                    fill_list_of_interval_rec(index_min,
-                                              index_max,
-                                              index_rec,
-                                              d_ic,
-                                              std::integral_constant<std::size_t, Base::dim - 1>{},
-                                              workspace);
+                    auto& list_of_intervals = std::get<d>(workspace.projection_workspace);
+
+                    subset_utils::transform_to_loi(m_set,
+                                                   index_range_func,
+                                                   d_ic,
+                                                   projection_func,
+                                                   workspace.tmp_child_workspace,
+                                                   list_of_intervals);
 
                     return traverser_t<d>(m_set.get_traverser(utils::pow2(index, m_shift), d_ic, workspace.child_workspace),
-                                          listOfIntervals.cbegin(),
-                                          listOfIntervals.cend());
+                                          list_of_intervals.cbegin(),
+                                          list_of_intervals.cend());
                 }
                 else
                 {
@@ -161,44 +170,6 @@ namespace samurai
         }
 
       private:
-
-        template <std::size_t d, std::size_t dCur>
-        inline void fill_list_of_interval_rec(const yz_index_t& index_min,
-                                              const yz_index_t& index_max,
-                                              yz_index_t& index,
-                                              std::integral_constant<std::size_t, d> d_ic,
-                                              std::integral_constant<std::size_t, dCur> dCur_ic,
-                                              Workspace& workspace) const
-        {
-            using child_traverser_t        = typename Set::template traverser_t<dCur>;
-            using child_current_interval_t = typename child_traverser_t::current_interval_t;
-            using ChildWorkspace           = typename Set::Workspace;
-
-            ChildWorkspace& child_workspace = workspace.tmp_child_workspace;
-
-            m_set.init_workspace(1, dCur_ic, child_workspace);
-
-            for (child_traverser_t traverser = m_set.get_traverser(index, dCur_ic, child_workspace); !traverser.is_empty();
-                 traverser.next_interval())
-            {
-                child_current_interval_t interval = traverser.current_interval();
-
-                if constexpr (dCur == d)
-                {
-                    std::get<d>(workspace.projection_workspace).add_interval(interval >> m_shift);
-                }
-                else
-                {
-                    const auto index_start = std::max(interval.start, index_min[dCur - 1]);
-                    const auto index_bound = std::min(interval.end, index_max[dCur - 1]);
-
-                    for (index[dCur - 1] = index_start; index[dCur - 1] < index_bound; ++index[dCur - 1])
-                    {
-                        fill_list_of_interval_rec(index_min, index_max, index, d_ic, std::integral_constant<std::size_t, dCur - 1>{}, workspace);
-                    }
-                }
-            }
-        }
 
         Set m_set;
         std::size_t m_level;

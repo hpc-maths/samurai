@@ -58,7 +58,7 @@ namespace samurai
                 m_current_interval.start = std::numeric_limits<value_t>::min();
                 m_current_interval.end   = std::numeric_limits<value_t>::max();
 
-                enumerate_const_items(
+                enumerate_items(
                     m_set_traversers,
                     [this](const auto i, const auto& set_traverser)
                     {

@@ -29,6 +29,9 @@ namespace samurai
             {
                 current_interval_t interval = traverser.current_interval();
 
+                //~ fmt::print("apply<{}> -- interval {} -- index = [{}]\n", d, interval, fmt::join(std::cbegin(yz_index),
+                // std::cend(yz_index), ", "));
+
                 assert(last_interval < interval);
 
                 if constexpr (d == 0)
@@ -55,6 +58,8 @@ namespace samurai
         constexpr std::size_t dim = Set::dim;
 
         yz_index_t yz_index;
+        yz_index.fill(0); // to prevent -Wmaybe-uninitialized
+
         if (set.exist())
         {
             Workspace workspace;

@@ -111,7 +111,7 @@ namespace samurai
             return derived_cast().get_traverser_unordered_impl(index, d_ic, workspace);
         }
 
-        inline ProjectionMethod on(const std::size_t level);
+        inline ProjectionMethod on(const std::size_t level) const;
 
         template <class Func>
         void operator()(Func&& func) const
@@ -214,7 +214,7 @@ namespace samurai
 {
 
     template <class Derived>
-    auto SetBase<Derived>::on(const std::size_t level) -> ProjectionMethod
+    auto SetBase<Derived>::on(const std::size_t level) const -> ProjectionMethod
     {
         return ProjectionMethod(derived_cast(), level);
     }
