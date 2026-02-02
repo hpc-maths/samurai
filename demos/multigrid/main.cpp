@@ -14,8 +14,8 @@
 #include "samurai_new/utils.cpp"
 #include "test_cases.hpp"
 
-static char help[] = "Solution of the Poisson problem in the domain [0,1]^d.\n"
-                     "Geometric multigrid using the samurai meshes.\n"
+[[maybe_unused]] static char help[] = "Solution of the Poisson problem in the domain [0,1]^d.\n"
+                                       "Geometric multigrid using the samurai meshes.\n"
                      "\n"
                      "-------- General\n"
                      "\n"

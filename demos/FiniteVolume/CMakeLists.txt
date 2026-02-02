@@ -33,7 +33,7 @@ if(${WITH_PETSC})
     find_dependency(PkgConfig)
     pkg_check_modules(PETSC REQUIRED PETSc)
 
-    include_directories(${PETSC_INCLUDE_DIRS})
+    include_directories(SYSTEM ${PETSC_INCLUDE_DIRS})
 
     foreach(demo_entry ${PETSC_DEMOS})
         string(REPLACE ":" ";" demo_parts ${demo_entry})

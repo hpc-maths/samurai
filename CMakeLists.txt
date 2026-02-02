@@ -93,6 +93,7 @@ message(STATUS "Available FEATURES: ${FEATURES}")
 project_options(
   ${FEATURES}
   ENABLE_VS_ANALYSIS
+  WARNINGS_AS_ERRORS
   ${ENABLE_CONAN}
   )
 
