@@ -113,7 +113,7 @@ auto operator*(const double d, const prediction_map<index_t>& p)
 }
 
 template <class index_t>
-inline std::ostream& operator<<(std::ostream& out, const prediction_map<index_t>& pred)
+SAMURAI_INLINE std::ostream& operator<<(std::ostream& out, const prediction_map<index_t>& pred)
 {
     pred.to_stream(out);
     return out;

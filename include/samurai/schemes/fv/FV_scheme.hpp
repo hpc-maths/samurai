@@ -253,10 +253,10 @@ namespace samurai
         /**
          * Helper functions to get coefficients from a set of matrices
          */
-        inline field_value_type cell_coeff(const StencilJacobian<cfg>& coeffs,
-                                           std::size_t cell_number_in_stencil,
-                                           [[maybe_unused]] size_type field_i,
-                                           [[maybe_unused]] size_type field_j) const
+        SAMURAI_INLINE field_value_type cell_coeff(const StencilJacobian<cfg>& coeffs,
+                                                   std::size_t cell_number_in_stencil,
+                                                   [[maybe_unused]] size_type field_i,
+                                                   [[maybe_unused]] size_type field_j) const
         {
             if constexpr (cfg::stencil_size == 1)
             {
@@ -282,10 +282,10 @@ namespace samurai
             }
         }
 
-        inline field_value_type bdry_cell_coeff(const bdry_stencil_coeffs_t& coeffs,
-                                                std::size_t cell_number_in_stencil,
-                                                [[maybe_unused]] size_type field_i,
-                                                [[maybe_unused]] size_type field_j) const
+        SAMURAI_INLINE field_value_type bdry_cell_coeff(const bdry_stencil_coeffs_t& coeffs,
+                                                        std::size_t cell_number_in_stencil,
+                                                        [[maybe_unused]] size_type field_i,
+                                                        [[maybe_unused]] size_type field_j) const
         {
             if constexpr (field_t::is_scalar && output_n_comp == 1)
             {

@@ -3,23 +3,31 @@ import pytest
 import subprocess
 from pathlib import Path
 
-path = 'tutorial'
+path = "tutorial"
+
 
 @pytest.fixture
 def config():
-    return {'path': path}
+    return {"path": path}
+
 
 def get_executable(path, filename):
     if os.path.exists(os.path.join(path, filename)):
         return os.path.join(path, filename)
-    return os.path.join(path, 'Release', filename)
+    return os.path.join(path, "Release", filename)
+
 
 @pytest.mark.h5diff()
 def test_2d_mesh(config):
-    cmd = [get_executable(Path("../build/demos/tutorial/"), "tutorial-2d-mesh"),
-           "--path", config['path'],
-           '--filename', config['filename']]
+    cmd = [
+        get_executable(Path("../build/demos/tutorial/"), "tutorial-2d-mesh"),
+        "--path",
+        config["path"],
+        "--filename",
+        config["filename"],
+    ]
     output = subprocess.run(cmd, check=True, capture_output=True)
+
 
 # The random generator doesn't make the same result
 # so this test failed depending on the compiler version
@@ -47,51 +55,68 @@ def test_2d_mesh(config):
 
 
 @pytest.mark.h5diff()
-@pytest.mark.parametrize(
-    'extra',
-    [
-        [],
-        ['--with-graduation']
-    ]
-)
+@pytest.mark.parametrize("extra", [[], ["--with-graduation"]])
 def test_graduation_3(extra, config):
-    cmd = [get_executable(Path("../build/demos/tutorial/"), "tutorial-graduation-case-3"),
-           "--path", config['path'],
-           '--filename', config['filename'],
-           *extra]
+    cmd = [
+        get_executable(Path("../build/demos/tutorial/"), "tutorial-graduation-case-3"),
+        "--path",
+        config["path"],
+        "--filename",
+        config["filename"],
+        *extra,
+    ]
     output = subprocess.run(cmd, check=True, capture_output=True)
 
+
 @pytest.mark.h5diff()
-@pytest.mark.parametrize(
-    'step',
-    list(range(7))
-)
+@pytest.mark.parametrize("step", list(range(7)))
 def test_burgers(step, config):
-    cmd = [get_executable(Path(f"../build/demos/tutorial/AMR_1D_Burgers/step_{step}/"), f"tutorial-burgers1d-step-{step}"),
-           "--path", config['path'],
-           '--filename', config['filename']]
+    cmd = [
+        get_executable(
+            Path(f"../build/demos/tutorial/AMR_1D_Burgers/step_{step}/"),
+            f"tutorial-burgers1d-step-{step}",
+        ),
+        "--path",
+        config["path"],
+        "--filename",
+        config["filename"],
+    ]
     output = subprocess.run(cmd, check=True, capture_output=True)
+
 
 @pytest.mark.h5diff()
 @pytest.mark.parametrize(
-    'exec',
+    "exec",
     [
-        'tutorial-reconstruction-1d',
-        'tutorial-reconstruction-2d',
-        'tutorial-reconstruction-3d',
-    ]
+        "tutorial-reconstruction-1d",
+        "tutorial-reconstruction-2d",
+        "tutorial-reconstruction-3d",
+    ],
 )
 @pytest.mark.parametrize(
-    'extra',
+    "extra",
     [
-        ['--case', 'abs'],
-        ['--case', 'exp', '--mr-reg', '10'],
-        ['--case', 'tanh', '--mr-reg', '10'],
-    ]
+        ["--case", "abs"],
+        ["--case", "exp", "--mr-reg", "10"],
+        ["--case", "tanh", "--mr-reg", "10"],
+    ],
 )
 def test_reconstruction(exec, extra, config):
-    cmd = [get_executable("../build/demos/tutorial/", exec),
-           "--path", config['path'],
-           '--filename', config['filename'],
-           *extra]
+    cmd = [
+        get_executable("../build/demos/tutorial/", exec),
+        "--path",
+        config["path"],
+        "--filename",
+        config["filename"],
+        *extra,
+    ]
+    output = subprocess.run(cmd, check=True, capture_output=True)
+
+
+def test_config_file(config):
+    cmd = [
+        get_executable("../build/demos/tutorial/", "tutorial-use-config-file"),
+        "--config",
+        "../demos/tutorial/test_config.toml",
+    ]
     output = subprocess.run(cmd, check=True, capture_output=True)

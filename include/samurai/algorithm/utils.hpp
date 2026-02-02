@@ -21,26 +21,26 @@ namespace samurai
         INIT_OPERATOR(copy_op)
 
         template <class T>
-        inline void operator()(Dim<1>, T& dest, const T& src) const
+        SAMURAI_INLINE void operator()(Dim<1>, T& dest, const T& src) const
         {
             dest(level, i) = src(level, i);
         }
 
         template <class T>
-        inline void operator()(Dim<2>, T& dest, const T& src) const
+        SAMURAI_INLINE void operator()(Dim<2>, T& dest, const T& src) const
         {
             dest(level, i, j) = src(level, i, j);
         }
 
         template <class T>
-        inline void operator()(Dim<3>, T& dest, const T& src) const
+        SAMURAI_INLINE void operator()(Dim<3>, T& dest, const T& src) const
         {
             dest(level, i, j, k) = src(level, i, j, k);
         }
     };
 
     template <class T>
-    inline auto copy(T&& dest, T&& src)
+    SAMURAI_INLINE auto copy(T&& dest, T&& src)
     {
         return make_field_operator_function<copy_op>(std::forward<T>(dest), std::forward<T>(src));
     }
@@ -57,7 +57,7 @@ namespace samurai
         INIT_OPERATOR(tag_to_keep_op)
 
         template <class T, int s>
-        inline void operator()(Dim<1>, T& tag, std::integral_constant<int, s>) const
+        SAMURAI_INLINE void operator()(Dim<1>, T& tag, std::integral_constant<int, s>) const
         {
             static_nested_loop<1, -s, s + 1>(
                 [&](const auto& stencil)
@@ -67,7 +67,7 @@ namespace samurai
         }
 
         template <class T, class Flag, int s>
-        inline void operator()(Dim<1>, T& tag, const Flag& flag, std::integral_constant<int, s>) const
+        SAMURAI_INLINE void operator()(Dim<1>, T& tag, const Flag& flag, std::integral_constant<int, s>) const
         {
             auto mask = (tag(level, i) & static_cast<int>(flag));
 
@@ -83,7 +83,7 @@ namespace samurai
         }
 
         template <class T, int s>
-        inline void operator()(Dim<2>, T& tag, std::integral_constant<int, s>) const
+        SAMURAI_INLINE void operator()(Dim<2>, T& tag, std::integral_constant<int, s>) const
         {
             static_nested_loop<2, -s, s + 1>(
                 [&](const auto& stencil)
@@ -93,7 +93,7 @@ namespace samurai
         }
 
         template <class T, class Flag, int s>
-        inline void operator()(Dim<2>, T& tag, const Flag& flag, std::integral_constant<int, s>) const
+        SAMURAI_INLINE void operator()(Dim<2>, T& tag, const Flag& flag, std::integral_constant<int, s>) const
         {
             auto mask = (tag(level, i, j) & static_cast<int>(flag));
 
@@ -109,7 +109,7 @@ namespace samurai
         }
 
         template <class T, int s>
-        inline void operator()(Dim<3>, T& tag, std::integral_constant<int, s>) const
+        SAMURAI_INLINE void operator()(Dim<3>, T& tag, std::integral_constant<int, s>) const
         {
             static_nested_loop<3, -s, s + 1>(
                 [&](const auto& stencil)
@@ -119,7 +119,7 @@ namespace samurai
         }
 
         template <class T, class Flag, int s>
-        inline void operator()(Dim<3>, T& tag, const Flag& flag, std::integral_constant<int, s>) const
+        SAMURAI_INLINE void operator()(Dim<3>, T& tag, const Flag& flag, std::integral_constant<int, s>) const
         {
             auto mask = (tag(level, i, j, k) & static_cast<int>(flag));
 
@@ -136,13 +136,13 @@ namespace samurai
     };
 
     template <int s, class T>
-    inline auto tag_to_keep(T& tag)
+    SAMURAI_INLINE auto tag_to_keep(T& tag)
     {
         return make_field_operator_function<tag_to_keep_op>(tag, std::integral_constant<int, s>{});
     }
 
     template <int s, class T, class Flag>
-    inline auto tag_to_keep(T& tag, const Flag& flag)
+    SAMURAI_INLINE auto tag_to_keep(T& tag, const Flag& flag)
     {
         return make_field_operator_function<tag_to_keep_op>(tag, flag, std::integral_constant<int, s>{});
     }
@@ -159,7 +159,7 @@ namespace samurai
         INIT_OPERATOR(keep_children_together_op)
 
         template <class T>
-        inline void operator()(Dim<1>, T& tag) const
+        SAMURAI_INLINE void operator()(Dim<1>, T& tag) const
         {
             auto mask = (tag(level + 1, 2 * i) & static_cast<int>(CellFlag::keep))
                       | (tag(level + 1, 2 * i + 1) & static_cast<int>(CellFlag::keep));
@@ -173,7 +173,7 @@ namespace samurai
         }
 
         template <class T>
-        inline void operator()(Dim<2>, T& tag) const
+        SAMURAI_INLINE void operator()(Dim<2>, T& tag) const
         {
             auto mask = (tag(level + 1, 2 * i, 2 * j) & static_cast<int>(CellFlag::keep))
                       | (tag(level + 1, 2 * i + 1, 2 * j) & static_cast<int>(CellFlag::keep))
@@ -191,7 +191,7 @@ namespace samurai
         }
 
         template <class T>
-        inline void operator()(Dim<3>, T& tag) const
+        SAMURAI_INLINE void operator()(Dim<3>, T& tag) const
         {
             auto mask = (tag(level + 1, 2 * i, 2 * j, 2 * k) & static_cast<int>(CellFlag::keep))
                       | (tag(level + 1, 2 * i + 1, 2 * j, 2 * k) & static_cast<int>(CellFlag::keep))
@@ -218,7 +218,7 @@ namespace samurai
     };
 
     template <class T>
-    inline auto keep_children_together(T& tag)
+    SAMURAI_INLINE auto keep_children_together(T& tag)
     {
         return make_field_operator_function<keep_children_together_op>(tag);
     }

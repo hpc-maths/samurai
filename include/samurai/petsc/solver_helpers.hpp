@@ -21,17 +21,31 @@ namespace samurai
 
         // Linear block solver (choice monolithic or not)
         template <bool monolithic, std::size_t rows, std::size_t cols, class... Operators>
+        [[deprecated("Use make_solver<samurai::petsc::BlockAssemblyType::Monolithic/NestedMatrices> instead")]]
         auto make_solver(const BlockOperator<rows, cols, Operators...>& block_operator)
         {
-            return LinearBlockSolver<monolithic, rows, cols, Operators...>(block_operator);
+            if constexpr (monolithic)
+            {
+                return LinearBlockSolver<BlockAssemblyType::Monolithic, rows, cols, Operators...>(block_operator);
+            }
+            else
+            {
+                return LinearBlockSolver<BlockAssemblyType::NestedMatrices, rows, cols, Operators...>(block_operator);
+            }
+        }
+
+        // Linear block solver (choice monolithic or not)
+        template <BlockAssemblyType assembly_type, std::size_t rows, std::size_t cols, class... Operators>
+        auto make_solver(const BlockOperator<rows, cols, Operators...>& block_operator)
+        {
+            return LinearBlockSolver<assembly_type, rows, cols, Operators...>(block_operator);
         }
 
         // Linear block solver (monolithic)
         template <std::size_t rows, std::size_t cols, class... Operators>
         auto make_solver(const BlockOperator<rows, cols, Operators...>& block_operator)
         {
-            static constexpr bool default_monolithic = true;
-            return make_solver<default_monolithic, rows, cols, Operators...>(block_operator);
+            return make_solver<BlockAssemblyType::Monolithic, rows, cols, Operators...>(block_operator);
         }
 
         // Non-linear solver

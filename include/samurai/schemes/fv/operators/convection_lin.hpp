@@ -173,7 +173,7 @@ namespace samurai
      * @param velocity_field: the velocity field
      */
     template <class Field, class VelocityField>
-        requires IsField<VelocityField>
+        requires field_like<VelocityField>
     auto make_convection_upwind(VelocityField& velocity_field)
     {
         static_assert(Field::dim == VelocityField::dim && VelocityField::n_comp == VelocityField::dim);
@@ -250,7 +250,7 @@ namespace samurai
      * @param velocity_field: the velocity field
      */
     template <class Field, class VelocityField>
-        requires IsField<VelocityField>
+        requires field_like<VelocityField>
     auto make_convection_weno5(VelocityField& velocity_field)
     {
         static constexpr std::size_t dim = Field::dim;

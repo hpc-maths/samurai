@@ -252,7 +252,7 @@ class houc5_op : public samurai::field_operator_base<TInterval>,
 };
 
 template <class... CT>
-inline auto houc5(CT&&... e)
+SAMURAI_INLINE auto houc5(CT&&... e)
 {
     return samurai::make_field_operator_function<houc5_op>(std::forward<CT>(e)...);
 }

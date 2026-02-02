@@ -129,7 +129,7 @@ namespace samurai
     };
 
     template <bool enlarge_, class PredictionFn, class TField, class... TFields>
-    inline Adapt<enlarge_, PredictionFn, TField, TFields...>::Adapt(PredictionFn&& prediction_fn, TField& field, TFields&... fields)
+    SAMURAI_INLINE Adapt<enlarge_, PredictionFn, TField, TFields...>::Adapt(PredictionFn&& prediction_fn, TField& field, TFields&... fields)
         : m_prediction_fn(std::forward<PredictionFn>(prediction_fn))
         , m_fields(field, fields...)
         , m_detail("detail", field.mesh())
@@ -183,13 +183,13 @@ namespace samurai
         auto box_dir();
 
         template <>
-        inline auto box_dir<1>()
+        SAMURAI_INLINE auto box_dir<1>()
         {
             return xt::xtensor_fixed<int, xt::xshape<2, 1>>{{-1}, {1}};
         }
 
         template <>
-        inline auto box_dir<2>()
+        SAMURAI_INLINE auto box_dir<2>()
         {
             return xt::xtensor_fixed<int, xt::xshape<4, 2>>{
                 {-1, 1 },
@@ -200,7 +200,7 @@ namespace samurai
         }
 
         template <>
-        inline auto box_dir<3>()
+        SAMURAI_INLINE auto box_dir<3>()
         {
             return xt::xtensor_fixed<int, xt::xshape<8, 3>>{
                 {-1, -1, -1},
@@ -402,7 +402,7 @@ namespace samurai
     }
 
     template <class... TFields>
-        requires(IsField<TFields> && ...)
+        requires(field_like<TFields> && ...)
     auto make_MRAdapt(TFields&... fields)
     {
         using prediction_fn_t = decltype(default_config::default_prediction_fn);
@@ -410,7 +410,7 @@ namespace samurai
     }
 
     template <class Prediction_fn, class... TFields>
-        requires(!IsField<Prediction_fn>) && (IsField<TFields> && ...)
+        requires(!field_like<Prediction_fn>) && (field_like<TFields> && ...)
     auto make_MRAdapt(Prediction_fn&& prediction_fn, TFields&... fields)
     {
         std::cout << "Use custom prediction function for MRAdapt" << std::endl;
@@ -418,7 +418,7 @@ namespace samurai
     }
 
     template <bool enlarge_, class... TFields>
-        requires(IsField<TFields> && ...)
+        requires(field_like<TFields> && ...)
     auto make_MRAdapt(TFields&... fields)
     {
         using prediction_fn_t = decltype(default_config::default_prediction_fn);
@@ -426,7 +426,7 @@ namespace samurai
     }
 
     template <bool enlarge_, class Prediction_fn, class... TFields>
-        requires(!IsField<Prediction_fn>) && (IsField<TFields> && ...)
+        requires(!field_like<Prediction_fn>) && (field_like<TFields> && ...)
     auto make_MRAdapt(Prediction_fn&& prediction_fn, TFields&... fields)
     {
         return Adapt<enlarge_, Prediction_fn, TFields...>(std::forward<Prediction_fn>(prediction_fn), fields...);

@@ -64,13 +64,13 @@ class Mesh : public samurai::Mesh_base<Mesh<Config>, Config>
     Mesh() = default;
 
     // Constructor starting from a cell list
-    inline Mesh(const cl_type& cl, const samurai::mesh_config<Config::dim>& cfg)
+    SAMURAI_INLINE Mesh(const cl_type& cl, const samurai::mesh_config<Config::dim>& cfg)
         : base_type(cl, cfg)
     {
     }
 
     // Constructor from a given box (domain)
-    inline Mesh(const samurai::Box<double, dim>& b, samurai::mesh_config<Config::dim>& cfg)
+    SAMURAI_INLINE Mesh(const samurai::Box<double, dim>& b, samurai::mesh_config<Config::dim>& cfg)
         : base_type(b, cfg.approx_box_tol(0).scaling_factor(1))
     {
     }

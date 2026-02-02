@@ -8,7 +8,7 @@ namespace samurai
     template <class Field, class SubMesh>
     auto extract_data(const Field& field, const SubMesh& submesh)
     {
-        using size_type                       = typename Field::inner_types::size_type;
+        using size_type                       = typename Field::size_type;
         std::array<std::size_t, 2> data_shape = {submesh.nb_cells(), static_cast<std::size_t>(field.n_comp)};
         xt::xtensor<typename Field::value_type, 2> data(data_shape);
 
@@ -38,7 +38,7 @@ namespace samurai
     template <class Field, class SubMesh>
     auto extract_data_as_vector(const Field& field, const SubMesh& submesh)
     {
-        using size_type        = typename Field::inner_types::size_type;
+        using size_type        = typename Field::size_type;
         std::size_t data_shape = submesh.nb_cells() * field.n_comp;
         std::vector<typename Field::value_type> data(data_shape);
 

@@ -38,14 +38,14 @@ namespace samurai
          * manage the constness of the context (avoid duplicated code).
          */
         template <typename GridYZ, typename Index>
-        inline decltype(auto) access_grid_yz(GridYZ& grid_yz, const Index&, std::integral_constant<std::size_t, 0>)
+        SAMURAI_INLINE decltype(auto) access_grid_yz(GridYZ& grid_yz, const Index&, std::integral_constant<std::size_t, 0>)
         {
             // For the first dimension, we return the interval list
             return grid_yz;
         }
 
         template <typename GridYZ, typename Index, std::size_t dim>
-        inline decltype(auto) access_grid_yz(GridYZ& grid_yz, const Index& index, std::integral_constant<std::size_t, dim>)
+        SAMURAI_INLINE decltype(auto) access_grid_yz(GridYZ& grid_yz, const Index& index, std::integral_constant<std::size_t, dim>)
         {
             // For other dimensions, we dive into the nested std::map
             return access_grid_yz(grid_yz[index[dim - 1]], index, std::integral_constant<std::size_t, dim - 1>{});
@@ -107,21 +107,21 @@ namespace samurai
     // LevelCellList implementation //
     //////////////////////////////////
     template <std::size_t Dim, class TInterval>
-    inline LevelCellList<Dim, TInterval>::LevelCellList()
+    SAMURAI_INLINE LevelCellList<Dim, TInterval>::LevelCellList()
         : m_level{0}
     {
         m_origin_point.fill(0);
     }
 
     template <std::size_t Dim, class TInterval>
-    inline LevelCellList<Dim, TInterval>::LevelCellList(std::size_t level)
+    SAMURAI_INLINE LevelCellList<Dim, TInterval>::LevelCellList(std::size_t level)
         : m_level{level}
     {
         m_origin_point.fill(0);
     }
 
     template <std::size_t Dim, class TInterval>
-    inline LevelCellList<Dim, TInterval>::LevelCellList(std::size_t level, const coords_t& origin_point, double scaling_factor)
+    SAMURAI_INLINE LevelCellList<Dim, TInterval>::LevelCellList(std::size_t level, const coords_t& origin_point, double scaling_factor)
         : m_level{level}
         , m_origin_point(origin_point)
         , m_scaling_factor(scaling_factor)
@@ -130,39 +130,39 @@ namespace samurai
 
     /// Constant access to the interval list at given dim-1 coordinates
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellList<Dim, TInterval>::operator[](const index_yz_t& index) const -> const list_interval_t&
+    SAMURAI_INLINE auto LevelCellList<Dim, TInterval>::operator[](const index_yz_t& index) const -> const list_interval_t&
     {
         return detail::access_grid_yz(m_grid_yz, index, std::integral_constant<std::size_t, dim - 1>{});
     }
 
     /// Mutable access to the interval list at given dim-1 coordinates
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellList<Dim, TInterval>::operator[](const index_yz_t& index) -> list_interval_t&
+    SAMURAI_INLINE auto LevelCellList<Dim, TInterval>::operator[](const index_yz_t& index) -> list_interval_t&
     {
         return detail::access_grid_yz(m_grid_yz, index, std::integral_constant<std::size_t, dim - 1>{});
     }
 
     /// Underlying sparse array
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellList<Dim, TInterval>::grid_yz() const -> const grid_t&
+    SAMURAI_INLINE auto LevelCellList<Dim, TInterval>::grid_yz() const -> const grid_t&
     {
         return m_grid_yz;
     }
 
     template <std::size_t Dim, class TInterval>
-    inline std::size_t LevelCellList<Dim, TInterval>::level() const
+    SAMURAI_INLINE std::size_t LevelCellList<Dim, TInterval>::level() const
     {
         return m_level;
     }
 
     template <std::size_t Dim, class TInterval>
-    inline bool LevelCellList<Dim, TInterval>::empty() const
+    SAMURAI_INLINE bool LevelCellList<Dim, TInterval>::empty() const
     {
         return m_grid_yz.empty();
     }
 
     template <std::size_t Dim, class TInterval>
-    inline void LevelCellList<Dim, TInterval>::to_stream(std::ostream& os) const
+    SAMURAI_INLINE void LevelCellList<Dim, TInterval>::to_stream(std::ostream& os) const
     {
         os << "LevelCellList\n";
         os << "=============\n";
@@ -170,7 +170,7 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline void LevelCellList<Dim, TInterval>::add_cell(const Cell<dim, interval_t>& cell)
+    SAMURAI_INLINE void LevelCellList<Dim, TInterval>::add_cell(const Cell<dim, interval_t>& cell)
     {
         using namespace xt::placeholders;
 
@@ -178,25 +178,25 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto& LevelCellList<Dim, TInterval>::origin_point() const
+    SAMURAI_INLINE auto& LevelCellList<Dim, TInterval>::origin_point() const
     {
         return m_origin_point;
     }
 
     template <std::size_t Dim, class TInterval>
-    inline double LevelCellList<Dim, TInterval>::scaling_factor() const
+    SAMURAI_INLINE double LevelCellList<Dim, TInterval>::scaling_factor() const
     {
         return m_scaling_factor;
     }
 
     template <std::size_t Dim, class TInterval>
-    inline void LevelCellList<Dim, TInterval>::clear()
+    SAMURAI_INLINE void LevelCellList<Dim, TInterval>::clear()
     {
         m_grid_yz.clear();
     }
 
     template <std::size_t Dim, class TInterval>
-    inline std::ostream& operator<<(std::ostream& out, const LevelCellList<Dim, TInterval>& level_cell_list)
+    SAMURAI_INLINE std::ostream& operator<<(std::ostream& out, const LevelCellList<Dim, TInterval>& level_cell_list)
     {
         level_cell_list.to_stream(out);
         return out;

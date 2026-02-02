@@ -55,6 +55,9 @@ namespace samurai
             auto set_at_level = intersection(mesh[mesh_id_t::pred_cells][level], mesh[mesh_id_t::reference][level - 1]).on(level);
             set_at_level.apply_op(variadic_prediction<pred_order, false>(field, fields...));
         }
+
+        field.ghosts_updated() = true;
+        ((fields.ghosts_updated() = true), ...);
     }
 
     template <class Field>
@@ -573,12 +576,12 @@ namespace samurai
         times::timers.stop("ghost update");
     }
 
-    inline void update_ghost_mr()
+    SAMURAI_INLINE void update_ghost_mr()
     {
     }
 
     template <class... T>
-    inline void update_ghost_mr(std::tuple<T...>& fields)
+    SAMURAI_INLINE void update_ghost_mr(std::tuple<T...>& fields)
     {
         std::apply(
             [](T&... tupleArgs)
@@ -589,7 +592,7 @@ namespace samurai
     }
 
     template <class... T>
-    inline void update_ghost_mr(Field_tuple<T...>& fields)
+    SAMURAI_INLINE void update_ghost_mr(Field_tuple<T...>& fields)
     {
         update_ghost_mr(fields.elements());
     }
@@ -1378,13 +1381,13 @@ namespace samurai
     }
 
     template <class PredictionFn, class Mesh>
-        requires IsMesh<Mesh>
+        requires mesh_like<Mesh>
     void update_fields(PredictionFn&&, Mesh&)
     {
     }
 
     template <class Mesh>
-        requires IsMesh<Mesh>
+        requires mesh_like<Mesh>
     void update_fields(Mesh&)
     {
     }
@@ -1403,21 +1406,21 @@ namespace samurai
     }
 
     template <class PredictionFn, class Mesh, class... T>
-        requires IsMesh<Mesh> && (IsField<T> && ...)
+        requires mesh_like<Mesh> && (field_like<T> && ...)
     void update_fields(PredictionFn&& prediction_fn, Mesh& new_mesh, Field_tuple<T...>& fields)
     {
         update_fields(std::forward<PredictionFn>(prediction_fn), new_mesh, fields.elements(), std::make_index_sequence<sizeof...(T)>{});
     }
 
     template <class Mesh, class... T>
-        requires IsMesh<Mesh> && (IsField<T> && ...)
+        requires mesh_like<Mesh> && (field_like<T> && ...)
     void update_fields(Mesh& new_mesh, Field_tuple<T...>& fields)
     {
         update_fields(new_mesh, fields.elements(), std::make_index_sequence<sizeof...(T)>{});
     }
 
     template <class Mesh, class Field, class... Fields>
-        requires IsMesh<Mesh> && IsField<Field> && (IsField<Fields> && ...)
+        requires mesh_like<Mesh> && field_like<Field> && (field_like<Fields> && ...)
     void update_fields(Mesh& new_mesh, Field& field, Fields&... fields)
     {
         using prediction_fn_t = decltype(default_config::default_prediction_fn);
@@ -1426,7 +1429,7 @@ namespace samurai
     }
 
     template <class PredictionFn, class Mesh, class Field, class... Fields>
-        requires IsMesh<Mesh> && IsField<Field> && (IsField<Fields> && ...)
+        requires mesh_like<Mesh> && field_like<Field> && (field_like<Fields> && ...)
     void update_fields(PredictionFn&& prediction_fn, Mesh& new_mesh, Field& field, Fields&... fields)
     {
         detail::update_field(std::forward<PredictionFn>(prediction_fn), new_mesh, field);

@@ -77,34 +77,35 @@ namespace samurai
     };
 
     template <class Config>
-    inline MROMesh<Config>::MROMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level)
+    SAMURAI_INLINE MROMesh<Config>::MROMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level)
         : base_type(cl, min_level, max_level)
     {
     }
 
     template <class Config>
-    inline MROMesh<Config>::MROMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level, const std::array<bool, dim>& periodic)
+    SAMURAI_INLINE
+    MROMesh<Config>::MROMesh(const cl_type& cl, std::size_t min_level, std::size_t max_level, const std::array<bool, dim>& periodic)
         : base_type(cl, min_level, max_level, periodic)
     {
     }
 
     template <class Config>
-    inline MROMesh<Config>::MROMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t max_level)
+    SAMURAI_INLINE MROMesh<Config>::MROMesh(const samurai::Box<double, dim>& b, std::size_t min_level, std::size_t max_level)
         : base_type(b, max_level, min_level, max_level)
     {
     }
 
     template <class Config>
-    inline MROMesh<Config>::MROMesh(const samurai::Box<double, dim>& b,
-                                    std::size_t min_level,
-                                    std::size_t max_level,
-                                    const std::array<bool, dim>& periodic)
+    SAMURAI_INLINE MROMesh<Config>::MROMesh(const samurai::Box<double, dim>& b,
+                                            std::size_t min_level,
+                                            std::size_t max_level,
+                                            const std::array<bool, dim>& periodic)
         : base_type(b, max_level, min_level, max_level, periodic)
     {
     }
 
     template <class Config>
-    inline void MROMesh<Config>::update_sub_mesh_impl()
+    SAMURAI_INLINE void MROMesh<Config>::update_sub_mesh_impl()
     {
         auto max_level = this->m_cells[mesh_id_t::cells].max_level();
         auto min_level = this->m_cells[mesh_id_t::cells].min_level();
@@ -247,7 +248,7 @@ namespace samurai
 
     template <class Config>
     template <typename... T>
-    inline xt::xtensor<bool, 1> MROMesh<Config>::exists(mesh_id_t type, std::size_t level, interval_t interval, T... index) const
+    SAMURAI_INLINE xt::xtensor<bool, 1> MROMesh<Config>::exists(mesh_id_t type, std::size_t level, interval_t interval, T... index) const
     {
         using coord_index_t      = typename interval_t::coord_index_t;
         const auto& lca          = this->m_cells[type][level];

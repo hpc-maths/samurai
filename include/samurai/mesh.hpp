@@ -12,6 +12,7 @@
 #include "cell_list.hpp"
 #include "domain_builder.hpp"
 #include "mesh_config.hpp"
+#include "petsc/cell_ownership.hpp"
 #include "static_algorithm.hpp"
 #include "stencil.hpp"
 #include "subset/node.hpp"
@@ -34,12 +35,12 @@ namespace samurai
         using base_type                   = std::array<CellArray, size>;
         using base_type::operator[];
 
-        inline const CellArray& operator[](MeshID mesh_id) const
+        SAMURAI_INLINE const CellArray& operator[](MeshID mesh_id) const
         {
             return operator[](static_cast<std::size_t>(mesh_id));
         }
 
-        inline CellArray& operator[](MeshID mesh_id)
+        SAMURAI_INLINE CellArray& operator[](MeshID mesh_id)
         {
             return operator[](static_cast<std::size_t>(mesh_id));
         }
@@ -73,12 +74,12 @@ namespace samurai
         using value_t    = typename interval_t::value_t;
         using index_t    = typename interval_t::index_t;
 
-        using cell_t   = Cell<dim, interval_t>;
         using cl_type  = CellList<dim, interval_t, max_refinement_level>;
         using lcl_type = typename cl_type::lcl_type;
 
         using ca_type  = CellArray<dim, interval_t, max_refinement_level>;
         using lca_type = typename ca_type::lca_type;
+        using cell_t   = typename ca_type::cell_t;
 
         using coords_t = typename lca_type::coords_t;
 
@@ -87,6 +88,8 @@ namespace samurai
         using mesh_t = samurai::MeshIDArray<ca_type, mesh_id_t>;
 
         using mpi_subdomain_t = MPI_Subdomain<D>;
+
+        using CellOwnership = samurai::petsc::CellOwnership;
 
         std::size_t nb_cells(mesh_id_t mesh_id = mesh_id_t::reference) const;
         std::size_t nb_cells(std::size_t level, mesh_id_t mesh_id = mesh_id_t::reference) const;
@@ -120,6 +123,7 @@ namespace samurai
         // std::vector<int>& neighbouring_ranks();
         std::vector<mpi_subdomain_t>& mpi_neighbourhood();
         const std::vector<mpi_subdomain_t>& mpi_neighbourhood() const;
+        const coords_t& gravity_center() const;
         cl_type
         construct_initial_mesh(const DomainBuilder<dim>& domain_builder, std::size_t start_level, double approx_box_tol, double scaling_factor);
         void compute_scaling_factor(const samurai::DomainBuilder<dim>& domain_builder, double& scaling_factor);
@@ -154,6 +158,9 @@ namespace samurai
         void to_stream(std::ostream& os) const;
 
         const lca_type& corner(const DirectionVector<dim>& direction) const;
+
+        CellOwnership& cell_ownership();
+        const CellOwnership& cell_ownership() const;
 
       protected:
 
@@ -207,6 +214,7 @@ namespace samurai
         void renumbering();
 
         void find_neighbourhood();
+        void compute_gravity_center();
 
         void partition_mesh(std::size_t start_level, const Box<double, dim>& global_box);
         void load_balancing();
@@ -220,6 +228,7 @@ namespace samurai
         std::vector<lca_type> m_corners;
         // std::vector<int> m_neighbouring_ranks;
         std::vector<mpi_subdomain_t> m_mpi_neighbourhood;
+        coords_t m_gravity_center;
 
         mesh_config<dim> m_config;
 
@@ -239,28 +248,32 @@ namespace samurai
             ar & m_config;
         }
 #endif
+
+#ifdef SAMURAI_WITH_PETSC
+        CellOwnership m_cell_ownership;
+#endif
     };
 
     template <class D, class Config>
-    inline auto Mesh_base<D, Config>::derived_cast() & noexcept -> derived_type&
+    SAMURAI_INLINE auto Mesh_base<D, Config>::derived_cast() & noexcept -> derived_type&
     {
         return *static_cast<derived_type*>(this);
     }
 
     template <class D, class Config>
-    inline auto Mesh_base<D, Config>::derived_cast() const& noexcept -> const derived_type&
+    SAMURAI_INLINE auto Mesh_base<D, Config>::derived_cast() const& noexcept -> const derived_type&
     {
         return *static_cast<const derived_type*>(this);
     }
 
     template <class D, class Config>
-    inline auto Mesh_base<D, Config>::derived_cast() && noexcept -> derived_type
+    SAMURAI_INLINE auto Mesh_base<D, Config>::derived_cast() && noexcept -> derived_type
     {
         return *static_cast<derived_type*>(this);
     }
 
     template <class D, class Config>
-    inline Mesh_base<D, Config>::Mesh_base(const samurai::Box<double, dim>& b, const mesh_config<Config::dim>& config)
+    SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const samurai::Box<double, dim>& b, const mesh_config<Config::dim>& config)
         : m_domain{config.start_level(), b, config.approx_box_tol(), config.scaling_factor()}
         , m_config(config)
     {
@@ -282,6 +295,9 @@ namespace samurai
 
         set_origin_point(origin_point());
         set_scaling_factor(scaling_factor());
+#if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
+        compute_gravity_center();
+#endif
     }
 
     template <class D, class Config>
@@ -328,10 +344,13 @@ namespace samurai
 
         set_origin_point(domain_builder.origin_point());
         set_scaling_factor(m_config.scaling_factor());
+#if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
+        compute_gravity_center();
+#endif
     }
 
     template <class D, class Config>
-    inline Mesh_base<D, Config>::Mesh_base(const cl_type& cl, const mesh_config<Config::dim>& config)
+    SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const cl_type& cl, const mesh_config<Config::dim>& config)
         : m_config(config)
     {
         this->m_cells[mesh_id_t::cells] = {cl};
@@ -346,10 +365,13 @@ namespace samurai
 
         set_origin_point(cl.origin_point());
         set_scaling_factor(cl.scaling_factor());
+#if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
+        compute_gravity_center();
+#endif
     }
 
     template <class D, class Config>
-    inline Mesh_base<D, Config>::Mesh_base(const ca_type& ca, const mesh_config<Config::dim>& config)
+    SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const ca_type& ca, const mesh_config<Config::dim>& config)
         : m_config(config)
     {
         this->m_cells[mesh_id_t::cells] = ca;
@@ -376,10 +398,13 @@ namespace samurai
 
         set_origin_point(ca.origin_point());
         set_scaling_factor(ca.scaling_factor());
+#if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
+        compute_gravity_center();
+#endif
     }
 
     template <class D, class Config>
-    inline Mesh_base<D, Config>::Mesh_base(const ca_type& ca, const self_type& ref_mesh)
+    SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const ca_type& ca, const self_type& ref_mesh)
         : m_domain(ref_mesh.m_domain)
         , m_mpi_neighbourhood(ref_mesh.m_mpi_neighbourhood)
         , m_config(ref_mesh.m_config)
@@ -395,10 +420,13 @@ namespace samurai
 
         set_origin_point(ref_mesh.origin_point());
         set_scaling_factor(ref_mesh.scaling_factor());
+#if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
+        compute_gravity_center();
+#endif
     }
 
     template <class D, class Config>
-    inline Mesh_base<D, Config>::Mesh_base(const cl_type& cl, const self_type& ref_mesh)
+    SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const cl_type& cl, const self_type& ref_mesh)
         : m_domain(ref_mesh.m_domain)
         , m_mpi_neighbourhood(ref_mesh.m_mpi_neighbourhood)
         , m_config(ref_mesh.m_config)
@@ -414,6 +442,9 @@ namespace samurai
 
         set_origin_point(ref_mesh.origin_point());
         set_scaling_factor(ref_mesh.scaling_factor());
+#if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
+        compute_gravity_center();
+#endif
     }
 
     template <class D, class Config>
@@ -500,13 +531,13 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline auto Mesh_base<D, Config>::cells() -> mesh_t&
+    SAMURAI_INLINE auto Mesh_base<D, Config>::cells() -> mesh_t&
     {
         return m_cells;
     }
 
     template <class D, class Config>
-    inline std::size_t Mesh_base<D, Config>::max_nb_cells(std::size_t level) const
+    SAMURAI_INLINE std::size_t Mesh_base<D, Config>::max_nb_cells(std::size_t level) const
     {
         if (m_cells[mesh_id_t::reference][level][0].empty())
         {
@@ -517,85 +548,85 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline std::size_t Mesh_base<D, Config>::nb_cells(mesh_id_t mesh_id) const
+    SAMURAI_INLINE std::size_t Mesh_base<D, Config>::nb_cells(mesh_id_t mesh_id) const
     {
         return (mesh_id == mesh_id_t::reference) ? max_nb_cells(m_cells[mesh_id].max_level()) : m_cells[mesh_id].nb_cells();
     }
 
     template <class D, class Config>
-    inline std::size_t Mesh_base<D, Config>::nb_cells(std::size_t level, mesh_id_t mesh_id) const
+    SAMURAI_INLINE std::size_t Mesh_base<D, Config>::nb_cells(std::size_t level, mesh_id_t mesh_id) const
     {
         return (mesh_id == mesh_id_t::reference) ? max_nb_cells(level) : m_cells[mesh_id][level].nb_cells();
     }
 
     template <class D, class Config>
-    inline auto Mesh_base<D, Config>::operator[](mesh_id_t mesh_id) const -> const ca_type&
+    SAMURAI_INLINE auto Mesh_base<D, Config>::operator[](mesh_id_t mesh_id) const -> const ca_type&
     {
         return m_cells[mesh_id];
     }
 
     template <class D, class Config>
-    inline auto Mesh_base<D, Config>::operator[](mesh_id_t mesh_id) -> ca_type&
+    SAMURAI_INLINE auto Mesh_base<D, Config>::operator[](mesh_id_t mesh_id) -> ca_type&
     {
         return m_cells[mesh_id];
     }
 
     template <class D, class Config>
-    inline std::size_t Mesh_base<D, Config>::max_level() const
+    SAMURAI_INLINE std::size_t Mesh_base<D, Config>::max_level() const
     {
         return m_config.max_level();
     }
 
     template <class D, class Config>
-    inline std::size_t& Mesh_base<D, Config>::max_level()
+    SAMURAI_INLINE std::size_t& Mesh_base<D, Config>::max_level()
     {
         return m_config.max_level();
     }
 
     template <class D, class Config>
-    inline std::size_t Mesh_base<D, Config>::min_level() const
+    SAMURAI_INLINE std::size_t Mesh_base<D, Config>::min_level() const
     {
         return m_config.min_level();
     }
 
     template <class D, class Config>
-    inline std::size_t& Mesh_base<D, Config>::min_level()
+    SAMURAI_INLINE std::size_t& Mesh_base<D, Config>::min_level()
     {
         return m_config.min_level();
     }
 
     template <class D, class Config>
-    inline std::size_t Mesh_base<D, Config>::graduation_width() const
+    SAMURAI_INLINE std::size_t Mesh_base<D, Config>::graduation_width() const
     {
         return m_config.graduation_width();
     }
 
     template <class D, class Config>
-    inline int Mesh_base<D, Config>::ghost_width() const
+    SAMURAI_INLINE int Mesh_base<D, Config>::ghost_width() const
     {
         return m_config.ghost_width();
     }
 
     template <class D, class Config>
-    inline int Mesh_base<D, Config>::max_stencil_radius() const
+    SAMURAI_INLINE int Mesh_base<D, Config>::max_stencil_radius() const
     {
         return m_config.max_stencil_radius();
     }
 
     template <class D, class Config>
-    inline auto& Mesh_base<D, Config>::cfg() const
+    SAMURAI_INLINE auto& Mesh_base<D, Config>::cfg() const
     {
         return m_config;
     }
 
     template <class D, class Config>
-    inline auto& Mesh_base<D, Config>::origin_point() const
+    SAMURAI_INLINE auto& Mesh_base<D, Config>::origin_point() const
     {
         return m_domain.origin_point();
     }
 
     template <class D, class Config>
-    inline void Mesh_base<D, Config>::set_origin_point(const coords_t& origin_point)
+    SAMURAI_INLINE void Mesh_base<D, Config>::set_origin_point(const coords_t& origin_point)
     {
         m_domain.set_origin_point(origin_point);
         m_subdomain.set_origin_point(origin_point);
@@ -607,13 +638,13 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline double Mesh_base<D, Config>::scaling_factor() const
+    SAMURAI_INLINE double Mesh_base<D, Config>::scaling_factor() const
     {
         return m_domain.scaling_factor();
     }
 
     template <class D, class Config>
-    inline void Mesh_base<D, Config>::set_scaling_factor(double scaling_factor)
+    SAMURAI_INLINE void Mesh_base<D, Config>::set_scaling_factor(double scaling_factor)
     {
         m_domain.set_scaling_factor(scaling_factor);
         m_subdomain.set_scaling_factor(scaling_factor);
@@ -625,108 +656,109 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline void Mesh_base<D, Config>::scale_domain(double domain_scaling_factor)
+    SAMURAI_INLINE void Mesh_base<D, Config>::scale_domain(double domain_scaling_factor)
     {
         set_scaling_factor(domain_scaling_factor * scaling_factor());
     }
 
     template <class D, class Config>
-    inline double Mesh_base<D, Config>::cell_length(std::size_t level) const
+    SAMURAI_INLINE double Mesh_base<D, Config>::cell_length(std::size_t level) const
     {
         return samurai::cell_length(scaling_factor(), level);
     }
 
     template <class D, class Config>
-    inline double Mesh_base<D, Config>::min_cell_length() const
+    SAMURAI_INLINE double Mesh_base<D, Config>::min_cell_length() const
     {
         return cell_length(max_level());
     }
 
     template <class D, class Config>
-    inline auto Mesh_base<D, Config>::domain() const -> const lca_type&
+    SAMURAI_INLINE auto Mesh_base<D, Config>::domain() const -> const lca_type&
     {
         return m_domain;
     }
 
     template <class D, class Config>
-    inline auto Mesh_base<D, Config>::subdomain() const -> const lca_type&
+    SAMURAI_INLINE auto Mesh_base<D, Config>::subdomain() const -> const lca_type&
     {
         return m_subdomain;
     }
 
     template <class D, class Config>
-    inline auto Mesh_base<D, Config>::get_union() const -> const ca_type&
+    SAMURAI_INLINE auto Mesh_base<D, Config>::get_union() const -> const ca_type&
     {
         return m_union;
     }
 
     template <class D, class Config>
     template <typename... T, typename U>
-    inline auto Mesh_base<D, Config>::get_interval(std::size_t level, const interval_t& interval, T... index) const -> const interval_t&
+    SAMURAI_INLINE auto
+    Mesh_base<D, Config>::get_interval(std::size_t level, const interval_t& interval, T... index) const -> const interval_t&
     {
         return m_cells[mesh_id_t::reference].get_interval(level, interval, index...);
     }
 
     template <class D, class Config>
     template <class E>
-    inline auto Mesh_base<D, Config>::get_interval(std::size_t level,
-                                                   const interval_t& interval,
-                                                   const xt::xexpression<E>& index) const -> const interval_t&
+    SAMURAI_INLINE auto Mesh_base<D, Config>::get_interval(std::size_t level,
+                                                           const interval_t& interval,
+                                                           const xt::xexpression<E>& index) const -> const interval_t&
     {
         return m_cells[mesh_id_t::reference].get_interval(level, interval, index);
     }
 
     template <class D, class Config>
     template <class E>
-    inline auto Mesh_base<D, Config>::get_interval(std::size_t level, const xt::xexpression<E>& coord) const -> const interval_t&
+    SAMURAI_INLINE auto Mesh_base<D, Config>::get_interval(std::size_t level, const xt::xexpression<E>& coord) const -> const interval_t&
     {
         return m_cells[mesh_id_t::reference].get_interval(level, coord);
     }
 
     template <class D, class Config>
     template <typename... T, typename U>
-    inline auto Mesh_base<D, Config>::get_index(std::size_t level, value_t i, T... index) const -> index_t
+    SAMURAI_INLINE auto Mesh_base<D, Config>::get_index(std::size_t level, value_t i, T... index) const -> index_t
     {
         return m_cells[mesh_id_t::reference].get_index(level, i, index...);
     }
 
     template <class D, class Config>
     template <class E>
-    inline auto Mesh_base<D, Config>::get_index(std::size_t level, value_t i, const xt::xexpression<E>& others) const -> index_t
+    SAMURAI_INLINE auto Mesh_base<D, Config>::get_index(std::size_t level, value_t i, const xt::xexpression<E>& others) const -> index_t
     {
         return m_cells[mesh_id_t::reference].get_index(level, i, others);
     }
 
     template <class D, class Config>
     template <class E>
-    inline auto Mesh_base<D, Config>::get_index(std::size_t level, const xt::xexpression<E>& coord) const -> index_t
+    SAMURAI_INLINE auto Mesh_base<D, Config>::get_index(std::size_t level, const xt::xexpression<E>& coord) const -> index_t
     {
         return m_cells[mesh_id_t::reference].get_index(level, coord);
     }
 
     template <class D, class Config>
     template <typename... T, typename U>
-    inline auto Mesh_base<D, Config>::get_cell(std::size_t level, value_t i, T... index) const -> cell_t
+    SAMURAI_INLINE auto Mesh_base<D, Config>::get_cell(std::size_t level, value_t i, T... index) const -> cell_t
     {
         return m_cells[mesh_id_t::reference].get_cell(level, i, index...);
     }
 
     template <class D, class Config>
     template <class E>
-    inline auto Mesh_base<D, Config>::get_cell(std::size_t level, value_t i, const xt::xexpression<E>& index) const -> cell_t
+    SAMURAI_INLINE auto Mesh_base<D, Config>::get_cell(std::size_t level, value_t i, const xt::xexpression<E>& index) const -> cell_t
     {
         return m_cells[mesh_id_t::reference].get_cell(level, i, index);
     }
 
     template <class D, class Config>
     template <class E>
-    inline auto Mesh_base<D, Config>::get_cell(std::size_t level, const xt::xexpression<E>& coord) const -> cell_t
+    SAMURAI_INLINE auto Mesh_base<D, Config>::get_cell(std::size_t level, const xt::xexpression<E>& coord) const -> cell_t
     {
         return m_cells[mesh_id_t::reference].get_cell(level, coord);
     }
 
     template <class D, class Config>
-    inline bool Mesh_base<D, Config>::is_periodic() const
+    SAMURAI_INLINE bool Mesh_base<D, Config>::is_periodic() const
     {
         return std::any_of(m_config.periodic().cbegin(),
                            m_config.periodic().cend(),
@@ -737,31 +769,59 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline bool Mesh_base<D, Config>::is_periodic(std::size_t d) const
+    SAMURAI_INLINE bool Mesh_base<D, Config>::is_periodic(std::size_t d) const
     {
         return m_config.periodic(d);
     }
 
     template <class D, class Config>
-    inline auto Mesh_base<D, Config>::periodicity() const -> const std::array<bool, dim>&
+    SAMURAI_INLINE auto Mesh_base<D, Config>::periodicity() const -> const std::array<bool, dim>&
     {
         return m_config.periodic();
     }
 
     template <class D, class Config>
-    inline auto Mesh_base<D, Config>::mpi_neighbourhood() -> std::vector<mpi_subdomain_t>&
+    SAMURAI_INLINE auto Mesh_base<D, Config>::mpi_neighbourhood() -> std::vector<mpi_subdomain_t>&
     {
         return m_mpi_neighbourhood;
     }
 
     template <class D, class Config>
-    inline auto Mesh_base<D, Config>::mpi_neighbourhood() const -> const std::vector<mpi_subdomain_t>&
+    SAMURAI_INLINE auto Mesh_base<D, Config>::mpi_neighbourhood() const -> const std::vector<mpi_subdomain_t>&
     {
         return m_mpi_neighbourhood;
     }
 
     template <class D, class Config>
-    inline void Mesh_base<D, Config>::swap(Mesh_base<D, Config>& mesh) noexcept
+    const typename Mesh_base<D, Config>::coords_t& Mesh_base<D, Config>::gravity_center() const
+    {
+        return m_gravity_center;
+    }
+
+    template <class D, class Config>
+    void Mesh_base<D, Config>::compute_gravity_center()
+    {
+        m_gravity_center.fill(0);
+        double total_volume = 0;
+        for_each_interval(m_cells[mesh_id_t::cells],
+                          [&](std::size_t level, auto& i, auto& index)
+                          {
+                              auto length            = cell_length(level);
+                              double interval_volume = static_cast<double>(i.size()) * std::pow(length, dim);
+                              coords_t interval_center;
+                              interval_center[0] = origin_point()[0] + length * 0.5 * static_cast<double>(i.start + i.end);
+                              for (std::size_t d = 1; d < dim; ++d)
+                              {
+                                  interval_center[d] = origin_point()[d] + length * (static_cast<double>(index[d - 1]) + 0.5);
+                              }
+                              m_gravity_center += interval_volume * interval_center;
+                              total_volume += interval_volume;
+                          });
+        m_gravity_center /= total_volume;
+    }
+
+    template <class D, class Config>
+    SAMURAI_INLINE void Mesh_base<D, Config>::swap(Mesh_base<D, Config>& mesh) noexcept
     {
         using std::swap;
         swap(m_cells, mesh.m_cells);
@@ -773,13 +833,13 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline void Mesh_base<D, Config>::update_sub_mesh()
+    SAMURAI_INLINE void Mesh_base<D, Config>::update_sub_mesh()
     {
         this->derived_cast().update_sub_mesh_impl();
     }
 
     template <class D, class Config>
-    inline void Mesh_base<D, Config>::renumbering()
+    SAMURAI_INLINE void Mesh_base<D, Config>::renumbering()
     {
         m_cells[mesh_id_t::reference].update_index();
 
@@ -799,7 +859,7 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline void Mesh_base<D, Config>::construct_corners()
+    SAMURAI_INLINE void Mesh_base<D, Config>::construct_corners()
     {
         using direction_t = DirectionVector<dim>;
 
@@ -845,8 +905,22 @@ namespace samurai
         return m_corners[i_direction];
     }
 
+#ifdef SAMURAI_WITH_PETSC
     template <class D, class Config>
-    inline void Mesh_base<D, Config>::update_mesh_neighbour()
+    SAMURAI_INLINE samurai::petsc::CellOwnership& Mesh_base<D, Config>::cell_ownership()
+    {
+        return m_cell_ownership;
+    }
+
+    template <class D, class Config>
+    SAMURAI_INLINE const samurai::petsc::CellOwnership& Mesh_base<D, Config>::cell_ownership() const
+    {
+        return m_cell_ownership;
+    }
+#endif
+
+    template <class D, class Config>
+    SAMURAI_INLINE void Mesh_base<D, Config>::update_mesh_neighbour()
     {
 #ifdef SAMURAI_WITH_MPI
         // send/recv the meshes of the neighbouring subdomains
@@ -871,6 +945,14 @@ namespace samurai
         }
 
         mpi::wait_all(req.begin(), req.end());
+
+        for (auto& neighbour : m_mpi_neighbourhood)
+        {
+            neighbour.mesh.set_origin_point(this->origin_point()); // the origin point is not serialized, so we have to set it again
+#ifdef SAMURAI_WITH_PETSC
+            neighbour.mesh.compute_gravity_center();
+#endif
+        }
 #endif
     }
 
@@ -878,7 +960,7 @@ namespace samurai
 
     // This function is to only send m_subdomain instead of the whole mesh data
     template <class D, class Config>
-    inline void Mesh_base<D, Config>::update_neighbour_subdomain()
+    SAMURAI_INLINE void Mesh_base<D, Config>::update_neighbour_subdomain()
     {
 #ifdef SAMURAI_WITH_MPI
         // send/recv the meshes of the neighbouring subdomains
@@ -908,7 +990,7 @@ namespace samurai
 
     // Modified function definition
     template <class D, class Config>
-    inline void Mesh_base<D, Config>::update_meshid_neighbour([[maybe_unused]] const mesh_id_t& mesh_id)
+    SAMURAI_INLINE void Mesh_base<D, Config>::update_meshid_neighbour([[maybe_unused]] const mesh_id_t& mesh_id)
     {
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
@@ -936,7 +1018,7 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline void Mesh_base<D, Config>::construct_domain()
+    SAMURAI_INLINE void Mesh_base<D, Config>::construct_domain()
     {
 #ifdef SAMURAI_WITH_MPI
         lcl_type lcl = {max_level()};
@@ -960,7 +1042,7 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline void Mesh_base<D, Config>::construct_subdomain()
+    SAMURAI_INLINE void Mesh_base<D, Config>::construct_subdomain()
     {
         // lcl_type lcl = {m_cells[mesh_id_t::cells].max_level()};
         lcl_type lcl = {max_level()};
@@ -991,7 +1073,7 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline void Mesh_base<D, Config>::construct_union()
+    SAMURAI_INLINE void Mesh_base<D, Config>::construct_union()
     {
         std::size_t max_lvl = max_level();
 
@@ -1208,7 +1290,7 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline void Mesh_base<D, Config>::to_stream(std::ostream& os) const
+    SAMURAI_INLINE void Mesh_base<D, Config>::to_stream(std::ostream& os) const
     {
         for (std::size_t id = 0; id < static_cast<std::size_t>(mesh_id_t::count); ++id)
         {
@@ -1220,7 +1302,7 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline bool operator==(const Mesh_base<D, Config>& mesh1, const Mesh_base<D, Config>& mesh2)
+    SAMURAI_INLINE bool operator==(const Mesh_base<D, Config>& mesh1, const Mesh_base<D, Config>& mesh2)
     {
         using mesh_id_t = typename Mesh_base<D, Config>::mesh_id_t;
 
@@ -1240,13 +1322,13 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline bool operator!=(const Mesh_base<D, Config>& mesh1, const Mesh_base<D, Config>& mesh2)
+    SAMURAI_INLINE bool operator!=(const Mesh_base<D, Config>& mesh1, const Mesh_base<D, Config>& mesh2)
     {
         return !(mesh1 == mesh2);
     }
 
     template <class D, class Config>
-    inline std::ostream& operator<<(std::ostream& out, const Mesh_base<D, Config>& mesh)
+    SAMURAI_INLINE std::ostream& operator<<(std::ostream& out, const Mesh_base<D, Config>& mesh)
     {
         mesh.to_stream(out);
         return out;

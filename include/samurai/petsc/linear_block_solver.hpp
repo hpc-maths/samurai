@@ -10,10 +10,10 @@ namespace samurai
         /**
          * Block solver
          */
-        template <bool monolithic, std::size_t rows_, std::size_t cols_, class... Operators>
-        class LinearBlockSolver : public LinearSolverBase<BlockAssembly<monolithic, rows_, cols_, Operators...>>
+        template <BlockAssemblyType assembly_type_, std::size_t rows_, std::size_t cols_, class... Operators>
+        class LinearBlockSolver : public LinearSolverBase<BlockAssembly<assembly_type_, rows_, cols_, Operators...>>
         {
-            using assembly_t = BlockAssembly<monolithic, rows_, cols_, Operators...>;
+            using assembly_t = BlockAssembly<assembly_type_, rows_, cols_, Operators...>;
             using base_class = LinearSolverBase<assembly_t>;
             using base_class::m_A;
             using base_class::m_is_set_up;
@@ -21,7 +21,10 @@ namespace samurai
 
           public:
 
+            using base_class::after_matrix_assembly;
+            using base_class::after_setup;
             using base_class::assembly;
+            using base_class::configure;
 
           private:
 
@@ -31,33 +34,22 @@ namespace samurai
 
           public:
 
-            static constexpr bool is_monolithic = monolithic;
+            static constexpr BlockAssemblyType assembly_type = assembly_type_;
+
+            [[deprecated("Use assembly_type == samurai::petsc::BlockAssemblyType::Monolithic instead")]]
+            static constexpr bool is_monolithic = (assembly_type == BlockAssemblyType::Monolithic); // cppcheck-suppress unusedStructMember
 
             explicit LinearBlockSolver(const block_operator_t& block_op)
                 : base_class(block_op)
             {
-                _configure_solver();
-            }
-
-          private:
-
-            void _configure_solver()
-            {
-                KSPCreate(PETSC_COMM_SELF, &m_ksp);
-                KSPSetFromOptions(m_ksp);
             }
 
           public:
 
-            void configure_solver() override
-            {
-                _configure_solver();
-            }
-
             void set_pc_fieldsplit(PC& pc)
             {
                 PCSetType(pc, PCFIELDSPLIT);
-                if constexpr (is_monolithic)
+                if constexpr (assembly_type == BlockAssemblyType::Monolithic)
                 {
                     auto IS_fields   = assembly().create_fields_IS();
                     auto field_names = assembly().field_names();
@@ -98,36 +90,56 @@ namespace samurai
                               "The number of unknown fields passed to solve() must equal "
                               "the number of columns of the block operator.");
                 assembly().set_unknown(unknown_tuple);
-                assembly().reset();
             }
 
             void setup() override
             {
-                if constexpr (is_monolithic)
+                if constexpr (assembly_type == BlockAssemblyType::Monolithic)
                 {
                     base_class::setup();
-                    return;
                 }
-
-                if (m_is_set_up)
+                else // NestedMatrices
                 {
-                    return;
+                    if (m_is_set_up)
+                    {
+                        return;
+                    }
+
+                    PC pc;
+                    KSPGetPC(m_ksp, &pc);
+                    if (configure)
+                    {
+                        configure(m_ksp, pc);
+                    }
+                    KSPSetFromOptions(m_ksp);
+
+                    this->assemble_matrix();
+                    // MatView(m_A, PETSC_VIEWER_STDOUT_(PETSC_COMM_WORLD)); std::cout << std::endl;
+                    KSPSetOperators(m_ksp, m_A, m_A);
+
+                    if (after_matrix_assembly)
+                    {
+                        after_matrix_assembly(m_ksp, pc, m_A);
+                    }
+
+                    times::timers.start("solver setup");
+                    PetscErrorCode err = PCSetUp(pc);
+                    // PetscErrorCode err = KSPSetUp(m_ksp); // PETSc fails at KSPSolve() for some reason.
+                    if (err != PETSC_SUCCESS)
+                    {
+                        std::cerr << "The setup of the solver failed!" << std::endl;
+                        assert(false && "Failed solver setup");
+                        exit(EXIT_FAILURE);
+                    }
+                    times::timers.stop("solver setup");
+
+                    if (after_setup)
+                    {
+                        after_setup(m_ksp, pc, m_A);
+                    }
+
+                    m_is_set_up = true;
                 }
-
-                this->assemble_matrix();
-                // MatView(m_A, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
-                KSPSetOperators(m_ksp, m_A, m_A);
-
-                PC pc;
-                KSPGetPC(m_ksp, &pc);
-
-                KSPSetFromOptions(m_ksp);
-                times::timers.start("solver setup");
-                PCSetUp(pc);
-                // KSPSetUp(m_ksp); // PETSc fails at KSPSolve() for some reason.
-                times::timers.stop("solver setup");
-
-                m_is_set_up = true;
             }
 
             template <class... Fields>
@@ -143,16 +155,24 @@ namespace samurai
                     setup();
                 }
                 Vec b = assembly().create_rhs_vector(rhs_tuple);
-                Vec x = assembly().create_solution_vector();
+                Vec x = assembly().create_solution_vector_from_unknown_fields();
                 this->prepare_rhs_and_solve(b, x);
 
-                if constexpr (is_monolithic)
+#ifdef SAMURAI_WITH_MPI
+                assembly().update_unknowns(x);
+#else
+                if constexpr (assembly_type == BlockAssemblyType::Monolithic)
                 {
                     assembly().update_unknowns(x);
                 }
-
+#endif
                 VecDestroy(&b);
                 VecDestroy(&x);
+            }
+
+            void set_block_operator(const block_operator_t& block_op)
+            {
+                this->set_scheme(block_op);
             }
         };
 

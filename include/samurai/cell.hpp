@@ -9,10 +9,12 @@
 #include <xtensor/io/xio.hpp>
 #include <xtensor/views/xview.hpp>
 
+#include "samurai_config.hpp"
+
 namespace samurai
 {
     template <typename LevelType, std::enable_if_t<std::is_integral<LevelType>::value, bool> = true>
-    inline double cell_length(double scaling_factor, LevelType level)
+    SAMURAI_INLINE double cell_length(double scaling_factor, LevelType level)
     {
         return scaling_factor / (1 << level);
     }
@@ -75,11 +77,11 @@ namespace samurai
     };
 
     template <std::size_t dim_, class TInterval>
-    inline Cell<dim_, TInterval>::Cell(const coords_t& origin_point_,
-                                       double scaling_factor,
-                                       std::size_t level_,
-                                       const indices_t& indices_,
-                                       index_t index_)
+    SAMURAI_INLINE Cell<dim_, TInterval>::Cell(const coords_t& origin_point_,
+                                               double scaling_factor,
+                                               std::size_t level_,
+                                               const indices_t& indices_,
+                                               index_t index_)
         : origin_point(origin_point_)
         , level(level_)
         , indices(indices_)
@@ -89,12 +91,12 @@ namespace samurai
     }
 
     template <std::size_t dim_, class TInterval>
-    inline Cell<dim_, TInterval>::Cell(const coords_t& origin_point_,
-                                       double scaling_factor,
-                                       std::size_t level_,
-                                       const value_t& i,
-                                       const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> others,
-                                       index_t index_)
+    SAMURAI_INLINE Cell<dim_, TInterval>::Cell(const coords_t& origin_point_,
+                                               double scaling_factor,
+                                               std::size_t level_,
+                                               const value_t& i,
+                                               const xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> others,
+                                               index_t index_)
         : origin_point(origin_point_)
         , level(level_)
         , index(index_)
@@ -110,13 +112,13 @@ namespace samurai
      * The minimum corner of the cell.
      */
     template <std::size_t dim_, class TInterval>
-    inline auto Cell<dim_, TInterval>::corner() const -> coords_t
+    SAMURAI_INLINE auto Cell<dim_, TInterval>::corner() const -> coords_t
     {
         return origin_point + length * indices;
     }
 
     template <std::size_t dim_, class TInterval>
-    inline double Cell<dim_, TInterval>::corner(std::size_t i) const
+    SAMURAI_INLINE double Cell<dim_, TInterval>::corner(std::size_t i) const
     {
         return origin_point[i] + length * indices[i];
     }
@@ -125,46 +127,46 @@ namespace samurai
      * The minimum corner of the cell.
      */
     template <std::size_t dim_, class TInterval>
-    inline auto Cell<dim_, TInterval>::center() const -> coords_t
+    SAMURAI_INLINE auto Cell<dim_, TInterval>::center() const -> coords_t
     {
         return origin_point + length * (indices + 0.5);
     }
 
     template <std::size_t dim_, class TInterval>
-    inline double Cell<dim_, TInterval>::center(std::size_t i) const
+    SAMURAI_INLINE double Cell<dim_, TInterval>::center(std::size_t i) const
     {
         return origin_point[i] + length * (indices[i] + 0.5);
     }
 
     template <std::size_t dim_, class TInterval>
     template <class Vector>
-    inline auto Cell<dim_, TInterval>::face_center(const Vector& direction) const -> coords_t
+    SAMURAI_INLINE auto Cell<dim_, TInterval>::face_center(const Vector& direction) const -> coords_t
     {
         assert(abs(xt::sum(direction)(0)) == 1); // We only want a Cartesian unit vector
         return center() + (length / 2) * direction;
     }
 
     template <std::size_t dim_, class TInterval>
-    inline void Cell<dim_, TInterval>::to_stream(std::ostream& os) const
+    SAMURAI_INLINE void Cell<dim_, TInterval>::to_stream(std::ostream& os) const
     {
         os << "Cell -> level: " << level << " indices: " << indices << " center: " << center() << " index: " << index;
     }
 
     template <std::size_t dim, class TInterval>
-    inline std::ostream& operator<<(std::ostream& out, const Cell<dim, TInterval>& cell)
+    SAMURAI_INLINE std::ostream& operator<<(std::ostream& out, const Cell<dim, TInterval>& cell)
     {
         cell.to_stream(out);
         return out;
     }
 
     template <std::size_t dim, class TInterval>
-    inline bool operator==(const Cell<dim, TInterval>& c1, const Cell<dim, TInterval>& c2)
+    SAMURAI_INLINE bool operator==(const Cell<dim, TInterval>& c1, const Cell<dim, TInterval>& c2)
     {
         return !(c1.level != c2.level || c1.indices != c2.indices || c1.index != c2.index || c1.length != c2.length);
     }
 
     template <std::size_t dim, class TInterval>
-    inline bool operator!=(const Cell<dim, TInterval>& c1, const Cell<dim, TInterval>& c2)
+    SAMURAI_INLINE bool operator!=(const Cell<dim, TInterval>& c1, const Cell<dim, TInterval>& c2)
     {
         return !(c1 == c2);
     }

@@ -37,3 +37,5 @@ PenaltyReturnTypeOnItsOwnLine: 10
 SeparateDefinitionBlocks: Always
 SpaceAfterTemplateKeyword: true
 SpacesInContainerLiterals: false
+QualifierAlignment: Custom
+QualifierOrder: ["inline", "static", "const", "type"]

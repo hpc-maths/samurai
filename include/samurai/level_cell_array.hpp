@@ -217,6 +217,9 @@ namespace samurai
                 ar& m_offsets[d];
             }
             ar & m_level;
+            ar & m_is_box;
+            // ar & m_origin_point; // doesn't compile: xt::xtensor_fixed cannot be serialized
+            ar & m_scaling_factor;
         }
 #endif
         template <bool isIntervalListEmpty, bool isParentPointNew, size_t d>
@@ -317,7 +320,7 @@ namespace samurai
     // LevelCellArray implementation //
     ///////////////////////////////////
     template <std::size_t Dim, class TInterval>
-    inline LevelCellArray<Dim, TInterval>::LevelCellArray(const LevelCellList<Dim, TInterval>& lcl)
+    SAMURAI_INLINE LevelCellArray<Dim, TInterval>::LevelCellArray(const LevelCellList<Dim, TInterval>& lcl)
         : m_level(lcl.level())
         , m_origin_point(lcl.origin_point())
         , m_scaling_factor(lcl.scaling_factor())
@@ -398,7 +401,7 @@ namespace samurai
     //~ }
 
     template <std::size_t Dim, class TInterval>
-    inline LevelCellArray<Dim, TInterval>::LevelCellArray(std::size_t level, const Box<value_t, dim>& box)
+    SAMURAI_INLINE LevelCellArray<Dim, TInterval>::LevelCellArray(std::size_t level, const Box<value_t, dim>& box)
         : m_level{level}
     {
         m_scaling_factor = box.min_length();
@@ -407,10 +410,8 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline LevelCellArray<Dim, TInterval>::LevelCellArray(std::size_t level,
-                                                          const Box<double, dim>& box,
-                                                          double approx_box_tol,
-                                                          double scaling_factor)
+    SAMURAI_INLINE
+    LevelCellArray<Dim, TInterval>::LevelCellArray(std::size_t level, const Box<double, dim>& box, double approx_box_tol, double scaling_factor)
         : m_level(level)
         , m_is_box(true)
     {
@@ -418,11 +419,11 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline LevelCellArray<Dim, TInterval>::LevelCellArray(std::size_t level,
-                                                          const Box<double, dim>& box,
-                                                          const coords_t& origin_point,
-                                                          double approx_box_tol,
-                                                          double scaling_factor)
+    SAMURAI_INLINE LevelCellArray<Dim, TInterval>::LevelCellArray(std::size_t level,
+                                                                  const Box<double, dim>& box,
+                                                                  const coords_t& origin_point,
+                                                                  double approx_box_tol,
+                                                                  double scaling_factor)
         : m_level(level)
         , m_is_box(true)
     {
@@ -430,14 +431,14 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline LevelCellArray<Dim, TInterval>::LevelCellArray(std::size_t level)
+    SAMURAI_INLINE LevelCellArray<Dim, TInterval>::LevelCellArray(std::size_t level)
         : m_level{level}
     {
         m_origin_point.fill(0);
     }
 
     template <std::size_t Dim, class TInterval>
-    inline LevelCellArray<Dim, TInterval>::LevelCellArray(std::size_t level, const coords_t& origin_point, double scaling_factor)
+    SAMURAI_INLINE LevelCellArray<Dim, TInterval>::LevelCellArray(std::size_t level, const coords_t& origin_point, double scaling_factor)
         : m_level{level}
         , m_origin_point(origin_point)
         , m_scaling_factor(scaling_factor)
@@ -447,13 +448,14 @@ namespace samurai
     ////////////////////////////////////////////////////////////////////
 
     template <std::size_t Dim, class TInterval>
-    inline void LevelCellArray<Dim, TInterval>::add_point_back(const value_t& x, const fixed_array<value_t, Dim - 1>& yz)
+    SAMURAI_INLINE void LevelCellArray<Dim, TInterval>::add_point_back(const value_t& x, const fixed_array<value_t, Dim - 1>& yz)
     {
         add_interval_back({x, x + 1}, yz);
     }
 
     template <std::size_t Dim, class TInterval>
-    inline void LevelCellArray<Dim, TInterval>::add_interval_back(const interval_t& x_interval, const fixed_array<value_t, Dim - 1>& yz)
+    SAMURAI_INLINE void
+    LevelCellArray<Dim, TInterval>::add_interval_back(const interval_t& x_interval, const fixed_array<value_t, Dim - 1>& yz)
     {
         if (m_cells[Dim - 1].empty())
         {
@@ -471,7 +473,8 @@ namespace samurai
      */
     template <std::size_t Dim, class TInterval>
     template <bool isIntervalListEmpty, bool isParentPointNew, size_t d>
-    inline size_t LevelCellArray<Dim, TInterval>::add_interval_back_rec(const interval_t& x_interval, const fixed_array<value_t, Dim - 1>& yz)
+    SAMURAI_INLINE size_t LevelCellArray<Dim, TInterval>::add_interval_back_rec(const interval_t& x_interval,
+                                                                                const fixed_array<value_t, Dim - 1>& yz)
     {
         static_assert(d <= Dim - 1);
 
@@ -530,7 +533,7 @@ namespace samurai
     ////////////////////////////////////////////////////////////////////
 
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::begin() -> iterator
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::begin() -> iterator
     {
         typename iterator::offset_type_iterator offset_index;
         typename iterator::iterator_container current_index;
@@ -550,7 +553,7 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::end() -> iterator
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::end() -> iterator
     {
         typename iterator::offset_type_iterator offset_index;
         typename iterator::iterator_container current_index;
@@ -572,7 +575,7 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::cbegin() const -> const_iterator
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::cbegin() const -> const_iterator
     {
         typename const_iterator::offset_type_iterator offset_index;
         typename const_iterator::iterator_container current_index;
@@ -594,7 +597,7 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::cend() const -> const_iterator
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::cend() const -> const_iterator
     {
         typename const_iterator::offset_type_iterator offset_index;
         typename const_iterator::iterator_container current_index;
@@ -619,49 +622,49 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::begin() const -> const_iterator
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::begin() const -> const_iterator
     {
         return cbegin();
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::end() const -> const_iterator
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::end() const -> const_iterator
     {
         return cend();
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::rbegin() -> reverse_iterator
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::rbegin() -> reverse_iterator
     {
         return reverse_iterator(end());
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::rend() -> reverse_iterator
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::rend() -> reverse_iterator
     {
         return reverse_iterator(begin());
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::rbegin() const -> const_reverse_iterator
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::rbegin() const -> const_reverse_iterator
     {
         return rcbegin();
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::rend() const -> const_reverse_iterator
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::rend() const -> const_reverse_iterator
     {
         return rcend();
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::rcbegin() const -> const_reverse_iterator
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::rcbegin() const -> const_reverse_iterator
     {
         return const_reverse_iterator(cend());
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::rcend() const -> const_reverse_iterator
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::rcend() const -> const_reverse_iterator
     {
         return const_reverse_iterator(cbegin());
     }
@@ -674,7 +677,7 @@ namespace samurai
      */
     template <std::size_t Dim, class TInterval>
     template <typename... T, typename D>
-    inline auto LevelCellArray<Dim, TInterval>::get_interval(const interval_t& interval, T... index) const -> const interval_t&
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::get_interval(const interval_t& interval, T... index) const -> const interval_t&
     {
         auto offset = find(*this, {interval.start, index...});
 #ifndef NDEBUG
@@ -689,7 +692,8 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::get_interval(const interval_t& interval, const coord_type& index) const -> const interval_t&
+    SAMURAI_INLINE auto
+    LevelCellArray<Dim, TInterval>::get_interval(const interval_t& interval, const coord_type& index) const -> const interval_t&
     {
         all_coord_type point;
         point[0] = interval.start;
@@ -713,7 +717,7 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::get_interval(const all_coord_type& coord) const -> const interval_t&
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::get_interval(const all_coord_type& coord) const -> const interval_t&
     {
         auto offset = find(*this, coord);
 #ifndef NDEBUG
@@ -732,41 +736,41 @@ namespace samurai
 
     template <std::size_t Dim, class TInterval>
     template <typename... T, typename D>
-    inline auto LevelCellArray<Dim, TInterval>::get_index(value_t i, T... index) const -> index_t
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::get_index(value_t i, T... index) const -> index_t
     {
         return get_interval({i, i + 1}, index...).index + i;
     }
 
     template <std::size_t Dim, class TInterval>
     template <class E>
-    inline auto LevelCellArray<Dim, TInterval>::get_index(value_t i, const xt::xexpression<E>& others) const -> index_t
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::get_index(value_t i, const xt::xexpression<E>& others) const -> index_t
     {
         return get_interval({i, i + 1}, others).index + i;
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::get_index(const all_coord_type& coord) const -> index_t
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::get_index(const all_coord_type& coord) const -> index_t
     {
         return get_interval(coord).index + coord(0);
     }
 
     template <std::size_t Dim, class TInterval>
     template <typename... T, typename D>
-    inline auto LevelCellArray<Dim, TInterval>::get_cell(value_t i, T... index) const -> cell_t
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::get_cell(value_t i, T... index) const -> cell_t
     {
         return {m_origin_point, m_scaling_factor, m_level, i, xt::xtensor_fixed<value_t, xt::xshape<dim - 1>>{index...}, get_index(i, index...)};
     }
 
     template <std::size_t Dim, class TInterval>
     template <class E>
-    inline auto LevelCellArray<Dim, TInterval>::get_cell(value_t i, const xt::xexpression<E>& others) const -> cell_t
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::get_cell(value_t i, const xt::xexpression<E>& others) const -> cell_t
     {
         return {m_origin_point, m_scaling_factor, m_level, i, others, get_index(i, others)};
     }
 
     template <std::size_t Dim, class TInterval>
     template <class E>
-    inline auto LevelCellArray<Dim, TInterval>::get_cell(const xt::xexpression<E>& coord) const -> cell_t
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::get_cell(const xt::xexpression<E>& coord) const -> cell_t
     {
         xt::xtensor_fixed<value_t, xt::xshape<dim>> coord_array = coord;
 
@@ -780,7 +784,7 @@ namespace samurai
      * Field data structure.
      */
     template <std::size_t Dim, class TInterval>
-    inline void LevelCellArray<Dim, TInterval>::update_index()
+    SAMURAI_INLINE void LevelCellArray<Dim, TInterval>::update_index()
     {
         std::size_t acc_size = 0;
         for_each_interval(*this,
@@ -792,13 +796,13 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline bool LevelCellArray<Dim, TInterval>::empty() const
+    SAMURAI_INLINE bool LevelCellArray<Dim, TInterval>::empty() const
     {
         return m_cells[0].empty();
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::shape() const
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::shape() const
     {
         std::array<std::size_t, dim> output;
         for (std::size_t d = 0; d < dim; ++d)
@@ -809,7 +813,7 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::nb_intervals() const
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::nb_intervals() const
     {
         std::size_t s = 0;
         for (std::size_t d = 0; d < dim; ++d)
@@ -820,7 +824,7 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline std::size_t LevelCellArray<Dim, TInterval>::nb_cells() const
+    SAMURAI_INLINE std::size_t LevelCellArray<Dim, TInterval>::nb_cells() const
     {
         auto op = [](std::size_t i, const auto& interval)
         {
@@ -831,13 +835,13 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline std::size_t LevelCellArray<Dim, TInterval>::level() const
+    SAMURAI_INLINE std::size_t LevelCellArray<Dim, TInterval>::level() const
     {
         return m_level;
     }
 
     template <std::size_t Dim, class TInterval>
-    inline void LevelCellArray<Dim, TInterval>::clear()
+    SAMURAI_INLINE void LevelCellArray<Dim, TInterval>::clear()
     {
         for (std::size_t d = 0; d < dim - 1; ++d)
         {
@@ -848,13 +852,13 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline bool LevelCellArray<Dim, TInterval>::is_box() const
+    SAMURAI_INLINE bool LevelCellArray<Dim, TInterval>::is_box() const
     {
         return m_is_box;
     }
 
     template <std::size_t Dim, class TInterval>
-    inline double LevelCellArray<Dim, TInterval>::cell_length() const
+    SAMURAI_INLINE double LevelCellArray<Dim, TInterval>::cell_length() const
     {
         return samurai::cell_length(m_scaling_factor, m_level);
     }
@@ -864,7 +868,7 @@ namespace samurai
      * direction.
      */
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::max_indices() const
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::max_indices() const
     {
         std::array<value_t, dim> max;
         for (std::size_t d = 0; d < dim; ++d)
@@ -885,7 +889,7 @@ namespace samurai
      * direction.
      */
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::min_indices() const
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::min_indices() const
     {
         std::array<value_t, dim> min;
         for (std::size_t d = 0; d < dim; ++d)
@@ -907,7 +911,7 @@ namespace samurai
      * for each direction.
      */
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::minmax_indices() const
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::minmax_indices() const
     {
         std::array<std::pair<value_t, value_t>, dim> minmax;
         auto min = min_indices();
@@ -921,7 +925,7 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::min_corner() const -> coords_t
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::min_corner() const -> coords_t
     {
         typename cell_t::indices_t index;
 
@@ -937,7 +941,7 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::max_corner() const -> coords_t
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::max_corner() const -> coords_t
     {
         typename cell_t::indices_t index;
 
@@ -954,50 +958,50 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto& LevelCellArray<Dim, TInterval>::origin_point() const
+    SAMURAI_INLINE auto& LevelCellArray<Dim, TInterval>::origin_point() const
     {
         return m_origin_point;
     }
 
     template <std::size_t Dim, class TInterval>
-    inline void LevelCellArray<Dim, TInterval>::set_origin_point(const coords_t& origin_point)
+    SAMURAI_INLINE void LevelCellArray<Dim, TInterval>::set_origin_point(const coords_t& origin_point)
     {
         m_origin_point = origin_point;
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::scaling_factor() const
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::scaling_factor() const
     {
         return m_scaling_factor;
     }
 
     template <std::size_t Dim, class TInterval>
-    inline void LevelCellArray<Dim, TInterval>::set_scaling_factor(double scaling_factor)
+    SAMURAI_INLINE void LevelCellArray<Dim, TInterval>::set_scaling_factor(double scaling_factor)
     {
         m_scaling_factor = scaling_factor;
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::operator[](std::size_t d) const -> const std::vector<interval_t>&
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::operator[](std::size_t d) const -> const std::vector<interval_t>&
     {
         return m_cells[d];
     }
 
     template <std::size_t Dim, class TInterval>
-    inline auto LevelCellArray<Dim, TInterval>::operator[](std::size_t d) -> std::vector<interval_t>&
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::operator[](std::size_t d) -> std::vector<interval_t>&
     {
         return m_cells[d];
     }
 
     template <std::size_t Dim, class TInterval>
-    inline const std::vector<std::size_t>& LevelCellArray<Dim, TInterval>::offsets(std::size_t d) const
+    SAMURAI_INLINE const std::vector<std::size_t>& LevelCellArray<Dim, TInterval>::offsets(std::size_t d) const
     {
         assert(d > 0);
         return m_offsets[d - 1];
     }
 
     template <std::size_t Dim, class TInterval>
-    inline std::vector<std::size_t>& LevelCellArray<Dim, TInterval>::offsets(std::size_t d)
+    SAMURAI_INLINE std::vector<std::size_t>& LevelCellArray<Dim, TInterval>::offsets(std::size_t d)
     {
         assert(d > 0);
         return m_offsets[d - 1];
@@ -1005,9 +1009,9 @@ namespace samurai
 
     template <std::size_t Dim, class TInterval>
     template <typename TGrid, std::size_t N>
-    inline void LevelCellArray<Dim, TInterval>::init_from_level_cell_list(const TGrid& grid,
-                                                                          std::array<value_t, dim - 1> index,
-                                                                          std::integral_constant<std::size_t, N>)
+    SAMURAI_INLINE void LevelCellArray<Dim, TInterval>::init_from_level_cell_list(const TGrid& grid,
+                                                                                  std::array<value_t, dim - 1> index,
+                                                                                  std::integral_constant<std::size_t, N>)
     {
         // Working interval
         interval_t curr_interval(0, 0, 0);
@@ -1070,16 +1074,16 @@ namespace samurai
 
     template <std::size_t Dim, class TInterval>
     template <typename TIntervalList>
-    inline void LevelCellArray<Dim, TInterval>::init_from_level_cell_list(const TIntervalList& interval_list,
-                                                                          const std::array<value_t, dim - 1>& /* index */,
-                                                                          std::integral_constant<std::size_t, 0>)
+    SAMURAI_INLINE void LevelCellArray<Dim, TInterval>::init_from_level_cell_list(const TIntervalList& interval_list,
+                                                                                  const std::array<value_t, dim - 1>& /* index */,
+                                                                                  std::integral_constant<std::size_t, 0>)
     {
         // Along the X axis, simply copy the intervals in cells[0]
         std::copy(interval_list.begin(), interval_list.end(), std::back_inserter(m_cells[0]));
     }
 
     template <std::size_t Dim, class TInterval>
-    inline void LevelCellArray<Dim, TInterval>::init_from_box(const Box<value_t, dim>& box)
+    SAMURAI_INLINE void LevelCellArray<Dim, TInterval>::init_from_box(const Box<value_t, dim>& box)
     {
         auto dimensions = xt::cast<std::size_t>(box.length());
         auto start_pt   = box.min_corner();
@@ -1145,7 +1149,7 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline void LevelCellArray<Dim, TInterval>::to_stream(std::ostream& os) const
+    SAMURAI_INLINE void LevelCellArray<Dim, TInterval>::to_stream(std::ostream& os) const
     {
         for (std::size_t d = 0; d < dim; ++d)
         {
@@ -1172,7 +1176,7 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline bool operator==(const LevelCellArray<Dim, TInterval>& lca_1, const LevelCellArray<Dim, TInterval>& lca_2)
+    SAMURAI_INLINE bool operator==(const LevelCellArray<Dim, TInterval>& lca_1, const LevelCellArray<Dim, TInterval>& lca_2)
     {
         if (lca_1.level() != lca_2.level())
         {
@@ -1203,7 +1207,7 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    inline std::ostream& operator<<(std::ostream& out, const LevelCellArray<Dim, TInterval>& level_cell_array)
+    SAMURAI_INLINE std::ostream& operator<<(std::ostream& out, const LevelCellArray<Dim, TInterval>& level_cell_array)
     {
         level_cell_array.to_stream(out);
         return out;
@@ -1214,10 +1218,10 @@ namespace samurai
     ////////////////////////////////////////////
 
     template <class LCA, bool is_const>
-    inline LevelCellArray_iterator<LCA, is_const>::LevelCellArray_iterator(LCA* lca,
-                                                                           offset_type_iterator&& offset_index,
-                                                                           iterator_container&& current_index,
-                                                                           coord_type&& index)
+    SAMURAI_INLINE LevelCellArray_iterator<LCA, is_const>::LevelCellArray_iterator(LCA* lca,
+                                                                                   offset_type_iterator&& offset_index,
+                                                                                   iterator_container&& current_index,
+                                                                                   coord_type&& index)
         : p_lca(lca)
         , m_offset_index(std::move(offset_index))
         , m_current_index(std::move(current_index))
@@ -1226,7 +1230,7 @@ namespace samurai
     }
 
     template <class LCA, bool is_const>
-    inline auto LevelCellArray_iterator<LCA, is_const>::operator++() -> self_type&
+    SAMURAI_INLINE auto LevelCellArray_iterator<LCA, is_const>::operator++() -> self_type&
     {
         if (m_current_index[0] == (*p_lca)[0].end())
         {
@@ -1260,7 +1264,7 @@ namespace samurai
     }
 
     template <class LCA, bool is_const>
-    inline auto LevelCellArray_iterator<LCA, is_const>::operator--() -> self_type&
+    SAMURAI_INLINE auto LevelCellArray_iterator<LCA, is_const>::operator--() -> self_type&
     {
         if (m_current_index[0] == (*p_lca)[0].begin())
         {
@@ -1298,7 +1302,7 @@ namespace samurai
     }
 
     template <class LCA, bool is_const>
-    inline auto LevelCellArray_iterator<LCA, is_const>::operator+=(difference_type n) -> self_type&
+    SAMURAI_INLINE auto LevelCellArray_iterator<LCA, is_const>::operator+=(difference_type n) -> self_type&
     {
         for (difference_type i = 0; i < n; ++i)
         {
@@ -1308,7 +1312,7 @@ namespace samurai
     }
 
     template <class LCA, bool is_const>
-    inline auto LevelCellArray_iterator<LCA, is_const>::operator-=(difference_type n) -> self_type&
+    SAMURAI_INLINE auto LevelCellArray_iterator<LCA, is_const>::operator-=(difference_type n) -> self_type&
     {
         for (difference_type i = 0; i < n; ++i)
         {
@@ -1318,62 +1322,62 @@ namespace samurai
     }
 
     template <class LCA, bool is_const>
-    inline auto LevelCellArray_iterator<LCA, is_const>::operator-(const self_type& rhs) const -> difference_type
+    SAMURAI_INLINE auto LevelCellArray_iterator<LCA, is_const>::operator-(const self_type& rhs) const -> difference_type
     {
         return m_current_index[0] - rhs.m_current_index[0];
     }
 
     template <class LCA, bool is_const>
-    inline auto LevelCellArray_iterator<LCA, is_const>::operator*() const -> reference
+    SAMURAI_INLINE auto LevelCellArray_iterator<LCA, is_const>::operator*() const -> reference
     {
         return *(m_current_index[0]);
     }
 
     template <class LCA, bool is_const>
-    inline auto LevelCellArray_iterator<LCA, is_const>::operator->() const -> pointer
+    SAMURAI_INLINE auto LevelCellArray_iterator<LCA, is_const>::operator->() const -> pointer
     {
         return std::addressof(this->operator*());
     }
 
     template <class LCA, bool is_const>
-    inline auto LevelCellArray_iterator<LCA, is_const>::index() const -> const coord_type&
+    SAMURAI_INLINE auto LevelCellArray_iterator<LCA, is_const>::index() const -> const coord_type&
     {
         return m_index;
     }
 
     template <class LCA, bool is_const>
-    inline std::size_t LevelCellArray_iterator<LCA, is_const>::level() const
+    SAMURAI_INLINE std::size_t LevelCellArray_iterator<LCA, is_const>::level() const
     {
         return p_lca->level();
     }
 
     template <class LCA, bool is_const>
-    inline bool LevelCellArray_iterator<LCA, is_const>::equal(const self_type& rhs) const
+    SAMURAI_INLINE bool LevelCellArray_iterator<LCA, is_const>::equal(const self_type& rhs) const
     {
         return p_lca == rhs.p_lca && m_current_index[0] == rhs.m_current_index[0];
     }
 
     template <class LCA, bool is_const>
-    inline bool LevelCellArray_iterator<LCA, is_const>::less_than(const self_type& rhs) const
+    SAMURAI_INLINE bool LevelCellArray_iterator<LCA, is_const>::less_than(const self_type& rhs) const
     {
         return p_lca == rhs.p_lca && m_current_index[0] < rhs.m_current_index[0];
     }
 
     template <class LCA, bool is_const>
-    inline bool operator==(const LevelCellArray_iterator<LCA, is_const>& it1, const LevelCellArray_iterator<LCA, is_const>& it2)
+    SAMURAI_INLINE bool operator==(const LevelCellArray_iterator<LCA, is_const>& it1, const LevelCellArray_iterator<LCA, is_const>& it2)
     {
         return it1.equal(it2);
     }
 
     template <class LCA, bool is_const>
-    inline bool operator<(const LevelCellArray_iterator<LCA, is_const>& it1, const LevelCellArray_iterator<LCA, is_const>& it2)
+    SAMURAI_INLINE bool operator<(const LevelCellArray_iterator<LCA, is_const>& it1, const LevelCellArray_iterator<LCA, is_const>& it2)
     {
         return it1.less_than(it2);
     }
 
     template <class LCA, bool is_const>
-    inline bool operator==(const std::reverse_iterator<LevelCellArray_iterator<LCA, is_const>>& it1,
-                           const std::reverse_iterator<LevelCellArray_iterator<LCA, is_const>>& it2)
+    SAMURAI_INLINE bool operator==(const std::reverse_iterator<LevelCellArray_iterator<LCA, is_const>>& it1,
+                                   const std::reverse_iterator<LevelCellArray_iterator<LCA, is_const>>& it2)
     {
         return it1.base().equal(it2.base());
     }

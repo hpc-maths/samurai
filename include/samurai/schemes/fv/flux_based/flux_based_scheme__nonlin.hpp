@@ -6,7 +6,7 @@ namespace samurai
     namespace detail
     {
         template <bool enable_finer_level_flux>
-        inline auto get_dest_level(std::size_t level, int finer_level_flux, std::size_t max_level)
+        SAMURAI_INLINE auto get_dest_level(std::size_t level, int finer_level_flux, std::size_t max_level)
         {
             if constexpr (enable_finer_level_flux)
             {
@@ -116,7 +116,7 @@ namespace samurai
 
       private:
 
-        inline auto h_factor(double h_face, double h_cell) const
+        SAMURAI_INLINE auto h_factor(double h_face, double h_cell) const
         {
             double face_measure = std::pow(h_face, dim - 1);
             double cell_measure = std::pow(h_cell, dim);
@@ -125,7 +125,7 @@ namespace samurai
 
       public:
 
-        inline field_value_type flux_value_cmpnent(const FluxValue<cfg>& flux_value, [[maybe_unused]] size_type field_i) const
+        SAMURAI_INLINE field_value_type flux_value_cmpnent(const FluxValue<cfg>& flux_value, [[maybe_unused]] size_type field_i) const
         {
             if constexpr (output_field_t::is_scalar)
             {
@@ -173,7 +173,8 @@ namespace samurai
             }
         };
 
-        inline void copy_stencil_values(const input_field_t& field, const StencilCells<cfg>& cells, StencilValues<cfg>& stencil_values) const
+        SAMURAI_INLINE void
+        copy_stencil_values(const input_field_t& field, const StencilCells<cfg>& cells, StencilValues<cfg>& stencil_values) const
         {
             for (std::size_t s = 0; s < stencil_size; ++s)
             {
@@ -181,12 +182,12 @@ namespace samurai
             }
         }
 
-        inline void predict_value(typename cfg::input_field_t::local_data_type& predicted_value,
-                                  const input_field_t& field,
-                                  const std::size_t level,
-                                  const std::size_t delta_l,
-                                  const cell_indices_t& coarse_cell_indices,
-                                  const cell_indices_t& fine_cell_indices)
+        SAMURAI_INLINE void predict_value(typename cfg::input_field_t::local_data_type& predicted_value,
+                                          const input_field_t& field,
+                                          const std::size_t level,
+                                          const std::size_t delta_l,
+                                          const cell_indices_t& coarse_cell_indices,
+                                          const cell_indices_t& fine_cell_indices)
         {
             portion(predicted_value, field, level, delta_l, coarse_cell_indices, fine_cell_indices);
         }

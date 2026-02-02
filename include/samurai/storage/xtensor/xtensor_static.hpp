@@ -36,7 +36,7 @@ namespace samurai
     };
 
     template <class T>
-    inline constexpr auto is_xtensor_matrix_v = is_xtensor_matrix<T>::value;
+    constexpr auto is_xtensor_matrix_v = is_xtensor_matrix<T>::value;
 
     //-----------//
     // Functions //
@@ -55,7 +55,7 @@ namespace samurai
     // }
 
     template <class value_type, std::size_t rows, std::size_t cols, class T>
-    inline auto row(xtensor_static_matrix<value_type, rows, cols>& A, T i)
+    SAMURAI_INLINE auto row(xtensor_static_matrix<value_type, rows, cols>& A, T i)
     {
         return xt::row(A, static_cast<std::ptrdiff_t>(i));
     }
@@ -67,7 +67,7 @@ namespace samurai
     // }
 
     template <class value_type, std::size_t rows, std::size_t cols, class T>
-    inline auto col(xtensor_static_matrix<value_type, rows, cols>& A, T i)
+    SAMURAI_INLINE auto col(xtensor_static_matrix<value_type, rows, cols>& A, T i)
     {
         return xt::col(A, static_cast<std::ptrdiff_t>(i));
     }

@@ -56,6 +56,12 @@ namespace samurai
                           }
                       });
 
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        error_norm    = mpi::all_reduce(world, error_norm, std::plus<double>());
+        solution_norm = mpi::all_reduce(world, solution_norm, std::plus<double>());
+#endif
+
         error_norm    = sqrt(error_norm);
         solution_norm = sqrt(solution_norm);
 
@@ -89,7 +95,7 @@ namespace samurai
         return hidden_constant * std::pow(h, order);
     }
 
-    inline double convergence_order(double h1, double error1, double h2, double error2)
+    SAMURAI_INLINE double convergence_order(double h1, double error1, double h2, double error2)
     {
         return log(error2 / error1) / log(h2 / h1);
     }

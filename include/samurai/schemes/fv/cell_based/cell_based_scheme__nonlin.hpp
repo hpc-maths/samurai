@@ -134,7 +134,7 @@ namespace samurai
             m_scheme_definition.jacobian_function(jac, stencil_cells, field);
         }
 
-        inline field_value_type contrib_cmpnent(const SchemeValue<cfg>& coeffs, [[maybe_unused]] size_type field_i) const
+        SAMURAI_INLINE field_value_type contrib_cmpnent(const SchemeValue<cfg>& coeffs, [[maybe_unused]] size_type field_i) const
         {
             if constexpr (output_field_t::is_scalar)
             {

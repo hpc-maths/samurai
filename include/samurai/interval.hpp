@@ -104,7 +104,7 @@ namespace samurai
     /////////////////////////////
 
     template <class TValue, class TIndex>
-    inline Interval<TValue, TIndex>::Interval(value_t start_, value_t end_, index_t index_)
+    SAMURAI_INLINE Interval<TValue, TIndex>::Interval(value_t start_, value_t end_, index_t index_)
         : start{start_}
         , end{end_}
         , index{index_}
@@ -115,7 +115,7 @@ namespace samurai
      * Returns true if the given coordinate lies within the interval.
      */
     template <class TValue, class TIndex>
-    inline bool Interval<TValue, TIndex>::contains(value_t x) const
+    SAMURAI_INLINE bool Interval<TValue, TIndex>::contains(value_t x) const
     {
         return (x >= start && x < end);
     }
@@ -124,7 +124,7 @@ namespace samurai
      * Returns the size (number of discrete coordinates) of the interval.
      */
     template <class TValue, class TIndex>
-    inline std::size_t Interval<TValue, TIndex>::size() const
+    SAMURAI_INLINE std::size_t Interval<TValue, TIndex>::size() const
     {
         return static_cast<std::size_t>(end - start);
     }
@@ -133,7 +133,7 @@ namespace samurai
      * Returns if the interval has a valid state (i.e. not empty).
      */
     template <class TValue, class TIndex>
-    inline bool Interval<TValue, TIndex>::is_valid() const
+    SAMURAI_INLINE bool Interval<TValue, TIndex>::is_valid() const
     {
         return (start < end);
     }
@@ -144,7 +144,7 @@ namespace samurai
      * @warning the result could be an invalid interval.
      */
     template <class TValue, class TIndex>
-    inline auto Interval<TValue, TIndex>::even_elements() const -> Interval
+    SAMURAI_INLINE auto Interval<TValue, TIndex>::even_elements() const -> Interval
     {
         Interval<value_t, index_t> out{*this};
 
@@ -160,7 +160,7 @@ namespace samurai
      * @warning the result could be an invalid interval.
      */
     template <class TValue, class TIndex>
-    inline auto Interval<TValue, TIndex>::odd_elements() const -> Interval
+    SAMURAI_INLINE auto Interval<TValue, TIndex>::odd_elements() const -> Interval
     {
         Interval<value_t, index_t> out{*this};
 
@@ -171,7 +171,7 @@ namespace samurai
     }
 
     template <class TValue, class TIndex>
-    inline auto Interval<TValue, TIndex>::operator*=(value_t i) -> Interval&
+    SAMURAI_INLINE auto Interval<TValue, TIndex>::operator*=(value_t i) -> Interval&
     {
         start *= i;
         end *= i;
@@ -180,7 +180,7 @@ namespace samurai
     }
 
     template <class TValue, class TIndex>
-    inline auto Interval<TValue, TIndex>::operator/=(value_t i) -> Interval&
+    SAMURAI_INLINE auto Interval<TValue, TIndex>::operator/=(value_t i) -> Interval&
     {
         start = static_cast<value_t>(std::floor(start / static_cast<double>(i)));
         end   = static_cast<value_t>(std::floor(end / static_cast<double>(i)));
@@ -220,7 +220,7 @@ namespace samurai
      * consistent with the C++20 norm.
      */
     template <class TValue, class TIndex>
-    inline auto Interval<TValue, TIndex>::operator>>=(std::size_t i) -> Interval&
+    SAMURAI_INLINE auto Interval<TValue, TIndex>::operator>>=(std::size_t i) -> Interval&
     {
         start >>= i;
         end  = ((end - 1) >> i) + 1;
@@ -245,7 +245,7 @@ namespace samurai
      * consistent with the C++20 norm.
      */
     template <class TValue, class TIndex>
-    inline auto Interval<TValue, TIndex>::operator<<=(std::size_t i) -> Interval&
+    SAMURAI_INLINE auto Interval<TValue, TIndex>::operator<<=(std::size_t i) -> Interval&
     {
         start <<= i;
         end <<= i;
@@ -254,7 +254,7 @@ namespace samurai
     }
 
     template <class TValue, class TIndex>
-    inline auto Interval<TValue, TIndex>::operator+=(value_t i) -> Interval&
+    SAMURAI_INLINE auto Interval<TValue, TIndex>::operator+=(value_t i) -> Interval&
     {
         start += i;
         end += i;
@@ -262,7 +262,7 @@ namespace samurai
     }
 
     template <class TValue, class TIndex>
-    inline auto Interval<TValue, TIndex>::operator-=(value_t i) -> Interval&
+    SAMURAI_INLINE auto Interval<TValue, TIndex>::operator-=(value_t i) -> Interval&
     {
         start -= i;
         end -= i;
@@ -273,14 +273,14 @@ namespace samurai
      * Display of an interval.
      */
     template <class value_t, class index_t>
-    inline std::ostream& operator<<(std::ostream& out, const Interval<value_t, index_t>& interval)
+    SAMURAI_INLINE std::ostream& operator<<(std::ostream& out, const Interval<value_t, index_t>& interval)
     {
         out << "[" << interval.start << "," << interval.end << "[@" << interval.index << ":" << interval.step;
         return out;
     }
 
     template <class value_t, class index_t>
-    inline Interval<value_t, index_t> operator*(value_t i, const Interval<value_t, index_t>& interval)
+    SAMURAI_INLINE Interval<value_t, index_t> operator*(value_t i, const Interval<value_t, index_t>& interval)
     {
         auto that{interval};
         that *= i;
@@ -288,7 +288,7 @@ namespace samurai
     }
 
     template <class value_t, class index_t>
-    inline Interval<value_t, index_t> operator*(const Interval<value_t, index_t>& interval, value_t i)
+    SAMURAI_INLINE Interval<value_t, index_t> operator*(const Interval<value_t, index_t>& interval, value_t i)
     {
         auto that{interval};
         that *= i;
@@ -296,7 +296,7 @@ namespace samurai
     }
 
     template <class value_t, class index_t>
-    inline Interval<value_t, index_t> operator>>(const Interval<value_t, index_t>& interval, std::size_t i)
+    SAMURAI_INLINE Interval<value_t, index_t> operator>>(const Interval<value_t, index_t>& interval, std::size_t i)
     {
         auto that{interval};
         that >>= i;
@@ -304,7 +304,7 @@ namespace samurai
     }
 
     template <class value_t, class index_t>
-    inline Interval<value_t, index_t> operator<<(const Interval<value_t, index_t>& interval, std::size_t i)
+    SAMURAI_INLINE Interval<value_t, index_t> operator<<(const Interval<value_t, index_t>& interval, std::size_t i)
     {
         auto that{interval};
         that <<= i;
@@ -312,7 +312,7 @@ namespace samurai
     }
 
     template <class value_t, class index_t>
-    inline Interval<value_t, index_t> operator/(value_t i, const Interval<value_t, index_t>& interval)
+    SAMURAI_INLINE Interval<value_t, index_t> operator/(value_t i, const Interval<value_t, index_t>& interval)
     {
         auto that{interval};
         that /= i;
@@ -320,7 +320,7 @@ namespace samurai
     }
 
     template <class value_t, class index_t>
-    inline Interval<value_t, index_t> operator/(const Interval<value_t, index_t>& interval, value_t i)
+    SAMURAI_INLINE Interval<value_t, index_t> operator/(const Interval<value_t, index_t>& interval, value_t i)
     {
         auto that{interval};
         that /= i;
@@ -328,7 +328,7 @@ namespace samurai
     }
 
     template <class value_t, class index_t>
-    inline Interval<value_t, index_t> operator+(value_t i, const Interval<value_t, index_t>& interval)
+    SAMURAI_INLINE Interval<value_t, index_t> operator+(value_t i, const Interval<value_t, index_t>& interval)
     {
         auto that{interval};
         that += i;
@@ -336,7 +336,7 @@ namespace samurai
     }
 
     template <class value_t, class index_t>
-    inline Interval<value_t, index_t> operator+(const Interval<value_t, index_t>& interval, value_t i)
+    SAMURAI_INLINE Interval<value_t, index_t> operator+(const Interval<value_t, index_t>& interval, value_t i)
     {
         auto that{interval};
         that += i;
@@ -344,7 +344,7 @@ namespace samurai
     }
 
     template <class value_t, class index_t>
-    inline Interval<value_t, index_t> operator-(value_t i, const Interval<value_t, index_t>& interval)
+    SAMURAI_INLINE Interval<value_t, index_t> operator-(value_t i, const Interval<value_t, index_t>& interval)
     {
         auto that{interval};
         that -= i;
@@ -352,7 +352,7 @@ namespace samurai
     }
 
     template <class value_t, class index_t>
-    inline Interval<value_t, index_t> operator-(const Interval<value_t, index_t>& interval, value_t i)
+    SAMURAI_INLINE Interval<value_t, index_t> operator-(const Interval<value_t, index_t>& interval, value_t i)
     {
         auto that{interval};
         that -= i;
@@ -360,20 +360,20 @@ namespace samurai
     }
 
     template <class value_t, class index_t>
-    inline bool operator==(const Interval<value_t, index_t>& i1, const Interval<value_t, index_t>& i2)
+    SAMURAI_INLINE bool operator==(const Interval<value_t, index_t>& i1, const Interval<value_t, index_t>& i2)
     {
         //~ return !(i1.start != i2.start || i1.end != i2.end || i1.step != i2.step || i1.index != i2.index);
         return !(i1.start != i2.start || i1.end != i2.end || i1.step != i2.step);
     }
 
     template <class value_t, class index_t>
-    inline bool operator!=(const Interval<value_t, index_t>& i1, const Interval<value_t, index_t>& i2)
+    SAMURAI_INLINE bool operator!=(const Interval<value_t, index_t>& i1, const Interval<value_t, index_t>& i2)
     {
         return !(i1 == i2);
     }
 
     template <class value_t, class index_t>
-    inline bool operator<(const Interval<value_t, index_t>& i1, const Interval<value_t, index_t>& i2)
+    SAMURAI_INLINE bool operator<(const Interval<value_t, index_t>& i1, const Interval<value_t, index_t>& i2)
     {
         return i1.start < i2.start;
     }
