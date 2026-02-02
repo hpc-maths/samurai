@@ -58,7 +58,7 @@ namespace samurai
         using expansion_t    = std::array<value_t, Base::dim>;
         using do_expansion_t = std::array<bool, Base::dim>;
 
-        Expansion(const ProjectionLOI<Set>& projected_set, const expansion_t& expansions)
+        explicit Expansion(const ProjectionLOI<Set>& projected_set, const expansion_t& expansions)
             : m_set(projected_set.m_set)
             , m_level(projected_set.m_level)
             , m_projectionType(projected_set.m_projectionType)
