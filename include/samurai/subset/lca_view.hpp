@@ -24,6 +24,7 @@ namespace samurai
         {
             Workspace()
             {
+                start_offset.fill(0);
                 start_offset_guess.fill(0);
             }
 
