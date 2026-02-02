@@ -45,42 +45,57 @@ namespace samurai
 
         inline void next_interval_impl()
         {
-            m_current_interval.start = std::numeric_limits<value_t>::max();
+            const auto startFunc = [expansion = m_expansion](const std::size_t /* i */, const value_t& start) -> value_t
+            {
+                return start - expansion;
+            };
+            const auto endFunc = [expansion = m_expansion](const std::size_t /* i */, const value_t& end) -> value_t
+            {
+                return end + expansion;
+            };
+            // maybe a small overhead due to the unused i and an enumerate instead of a range based for loop.
+            // but we have the same algo for expansion_traverser and union_traverser.
+            // Maybe the compiler can figure out that we do never use i and is able to simplify a but, but I wouldn't bet
+            // an eye on it...
+            // I don't know if the potential perf. compromise is worth it.
+            m_current_interval = traverser_utils::transform_and_union(m_set_traversers, startFunc, endFunc);
 
-            // We find the start of the interval, i.e. the smallest set_traverser.current_interval().start
-            for (const SetTraverser& set_traverser : m_set_traversers)
-            {
-                if (!set_traverser.is_empty() && (set_traverser.current_interval().start - m_expansion < m_current_interval.start))
-                {
-                    m_current_interval.start = set_traverser.current_interval().start - m_expansion;
-                    m_current_interval.end   = set_traverser.current_interval().end + m_expansion;
-                }
-            }
-            // Now we find the end of the interval, i.e. the largest set_traverser.current_interval().end
-            // such that set_traverser.current_interval().start - expansion < m_current_interval.end
-            bool is_done = false;
-            while (!is_done)
-            {
-                is_done = true;
-                // advance set traverses that are behind current interval
-                for (SetTraverser& set_traverser : m_set_traversers)
-                {
-                    while (!set_traverser.is_empty() && set_traverser.current_interval().end + m_expansion <= m_current_interval.end)
-                    {
-                        set_traverser.next_interval();
-                    }
-                }
-                // try to find a new end
-                for (const SetTraverser& set_traverser : m_set_traversers)
-                {
-                    // there is an overlap
-                    if (!set_traverser.is_empty() && set_traverser.current_interval().start - m_expansion <= m_current_interval.end)
-                    {
-                        is_done                = false;
-                        m_current_interval.end = set_traverser.current_interval().end + m_expansion;
-                    }
-                }
-            }
+            // m_current_interval.start = std::numeric_limits<value_t>::max();
+            //
+            //// We find the start of the interval, i.e. the smallest set_traverser.current_interval().start
+            // for (const SetTraverser& set_traverser : m_set_traversers)
+            //{
+            //     if (!set_traverser.is_empty() && (set_traverser.current_interval().start - m_expansion < m_current_interval.start))
+            //     {
+            //         m_current_interval.start = set_traverser.current_interval().start - m_expansion;
+            //         m_current_interval.end   = set_traverser.current_interval().end + m_expansion;
+            //     }
+            // }
+            //// Now we find the end of the interval, i.e. the largest set_traverser.current_interval().end
+            //// such that set_traverser.current_interval().start - expansion < m_current_interval.end
+            // bool is_done = false;
+            // while (!is_done)
+            //{
+            //     is_done = true;
+            //     // advance set traverses that are behind current interval
+            //     for (SetTraverser& set_traverser : m_set_traversers)
+            //     {
+            //         while (!set_traverser.is_empty() && set_traverser.current_interval().end + m_expansion <= m_current_interval.end)
+            //         {
+            //             set_traverser.next_interval();
+            //         }
+            //     }
+            //     // try to find a new end
+            //     for (const SetTraverser& set_traverser : m_set_traversers)
+            //     {
+            //         // there is an overlap
+            //         if (!set_traverser.is_empty() && set_traverser.current_interval().start - m_expansion <= m_current_interval.end)
+            //         {
+            //             is_done                = false;
+            //             m_current_interval.end = set_traverser.current_interval().end + m_expansion;
+            //         }
+            //     }
+            // }
         }
 
         inline current_interval_t current_interval_impl() const

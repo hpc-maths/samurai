@@ -5,6 +5,8 @@
 
 #include "set_traverser_base.hpp"
 
+#include "utils.hpp"
+
 namespace samurai
 {
     template <class SetTraverser>
@@ -40,8 +42,8 @@ namespace samurai
             }
             else if (!m_isEmpty)
             {
-                m_current_interval.start = m_set_traverser.current_interval().start << shift;
-                m_current_interval.end   = m_set_traverser.current_interval().end << shift;
+                m_current_interval.start = traverser_utils::refine_start(m_set_traverser.current_interval().start, shift);
+                m_current_interval.end   = traverser_utils::refine_end(m_set_traverser.current_interval().end, shift);
             }
         }
 
@@ -62,8 +64,8 @@ namespace samurai
                 m_isEmpty = m_set_traverser.is_empty();
                 if (!m_isEmpty)
                 {
-                    m_current_interval.start = m_set_traverser.current_interval().start << m_shift;
-                    m_current_interval.end   = m_set_traverser.current_interval().end << m_shift;
+                    m_current_interval.start = traverser_utils::refine_start(m_set_traverser.current_interval().start, m_shift);
+                    m_current_interval.end   = traverser_utils::refine_end(m_set_traverser.current_interval().end, m_shift);
                 }
             }
         }
@@ -79,33 +81,24 @@ namespace samurai
         {
             if (!m_set_traverser.is_empty())
             {
-                m_current_interval.start = coarsen_start(m_set_traverser.current_interval());
-                m_current_interval.end   = coarsen_end(m_set_traverser.current_interval());
+                m_current_interval.start = traverser_utils::coarsen_start(m_set_traverser.current_interval().start, m_shift);
+                m_current_interval.end   = traverser_utils::coarsen_end(m_set_traverser.current_interval().end, m_shift);
 
                 m_set_traverser.next_interval();
 
                 // when coarsening, two disjoint intervals may be merged.
                 // we need to check if the next_interval overlaps
-                for (; !m_set_traverser.is_empty() && coarsen_start(m_set_traverser.current_interval()) <= m_current_interval.end;
+                for (; !m_set_traverser.is_empty()
+                       && traverser_utils::coarsen_start(m_set_traverser.current_interval().start, m_shift) <= m_current_interval.end;
                      m_set_traverser.next_interval())
                 {
-                    m_current_interval.end = coarsen_end(m_set_traverser.current_interval());
+                    m_current_interval.end = traverser_utils::coarsen_end(m_set_traverser.current_interval().end, m_shift);
                 }
             }
             else
             {
                 m_isEmpty = true;
             }
-        }
-
-        inline value_t coarsen_start(const interval_t& interval) const
-        {
-            return interval.start >> m_shift;
-        }
-
-        inline value_t coarsen_end(const interval_t& interval) const
-        {
-            return ((interval.end - 1) >> m_shift) + 1;
         }
 
         SetTraverser m_set_traverser;

@@ -5,6 +5,7 @@
 
 #include "../../interval.hpp"
 #include "set_traverser_base.hpp"
+#include <iterator>
 
 namespace samurai
 {
@@ -15,7 +16,7 @@ namespace samurai
     template <std::forward_iterator Iterator>
     struct SetTraverserTraits<RangeTraverser<Iterator>>
     {
-        using interval_t         = typename Iterator::value_type;
+        using interval_t         = std::iter_value_t<Iterator>;
         using current_interval_t = const interval_t&;
 
         static_assert(IsInterval<interval_t>::value);
