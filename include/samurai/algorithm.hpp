@@ -114,7 +114,7 @@ namespace samurai
         }
     }
 
-    template <IsMesh Mesh, class Func>
+    template <mesh_like Mesh, class Func>
     inline void for_each_interval(const Mesh& mesh, Func&& f)
     {
         using mesh_id_t = typename Mesh::config::mesh_id_t;
