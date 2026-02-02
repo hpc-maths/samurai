@@ -121,4 +121,9 @@ namespace samurai
         cell_list.to_stream(out);
         return out;
     }
+
+    extern template class CellList<1, default_config::interval_t, default_config::max_level>;
+    extern template class CellList<2, default_config::interval_t, default_config::max_level>;
+    extern template class CellList<3, default_config::interval_t, default_config::max_level>;
+
 } // namespace samurai

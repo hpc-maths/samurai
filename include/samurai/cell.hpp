@@ -170,4 +170,9 @@ namespace samurai
     {
         return !(c1 == c2);
     }
+
+    extern template struct Cell<1, default_config::interval_t>;
+    extern template struct Cell<2, default_config::interval_t>;
+    extern template struct Cell<3, default_config::interval_t>;
+
 } // namespace samurai

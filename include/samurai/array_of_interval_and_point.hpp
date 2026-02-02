@@ -136,4 +136,9 @@ namespace samurai
                                     });
         m_idx.erase(it, m_idx.end());
     }
-}
+
+    extern template class ArrayOfIntervalAndPoint<default_config::interval_t, typename LevelCellArray<1, default_config::interval_t>::coords_t>;
+    extern template class ArrayOfIntervalAndPoint<default_config::interval_t, typename LevelCellArray<2, default_config::interval_t>::coords_t>;
+    extern template class ArrayOfIntervalAndPoint<default_config::interval_t, typename LevelCellArray<3, default_config::interval_t>::coords_t>;
+
+} // namespace samurai

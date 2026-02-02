@@ -361,4 +361,9 @@ namespace samurai
         approx_box.max_corner() = box.min_corner() + approx_length;
         return approx_box;
     }
+
+    extern template class Box<default_config::value_t, 1>;
+    extern template class Box<default_config::value_t, 2>;
+    extern template class Box<default_config::value_t, 3>;
+
 } // namespace samurai

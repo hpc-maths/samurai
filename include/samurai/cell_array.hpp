@@ -735,4 +735,8 @@ namespace samurai
         return it1.base().equal(it2.base());
     }
 
+    extern template class CellArray<1, default_config::interval_t, default_config::max_level>;
+    extern template class CellArray<2, default_config::interval_t, default_config::max_level>;
+    extern template class CellArray<3, default_config::interval_t, default_config::max_level>;
+
 } // namespace samurai
