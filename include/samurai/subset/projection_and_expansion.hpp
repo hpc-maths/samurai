@@ -132,8 +132,6 @@ namespace samurai
                 };
                 const auto index_range_func = [&index, shift = m_shift, &expansions = m_expansions](const auto d_cur) -> interval_t
                 {
-                    fmt::print("index = [{}]\n", fmt::join(std::cbegin(index), std::cend(index), ", "));
-
                     return interval_t((index[d_cur - 1] - expansions[d_cur]) << shift, (index[d_cur - 1] + expansions[d_cur] + 1) << shift);
                 };
 
@@ -154,8 +152,6 @@ namespace samurai
                 const auto index_range_func = [&index, shift = m_shift, scale = 1. / std::pow(2., m_shift), &expansions = m_expansions](
                                                   const auto d_cur) -> interval_t
                 {
-                    fmt::print("index = [{}]\n", fmt::join(std::cbegin(index), std::cend(index), ", "));
-
                     return interval_t((index[d_cur - 1] - expansions[d_cur]) >> shift, ((index[d_cur - 1] + expansions[d_cur]) >> shift) + 1);
                 };
 

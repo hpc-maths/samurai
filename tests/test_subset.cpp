@@ -580,9 +580,6 @@ namespace samurai
             {
                 const lca_t expected(level + 1, box_t({-3, -3}, {5, 5}));
 
-                std::cout << expand(self(ca).on(level + 1), 3).to_lca() << std::endl;
-                std::cout << expected << std::endl;
-
                 EXPECT_EQ(expand(self(ca).on(level + 1), 3).to_lca(), expected);
             }
             {
@@ -670,64 +667,43 @@ namespace samurai
                 const auto translated_ca = translate(ca, {14 + 1, 14 + 1});
                 const auto joined_cas    = union_(ca, translated_ca);
 
-                std::cout << "======================================" << std::endl;
-                std::cout << translated_ca.on(level).to_lca() << std::endl;
-                std::cout << "======================================" << std::endl;
+                const auto set = expand(joined_cas.on(level), 3);
+
+                const lca_t box1(level, box_t({-3, -3}, {4, 4}));
+                const lca_t box2(level, box_t({4, 4}, {12, 12}));
+                const lca_t box3(level, box_t({11, 11}, {12, 12}));
+
+                const lca_t expected(difference(union_(box1, box2), box3));
+
+                EXPECT_EQ(set.to_lca(), expected);
+            }
+            {
+                const auto translated_ca = translate(ca, {12 + 1, 12 + 1});
+                const auto joined_cas    = union_(ca, translated_ca);
 
                 const auto set = expand(joined_cas.on(level), 3);
 
                 const lca_t box1(level, box_t({-3, -3}, {4, 4}));
-                const lca_t box2(level, box_t({4, 4}, {11, 11}));
+                const lca_t box2(level, box_t({3, 3}, {11, 11}));
+                const lca_t box3(level, box_t({10, 10}, {11, 11}));
 
-                const lca_t expected(union_(box1, box2));
-
-                //~ save("expanded_ca_un", expand(self(ca).on(level), 3).to_lca());
-                //~ save("expanded_ca_deux", expand(translated_ca.on(level), 3).to_lca());
-                //~ save("set", set.to_lca());
-                //~ save("expected", expected);
+                const lca_t expected(difference(union_(box1, box2), box3));
 
                 EXPECT_EQ(set.to_lca(), expected);
             }
-            //{
-            //    const auto translated_ca = translate(ca, {6 + 1, 6 + 1});
-            //    const auto joined_cas    = union_(ca, translated_ca);
-            //
-            //    const auto set = expand(joined_cas.on(level), 3);
-            //
-            //    save("set", set.to_lca());
-            //    save("expanded_ca_un", expand(self(ca).on(level), 3).to_lca());
-            //    save("expanded_ca_deux", expand(translated_ca.on(level), 3).to_lca());
-            //
-            //    lca_t box1(level, box_t({-3, -3}, {4, 4})); box1.set_scaling_factor(ca.scaling_factor());
-            //    box1.set_origin_point(ca.origin_point()); lca_t box2(level, box_t({1, 1}, {8, 8}));
-            //    box2.set_scaling_factor(ca.scaling_factor()); box2.set_origin_point(ca.origin_point());
-            //
-            //    const lca_t expected(union_(box1, box2));
-            //
-            //    save("expected", expected);
-            //
-            //    EXPECT_EQ(set.to_lca(), expected);
-            //}
-            //{
-            //    const auto translated_ca = translate(ca, {7 + 1, 7 + 1});
-            //    const auto joined_cas    = union_(ca, translated_ca);
-            //
-            //    const auto set = expand(joined_cas.on(level), 3);
-            //
-            //    save("set", set.to_lca());
-            //    save("expanded_ca_un", expand(self(ca).on(level), 3).to_lca());
-            //    save("expanded_ca_deux", expand(translated_ca.on(level), 3).to_lca());
-            //
-            //    lca_t box1(level, box_t({-3, -3}, {4, 4})); box1.set_scaling_factor(ca.scaling_factor());
-            //    box1.set_origin_point(ca.origin_point()); lca_t box2(level, box_t({1, 1}, {8, 8}));
-            //    box2.set_scaling_factor(ca.scaling_factor()); box2.set_origin_point(ca.origin_point());
-            //
-            //    const lca_t expected(union_(box1, box2));
-            //
-            //    save("expected", expected);
-            //
-            //    EXPECT_EQ(set.to_lca(), expected);
-            //}
+            {
+                const auto translated_ca = translate(ca, {11 + 1, 11 + 1});
+                const auto joined_cas    = union_(ca, translated_ca);
+
+                const auto set = expand(joined_cas.on(level), 3);
+
+                const lca_t box1(level, box_t({-3, -3}, {4, 4}));
+                const lca_t box2(level, box_t({3, 3}, {10, 10}));
+
+                const lca_t expected(union_(box1, box2));
+
+                EXPECT_EQ(set.to_lca(), expected);
+            }
         }
     }
 
