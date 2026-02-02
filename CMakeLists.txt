@@ -107,7 +107,7 @@ target_include_directories(samurai INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_
   "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
 
 # Find dependencies:
-set(DEPENDENCIES_CONFIGURED HighFive pugixml fmt CLI11)
+set(DEPENDENCIES_CONFIGURED xtensor HighFive pugixml fmt CLI11)
 
 if(${ENABLE_VCPKG})
   list(APPEND DEPENDENCIES_CONFIGURED hdf5)
@@ -120,32 +120,21 @@ foreach(DEPENDENCY ${DEPENDENCIES_CONFIGURED})
   find_package(${DEPENDENCY} CONFIG REQUIRED)
 endforeach()
 
+if (xtensor_VERSION VERSION_LESS_EQUAL "0.25.0")
+  message(FATAL_ERROR "xtensor version ${xtensor_VERSION} is too old. Minimum allowed version is 0.26.")
+endif()
+
 # Link dependencies:
 target_link_system_libraries(
   samurai
   INTERFACE
+  xtensor
   HighFive
   pugixml::pugixml
   fmt::fmt
   CLI11::CLI11
 )
 
-if(SAMURAI_FIELD_CONTAINER MATCHES xtensor)
-  message(STATUS "Using xtensor as field container")
-  list(APPEND DEPENDENCIES_CONFIGURED xtensor)
-  find_package(xtensor CONFIG REQUIRED)
-
-  if (xtensor_VERSION VERSION_LESS_EQUAL "0.25.0")
-    message(FATAL_ERROR "xtensor version ${xtensor_VERSION} is too old. Minimum allowed version is 0.26.")
-  endif()
-
-  target_link_system_libraries(
-    samurai
-    INTERFACE
-    xtensor
-  )
-
-endif()
 if(SAMURAI_FIELD_CONTAINER MATCHES eigen3)
   message(STATUS "Using Eigen3 as field container")
 endif()
