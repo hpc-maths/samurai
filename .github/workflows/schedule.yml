@@ -16,6 +16,39 @@ jobs:
       - id: new_commits
         run: echo "nb_commits=$(git log --oneline --since '24 hours ago' | wc -l)" >> $GITHUB_OUTPUT
 
+  check_previous_status:
+    needs: check_new_commit
+    if: needs.check_new_commit.outputs.nb_commits == 0
+    runs-on: ubuntu-latest
+    outputs:
+      previous_failed: ${{ steps.check_status.outputs.failed }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check previous clang-tidy status
+        id: check_status
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get the previous successful run of this workflow
+          PREVIOUS_RUN=$(gh run list --workflow=schedule.yml --status success --limit 2 --json databaseId,conclusion --jq '.[1]')
+
+          if [ -z "$PREVIOUS_RUN" ]; then
+            echo "No previous successful run found"
+            exit 0
+          fi
+
+          RUN_ID=$(echo $PREVIOUS_RUN | jq -r '.databaseId')
+
+          # Check if clang-tidy job failed
+          CLANG_TIDY_CONCLUSION=$(gh run view $RUN_ID --json jobs --jq '.jobs[] | select(.name=="clang-tidy-check") | .conclusion')
+
+          if [ "$CLANG_TIDY_CONCLUSION" = "failure" ]; then
+            echo "failed=true" >> $GITHUB_OUTPUT
+          else
+            echo "failed=false" >> $GITHUB_OUTPUT
+          fi
+
   #
   # Check samurai with clang-tidy
   #
