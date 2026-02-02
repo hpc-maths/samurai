@@ -84,6 +84,8 @@ namespace samurai
                 m_current_interval.start = traverser_utils::coarsen_start(m_set_traverser.current_interval().start, m_shift);
                 m_current_interval.end   = traverser_utils::coarsen_end(m_set_traverser.current_interval().end, m_shift);
 
+                fmt::print("child interval = {} -- m_current_interval = {}\n", m_set_traverser.current_interval(), m_current_interval);
+
                 m_set_traverser.next_interval();
 
                 // when coarsening, two disjoint intervals may be merged.
