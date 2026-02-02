@@ -232,10 +232,6 @@ namespace samurai
 
                     if constexpr (d_cur == d)
                     {
-                        fmt::print("----> index = [{}] -- interval = {} -- added interval = {}\n",
-                                   fmt::join(std::cbegin(index), std::cend(index), ", "),
-                                   interval,
-                                   unaryFunc(d, interval));
                         list_of_intervals.add_interval(unaryFunc(d, interval));
                     }
                     else
@@ -245,11 +241,6 @@ namespace samurai
                         // intersection between the current interval and the requested interval
                         const child_value_t index_start = std::max(interval.start, requested_interval.start);
                         const child_value_t index_bound = std::min(interval.end, requested_interval.end);
-
-                        fmt::print("--> interval = {} -- requested interval = {} -- actual interval = {}\n",
-                                   interval,
-                                   requested_interval,
-                                   child_interval_t(index_start, index_bound));
 
                         // recursive filling
                         for (index[d_cur - 1] = index_start; index[d_cur - 1] < index_bound; ++index[d_cur - 1])
