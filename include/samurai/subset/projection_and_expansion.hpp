@@ -132,7 +132,9 @@ namespace samurai
                 };
                 const auto index_range_func = [&index, shift = m_shift, &expansions = m_expansions](const auto d_cur) -> interval_t
                 {
-                    return interval_t((index[d_cur - 1] - expansions[d_cur]) << shift, (index[d_cur - 1] + expansions[d_cur]) << shift);
+                    fmt::print("index = [{}]\n", fmt::join(std::cbegin(index), std::cend(index), ", "));
+
+                    return interval_t((index[d_cur - 1] - expansions[d_cur]) << shift, (index[d_cur - 1] + expansions[d_cur] + 1) << shift);
                 };
 
                 auto& list_of_intervals = std::get<d>(workspace.projection_and_expand_workspace);
@@ -152,13 +154,7 @@ namespace samurai
                 const auto index_range_func = [&index, shift = m_shift, scale = 1. / std::pow(2., m_shift), &expansions = m_expansions](
                                                   const auto d_cur) -> interval_t
                 {
-                    //~ const value_t e_start = value_t(std::ceil(expansions[d_cur] * scale));
-                    //~ const value_t e_bound = value_t(std::floor(expansions[d_cur] * scale));
-
-                    //~ fmt::print("index = [{}] -- e = {}\n", fmt::join(std::cbegin(index), std::cend(index), ", "), e);
                     fmt::print("index = [{}]\n", fmt::join(std::cbegin(index), std::cend(index), ", "));
-
-                    //~ return interval_t((index[d_cur - 1] >> shift) - e, (index[d_cur - 1] >> shift) + e + 1);
 
                     return interval_t((index[d_cur - 1] - expansions[d_cur]) >> shift, ((index[d_cur - 1] + expansions[d_cur]) >> shift) + 1);
                 };

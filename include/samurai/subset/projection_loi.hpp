@@ -131,7 +131,8 @@ namespace samurai
                     };
                     const auto index_range_func = [&index, shift = m_shift](const auto d_cur) -> interval_t
                     {
-                        return interval_t(index[d_cur - 1] << shift, (index[d_cur - 1] + 1) << shift);
+                        fmt::print("index = [{}]\n", fmt::join(std::cbegin(index), std::cend(index), ", "));
+                        return interval_t(index[d_cur - 1] << shift, (index[d_cur - 1] << shift) + 1);
                     };
 
                     auto& list_of_intervals = std::get<d>(workspace.projection_workspace);
