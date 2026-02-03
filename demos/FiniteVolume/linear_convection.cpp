@@ -94,22 +94,30 @@ int main(int argc, char* argv[])
     {
         mesh = samurai::mra::make_mesh(box, config);
         // Initial solution
-        u = samurai::make_scalar_field<double>("u",
-                                               mesh,
-                                               [](const auto& coords)
-                                               {
-                                                   if constexpr (dim == 1)
-                                                   {
-                                                       const auto& x = coords(0);
-                                                       return (x >= -0.8 && x <= -0.3) ? 1. : 0.;
-                                                   }
-                                                   else
-                                                   {
-                                                       const auto& x = coords(0);
-                                                       const auto& y = coords(1);
-                                                       return (x >= -0.8 && x <= -0.3 && y >= 0.3 && y <= 0.8) ? 1. : 0.;
-                                                   }
-                                               });
+        u = samurai::make_scalar_field<double>(
+            "u",
+            mesh,
+            [](const auto& coords)
+            {
+                if constexpr (dim == 1)
+                {
+                    const auto& x = coords(0);
+                    return (x >= -0.8 && x <= -0.3) ? 1. : 0.;
+                }
+                else if constexpr (dim == 2)
+                {
+                    const auto& x = coords(0);
+                    const auto& y = coords(1);
+                    return (x >= -0.8 && x <= -0.3 && y >= 0.3 && y <= 0.8) ? 1. : 0.;
+                }
+                else if constexpr (dim == 3)
+                {
+                    const auto& x = coords(0);
+                    const auto& y = coords(1);
+                    const auto& z = coords(2);
+                    return (x >= -0.8 && x <= -0.3 && y >= 0.3 && y <= 0.8 && z >= -0.8 && z <= -0.3) ? 1. : 0.;
+                }
+            });
     }
     else
     {
@@ -127,6 +135,11 @@ int main(int argc, char* argv[])
     if constexpr (dim == 2)
     {
         velocity(1) = -1;
+    }
+    if constexpr (dim == 3)
+    {
+        velocity(1) = -1;
+        velocity(2) = 1;
     }
     auto conv = samurai::make_convection_weno5<decltype(u)>(velocity);
     auto id   = samurai::make_identity<decltype(u)>();
