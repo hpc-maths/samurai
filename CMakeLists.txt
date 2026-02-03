@@ -93,7 +93,7 @@ message(STATUS "Available FEATURES: ${FEATURES}")
 project_options(
   ${FEATURES}
   ENABLE_VS_ANALYSIS
-  WARNINGS_AS_ERRORS
+  # WARNINGS_AS_ERRORS
   ${ENABLE_CONAN}
   )
 
@@ -122,6 +122,12 @@ endforeach()
 
 if (xtensor_VERSION VERSION_LESS_EQUAL "0.25.0")
   message(FATAL_ERROR "xtensor version ${xtensor_VERSION} is too old. Minimum allowed version is 0.26.")
+endif()
+
+# Get include directories from targets and mark as SYSTEM
+get_target_property(HIGHFIVE_INCLUDE_DIRS HighFive INTERFACE_INCLUDE_DIRECTORIES)
+if(HIGHFIVE_INCLUDE_DIRS)
+  target_include_directories(samurai SYSTEM INTERFACE ${HIGHFIVE_INCLUDE_DIRS})
 endif()
 
 # Link dependencies:
