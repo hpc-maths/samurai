@@ -42,7 +42,7 @@ if(${WITH_PETSC})
 
         add_executable(${executable_name} ${source_file})
         target_compile_definitions(${executable_name} PUBLIC SAMURAI_WITH_PETSC)
-        target_link_libraries(${executable_name} samurai ${PETSC_LINK_LIBRARIES})
+        target_link_libraries(${executable_name} PUBLIC samurai ${PETSC_LINK_LIBRARIES})
     endforeach()
 endif()
 
@@ -53,7 +53,7 @@ foreach(demo_entry ${STANDARD_DEMOS})
     list(GET demo_parts 1 executable_name)
 
     add_executable(${executable_name} ${source_file})
-    target_link_libraries(${executable_name} samurai)
+    target_link_libraries(${executable_name} PUBLIC samurai)
 endforeach()
 
 # Specific options for MSVC

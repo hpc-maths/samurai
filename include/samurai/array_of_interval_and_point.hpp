@@ -1,8 +1,9 @@
 #pragma once
 
+#include "samurai_config.hpp"
+
 namespace samurai
 {
-
     template <typename TInterval, typename TCoord>
     class ArrayOfIntervalAndPoint
     {
@@ -83,6 +84,18 @@ namespace samurai
         std::vector<size_t> m_idx;
     };
 
+    ////////////////////////////////////////////////////////////////////
+    //// explicit instanciation
+    ////////////////////////////////////////////////////////////////////
+
+    extern template class ArrayOfIntervalAndPoint<default_config::interval_t, xt::xtensor_fixed<default_config::value_t, xt::xshape<1 - 1>>>;
+    extern template class ArrayOfIntervalAndPoint<default_config::interval_t, xt::xtensor_fixed<default_config::value_t, xt::xshape<2 - 1>>>;
+    extern template class ArrayOfIntervalAndPoint<default_config::interval_t, xt::xtensor_fixed<default_config::value_t, xt::xshape<3 - 1>>>;
+
+    ////////////////////////////////////////////////////////////////////
+    //// method implementation
+    ////////////////////////////////////////////////////////////////////
+
     template <typename TInterval, typename TCoord>
     void ArrayOfIntervalAndPoint<TInterval, TCoord>::sort_intervals()
     {
@@ -136,9 +149,5 @@ namespace samurai
                                     });
         m_idx.erase(it, m_idx.end());
     }
-
-    extern template class ArrayOfIntervalAndPoint<default_config::interval_t, typename LevelCellArray<1, default_config::interval_t>::coords_t>;
-    extern template class ArrayOfIntervalAndPoint<default_config::interval_t, typename LevelCellArray<2, default_config::interval_t>::coords_t>;
-    extern template class ArrayOfIntervalAndPoint<default_config::interval_t, typename LevelCellArray<3, default_config::interval_t>::coords_t>;
 
 } // namespace samurai

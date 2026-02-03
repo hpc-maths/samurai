@@ -65,6 +65,14 @@ namespace samurai
         point_t m_max_corner{0};
     };
 
+    ////////////////////////////////
+    // Box explicit instanciation //
+    ////////////////////////////////
+
+    extern template class Box<default_config::value_t, 1>;
+    extern template class Box<default_config::value_t, 2>;
+    extern template class Box<default_config::value_t, 3>;
+
     ////////////////////////
     // Box implementation //
     ////////////////////////
@@ -361,9 +369,5 @@ namespace samurai
         approx_box.max_corner() = box.min_corner() + approx_length;
         return approx_box;
     }
-
-    extern template class Box<default_config::value_t, 1>;
-    extern template class Box<default_config::value_t, 2>;
-    extern template class Box<default_config::value_t, 3>;
 
 } // namespace samurai

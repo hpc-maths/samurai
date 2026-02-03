@@ -96,13 +96,18 @@ project_options(
   ${ENABLE_CONAN}
   )
 
-add_library(samurai INTERFACE)
-target_compile_features(samurai INTERFACE cxx_std_20)
-target_link_libraries(samurai INTERFACE project_options project_warnings)
+file(GLOB_RECURSE SAMURAI_SOURCES
+    "src/*.cpp"
+    "src/*.c"
+)
+
+add_library(samurai ${SAMURAI_SOURCES})
+target_compile_features(samurai PUBLIC cxx_std_20)
+target_link_libraries(samurai PUBLIC project_options project_warnings)
 
 # Includes
 set(INCLUDE_DIR "include") # must be relative paths
-target_include_directories(samurai INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/${INCLUDE_DIR}>"
+target_include_directories(samurai PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/${INCLUDE_DIR}>"
   "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
 
 # Find dependencies:
@@ -122,7 +127,7 @@ endforeach()
 # Link dependencies:
 target_link_system_libraries(
   samurai
-  INTERFACE
+  PUBLIC
   HighFive
   pugixml::pugixml
   fmt::fmt
@@ -140,7 +145,7 @@ if(SAMURAI_FIELD_CONTAINER MATCHES xtensor)
 
   target_link_system_libraries(
     samurai
-    INTERFACE
+    PUBLIC
     xtensor
   )
 
@@ -155,17 +160,17 @@ if(SAMURAI_FIELD_CONTAINER MATCHES eigen3 OR SAMURAI_FLUX_CONTAINER MATCHES eige
   find_package(Eigen3 CONFIG REQUIRED)
   target_link_system_libraries(
     samurai
-    INTERFACE
+    PUBLIC
     Eigen3::Eigen
   )
-  target_compile_definitions(samurai INTERFACE EIGEN_ARRAYBASE_PLUGIN="${CMAKE_CURRENT_SOURCE_DIR}/include/samurai/storage/eigen/array_eigen_addons.hpp")
+  target_compile_definitions(samurai PUBLIC EIGEN_ARRAYBASE_PLUGIN="${CMAKE_CURRENT_SOURCE_DIR}/include/samurai/storage/eigen/array_eigen_addons.hpp")
 endif()
 
 if(${WITH_OPENMP})
   find_package(OpenMP)
   if(OpenMP_CXX_FOUND)
-      target_link_libraries(samurai INTERFACE OpenMP::OpenMP_CXX)
-      target_compile_definitions(samurai INTERFACE SAMURAI_WITH_OPENMP)
+      target_link_libraries(samurai PUBLIC OpenMP::OpenMP_CXX)
+      target_compile_definitions(samurai PUBLIC SAMURAI_WITH_OPENMP)
   else()
       message(FATAL_ERROR "OpenMP not found")
   endif()
@@ -178,15 +183,14 @@ if(${WITH_MPI})
   find_package(Boost REQUIRED COMPONENTS serialization mpi)
   target_link_system_libraries(
     samurai
-    INTERFACE
+    PUBLIC
     Boost::serialization
     Boost::mpi
   )
-  target_compile_definitions(samurai INTERFACE SAMURAI_WITH_MPI)
+  target_compile_definitions(samurai PUBLIC SAMURAI_WITH_MPI)
 endif()
 
-
-target_compile_features(samurai INTERFACE cxx_std_20)
+target_compile_features(samurai PUBLIC cxx_std_20)
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 OPTION(BUILD_BENCHMARKS "samurai benchmark suite" OFF)
@@ -199,20 +203,20 @@ option(SAMURAI_CHECK_NAN "Check NaN in computations" OFF)
 
 if(WITH_STATS)
   find_package(nlohmann_json REQUIRED)
-  target_link_libraries(samurai INTERFACE nlohmann_json::nlohmann_json)
-  target_compile_definitions(samurai INTERFACE WITH_STATS)
+  target_link_libraries(samurai PUBLIC nlohmann_json::nlohmann_json)
+  target_compile_definitions(samurai PUBLIC WITH_STATS)
 endif()
 
 if(SAMURAI_CHECK_NAN)
-  target_compile_definitions(samurai INTERFACE SAMURAI_CHECK_NAN)
+  target_compile_definitions(samurai PUBLIC SAMURAI_CHECK_NAN)
 endif()
 
 if(SAMURAI_ENABLE_INLINE)
-  target_compile_definitions(samurai INTERFACE SAMURAI_ENABLE_INLINE)
+  target_compile_definitions(samurai PUBLIC SAMURAI_ENABLE_INLINE)
 endif()
 
 if(SAMURAI_FORCE_INLINE)
-  target_compile_definitions(samurai INTERFACE SAMURAI_FORCE_INLINE)
+  target_compile_definitions(samurai PUBLIC SAMURAI_FORCE_INLINE)
 endif()
 
 if(BUILD_BENCHMARKS)
@@ -234,28 +238,28 @@ else()
 endif()
 
 if(SAMURAI_CONTAINER_LAYOUT_COL_MAJOR)
-  target_compile_definitions(samurai INTERFACE SAMURAI_CONTAINER_LAYOUT_COL_MAJOR)
+  target_compile_definitions(samurai PUBLIC SAMURAI_CONTAINER_LAYOUT_COL_MAJOR)
 endif()
 
 if(NOT SAMURAI_FIELD_CONTAINER IN_LIST FIELD_CONTAINER_LIST)
   message(FATAL_ERROR "SAMURAI_FIELD_CONTAINER must be one of: ${FIELD_CONTAINER_LIST}")
 else()
   string(TOUPPER ${SAMURAI_FIELD_CONTAINER} SAMURAI_FIELD_CONTAINER)
-  target_compile_definitions(samurai INTERFACE SAMURAI_FIELD_CONTAINER_${SAMURAI_FIELD_CONTAINER})
+  target_compile_definitions(samurai PUBLIC SAMURAI_FIELD_CONTAINER_${SAMURAI_FIELD_CONTAINER})
 endif()
 
 if(NOT SAMURAI_FLUX_CONTAINER IN_LIST FLUX_CONTAINER_LIST)
     message(FATAL_ERROR "SAMURAI_FLUX_CONTAINER must be one of: ${FLUX_CONTAINER_LIST}")
 else()
     string(TOUPPER ${SAMURAI_FLUX_CONTAINER} SAMURAI_FLUX_CONTAINER)
-    target_compile_definitions(samurai INTERFACE SAMURAI_FLUX_CONTAINER_${SAMURAI_FLUX_CONTAINER})
+    target_compile_definitions(samurai PUBLIC SAMURAI_FLUX_CONTAINER_${SAMURAI_FLUX_CONTAINER})
 endif()
 
 if(NOT SAMURAI_STATIC_MAT_CONTAINER IN_LIST STATIC_MATRIX_CONTAINER_LIST)
     message(FATAL_ERROR "SAMURAI_STATIC_MAT_CONTAINER must be one of: ${STATIC_MATRIX_CONTAINER_LIST}")
 else()
     string(TOUPPER ${SAMURAI_STATIC_MAT_CONTAINER} SAMURAI_STATIC_MAT_CONTAINER)
-    target_compile_definitions(samurai INTERFACE SAMURAI_STATIC_MAT_CONTAINER_${SAMURAI_STATIC_MAT_CONTAINER})
+    target_compile_definitions(samurai PUBLIC SAMURAI_STATIC_MAT_CONTAINER_${SAMURAI_STATIC_MAT_CONTAINER})
 endif()
 
 # Package the project

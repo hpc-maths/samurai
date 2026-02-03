@@ -1,10 +1,11 @@
-#include "cell_array.hpp"
+#include "samurai/cell_array.hpp"
+#include "samurai/interval.hpp"
 
 namespace samurai
 {
 
-    template class CellArray<1, default_config::interval_t, default_config::max_level>;
-    template class CellArray<2, default_config::interval_t, default_config::max_level>;
-    template class CellArray<3, default_config::interval_t, default_config::max_level>;
+    template class CellArray<1>;
+    template class CellArray<2>;
+    template class CellArray<3>;
 
 } // namespace samurai

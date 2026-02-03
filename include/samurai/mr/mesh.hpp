@@ -113,6 +113,18 @@ namespace samurai
         xt::xtensor<bool, 1> exists(mesh_id_t type, std::size_t level, interval_t interval, T... index) const;
     };
 
+    ////////////////////////////////////////////////////////////////////
+    //// explicit instanciation
+    ////////////////////////////////////////////////////////////////////
+
+    extern template class MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>;
+    extern template class MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>;
+    extern template class MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>;
+
+    ////////////////////////////////////////////////////////////////////
+    //// methods implementations
+    ////////////////////////////////////////////////////////////////////
+
     template <class Config>
     SAMURAI_INLINE MRMesh<Config>::MRMesh(const ca_type& ca, const self_type& ref_mesh)
         : base_type(ca, ref_mesh)
@@ -149,61 +161,63 @@ namespace samurai
     {
     }
 
-    template <class Config>
-    SAMURAI_INLINE MRMesh<Config>::MRMesh(const samurai::Box<double, dim>& b,
-                                          std::size_t min_level,
-                                          std::size_t max_level,
-                                          double approx_box_tol,
-                                          double scaling_factor_)
-        : base_type(b,
-                    mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
-                        .max_stencil_radius(Config::max_stencil_width)
-                        .graduation_width(Config::graduation_width)
-                        .start_level(max_level)
-                        .min_level(min_level)
-                        .max_level(max_level)
-                        .approx_box_tol(approx_box_tol)
-                        .scaling_factor(scaling_factor_))
-    {
-    }
+    /*
+        template <class Config>
+        SAMURAI_INLINE MRMesh<Config>::MRMesh(const samurai::Box<double, dim>& b,
+                                              std::size_t min_level,
+                                              std::size_t max_level,
+                                              double approx_box_tol,
+                                              double scaling_factor_)
+            : base_type(b,
+                        mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
+                            .max_stencil_radius(Config::max_stencil_width)
+                            .graduation_width(Config::graduation_width)
+                            .start_level(max_level)
+                            .min_level(min_level)
+                            .max_level(max_level)
+                            .approx_box_tol(approx_box_tol)
+                            .scaling_factor(scaling_factor_))
+        {
+        }
 
-    template <class Config>
-    SAMURAI_INLINE MRMesh<Config>::MRMesh(const samurai::DomainBuilder<dim>& domain_builder,
-                                          std::size_t min_level,
-                                          std::size_t max_level,
-                                          double approx_box_tol,
-                                          double scaling_factor_)
-        : base_type(domain_builder,
-                    mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
-                        .max_stencil_radius(Config::max_stencil_width)
-                        .graduation_width(Config::graduation_width)
-                        .start_level(max_level)
-                        .min_level(min_level)
-                        .max_level(max_level)
-                        .approx_box_tol(approx_box_tol)
-                        .scaling_factor(scaling_factor_))
-    {
-    }
+        template <class Config>
+        SAMURAI_INLINE MRMesh<Config>::MRMesh(const samurai::DomainBuilder<dim>& domain_builder,
+                                              std::size_t min_level,
+                                              std::size_t max_level,
+                                              double approx_box_tol,
+                                              double scaling_factor_)
+            : base_type(domain_builder,
+                        mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
+                            .max_stencil_radius(Config::max_stencil_width)
+                            .graduation_width(Config::graduation_width)
+                            .start_level(max_level)
+                            .min_level(min_level)
+                            .max_level(max_level)
+                            .approx_box_tol(approx_box_tol)
+                            .scaling_factor(scaling_factor_))
+        {
+        }
 
-    template <class Config>
-    SAMURAI_INLINE MRMesh<Config>::MRMesh(const samurai::Box<double, dim>& b,
-                                          std::size_t min_level,
-                                          std::size_t max_level,
-                                          const std::array<bool, dim>& periodic,
-                                          double approx_box_tol,
-                                          double scaling_factor_)
-        : base_type(b,
-                    mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
-                        .max_stencil_radius(Config::max_stencil_width)
-                        .graduation_width(Config::graduation_width)
-                        .start_level(max_level)
-                        .min_level(min_level)
-                        .max_level(max_level)
-                        .periodic(periodic)
-                        .approx_box_tol(approx_box_tol)
-                        .scaling_factor(scaling_factor_))
-    {
-    }
+        template <class Config>
+        SAMURAI_INLINE MRMesh<Config>::MRMesh(const samurai::Box<double, dim>& b,
+                                              std::size_t min_level,
+                                              std::size_t max_level,
+                                              const std::array<bool, dim>& periodic,
+                                              double approx_box_tol,
+                                              double scaling_factor_)
+            : base_type(b,
+                        mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
+                            .max_stencil_radius(Config::max_stencil_width)
+                            .graduation_width(Config::graduation_width)
+                            .start_level(max_level)
+                            .min_level(min_level)
+                            .max_level(max_level)
+                            .periodic(periodic)
+                            .approx_box_tol(approx_box_tol)
+                            .scaling_factor(scaling_factor_))
+        {
+        }
+    */
 
     template <class Config>
     SAMURAI_INLINE void MRMesh<Config>::update_sub_mesh_impl()

@@ -48,7 +48,7 @@ namespace samurai
         SAMURAI_INLINE decltype(auto) access_grid_yz(GridYZ& grid_yz, const Index& index, std::integral_constant<std::size_t, dim>)
         {
             // For other dimensions, we dive into the nested std::map
-            return access_grid_yz(grid_yz[index[dim - 1]], index, std::integral_constant<std::size_t, dim - 1>{});
+            return access_grid_yz(grid_yz.at(index.at(dim - 1)), index, std::integral_constant<std::size_t, dim - 1>{});
         }
     } // namespace detail
 
@@ -102,6 +102,14 @@ namespace samurai
         coords_t m_origin_point;
         double m_scaling_factor = 1;
     };
+
+    ////////////////////////////////////////////////////////////////////
+    //// explicit instanciation
+    ////////////////////////////////////////////////////////////////////
+
+    extern template class LevelCellList<1>;
+    extern template class LevelCellList<2>;
+    extern template class LevelCellList<3>;
 
     //////////////////////////////////
     // LevelCellList implementation //

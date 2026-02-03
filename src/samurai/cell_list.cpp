@@ -1,10 +1,11 @@
-#include "cell_list.hpp"
+#include "samurai/cell_list.hpp"
+#include "samurai/interval.hpp"
 
 namespace samurai
 {
 
-    template class CellList<1, default_config::interval_t, default_config::max_level>;
-    template class CellList<2, default_config::interval_t, default_config::max_level>;
-    template class CellList<3, default_config::interval_t, default_config::max_level>;
+    template class CellList<1>;
+    template class CellList<2>;
+    template class CellList<3>;
 
 } // namespace samurai

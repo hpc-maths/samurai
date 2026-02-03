@@ -1,4 +1,4 @@
-#include "box.hpp"
+#include "samurai/box.hpp"
 
 namespace samurai
 {

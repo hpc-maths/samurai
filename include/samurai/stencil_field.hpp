@@ -172,6 +172,10 @@ namespace samurai
         }
     };
 
+    extern template class upwind_op<1, default_config::interval_t>;
+    extern template class upwind_op<2, default_config::interval_t>;
+    extern template class upwind_op<3, default_config::interval_t>;
+
     template <class... CT>
     SAMURAI_INLINE auto upwind(CT&&... e)
     {
@@ -241,6 +245,10 @@ namespace samurai
             return flux(a[1], u(level, i, j), u(level, i, j + 1));
         }
     };
+
+    extern template class upwind_scalar_burgers_op<1, default_config::interval_t>;
+    extern template class upwind_scalar_burgers_op<2, default_config::interval_t>;
+    extern template class upwind_scalar_burgers_op<3, default_config::interval_t>;
 
     template <class... CT>
     SAMURAI_INLINE auto upwind_scalar_burgers(CT&&... e)

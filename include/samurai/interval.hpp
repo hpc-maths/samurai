@@ -99,6 +99,12 @@ namespace samurai
 #endif
     };
 
+    ////////////////////////////////////////////////////////////////////
+    //// explicit instanciation
+    ////////////////////////////////////////////////////////////////////
+
+    extern template class Interval<default_config::value_t>;
+
     /////////////////////////////
     // Interval implementation //
     /////////////////////////////
@@ -376,6 +382,7 @@ namespace samurai
     {
         return i1.start < i2.start;
     }
+
 } // namespace samurai
 
 template <class TValue, class TIndex>

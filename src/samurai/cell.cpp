@@ -1,4 +1,4 @@
-#include "cell.hpp"
+#include "samurai/cell.hpp"
 
 namespace samurai
 {
