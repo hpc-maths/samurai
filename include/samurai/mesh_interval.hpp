@@ -2,6 +2,7 @@
 #include <xtensor/containers/xfixed.hpp>
 #include <xtensor/views/xview.hpp>
 
+#include "interval.hpp"
 #include "samurai_config.hpp"
 
 using namespace xt::placeholders;
