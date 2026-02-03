@@ -46,6 +46,14 @@ namespace samurai
         std::array<lcl_type, max_size + 1> m_cells;
     };
 
+    ////////////////////////////////////////////////////////////////////
+    //// explicit instanciation
+    ////////////////////////////////////////////////////////////////////
+
+    extern template class CellList<1>;
+    extern template class CellList<2>;
+    extern template class CellList<3>;
+
     /////////////////////////////
     // CellList implementation //
     /////////////////////////////
@@ -121,4 +129,5 @@ namespace samurai
         cell_list.to_stream(out);
         return out;
     }
+
 } // namespace samurai

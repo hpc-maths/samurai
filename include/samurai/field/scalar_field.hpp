@@ -10,6 +10,7 @@
 #include "../concepts.hpp"
 #include "../field_expression.hpp"
 #include "../mesh_holder.hpp"
+#include "../mr/mesh.hpp"
 #include "../numeric/gauss_legendre.hpp"
 #include "access_base.hpp"
 #include "field_base.hpp"
@@ -108,6 +109,22 @@ namespace samurai
 
         ~ScalarField() = default;
     };
+
+    ////////////////////////////////////////////////////////////////////
+    //// explicit instanciation
+    ////////////////////////////////////////////////////////////////////
+
+    extern template class ScalarField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, float>;
+    extern template class ScalarField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, float>;
+    extern template class ScalarField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, float>;
+
+    extern template class ScalarField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, double>;
+    extern template class ScalarField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, double>;
+    extern template class ScalarField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, double>;
+
+    extern template class ScalarField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, long double>;
+    extern template class ScalarField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, long double>;
+    extern template class ScalarField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, long double>;
 
     // ScalarField constructors -----------------------------------------------
 
