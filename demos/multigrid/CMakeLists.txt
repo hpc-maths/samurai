@@ -8,4 +8,9 @@ if(${WITH_PETSC})
     add_executable(multigrid main.cpp)
     target_compile_definitions(multigrid PUBLIC SAMURAI_WITH_PETSC)
     target_link_libraries(multigrid samurai ${PETSC_LINK_LIBRARIES})
+
+    # Link pre-instantiated templates if enabled
+    if(SAMURAI_INSTANTIATE_TEMPLATES)
+        target_link_libraries(multigrid samurai_instantiations)
+    endif()
 endif()
