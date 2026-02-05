@@ -63,4 +63,29 @@ namespace samurai
 
     template <class T>
     concept mesh_like = mesh_like_helper<T>;
+
+    // INTERVAL CONCEPTS
+    //////////////////////////////////////////////////////////////
+
+    template <class TValue, class TIndex>
+    struct Interval;
+
+    template <typename T>
+    struct is_interval_impl : std::false_type
+    {
+    };
+
+    template <class value_t, class index_t>
+    struct is_interval_impl<Interval<value_t, index_t>> : std::true_type
+    {
+    };
+
+    template <class T>
+    constexpr bool is_interval_impl_v{is_interval_impl<std::decay_t<T>>::value};
+
+    template <class T>
+    constexpr bool interval_like_helper = is_interval_impl_v<std::remove_cvref_t<T>>;
+
+    template <class T>
+    concept interval_like = interval_like_helper<T>;
 }

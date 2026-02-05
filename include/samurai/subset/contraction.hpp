@@ -71,37 +71,37 @@ namespace samurai
             }
         }
 
-        inline std::size_t level_impl() const
+        SAMURAI_INLINE std::size_t level_impl() const
         {
             return m_set.level();
         }
 
-        inline bool exist_impl() const
+        SAMURAI_INLINE bool exist_impl() const
         {
             return m_set.exist();
         }
 
-        inline bool empty_impl() const
+        SAMURAI_INLINE bool empty_impl() const
         {
             return Base::empty_default_impl();
         }
 
         template <std::size_t d>
-        inline void
+        SAMURAI_INLINE void
         init_workspace_impl(const std::size_t n_traversers, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
             m_set.init_workspace(n_traversers, d_ic, workspace.child_workspace);
         }
 
         template <std::size_t d>
-        inline traverser_t<d>
+        SAMURAI_INLINE traverser_t<d>
         get_traverser_impl(const yz_index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
             return traverser_t<d>(m_set.get_traverser(index, d_ic, workspace.child_workspace), m_contraction[d]);
         }
 
         template <std::size_t d>
-        inline traverser_t<d>
+        SAMURAI_INLINE traverser_t<d>
         get_traverser_unordered_impl(const yz_index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
             return traverser_t<d>(m_set.get_traverser_unordered(index, d_ic, workspace.child_workspace), m_contraction[d]);
@@ -112,29 +112,6 @@ namespace samurai
         Set m_set;
         contraction_t m_contraction;
     };
-
-    // template <class Set>
-    // auto contract(const Set& set, const typename Contraction<std::decay_t<decltype(self(set))>>::contraction_t& contraction)
-    // {
-    //     return Contraction(self(set), contraction);
-    // }
-
-    // template <class Set>
-    // auto contract(const Set& set, const typename Contraction<std::decay_t<decltype(self(set))>>::value_t& contraction)
-    // {
-    //     return Contraction(self(set), contraction);
-    // }
-
-    // template <class Set>
-    // auto contract(const Set& set,
-    //               const typename Contraction<std::decay_t<decltype(self(set))>>::value_t& contraction,
-    //               const typename Contraction<std::decay_t<decltype(self(set))>>::do_contraction_t& do_contraction) // idk how to make
-    //               this
-    //                                                                                                                // more readable,
-    //                                                                                                                // perhaps a traits...
-    // {
-    //     return Contraction(self(set), contraction, do_contraction);
-    // }
 
     //----------------------------------------------------------------//
     //                        Contract                                //

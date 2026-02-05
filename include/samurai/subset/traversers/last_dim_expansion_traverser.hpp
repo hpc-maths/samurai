@@ -36,12 +36,12 @@ namespace samurai
             next_interval_impl();
         }
 
-        inline bool is_empty_impl() const
+        SAMURAI_INLINE bool is_empty_impl() const
         {
             return m_isEmpty;
         }
 
-        inline void next_interval_impl()
+        SAMURAI_INLINE void next_interval_impl()
         {
             m_isEmpty = m_set_traverser.is_empty();
 
@@ -59,7 +59,7 @@ namespace samurai
             }
         }
 
-        inline current_interval_t current_interval_impl() const
+        SAMURAI_INLINE current_interval_t current_interval_impl() const
         {
             return m_current_interval;
         }

@@ -32,9 +32,6 @@ namespace samurai
     template <class Set>
     class Projection;
 
-    template <class Set>
-    class ProjectionLOI;
-
     template <class Set, class Func>
     void apply(const SetBase<Set>& set, Func&& func);
 
@@ -61,8 +58,6 @@ namespace samurai
         using to_lca_t       = LevelCellArray<DerivedTraits::dim(), interval_t>;
         using to_lca_coord_t = typename to_lca_t::coords_t;
 
-        using ProjectionMethod = std::conditional_t<default_config::projection_with_list_of_intervals, ProjectionLOI<Derived>, Projection<Derived>>;
-
         static constexpr std::size_t dim = DerivedTraits::dim();
 
         const Derived& derived_cast() const
@@ -75,43 +70,45 @@ namespace samurai
             return static_cast<Derived&>(*this);
         }
 
-        inline std::size_t level() const
+        SAMURAI_INLINE std::size_t level() const
         {
             return derived_cast().level_impl();
         }
 
-        inline bool exist() const
+        SAMURAI_INLINE bool exist() const
         {
             return derived_cast().exist_impl();
         }
 
-        inline bool empty() const
+        SAMURAI_INLINE bool empty() const
         {
             return derived_cast().empty_impl();
         }
 
         template <std::size_t d>
-        inline void init_workspace(const std::size_t n_traversers, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
+        SAMURAI_INLINE void
+        init_workspace(const std::size_t n_traversers, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
             derived_cast().init_workspace_impl(n_traversers, d_ic, workspace);
         }
 
         //// Only works for increasing index
         template <std::size_t d>
-        inline traverser_t<d> get_traverser(const yz_index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
+        SAMURAI_INLINE traverser_t<d>
+        get_traverser(const yz_index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
             return derived_cast().get_traverser_impl(index, d_ic, workspace);
         }
 
         //// Works for random indexes but might be slower
         template <std::size_t d>
-        inline traverser_t<d>
+        SAMURAI_INLINE traverser_t<d>
         get_traverser_unordered(const yz_index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
             return derived_cast().get_traverser_unordered_impl(index, d_ic, workspace);
         }
 
-        inline ProjectionMethod on(const std::size_t level) const;
+        SAMURAI_INLINE Projection<Derived> on(const std::size_t level) const;
 
         template <class Func>
         void operator()(Func&& func) const
@@ -143,7 +140,7 @@ namespace samurai
 
       protected:
 
-        inline bool empty_default_impl() const
+        SAMURAI_INLINE bool empty_default_impl() const
         {
             yz_index_t index;
             Workspace workspace;
@@ -208,15 +205,14 @@ namespace samurai
 } // namespace samurai
 
 #include "projection.hpp"
-#include "projection_loi.hpp"
 
 namespace samurai
 {
 
     template <class Derived>
-    auto SetBase<Derived>::on(const std::size_t level) const -> ProjectionMethod
+    Projection<Derived> SetBase<Derived>::on(const std::size_t level) const
     {
-        return ProjectionMethod(derived_cast(), level);
+        return Projection<Derived>(derived_cast(), level);
     }
 
 }

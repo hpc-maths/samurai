@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "../../interval.hpp"
+#include "../../concepts.hpp"
 #include "set_traverser_base.hpp"
 #include <iterator>
 
@@ -19,7 +19,7 @@ namespace samurai
         using interval_t         = std::iter_value_t<Iterator>;
         using current_interval_t = const interval_t&;
 
-        static_assert(IsInterval<interval_t>::value);
+        static_assert(interval_like<interval_t>);
     };
 
     template <std::forward_iterator Iterator>
@@ -37,17 +37,17 @@ namespace samurai
         {
         }
 
-        inline bool is_empty_impl() const
+        SAMURAI_INLINE bool is_empty_impl() const
         {
             return m_current_interval == m_bound_interval;
         }
 
-        inline void next_interval_impl()
+        SAMURAI_INLINE void next_interval_impl()
         {
             ++m_current_interval;
         }
 
-        inline current_interval_t current_interval_impl() const
+        SAMURAI_INLINE current_interval_t current_interval_impl() const
         {
             return *m_current_interval;
         }

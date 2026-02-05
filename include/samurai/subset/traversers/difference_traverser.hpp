@@ -45,25 +45,25 @@ namespace samurai
             compute_current_interval();
         }
 
-        inline bool is_empty_impl() const
+        SAMURAI_INLINE bool is_empty_impl() const
         {
             return std::get<0>(m_set_traversers).is_empty();
         }
 
-        inline void next_interval_impl()
+        SAMURAI_INLINE void next_interval_impl()
         {
             advance_ref_interval();
             compute_current_interval();
         }
 
-        inline current_interval_t current_interval_impl() const
+        SAMURAI_INLINE current_interval_t current_interval_impl() const
         {
             return m_current_interval;
         }
 
       private:
 
-        inline void advance_ref_interval()
+        SAMURAI_INLINE void advance_ref_interval()
         {
             if (m_current_interval.end != std::get<0>(m_set_traversers).current_interval().end << m_shifts[0])
             {
@@ -79,7 +79,7 @@ namespace samurai
             }
         }
 
-        inline void compute_current_interval()
+        SAMURAI_INLINE void compute_current_interval()
         {
             while (!std::get<0>(m_set_traversers).is_empty() && !try_to_compute_current_interval())
             {
@@ -87,7 +87,7 @@ namespace samurai
             }
         }
 
-        inline bool try_to_compute_current_interval()
+        SAMURAI_INLINE bool try_to_compute_current_interval()
         {
             assert(!std::get<0>(m_set_traversers).is_empty());
 

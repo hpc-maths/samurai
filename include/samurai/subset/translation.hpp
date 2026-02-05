@@ -52,30 +52,30 @@ namespace samurai
         {
         }
 
-        inline std::size_t level_impl() const
+        SAMURAI_INLINE std::size_t level_impl() const
         {
             return m_set.level();
         }
 
-        inline bool exist_impl() const
+        SAMURAI_INLINE bool exist_impl() const
         {
             return m_set.exist();
         }
 
-        inline bool empty_impl() const
+        SAMURAI_INLINE bool empty_impl() const
         {
             return m_set.empty();
         }
 
         template <std::size_t d>
-        inline void
+        SAMURAI_INLINE void
         init_workspace_impl(const std::size_t n_traversers, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
             m_set.init_workspace(n_traversers, d_ic, workspace.child_workspace);
         }
 
         template <std::size_t d>
-        inline traverser_t<d>
+        SAMURAI_INLINE traverser_t<d>
         get_traverser_impl(const yz_index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
             yz_index_t child_index;
@@ -89,7 +89,7 @@ namespace samurai
         }
 
         template <std::size_t d>
-        inline traverser_t<d>
+        SAMURAI_INLINE traverser_t<d>
         get_traverser_unordered_impl(const yz_index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
             yz_index_t child_index;

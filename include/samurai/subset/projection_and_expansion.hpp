@@ -9,16 +9,16 @@ namespace samurai
 {
 
     template <class Set>
-    class ProjectionLOI;
+    class Projection;
 
     template <class Set>
     class Expansion;
 
     template <class Set>
-    class Expansion<ProjectionLOI<Set>>;
+    class Expansion<Projection<Set>>;
 
     template <class Set>
-    struct SetTraits<Expansion<ProjectionLOI<Set>>>
+    struct SetTraits<Expansion<Projection<Set>>>
     {
         static_assert(IsSet<Set>::value);
 
@@ -34,7 +34,7 @@ namespace samurai
         {
             // we are going to use the same workspace as the projection.
             // the only difference is that we are going to apply the expansion right away.
-            typename detail::ProjectionLOIWork<Set, std::make_index_sequence<Set::dim>>::Type projection_and_expand_workspace;
+            typename detail::ProjectionWork<Set, std::make_index_sequence<Set::dim>>::Type projection_and_expand_workspace;
             typename Set::Workspace child_workspace;
             typename Set::Workspace tmp_child_workspace;
         };
@@ -46,10 +46,10 @@ namespace samurai
     };
 
     template <class Set>
-    class Expansion<ProjectionLOI<Set>> : public SetBase<Expansion<ProjectionLOI<Set>>>
+    class Expansion<Projection<Set>> : public SetBase<Expansion<Projection<Set>>>
     {
-        using Self            = Expansion<ProjectionLOI<Set>>;
-        using ListOfIntervals = typename detail::ProjectionLOIWork<Set, std::make_index_sequence<Set::dim>>::Type;
+        using Self            = Expansion<Projection<Set>>;
+        using ListOfIntervals = typename detail::ProjectionWork<Set, std::make_index_sequence<Set::dim>>::Type;
 
       public:
 
@@ -58,7 +58,7 @@ namespace samurai
         using expansion_t    = std::array<value_t, Base::dim>;
         using do_expansion_t = std::array<bool, Base::dim>;
 
-        explicit Expansion(const ProjectionLOI<Set>& projected_set, const expansion_t& expansions)
+        explicit Expansion(const Projection<Set>& projected_set, const expansion_t& expansions)
             : m_set(projected_set.m_set)
             , m_level(projected_set.m_level)
             , m_projectionType(projected_set.m_projectionType)
@@ -67,7 +67,7 @@ namespace samurai
         {
         }
 
-        Expansion(const ProjectionLOI<Set>& projected_set, const value_t expansion)
+        Expansion(const Projection<Set>& projected_set, const value_t expansion)
             : m_set(projected_set.m_set)
             , m_level(projected_set.m_level)
             , m_projectionType(projected_set.m_projectionType)
@@ -76,7 +76,7 @@ namespace samurai
             m_expansions.fill(expansion);
         }
 
-        Expansion(const ProjectionLOI<Set>& projected_set, const value_t expansion, const do_expansion_t& do_expansion)
+        Expansion(const Projection<Set>& projected_set, const value_t expansion, const do_expansion_t& do_expansion)
             : m_set(projected_set.m_set)
             , m_level(projected_set.m_level)
             , m_projectionType(projected_set.m_projectionType)
@@ -88,23 +88,23 @@ namespace samurai
             }
         }
 
-        inline std::size_t level_impl() const
+        SAMURAI_INLINE std::size_t level_impl() const
         {
             return m_level;
         }
 
-        inline bool exist_impl() const
+        SAMURAI_INLINE bool exist_impl() const
         {
             return m_set.exist();
         }
 
-        inline bool empty_impl() const
+        SAMURAI_INLINE bool empty_impl() const
         {
             return m_set.empty();
         }
 
         template <std::size_t d>
-        inline void
+        SAMURAI_INLINE void
         init_workspace_impl(const std::size_t n_traversers, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
             assert(n_traversers == 1);
@@ -113,7 +113,7 @@ namespace samurai
         }
 
         template <std::size_t d>
-        inline traverser_t<d>
+        SAMURAI_INLINE traverser_t<d>
         get_traverser_impl(const yz_index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
             if constexpr (d == Base::dim - 1)
@@ -149,8 +149,7 @@ namespace samurai
                     return interval_t(traverser_utils::refine_start(interval.start, shift) - expansions[d],
                                       traverser_utils::refine_end(interval.end, shift) + expansions[d]);
                 };
-                const auto index_range_func = [&index, shift = m_shift, scale = 1. / std::pow(2., m_shift), &expansions = m_expansions](
-                                                  const auto d_cur) -> interval_t
+                const auto index_range_func = [&index, shift = m_shift, &expansions = m_expansions](const auto d_cur) -> interval_t
                 {
                     return interval_t((index[d_cur - 1] - expansions[d_cur]) >> shift, ((index[d_cur - 1] + expansions[d_cur]) >> shift) + 1);
                 };

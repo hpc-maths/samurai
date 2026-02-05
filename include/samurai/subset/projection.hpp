@@ -6,8 +6,11 @@
 #include "../samurai_config.hpp"
 #include "../static_algorithm.hpp"
 #include "set_base.hpp"
+#include "traversers/last_dim_projection_traverser.hpp"
 #include "traversers/projection_traverser.hpp"
 #include "utils.hpp"
+
+#include <fmt/ranges.h>
 
 namespace samurai
 {
@@ -24,11 +27,14 @@ namespace samurai
             using child_traverser_t = typename Set::template traverser_t<d>;
 
             template <std::size_t d>
-            using array_of_child_traverser_t = std::vector<child_traverser_t<d>>;
+            using work_t = ListOfIntervals<typename child_traverser_t<d>::value_t>;
 
-            using Type = std::tuple<array_of_child_traverser_t<ds>...>;
+            using Type = std::tuple<work_t<ds>...>;
         };
     } // namespace detail
+
+    template <class Set>
+    class Expansion;
 
     template <class Set>
     class Projection;
@@ -39,12 +45,17 @@ namespace samurai
         static_assert(IsSet<Set>::value);
 
         template <std::size_t d>
-        using traverser_t = ProjectionTraverser<typename Set::template traverser_t<d>>;
+        using child_traverser_t = typename Set::template traverser_t<d>;
+
+        template <std::size_t d>
+        using traverser_t = std::
+            conditional_t<d == Set::dim - 1, LastDimProjectionTraverser<child_traverser_t<d>>, ProjectionTraverser<child_traverser_t<d>>>;
 
         struct Workspace
         {
             typename detail::ProjectionWork<Set, std::make_index_sequence<Set::dim>>::Type projection_workspace;
             typename Set::Workspace child_workspace;
+            typename Set::Workspace tmp_child_workspace;
         };
 
         static constexpr std::size_t dim()
@@ -56,10 +67,12 @@ namespace samurai
     template <class Set>
     class Projection : public SetBase<Projection<Set>>
     {
-        using Self                = Projection<Set>;
-        using ChildTraverserArray = typename detail::ProjectionWork<Set, std::make_index_sequence<Set::dim>>::Type;
+        using Self            = Projection<Set>;
+        using ListOfIntervals = typename detail::ProjectionWork<Set, std::make_index_sequence<Set::dim>>::Type;
 
       public:
+
+        friend class Expansion<Self>;
 
         SAMURAI_SET_TYPEDEFS
 
@@ -79,110 +92,83 @@ namespace samurai
             }
         }
 
-        inline std::size_t level_impl() const
+        SAMURAI_INLINE std::size_t level_impl() const
         {
             return m_level;
         }
 
-        inline bool exist_impl() const
+        SAMURAI_INLINE bool exist_impl() const
         {
             return m_set.exist();
         }
 
-        inline bool empty_impl() const
+        SAMURAI_INLINE bool empty_impl() const
         {
             return m_set.empty();
         }
 
         template <std::size_t d>
-        inline void
+        SAMURAI_INLINE void
         init_workspace_impl(const std::size_t n_traversers, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
-            const std::size_t my_work_size_per_traverser = (m_projectionType == ProjectionType::COARSEN and d != Base::dim - 1)
-                                                             ? (1 << m_shift)
-                                                             : 1;
-            const std::size_t my_work_size               = n_traversers * my_work_size_per_traverser;
+            assert(n_traversers == 1);
 
-            auto& childTraversers = std::get<d>(workspace.projection_workspace);
-            childTraversers.clear();
-            childTraversers.reserve(my_work_size);
-
-            m_set.init_workspace(my_work_size, d_ic, workspace.child_workspace);
+            m_set.init_workspace(n_traversers, d_ic, workspace.child_workspace);
         }
 
         template <std::size_t d>
-        inline traverser_t<d>
+        SAMURAI_INLINE traverser_t<d>
         get_traverser_impl(const yz_index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
-            auto& childTraversers = std::get<d>(workspace.projection_workspace);
             if (m_projectionType == ProjectionType::COARSEN)
             {
                 if constexpr (d != Base::dim - 1)
                 {
-                    const auto childTraversers_begin = childTraversers.end();
-                    fill_traverser_array(index, d_ic, workspace);
-                    return traverser_t<d>(childTraversers_begin, childTraversers.end(), m_shift);
+                    const auto projection_func = [shift = m_shift](const auto /* d_cur */, const interval_t& interval) -> interval_t
+                    {
+                        return interval >> shift;
+                    };
+                    const auto index_range_func = [&index, shift = m_shift](const auto d_cur) -> interval_t
+                    {
+                        return interval_t(index[d_cur - 1] << shift, ((index[d_cur - 1] + 1) << shift));
+                    };
+
+                    auto& list_of_intervals = std::get<d>(workspace.projection_workspace);
+
+                    subset_utils::transform_to_loi(m_set,
+                                                   index_range_func,
+                                                   d_ic,
+                                                   projection_func,
+                                                   workspace.tmp_child_workspace,
+                                                   list_of_intervals);
+
+                    return traverser_t<d>(m_set.get_traverser(utils::pow2(index, m_shift), d_ic, workspace.child_workspace),
+                                          list_of_intervals.cbegin(),
+                                          list_of_intervals.cend());
                 }
                 else
                 {
-                    childTraversers.push_back(m_set.get_traverser(utils::pow2(index, m_shift), d_ic, workspace.child_workspace));
-                    return traverser_t<d>(std::prev(childTraversers.end()), m_projectionType, m_shift);
+                    return traverser_t<d>(m_set.get_traverser(utils::pow2(index, m_shift), d_ic, workspace.child_workspace),
+                                          m_projectionType,
+                                          m_shift);
                 }
             }
             else
             {
-                childTraversers.push_back(m_set.get_traverser(utils::powMinus2(index, m_shift), d_ic, workspace.child_workspace));
-                return traverser_t<d>(std::prev(childTraversers.end()), m_projectionType, m_shift);
+                return traverser_t<d>(m_set.get_traverser(utils::powMinus2(index, m_shift), d_ic, workspace.child_workspace),
+                                      m_projectionType,
+                                      m_shift);
             }
         }
 
         template <std::size_t d>
-        inline traverser_t<d>
+        SAMURAI_INLINE traverser_t<d>
         get_traverser_unordered_impl(const yz_index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
         {
-            auto& childTraversers = std::get<d>(workspace.projection_workspace);
-            if (m_projectionType == ProjectionType::COARSEN)
-            {
-                if constexpr (d != Base::dim - 1)
-                {
-                    const auto childTraversers_begin = childTraversers.end();
-                    fill_traverser_array(index, d_ic, workspace);
-                    return traverser_t<d>(childTraversers_begin, childTraversers.end(), m_shift);
-                }
-                else
-                {
-                    childTraversers.push_back(m_set.get_traverser_unordered(utils::pow2(index, m_shift), d_ic, workspace.child_workspace));
-                    return traverser_t<d>(std::prev(childTraversers.end()), m_projectionType, m_shift);
-                }
-            }
-            else
-            {
-                childTraversers.push_back(m_set.get_traverser_unordered(utils::powMinus2(index, m_shift), d_ic, workspace.child_workspace));
-                return traverser_t<d>(std::prev(childTraversers.end()), m_projectionType, m_shift);
-            }
+            return get_traverser_impl(index, d_ic, workspace);
         }
 
       private:
-
-        template <std::size_t d>
-        void fill_traverser_array(const yz_index_t& index, std::integral_constant<std::size_t, d> d_ic, Workspace& workspace) const
-        {
-            auto& childTraversers = std::get<d>(workspace.projection_workspace);
-
-            const value_t ymin   = index[d] << m_shift;
-            const value_t ybound = (index[d] + 1) << m_shift;
-
-            yz_index_t projected_index(utils::pow2(index, m_shift));
-
-            for (projected_index[d] = ymin; projected_index[d] != ybound; ++projected_index[d])
-            {
-                childTraversers.push_back(m_set.get_traverser_unordered(projected_index, d_ic, workspace.child_workspace));
-                if (childTraversers.back().is_empty())
-                {
-                    childTraversers.pop_back();
-                }
-            }
-        }
 
         Set m_set;
         std::size_t m_level;

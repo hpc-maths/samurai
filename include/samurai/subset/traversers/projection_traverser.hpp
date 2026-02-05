@@ -3,9 +3,7 @@
 
 #pragma once
 
-#include <span>
-
-#include "../projection_type.hpp"
+#include "../../list_of_intervals.hpp"
 #include "set_traverser_base.hpp"
 
 namespace samurai
@@ -19,147 +17,72 @@ namespace samurai
         static_assert(IsSetTraverser<SetTraverser>::value);
 
         using interval_t         = typename SetTraverser::interval_t;
-        using current_interval_t = const interval_t&;
+        using current_interval_t = interval_t;
     };
 
     template <class SetTraverser>
     class ProjectionTraverser : public SetTraverserBase<ProjectionTraverser<SetTraverser>>
     {
         using Self                 = ProjectionTraverser<SetTraverser>;
-        using SetTraverserIterator = typename std::vector<SetTraverser>::iterator;
+        using SetTraverserIterator = typename ListOfIntervals<typename SetTraverser::value_t>::const_iterator;
 
       public:
 
         SAMURAI_SET_TRAVERSER_TYPEDEFS
 
-        ProjectionTraverser(SetTraverserIterator set_traverser, const ProjectionType projectionType, const std::size_t shift)
-            : m_set_traversers(set_traverser, set_traverser + 1)
-            , m_projectionType(projectionType)
+        ProjectionTraverser(SetTraverser set_traverser, [[maybe_unused]] const ProjectionType projectionType, const std::size_t shift)
+            : m_set_traverser(set_traverser)
             , m_shift(shift)
-            , m_isEmpty(set_traverser->is_empty())
+            , m_projectionType(ProjectionType::REFINE)
         {
-            if (!m_isEmpty)
-            {
-                if (m_projectionType == ProjectionType::COARSEN)
-                {
-                    m_current_interval.start = coarsen_start(m_set_traversers.front().current_interval());
-                    m_current_interval.end   = coarsen_end(m_set_traversers.front().current_interval());
-
-                    m_set_traversers.front().next_interval();
-
-                    // when coarsening, two disjoint intervals may be merged.
-                    // we need to check if the next_interval overlaps
-                    for (; !m_set_traversers.front().is_empty()
-                           && coarsen_start(m_set_traversers.front().current_interval()) <= m_current_interval.end;
-                         m_set_traversers.front().next_interval())
-                    {
-                        m_current_interval.end = coarsen_end(m_set_traversers.front().current_interval());
-                    }
-                }
-                else
-                {
-                    m_current_interval.start = m_set_traversers.front().current_interval().start << shift;
-                    m_current_interval.end   = m_set_traversers.front().current_interval().end << shift;
-                }
-            }
+            assert(projectionType == m_projectionType);
         }
 
-        /*
-         * This constructor only works for coarsening
-         */
-        ProjectionTraverser(SetTraverserIterator begin_set_traversers, SetTraverserIterator end_set_traversers, const std::size_t shift)
-            : m_set_traversers(begin_set_traversers, end_set_traversers)
+        ProjectionTraverser(SetTraverser set_traverser, SetTraverserIterator first_interval, SetTraverserIterator bound_interval)
+            : m_set_traverser(set_traverser)
+            , m_shift(0)
+            , m_first_interval(first_interval)
+            , m_bound_interval(bound_interval)
             , m_projectionType(ProjectionType::COARSEN)
-            , m_shift(shift)
         {
-            next_interval_coarsen();
         }
 
-        inline bool is_empty_impl() const
-        {
-            return m_isEmpty;
-        }
-
-        inline void next_interval_impl()
+        SAMURAI_INLINE bool is_empty_impl() const
         {
             if (m_projectionType == ProjectionType::COARSEN)
             {
-                next_interval_coarsen();
+                return m_first_interval == m_bound_interval;
             }
             else
             {
-                m_set_traversers.front().next_interval();
-                m_isEmpty = m_set_traversers.front().is_empty();
-                if (!m_isEmpty)
-                {
-                    m_current_interval.start = m_set_traversers.front().current_interval().start << m_shift;
-                    m_current_interval.end   = m_set_traversers.front().current_interval().end << m_shift;
-                }
+                return m_set_traverser.is_empty();
             }
         }
 
-        inline current_interval_t current_interval_impl() const
+        SAMURAI_INLINE void next_interval_impl()
         {
-            return m_current_interval;
+            if (m_projectionType == ProjectionType::COARSEN)
+            {
+                ++m_first_interval;
+            }
+            else
+            {
+                m_set_traverser.next_interval();
+            }
+        }
+
+        SAMURAI_INLINE current_interval_t current_interval_impl() const
+        {
+            return (m_projectionType == ProjectionType::COARSEN) ? *m_first_interval : m_set_traverser.current_interval() << m_shift;
         }
 
       private:
 
-        inline void next_interval_coarsen()
-        {
-            m_current_interval.start = std::numeric_limits<value_t>::max();
-            // We find the start of the interval, i.e. the smallest set_traverser.current_interval().start >> m_shift
-            for (const SetTraverser& set_traverser : m_set_traversers)
-            {
-                if (!set_traverser.is_empty() && (coarsen_start(set_traverser.current_interval()) < m_current_interval.start))
-                {
-                    m_current_interval.start = coarsen_start(set_traverser.current_interval());
-                    m_current_interval.end   = coarsen_end(set_traverser.current_interval());
-                }
-            }
-            // Now we find the end of the interval, i.e. the largest set_traverser.current_interval().end >> m_shift
-            // such that (set_traverser.current_interval().start >> m_shift) < m_current_interval.end
-            bool is_done = false;
-            while (!is_done)
-            {
-                is_done = true;
-                // advance set traverses that are behind current interval
-                for (SetTraverser& set_traverser : m_set_traversers)
-                {
-                    while (!set_traverser.is_empty() && (coarsen_end(set_traverser.current_interval()) <= m_current_interval.end))
-                    {
-                        set_traverser.next_interval();
-                    }
-                }
-                // try to find a new end
-                for (const SetTraverser& set_traverser : m_set_traversers)
-                {
-                    // there is an overlap
-                    if (!set_traverser.is_empty() && (coarsen_start(set_traverser.current_interval()) <= m_current_interval.end))
-                    {
-                        is_done                = false;
-                        m_current_interval.end = coarsen_end(set_traverser.current_interval());
-                    }
-                }
-            }
-            m_isEmpty = (m_current_interval.start == std::numeric_limits<value_t>::max());
-        }
-
-        inline value_t coarsen_start(const interval_t& interval) const
-        {
-            return interval.start >> m_shift;
-        }
-
-        inline value_t coarsen_end(const interval_t& interval) const
-        {
-            return ((interval.end - 1) >> m_shift) + 1;
-        }
-
-        std::span<SetTraverser> m_set_traversers;
+        SetTraverser m_set_traverser;          // only used when refining
+        std::size_t m_shift;                   // only used when refining
+        SetTraverserIterator m_first_interval; // only use when coarsening
+        SetTraverserIterator m_bound_interval; // only use when coarsening
         ProjectionType m_projectionType;
-        std::size_t m_shift;
-        interval_t m_current_interval;
-        bool m_isEmpty;
     };
 
 } // namespace samurai

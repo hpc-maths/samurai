@@ -37,18 +37,18 @@ namespace samurai
             advance_to_next_valid_interval();
         }
 
-        inline bool is_empty_impl() const
+        SAMURAI_INLINE bool is_empty_impl() const
         {
             return m_set_traverser.is_empty();
         }
 
-        inline void next_interval_impl()
+        SAMURAI_INLINE void next_interval_impl()
         {
             m_set_traverser.next_interval();
             advance_to_next_valid_interval();
         }
 
-        inline current_interval_t current_interval_impl() const
+        SAMURAI_INLINE current_interval_t current_interval_impl() const
         {
             return current_interval_t(m_set_traverser.current_interval().start + m_contraction,
                                       m_set_traverser.current_interval().end - m_contraction);
@@ -56,9 +56,9 @@ namespace samurai
 
       private:
 
-        inline void advance_to_next_valid_interval()
+        SAMURAI_INLINE void advance_to_next_valid_interval()
         {
-            while (!m_set_traverser.is_empty() && m_set_traverser.current_interval().size() <= size_t(2 * m_contraction))
+            while (!m_set_traverser.is_empty() && m_set_traverser.current_interval().size() <= static_cast<std::size_t>(2 * m_contraction))
             {
                 m_set_traverser.next_interval();
             }

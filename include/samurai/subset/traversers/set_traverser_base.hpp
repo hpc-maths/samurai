@@ -36,18 +36,18 @@ namespace samurai
             return static_cast<Derived&>(*this);
         }
 
-        inline bool is_empty() const
+        SAMURAI_INLINE bool is_empty() const
         {
             return derived_cast().is_empty_impl();
         }
 
-        inline void next_interval()
+        SAMURAI_INLINE void next_interval()
         {
             assert(!is_empty());
             derived_cast().next_interval_impl();
         }
 
-        inline current_interval_t current_interval() const
+        SAMURAI_INLINE current_interval_t current_interval() const
         {
             assert(!is_empty());
             return derived_cast().current_interval_impl();

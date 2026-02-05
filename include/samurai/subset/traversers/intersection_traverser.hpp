@@ -31,9 +31,6 @@ namespace samurai
         SAMURAI_SET_TRAVERSER_TYPEDEFS
         using Childrens = std::tuple<SetTraversers...>;
 
-        template <size_t I>
-        using IthChild = typename std::tuple_element<I, Childrens>::type;
-
         static constexpr std::size_t nIntervals = std::tuple_size_v<Childrens>;
 
         IntersectionTraverser(const std::array<std::size_t, nIntervals>& shifts, const SetTraversers&... set_traverser)
@@ -43,12 +40,12 @@ namespace samurai
             next_interval_impl();
         }
 
-        inline bool is_empty_impl() const
+        SAMURAI_INLINE bool is_empty_impl() const
         {
             return !m_current_interval.is_valid();
         }
 
-        inline void next_interval_impl()
+        SAMURAI_INLINE void next_interval_impl()
         {
             m_current_interval.start = 0;
             m_current_interval.end   = 0;
@@ -82,14 +79,14 @@ namespace samurai
             }
         }
 
-        inline current_interval_t current_interval_impl() const
+        SAMURAI_INLINE current_interval_t current_interval_impl() const
         {
             return m_current_interval;
         }
 
       private:
 
-        inline bool not_is_any_child_empty() const
+        SAMURAI_INLINE bool not_is_any_child_empty() const
         {
             return std::apply(
                 [](const auto&... set_traversers)

@@ -9,7 +9,6 @@
 #include "expansion.hpp"
 #include "lca_view.hpp"
 #include "nary_set_operator.hpp"
-#include "projection.hpp"
 #include "projection_and_expansion.hpp"
 #include "set_base.hpp"
 #include "translation.hpp"

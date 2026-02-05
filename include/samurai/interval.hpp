@@ -362,7 +362,6 @@ namespace samurai
     template <class value_t, class index_t>
     SAMURAI_INLINE bool operator==(const Interval<value_t, index_t>& i1, const Interval<value_t, index_t>& i2)
     {
-        //~ return !(i1.start != i2.start || i1.end != i2.end || i1.step != i2.step || i1.index != i2.index);
         return !(i1.start != i2.start || i1.end != i2.end || i1.step != i2.step);
     }
 
@@ -377,16 +376,6 @@ namespace samurai
     {
         return i1.start < i2.start;
     }
-
-    template <typename T>
-    struct IsInterval : std::false_type
-    {
-    };
-
-    template <class value_t, class index_t>
-    struct IsInterval<Interval<value_t, index_t>> : std::true_type
-    {
-    };
 
 } // namespace samurai
 

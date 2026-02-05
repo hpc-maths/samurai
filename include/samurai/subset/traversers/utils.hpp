@@ -14,25 +14,25 @@ namespace samurai
     {
 
         template <typename T>
-        inline T refine_start(const T& interval_start, const std::size_t shift)
+        SAMURAI_INLINE T refine_start(const T& interval_start, const std::size_t shift)
         {
             return interval_start << shift;
         }
 
         template <typename T>
-        inline T coarsen_start(const T& interval_start, const std::size_t shift)
+        SAMURAI_INLINE T coarsen_start(const T& interval_start, const std::size_t shift)
         {
             return interval_start >> shift;
         }
 
         template <typename T>
-        inline T coarsen_end(const T& interval_end, const std::size_t shift)
+        SAMURAI_INLINE T coarsen_end(const T& interval_end, const std::size_t shift)
         {
             return ((interval_end - 1) >> shift) + 1;
         }
 
         template <typename T>
-        inline T refine_end(const T& interval_end, const std::size_t shift)
+        SAMURAI_INLINE T refine_end(const T& interval_end, const std::size_t shift)
         {
             return (interval_end << shift);
         }
@@ -60,9 +60,9 @@ namespace samurai
         using SetTraverserTupleInterval = typename detail::SetTraverserTupleInterval<SetTraversers>::Type;
 
         template <typename SetTraversers, class StartFunc, class EndFunc>
-        inline auto transform_and_union(SetTraversers& set_traversers,
-                                        const StartFunc startFunc,
-                                        const EndFunc endFunc) -> SetTraverserTupleInterval<SetTraversers>
+        SAMURAI_INLINE auto transform_and_union(SetTraversers& set_traversers,
+                                                const StartFunc startFunc,
+                                                const EndFunc endFunc) -> SetTraverserTupleInterval<SetTraversers>
         {
             using interval_t = SetTraverserTupleInterval<SetTraversers>;
             using value_t    = typename interval_t::value_t;

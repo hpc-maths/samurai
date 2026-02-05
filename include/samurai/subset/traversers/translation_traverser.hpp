@@ -35,17 +35,17 @@ namespace samurai
         {
         }
 
-        inline bool is_empty_impl() const
+        SAMURAI_INLINE bool is_empty_impl() const
         {
             return m_set_traverser.is_empty();
         }
 
-        inline void next_interval_impl()
+        SAMURAI_INLINE void next_interval_impl()
         {
             m_set_traverser.next_interval();
         }
 
-        inline current_interval_t current_interval_impl() const
+        SAMURAI_INLINE current_interval_t current_interval_impl() const
         {
             return current_interval_t{m_set_traverser.current_interval().start + m_translation,
                                       m_set_traverser.current_interval().end + m_translation};
