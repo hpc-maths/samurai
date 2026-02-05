@@ -3,7 +3,7 @@ if(${WITH_PETSC})
     find_dependency(PkgConfig)
     pkg_check_modules(PETSC REQUIRED PETSc)
 
-    include_directories(${PETSC_INCLUDE_DIRS})
+    include_directories(SYSTEM ${PETSC_INCLUDE_DIRS})
 
     add_executable(multigrid main.cpp)
     target_compile_definitions(multigrid PUBLIC SAMURAI_WITH_PETSC)

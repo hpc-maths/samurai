@@ -18,6 +18,8 @@ namespace samurai
             using scheme_t      = ManualAssembly<UnknownField>;
             using input_field_t = UnknownField;
 
+            using MatrixAssembly::setup;
+
           private:
 
             UnknownField* m_unknown = nullptr;

@@ -16,6 +16,8 @@ namespace samurai
             using scheme_t      = int;  // deactivate compatibility test in block_operator.tie_unknowns()
             using input_field_t = void; // deactivate compatibility test during assembly
 
+            using MatrixAssembly::setup;
+
           private:
 
             PetscInt m_owned_rows = 0;
