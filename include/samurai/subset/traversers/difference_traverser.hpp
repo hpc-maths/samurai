@@ -32,9 +32,6 @@ namespace samurai
         SAMURAI_SET_TRAVERSER_TYPEDEFS
         using Childrens = std::tuple<SetTraversers...>;
 
-        template <size_t I>
-        using IthChild = typename std::tuple_element<I, Childrens>::type;
-
         static constexpr std::size_t nIntervals = std::tuple_size_v<Childrens>;
 
         DifferenceTraverser(const std::array<std::size_t, nIntervals>& shifts, const SetTraversers&... set_traversers)
@@ -68,7 +65,7 @@ namespace samurai
             if (m_current_interval.end != std::get<0>(m_set_traversers).current_interval().end << m_shifts[0])
             {
                 // we have removed the beginning of the current interval.
-                // so ve remove [m_current_interval.start, m_current_interval.end) from std::get<0>(m_set_traversers).current_interval()
+                // so we remove [m_current_interval.start, m_current_interval.end) from std::get<0>(m_set_traversers).current_interval()
                 m_min_start = m_current_interval.end;
             }
             else
@@ -97,7 +94,7 @@ namespace samurai
             static_for<1, nIntervals>::apply(
                 [this](const auto i)
                 {
-                    IthChild<i>& set_traverser = std::get<i>(m_set_traversers);
+                    auto& set_traverser = std::get<i>(m_set_traversers);
 
                     while (!set_traverser.is_empty() && (set_traverser.current_interval().end << m_shifts[i]) < m_current_interval.start)
                     {

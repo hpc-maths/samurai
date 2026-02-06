@@ -3,6 +3,8 @@
 #include <span>
 #include <tuple>
 
+#include <fmt/ranges.h>
+
 #include <xtensor/containers/xfixed.hpp>
 #include <xtensor/core/xtensor_forward.hpp>
 
@@ -15,7 +17,6 @@
 #include <samurai/mr/mesh.hpp>
 #include <samurai/subset/node.hpp>
 
-#include <fmt/ranges.h>
 #include <samurai/io/hdf5.hpp>
 
 namespace samurai
@@ -1451,13 +1452,6 @@ namespace samurai
         cl[4][{2, 4}].add_interval({0, 18});
 
         ca = {cl, true};
-
-        //~ std::cout << "===========================================" << std::endl;
-        //~ std::cout << ca[4] << std::endl;
-        //~ std::cout << "===========================================" << std::endl;
-        //~ std::cout << self(ca[4]).on(3).to_lca() << std::endl;
-        //~ std::cout << "===========================================" << std::endl;
-        //~ std::exit(0);
 
         // Test self-similarity at different scales
         bool found = false;

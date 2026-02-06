@@ -184,7 +184,7 @@ namespace samurai
     Func&& enumerate_items(Range& range, Func&& func)
     {
 #if ((defined(_MSVC_LANG) && _MSVC_LANG >= 202302L) || __cplusplus >= 202302L)
-        for (auto& [i, item] : std::views::enumerate(range))
+        for (auto& [i, elem] : std::views::enumerate(range))
         {
             func(i, elem);
         }

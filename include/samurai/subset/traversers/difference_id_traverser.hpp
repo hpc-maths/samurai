@@ -40,8 +40,6 @@ namespace samurai
         {
         }
 
-        DifferenceIdTraverser() = delete;
-
         SAMURAI_INLINE bool is_empty_impl() const
         {
             return m_set_traverser.is_empty();
@@ -54,7 +52,7 @@ namespace samurai
 
         SAMURAI_INLINE current_interval_t current_interval_impl() const
         {
-            return current_interval_t{m_set_traverser.current_interval().start << m_shift, m_set_traverser.current_interval().end << m_shift};
+            return m_set_traverser.current_interval() << m_shift;
         }
 
       private:

@@ -50,6 +50,7 @@ namespace samurai
         using list_t::begin;
         using list_t::cbegin;
         using list_t::cend;
+        using list_t::clear;
         using list_t::empty;
         using list_t::end;
 
@@ -62,11 +63,6 @@ namespace samurai
 
         void add_point(value_t point);
         void add_interval(const interval_t& interval);
-
-        void clear()
-        {
-            std::forward_list<Interval<TValue, TIndex>>::clear();
-        }
     };
 
     ////////////////////////////////////

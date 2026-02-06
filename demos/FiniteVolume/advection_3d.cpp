@@ -137,13 +137,11 @@ int main(int argc, char* argv[])
             t = Tf;
         }
 
-        std::cout << fmt::format("iteration {}: t = {}, dt = {}", nt++, t, dt) << std::endl;
-
         samurai::update_ghost_mr(u);
         unp1.resize();
         unp1 = u - dt * samurai::upwind(a, u);
 
-        std::swap(u.array(), unp1.array());
+        samurai::swap(u, unp1);
 
         if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
         {
