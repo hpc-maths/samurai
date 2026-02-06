@@ -50,6 +50,7 @@ namespace samurai
         using list_t::begin;
         using list_t::cbegin;
         using list_t::cend;
+        using list_t::clear;
         using list_t::empty;
         using list_t::end;
 

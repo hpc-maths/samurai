@@ -3,6 +3,8 @@
 #include <span>
 #include <tuple>
 
+#include <fmt/ranges.h>
+
 #include <xtensor/containers/xfixed.hpp>
 #include <xtensor/core/xtensor_forward.hpp>
 
@@ -14,6 +16,8 @@
 #include <samurai/level_cell_array.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/subset/node.hpp>
+
+#include <samurai/io/hdf5.hpp>
 
 namespace samurai
 {
@@ -145,9 +149,9 @@ namespace samurai
 
     TEST(subset, compute_min)
     {
-        EXPECT_EQ(1, compute_min(3, 4, 1, 4));
-        EXPECT_EQ(0, compute_min(0, 0, 0, 0));
-        EXPECT_EQ(-1, compute_min(-1, -1, -1, -1));
+        EXPECT_EQ(1, vmin(3, 4, 1, 4));
+        EXPECT_EQ(0, vmin(0, 0, 0, 0));
+        EXPECT_EQ(-1, vmin(-1, -1, -1, -1));
     }
 
     TEST(subset, check_dim)
@@ -225,8 +229,9 @@ namespace samurai
                       EXPECT_EQ(interval_t(0, 20), i);
                   });
 
-            EXPECT_EQ(set.on(5).level(), 5);
-            apply(set,
+            auto set2 = set.on(5);
+            EXPECT_EQ(set2.level(), 5);
+            apply(set2,
                   [](auto& i, auto)
                   {
                       EXPECT_EQ(interval_t(0, 40), i);
@@ -511,6 +516,279 @@ namespace samurai
                       EXPECT_EQ(ie, 0);
                       EXPECT_EQ(expected[ie++], std::make_pair(index[0], i));
                   });
+        }
+    }
+
+    TEST(subset, expand_2d)
+    {
+        constexpr size_t dim   = 2;
+        constexpr size_t level = 0;
+
+        using lca_t = LevelCellArray<dim>;
+        using box_t = Box<int, dim>;
+
+        // simple expand
+        {
+            lca_t ca(level);
+
+            ca.add_interval_back({0, 1}, {0});
+
+            {
+                const lca_t expected(level, box_t({-3, -3}, {4, 4}));
+
+                EXPECT_EQ(expand(ca, 3).to_lca(), expected);
+            }
+            {
+                const auto translated_ca = translate(ca, {3 + 1, 0});
+                const auto joined_cas    = union_(ca, translated_ca);
+
+                const auto set = expand(joined_cas, 3);
+
+                const lca_t expected(level, box_t({-3, -3}, {8, 4}));
+
+                EXPECT_EQ(set.to_lca(), expected);
+            }
+            {
+                const auto translated_ca = translate(ca, {0, 3 + 1});
+                const auto joined_cas    = union_(ca, translated_ca);
+
+                const auto set = expand(joined_cas, 3);
+
+                const lca_t expected(level, box_t({-3, -3}, {4, 8}));
+
+                EXPECT_EQ(set.to_lca(), expected);
+            }
+            {
+                const auto translated_ca = translate(ca, {3 + 1, 3 + 1});
+                const auto joined_cas    = union_(ca, translated_ca);
+
+                const auto set = expand(joined_cas, 3);
+
+                const lca_t box1(level, box_t({-3, -3}, {4, 4}));
+                const lca_t box2(level, box_t({1, 1}, {8, 8}));
+
+                const lca_t expected(union_(box1, box2));
+
+                EXPECT_EQ(set.to_lca(), expected);
+            }
+        }
+        // refine and expand
+        {
+            lca_t ca(level);
+
+            ca.add_interval_back({0, 1}, {0});
+
+            {
+                const lca_t expected(level + 1, box_t({-3, -3}, {5, 5}));
+
+                EXPECT_EQ(expand(self(ca).on(level + 1), 3).to_lca(), expected);
+            }
+            {
+                const auto translated_ca = translate(ca, {3 + 1, 0});
+                const auto joined_cas    = union_(ca, translated_ca);
+
+                const auto set = expand(joined_cas.on(level + 1), 3);
+
+                const lca_t expected(level + 1, box_t({-3, -3}, {13, 5}));
+
+                EXPECT_EQ(set.to_lca(), expected);
+            }
+            {
+                const auto translated_ca = translate(ca, {0, 3 + 1});
+                const auto joined_cas    = union_(ca, translated_ca);
+
+                const auto set = expand(joined_cas.on(level + 1), 3);
+
+                const lca_t expected(level + 1, box_t({-3, -3}, {5, 13}));
+
+                EXPECT_EQ(set.to_lca(), expected);
+            }
+            {
+                const auto translated_ca = translate(ca, {3 + 1, 3 + 1});
+                const auto joined_cas    = union_(ca, translated_ca);
+
+                const auto set = expand(joined_cas.on(level + 1), 3);
+
+                const lca_t box1(level + 1, box_t({-3, -3}, {5, 5}));
+                const lca_t box2(level + 1, box_t({5, 5}, {13, 13}));
+
+                const lca_t expected(union_(box1, box2));
+
+                EXPECT_EQ(set.to_lca(), expected);
+            }
+            {
+                const auto translated_ca = translate(ca, {3, 3});
+                const auto joined_cas    = union_(ca, translated_ca);
+
+                const auto set = expand(joined_cas.on(level + 1), 3);
+
+                const lca_t box1(level + 1, box_t({-3, -3}, {5, 5}));
+                const lca_t box2(level + 1, box_t({3, 3}, {11, 11}));
+
+                const lca_t expected(union_(box1, box2));
+
+                EXPECT_EQ(set.to_lca(), expected);
+            }
+        }
+        // coarsen and expand
+        {
+            lca_t ca(level + 1);
+
+            ca.add_interval_back({0, 2}, {0});
+            ca.add_interval_back({0, 1}, {1});
+
+            {
+                const lca_t expected(level, box_t({-3, -3}, {4, 4}));
+
+                const auto set = expand(self(ca).on(level), 3);
+
+                EXPECT_EQ(set.to_lca(), expected);
+            }
+            {
+                const auto translated_ca = translate(ca, {14 + 1, 0});
+                const auto joined_cas    = union_(ca, translated_ca);
+
+                const auto set = expand(joined_cas.on(level), 3);
+
+                const lca_t expected(level, box_t({-3, -3}, {12, 4}));
+
+                EXPECT_EQ(set.to_lca(), expected);
+            }
+            {
+                const auto translated_ca = translate(ca, {0, 14 + 1});
+                const auto joined_cas    = union_(ca, translated_ca);
+
+                const auto set = expand(joined_cas.on(level), 3);
+
+                const lca_t expected(level, box_t({-3, -3}, {4, 12}));
+
+                EXPECT_EQ(set.to_lca(), expected);
+            }
+            {
+                const auto translated_ca = translate(ca, {14 + 1, 14 + 1});
+                const auto joined_cas    = union_(ca, translated_ca);
+
+                const auto set = expand(joined_cas.on(level), 3);
+
+                const lca_t box1(level, box_t({-3, -3}, {4, 4}));
+                const lca_t box2(level, box_t({4, 4}, {12, 12}));
+                const lca_t box3(level, box_t({11, 11}, {12, 12}));
+
+                const lca_t expected(difference(union_(box1, box2), box3));
+
+                EXPECT_EQ(set.to_lca(), expected);
+            }
+            {
+                const auto translated_ca = translate(ca, {12 + 1, 12 + 1});
+                const auto joined_cas    = union_(ca, translated_ca);
+
+                const auto set = expand(joined_cas.on(level), 3);
+
+                const lca_t box1(level, box_t({-3, -3}, {4, 4}));
+                const lca_t box2(level, box_t({3, 3}, {11, 11}));
+                const lca_t box3(level, box_t({10, 10}, {11, 11}));
+
+                const lca_t expected(difference(union_(box1, box2), box3));
+
+                EXPECT_EQ(set.to_lca(), expected);
+            }
+            {
+                const auto translated_ca = translate(ca, {11 + 1, 11 + 1});
+                const auto joined_cas    = union_(ca, translated_ca);
+
+                const auto set = expand(joined_cas.on(level), 3);
+
+                const lca_t box1(level, box_t({-3, -3}, {4, 4}));
+                const lca_t box2(level, box_t({3, 3}, {10, 10}));
+
+                const lca_t expected(union_(box1, box2));
+
+                EXPECT_EQ(set.to_lca(), expected);
+            }
+        }
+    }
+
+    TEST(subset, expand_3d)
+    {
+        constexpr size_t dim   = 3;
+        constexpr size_t level = 0;
+
+        using lca_t = LevelCellArray<dim>;
+        using box_t = Box<int, dim>;
+
+        lca_t ca(level);
+
+        ca.add_interval_back({0, 1}, {0, 0});
+
+        {
+            const lca_t expected(level, box_t({-3, -3, -3}, {4, 4, 4}));
+
+            EXPECT_EQ(expand(ca, 3).to_lca(), expected);
+        }
+        {
+            const auto translated_ca = translate(ca, {3 + 1, 0, 0});
+            const auto joined_cas    = union_(ca, translated_ca);
+
+            const auto set = expand(joined_cas, 3);
+
+            const lca_t expected(level, box_t({-3, -3, -3}, {8, 4, 4}));
+
+            EXPECT_EQ(set.to_lca(), expected);
+        }
+        {
+            const auto translated_ca = translate(ca, {0, 3 + 1, 0});
+            const auto joined_cas    = union_(ca, translated_ca);
+
+            const auto set = expand(joined_cas, 3);
+
+            const lca_t expected(level, box_t({-3, -3, -3}, {4, 8, 4}));
+
+            EXPECT_EQ(set.to_lca(), expected);
+        }
+        {
+            const auto translated_ca = translate(ca, {0, 0, 3 + 1});
+            const auto joined_cas    = union_(ca, translated_ca);
+
+            const auto set = expand(joined_cas, 3);
+
+            const lca_t expected(level, box_t({-3, -3, -3}, {4, 4, 8}));
+
+            EXPECT_EQ(set.to_lca(), expected) << std::endl;
+        }
+        {
+            const auto translated_ca = translate(ca, {3 + 1, 3 + 1, 3 + 1});
+            const auto joined_cas    = union_(ca, translated_ca);
+
+            const auto set = expand(joined_cas, 3);
+
+            const lca_t box1(level, box_t({-3, -3, -3}, {4, 4, 4}));
+            const lca_t box2(level, box_t({1, 1, 1}, {8, 8, 8}));
+
+            const lca_t expected(union_(box1, box2));
+
+            EXPECT_EQ(set.to_lca(), expected);
+        }
+    }
+
+    TEST(subset, contract)
+    {
+        LevelCellArray<2> ca;
+
+        ca.add_interval_back({0, 1}, {0});
+
+        {
+            const auto translated_ca = translate(ca, {3 + 1, 0});
+            const auto joined_cas    = union_(ca, translated_ca);
+
+            const auto set = contract(joined_cas, 1);
+
+            bool is_set_empty = true;
+            set(
+                [&is_set_empty](const auto&, const auto&)
+                {
+                    is_set_empty = false;
+                });
+            EXPECT_TRUE(is_set_empty);
         }
     }
 
@@ -1197,7 +1475,7 @@ namespace samurai
         // Test translation by exactly the cell size at different levels
         for (int level_offset = -2; level_offset <= 2; ++level_offset)
         {
-            int target_level = 5 + level_offset;
+            std::size_t target_level = static_cast<std::size_t>(5 + level_offset);
             if (target_level >= 0)
             {
                 int scale = 1 << std::abs(level_offset);

@@ -14,6 +14,9 @@
 #include "cell.hpp"
 #include "mesh_holder.hpp"
 
+#include "concepts.hpp"
+#include "subset/node.hpp"
+
 using namespace xt::placeholders;
 
 namespace samurai
@@ -111,18 +114,15 @@ namespace samurai
         }
     }
 
-    template <class Mesh, class Func>
+    template <mesh_like Mesh, class Func>
     SAMURAI_INLINE void for_each_interval(const Mesh& mesh, Func&& f)
     {
         using mesh_id_t = typename Mesh::config::mesh_id_t;
         for_each_interval(mesh[mesh_id_t::cells], std::forward<Func>(f));
     }
 
-    template <class Op, class StartEndOp, class... S>
-    class Subset;
-
-    template <class Func, class Op, class StartEndOp, class... S>
-    SAMURAI_INLINE void for_each_interval(Subset<Op, StartEndOp, S...>& set, Func&& f)
+    template <class Func, class Set>
+    SAMURAI_INLINE void for_each_interval(const SetBase<Set>& set, Func&& f)
     {
         set(
             [&](const auto& i, const auto& index)
