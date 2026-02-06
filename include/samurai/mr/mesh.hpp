@@ -231,7 +231,7 @@ namespace samurai
                           [&](std::size_t level, const auto& interval, const auto& index_yz)
                           {
                               lcl_type& lcl = cell_list[level];
-                              static_nested_loop<dim - 1, - max_stencil_radius(), max_stencil_radius() + 1>(
+                              static_nested_loop<dim - 1, -max_stencil_radius(), max_stencil_radius() + 1>(
                                   [&](auto stencil)
                                   {
                                       auto index = xt::eval(index_yz + stencil);
@@ -344,11 +344,12 @@ namespace samurai
                 [&](std::size_t level)
                 {
                     // own part
-                    add_prediction_ghosts(nestedExpand<config::prediction_stencil_radius>(self(this->cells()[mesh_id_t::cells][level]).on(level - 2)),
-                                          intersection(nestedExpand<config::prediction_stencil_radius>(
-                                                           self(this->cells()[mesh_id_t::cells_and_ghosts][level]).on(level - 1)),
-                                                       nestedExpand<config::prediction_stencil_radius>(self(this->subdomain()).on(level - 1))),
-                                          level);
+                    add_prediction_ghosts(
+                        nestedExpand<config::prediction_stencil_radius>(self(this->cells()[mesh_id_t::cells][level]).on(level - 2)),
+                        intersection(nestedExpand<config::prediction_stencil_radius>(
+                                         self(this->cells()[mesh_id_t::cells_and_ghosts][level]).on(level - 1)),
+                                     nestedExpand<config::prediction_stencil_radius>(self(this->subdomain()).on(level - 1))),
+                        level);
 
                     // periodic part
                     const int delta_l = int(this->domain().level() - level);
@@ -373,13 +374,13 @@ namespace samurai
                     neighbour.mesh[mesh_id_t::cells],
                     [&](std::size_t level)
                     {
-                        add_prediction_ghosts(
-                            intersection(nestedExpand<config::prediction_stencil_radius>(self(neighbour.mesh[mesh_id_t::cells][level]).on(level - 2)),
-                                         self(this->subdomain()).on(level - 2)),
-                            intersection(nestedExpand<config::prediction_stencil_radius>(
-                                             self(neighbour.mesh[mesh_id_t::cells_and_ghosts][level]).on(level - 1)),
-                                         self(this->subdomain()).on(level - 1)),
-                            level);
+                        add_prediction_ghosts(intersection(nestedExpand<config::prediction_stencil_radius>(
+                                                               self(neighbour.mesh[mesh_id_t::cells][level]).on(level - 2)),
+                                                           self(this->subdomain()).on(level - 2)),
+                                              intersection(nestedExpand<config::prediction_stencil_radius>(
+                                                               self(neighbour.mesh[mesh_id_t::cells_and_ghosts][level]).on(level - 1)),
+                                                           self(this->subdomain()).on(level - 1)),
+                                              level);
 
                         const int delta_l = int(this->domain().level() - level);
 
