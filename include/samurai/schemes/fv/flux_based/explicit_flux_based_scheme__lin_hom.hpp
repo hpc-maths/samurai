@@ -67,12 +67,16 @@ namespace samurai
                         // clang-format off
                         if (left_cell.level == right_cell.level || i.size() == 1) // if same level, or a jump in the x-direction (<=> i.size()=1)
                         {
+                            #if defined(SAMURAI_WITH_OPENMP)
                             #pragma omp simd
+                            #endif
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
                             {
                                 field_value(output_field, left_cell_index_init + ii, field_i) += left_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
                             }
+                            #if defined(SAMURAI_WITH_OPENMP)
                             #pragma omp simd
+                            #endif
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
                             {
                                 field_value(output_field, right_cell_index_init + ii, field_i) += right_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
@@ -84,13 +88,17 @@ namespace samurai
                             // The fine interval is even (exept in the x-direction, handled by the preceding if).
                             // We always have i.size() fine cells for i.size()/2 coarse cells.
                             assert(i.size() % 2 == 0);
+                            #if defined(SAMURAI_WITH_OPENMP)
                             #pragma omp simd
+                            #endif
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size() / 2); ++ii) // iteration on the coarse cells
                             {
                                 field_value(output_field, left_cell_index_init + ii, field_i) += left_cell_coeff * field_value(input_field, comput_index_init + 2*ii  , field_j)
                                                                                                + left_cell_coeff * field_value(input_field, comput_index_init + 2*ii+1, field_j);
                             }
+                            #if defined(SAMURAI_WITH_OPENMP)
                             #pragma omp simd
+                            #endif
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii) // iteration on the fine cells
                             {
                                 field_value(output_field, right_cell_index_init + ii, field_i) += right_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
@@ -100,12 +108,16 @@ namespace samurai
                         {
                             // Same as above, the other way around.
                             assert(i.size() % 2 == 0);
+                            #if defined(SAMURAI_WITH_OPENMP)
                             #pragma omp simd
+                            #endif
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
                             {
                                 field_value(output_field, left_cell_index_init + ii, field_i) += left_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
                             }
+                            #if defined(SAMURAI_WITH_OPENMP)
                             #pragma omp simd
+                            #endif
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size() / 2); ++ii)
                             {
                                 field_value(output_field, right_cell_index_init + ii, field_i) += right_cell_coeff * field_value(input_field, comput_index_init + 2*ii  , field_j)
@@ -161,12 +173,16 @@ namespace samurai
                         // clang-format off
                         if (left_cell.level == right_cell.level || i.size() == 1) // if same level, or a jump in the x-direction (<=> i.size()=1)
                         {
+                            #if defined(SAMURAI_WITH_OPENMP)
                             #pragma omp simd
+                            #endif
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
                             {
                                 left_contributions[static_cast<std::size_t>(ii)] += left_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
                             }
+                            #if defined(SAMURAI_WITH_OPENMP)
                             #pragma omp simd
+                            #endif
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
                             {
                                 right_contributions[static_cast<std::size_t>(ii)] += right_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
@@ -178,13 +194,17 @@ namespace samurai
                             // The fine interval is even (exept in the x-direction, handled by the preceding if).
                             // We always have i.size() fine cells for i.size()/2 coarse cells.
                             assert(i.size() % 2 == 0);
+                            #if defined(SAMURAI_WITH_OPENMP)
                             #pragma omp simd
+                            #endif
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size() / 2); ++ii) // iteration on the coarse cells
                             {
                                 left_contributions[static_cast<std::size_t>(ii)] += left_cell_coeff * field_value(input_field, comput_index_init + 2*ii  , field_j)
                                                                                   + left_cell_coeff * field_value(input_field, comput_index_init + 2*ii+1, field_j);
                             }
+                            #if defined(SAMURAI_WITH_OPENMP)
                             #pragma omp simd
+                            #endif
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii) // iteration on the fine cells
                             {
                                 right_contributions[static_cast<std::size_t>(ii)] += right_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
@@ -194,12 +214,16 @@ namespace samurai
                         {
                             // Same as above, the other way around.
                             assert(i.size() % 2 == 0);
+                            #if defined(SAMURAI_WITH_OPENMP)
                             #pragma omp simd
+                            #endif
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
                             {
                                 left_contributions[static_cast<std::size_t>(ii)] += left_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
                             }
+                            #if defined(SAMURAI_WITH_OPENMP)
                             #pragma omp simd
+                            #endif
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size() / 2); ++ii)
                             {
                                 right_contributions[static_cast<std::size_t>(ii)] += right_cell_coeff * field_value(input_field, comput_index_init + 2*ii  , field_j)
@@ -216,12 +240,16 @@ namespace samurai
                 // clang-format off
                 for (index_t ii = 0; ii < static_cast<index_t>(left_contributions.size()); ++ii)
                 {
+                    #if defined(SAMURAI_WITH_OPENMP)
                     #pragma omp atomic update
+                    #endif
                     field_value(output_field, left_cell_index_init + ii, field_i) += left_contributions[static_cast<std::size_t>(ii)];
                 }
                 for (index_t ii = 0; ii < static_cast<index_t>(right_contributions.size()); ++ii)
                 {
+                    #if defined(SAMURAI_WITH_OPENMP)
                     #pragma omp atomic update
+                    #endif
                     field_value(output_field, right_cell_index_init + ii, field_i) += right_contributions[static_cast<std::size_t>(ii)];
                 }
                 // clang-format on
@@ -303,7 +331,9 @@ namespace samurai
 
                                 // clang-format off
 
+                                #if defined(SAMURAI_WITH_OPENMP)
                                 #pragma omp simd
+                                #endif
                                 for (index_t ii = 0; ii < static_cast<index_t>(stencil.interval().size()); ++ii)
                                 {
                                     field_value(output_field, cell_index_init + ii, field_i) += coeff * field_value(input_field, comput_index_init + ii, field_j);
