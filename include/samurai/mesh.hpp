@@ -348,6 +348,7 @@ namespace samurai
 #if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
         compute_gravity_center();
         set_scaling_factor(scaling_factor_);
+#endif
     }
 
     template <class D, class Config>
