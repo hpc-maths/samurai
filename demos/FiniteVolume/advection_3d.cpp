@@ -124,7 +124,6 @@ int main(int argc, char* argv[])
     save(path, filename, u, "_init");
 
     std::size_t nsave = 1;
-    std::size_t nt    = 0;
 
     while (t != Tf)
     {
