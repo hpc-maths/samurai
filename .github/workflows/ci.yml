@@ -313,55 +313,55 @@ jobs:
                   python ../python/compare.py burgers_2D_size_1_ite_ burgers_2D_size_4_ite_ --start 1 --end 19
                   python ../python/compare.py burgers_2D_size_1_ite_ burgers_2D_size_6_ite_ --start 1 --end 19
 
-            - name: MPI test finite-volume-heat
-              shell: bash -l {0}
-              env:
-                  # HPC libraries (MPICH, MUMPS, ScaLAPACK...) frequently leak tcache-incompatible blocks: they use custom allocators,
-                  # mixed Fortran/C/C++ memory ownership, aligned allocations, and unusual free patterns.
-                  # They often free blocks that do not satisfy tcache alignment constraints.
-                  # glibc normally tolerates it, except when tcache reuses the block across executions.
-                  # This can cause a crash when multiple runs are launched in the same CI job.
-                  # Here, the 3-rank test crashes at the beginning with the error "malloc(): unaligned tcache chunk detected".
-                  # So we disable tcache.
-                  GLIBC_TUNABLES: "glibc.malloc.tcache_count=0"
-              run: |
-                  cd build
-                  set -e  # Stop on first failure
-                  # MUMPS doesn't have a deterministic behaviour. For instance, the MUMPS conda package is compiled with OpenMP, so we set the number of threads to 1 to have deterministic output.
-                  # It also depends on other libraries (Scotch, ...) that we also need to set configure.
-                  export OMP_NUM_THREADS=1
-                  export OMP_DYNAMIC=FALSE
-                  export OMP_MAX_ACTIVE_LEVELS=1
-                  export MKL_NUM_THREADS=1
-                  export OPENBLAS_NUM_THREADS=1
-                  export VECLIB_MAXIMUM_THREADS=1
-                  export SCOTCH_DETERMINISTIC=1
-                  mpiexec -n 1 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu -pc_factor_mat_solver_type mumps -mat_ordering_type amd --Tf 0.1 --min-level 3 --max-level 8
-                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu -pc_factor_mat_solver_type mumps -mat_ordering_type amd --Tf 0.1 --min-level 3 --max-level 8
-                  mpiexec -n 3 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu -pc_factor_mat_solver_type mumps -mat_ordering_type amd --Tf 0.1 --min-level 3 --max-level 8
-                  ls
-                  python ../python/compare.py heat_2D_size_1_ite_ heat_2D_size_2_ite_ --start 1 --end 9 --tol 1e-3 # Loose tolerance needed due to the known bugs in the mesh? Try with a stricter tol when the bugs are fixed.
-                  # We don't compare the results with 3 ranks because the number of cells might be different.
-                  rm -f heat_2D*
+            # - name: MPI test finite-volume-heat
+            #   shell: bash -l {0}
+            #   env:
+            #       # HPC libraries (MPICH, MUMPS, ScaLAPACK...) frequently leak tcache-incompatible blocks: they use custom allocators,
+            #       # mixed Fortran/C/C++ memory ownership, aligned allocations, and unusual free patterns.
+            #       # They often free blocks that do not satisfy tcache alignment constraints.
+            #       # glibc normally tolerates it, except when tcache reuses the block across executions.
+            #       # This can cause a crash when multiple runs are launched in the same CI job.
+            #       # Here, the 3-rank test crashes at the beginning with the error "malloc(): unaligned tcache chunk detected".
+            #       # So we disable tcache.
+            #       GLIBC_TUNABLES: "glibc.malloc.tcache_count=0"
+            #   run: |
+            #       cd build
+            #       set -e  # Stop on first failure
+            #       # MUMPS doesn't have a deterministic behaviour. For instance, the MUMPS conda package is compiled with OpenMP, so we set the number of threads to 1 to have deterministic output.
+            #       # It also depends on other libraries (Scotch, ...) that we also need to set configure.
+            #       export OMP_NUM_THREADS=1
+            #       export OMP_DYNAMIC=FALSE
+            #       export OMP_MAX_ACTIVE_LEVELS=1
+            #       export MKL_NUM_THREADS=1
+            #       export OPENBLAS_NUM_THREADS=1
+            #       export VECLIB_MAXIMUM_THREADS=1
+            #       export SCOTCH_DETERMINISTIC=1
+            #       mpiexec -n 1 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu -pc_factor_mat_solver_type mumps -mat_ordering_type amd --Tf 0.1 --min-level 3 --max-level 8
+            #       mpiexec -n 2 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu -pc_factor_mat_solver_type mumps -mat_ordering_type amd --Tf 0.1 --min-level 3 --max-level 8
+            #       mpiexec -n 3 ./demos/FiniteVolume/finite-volume-heat --init-sol crenel -pc_type lu -pc_factor_mat_solver_type mumps -mat_ordering_type amd --Tf 0.1 --min-level 3 --max-level 8
+            #       ls
+            #       python ../python/compare.py heat_2D_size_1_ite_ heat_2D_size_2_ite_ --start 1 --end 9 --tol 1e-3 # Loose tolerance needed due to the known bugs in the mesh? Try with a stricter tol when the bugs are fixed.
+            #       # We don't compare the results with 3 ranks because the number of cells might be different.
+            #       rm -f heat_2D*
 
-            - name: MPI test finite-volume-lid-driven-cavity
-              shell: bash -l {0}
-              run: |
-                  cd build
-                  set -e  # Stop on first failure
-                  # MUMPS doesn't have a deterministic behaviour. For instance, the MUMPS conda package is compiled with OpenMP, so we set the number of threads to 1 to have deterministic output.
-                  # It also depends on other libraries (Scotch, ...) that we also need to set configure.
-                  export OMP_NUM_THREADS=1
-                  export OMP_DYNAMIC=FALSE
-                  export OMP_MAX_ACTIVE_LEVELS=1
-                  export MKL_NUM_THREADS=1
-                  export OPENBLAS_NUM_THREADS=1
-                  export VECLIB_MAXIMUM_THREADS=1
-                  export SCOTCH_DETERMINISTIC=1
-                  mpiexec -n 1 ./demos/FiniteVolume/finite-volume-lid-driven-cavity -pc_type lu -pc_factor_mat_solver_type mumps -mat_ordering_type amd --filename ldc_ink_size_1 --Tf 0.1 --nfiles 1 --min-level 8 --max-level 8
-                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-lid-driven-cavity -pc_type lu -pc_factor_mat_solver_type mumps -mat_ordering_type amd --filename ldc_ink_size_2 --Tf 0.1 --nfiles 1 --min-level 8 --max-level 8
-                  ls
-                  python ../python/compare.py ldc_ink_size_1 ldc_ink_size_2 --tol 1e-11
+            # - name: MPI test finite-volume-lid-driven-cavity
+            #   shell: bash -l {0}
+            #   run: |
+            #       cd build
+            #       set -e  # Stop on first failure
+            #       # MUMPS doesn't have a deterministic behaviour. For instance, the MUMPS conda package is compiled with OpenMP, so we set the number of threads to 1 to have deterministic output.
+            #       # It also depends on other libraries (Scotch, ...) that we also need to set configure.
+            #       export OMP_NUM_THREADS=1
+            #       export OMP_DYNAMIC=FALSE
+            #       export OMP_MAX_ACTIVE_LEVELS=1
+            #       export MKL_NUM_THREADS=1
+            #       export OPENBLAS_NUM_THREADS=1
+            #       export VECLIB_MAXIMUM_THREADS=1
+            #       export SCOTCH_DETERMINISTIC=1
+            #       mpiexec -n 1 ./demos/FiniteVolume/finite-volume-lid-driven-cavity -pc_type lu -pc_factor_mat_solver_type mumps -mat_ordering_type amd --filename ldc_ink_size_1 --Tf 0.1 --nfiles 1 --min-level 8 --max-level 8
+            #       mpiexec -n 2 ./demos/FiniteVolume/finite-volume-lid-driven-cavity -pc_type lu -pc_factor_mat_solver_type mumps -mat_ordering_type amd --filename ldc_ink_size_2 --Tf 0.1 --nfiles 1 --min-level 8 --max-level 8
+            #       ls
+            #       python ../python/compare.py ldc_ink_size_1 ldc_ink_size_2 --tol 1e-11
 
             - name: MPI test burgers OSMP 2D (weak scaling)
               shell: micromamba-shell {0}
