@@ -523,13 +523,13 @@ jobs:
             - name: Petsc installation
               shell: bash -l {0}
               run: |
-                  conda install -y petsc pkg-config cxx-compiler
+                  micromamba install -y petsc pkg-config cxx-compiler
 
-            - name: Conda informations
+            - name: Micromamba informations
               shell: bash -l {0}
               run: |
-                  conda info
-                  conda list
+                  micromamba info
+                  micromamba list
 
             - name: Configure
               shell: bash -l {0}
@@ -567,3 +567,39 @@ jobs:
                   mpiexec -n 2 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 1 --max-level 8
                   # This test is failing with 3 processes due to a bug in the exchange of subdomain corners
                   # mpiexec -n 3 ./demos/FiniteVolume/finite-volume-burgers --Tf 0.1 --nfiles 1 --max-level 8
+
+    #
+    # Compile snippets in documentation
+    #
+    #########################################################
+    compile_snippets:
+        needs: [pre-commit, cppcheck]
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Mamba and samurai env installation
+              uses: mamba-org/setup-micromamba@v2
+              with:
+                  environment-file: conda/environment.yml
+                  environment-name: samurai-env
+                  cache-environment: true
+                  cache-environment-key: ${{ runner.os }}-${{ hashFiles('conda/environment.yml') }}
+
+            - name: Compiler installation
+              shell: bash -l {0}
+              run: |
+                  micromamba install -y cxx-compiler
+
+            - name: Configure
+              shell: bash -l {0}
+              run: |
+                  cmake \
+                      . \
+                      -Bbuild \
+                      -DBUILD_SNIPPETS=ON
+
+            - name: Build snippets
+              shell: bash -l {0}
+              run: |
+                  cmake --build build --target all --parallel 4
