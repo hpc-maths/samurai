@@ -106,6 +106,7 @@ namespace samurai
         int ghost_width() const;
         int max_stencil_radius() const;
         auto& cfg() const;
+        auto& cfg();
 
         auto& origin_point() const;
         void set_origin_point(const coords_t& origin_point);
@@ -120,7 +121,6 @@ namespace samurai
         bool is_periodic() const;
         bool is_periodic(std::size_t d) const;
         const std::array<bool, dim>& periodicity() const;
-        std::array<bool, dim>& periodicity();
         // std::vector<int>& neighbouring_ranks();
         std::vector<mpi_subdomain_t>& mpi_neighbourhood();
         const std::vector<mpi_subdomain_t>& mpi_neighbourhood() const;
@@ -162,6 +162,8 @@ namespace samurai
 
         CellOwnership& cell_ownership();
         const CellOwnership& cell_ownership() const;
+
+        void find_neighbourhood();
 
       protected:
 
@@ -214,7 +216,6 @@ namespace samurai
         void update_sub_mesh();
         void renumbering();
 
-        void find_neighbourhood();
         void compute_gravity_center();
 
         void partition_mesh(std::size_t start_level, const Box<double, dim>& global_box);
@@ -352,39 +353,6 @@ namespace samurai
     }
 
     template <class D, class Config>
-    inline Mesh_base<D, Config>::Mesh_base(const samurai::Box<double, dim>& b,
-                                           std::size_t start_level,
-                                           std::size_t min_level,
-                                           std::size_t max_level,
-                                           const std::array<bool, dim>& periodic,
-                                           double approx_box_tol,
-                                           double scaling_factor_)
-        : m_domain{start_level, b, approx_box_tol, scaling_factor_}
-        , m_min_level{min_level}
-        , m_max_level{max_level}
-        , m_periodic{periodic}
-    {
-        assert(min_level <= max_level);
-
-#ifdef SAMURAI_WITH_MPI
-        partition_mesh(start_level, b);
-        // load_balancing();
-#else
-        m_cells[mesh_id_t::cells][start_level] = {start_level, b, approx_box_tol, scaling_factor_};
-#endif
-
-        construct_subdomain();
-        construct_union();
-        update_sub_mesh();
-        construct_corners();
-        renumbering();
-        // update_mesh_neighbour();
-
-        set_origin_point(origin_point());
-        set_scaling_factor(scaling_factor());
-    }
-
-    template <class D, class Config>
     SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const cl_type& cl, const mesh_config<Config::dim>& config)
         : m_config(config)
     {
@@ -410,7 +378,8 @@ namespace samurai
     SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const ca_type& ca, const mesh_config<Config::dim>& config)
         : m_config(config)
     {
-        m_cells[mesh_id_t::cells] = {ca, false};
+        m_cells[mesh_id_t::cells] = ca;
+
         update_meshid_neighbour(mesh_id_t::cells);
 
         set_origin_point(ca.origin_point());
@@ -662,6 +631,12 @@ namespace samurai
     }
 
     template <class D, class Config>
+    SAMURAI_INLINE auto& Mesh_base<D, Config>::cfg()
+    {
+        return m_config;
+    }
+
+    template <class D, class Config>
     SAMURAI_INLINE auto& Mesh_base<D, Config>::origin_point() const
     {
         return m_domain.origin_point();
@@ -820,12 +795,6 @@ namespace samurai
     SAMURAI_INLINE auto Mesh_base<D, Config>::periodicity() const -> const std::array<bool, dim>&
     {
         return m_config.periodic();
-    }
-
-    template <class D, class Config>
-    SAMURAI_INLINE auto Mesh_base<D, Config>::periodicity() -> std::array<bool, dim>&
-    {
-        return m_periodic;
     }
 
     template <class D, class Config>

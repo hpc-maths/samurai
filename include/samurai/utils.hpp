@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "assert_log_trace.hpp"
 #include <algorithm>
 #include <cmath>
 #include <functional>
@@ -14,6 +13,7 @@
 
 #include <xtensor/containers/xfixed.hpp>
 
+#include "assert_log_trace.hpp"
 #include "samurai_config.hpp"
 
 namespace samurai
