@@ -251,9 +251,9 @@ jobs:
               env:
                   MAMBA_ROOT_PREFIX: ${{ runner.temp }}/micromamba-root
               run: |
-                  conda install -y "petsc>=3.24" pkg-config cxx-compiler
+                  micromamba install -y "petsc>=3.24" pkg-config cxx-compiler
 
-            - name: Conda informations
+            - name: Micromamba informations
               shell: micromamba-shell {0}
               run: |
                   micromamba info
@@ -453,13 +453,13 @@ jobs:
             - name: Petsc installation
               shell: bash -l {0}
               run: |
-                  conda install -y petsc pkg-config cxx-compiler
+                  micromamba install -y petsc pkg-config cxx-compiler
 
-            - name: Conda informations
+            - name: Micromamba informations
               shell: bash -l {0}
               run: |
-                  conda info
-                  conda list
+                  micromamba info
+                  micromamba list
 
             - name: Configure
               shell: bash -l {0}
