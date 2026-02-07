@@ -336,7 +336,7 @@ namespace samurai
         template <class Derived>
         SAMURAI_INLINE auto FieldBase<Derived>::end()
         {
-            using mesh_id_t = derived_t::mesh_t::mesh_id_t;
+            using mesh_id_t = typenamederived_t::mesh_t::mesh_id_t;
             return iterator(&this->derived_cast(), this->derived_cast().mesh()[mesh_id_t::cells].cend());
         }
 
@@ -355,14 +355,14 @@ namespace samurai
         template <class Derived>
         SAMURAI_INLINE auto FieldBase<Derived>::cbegin() const
         {
-            using mesh_id_t = derived_t::mesh_t::mesh_id_t;
+            using mesh_id_t = typenamederived_t::mesh_t::mesh_id_t;
             return const_iterator(&this->derived_cast(), this->derived_cast().mesh()[mesh_id_t::cells].cbegin());
         }
 
         template <class Derived>
         SAMURAI_INLINE auto FieldBase<Derived>::cend() const
         {
-            using mesh_id_t = derived_t::mesh_t::mesh_id_t;
+            using mesh_id_t = typenamederived_t::mesh_t::mesh_id_t;
             return const_iterator(&this->derived_cast(), this->derived_cast().mesh()[mesh_id_t::cells].cend());
         }
 
