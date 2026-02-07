@@ -327,7 +327,7 @@ namespace samurai
 #endif // SAMURAI_WITH_MPI
     }
 
-    template <IsMesh mesh_t>
+    template <mesh_like mesh_t>
     auto update_subdomains_mpi([[maybe_unused]] const mesh_t& mesh, const auto& mpi_neighbourhood)
     {
         std::vector<mesh_t> mpi_meshes(mpi_neighbourhood.size());
@@ -488,7 +488,7 @@ namespace samurai
         list_interval_to_refine_for_graduation(grad_width, ca, domain, mpi_meshes, is_periodic, nb_cells_finest_level, out);
         if (!domain.empty())
         {
-            list_interval_to_refine_for_contiguous_boundary_cells(half_stencil_width, ca, domain, mpi_meshes, is_periodic, out);
+            list_interval_to_refine_for_contiguous_boundary_cells(max_stencil_radius, ca, domain, mpi_meshes, is_periodic, out);
         }
     }
 

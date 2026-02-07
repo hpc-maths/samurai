@@ -231,7 +231,9 @@ namespace samurai
                           [&](std::size_t level, const auto& interval, const auto& index_yz)
                           {
                               lcl_type& lcl = cell_list[level];
-                              static_nested_loop<dim - 1, -max_stencil_radius(), max_stencil_radius() + 1>(
+                              static_nested_loop<dim - 1>(
+                                  -max_stencil_radius(),
+                                  max_stencil_radius() + 1,
                                   [&](auto stencil)
                                   {
                                       auto index = xt::eval(index_yz + stencil);
@@ -251,8 +253,8 @@ namespace samurai
                            [&](std::size_t level)
                            {
                                lcl_type& lcl = cell_list[level];
-                               auto set      = intersection(nestedExpand<config::ghost_width>(neighbour.mesh[mesh_id_t::cells][level]),
-                                                       nestedExpand<config::ghost_width>(self(this->subdomain()).on(level)));
+                               auto set      = intersection(nestedExpand(neighbour.mesh[mesh_id_t::cells][level], ghost_width()),
+                                                       nestedExpand(self(this->subdomain()).on(level), ghost_width()));
                                set(
                                    [&](const auto& interval, const auto& index)
                                    {
@@ -286,8 +288,8 @@ namespace samurai
 
             for (const auto& d : directions)
             {
-                auto set = intersection(nestedExpand<config::prediction_stencil_radius>(translate(subset, d >> delta_l)),
-                                        nestedExpand<config::prediction_stencil_radius>(self(this->subdomain()).on(level)));
+                auto set = intersection(nestedExpand(translate(subset, d >> delta_l), this->cfg().max_stencil_radius()),
+                                        nestedExpand(self(this->subdomain()).on(level), this->cfg().max_stencil_radius()));
                 set(
                     [&](const auto& interval, const auto& index)
                     {

@@ -11,7 +11,10 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
+#include <chrono>
 #include <numbers>
+#include <thread>
+#include <unistd.h>
 
 #include "convection_nonlinear_osmp.hpp"
 
@@ -33,7 +36,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
                            });
 
     samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
-    // samurai::save(path, fmt::format("{}_full_{}", filename, suffix), {true, true}, mesh, u, level_);
+    samurai::save(path, fmt::format("{}_full_{}", filename, suffix), {true, true}, mesh, u, level_);
 }
 
 void check_diff(auto& mesh)
@@ -109,7 +112,6 @@ auto get_box(const xt::xtensor_fixed<double, xt::xshape<2>>& min_corner, const x
 int main(int argc, char* argv[])
 {
     static constexpr std::size_t dim = 2;
-    using Config                     = samurai::MRConfig<dim, 2, 2>;
 
     auto& app = samurai::initialize("Finite volume example for the linear convection equation", argc, argv);
 
@@ -146,6 +148,8 @@ int main(int argc, char* argv[])
     std::string filename = "burgers";
     std::size_t nfiles   = 0;
 
+    bool pause = false;
+
     app.add_option("--min-corner", min_corner, "The min corner of the first box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--max-corner", max_corner, "The max corner of the first box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Ti", t, "Initial time")->capture_default_str()->group("Simulation parameters");
@@ -154,12 +158,10 @@ int main(int argc, char* argv[])
     app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
     app.add_option("--npx", npx, "Number of processes in x direction")->capture_default_str()->group("MPI parameters");
     app.add_option("--npy", npy, "Number of processes in y direction")->capture_default_str()->group("MPI parameters");
-    app.add_option("--min-level", min_level, "Minimum level of the multiresolution")->capture_default_str()->group("Multiresolution");
-    app.add_option("--max-level", max_level, "Maximum level of the multiresolution")->capture_default_str()->group("Multiresolution");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
-
+    app.add_flag("--pause", pause, "Pause before starting the simulation")->group("Debugging");
     app.allow_extras();
     SAMURAI_PARSE(argc, argv);
 
@@ -168,7 +170,14 @@ int main(int argc, char* argv[])
         throw std::runtime_error("Number of MPI processes must be equal to npx * npy");
     }
 
-    std::cout << "  max_level = " << max_level << "   min_level = " << min_level << std::endl;
+    if (pause)
+    {
+        // Print the process ID (PID) for debugging or profiling purposes
+        std::cout << "PID: " << ::getpid() << std::endl;
+        // Pause execution for 10 seconds to allow for debugging or profiling attachment
+        std::cout << "Pausing for 10 seconds..." << std::endl;
+        std::this_thread::sleep_for(std::chrono::seconds(10));
+    }
 
     double approx_box_tol = 0.05;
     double scaling_factor = 1;
@@ -177,8 +186,7 @@ int main(int argc, char* argv[])
     // Problem definition //
     //--------------------//
 
-    std::array<bool, dim> periodic;
-    periodic.fill(true);
+    auto config = samurai::mesh_config<dim>().min_level(4).max_level(10).max_stencil_size(4).graduation_width(2).disable_minimal_ghost_width();
     auto box = get_box(min_corner, max_corner, npx);
     samurai::CellArray<2> cells;
     for (std::size_t level = 0; level < cells.max_size; ++level)
@@ -187,8 +195,8 @@ int main(int argc, char* argv[])
         cells[level].set_scaling_factor(scaling_factor);
     }
     cells[max_level] = {max_level, box, min_corner, approx_box_tol, scaling_factor};
-    samurai::MRMesh<Config> mesh{cells, min_level, max_level};
-    mesh.periodicity().fill(true);
+    auto mesh        = samurai::mra::make_mesh(cells, config);
+    mesh.cfg().periodic(true);
     mesh.find_neighbourhood();
     mesh = {cells, mesh};
 
