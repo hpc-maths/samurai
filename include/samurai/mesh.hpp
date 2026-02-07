@@ -348,7 +348,7 @@ namespace samurai
         set_scaling_factor(m_config.scaling_factor());
 #if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
         compute_gravity_center();
-        set_scaling_factor(scaling_factor_);
+        // set_scaling_factor(scaling_factor_);
 #endif
     }
 
