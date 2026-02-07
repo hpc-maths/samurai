@@ -394,7 +394,7 @@ jobs:
             - name: Installl cxx compiler
               shell: bash -l {0}
               run: |
-                  micromamba install -y cxx-compiler\<1.11.0
+                  micromamba install -y cxx-compiler
 
             - name: micromamba informations
               shell: bash -l {0}
@@ -411,6 +411,7 @@ jobs:
                       -GNinja \
                       -DCMAKE_BUILD_TYPE=Release \
                       -DBUILD_DEMOS=ON \
+                      -DWITH_PETSC=ON \
                       -DBUILD_TESTS=ON
 
             - name: Build
