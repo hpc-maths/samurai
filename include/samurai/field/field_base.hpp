@@ -329,7 +329,7 @@ namespace samurai
         template <class Derived>
         SAMURAI_INLINE auto FieldBase<Derived>::begin()
         {
-            using mesh_id_t = derived_t::mesh_t::mesh_id_t;
+            using mesh_id_t = typename derived_t::mesh_t::mesh_id_t;
             return iterator(&this->derived_cast(), this->derived_cast().mesh()[mesh_id_t::cells].cbegin());
         }
 
