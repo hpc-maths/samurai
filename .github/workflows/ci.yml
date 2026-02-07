@@ -98,24 +98,24 @@ jobs:
                     #   package: "gcc-14 g++-14"
                     #   cc: "gcc-14"
                     #   cxx: "g++-14"
-                    - cpp-version: clang-13
-                      os: ubuntu-22.04
-                      compiler: "clang"
-                      package: "clang-13"
-                      cc: "clang-13"
-                      cxx: "clang++-13"
-                    - cpp-version: clang-14
-                      os: ubuntu-22.04
-                      compiler: "clang"
-                      package: "clang-14"
-                      cc: "clang-14"
-                      cxx: "clang++-14"
-                    - cpp-version: clang-15
-                      os: ubuntu-22.04
-                      compiler: "clang"
-                      package: "clang-15"
-                      cc: "clang-15"
-                      cxx: "clang++-15"
+                    # - cpp-version: clang-13
+                    #   os: ubuntu-22.04
+                    #   compiler: "clang"
+                    #   package: "clang-13"
+                    #   cc: "clang-13"
+                    #   cxx: "clang++-13"
+                    # - cpp-version: clang-14
+                    #   os: ubuntu-22.04
+                    #   compiler: "clang"
+                    #   package: "clang-14"
+                    #   cc: "clang-14"
+                    #   cxx: "clang++-14"
+                    # - cpp-version: clang-15
+                    #   os: ubuntu-22.04
+                    #   compiler: "clang"
+                    #   package: "clang-15"
+                    #   cc: "clang-15"
+                    #   cxx: "clang++-15"
                     - cpp-version: clang-16
                       os: ubuntu-24.04
                       compiler: "clang"
@@ -240,7 +240,7 @@ jobs:
                   micromamba-binary-path: ${{ runner.temp }}/bin/micromamba
                   environment-file: conda/mpi-environment.yml
                   environment-name: samurai-env
-                  #   generate-run-shell: true
+                  generate-run-shell: true
                   #   cache-environment: false
                   #   cache-downloads: false
                   #   post-cleanup: all
