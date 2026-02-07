@@ -17,13 +17,6 @@ parser.add_argument(
 parser.add_argument(
     "--end", type=int, required=False, default=None, help="iteration end"
 )
-parser.add_argument(
-    "--tol",
-    type=float,
-    required=False,
-    default=1e-14,
-    help="tolerance for field comparison",
-)
 args = parser.parse_args()
 
 
@@ -61,7 +54,7 @@ def construct_fields(mesh):
         return output
 
 
-def compare_meshes(file1, file2, tol):
+def compare_meshes(file1, file2):
     mesh1 = h5py.File(file1, "r")["mesh"]
     mesh2 = h5py.File(file2, "r")["mesh"]
     cells1 = construct_cells(mesh1)
@@ -82,39 +75,35 @@ def compare_meshes(file1, file2, tol):
     field1 = construct_fields(mesh1)
     field2 = construct_fields(mesh2)
 
+    tol = 1e-14
     for field in field1.keys():
         if not field in field2.keys():
             print(f"{field} is not in second file")
             sys.exit(f"files {file1} and {file2} are different")
 
-        tol = rtol * np.abs(field1[field][:][index1])  # relative tolerance
-        # tol[np.where(np.abs(field1[field][:][index1]) < eps)] = rtol # where the field is close to machine zero, switch to absolute tolerance
-        tol[np.abs(field1[field][:][index1] - field2[field][:][index2]) < eps] = (
-            np.inf
-        )  # where the field is close to machine zero, switch to absolute tolerance
-        ind = np.where(
-            np.abs(field1[field][:][index1] - field2[field][:][index2]) > tol
-        )
-        if len(ind[0]) > 0:
-            idx = np.argmax(
-                np.abs(field1[field][:][index1][ind] - field2[field][:][index2][ind])
+        if np.any(np.abs(field1[field][:][index1] - field2[field][:][index2]) > tol):
+            # if np.any(field1[field][:][index1] != field2[field][:][index2]):
+            ind = np.where(
+                np.abs(field1[field][:][index1] - field2[field][:][index2]) > tol
             )
             # ind = np.where(field1[field][:][index1] != field2[field][:][index2])
-            print(f"-- Values {file1}")
-            print(field1[field][:][index1[ind]])
-            print(f"-- Values {file2}")
-            print(field2[field][:][index2[ind]])
-            print("-- Difference:")
-            print(np.abs(field1[field][:][index1[ind]] - field2[field][:][index2[ind]]))
-            print("-- Coordinates (x,y,z):")
+            print(
+                field1[field][:][index1[ind]],
+                field2[field][:][index2[ind]],
+                np.abs(field1[field][:][index1[ind]] - field2[field][:][index2[ind]]),
+            )
             print(cells1[index1[ind]], cells2[index2[ind]])
             # print(np.abs(field1[field][:][index1[ind]]-field2[field][:][index2[ind]]))
-            sys.exit(f"{field} is not the same between {file1} and {file2}")
+            print(f"{field} is not the same")
+            sys.exit()
     print(f"files {file1} and {file2} are the same")
 
 
 if args.start is not None and args.end is not None:
     for i in range(args.start, args.end + 1):
-        compare_meshes(f"{args.file1}{i}.h5", f"{args.file2}{i}.h5", args.tol)
+        compare_meshes(f"{args.file1}{i}.h5", f"{args.file2}{i}.h5")
 else:
-    compare_meshes(f"{args.file1}.h5", f"{args.file2}.h5", args.tol)
+    compare_meshes(
+        f"{args.file1}.h5",
+        f"{args.file2}.h5",
+    )
