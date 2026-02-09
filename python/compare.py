@@ -17,6 +17,13 @@ parser.add_argument(
 parser.add_argument(
     "--end", type=int, required=False, default=None, help="iteration end"
 )
+parser.add_argument(
+    "--tol",
+    type=float,
+    required=False,
+    default=1e-14,
+    help="tolerance for field comparison",
+)
 args = parser.parse_args()
 
 
@@ -75,7 +82,7 @@ def compare_meshes(file1, file2):
     field1 = construct_fields(mesh1)
     field2 = construct_fields(mesh2)
 
-    tol = 1e-14
+    tol = args.tol
     for field in field1.keys():
         if not field in field2.keys():
             print(f"{field} is not in second file")
