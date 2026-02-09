@@ -984,6 +984,10 @@ namespace samurai
         {
             world.recv(neighbour.rank, world.rank(), neighbour.mesh.m_subdomain);
             neighbour.mesh.m_domain = m_domain;
+            neighbour.mesh.set_origin_point(this->origin_point()); // the origin point is not serialized, so we have to set it again
+#ifdef SAMURAI_WITH_PETSC
+            neighbour.mesh.compute_gravity_center();
+#endif
         }
 
         mpi::wait_all(req.begin(), req.end());
