@@ -13,6 +13,7 @@
 #include "fv/flux_based/explicit_flux_based_scheme__nonlin.hpp"
 #include "fv/scheme_operators.hpp"
 
+#include "fv/operators/buoyancy.hpp"
 #include "fv/operators/convection_lin.hpp"
 #include "fv/operators/convection_nonlin.hpp"
 #include "fv/operators/diffusion.hpp"

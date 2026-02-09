@@ -385,14 +385,14 @@ namespace samurai
                 }
             }
 
-            m_ghost_width = std::max(m_max_stencil_radius, static_cast<int>(prediction_stencil_radius));
-
             if (!m_disable_minimal_ghost_width)
             {
                 // 2 is because prediction_stencil_radius=1, if >1 we don't know what to do...
                 // The idea is to have enough ghosts at the boundary for the reconstruction and the transfer to work.
                 m_max_stencil_radius = std::max(m_max_stencil_radius, 2);
             }
+
+            m_ghost_width = std::max(m_max_stencil_radius, static_cast<int>(prediction_stencil_radius));
         }
 
       private:

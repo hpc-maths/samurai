@@ -13,8 +13,9 @@ namespace samurai
         {
           public:
 
-            using scheme_t      = int;  // deactivate compatibility test in block_operator.tie_unknowns()
-            using input_field_t = void; // deactivate compatibility test during assembly
+            using scheme_t       = int;  // deactivate compatibility test in block_operator.tie_unknowns()
+            using input_field_t  = void; // deactivate compatibility test during assembly
+            using output_field_t = void;
 
           private:
 

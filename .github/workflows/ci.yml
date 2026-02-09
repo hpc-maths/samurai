@@ -190,6 +190,20 @@ jobs:
               run: |
                   export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
                   cd tests
+
+                  # The following options are set to have a deterministic Petsc behaviour on Linux.
+                  # The problem occurs on the diff. heated cavity demo. It seems to come from the use of the non-linear solver with QR to solve the Jacobian systems.
+                  # The result is not deterministic accross runs. Something seems to be multithreaded in Petsc or in one of its dependencies.
+                  # The strange part is that the diff. heated cavity is the only demo that fails.
+                  # Hint: it's the only demo with a non-linear block solver.
+                  export OMP_NUM_THREADS=1
+                  export OMP_DYNAMIC=FALSE
+                  export OMP_MAX_ACTIVE_LEVELS=1
+                  export MKL_NUM_THREADS=1
+                  export OPENBLAS_NUM_THREADS=1
+                  export VECLIB_MAXIMUM_THREADS=1
+                  export SCOTCH_DETERMINISTIC=1
+
                   pytest -v -s --h5diff
     #
     # Check linux build with mamba environment
