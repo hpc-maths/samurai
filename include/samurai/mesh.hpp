@@ -243,6 +243,7 @@ namespace samurai
             {
                 ar& m_cells[id];
             }
+
             ar & m_domain;
             ar & m_subdomain;
             ar & m_union;
@@ -295,6 +296,8 @@ namespace samurai
         construct_corners();
         renumbering();
 
+        update_mesh_neighbour();
+
         set_origin_point(origin_point());
         set_scaling_factor(scaling_factor());
 #if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
@@ -345,6 +348,8 @@ namespace samurai
         construct_corners();
         renumbering();
 
+        update_mesh_neighbour();
+
         set_origin_point(domain_builder.origin_point());
         set_scaling_factor(m_config.scaling_factor());
 #if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
@@ -366,6 +371,8 @@ namespace samurai
         update_sub_mesh();
         construct_corners();
         renumbering();
+
+        update_mesh_neighbour();
 
         set_origin_point(cl.origin_point());
         set_scaling_factor(cl.scaling_factor());
@@ -391,6 +398,8 @@ namespace samurai
         construct_corners();
         renumbering();
 
+        update_mesh_neighbour();
+
         set_origin_point(ca.origin_point());
         set_scaling_factor(ca.scaling_factor());
 #if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
@@ -413,6 +422,7 @@ namespace samurai
         construct_corners();
         renumbering();
 
+        update_mesh_neighbour();
         set_origin_point(ref_mesh.origin_point());
         set_scaling_factor(ref_mesh.scaling_factor());
 #if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
@@ -434,6 +444,8 @@ namespace samurai
         update_sub_mesh();
         construct_corners();
         renumbering();
+
+        update_mesh_neighbour();
 
         set_origin_point(ref_mesh.origin_point());
         set_scaling_factor(ref_mesh.scaling_factor());
