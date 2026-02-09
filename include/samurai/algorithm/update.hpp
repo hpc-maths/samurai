@@ -742,6 +742,87 @@ namespace samurai
     }
 
     template <class Field>
+    void update_tag_subdomains([[maybe_unused]] std::size_t min_level,
+                               [[maybe_unused]] std::size_t max_level,
+                               [[maybe_unused]] Field& tag,
+                               [[maybe_unused]] bool erase = false)
+    {
+#ifdef SAMURAI_WITH_MPI
+        using mesh_t    = typename Field::mesh_t;
+        using value_t   = typename Field::value_type;
+        using mesh_id_t = typename mesh_t::mesh_id_t;
+        std::vector<mpi::request> req;
+
+        auto& mesh = tag.mesh();
+        mpi::communicator world;
+        std::vector<std::vector<value_t>> to_send(mesh.mpi_neighbourhood().size());
+
+        std::size_t i_neigh = 0;
+        for (auto& neighbour : mesh.mpi_neighbourhood())
+        {
+            for (std::size_t level = min_level; level <= max_level; ++level)
+            {
+                if (!mesh[mesh_id_t::reference][level].empty() && !neighbour.mesh[mesh_id_t::reference][level].empty())
+                {
+                    auto out_interface = intersection(mesh[mesh_id_t::reference][level],
+                                                      neighbour.mesh[mesh_id_t::reference][level],
+                                                      mesh.subdomain())
+                                             .on(level);
+                    out_interface(
+                        [&](const auto& i, const auto& index)
+                        {
+                            std::copy(tag(level, i, index).begin(), tag(level, i, index).end(), std::back_inserter(to_send[i_neigh]));
+                        });
+                }
+            }
+            req.push_back(world.isend(neighbour.rank, neighbour.rank, to_send[i_neigh]));
+            i_neigh++;
+        }
+
+        i_neigh = 0;
+        for (auto& neighbour : mesh.mpi_neighbourhood())
+        {
+            std::vector<value_t> to_recv;
+            world.recv(neighbour.rank, world.rank(), to_recv);
+            std::ptrdiff_t count = 0;
+
+            for (std::size_t level = min_level; level <= max_level; ++level)
+            {
+                if (!mesh[mesh_id_t::reference][level].empty() && !neighbour.mesh[mesh_id_t::reference][level].empty())
+                {
+                    auto in_interface = intersection(mesh[mesh_id_t::reference][level],
+                                                     neighbour.mesh[mesh_id_t::reference][level],
+                                                     neighbour.mesh.subdomain())
+                                            .on(level);
+                    in_interface(
+                        [&](const auto& i, const auto& index)
+                        {
+                            if (count + static_cast<std::ptrdiff_t>(i.size()) <= to_recv.size())
+                            {
+                                xt::xtensor<value_t, 1> neigh_tag = xt::empty_like(tag(level, i, index));
+                                std::copy(to_recv.begin() + count,
+                                          to_recv.begin() + count + static_cast<std::ptrdiff_t>(i.size()),
+                                          neigh_tag.begin());
+                                if (erase)
+                                {
+                                    tag(level, i, index) = neigh_tag;
+                                }
+                                else
+                                {
+                                    tag(level, i, index) |= neigh_tag;
+                                }
+                                count += static_cast<std::ptrdiff_t>(i.size());
+                            }
+                        });
+                }
+            }
+            i_neigh++;
+        }
+        mpi::wait_all(req.begin(), req.end());
+#endif
+    }
+
+    template <class Field>
     void update_tag_subdomains([[maybe_unused]] std::size_t level, [[maybe_unused]] Field& tag, [[maybe_unused]] bool erase = false)
     {
 #ifdef SAMURAI_WITH_MPI
