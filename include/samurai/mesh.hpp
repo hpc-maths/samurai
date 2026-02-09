@@ -228,7 +228,6 @@ namespace samurai
         mesh_t m_cells;
         ca_type m_union;
         std::vector<lca_type> m_corners;
-        // std::vector<int> m_neighbouring_ranks;
         std::vector<mpi_subdomain_t> m_mpi_neighbourhood;
         coords_t m_gravity_center;
 
@@ -288,12 +287,13 @@ namespace samurai
                                                                    m_config.approx_box_tol(),
                                                                    m_config.scaling_factor()};
 #endif
+        update_meshid_neighbour(mesh_id_t::cells);
+
         construct_subdomain();
         construct_union();
         update_sub_mesh();
         construct_corners();
         renumbering();
-        // update_mesh_neighbour();
 
         set_origin_point(origin_point());
         set_scaling_factor(scaling_factor());
@@ -336,13 +336,14 @@ namespace samurai
 
         m_cells[mesh_id_t::cells] = {domain_cl, false};
 #endif
+        update_meshid_neighbour(mesh_id_t::cells);
+
         construct_subdomain();
         m_domain = m_subdomain;
         construct_union();
         update_sub_mesh();
         construct_corners();
         renumbering();
-        // update_mesh_neighbour();
 
         set_origin_point(domain_builder.origin_point());
         set_scaling_factor(m_config.scaling_factor());
@@ -365,7 +366,6 @@ namespace samurai
         update_sub_mesh();
         construct_corners();
         renumbering();
-        // update_mesh_neighbour();
 
         set_origin_point(cl.origin_point());
         set_scaling_factor(cl.scaling_factor());
@@ -379,7 +379,6 @@ namespace samurai
         : m_config(config)
     {
         m_cells[mesh_id_t::cells] = ca;
-
         update_meshid_neighbour(mesh_id_t::cells);
 
         set_origin_point(ca.origin_point());
@@ -391,19 +390,6 @@ namespace samurai
         update_sub_mesh();
         construct_corners();
         renumbering();
-
-        // #ifdef SAMURAI_WITH_MPI
-        //         mpi::communicator world;
-        //         m_mpi_neighbourhood.clear();
-        //         for (int i = 0; i < world.size(); ++i)
-        //         {
-        //             if (i != world.rank())
-        //             {
-        //                 m_mpi_neighbourhood.emplace_back(i);
-        //             }
-        //         }
-        // #endif
-        // update_mesh_neighbour();
 
         set_origin_point(ca.origin_point());
         set_scaling_factor(ca.scaling_factor());
@@ -426,7 +412,6 @@ namespace samurai
         update_sub_mesh();
         construct_corners();
         renumbering();
-        // update_mesh_neighbour();
 
         set_origin_point(ref_mesh.origin_point());
         set_scaling_factor(ref_mesh.scaling_factor());
@@ -449,7 +434,6 @@ namespace samurai
         update_sub_mesh();
         construct_corners();
         renumbering();
-        // update_mesh_neighbour();
 
         set_origin_point(ref_mesh.origin_point());
         set_scaling_factor(ref_mesh.scaling_factor());
@@ -999,6 +983,7 @@ namespace samurai
         for (auto& neighbour : m_mpi_neighbourhood)
         {
             world.recv(neighbour.rank, world.rank(), neighbour.mesh.m_subdomain);
+            neighbour.mesh.m_domain = m_domain;
         }
 
         mpi::wait_all(req.begin(), req.end());

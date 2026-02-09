@@ -253,8 +253,8 @@ namespace samurai
                            [&](std::size_t level)
                            {
                                lcl_type& lcl = cell_list[level];
-                               auto set      = intersection(nestedExpand(neighbour.mesh[mesh_id_t::cells][level], ghost_width()),
-                                                       nestedExpand(self(this->subdomain()).on(level), ghost_width()));
+                               auto set      = intersection(nestedExpand(neighbour.mesh[mesh_id_t::cells][level], max_stencil_radius()),
+                                                       nestedExpand(self(this->subdomain()).on(level), max_stencil_radius()));
                                set(
                                    [&](const auto& interval, const auto& index)
                                    {
