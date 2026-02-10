@@ -213,7 +213,7 @@ namespace samurai
     {
         times::timers.start("mesh construction");
 
-        cl_type cell_list;
+        cl_type cell_list(this->origin_point(), this->scaling_factor());
 
         // Construction of ghost cells
         // ===========================
@@ -440,6 +440,8 @@ namespace samurai
                            });
         }
         this->cells()[mesh_id_t::reference] = {cell_list, false};
+        this->renumbering();
+        this->update_meshid_neighbour(mesh_id_t::cells);
         this->update_meshid_neighbour(mesh_id_t::reference);
         times::timers.stop("mesh construction");
     }
