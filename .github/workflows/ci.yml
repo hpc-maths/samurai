@@ -237,6 +237,7 @@ jobs:
                   micromamba list
 
             - name: Configure
+              shell: micromamba-shell {0}
               run: |
                   cmake \
                       . \
@@ -249,6 +250,7 @@ jobs:
                       -DBUILD_TESTS=ON
 
             - name: Build
+              shell: micromamba-shell {0}
               run: |
                   cmake --build build --target finite-volume-advection-2d
                   cmake --build build --target finite-volume-burgers
@@ -256,6 +258,7 @@ jobs:
                   cmake --build build --target finite-volume-lid-driven-cavity
 
             - name: MPI test finite-volume-advection-2d
+              shell: micromamba-shell {0}
               run: |
                   cd build
                   set -e  # Stop on first failure
@@ -271,6 +274,7 @@ jobs:
                   python ../python/compare.py FV_advection_2d_size_1_ite_ FV_advection_2d_size_9_ite_ --start 1 --end 19
 
             - name: MPI test finite-volume-burgers
+              shell: micromamba-shell {0}
               run: |
                   cd build
                   set -e  # Stop on first failure
@@ -295,6 +299,7 @@ jobs:
                   # Here, the 3-rank test crashes at the beginning with the error "malloc(): unaligned tcache chunk detected".
                   # So we disable tcache.
                   GLIBC_TUNABLES: "glibc.malloc.tcache_count=0"
+              shell: micromamba-shell {0}
               run: |
                   cd build
                   set -e  # Stop on first failure
@@ -316,6 +321,7 @@ jobs:
                   rm -f heat_2D*
 
             - name: MPI test finite-volume-lid-driven-cavity
+              shell: micromamba-shell {0}
               run: |
                   cd build
                   set -e  # Stop on first failure
@@ -334,6 +340,7 @@ jobs:
                   python ../python/compare.py ldc_ink_size_1 ldc_ink_size_2 --tol 1e-11
 
             - name: MPI test burgers OSMP 2D (weak scaling)
+              shell: micromamba-shell {0}
               run: |
                   cd build
                   set -e  # Stop on first failure
