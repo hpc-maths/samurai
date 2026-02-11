@@ -440,9 +440,6 @@ namespace samurai
                            });
         }
         this->cells()[mesh_id_t::reference] = {cell_list, false};
-        this->renumbering();
-        this->update_meshid_neighbour(mesh_id_t::cells);
-        this->update_meshid_neighbour(mesh_id_t::reference);
         times::timers.stop("mesh construction");
     }
 

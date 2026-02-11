@@ -204,8 +204,6 @@ namespace samurai
         const derived_type& derived_cast() const& noexcept;
         derived_type derived_cast() && noexcept;
 
-        void renumbering();
-
         mesh_t& cells();
 
       private:
@@ -215,6 +213,7 @@ namespace samurai
         void construct_union();
         void construct_corners();
         void update_sub_mesh();
+        void renumbering();
 
         void compute_gravity_center();
 
@@ -291,7 +290,8 @@ namespace samurai
         construct_union();
         update_sub_mesh();
         construct_corners();
-
+        renumbering();
+        update_mesh_neighbour();
 #if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
         compute_gravity_center();
 #endif
@@ -339,7 +339,7 @@ namespace samurai
         update_sub_mesh();
         construct_corners();
         renumbering();
-
+        update_mesh_neighbour();
 #if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
         compute_gravity_center();
         // set_scaling_factor(scaling_factor_);
@@ -362,6 +362,9 @@ namespace samurai
 
         update_sub_mesh();
         construct_corners();
+        renumbering();
+        update_mesh_neighbour();
+
 #if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
         compute_gravity_center();
 #endif
@@ -382,6 +385,8 @@ namespace samurai
         construct_union();
         update_sub_mesh();
         construct_corners();
+        renumbering();
+        update_mesh_neighbour();
 #if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
         compute_gravity_center();
 #endif
@@ -402,7 +407,8 @@ namespace samurai
         construct_union();
         update_sub_mesh();
         construct_corners();
-
+        renumbering();
+        update_mesh_neighbour();
 #if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
         compute_gravity_center();
 #endif
@@ -423,7 +429,8 @@ namespace samurai
         construct_union();
         update_sub_mesh();
         construct_corners();
-
+        renumbering();
+        update_mesh_neighbour();
 #if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
         compute_gravity_center();
 #endif
