@@ -70,24 +70,22 @@ jobs:
     #########################################################
     linux-mamba:
         needs: [pre-commit, cppcheck]
+        runs-on: ubuntu-latest
         strategy:
             fail-fast: false
             matrix:
                 include:
                     - cpp-version: gcc-11
-                      os: ubuntu-latest
                       compiler: "gcc"
                       package: "gcc-11 g++-11"
                       cc: "gcc-11"
                       cxx: "g++-11"
                     - cpp-version: gcc-12
-                      os: ubuntu-latest
                       compiler: "gcc"
                       package: "gcc-12 g++-12"
                       cc: "gcc-12"
                       cxx: "g++-12"
                     - cpp-version: gcc-13
-                      os: ubuntu-latest
                       compiler: "gcc"
                       package: "gcc-13 g++-13"
                       cc: "gcc-13"
@@ -98,43 +96,21 @@ jobs:
                     #   package: "gcc-14 g++-14"
                     #   cc: "gcc-14"
                     #   cxx: "g++-14"
-                    # - cpp-version: clang-13
-                    #   os: ubuntu-22.04
-                    #   compiler: "clang"
-                    #   package: "clang-13"
-                    #   cc: "clang-13"
-                    #   cxx: "clang++-13"
-                    # - cpp-version: clang-14
-                    #   os: ubuntu-22.04
-                    #   compiler: "clang"
-                    #   package: "clang-14"
-                    #   cc: "clang-14"
-                    #   cxx: "clang++-14"
-                    # - cpp-version: clang-15
-                    #   os: ubuntu-22.04
-                    #   compiler: "clang"
-                    #   package: "clang-15"
-                    #   cc: "clang-15"
-                    #   cxx: "clang++-15"
                     - cpp-version: clang-16
-                      os: ubuntu-24.04
                       compiler: "clang"
                       package: "clang-16"
                       cc: "clang-16"
                       cxx: "clang++-16"
                     - cpp-version: clang-17
-                      os: ubuntu-24.04
                       compiler: "clang"
                       package: "clang-17"
                       cc: "clang-17"
                       cxx: "clang++-17"
                     - cpp-version: clang-18
-                      os: ubuntu-24.04
                       compiler: "clang"
                       package: "clang-18"
                       cc: "clang-18"
                       cxx: "clang++-18"
-        runs-on: ${{ matrix.os }}
         steps:
             - uses: actions/checkout@v4
 
@@ -143,7 +119,6 @@ jobs:
               with:
                   path: |
                       ~/.cache/ccache
-                      ~/micromamba-root/envs/samurai-env
                   key: linux-${{ matrix.cpp-version }}
                   restore-keys: |
                       linux-${{ matrix.cpp-version }}
@@ -163,6 +138,7 @@ jobs:
                   environment-file: conda/environment.yml
                   environment-name: samurai-env
                   cache-environment: true
+                  cache-environment-key: ${{ runner.os }}-${{ matrix.cpp-version }}-${{ hashFiles('conda/environment.yml') }}
 
             # - name: Conda update
             #   shell: bash -l {0}
@@ -196,7 +172,11 @@ jobs:
             - name: Build
               shell: bash -l {0}
               run: |
-                  cmake --build build --target all --parallel 2
+                  if [[ "${{ matrix.compiler }}" == "gcc" ]]; then
+                    cmake --build build --target all --parallel 1 # Limit parallelism with gcc to avoid memory issues
+                  else
+                    cmake --build build --target all --parallel 2
+                  fi
 
             - name: Test with googletest
               shell: bash -l {0}
@@ -225,7 +205,6 @@ jobs:
                   export SCOTCH_DETERMINISTIC=1
 
                   pytest -v -s --h5diff
-
     #
     # Check linux build with mamba environment
     #
@@ -247,34 +226,30 @@ jobs:
 
             - name: Mamba and samurai env installation
               uses: mamba-org/setup-micromamba@v2
-              env:
-                  MAMBA_ROOT_PREFIX: ${{ runner.temp }}/micromamba-root
               with:
-                  download-micromamba: true
-                  micromamba-binary-path: ${{ runner.temp }}/bin/micromamba
                   environment-file: conda/mpi-environment.yml
                   environment-name: samurai-env
-                  generate-run-shell: true
-                  #   cache-environment: false
-                  #   cache-downloads: false
-                  #   post-cleanup: all
-                  #   cache-environment-key: ${{ runner.os }}-${{ hashFiles('conda/mpi-environment.yml') }}
+                  cache-environment: true
+                  cache-environment-key: ${{ runner.os }}-${{ hashFiles('conda/mpi-environment.yml') }}
+
+            # - name: Conda update
+            #   shell: bash -l {0}
+            #   run: |
+            #       conda update --all
 
             - name: Petsc installation
-              shell: micromamba-shell {0}
-              env:
-                  MAMBA_ROOT_PREFIX: ${{ runner.temp }}/micromamba-root
+              shell: bash -l {0}
               run: |
-                  micromamba install -y "petsc>=3.24" pkg-config cxx-compiler
+                  conda install -y "petsc>=3.24" pkg-config cxx-compiler
 
-            - name: Micromamba informations
-              shell: micromamba-shell {0}
+            - name: Conda informations
+              shell: bash -l {0}
               run: |
-                  micromamba info
-                  micromamba list
+                  conda info
+                  conda list
 
             - name: Configure
-              shell: micromamba-shell {0}
+              shell: bash -l {0}
               run: |
                   cmake \
                       . \
@@ -287,16 +262,15 @@ jobs:
                       -DBUILD_TESTS=ON
 
             - name: Build
-              shell: micromamba-shell {0}
+              shell: bash -l {0}
               run: |
                   cmake --build build --target finite-volume-advection-2d
                   cmake --build build --target finite-volume-burgers
                   cmake --build build --target finite-volume-heat
                   cmake --build build --target finite-volume-lid-driven-cavity
-                  cmake --build build --target finite-volume-burgers-os-2d-mpi
 
             - name: MPI test finite-volume-advection-2d
-              shell: micromamba-shell {0}
+              shell: bash -l {0}
               run: |
                   cd build
                   set -e  # Stop on first failure
@@ -312,7 +286,7 @@ jobs:
                   python ../python/compare.py FV_advection_2d_size_1_ite_ FV_advection_2d_size_9_ite_ --start 1 --end 19
 
             - name: MPI test finite-volume-burgers
-              shell: micromamba-shell {0}
+              shell: bash -l {0}
               run: |
                   cd build
                   set -e  # Stop on first failure
@@ -378,7 +352,7 @@ jobs:
                   python ../python/compare.py ldc_ink_size_1 ldc_ink_size_2 --tol 1e-11
 
             - name: MPI test burgers OSMP 2D (weak scaling)
-              shell: micromamba-shell {0}
+              shell: bash -l {0}
               run: |
                   cd build
                   set -e  # Stop on first failure
@@ -388,6 +362,7 @@ jobs:
                   mpiexec -n 8 ./demos/FiniteVolume/finite-volume-burgers-os-2d-mpi --npx=4 --npy=2 --min-level=0 --max-level=8 --Tf=6 --nfiles 1
                   mpiexec -n 8 ./demos/FiniteVolume/finite-volume-burgers-os-2d-mpi --npx=2 --npy=4 --min-level=0 --max-level=8 --Tf=6 --nfiles 1
                   mpiexec -n 9 ./demos/FiniteVolume/finite-volume-burgers-os-2d-mpi --npx=3 --npy=3 --min-level=0 --max-level=8 --Tf=6 --nfiles 1
+
     macos-mamba:
         needs: [pre-commit, cppcheck]
         runs-on: macos-14
@@ -405,7 +380,7 @@ jobs:
               run: |
                   micromamba install -y petsc pkg-config
 
-            - name: Installl cxx compiler
+            - name: Install cxx compiler
               shell: bash -l {0}
               run: |
                   micromamba install -y cxx-compiler
@@ -424,8 +399,8 @@ jobs:
                       -Bbuild \
                       -GNinja \
                       -DCMAKE_BUILD_TYPE=Release \
-                      -DBUILD_DEMOS=ON \
                       -DWITH_PETSC=ON \
+                      -DBUILD_DEMOS=ON \
                       -DBUILD_TESTS=ON
 
             - name: Build
@@ -437,7 +412,7 @@ jobs:
               shell: bash -l {0}
               run: |
                   ./build/tests/test_samurai_lib
-                  cd tests; pytest --h5diff
+                  cd tests; pytest -v -s --h5diff
     #
     # CHECK_NAN
     #
@@ -453,7 +428,6 @@ jobs:
               with:
                   path: |
                       ~/.cache/ccache
-                      ~/micromamba-root/envs/samurai-env
                   key: linux-mamba-check-nan
                   restore-keys: |
                       linux-mamba-check-nan
@@ -464,17 +438,18 @@ jobs:
                   environment-file: conda/environment.yml
                   environment-name: samurai-env
                   cache-environment: true
+                  cache-environment-key: ${{ runner.os }}-${{ hashFiles('conda/environment.yml') }}
 
             - name: Petsc installation
               shell: bash -l {0}
               run: |
-                  micromamba install -y petsc pkg-config cxx-compiler
+                  conda install -y petsc pkg-config cxx-compiler
 
-            - name: Micromamba informations
+            - name: Conda informations
               shell: bash -l {0}
               run: |
-                  micromamba info
-                  micromamba list
+                  conda info
+                  conda list
 
             - name: Configure
               shell: bash -l {0}
@@ -523,7 +498,6 @@ jobs:
               with:
                   path: |
                       ~/.cache/ccache
-                      ~/micromamba-root/envs/samurai-env
                   key: linux-mamba-check-nan-mpi
                   restore-keys: |
                       linux-mamba-check-nan-mpi
@@ -534,17 +508,18 @@ jobs:
                   environment-file: conda/mpi-environment.yml
                   environment-name: samurai-env
                   cache-environment: true
+                  cache-environment-key: ${{ runner.os }}-${{ hashFiles('conda/mpi-environment.yml') }}
 
             - name: Petsc installation
               shell: bash -l {0}
               run: |
-                  micromamba install -y petsc pkg-config cxx-compiler
+                  conda install -y petsc pkg-config cxx-compiler
 
-            - name: Micromamba informations
+            - name: Conda informations
               shell: bash -l {0}
               run: |
-                  micromamba info
-                  micromamba list
+                  conda info
+                  conda list
 
             - name: Configure
               shell: bash -l {0}
