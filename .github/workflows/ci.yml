@@ -365,7 +365,7 @@ jobs:
 
     macos-mamba:
         needs: [pre-commit, cppcheck]
-        runs-on: macos-14
+        runs-on: macos-26
         steps:
             - uses: actions/checkout@v4
             - name: Mamba and samurai env installation
