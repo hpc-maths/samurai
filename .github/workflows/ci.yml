@@ -220,8 +220,7 @@ jobs:
               with:
                   environment-file: conda/mpi-environment.yml
                   environment-name: samurai-env
-                  cache-environment: true
-                  cache-environment-key: ${{ runner.os }}-${{ hashFiles('conda/mpi-environment.yml') }}
+                  post-cleanup: all
 
             - name: Petsc installation
               run: |
