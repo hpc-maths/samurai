@@ -173,6 +173,7 @@ namespace samurai
 
         //// Is it box-shaped?
         bool is_box() const;
+        void box_like();
 
         //
         double cell_length() const;
@@ -208,6 +209,10 @@ namespace samurai
         template <class Archive>
         void serialize(Archive& ar, const unsigned long)
         {
+            // xt::xtensor_fixed cannot be serialized
+            // so we copy it to a std::array before serialization
+            std::array<double, dim> origin;
+            std::copy(m_origin_point.begin(), m_origin_point.end(), origin.begin());
             for (std::size_t d = 0; d < dim; ++d)
             {
                 ar& m_cells[d];
@@ -218,8 +223,9 @@ namespace samurai
             }
             ar & m_level;
             ar & m_is_box;
-            // ar & m_origin_point; // doesn't compile: xt::xtensor_fixed cannot be serialized
+            ar & origin;
             ar & m_scaling_factor;
+            std::copy(origin.begin(), origin.end(), m_origin_point.begin());
         }
 #endif
         template <bool isIntervalListEmpty, bool isParentPointNew, size_t d>
@@ -832,6 +838,12 @@ namespace samurai
     SAMURAI_INLINE bool LevelCellArray<Dim, TInterval>::is_box() const
     {
         return m_is_box;
+    }
+
+    template <std::size_t Dim, class TInterval>
+    SAMURAI_INLINE void LevelCellArray<Dim, TInterval>::box_like()
+    {
+        m_is_box = true;
     }
 
     template <std::size_t Dim, class TInterval>

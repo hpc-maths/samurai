@@ -6,8 +6,17 @@
 #include <xtensor/containers/xtensor.hpp>
 #include <xtensor/views/xmasked_view.hpp>
 
+#ifdef SAMURAI_WITH_MPI
+#include <boost/serialization/vector.hpp>
+
+#include <boost/mpi.hpp>
+#include <boost/mpi/cartesian_communicator.hpp>
+namespace mpi = boost::mpi;
+#endif
+
 #include "../array_of_interval_and_point.hpp"
 #include "../cell_flag.hpp"
+#include "../concepts.hpp"
 #include "../mesh.hpp"
 #include "../stencil.hpp"
 #include "../subset/node.hpp"
@@ -237,36 +246,29 @@ namespace samurai
         return true;
     }
 
-    template <size_t dim, typename TInterval, typename MeshType, size_t max_size, typename TCoord>
+    template <size_t dim, typename TInterval, size_t max_size, typename TCoord>
     void list_interval_to_refine_for_graduation(
         const size_t grad_width,
         const CellArray<dim, TInterval, max_size>& ca,
         const LevelCellArray<dim, TInterval>& domain,
-        [[maybe_unused]] const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood,
+        [[maybe_unused]] const auto& mpi_meshes,
         const std::array<bool, dim>& is_periodic,
         const std::array<int, dim>& nb_cells_finest_level,
         std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, CellArray<dim, TInterval, max_size>::max_size>& out)
     {
-        const size_t max_level      = ca.max_level() + 1;
-        const size_t min_level      = ca.min_level();
-        const size_t min_fine_level = (min_level + 2) - 1; // fine_level =  max_level, max_level-1, ..., min_level+2. Thus fine_level !=
-                                                           // min_level+2-1
         const int max_width = int(grad_width) + 1;
 
         for (size_t i = 0; i != max_size; ++i)
         {
             out[i].clear();
         }
-#ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-        std::vector<mpi::request> req;
-        for (const auto& mpi_neighbor : mpi_neighbourhood)
-        {
-            req.push_back(world.isend(mpi_neighbor.rank, mpi_neighbor.rank, ca));
-        }
-#endif // SAMURAI_WITH_MPI
+
         const auto list_overlapping_intervals = [&](const auto& lhs_ca, const auto& rhs_ca)
         {
+            const size_t max_level      = lhs_ca.max_level() + 1;
+            const size_t min_level      = lhs_ca.min_level();
+            const size_t min_fine_level = (min_level + 2) - 1; // fine_level =  max_level, max_level-1, ..., min_level+2. Thus fine_level !=
+                                                               // min_level+2-1
             auto apply_refine = [&](const auto& union_func, auto coarse_level, auto& isIntersectionEmpty)
             {
                 for (int width = 1; isIntersectionEmpty and width != max_width; ++width)
@@ -318,14 +320,42 @@ namespace samurai
 
         list_overlapping_intervals(ca, ca);
 #ifdef SAMURAI_WITH_MPI
-        CellArray<dim, TInterval, max_size> neighbor_ca;
-        for (const auto& mpi_neighbor : mpi_neighbourhood)
+        for (const auto& mpi_mesh : mpi_meshes)
         {
-            world.recv(mpi_neighbor.rank, world.rank(), neighbor_ca);
-            list_overlapping_intervals(neighbor_ca, ca);
+            list_overlapping_intervals(mpi_mesh, ca);
         }
+#endif // SAMURAI_WITH_MPI
+    }
+
+    template <mesh_like mesh_t>
+    auto update_subdomains_mpi([[maybe_unused]] const mesh_t& mesh, const auto& mpi_neighbourhood)
+    {
+        std::vector<mesh_t> mpi_meshes(mpi_neighbourhood.size());
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        std::vector<mpi::request> req;
+
+        boost::mpi::packed_oarchive::buffer_type buffer;
+        boost::mpi::packed_oarchive oa(world, buffer);
+        oa << mesh;
+
+        std::transform(mpi_neighbourhood.cbegin(),
+                       mpi_neighbourhood.cend(),
+                       std::back_inserter(req),
+                       [&](const auto& neighbour)
+                       {
+                           return world.isend(neighbour.rank, neighbour.rank, buffer);
+                       });
+
+        std::size_t index = 0;
+        for (auto& neighbour : mpi_neighbourhood)
+        {
+            world.recv(neighbour.rank, world.rank(), mpi_meshes[index++]);
+        }
+
         mpi::wait_all(req.begin(), req.end());
 #endif // SAMURAI_WITH_MPI
+        return mpi_meshes;
     }
 
     template <size_t dim, typename TInterval, size_t max_size, typename TCoord>
@@ -333,6 +363,7 @@ namespace samurai
         const int max_stencil_radius,
         const CellArray<dim, TInterval, max_size>& ca,
         const LevelCellArray<dim, TInterval>& domain,
+        [[maybe_unused]] const auto& mpi_meshes,
         const std::array<bool, dim>& is_periodic,
         std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, CellArray<dim, TInterval, max_size>::max_size>& out)
     {
@@ -341,8 +372,14 @@ namespace samurai
             return;
         }
 
-        const size_t max_level = ca.max_level();
-        const size_t min_level = ca.min_level();
+        size_t max_level = ca.max_level();
+        size_t min_level = ca.min_level();
+
+        for (const auto& mpi_mesh : mpi_meshes)
+        {
+            max_level = std::max(max_level, mpi_mesh.max_level());
+            min_level = std::min(min_level, mpi_mesh.min_level());
+        }
 
         // We want to avoid a flux being computed with ghosts outside of the domain if the cell doesn't touch the boundary,
         // because we only want to apply the B.C. on the cells that touch the boundary.
@@ -377,14 +414,24 @@ namespace samurai
                                 // the intersection. When the problem is fixed, remove the two following lines and uncomment the line
                                 // below.
                                 LevelCellArray<dim, TInterval> translated_boundary(translate(boundaryCells, -i * translation));
-                                auto refine_subset = intersection(translated_boundary, ca[level - 1]).on(level - 1);
-                                // auto refine_subset = intersection(translate(boundaryCells, -i*translation), ca[level-1]).on(level-1);
+                                auto refine_impl = [&](const auto& ca_lm1)
+                                {
+                                    auto refine_subset = intersection(translated_boundary, ca_lm1).on(level - 1);
+                                    // auto refine_subset = intersection(translate(boundaryCells, -i*translation), ca[level-1]).on(level-1);
 
-                                refine_subset(
-                                    [&](const auto& x_interval, const auto& yz)
-                                    {
-                                        out[level - 1].push_back(x_interval, yz);
-                                    });
+                                    refine_subset(
+                                        [&](const auto& x_interval, const auto& yz)
+                                        {
+                                            out[level - 1].push_back(x_interval, yz);
+                                        });
+                                };
+                                refine_impl(ca[level - 1]);
+#ifdef SAMURAI_WITH_MPI
+                                for (const auto& mpi_mesh : mpi_meshes)
+                                {
+                                    refine_impl(mpi_mesh[level - 1]);
+                                }
+#endif
                             }
                         }
                     }
@@ -402,15 +449,24 @@ namespace samurai
                             auto boundaryCells = difference(ca[level], translate(self(domain).on(level), -translation));
                             for (int i = 1; i != max_stencil_radius; ++i)
                             {
-                                auto refine_subset = translate(
-                                                         intersection(translate(boundaryCells, -i * translation), ca[level + 1]).on(level),
-                                                         i * translation)
-                                                         .on(level);
-                                refine_subset(
-                                    [&](const auto& x_interval, const auto& yz)
-                                    {
-                                        out[level].push_back(x_interval, yz);
-                                    });
+                                auto refine_impl = [&](const auto& ca_lp1)
+                                {
+                                    auto refine_subset = translate(intersection(translate(boundaryCells, -i * translation), ca_lp1).on(level),
+                                                                   i * translation)
+                                                             .on(level);
+                                    refine_subset(
+                                        [&](const auto& x_interval, const auto& yz)
+                                        {
+                                            out[level].push_back(x_interval, yz);
+                                        });
+                                };
+                                refine_impl(ca[level + 1]);
+#ifdef SAMURAI_WITH_MPI
+                                for (const auto& mpi_mesh : mpi_meshes)
+                                {
+                                    refine_impl(mpi_mesh[level + 1]);
+                                }
+#endif
                             }
                         }
                     }
@@ -428,10 +484,11 @@ namespace samurai
                                   const std::array<int, dim>& nb_cells_finest_level,
                                   std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, CellArray<dim, TInterval, max_size>::max_size>& out)
     {
-        list_interval_to_refine_for_graduation(grad_width, ca, domain, mpi_neighbourhood, is_periodic, nb_cells_finest_level, out);
+        auto mpi_meshes = update_subdomains_mpi(ca, mpi_neighbourhood);
+        list_interval_to_refine_for_graduation(grad_width, ca, domain, mpi_meshes, is_periodic, nb_cells_finest_level, out);
         if (!domain.empty())
         {
-            list_interval_to_refine_for_contiguous_boundary_cells(max_stencil_radius, ca, domain, is_periodic, out);
+            list_interval_to_refine_for_contiguous_boundary_cells(max_stencil_radius, ca, domain, mpi_meshes, is_periodic, out);
         }
     }
 
@@ -590,7 +647,9 @@ namespace samurai
             } // end for level
             // We then create new_ca as ca U ca_add
             new_ca.clear();
-            for (std::size_t level = min_level; level != max_level + 1; ++level)
+            for (std::size_t level = std::min(ca.min_level(), ca_add_p.min_level());
+                 level != std::max(ca.max_level(), ca_add_p.max_level()) + 1;
+                 ++level)
             {
                 auto set = difference(union_(ca[level], ca_add_p[level]), ca_remove_p[level]);
                 set(
@@ -714,5 +773,4 @@ namespace samurai
         }
         return new_ca;
     }
-
 }

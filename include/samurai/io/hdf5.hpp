@@ -11,21 +11,15 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
-#ifndef H5_USE_XTENSOR
-#define H5_USE_XTENSOR
-#endif
-#ifdef H5_USE_BOOST
-#undef H5_USE_BOOST
-#endif
-
-#include <highfive/H5Easy.hpp>
-#include <highfive/H5PropertyList.hpp>
 #include <pugixml.hpp>
 #include <xtensor/containers/xadapt.hpp>
 #include <xtensor/containers/xarray.hpp>
 #include <xtensor/views/xview.hpp>
 
 #include <fmt/core.h>
+
+#include <highfive/H5Easy.hpp>
+#include <highfive/H5PropertyList.hpp>
 
 #ifdef SAMURAI_WITH_MPI
 #include <boost/mpi.hpp>

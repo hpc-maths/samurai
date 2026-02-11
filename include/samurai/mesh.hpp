@@ -106,6 +106,7 @@ namespace samurai
         int ghost_width() const;
         int max_stencil_radius() const;
         auto& cfg() const;
+        auto& cfg();
 
         auto& origin_point() const;
         void set_origin_point(const coords_t& origin_point);
@@ -116,11 +117,13 @@ namespace samurai
         double min_cell_length() const;
         const lca_type& domain() const;
         const lca_type& subdomain() const;
+
+        void box_like();
+
         const ca_type& get_union() const;
         bool is_periodic() const;
         bool is_periodic(std::size_t d) const;
         const std::array<bool, dim>& periodicity() const;
-        // std::vector<int>& neighbouring_ranks();
         std::vector<mpi_subdomain_t>& mpi_neighbourhood();
         const std::vector<mpi_subdomain_t>& mpi_neighbourhood() const;
         const coords_t& gravity_center() const;
@@ -161,6 +164,8 @@ namespace samurai
 
         CellOwnership& cell_ownership();
         const CellOwnership& cell_ownership() const;
+
+        void find_neighbourhood();
 
       protected:
 
@@ -213,7 +218,6 @@ namespace samurai
         void update_sub_mesh();
         void renumbering();
 
-        void find_neighbourhood();
         void compute_gravity_center();
 
         void partition_mesh(std::size_t start_level, const Box<double, dim>& global_box);
@@ -226,7 +230,6 @@ namespace samurai
         mesh_t m_cells;
         ca_type m_union;
         std::vector<lca_type> m_corners;
-        // std::vector<int> m_neighbouring_ranks;
         std::vector<mpi_subdomain_t> m_mpi_neighbourhood;
         coords_t m_gravity_center;
 
@@ -242,6 +245,7 @@ namespace samurai
             {
                 ar& m_cells[id];
             }
+
             ar & m_domain;
             ar & m_subdomain;
             ar & m_union;
@@ -281,27 +285,25 @@ namespace samurai
         partition_mesh(m_config.start_level(), b);
         // load_balancing();
 #else
-        this->m_cells[mesh_id_t::cells][m_config.start_level()] = {m_config.start_level(),
-                                                                   b,
-                                                                   m_config.approx_box_tol(),
-                                                                   m_config.scaling_factor()};
+        this->m_cells[mesh_id_t::cells][m_config.start_level()] = m_domain;
 #endif
+        update_meshid_neighbour(mesh_id_t::cells);
+
         construct_subdomain();
         construct_union();
         update_sub_mesh();
         construct_corners();
         renumbering();
-        update_mesh_neighbour();
-
         set_origin_point(origin_point());
         set_scaling_factor(scaling_factor());
+        update_mesh_neighbour();
 #if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
         compute_gravity_center();
 #endif
     }
 
     template <class D, class Config>
-    Mesh_base<D, Config>::Mesh_base(const samurai::DomainBuilder<dim>& domain_builder, const mesh_config<Config::dim>& config)
+    Mesh_base<D, Config>::Mesh_base([[maybe_unused]] const samurai::DomainBuilder<dim>& domain_builder, const mesh_config<Config::dim>& config)
         : m_config(config)
     {
         if (std::any_of(config.periodic().begin(),
@@ -332,20 +334,22 @@ namespace samurai
                                                    m_config.approx_box_tol(),
                                                    m_config.scaling_factor());
 
-        this->m_cells[mesh_id_t::cells] = {domain_cl, false};
+        m_cells[mesh_id_t::cells] = {domain_cl, false};
 #endif
+        update_meshid_neighbour(mesh_id_t::cells);
+
         construct_subdomain();
         m_domain = m_subdomain;
         construct_union();
         update_sub_mesh();
         construct_corners();
         renumbering();
-        update_mesh_neighbour();
-
         set_origin_point(domain_builder.origin_point());
         set_scaling_factor(m_config.scaling_factor());
+        update_mesh_neighbour();
 #if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
         compute_gravity_center();
+        // set_scaling_factor(scaling_factor_);
 #endif
     }
 
@@ -353,7 +357,8 @@ namespace samurai
     SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const cl_type& cl, const mesh_config<Config::dim>& config)
         : m_config(config)
     {
-        this->m_cells[mesh_id_t::cells] = {cl};
+        m_cells[mesh_id_t::cells] = {cl, false};
+        update_meshid_neighbour(mesh_id_t::cells);
 
         construct_subdomain();
         construct_domain();
@@ -361,10 +366,10 @@ namespace samurai
         update_sub_mesh();
         construct_corners();
         renumbering();
-        update_mesh_neighbour();
-
         set_origin_point(cl.origin_point());
         set_scaling_factor(cl.scaling_factor());
+        update_mesh_neighbour();
+
 #if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
         compute_gravity_center();
 #endif
@@ -374,7 +379,8 @@ namespace samurai
     SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const ca_type& ca, const mesh_config<Config::dim>& config)
         : m_config(config)
     {
-        this->m_cells[mesh_id_t::cells] = ca;
+        m_cells[mesh_id_t::cells] = ca;
+        update_meshid_neighbour(mesh_id_t::cells);
 
         construct_subdomain();
         construct_domain();
@@ -382,22 +388,9 @@ namespace samurai
         update_sub_mesh();
         construct_corners();
         renumbering();
-
-#ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-        m_mpi_neighbourhood.clear();
-        for (int i = 0; i < world.size(); ++i)
-        {
-            if (i != world.rank())
-            {
-                m_mpi_neighbourhood.emplace_back(i);
-            }
-        }
-#endif
-        update_mesh_neighbour();
-
         set_origin_point(ca.origin_point());
         set_scaling_factor(ca.scaling_factor());
+        update_mesh_neighbour();
 #if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
         compute_gravity_center();
 #endif
@@ -410,16 +403,16 @@ namespace samurai
         , m_config(ref_mesh.m_config)
     {
         m_cells[mesh_id_t::cells] = ca;
+        update_meshid_neighbour(mesh_id_t::cells);
 
         construct_subdomain();
         construct_union();
         update_sub_mesh();
         construct_corners();
         renumbering();
-        update_mesh_neighbour();
-
         set_origin_point(ref_mesh.origin_point());
         set_scaling_factor(ref_mesh.scaling_factor());
+        update_mesh_neighbour();
 #if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
         compute_gravity_center();
 #endif
@@ -432,16 +425,16 @@ namespace samurai
         , m_config(ref_mesh.m_config)
     {
         m_cells[mesh_id_t::cells] = {cl, false};
+        update_meshid_neighbour(mesh_id_t::cells);
 
         construct_subdomain();
         construct_union();
         update_sub_mesh();
         construct_corners();
         renumbering();
-        update_mesh_neighbour();
-
         set_origin_point(ref_mesh.origin_point());
         set_scaling_factor(ref_mesh.scaling_factor());
+        update_mesh_neighbour();
 #if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
         compute_gravity_center();
 #endif
@@ -620,6 +613,12 @@ namespace samurai
     }
 
     template <class D, class Config>
+    SAMURAI_INLINE auto& Mesh_base<D, Config>::cfg()
+    {
+        return m_config;
+    }
+
+    template <class D, class Config>
     SAMURAI_INLINE auto& Mesh_base<D, Config>::origin_point() const
     {
         return m_domain.origin_point();
@@ -683,6 +682,12 @@ namespace samurai
     SAMURAI_INLINE auto Mesh_base<D, Config>::subdomain() const -> const lca_type&
     {
         return m_subdomain;
+    }
+
+    template <class D, class Config>
+    SAMURAI_INLINE void Mesh_base<D, Config>::box_like()
+    {
+        m_domain.box_like();
     }
 
     template <class D, class Config>
@@ -946,13 +951,12 @@ namespace samurai
 
         mpi::wait_all(req.begin(), req.end());
 
+#ifdef SAMURAI_WITH_PETSC
         for (auto& neighbour : m_mpi_neighbourhood)
         {
-            neighbour.mesh.set_origin_point(this->origin_point()); // the origin point is not serialized, so we have to set it again
-#ifdef SAMURAI_WITH_PETSC
             neighbour.mesh.compute_gravity_center();
-#endif
         }
+#endif
 #endif
     }
 
@@ -982,6 +986,10 @@ namespace samurai
         for (auto& neighbour : m_mpi_neighbourhood)
         {
             world.recv(neighbour.rank, world.rank(), neighbour.mesh.m_subdomain);
+            neighbour.mesh.m_domain = m_domain;
+#ifdef SAMURAI_WITH_PETSC
+            neighbour.mesh.compute_gravity_center();
+#endif
         }
 
         mpi::wait_all(req.begin(), req.end());
@@ -1045,7 +1053,7 @@ namespace samurai
     SAMURAI_INLINE void Mesh_base<D, Config>::construct_subdomain()
     {
         // lcl_type lcl = {m_cells[mesh_id_t::cells].max_level()};
-        lcl_type lcl = {max_level()};
+        lcl_type lcl = {max_level(), m_domain.origin_point(), m_domain.scaling_factor()};
 
         for_each_interval(m_cells[mesh_id_t::cells],
                           [&](std::size_t level, const auto& i, const auto& index)
@@ -1070,6 +1078,7 @@ namespace samurai
             find_neighbourhood();
         }
 #endif
+        update_neighbour_subdomain();
     }
 
     template <class D, class Config>

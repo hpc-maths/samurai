@@ -211,45 +211,33 @@ jobs:
     #########################################################
     linux-mpi-mamba:
         needs: [pre-commit, cppcheck]
-        runs-on: ubuntu-latest
+        runs-on: self-hosted
         steps:
             - uses: actions/checkout@v4
-
-            - name: Cache
-              uses: actions/cache@v4
-              with:
-                  path: |
-                      ~/.cache/ccache
-                  key: ccache-${{ runner.os }}-${{ github.sha }}
-                  restore-keys: |
-                      ccache-${{ runner.os }}-
 
             - name: Mamba and samurai env installation
               uses: mamba-org/setup-micromamba@v2
               with:
                   environment-file: conda/mpi-environment.yml
                   environment-name: samurai-env
-                  cache-environment: true
-                  cache-environment-key: ${{ runner.os }}-${{ hashFiles('conda/mpi-environment.yml') }}
-
-            # - name: Conda update
-            #   shell: bash -l {0}
-            #   run: |
-            #       conda update --all
+                  generate-run-shell: true
+                  micromamba-binary-path: /home/ubuntu/.local/bin/micromamba
+                  download-micromamba: false
+                  post-cleanup: environment
 
             - name: Petsc installation
-              shell: bash -l {0}
+              shell: micromamba-shell {0}
               run: |
-                  conda install -y "petsc>=3.24" pkg-config cxx-compiler
+                  micromamba install -y "petsc>=3.24" pkg-config cxx-compiler ninja
 
-            - name: Conda informations
-              shell: bash -l {0}
+            - name: Micromamba informations
+              shell: micromamba-shell {0}
               run: |
-                  conda info
-                  conda list
+                  micromamba info
+                  micromamba list
 
             - name: Configure
-              shell: bash -l {0}
+              shell: micromamba-shell {0}
               run: |
                   cmake \
                       . \
@@ -262,15 +250,16 @@ jobs:
                       -DBUILD_TESTS=ON
 
             - name: Build
-              shell: bash -l {0}
+              shell: micromamba-shell {0}
               run: |
                   cmake --build build --target finite-volume-advection-2d
                   cmake --build build --target finite-volume-burgers
                   cmake --build build --target finite-volume-heat
                   cmake --build build --target finite-volume-lid-driven-cavity
+                  cmake --build build --target finite-volume-burgers-os-2d-mpi
 
             - name: MPI test finite-volume-advection-2d
-              shell: bash -l {0}
+              shell: micromamba-shell {0}
               run: |
                   cd build
                   set -e  # Stop on first failure
@@ -286,7 +275,7 @@ jobs:
                   python ../python/compare.py FV_advection_2d_size_1_ite_ FV_advection_2d_size_9_ite_ --start 1 --end 19
 
             - name: MPI test finite-volume-burgers
-              shell: bash -l {0}
+              shell: micromamba-shell {0}
               run: |
                   cd build
                   set -e  # Stop on first failure
@@ -302,7 +291,6 @@ jobs:
                   python ../python/compare.py burgers_2D_size_1_ite_ burgers_2D_size_6_ite_ --start 1 --end 19
 
             - name: MPI test finite-volume-heat
-              shell: bash -l {0}
               env:
                   # HPC libraries (MPICH, MUMPS, ScaLAPACK...) frequently leak tcache-incompatible blocks: they use custom allocators,
                   # mixed Fortran/C/C++ memory ownership, aligned allocations, and unusual free patterns.
@@ -312,6 +300,7 @@ jobs:
                   # Here, the 3-rank test crashes at the beginning with the error "malloc(): unaligned tcache chunk detected".
                   # So we disable tcache.
                   GLIBC_TUNABLES: "glibc.malloc.tcache_count=0"
+              shell: micromamba-shell {0}
               run: |
                   cd build
                   set -e  # Stop on first failure
@@ -333,7 +322,7 @@ jobs:
                   rm -f heat_2D*
 
             - name: MPI test finite-volume-lid-driven-cavity
-              shell: bash -l {0}
+              shell: micromamba-shell {0}
               run: |
                   cd build
                   set -e  # Stop on first failure
@@ -351,9 +340,21 @@ jobs:
                   ls
                   python ../python/compare.py ldc_ink_size_1 ldc_ink_size_2 --tol 1e-11
 
+            - name: MPI test burgers OSMP 2D (weak scaling)
+              shell: micromamba-shell {0}
+              run: |
+                  cd build
+                  set -e  # Stop on first failure
+                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-burgers-os-2d-mpi --npx=2 --npy=1 --min-level=0 --max-level=8 --Tf=6 --nfiles 1
+                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-burgers-os-2d-mpi --npx=1 --npy=2 --min-level=0 --max-level=8 --Tf=6 --nfiles 1
+                  mpiexec -n 4 ./demos/FiniteVolume/finite-volume-burgers-os-2d-mpi --npx=2 --npy=2 --min-level=0 --max-level=8 --Tf=6 --nfiles 1
+                  mpiexec -n 8 ./demos/FiniteVolume/finite-volume-burgers-os-2d-mpi --npx=4 --npy=2 --min-level=0 --max-level=8 --Tf=6 --nfiles 1
+                  mpiexec -n 8 ./demos/FiniteVolume/finite-volume-burgers-os-2d-mpi --npx=2 --npy=4 --min-level=0 --max-level=8 --Tf=6 --nfiles 1
+                  mpiexec -n 9 ./demos/FiniteVolume/finite-volume-burgers-os-2d-mpi --npx=3 --npy=3 --min-level=0 --max-level=8 --Tf=6 --nfiles 1
+
     macos-mamba:
         needs: [pre-commit, cppcheck]
-        runs-on: macos-14
+        runs-on: macos-26
         steps:
             - uses: actions/checkout@v4
             - name: Mamba and samurai env installation
@@ -366,12 +367,12 @@ jobs:
             - name: Petsc installation
               shell: bash -l {0}
               run: |
-                micromamba install -y petsc pkg-config
+                  micromamba install -y petsc pkg-config
 
             - name: Install cxx compiler
               shell: bash -l {0}
               run: |
-                  micromamba install -y cxx-compiler\<1.11.0
+                  micromamba install -y cxx-compiler
 
             - name: micromamba informations
               shell: bash -l {0}
