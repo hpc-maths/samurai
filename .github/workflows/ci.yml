@@ -229,6 +229,7 @@ jobs:
               with:
                   environment-file: conda/mpi-environment.yml
                   environment-name: samurai-env
+                  cache-environment: true
 
             - name: Petsc installation
               run: |
