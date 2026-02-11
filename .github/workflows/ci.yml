@@ -215,25 +215,15 @@ jobs:
         steps:
             - uses: actions/checkout@v4
 
-            - name: Cache
-              uses: actions/cache@v4
-              with:
-                  path: |
-                      ~/.cache/ccache
-                  key: ccache-${{ runner.os }}-${{ github.sha }}
-                  restore-keys: |
-                      ccache-${{ runner.os }}-
-
             - name: Mamba and samurai env installation
               uses: mamba-org/setup-micromamba@v2
               with:
                   environment-file: conda/mpi-environment.yml
                   environment-name: samurai-env
-                  cache-environment: true
 
             - name: Petsc installation
               run: |
-                  micromamba install -y "petsc>=3.24" pkg-config cxx-compiler
+                  micromamba install -y "petsc>=3.24" pkg-config cxx-compiler ninja
 
             - name: Micromamba informations
               run: |
