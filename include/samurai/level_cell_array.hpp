@@ -225,6 +225,7 @@ namespace samurai
             ar & m_is_box;
             ar & origin;
             ar & m_scaling_factor;
+            std::copy(origin.begin(), origin.end(), m_origin_point.begin());
         }
 #endif
         template <bool isIntervalListEmpty, bool isParentPointNew, size_t d>
