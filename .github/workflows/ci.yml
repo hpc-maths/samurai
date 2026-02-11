@@ -221,7 +221,8 @@ jobs:
                   environment-file: conda/mpi-environment.yml
                   environment-name: samurai-env
                   generate-run-shell: true
-                  post-cleanup: all
+                  download-micromamba: false
+                  post-cleanup: environment
 
             - name: Petsc installation
               run: |
