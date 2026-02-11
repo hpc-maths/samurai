@@ -347,10 +347,10 @@ namespace samurai
                 {
                     // own part
                     add_prediction_ghosts(
-                        nestedExpand<config::prediction_stencil_radius>(self(this->cells()[mesh_id_t::cells][level]).on(level - 2)),
-                        intersection(nestedExpand<config::prediction_stencil_radius>(
-                                         self(this->cells()[mesh_id_t::cells_and_ghosts][level]).on(level - 1)),
-                                     nestedExpand<config::prediction_stencil_radius>(self(this->subdomain()).on(level - 1))),
+                        nestedExpand(self(this->cells()[mesh_id_t::cells][level]).on(level - 2), config::prediction_stencil_radius),
+                        intersection(nestedExpand(self(this->cells()[mesh_id_t::cells_and_ghosts][level]).on(level - 1),
+                                                  config::prediction_stencil_radius),
+                                     nestedExpand(self(this->subdomain()).on(level - 1), config::prediction_stencil_radius)),
                         level);
 
                     // periodic part
@@ -358,11 +358,11 @@ namespace samurai
                     for (const auto& d : directions)
                     {
                         add_prediction_ghosts(
-                            intersection(nestedExpand<config::prediction_stencil_radius>(
-                                             translate(this->cells()[mesh_id_t::cells][level], d >> delta_l).on(level - 2)),
+                            intersection(nestedExpand(translate(this->cells()[mesh_id_t::cells][level], d >> delta_l).on(level - 2),
+                                                      config::prediction_stencil_radius),
                                          self(this->subdomain()).on(level - 2)),
-                            intersection(nestedExpand<config::prediction_stencil_radius>(
-                                             translate(this->cells()[mesh_id_t::cells_and_ghosts][level], d >> delta_l).on(level - 1)),
+                            intersection(nestedExpand(translate(this->cells()[mesh_id_t::cells_and_ghosts][level], d >> delta_l).on(level - 1),
+                                                      config::prediction_stencil_radius),
                                          self(this->subdomain()).on(level - 1)),
                             level);
                     }
@@ -376,25 +376,27 @@ namespace samurai
                     neighbour.mesh[mesh_id_t::cells],
                     [&](std::size_t level)
                     {
-                        add_prediction_ghosts(intersection(nestedExpand<config::prediction_stencil_radius>(
-                                                               self(neighbour.mesh[mesh_id_t::cells][level]).on(level - 2)),
-                                                           self(this->subdomain()).on(level - 2)),
-                                              intersection(nestedExpand<config::prediction_stencil_radius>(
-                                                               self(neighbour.mesh[mesh_id_t::cells_and_ghosts][level]).on(level - 1)),
-                                                           self(this->subdomain()).on(level - 1)),
-                                              level);
+                        add_prediction_ghosts(
+                            intersection(
+                                nestedExpand(self(neighbour.mesh[mesh_id_t::cells][level]).on(level - 2), config::prediction_stencil_radius),
+                                self(this->subdomain()).on(level - 2)),
+                            intersection(nestedExpand(self(neighbour.mesh[mesh_id_t::cells_and_ghosts][level]).on(level - 1),
+                                                      config::prediction_stencil_radius),
+                                         self(this->subdomain()).on(level - 1)),
+                            level);
 
                         const int delta_l = int(this->domain().level() - level);
 
                         for (const auto& d : directions)
                         {
                             add_prediction_ghosts(
-                                intersection(nestedExpand<config::prediction_stencil_radius>(
-                                                 translate(neighbour.mesh[mesh_id_t::cells][level], d >> delta_l).on(level - 2)),
+                                intersection(nestedExpand(translate(neighbour.mesh[mesh_id_t::cells][level], d >> delta_l).on(level - 2),
+                                                          config::prediction_stencil_radius),
                                              self(this->subdomain()).on(level - 2)),
-                                intersection(nestedExpand<config::prediction_stencil_radius>(
-                                                 translate(neighbour.mesh[mesh_id_t::cells_and_ghosts][level], d >> delta_l).on(level - 1)),
-                                             self(this->subdomain()).on(level - 1)),
+                                intersection(
+                                    nestedExpand(translate(neighbour.mesh[mesh_id_t::cells_and_ghosts][level], d >> delta_l).on(level - 1),
+                                                 config::prediction_stencil_radius),
+                                    self(this->subdomain()).on(level - 1)),
                                 level);
                         }
                     });

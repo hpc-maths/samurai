@@ -117,6 +117,9 @@ namespace samurai
         double min_cell_length() const;
         const lca_type& domain() const;
         const lca_type& subdomain() const;
+
+        void box_like();
+
         const ca_type& get_union() const;
         bool is_periodic() const;
         bool is_periodic(std::size_t d) const;
@@ -679,6 +682,12 @@ namespace samurai
     SAMURAI_INLINE auto Mesh_base<D, Config>::subdomain() const -> const lca_type&
     {
         return m_subdomain;
+    }
+
+    template <class D, class Config>
+    SAMURAI_INLINE void Mesh_base<D, Config>::box_like()
+    {
+        m_domain.box_like();
     }
 
     template <class D, class Config>

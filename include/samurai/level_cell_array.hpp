@@ -173,6 +173,7 @@ namespace samurai
 
         //// Is it box-shaped?
         bool is_box() const;
+        void box_like();
 
         //
         double cell_length() const;
@@ -836,6 +837,12 @@ namespace samurai
     SAMURAI_INLINE bool LevelCellArray<Dim, TInterval>::is_box() const
     {
         return m_is_box;
+    }
+
+    template <std::size_t Dim, class TInterval>
+    SAMURAI_INLINE void LevelCellArray<Dim, TInterval>::box_like()
+    {
+        m_is_box = true;
     }
 
     template <std::size_t Dim, class TInterval>

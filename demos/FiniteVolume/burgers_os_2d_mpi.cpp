@@ -199,6 +199,7 @@ int main(int argc, char* argv[])
     mesh.cfg().periodic(true);
     mesh.find_neighbourhood();
     mesh = {cells, mesh};
+    mesh.box_like();
 
     auto u    = samurai::make_scalar_field<double>("u", mesh);
     auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);
