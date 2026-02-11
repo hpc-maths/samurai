@@ -341,6 +341,8 @@ namespace samurai
         update_sub_mesh();
         construct_corners();
         renumbering();
+        set_origin_point(domain_builder.origin_point());
+        set_scaling_factor(m_config.scaling_factor());
         update_mesh_neighbour();
 #if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
         compute_gravity_center();
