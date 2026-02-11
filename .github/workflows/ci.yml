@@ -226,10 +226,12 @@ jobs:
                   post-cleanup: environment
 
             - name: Petsc installation
+              shell: micromamba-shell {0}
               run: |
                   micromamba install -y "petsc>=3.24" pkg-config cxx-compiler ninja
 
             - name: Micromamba informations
+              shell: micromamba-shell {0}
               run: |
                   micromamba info
                   micromamba list
