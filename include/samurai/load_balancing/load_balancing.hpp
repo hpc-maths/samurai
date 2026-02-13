@@ -116,10 +116,7 @@ namespace samurai
         }
 
         template <class Mesh_t, class Field_t>
-        void update_field(Mesh_t& new_mesh,
-                          Field_t& field,
-                          const std::vector<typename Mesh_t::ca_type>& all_new_cells,
-                          const std::vector<typename Mesh_t::ca_type>& all_old_cells)
+        void update_field(Mesh_t& new_mesh, Field_t& field)
         {
             samurai::times::timers.start("load_balancing_update_field");
             using mesh_id_t = typename Mesh_t::mesh_id_t;
@@ -145,15 +142,16 @@ namespace samurai
             std::vector<std::vector<value_t>> to_send(static_cast<size_t>(world.size()));
 
             // Build payload of field that has been sent to neighbour, so compare old mesh with new neighbour mesh
-            for (size_t neighbour_idx = 0; neighbour_idx < all_new_cells.size(); ++neighbour_idx)
+            std::size_t neighbour_idx = 0;
+            for (auto& neighbour : new_mesh.mpi_neighbourhood())
             {
-                auto& neighbour_new_cells = all_new_cells[neighbour_idx];
+                auto& new_cells = neighbour.mesh[mesh_id_t::cells];
 
                 for (std::size_t level = min_level; level <= max_level; ++level)
                 {
-                    if (!old_mesh[mesh_id_t::cells][level].empty() && !neighbour_new_cells[level].empty())
+                    if (!old_mesh[mesh_id_t::cells][level].empty() && !new_cells[level].empty())
                     {
-                        auto intersect_old_mesh_new_neigh = intersection(old_mesh[mesh_id_t::cells][level], neighbour_new_cells[level]);
+                        auto intersect_old_mesh_new_neigh = intersection(old_mesh[mesh_id_t::cells][level], new_cells[level]);
                         intersect_old_mesh_new_neigh(
                             [&](const auto& interval, const auto& index)
                             {
@@ -166,20 +164,24 @@ namespace samurai
 
                 if (to_send[neighbour_idx].size() != 0)
                 {
-                    auto neighbour_rank = new_mesh.mpi_neighbourhood()[neighbour_idx].rank;
+                    auto neighbour_rank = neighbour.rank;
                     req.push_back(world.isend(neighbour_rank, neighbour_rank, to_send[neighbour_idx]));
                 }
+                ++neighbour_idx;
             }
 
+            neighbour_idx = 0;
             // Build payload of field that I need to receive from neighbour, so compare NEW mesh with OLD neighbour mesh
-            for (size_t neighbour_idx = 0; neighbour_idx < all_old_cells.size(); ++neighbour_idx)
+            for (auto& neighbour : old_mesh.mpi_neighbourhood())
             {
+                auto& old_cells = neighbour.mesh[mesh_id_t::cells];
+
                 bool isintersect = false;
                 for (std::size_t level = min_level; level <= max_level; ++level)
                 {
-                    if (!new_mesh[mesh_id_t::cells][level].empty() && !all_old_cells[neighbour_idx][level].empty())
+                    if (!new_mesh[mesh_id_t::cells][level].empty() && !old_cells[level].empty())
                     {
-                        auto in_interface = intersection(all_old_cells[neighbour_idx][level], new_mesh[mesh_id_t::cells][level]);
+                        auto in_interface = intersection(old_cells[level], new_mesh[mesh_id_t::cells][level]);
 
                         if (!in_interface.empty())
                         {
@@ -197,9 +199,9 @@ namespace samurai
 
                     for (std::size_t level = min_level; level <= max_level; ++level)
                     {
-                        if (!new_mesh[mesh_id_t::cells][level].empty() && !all_old_cells[neighbour_idx][level].empty())
+                        if (!new_mesh[mesh_id_t::cells][level].empty() && !old_cells[level].empty())
                         {
-                            auto in_interface = intersection(all_old_cells[neighbour_idx][level], new_mesh[mesh_id_t::cells][level]);
+                            auto in_interface = intersection(old_cells[level], new_mesh[mesh_id_t::cells][level]);
 
                             in_interface(
                                 [&](const auto& i, const auto& index)
@@ -212,6 +214,7 @@ namespace samurai
                         }
                     }
                 }
+                ++neighbour_idx;
             }
 
             if (!req.empty())
@@ -226,30 +229,11 @@ namespace samurai
         template <class Mesh_t, class Field_t, class... Fields_t>
         void update_fields(Mesh_t& new_mesh, Field_t& field, Fields_t&... kw)
         {
-            // Exchange meshes once for all fields
-            auto [all_new_cells, all_old_cells] = exchange_meshes(new_mesh, field.mesh());
-
-            // Update all fields using already exchanged CellArrays
-            update_field(new_mesh, field, all_new_cells, all_old_cells);
-            update_fields_impl(new_mesh, all_new_cells, all_old_cells, kw...);
-        }
-
-        template <class Mesh_t, class Field_t, class... Fields_t>
-        void update_fields_impl(Mesh_t& new_mesh,
-                                const std::vector<typename Mesh_t::ca_type>& all_new_cells,
-                                const std::vector<typename Mesh_t::ca_type>& all_old_cells,
-                                Field_t& field,
-                                Fields_t&... kw)
-        {
-            update_field(new_mesh, field, all_new_cells, all_old_cells);
-            update_fields_impl(new_mesh, all_new_cells, all_old_cells, kw...);
-        }
-
-        template <class Mesh_t>
-        void update_fields_impl([[maybe_unused]] Mesh_t& new_mesh,
-                                [[maybe_unused]] const std::vector<typename Mesh_t::ca_type>& all_new_cells,
-                                [[maybe_unused]] const std::vector<typename Mesh_t::ca_type>& all_old_cells)
-        {
+            update_field(new_mesh, field);
+            if constexpr (sizeof...(kw) > 0)
+            {
+                update_fields(new_mesh, kw...);
+            }
         }
 
       public:
