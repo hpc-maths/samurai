@@ -179,18 +179,11 @@ namespace samurai
                 {
                     if (!new_mesh[mesh_id_t::cells][level].empty() && !all_old_cells[neighbour_idx][level].empty())
                     {
-                        std::vector<value_t> to_recv;
-
                         auto in_interface = intersection(all_old_cells[neighbour_idx][level], new_mesh[mesh_id_t::cells][level]);
 
-                        in_interface(
-                            [&]([[maybe_unused]] const auto& i, [[maybe_unused]] const auto& index)
-                            {
-                                isintersect = true;
-                            });
-
-                        if (isintersect)
+                        if (!in_interface.empty())
                         {
+                            isintersect = true;
                             break;
                         }
                     }
@@ -282,44 +275,21 @@ namespace samurai
 
             // Phase 1: build payload (cell sorting)
             samurai::times::timers.start("load_balancing_build_payload");
-            samurai::for_each_cell(
-                mesh[Mesh_t::mesh_id_t::cells],
-                [&](const auto& cell)
-                {
-                    if (flags[cell] == world.rank())
-                    {
-                        if constexpr (Mesh_t::dim == 1)
-                        {
-                            new_cl[cell.level][{}].add_point(cell.indices[0]);
-                        }
-                        if constexpr (Mesh_t::dim == 2)
-                        {
-                            new_cl[cell.level][{cell.indices[1]}].add_point(cell.indices[0]);
-                        }
-                        if constexpr (Mesh_t::dim == 3)
-                        {
-                            new_cl[cell.level][{cell.indices[1], cell.indices[2]}].add_point(cell.indices[0]);
-                        }
-                    }
-                    else
-                    {
-                        assert(static_cast<size_t>(flags[cell]) < payload.size());
+            samurai::for_each_cell(mesh[Mesh_t::mesh_id_t::cells],
+                                   [&](const auto& cell)
+                                   {
+                                       auto yz_indices = xt::view(cell.indices, xt::range(1, cell.indices.size()));
+                                       if (flags[cell] == world.rank())
+                                       {
+                                           new_cl[cell.level][yz_indices].add_point(cell.indices[0]);
+                                       }
+                                       else
+                                       {
+                                           assert(static_cast<size_t>(flags[cell]) < payload.size());
 
-                        if constexpr (Mesh_t::dim == 1)
-                        {
-                            payload[static_cast<size_t>(flags[cell])][cell.level][{}].add_point(cell.indices[0]);
-                        }
-                        if constexpr (Mesh_t::dim == 2)
-                        {
-                            payload[static_cast<size_t>(flags[cell])][cell.level][{cell.indices[1]}].add_point(cell.indices[0]);
-                        }
-                        if constexpr (Mesh_t::dim == 3)
-                        {
-                            payload[static_cast<size_t>(flags[cell])][cell.level][{cell.indices[1], cell.indices[2]}].add_point(
-                                cell.indices[0]);
-                        }
-                    }
-                });
+                                           payload[static_cast<size_t>(flags[cell])][cell.level][yz_indices].add_point(cell.indices[0]);
+                                       }
+                                   });
             samurai::times::timers.stop("load_balancing_build_payload");
 
             std::vector<mpi::request> req;
@@ -380,6 +350,7 @@ namespace samurai
 
         template <class Mesh_t, class Weight_t, class Field_t, class... Fields>
         void load_balance(Mesh_t& mesh, Weight_t& weight, Field_t& field, Fields&... kw)
+
         {
             // Early check: no load balancing with single process
             boost::mpi::communicator world;
