@@ -26,44 +26,23 @@ namespace samurai
         CELL
     };
 
-    class Weight
+    class UnitWeight
     {
       public:
 
-        template <class Field>
-        static auto from_field(const Field& f)
-        {
-            auto weight = samurai::make_scalar_field<double>("weight", f.mesh());
-            weight.fill(0.);
-            samurai::for_each_cell(f.mesh(),
-                                   [&](auto cell)
-                                   {
-                                       weight[cell] = f[cell];
-                                   });
-            return weight;
-        }
-
-        template <class Mesh>
-        static auto uniform(const Mesh& mesh)
-        {
-            auto weight = samurai::make_scalar_field<double>("weight", mesh);
-            weight.fill(1.);
-
-            return weight;
-        }
-
-        template <BalanceElement_t elem, class Mesh_t, class Field_t>
-        static double compute_load(const Mesh_t& mesh, const Field_t& weight)
+        template <BalanceElement_t elem, class Mesh_t>
+        static double compute_load(const Mesh_t& mesh)
         {
             using mesh_id_t             = typename Mesh_t::mesh_id_t;
             const auto& current_mesh    = mesh[mesh_id_t::cells];
             double current_process_load = 0.;
             // cell-based load with weight.
-            samurai::for_each_cell(current_mesh,
-                                   [&](const auto& cell)
-                                   {
-                                       current_process_load += weight[cell];
-                                   });
+            samurai::for_each_interval(current_mesh,
+                                       [&](auto, const auto& interval, auto&)
+                                       {
+                                           current_process_load += static_cast<double>(interval.size()); // uniform weight, so just count
+                                                                                                         // cells
+                                       });
             return current_process_load;
         }
     };
@@ -195,7 +174,7 @@ namespace samurai
                 {
                     std::ptrdiff_t count = 0;
                     std::vector<value_t> to_recv;
-                    world.recv(new_mesh.mpi_neighbourhood()[neighbour_idx].rank, world.rank(), to_recv);
+                    world.recv(neighbour.rank, world.rank(), to_recv);
 
                     for (std::size_t level = min_level; level <= max_level; ++level)
                     {
@@ -332,10 +311,11 @@ namespace samurai
             return new_mesh;
         }
 
-        template <class Mesh_t, class Weight_t, class Field_t, class... Fields>
-        void load_balance(Mesh_t& mesh, Weight_t& weight, Field_t& field, Fields&... kw)
-
+        template <class Field_t, class... Fields>
+        void load_balance(Field_t& field, Fields&... kw)
         {
+            using Mesh_t = typename Field_t::mesh_t;
+            auto& mesh   = field.mesh();
             // Early check: no load balancing with single process
             boost::mpi::communicator world;
             if (world.size() <= 1)
@@ -347,7 +327,7 @@ namespace samurai
             samurai::times::timers.start("load_balancing");
 
             // Compute flags for this single pass
-            auto flags = static_cast<Flavor&>(*this).load_balance_impl(mesh, weight);
+            auto flags = static_cast<Flavor&>(*this).load_balance_impl(mesh);
 
             // Update mesh
             auto new_mesh = update_mesh(mesh, flags);
@@ -365,7 +345,7 @@ namespace samurai
             // Final display of cell count after load balancing
             {
                 using mesh_id_t     = typename Mesh_t::mesh_id_t;
-                double total_weight = Weight::compute_load<BalanceElement_t::CELL>(field.mesh(), weight);
+                double total_weight = UnitWeight::compute_load<BalanceElement_t::CELL>(field.mesh());
                 auto nb_cells       = field.mesh().nb_cells(mesh_id_t::cells);
                 std::cout << "Process " << world.rank() << " : " << nb_cells << " cells (total weight " << total_weight
                           << ") after load balancing" << std::endl;

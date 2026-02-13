@@ -20,8 +20,8 @@ namespace samurai
     {
       private:
 
-        template <samurai::BalanceElement_t elem, class Mesh_t, class Field_t>
-        std::vector<double> compute_fluxes(Mesh_t& mesh, const Field_t& weight, int niterations)
+        template <samurai::BalanceElement_t elem, class Mesh_t>
+        std::vector<double> compute_fluxes(Mesh_t& mesh, int niterations)
         {
             samurai::times::timers.start("load_balancing_flux_computation");
 
@@ -31,7 +31,7 @@ namespace samurai
             size_t n_neighbours                         = neighbourhood.size();
 
             // Load of current process
-            double my_load = samurai::Weight::compute_load<elem>(mesh, weight);
+            double my_load = UnitWeight::compute_load<elem>(mesh);
             // Fluxes between processes
             std::vector<double> fluxes(n_neighbours, 0.);
             // Load of each process (all processes not only neighbours)
@@ -92,8 +92,8 @@ namespace samurai
 
         DiffusionLoadBalancer() = default;
 
-        template <class Mesh_t, class Weight_t>
-        auto load_balance_impl(Mesh_t& mesh, const Weight_t& weight)
+        template <class Mesh_t>
+        auto load_balance_impl(Mesh_t& mesh)
         {
             using mesh_id_t = typename Mesh_t::mesh_id_t;
             boost::mpi::communicator world;
@@ -103,8 +103,7 @@ namespace samurai
 
             // Compute fluxes in terms of load to transfer/receive
             // Start with uniform weights to enforce row-based snapping reliably
-            auto uniform_weight        = samurai::Weight::uniform(mesh);
-            std::vector<double> fluxes = compute_fluxes<samurai::BalanceElement_t::CELL>(mesh, uniform_weight, 50);
+            std::vector<double> fluxes = compute_fluxes<samurai::BalanceElement_t::CELL>(mesh, 50);
 
             using cell_t = typename Mesh_t::cell_t;
             std::vector<cell_t> cells;
