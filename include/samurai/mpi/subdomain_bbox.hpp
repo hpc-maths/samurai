@@ -112,6 +112,12 @@ namespace samurai::mpi_neighbor
          */
         bool could_be_neighbor(const SubdomainBoundingBox& other) const
         {
+            if (cell_length == 0.0 || other.cell_length == 0.0)
+            {
+                // If either subdomain is empty, they cannot be neighbors
+                return false;
+            }
+
             auto expanded  = bbox;
             auto expansion = std::min(cell_length, other.cell_length);
 

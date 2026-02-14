@@ -20,9 +20,9 @@
 #ifdef SAMURAI_WITH_MPI
 #include <boost/serialization/vector.hpp>
 
+#include "mpi/subdomain_bbox.hpp"
 #include <boost/mpi.hpp>
 #include <boost/mpi/cartesian_communicator.hpp>
-#include "mpi/subdomain_bbox.hpp"
 namespace mpi = boost::mpi;
 #endif
 
@@ -228,13 +228,9 @@ namespace samurai
 
 #ifdef SAMURAI_WITH_MPI
         // Helper methods for optimized neighbor finding
-        void find_neighbourhood_optimized();
         void add_periodic_candidates(const std::vector<mpi_neighbor::SubdomainBoundingBox<dim>>& all_bboxes,
-                                      const mpi_neighbor::SubdomainBoundingBox<dim>& my_bbox,
-                                      std::set<int>& candidates) const;
-        void verify_candidates_with_interval_algebra(const std::vector<lca_type>& all_subdomains,
-                                                      const std::set<int>& candidates,
-                                                      std::set<int>& verified_neighbors) const;
+                                     const mpi_neighbor::SubdomainBoundingBox<dim>& my_bbox,
+                                     std::set<int>& candidates) const;
 #endif
 
         lca_type m_domain;
@@ -246,13 +242,6 @@ namespace samurai
         coords_t m_gravity_center;
 
         mesh_config<dim> m_config;
-
-#ifdef SAMURAI_WITH_MPI
-        // Cache for optimized neighbor finding
-        bool m_neighbourhood_valid                                 = false;
-        std::size_t m_mesh_generation                              = 0;
-        mpi_neighbor::SubdomainBoundingBox<dim> m_cached_bbox;
-#endif
 
 #ifdef SAMURAI_WITH_MPI
         friend class boost::serialization::access;
@@ -717,17 +706,17 @@ namespace samurai
 
     template <class D, class Config>
     template <typename... T, typename U>
-    SAMURAI_INLINE auto
-    Mesh_base<D, Config>::get_interval(std::size_t level, const interval_t& interval, T... index) const -> const interval_t&
+    SAMURAI_INLINE auto Mesh_base<D, Config>::get_interval(std::size_t level, const interval_t& interval, T... index) const
+        -> const interval_t&
     {
         return m_cells[mesh_id_t::reference].get_interval(level, interval, index...);
     }
 
     template <class D, class Config>
     template <class E>
-    SAMURAI_INLINE auto Mesh_base<D, Config>::get_interval(std::size_t level,
-                                                           const interval_t& interval,
-                                                           const xt::xexpression<E>& index) const -> const interval_t&
+    SAMURAI_INLINE auto
+    Mesh_base<D, Config>::get_interval(std::size_t level, const interval_t& interval, const xt::xexpression<E>& index) const
+        -> const interval_t&
     {
         return m_cells[mesh_id_t::reference].get_interval(level, interval, index);
     }
@@ -1138,58 +1127,6 @@ namespace samurai
     void Mesh_base<D, Config>::find_neighbourhood()
     {
 #ifdef SAMURAI_WITH_MPI
-#ifndef SAMURAI_USE_LEGACY_NEIGHBOR_FINDING
-        // Use optimized O(P + K^2) algorithm by default
-        find_neighbourhood_optimized();
-#else
-        // Legacy O(P^2) algorithm - kept for backward compatibility
-        mpi::communicator world;
-
-        std::vector<lca_type> neighbours(static_cast<std::size_t>(world.size()));
-        mpi::all_gather(world, m_subdomain, neighbours);
-        std::set<int> set_neighbours;
-        for (std::size_t i = 0; i < neighbours.size(); ++i)
-        {
-            if (i != static_cast<std::size_t>(world.rank()))
-            {
-                auto set = intersection(nestedExpand(m_subdomain, 1), neighbours[i]);
-                if (!set.empty())
-                {
-                    set_neighbours.insert(static_cast<int>(i));
-                }
-                for (std::size_t d = 0; d < dim; ++d)
-                {
-                    if (m_config.periodic(d))
-                    {
-                        auto shift             = get_periodic_shift(m_domain, m_subdomain.level(), d);
-                        auto periodic_set_left = intersection(nestedExpand(m_subdomain, 1), translate(neighbours[i], -shift));
-                        if (!periodic_set_left.empty())
-                        {
-                            set_neighbours.insert(static_cast<int>(i));
-                        }
-                        auto periodic_set_right = intersection(nestedExpand(m_subdomain, 1), translate(neighbours[i], shift));
-                        if (!periodic_set_right.empty())
-                        {
-                            set_neighbours.insert(static_cast<int>(i));
-                        }
-                    }
-                }
-            }
-        }
-        m_mpi_neighbourhood.clear();
-        m_mpi_neighbourhood.reserve(set_neighbours.size());
-        for (const auto& neighbour : set_neighbours)
-        {
-            m_mpi_neighbourhood.emplace_back(neighbour);
-        }
-#endif
-#endif
-    }
-
-    template <class D, class Config>
-    void Mesh_base<D, Config>::find_neighbourhood_optimized()
-    {
-#ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
         const int rank = world.rank();
         const int size = world.size();
@@ -1279,17 +1216,13 @@ namespace samurai
             m_mpi_neighbourhood.emplace_back(neighbor);
         }
 
-        // Update cache
-        m_cached_bbox         = my_bbox;
-        m_neighbourhood_valid = true;
-        ++m_mesh_generation;
 #endif
     }
 
     template <class D, class Config>
     void Mesh_base<D, Config>::add_periodic_candidates(const std::vector<mpi_neighbor::SubdomainBoundingBox<dim>>& all_bboxes,
-                                                         const mpi_neighbor::SubdomainBoundingBox<dim>& my_bbox,
-                                                         std::set<int>& candidates) const
+                                                       const mpi_neighbor::SubdomainBoundingBox<dim>& my_bbox,
+                                                       std::set<int>& candidates) const
     {
 #ifdef SAMURAI_WITH_MPI
         // For periodic boundaries, we need to check if subdomains could be neighbors
@@ -1299,8 +1232,8 @@ namespace samurai
             if (m_config.periodic(d))
             {
                 // Compute domain extent in this dimension
-                double domain_min = m_domain.min_corner()[d];
-                double domain_max = m_domain.max_corner()[d];
+                double domain_min  = m_domain.min_corner()[d];
+                double domain_max  = m_domain.max_corner()[d];
                 double domain_size = domain_max - domain_min;
 
                 for (const auto& other_bbox : all_bboxes)
@@ -1312,7 +1245,7 @@ namespace samurai
 
                     // Check if bboxes could be neighbors through periodic boundary
                     // by virtually shifting the other bbox by +/- domain_size
-                    mpi_neighbor::SubdomainBoundingBox<dim> shifted_bbox_left = other_bbox;
+                    mpi_neighbor::SubdomainBoundingBox<dim> shifted_bbox_left  = other_bbox;
                     mpi_neighbor::SubdomainBoundingBox<dim> shifted_bbox_right = other_bbox;
 
                     shifted_bbox_left.bbox.min_corner()[d] -= domain_size;
@@ -1320,25 +1253,13 @@ namespace samurai
                     shifted_bbox_right.bbox.min_corner()[d] += domain_size;
                     shifted_bbox_right.bbox.max_corner()[d] += domain_size;
 
-                    if (my_bbox.could_be_neighbor(shifted_bbox_left) ||
-                        my_bbox.could_be_neighbor(shifted_bbox_right))
+                    if (my_bbox.could_be_neighbor(shifted_bbox_left) || my_bbox.could_be_neighbor(shifted_bbox_right))
                     {
                         candidates.insert(other_bbox.rank);
                     }
                 }
             }
         }
-#endif
-    }
-
-    template <class D, class Config>
-    void Mesh_base<D, Config>::verify_candidates_with_interval_algebra([[maybe_unused]] const std::vector<lca_type>& all_subdomains,
-                                                                         [[maybe_unused]] const std::set<int>& candidates,
-                                                                         [[maybe_unused]] std::set<int>& verified_neighbors) const
-    {
-#ifdef SAMURAI_WITH_MPI
-        // This helper is currently not used - verification is done inline in find_neighbourhood_optimized()
-        // Kept for potential future refactoring
 #endif
     }
 
