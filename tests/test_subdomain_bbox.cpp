@@ -67,137 +67,83 @@ TEST(SubdomainBBox, IntersectionDetection)
     EXPECT_TRUE(bbox2.could_be_neighbor(bbox1));
 }
 
-// // Test 3: Non-intersecting bboxes
-// TEST(SubdomainBBox, NonIntersecting)
-// {
-//     using BBox = samurai::mpi_neighbor::SubdomainBoundingBox<double, 2>;
+// Test 3: Non-intersecting bboxes
+TEST(SubdomainBBox, NonIntersecting)
+{
+    constexpr std::size_t dim = 2;
 
-//     // Create two distant bboxes
-//     BBox bbox1(0, samurai::Box<double, 2>({0.0, 0.0}, {0.3, 0.3}), 3, 3, 100);
-//     BBox bbox2(1, samurai::Box<double, 2>({0.7, 0.7}, {1.0, 1.0}), 3, 3, 100);
+    using BBox = samurai::mpi_neighbor::SubdomainBoundingBox<dim>;
 
-//     // They should NOT be neighbors (too far apart)
-//     EXPECT_FALSE(bbox1.could_be_neighbor(bbox2, 0.1));
-//     EXPECT_FALSE(bbox2.could_be_neighbor(bbox1, 0.1));
-// }
+    // Create two distant bboxes
+    BBox bbox1(0, 0.125, samurai::Box<double, dim>({0.0, 0.0}, {0.3, 0.3}));
+    BBox bbox2(1, 0.125, samurai::Box<double, dim>({0.7, 0.7}, {1.0, 1.0}));
 
-// // Test 4: Expansion factor effect
-// TEST(SubdomainBBox, ExpansionFactor)
-// {
-//     using BBox = samurai::mpi_neighbor::SubdomainBoundingBox<double, 2>;
+    // They should NOT be neighbors (too far apart)
+    EXPECT_FALSE(bbox1.could_be_neighbor(bbox2));
+    EXPECT_FALSE(bbox2.could_be_neighbor(bbox1));
+}
 
-//     // Create two bboxes with a small gap
-//     BBox bbox1(0, samurai::Box<double, 2>({0.0, 0.0}, {0.4, 1.0}), 3, 3, 100);
-//     BBox bbox2(1, samurai::Box<double, 2>({0.6, 0.0}, {1.0, 1.0}), 3, 3, 100);
+// Demonstration test showing candidate reduction
+TEST(SubdomainBBox, CandidateReduction)
+{
+    constexpr std::size_t dim = 2;
+    using BBox                = samurai::mpi_neighbor::SubdomainBoundingBox<dim>;
 
-//     // With small expansion, not neighbors
-//     EXPECT_FALSE(bbox1.could_be_neighbor(bbox2, 0.5));
+    // Simulate 16 processes arranged in a 4x4 grid
+    constexpr int grid_size     = 100;
+    constexpr int num_processes = grid_size * grid_size;
 
-//     // With larger expansion, they become neighbors
-//     EXPECT_TRUE(bbox1.could_be_neighbor(bbox2, 2.0));
-// }
+    std::vector<BBox> all_bboxes;
 
-// // Test 5: Multi-level mesh bbox
-// TEST(SubdomainBBox, MultiLevelMesh)
-// {
-//     constexpr std::size_t dim = 2;
+    // Create bboxes for grid decomposition
+    double cell_size = 1.0 / grid_size;
+    for (std::size_t i = 0; i < grid_size; ++i)
+    {
+        for (std::size_t j = 0; j < grid_size; ++j)
+        {
+            int rank     = static_cast<int>((i * grid_size) + j);
+            double x_min = static_cast<double>(i) * cell_size;
+            double x_max = static_cast<double>(i + 1) * cell_size;
+            double y_min = static_cast<double>(j) * cell_size;
+            double y_max = static_cast<double>(j + 1) * cell_size;
 
-//     // Create mesh with multiple levels
-//     samurai::CellList<dim> cl;
+            all_bboxes.emplace_back(rank, cell_size, samurai::Box<double, dim>({x_min, y_min}, {x_max, y_max}));
+        }
+    }
 
-//     // Level 2: coarse cells
-//     cl[2][{}].add_interval({0, 2});
+    // For process in center (rank 5: position [1,1])
+    int test_rank       = 5;
+    const auto& my_bbox = all_bboxes[static_cast<std::size_t>(test_rank)];
 
-//     // Level 3: refined cells
-//     cl[3][{}].add_interval({4, 8});
+    // Count candidates using bbox screening
+    int bbox_candidates = 0;
+    for (const auto& other : all_bboxes)
+    {
+        if (other.rank != test_rank && my_bbox.could_be_neighbor(other))
+        {
+            bbox_candidates++;
+        }
+    }
 
-//     samurai::CellArray<dim> ca(cl);
+    // Brute force would check all other processes
+    int brute_force_candidates = num_processes - 1; // 15
 
-//     // Compute bounding box
-//     auto bbox = samurai::mpi_neighbor::compute_subdomain_bbox(ca);
+    // Bbox screening should find only ~8 neighbors (Moore neighborhood)
+    EXPECT_LT(bbox_candidates, brute_force_candidates);
+    EXPECT_LE(bbox_candidates, 8); // At most 8 neighbors in 2D grid
 
-//     // Should track both levels
-//     EXPECT_EQ(bbox.min_level, 2);
-//     EXPECT_EQ(bbox.max_level, 3);
+    // Calculate reduction
+    double reduction = 100.0 * (1.0 - static_cast<double>(bbox_candidates) / brute_force_candidates);
 
-//     // Bbox should encompass all cells
-//     EXPECT_GE(bbox.bbox.max_corner()[0], 0.5); // At least half domain
-// }
+    std::cout << "\n=== Candidate Reduction Demo ===\n";
+    std::cout << fmt::format("Processes: {} ({}x{} grid)\n", num_processes, grid_size, grid_size);
+    std::cout << "Test rank: " << test_rank << " (center process)\n";
+    std::cout << "Brute force candidates: " << brute_force_candidates << "\n";
+    std::cout << "BBox candidates: " << bbox_candidates << "\n";
+    std::cout << "Reduction: " << std::fixed << std::setprecision(1) << reduction << "%\n";
+    std::cout << "Speedup: " << std::fixed << std::setprecision(1) << (static_cast<double>(brute_force_candidates) / bbox_candidates)
+              << "×\n";
+    std::cout << "===============================\n\n";
 
-// // Test 6: Max cell size computation
-// TEST(SubdomainBBox, MaxCellSize)
-// {
-//     using BBox = samurai::mpi_neighbor::SubdomainBoundingBox<double, 2>;
-
-//     // Bbox spanning [0,1] x [0,1] at level 3
-//     BBox bbox(0, samurai::Box<double, 2>({0.0, 0.0}, {1.0, 1.0}), 3, 4, 100);
-
-//     // At level 3, cell size should be 1/8 = 0.125
-//     double max_cell_size = bbox.compute_max_cell_size();
-
-//     EXPECT_NEAR(max_cell_size, 0.125, 1e-6);
-// }
-
-// // Demonstration test showing candidate reduction
-// TEST(SubdomainBBox, CandidateReduction)
-// {
-//     using BBox = samurai::mpi_neighbor::SubdomainBoundingBox<double, 2>;
-
-//     // Simulate 16 processes arranged in a 4x4 grid
-//     constexpr int grid_size     = 4;
-//     constexpr int num_processes = grid_size * grid_size;
-
-//     std::vector<BBox> all_bboxes;
-
-//     // Create bboxes for grid decomposition
-//     double cell_size = 1.0 / grid_size;
-//     for (std::size_t i = 0; i < grid_size; ++i)
-//     {
-//         for (std::size_t j = 0; j < grid_size; ++j)
-//         {
-//             int rank     = static_cast<int>((i * grid_size) + j);
-//             double x_min = static_cast<double>(i) * cell_size;
-//             double x_max = static_cast<double>(i + 1) * cell_size;
-//             double y_min = static_cast<double>(j) * cell_size;
-//             double y_max = static_cast<double>(j + 1) * cell_size;
-
-//             all_bboxes.emplace_back(rank, samurai::Box<double, 2>({x_min, y_min}, {x_max, y_max}), 3, 3, 100);
-//         }
-//     }
-
-//     // For process in center (rank 5: position [1,1])
-//     int test_rank       = 5;
-//     const auto& my_bbox = all_bboxes[static_cast<std::size_t>(test_rank)];
-
-//     // Count candidates using bbox screening
-//     int bbox_candidates = 0;
-//     for (const auto& other : all_bboxes)
-//     {
-//         if (other.rank != test_rank && my_bbox.could_be_neighbor(other, 2.0))
-//         {
-//             bbox_candidates++;
-//         }
-//     }
-
-//     // Brute force would check all other processes
-//     int brute_force_candidates = num_processes - 1; // 15
-
-//     // Bbox screening should find only ~8 neighbors (Moore neighborhood)
-//     EXPECT_LT(bbox_candidates, brute_force_candidates);
-//     EXPECT_LE(bbox_candidates, 8); // At most 8 neighbors in 2D grid
-
-//     // Calculate reduction
-//     double reduction = 100.0 * (1.0 - static_cast<double>(bbox_candidates) / brute_force_candidates);
-
-//     std::cout << "\n=== Candidate Reduction Demo ===\n";
-//     std::cout << "Processes: " << num_processes << " (4x4 grid)\n";
-//     std::cout << "Test rank: " << test_rank << " (center process)\n";
-//     std::cout << "Brute force candidates: " << brute_force_candidates << "\n";
-//     std::cout << "BBox candidates: " << bbox_candidates << "\n";
-//     std::cout << "Reduction: " << std::fixed << std::setprecision(1) << reduction << "%\n";
-//     std::cout << "Speedup: " << std::fixed << std::setprecision(1) << (static_cast<double>(brute_force_candidates) / bbox_candidates)
-//               << "×\n";
-//     std::cout << "===============================\n\n";
-
-//     EXPECT_GT(reduction, 0.0); // Should achieve some reduction
-// }
+    EXPECT_GT(reduction, 0.0); // Should achieve some reduction
+}
