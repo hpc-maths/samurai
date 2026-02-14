@@ -229,8 +229,8 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
         // Helper methods for optimized neighbor finding
         void find_neighbourhood_optimized();
-        void add_periodic_candidates(const std::vector<mpi_neighbor::SubdomainBoundingBox<double, dim>>& all_bboxes,
-                                      const mpi_neighbor::SubdomainBoundingBox<double, dim>& my_bbox,
+        void add_periodic_candidates(const std::vector<mpi_neighbor::SubdomainBoundingBox<dim>>& all_bboxes,
+                                      const mpi_neighbor::SubdomainBoundingBox<dim>& my_bbox,
                                       std::set<int>& candidates) const;
         void verify_candidates_with_interval_algebra(const std::vector<lca_type>& all_subdomains,
                                                       const std::set<int>& candidates,
@@ -251,7 +251,7 @@ namespace samurai
         // Cache for optimized neighbor finding
         bool m_neighbourhood_valid                                 = false;
         std::size_t m_mesh_generation                              = 0;
-        mpi_neighbor::SubdomainBoundingBox<double, dim> m_cached_bbox;
+        mpi_neighbor::SubdomainBoundingBox<dim> m_cached_bbox;
 #endif
 
 #ifdef SAMURAI_WITH_MPI
@@ -1198,18 +1198,17 @@ namespace samurai
         auto my_bbox = mpi_neighbor::compute_subdomain_bbox(m_subdomain);
         my_bbox.rank = rank;
 
-        std::vector<mpi_neighbor::SubdomainBoundingBox<double, dim>> all_bboxes(static_cast<std::size_t>(size));
+        std::vector<mpi_neighbor::SubdomainBoundingBox<dim>> all_bboxes(static_cast<std::size_t>(size));
         mpi::all_gather(world, my_bbox, all_bboxes);
 
         // Phase 2: Fast screening with bounding boxes
         std::set<int> candidates;
-        constexpr double expansion_factor = 1.5; // Configurable safety margin
 
         for (int i = 0; i < size; ++i)
         {
             if (i != rank)
             {
-                if (my_bbox.could_be_neighbor(all_bboxes[static_cast<std::size_t>(i)], expansion_factor))
+                if (my_bbox.could_be_neighbor(all_bboxes[static_cast<std::size_t>(i)]))
                 {
                     candidates.insert(i);
                 }
@@ -1288,8 +1287,8 @@ namespace samurai
     }
 
     template <class D, class Config>
-    void Mesh_base<D, Config>::add_periodic_candidates(const std::vector<mpi_neighbor::SubdomainBoundingBox<double, dim>>& all_bboxes,
-                                                         const mpi_neighbor::SubdomainBoundingBox<double, dim>& my_bbox,
+    void Mesh_base<D, Config>::add_periodic_candidates(const std::vector<mpi_neighbor::SubdomainBoundingBox<dim>>& all_bboxes,
+                                                         const mpi_neighbor::SubdomainBoundingBox<dim>& my_bbox,
                                                          std::set<int>& candidates) const
     {
 #ifdef SAMURAI_WITH_MPI
@@ -1313,17 +1312,16 @@ namespace samurai
 
                     // Check if bboxes could be neighbors through periodic boundary
                     // by virtually shifting the other bbox by +/- domain_size
-                    mpi_neighbor::SubdomainBoundingBox<double, dim> shifted_bbox_left = other_bbox;
-                    mpi_neighbor::SubdomainBoundingBox<double, dim> shifted_bbox_right = other_bbox;
+                    mpi_neighbor::SubdomainBoundingBox<dim> shifted_bbox_left = other_bbox;
+                    mpi_neighbor::SubdomainBoundingBox<dim> shifted_bbox_right = other_bbox;
 
                     shifted_bbox_left.bbox.min_corner()[d] -= domain_size;
                     shifted_bbox_left.bbox.max_corner()[d] -= domain_size;
                     shifted_bbox_right.bbox.min_corner()[d] += domain_size;
                     shifted_bbox_right.bbox.max_corner()[d] += domain_size;
 
-                    constexpr double expansion_factor = 1.5;
-                    if (my_bbox.could_be_neighbor(shifted_bbox_left, expansion_factor) ||
-                        my_bbox.could_be_neighbor(shifted_bbox_right, expansion_factor))
+                    if (my_bbox.could_be_neighbor(shifted_bbox_left) ||
+                        my_bbox.could_be_neighbor(shifted_bbox_right))
                     {
                         candidates.insert(other_bbox.rank);
                     }
