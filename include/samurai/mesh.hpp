@@ -22,6 +22,7 @@
 
 #include <boost/mpi.hpp>
 #include <boost/mpi/cartesian_communicator.hpp>
+#include "mpi/subdomain_bbox.hpp"
 namespace mpi = boost::mpi;
 #endif
 
@@ -225,6 +226,17 @@ namespace samurai
         void load_transfer(const std::vector<double>& load_fluxes);
         std::size_t max_nb_cells(std::size_t level) const;
 
+#ifdef SAMURAI_WITH_MPI
+        // Helper methods for optimized neighbor finding
+        void find_neighbourhood_optimized();
+        void add_periodic_candidates(const std::vector<mpi_neighbor::SubdomainBoundingBox<double, dim>>& all_bboxes,
+                                      const mpi_neighbor::SubdomainBoundingBox<double, dim>& my_bbox,
+                                      std::set<int>& candidates) const;
+        void verify_candidates_with_interval_algebra(const std::vector<lca_type>& all_subdomains,
+                                                      const std::set<int>& candidates,
+                                                      std::set<int>& verified_neighbors) const;
+#endif
+
         lca_type m_domain;
         lca_type m_subdomain;
         mesh_t m_cells;
@@ -234,6 +246,13 @@ namespace samurai
         coords_t m_gravity_center;
 
         mesh_config<dim> m_config;
+
+#ifdef SAMURAI_WITH_MPI
+        // Cache for optimized neighbor finding
+        bool m_neighbourhood_valid                                 = false;
+        std::size_t m_mesh_generation                              = 0;
+        mpi_neighbor::SubdomainBoundingBox<double, dim> m_cached_bbox;
+#endif
 
 #ifdef SAMURAI_WITH_MPI
         friend class boost::serialization::access;
@@ -1119,6 +1138,11 @@ namespace samurai
     void Mesh_base<D, Config>::find_neighbourhood()
     {
 #ifdef SAMURAI_WITH_MPI
+#ifndef SAMURAI_USE_LEGACY_NEIGHBOR_FINDING
+        // Use optimized O(P + K^2) algorithm by default
+        find_neighbourhood_optimized();
+#else
+        // Legacy O(P^2) algorithm - kept for backward compatibility
         mpi::communicator world;
 
         std::vector<lca_type> neighbours(static_cast<std::size_t>(world.size()));
@@ -1158,6 +1182,165 @@ namespace samurai
         {
             m_mpi_neighbourhood.emplace_back(neighbour);
         }
+#endif
+#endif
+    }
+
+    template <class D, class Config>
+    void Mesh_base<D, Config>::find_neighbourhood_optimized()
+    {
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        const int rank = world.rank();
+        const int size = world.size();
+
+        // Phase 1: Exchange bounding boxes (64 bytes each vs KB of mesh data)
+        auto my_bbox = mpi_neighbor::compute_subdomain_bbox(m_subdomain);
+        my_bbox.rank = rank;
+
+        std::vector<mpi_neighbor::SubdomainBoundingBox<double, dim>> all_bboxes(static_cast<std::size_t>(size));
+        mpi::all_gather(world, my_bbox, all_bboxes);
+
+        // Phase 2: Fast screening with bounding boxes
+        std::set<int> candidates;
+        constexpr double expansion_factor = 1.5; // Configurable safety margin
+
+        for (int i = 0; i < size; ++i)
+        {
+            if (i != rank)
+            {
+                if (my_bbox.could_be_neighbor(all_bboxes[static_cast<std::size_t>(i)], expansion_factor))
+                {
+                    candidates.insert(i);
+                }
+            }
+        }
+
+        // Add periodic boundary candidates
+        if (is_periodic())
+        {
+            add_periodic_candidates(all_bboxes, my_bbox, candidates);
+        }
+
+        // Phase 3: Precise verification with interval algebra (only for candidates)
+        std::vector<lca_type> candidate_subdomains;
+        candidate_subdomains.reserve(candidates.size());
+
+        // Gather only candidate subdomains
+        std::vector<int> candidate_ranks(candidates.begin(), candidates.end());
+        std::vector<mpi::request> requests;
+        requests.reserve(candidates.size());
+
+        for (int candidate_rank : candidate_ranks)
+        {
+            candidate_subdomains.emplace_back();
+            requests.push_back(world.irecv(candidate_rank, 0, candidate_subdomains.back()));
+        }
+
+        // Send my subdomain to all candidates
+        for (int candidate_rank : candidate_ranks)
+        {
+            requests.push_back(world.isend(candidate_rank, 0, m_subdomain));
+        }
+
+        mpi::wait_all(requests.begin(), requests.end());
+
+        // Verify candidates with precise interval algebra
+        std::set<int> verified_neighbors;
+        for (std::size_t i = 0; i < candidate_ranks.size(); ++i)
+        {
+            auto set = intersection(nestedExpand(m_subdomain, 1), candidate_subdomains[i]);
+            if (!set.empty())
+            {
+                verified_neighbors.insert(candidate_ranks[i]);
+            }
+
+            // Check periodic boundaries for this candidate
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                if (m_config.periodic(d))
+                {
+                    auto shift              = get_periodic_shift(m_domain, m_subdomain.level(), d);
+                    auto periodic_set_left  = intersection(nestedExpand(m_subdomain, 1), translate(candidate_subdomains[i], -shift));
+                    auto periodic_set_right = intersection(nestedExpand(m_subdomain, 1), translate(candidate_subdomains[i], shift));
+
+                    if (!periodic_set_left.empty() || !periodic_set_right.empty())
+                    {
+                        verified_neighbors.insert(candidate_ranks[i]);
+                    }
+                }
+            }
+        }
+
+        // Update neighborhood list
+        m_mpi_neighbourhood.clear();
+        m_mpi_neighbourhood.reserve(verified_neighbors.size());
+        for (int neighbor : verified_neighbors)
+        {
+            m_mpi_neighbourhood.emplace_back(neighbor);
+        }
+
+        // Update cache
+        m_cached_bbox         = my_bbox;
+        m_neighbourhood_valid = true;
+        ++m_mesh_generation;
+#endif
+    }
+
+    template <class D, class Config>
+    void Mesh_base<D, Config>::add_periodic_candidates(const std::vector<mpi_neighbor::SubdomainBoundingBox<double, dim>>& all_bboxes,
+                                                         const mpi_neighbor::SubdomainBoundingBox<double, dim>& my_bbox,
+                                                         std::set<int>& candidates) const
+    {
+#ifdef SAMURAI_WITH_MPI
+        // For periodic boundaries, we need to check if subdomains could be neighbors
+        // when wrapped around the periodic boundaries
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            if (m_config.periodic(d))
+            {
+                // Compute domain extent in this dimension
+                double domain_min = m_domain.min_corner()[d];
+                double domain_max = m_domain.max_corner()[d];
+                double domain_size = domain_max - domain_min;
+
+                for (const auto& other_bbox : all_bboxes)
+                {
+                    if (other_bbox.rank == my_bbox.rank)
+                    {
+                        continue;
+                    }
+
+                    // Check if bboxes could be neighbors through periodic boundary
+                    // by virtually shifting the other bbox by +/- domain_size
+                    mpi_neighbor::SubdomainBoundingBox<double, dim> shifted_bbox_left = other_bbox;
+                    mpi_neighbor::SubdomainBoundingBox<double, dim> shifted_bbox_right = other_bbox;
+
+                    shifted_bbox_left.bbox.min_corner()[d] -= domain_size;
+                    shifted_bbox_left.bbox.max_corner()[d] -= domain_size;
+                    shifted_bbox_right.bbox.min_corner()[d] += domain_size;
+                    shifted_bbox_right.bbox.max_corner()[d] += domain_size;
+
+                    constexpr double expansion_factor = 1.5;
+                    if (my_bbox.could_be_neighbor(shifted_bbox_left, expansion_factor) ||
+                        my_bbox.could_be_neighbor(shifted_bbox_right, expansion_factor))
+                    {
+                        candidates.insert(other_bbox.rank);
+                    }
+                }
+            }
+        }
+#endif
+    }
+
+    template <class D, class Config>
+    void Mesh_base<D, Config>::verify_candidates_with_interval_algebra([[maybe_unused]] const std::vector<lca_type>& all_subdomains,
+                                                                         [[maybe_unused]] const std::set<int>& candidates,
+                                                                         [[maybe_unused]] std::set<int>& verified_neighbors) const
+    {
+#ifdef SAMURAI_WITH_MPI
+        // This helper is currently not used - verification is done inline in find_neighbourhood_optimized()
+        // Kept for potential future refactoring
 #endif
     }
 
