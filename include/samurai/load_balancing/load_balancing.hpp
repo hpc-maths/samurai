@@ -54,51 +54,11 @@ namespace samurai
 
         int nloadbalancing;
 
-        // Exchange only the CellArray of meshes (cells part)
-        template <class Mesh_t>
-        auto exchange_meshes(const Mesh_t& new_mesh, const Mesh_t& old_mesh)
-        {
-            samurai::times::timers.start("load_balancing_exchange_meshes");
-
-            using CellArray_t = typename Mesh_t::ca_type;
-
-            boost::mpi::communicator world;
-
-            const auto& neighbours = new_mesh.mpi_neighbourhood();
-            std::size_t nb_neigh   = neighbours.size();
-
-            std::vector<CellArray_t> all_new_cells(nb_neigh);
-            std::vector<CellArray_t> all_old_cells(nb_neigh);
-            std::vector<mpi::request> reqs;
-
-            // Phase 1: non-blocking receptions of CellArrays
-            for (std::size_t idx = 0; idx < nb_neigh; ++idx)
-            {
-                const auto& nbr = neighbours[idx];
-                reqs.push_back(world.irecv(nbr.rank, 0, all_new_cells[idx]));
-                reqs.push_back(world.irecv(nbr.rank, 1, all_old_cells[idx]));
-            }
-
-            // Phase 2: non-blocking sends of CellArrays
-            for (const auto& nbr : neighbours)
-            {
-                reqs.push_back(world.isend(nbr.rank, 0, new_mesh[Mesh_t::mesh_id_t::cells]));
-                reqs.push_back(world.isend(nbr.rank, 1, old_mesh[Mesh_t::mesh_id_t::cells]));
-            }
-
-            // Finalize communications
-            mpi::wait_all(reqs.begin(), reqs.end());
-
-            samurai::times::timers.stop("load_balancing_exchange_meshes");
-
-            return std::make_pair(std::move(all_new_cells), std::move(all_old_cells));
-        }
-
-        template <class Mesh_t, class Field_t>
-        void update_field(Mesh_t& new_mesh, Field_t& field)
+        template <class Field_t>
+        void update_field(typename Field_t::mesh_t& new_mesh, Field_t& field)
         {
             samurai::times::timers.start("load_balancing_update_field");
-            using mesh_id_t = typename Mesh_t::mesh_id_t;
+            using mesh_id_t = typename Field_t::mesh_t::mesh_id_t;
             using value_t   = typename Field_t::value_type;
             boost::mpi::communicator world;
 
