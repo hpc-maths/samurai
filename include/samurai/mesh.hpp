@@ -166,8 +166,6 @@ namespace samurai
         CellOwnership& cell_ownership();
         const CellOwnership& cell_ownership() const;
 
-        void find_neighbourhood();
-
       protected:
 
         using derived_type = D;
@@ -218,6 +216,7 @@ namespace samurai
         void construct_corners();
         void update_sub_mesh();
         void renumbering();
+        void find_neighbourhood();
 
         void compute_gravity_center();
 
@@ -295,10 +294,10 @@ namespace samurai
 #else
         this->m_cells[mesh_id_t::cells][m_config.start_level()] = m_domain;
 #endif
-        update_meshid_neighbour(mesh_id_t::cells);
 
         construct_subdomain();
         construct_union();
+        update_meshid_neighbour(mesh_id_t::cells);
         update_sub_mesh();
         construct_corners();
         renumbering();
@@ -344,11 +343,11 @@ namespace samurai
 
         m_cells[mesh_id_t::cells] = {domain_cl, false};
 #endif
-        update_meshid_neighbour(mesh_id_t::cells);
 
         construct_subdomain();
         m_domain = m_subdomain;
         construct_union();
+        update_meshid_neighbour(mesh_id_t::cells);
         update_sub_mesh();
         construct_corners();
         renumbering();
@@ -366,11 +365,11 @@ namespace samurai
         : m_config(config)
     {
         m_cells[mesh_id_t::cells] = {cl, false};
-        update_meshid_neighbour(mesh_id_t::cells);
 
         construct_subdomain();
         construct_domain();
         construct_union();
+        update_meshid_neighbour(mesh_id_t::cells);
         update_sub_mesh();
         construct_corners();
         renumbering();
@@ -388,11 +387,11 @@ namespace samurai
         : m_config(config)
     {
         m_cells[mesh_id_t::cells] = ca;
-        update_meshid_neighbour(mesh_id_t::cells);
 
         construct_subdomain();
         construct_domain();
         construct_union();
+        update_meshid_neighbour(mesh_id_t::cells);
         update_sub_mesh();
         construct_corners();
         renumbering();
@@ -411,10 +410,10 @@ namespace samurai
         , m_config(ref_mesh.m_config)
     {
         m_cells[mesh_id_t::cells] = ca;
-        update_meshid_neighbour(mesh_id_t::cells);
 
         construct_subdomain();
         construct_union();
+        update_meshid_neighbour(mesh_id_t::cells);
         update_sub_mesh();
         construct_corners();
         renumbering();
@@ -433,10 +432,10 @@ namespace samurai
         , m_config(ref_mesh.m_config)
     {
         m_cells[mesh_id_t::cells] = {cl, false};
-        update_meshid_neighbour(mesh_id_t::cells);
 
         construct_subdomain();
         construct_union();
+        update_meshid_neighbour(mesh_id_t::cells);
         update_sub_mesh();
         construct_corners();
         renumbering();
@@ -1081,12 +1080,9 @@ namespace samurai
         m_subdomain = {lcl};
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
-        if (m_mpi_neighbourhood.empty() && world.size() > 1)
-        {
-            find_neighbourhood();
-        }
-#endif
+        find_neighbourhood();
         update_neighbour_subdomain();
+#endif
     }
 
     template <class D, class Config>
