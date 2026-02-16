@@ -1,8 +1,8 @@
 # Scalable MPI Neighbor Finding for 10,000+ Processes
 
-**Author**: AI Code Assistant  
-**Date**: February 14, 2026  
-**Status**: Design Proposal  
+**Author**: AI Code Assistant
+**Date**: February 14, 2026
+**Status**: Design Proposal
 **Target**: Samurai AMR Library
 
 ---
@@ -64,9 +64,9 @@ void Mesh_base<D, Config>::find_neighbourhood()
     // BOTTLENECK 1: All-gather full subdomain meshes
     std::vector<lca_type> neighbours(static_cast<std::size_t>(world.size()));
     mpi::all_gather(world, m_subdomain, neighbours);  // O(P × mesh_size)
-    
+
     std::set<int> set_neighbours;
-    
+
     // BOTTLENECK 2: Sequential intersection tests
     for (std::size_t i = 0; i < neighbours.size(); ++i)  // O(P) iterations
     {
@@ -78,19 +78,19 @@ void Mesh_base<D, Config>::find_neighbourhood()
             {
                 set_neighbours.insert(static_cast<int>(i));
             }
-            
+
             // BOTTLENECK 4: Periodic boundary checks (2×dim additional tests)
             for (std::size_t d = 0; d < dim; ++d)
             {
                 if (m_config.periodic(d))
                 {
                     auto shift = get_periodic_shift(m_domain, m_subdomain.level(), d);
-                    auto periodic_set_left = intersection(nestedExpand(m_subdomain, 1), 
+                    auto periodic_set_left = intersection(nestedExpand(m_subdomain, 1),
                                                          translate(neighbours[i], -shift));
                     if (!periodic_set_left.empty())
                         set_neighbours.insert(static_cast<int>(i));
-                    
-                    auto periodic_set_right = intersection(nestedExpand(m_subdomain, 1), 
+
+                    auto periodic_set_right = intersection(nestedExpand(m_subdomain, 1),
                                                           translate(neighbours[i], shift));
                     if (!periodic_set_right.empty())
                         set_neighbours.insert(static_cast<int>(i));
@@ -98,7 +98,7 @@ void Mesh_base<D, Config>::find_neighbourhood()
             }
         }
     }
-    
+
     m_mpi_neighbourhood.clear();
     m_mpi_neighbourhood.reserve(set_neighbours.size());
     for (const auto& neighbour : set_neighbours)
@@ -232,13 +232,13 @@ namespace mpi
 
     /**
      * @brief Compact representation of a subdomain for neighbor discovery.
-     * 
+     *
      * This structure contains only the essential geometric information needed
      * for the initial screening phase of neighbor discovery, dramatically
      * reducing communication volume compared to broadcasting full mesh structures.
-     * 
+     *
      * Size: ~64 bytes (2×dim doubles + metadata) vs. ~KB for full mesh
-     * 
+     *
      * @tparam T Coordinate type (typically double)
      * @tparam dim Spatial dimension
      */
@@ -247,22 +247,22 @@ namespace mpi
     {
         /// MPI rank owning this subdomain
         int rank = -1;
-        
+
         /// Tight axis-aligned bounding box of subdomain
         Box<T, dim> bbox;
-        
+
         /// Minimum refinement level in subdomain
         std::size_t min_level = 0;
-        
+
         /// Maximum refinement level in subdomain
         std::size_t max_level = 0;
-        
+
         /// Number of cells (for load balancing info)
         std::size_t num_cells = 0;
 
         SubdomainBoundingBox() = default;
-        
-        SubdomainBoundingBox(int rank_, 
+
+        SubdomainBoundingBox(int rank_,
                             const Box<T, dim>& bbox_,
                             std::size_t min_level_,
                             std::size_t max_level_,
@@ -288,21 +288,21 @@ namespace mpi
 #endif
 
         /// Check if this bbox could intersect with another (with expansion)
-        bool could_be_neighbor(const SubdomainBoundingBox& other, 
+        bool could_be_neighbor(const SubdomainBoundingBox& other,
                               double expansion_factor) const
         {
             auto expanded = bbox;
             auto expansion = expansion_factor * compute_max_cell_size();
-            
+
             for (std::size_t d = 0; d < dim; ++d)
             {
                 expanded.min_corner()[d] -= expansion;
                 expanded.max_corner()[d] += expansion;
             }
-            
+
             return expanded.intersects(other.bbox);
         }
-        
+
         /// Compute maximum cell size in this subdomain
         T compute_max_cell_size() const
         {
@@ -321,10 +321,10 @@ namespace mpi
 
     /**
      * @brief Compute tight bounding box from interval-based level cell array.
-     * 
+     *
      * This function traverses all intervals in the subdomain and computes
      * the minimal axis-aligned bounding box that contains all cells.
-     * 
+     *
      * @tparam LCA_type Level cell array type (e.g., LevelCellArray)
      * @param lca The subdomain to compute bbox for
      * @return Bounding box in physical coordinates
@@ -335,29 +335,29 @@ namespace mpi
     {
         static constexpr std::size_t dim = LCA_type::dim;
         using point_t = typename Box<double, dim>::point_t;
-        
+
         point_t min_corner;
         point_t max_corner;
-        
+
         // Initialize to extreme values
         min_corner.fill(std::numeric_limits<double>::max());
         max_corner.fill(std::numeric_limits<double>::lowest());
-        
+
         std::size_t min_level_found = std::numeric_limits<std::size_t>::max();
         std::size_t max_level_found = 0;
         std::size_t total_cells = 0;
-        
+
         // Traverse all intervals in subdomain
         for (std::size_t level = lca.min_level(); level <= lca.max_level(); ++level)
         {
             if (lca[level].offsets(0).size() <= 1)
                 continue; // Empty level
-            
+
             min_level_found = std::min(min_level_found, level);
             max_level_found = std::max(max_level_found, level);
-            
+
             double cell_length = lca.cell_length(level);
-            
+
             // Iterate over all intervals at this level
             for_each_interval(lca[level],
                 [&](std::size_t, const auto& interval, const auto& index_yz)
@@ -365,29 +365,29 @@ namespace mpi
                     // Convert integer interval to physical coordinates
                     point_t cell_min;
                     point_t cell_max;
-                    
+
                     // X-direction from interval
                     cell_min[0] = lca.origin_point()[0] + interval.start * cell_length;
                     cell_max[0] = lca.origin_point()[0] + interval.end * cell_length;
-                    
+
                     // Other dimensions from index
                     for (std::size_t d = 1; d < dim; ++d)
                     {
                         cell_min[d] = lca.origin_point()[d] + index_yz[d-1] * cell_length;
                         cell_max[d] = lca.origin_point()[d] + (index_yz[d-1] + 1) * cell_length;
                     }
-                    
+
                     // Update global bbox
                     for (std::size_t d = 0; d < dim; ++d)
                     {
                         min_corner[d] = std::min(min_corner[d], cell_min[d]);
                         max_corner[d] = std::max(max_corner[d], cell_max[d]);
                     }
-                    
+
                     total_cells += interval.size();
                 });
         }
-        
+
         // Handle edge case: empty subdomain
         if (total_cells == 0)
         {
@@ -396,14 +396,14 @@ namespace mpi
             min_level_found = 0;
             max_level_found = 0;
         }
-        
+
 #ifdef SAMURAI_WITH_MPI
         boost::mpi::communicator world;
         int rank = world.rank();
 #else
         int rank = 0;
 #endif
-        
+
         return SubdomainBoundingBox<double, dim>(
             rank,
             Box<double, dim>(min_corner, max_corner),
@@ -431,11 +431,11 @@ private:
     mpi::SubdomainBoundingBox<double, dim> m_cached_bbox;
 
 public:
-    void invalidate_neighbourhood() 
+    void invalidate_neighbourhood()
     {
         m_neighbourhood_valid = false;
     }
-    
+
     void increment_mesh_generation()
     {
         ++m_mesh_generation;
@@ -446,64 +446,64 @@ template <class D, class Config>
 void Mesh_base<D, Config>::find_neighbourhood()
 {
 #ifdef SAMURAI_WITH_MPI
-    
+
     // Check cache validity (Phase 3 - can be disabled initially)
-    if (m_neighbourhood_valid && 
+    if (m_neighbourhood_valid &&
         m_neighbourhood_mesh_generation == m_mesh_generation)
     {
         return; // Reuse cached neighbors
     }
-    
+
     mpi::communicator world;
-    
+
     //=============================================================================
     // PHASE 1: BOUNDING BOX SCREENING
     //=============================================================================
-    
+
     // Step 1: Compute local bounding box (cheap: ~0.1ms)
     auto local_bbox = mpi::compute_subdomain_bbox(m_subdomain);
     m_cached_bbox = local_bbox;
-    
+
     // Step 2: All-gather only bounding boxes (64 bytes each, ~640KB total @ 10k)
     std::vector<mpi::SubdomainBoundingBox<double, dim>> all_bboxes;
     all_bboxes.resize(static_cast<std::size_t>(world.size()));
-    
+
     boost::mpi::all_gather(world, local_bbox, all_bboxes);
-    
+
     // Step 3: Quick bbox screening with conservative expansion
     // Expansion must cover: ghost_width + max_cell_size + safety_margin
     double expansion_factor = static_cast<double>(ghost_width()) + 2.0; // Conservative
-    
+
     std::set<int> candidate_neighbours;
-    
+
     for (const auto& other_bbox : all_bboxes)
     {
         if (other_bbox.rank == world.rank())
             continue; // Skip self
-        
+
         // Fast AABB test with expansion
         if (local_bbox.could_be_neighbor(other_bbox, expansion_factor))
         {
             candidate_neighbours.insert(other_bbox.rank);
         }
     }
-    
+
     // Step 4: Handle periodic boundaries (if enabled)
-    if (std::any_of(m_config.periodic().begin(), 
-                    m_config.periodic().end(), 
+    if (std::any_of(m_config.periodic().begin(),
+                    m_config.periodic().end(),
                     [](bool p) { return p; }))
     {
         add_periodic_candidates(candidate_neighbours, all_bboxes, expansion_factor);
     }
-    
+
     //=============================================================================
     // PHASE 2: PRECISE INTERVAL-BASED VERIFICATION
     //=============================================================================
-    
+
     // Only exchange full mesh data with candidates
     std::set<int> confirmed_neighbours;
     verify_candidates_with_interval_algebra(candidate_neighbours, confirmed_neighbours);
-    
+
     // Update member variable
     m_mpi_neighbourhood.clear();
     m_mpi_neighbourhood.reserve(confirmed_neighbours.size());
@@ -511,11 +511,11 @@ void Mesh_base<D, Config>::find_neighbourhood()
     {
         m_mpi_neighbourhood.emplace_back(neighbour);
     }
-    
+
     // Mark cache as valid
     m_neighbourhood_valid = true;
     m_neighbourhood_mesh_generation = m_mesh_generation;
-    
+
 #endif // SAMURAI_WITH_MPI
 }
 
@@ -528,43 +528,43 @@ void Mesh_base<D, Config>::add_periodic_candidates(
 {
 #ifdef SAMURAI_WITH_MPI
     mpi::communicator world;
-    
+
     auto local_bbox = m_cached_bbox;
-    
+
     // For each periodic dimension
     for (std::size_t d = 0; d < dim; ++d)
     {
         if (!m_config.periodic(d))
             continue;
-        
+
         // Compute domain extent in this dimension
         double domain_min = m_domain.min_corner()[d];
         double domain_max = m_domain.max_corner()[d];
         double domain_extent = domain_max - domain_min;
-        
+
         // Check if local bbox is near boundaries
         double tolerance = expansion_factor * local_bbox.compute_max_cell_size();
         bool near_min_boundary = (local_bbox.bbox.min_corner()[d] - domain_min) < tolerance;
         bool near_max_boundary = (domain_max - local_bbox.bbox.max_corner()[d]) < tolerance;
-        
+
         if (!near_min_boundary && !near_max_boundary)
             continue; // Not near periodic boundary
-        
+
         // Test against other bboxes with periodic shift
         for (const auto& other_bbox : all_bboxes)
         {
             if (other_bbox.rank == world.rank())
                 continue;
-            
+
             // Create shifted versions of other bbox
             auto shifted_bbox_left = other_bbox;
             shifted_bbox_left.bbox.min_corner()[d] -= domain_extent;
             shifted_bbox_left.bbox.max_corner()[d] -= domain_extent;
-            
+
             auto shifted_bbox_right = other_bbox;
             shifted_bbox_right.bbox.min_corner()[d] += domain_extent;
             shifted_bbox_right.bbox.max_corner()[d] += domain_extent;
-            
+
             // Test intersection with shifted boxes
             if (local_bbox.could_be_neighbor(shifted_bbox_left, expansion_factor) ||
                 local_bbox.could_be_neighbor(shifted_bbox_right, expansion_factor))
@@ -584,22 +584,22 @@ void Mesh_base<D, Config>::verify_candidates_with_interval_algebra(
 {
 #ifdef SAMURAI_WITH_MPI
     mpi::communicator world;
-    
+
     // Exchange full subdomain mesh data only with candidates
     std::vector<mpi::request> send_requests;
     std::vector<lca_type> received_subdomains(candidates.size());
-    
+
     // Serialize local subdomain once
     boost::mpi::packed_oarchive::buffer_type send_buffer;
     boost::mpi::packed_oarchive oa(world, send_buffer);
     oa << m_subdomain;
-    
+
     // Send to all candidates
     for (int candidate_rank : candidates)
     {
         send_requests.push_back(world.isend(candidate_rank, 0, send_buffer));
     }
-    
+
     // Receive from all candidates
     std::size_t recv_idx = 0;
     for (int candidate_rank : candidates)
@@ -607,16 +607,16 @@ void Mesh_base<D, Config>::verify_candidates_with_interval_algebra(
         world.recv(candidate_rank, 0, received_subdomains[recv_idx]);
         ++recv_idx;
     }
-    
+
     // Wait for sends to complete
     mpi::wait_all(send_requests.begin(), send_requests.end());
-    
+
     // Now perform precise interval-based intersection tests
     recv_idx = 0;
     for (int candidate_rank : candidates)
     {
         const auto& candidate_subdomain = received_subdomains[recv_idx];
-        
+
         // Same intersection test as original implementation
         auto set = intersection(nestedExpand(m_subdomain, 1), candidate_subdomain);
         if (!set.empty())
@@ -625,28 +625,28 @@ void Mesh_base<D, Config>::verify_candidates_with_interval_algebra(
             ++recv_idx;
             continue;
         }
-        
+
         // Check periodic boundaries for this candidate
         for (std::size_t d = 0; d < dim; ++d)
         {
             if (m_config.periodic(d))
             {
                 auto shift = get_periodic_shift(m_domain, m_subdomain.level(), d);
-                
+
                 auto periodic_set_left = intersection(
-                    nestedExpand(m_subdomain, 1), 
+                    nestedExpand(m_subdomain, 1),
                     translate(candidate_subdomain, -shift));
-                    
+
                 if (!periodic_set_left.empty())
                 {
                     confirmed_neighbours.insert(candidate_rank);
                     break;
                 }
-                
+
                 auto periodic_set_right = intersection(
-                    nestedExpand(m_subdomain, 1), 
+                    nestedExpand(m_subdomain, 1),
                     translate(candidate_subdomain, shift));
-                    
+
                 if (!periodic_set_right.empty())
                 {
                     confirmed_neighbours.insert(candidate_rank);
@@ -654,10 +654,10 @@ void Mesh_base<D, Config>::verify_candidates_with_interval_algebra(
                 }
             }
         }
-        
+
         ++recv_idx;
     }
-    
+
 #endif
 }
 ```
@@ -673,7 +673,7 @@ private:
         std::set<int>& candidates,
         const std::vector<mpi::SubdomainBoundingBox<double, dim>>& all_bboxes,
         double expansion_factor);
-    
+
     void verify_candidates_with_interval_algebra(
         const std::set<int>& candidates,
         std::set<int>& confirmed_neighbours);
@@ -687,7 +687,7 @@ template <class... CT>
 void adapt_impl(CT&&... ct)
 {
     // ... existing adaptation code ...
-    
+
     // Invalidate neighbor cache after topology changes
     this->invalidate_neighbourhood();
     this->increment_mesh_generation();
@@ -708,13 +708,13 @@ class Mesh_base
 {
 public:
     // ... existing interface ...
-    
+
     /**
      * @brief Update neighborhood with incremental verification.
-     * 
+     *
      * This method is more efficient than full rediscovery when mesh
      * topology changes are local (typical in AMR).
-     * 
+     *
      * Strategy:
      * 1. Check if bbox changed significantly
      * 2. If minor change: verify existing neighbors + check nearby candidates
@@ -728,10 +728,10 @@ public:
             find_neighbourhood(); // First time or fully invalid
             return;
         }
-        
+
         // Compute new bbox
         auto new_bbox = mpi::compute_subdomain_bbox(m_subdomain);
-        
+
         // Check if bbox changed significantly
         if (bbox_changed_significantly(m_cached_bbox, new_bbox))
         {
@@ -744,7 +744,7 @@ public:
             // Minor change - incremental update
             incremental_neighbor_verification(new_bbox);
         }
-        
+
         m_cached_bbox = new_bbox;
 #endif
     }
@@ -752,7 +752,7 @@ public:
 private:
     /**
      * @brief Check if bounding box changed beyond tolerance.
-     * 
+     *
      * @param old_bbox Previous bounding box
      * @param new_bbox Current bounding box
      * @return true if change is significant (>10% volume change or shift)
@@ -764,17 +764,17 @@ private:
         // Check volume change
         double old_volume = 1.0;
         double new_volume = 1.0;
-        
+
         for (std::size_t d = 0; d < dim; ++d)
         {
             old_volume *= (old_bbox.bbox.max_corner()[d] - old_bbox.bbox.min_corner()[d]);
             new_volume *= (new_bbox.bbox.max_corner()[d] - new_bbox.bbox.min_corner()[d]);
         }
-        
+
         double volume_ratio = new_volume / (old_volume + 1e-12);
         if (volume_ratio < 0.9 || volume_ratio > 1.1) // 10% threshold
             return true;
-        
+
         // Check centroid shift
         double max_shift = 0.0;
         for (std::size_t d = 0; d < dim; ++d)
@@ -783,23 +783,23 @@ private:
             double new_center = 0.5 * (new_bbox.bbox.min_corner()[d] + new_bbox.bbox.max_corner()[d]);
             max_shift = std::max(max_shift, std::abs(new_center - old_center));
         }
-        
+
         double max_extent = 0.0;
         for (std::size_t d = 0; d < dim; ++d)
         {
-            max_extent = std::max(max_extent, 
+            max_extent = std::max(max_extent,
                                  new_bbox.bbox.max_corner()[d] - new_bbox.bbox.min_corner()[d]);
         }
-        
+
         if (max_shift > 0.1 * max_extent) // Shifted more than 10% of extent
             return true;
-        
+
         return false;
     }
-    
+
     /**
      * @brief Incrementally verify and update neighbors.
-     * 
+     *
      * Steps:
      * 1. Verify existing neighbors are still valid
      * 2. Check "second-order" candidates (neighbors of neighbors)
@@ -810,21 +810,21 @@ private:
     {
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
-        
+
         std::set<int> existing_neighbors;
         for (const auto& neighbour : m_mpi_neighbourhood)
         {
             existing_neighbors.insert(neighbour.rank);
         }
-        
+
         // Step 1: Verify existing neighbors with new subdomain
         std::set<int> still_neighbors;
         verify_existing_neighbors(existing_neighbors, still_neighbors);
-        
+
         // Step 2: Get bbox updates from existing neighbors (they may have changed too)
-        std::set<int> second_order_candidates = 
+        std::set<int> second_order_candidates =
             get_second_order_candidates(still_neighbors);
-        
+
         // Step 3: Check new candidates
         std::set<int> new_candidates;
         for (int candidate : second_order_candidates)
@@ -834,15 +834,15 @@ private:
                 new_candidates.insert(candidate);
             }
         }
-        
+
         if (!new_candidates.empty())
         {
             std::set<int> confirmed_new_neighbors;
             verify_candidates_with_interval_algebra(new_candidates, confirmed_new_neighbors);
-            still_neighbors.insert(confirmed_new_neighbors.begin(), 
+            still_neighbors.insert(confirmed_new_neighbors.begin(),
                                   confirmed_new_neighbors.end());
         }
-        
+
         // Update neighbor list
         m_mpi_neighbourhood.clear();
         m_mpi_neighbourhood.reserve(still_neighbors.size());
@@ -850,11 +850,11 @@ private:
         {
             m_mpi_neighbourhood.emplace_back(rank);
         }
-        
+
         m_neighbourhood_mesh_generation = m_mesh_generation;
 #endif
     }
-    
+
     /**
      * @brief Re-verify that existing neighbors are still neighbors.
      */
@@ -865,10 +865,10 @@ private:
         // Use same verification logic as Phase 1
         verify_candidates_with_interval_algebra(candidates, confirmed);
     }
-    
+
     /**
      * @brief Get potential new neighbors from existing neighbors' neighbor lists.
-     * 
+     *
      * Intuition: If mesh changed locally, new neighbors are likely
      * already neighbors of my current neighbors.
      */
@@ -877,30 +877,30 @@ private:
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
         std::set<int> candidates;
-        
+
         // Exchange neighbor lists with current neighbors
         for (int neighbor_rank : current_neighbors)
         {
             std::vector<int> their_neighbors;
-            
+
             // Send my neighbor list
             std::vector<int> my_neighbors(current_neighbors.begin(), current_neighbors.end());
             world.isend(neighbor_rank, 1, my_neighbors);
-            
+
             // Receive their neighbor list
             world.recv(neighbor_rank, 1, their_neighbors);
-            
+
             // Add their neighbors as candidates
             for (int candidate : their_neighbors)
             {
-                if (candidate != world.rank() && 
+                if (candidate != world.rank() &&
                     current_neighbors.find(candidate) == current_neighbors.end())
                 {
                     candidates.insert(candidate);
                 }
             }
         }
-        
+
         return candidates;
 #else
         return std::set<int>();
@@ -938,11 +938,11 @@ namespace mpi
 
     /**
      * @brief SFC-aware neighbor candidate generation.
-     * 
+     *
      * When using space-filling curve (Morton/Hilbert) based load balancing,
      * neighbors in physical space are close in curve order. This allows
      * generating candidate neighbors in O(1) instead of O(P).
-     * 
+     *
      * Key insight: With good SFC partitioning, process i has neighbors
      * primarily in range [i-window, i+window] where window << P.
      */
@@ -951,18 +951,18 @@ namespace mpi
     public:
         /**
          * @brief Estimate search window size based on dimensionality and partition quality.
-         * 
+         *
          * For a well-balanced SFC partition in d dimensions with P processes:
          * - 1D: window ≈ 2 (left and right neighbors)
          * - 2D: window ≈ 2 × sqrt(P) / P = 2 / sqrt(P) → bounded by ~20
          * - 3D: window ≈ 2 × P^(2/3) / P = 2 / P^(1/3) → bounded by ~50
-         * 
+         *
          * In practice, we use adaptive window with safety factor.
          */
         static int estimate_window_size(std::size_t dim, int num_processes, double safety_factor = 2.0)
         {
             int base_window;
-            
+
             switch(dim)
             {
                 case 1:
@@ -977,13 +977,13 @@ namespace mpi
                 default:
                     base_window = std::max(50, num_processes / 100);
             }
-            
+
             return static_cast<int>(base_window * safety_factor);
         }
-        
+
         /**
          * @brief Generate neighbor candidates based on SFC ordering.
-         * 
+         *
          * @param my_rank Current process rank
          * @param num_processes Total number of processes
          * @param dim Spatial dimension
@@ -998,7 +998,7 @@ namespace mpi
             const std::set<int>& previous_neighbors = {})
         {
             std::set<int> candidates;
-            
+
             // Determine window size
             int window;
             if (adaptive && !previous_neighbors.empty())
@@ -1006,8 +1006,8 @@ namespace mpi
                 // Adaptive: extend window to cover all previous neighbors + margin
                 int min_neighbor = *previous_neighbors.begin();
                 int max_neighbor = *previous_neighbors.rbegin();
-                
-                int observed_window = std::max(my_rank - min_neighbor, 
+
+                int observed_window = std::max(my_rank - min_neighbor,
                                               max_neighbor - my_rank);
                 window = static_cast<int>(observed_window * 1.5); // 50% safety margin
             }
@@ -1015,7 +1015,7 @@ namespace mpi
             {
                 window = estimate_window_size(dim, num_processes);
             }
-            
+
             // Generate candidates in window
             for (int offset = -window; offset <= window; ++offset)
             {
@@ -1025,11 +1025,11 @@ namespace mpi
                     candidates.insert(candidate);
                 }
             }
-            
+
             // Handle wraparound for periodic decompositions (rare)
             if (my_rank < window)
             {
-                for (int candidate = num_processes - window + my_rank; 
+                for (int candidate = num_processes - window + my_rank;
                      candidate < num_processes; ++candidate)
                 {
                     candidates.insert(candidate);
@@ -1037,13 +1037,13 @@ namespace mpi
             }
             if (my_rank >= num_processes - window)
             {
-                for (int candidate = 0; 
+                for (int candidate = 0;
                      candidate < window - (num_processes - my_rank); ++candidate)
                 {
                     candidates.insert(candidate);
                 }
             }
-            
+
             return candidates;
         }
     };
@@ -1062,25 +1062,25 @@ void Mesh_base<D, Config>::find_neighbourhood()
 {
 #ifdef SAMURAI_WITH_MPI
     mpi::communicator world;
-    
+
     // Determine if we're using SFC ordering
     bool use_sfc_optimization = m_config.use_sfc_ordering(); // Need to add this config
-    
+
     std::set<int> candidates;
-    
+
     if (use_sfc_optimization)
     {
         //=============================================================================
         // SFC-OPTIMIZED PATH: O(1) candidate generation
         //=============================================================================
-        
+
         // Get candidates from SFC window (typically ~20-50 ranks)
         std::set<int> previous_neighbors;
         for (const auto& n : m_mpi_neighbourhood)
         {
             previous_neighbors.insert(n.rank);
         }
-        
+
         candidates = mpi::SFC_NeighborFinder::generate_sfc_candidates(
             world.rank(),
             world.size(),
@@ -1094,41 +1094,41 @@ void Mesh_base<D, Config>::find_neighbourhood()
         //=============================================================================
         // BBOX-BASED PATH: O(P) candidate generation (but still fast)
         //=============================================================================
-        
+
         // Use Phase 1 bbox screening
         auto local_bbox = mpi::compute_subdomain_bbox(m_subdomain);
-        
+
         std::vector<mpi::SubdomainBoundingBox<double, dim>> all_bboxes;
         all_bboxes.resize(static_cast<std::size_t>(world.size()));
         boost::mpi::all_gather(world, local_bbox, all_bboxes);
-        
+
         double expansion_factor = static_cast<double>(ghost_width()) + 2.0;
-        
+
         for (const auto& other_bbox : all_bboxes)
         {
-            if (other_bbox.rank != world.rank() && 
+            if (other_bbox.rank != world.rank() &&
                 local_bbox.could_be_neighbor(other_bbox, expansion_factor))
             {
                 candidates.insert(other_bbox.rank);
             }
         }
-        
+
         // Handle periodic boundaries
-        if (std::any_of(m_config.periodic().begin(), 
-                        m_config.periodic().end(), 
+        if (std::any_of(m_config.periodic().begin(),
+                        m_config.periodic().end(),
                         [](bool p) { return p; }))
         {
             add_periodic_candidates(candidates, all_bboxes, expansion_factor);
         }
     }
-    
+
     //=============================================================================
     // PHASE 2: PRECISE VERIFICATION (same for both paths)
     //=============================================================================
-    
+
     std::set<int> confirmed_neighbours;
     verify_candidates_with_interval_algebra(candidates, confirmed_neighbours);
-    
+
     // Update member variable
     m_mpi_neighbourhood.clear();
     m_mpi_neighbourhood.reserve(confirmed_neighbours.size());
@@ -1136,10 +1136,10 @@ void Mesh_base<D, Config>::find_neighbourhood()
     {
         m_mpi_neighbourhood.emplace_back(neighbour);
     }
-    
+
     m_neighbourhood_valid = true;
     m_neighbourhood_mesh_generation = m_mesh_generation;
-    
+
 #endif // SAMURAI_WITH_MPI
 }
 ```
@@ -1177,26 +1177,26 @@ namespace mpi
         {
             std::size_t hash = 0;
             std::size_t prime = 73856093; // Large prime for hashing
-            
+
             for (std::size_t d = 0; d < dim; ++d)
             {
                 hash ^= (cell[d] * prime);
                 prime *= 19349663; // Another large prime
             }
-            
+
             return hash;
         }
     };
 
     /**
      * @brief Spatial hash grid for O(K) neighbor queries.
-     * 
+     *
      * Divides space into coarse grid cells. Each cell stores list of
      * subdomain ranks whose bboxes intersect that cell.
-     * 
+     *
      * Grid resolution: approximately P^(1/dim) cells per dimension,
      * resulting in O(1) expected subdomains per cell.
-     * 
+     *
      * @tparam T Coordinate type
      * @tparam dim Spatial dimension
      */
@@ -1206,10 +1206,10 @@ namespace mpi
     public:
         using GridCell = std::array<int, dim>;
         using BBox = Box<T, dim>;
-        
+
         /**
          * @brief Construct hash grid from all subdomain bboxes.
-         * 
+         *
          * @param bboxes All subdomain bounding boxes
          * @param grid_resolution Number of cells per dimension
          */
@@ -1218,52 +1218,52 @@ namespace mpi
         {
             if (bboxes.empty())
                 return;
-            
+
             // Auto-determine grid resolution if not specified
             if (grid_resolution == 0)
             {
-                grid_resolution = std::max(10, 
+                grid_resolution = std::max(10,
                     static_cast<int>(std::pow(bboxes.size(), 1.0 / dim)));
             }
-            
+
             // Compute global bounding box
             compute_global_bbox(bboxes);
-            
+
             // Compute cell size
             for (std::size_t d = 0; d < dim; ++d)
             {
-                m_cell_size[d] = (m_global_bbox.max_corner()[d] - 
+                m_cell_size[d] = (m_global_bbox.max_corner()[d] -
                                  m_global_bbox.min_corner()[d]) / grid_resolution;
-                
+
                 // Avoid division by zero
                 if (m_cell_size[d] < 1e-12)
                     m_cell_size[d] = 1.0;
             }
-            
+
             // Insert each bbox into grid
             for (const auto& subdomain_bbox : bboxes)
             {
                 auto grid_cells = bbox_to_grid_cells(subdomain_bbox.bbox);
-                
+
                 for (const auto& grid_cell : grid_cells)
                 {
                     m_grid[grid_cell].push_back(subdomain_bbox.rank);
                 }
             }
         }
-        
+
         /**
          * @brief Query all subdomain ranks whose bboxes could intersect query bbox.
-         * 
+         *
          * @param query_bbox Query bounding box (typically expanded local subdomain)
          * @return Vector of candidate ranks
          */
         std::vector<int> query_candidates(const BBox& query_bbox) const
         {
             std::set<int> candidates_set; // Use set to avoid duplicates
-            
+
             auto grid_cells = bbox_to_grid_cells(query_bbox);
-            
+
             for (const auto& grid_cell : grid_cells)
             {
                 auto it = m_grid.find(grid_cell);
@@ -1272,10 +1272,10 @@ namespace mpi
                     candidates_set.insert(it->second.begin(), it->second.end());
                 }
             }
-            
+
             return std::vector<int>(candidates_set.begin(), candidates_set.end());
         }
-        
+
         /**
          * @brief Get statistics about hash grid.
          */
@@ -1286,81 +1286,81 @@ namespace mpi
             double avg_entries_per_cell = 0.0;
             int max_entries_per_cell = 0;
         };
-        
+
         Stats get_stats() const
         {
             Stats stats;
             stats.num_cells = m_grid.size();
-            
+
             for (const auto& [cell, ranks] : m_grid)
             {
                 stats.num_entries += ranks.size();
-                stats.max_entries_per_cell = std::max(stats.max_entries_per_cell, 
+                stats.max_entries_per_cell = std::max(stats.max_entries_per_cell,
                                                      static_cast<int>(ranks.size()));
             }
-            
+
             if (stats.num_cells > 0)
             {
-                stats.avg_entries_per_cell = static_cast<double>(stats.num_entries) / 
+                stats.avg_entries_per_cell = static_cast<double>(stats.num_entries) /
                                             stats.num_cells;
             }
-            
+
             return stats;
         }
-        
+
     private:
         BBox m_global_bbox;
         std::array<T, dim> m_cell_size;
         std::unordered_map<GridCell, std::vector<int>, GridCellHasher<dim>> m_grid;
-        
+
         void compute_global_bbox(const std::vector<SubdomainBoundingBox<T, dim>>& bboxes)
         {
             typename BBox::point_t min_corner;
             typename BBox::point_t max_corner;
-            
+
             min_corner.fill(std::numeric_limits<T>::max());
             max_corner.fill(std::numeric_limits<T>::lowest());
-            
+
             for (const auto& subdomain_bbox : bboxes)
             {
                 for (std::size_t d = 0; d < dim; ++d)
                 {
-                    min_corner[d] = std::min(min_corner[d], 
+                    min_corner[d] = std::min(min_corner[d],
                                             subdomain_bbox.bbox.min_corner()[d]);
-                    max_corner[d] = std::max(max_corner[d], 
+                    max_corner[d] = std::max(max_corner[d],
                                             subdomain_bbox.bbox.max_corner()[d]);
                 }
             }
-            
+
             m_global_bbox = BBox(min_corner, max_corner);
         }
-        
+
         std::vector<GridCell> bbox_to_grid_cells(const BBox& bbox) const
         {
             std::vector<GridCell> cells;
-            
+
             // Compute grid cell indices for bbox corners
             GridCell min_cell;
             GridCell max_cell;
-            
+
             for (std::size_t d = 0; d < dim; ++d)
             {
                 min_cell[d] = static_cast<int>(
                     (bbox.min_corner()[d] - m_global_bbox.min_corner()[d]) / m_cell_size[d]);
                 max_cell[d] = static_cast<int>(
                     (bbox.max_corner()[d] - m_global_bbox.min_corner()[d]) / m_cell_size[d]);
-                
+
                 // Clamp to valid range
                 min_cell[d] = std::max(min_cell[d], 0);
                 max_cell[d] = std::max(max_cell[d], 0);
             }
-            
+
             // Generate all cells overlapped by bbox
             enumerate_grid_cells_recursive(min_cell, max_cell, cells, 0, GridCell{});
-            
+
             return cells;
         }
-        
+
         void enumerate_grid_cells_recursive(
             const GridCell& min_cell,
             const GridCell& max_cell,
@@ -1373,11 +1373,11 @@ namespace mpi
                 cells.push_back(current_cell);
                 return;
             }
-            
+
             for (int i = min_cell[current_dim]; i <= max_cell[current_dim]; ++i)
             {
                 current_cell[current_dim] = i;
-                enumerate_grid_cells_recursive(min_cell, max_cell, cells, 
+                enumerate_grid_cells_recursive(min_cell, max_cell, cells,
                                              current_dim + 1, current_cell);
             }
         }
@@ -1395,43 +1395,43 @@ void Mesh_base<D, Config>::find_neighbourhood()
 {
 #ifdef SAMURAI_WITH_MPI
     mpi::communicator world;
-    
+
     // Check if spatial hash grid should be used (high process count + complex geometry)
     bool use_spatial_hash = (world.size() > 5000 && !m_config.use_sfc_ordering());
-    
+
     std::set<int> candidates;
-    
+
     if (use_spatial_hash)
     {
         //=============================================================================
         // SPATIAL HASH PATH: O(K) candidate generation
         //=============================================================================
-        
+
         // Build spatial hash grid (done once, then cached)
         if (!m_spatial_hash_valid)
         {
             auto local_bbox = mpi::compute_subdomain_bbox(m_subdomain);
-            
+
             std::vector<mpi::SubdomainBoundingBox<double, dim>> all_bboxes;
             all_bboxes.resize(static_cast<std::size_t>(world.size()));
             boost::mpi::all_gather(world, local_bbox, all_bboxes);
-            
+
             m_spatial_hash.build(all_bboxes);
             m_spatial_hash_valid = true;
         }
-        
+
         // Query hash grid with expanded local bbox
         auto local_bbox = mpi::compute_subdomain_bbox(m_subdomain);
-        double expansion = static_cast<double>(ghost_width() + 2) * 
+        double expansion = static_cast<double>(ghost_width() + 2) *
                           local_bbox.compute_max_cell_size();
-        
+
         auto expanded_bbox = local_bbox.bbox;
         for (std::size_t d = 0; d < dim; ++d)
         {
             expanded_bbox.min_corner()[d] -= expansion;
             expanded_bbox.max_corner()[d] += expansion;
         }
-        
+
         auto candidate_vec = m_spatial_hash.query_candidates(expanded_bbox);
         candidates.insert(candidate_vec.begin(), candidate_vec.end());
     }
@@ -1440,11 +1440,11 @@ void Mesh_base<D, Config>::find_neighbourhood()
         // Use SFC or bbox-based candidate generation (as before)
         // ... (same as Phase 3 implementation)
     }
-    
+
     // Precise verification (same as before)
     std::set<int> confirmed_neighbours;
     verify_candidates_with_interval_algebra(candidates, confirmed_neighbours);
-    
+
     // Update members
     m_mpi_neighbourhood.clear();
     m_mpi_neighbourhood.reserve(confirmed_neighbours.size());
@@ -1452,7 +1452,7 @@ void Mesh_base<D, Config>::find_neighbourhood()
     {
         m_mpi_neighbourhood.emplace_back(neighbour);
     }
-    
+
 #endif
 }
 ```
@@ -1548,10 +1548,10 @@ TEST(MPI_NeighborFinding, BBoxComputation)
     constexpr std::size_t dim = 2;
     samurai::Box<double, dim> box({0, 0}, {1, 1});
     auto mesh = samurai::Mesh(box, /* level */ 3);
-    
+
     // Compute bbox
     auto bbox = samurai::mpi::compute_subdomain_bbox(mesh.subdomain());
-    
+
     // Verify bbox contains all cells
     EXPECT_NEAR(bbox.bbox.min_corner()[0], 0.0, 1e-10);
     EXPECT_NEAR(bbox.bbox.min_corner()[1], 0.0, 1e-10);
@@ -1566,29 +1566,29 @@ TEST(MPI_NeighborFinding, BBoxComputation)
 TEST(MPI_NeighborFinding, CorrectNeighbors)
 {
     boost::mpi::communicator world;
-    
+
     if (world.size() < 4)
     {
         GTEST_SKIP() << "Test requires at least 4 processes";
     }
-    
+
     // Create 2D mesh and partition it
     constexpr std::size_t dim = 2;
     samurai::Box<double, dim> box({0, 0}, {2, 2});
     auto mesh = samurai::Mesh(box, /* level */ 4);
-    
+
     // Find neighbors with new implementation
     mesh.find_neighbourhood();
     auto new_neighbors = mesh.mpi_neighbourhood();
-    
+
     // Find neighbors with legacy implementation (if available)
     // mesh.find_neighbourhood_legacy();
     // auto legacy_neighbors = mesh.mpi_neighbourhood();
-    
+
     // For now, just verify sanity checks
     EXPECT_LE(new_neighbors.size(), world.size() - 1);
     EXPECT_GE(new_neighbors.size(), 0);
-    
+
     // Verify no self-neighbor
     for (const auto& n : new_neighbors)
     {
@@ -1601,15 +1601,15 @@ TEST(MPI_NeighborFinding, CorrectNeighbors)
 TEST(MPI_NeighborFinding, BBoxIntersection)
 {
     using BBox = samurai::mpi::SubdomainBoundingBox<double, 2>;
-    
+
     BBox bbox1(0, samurai::Box<double, 2>({0, 0}, {1, 1}), 0, 3, 100);
     BBox bbox2(1, samurai::Box<double, 2>({0.9, 0}, {2, 1}), 0, 3, 100);
     BBox bbox3(2, samurai::Box<double, 2>({5, 5}, {6, 6}), 0, 3, 100);
-    
+
     // bbox1 and bbox2 should be neighbors (with expansion)
     EXPECT_TRUE(bbox1.could_be_neighbor(bbox2, 2.0));
     EXPECT_TRUE(bbox2.could_be_neighbor(bbox1, 2.0));
-    
+
     // bbox1 and bbox3 should not be neighbors
     EXPECT_FALSE(bbox1.could_be_neighbor(bbox3, 2.0));
     EXPECT_FALSE(bbox3.could_be_neighbor(bbox1, 2.0));
@@ -1621,18 +1621,18 @@ TEST(MPI_NeighborFinding, SFC_Candidates)
     constexpr std::size_t dim = 2;
     int num_processes = 1000;
     int my_rank = 500;
-    
+
     auto candidates = samurai::mpi::SFC_NeighborFinder::generate_sfc_candidates(
         my_rank, num_processes, dim, false);
-    
+
     // Should generate reasonable number of candidates
     EXPECT_GT(candidates.size(), 0);
     EXPECT_LT(candidates.size(), num_processes / 2);
-    
+
     // Should include nearby ranks
     EXPECT_TRUE(candidates.find(499) != candidates.end());
     EXPECT_TRUE(candidates.find(501) != candidates.end());
-    
+
     // Should not include self
     EXPECT_TRUE(candidates.find(my_rank) == candidates.end());
 }
@@ -1642,22 +1642,22 @@ TEST(MPI_NeighborFinding, SpatialHash)
 {
     using BBox = samurai::mpi::SubdomainBoundingBox<double, 2>;
     using HashGrid = samurai::mpi::SpatialHashGrid<double, 2>;
-    
+
     // Create several bboxes
     std::vector<BBox> bboxes;
     bboxes.emplace_back(0, samurai::Box<double, 2>({0, 0}, {1, 1}), 0, 3, 100);
     bboxes.emplace_back(1, samurai::Box<double, 2>({1, 0}, {2, 1}), 0, 3, 100);
     bboxes.emplace_back(2, samurai::Box<double, 2>({0, 1}, {1, 2}), 0, 3, 100);
     bboxes.emplace_back(3, samurai::Box<double, 2>({5, 5}, {6, 6}), 0, 3, 100);
-    
+
     // Build hash grid
     HashGrid grid;
     grid.build(bboxes, 4); // 4x4 grid
-    
+
     // Query with bbox overlapping ranks 0, 1, 2
     samurai::Box<double, 2> query_box({0.5, 0.5}, {1.5, 1.5});
     auto candidates = grid.query_candidates(query_box);
-    
+
     // Should find ranks 0, 1, 2 but not 3
     EXPECT_TRUE(std::find(candidates.begin(), candidates.end(), 0) != candidates.end());
     EXPECT_TRUE(std::find(candidates.begin(), candidates.end(), 1) != candidates.end());
@@ -1698,17 +1698,17 @@ static void BM_FindNeighbours_Current(benchmark::State& state)
 {
 #ifdef SAMURAI_WITH_MPI
     boost::mpi::communicator world;
-    
+
     // Create test mesh
     constexpr std::size_t dim = 2;
     samurai::Box<double, dim> box({0, 0}, {1, 1});
     auto mesh = samurai::Mesh(box, /* level */ state.range(0));
-    
+
     for (auto _ : state)
     {
         mesh.find_neighbourhood_legacy(); // Legacy implementation
     }
-    
+
     state.SetLabel(fmt::format("rank={},size={}", world.rank(), world.size()));
 #else
     state.SkipWithError("MPI not enabled");
@@ -1720,16 +1720,16 @@ static void BM_FindNeighbours_Phase1(benchmark::State& state)
 {
 #ifdef SAMURAI_WITH_MPI
     boost::mpi::communicator world;
-    
+
     constexpr std::size_t dim = 2;
     samurai::Box<double, dim> box({0, 0}, {1, 1});
     auto mesh = samurai::Mesh(box, /* level */ state.range(0));
-    
+
     for (auto _ : state)
     {
         mesh.find_neighbourhood(); // New implementation
     }
-    
+
     state.SetLabel(fmt::format("rank={},size={}", world.rank(), world.size()));
 #else
     state.SkipWithError("MPI not enabled");
@@ -1741,19 +1741,19 @@ static void BM_FindNeighbours_Cached(benchmark::State& state)
 {
 #ifdef SAMURAI_WITH_MPI
     boost::mpi::communicator world;
-    
+
     constexpr std::size_t dim = 2;
     samurai::Box<double, dim> box({0, 0}, {1, 1});
     auto mesh = samurai::Mesh(box, /* level */ state.range(0));
-    
+
     // First call to populate cache
     mesh.find_neighbourhood();
-    
+
     for (auto _ : state)
     {
         mesh.find_neighbourhood(); // Should use cache
     }
-    
+
     state.SetLabel(fmt::format("rank={},size={},cached", world.rank(), world.size()));
 #else
     state.SkipWithError("MPI not enabled");
@@ -1798,7 +1798,7 @@ MESH_SIZE=1024  # Fixed global mesh resolution
 
 for NPROCS in 16 32 64 128 256 512 1024 2048 4096 8192; do
     echo "Running with $NPROCS processes"
-    
+
     mpirun -n $NPROCS ./test_neighbor_finding \
         --mesh_size=$MESH_SIZE \
         --output=strong_${NPROCS}.csv
@@ -1819,7 +1819,7 @@ MESH_PER_PROC=64  # Fixed per-process mesh resolution
 for NPROCS in 16 32 64 128 256 512 1024 2048 4096 8192; do
     TOTAL_MESH=$((MESH_PER_PROC * NPROCS))
     echo "Running with $NPROCS processes, total mesh $TOTAL_MESH"
-    
+
     mpirun -n $NPROCS ./test_neighbor_finding \
         --mesh_size=$TOTAL_MESH \
         --output=weak_${NPROCS}.csv
@@ -1842,9 +1842,9 @@ python plot_weak_scaling.py weak_*.csv
 struct mesh_config
 {
     // ... existing members ...
-    
+
     bool use_optimized_neighbor_finding = true; // Default to new
-    
+
     // Can be disabled via environment variable or config file
     mesh_config()
     {
@@ -1895,11 +1895,11 @@ Users can explicitly choose which to use, useful during transition period.
 
 ```cmake
 # CMakeLists.txt
-option(SAMURAI_ENABLE_OPTIMIZED_NEIGHBORS 
+option(SAMURAI_ENABLE_OPTIMIZED_NEIGHBORS
        "Use optimized MPI neighbor finding" ON)
 
 if(SAMURAI_ENABLE_OPTIMIZED_NEIGHBORS)
-    target_compile_definitions(samurai INTERFACE 
+    target_compile_definitions(samurai INTERFACE
         SAMURAI_OPTIMIZED_NEIGHBORS)
 endif()
 ```
@@ -1978,24 +1978,24 @@ struct neighbor_finding_config
     // Phase 1: Bounding box screening
     double bbox_expansion_factor = 2.0;  // Safety margin for bbox screening
     bool enable_bbox_screening = true;
-    
+
     // Phase 2: Caching
     bool enable_neighbor_caching = true;
     double bbox_similarity_threshold = 0.1;  // 10% change triggers rediscovery
-    
+
     // Phase 3: SFC optimization
     bool enable_sfc_optimization = false;  // Requires SFC load balancing
     double sfc_window_safety_factor = 2.0;
     bool adaptive_sfc_window = true;
-    
+
     // Phase 4: Spatial hash
     bool enable_spatial_hash = false;  // Auto-enable for P > 5000
     int spatial_hash_resolution = 0;  // 0 = auto-determine
-    
+
     // Performance tuning
     int candidate_threshold = 100;  // Switch strategies if candidates > threshold
     bool use_async_verification = false;  // Future: async point-to-point
-    
+
     // Debugging
     bool verbose = false;
     bool validate_against_legacy = false;  // Expensive: only for testing
@@ -2023,7 +2023,7 @@ void Mesh_base<D, Config>::find_neighbourhood()
 {
 #ifdef SAMURAI_WITH_MPI
     mpi::communicator world;
-    
+
     // Auto-select strategy based on scale and characteristics
     if (world.size() < 100)
     {
@@ -2084,25 +2084,25 @@ template <class D, class Config>
 void Mesh_base<D, Config>::find_neighbourhood()
 {
     auto& timer = samurai::Timers::instance();
-    
+
     timer.start("find_neighbourhood::total");
-    
+
     timer.start("find_neighbourhood::bbox_compute");
     auto local_bbox = mpi::compute_subdomain_bbox(m_subdomain);
     timer.stop("find_neighbourhood::bbox_compute");
-    
+
     timer.start("find_neighbourhood::all_gather");
     // ... all_gather code ...
     timer.stop("find_neighbourhood::all_gather");
-    
+
     timer.start("find_neighbourhood::screening");
     // ... screening code ...
     timer.stop("find_neighbourhood::screening");
-    
+
     timer.start("find_neighbourhood::verification");
     // ... verification code ...
     timer.stop("find_neighbourhood::verification");
-    
+
     timer.stop("find_neighbourhood::total");
 }
 
@@ -2136,8 +2136,8 @@ config.neighbor_config.bbox_expansion_factor = 3.0;  // Increase safety margin
 
 Or validate expansion:
 ```cpp
-double required_expansion = ghost_width() + 
-                           max_cell_size() + 
+double required_expansion = ghost_width() +
+                           max_cell_size() +
                            stencil_radius();
 ```
 
@@ -2207,17 +2207,17 @@ void find_neighbourhood_async()
 {
     // Overlap communication with computation
     std::vector<mpi::request> requests;
-    
+
     // Start non-blocking receives
     for (int candidate : candidates)
     {
         requests.push_back(world.irecv(candidate, ...));
     }
-    
+
     // Do local computation while waiting
     compute_local_bbox();
     prepare_send_buffers();
-    
+
     // Complete communication
     mpi::wait_all(requests.begin(), requests.end());
 }
@@ -2232,7 +2232,7 @@ class ML_NeighborPredictor
 {
     // Train on adaptation history
     void train(const std::vector<AdaptationEvent>& history);
-    
+
     // Predict which neighbors will be gained/lost
     std::set<int> predict_neighbor_changes(const MeshState& current);
 };

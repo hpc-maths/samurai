@@ -40,7 +40,7 @@ for (each process) {
 
 Our optimization uses **two-phase screening**:
 ```cpp
-// Phase 1: O(P × 64 bytes) communication  
+// Phase 1: O(P × 64 bytes) communication
 mpi::all_gather(world, my_bbox, all_bboxes);  // 64 bytes × P
 for (each process) {
     if (my_bbox.intersects_expanded(their_bbox)) {  // Fast AABB test
