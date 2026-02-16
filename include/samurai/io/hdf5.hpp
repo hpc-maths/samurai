@@ -723,7 +723,9 @@ namespace samurai
             }
             else
             {
+#ifdef SAMURAI_WITH_MPI
                 xfer_props.add(HighFive::UseCollectiveIO{});
+#endif
                 for (std::size_t r = 0; r < size; ++r)
                 {
                     if (coords_sizes[r] != 0)
