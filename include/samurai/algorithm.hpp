@@ -494,6 +494,32 @@ namespace samurai
         return find_cell(lca, indices);
     }
 
+    template <std::size_t dim, class TInterval, std::size_t max_size>
+    SAMURAI_INLINE auto find_cell(const CellArray<dim, TInterval, max_size>& ca,
+                                  const typename CellArray<dim, TInterval, max_size>::cell_t::coords_t& cartesian_coords)
+    {
+        using cell_t = typename CellArray<dim, TInterval, max_size>::cell_t;
+
+        cell_t cell;
+        cell.length = 0; // cell not found
+        for (std::size_t level = ca.min_level(); level <= ca.max_level(); ++level)
+        {
+            cell = find_cell(ca[level], cartesian_coords);
+            if (cell.length != 0)
+            {
+                break;
+            }
+        }
+        return cell;
+    }
+
+    template <class Mesh>
+    SAMURAI_INLINE auto find_cell(const Mesh& mesh, const typename Mesh::cell_t::coords_t& cartesian_coords)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+        return find_cell(mesh[mesh_id_t::cells], cartesian_coords);
+    }
+
     //----------------------------------------//
     // Find a cell from indices               //
     //----------------------------------------//
@@ -521,54 +547,39 @@ namespace samurai
 
     template <std::size_t dim, class TInterval, std::size_t max_size>
     SAMURAI_INLINE auto find_cell(const CellArray<dim, TInterval, max_size>& ca,
-                                  const typename CellArray<dim, TInterval, max_size>::cell_t::coords_t& cartesian_coords)
+                                  const typename CellArray<dim, TInterval, max_size>::cell_t::indices_t& indices,
+                                  const std::size_t level_ref)
     {
         using cell_t = typename CellArray<dim, TInterval, max_size>::cell_t;
 
         cell_t cell;
         cell.length = 0; // cell not found
-        for (std::size_t level = ca.min_level(); level <= ca.max_level(); ++level)
+        for (std::size_t level = ca.min_level(); level < level_ref; ++level)
         {
-            cell = find_cell(ca[level], cartesian_coords);
+            // level < level_ref -> project indices to a lower level
+            cell = find_cell(ca[level], indices >> (level_ref - level));
             if (cell.length != 0)
             {
-                break;
+                return cell;
             }
         }
-        return cell;
-    }
-
-    template <std::size_t dim, class TInterval, std::size_t max_size>
-    SAMURAI_INLINE auto
-    find_cell(const CellArray<dim, TInterval, max_size>& ca, const typename CellArray<dim, TInterval, max_size>::cell_t::indices_t& indices)
-    {
-        using cell_t = typename CellArray<dim, TInterval, max_size>::cell_t;
-
-        cell_t cell;
-        cell.length = 0; // cell not found
-        for (std::size_t level = ca.min_level(); level <= ca.max_level(); ++level)
+        for (std::size_t level = level_ref; level <= ca.max_level(); ++level)
         {
-            cell = find_cell(ca[level], indices);
+            // level > level_ref -> project indices to a higher level
+            cell = find_cell(ca[level], indices << (level - level_ref));
             if (cell.length != 0)
             {
-                break;
+                return cell;
             }
         }
         return cell;
     }
 
     template <class Mesh>
-    SAMURAI_INLINE auto find_cell(const Mesh& mesh, const typename Mesh::cell_t::coords_t& cartesian_coords)
+    SAMURAI_INLINE auto find_cell(const Mesh& mesh, const typename Mesh::cell_t::indices_t& indices, const std::size_t level_ref)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
-        return find_cell(mesh[mesh_id_t::cells], cartesian_coords);
-    }
-
-    template <class Mesh>
-    SAMURAI_INLINE auto find_cell(const Mesh& mesh, const typename Mesh::cell_t::indices_t& indices)
-    {
-        using mesh_id_t = typename Mesh::mesh_id_t;
-        return find_cell(mesh[mesh_id_t::cells], indices);
+        return find_cell(mesh[mesh_id_t::cells], indices, level_ref);
     }
 
 } // namespace samurai
