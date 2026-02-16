@@ -487,12 +487,15 @@ namespace samurai
     SAMURAI_INLINE auto
     find_cell(const LevelCellArray<dim, TInterval>& lca, const typename LevelCellArray<dim, TInterval>::cell_t::coords_t& cartesian_coords)
     {
-        typename LevelCellArray<dim, TInterval>::cell_t::indices_t indices = xt::floor((cartesian_coords - lca.origin_point())
-                                                                                       / lca.cell_length());
+        typename LevelCellArray<dim, TInterval>::cell_t::indices_t indices = xt::floor((cartesian_coords - lca.origin_point()
+                                                                                       ) / lca.cell_length());
 
         return find_cell(lca, indices);
     }
 
+    //----------------------------------------//
+    // Find a cell from indices               //
+    //----------------------------------------//
     template <std::size_t dim, class TInterval>
     SAMURAI_INLINE auto
     find_cell(const LevelCellArray<dim, TInterval>& lca, const typename LevelCellArray<dim, TInterval>::cell_t::indices_t& indices)
