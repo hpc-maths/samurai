@@ -661,12 +661,9 @@ namespace samurai
 
 #ifdef SAMURAI_WITH_MPI
         int mpi_size;
-        int mpi_rank;
         MPI_Comm_size(m_mpi_comm, &mpi_size);
-        MPI_Comm_rank(m_mpi_comm, &mpi_rank);
 
         std::size_t size                               = static_cast<std::size_t>(mpi_size);
-        std::size_t rank                               = static_cast<std::size_t>(mpi_rank);
         xt::xtensor<std::size_t, 1> connectivity_sizes = xt::empty<std::size_t>({size});
         xt::xtensor<std::size_t, 1> coords_sizes       = xt::empty<std::size_t>({size});
 
@@ -683,7 +680,6 @@ namespace samurai
             mpi::all_gather(world, local_coords.shape(0), coords_sizes.begin());
         }
 #else
-        std::size_t rank                                                 = 0;
         std::size_t size                                                 = 1;
         xt::xtensor_fixed<std::size_t, xt::xshape<1>> connectivity_sizes = {local_connectivity.shape(0)};
         xt::xtensor_fixed<std::size_t, xt::xshape<1>> coords_sizes       = {local_coords.shape(0)};
@@ -706,6 +702,7 @@ namespace samurai
             auto xfer_props = HighFive::DataTransferProps{};
             if (size == 1)
             {
+                std::size_t rank  = 0;
                 auto connectivity = h5_file.createDataSet<std::size_t>(
                     prefix + "/connectivity",
                     HighFive::DataSpace(std::vector<std::size_t>{connectivity_sizes[rank], 1 << dim}));
