@@ -488,7 +488,7 @@ namespace samurai
     find_cell(const LevelCellArray<dim, TInterval>& lca, const typename LevelCellArray<dim, TInterval>::cell_t::coords_t& cartesian_coords)
     {
         using indices_t = typename LevelCellArray<dim, TInterval>::cell_t::indices_t;
-        using value_t   = typename indices_t::value_t;
+        using value_t   = indices_t::value_type;
 
         const indices_t indices = xt::cast<value_t>(xt::floor((cartesian_coords - lca.origin_point()) / lca.cell_length()));
 
@@ -524,6 +524,7 @@ namespace samurai
     //----------------------------------------//
     // Find a cell from indices               //
     //----------------------------------------//
+
     template <std::size_t dim, class TInterval>
     SAMURAI_INLINE auto
     find_cell(const LevelCellArray<dim, TInterval>& lca, const typename LevelCellArray<dim, TInterval>::cell_t::indices_t& indices)
