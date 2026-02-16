@@ -28,7 +28,6 @@ namespace samurai
     template <typename mesh_t>
     void test_save(const mesh_t& mesh)
     {
-        mpi::communicator world;
         save("test_save_mesh", mesh);
         save("test", "test_save_mesh", mesh);
         save("test", "test_save_mesh", {true, true}, mesh);
