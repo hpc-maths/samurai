@@ -487,8 +487,9 @@ namespace samurai
     SAMURAI_INLINE auto
     find_cell(const LevelCellArray<dim, TInterval>& lca, const typename LevelCellArray<dim, TInterval>::cell_t::coords_t& cartesian_coords)
     {
-        typename LevelCellArray<dim, TInterval>::cell_t::indices_t indices = xt::floor((cartesian_coords - lca.origin_point()
-                                                                                       ) / lca.cell_length());
+        using indices_t = typename LevelCellArray<dim, TInterval>::cell_t::indices_t;
+
+        indices_t indices = xt::floor((cartesian_coords - lca.origin_point()) / lca.cell_length());
 
         return find_cell(lca, indices);
     }
