@@ -487,13 +487,23 @@ namespace samurai
     SAMURAI_INLINE auto
     find_cell(const LevelCellArray<dim, TInterval>& lca, const typename LevelCellArray<dim, TInterval>::cell_t::coords_t& cartesian_coords)
     {
+        typename LevelCellArray<dim, TInterval>::cell_t::indices_t indices = xt::floor((cartesian_coords - lca.origin_point())
+                                                                                       / lca.cell_length());
+
+        return find_cell(lca, indices);
+    }
+
+    template <std::size_t dim, class TInterval>
+    SAMURAI_INLINE auto
+    find_cell(const LevelCellArray<dim, TInterval>& lca, const typename LevelCellArray<dim, TInterval>::cell_t::indices_t& indices)
+    {
         using cell_t = typename LevelCellArray<dim, TInterval>::cell_t;
 
         cell_t cell;
         cell.length = 0; // cell not found
 
         auto length  = lca.cell_length();
-        cell.indices = xt::floor((cartesian_coords - lca.origin_point()) / length);
+        cell.indices = indices;
         auto offset  = find(lca, cell.indices);
         if (offset >= 0)
         {
@@ -525,11 +535,37 @@ namespace samurai
         return cell;
     }
 
+    template <std::size_t dim, class TInterval, std::size_t max_size>
+    SAMURAI_INLINE auto
+    find_cell(const CellArray<dim, TInterval, max_size>& ca, const typename CellArray<dim, TInterval, max_size>::cell_t::indices_t& indices)
+    {
+        using cell_t = typename CellArray<dim, TInterval, max_size>::cell_t;
+
+        cell_t cell;
+        cell.length = 0; // cell not found
+        for (std::size_t level = ca.min_level(); level <= ca.max_level(); ++level)
+        {
+            cell = find_cell(ca[level], indices);
+            if (cell.length != 0)
+            {
+                break;
+            }
+        }
+        return cell;
+    }
+
     template <class Mesh>
     SAMURAI_INLINE auto find_cell(const Mesh& mesh, const typename Mesh::cell_t::coords_t& cartesian_coords)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
         return find_cell(mesh[mesh_id_t::cells], cartesian_coords);
+    }
+
+    template <class Mesh>
+    SAMURAI_INLINE auto find_cell(const Mesh& mesh, const typename Mesh::cell_t::indices_t& indices)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+        return find_cell(mesh[mesh_id_t::cells], indices);
     }
 
 } // namespace samurai
