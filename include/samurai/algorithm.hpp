@@ -552,14 +552,17 @@ namespace samurai
                                   const typename CellArray<dim, TInterval, max_size>::cell_t::indices_t& indices,
                                   const std::size_t level_ref)
     {
-        using cell_t = typename CellArray<dim, TInterval, max_size>::cell_t;
+        using indices_t = typename CellArray<dim, TInterval, max_size>::cell_t::indices_t;
+        using cell_t    = typename CellArray<dim, TInterval, max_size>::cell_t;
 
         cell_t cell;
         cell.length = 0; // cell not found
         for (std::size_t level = ca.min_level(); level < level_ref; ++level)
         {
             // level < level_ref -> project indices to a lower level
-            cell = find_cell(ca[level], indices >> (level_ref - level));
+            const indices_t shifted_indices = indices >> (level_ref - level);
+
+            cell = find_cell(ca[level], shifted_indices);
             if (cell.length != 0)
             {
                 return cell;
@@ -568,7 +571,9 @@ namespace samurai
         for (std::size_t level = level_ref; level <= ca.max_level(); ++level)
         {
             // level > level_ref -> project indices to a higher level
-            cell = find_cell(ca[level], indices << (level - level_ref));
+            const indices_t shifted_indices = indices << (level - level_ref);
+
+            cell = find_cell(ca[level], shifted_indices);
             if (cell.length != 0)
             {
                 return cell;
