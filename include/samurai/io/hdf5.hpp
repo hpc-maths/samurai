@@ -613,7 +613,8 @@ namespace samurai
     }
 
 #else
-    Hdf5(const fs::path& path, const std::string& filename)
+    template <class D>
+    Hdf5<D>::Hdf5(const fs::path& path, const std::string& filename)
         : h5_file(create_h5file(path, filename))
         , m_path(path)
         , m_filename(filename)
