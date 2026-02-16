@@ -570,10 +570,11 @@ namespace samurai
     {
         auto adjust_filename_for_comm(const std::string& filename, MPI_Comm comm)
         {
+            mpi::communicator world;
             int result;
             MPI_Comm_compare(comm, MPI_COMM_SELF, &result);
 
-            if (result == MPI_IDENT || result == MPI_CONGRUENT)
+            if (world.size() > 1 && (result == MPI_IDENT || result == MPI_CONGRUENT))
             {
                 mpi::communicator world;
                 // MPI_COMM_SELF: append rank suffix
