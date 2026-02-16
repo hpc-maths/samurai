@@ -1285,12 +1285,12 @@ namespace samurai
 #endif
     }
 
+#ifdef SAMURAI_WITH_MPI
     template <class D, class Config>
     void Mesh_base<D, Config>::add_periodic_candidates(const std::vector<mpi_neighbor::SubdomainBoundingBox<dim>>& all_bboxes,
                                                        const mpi_neighbor::SubdomainBoundingBox<dim>& my_bbox,
                                                        std::set<int>& candidates) const
     {
-#ifdef SAMURAI_WITH_MPI
         // For periodic boundaries, we need to check if subdomains could be neighbors
         // when wrapped around the periodic boundaries
         auto directions = detail::get_periodic_directions(m_config.periodic());
@@ -1318,8 +1318,8 @@ namespace samurai
                 }
             }
         }
-#endif
     }
+#endif
 
     template <class D, class Config>
     void Mesh_base<D, Config>::partition_mesh([[maybe_unused]] std::size_t start_level, [[maybe_unused]] const Box<double, dim>& global_box)
