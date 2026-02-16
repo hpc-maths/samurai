@@ -502,7 +502,6 @@ namespace samurai
         cell_t cell;
         cell.length = 0; // cell not found
 
-        auto length  = lca.cell_length();
         cell.indices = indices;
         auto offset  = find(lca, cell.indices);
         if (offset >= 0)
@@ -510,7 +509,7 @@ namespace samurai
             auto interval     = lca[0][static_cast<std::size_t>(offset)];
             cell.index        = interval.index + cell.indices[0];
             cell.level        = lca.level();
-            cell.length       = length;
+            cell.length       = lca.cell_length();
             cell.origin_point = lca.origin_point();
         }
         return cell;
