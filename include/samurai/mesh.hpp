@@ -28,6 +28,47 @@ namespace mpi = boost::mpi;
 
 namespace samurai
 {
+    namespace detail
+    {
+        template <std::size_t d, std::size_t dim>
+        void get_periodic_directions(std::array<bool, dim> is_periodic,
+                                     std::vector<DirectionVector<dim>>& directions,
+                                     DirectionVector<dim>& current)
+        {
+            auto next = [&]()
+            {
+                if constexpr (d == dim - 1)
+                {
+                    directions.push_back(current);
+                }
+                else
+                {
+                    get_periodic_directions<d + 1>(is_periodic, directions, current);
+                }
+            };
+
+            if (is_periodic[d])
+            {
+                current[d] = -1;
+                next();
+
+                current[d] = 1;
+                next();
+            }
+            current[d] = 0;
+            next();
+        }
+
+        template <std::size_t dim>
+        auto get_periodic_directions(const std::array<bool, dim>& is_periodic)
+        {
+            DirectionVector<dim> current{};
+            std::vector<DirectionVector<dim>> directions;
+            get_periodic_directions<0>(is_periodic, directions, current);
+            directions.pop_back();
+            return directions;
+        }
+    }
 
     template <class CellArray, class MeshID>
     struct MeshIDArray : private std::array<CellArray, static_cast<std::size_t>(MeshID::count)>
@@ -297,6 +338,11 @@ namespace samurai
 
         construct_subdomain();
         construct_union();
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        find_neighbourhood();
+        update_neighbour_subdomain();
+#endif
         update_meshid_neighbour(mesh_id_t::cells);
         update_sub_mesh();
         construct_corners();
@@ -347,6 +393,11 @@ namespace samurai
         construct_subdomain();
         m_domain = m_subdomain;
         construct_union();
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        find_neighbourhood();
+        update_neighbour_subdomain();
+#endif
         update_meshid_neighbour(mesh_id_t::cells);
         update_sub_mesh();
         construct_corners();
@@ -368,6 +419,11 @@ namespace samurai
 
         construct_subdomain();
         construct_domain();
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        find_neighbourhood();
+        update_neighbour_subdomain();
+#endif
         construct_union();
         update_meshid_neighbour(mesh_id_t::cells);
         update_sub_mesh();
@@ -390,6 +446,11 @@ namespace samurai
 
         construct_subdomain();
         construct_domain();
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        find_neighbourhood();
+        update_neighbour_subdomain();
+#endif
         construct_union();
         update_meshid_neighbour(mesh_id_t::cells);
         update_sub_mesh();
@@ -413,6 +474,11 @@ namespace samurai
 
         construct_subdomain();
         construct_union();
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        find_neighbourhood();
+        update_neighbour_subdomain();
+#endif
         update_meshid_neighbour(mesh_id_t::cells);
         update_sub_mesh();
         construct_corners();
@@ -435,6 +501,11 @@ namespace samurai
 
         construct_subdomain();
         construct_union();
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        find_neighbourhood();
+        update_neighbour_subdomain();
+#endif
         update_meshid_neighbour(mesh_id_t::cells);
         update_sub_mesh();
         construct_corners();
@@ -1078,11 +1149,6 @@ namespace samurai
                                                           });
                           });
         m_subdomain = {lcl};
-#ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-        find_neighbourhood();
-        update_neighbour_subdomain();
-#endif
     }
 
     template <class D, class Config>
@@ -1177,6 +1243,14 @@ namespace samurai
 
         mpi::wait_all(requests.begin(), requests.end());
 
+        auto directions     = detail::get_periodic_directions(m_config.periodic());
+        auto minmax_indices = m_domain.minmax_indices();
+        xt::xtensor_fixed<value_t, xt::xshape<dim>> domain_size;
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            domain_size[d] = minmax_indices[d].second - minmax_indices[d].first;
+        }
+
         // Verify candidates with precise interval algebra
         std::set<int> verified_neighbors;
         for (std::size_t i = 0; i < candidate_ranks.size(); ++i)
@@ -1188,18 +1262,15 @@ namespace samurai
             }
 
             // Check periodic boundaries for this candidate
-            for (std::size_t d = 0; d < dim; ++d)
+            for (const auto& direction : directions)
             {
-                if (m_config.periodic(d))
-                {
-                    auto shift              = get_periodic_shift(m_domain, m_subdomain.level(), d);
-                    auto periodic_set_left  = intersection(nestedExpand(m_subdomain, 1), translate(candidate_subdomains[i], -shift));
-                    auto periodic_set_right = intersection(nestedExpand(m_subdomain, 1), translate(candidate_subdomains[i], shift));
+                auto shift        = direction * domain_size;
+                auto periodic_set = intersection(nestedExpand(m_subdomain, 1), translate(candidate_subdomains[i], shift));
 
-                    if (!periodic_set_left.empty() || !periodic_set_right.empty())
-                    {
-                        verified_neighbors.insert(candidate_ranks[i]);
-                    }
+                if (!periodic_set.empty())
+                {
+                    verified_neighbors.insert(candidate_ranks[i]);
+                    break; // No need to check other directions if we already found a neighbor
                 }
             }
         }
@@ -1211,7 +1282,6 @@ namespace samurai
         {
             m_mpi_neighbourhood.emplace_back(neighbor);
         }
-
 #endif
     }
 
@@ -1223,36 +1293,28 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
         // For periodic boundaries, we need to check if subdomains could be neighbors
         // when wrapped around the periodic boundaries
-        for (std::size_t d = 0; d < dim; ++d)
+        auto directions = detail::get_periodic_directions(m_config.periodic());
+
+        auto domain_size = xt::eval(m_domain.max_corner() - m_domain.min_corner());
+
+        for (const auto& other_bbox : all_bboxes)
         {
-            if (m_config.periodic(d))
+            if (other_bbox.rank == my_bbox.rank)
             {
-                // Compute domain extent in this dimension
-                double domain_min  = m_domain.min_corner()[d];
-                double domain_max  = m_domain.max_corner()[d];
-                double domain_size = domain_max - domain_min;
+                continue;
+            }
+            for (const auto& direction : directions)
+            {
+                // Check if bboxes could be neighbors through periodic boundary
+                // by virtually shifting the other bbox by +/- domain_size
+                mpi_neighbor::SubdomainBoundingBox<dim> shifted_bbox = other_bbox;
+                shifted_bbox.bbox.min_corner() += direction * domain_size;
+                shifted_bbox.bbox.max_corner() += direction * domain_size;
 
-                for (const auto& other_bbox : all_bboxes)
+                if (my_bbox.could_be_neighbor(shifted_bbox))
                 {
-                    if (other_bbox.rank == my_bbox.rank)
-                    {
-                        continue;
-                    }
-
-                    // Check if bboxes could be neighbors through periodic boundary
-                    // by virtually shifting the other bbox by +/- domain_size
-                    mpi_neighbor::SubdomainBoundingBox<dim> shifted_bbox_left  = other_bbox;
-                    mpi_neighbor::SubdomainBoundingBox<dim> shifted_bbox_right = other_bbox;
-
-                    shifted_bbox_left.bbox.min_corner()[d] -= domain_size;
-                    shifted_bbox_left.bbox.max_corner()[d] -= domain_size;
-                    shifted_bbox_right.bbox.min_corner()[d] += domain_size;
-                    shifted_bbox_right.bbox.max_corner()[d] += domain_size;
-
-                    if (my_bbox.could_be_neighbor(shifted_bbox_left) || my_bbox.could_be_neighbor(shifted_bbox_right))
-                    {
-                        candidates.insert(other_bbox.rank);
-                    }
+                    candidates.insert(other_bbox.rank);
+                    break;
                 }
             }
         }
