@@ -288,9 +288,12 @@ namespace samurai
                     {
                         if (std::isnan(qs_i(ii)) || std::isnan(qs_j(ii)) || std::isnan(qs_ij(ii)))
                         {
-                            std::cerr << "NaN detected during the computation of details." << std::endl;
+#ifdef SAMURAI_WITH_MPI
+                            save(fs::current_path(), "check_nan", MPI_COMM_SELF, {true, true}, field.mesh(), field);
+#else
                             save(fs::current_path(), "check_nan", {true, true}, field.mesh(), field);
-                            break;
+#endif
+                            throw std::runtime_error(fmt::format("NaN detected during the computation of details at level {}.", level));
                         }
                     }
                 }
@@ -298,8 +301,12 @@ namespace samurai
                 {
                     if (xt::any(xt::isnan(qs_ij)))
                     {
-                        std::cerr << "NaN detected during the computation of details." << std::endl;
+#ifdef SAMURAI_WITH_MPI
+                        save(fs::current_path(), "check_nan", MPI_COMM_SELF, {true, true}, field.mesh(), field);
+#else
                         save(fs::current_path(), "check_nan", {true, true}, field.mesh(), field);
+#endif
+                        throw std::runtime_error(fmt::format("NaN detected during the computation of details at level {}.", level));
                     }
                 }
 #endif

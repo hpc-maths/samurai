@@ -15,6 +15,10 @@
 #include "../io/hdf5.hpp"
 #endif
 
+#ifdef SAMURAI_CHECK_NAN
+#include <mpi.h>
+#endif
+
 namespace samurai
 {
     template <std::size_t s>
@@ -577,9 +581,12 @@ namespace samurai
 #ifdef SAMURAI_CHECK_NAN
         if (xt::any(xt::isnan(qs_ij)))
         {
-            std::cerr << "NaN detected in the prediction stencil (Qs_ij)." << std::endl;
-            std::cerr << qs_ij << std::endl;
+#ifdef SAMURAI_WITH_MPI
+            save(fs::current_path(), "check_nan", MPI_COMM_SELF, {true, true}, src.mesh(), src);
+#else
             save(fs::current_path(), "check_nan", {true, true}, src.mesh(), src);
+#endif
+            throw std::runtime_error(fmt::format("NaN detected in the prediction stencil (Qs_ij) at level {}.", level));
         }
 #endif
 
