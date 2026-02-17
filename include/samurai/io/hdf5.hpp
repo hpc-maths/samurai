@@ -23,6 +23,7 @@ namespace fs = std::filesystem;
 
 #ifdef SAMURAI_WITH_MPI
 #include <boost/mpi/collectives.hpp>
+#include <boost/mpi/communicator.hpp>
 #include <mpi.h>
 namespace mpi = boost::mpi;
 #endif
@@ -575,7 +576,7 @@ namespace samurai
 
             if (comm_wrapped.size() == 1 && world.size() > 1)
             {
-                return fmt::format("{}_rank{}", filename, comm_wrapped.rank());
+                return fmt::format("{}_rank{}", filename, world.rank());
             }
             return filename;
         }
