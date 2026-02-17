@@ -576,7 +576,6 @@ namespace samurai
 
             if (world.size() > 1 && (result == MPI_IDENT || result == MPI_CONGRUENT))
             {
-                mpi::communicator world;
                 // MPI_COMM_SELF: append rank suffix
                 return fmt::format("{}_rank{}", filename, world.rank());
             }
