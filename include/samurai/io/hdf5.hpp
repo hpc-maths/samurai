@@ -1337,4 +1337,50 @@ namespace samurai
     {
         save(fs::current_path(), filename, Hdf5Options<mesh_t>{}, mesh, fields...);
     }
+
+    template <class mesh_t, class... T>
+        requires(mesh_like<mesh_t>)
+    void
+    local_save(const fs::path& path, const std::string& filename, const Hdf5Options<mesh_t>& options, const mesh_t& mesh, const T&... fields)
+    {
+#ifdef SAMURAI_WITH_MPI
+        save(path, filename, MPI_COMM_SELF, options, mesh, fields...);
+#else
+        save(path, filename, options, mesh, fields...);
+#endif
+    }
+
+    template <class mesh_t, class... T>
+        requires(mesh_like<mesh_t>)
+    void local_save(const fs::path& path, const std::string& filename, const mesh_t& mesh, const T&... fields)
+    {
+#ifdef SAMURAI_WITH_MPI
+        save(path, filename, MPI_COMM_SELF, Hdf5Options<mesh_t>{}, mesh, fields...);
+#else
+        save(path, filename, Hdf5Options<mesh_t>{}, mesh, fields...);
+#endif
+    }
+
+    template <class mesh_t, class... T>
+        requires(mesh_like<mesh_t>)
+    void local_save(const std::string& filename, const Hdf5Options<mesh_t>& options, const mesh_t& mesh, const T&... fields)
+    {
+#ifdef SAMURAI_WITH_MPI
+        save(fs::current_path(), filename, MPI_COMM_SELF, options, mesh, fields...);
+#else
+        save(fs::current_path(), filename, options, mesh, fields...);
+#endif
+    }
+
+    template <class mesh_t, class... T>
+        requires(mesh_like<mesh_t>)
+    void local_save(const std::string& filename, const mesh_t& mesh, const T&... fields)
+    {
+#ifdef SAMURAI_WITH_MPI
+        save(fs::current_path(), filename, Hdf5Options<mesh_t>{}, mesh, fields...);
+#else
+        save(fs::current_path(), filename, Hdf5Options<mesh_t>{}, mesh, fields...);
+#endif
+    }
+
 } // namespace samurai

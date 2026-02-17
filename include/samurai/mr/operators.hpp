@@ -288,11 +288,7 @@ namespace samurai
                     {
                         if (std::isnan(qs_i(ii)) || std::isnan(qs_j(ii)) || std::isnan(qs_ij(ii)))
                         {
-#ifdef SAMURAI_WITH_MPI
-                            save(fs::current_path(), "check_nan", MPI_COMM_SELF, {true, true}, field.mesh(), field);
-#else
-                            save(fs::current_path(), "check_nan", {true, true}, field.mesh(), field);
-#endif
+                            local_save(fs::current_path(), "check_nan", {true, true}, field.mesh(), field);
                             throw std::runtime_error(fmt::format("NaN detected during the computation of details at level {}.", level));
                         }
                     }
@@ -301,11 +297,7 @@ namespace samurai
                 {
                     if (xt::any(xt::isnan(qs_ij)))
                     {
-#ifdef SAMURAI_WITH_MPI
-                        save(fs::current_path(), "check_nan", MPI_COMM_SELF, {true, true}, field.mesh(), field);
-#else
-                        save(fs::current_path(), "check_nan", {true, true}, field.mesh(), field);
-#endif
+                        local_save(fs::current_path(), "check_nan", {true, true}, field.mesh(), field);
                         throw std::runtime_error(fmt::format("NaN detected during the computation of details at level {}.", level));
                     }
                 }
@@ -380,6 +372,7 @@ namespace samurai
             static constexpr std::size_t dim    = Field::dim;
             static constexpr std::size_t n_comp = Field::n_comp;
             static constexpr bool is_soa        = detail::is_soa_v<Field>;
+            static constexpr bool is_scalar     = false;
 
             using interval_t    = typename Field::interval_t;
             using coord_index_t = typename interval_t::coord_index_t;

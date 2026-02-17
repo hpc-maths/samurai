@@ -581,11 +581,7 @@ namespace samurai
 #ifdef SAMURAI_CHECK_NAN
         if (xt::any(xt::isnan(qs_ij)))
         {
-#ifdef SAMURAI_WITH_MPI
-            save(fs::current_path(), "check_nan", MPI_COMM_SELF, {true, true}, src.mesh(), src);
-#else
-            save(fs::current_path(), "check_nan", {true, true}, src.mesh(), src);
-#endif
+            local_save(fs::current_path(), "check_nan", {true, true}, src.mesh(), src);
             throw std::runtime_error(fmt::format("NaN detected in the prediction stencil (Qs_ij) at level {}.", level));
         }
 #endif

@@ -32,6 +32,10 @@ namespace samurai
         save("test", "test_save_mesh", mesh);
         save("test", "test_save_mesh", {true, true}, mesh);
         save("test_save_mesh", Hdf5Options<mesh_t>{true, true}, mesh);
+        local_save("test_save_mesh", mesh);
+        local_save("test", "test_save_mesh", mesh);
+        local_save("test", "test_save_mesh", {true, true}, mesh);
+        local_save("test_save_mesh", Hdf5Options<mesh_t>{true, true}, mesh);
 #ifdef SAMURAI_WITH_MPI
         save("test_save_mesh", MPI_COMM_WORLD, mesh);
         save("test", "test_save_mesh", MPI_COMM_WORLD, mesh);
@@ -52,6 +56,10 @@ namespace samurai
         save("test", "test_save_mesh", mesh);
         save("test", "test_save_mesh", Hdf5Options<UniformMesh<config_t>>{true}, mesh);
         save("test_save_mesh", Hdf5Options<UniformMesh<config_t>>{true}, mesh);
+        local_save("test_save_mesh", mesh);
+        local_save("test", "test_save_mesh", mesh);
+        local_save("test", "test_save_mesh", Hdf5Options<UniformMesh<config_t>>{true}, mesh);
+        local_save("test_save_mesh", Hdf5Options<UniformMesh<config_t>>{true}, mesh);
 #ifdef SAMURAI_WITH_MPI
         save("test_save_mesh", MPI_COMM_WORLD, mesh);
         save("test", "test_save_mesh", MPI_COMM_WORLD, mesh);
