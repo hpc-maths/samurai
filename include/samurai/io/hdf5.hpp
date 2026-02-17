@@ -568,7 +568,7 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
     namespace detail
     {
-        auto adjust_filename_for_comm(const std::string& filename, MPI_Comm comm)
+        inline auto adjust_filename_for_comm(const std::string& filename, MPI_Comm comm)
         {
             mpi::communicator world;
             mpi::communicator comm_wrapped(comm, mpi::comm_create_kind::comm_duplicate);
