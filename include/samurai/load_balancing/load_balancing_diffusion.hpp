@@ -12,7 +12,6 @@
 #include "../timers.hpp"
 #include "load_balancing.hpp"
 
-#ifdef SAMURAI_WITH_MPI
 namespace samurai
 {
 
@@ -241,4 +240,3 @@ namespace samurai
         }
     };
 }
-#endif
