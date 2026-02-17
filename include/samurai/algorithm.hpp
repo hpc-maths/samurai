@@ -557,17 +557,7 @@ namespace samurai
 
         cell_t cell;
         cell.length = 0; // cell not found
-        for (std::size_t level = ca.min_level(); level < level_ref; ++level)
-        {
-            // level < level_ref -> project indices to a lower level
-            const indices_t shifted_indices = indices >> (level_ref - level);
 
-            cell = find_cell(ca[level], shifted_indices);
-            if (cell.length != 0)
-            {
-                return cell;
-            }
-        }
         for (std::size_t level = level_ref; level <= ca.max_level(); ++level)
         {
             // level > level_ref -> project indices to a higher level
@@ -582,11 +572,24 @@ namespace samurai
         return cell;
     }
 
+    template <std::size_t dim, class TInterval, std::size_t max_size>
+    SAMURAI_INLINE auto
+    find_cell(const CellArray<dim, TInterval, max_size>& ca, const typename CellArray<dim, TInterval, max_size>::cell_t::indices_t& indices)
+    {
+        return find_cell(ca, indices, ca.max_level());
+    }
+
     template <class Mesh>
     SAMURAI_INLINE auto find_cell(const Mesh& mesh, const typename Mesh::cell_t::indices_t& indices, const std::size_t level_ref)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
         return find_cell(mesh[mesh_id_t::cells], indices, level_ref);
+    }
+
+    template <class Mesh>
+    SAMURAI_INLINE auto find_cell(const Mesh& mesh, const typename Mesh::cell_t::indices_t& indices)
+    {
+        return find_cell(mesh, indices, mesh.max_level());
     }
 
 } // namespace samurai
