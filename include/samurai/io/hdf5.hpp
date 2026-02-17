@@ -571,16 +571,12 @@ namespace samurai
         auto adjust_filename_for_comm(const std::string& filename, MPI_Comm comm)
         {
             mpi::communicator world;
-            int result;
-            MPI_Comm_compare(comm, MPI_COMM_SELF, &result);
+            mpi::communicator comm_wrapped(comm, mpi::comm_create_kind::comm_duplicate);
 
-            if (world.size() > 1 && (result == MPI_IDENT || result == MPI_CONGRUENT))
+            if (comm_wrapped.size() == 1 && world.size() > 1)
             {
-                // MPI_COMM_SELF: append rank suffix
-                return fmt::format("{}_rank{}", filename, world.rank());
+                return fmt::format("{}_rank{}", filename, comm_wrapped.rank());
             }
-
-            // MPI_COMM_WORLD or other: no suffix
             return filename;
         }
     }
@@ -601,9 +597,9 @@ namespace samurai
     {
         HighFive::FileAccessProps fapl;
         // Only use collective metadata for communicators larger than SELF
-        int size;
-        MPI_Comm_size(comm, &size);
-        if (size > 1)
+        mpi::communicator comm_wrapped(comm, mpi::comm_create_kind::comm_duplicate);
+
+        if (comm_wrapped.size() > 1)
         {
             fapl.add(HighFive::MPIOFileAccess{comm, MPI_INFO_NULL});
             fapl.add(HighFive::MPIOCollectiveMetadata{});
@@ -634,9 +630,8 @@ namespace samurai
     SAMURAI_INLINE Hdf5<D>::~Hdf5()
     {
 #ifdef SAMURAI_WITH_MPI
-        int rank;
-        MPI_Comm_rank(m_mpi_comm, &rank);
-        if (rank == 0)
+        mpi::communicator comm_wrapped(m_mpi_comm, mpi::comm_create_kind::comm_duplicate);
+        if (comm_wrapped.rank() == 0)
 #endif
         {
             m_doc.save_file(fmt::format("{}.xdmf", (m_path / m_filename).string()).data());
@@ -663,28 +658,16 @@ namespace samurai
         std::tie(local_coords, local_connectivity) = extract_coords_and_connectivity(submesh);
 
 #ifdef SAMURAI_WITH_MPI
-        int mpi_size;
-        int mpi_rank;
-        MPI_Comm_size(m_mpi_comm, &mpi_size);
-        MPI_Comm_rank(m_mpi_comm, &mpi_rank);
+        mpi::communicator comm(m_mpi_comm, mpi::comm_create_kind::comm_duplicate);
 
-        size                                           = static_cast<std::size_t>(mpi_size);
-        rank                                           = static_cast<std::size_t>(mpi_rank);
+        size = static_cast<std::size_t>(comm.size());
+        rank = static_cast<std::size_t>(comm.rank());
+
         xt::xtensor<std::size_t, 1> connectivity_sizes = xt::empty<std::size_t>({size});
         xt::xtensor<std::size_t, 1> coords_sizes       = xt::empty<std::size_t>({size});
 
-        MPI_Comm_size(MPI_COMM_SELF, &mpi_size);
-        if (size == 1)
-        {
-            connectivity_sizes[0] = local_connectivity.shape(0);
-            coords_sizes[0]       = local_coords.shape(0);
-        }
-        else
-        {
-            mpi::communicator world;
-            mpi::all_gather(world, local_connectivity.shape(0), connectivity_sizes.begin());
-            mpi::all_gather(world, local_coords.shape(0), coords_sizes.begin());
-        }
+        mpi::all_gather(comm, local_connectivity.shape(0), connectivity_sizes.begin());
+        mpi::all_gather(comm, local_coords.shape(0), coords_sizes.begin());
 #else
         xt::xtensor_fixed<std::size_t, xt::xshape<1>> connectivity_sizes = {local_connectivity.shape(0)};
         xt::xtensor_fixed<std::size_t, xt::xshape<1>> coords_sizes       = {local_coords.shape(0)};
@@ -825,15 +808,11 @@ namespace samurai
     {
         auto xfer_props = HighFive::DataTransferProps{};
 #ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
 
-        int mpi_size;
-        int mpi_rank;
-        MPI_Comm_size(m_mpi_comm, &mpi_size);
-        MPI_Comm_rank(m_mpi_comm, &mpi_rank);
+        mpi::communicator comm(m_mpi_comm, mpi::comm_create_kind::comm_duplicate);
 
-        std::size_t size = static_cast<std::size_t>(mpi_size);
-        std::size_t rank = static_cast<std::size_t>(mpi_rank);
+        std::size_t size = static_cast<std::size_t>(comm.size());
+        std::size_t rank = static_cast<std::size_t>(comm.rank());
 
         xt::xtensor<std::size_t, 1> field_sizes = xt::empty<std::size_t>({size});
 
@@ -844,7 +823,7 @@ namespace samurai
         else
         {
             xfer_props.add(HighFive::UseCollectiveIO{});
-            mpi::all_gather(world, submesh.nb_cells(), field_sizes.begin());
+            mpi::all_gather(comm, submesh.nb_cells(), field_sizes.begin());
         }
 #else
         std::size_t rank                                          = 0;
