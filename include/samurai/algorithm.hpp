@@ -558,10 +558,10 @@ namespace samurai
         cell_t cell;
         cell.length = 0; // cell not found
 
-        for (std::size_t level = level_ref; level <= ca.max_level(); ++level)
+        for (std::size_t level = ca.min_level(); level <= level_ref; ++level)
         {
-            // level > level_ref -> project indices to a higher level
-            const indices_t shifted_indices = indices << (level - level_ref);
+            // level < level_ref -> project indices to a lower level
+            const indices_t shifted_indices = indices >> (level_ref - level);
 
             cell = find_cell(ca[level], shifted_indices);
             if (cell.length != 0)
@@ -569,6 +569,7 @@ namespace samurai
                 return cell;
             }
         }
+
         return cell;
     }
 
