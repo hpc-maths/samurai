@@ -3,16 +3,17 @@
 
 #pragma once
 
-#include <ranges>
-
-#include "../box.hpp"
-#include "../samurai_config.hpp"
+#include <algorithm>
+#include <limits>
 
 #ifdef SAMURAI_WITH_MPI
 #include <boost/mpi.hpp>
 #include <boost/serialization/array.hpp>
 #include <boost/serialization/split_member.hpp>
 #endif
+
+#include "../box.hpp"
+#include "../samurai_config.hpp"
 
 namespace samurai::mpi_neighbor
 {

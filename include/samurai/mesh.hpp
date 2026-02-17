@@ -339,7 +339,6 @@ namespace samurai
         construct_subdomain();
         construct_union();
 #ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
         find_neighbourhood();
         update_neighbour_subdomain();
 #endif
@@ -394,7 +393,6 @@ namespace samurai
         m_domain = m_subdomain;
         construct_union();
 #ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
         find_neighbourhood();
         update_neighbour_subdomain();
 #endif
@@ -420,7 +418,6 @@ namespace samurai
         construct_subdomain();
         construct_domain();
 #ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
         find_neighbourhood();
         update_neighbour_subdomain();
 #endif
@@ -447,7 +444,6 @@ namespace samurai
         construct_subdomain();
         construct_domain();
 #ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
         find_neighbourhood();
         update_neighbour_subdomain();
 #endif
@@ -475,7 +471,6 @@ namespace samurai
         construct_subdomain();
         construct_union();
 #ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
         find_neighbourhood();
         update_neighbour_subdomain();
 #endif
@@ -502,7 +497,6 @@ namespace samurai
         construct_subdomain();
         construct_union();
 #ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
         find_neighbourhood();
         update_neighbour_subdomain();
 #endif
@@ -1252,13 +1246,15 @@ namespace samurai
         }
 
         // Verify candidates with precise interval algebra
-        std::set<int> verified_neighbors;
+        // And update neighborhood list
+        m_mpi_neighbourhood.clear();
         for (std::size_t i = 0; i < candidate_ranks.size(); ++i)
         {
             auto set = intersection(nestedExpand(m_subdomain, 1), candidate_subdomains[i]);
             if (!set.empty())
             {
-                verified_neighbors.insert(candidate_ranks[i]);
+                m_mpi_neighbourhood.emplace_back(candidate_ranks[i]);
+                continue; // No need to check periodic boundaries if they are already neighbors
             }
 
             // Check periodic boundaries for this candidate
@@ -1269,19 +1265,12 @@ namespace samurai
 
                 if (!periodic_set.empty())
                 {
-                    verified_neighbors.insert(candidate_ranks[i]);
+                    m_mpi_neighbourhood.emplace_back(candidate_ranks[i]);
                     break; // No need to check other directions if we already found a neighbor
                 }
             }
         }
 
-        // Update neighborhood list
-        m_mpi_neighbourhood.clear();
-        m_mpi_neighbourhood.reserve(verified_neighbors.size());
-        for (int neighbor : verified_neighbors)
-        {
-            m_mpi_neighbourhood.emplace_back(neighbor);
-        }
 #endif
     }
 
@@ -1299,7 +1288,7 @@ namespace samurai
 
         for (const auto& other_bbox : all_bboxes)
         {
-            if (other_bbox.rank == my_bbox.rank)
+            if (other_bbox.rank == my_bbox.rank || candidates.contains(other_bbox.rank))
             {
                 continue;
             }

@@ -7,12 +7,15 @@
  * These tests validate the bbox computation and intersection logic
  * in 1D, 2D, 3D, and 4D without requiring MPI.
  */
-
-#include "samurai/box.hpp"
-#include "samurai/cell_array.hpp"
-#include "samurai/cell_list.hpp"
-#include "samurai/mpi/subdomain_bbox.hpp"
+#include <fmt/format.h>
 #include <gtest/gtest.h>
+#include <iostream>
+#include <vector>
+
+#include <samurai/box.hpp>
+#include <samurai/cell_array.hpp>
+#include <samurai/cell_list.hpp>
+#include <samurai/mpi/subdomain_bbox.hpp>
 
 namespace samurai
 {
@@ -68,21 +71,8 @@ namespace samurai
         point_t expected_min;
         expected_min.fill(0.0);
         point_t expected_max;
-        expected_max.fill(0.0);
+        expected_max.fill(0.125);
         expected_max[0] = 1.0; // First dimension spans [0, 1)
-
-        if constexpr (dim > 1)
-        {
-            expected_max[1] = 0.125; // Other dimensions: single cell
-        }
-        if constexpr (dim > 2)
-        {
-            expected_max[2] = 0.125;
-        }
-        if constexpr (dim > 3)
-        {
-            expected_max[3] = 0.125;
-        }
 
         for (std::size_t d = 0; d < dim; ++d)
         {
