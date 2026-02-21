@@ -194,13 +194,19 @@ namespace samurai
                 return;
             }
             // Find the last stack entry whose display name matches tname
-            auto& stack               = _active_stack();
-            const std::string ctx_key = _make_key(tname);
-
-            if (_times.find(ctx_key) == _times.end())
+            auto& stack = _active_stack();
+            std::string ctx_key;
+            for (auto it = stack.rbegin(); it != stack.rend(); ++it)
             {
-                SAMURAI_ASSERT(false, "[Timers::stop] No active timer named '" + tname + "' on the stack!");
+                if (_display_name(*it) == tname)
+                {
+                    ctx_key = *it;
+                    stack.erase(std::next(it).base());
+                    break;
+                }
             }
+
+            SAMURAI_ASSERT(!ctx_key.empty(), "[Timers::stop] No active timer named '" + tname + "' on the stack!");
 
             auto& entry = _times.at(ctx_key);
 
