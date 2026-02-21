@@ -268,6 +268,9 @@ namespace samurai
         template <class T1, class T2, std::size_t order = T2::mesh_t::config::prediction_stencil_radius>
         SAMURAI_INLINE void operator()(Dim<2>, T1& detail, const T2& field) const
         {
+            ScopedTimer timer("compute_detail_op<Dim<2>>");
+            timer.set_cells(i.size());
+
             if constexpr (order == 0)
             {
                 detail(level + 1, 2 * i, 2 * j)         = field(level + 1, 2 * i, 2 * j) - field(level, i, j);

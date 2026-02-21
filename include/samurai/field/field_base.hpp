@@ -200,7 +200,7 @@ namespace samurai
                 return this->derived_cast();
             }
 
-            times::timers.start("field expressions");
+            ScopedTimer timer_fld("field expressions");
 
             using inner_mesh_t  = typename Derived::inner_mesh_t;
             using data_access_t = typename Derived::data_access_type;
@@ -219,7 +219,6 @@ namespace samurai
             std::swap(p_bc, tmp);
             m_ghosts_updated = other.m_ghosts_updated;
 
-            times::timers.stop("field expressions");
             return this->derived_cast();
         }
 
@@ -227,14 +226,13 @@ namespace samurai
         template <class E>
         SAMURAI_INLINE Derived& FieldBase<Derived>::assign_expression(const field_expression<E>& e)
         {
-            times::timers.start("field expressions");
+            ScopedTimer timer_fld("field expressions");
             for_each_interval(this->derived_cast().mesh(),
                               [&](std::size_t level, const auto& i, const auto& index)
                               {
                                   noalias(this->derived_cast()(level, i, index)) = e.derived_cast()(level, i, index);
                               });
             m_ghosts_updated = false;
-            times::timers.stop("field expressions");
             return this->derived_cast();
         }
 
