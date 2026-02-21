@@ -96,14 +96,17 @@ namespace samurai
      *     t.set_cells(mesh.nb_cells());
      * }
      *
-     * // Legacy: explicit start/stop still fully supported
+     * // Explicit start/stop still fully supported
      * samurai::times::timers.start("my timer");
      * samurai::times::timers.stop("my timer");
+     * or
+     * samurai::times::timers.stop("my timer", nb_cells);
      * @endcode
      */
     class Timers
     {
       public:
+
         // -----------------------------------------------------------------
         // Enable / disable
         // -----------------------------------------------------------------
@@ -191,19 +194,13 @@ namespace samurai
                 return;
             }
             // Find the last stack entry whose display name matches tname
-            auto& stack     = _active_stack();
-            std::string ctx_key;
-            for (auto it = stack.rbegin(); it != stack.rend(); ++it)
-            {
-                if (_display_name(*it) == tname)
-                {
-                    ctx_key = *it;
-                    stack.erase(std::next(it).base());
-                    break;
-                }
-            }
+            auto& stack               = _active_stack();
+            const std::string ctx_key = _make_key(tname);
 
-            SAMURAI_ASSERT(!ctx_key.empty(), "[Timers::stop] No active timer named '" + tname + "' on the stack!");
+            if (_times.find(ctx_key) == _times.end())
+            {
+                SAMURAI_ASSERT(false, "[Timers::stop] No active timer named '" + tname + "' on the stack!");
+            }
 
             auto& entry = _times.at(ctx_key);
 
@@ -275,6 +272,7 @@ namespace samurai
                 double min_s{0}, max_s{0}, ave_s{0};
                 int minrank{0}, maxrank{0};
             };
+
             std::map<std::string, KeyStats> stats;
 
             if (world.rank() == 0)
@@ -291,10 +289,18 @@ namespace samurai
                     {
                         const double v = gathered[static_cast<std::size_t>(r)][static_cast<std::size_t>(k)];
                         sum += v;
-                        if (v < mn) { mn = v; mnr = r; }
-                        if (v > mx) { mx = v; mxr = r; }
+                        if (v < mn)
+                        {
+                            mn  = v;
+                            mnr = r;
+                        }
+                        if (v > mx)
+                        {
+                            mx  = v;
+                            mxr = r;
+                        }
                     }
-                    stats[all_keys[static_cast<std::size_t>(k)]] = { mn, mx, sum / nranks, mnr, mxr };
+                    stats[all_keys[static_cast<std::size_t>(k)]] = {mn, mx, sum / nranks, mnr, mxr};
                 }
             }
 
@@ -306,16 +312,16 @@ namespace samurai
             // ---- Everything below runs only on rank 0 ----
 
             // Find "total runtime"
-            double total_runtime_s    = 0.0;
-            bool has_total_runtime    = false;
+            double total_runtime_s = 0.0;
+            bool has_total_runtime = false;
             std::string total_runtime_key;
             for (const auto& [key, entry] : _times)
             {
                 if (_display_name(key) == "total runtime")
                 {
-                    has_total_runtime  = true;
-                    total_runtime_s    = stats.at(key).ave_s; // use average as grand total
-                    total_runtime_key  = key;
+                    has_total_runtime = true;
+                    total_runtime_s   = stats.at(key).ave_s; // use average as grand total
+                    total_runtime_key = key;
                 }
             }
 
@@ -354,18 +360,17 @@ namespace samurai
             const double grand_total_s    = has_total_runtime ? total_runtime_s : total_measured_s;
 
             // ---- Column widths ----
-            const int nameWidth   = _compute_name_width_with_tree(20);
-            const int timeWidth   = 10; // "  6.219"
-            const int rankWidth   = 5;  // "[12]"
-            const int percWidth   = 8;  // "  63.5%"
-            const int parWidth    = 13; // "(63.5% par)"
-            const int callsWidth  = 7;
+            const int nameWidth  = _compute_name_width_with_tree(20);
+            const int timeWidth  = 10; // "  6.219"
+            const int rankWidth  = 5;  // "[12]"
+            const int percWidth  = 8;  // "  63.5%"
+            const int parWidth   = 13; // "(63.5% par)"
+            const int callsWidth = 7;
 
-            const int total_width = nameWidth + 1
-                                    + timeWidth + 1 + rankWidth + 1  // min [r]
-                                    + timeWidth + 1 + rankWidth + 1  // max [r]
-                                    + timeWidth + 1                  // ave
-                                    + percWidth + 1 + parWidth + 1 + callsWidth;
+            const int total_width = nameWidth + 1 + timeWidth + 1 + rankWidth + 1 // min [r]
+                                  + timeWidth + 1 + rankWidth + 1                 // max [r]
+                                  + timeWidth + 1                                 // ave
+                                  + percWidth + 1 + parWidth + 1 + callsWidth;
 
             // ---- Styles ----
             const auto hdr_style  = fmt::emphasis::bold | fmt::fg(fmt::terminal_color::white);
@@ -377,21 +382,31 @@ namespace samurai
             fmt::print(bold_style, " Timers\n");
             fmt::print(hdr_style,
                        "{:<{}} {:>{}} {:>{}} {:>{}} {:>{}} {:>{}} {:>{}} {:>{}} {:>{}}\n",
-                       "Timer",      nameWidth,
-                       "Min (s)",    timeWidth,
-                       "[r]",        rankWidth,
-                       "Max (s)",    timeWidth,
-                       "[r]",        rankWidth,
-                       "Ave (s)",    timeWidth,
-                       "% total",   percWidth,
-                       "% parent",  parWidth,
-                       "Calls",     callsWidth);
+                       "Timer",
+                       nameWidth,
+                       "Min (s)",
+                       timeWidth,
+                       "[r]",
+                       rankWidth,
+                       "Max (s)",
+                       timeWidth,
+                       "[r]",
+                       rankWidth,
+                       "Ave (s)",
+                       timeWidth,
+                       "% total",
+                       percWidth,
+                       "% parent",
+                       parWidth,
+                       "Calls",
+                       callsWidth);
             fmt::print(dim_style, "{}\n", std::string(static_cast<std::size_t>(total_width), '-'));
 
             // ---- Helpers to sort keys by average elapsed ----
             auto sort_by_ave = [&](std::vector<std::string>& keys)
             {
-                std::sort(keys.begin(), keys.end(),
+                std::sort(keys.begin(),
+                          keys.end(),
                           [&](const std::string& a, const std::string& b)
                           {
                               const double ea = stats.count(a) ? stats.at(a).ave_s : 0.0;
@@ -401,19 +416,19 @@ namespace samurai
             };
 
             // ---- Per-entry print lambda ----
-            auto print_entry = [&](const std::string& ctx_key,
-                                   const std::string& prefix,
-                                   const std::string& connector,
-                                   bool is_root,
-                                   double parent_s)
+            auto print_entry =
+                [&](const std::string& ctx_key, const std::string& prefix, const std::string& connector, bool is_root, double parent_s)
             {
-                if (!stats.count(ctx_key)) return;
-                const KeyStats& s      = stats.at(ctx_key);
-                const auto& entry      = _times.at(ctx_key);
+                if (!stats.count(ctx_key))
+                {
+                    return;
+                }
+                const KeyStats& s           = stats.at(ctx_key);
+                const auto& entry           = _times.at(ctx_key);
                 const std::string full_name = prefix + connector + _display_name(ctx_key);
 
                 const double perc_total  = (grand_total_s > 0.0) ? s.ave_s / grand_total_s * 100.0 : 0.0;
-                const double perc_parent = (parent_s      > 0.0) ? s.ave_s / parent_s      * 100.0 : 0.0;
+                const double perc_parent = (parent_s > 0.0) ? s.ave_s / parent_s * 100.0 : 0.0;
 
                 const std::string perc_col = fmt::format("{:.1f}%", perc_total);
                 const std::string par_col  = is_root ? std::string{} : fmt::format("({:.1f}% par)", perc_parent);
@@ -422,14 +437,14 @@ namespace samurai
                 const fmt::text_style num_style  = is_root ? bold_style : _heat_style(perc_total);
 
                 fmt::print(name_style, "{:<{}}", full_name, nameWidth);
-                fmt::print(num_style,  " {:>{}.3f}", s.min_s, timeWidth);
-                fmt::print(dim_style,  " {:>{}}", fmt::format("[{}]", s.minrank), rankWidth);
-                fmt::print(num_style,  " {:>{}.3f}", s.max_s, timeWidth);
-                fmt::print(dim_style,  " {:>{}}", fmt::format("[{}]", s.maxrank), rankWidth);
-                fmt::print(num_style,  " {:>{}.3f}", s.ave_s, timeWidth);
-                fmt::print(num_style,  " {:>{}}", perc_col, percWidth);
-                fmt::print(dim_style,  " {:>{}}", par_col, parWidth);
-                fmt::print(dim_style,  " {:>{}}", entry.ntimes, callsWidth);
+                fmt::print(num_style, " {:>{}.3f}", s.min_s, timeWidth);
+                fmt::print(dim_style, " {:>{}}", fmt::format("[{}]", s.minrank), rankWidth);
+                fmt::print(num_style, " {:>{}.3f}", s.max_s, timeWidth);
+                fmt::print(dim_style, " {:>{}}", fmt::format("[{}]", s.maxrank), rankWidth);
+                fmt::print(num_style, " {:>{}.3f}", s.ave_s, timeWidth);
+                fmt::print(num_style, " {:>{}}", perc_col, percWidth);
+                fmt::print(dim_style, " {:>{}}", par_col, parWidth);
+                fmt::print(dim_style, " {:>{}}", entry.ntimes, callsWidth);
                 fmt::print("\n");
             };
 
@@ -438,7 +453,10 @@ namespace samurai
             print_children = [&](const std::string& parent_key, const std::string& prefix, double parent_s)
             {
                 auto it = _children.find(parent_key);
-                if (it == _children.end()) return;
+                if (it == _children.end())
+                {
+                    return;
+                }
 
                 std::vector<std::string> kids = it->second;
                 sort_by_ave(kids);
@@ -481,38 +499,52 @@ namespace samurai
             const std::string sep(static_cast<std::size_t>(total_width), '-');
             if (has_total_runtime)
             {
-                const double untimed_s    = total_runtime_s - total_measured_s;
-                const bool overcommitted  = untimed_s < 0.0;
+                const double untimed_s   = total_runtime_s - total_measured_s;
+                const bool overcommitted = untimed_s < 0.0;
 
                 fmt::print(dim_style, "{}\n", sep);
                 if (!overcommitted)
                 {
                     const double perc = (grand_total_s > 0.0) ? untimed_s / grand_total_s * 100.0 : 0.0;
-                    fmt::print(dim_style, "{:<{}} {:>{}.3f} {:>{}.1f}%\n",
-                               "(untimed)", nameWidth,
-                               untimed_s,  timeWidth + 1 + rankWidth + 1 + timeWidth + 1 + rankWidth,
-                               perc,       percWidth - 1);
+                    fmt::print(dim_style,
+                               "{:<{}} {:>{}.3f} {:>{}.1f}%\n",
+                               "(untimed)",
+                               nameWidth,
+                               untimed_s,
+                               timeWidth + 1 + rankWidth + 1 + timeWidth + 1 + rankWidth,
+                               perc,
+                               percWidth - 1);
                 }
                 else
                 {
-                    fmt::print(dim_style, "{:<{}} {:>{}}\n",
-                               "(overlap / pause-resume timers)", nameWidth,
+                    fmt::print(dim_style,
+                               "{:<{}} {:>{}}\n",
+                               "(overlap / pause-resume timers)",
+                               nameWidth,
                                "(children exceed parent \u2014 timer overlap detected)",
                                timeWidth + 1 + rankWidth + 1 + timeWidth + 1 + rankWidth + 1 + timeWidth + 1 + percWidth);
                 }
                 fmt::print(dim_style, "{}\n", sep);
-                fmt::print(bold_style, "{:<{}} {:>{}.3f} {:>{}.1f}%\n",
-                           "total runtime (ave)", nameWidth,
-                           total_runtime_s,       timeWidth + 1 + rankWidth + 1 + timeWidth + 1 + rankWidth,
-                           100.0,                 percWidth - 1);
+                fmt::print(bold_style,
+                           "{:<{}} {:>{}.3f} {:>{}.1f}%\n",
+                           "total runtime (ave)",
+                           nameWidth,
+                           total_runtime_s,
+                           timeWidth + 1 + rankWidth + 1 + timeWidth + 1 + rankWidth,
+                           100.0,
+                           percWidth - 1);
             }
             else
             {
                 fmt::print(dim_style, "{}\n", sep);
-                fmt::print(bold_style, "{:<{}} {:>{}.3f} {:>{}.1f}%\n",
-                           "Total (ave)", nameWidth,
-                           total_measured_s, timeWidth + 1 + rankWidth + 1 + timeWidth + 1 + rankWidth,
-                           100.0, percWidth - 1);
+                fmt::print(bold_style,
+                           "{:<{}} {:>{}.3f} {:>{}.1f}%\n",
+                           "Total (ave)",
+                           nameWidth,
+                           total_measured_s,
+                           timeWidth + 1 + rankWidth + 1 + timeWidth + 1 + rankWidth,
+                           100.0,
+                           percWidth - 1);
             }
 
             fmt::print("\n");
@@ -546,9 +578,9 @@ namespace samurai
             {
                 if (_display_name(key) == "total runtime")
                 {
-                    has_total_runtime  = true;
-                    total_runtime      = entry.elapsed;
-                    total_runtime_key  = key;
+                    has_total_runtime = true;
+                    total_runtime     = entry.elapsed;
+                    total_runtime_key = key;
                 }
             }
 
@@ -598,14 +630,14 @@ namespace samurai
 
             // ---- Colors / styles ----
             // Header style: bold + dim grey
-            const auto hdr_style    = fmt::emphasis::bold | fmt::fg(fmt::terminal_color::white);
-            const auto dim_style    = fmt::emphasis::faint;
-            const auto bold_style   = fmt::emphasis::bold;
-            const auto cyan_style   = fmt::fg(fmt::terminal_color::cyan);
-            const auto dim_sep      = fmt::emphasis::faint;
+            const auto hdr_style  = fmt::emphasis::bold | fmt::fg(fmt::terminal_color::white);
+            const auto dim_style  = fmt::emphasis::faint;
+            const auto bold_style = fmt::emphasis::bold;
+            const auto cyan_style = fmt::fg(fmt::terminal_color::cyan);
+            const auto dim_sep    = fmt::emphasis::faint;
 
             const int total_width = nameWidth + 1 + elapsedWidth + 1 + percWidth + 1 + parWidth + 1 + callsWidth
-                                    + (show_mcells ? 1 + mcellsWidth : 0);
+                                  + (show_mcells ? 1 + mcellsWidth : 0);
 
             // ---- Title bar ----
             fmt::print("\n");
@@ -927,8 +959,8 @@ namespace samurai
             const auto& entry = it->second;
 
             // Build the visible name: prefix (tree lines) + connector + display name
-            const std::string display     = _display_name(ctx_key);
-            const std::string full_name   = prefix + connector + display;
+            const std::string display   = _display_name(ctx_key);
+            const std::string full_name = prefix + connector + display;
 
             const double elapsed_s   = _to_seconds(entry.elapsed);
             const double perc_total  = _percent(entry.elapsed, grand_total);
@@ -1023,7 +1055,12 @@ namespace samurai
 
         [[nodiscard]] bool _any_has_cells() const
         {
-            return std::any_of(_times.begin(), _times.end(), [](const auto& kv) { return kv.second.total_cells > 0; });
+            return std::any_of(_times.begin(),
+                               _times.end(),
+                               [](const auto& kv)
+                               {
+                                   return kv.second.total_cells > 0;
+                               });
         }
 
         [[nodiscard]] std::size_t _depth_of(const std::string& ctx_key) const
