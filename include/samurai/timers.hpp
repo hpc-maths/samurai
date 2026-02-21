@@ -127,8 +127,6 @@ namespace samurai
         {
             _enabled = false;
             _times.clear();
-            _parents.clear();
-            _children.clear();
             _active_stack().clear();
         }
 
@@ -162,7 +160,6 @@ namespace samurai
             if (_times.find(ctx_key) == _times.end())
             {
                 _times.emplace(ctx_key, TimerEntry{_getTime(), _zero_duration(), 0, 0});
-                _register_node(ctx_key, tname);
             }
             else
             {
@@ -317,6 +314,9 @@ namespace samurai
 
             // ---- Everything below runs only on rank 0 ----
 
+            // Build child map from key strings (parent = everything before last "::")
+            const auto children = _build_children();
+
             // Find "total runtime"
             double total_runtime_s = 0.0;
             bool has_total_runtime = false;
@@ -337,8 +337,8 @@ namespace samurai
                 double sum = 0.0;
                 if (has_total_runtime)
                 {
-                    auto it = _children.find(total_runtime_key);
-                    if (it != _children.end())
+                    auto it = children.find(total_runtime_key);
+                    if (it != children.end())
                     {
                         for (const auto& child_key : it->second)
                         {
@@ -353,7 +353,7 @@ namespace samurai
                 {
                     for (const auto& [key, ignored] : _times)
                     {
-                        if (_parents.find(key) == _parents.end())
+                        if (_is_root(key))
                         {
                             sum += stats.at(key).ave_s;
                         }
@@ -458,8 +458,8 @@ namespace samurai
             std::function<void(const std::string&, const std::string&, double)> print_children;
             print_children = [&](const std::string& parent_key, const std::string& prefix, double parent_s)
             {
-                auto it = _children.find(parent_key);
-                if (it == _children.end())
+                auto it = children.find(parent_key);
+                if (it == children.end())
                 {
                     return;
                 }
@@ -481,7 +481,7 @@ namespace samurai
             std::vector<std::string> roots;
             for (const auto& [key, ignored] : _times)
             {
-                if (_parents.find(key) == _parents.end())
+                if (_is_root(key))
                 {
                     roots.push_back(key);
                 }
@@ -590,14 +590,17 @@ namespace samurai
                 }
             }
 
+            // Build child map from key strings (parent = everything before last "::")
+            const auto children = _build_children();
+
             // ---- Sum direct children of "total runtime" for (untimed) ----
             auto _sum_top_level = [&]()
             {
                 duration_value_t sum = _zero_duration();
                 if (has_total_runtime)
                 {
-                    auto it = _children.find(total_runtime_key);
-                    if (it != _children.end())
+                    auto it = children.find(total_runtime_key);
+                    if (it != children.end())
                     {
                         for (const auto& child_key : it->second)
                         {
@@ -612,7 +615,7 @@ namespace samurai
                 {
                     for (const auto& [key, entry] : _times)
                     {
-                        if (_parents.find(key) == _parents.end())
+                        if (_is_root(key))
                         {
                             sum += entry.elapsed;
                         }
@@ -629,25 +632,21 @@ namespace samurai
             // Name column: account for tree connector prefix ("├── " = 4 chars per level) + display name
             const int nameWidth    = _compute_name_width_with_tree(20);
             const int elapsedWidth = 12;
-            const int percWidth    = 8;  // "  63.5%"
-            const int parWidth     = 13; // "(63.5% par)" or empty
-            const int callsWidth   = 7;
+            const int percWidth    = 8;  // "63.5%"
+            const int parWidth     = 10; // "63.5%" or empty
+            const int callsWidth   = 10;
             const int mcellsWidth  = 10;
 
             // ---- Colors / styles ----
             // Header style: bold + dim grey
-            const auto hdr_style  = fmt::emphasis::bold | fmt::fg(fmt::terminal_color::white);
-            const auto dim_style  = fmt::emphasis::faint;
-            const auto bold_style = fmt::emphasis::bold;
-            const auto cyan_style = fmt::fg(fmt::terminal_color::cyan);
-            const auto dim_sep    = fmt::emphasis::faint;
+            const auto hdr_style                   = fmt::emphasis::bold | fmt::fg(fmt::terminal_color::white);
+            const auto dim_style                   = fmt::emphasis::faint;
+            const auto bold_style                  = fmt::emphasis::bold;
+            [[maybe_unused]] const auto cyan_style = fmt::fg(fmt::terminal_color::cyan);
+            const auto dim_sep                     = fmt::emphasis::faint;
 
             const int total_width = nameWidth + 1 + elapsedWidth + 1 + percWidth + 1 + parWidth + 1 + callsWidth
                                   + (show_mcells ? 1 + mcellsWidth : 0);
-
-            // ---- Title bar ----
-            fmt::print("\n");
-            fmt::print(bold_style, " Timers\n");
 
             // ---- Column headers ----
             if (show_mcells)
@@ -687,11 +686,11 @@ namespace samurai
             fmt::print(dim_sep, "{}\n", std::string(static_cast<std::size_t>(total_width), '-'));
 
             // ---- Tree walk ----
-            // Collect root keys (no parent recorded)
+            // Collect root keys (no "::" in key = no parent)
             std::vector<std::string> roots;
             for (const auto& [key, ignored] : _times)
             {
-                if (_parents.find(key) == _parents.end())
+                if (_is_root(key))
                 {
                     roots.push_back(key);
                 }
@@ -719,6 +718,7 @@ namespace samurai
                 _print_children(total_runtime_key,
                                 /*prefix=*/"",
                                 grand_total,
+                                children,
                                 show_mcells,
                                 nameWidth,
                                 elapsedWidth,
@@ -744,7 +744,7 @@ namespace samurai
                              parWidth,
                              callsWidth,
                              mcellsWidth);
-                _print_children(root_key, "", grand_total, show_mcells, nameWidth, elapsedWidth, percWidth, parWidth, callsWidth, mcellsWidth);
+                _print_children(root_key, "", grand_total, children, show_mcells, nameWidth, elapsedWidth, percWidth, parWidth, callsWidth, mcellsWidth);
             }
 
             // ---- Separator + untimed + bold total ----
@@ -817,12 +817,6 @@ namespace samurai
         /// Internal key: "parent_ctx_key::display_name" (or just "display_name" for roots)
         std::map<std::string, TimerEntry> _times;
 
-        /// ctx_key -> parent ctx_key
-        std::map<std::string, std::string> _parents;
-
-        /// ctx_key -> ordered list of child ctx_keys
-        std::map<std::string, std::vector<std::string>> _children;
-
         // -----------------------------------------------------------------
         // Thread-local active stack — stores ctx_keys
         // -----------------------------------------------------------------
@@ -865,21 +859,45 @@ namespace samurai
         }
 
         /**
-         * @brief Register parent/child relationship for a newly created ctx_key.
+         * @brief Return true if `ctx_key` is a root (has no parent, i.e. no "::" separator).
          */
-        void _register_node(const std::string& ctx_key, const std::string& /*tname*/)
+        [[nodiscard]] static bool _is_root(const std::string& ctx_key)
         {
-            auto& stack = _active_stack();
-            if (!stack.empty())
+            return ctx_key.find("::") == std::string::npos;
+        }
+
+        /**
+         * @brief Return the parent key of `ctx_key`, or an empty string for roots.
+         *
+         * The parent key is everything up to (but not including) the last "::".
+         */
+        [[nodiscard]] static std::string _parent_key(const std::string& ctx_key)
+        {
+            const auto pos = ctx_key.rfind("::");
+            return (pos == std::string::npos) ? std::string{} : ctx_key.substr(0, pos);
+        }
+
+        /**
+         * @brief Build a parent → [children] map from the keys in `_times`.
+         *
+         * This replaces the old `_children` data member. Called once at the start
+         * of `print()` so it is an O(n) operation performed only at output time.
+         */
+        [[nodiscard]] std::map<std::string, std::vector<std::string>> _build_children() const
+        {
+            std::map<std::string, std::vector<std::string>> ch;
+            for (const auto& [key, ignored] : _times)
             {
-                const std::string& parent_key = stack.back();
-                _parents.emplace(ctx_key, parent_key);
-                auto& siblings = _children[parent_key];
-                if (std::find(siblings.begin(), siblings.end(), ctx_key) == siblings.end())
+                if (!_is_root(key))
                 {
-                    siblings.push_back(ctx_key);
+                    auto& siblings = ch[_parent_key(key)];
+                    if (std::find(siblings.begin(), siblings.end(), key) == siblings.end())
+                    {
+                        siblings.push_back(key);
+                    }
                 }
             }
+            return ch;
         }
 
         // -----------------------------------------------------------------
@@ -973,7 +991,7 @@ namespace samurai
             const double perc_parent = _percent(entry.elapsed, parent_total);
 
             const std::string perc_col = fmt::format("{:.1f}%", perc_total);
-            const std::string par_col  = (!is_root) ? fmt::format("({:.1f}% par)", perc_parent) : std::string{};
+            const std::string par_col  = (!is_root) ? fmt::format("{:.1f}%", perc_parent) : std::string{};
 
             // Choose row style
             const fmt::text_style name_style = is_root ? fmt::emphasis::bold : _heat_style(perc_total);
@@ -998,6 +1016,7 @@ namespace samurai
         void _print_children(const std::string& parent_key,
                              const std::string& prefix,
                              const duration_value_t& grand_total,
+                             const std::map<std::string, std::vector<std::string>>& children,
                              bool show_mcells,
                              int nameWidth,
                              int elapsedWidth,
@@ -1006,8 +1025,8 @@ namespace samurai
                              int callsWidth,
                              int mcellsWidth) const
         {
-            auto it = _children.find(parent_key);
-            if (it == _children.end())
+            auto it = children.find(parent_key);
+            if (it == children.end())
             {
                 return;
             }
@@ -1043,6 +1062,7 @@ namespace samurai
                 _print_children(sorted_children[i],
                                 child_prefix,
                                 grand_total,
+                                children,
                                 show_mcells,
                                 nameWidth,
                                 elapsedWidth,
@@ -1069,16 +1089,16 @@ namespace samurai
                                });
         }
 
-        [[nodiscard]] std::size_t _depth_of(const std::string& ctx_key) const
+        [[nodiscard]] static std::size_t _depth_of(const std::string& ctx_key)
         {
-            std::size_t d = 0;
-            auto it       = _parents.find(ctx_key);
-            while (it != _parents.end())
+            std::size_t depth = 0;
+            std::size_t pos   = 0;
+            while ((pos = ctx_key.find("::", pos)) != std::string::npos)
             {
-                ++d;
-                it = _parents.find(it->second);
+                ++depth;
+                pos += 2;
             }
-            return d;
+            return depth;
         }
 
         /**
