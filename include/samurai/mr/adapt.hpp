@@ -170,7 +170,7 @@ namespace samurai
             }
         }
 #ifdef SAMURAI_WITH_MPI
-        if (m_adapt_ite == 0 or m_adapt_ite % args::load_balancing_at == 0)
+        if (args::load_balancing_at > 0 && m_adapt_ite % args::load_balancing_at == 0)
         {
             if constexpr (std::same_as<fields_t, Field_tuple<TField, TFields...>>)
             {
