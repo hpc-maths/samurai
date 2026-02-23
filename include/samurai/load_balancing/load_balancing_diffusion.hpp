@@ -14,7 +14,7 @@
 
 namespace samurai
 {
-
+#ifdef SAMURAI_WITH_MPI
     class DiffusionLoadBalancer : public samurai::LoadBalancer<DiffusionLoadBalancer>
     {
       private:
@@ -239,4 +239,5 @@ namespace samurai
             return flags;
         }
     };
+#endif
 }
