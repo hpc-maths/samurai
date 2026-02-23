@@ -52,7 +52,7 @@ namespace samurai
     {
       public:
 
-        int nloadbalancing;
+        std::size_t nloadbalancing;
 
         template <class Field_t>
         void update_field(typename Field_t::mesh_t& new_mesh, Field_t& field)
@@ -161,7 +161,7 @@ namespace samurai
                 mpi::wait_all(req.begin(), req.end());
             }
 
-            std::swap(field.array(), new_field.array());
+            swap(field, new_field);
             samurai::times::timers.stop("load_balancing_update_field");
         }
 
@@ -195,6 +195,7 @@ namespace samurai
 
             CellList_t new_cl;
             std::vector<CellList_t> payload(static_cast<size_t>(world.size()));
+            std::vector<int> send_counts(static_cast<size_t>(world.size()), 0);
 
             // Phase 1: build payload (cell sorting)
             samurai::times::timers.start("load_balancing_build_payload");
@@ -211,22 +212,27 @@ namespace samurai
                                            assert(static_cast<size_t>(flags[cell]) < payload.size());
 
                                            payload[static_cast<size_t>(flags[cell])][cell.level][yz_indices].add_point(cell.indices[0]);
+                                           send_counts[static_cast<size_t>(flags[cell])] += 1;
                                        }
                                    });
             samurai::times::timers.stop("load_balancing_build_payload");
 
             std::vector<mpi::request> req;
 
-            // Actual data exchange **only** with known neighbours of the mesh
-            const auto& neighbours = mesh.mpi_neighbourhood();
+            // Phase 2: discover which ranks will exchange data
+            std::vector<int> recv_counts(static_cast<size_t>(world.size()), 0);
+            boost::mpi::all_to_all(world, send_counts, recv_counts);
 
             // Phase 2: non-blocking cell sends
             samurai::times::timers.start("load_balancing_send_cells");
-            // Non-blocking send to each neighbour (possibly empty message)
-            for (const auto& nbr : neighbours)
+            // Non-blocking send to each rank with non-empty payload
+            for (int rank = 0; rank < world.size(); ++rank)
             {
-                int rank = nbr.rank;
                 if (rank == world.rank())
+                {
+                    continue;
+                }
+                if (send_counts[static_cast<size_t>(rank)] == 0)
                 {
                     continue;
                 }
@@ -238,11 +244,14 @@ namespace samurai
 
             // Phase 3: cell reception
             samurai::times::timers.start("load_balancing_recv_cells");
-            // Blocking reception from each neighbour
-            for (const auto& nbr : neighbours)
+            // Blocking reception from each rank that sends to us
+            for (int rank = 0; rank < world.size(); ++rank)
             {
-                int rank = nbr.rank;
                 if (rank == world.rank())
+                {
+                    continue;
+                }
+                if (recv_counts[static_cast<size_t>(rank)] == 0)
                 {
                     continue;
                 }
@@ -291,7 +300,6 @@ namespace samurai
 
             // Update mesh
             auto new_mesh = update_mesh(mesh, flags);
-
             // Update physical fields (excluding weights)
             update_fields(new_mesh, field, kw...);
 

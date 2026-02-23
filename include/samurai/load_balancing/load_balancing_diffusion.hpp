@@ -47,7 +47,7 @@ namespace samurai
                 {
                     std::size_t neighbour_rank = static_cast<std::size_t>(neighbourhood[neighbour_idx].rank);
                     double neighbour_load      = loads[neighbour_rank];
-                    double diff_load           = neighbour_load - my_load_new;
+                    double diff_load           = neighbour_load - my_load;
 
                     // If transferLoad < 0 -> need to send data, if transferLoad > 0 need to receive data
                     // TODO : Use diffusion factor 1/(deg+1) for stability
@@ -57,7 +57,7 @@ namespace samurai
                     fluxes[neighbour_idx] += transfertLoad;
 
                     // Mark if a non-zero transfer was performed
-                    if (transfertLoad != 0)
+                    if (std::abs(transfertLoad) > 1e-12)
                     {
                         all_fluxes_zero = false;
                     }
@@ -69,6 +69,7 @@ namespace samurai
                 // Update reference load for next iteration
                 my_load = my_load_new;
 
+                // std::cout << "Process " << world.rank() << " : Updated load = " << my_load << std::endl;
                 // Check if all processes have reached convergence
                 bool global_convergence = boost::mpi::all_reduce(world, all_fluxes_zero, std::logical_and<bool>());
 
@@ -120,10 +121,10 @@ namespace samurai
             // Build row-based aggregation at the coarsest level to enforce a straight horizontal boundary
             static_assert(Mesh_t::dim == 2, "Row-based snapping implemented for 2D only");
 
-            const std::size_t snap_level = mesh.min_level();
+            const std::size_t snap_level = mesh[mesh_id_t::cells].min_level();
 
             // Aggregate cells per coarse row id
-            using row_id_t = std::size_t;
+            using row_id_t = typename cell_t::value_t;
             std::map<row_id_t, double> row_weight;                            // total weight per row (uniform here)
             std::unordered_map<row_id_t, std::vector<std::size_t>> row_cells; // indices of cells belonging to the row
 
