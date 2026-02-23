@@ -319,7 +319,6 @@ namespace samurai
             }
         }
 
-
         if (cfg.relative_detail())
         {
             compute_relative_detail(m_detail, m_fields);
