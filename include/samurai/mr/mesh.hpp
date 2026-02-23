@@ -442,7 +442,6 @@ namespace samurai
                            });
         }
         this->cells()[mesh_id_t::reference] = {cell_list, false};
-        timer_mesh.set_cells(this->nb_cells(mesh_id_t::cells));
     }
 
     template <class Config>

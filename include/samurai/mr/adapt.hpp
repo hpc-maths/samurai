@@ -141,6 +141,7 @@ namespace samurai
     template <class... Fields>
     void Adapt<enlarge_, PredictionFn, TField, TFields...>::operator()(mra_config& cfg, Fields&... other_fields)
     {
+        ScopedTimer timer("mesh adaptation");
         auto& mesh            = m_fields.mesh();
         std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
@@ -248,9 +249,9 @@ namespace samurai
     template <class... Fields>
     bool Adapt<enlarge_, PredictionFn, TField, TFields...>::harten(std::size_t ite, const mra_config& cfg, Fields&... other_fields)
     {
+        // ScopedTimer timer(fmt::format("harten criterion {}", ite));
         auto& mesh = m_fields.mesh();
 
-        times::timers.start("mesh adaptation");
         std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
 
@@ -392,7 +393,6 @@ namespace samurai
 #endif // SAMURAI_WITH_MPI
         {
             times::timers.stop("mesh update");
-            times::timers.stop("mesh adaptation", static_cast<uint64_t>(mesh.nb_cells(mesh_id_t::cells)));
             return true;
         }
         times::timers.stop("mesh update");
@@ -402,7 +402,6 @@ namespace samurai
         update_fields(std::forward<PredictionFn>(m_prediction_fn), new_mesh, m_fields, other_fields...);
         m_fields.mesh().swap(new_mesh);
         times::timers.stop("fields update");
-        times::timers.stop("mesh adaptation", static_cast<uint64_t>(new_mesh.nb_cells(mesh_id_t::cells)));
         return false;
     }
 

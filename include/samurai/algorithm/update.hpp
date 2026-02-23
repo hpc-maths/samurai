@@ -395,8 +395,6 @@ namespace samurai
     template <class Field>
     void update_outer_ghosts(std::size_t level, Field& field)
     {
-        ScopedTimer timer("update_outer_ghosts");
-
         static_assert(Field::mesh_t::config::prediction_stencil_radius <= 1);
 
         constexpr std::size_t dim = Field::dim;
@@ -529,10 +527,9 @@ namespace samurai
     template <class Field, class... Fields>
     void update_ghost_mr(Field& field, Fields&... other_fields)
     {
+        ScopedTimer timer_ghosts("ghost update");
         using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
         constexpr std::size_t pred_order = Field::mesh_t::config::prediction_stencil_radius;
-
-        ScopedTimer timer_ghosts("ghost update");
 
         auto& mesh            = field.mesh();
         auto max_level        = mesh.max_level();

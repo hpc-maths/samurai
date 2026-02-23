@@ -574,8 +574,6 @@ namespace samurai
                                                                   std::integral_constant<std::size_t, order>,
                                                                   std::integral_constant<bool, false>) const
     {
-        ScopedTimer timer("prediction_op_2d");
-        timer.set_cells(i.size());
         auto qs_i  = Qs_i<order>(src, level - 1, i >> 1, j >> 1);
         auto qs_j  = Qs_j<order>(src, level - 1, i >> 1, j >> 1);
         auto qs_ij = Qs_ij<order>(src, level - 1, i >> 1, j >> 1);

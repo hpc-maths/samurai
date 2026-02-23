@@ -27,8 +27,6 @@ namespace samurai
         template <class T1, class T2>
         SAMURAI_INLINE void operator()(Dim<2>, T1& dest, const T2& src) const
         {
-            ScopedTimer timer("projection_op_2d");
-            timer.set_cells(i.size());
             dest(level, i, j) = .25
                               * (src(level + 1, 2 * i, 2 * j) + src(level + 1, 2 * i, 2 * j + 1) + src(level + 1, 2 * i + 1, 2 * j)
                                  + src(level + 1, 2 * i + 1, 2 * j + 1));
