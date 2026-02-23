@@ -141,6 +141,7 @@ namespace samurai
     template <class... Fields>
     void Adapt<enlarge_, PredictionFn, TField, TFields...>::operator()(mra_config& cfg, Fields&... other_fields)
     {
+        ScopedTimer timer("mesh adaptation");
         auto& mesh            = m_fields.mesh();
         std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
@@ -150,7 +151,6 @@ namespace samurai
             return;
         }
 
-        times::timers.start("mesh adaptation");
         cfg.parse_args();
         for (std::size_t i = 0; i < max_level - min_level; ++i)
         {
@@ -164,7 +164,6 @@ namespace samurai
                 break;
             }
         }
-        times::timers.stop("mesh adaptation");
     }
 
     template <bool enlarge_, class PredictionFn, class TField, class... TFields>
@@ -250,9 +249,9 @@ namespace samurai
     template <class... Fields>
     bool Adapt<enlarge_, PredictionFn, TField, TFields...>::harten(std::size_t ite, const mra_config& cfg, Fields&... other_fields)
     {
+        // ScopedTimer timer(fmt::format("harten criterion {}", ite));
         auto& mesh = m_fields.mesh();
 
-        times::timers.start("mesh adaptation");
         std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
 
@@ -267,9 +266,7 @@ namespace samurai
             update_tag_subdomains(level, m_tag, true);
         }
 
-        times::timers.stop("mesh adaptation");
         update_ghost_mr(m_fields);
-        times::timers.start("mesh adaptation");
 
         //--------------------//
         // Detail computation //
@@ -286,6 +283,7 @@ namespace samurai
             contract_directions[d]     = !mesh.is_periodic(d);
         }
 
+        times::timers.start("detail computation");
         for (std::size_t level = ((min_level > 0) ? min_level - 1 : 0); level < max_level - ite; ++level)
         {
             // 1. detail computation in the cells (at level+1)
@@ -326,9 +324,11 @@ namespace samurai
         {
             compute_relative_detail(m_detail, m_fields);
         }
+        times::timers.stop("detail computation");
 
         update_ghost_subdomains(m_detail);
 
+        times::timers.start("tag computation");
         for (std::size_t level = min_level; level <= max_level - ite; ++level)
         {
             std::size_t exponent = dim * (max_level - level);
@@ -377,6 +377,9 @@ namespace samurai
 
             keep_subset.apply_op(maximum(m_tag));
         }
+        times::timers.stop("tag computation");
+
+        times::timers.start("mesh update");
         using ca_type = typename mesh_t::ca_type;
 
         ca_type new_ca = update_cell_array_from_tag(mesh[mesh_id_t::cells], m_tag);
@@ -389,15 +392,16 @@ namespace samurai
         if (mesh == new_mesh)
 #endif // SAMURAI_WITH_MPI
         {
+            times::timers.stop("mesh update");
             return true;
         }
-
-        times::timers.stop("mesh adaptation");
+        times::timers.stop("mesh update");
         update_ghost_mr(other_fields...);
-        times::timers.start("mesh adaptation");
 
+        times::timers.start("fields update");
         update_fields(std::forward<PredictionFn>(m_prediction_fn), new_mesh, m_fields, other_fields...);
         m_fields.mesh().swap(new_mesh);
+        times::timers.stop("fields update");
         return false;
     }
 

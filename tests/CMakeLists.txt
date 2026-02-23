@@ -35,6 +35,7 @@ set(SAMURAI_TESTS
     test_stencil.cpp
     test_subdomain_bbox.cpp
     test_subset.cpp
+    test_timers.cpp
     test_utils.cpp
 )
 

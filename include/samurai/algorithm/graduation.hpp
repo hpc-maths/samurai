@@ -21,6 +21,7 @@ namespace mpi = boost::mpi;
 #include "../stencil.hpp"
 #include "../subset/node.hpp"
 #include "../subset/utils.hpp"
+#include "../timers.hpp"
 #include "utils.hpp"
 
 namespace samurai
@@ -556,6 +557,8 @@ namespace samurai
                            const int max_stencil_radius = 1 // half of width of the numerical scheme's stencil.
     )
     {
+        ScopedTimer timer("make_graduation");
+
         using ca_type    = CellArray<dim, TInterval, max_size>;
         using coord_type = typename ca_type::lca_type::coord_type;
 
@@ -683,6 +686,7 @@ namespace samurai
     template <std::size_t dim, class TInterval, size_t max_size, class Tag>
     CellArray<dim, TInterval, max_size> update_cell_array_from_tag(const CellArray<dim, TInterval, max_size>& old_ca, const Tag& tag)
     {
+        ScopedTimer timer("update_cell_array_from_tag");
         using size_type        = unsigned int;
         using value_t          = typename TInterval::value_t;
         using unsigned_value_t = typename std::make_unsigned_t<value_t>;

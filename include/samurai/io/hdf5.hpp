@@ -1188,7 +1188,7 @@ namespace samurai
               const T&... fields)
     {
         static constexpr std::size_t dim = mesh_t::dim;
-        times::timers.start("data saving");
+        ScopedTimer timer_save("data saving");
 
         if (!fs::exists(path))
         {
@@ -1222,7 +1222,6 @@ namespace samurai
             auto h5      = hdf5_t(path, filename, comm, options, mesh, fields...);
             h5.save();
         }
-        times::timers.stop("data saving");
     }
 
     template <class mesh_t, class... T>
@@ -1252,7 +1251,7 @@ namespace samurai
     void save(const fs::path& path, const std::string& filename, const Hdf5Options<mesh_t>& options, const mesh_t& mesh, const T&... fields)
     {
         static constexpr std::size_t dim = mesh_t::dim;
-        times::timers.start("data saving");
+        ScopedTimer timer_save("data saving");
 
         if (!fs::exists(path))
         {
@@ -1294,7 +1293,6 @@ namespace samurai
 #endif
             h5.save();
         }
-        times::timers.stop("data saving");
     }
 
     template <class mesh_t, class... T>

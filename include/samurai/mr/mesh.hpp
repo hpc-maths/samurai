@@ -211,7 +211,7 @@ namespace samurai
     template <class Config>
     SAMURAI_INLINE void MRMesh<Config>::update_sub_mesh_impl()
     {
-        times::timers.start("mesh construction");
+        ScopedTimer timer_mesh("mesh construction");
 
         cl_type cell_list(this->origin_point(), this->scaling_factor());
 
@@ -442,7 +442,6 @@ namespace samurai
                            });
         }
         this->cells()[mesh_id_t::reference] = {cell_list, false};
-        times::timers.stop("mesh construction");
     }
 
     template <class Config>

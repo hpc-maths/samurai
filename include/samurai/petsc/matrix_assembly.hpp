@@ -237,7 +237,7 @@ namespace samurai
              */
             virtual void create_matrix(Mat& A)
             {
-                times::timers.start("matrix assembly");
+                ScopedTimer timer_mat("matrix assembly");
 
                 assert(!m_is_block_in_monolithic_matrix);
                 if (!m_is_block_in_nested_matrix && !m_is_set_up)
@@ -344,7 +344,6 @@ namespace samurai
 #endif
                 }
                 // MatSetOption(A, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
-                times::timers.stop("matrix assembly");
             }
 
             /**
@@ -353,7 +352,7 @@ namespace samurai
              */
             virtual void assemble_matrix(Mat& A, bool final_assembly = true)
             {
-                times::timers.start("matrix assembly");
+                ScopedTimer timer_mat("matrix assembly");
 
                 assemble_scheme(A);
 
@@ -390,7 +389,6 @@ namespace samurai
                         }
                     }
                 }
-                times::timers.stop("matrix assembly");
             }
 
             virtual ~MatrixAssembly()
