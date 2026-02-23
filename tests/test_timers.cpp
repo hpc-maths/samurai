@@ -257,7 +257,7 @@ namespace samurai
 
         testing::internal::CaptureStdout();
         t.print();
-        const std::string out = testing::internal::GetCapturedStdout();
+        const std::string out   = testing::internal::GetCapturedStdout();
         const std::string plain = strip_ansi(out);
 
         // "shared" should appear twice in the output (once under A, once under B)
@@ -458,7 +458,7 @@ namespace samurai
         const auto timer_pos    = plain.find("counted");
         ASSERT_NE(timer_pos, std::string::npos);
         // The call count column comes after the timer name — search the rest of that line.
-        const auto line_end = plain.find('\n', timer_pos);
+        const auto line_end   = plain.find('\n', timer_pos);
         const std::string row = plain.substr(timer_pos, line_end - timer_pos);
         EXPECT_NE(row.find('5'), std::string::npos);
     }
@@ -513,7 +513,7 @@ namespace samurai
         // The footer line contains "100.0%" on the same line as "total runtime"
         const auto pos = plain.rfind("total runtime");
         ASSERT_NE(pos, std::string::npos);
-        const auto line_end = plain.find('\n', pos);
+        const auto line_end          = plain.find('\n', pos);
         const std::string footer_row = plain.substr(pos, line_end - pos);
         EXPECT_NE(footer_row.find("100.0%"), std::string::npos);
     }

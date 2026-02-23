@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <limits>
 #include <map>
+#include <numeric>
 #include <string>
 #include <vector>
 
@@ -193,14 +194,16 @@ namespace samurai
             // Find the last stack entry whose display name matches tname
             auto& stack = _active_stack();
             std::string ctx_key;
-            for (auto it = stack.rbegin(); it != stack.rend(); ++it)
+            auto it = std::find_if(stack.rbegin(),
+                                   stack.rend(),
+                                   [&](const std::string& key)
+                                   {
+                                       return _display_name(key) == tname;
+                                   });
+            if (it != stack.rend())
             {
-                if (_display_name(*it) == tname)
-                {
-                    ctx_key = *it;
-                    stack.erase(std::next(it).base());
-                    break;
-                }
+                ctx_key = *it;
+                stack.erase(std::next(it).base());
             }
 
             SAMURAI_ASSERT(!ctx_key.empty(), "[Timers::stop] No active timer named '" + tname + "' on the stack!");
@@ -627,22 +630,26 @@ namespace samurai
                 auto it = children.find(total_runtime_key);
                 if (it != children.end())
                 {
-                    for (const auto& child_key : it->second)
-                    {
-                        total_measured_s += sort_vals.count(child_key) ? sort_vals.at(child_key) : 0.0;
-                    }
+                    total_measured_s = std::accumulate(it->second.begin(),
+                                                       it->second.end(),
+                                                       0.0,
+                                                       [&](double sum, const std::string& child_key)
+                                                       {
+                                                           return sum + (sort_vals.count(child_key) ? sort_vals.at(child_key) : 0.0);
+                                                       });
                 }
             }
             else
             {
-                for (const auto& [key, ignored] : _times)
-                {
-                    if (_is_root(key))
-                    {
-                        total_measured_s += sort_vals.count(key) ? sort_vals.at(key) : 0.0;
-                    }
-                }
-                grand_total_s = total_measured_s;
+                total_measured_s = std::accumulate(_times.begin(),
+                                                   _times.end(),
+                                                   0.0,
+                                                   [&](double sum, const auto& kv)
+                                                   {
+                                                       const auto& [key, ignored] = kv;
+                                                       return _is_root(key) ? sum + (sort_vals.count(key) ? sort_vals.at(key) : 0.0) : sum;
+                                                   });
+                grand_total_s    = total_measured_s;
             }
 
             // Sort helper: descending by sort_vals.
@@ -764,7 +771,7 @@ namespace samurai
          */
         [[nodiscard]] static std::string _make_key(const std::string& tname)
         {
-            auto& stack = _active_stack();
+            const auto& stack = _active_stack();
             if (stack.empty())
             {
                 return tname;
@@ -860,15 +867,6 @@ namespace samurai
         [[nodiscard]] static double _to_seconds(const duration_value_t& d)
         {
             return std::chrono::duration_cast<std::chrono::duration<double>>(d).count();
-        }
-
-        [[nodiscard]] static double _percent(const duration_value_t& value, const duration_value_t& total)
-        {
-            if (total.count() == 0)
-            {
-                return 0.0;
-            }
-            return static_cast<double>(value.count() * 100) / static_cast<double>(total.count());
         }
 
         [[nodiscard]] static std::string _mcells_per_sec_str(uint64_t total_cells, const duration_value_t& elapsed)
