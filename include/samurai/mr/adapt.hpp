@@ -308,14 +308,11 @@ namespace samurai
                     // stencil of interior ghosts. Note: where we don't compute the detail, it stays at its initial value of 0.
 
                     // contract the domain only in non-periodic directions
-                    auto domain_without_bdry = contract(self(mesh.domain()).on(level + 1), 4, contract_directions);
-                    auto cells_without_bdry  = intersection(mesh[mesh_id_t::cells][level + 1], domain_without_bdry);
-                    auto ghosts_below_cells2 = intersection(mesh[mesh_id_t::all_cells][level], cells_without_bdry).on(level);
-                    auto ghosts_2_levels_below_cells = intersection(mesh[mesh_id_t::all_cells][level - 1], ghosts_below_cells2).on(level - 1);
-                    ghosts_2_levels_below_cells.apply_op(compute_detail(m_detail, m_fields)); // 'compute_detail' applies 1
-                                                                                              // level above the set it is
-                                                                                              // applied to, i.e. 1 level below
-                                                                                              // cells
+                    auto domain_without_bdry = contract(self(mesh.domain()).on(level - 1), 1, contract_directions);
+                    auto cells_without_bdry  = intersection(intersection(mesh[mesh_id_t::all_cells][level - 1], domain_without_bdry),
+                                                           mesh[mesh_id_t::cells][level + 1])
+                                                  .on(level - 1);
+                    cells_without_bdry.apply_op(compute_detail(m_detail, m_fields));
                 }
             }
         }
