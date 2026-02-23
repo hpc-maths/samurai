@@ -7,6 +7,8 @@
 #include <cassert>
 #include <cmath>
 #include <cstdint>
+#include <functional>
+#include <iterator>
 #include <limits>
 #include <map>
 #include <numeric>
