@@ -239,10 +239,20 @@ namespace samurai
         }
 
         // -----------------------------------------------------------------
-        // Print (MPI path) — same colored tree as sequential, with min/max/ave columns
+        // Print — unified tree output for both sequential and MPI builds
         // -----------------------------------------------------------------
 
-#ifdef SAMURAI_WITH_MPI
+        /**
+         * @brief Print a hierarchical, sorted timing report to stdout with colors and tree connectors.
+         *
+         * Each unique (parent, name) call context appears as a separate indented row.
+         * Rows are heat-colored (green → yellow → red) by their fraction of total runtime.
+         *
+         * - **Sequential**: one `Elapsed (s)` column; optional `Mcells/s` column when cell
+         *   counts are available.
+         * - **MPI**: three columns `Min (s) [r] / Max (s) [r] / Ave (s)` gathered across
+         *   all ranks; sorting and percentage computations use the average. Only rank 0 prints.
+         */
         void print() const
         {
             if (_times.empty())
@@ -250,11 +260,37 @@ namespace samurai
                 return;
             }
 
+            // =================================================================
+            // Preamble: build sort_vals (key → seconds used for sorting and %)
+            // and set up the three output lambdas that differ between builds:
+            //   print_header()           — column header line
+            //   print_time_cols(key, is_root, perc_total, parent_s)
+            //                            — time value column(s) for one row
+            //   print_bottom(grand_total_s, total_measured_s, has_total_runtime)
+            //                            — untimed row + footer
+            // =================================================================
+
+            // Common style constants used by both paths and the unified walk.
+            const auto hdr_style  = fmt::emphasis::bold | fmt::fg(fmt::terminal_color::white);
+            const auto bold_style = fmt::emphasis::bold;
+            const auto dim_style  = fmt::emphasis::faint;
+
+            const int nameWidth  = _compute_name_width_with_tree(20);
+            const int percWidth  = 8;  // "  63.5%"
+            const int parWidth   = 10; // "  63.5%" or empty
+            const int callsWidth = 7;
+
+            // sort_vals: the "canonical seconds" for each key used for sorting and % math.
+            std::map<std::string, double> sort_vals;
+
+#ifdef SAMURAI_WITH_MPI
+            // -----------------------------------------------------------------
+            // MPI preamble: gather elapsed from all ranks, compute min/max/ave.
+            // -----------------------------------------------------------------
+
             boost::mpi::communicator world;
 
-            // ---- Gather all elapsed values from every rank in key order ----
-            // Keys are iterated in std::map order (lexicographic), which is deterministic
-            // and identical on all ranks for a symmetric run.
+            // Collect keys + local elapsed in deterministic (std::map) order.
             std::vector<std::string> all_keys;
             std::vector<double> local_elapsed;
             all_keys.reserve(_times.size());
@@ -265,11 +301,11 @@ namespace samurai
                 local_elapsed.push_back(entry.elapsed);
             }
 
-            // all_gather: each rank sends its vector; root receives nranks × nkeys matrix
-            std::vector<std::vector<double>> gathered; // filled only on rank 0
+            // Gather: root receives an nranks × nkeys matrix.
+            std::vector<std::vector<double>> gathered;
             boost::mpi::gather(world, local_elapsed, gathered, 0);
 
-            // ---- Compute per-key stats (rank 0 only) ----
+            // Compute per-key min / max / ave on rank 0.
             struct KeyStats
             {
                 double min_s{0}, max_s{0}, ave_s{0};
@@ -284,14 +320,14 @@ namespace samurai
                 const auto nkeys = static_cast<int>(all_keys.size());
                 for (int k = 0; k < nkeys; ++k)
                 {
-                    double mn  = std::numeric_limits<double>::max();
-                    double mx  = std::numeric_limits<double>::lowest();
-                    double sum = 0.0;
+                    double mn = std::numeric_limits<double>::max();
+                    double mx = std::numeric_limits<double>::lowest();
+                    double sm = 0.0;
                     int mnr = 0, mxr = 0;
                     for (int r = 0; r < nranks; ++r)
                     {
                         const double v = gathered[static_cast<std::size_t>(r)][static_cast<std::size_t>(k)];
-                        sum += v;
+                        sm += v;
                         if (v < mn)
                         {
                             mn  = v;
@@ -303,146 +339,70 @@ namespace samurai
                             mxr = r;
                         }
                     }
-                    stats[all_keys[static_cast<std::size_t>(k)]] = {mn, mx, sum / nranks, mnr, mxr};
+                    stats[all_keys[static_cast<std::size_t>(k)]] = {mn, mx, sm / nranks, mnr, mxr};
                 }
             }
 
+            // Only rank 0 prints.
             if (world.rank() != 0)
             {
                 return;
             }
 
-            // ---- Everything below runs only on rank 0 ----
-
-            // Build child map from key strings (parent = everything before last "::")
-            const auto children = _build_children();
-
-            // Find "total runtime"
-            double total_runtime_s = 0.0;
-            bool has_total_runtime = false;
-            std::string total_runtime_key;
-            for (const auto& [key, entry] : _times)
+            // Build sort_vals from average elapsed.
+            for (const auto& [key, s] : stats)
             {
-                if (_display_name(key) == "total runtime")
-                {
-                    has_total_runtime = true;
-                    total_runtime_s   = stats.at(key).ave_s; // use average as grand total
-                    total_runtime_key = key;
-                }
+                sort_vals[key] = s.ave_s;
             }
 
-            // Sum direct children of "total runtime" (by ave) for (untimed)
-            auto _sum_top_level_s = [&]() -> double
-            {
-                double sum = 0.0;
-                if (has_total_runtime)
-                {
-                    auto it = children.find(total_runtime_key);
-                    if (it != children.end())
-                    {
-                        for (const auto& child_key : it->second)
-                        {
-                            if (stats.count(child_key))
-                            {
-                                sum += stats.at(child_key).ave_s;
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    for (const auto& [key, ignored] : _times)
-                    {
-                        if (_is_root(key))
-                        {
-                            sum += stats.at(key).ave_s;
-                        }
-                    }
-                }
-                return sum;
-            };
-
-            const double total_measured_s = _sum_top_level_s();
-            const double grand_total_s    = has_total_runtime ? total_runtime_s : total_measured_s;
-
-            // ---- Column widths ----
-            const int nameWidth  = _compute_name_width_with_tree(20);
-            const int timeWidth  = 10; // "  6.219"
-            const int rankWidth  = 5;  // "[12]"
-            const int percWidth  = 8;  // "  63.5%"
-            const int parWidth   = 13; // "(63.5% par)"
-            const int callsWidth = 7;
-
+            // Column layout for MPI: min [r] / max [r] / ave
+            const int timeWidth   = 10;
+            const int rankWidth   = 5;                                            // "[12]"
             const int total_width = nameWidth + 1 + timeWidth + 1 + rankWidth + 1 // min [r]
                                   + timeWidth + 1 + rankWidth + 1                 // max [r]
                                   + timeWidth + 1                                 // ave
                                   + percWidth + 1 + parWidth + 1 + callsWidth;
 
-            // ---- Styles ----
-            const auto hdr_style  = fmt::emphasis::bold | fmt::fg(fmt::terminal_color::white);
-            const auto bold_style = fmt::emphasis::bold;
-            const auto dim_style  = fmt::emphasis::faint;
-
-            // ---- Title + header ----
-            fmt::print("\n");
-            fmt::print(bold_style, " Timers\n");
-            fmt::print(hdr_style,
-                       "{:<{}} {:>{}} {:>{}} {:>{}} {:>{}} {:>{}} {:>{}} {:>{}} {:>{}}\n",
-                       "Timer",
-                       nameWidth,
-                       "Min (s)",
-                       timeWidth,
-                       "[r]",
-                       rankWidth,
-                       "Max (s)",
-                       timeWidth,
-                       "[r]",
-                       rankWidth,
-                       "Ave (s)",
-                       timeWidth,
-                       "% total",
-                       percWidth,
-                       "% parent",
-                       parWidth,
-                       "Calls",
-                       callsWidth);
-            fmt::print(dim_style, "{}\n", std::string(static_cast<std::size_t>(total_width), '-'));
-
-            // ---- Helpers to sort keys by average elapsed ----
-            auto sort_by_ave = [&](std::vector<std::string>& keys)
+            // Header lambda.
+            auto print_header = [&]()
             {
-                std::sort(keys.begin(),
-                          keys.end(),
-                          [&](const std::string& a, const std::string& b)
-                          {
-                              const double ea = stats.count(a) ? stats.at(a).ave_s : 0.0;
-                              const double eb = stats.count(b) ? stats.at(b).ave_s : 0.0;
-                              return ea > eb;
-                          });
+                fmt::print("\n");
+                fmt::print(bold_style, " Timers\n");
+                fmt::print(hdr_style,
+                           "{:<{}} {:>{}} {:>{}} {:>{}} {:>{}} {:>{}} {:>{}} {:>{}} {:>{}}\n",
+                           "Timer",
+                           nameWidth,
+                           "Min (s)",
+                           timeWidth,
+                           "[r]",
+                           rankWidth,
+                           "Max (s)",
+                           timeWidth,
+                           "[r]",
+                           rankWidth,
+                           "Ave (s)",
+                           timeWidth,
+                           "% total",
+                           percWidth,
+                           "% parent",
+                           parWidth,
+                           "Calls",
+                           callsWidth);
+                fmt::print(dim_style, "{}\n", std::string(static_cast<std::size_t>(total_width), '-'));
             };
 
-            // ---- Per-entry print lambda ----
-            auto print_entry =
-                [&](const std::string& ctx_key, const std::string& prefix, const std::string& connector, bool is_root, double parent_s)
+            // Time-columns lambda: emits the variable portion of a data row.
+            auto print_time_cols = [&](const std::string& ctx_key, bool is_root, double perc_total, double parent_s)
             {
-                if (!stats.count(ctx_key))
-                {
-                    return;
-                }
-                const KeyStats& s           = stats.at(ctx_key);
-                const auto& entry           = _times.at(ctx_key);
-                const std::string full_name = prefix + connector + _display_name(ctx_key);
+                const KeyStats& s = stats.at(ctx_key);
+                const auto& entry = _times.at(ctx_key);
 
-                const double perc_total  = (grand_total_s > 0.0) ? s.ave_s / grand_total_s * 100.0 : 0.0;
-                const double perc_parent = (parent_s > 0.0) ? s.ave_s / parent_s * 100.0 : 0.0;
-
+                const double perc_parent   = (parent_s > 0.0) ? s.ave_s / parent_s * 100.0 : 0.0;
                 const std::string perc_col = fmt::format("{:.1f}%", perc_total);
-                const std::string par_col  = is_root ? std::string{} : fmt::format("({:.1f}% par)", perc_parent);
+                const std::string par_col  = is_root ? std::string{} : fmt::format("{:.1f}%", perc_parent);
 
-                const fmt::text_style name_style = is_root ? bold_style : _heat_style(perc_total);
-                const fmt::text_style num_style  = is_root ? bold_style : _heat_style(perc_total);
+                const fmt::text_style num_style = is_root ? bold_style : _heat_style(perc_total);
 
-                fmt::print(name_style, "{:<{}}", full_name, nameWidth);
                 fmt::print(num_style, " {:>{}.3f}", s.min_s, timeWidth);
                 fmt::print(dim_style, " {:>{}}", fmt::format("[{}]", s.minrank), rankWidth);
                 fmt::print(num_style, " {:>{}.3f}", s.max_s, timeWidth);
@@ -454,30 +414,293 @@ namespace samurai
                 fmt::print("\n");
             };
 
-            // ---- Recursive tree walk ----
-            std::function<void(const std::string&, const std::string&, double)> print_children;
-            print_children = [&](const std::string& parent_key, const std::string& prefix, double parent_s)
+            // Footer lambda: separator + untimed row + grand total line.
+            const int untimed_time_col_width = timeWidth + 1 + rankWidth + 1 + timeWidth + 1 + rankWidth;
+            auto print_bottom                = [&](double grand_s, double measured_s, bool has_total)
+            {
+                const std::string sep(static_cast<std::size_t>(total_width), '-');
+                fmt::print(dim_style, "{}\n", sep);
+                if (has_total)
+                {
+                    const double untimed_s   = grand_s - measured_s;
+                    const bool overcommitted = untimed_s < 0.0;
+                    if (!overcommitted)
+                    {
+                        const double perc = (grand_s > 0.0) ? untimed_s / grand_s * 100.0 : 0.0;
+                        fmt::print(dim_style,
+                                   "{:<{}} {:>{}.3f} {:>{}.1f}%\n",
+                                   "(untimed)",
+                                   nameWidth,
+                                   untimed_s,
+                                   untimed_time_col_width,
+                                   perc,
+                                   percWidth - 1);
+                    }
+                    else
+                    {
+                        fmt::print(dim_style,
+                                   "{:<{}} {:>{}}\n",
+                                   "(overlap / pause-resume timers)",
+                                   nameWidth,
+                                   "(children exceed parent \u2014 timer overlap detected)",
+                                   untimed_time_col_width + 1 + timeWidth + 1 + percWidth);
+                    }
+                    fmt::print(dim_style, "{}\n", sep);
+                    fmt::print(bold_style,
+                               "{:<{}} {:>{}.3f} {:>{}.1f}%\n",
+                               "total runtime (ave)",
+                               nameWidth,
+                               grand_s,
+                               untimed_time_col_width,
+                               100.0,
+                               percWidth - 1);
+                }
+                else
+                {
+                    fmt::print(bold_style,
+                               "{:<{}} {:>{}.3f} {:>{}.1f}%\n",
+                               "Total (ave)",
+                               nameWidth,
+                               measured_s,
+                               untimed_time_col_width,
+                               100.0,
+                               percWidth - 1);
+                }
+                fmt::print("\n");
+            };
+
+#else // !SAMURAI_WITH_MPI
+      // -----------------------------------------------------------------
+      // Sequential preamble: convert chrono durations to doubles.
+      // -----------------------------------------------------------------
+
+            const bool show_mcells = _any_has_cells();
+            const int elapsedWidth = 12;
+            const int mcellsWidth  = 10;
+            const int total_width  = nameWidth + 1 + elapsedWidth + 1 + percWidth + 1 + parWidth + 1 + callsWidth
+                                  + (show_mcells ? 1 + mcellsWidth : 0);
+
+            for (const auto& [key, entry] : _times)
+            {
+                sort_vals[key] = _to_seconds(entry.elapsed);
+            }
+
+            // Header lambda.
+            auto print_header = [&]()
+            {
+                fmt::print("\n");
+                fmt::print(bold_style, " Timers\n");
+                if (show_mcells)
+                {
+                    fmt::print(hdr_style,
+                               "{:<{}} {:>{}} {:>{}} {:>{}} {:>{}} {:>{}}\n",
+                               "Timer",
+                               nameWidth,
+                               "Elapsed (s)",
+                               elapsedWidth,
+                               "% total",
+                               percWidth,
+                               "% parent",
+                               parWidth,
+                               "Calls",
+                               callsWidth,
+                               "Mcells/s",
+                               mcellsWidth);
+                }
+                else
+                {
+                    fmt::print(hdr_style,
+                               "{:<{}} {:>{}} {:>{}} {:>{}} {:>{}}\n",
+                               "Timer",
+                               nameWidth,
+                               "Elapsed (s)",
+                               elapsedWidth,
+                               "% total",
+                               percWidth,
+                               "% parent",
+                               parWidth,
+                               "Calls",
+                               callsWidth);
+                }
+                fmt::print(dim_style, "{}\n", std::string(static_cast<std::size_t>(total_width), '-'));
+            };
+
+            // Time-columns lambda: emits the variable portion of a data row.
+            auto print_time_cols = [&](const std::string& ctx_key, bool is_root, double perc_total, double parent_s)
+            {
+                const auto& entry      = _times.at(ctx_key);
+                const double elapsed_s = sort_vals.at(ctx_key);
+
+                const double perc_parent   = (parent_s > 0.0) ? elapsed_s / parent_s * 100.0 : 0.0;
+                const std::string perc_col = fmt::format("{:.1f}%", perc_total);
+                const std::string par_col  = is_root ? std::string{} : fmt::format("{:.1f}%", perc_parent);
+
+                const fmt::text_style num_style = is_root ? bold_style : _heat_style(perc_total);
+
+                fmt::print(num_style, " {:>{}.3f}", elapsed_s, elapsedWidth);
+                fmt::print(num_style, " {:>{}}", perc_col, percWidth);
+                fmt::print(dim_style, " {:>{}}", par_col, parWidth);
+                fmt::print(dim_style, " {:>{}}", entry.ntimes, callsWidth);
+                if (show_mcells)
+                {
+                    const std::string mcells_str = _mcells_per_sec_str(entry.total_cells, entry.elapsed);
+                    fmt::print(fmt::fg(fmt::terminal_color::cyan), " {:>{}}", mcells_str, mcellsWidth);
+                }
+                fmt::print("\n");
+            };
+
+            // Footer lambda: separator + untimed row + grand total line.
+            auto print_bottom = [&](double grand_s, double measured_s, bool has_total)
+            {
+                const std::string sep(static_cast<std::size_t>(total_width), '-');
+                fmt::print(dim_style, "{}\n", sep);
+                if (has_total)
+                {
+                    const double untimed_s   = grand_s - measured_s;
+                    const bool overcommitted = untimed_s < 0.0;
+                    if (!overcommitted)
+                    {
+                        const double perc = (grand_s > 0.0) ? untimed_s / grand_s * 100.0 : 0.0;
+                        fmt::print(dim_style,
+                                   "{:<{}} {:>{}.3f} {:>{}.1f}%\n",
+                                   "(untimed)",
+                                   nameWidth,
+                                   untimed_s,
+                                   elapsedWidth,
+                                   perc,
+                                   percWidth - 1);
+                    }
+                    else
+                    {
+                        fmt::print(dim_style,
+                                   "{:<{}} {:>{}}\n",
+                                   "(overlap / pause-resume timers)",
+                                   nameWidth,
+                                   "(children exceed parent \u2014 timer overlap detected)",
+                                   elapsedWidth + 1 + percWidth + 1 + parWidth + 1 + callsWidth);
+                    }
+                    fmt::print(dim_style, "{}\n", sep);
+                    fmt::print(bold_style,
+                               "{:<{}} {:>{}.3f} {:>{}.1f}%\n",
+                               "total runtime",
+                               nameWidth,
+                               grand_s,
+                               elapsedWidth,
+                               100.0,
+                               percWidth - 1);
+                }
+                else
+                {
+                    fmt::print(bold_style, "{:<{}} {:>{}.3f} {:>{}.1f}%\n", "Total", nameWidth, measured_s, elapsedWidth, 100.0, percWidth - 1);
+                }
+                fmt::print("\n");
+            };
+
+#endif // SAMURAI_WITH_MPI
+
+            // =================================================================
+            // Unified tree walk — no #ifdef below this line
+            // =================================================================
+
+            const auto children = _build_children();
+
+            // Locate "total runtime" key and its value in sort_vals.
+            double grand_total_s    = 0.0;
+            double total_measured_s = 0.0;
+            bool has_total_runtime  = false;
+            std::string total_runtime_key;
+
+            for (const auto& [key, ignored] : _times)
+            {
+                if (_display_name(key) == "total runtime")
+                {
+                    has_total_runtime = true;
+                    grand_total_s     = sort_vals.count(key) ? sort_vals.at(key) : 0.0;
+                    total_runtime_key = key;
+                    break;
+                }
+            }
+
+            // Sum the direct children of "total runtime" (or all roots) to compute untimed.
+            if (has_total_runtime)
+            {
+                auto it = children.find(total_runtime_key);
+                if (it != children.end())
+                {
+                    for (const auto& child_key : it->second)
+                    {
+                        total_measured_s += sort_vals.count(child_key) ? sort_vals.at(child_key) : 0.0;
+                    }
+                }
+            }
+            else
+            {
+                for (const auto& [key, ignored] : _times)
+                {
+                    if (_is_root(key))
+                    {
+                        total_measured_s += sort_vals.count(key) ? sort_vals.at(key) : 0.0;
+                    }
+                }
+                grand_total_s = total_measured_s;
+            }
+
+            // Sort helper: descending by sort_vals.
+            auto sort_by_val = [&](std::vector<std::string>& keys)
+            {
+                std::sort(keys.begin(),
+                          keys.end(),
+                          [&](const std::string& a, const std::string& b)
+                          {
+                              const double va = sort_vals.count(a) ? sort_vals.at(a) : 0.0;
+                              const double vb = sort_vals.count(b) ? sort_vals.at(b) : 0.0;
+                              return va > vb;
+                          });
+            };
+
+            // Print one row: name (styled) + delegated time columns.
+            auto print_entry =
+                [&](const std::string& ctx_key, const std::string& prefix, const std::string& connector, bool is_root, double parent_s)
+            {
+                if (!sort_vals.count(ctx_key))
+                {
+                    return;
+                }
+                const double val_s          = sort_vals.at(ctx_key);
+                const double perc_total     = (grand_total_s > 0.0) ? val_s / grand_total_s * 100.0 : 0.0;
+                const std::string full_name = prefix + connector + _display_name(ctx_key);
+
+                const fmt::text_style name_style = is_root ? bold_style : _heat_style(perc_total);
+                fmt::print(name_style, "{:<{}}", full_name, nameWidth);
+
+                print_time_cols(ctx_key, is_root, perc_total, parent_s);
+            };
+
+            // Recursive tree walk.
+            std::function<void(const std::string&, const std::string&, double)> walk;
+            walk = [&](const std::string& parent_key, const std::string& prefix, double parent_s)
             {
                 auto it = children.find(parent_key);
                 if (it == children.end())
                 {
                     return;
                 }
-
                 std::vector<std::string> kids = it->second;
-                sort_by_ave(kids);
+                sort_by_val(kids);
 
                 for (std::size_t i = 0; i < kids.size(); ++i)
                 {
-                    const bool is_last             = (i + 1 == kids.size());
-                    const std::string connector    = is_last ? "`-- " : "+-- ";
-                    const std::string child_prefix = prefix + (is_last ? "    " : "|   ");
+                    const bool is_last           = (i + 1 == kids.size());
+                    const std::string connector  = is_last ? "`-- " : "+-- ";
+                    const std::string nxt_prefix = prefix + (is_last ? "    " : "|   ");
+                    const double kid_s           = sort_vals.count(kids[i]) ? sort_vals.at(kids[i]) : 0.0;
+
                     print_entry(kids[i], prefix, connector, /*is_root=*/false, parent_s);
-                    print_children(kids[i], child_prefix, stats.count(kids[i]) ? stats.at(kids[i]).ave_s : 0.0);
+                    walk(kids[i], nxt_prefix, kid_s);
                 }
             };
 
-            // Print roots
+            // Collect root keys, sort, and print "total runtime" first.
             std::vector<std::string> roots;
             for (const auto& [key, ignored] : _times)
             {
@@ -486,324 +709,26 @@ namespace samurai
                     roots.push_back(key);
                 }
             }
-            sort_by_ave(roots);
+            sort_by_val(roots);
+
+            print_header();
 
             auto it_total = std::find(roots.begin(), roots.end(), total_runtime_key);
             if (it_total != roots.end())
             {
                 roots.erase(it_total);
                 print_entry(total_runtime_key, "", "", /*is_root=*/true, grand_total_s);
-                print_children(total_runtime_key, "", grand_total_s);
+                walk(total_runtime_key, "", grand_total_s);
             }
             for (const auto& root_key : roots)
             {
+                const double root_s = sort_vals.count(root_key) ? sort_vals.at(root_key) : 0.0;
                 print_entry(root_key, "", "", /*is_root=*/true, grand_total_s);
-                print_children(root_key, "", stats.count(root_key) ? stats.at(root_key).ave_s : 0.0);
+                walk(root_key, "", root_s);
             }
 
-            // ---- Separator + untimed + footer ----
-            const std::string sep(static_cast<std::size_t>(total_width), '-');
-            if (has_total_runtime)
-            {
-                const double untimed_s   = total_runtime_s - total_measured_s;
-                const bool overcommitted = untimed_s < 0.0;
-
-                fmt::print(dim_style, "{}\n", sep);
-                if (!overcommitted)
-                {
-                    const double perc = (grand_total_s > 0.0) ? untimed_s / grand_total_s * 100.0 : 0.0;
-                    fmt::print(dim_style,
-                               "{:<{}} {:>{}.3f} {:>{}.1f}%\n",
-                               "(untimed)",
-                               nameWidth,
-                               untimed_s,
-                               timeWidth + 1 + rankWidth + 1 + timeWidth + 1 + rankWidth,
-                               perc,
-                               percWidth - 1);
-                }
-                else
-                {
-                    fmt::print(dim_style,
-                               "{:<{}} {:>{}}\n",
-                               "(overlap / pause-resume timers)",
-                               nameWidth,
-                               "(children exceed parent \u2014 timer overlap detected)",
-                               timeWidth + 1 + rankWidth + 1 + timeWidth + 1 + rankWidth + 1 + timeWidth + 1 + percWidth);
-                }
-                fmt::print(dim_style, "{}\n", sep);
-                fmt::print(bold_style,
-                           "{:<{}} {:>{}.3f} {:>{}.1f}%\n",
-                           "total runtime (ave)",
-                           nameWidth,
-                           total_runtime_s,
-                           timeWidth + 1 + rankWidth + 1 + timeWidth + 1 + rankWidth,
-                           100.0,
-                           percWidth - 1);
-            }
-            else
-            {
-                fmt::print(dim_style, "{}\n", sep);
-                fmt::print(bold_style,
-                           "{:<{}} {:>{}.3f} {:>{}.1f}%\n",
-                           "Total (ave)",
-                           nameWidth,
-                           total_measured_s,
-                           timeWidth + 1 + rankWidth + 1 + timeWidth + 1 + rankWidth,
-                           100.0,
-                           percWidth - 1);
-            }
-
-            fmt::print("\n");
+            print_bottom(grand_total_s, total_measured_s, has_total_runtime);
         }
-
-#else
-        // -----------------------------------------------------------------
-        // Print (sequential path) — colored indented tree
-        // -----------------------------------------------------------------
-
-        /**
-         * @brief Print a hierarchical, sorted timing report to stdout with colors and tree connectors.
-         *
-         * Each unique (parent, name) call context is shown as a separate row,
-         * indented according to its depth in the call tree using box-drawing connectors.
-         * Rows are heat-colored (green → yellow → red) by their fraction of total runtime.
-         */
-        void print() const
-        {
-            if (_times.empty())
-            {
-                return;
-            }
-
-            // ---- Find "total runtime" ----
-            duration_value_t total_runtime = _zero_duration();
-            bool has_total_runtime         = false;
-            std::string total_runtime_key;
-
-            for (const auto& [key, entry] : _times)
-            {
-                if (_display_name(key) == "total runtime")
-                {
-                    has_total_runtime = true;
-                    total_runtime     = entry.elapsed;
-                    total_runtime_key = key;
-                }
-            }
-
-            // Build child map from key strings (parent = everything before last "::")
-            const auto children = _build_children();
-
-            // ---- Sum direct children of "total runtime" for (untimed) ----
-            auto _sum_top_level = [&]()
-            {
-                duration_value_t sum = _zero_duration();
-                if (has_total_runtime)
-                {
-                    auto it = children.find(total_runtime_key);
-                    if (it != children.end())
-                    {
-                        for (const auto& child_key : it->second)
-                        {
-                            if (auto cit = _times.find(child_key); cit != _times.end())
-                            {
-                                sum += cit->second.elapsed;
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    for (const auto& [key, entry] : _times)
-                    {
-                        if (_is_root(key))
-                        {
-                            sum += entry.elapsed;
-                        }
-                    }
-                }
-                return sum;
-            };
-
-            const duration_value_t total_measured = _sum_top_level();
-            const duration_value_t grand_total    = has_total_runtime ? total_runtime : total_measured;
-
-            // ---- Column widths ----
-            const bool show_mcells = _any_has_cells();
-            // Name column: account for tree connector prefix ("├── " = 4 chars per level) + display name
-            const int nameWidth    = _compute_name_width_with_tree(20);
-            const int elapsedWidth = 12;
-            const int percWidth    = 8;  // "63.5%"
-            const int parWidth     = 10; // "63.5%" or empty
-            const int callsWidth   = 10;
-            const int mcellsWidth  = 10;
-
-            // ---- Colors / styles ----
-            // Header style: bold + dim grey
-            const auto hdr_style                   = fmt::emphasis::bold | fmt::fg(fmt::terminal_color::white);
-            const auto dim_style                   = fmt::emphasis::faint;
-            const auto bold_style                  = fmt::emphasis::bold;
-            [[maybe_unused]] const auto cyan_style = fmt::fg(fmt::terminal_color::cyan);
-            const auto dim_sep                     = fmt::emphasis::faint;
-
-            const int total_width = nameWidth + 1 + elapsedWidth + 1 + percWidth + 1 + parWidth + 1 + callsWidth
-                                  + (show_mcells ? 1 + mcellsWidth : 0);
-
-            // ---- Column headers ----
-            if (show_mcells)
-            {
-                fmt::print(hdr_style,
-                           "{:<{}} {:>{}} {:>{}} {:>{}} {:>{}} {:>{}}\n",
-                           "Timer",
-                           nameWidth,
-                           "Elapsed (s)",
-                           elapsedWidth,
-                           "% total",
-                           percWidth,
-                           "% parent",
-                           parWidth,
-                           "Calls",
-                           callsWidth,
-                           "Mcells/s",
-                           mcellsWidth);
-            }
-            else
-            {
-                fmt::print(hdr_style,
-                           "{:<{}} {:>{}} {:>{}} {:>{}} {:>{}}\n",
-                           "Timer",
-                           nameWidth,
-                           "Elapsed (s)",
-                           elapsedWidth,
-                           "% total",
-                           percWidth,
-                           "% parent",
-                           parWidth,
-                           "Calls",
-                           callsWidth);
-            }
-
-            // Thin separator under headers
-            fmt::print(dim_sep, "{}\n", std::string(static_cast<std::size_t>(total_width), '-'));
-
-            // ---- Tree walk ----
-            // Collect root keys (no "::" in key = no parent)
-            std::vector<std::string> roots;
-            for (const auto& [key, ignored] : _times)
-            {
-                if (_is_root(key))
-                {
-                    roots.push_back(key);
-                }
-            }
-            _sort_by_elapsed(roots);
-
-            // Print "total runtime" root first
-            auto it_total = std::find(roots.begin(), roots.end(), total_runtime_key);
-            if (it_total != roots.end())
-            {
-                roots.erase(it_total);
-                _print_entry(total_runtime_key,
-                             /*prefix=*/"",
-                             /*connector=*/"",
-                             /*is_root=*/true,
-                             grand_total,
-                             grand_total,
-                             show_mcells,
-                             nameWidth,
-                             elapsedWidth,
-                             percWidth,
-                             parWidth,
-                             callsWidth,
-                             mcellsWidth);
-                _print_children(total_runtime_key,
-                                /*prefix=*/"",
-                                grand_total,
-                                children,
-                                show_mcells,
-                                nameWidth,
-                                elapsedWidth,
-                                percWidth,
-                                parWidth,
-                                callsWidth,
-                                mcellsWidth);
-            }
-
-            // Remaining roots (rare — only if something was started without "total runtime" as parent)
-            for (const auto& root_key : roots)
-            {
-                _print_entry(root_key,
-                             "",
-                             "",
-                             /*is_root=*/true,
-                             grand_total,
-                             grand_total,
-                             show_mcells,
-                             nameWidth,
-                             elapsedWidth,
-                             percWidth,
-                             parWidth,
-                             callsWidth,
-                             mcellsWidth);
-                _print_children(root_key, "", grand_total, children, show_mcells, nameWidth, elapsedWidth, percWidth, parWidth, callsWidth, mcellsWidth);
-            }
-
-            // ---- Separator + untimed + bold total ----
-            const std::string sep(static_cast<std::size_t>(total_width), '-');
-            if (has_total_runtime)
-            {
-                const auto untimed          = total_runtime - total_measured;
-                const auto untimedInSeconds = _to_seconds(untimed);
-                const bool overcommitted    = untimedInSeconds < 0.0;
-
-                fmt::print(dim_sep, "{}\n", sep);
-
-                if (!overcommitted)
-                {
-                    fmt::print(dim_style,
-                               "{:<{}} {:>{}.3f} {:>{}.1f}%\n",
-                               "(untimed)",
-                               nameWidth,
-                               untimedInSeconds,
-                               elapsedWidth,
-                               _percent(untimed, grand_total),
-                               percWidth - 1);
-                }
-                else
-                {
-                    fmt::print(dim_style,
-                               "{:<{}} {:>{}}\n",
-                               "(overlap / pause-resume timers)",
-                               nameWidth,
-                               "(children exceed parent \u2014 timer overlap detected)",
-                               elapsedWidth + 1 + percWidth + 1 + parWidth + 1 + callsWidth);
-                }
-
-                fmt::print(dim_sep, "{}\n", sep);
-                fmt::print(bold_style,
-                           "{:<{}} {:>{}.3f} {:>{}.1f}%\n",
-                           "total runtime",
-                           nameWidth,
-                           _to_seconds(total_runtime),
-                           elapsedWidth,
-                           100.0,
-                           percWidth - 1);
-            }
-            else
-            {
-                fmt::print(dim_sep, "{}\n", sep);
-                fmt::print(bold_style,
-                           "{:<{}} {:>{}.3f} {:>{}.1f}%\n",
-                           "Total",
-                           nameWidth,
-                           _to_seconds(total_measured),
-                           elapsedWidth,
-                           100.0,
-                           percWidth - 1);
-            }
-
-            fmt::print("\n");
-        }
-#endif
 
       private:
 
@@ -960,119 +885,6 @@ namespace samurai
             return fmt::format("{:.1f}", static_cast<double>(total_cells) / secs / 1.0e6);
         }
 
-        /** @brief Print one timer row with color and tree-connector prefix. */
-        void _print_entry(const std::string& ctx_key,
-                          const std::string& prefix,
-                          const std::string& connector,
-                          bool is_root,
-                          const duration_value_t& grand_total,
-                          const duration_value_t& parent_total,
-                          bool show_mcells,
-                          int nameWidth,
-                          int elapsedWidth,
-                          int percWidth,
-                          int parWidth,
-                          int callsWidth,
-                          int mcellsWidth) const
-        {
-            auto it = _times.find(ctx_key);
-            if (it == _times.end())
-            {
-                return;
-            }
-            const auto& entry = it->second;
-
-            // Build the visible name: prefix (tree lines) + connector + display name
-            const std::string display   = _display_name(ctx_key);
-            const std::string full_name = prefix + connector + display;
-
-            const double elapsed_s   = _to_seconds(entry.elapsed);
-            const double perc_total  = _percent(entry.elapsed, grand_total);
-            const double perc_parent = _percent(entry.elapsed, parent_total);
-
-            const std::string perc_col = fmt::format("{:.1f}%", perc_total);
-            const std::string par_col  = (!is_root) ? fmt::format("{:.1f}%", perc_parent) : std::string{};
-
-            // Choose row style
-            const fmt::text_style name_style = is_root ? fmt::emphasis::bold : _heat_style(perc_total);
-            const fmt::text_style num_style  = is_root ? fmt::emphasis::bold : _heat_style(perc_total);
-            const fmt::text_style dim_style  = fmt::emphasis::faint;
-
-            // Print: name (styled) + numeric columns (styled) + calls (dim) + mcells (cyan)
-            fmt::print(name_style, "{:<{}}", full_name, nameWidth);
-            fmt::print(num_style, " {:>{}.3f}", elapsed_s, elapsedWidth);
-            fmt::print(num_style, " {:>{}}", perc_col, percWidth);
-            fmt::print(dim_style, " {:>{}}", par_col, parWidth);
-            fmt::print(dim_style, " {:>{}}", entry.ntimes, callsWidth);
-            if (show_mcells)
-            {
-                const std::string mcells_str = _mcells_per_sec_str(entry.total_cells, entry.elapsed);
-                fmt::print(fmt::fg(fmt::terminal_color::cyan), " {:>{}}", mcells_str, mcellsWidth);
-            }
-            fmt::print("\n");
-        }
-
-        /** @brief Recursively print children of a ctx_key with tree connectors, sorted by elapsed. */
-        void _print_children(const std::string& parent_key,
-                             const std::string& prefix,
-                             const duration_value_t& grand_total,
-                             const std::map<std::string, std::vector<std::string>>& children,
-                             bool show_mcells,
-                             int nameWidth,
-                             int elapsedWidth,
-                             int percWidth,
-                             int parWidth,
-                             int callsWidth,
-                             int mcellsWidth) const
-        {
-            auto it = children.find(parent_key);
-            if (it == children.end())
-            {
-                return;
-            }
-
-            std::vector<std::string> sorted_children = it->second;
-            _sort_by_elapsed(sorted_children);
-
-            duration_value_t parent_elapsed = _zero_duration();
-            if (auto pit = _times.find(parent_key); pit != _times.end())
-            {
-                parent_elapsed = pit->second.elapsed;
-            }
-
-            for (std::size_t i = 0; i < sorted_children.size(); ++i)
-            {
-                const bool is_last             = (i + 1 == sorted_children.size());
-                const std::string connector    = is_last ? "`-- " : "+-- ";
-                const std::string child_prefix = prefix + (is_last ? "    " : "|   ");
-
-                _print_entry(sorted_children[i],
-                             prefix,
-                             connector,
-                             /*is_root=*/false,
-                             grand_total,
-                             parent_elapsed,
-                             show_mcells,
-                             nameWidth,
-                             elapsedWidth,
-                             percWidth,
-                             parWidth,
-                             callsWidth,
-                             mcellsWidth);
-                _print_children(sorted_children[i],
-                                child_prefix,
-                                grand_total,
-                                children,
-                                show_mcells,
-                                nameWidth,
-                                elapsedWidth,
-                                percWidth,
-                                parWidth,
-                                callsWidth,
-                                mcellsWidth);
-            }
-        }
-
 #endif // !SAMURAI_WITH_MPI
 
         // -----------------------------------------------------------------
@@ -1116,27 +928,6 @@ namespace samurai
                 max_w                   = std::max(max_w, dname.size() + depth * 4);
             }
             return static_cast<int>(std::max(min_width, max_w + 2));
-        }
-
-        /** @brief Sort a list of ctx_keys by descending elapsed time (sequential) or descending ave (MPI via lambda). */
-        void _sort_by_elapsed(std::vector<std::string>& keys) const
-        {
-            std::sort(keys.begin(),
-                      keys.end(),
-                      [this](const std::string& a, const std::string& b)
-                      {
-                          auto ia = _times.find(a);
-                          auto ib = _times.find(b);
-                          if (ia == _times.end())
-                          {
-                              return false;
-                          }
-                          if (ib == _times.end())
-                          {
-                              return true;
-                          }
-                          return ia->second.elapsed > ib->second.elapsed;
-                      });
         }
 
         /**
