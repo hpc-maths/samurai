@@ -27,6 +27,8 @@ namespace samurai
         static bool print_petsc_numbering = false;
         static int sleep_at_startup       = 0;
 
+        static uint32_t load_balancing_at = 10;
+
         // MRA arguments
         static double epsilon    = std::numeric_limits<double>::infinity();
         static double regularity = std::numeric_limits<double>::infinity();
@@ -40,6 +42,8 @@ namespace samurai
         app.add_option("--start-level", args::start_level, "Start level of AMR")->group("SAMURAI");
         app.add_option("--graduation-width", args::graduation_width, "The graduation width of the mesh")->group("SAMURAI");
         app.add_option("--max-stencil-radius", args::max_stencil_radius, "The maximum number of neighbour in each direction")->group("SAMURAI");
+        app.add_option("--load-balancing-at", args::load_balancing_at, "The number of iterations after which load balancing is performed")
+            ->group("SAMURAI");
 
 #ifdef SAMURAI_WITH_MPI
         app.add_flag("--dont-redirect-output", args::dont_redirect_output, "Redirect the output for all ranks different of 0")

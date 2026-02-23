@@ -13,6 +13,7 @@
 #include "../arguments.hpp"
 #include "../boundary.hpp"
 #include "../field.hpp"
+#include "../load_balancing/load_balancing_diffusion.hpp"
 #include "../timers.hpp"
 #include "config.hpp"
 #include "criteria.hpp"
@@ -126,6 +127,10 @@ namespace samurai
         fields_t m_fields; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
         detail_t m_detail;
         tag_t m_tag;
+#ifdef SAMURAI_WITH_MPI
+        DiffusionLoadBalancer m_balancer;
+        std::size_t m_adapt_ite{0};
+#endif
     };
 
     template <bool enlarge_, class PredictionFn, class TField, class... TFields>
@@ -164,6 +169,26 @@ namespace samurai
                 break;
             }
         }
+#ifdef SAMURAI_WITH_MPI
+        if (m_adapt_ite == 0 or m_adapt_ite % args::load_balancing_at == 0)
+        {
+            if constexpr (std::same_as<fields_t, Field_tuple<TField, TFields...>>)
+            {
+                std::apply(
+                    [&](auto&&... fields)
+                    {
+                        m_balancer.load_balance(fields..., other_fields...);
+                    },
+                    m_fields.elements());
+            }
+            else
+            {
+                m_balancer.load_balance(m_fields, other_fields...);
+            }
+            save(fmt::format("load_balancing_ite_{}.h5", m_adapt_ite), m_fields.mesh(), m_fields);
+        }
+        m_adapt_ite++;
+#endif
     }
 
     template <bool enlarge_, class PredictionFn, class TField, class... TFields>
