@@ -293,6 +293,7 @@ namespace samurai
             ghosts_below_cells.apply_op(compute_detail(m_detail, m_fields)); // 'compute_detail' applies 1 level above the set
                                                                              // it is applied to, i.e. level+1
 
+            // 2. detail computation in the ghosts below cells (at level)
             if (level >= min_level)
             {
                 if (periodic_in_all_directions)
@@ -302,8 +303,6 @@ namespace samurai
                 }
                 else
                 {
-                    // We don't want to compute the detail in the ghosts below the boundary cells. In those ghosts, we want to keep the
-                    // detail to 0. We do that because that detail would use the outer ghost cells at level L-2, which holds the BC
                     // projected 2 times, and this method actually does not work well. So we're removing a layer of 1 boundary cells
                     // from the domain at level L-2. This action ensures that the outer ghost at level L-2 will not be used in the
                     // prediction stencil of interior ghosts. Note: where we don't compute the detail, it stays at its initial value of 0.
@@ -311,7 +310,7 @@ namespace samurai
                     // contract the domain only in non-periodic directions
                     auto domain_without_bdry = contract(self(mesh.domain()).on(level - 1), 1, contract_directions);
                     auto cells_without_bdry  = intersection(intersection(mesh[mesh_id_t::all_cells][level - 1], domain_without_bdry),
-                                                           m_interest_cells[level + 1])
+                                                           mesh[mesh_id_t::cells][level + 1])
                                                   .on(level - 1);
                     cells_without_bdry.apply_op(compute_detail(m_detail, m_fields));
                 }
