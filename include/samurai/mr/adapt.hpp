@@ -277,16 +277,16 @@ namespace samurai
         // We compute the detail in the cells and ghosts below the cells, except near the (non-periodic) boundaries, where we compute
         // the detail only in the cells (justification in the comments below).
 
-        // bool periodic_in_all_directions = true;
-        // std::array<bool, dim> contract_directions;
-        // for (std::size_t d = 0; d < dim; ++d)
-        // {
-        //     periodic_in_all_directions = periodic_in_all_directions && mesh.is_periodic(d);
-        //     contract_directions[d]     = !mesh.is_periodic(d);
-        // }
+        bool periodic_in_all_directions = true;
+        std::array<bool, dim> contract_directions;
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            periodic_in_all_directions = periodic_in_all_directions && mesh.is_periodic(d);
+            contract_directions[d]     = !mesh.is_periodic(d);
+        }
 
         times::timers.start("detail computation");
-        for (std::size_t level = ((min_level > 0) ? min_level - 1 : 0); level < max_level; ++level)
+        for (std::size_t level = ((min_level > 0) ? min_level - 1 : 0); level < max_level - ite; ++level)
         {
             // 1. detail computation in the cells (at level+1)
             auto ghosts_below_cells = intersection(mesh[mesh_id_t::all_cells][level], m_interest_cells[level + 1]).on(level);
@@ -310,7 +310,7 @@ namespace samurai
                     // contract the domain only in non-periodic directions
                     auto domain_without_bdry = contract(self(mesh.domain()).on(level - 1), 1, contract_directions);
                     auto cells_without_bdry  = intersection(intersection(mesh[mesh_id_t::all_cells][level - 1], domain_without_bdry),
-                                                           mesh[mesh_id_t::cells][level + 1])
+                                                           m_interest_cells[level + 1])
                                                   .on(level - 1);
                     cells_without_bdry.apply_op(compute_detail(m_detail, m_fields));
                 }
@@ -326,7 +326,7 @@ namespace samurai
         update_ghost_subdomains(m_detail);
 
         times::timers.start("tag computation");
-        for (std::size_t level = min_level; level <= max_level; ++level)
+        for (std::size_t level = min_level; level <= max_level - ite; ++level)
         {
             std::size_t exponent = dim * (max_level - level);
             double eps_l         = cfg.epsilon() / (1 << exponent);
@@ -348,7 +348,7 @@ namespace samurai
             keep_boundary_refined(mesh, m_tag);
         }
 
-        for (std::size_t level = min_level; level <= max_level; ++level)
+        for (std::size_t level = min_level; level <= max_level - ite; ++level)
         {
             auto subset_2 = intersection(m_interest_cells[level], mesh[mesh_id_t::cells][level]);
 
@@ -367,7 +367,7 @@ namespace samurai
 
         for (std::size_t level = max_level; level > 0; --level)
         {
-            auto keep_subset = intersection(m_interest_cells[level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
+            auto keep_subset = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
 
             update_tag_periodic(level, m_tag);
             update_tag_subdomains(level, m_tag);
@@ -392,11 +392,54 @@ namespace samurai
             times::timers.stop("mesh update");
             return true;
         }
+
+        std::vector<DirectionVector<dim>> directions;
+        if (mesh.is_periodic())
+        {
+            std::array<int, dim> nb_cells_finest_level;
+            const auto& min_indices = mesh.domain().min_indices();
+            const auto& max_indices = mesh.domain().max_indices();
+
+            for (size_t d = 0; d != max_indices.size(); ++d)
+            {
+                nb_cells_finest_level[d] = max_indices[d] - min_indices[d];
+            }
+            directions = detail::get_periodic_directions(nb_cells_finest_level, 0, mesh.periodicity());
+        }
+
+        cl_type cell_list(mesh.origin_point(), mesh.scaling_factor());
+        auto update_interest_cells = [&](std::size_t level, auto&& old_cells, auto&& new_cells)
+        {
+            auto& lcl    = cell_list[level];
+            auto diff    = nestedExpand(difference(new_cells, old_cells).on(level - 1), mesh.cfg().prediction_stencil_radius);
+            auto subset1 = intersection(diff, new_mesh[mesh_id_t::cells][level]);
+            subset1(
+                [&](auto& i, auto& index)
+                {
+                    lcl[index].add_interval(i);
+                });
+            auto& lclm1  = cell_list[level - 1];
+            auto subset2 = intersection(diff.on(level - 2), new_mesh[mesh_id_t::cells][level - 1]);
+            subset2(
+                [&](auto& i, auto& index)
+                {
+                    lclm1[index].add_interval(i);
+                });
+        };
+
         for (std::size_t level = min_level; level <= max_level; ++level)
         {
-            auto subset             = difference(new_mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level]);
-            m_interest_cells[level] = subset.to_lca();
+            update_interest_cells(level, mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level]);
+            const int delta_l = int(mesh.domain().level() - level);
+            for (auto& d : directions)
+            {
+                update_interest_cells(level,
+                                      translate(mesh[mesh_id_t::cells][level], d >> delta_l),
+                                      translate(new_mesh[mesh_id_t::cells][level], d >> delta_l));
+            }
         }
+
+        m_interest_cells = {cell_list, true};
 
         times::timers.stop("mesh update");
         update_ghost_mr(other_fields...);
