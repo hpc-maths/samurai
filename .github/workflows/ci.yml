@@ -335,8 +335,8 @@ jobs:
                   export OPENBLAS_NUM_THREADS=1
                   export VECLIB_MAXIMUM_THREADS=1
                   export SCOTCH_DETERMINISTIC=1
-                  mpiexec -n 1 ./demos/FiniteVolume/finite-volume-lid-driven-cavity -pc_type lu -pc_factor_mat_solver_type mumps -mat_ordering_type amd --filename ldc_ink_size_1 --Tf 0.1 --nfiles 1 --min-level 8 --max-level 8
-                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-lid-driven-cavity -pc_type lu -pc_factor_mat_solver_type mumps -mat_ordering_type amd --filename ldc_ink_size_2 --Tf 0.1 --nfiles 1 --min-level 8 --max-level 8
+                  mpiexec -n 1 ./demos/FiniteVolume/finite-volume-lid-driven-cavity -pc_type lu -pc_factor_mat_solver_type mumps -mat_ordering_type amd --filename ldc_ink_size_1 --Tf 0.1 --nfiles 1 --min-level 8 --max-level 8 --load-balancing-at 0
+                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-lid-driven-cavity -pc_type lu -pc_factor_mat_solver_type mumps -mat_ordering_type amd --filename ldc_ink_size_2 --Tf 0.1 --nfiles 1 --min-level 8 --max-level 8 --load-balancing-at 0
                   ls
                   python ../python/compare.py ldc_ink_size_1 ldc_ink_size_2 --tol 1e-11
 
