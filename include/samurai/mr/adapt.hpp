@@ -185,7 +185,6 @@ namespace samurai
             {
                 m_balancer.load_balance(m_fields, other_fields...);
             }
-            save(fmt::format("load_balancing_ite_{}.h5", m_adapt_ite), m_fields.mesh(), m_fields);
         }
         m_adapt_ite++;
 #endif
