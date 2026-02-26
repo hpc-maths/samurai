@@ -249,7 +249,8 @@ namespace samurai
 
     template <bool enlarge_, class PredictionFn, class TField, class... TFields>
     template <class... Fields>
-    bool Adapt<enlarge_, PredictionFn, TField, TFields...>::harten(std::size_t ite, const mra_config& cfg, Fields&... other_fields)
+    bool
+    Adapt<enlarge_, PredictionFn, TField, TFields...>::harten([[maybe_unused]] std::size_t ite, const mra_config& cfg, Fields&... other_fields)
     {
         // ScopedTimer timer(fmt::format("harten criterion {}", ite));
         auto& mesh = m_fields.mesh();
@@ -296,24 +297,28 @@ namespace samurai
             // 2. detail computation in the ghosts below cells (at level)
             if (level >= min_level)
             {
-                if (periodic_in_all_directions)
-                {
-                    auto ghosts_2_levels_below_cells = intersection(mesh[mesh_id_t::all_cells][level - 1], ghosts_below_cells).on(level - 1);
-                    ghosts_2_levels_below_cells.apply_op(compute_detail(m_detail, m_fields));
-                }
-                else
-                {
-                    // projected 2 times, and this method actually does not work well. So we're removing a layer of 1 boundary cells
-                    // from the domain at level L-2. This action ensures that the outer ghost at level L-2 will not be used in the
-                    // prediction stencil of interior ghosts. Note: where we don't compute the detail, it stays at its initial value of 0.
+                auto ghosts_2_levels_below_cells = intersection(mesh[mesh_id_t::all_cells][level - 1], ghosts_below_cells).on(level - 1);
+                ghosts_2_levels_below_cells.apply_op(compute_detail(m_detail, m_fields));
 
-                    // contract the domain only in non-periodic directions
-                    auto domain_without_bdry = contract(self(mesh.domain()).on(level - 1), 1, contract_directions);
-                    auto cells_without_bdry  = intersection(intersection(mesh[mesh_id_t::all_cells][level - 1], domain_without_bdry),
-                                                           m_interest_cells[level + 1])
-                                                  .on(level - 1);
-                    cells_without_bdry.apply_op(compute_detail(m_detail, m_fields));
-                }
+                // if (periodic_in_all_directions)
+                // {
+                //     auto ghosts_2_levels_below_cells = intersection(mesh[mesh_id_t::all_cells][level - 1], ghosts_below_cells).on(level -
+                //     1); ghosts_2_levels_below_cells.apply_op(compute_detail(m_detail, m_fields));
+                // }
+                // else
+                // {
+                //     // projected 2 times, and this method actually does not work well. So we're removing a layer of 1 boundary cells
+                //     // from the domain at level L-2. This action ensures that the outer ghost at level L-2 will not be used in the
+                //     // prediction stencil of interior ghosts. Note: where we don't compute the detail, it stays at its initial value of
+                //     0.
+
+                //     // contract the domain only in non-periodic directions
+                //     auto domain_without_bdry = contract(self(mesh.domain()).on(level - 1), 1, contract_directions);
+                //     auto cells_without_bdry  = intersection(intersection(mesh[mesh_id_t::all_cells][level - 1], domain_without_bdry),
+                //                                            m_interest_cells[level + 1])
+                //                                   .on(level - 1);
+                //     cells_without_bdry.apply_op(compute_detail(m_detail, m_fields));
+                // }
             }
         }
 
@@ -348,22 +353,22 @@ namespace samurai
             keep_boundary_refined(mesh, m_tag);
         }
 
-        for (std::size_t level = min_level; level <= max_level - ite; ++level)
-        {
-            auto subset_2 = intersection(m_interest_cells[level], mesh[mesh_id_t::cells][level]);
+        // for (std::size_t level = min_level; level <= max_level - ite; ++level)
+        // {
+        //     auto subset_2 = intersection(m_interest_cells[level], mesh[mesh_id_t::cells][level]);
 
-            subset_2.apply_op(keep_around_refine(m_tag));
+        //     subset_2.apply_op(keep_around_refine(m_tag));
 
-            if constexpr (enlarge_v)
-            {
-                auto subset_3 = intersection(mesh[mesh_id_t::cells_and_ghosts][level], mesh[mesh_id_t::cells_and_ghosts][level]);
-                subset_2.apply_op(enlarge(m_tag));
-                subset_3.apply_op(tag_to_keep<0>(m_tag, CellFlag::enlarge));
-            }
+        //     if constexpr (enlarge_v)
+        //     {
+        //         auto subset_3 = intersection(mesh[mesh_id_t::cells_and_ghosts][level], mesh[mesh_id_t::cells_and_ghosts][level]);
+        //         subset_2.apply_op(enlarge(m_tag));
+        //         subset_3.apply_op(tag_to_keep<0>(m_tag, CellFlag::enlarge));
+        //     }
 
-            update_tag_periodic(level, m_tag);
-            update_tag_subdomains(level, m_tag);
-        }
+        //     update_tag_periodic(level, m_tag);
+        //     update_tag_subdomains(level, m_tag);
+        // }
 
         for (std::size_t level = max_level; level > 0; --level)
         {
@@ -436,6 +441,16 @@ namespace samurai
                 update_interest_cells(level,
                                       translate(mesh[mesh_id_t::cells][level], d >> delta_l),
                                       translate(new_mesh[mesh_id_t::cells][level], d >> delta_l));
+            }
+            for (auto& neighbour : new_mesh.mpi_neighbourhood())
+            {
+                update_interest_cells(level, mesh[mesh_id_t::cells][level], neighbour.mesh[mesh_id_t::cells][level]);
+                for (auto& d : directions)
+                {
+                    update_interest_cells(level,
+                                          translate(mesh[mesh_id_t::cells][level], d >> delta_l),
+                                          translate(neighbour.mesh[mesh_id_t::cells][level], d >> delta_l));
+                }
             }
         }
 
