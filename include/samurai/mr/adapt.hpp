@@ -125,6 +125,7 @@ namespace samurai
         PredictionFn m_prediction_fn;
         fields_t m_fields; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
         detail_t m_detail;
+        typename mesh_t::ca_type m_interest_cells;
         tag_t m_tag;
     };
 
@@ -152,6 +153,7 @@ namespace samurai
         }
 
         cfg.parse_args();
+        m_interest_cells = mesh[mesh_id_t::cells];
         for (std::size_t i = 0; i < max_level - min_level; ++i)
         {
             // std::cout << "MR mesh adaptation " << i << std::endl;
@@ -247,7 +249,8 @@ namespace samurai
 
     template <bool enlarge_, class PredictionFn, class TField, class... TFields>
     template <class... Fields>
-    bool Adapt<enlarge_, PredictionFn, TField, TFields...>::harten(std::size_t ite, const mra_config& cfg, Fields&... other_fields)
+    bool
+    Adapt<enlarge_, PredictionFn, TField, TFields...>::harten([[maybe_unused]] std::size_t ite, const mra_config& cfg, Fields&... other_fields)
     {
         // ScopedTimer timer(fmt::format("harten criterion {}", ite));
         auto& mesh = m_fields.mesh();
@@ -287,33 +290,35 @@ namespace samurai
         for (std::size_t level = ((min_level > 0) ? min_level - 1 : 0); level < max_level - ite; ++level)
         {
             // 1. detail computation in the cells (at level+1)
-            auto ghosts_below_cells = intersection(mesh[mesh_id_t::all_cells][level], mesh[mesh_id_t::cells][level + 1]).on(level);
+            auto ghosts_below_cells = intersection(mesh[mesh_id_t::all_cells][level], m_interest_cells[level + 1]).on(level);
             ghosts_below_cells.apply_op(compute_detail(m_detail, m_fields)); // 'compute_detail' applies 1 level above the set
                                                                              // it is applied to, i.e. level+1
 
             // 2. detail computation in the ghosts below cells (at level)
             if (level >= min_level)
             {
-                if (periodic_in_all_directions)
-                {
-                    auto ghosts_2_levels_below_cells = intersection(mesh[mesh_id_t::all_cells][level - 1], ghosts_below_cells).on(level - 1);
-                    ghosts_2_levels_below_cells.apply_op(compute_detail(m_detail, m_fields));
-                }
-                else
-                {
-                    // We don't want to compute the detail in the ghosts below the boundary cells. In those ghosts, we want to keep the
-                    // detail to 0. We do that because that detail would use the outer ghost cells at level L-2, which holds the BC
-                    // projected 2 times, and this method actually does not work well. So we're removing a layer of 1 boundary cells
-                    // from the domain at level L-2. This action ensures that the outer ghost at level L-2 will not be used in the
-                    // prediction stencil of interior ghosts. Note: where we don't compute the detail, it stays at its initial value of 0.
+                auto ghosts_2_levels_below_cells = intersection(mesh[mesh_id_t::all_cells][level - 1], ghosts_below_cells).on(level - 1);
+                ghosts_2_levels_below_cells.apply_op(compute_detail(m_detail, m_fields));
 
-                    // contract the domain only in non-periodic directions
-                    auto domain_without_bdry = contract(self(mesh.domain()).on(level - 1), 1, contract_directions);
-                    auto cells_without_bdry  = intersection(intersection(mesh[mesh_id_t::all_cells][level - 1], domain_without_bdry),
-                                                           mesh[mesh_id_t::cells][level + 1])
-                                                  .on(level - 1);
-                    cells_without_bdry.apply_op(compute_detail(m_detail, m_fields));
-                }
+                // if (periodic_in_all_directions)
+                // {
+                //     auto ghosts_2_levels_below_cells = intersection(mesh[mesh_id_t::all_cells][level - 1], ghosts_below_cells).on(level -
+                //     1); ghosts_2_levels_below_cells.apply_op(compute_detail(m_detail, m_fields));
+                // }
+                // else
+                // {
+                //     // projected 2 times, and this method actually does not work well. So we're removing a layer of 1 boundary cells
+                //     // from the domain at level L-2. This action ensures that the outer ghost at level L-2 will not be used in the
+                //     // prediction stencil of interior ghosts. Note: where we don't compute the detail, it stays at its initial value of
+                //     0.
+
+                //     // contract the domain only in non-periodic directions
+                //     auto domain_without_bdry = contract(self(mesh.domain()).on(level - 1), 1, contract_directions);
+                //     auto cells_without_bdry  = intersection(intersection(mesh[mesh_id_t::all_cells][level - 1], domain_without_bdry),
+                //                                            m_interest_cells[level + 1])
+                //                                   .on(level - 1);
+                //     cells_without_bdry.apply_op(compute_detail(m_detail, m_fields));
+                // }
             }
         }
 
@@ -333,7 +338,7 @@ namespace samurai
 
             double regularity_to_use = cfg.regularity() + dim;
 
-            auto subset_1 = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
+            auto subset_1 = intersection(m_interest_cells[level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
 
             subset_1.apply_op(to_coarsen_mr(m_detail, m_tag, eps_l, min_level),
                               to_refine_mr(m_detail,
@@ -348,22 +353,22 @@ namespace samurai
             keep_boundary_refined(mesh, m_tag);
         }
 
-        for (std::size_t level = min_level; level <= max_level - ite; ++level)
-        {
-            auto subset_2 = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level]);
+        // for (std::size_t level = min_level; level <= max_level - ite; ++level)
+        // {
+        //     auto subset_2 = intersection(m_interest_cells[level], mesh[mesh_id_t::cells][level]);
 
-            subset_2.apply_op(keep_around_refine(m_tag));
+        //     subset_2.apply_op(keep_around_refine(m_tag));
 
-            if constexpr (enlarge_v)
-            {
-                auto subset_3 = intersection(mesh[mesh_id_t::cells_and_ghosts][level], mesh[mesh_id_t::cells_and_ghosts][level]);
-                subset_2.apply_op(enlarge(m_tag));
-                subset_3.apply_op(tag_to_keep<0>(m_tag, CellFlag::enlarge));
-            }
+        //     if constexpr (enlarge_v)
+        //     {
+        //         auto subset_3 = intersection(mesh[mesh_id_t::cells_and_ghosts][level], mesh[mesh_id_t::cells_and_ghosts][level]);
+        //         subset_2.apply_op(enlarge(m_tag));
+        //         subset_3.apply_op(tag_to_keep<0>(m_tag, CellFlag::enlarge));
+        //     }
 
-            update_tag_periodic(level, m_tag);
-            update_tag_subdomains(level, m_tag);
-        }
+        //     update_tag_periodic(level, m_tag);
+        //     update_tag_subdomains(level, m_tag);
+        // }
 
         for (std::size_t level = max_level; level > 0; --level)
         {
@@ -392,6 +397,65 @@ namespace samurai
             times::timers.stop("mesh update");
             return true;
         }
+
+        std::vector<DirectionVector<dim>> directions;
+        if (mesh.is_periodic())
+        {
+            std::array<int, dim> nb_cells_finest_level;
+            const auto& min_indices = mesh.domain().min_indices();
+            const auto& max_indices = mesh.domain().max_indices();
+
+            for (size_t d = 0; d != max_indices.size(); ++d)
+            {
+                nb_cells_finest_level[d] = max_indices[d] - min_indices[d];
+            }
+            directions = detail::get_periodic_directions(nb_cells_finest_level, 0, mesh.periodicity());
+        }
+
+        cl_type cell_list(mesh.origin_point(), mesh.scaling_factor());
+        auto update_interest_cells = [&](std::size_t level, auto&& old_cells, auto&& new_cells)
+        {
+            auto& lcl    = cell_list[level];
+            auto diff    = nestedExpand(difference(new_cells, old_cells).on(level - 1), mesh.cfg().prediction_stencil_radius);
+            auto subset1 = intersection(diff, new_mesh[mesh_id_t::cells][level]);
+            subset1(
+                [&](auto& i, auto& index)
+                {
+                    lcl[index].add_interval(i);
+                });
+            auto& lclm1  = cell_list[level - 1];
+            auto subset2 = intersection(diff.on(level - 2), new_mesh[mesh_id_t::cells][level - 1]);
+            subset2(
+                [&](auto& i, auto& index)
+                {
+                    lclm1[index].add_interval(i);
+                });
+        };
+
+        for (std::size_t level = min_level; level <= max_level; ++level)
+        {
+            update_interest_cells(level, mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level]);
+            const int delta_l = int(mesh.domain().level() - level);
+            for (auto& d : directions)
+            {
+                update_interest_cells(level,
+                                      translate(mesh[mesh_id_t::cells][level], d >> delta_l),
+                                      translate(new_mesh[mesh_id_t::cells][level], d >> delta_l));
+            }
+            for (auto& neighbour : new_mesh.mpi_neighbourhood())
+            {
+                update_interest_cells(level, mesh[mesh_id_t::cells][level], neighbour.mesh[mesh_id_t::cells][level]);
+                for (auto& d : directions)
+                {
+                    update_interest_cells(level,
+                                          translate(mesh[mesh_id_t::cells][level], d >> delta_l),
+                                          translate(neighbour.mesh[mesh_id_t::cells][level], d >> delta_l));
+                }
+            }
+        }
+
+        m_interest_cells = {cell_list, true};
+
         times::timers.stop("mesh update");
         update_ghost_mr(other_fields...);
 
