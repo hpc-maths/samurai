@@ -1,3 +1,13 @@
+# Template instantiation library (optional, for faster demo compilation)
+# NOTE: Uses shared library to avoid duplicate symbol linker errors
+# The instantiations are compiled once and shared across all demos
+if(SAMURAI_INSTANTIATE_TEMPLATES)
+  add_library(samurai_instantiations SHARED samurai_template_instantiations.cpp)
+  target_link_libraries(samurai_instantiations PUBLIC samurai)
+  target_compile_features(samurai_instantiations PRIVATE cxx_std_20)
+  message(STATUS "Template pre-instantiation enabled for demos (shared library)")
+endif()
+
 add_subdirectory(from_obj)
 add_subdirectory(FiniteVolume)
 # add_subdirectory(MPI)
