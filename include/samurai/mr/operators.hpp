@@ -258,10 +258,24 @@ namespace samurai
             }
             else
             {
-                auto qs_i = Qs_i<order>(field, level, i);
+                using value_t    = typename TInterval::value_t;
+                auto sorder      = static_cast<value_t>(order);
+                auto interp_even = interp_coeffs<2 * order + 1>(1.);
+                auto interp_odd  = interp_coeffs<2 * order + 1>(-1.);
 
-                detail(level + 1, 2 * i)     = field(level + 1, 2 * i) - (field(level, i) + qs_i);
-                detail(level + 1, 2 * i + 1) = field(level + 1, 2 * i + 1) - (field(level, i) - qs_i);
+                auto detail_1 = detail(level + 1, 2 * i);
+                auto detail_2 = detail(level + 1, 2 * i + 1);
+
+                detail_1 = field(level + 1, 2 * i);
+                detail_2 = field(level + 1, 2 * i + 1);
+
+                for (value_t ki = 0; ki < 2 * sorder + 1; ++ki)
+                {
+                    std::size_t uki = static_cast<std::size_t>(ki);
+                    auto field_ik   = field(level, i + ki - sorder);
+                    detail_1 -= interp_even[uki] * field_ik;
+                    detail_2 -= interp_odd[uki] * field_ik;
+                }
             }
         }
 
@@ -277,36 +291,50 @@ namespace samurai
             }
             else
             {
-                auto qs_i  = Qs_i<order>(field, level, i, j);
-                auto qs_j  = Qs_j<order>(field, level, i, j);
-                auto qs_ij = Qs_ij<order>(field, level, i, j);
+                using value_t    = typename TInterval::value_t;
+                auto sorder      = static_cast<value_t>(order);
+                auto interp_even = interp_coeffs<2 * order + 1>(1.);
+                auto interp_odd  = interp_coeffs<2 * order + 1>(-1.);
 
-#ifdef SAMURAI_CHECK_NAN
-                if constexpr (T1::is_scalar)
+                auto detail_1 = detail(level + 1, 2 * i, 2 * j);
+                auto detail_2 = detail(level + 1, 2 * i + 1, 2 * j);
+                auto detail_3 = detail(level + 1, 2 * i, 2 * j + 1);
+                auto detail_4 = detail(level + 1, 2 * i + 1, 2 * j + 1);
+
+                detail_1 = field(level + 1, 2 * i, 2 * j);
+                detail_2 = field(level + 1, 2 * i + 1, 2 * j);
+                detail_3 = field(level + 1, 2 * i, 2 * j + 1);
+                detail_4 = field(level + 1, 2 * i + 1, 2 * j + 1);
+
+                for (value_t kj = 0; kj < 2 * sorder + 1; ++kj)
                 {
-                    for (std::size_t ii = 0; ii < i.size(); ++ii)
+                    std::size_t ukj = static_cast<std::size_t>(kj);
+                    for (value_t ki = 0; ki < 2 * sorder + 1; ++ki)
                     {
-                        if (std::isnan(qs_i(ii)) || std::isnan(qs_j(ii)) || std::isnan(qs_ij(ii)))
+                        std::size_t uki = static_cast<std::size_t>(ki);
+                        auto field_ijk  = field(level, i + ki - sorder, j + kj - sorder);
+                        for (std::size_t ii = 0; ii < i.size(); ++ii)
                         {
-                            local_save(fs::current_path(), "check_nan", {true, true}, field.mesh(), field);
-                            throw std::runtime_error(fmt::format("NaN detected during the computation of details at level {}.", level));
+                            if constexpr (T2::is_scalar)
+                            {
+                                detail_1(ii) -= interp_even[uki] * interp_even[ukj] * field_ijk(ii);
+                                detail_2(ii) -= interp_odd[uki] * interp_even[ukj] * field_ijk(ii);
+                                detail_3(ii) -= interp_even[uki] * interp_odd[ukj] * field_ijk(ii);
+                                detail_4(ii) -= interp_odd[uki] * interp_odd[ukj] * field_ijk(ii);
+                            }
+                            else
+                            {
+                                for (std::size_t nc = 0; nc < T2::n_comp; ++nc)
+                                {
+                                    detail_1(ii, nc) -= interp_even[uki] * interp_even[ukj] * field_ijk(ii, nc);
+                                    detail_2(ii, nc) -= interp_odd[uki] * interp_even[ukj] * field_ijk(ii, nc);
+                                    detail_3(ii, nc) -= interp_even[uki] * interp_odd[ukj] * field_ijk(ii, nc);
+                                    detail_4(ii, nc) -= interp_odd[uki] * interp_odd[ukj] * field_ijk(ii, nc);
+                                }
+                            }
                         }
                     }
                 }
-                else
-                {
-                    if (xt::any(xt::isnan(qs_ij)))
-                    {
-                        local_save(fs::current_path(), "check_nan", {true, true}, field.mesh(), field);
-                        throw std::runtime_error(fmt::format("NaN detected during the computation of details at level {}.", level));
-                    }
-                }
-#endif
-
-                detail(level + 1, 2 * i, 2 * j)     = field(level + 1, 2 * i, 2 * j) - (field(level, i, j) + qs_i + qs_j - qs_ij);
-                detail(level + 1, 2 * i + 1, 2 * j) = field(level + 1, 2 * i + 1, 2 * j) - (field(level, i, j) - qs_i + qs_j + qs_ij);
-                detail(level + 1, 2 * i, 2 * j + 1) = field(level + 1, 2 * i, 2 * j + 1) - (field(level, i, j) + qs_i - qs_j + qs_ij);
-                detail(level + 1, 2 * i + 1, 2 * j + 1) = field(level + 1, 2 * i + 1, 2 * j + 1) - (field(level, i, j) - qs_i - qs_j - qs_ij);
             }
         }
 
@@ -327,31 +355,70 @@ namespace samurai
             }
             else
             {
-                auto qs_i   = Qs_i<order>(field, level, i, j, k);
-                auto qs_j   = Qs_j<order>(field, level, i, j, k);
-                auto qs_k   = Qs_k<order>(field, level, i, j, k);
-                auto qs_ij  = Qs_ij<order>(field, level, i, j, k);
-                auto qs_ik  = Qs_ik<order>(field, level, i, j, k);
-                auto qs_jk  = Qs_jk<order>(field, level, i, j, k);
-                auto qs_ijk = Qs_ijk<order>(field, level, i, j, k);
+                using value_t    = typename TInterval::value_t;
+                auto sorder      = static_cast<value_t>(order);
+                auto interp_even = interp_coeffs<2 * order + 1>(1.);
+                auto interp_odd  = interp_coeffs<2 * order + 1>(-1.);
 
-                detail(level + 1, 2 * i, 2 * j, 2 * k) = field(level + 1, 2 * i, 2 * j, 2 * k)
-                                                       - (field(level, i, j, k) + qs_i + qs_j + qs_k - qs_ij - qs_ik - qs_jk + qs_ijk);
-                detail(level + 1, 2 * i + 1, 2 * j, 2 * k) = field(level + 1, 2 * i + 1, 2 * j, 2 * k)
-                                                           - (field(level, i, j, k) - qs_i + qs_j + qs_k + qs_ij + qs_ik - qs_jk - qs_ijk);
-                detail(level + 1, 2 * i, 2 * j + 1, 2 * k) = field(level + 1, 2 * i, 2 * j + 1, 2 * k)
-                                                           - (field(level, i, j, k) + qs_i - qs_j + qs_k + qs_ij - qs_ik + qs_jk - qs_ijk);
-                detail(level + 1, 2 * i + 1, 2 * j + 1, 2 * k) = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k)
-                                                               - (field(level, i, j, k) - qs_i - qs_j + qs_k - qs_ij + qs_ik + qs_jk + qs_ijk);
-                detail(level + 1, 2 * i, 2 * j, 2 * k + 1) = field(level + 1, 2 * i, 2 * j, 2 * k + 1)
-                                                           - (field(level, i, j, k) + qs_i + qs_j - qs_k - qs_ij + qs_ik + qs_jk - qs_ijk);
-                detail(level + 1, 2 * i + 1, 2 * j, 2 * k + 1) = field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1)
-                                                               - (field(level, i, j, k) - qs_i + qs_j - qs_k + qs_ij - qs_ik + qs_jk + qs_ijk);
-                detail(level + 1, 2 * i, 2 * j + 1, 2 * k + 1) = field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1)
-                                                               - (field(level, i, j, k) + qs_i - qs_j - qs_k + qs_ij + qs_ik - qs_jk + qs_ijk);
-                detail(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1) = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1)
-                                                                   - (field(level, i, j, k) - qs_i - qs_j - qs_k - qs_ij - qs_ik - qs_jk
-                                                                      - qs_ijk);
+                auto detail_1 = detail(level + 1, 2 * i, 2 * j, 2 * k);
+                auto detail_2 = detail(level + 1, 2 * i + 1, 2 * j, 2 * k);
+                auto detail_3 = detail(level + 1, 2 * i, 2 * j + 1, 2 * k);
+                auto detail_4 = detail(level + 1, 2 * i + 1, 2 * j + 1, 2 * k);
+                auto detail_5 = detail(level + 1, 2 * i, 2 * j, 2 * k + 1);
+                auto detail_6 = detail(level + 1, 2 * i + 1, 2 * j, 2 * k + 1);
+                auto detail_7 = detail(level + 1, 2 * i, 2 * j + 1, 2 * k + 1);
+                auto detail_8 = detail(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1);
+
+                detail_1 = field(level + 1, 2 * i, 2 * j, 2 * k);
+                detail_2 = field(level + 1, 2 * i + 1, 2 * j, 2 * k);
+                detail_3 = field(level + 1, 2 * i, 2 * j + 1, 2 * k);
+                detail_4 = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k);
+                detail_5 = field(level + 1, 2 * i, 2 * j, 2 * k + 1);
+                detail_6 = field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1);
+                detail_7 = field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1);
+                detail_8 = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1);
+
+                for (value_t kk = 0; kk < 2 * sorder + 1; ++kk)
+                {
+                    auto ukk = static_cast<std::size_t>(kk);
+                    for (value_t kj = 0; kj < 2 * sorder + 1; ++kj)
+                    {
+                        auto ukj = static_cast<std::size_t>(kj);
+                        for (value_t ki = 0; ki < 2 * sorder + 1; ++ki)
+                        {
+                            auto uki       = static_cast<std::size_t>(ki);
+                            auto field_ijk = field(level, i + ki - sorder, j + kj - sorder, k + kk - sorder);
+                            for (std::size_t ii = 0; ii < i.size(); ++ii)
+                            {
+                                if constexpr (T2::is_scalar)
+                                {
+                                    detail_1(ii) -= interp_even[uki] * interp_even[ukj] * interp_even[ukk] * field_ijk(ii);
+                                    detail_2(ii) -= interp_odd[uki] * interp_even[ukj] * interp_even[ukk] * field_ijk(ii);
+                                    detail_3(ii) -= interp_even[uki] * interp_odd[ukj] * interp_even[ukk] * field_ijk(ii);
+                                    detail_4(ii) -= interp_odd[uki] * interp_odd[ukj] * interp_even[ukk] * field_ijk(ii);
+                                    detail_5(ii) -= interp_even[uki] * interp_even[ukj] * interp_odd[ukk] * field_ijk(ii);
+                                    detail_6(ii) -= interp_odd[uki] * interp_even[ukj] * interp_odd[ukk] * field_ijk(ii);
+                                    detail_7(ii) -= interp_even[uki] * interp_odd[ukj] * interp_odd[ukk] * field_ijk(ii);
+                                    detail_8(ii) -= interp_odd[uki] * interp_odd[ukj] * interp_odd[ukk] * field_ijk(ii);
+                                }
+                                else
+                                {
+                                    for (std::size_t nc = 0; nc < T2::n_comp; ++nc)
+                                    {
+                                        detail_1(ii, nc) -= interp_even[uki] * interp_even[ukj] * interp_even[ukk] * field_ijk(ii, nc);
+                                        detail_2(ii, nc) -= interp_odd[uki] * interp_even[ukj] * interp_even[ukk] * field_ijk(ii, nc);
+                                        detail_3(ii, nc) -= interp_even[uki] * interp_odd[ukj] * interp_even[ukk] * field_ijk(ii, nc);
+                                        detail_4(ii, nc) -= interp_odd[uki] * interp_odd[ukj] * interp_even[ukk] * field_ijk(ii, nc);
+                                        detail_5(ii, nc) -= interp_even[uki] * interp_even[ukj] * interp_odd[ukk] * field_ijk(ii, nc);
+                                        detail_6(ii, nc) -= interp_odd[uki] * interp_even[ukj] * interp_odd[ukk] * field_ijk(ii, nc);
+                                        detail_7(ii, nc) -= interp_even[uki] * interp_odd[ukj] * interp_odd[ukk] * field_ijk(ii, nc);
+                                        detail_8(ii, nc) -= interp_odd[uki] * interp_odd[ukj] * interp_odd[ukk] * field_ijk(ii, nc);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     };
