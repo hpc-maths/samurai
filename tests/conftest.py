@@ -118,7 +118,7 @@ class H5Comparison:
             return
 
         extension = "h5"
-        atol = compare.kwargs.get("atol", 1e-7)
+        atol = compare.kwargs.get("atol", 1e-10)
         rtol = compare.kwargs.get("rtol", 1e-14)
 
         single_reference = compare.kwargs.get("single_reference", False)
