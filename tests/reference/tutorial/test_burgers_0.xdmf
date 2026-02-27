@@ -1,13 +1,13 @@
 <?xml version="1.0"?>
 <Xdmf>
-	<Domain>
-		<Grid Name="mesh">
-			<Topology TopologyType="Polyline" NumberOfElements="64">
-				<DataItem Dimensions="128" Format="HDF">test_burgers_0.h5:/mesh/connectivity</DataItem>
-			</Topology>
-			<Geometry GeometryType="XYZ">
-				<DataItem Dimensions="195" Format="HDF">test_burgers_0.h5:/mesh/points</DataItem>
-			</Geometry>
-		</Grid>
-	</Domain>
+    <Domain>
+        <Grid Name="mesh">
+            <Topology TopologyType="Polyline" NumberOfElements="64">
+                <DataItem Dimensions="128" Format="HDF">test_burgers_0.h5:/mesh/connectivity</DataItem>
+            </Topology>
+            <Geometry GeometryType="XYZ">
+                <DataItem Dimensions="195" Format="HDF">test_burgers_0.h5:/mesh/points</DataItem>
+            </Geometry>
+        </Grid>
+    </Domain>
 </Xdmf>

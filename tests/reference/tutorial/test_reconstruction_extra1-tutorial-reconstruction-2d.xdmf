@@ -1,19 +1,19 @@
 <?xml version="1.0"?>
 <Xdmf>
-	<Domain>
-		<Grid Name="mesh">
-			<Topology TopologyType="Quadrilateral" NumberOfElements="5236">
-				<DataItem Dimensions="20944" Format="HDF">test_reconstruction_extra1-tutorial-reconstruction-2d.h5:/mesh/connectivity</DataItem>
-			</Topology>
-			<Geometry GeometryType="XYZ">
-				<DataItem Dimensions="16503" Format="HDF">test_reconstruction_extra1-tutorial-reconstruction-2d.h5:/mesh/points</DataItem>
-			</Geometry>
-			<Attribute Name="u" Center="Cell">
-				<DataItem Dimensions="5236" Format="HDF" Precision="8">test_reconstruction_extra1-tutorial-reconstruction-2d.h5:/mesh/fields/u</DataItem>
-			</Attribute>
-			<Attribute Name="level" Center="Cell">
-				<DataItem Dimensions="5236" Format="HDF" Precision="8">test_reconstruction_extra1-tutorial-reconstruction-2d.h5:/mesh/fields/level</DataItem>
-			</Attribute>
-		</Grid>
-	</Domain>
+    <Domain>
+        <Grid Name="mesh">
+            <Topology TopologyType="Quadrilateral" NumberOfElements="5236">
+                <DataItem Dimensions="20944" Format="HDF">test_reconstruction_extra1-tutorial-reconstruction-2d.h5:/mesh/connectivity</DataItem>
+            </Topology>
+            <Geometry GeometryType="XYZ">
+                <DataItem Dimensions="16503" Format="HDF">test_reconstruction_extra1-tutorial-reconstruction-2d.h5:/mesh/points</DataItem>
+            </Geometry>
+            <Attribute Name="u" Center="Cell">
+                <DataItem Dimensions="5236" Format="HDF" Precision="8">test_reconstruction_extra1-tutorial-reconstruction-2d.h5:/mesh/fields/u</DataItem>
+            </Attribute>
+            <Attribute Name="level" Center="Cell">
+                <DataItem Dimensions="5236" Format="HDF" Precision="8">test_reconstruction_extra1-tutorial-reconstruction-2d.h5:/mesh/fields/level</DataItem>
+            </Attribute>
+        </Grid>
+    </Domain>
 </Xdmf>

@@ -1,13 +1,13 @@
 <?xml version="1.0"?>
 <Xdmf>
-	<Domain>
-		<Grid Name="mesh">
-			<Topology TopologyType="Quadrilateral" NumberOfElements="22939">
-				<DataItem Dimensions="91756" Format="HDF">test_2d_bubbles.h5:/mesh/connectivity</DataItem>
-			</Topology>
-			<Geometry GeometryType="XYZ">
-				<DataItem Dimensions="73569" Format="HDF">test_2d_bubbles.h5:/mesh/points</DataItem>
-			</Geometry>
-		</Grid>
-	</Domain>
+    <Domain>
+        <Grid Name="mesh">
+            <Topology TopologyType="Quadrilateral" NumberOfElements="22939">
+                <DataItem Dimensions="91756" Format="HDF">test_2d_bubbles.h5:/mesh/connectivity</DataItem>
+            </Topology>
+            <Geometry GeometryType="XYZ">
+                <DataItem Dimensions="73569" Format="HDF">test_2d_bubbles.h5:/mesh/points</DataItem>
+            </Geometry>
+        </Grid>
+    </Domain>
 </Xdmf>
