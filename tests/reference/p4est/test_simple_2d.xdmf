@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<Xdmf>
+	<Domain>
+		<Grid Name="mesh">
+			<Topology TopologyType="Quadrilateral" NumberOfElements="66379">
+				<DataItem Dimensions="265516" Format="HDF">test_simple_2d.h5:/mesh/connectivity</DataItem>
+			</Topology>
+			<Geometry GeometryType="XYZ">
+				<DataItem Dimensions="201159" Format="HDF">test_simple_2d.h5:/mesh/points</DataItem>
+			</Geometry>
+			<Attribute Name="level" Center="Cell">
+				<DataItem Dimensions="66379" Format="HDF" Precision="8">test_simple_2d.h5:/mesh/fields/level</DataItem>
+			</Attribute>
+		</Grid>
+	</Domain>
+</Xdmf>
