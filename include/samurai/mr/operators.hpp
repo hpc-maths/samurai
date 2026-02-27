@@ -263,11 +263,11 @@ namespace samurai
                 auto interp_even = interp_coeffs<2 * order + 1>(1.);
                 auto interp_odd  = interp_coeffs<2 * order + 1>(-1.);
 
+                detail(level + 1, 2 * i)     = field(level + 1, 2 * i);
+                detail(level + 1, 2 * i + 1) = field(level + 1, 2 * i + 1);
+
                 auto detail_1 = detail(level + 1, 2 * i);
                 auto detail_2 = detail(level + 1, 2 * i + 1);
-
-                detail_1 = field(level + 1, 2 * i);
-                detail_2 = field(level + 1, 2 * i + 1);
 
                 for (value_t ki = 0; ki < 2 * sorder + 1; ++ki)
                 {
@@ -296,15 +296,15 @@ namespace samurai
                 auto interp_even = interp_coeffs<2 * order + 1>(1.);
                 auto interp_odd  = interp_coeffs<2 * order + 1>(-1.);
 
+                detail(level + 1, 2 * i, 2 * j)         = field(level + 1, 2 * i, 2 * j);
+                detail(level + 1, 2 * i + 1, 2 * j)     = field(level + 1, 2 * i + 1, 2 * j);
+                detail(level + 1, 2 * i, 2 * j + 1)     = field(level + 1, 2 * i, 2 * j + 1);
+                detail(level + 1, 2 * i + 1, 2 * j + 1) = field(level + 1, 2 * i + 1, 2 * j + 1);
+
                 auto detail_1 = detail(level + 1, 2 * i, 2 * j);
                 auto detail_2 = detail(level + 1, 2 * i + 1, 2 * j);
                 auto detail_3 = detail(level + 1, 2 * i, 2 * j + 1);
                 auto detail_4 = detail(level + 1, 2 * i + 1, 2 * j + 1);
-
-                detail_1 = field(level + 1, 2 * i, 2 * j);
-                detail_2 = field(level + 1, 2 * i + 1, 2 * j);
-                detail_3 = field(level + 1, 2 * i, 2 * j + 1);
-                detail_4 = field(level + 1, 2 * i + 1, 2 * j + 1);
 
                 for (value_t kj = 0; kj < 2 * sorder + 1; ++kj)
                 {
@@ -360,6 +360,15 @@ namespace samurai
                 auto interp_even = interp_coeffs<2 * order + 1>(1.);
                 auto interp_odd  = interp_coeffs<2 * order + 1>(-1.);
 
+                detail(level + 1, 2 * i, 2 * j, 2 * k)             = field(level + 1, 2 * i, 2 * j, 2 * k);
+                detail(level + 1, 2 * i + 1, 2 * j, 2 * k)         = field(level + 1, 2 * i + 1, 2 * j, 2 * k);
+                detail(level + 1, 2 * i, 2 * j + 1, 2 * k)         = field(level + 1, 2 * i, 2 * j + 1, 2 * k);
+                detail(level + 1, 2 * i + 1, 2 * j + 1, 2 * k)     = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k);
+                detail(level + 1, 2 * i, 2 * j, 2 * k + 1)         = field(level + 1, 2 * i, 2 * j, 2 * k + 1);
+                detail(level + 1, 2 * i + 1, 2 * j, 2 * k + 1)     = field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1);
+                detail(level + 1, 2 * i, 2 * j + 1, 2 * k + 1)     = field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1);
+                detail(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1) = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1);
+
                 auto detail_1 = detail(level + 1, 2 * i, 2 * j, 2 * k);
                 auto detail_2 = detail(level + 1, 2 * i + 1, 2 * j, 2 * k);
                 auto detail_3 = detail(level + 1, 2 * i, 2 * j + 1, 2 * k);
@@ -368,15 +377,6 @@ namespace samurai
                 auto detail_6 = detail(level + 1, 2 * i + 1, 2 * j, 2 * k + 1);
                 auto detail_7 = detail(level + 1, 2 * i, 2 * j + 1, 2 * k + 1);
                 auto detail_8 = detail(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1);
-
-                detail_1 = field(level + 1, 2 * i, 2 * j, 2 * k);
-                detail_2 = field(level + 1, 2 * i + 1, 2 * j, 2 * k);
-                detail_3 = field(level + 1, 2 * i, 2 * j + 1, 2 * k);
-                detail_4 = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k);
-                detail_5 = field(level + 1, 2 * i, 2 * j, 2 * k + 1);
-                detail_6 = field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1);
-                detail_7 = field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1);
-                detail_8 = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1);
 
                 for (value_t kk = 0; kk < 2 * sorder + 1; ++kk)
                 {

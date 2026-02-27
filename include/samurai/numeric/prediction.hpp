@@ -211,7 +211,7 @@ namespace samurai
         auto interp_even = interp_coeffs<2 * order + 1>(1.);
         auto interp_odd  = interp_coeffs<2 * order + 1>(-1.);
 
-        auto apply = [&](const auto& i_f, const auto& i_c, const auto& interpi)
+        auto apply_pred = [&](const auto& i_f, const auto& i_c, const auto& interpi)
         {
             dest(level, i_f) = 0;
 
@@ -226,13 +226,13 @@ namespace samurai
         auto even_i = i.even_elements();
         if (even_i.is_valid())
         {
-            apply(even_i, even_i >> 1, interp_even);
+            apply_pred(even_i, even_i >> 1, interp_even);
         }
 
         auto odd_i = i.odd_elements();
         if (odd_i.is_valid())
         {
-            apply(odd_i, odd_i >> 1, interp_odd);
+            apply_pred(odd_i, odd_i >> 1, interp_odd);
         }
     }
 
@@ -348,7 +348,7 @@ namespace samurai
         auto interp_even = interp_coeffs<2 * order + 1>(1.);
         auto interp_odd  = interp_coeffs<2 * order + 1>(-1.);
 
-        auto apply = [&](const auto& i_f, const auto& i_c, const auto& interpi, const auto& interpj)
+        auto apply_pred = [&](const auto& i_f, const auto& i_c, const auto& interpi, const auto& interpj)
         {
             dest(level, i_f, j) = 0;
 
@@ -369,13 +369,13 @@ namespace samurai
             auto even_i = i.even_elements();
             if (even_i.is_valid())
             {
-                apply(even_i, even_i >> 1, interp_even, interp_odd);
+                apply_pred(even_i, even_i >> 1, interp_even, interp_odd);
             }
 
             auto odd_i = i.odd_elements();
             if (odd_i.is_valid())
             {
-                apply(odd_i, odd_i >> 1, interp_odd, interp_odd);
+                apply_pred(odd_i, odd_i >> 1, interp_odd, interp_odd);
             }
         }
         else
@@ -383,13 +383,13 @@ namespace samurai
             auto even_i = i.even_elements();
             if (even_i.is_valid())
             {
-                apply(even_i, even_i >> 1, interp_even, interp_even);
+                apply_pred(even_i, even_i >> 1, interp_even, interp_even);
             }
 
             auto odd_i = i.odd_elements();
             if (odd_i.is_valid())
             {
-                apply(odd_i, odd_i >> 1, interp_odd, interp_even);
+                apply_pred(odd_i, odd_i >> 1, interp_odd, interp_even);
             }
         }
     }
@@ -505,7 +505,7 @@ namespace samurai
         auto interp_even = interp_coeffs<2 * order + 1>(1.);
         auto interp_odd  = interp_coeffs<2 * order + 1>(-1.);
 
-        auto apply = [&](const auto& i_f, const auto& i_c, const auto& interpi, const auto interpj, const auto interpk)
+        auto apply_pred = [&](const auto& i_f, const auto& i_c, const auto& interpi, const auto interpj, const auto interpk)
         {
             dest(level, i_f, j, k) = 0;
 
@@ -532,13 +532,13 @@ namespace samurai
                 auto even_i = i.even_elements();
                 if (even_i.is_valid())
                 {
-                    apply(even_i, even_i >> 1, interp_even, interp_odd, interp_odd);
+                    apply_pred(even_i, even_i >> 1, interp_even, interp_odd, interp_odd);
                 }
 
                 auto odd_i = i.odd_elements();
                 if (odd_i.is_valid())
                 {
-                    apply(odd_i, odd_i >> 1, interp_odd, interp_odd, interp_odd);
+                    apply_pred(odd_i, odd_i >> 1, interp_odd, interp_odd, interp_odd);
                 }
             }
             else
@@ -546,13 +546,13 @@ namespace samurai
                 auto even_i = i.even_elements();
                 if (even_i.is_valid())
                 {
-                    apply(even_i, even_i >> 1, interp_even, interp_even, interp_odd);
+                    apply_pred(even_i, even_i >> 1, interp_even, interp_even, interp_odd);
                 }
 
                 auto odd_i = i.odd_elements();
                 if (odd_i.is_valid())
                 {
-                    apply(odd_i, odd_i >> 1, interp_odd, interp_even, interp_odd);
+                    apply_pred(odd_i, odd_i >> 1, interp_odd, interp_even, interp_odd);
                 }
             }
         }
@@ -563,13 +563,13 @@ namespace samurai
                 auto even_i = i.even_elements();
                 if (even_i.is_valid())
                 {
-                    apply(even_i, even_i >> 1, interp_even, interp_odd, interp_even);
+                    apply_pred(even_i, even_i >> 1, interp_even, interp_odd, interp_even);
                 }
 
                 auto odd_i = i.odd_elements();
                 if (odd_i.is_valid())
                 {
-                    apply(odd_i, odd_i >> 1, interp_odd, interp_odd, interp_even);
+                    apply_pred(odd_i, odd_i >> 1, interp_odd, interp_odd, interp_even);
                 }
             }
             else
@@ -577,13 +577,13 @@ namespace samurai
                 auto even_i = i.even_elements();
                 if (even_i.is_valid())
                 {
-                    apply(even_i, even_i >> 1, interp_even, interp_even, interp_even);
+                    apply_pred(even_i, even_i >> 1, interp_even, interp_even, interp_even);
                 }
 
                 auto odd_i = i.odd_elements();
                 if (odd_i.is_valid())
                 {
-                    apply(odd_i, odd_i >> 1, interp_odd, interp_even, interp_even);
+                    apply_pred(odd_i, odd_i >> 1, interp_odd, interp_even, interp_even);
                 }
             }
         }
