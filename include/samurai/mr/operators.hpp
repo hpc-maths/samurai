@@ -291,47 +291,97 @@ namespace samurai
             }
             else
             {
-                using value_t    = typename TInterval::value_t;
-                auto sorder      = static_cast<value_t>(order);
                 auto interp_even = interp_coeffs<2 * order + 1>(1.);
                 auto interp_odd  = interp_coeffs<2 * order + 1>(-1.);
 
-                detail(level + 1, 2 * i, 2 * j)         = field(level + 1, 2 * i, 2 * j);
-                detail(level + 1, 2 * i + 1, 2 * j)     = field(level + 1, 2 * i + 1, 2 * j);
-                detail(level + 1, 2 * i, 2 * j + 1)     = field(level + 1, 2 * i, 2 * j + 1);
-                detail(level + 1, 2 * i + 1, 2 * j + 1) = field(level + 1, 2 * i + 1, 2 * j + 1);
+                auto& mesh = field.mesh();
+
+                auto ind_l_im1_jm1 = static_cast<std::size_t>(mesh.get_index(level, i.start - 1, j - 1));
+                auto ind_l_im1_j   = static_cast<std::size_t>(mesh.get_index(level, i.start - 1, j));
+                auto ind_l_im1_jp1 = static_cast<std::size_t>(mesh.get_index(level, i.start - 1, j + 1));
+
+                std::array<std::size_t, 9> indices = {ind_l_im1_jm1,
+                                                      ind_l_im1_jm1 + 1,
+                                                      ind_l_im1_jm1 + 2,
+                                                      ind_l_im1_j,
+                                                      ind_l_im1_j + 1,
+                                                      ind_l_im1_j + 2,
+                                                      ind_l_im1_jp1,
+                                                      ind_l_im1_jp1 + 1,
+                                                      ind_l_im1_jp1 + 2};
+
+                const auto* data = field.array().data();
 
                 auto detail_1 = detail(level + 1, 2 * i, 2 * j);
                 auto detail_2 = detail(level + 1, 2 * i + 1, 2 * j);
                 auto detail_3 = detail(level + 1, 2 * i, 2 * j + 1);
                 auto detail_4 = detail(level + 1, 2 * i + 1, 2 * j + 1);
 
-                for (value_t kj = 0; kj < 2 * sorder + 1; ++kj)
+                auto field_1 = field(level + 1, 2 * i, 2 * j);
+                auto field_2 = field(level + 1, 2 * i + 1, 2 * j);
+                auto field_3 = field(level + 1, 2 * i, 2 * j + 1);
+                auto field_4 = field(level + 1, 2 * i + 1, 2 * j + 1);
+
+                constexpr std::size_t interp_size = 2 * order + 1;
+
+                // TODO: this implementation only works for AOS layout. We need to implement the SOA version and pay attention that detail
+                // is always AOS but not necessarily field.
+                // TODO: see if the separable implementation is faster.
+                for (std::size_t ii = 0, i_f = 0; ii < i.size(); ++ii, i_f += 2)
                 {
-                    std::size_t ukj = static_cast<std::size_t>(kj);
-                    for (value_t ki = 0; ki < 2 * sorder + 1; ++ki)
+                    if constexpr (T2::is_scalar)
                     {
-                        std::size_t uki = static_cast<std::size_t>(ki);
-                        auto field_ijk  = field(level, i + ki - sorder, j + kj - sorder);
-                        for (std::size_t ii = 0; ii < i.size(); ++ii)
+                        double d1 = field_1(ii);
+                        double d2 = field_2(ii);
+                        double d3 = field_3(ii);
+                        double d4 = field_4(ii);
+
+                        for (std::size_t kj = 0; kj < interp_size; ++kj)
                         {
-                            if constexpr (T2::is_scalar)
+                            for (std::size_t ki = 0; ki < interp_size; ++ki)
                             {
-                                detail_1(ii) -= interp_even[uki] * interp_even[ukj] * field_ijk(ii);
-                                detail_2(ii) -= interp_odd[uki] * interp_even[ukj] * field_ijk(ii);
-                                detail_3(ii) -= interp_even[uki] * interp_odd[ukj] * field_ijk(ii);
-                                detail_4(ii) -= interp_odd[uki] * interp_odd[ukj] * field_ijk(ii);
+                                auto idx         = ki + kj * interp_size;
+                                const double src = data[indices[idx] + ii];
+
+                                d1 -= interp_even[ki] * interp_even[kj] * src;
+                                d2 -= interp_odd[ki] * interp_even[kj] * src;
+                                d3 -= interp_even[ki] * interp_odd[kj] * src;
+                                d4 -= interp_odd[ki] * interp_odd[kj] * src;
                             }
-                            else
+                        }
+
+                        detail_1(ii) = d1;
+                        detail_2(ii) = d2;
+                        detail_3(ii) = d3;
+                        detail_4(ii) = d4;
+                    }
+                    else
+                    {
+                        for (std::size_t nc = 0; nc < T2::n_comp; ++nc)
+                        {
+                            double d1 = field_1(ii, nc);
+                            double d2 = field_2(ii, nc);
+                            double d3 = field_3(ii, nc);
+                            double d4 = field_4(ii, nc);
+
+                            for (std::size_t kj = 0; kj < 2 * order + 1; ++kj)
                             {
-                                for (std::size_t nc = 0; nc < T2::n_comp; ++nc)
+                                for (std::size_t ki = 0; ki < 2 * order + 1; ++ki)
                                 {
-                                    detail_1(ii, nc) -= interp_even[uki] * interp_even[ukj] * field_ijk(ii, nc);
-                                    detail_2(ii, nc) -= interp_odd[uki] * interp_even[ukj] * field_ijk(ii, nc);
-                                    detail_3(ii, nc) -= interp_even[uki] * interp_odd[ukj] * field_ijk(ii, nc);
-                                    detail_4(ii, nc) -= interp_odd[uki] * interp_odd[ukj] * field_ijk(ii, nc);
+                                    auto idx         = (indices[ki + kj * (2 * order + 1)] + ii) * T2::n_comp;
+                                    const double src = data[idx + nc];
+
+                                    d1 -= interp_even[ki] * interp_even[kj] * src;
+                                    d2 -= interp_odd[ki] * interp_even[kj] * src;
+                                    d3 -= interp_even[ki] * interp_odd[kj] * src;
+                                    d4 -= interp_odd[ki] * interp_odd[kj] * src;
                                 }
                             }
+
+                            detail_1(ii, nc) = d1;
+                            detail_2(ii, nc) = d2;
+                            detail_3(ii, nc) = d3;
+                            detail_4(ii, nc) = d4;
                         }
                     }
                 }
