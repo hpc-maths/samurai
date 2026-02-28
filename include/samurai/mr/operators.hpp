@@ -279,6 +279,55 @@ namespace samurai
             }
         }
 
+        template <std::size_t order>
+        SAMURAI_INLINE auto get_indices(Dim<2>, const auto& mesh) const
+        {
+            using value_t                     = typename TInterval::value_t;
+            constexpr std::size_t interp_size = 2 * order + 1;
+
+            std::array<std::size_t, interp_size * interp_size> indices;
+
+            for (std::size_t kj = 0; kj < interp_size; ++kj)
+            {
+                auto ind_l_i_jk = static_cast<std::size_t>(
+                    mesh.get_index(level, i.start - static_cast<value_t>(order), j + static_cast<value_t>(kj) - static_cast<value_t>(order)));
+                for (std::size_t ki = 0; ki < interp_size; ++ki)
+                {
+                    auto idx     = ki + kj * interp_size;
+                    indices[idx] = ind_l_i_jk + ki;
+                }
+            }
+
+            return indices;
+        }
+
+        template <std::size_t order>
+        SAMURAI_INLINE auto get_indices(Dim<3>, const auto& mesh) const
+        {
+            using value_t                     = typename TInterval::value_t;
+            constexpr std::size_t interp_size = 2 * order + 1;
+
+            std::array<std::size_t, interp_size * interp_size * interp_size> indices;
+
+            for (std::size_t kk = 0; kk < interp_size; ++kk)
+            {
+                for (std::size_t kj = 0; kj < interp_size; ++kj)
+                {
+                    auto ind_l_i_jk = static_cast<std::size_t>(mesh.get_index(level,
+                                                                              i.start - static_cast<value_t>(order),
+                                                                              j + static_cast<value_t>(kj) - static_cast<value_t>(order),
+                                                                              k + static_cast<value_t>(kk) - static_cast<value_t>(order)));
+                    for (std::size_t ki = 0; ki < interp_size; ++ki)
+                    {
+                        auto idx     = ki + kj * interp_size + kk * interp_size * interp_size;
+                        indices[idx] = ind_l_i_jk + ki;
+                    }
+                }
+            }
+
+            return indices;
+        }
+
         template <class T1, class T2, std::size_t order = T2::mesh_t::config::prediction_stencil_radius>
         SAMURAI_INLINE void operator()(Dim<2>, T1& detail, const T2& field) const
         {
@@ -294,23 +343,14 @@ namespace samurai
                 auto interp_even = interp_coeffs<2 * order + 1>(1.);
                 auto interp_odd  = interp_coeffs<2 * order + 1>(-1.);
 
-                auto& mesh = field.mesh();
-
-                auto ind_l_im1_jm1 = static_cast<std::size_t>(mesh.get_index(level, i.start - 1, j - 1));
-                auto ind_l_im1_j   = static_cast<std::size_t>(mesh.get_index(level, i.start - 1, j));
-                auto ind_l_im1_jp1 = static_cast<std::size_t>(mesh.get_index(level, i.start - 1, j + 1));
-
-                std::array<std::size_t, 9> indices = {ind_l_im1_jm1,
-                                                      ind_l_im1_jm1 + 1,
-                                                      ind_l_im1_jm1 + 2,
-                                                      ind_l_im1_j,
-                                                      ind_l_im1_j + 1,
-                                                      ind_l_im1_j + 2,
-                                                      ind_l_im1_jp1,
-                                                      ind_l_im1_jp1 + 1,
-                                                      ind_l_im1_jp1 + 2};
+                auto indices = get_indices<order>(Dim<2>{}, field.mesh());
 
                 const auto* data = field.array().data();
+
+                auto* detail_data = detail.array().data();
+
+                auto ind1 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * i.start, 2 * j));
+                auto ind2 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * i.start, 2 * j + 1));
 
                 auto detail_1 = detail(level + 1, 2 * i, 2 * j);
                 auto detail_2 = detail(level + 1, 2 * i + 1, 2 * j);
@@ -331,10 +371,10 @@ namespace samurai
                 {
                     if constexpr (T2::is_scalar)
                     {
-                        double d1 = field_1(ii);
-                        double d2 = field_2(ii);
-                        double d3 = field_3(ii);
-                        double d4 = field_4(ii);
+                        double d1 = data[ind1 + i_f];
+                        double d2 = data[ind1 + i_f + 1];
+                        double d3 = data[ind2 + i_f];
+                        double d4 = data[ind2 + i_f + 1];
 
                         for (std::size_t kj = 0; kj < interp_size; ++kj)
                         {
@@ -350,10 +390,39 @@ namespace samurai
                             }
                         }
 
-                        detail_1(ii) = d1;
-                        detail_2(ii) = d2;
-                        detail_3(ii) = d3;
-                        detail_4(ii) = d4;
+                        detail_data[ind1 + i_f]     = d1;
+                        detail_data[ind1 + i_f + 1] = d2;
+                        detail_data[ind2 + i_f]     = d3;
+                        detail_data[ind2 + i_f + 1] = d4;
+                    }
+                }
+                for (std::size_t ii = 0, i_f = 0; ii < i.size(); ++ii, i_f += 2)
+                {
+                    if constexpr (T2::is_scalar)
+                    {
+                        double d1 = data[ind1 + i_f];
+                        double d2 = data[ind1 + i_f + 1];
+                        double d3 = data[ind2 + i_f];
+                        double d4 = data[ind2 + i_f + 1];
+
+                        for (std::size_t kj = 0; kj < interp_size; ++kj)
+                        {
+                            for (std::size_t ki = 0; ki < interp_size; ++ki)
+                            {
+                                auto idx         = ki + kj * interp_size;
+                                const double src = data[indices[idx] + ii];
+
+                                d1 -= interp_even[ki] * interp_even[kj] * src;
+                                d2 -= interp_odd[ki] * interp_even[kj] * src;
+                                d3 -= interp_even[ki] * interp_odd[kj] * src;
+                                d4 -= interp_odd[ki] * interp_odd[kj] * src;
+                            }
+                        }
+
+                        detail_data[ind1 + i_f]     = d1;
+                        detail_data[ind1 + i_f + 1] = d2;
+                        detail_data[ind2 + i_f]     = d3;
+                        detail_data[ind2 + i_f + 1] = d4;
                     }
                     else
                     {
@@ -364,11 +433,11 @@ namespace samurai
                             double d3 = field_3(ii, nc);
                             double d4 = field_4(ii, nc);
 
-                            for (std::size_t kj = 0; kj < 2 * order + 1; ++kj)
+                            for (std::size_t kj = 0; kj < interp_size; ++kj)
                             {
-                                for (std::size_t ki = 0; ki < 2 * order + 1; ++ki)
+                                for (std::size_t ki = 0; ki < interp_size; ++ki)
                                 {
-                                    auto idx         = (indices[ki + kj * (2 * order + 1)] + ii) * T2::n_comp;
+                                    auto idx         = (indices[ki + kj * interp_size] + ii) * T2::n_comp;
                                     const double src = data[idx + nc];
 
                                     d1 -= interp_even[ki] * interp_even[kj] * src;
@@ -405,19 +474,20 @@ namespace samurai
             }
             else
             {
-                using value_t    = typename TInterval::value_t;
-                auto sorder      = static_cast<value_t>(order);
                 auto interp_even = interp_coeffs<2 * order + 1>(1.);
                 auto interp_odd  = interp_coeffs<2 * order + 1>(-1.);
 
-                detail(level + 1, 2 * i, 2 * j, 2 * k)             = field(level + 1, 2 * i, 2 * j, 2 * k);
-                detail(level + 1, 2 * i + 1, 2 * j, 2 * k)         = field(level + 1, 2 * i + 1, 2 * j, 2 * k);
-                detail(level + 1, 2 * i, 2 * j + 1, 2 * k)         = field(level + 1, 2 * i, 2 * j + 1, 2 * k);
-                detail(level + 1, 2 * i + 1, 2 * j + 1, 2 * k)     = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k);
-                detail(level + 1, 2 * i, 2 * j, 2 * k + 1)         = field(level + 1, 2 * i, 2 * j, 2 * k + 1);
-                detail(level + 1, 2 * i + 1, 2 * j, 2 * k + 1)     = field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1);
-                detail(level + 1, 2 * i, 2 * j + 1, 2 * k + 1)     = field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1);
-                detail(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1) = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1);
+                auto indices     = get_indices<order>(Dim<3>{}, field.mesh());
+                const auto* data = field.array().data();
+
+                auto field_1 = field(level + 1, 2 * i, 2 * j, 2 * k);
+                auto field_2 = field(level + 1, 2 * i + 1, 2 * j, 2 * k);
+                auto field_3 = field(level + 1, 2 * i, 2 * j + 1, 2 * k);
+                auto field_4 = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k);
+                auto field_5 = field(level + 1, 2 * i, 2 * j, 2 * k + 1);
+                auto field_6 = field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1);
+                auto field_7 = field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1);
+                auto field_8 = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1);
 
                 auto detail_1 = detail(level + 1, 2 * i, 2 * j, 2 * k);
                 auto detail_2 = detail(level + 1, 2 * i + 1, 2 * j, 2 * k);
@@ -428,44 +498,96 @@ namespace samurai
                 auto detail_7 = detail(level + 1, 2 * i, 2 * j + 1, 2 * k + 1);
                 auto detail_8 = detail(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1);
 
-                for (value_t kk = 0; kk < 2 * sorder + 1; ++kk)
+                constexpr std::size_t interp_size = 2 * order + 1;
+
+                // TODO: this implementation only works for AOS layout. We need to implement the SOA version and pay attention that detail
+                // is always AOS but not necessarily field.
+                // TODO: see if the separable implementation is faster.
+                for (std::size_t ii = 0, i_f = 0; ii < i.size(); ++ii, i_f += 2)
                 {
-                    auto ukk = static_cast<std::size_t>(kk);
-                    for (value_t kj = 0; kj < 2 * sorder + 1; ++kj)
+                    if constexpr (T2::is_scalar)
                     {
-                        auto ukj = static_cast<std::size_t>(kj);
-                        for (value_t ki = 0; ki < 2 * sorder + 1; ++ki)
+                        double d1 = field_1(ii);
+                        double d2 = field_2(ii);
+                        double d3 = field_3(ii);
+                        double d4 = field_4(ii);
+                        double d5 = field_5(ii);
+                        double d6 = field_6(ii);
+                        double d7 = field_7(ii);
+                        double d8 = field_8(ii);
+
+                        for (std::size_t kk = 0; kk < interp_size; ++kk)
                         {
-                            auto uki       = static_cast<std::size_t>(ki);
-                            auto field_ijk = field(level, i + ki - sorder, j + kj - sorder, k + kk - sorder);
-                            for (std::size_t ii = 0; ii < i.size(); ++ii)
+                            for (std::size_t kj = 0; kj < interp_size; ++kj)
                             {
-                                if constexpr (T2::is_scalar)
+                                for (std::size_t ki = 0; ki < interp_size; ++ki)
                                 {
-                                    detail_1(ii) -= interp_even[uki] * interp_even[ukj] * interp_even[ukk] * field_ijk(ii);
-                                    detail_2(ii) -= interp_odd[uki] * interp_even[ukj] * interp_even[ukk] * field_ijk(ii);
-                                    detail_3(ii) -= interp_even[uki] * interp_odd[ukj] * interp_even[ukk] * field_ijk(ii);
-                                    detail_4(ii) -= interp_odd[uki] * interp_odd[ukj] * interp_even[ukk] * field_ijk(ii);
-                                    detail_5(ii) -= interp_even[uki] * interp_even[ukj] * interp_odd[ukk] * field_ijk(ii);
-                                    detail_6(ii) -= interp_odd[uki] * interp_even[ukj] * interp_odd[ukk] * field_ijk(ii);
-                                    detail_7(ii) -= interp_even[uki] * interp_odd[ukj] * interp_odd[ukk] * field_ijk(ii);
-                                    detail_8(ii) -= interp_odd[uki] * interp_odd[ukj] * interp_odd[ukk] * field_ijk(ii);
+                                    auto idx         = ki + kj * interp_size + kk * interp_size * interp_size;
+                                    const double src = data[indices[idx] + ii];
+
+                                    d1 -= interp_even[ki] * interp_even[kj] * interp_even[kk] * src;
+                                    d2 -= interp_odd[ki] * interp_even[kj] * interp_even[kk] * src;
+                                    d3 -= interp_even[ki] * interp_odd[kj] * interp_even[kk] * src;
+                                    d4 -= interp_odd[ki] * interp_odd[kj] * interp_even[kk] * src;
+                                    d5 -= interp_even[ki] * interp_even[kj] * interp_odd[kk] * src;
+                                    d6 -= interp_odd[ki] * interp_even[kj] * interp_odd[kk] * src;
+                                    d7 -= interp_even[ki] * interp_odd[kj] * interp_odd[kk] * src;
+                                    d8 -= interp_odd[ki] * interp_odd[kj] * interp_odd[kk] * src;
                                 }
-                                else
+                            }
+                        }
+
+                        detail_1(ii) = d1;
+                        detail_2(ii) = d2;
+                        detail_3(ii) = d3;
+                        detail_4(ii) = d4;
+                        detail_5(ii) = d5;
+                        detail_6(ii) = d6;
+                        detail_7(ii) = d7;
+                        detail_8(ii) = d8;
+                    }
+                    else
+                    {
+                        for (std::size_t nc = 0; nc < T2::n_comp; ++nc)
+                        {
+                            double d1 = field_1(ii, nc);
+                            double d2 = field_2(ii, nc);
+                            double d3 = field_3(ii, nc);
+                            double d4 = field_4(ii, nc);
+                            double d5 = field_5(ii, nc);
+                            double d6 = field_6(ii, nc);
+                            double d7 = field_7(ii, nc);
+                            double d8 = field_8(ii, nc);
+
+                            for (std::size_t kk = 0; kk < interp_size; ++kk)
+                            {
+                                for (std::size_t kj = 0; kj < interp_size; ++kj)
                                 {
-                                    for (std::size_t nc = 0; nc < T2::n_comp; ++nc)
+                                    for (std::size_t ki = 0; ki < interp_size; ++ki)
                                     {
-                                        detail_1(ii, nc) -= interp_even[uki] * interp_even[ukj] * interp_even[ukk] * field_ijk(ii, nc);
-                                        detail_2(ii, nc) -= interp_odd[uki] * interp_even[ukj] * interp_even[ukk] * field_ijk(ii, nc);
-                                        detail_3(ii, nc) -= interp_even[uki] * interp_odd[ukj] * interp_even[ukk] * field_ijk(ii, nc);
-                                        detail_4(ii, nc) -= interp_odd[uki] * interp_odd[ukj] * interp_even[ukk] * field_ijk(ii, nc);
-                                        detail_5(ii, nc) -= interp_even[uki] * interp_even[ukj] * interp_odd[ukk] * field_ijk(ii, nc);
-                                        detail_6(ii, nc) -= interp_odd[uki] * interp_even[ukj] * interp_odd[ukk] * field_ijk(ii, nc);
-                                        detail_7(ii, nc) -= interp_even[uki] * interp_odd[ukj] * interp_odd[ukk] * field_ijk(ii, nc);
-                                        detail_8(ii, nc) -= interp_odd[uki] * interp_odd[ukj] * interp_odd[ukk] * field_ijk(ii, nc);
+                                        auto idx = (indices[ki + kj * interp_size + kk * interp_size * interp_size] + ii) * T2::n_comp;
+                                        const double src = data[idx + nc];
+
+                                        d1 -= interp_even[ki] * interp_even[kj] * interp_even[kk] * src;
+                                        d2 -= interp_odd[ki] * interp_even[kj] * interp_even[kk] * src;
+                                        d3 -= interp_even[ki] * interp_odd[kj] * interp_even[kk] * src;
+                                        d4 -= interp_odd[ki] * interp_odd[kj] * interp_even[kk] * src;
+                                        d5 -= interp_even[ki] * interp_even[kj] * interp_odd[kk] * src;
+                                        d6 -= interp_odd[ki] * interp_even[kj] * interp_odd[kk] * src;
+                                        d7 -= interp_even[ki] * interp_odd[kj] * interp_odd[kk] * src;
+                                        d8 -= interp_odd[ki] * interp_odd[kj] * interp_odd[kk] * src;
                                     }
                                 }
                             }
+
+                            detail_1(ii, nc) = d1;
+                            detail_2(ii, nc) = d2;
+                            detail_3(ii, nc) = d3;
+                            detail_4(ii, nc) = d4;
+                            detail_5(ii, nc) = d5;
+                            detail_6(ii, nc) = d6;
+                            detail_7(ii, nc) = d7;
+                            detail_8(ii, nc) = d8;
                         }
                     }
                 }
