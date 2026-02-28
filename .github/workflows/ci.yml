@@ -390,7 +390,7 @@ jobs:
             - name: Petsc installation
               shell: bash -l {0}
               run: |
-                  micromamba install -y petsc pkg-config
+                  micromamba install -y petsc mpich pkg-config
 
             - name: Install cxx compiler
               shell: bash -l {0}
