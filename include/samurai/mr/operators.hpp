@@ -352,16 +352,6 @@ namespace samurai
                 auto ind1 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * i.start, 2 * j));
                 auto ind2 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * i.start, 2 * j + 1));
 
-                auto detail_1 = detail(level + 1, 2 * i, 2 * j);
-                auto detail_2 = detail(level + 1, 2 * i + 1, 2 * j);
-                auto detail_3 = detail(level + 1, 2 * i, 2 * j + 1);
-                auto detail_4 = detail(level + 1, 2 * i + 1, 2 * j + 1);
-
-                auto field_1 = field(level + 1, 2 * i, 2 * j);
-                auto field_2 = field(level + 1, 2 * i + 1, 2 * j);
-                auto field_3 = field(level + 1, 2 * i, 2 * j + 1);
-                auto field_4 = field(level + 1, 2 * i + 1, 2 * j + 1);
-
                 constexpr std::size_t interp_size = 2 * order + 1;
 
                 // TODO: this implementation only works for AOS layout. We need to implement the SOA version and pay attention that detail
@@ -395,43 +385,14 @@ namespace samurai
                         detail_data[ind2 + i_f]     = d3;
                         detail_data[ind2 + i_f + 1] = d4;
                     }
-                }
-                for (std::size_t ii = 0, i_f = 0; ii < i.size(); ++ii, i_f += 2)
-                {
-                    if constexpr (T2::is_scalar)
-                    {
-                        double d1 = data[ind1 + i_f];
-                        double d2 = data[ind1 + i_f + 1];
-                        double d3 = data[ind2 + i_f];
-                        double d4 = data[ind2 + i_f + 1];
-
-                        for (std::size_t kj = 0; kj < interp_size; ++kj)
-                        {
-                            for (std::size_t ki = 0; ki < interp_size; ++ki)
-                            {
-                                auto idx         = ki + kj * interp_size;
-                                const double src = data[indices[idx] + ii];
-
-                                d1 -= interp_even[ki] * interp_even[kj] * src;
-                                d2 -= interp_odd[ki] * interp_even[kj] * src;
-                                d3 -= interp_even[ki] * interp_odd[kj] * src;
-                                d4 -= interp_odd[ki] * interp_odd[kj] * src;
-                            }
-                        }
-
-                        detail_data[ind1 + i_f]     = d1;
-                        detail_data[ind1 + i_f + 1] = d2;
-                        detail_data[ind2 + i_f]     = d3;
-                        detail_data[ind2 + i_f + 1] = d4;
-                    }
                     else
                     {
                         for (std::size_t nc = 0; nc < T2::n_comp; ++nc)
                         {
-                            double d1 = field_1(ii, nc);
-                            double d2 = field_2(ii, nc);
-                            double d3 = field_3(ii, nc);
-                            double d4 = field_4(ii, nc);
+                            double d1 = data[(ind1 + i_f) * T2::n_comp + nc];
+                            double d2 = data[(ind1 + i_f + 1) * T2::n_comp + nc];
+                            double d3 = data[(ind2 + i_f) * T2::n_comp + nc];
+                            double d4 = data[(ind2 + i_f + 1) * T2::n_comp + nc];
 
                             for (std::size_t kj = 0; kj < interp_size; ++kj)
                             {
@@ -447,10 +408,10 @@ namespace samurai
                                 }
                             }
 
-                            detail_1(ii, nc) = d1;
-                            detail_2(ii, nc) = d2;
-                            detail_3(ii, nc) = d3;
-                            detail_4(ii, nc) = d4;
+                            detail_data[(ind1 + ii) * T2::n_comp + nc]     = d1;
+                            detail_data[(ind1 + ii + 1) * T2::n_comp + nc] = d2;
+                            detail_data[(ind2 + ii) * T2::n_comp + nc]     = d3;
+                            detail_data[(ind2 + ii + 1) * T2::n_comp + nc] = d4;
                         }
                     }
                 }
