@@ -354,9 +354,6 @@ namespace samurai
 
                 constexpr std::size_t interp_size = 2 * order + 1;
 
-                // TODO: this implementation only works for AOS layout. We need to implement the SOA version and pay attention that detail
-                // is always AOS but not necessarily field.
-                // TODO: see if the separable implementation is faster.
                 for (std::size_t ii = 0, i_f = 0; ii < i.size(); ++ii, i_f += 2)
                 {
                     if constexpr (T2::is_scalar)
@@ -389,10 +386,22 @@ namespace samurai
                     {
                         for (std::size_t nc = 0; nc < T2::n_comp; ++nc)
                         {
-                            double d1 = data[(ind1 + i_f) * T2::n_comp + nc];
-                            double d2 = data[(ind1 + i_f + 1) * T2::n_comp + nc];
-                            double d3 = data[(ind2 + i_f) * T2::n_comp + nc];
-                            double d4 = data[(ind2 + i_f + 1) * T2::n_comp + nc];
+                            double d1, d2, d3, d4;
+                            if constexpr (T2::is_soa)
+                            {
+                                std::size_t size = field.mesh().nb_cells();
+                                d1               = data[(ind1 + i_f) + nc * size];
+                                d2               = data[(ind1 + i_f + 1) + nc * size];
+                                d3               = data[(ind2 + i_f) + nc * size];
+                                d4               = data[(ind2 + i_f + 1) + nc * size];
+                            }
+                            else
+                            {
+                                d1 = data[(ind1 + i_f) * T2::n_comp + nc];
+                                d2 = data[(ind1 + i_f + 1) * T2::n_comp + nc];
+                                d3 = data[(ind2 + i_f) * T2::n_comp + nc];
+                                d4 = data[(ind2 + i_f + 1) * T2::n_comp + nc];
+                            }
 
                             for (std::size_t kj = 0; kj < interp_size; ++kj)
                             {
@@ -408,10 +417,20 @@ namespace samurai
                                 }
                             }
 
-                            detail_data[(ind1 + i_f) * T2::n_comp + nc]     = d1;
-                            detail_data[(ind1 + i_f + 1) * T2::n_comp + nc] = d2;
-                            detail_data[(ind2 + i_f) * T2::n_comp + nc]     = d3;
-                            detail_data[(ind2 + i_f + 1) * T2::n_comp + nc] = d4;
+                            if constexpr (requires { detail.begin_item(); })
+                            {
+                                detail_data[detail.begin_item() + (ind1 + i_f) * T1::n_comp + nc]     = d1;
+                                detail_data[detail.begin_item() + (ind1 + i_f + 1) * T1::n_comp + nc] = d2;
+                                detail_data[detail.begin_item() + (ind2 + i_f) * T1::n_comp + nc]     = d3;
+                                detail_data[detail.begin_item() + (ind2 + i_f + 1) * T1::n_comp + nc] = d4;
+                            }
+                            else
+                            {
+                                detail_data[(ind1 + i_f) * T1::n_comp + nc]     = d1;
+                                detail_data[(ind1 + i_f + 1) * T1::n_comp + nc] = d2;
+                                detail_data[(ind2 + i_f) * T1::n_comp + nc]     = d3;
+                                detail_data[(ind2 + i_f + 1) * T1::n_comp + nc] = d4;
+                            }
                         }
                     }
                 }
@@ -438,44 +457,31 @@ namespace samurai
                 auto interp_even = interp_coeffs<2 * order + 1>(1.);
                 auto interp_odd  = interp_coeffs<2 * order + 1>(-1.);
 
-                auto indices     = get_indices<order>(Dim<3>{}, field.mesh());
-                const auto* data = field.array().data();
+                auto indices = get_indices<order>(Dim<3>{}, field.mesh());
 
-                auto field_1 = field(level + 1, 2 * i, 2 * j, 2 * k);
-                auto field_2 = field(level + 1, 2 * i + 1, 2 * j, 2 * k);
-                auto field_3 = field(level + 1, 2 * i, 2 * j + 1, 2 * k);
-                auto field_4 = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k);
-                auto field_5 = field(level + 1, 2 * i, 2 * j, 2 * k + 1);
-                auto field_6 = field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1);
-                auto field_7 = field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1);
-                auto field_8 = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1);
+                const auto* data = field.data();
 
-                auto detail_1 = detail(level + 1, 2 * i, 2 * j, 2 * k);
-                auto detail_2 = detail(level + 1, 2 * i + 1, 2 * j, 2 * k);
-                auto detail_3 = detail(level + 1, 2 * i, 2 * j + 1, 2 * k);
-                auto detail_4 = detail(level + 1, 2 * i + 1, 2 * j + 1, 2 * k);
-                auto detail_5 = detail(level + 1, 2 * i, 2 * j, 2 * k + 1);
-                auto detail_6 = detail(level + 1, 2 * i + 1, 2 * j, 2 * k + 1);
-                auto detail_7 = detail(level + 1, 2 * i, 2 * j + 1, 2 * k + 1);
-                auto detail_8 = detail(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1);
+                auto* detail_data = detail.data();
+
+                auto ind1 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * i.start, 2 * j, 2 * k));
+                auto ind2 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * i.start, 2 * j + 1, 2 * k));
+                auto ind3 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * i.start, 2 * j, 2 * k + 1));
+                auto ind4 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * i.start, 2 * j + 1, 2 * k + 1));
 
                 constexpr std::size_t interp_size = 2 * order + 1;
 
-                // TODO: this implementation only works for AOS layout. We need to implement the SOA version and pay attention that detail
-                // is always AOS but not necessarily field.
-                // TODO: see if the separable implementation is faster.
                 for (std::size_t ii = 0, i_f = 0; ii < i.size(); ++ii, i_f += 2)
                 {
                     if constexpr (T2::is_scalar)
                     {
-                        double d1 = field_1(ii);
-                        double d2 = field_2(ii);
-                        double d3 = field_3(ii);
-                        double d4 = field_4(ii);
-                        double d5 = field_5(ii);
-                        double d6 = field_6(ii);
-                        double d7 = field_7(ii);
-                        double d8 = field_8(ii);
+                        double d1 = data[ind1 + i_f];
+                        double d2 = data[ind1 + i_f + 1];
+                        double d3 = data[ind2 + i_f];
+                        double d4 = data[ind2 + i_f + 1];
+                        double d5 = data[ind3 + i_f];
+                        double d6 = data[ind3 + i_f + 1];
+                        double d7 = data[ind4 + i_f];
+                        double d8 = data[ind4 + i_f + 1];
 
                         for (std::size_t kk = 0; kk < interp_size; ++kk)
                         {
@@ -498,27 +504,43 @@ namespace samurai
                             }
                         }
 
-                        detail_1(ii) = d1;
-                        detail_2(ii) = d2;
-                        detail_3(ii) = d3;
-                        detail_4(ii) = d4;
-                        detail_5(ii) = d5;
-                        detail_6(ii) = d6;
-                        detail_7(ii) = d7;
-                        detail_8(ii) = d8;
+                        detail_data[ind1 + i_f]     = d1;
+                        detail_data[ind1 + i_f + 1] = d2;
+                        detail_data[ind2 + i_f]     = d3;
+                        detail_data[ind2 + i_f + 1] = d4;
+                        detail_data[ind3 + i_f]     = d5;
+                        detail_data[ind3 + i_f + 1] = d6;
+                        detail_data[ind4 + i_f]     = d7;
+                        detail_data[ind4 + i_f + 1] = d8;
                     }
                     else
                     {
                         for (std::size_t nc = 0; nc < T2::n_comp; ++nc)
                         {
-                            double d1 = field_1(ii, nc);
-                            double d2 = field_2(ii, nc);
-                            double d3 = field_3(ii, nc);
-                            double d4 = field_4(ii, nc);
-                            double d5 = field_5(ii, nc);
-                            double d6 = field_6(ii, nc);
-                            double d7 = field_7(ii, nc);
-                            double d8 = field_8(ii, nc);
+                            double d1, d2, d3, d4, d5, d6, d7, d8;
+                            if constexpr (T2::is_soa)
+                            {
+                                std::size_t size = field.mesh().nb_cells();
+                                d1               = data[(ind1 + i_f) + nc * size];
+                                d2               = data[(ind1 + i_f + 1) + nc * size];
+                                d3               = data[(ind2 + i_f) + nc * size];
+                                d4               = data[(ind2 + i_f + 1) + nc * size];
+                                d5               = data[(ind3 + i_f) + nc * size];
+                                d6               = data[(ind3 + i_f + 1) + nc * size];
+                                d7               = data[(ind4 + i_f) + nc * size];
+                                d8               = data[(ind4 + i_f + 1) + nc * size];
+                            }
+                            else
+                            {
+                                d1 = data[(ind1 + i_f) * T2::n_comp + nc];
+                                d2 = data[(ind1 + i_f + 1) * T2::n_comp + nc];
+                                d3 = data[(ind2 + i_f) * T2::n_comp + nc];
+                                d4 = data[(ind2 + i_f + 1) * T2::n_comp + nc];
+                                d5 = data[(ind3 + i_f) * T2::n_comp + nc];
+                                d6 = data[(ind3 + i_f + 1) * T2::n_comp + nc];
+                                d7 = data[(ind4 + i_f) * T2::n_comp + nc];
+                                d8 = data[(ind4 + i_f + 1) * T2::n_comp + nc];
+                            }
 
                             for (std::size_t kk = 0; kk < interp_size; ++kk)
                             {
@@ -539,16 +561,30 @@ namespace samurai
                                         d8 -= interp_odd[ki] * interp_odd[kj] * interp_odd[kk] * src;
                                     }
                                 }
-                            }
 
-                            detail_1(ii, nc) = d1;
-                            detail_2(ii, nc) = d2;
-                            detail_3(ii, nc) = d3;
-                            detail_4(ii, nc) = d4;
-                            detail_5(ii, nc) = d5;
-                            detail_6(ii, nc) = d6;
-                            detail_7(ii, nc) = d7;
-                            detail_8(ii, nc) = d8;
+                                if constexpr (requires { detail.begin_item(); })
+                                {
+                                    detail_data[detail.begin_item() + (ind1 + i_f) * T1::n_comp + nc]     = d1;
+                                    detail_data[detail.begin_item() + (ind1 + i_f + 1) * T1::n_comp + nc] = d2;
+                                    detail_data[detail.begin_item() + (ind2 + i_f) * T1::n_comp + nc]     = d3;
+                                    detail_data[detail.begin_item() + (ind2 + i_f + 1) * T1::n_comp + nc] = d4;
+                                    detail_data[detail.begin_item() + (ind3 + i_f) * T1::n_comp + nc]     = d5;
+                                    detail_data[detail.begin_item() + (ind3 + i_f + 1) * T1::n_comp + nc] = d6;
+                                    detail_data[detail.begin_item() + (ind4 + i_f) * T1::n_comp + nc]     = d7;
+                                    detail_data[detail.begin_item() + (ind4 + i_f + 1) * T1::n_comp + nc] = d8;
+                                }
+                                else
+                                {
+                                    detail_data[(ind1 + i_f) * T1::n_comp + nc]     = d1;
+                                    detail_data[(ind1 + i_f + 1) * T1::n_comp + nc] = d2;
+                                    detail_data[(ind2 + i_f) * T1::n_comp + nc]     = d3;
+                                    detail_data[(ind2 + i_f + 1) * T1::n_comp + nc] = d4;
+                                    detail_data[(ind3 + i_f) * T1::n_comp + nc]     = d5;
+                                    detail_data[(ind3 + i_f + 1) * T1::n_comp + nc] = d6;
+                                    detail_data[(ind4 + i_f) * T1::n_comp + nc]     = d7;
+                                    detail_data[(ind4 + i_f + 1) * T1::n_comp + nc] = d8;
+                                }
+                            }
                         }
                     }
                 }
@@ -612,12 +648,22 @@ namespace samurai
 
             auto data()
             {
-                return m_detail.data() + m_beg * m_detail.n_comp * m_detail.mesh().nb_cells();
+                return m_detail.data();
             }
 
             auto data() const
             {
-                return m_detail.data() + m_beg * m_detail.n_comp * m_detail.mesh().nb_cells();
+                return m_detail.data();
+            }
+
+            auto begin_item() const
+            {
+                return m_beg;
+            }
+
+            auto end_item() const
+            {
+                return m_end;
             }
 
           private:

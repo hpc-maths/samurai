@@ -243,8 +243,7 @@ def test_finite_volume_demo_lid_driven_cavity(config):
     output = subprocess.run(cmd, check=True, capture_output=True)
 
 
-# @pytest.mark.h5diff(atol=1e-4, rtol=1e-4)
-@pytest.mark.h5diff()
+@pytest.mark.h5diff(atol=1e-4, rtol=1e-4)
 def test_finite_volume_demo_diff_heated_cavity(config):
     cmd = [
         get_executable(
