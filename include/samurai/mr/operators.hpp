@@ -345,9 +345,9 @@ namespace samurai
 
                 auto indices = get_indices<order>(Dim<2>{}, field.mesh());
 
-                const auto* data = field.array().data();
+                const auto* data = field.data();
 
-                auto* detail_data = detail.array().data();
+                auto* detail_data = detail.data();
 
                 auto ind1 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * i.start, 2 * j));
                 auto ind2 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * i.start, 2 * j + 1));
@@ -608,6 +608,16 @@ namespace samurai
                 {
                     return m_detail(m_beg, m_end, level, i, index);
                 }
+            }
+
+            auto data()
+            {
+                return m_detail.data() + m_beg * m_detail.n_comp * m_detail.mesh().nb_cells();
+            }
+
+            auto data() const
+            {
+                return m_detail.data() + m_beg * m_detail.n_comp * m_detail.mesh().nb_cells();
             }
 
           private:

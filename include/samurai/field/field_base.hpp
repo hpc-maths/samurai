@@ -79,6 +79,9 @@ namespace samurai
             auto& array();
             const auto& array() const;
 
+            auto data();
+            auto data() const;
+
             // ================================================================
             // BOUNDARY CONDITION METHODS
             // ================================================================
@@ -278,6 +281,18 @@ namespace samurai
         SAMURAI_INLINE const auto& FieldBase<Derived>::array() const
         {
             return this->derived_cast().storage().data();
+        }
+
+        template <class Derived>
+        SAMURAI_INLINE auto FieldBase<Derived>::data()
+        {
+            return array().data();
+        }
+
+        template <class Derived>
+        SAMURAI_INLINE auto FieldBase<Derived>::data() const
+        {
+            return array().data();
         }
 
         // --- Boundary condition methods -------------------------------------
