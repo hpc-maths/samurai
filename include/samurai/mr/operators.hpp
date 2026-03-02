@@ -408,10 +408,10 @@ namespace samurai
                                 }
                             }
 
-                            detail_data[(ind1 + ii) * T2::n_comp + nc]     = d1;
-                            detail_data[(ind1 + ii + 1) * T2::n_comp + nc] = d2;
-                            detail_data[(ind2 + ii) * T2::n_comp + nc]     = d3;
-                            detail_data[(ind2 + ii + 1) * T2::n_comp + nc] = d4;
+                            detail_data[(ind1 + i_f) * T2::n_comp + nc]     = d1;
+                            detail_data[(ind1 + i_f + 1) * T2::n_comp + nc] = d2;
+                            detail_data[(ind2 + i_f) * T2::n_comp + nc]     = d3;
+                            detail_data[(ind2 + i_f + 1) * T2::n_comp + nc] = d4;
                         }
                     }
                 }
