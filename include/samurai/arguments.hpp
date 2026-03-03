@@ -27,7 +27,7 @@ namespace samurai
         static bool print_petsc_numbering = false;
         static int sleep_at_startup       = 0;
 
-        static uint32_t load_balancing_at = 10;
+        static uint32_t load_balancing_at = 0;
 
         // MRA arguments
         static double epsilon    = std::numeric_limits<double>::infinity();
