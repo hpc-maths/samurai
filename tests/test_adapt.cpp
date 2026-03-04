@@ -35,9 +35,8 @@ namespace samurai
         auto mesh_cfg = mesh_config<dim>().min_level(2).max_level(4);
         auto mesh     = mra::make_mesh(box_t{xt::zeros<double>({dim}), xt::ones<double>({dim})}, mesh_cfg);
         auto u_1      = make_scalar_field<double>("u_1", mesh);
-        // auto u_2      = make_vector_field<double, 3, true>("u_2", mesh);
-        auto u_2 = make_vector_field<double, 3>("u_2", mesh);
-        auto u_3 = make_vector_field<double, 2>("u_3", mesh);
+        auto u_2      = make_vector_field<double, 3, true>("u_2", mesh);
+        auto u_3      = make_vector_field<double, 2>("u_3", mesh);
 
         auto adapt      = make_MRAdapt(u_1, u_2, u_3);
         auto mra_config = samurai::mra_config().regularity(2.);
