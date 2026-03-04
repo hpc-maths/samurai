@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.29.0](https://github.com/hpc-maths/samurai/compare/v0.28.0...v0.29.0) (2026-03-04)
+
+
+### Features
+
+* 2D load balancing ([#424](https://github.com/hpc-maths/samurai/issues/424)) ([87cc3f5](https://github.com/hpc-maths/samurai/commit/87cc3f5c2b3d924b30985aac05fbb533636bf66b))
+* add SAMURAI_INLINE ([#413](https://github.com/hpc-maths/samurai/issues/413)) ([eee5539](https://github.com/hpc-maths/samurai/commit/eee5539e46622364c765772147a648fb49dacbcd))
+* Adding a `find_cell` that takes a `cell_t::indices_t` as an argument ([#423](https://github.com/hpc-maths/samurai/issues/423)) ([38f985d](https://github.com/hpc-maths/samurai/commit/38f985d5528495d8d8d3be77404db75744bc99f9))
+* find neighbours ([#422](https://github.com/hpc-maths/samurai/issues/422)) ([2f4c9ca](https://github.com/hpc-maths/samurai/commit/2f4c9ca9eaf13e9d37f510372a2d699decd70f2d))
+* Hdf5 comm self ([#421](https://github.com/hpc-maths/samurai/issues/421)) ([237b602](https://github.com/hpc-maths/samurai/commit/237b6021120189dcf1f23b4721bf26864cfb3739))
+* Improve timers ([#425](https://github.com/hpc-maths/samurai/issues/425)) ([eac3085](https://github.com/hpc-maths/samurai/commit/eac3085eacfdc3791539eb5a6a72d53ccbf4a73a))
+* Non-linear block solver ([#410](https://github.com/hpc-maths/samurai/issues/410)) ([76713c1](https://github.com/hpc-maths/samurai/commit/76713c10ebcb3cd7a91f0455eda74afd64fedd8d))
+* remove qs template and fix prediction sign ([#428](https://github.com/hpc-maths/samurai/issues/428)) ([cadbfb4](https://github.com/hpc-maths/samurai/commit/cadbfb4d92f742812f3f91e4798ae2db2139e56e))
+* set config file ([#412](https://github.com/hpc-maths/samurai/issues/412)) ([9119e67](https://github.com/hpc-maths/samurai/commit/9119e67f6d99c360927afe4a20332d93dbb02e9e))
+
+
+### Bug Fixes
+
+* mpi and periodic ([#420](https://github.com/hpc-maths/samurai/issues/420)) ([bc06408](https://github.com/hpc-maths/samurai/commit/bc0640835faf29ed9915353d94b331c84ec30cf9))
+* simplify expression during detail computation ([#426](https://github.com/hpc-maths/samurai/issues/426)) ([9f01e6b](https://github.com/hpc-maths/samurai/commit/9f01e6beeec5adfc02aab827a78a83a5163f80bf))
+
 ## [0.28.0](https://github.com/hpc-maths/samurai/compare/v0.27.1...v0.28.0) (2026-01-22)
 
 
