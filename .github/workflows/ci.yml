@@ -390,7 +390,7 @@ jobs:
             - name: Petsc installation
               shell: bash -l {0}
               run: |
-                  micromamba install -y petsc pkg-config
+                  micromamba install -y petsc mpich pkg-config
 
             - name: Install cxx compiler
               shell: bash -l {0}
@@ -557,10 +557,11 @@ jobs:
                   cd build
                   set -e  # Stop on first failure
                   mpiexec -n 1 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 1
-                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 1
-                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 1 --load-balancing-at 10
+                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 1 --min-level 5
+                  mpiexec -n 2 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 1 --min-level 5 --load-balancing-at 10
                   # This test is failing with 3 processes due to a bug in the exchange of subdomain corners when load_balancing is activated
-                  mpiexec -n 3 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 1
+                  mpiexec -n 3 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 1 --min-level 5
+                  mpiexec -n 3 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 1 --min-level 5 --load-balancing-at 10
 
             - name: test finite-volume-burgers
               shell: bash -l {0}

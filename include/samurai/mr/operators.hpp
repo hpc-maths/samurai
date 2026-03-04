@@ -258,11 +258,74 @@ namespace samurai
             }
             else
             {
-                auto qs_i = Qs_i<order>(field, level, i);
+                using value_t    = typename TInterval::value_t;
+                auto sorder      = static_cast<value_t>(order);
+                auto interp_even = interp_coeffs<2 * order + 1>(1.);
+                auto interp_odd  = interp_coeffs<2 * order + 1>(-1.);
 
-                detail(level + 1, 2 * i)     = field(level + 1, 2 * i) - (field(level, i) + qs_i);
-                detail(level + 1, 2 * i + 1) = field(level + 1, 2 * i + 1) - (field(level, i) - qs_i);
+                detail(level + 1, 2 * i)     = field(level + 1, 2 * i);
+                detail(level + 1, 2 * i + 1) = field(level + 1, 2 * i + 1);
+
+                auto detail_1 = detail(level + 1, 2 * i);
+                auto detail_2 = detail(level + 1, 2 * i + 1);
+
+                for (value_t ki = 0; ki < 2 * sorder + 1; ++ki)
+                {
+                    std::size_t uki = static_cast<std::size_t>(ki);
+                    auto field_ik   = field(level, i + ki - sorder);
+                    detail_1 -= interp_even[uki] * field_ik;
+                    detail_2 -= interp_odd[uki] * field_ik;
+                }
             }
+        }
+
+        template <std::size_t order>
+        SAMURAI_INLINE auto get_indices(Dim<2>, const auto& mesh) const
+        {
+            using value_t                     = typename TInterval::value_t;
+            constexpr std::size_t interp_size = 2 * order + 1;
+
+            std::array<std::size_t, interp_size * interp_size> indices;
+
+            for (std::size_t kj = 0; kj < interp_size; ++kj)
+            {
+                auto ind_l_i_jk = static_cast<std::size_t>(
+                    mesh.get_index(level, i.start - static_cast<value_t>(order), j + static_cast<value_t>(kj) - static_cast<value_t>(order)));
+                for (std::size_t ki = 0; ki < interp_size; ++ki)
+                {
+                    auto idx     = ki + kj * interp_size;
+                    indices[idx] = ind_l_i_jk + ki;
+                }
+            }
+
+            return indices;
+        }
+
+        template <std::size_t order>
+        SAMURAI_INLINE auto get_indices(Dim<3>, const auto& mesh) const
+        {
+            using value_t                     = typename TInterval::value_t;
+            constexpr std::size_t interp_size = 2 * order + 1;
+
+            std::array<std::size_t, interp_size * interp_size * interp_size> indices;
+
+            for (std::size_t kk = 0; kk < interp_size; ++kk)
+            {
+                for (std::size_t kj = 0; kj < interp_size; ++kj)
+                {
+                    auto ind_l_i_jk = static_cast<std::size_t>(mesh.get_index(level,
+                                                                              i.start - static_cast<value_t>(order),
+                                                                              j + static_cast<value_t>(kj) - static_cast<value_t>(order),
+                                                                              k + static_cast<value_t>(kk) - static_cast<value_t>(order)));
+                    for (std::size_t ki = 0; ki < interp_size; ++ki)
+                    {
+                        auto idx     = ki + kj * interp_size + kk * interp_size * interp_size;
+                        indices[idx] = ind_l_i_jk + ki;
+                    }
+                }
+            }
+
+            return indices;
         }
 
         template <class T1, class T2, std::size_t order = T2::mesh_t::config::prediction_stencil_radius>
@@ -277,36 +340,117 @@ namespace samurai
             }
             else
             {
-                auto qs_i  = Qs_i<order>(field, level, i, j);
-                auto qs_j  = Qs_j<order>(field, level, i, j);
-                auto qs_ij = Qs_ij<order>(field, level, i, j);
+                auto interp_even = interp_coeffs<2 * order + 1>(1.);
+                auto interp_odd  = interp_coeffs<2 * order + 1>(-1.);
+
+                auto indices = get_indices<order>(Dim<2>{}, field.mesh());
+
+                const auto* data = field.data();
+
+                auto* detail_data = detail.data();
+
+                auto ind1 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * i.start, 2 * j));
+                auto ind2 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * i.start, 2 * j + 1));
+
+                constexpr std::size_t interp_size = 2 * order + 1;
+
+                for (std::size_t ii = 0, i_f = 0; ii < i.size(); ++ii, i_f += 2)
+                {
+                    if constexpr (T2::is_scalar)
+                    {
+                        double d1 = data[ind1 + i_f];
+                        double d2 = data[ind1 + i_f + 1];
+                        double d3 = data[ind2 + i_f];
+                        double d4 = data[ind2 + i_f + 1];
+
+                        for (std::size_t kj = 0; kj < interp_size; ++kj)
+                        {
+                            for (std::size_t ki = 0; ki < interp_size; ++ki)
+                            {
+                                auto idx         = ki + kj * interp_size;
+                                const double src = data[indices[idx] + ii];
+#ifdef SAMURAI_CHECK_NAN
+                                if (std::isnan(src))
+                                {
+                                    std::cerr << "NaN detected in compute_detail_op at level " << level << ", i " << (i.start + ii)
+                                              << ", j " << (j + static_cast<double>(kj) - static_cast<double>(order)) << std::endl;
+                                    exit(1);
+                                }
+#endif
+                                d1 -= interp_even[ki] * interp_even[kj] * src;
+                                d2 -= interp_odd[ki] * interp_even[kj] * src;
+                                d3 -= interp_even[ki] * interp_odd[kj] * src;
+                                d4 -= interp_odd[ki] * interp_odd[kj] * src;
+                            }
+                        }
+
+                        detail_data[ind1 + i_f]     = d1;
+                        detail_data[ind1 + i_f + 1] = d2;
+                        detail_data[ind2 + i_f]     = d3;
+                        detail_data[ind2 + i_f + 1] = d4;
+                    }
+                    else
+                    {
+                        for (std::size_t nc = 0; nc < T2::n_comp; ++nc)
+                        {
+                            double d1, d2, d3, d4;
+                            if constexpr (T2::is_soa)
+                            {
+                                std::size_t size = field.mesh().nb_cells();
+                                d1               = data[(ind1 + i_f) + nc * size];
+                                d2               = data[(ind1 + i_f + 1) + nc * size];
+                                d3               = data[(ind2 + i_f) + nc * size];
+                                d4               = data[(ind2 + i_f + 1) + nc * size];
+                            }
+                            else
+                            {
+                                d1 = data[(ind1 + i_f) * T2::n_comp + nc];
+                                d2 = data[(ind1 + i_f + 1) * T2::n_comp + nc];
+                                d3 = data[(ind2 + i_f) * T2::n_comp + nc];
+                                d4 = data[(ind2 + i_f + 1) * T2::n_comp + nc];
+                            }
+
+                            for (std::size_t kj = 0; kj < interp_size; ++kj)
+                            {
+                                for (std::size_t ki = 0; ki < interp_size; ++ki)
+                                {
+                                    auto idx         = (indices[ki + kj * interp_size] + ii) * T2::n_comp;
+                                    const double src = data[idx + nc];
 
 #ifdef SAMURAI_CHECK_NAN
-                if constexpr (T1::is_scalar)
-                {
-                    for (std::size_t ii = 0; ii < i.size(); ++ii)
-                    {
-                        if (std::isnan(qs_i(ii)) || std::isnan(qs_j(ii)) || std::isnan(qs_ij(ii)))
-                        {
-                            local_save(fs::current_path(), "check_nan", {true, true}, field.mesh(), field);
-                            throw std::runtime_error(fmt::format("NaN detected during the computation of details at level {}.", level));
+                                    if (std::isnan(src))
+                                    {
+                                        std::cerr << "NaN detected in compute_detail_op at level " << level << ", i " << (i.start + ii)
+                                                  << ", j " << (j + static_cast<double>(kj) - static_cast<double>(order)) << ", nc " << nc
+                                                  << std::endl;
+                                        exit(1);
+                                    }
+#endif
+
+                                    d1 -= interp_even[ki] * interp_even[kj] * src;
+                                    d2 -= interp_odd[ki] * interp_even[kj] * src;
+                                    d3 -= interp_even[ki] * interp_odd[kj] * src;
+                                    d4 -= interp_odd[ki] * interp_odd[kj] * src;
+                                }
+                            }
+
+                            if constexpr (requires { detail.begin_item(); })
+                            {
+                                detail_data[detail.begin_item() + (ind1 + i_f) * T1::n_comp + nc]     = d1;
+                                detail_data[detail.begin_item() + (ind1 + i_f + 1) * T1::n_comp + nc] = d2;
+                                detail_data[detail.begin_item() + (ind2 + i_f) * T1::n_comp + nc]     = d3;
+                                detail_data[detail.begin_item() + (ind2 + i_f + 1) * T1::n_comp + nc] = d4;
+                            }
+                            else
+                            {
+                                detail_data[(ind1 + i_f) * T1::n_comp + nc]     = d1;
+                                detail_data[(ind1 + i_f + 1) * T1::n_comp + nc] = d2;
+                                detail_data[(ind2 + i_f) * T1::n_comp + nc]     = d3;
+                                detail_data[(ind2 + i_f + 1) * T1::n_comp + nc] = d4;
+                            }
                         }
                     }
                 }
-                else
-                {
-                    if (xt::any(xt::isnan(qs_ij)))
-                    {
-                        local_save(fs::current_path(), "check_nan", {true, true}, field.mesh(), field);
-                        throw std::runtime_error(fmt::format("NaN detected during the computation of details at level {}.", level));
-                    }
-                }
-#endif
-
-                detail(level + 1, 2 * i, 2 * j)     = field(level + 1, 2 * i, 2 * j) - (field(level, i, j) + qs_i + qs_j - qs_ij);
-                detail(level + 1, 2 * i + 1, 2 * j) = field(level + 1, 2 * i + 1, 2 * j) - (field(level, i, j) - qs_i + qs_j + qs_ij);
-                detail(level + 1, 2 * i, 2 * j + 1) = field(level + 1, 2 * i, 2 * j + 1) - (field(level, i, j) + qs_i - qs_j + qs_ij);
-                detail(level + 1, 2 * i + 1, 2 * j + 1) = field(level + 1, 2 * i + 1, 2 * j + 1) - (field(level, i, j) - qs_i - qs_j - qs_ij);
             }
         }
 
@@ -327,31 +471,157 @@ namespace samurai
             }
             else
             {
-                auto qs_i   = Qs_i<order>(field, level, i, j, k);
-                auto qs_j   = Qs_j<order>(field, level, i, j, k);
-                auto qs_k   = Qs_k<order>(field, level, i, j, k);
-                auto qs_ij  = Qs_ij<order>(field, level, i, j, k);
-                auto qs_ik  = Qs_ik<order>(field, level, i, j, k);
-                auto qs_jk  = Qs_jk<order>(field, level, i, j, k);
-                auto qs_ijk = Qs_ijk<order>(field, level, i, j, k);
+                auto interp_even = interp_coeffs<2 * order + 1>(1.);
+                auto interp_odd  = interp_coeffs<2 * order + 1>(-1.);
 
-                detail(level + 1, 2 * i, 2 * j, 2 * k) = field(level + 1, 2 * i, 2 * j, 2 * k)
-                                                       - (field(level, i, j, k) + qs_i + qs_j + qs_k - qs_ij - qs_ik - qs_jk + qs_ijk);
-                detail(level + 1, 2 * i + 1, 2 * j, 2 * k) = field(level + 1, 2 * i + 1, 2 * j, 2 * k)
-                                                           - (field(level, i, j, k) - qs_i + qs_j + qs_k + qs_ij + qs_ik - qs_jk - qs_ijk);
-                detail(level + 1, 2 * i, 2 * j + 1, 2 * k) = field(level + 1, 2 * i, 2 * j + 1, 2 * k)
-                                                           - (field(level, i, j, k) + qs_i - qs_j + qs_k + qs_ij - qs_ik + qs_jk - qs_ijk);
-                detail(level + 1, 2 * i + 1, 2 * j + 1, 2 * k) = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k)
-                                                               - (field(level, i, j, k) - qs_i - qs_j + qs_k - qs_ij + qs_ik + qs_jk + qs_ijk);
-                detail(level + 1, 2 * i, 2 * j, 2 * k + 1) = field(level + 1, 2 * i, 2 * j, 2 * k + 1)
-                                                           - (field(level, i, j, k) + qs_i + qs_j - qs_k - qs_ij + qs_ik + qs_jk - qs_ijk);
-                detail(level + 1, 2 * i + 1, 2 * j, 2 * k + 1) = field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1)
-                                                               - (field(level, i, j, k) - qs_i + qs_j - qs_k + qs_ij - qs_ik + qs_jk + qs_ijk);
-                detail(level + 1, 2 * i, 2 * j + 1, 2 * k + 1) = field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1)
-                                                               - (field(level, i, j, k) + qs_i - qs_j - qs_k + qs_ij + qs_ik - qs_jk + qs_ijk);
-                detail(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1) = field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1)
-                                                                   - (field(level, i, j, k) - qs_i - qs_j - qs_k - qs_ij - qs_ik - qs_jk
-                                                                      - qs_ijk);
+                auto indices = get_indices<order>(Dim<3>{}, field.mesh());
+
+                const auto* data = field.data();
+
+                auto* detail_data = detail.data();
+
+                auto ind1 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * i.start, 2 * j, 2 * k));
+                auto ind2 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * i.start, 2 * j + 1, 2 * k));
+                auto ind3 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * i.start, 2 * j, 2 * k + 1));
+                auto ind4 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * i.start, 2 * j + 1, 2 * k + 1));
+
+                constexpr std::size_t interp_size = 2 * order + 1;
+
+                for (std::size_t ii = 0, i_f = 0; ii < i.size(); ++ii, i_f += 2)
+                {
+                    if constexpr (T2::is_scalar)
+                    {
+                        double d1 = data[ind1 + i_f];
+                        double d2 = data[ind1 + i_f + 1];
+                        double d3 = data[ind2 + i_f];
+                        double d4 = data[ind2 + i_f + 1];
+                        double d5 = data[ind3 + i_f];
+                        double d6 = data[ind3 + i_f + 1];
+                        double d7 = data[ind4 + i_f];
+                        double d8 = data[ind4 + i_f + 1];
+
+                        for (std::size_t kk = 0; kk < interp_size; ++kk)
+                        {
+                            for (std::size_t kj = 0; kj < interp_size; ++kj)
+                            {
+                                for (std::size_t ki = 0; ki < interp_size; ++ki)
+                                {
+                                    auto idx         = ki + kj * interp_size + kk * interp_size * interp_size;
+                                    const double src = data[indices[idx] + ii];
+#ifdef SAMURAI_CHECK_NAN
+                                    if (std::isnan(src))
+                                    {
+                                        std::cerr << "NaN detected in compute_detail_op at level " << level << ", i " << (i.start + ii)
+                                                  << ", j " << (j + static_cast<double>(kj) - static_cast<double>(order)) << ", k "
+                                                  << (k + static_cast<double>(kk) - static_cast<double>(order)) << std::endl;
+                                        exit(1);
+                                    }
+#endif
+                                    d1 -= interp_even[ki] * interp_even[kj] * interp_even[kk] * src;
+                                    d2 -= interp_odd[ki] * interp_even[kj] * interp_even[kk] * src;
+                                    d3 -= interp_even[ki] * interp_odd[kj] * interp_even[kk] * src;
+                                    d4 -= interp_odd[ki] * interp_odd[kj] * interp_even[kk] * src;
+                                    d5 -= interp_even[ki] * interp_even[kj] * interp_odd[kk] * src;
+                                    d6 -= interp_odd[ki] * interp_even[kj] * interp_odd[kk] * src;
+                                    d7 -= interp_even[ki] * interp_odd[kj] * interp_odd[kk] * src;
+                                    d8 -= interp_odd[ki] * interp_odd[kj] * interp_odd[kk] * src;
+                                }
+                            }
+                        }
+
+                        detail_data[ind1 + i_f]     = d1;
+                        detail_data[ind1 + i_f + 1] = d2;
+                        detail_data[ind2 + i_f]     = d3;
+                        detail_data[ind2 + i_f + 1] = d4;
+                        detail_data[ind3 + i_f]     = d5;
+                        detail_data[ind3 + i_f + 1] = d6;
+                        detail_data[ind4 + i_f]     = d7;
+                        detail_data[ind4 + i_f + 1] = d8;
+                    }
+                    else
+                    {
+                        for (std::size_t nc = 0; nc < T2::n_comp; ++nc)
+                        {
+                            double d1, d2, d3, d4, d5, d6, d7, d8;
+                            if constexpr (T2::is_soa)
+                            {
+                                std::size_t size = field.mesh().nb_cells();
+                                d1               = data[(ind1 + i_f) + nc * size];
+                                d2               = data[(ind1 + i_f + 1) + nc * size];
+                                d3               = data[(ind2 + i_f) + nc * size];
+                                d4               = data[(ind2 + i_f + 1) + nc * size];
+                                d5               = data[(ind3 + i_f) + nc * size];
+                                d6               = data[(ind3 + i_f + 1) + nc * size];
+                                d7               = data[(ind4 + i_f) + nc * size];
+                                d8               = data[(ind4 + i_f + 1) + nc * size];
+                            }
+                            else
+                            {
+                                d1 = data[(ind1 + i_f) * T2::n_comp + nc];
+                                d2 = data[(ind1 + i_f + 1) * T2::n_comp + nc];
+                                d3 = data[(ind2 + i_f) * T2::n_comp + nc];
+                                d4 = data[(ind2 + i_f + 1) * T2::n_comp + nc];
+                                d5 = data[(ind3 + i_f) * T2::n_comp + nc];
+                                d6 = data[(ind3 + i_f + 1) * T2::n_comp + nc];
+                                d7 = data[(ind4 + i_f) * T2::n_comp + nc];
+                                d8 = data[(ind4 + i_f + 1) * T2::n_comp + nc];
+                            }
+
+                            for (std::size_t kk = 0; kk < interp_size; ++kk)
+                            {
+                                for (std::size_t kj = 0; kj < interp_size; ++kj)
+                                {
+                                    for (std::size_t ki = 0; ki < interp_size; ++ki)
+                                    {
+                                        auto idx = (indices[ki + kj * interp_size + kk * interp_size * interp_size] + ii) * T2::n_comp;
+                                        const double src = data[idx + nc];
+#ifdef SAMURAI_CHECK_NAN
+                                        if (std::isnan(src))
+                                        {
+                                            std::cerr << "NaN detected in compute_detail_op at level " << level << ", i " << (i.start + ii)
+                                                      << ", j " << (j + static_cast<double>(kj) - static_cast<double>(order)) << ", k "
+                                                      << (k + static_cast<double>(kk) - static_cast<double>(order)) << ", nc " << nc
+                                                      << std::endl;
+                                            exit(1);
+                                        }
+#endif
+                                        d1 -= interp_even[ki] * interp_even[kj] * interp_even[kk] * src;
+                                        d2 -= interp_odd[ki] * interp_even[kj] * interp_even[kk] * src;
+                                        d3 -= interp_even[ki] * interp_odd[kj] * interp_even[kk] * src;
+                                        d4 -= interp_odd[ki] * interp_odd[kj] * interp_even[kk] * src;
+                                        d5 -= interp_even[ki] * interp_even[kj] * interp_odd[kk] * src;
+                                        d6 -= interp_odd[ki] * interp_even[kj] * interp_odd[kk] * src;
+                                        d7 -= interp_even[ki] * interp_odd[kj] * interp_odd[kk] * src;
+                                        d8 -= interp_odd[ki] * interp_odd[kj] * interp_odd[kk] * src;
+                                    }
+                                }
+
+                                if constexpr (requires { detail.begin_item(); })
+                                {
+                                    detail_data[detail.begin_item() + (ind1 + i_f) * T1::n_comp + nc]     = d1;
+                                    detail_data[detail.begin_item() + (ind1 + i_f + 1) * T1::n_comp + nc] = d2;
+                                    detail_data[detail.begin_item() + (ind2 + i_f) * T1::n_comp + nc]     = d3;
+                                    detail_data[detail.begin_item() + (ind2 + i_f + 1) * T1::n_comp + nc] = d4;
+                                    detail_data[detail.begin_item() + (ind3 + i_f) * T1::n_comp + nc]     = d5;
+                                    detail_data[detail.begin_item() + (ind3 + i_f + 1) * T1::n_comp + nc] = d6;
+                                    detail_data[detail.begin_item() + (ind4 + i_f) * T1::n_comp + nc]     = d7;
+                                    detail_data[detail.begin_item() + (ind4 + i_f + 1) * T1::n_comp + nc] = d8;
+                                }
+                                else
+                                {
+                                    detail_data[(ind1 + i_f) * T1::n_comp + nc]     = d1;
+                                    detail_data[(ind1 + i_f + 1) * T1::n_comp + nc] = d2;
+                                    detail_data[(ind2 + i_f) * T1::n_comp + nc]     = d3;
+                                    detail_data[(ind2 + i_f + 1) * T1::n_comp + nc] = d4;
+                                    detail_data[(ind3 + i_f) * T1::n_comp + nc]     = d5;
+                                    detail_data[(ind3 + i_f + 1) * T1::n_comp + nc] = d6;
+                                    detail_data[(ind4 + i_f) * T1::n_comp + nc]     = d7;
+                                    detail_data[(ind4 + i_f + 1) * T1::n_comp + nc] = d8;
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     };
@@ -408,6 +678,26 @@ namespace samurai
                 {
                     return m_detail(m_beg, m_end, level, i, index);
                 }
+            }
+
+            auto data()
+            {
+                return m_detail.data();
+            }
+
+            auto data() const
+            {
+                return m_detail.data();
+            }
+
+            auto begin_item() const
+            {
+                return m_beg;
+            }
+
+            auto end_item() const
+            {
+                return m_end;
             }
 
           private:

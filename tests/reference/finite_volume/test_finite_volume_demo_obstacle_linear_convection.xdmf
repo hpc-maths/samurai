@@ -2,17 +2,17 @@
 <Xdmf>
     <Domain>
         <Grid Name="mesh">
-            <Topology TopologyType="Quadrilateral" NumberOfElements="4065">
-                <DataItem Dimensions="16260" Format="HDF">test_finite_volume_demo_obstacle_linear_convection.h5:/mesh/connectivity</DataItem>
+            <Topology TopologyType="Quadrilateral" NumberOfElements="4032">
+                <DataItem Dimensions="16128" Format="HDF">test_finite_volume_demo_obstacle_linear_convection.h5:/mesh/connectivity</DataItem>
             </Topology>
             <Geometry GeometryType="XYZ">
-                <DataItem Dimensions="39420" Format="HDF">test_finite_volume_demo_obstacle_linear_convection.h5:/mesh/points</DataItem>
+                <DataItem Dimensions="39039" Format="HDF">test_finite_volume_demo_obstacle_linear_convection.h5:/mesh/points</DataItem>
             </Geometry>
             <Attribute Name="u" Center="Cell">
-                <DataItem Dimensions="4065" Format="HDF" Precision="8">test_finite_volume_demo_obstacle_linear_convection.h5:/mesh/fields/u</DataItem>
+                <DataItem Dimensions="4032" Format="HDF" Precision="8">test_finite_volume_demo_obstacle_linear_convection.h5:/mesh/fields/u</DataItem>
             </Attribute>
             <Attribute Name="level" Center="Cell">
-                <DataItem Dimensions="4065" Format="HDF" Precision="8">test_finite_volume_demo_obstacle_linear_convection.h5:/mesh/fields/level</DataItem>
+                <DataItem Dimensions="4032" Format="HDF" Precision="8">test_finite_volume_demo_obstacle_linear_convection.h5:/mesh/fields/level</DataItem>
             </Attribute>
         </Grid>
     </Domain>
