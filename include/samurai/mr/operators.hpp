@@ -369,7 +369,14 @@ namespace samurai
                             {
                                 auto idx         = ki + kj * interp_size;
                                 const double src = data[indices[idx] + ii];
-
+#ifdef SAMURAI_CHECK_NAN
+                                if (std::isnan(src))
+                                {
+                                    std::cerr << "NaN detected in compute_detail_op at level " << level << ", i " << (i.start + ii)
+                                              << ", j " << (j + static_cast<double>(kj) - static_cast<double>(order)) << std::endl;
+                                    exit(1);
+                                }
+#endif
                                 d1 -= interp_even[ki] * interp_even[kj] * src;
                                 d2 -= interp_odd[ki] * interp_even[kj] * src;
                                 d3 -= interp_even[ki] * interp_odd[kj] * src;
@@ -409,6 +416,16 @@ namespace samurai
                                 {
                                     auto idx         = (indices[ki + kj * interp_size] + ii) * T2::n_comp;
                                     const double src = data[idx + nc];
+
+#ifdef SAMURAI_CHECK_NAN
+                                    if (std::isnan(src))
+                                    {
+                                        std::cerr << "NaN detected in compute_detail_op at level " << level << ", i " << (i.start + ii)
+                                                  << ", j " << (j + static_cast<double>(kj) - static_cast<double>(order)) << ", nc " << nc
+                                                  << std::endl;
+                                        exit(1);
+                                    }
+#endif
 
                                     d1 -= interp_even[ki] * interp_even[kj] * src;
                                     d2 -= interp_odd[ki] * interp_even[kj] * src;
@@ -491,7 +508,15 @@ namespace samurai
                                 {
                                     auto idx         = ki + kj * interp_size + kk * interp_size * interp_size;
                                     const double src = data[indices[idx] + ii];
-
+#ifdef SAMURAI_CHECK_NAN
+                                    if (std::isnan(src))
+                                    {
+                                        std::cerr << "NaN detected in compute_detail_op at level " << level << ", i " << (i.start + ii)
+                                                  << ", j " << (j + static_cast<double>(kj) - static_cast<double>(order)) << ", k "
+                                                  << (k + static_cast<double>(kk) - static_cast<double>(order)) << std::endl;
+                                        exit(1);
+                                    }
+#endif
                                     d1 -= interp_even[ki] * interp_even[kj] * interp_even[kk] * src;
                                     d2 -= interp_odd[ki] * interp_even[kj] * interp_even[kk] * src;
                                     d3 -= interp_even[ki] * interp_odd[kj] * interp_even[kk] * src;
@@ -550,7 +575,16 @@ namespace samurai
                                     {
                                         auto idx = (indices[ki + kj * interp_size + kk * interp_size * interp_size] + ii) * T2::n_comp;
                                         const double src = data[idx + nc];
-
+#ifdef SAMURAI_CHECK_NAN
+                                        if (std::isnan(src))
+                                        {
+                                            std::cerr << "NaN detected in compute_detail_op at level " << level << ", i " << (i.start + ii)
+                                                      << ", j " << (j + static_cast<double>(kj) - static_cast<double>(order)) << ", k "
+                                                      << (k + static_cast<double>(kk) - static_cast<double>(order)) << ", nc " << nc
+                                                      << std::endl;
+                                            exit(1);
+                                        }
+#endif
                                         d1 -= interp_even[ki] * interp_even[kj] * interp_even[kk] * src;
                                         d2 -= interp_odd[ki] * interp_even[kj] * interp_even[kk] * src;
                                         d3 -= interp_even[ki] * interp_odd[kj] * interp_even[kk] * src;

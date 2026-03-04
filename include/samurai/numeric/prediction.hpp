@@ -359,6 +359,14 @@ namespace samurai
                 {
                     std::size_t uki = static_cast<std::size_t>(ki);
                     auto field_ij   = src(level - 1, i_c + ki - sorder, (j >> 1) + kj - sorder);
+#ifdef SAMURAI_CHECK_NAN
+                    if (std::isnan(field_ij))
+                    {
+                        std::cerr << "NaN detected in prediction_op at level " << level - 1 << ", i " << i_c + ki - sorder << ", j "
+                                  << (j >> 1) + kj - sorder << std::endl;
+                        exit(1);
+                    }
+#endif
                     dest(level, i_f, j) += interpi[uki] * interpj[ukj] * field_ij;
                 };
             }
@@ -519,6 +527,14 @@ namespace samurai
                     {
                         std::size_t uki = static_cast<std::size_t>(ki);
                         auto field_ijk  = src(level - 1, i_c + ki - sorder, (j >> 1) + kj - sorder, (k >> 1) + kk - sorder);
+#ifdef SAMURAI_CHECK_NAN
+                        if (std::isnan(field_ijk))
+                        {
+                            std::cerr << "NaN detected in prediction_op at level " << level - 1 << ", i " << i_c + ki - sorder << ", j "
+                                      << (j >> 1) + kj - sorder << ", k " << (k >> 1) + kk - sorder << std::endl;
+                            exit(1);
+                        }
+#endif
                         dest(level, i_f, j, k) += interpi[uki] * interpj[ukj] * interpk[ukk] * field_ijk;
                     };
                 }
