@@ -360,22 +360,7 @@ namespace samurai
                     std::size_t uki = static_cast<std::size_t>(ki);
                     auto field_ij   = src(level - 1, i_c + ki - sorder, (j >> 1) + kj - sorder);
 #ifdef SAMURAI_CHECK_NAN
-                    bool is_nan = false;
-                    if constexpr (T2::is_scalar)
-                    {
-                        if (std::isnan(field_ij))
-                        {
-                            is_nan = true;
-                        }
-                    }
-                    else
-                    {
-                        if (xt::any(xt::isnan(field_ij)))
-                        {
-                            is_nan = true;
-                        }
-                    }
-                    if (is_nan)
+                    if (xt::any(xt::isnan(field_ij)))
                     {
                         std::cerr << "NaN detected in prediction_op at level " << level - 1 << ", i " << i_c + ki - sorder << ", j "
                                   << (j >> 1) + kj - sorder << std::endl;
@@ -543,22 +528,7 @@ namespace samurai
                         std::size_t uki = static_cast<std::size_t>(ki);
                         auto field_ijk  = src(level - 1, i_c + ki - sorder, (j >> 1) + kj - sorder, (k >> 1) + kk - sorder);
 #ifdef SAMURAI_CHECK_NAN
-                        bool is_nan = false;
-                        if constexpr (T2::is_scalar)
-                        {
-                            if (std::isnan(field_ijk))
-                            {
-                                is_nan = true;
-                            }
-                        }
-                        else
-                        {
-                            if (xt::any(xt::isnan(field_ijk)))
-                            {
-                                is_nan = true;
-                            }
-                        }
-                        if (is_nan)
+                        if (xt::any(xt::isnan(field_ijk)))
                         {
                             std::cerr << "NaN detected in prediction_op at level " << level - 1 << ", i " << i_c + ki - sorder << ", j "
                                       << (j >> 1) + kj - sorder << ", k " << (k >> 1) + kk - sorder << std::endl;
