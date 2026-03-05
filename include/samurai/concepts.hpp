@@ -30,7 +30,7 @@ namespace samurai
     };
 
     template <class T>
-        requires std::is_base_of_v<Mesh_base<std::decay_t<T>, typename std::decay_t<T>::config>, std::decay_t<T>>
+        requires std::is_base_of_v<Mesh_base<std::decay_t<T>, typename std::decay_t<T>::config_t>, std::decay_t<T>>
     struct is_mesh_impl<T> : std::true_type
     {
     };

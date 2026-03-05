@@ -36,7 +36,7 @@ namespace samurai
     void update_ghost(Field& field, Fields&... fields)
     {
         using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
-        constexpr std::size_t pred_order = Field::mesh_t::config::prediction_stencil_radius;
+        constexpr std::size_t pred_order = Field::mesh_t::config_t::prediction_stencil_radius;
 
         auto& mesh            = field.mesh();
         std::size_t max_level = mesh.max_level();
@@ -64,7 +64,7 @@ namespace samurai
     void update_ghost_mro(Field& field)
     {
         using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
-        constexpr std::size_t pred_order = Field::mesh_t::config::prediction_stencil_radius;
+        constexpr std::size_t pred_order = Field::mesh_t::config_t::prediction_stencil_radius;
         auto& mesh                       = field.mesh();
 
         std::size_t max_level = mesh.max_level();
@@ -250,7 +250,7 @@ namespace samurai
 
         if (level < mesh.max_level() && level >= (mesh.min_level() > 0 ? mesh.min_level() - 1 : 0))
         {
-            static constexpr std::size_t max_stencil_width = Field::mesh_t::config::max_stencil_width;
+            static constexpr std::size_t max_stencil_width = Field::mesh_t::config_t::max_stencil_width;
             int max_coarse_layer = static_cast<int>(max_stencil_width % 2 == 0 ? max_stencil_width / 2 : (max_stencil_width + 1) / 2);
 
             for_each_cartesian_direction<Field::dim>(
@@ -395,7 +395,7 @@ namespace samurai
     template <class Field>
     void update_outer_ghosts(std::size_t level, Field& field)
     {
-        static_assert(Field::mesh_t::config::prediction_stencil_radius <= 1);
+        static_assert(Field::mesh_t::config_t::prediction_stencil_radius <= 1);
 
         constexpr std::size_t dim = Field::dim;
 
@@ -529,7 +529,7 @@ namespace samurai
     {
         ScopedTimer timer_ghosts("ghost update");
         using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
-        constexpr std::size_t pred_order = Field::mesh_t::config::prediction_stencil_radius;
+        constexpr std::size_t pred_order = Field::mesh_t::config_t::prediction_stencil_radius;
 
         auto& mesh            = field.mesh();
         auto max_level        = mesh.max_level();

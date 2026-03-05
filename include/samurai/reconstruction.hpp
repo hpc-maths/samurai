@@ -373,7 +373,7 @@ namespace samurai
         // SAMURAI_INLINE void operator()(Dim<d>, std::size_t& reconstruct_level, T1& dest, const T2& src) const
         // {
         //     using index_t                          = typename T2::interval_t::value_t;
-        //     constexpr std::size_t prediction_stencil_radius = T2::mesh_t::config::prediction_stencil_radius;
+        //     constexpr std::size_t prediction_stencil_radius = T2::mesh_t::config_t::prediction_stencil_radius;
 
         //     std::size_t delta_l = reconstruct_level - level;
         //     if (delta_l == 0)
@@ -405,7 +405,7 @@ namespace samurai
         SAMURAI_INLINE void operator()(Dim<1>, std::size_t& reconstruct_level, T1& dest, const T2& src) const
         {
             using index_t                                   = typename T2::interval_t::value_t;
-            constexpr std::size_t prediction_stencil_radius = T2::mesh_t::config::prediction_stencil_radius;
+            constexpr std::size_t prediction_stencil_radius = T2::mesh_t::config_t::prediction_stencil_radius;
 
             std::size_t delta_l = reconstruct_level - level;
             if (delta_l == 0)
@@ -433,7 +433,7 @@ namespace samurai
 
         {
             using index_t                                   = typename T2::interval_t::value_t;
-            constexpr std::size_t prediction_stencil_radius = T2::mesh_t::config::prediction_stencil_radius;
+            constexpr std::size_t prediction_stencil_radius = T2::mesh_t::config_t::prediction_stencil_radius;
 
             std::size_t delta_l = reconstruct_level - level;
             if (delta_l == 0)
@@ -465,7 +465,7 @@ namespace samurai
         SAMURAI_INLINE void operator()(Dim<3>, std::size_t& reconstruct_level, T1& dest, const T2& src) const
         {
             using index_t                                   = typename T2::interval_t::value_t;
-            constexpr std::size_t prediction_stencil_radius = T2::mesh_t::config::prediction_stencil_radius;
+            constexpr std::size_t prediction_stencil_radius = T2::mesh_t::config_t::prediction_stencil_radius;
 
             std::size_t delta_l = reconstruct_level - level;
             if (delta_l == 0)
@@ -670,7 +670,7 @@ namespace samurai
         {
             return f(element, level, indices...);
         };
-        detail::portion_impl<Field::mesh_t::config::prediction_stencil_radius, Field>(result, f, get_f, level, delta_l, i, ii);
+        detail::portion_impl<Field::mesh_t::config_t::prediction_stencil_radius, Field>(result, f, get_f, level, delta_l, i, ii);
     }
 
     template <class Field, class... index_t, class... cell_index_t>
@@ -715,7 +715,7 @@ namespace samurai
                  const std::tuple<typename Field::interval_t, index_t...>& i,
                  const std::tuple<cell_index_t...>& ii)
     {
-        portion<Field::mesh_t::config::prediction_stencil_radius>(result, f, level, delta_l, i, ii);
+        portion<Field::mesh_t::config_t::prediction_stencil_radius>(result, f, level, delta_l, i, ii);
     }
 
     template <std::size_t prediction_stencil_radius, class Field, class... index_t, class... cell_index_t>
@@ -742,7 +742,7 @@ namespace samurai
                  const std::tuple<typename Field::interval_t, index_t...>& i,
                  const std::tuple<cell_index_t...>& ii)
     {
-        return portion<Field::mesh_t::config::prediction_stencil_radius>(f, level, delta_l, i, ii);
+        return portion<Field::mesh_t::config_t::prediction_stencil_radius>(f, level, delta_l, i, ii);
     }
 
     namespace detail
@@ -803,7 +803,7 @@ namespace samurai
         auto src_tuple = detail::extract_src_tuple<dim, interval_t>(src_indices);
         auto dst_tuple = detail::extract_dst_tuple<dim>(delta_l, dst_indices);
 
-        detail::portion_impl<Field::mesh_t::config::prediction_stencil_radius, Field>(result, get_f, level, delta_l, src_tuple, dst_tuple);
+        detail::portion_impl<Field::mesh_t::config_t::prediction_stencil_radius, Field>(result, get_f, level, delta_l, src_tuple, dst_tuple);
     }
 
     template <class Field_src, class Field_dst>
