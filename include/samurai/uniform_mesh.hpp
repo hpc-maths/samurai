@@ -36,12 +36,12 @@ namespace samurai
     {
       public:
 
-        using config = Config;
+        using config_t = Config;
 
-        static constexpr std::size_t dim = config::dim;
+        static constexpr std::size_t dim = config_t::dim;
 
-        using mesh_id_t     = typename config::mesh_id_t;
-        using interval_t    = typename config::interval_t;
+        using mesh_id_t     = typename config_t::mesh_id_t;
+        using interval_t    = typename config_t::interval_t;
         using coord_index_t = typename interval_t::coord_index_t;
 
         using cl_type  = LevelCellList<dim, interval_t>;
@@ -167,11 +167,11 @@ namespace samurai
         for_each_interval(this->m_cells[mesh_id_t::cells],
                           [&](std::size_t, const auto& interval, const auto& index_yz)
                           {
-                              static_nested_loop<dim - 1, -config::ghost_width, config::ghost_width + 1>(
+                              static_nested_loop<dim - 1, -config_t::ghost_width, config_t::ghost_width + 1>(
                                   [&](auto stencil)
                                   {
                                       auto index = xt::eval(index_yz + stencil);
-                                      cl[index].add_interval({interval.start - config::ghost_width, interval.end + config::ghost_width});
+                                      cl[index].add_interval({interval.start - config_t::ghost_width, interval.end + config_t::ghost_width});
                                   });
                           });
 
