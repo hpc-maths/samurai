@@ -61,7 +61,6 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 template <std::size_t pred_stencil_size>
 int main_fct(bool first_run, int argc, char* argv[])
 {
-    auto& app                 = samurai::app;
     constexpr std::size_t dim = 2;
 
     // Simulation parameters
@@ -82,6 +81,7 @@ int main_fct(bool first_run, int argc, char* argv[])
 
     if (first_run)
     {
+        auto& app = samurai::app;
         app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
         app.add_option("--max-corner", max_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
         app.add_option("--velocity", a, "The velocity of the advection equation")->capture_default_str()->group("Simulation parameters");
