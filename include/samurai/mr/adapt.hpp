@@ -170,23 +170,26 @@ namespace samurai
             }
         }
 #ifdef SAMURAI_WITH_MPI
-        if (args::load_balancing_at > 0 && m_adapt_ite % args::load_balancing_at == 0)
+        if constexpr (dim == 2) // only works in 2D for now
         {
-            if constexpr (std::same_as<fields_t, Field_tuple<TField, TFields...>>)
+            if (args::load_balancing_at > 0 && m_adapt_ite % args::load_balancing_at == 0)
             {
-                std::apply(
-                    [&](auto&&... fields)
-                    {
-                        m_balancer.load_balance(fields..., other_fields...);
-                    },
-                    m_fields.elements());
+                if constexpr (std::same_as<fields_t, Field_tuple<TField, TFields...>>)
+                {
+                    std::apply(
+                        [&](auto&&... fields)
+                        {
+                            m_balancer.load_balance(fields..., other_fields...);
+                        },
+                        m_fields.elements());
+                }
+                else
+                {
+                    m_balancer.load_balance(m_fields, other_fields...);
+                }
             }
-            else
-            {
-                m_balancer.load_balance(m_fields, other_fields...);
-            }
+            m_adapt_ite++;
         }
-        m_adapt_ite++;
 #endif
     }
 
