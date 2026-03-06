@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.29.1](https://github.com/hpc-maths/samurai/compare/v0.29.0...v0.29.1) (2026-03-06)
+
+
+### Bug Fixes
+
+* load balance call ([#431](https://github.com/hpc-maths/samurai/issues/431)) ([f2c44e4](https://github.com/hpc-maths/samurai/commit/f2c44e4fc34329cad348a9d49d64c4cd9b308807))
+* mesh config ([#430](https://github.com/hpc-maths/samurai/issues/430)) ([cc21127](https://github.com/hpc-maths/samurai/commit/cc2112743be5478daffe0ec0e2a492eceac77e32))
+
 ## [0.29.0](https://github.com/hpc-maths/samurai/compare/v0.28.0...v0.29.0) (2026-03-04)
 
 
