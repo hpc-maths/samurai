@@ -1136,7 +1136,7 @@ namespace samurai
     namespace detail
     {
         template <class mesh_t>
-            requires std::is_base_of_v<Mesh_base<mesh_t, typename mesh_t::config>, mesh_t>
+            requires std::is_base_of_v<Mesh_base<mesh_t, typename mesh_t::config_t>, mesh_t>
         const auto& get_all_cells(const mesh_t& mesh)
         {
             using mesh_id_t = typename mesh_t::mesh_id_t;
