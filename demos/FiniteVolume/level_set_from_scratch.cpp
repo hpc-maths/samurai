@@ -55,8 +55,21 @@ struct fmt::formatter<SimpleID> : formatter<string_view>
 template <std::size_t dim_, int prediction_stencil_radius_ = 1, std::size_t max_refinement_level_ = 20, class interval_t_ = samurai::Interval<int>>
 struct AMRConfig : samurai::mesh_config<dim_, prediction_stencil_radius_, max_refinement_level_, interval_t_>
 {
+    using config_t  = samurai::mesh_config<dim_, prediction_stencil_radius_, max_refinement_level_, interval_t_>;
     using mesh_id_t = SimpleID;
 };
+
+template <class Config>
+class AMRMesh;
+
+namespace samurai
+{
+    template <class Config>
+    struct get_mesh_id<AMRMesh<Config>>
+    {
+        using type = SimpleID;
+    };
+}
 
 template <class Config>
 class AMRMesh : public samurai::Mesh_base<AMRMesh<Config>, Config>
@@ -65,8 +78,8 @@ class AMRMesh : public samurai::Mesh_base<AMRMesh<Config>, Config>
 
     using base_type                  = samurai::Mesh_base<AMRMesh<Config>, Config>;
     using self_type                  = AMRMesh<Config>;
-    using config                     = typename base_type::config;
-    static constexpr std::size_t dim = config::dim;
+    using config_t                   = typename base_type::config_t;
+    static constexpr std::size_t dim = config_t::dim;
 
     using mesh_id_t = typename base_type::mesh_id_t;
     using cl_type   = typename base_type::cl_type;
@@ -81,17 +94,17 @@ class AMRMesh : public samurai::Mesh_base<AMRMesh<Config>, Config>
     {
     }
 
-    SAMURAI_INLINE AMRMesh(const cl_type& cl, const samurai::mesh_config<Config::dim>& cfg)
+    SAMURAI_INLINE AMRMesh(const cl_type& cl, const config_t& cfg)
         : base_type(cl, cfg)
     {
     }
 
-    SAMURAI_INLINE AMRMesh(const ca_type& ca, const samurai::mesh_config<Config::dim>& cfg)
+    SAMURAI_INLINE AMRMesh(const ca_type& ca, const config_t& cfg)
         : base_type(ca, cfg)
     {
     }
 
-    SAMURAI_INLINE AMRMesh(const samurai::Box<double, dim>& b, samurai::mesh_config<Config::dim>& cfg)
+    SAMURAI_INLINE AMRMesh(const samurai::Box<double, dim>& b, const config_t& cfg)
         : base_type(b, cfg)
     {
     }
@@ -592,7 +605,6 @@ int main(int argc, char* argv[])
     auto& app = samurai::initialize("Finite volume example with a level set in 2d using AMR", argc, argv);
 
     constexpr size_t dim = 2;
-    using Config         = AMRConfig<dim>;
 
     // Simulation parameters
     xt::xtensor_fixed<double, xt::xshape<dim>> min_corner = {0., 0.};
@@ -627,6 +639,8 @@ int main(int argc, char* argv[])
     const samurai::Box<double, dim> box(min_corner, max_corner);
     auto config = samurai::mesh_config<dim>().min_level(4).max_level(8).start_level(8).max_stencil_radius(2);
     config.parse_args();
+
+    using Config = decltype(config);
     AMRMesh<Config> mesh;
 
     auto phi = samurai::make_scalar_field<double>("phi", mesh);
