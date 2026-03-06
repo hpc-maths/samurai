@@ -74,9 +74,8 @@ class Mesh : public samurai::Mesh_base<Mesh<Config>, Config>
 
     // Constructor from a given box (domain)
     SAMURAI_INLINE Mesh(const samurai::Box<double, dim>& b, const config_t& cfg)
-        : base_type(b, cfg)
+        : base_type(b, config_t(cfg).approx_box_tol(0).scaling_factor(1))
     {
-        this->cfg().approx_box_tol(0).scaling_factor(1);
     }
 
     // This specifies how to add the ghosts once we know the leaves

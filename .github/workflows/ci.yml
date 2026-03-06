@@ -269,14 +269,14 @@ jobs:
                   mpiexec -n 4 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 20
                   mpiexec -n 9 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 20
                   ls
-                  python ../python/compare.py FV_advection_2d__pred_0_size_1_ite_ FV_advection_2d_pred_0_size_2_ite_ --start 1 --end 19
-                  python ../python/compare.py FV_advection_2d__pred_0_size_1_ite_ FV_advection_2d_pred_0_size_3_ite_ --start 1 --end 19
-                  python ../python/compare.py FV_advection_2d__pred_0_size_1_ite_ FV_advection_2d_pred_0_size_4_ite_ --start 1 --end 19
-                  python ../python/compare.py FV_advection_2d__pred_0_size_1_ite_ FV_advection_2d_pred_0_size_9_ite_ --start 1 --end 19
-                  python ../python/compare.py FV_advection_2d__pred_1_size_1_ite_ FV_advection_2d_pred_1_size_2_ite_ --start 1 --end 19
-                  python ../python/compare.py FV_advection_2d__pred_1_size_1_ite_ FV_advection_2d_pred_1_size_3_ite_ --start 1 --end 19
-                  python ../python/compare.py FV_advection_2d__pred_1_size_1_ite_ FV_advection_2d_pred_1_size_4_ite_ --start 1 --end 19
-                  python ../python/compare.py FV_advection_2d__pred_1_size_1_ite_ FV_advection_2d_pred_1_size_9_ite_ --start 1 --end 19
+                  python ../python/compare.py FV_advection_2d_pred_0_size_1_ite_ FV_advection_2d_pred_0_size_2_ite_ --start 1 --end 19
+                  python ../python/compare.py FV_advection_2d_pred_0_size_1_ite_ FV_advection_2d_pred_0_size_3_ite_ --start 1 --end 19
+                  python ../python/compare.py FV_advection_2d_pred_0_size_1_ite_ FV_advection_2d_pred_0_size_4_ite_ --start 1 --end 19
+                  python ../python/compare.py FV_advection_2d_pred_0_size_1_ite_ FV_advection_2d_pred_0_size_9_ite_ --start 1 --end 19
+                  python ../python/compare.py FV_advection_2d_pred_1_size_1_ite_ FV_advection_2d_pred_1_size_2_ite_ --start 1 --end 19
+                  python ../python/compare.py FV_advection_2d_pred_1_size_1_ite_ FV_advection_2d_pred_1_size_3_ite_ --start 1 --end 19
+                  python ../python/compare.py FV_advection_2d_pred_1_size_1_ite_ FV_advection_2d_pred_1_size_4_ite_ --start 1 --end 19
+                  python ../python/compare.py FV_advection_2d_pred_1_size_1_ite_ FV_advection_2d_pred_1_size_9_ite_ --start 1 --end 19
                   rm *.h5 *.xdmf
                   mpiexec -n 1 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 20 --load-balancing-at 10
                   mpiexec -n 2 ./demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05 --nfiles 20 --load-balancing-at 10
