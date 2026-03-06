@@ -19,27 +19,39 @@ namespace samurai
         INIT_OPERATOR(projection_op_)
 
         template <class T1, class T2>
-        SAMURAI_INLINE void operator()(Dim<1>, T1& dest, const T2& src) const
+        SAMURAI_INLINE void operator()(Dim<dim>, T1& dest, const T2& src) const
         {
-            dest(level, i) = .5 * (src(level + 1, 2 * i) + src(level + 1, 2 * i + 1));
-        }
+            auto dst_offsets = give_me_offset(dest.mesh(), {level, i.start, index});
 
-        template <class T1, class T2>
-        SAMURAI_INLINE void operator()(Dim<2>, T1& dest, const T2& src) const
-        {
-            dest(level, i, j) = .25
-                              * (src(level + 1, 2 * i, 2 * j) + src(level + 1, 2 * i, 2 * j + 1) + src(level + 1, 2 * i + 1, 2 * j)
-                                 + src(level + 1, 2 * i + 1, 2 * j + 1));
-        }
+            std::vector<std::size_t> src_offsets;
+            src_offsets.reserve(1ULL << (dim - 1));
 
-        template <class T1, class T2>
-        SAMURAI_INLINE void operator()(Dim<3>, T1& dest, const T2& src) const
-        {
-            dest(level, i, j, k) = .125
-                                 * (src(level + 1, 2 * i, 2 * j, 2 * k) + src(level + 1, 2 * i + 1, 2 * j, 2 * k)
-                                    + src(level + 1, 2 * i, 2 * j + 1, 2 * k) + src(level + 1, 2 * i + 1, 2 * j + 1, 2 * k)
-                                    + src(level + 1, 2 * i, 2 * j, 2 * k + 1) + src(level + 1, 2 * i + 1, 2 * j, 2 * k + 1)
-                                    + src(level + 1, 2 * i, 2 * j + 1, 2 * k + 1) + src(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1));
+            if constexpr (dim == 1)
+            {
+                src_offsets.push_back(give_me_offset(src.mesh(), {level + 1, 2 * i.start}));
+            }
+            else
+            {
+                static_nested_loop<dim - 1, 0, 2>(
+                    [&](const auto& stencil)
+                    {
+                        auto new_index = 2 * index + stencil;
+                        src_offsets.push_back(give_me_offset(src.mesh(), {level + 1, 2 * i.start, new_index}));
+                    });
+            }
+
+            const auto* src_data = src.data();
+            auto dest_data       = dest.data();
+
+            for (std::size_t ii = 0, i_f = 0; ii < i.size(); ++ii, i_f += 2)
+            {
+                double sum = 0;
+                for (std::size_t s = 0; s < src_offsets.size(); ++s)
+                {
+                    sum += src_data[src_offsets[s] + i_f] + src_data[src_offsets[s] + i_f + 1];
+                }
+                dest_data[dst_offsets + ii] = sum / static_cast<double>(1ULL << dim);
+            }
         }
     };
 
