@@ -430,21 +430,4 @@ namespace samurai
         bool m_disable_args_parse          = false;
         bool m_disable_minimal_ghost_width = false;
     };
-
-    template <class mesh_cfg_t, class mesh_id_t_>
-    class complete_mesh_config
-        : public mesh_config<mesh_cfg_t::dim, mesh_cfg_t::prediction_stencil_radius, mesh_cfg_t::max_refinement_level, typename mesh_cfg_t::interval_t>
-    {
-      public:
-
-        using config_base_t = mesh_cfg_t;
-        using mesh_id_t     = mesh_id_t_;
-        using config_base_t::dim;
-        using config_base_t::max_refinement_level;
-        using config_base_t::prediction_stencil_radius;
-        // Deprecated aliases expected by older MR APIs
-        [[deprecated("Use prediction_stencil_radius instead")]] static constexpr int prediction_order = mesh_cfg_t::prediction_stencil_radius;
-        [[deprecated("Use max_stencil_radius() instead")]] static constexpr int max_stencil_width      = default_config::ghost_width;
-        [[deprecated("Use graduation_width() instead")]] static constexpr std::size_t graduation_width = default_config::graduation_width;
-    };
 } // namespace samurai
