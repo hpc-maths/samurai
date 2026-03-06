@@ -60,7 +60,7 @@ namespace samurai
 
         inline auto default_prediction_fn = [](auto& new_field, const auto& old_field) // cppcheck-suppress constParameterReference
         {
-            constexpr std::size_t pred_order = std::decay_t<decltype(new_field)>::mesh_t::config::prediction_stencil_radius;
+            constexpr std::size_t pred_order = std::decay_t<decltype(new_field)>::mesh_t::config_t::prediction_stencil_radius;
             return prediction<pred_order, true>(new_field, old_field);
         };
     }

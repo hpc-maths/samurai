@@ -28,6 +28,12 @@ namespace mpi = boost::mpi;
 
 namespace samurai
 {
+    template <class Config>
+    struct get_mesh_id;
+
+    template <class Config>
+    using get_mesh_id_t = typename get_mesh_id<Config>::type;
+
     namespace detail
     {
         template <std::size_t d, std::size_t dim>
@@ -106,13 +112,13 @@ namespace samurai
       public:
 
         using self_type = D;
-        using config    = Config;
+        using config_t  = Config;
 
-        static constexpr std::size_t dim                  = config::dim;
-        static constexpr std::size_t max_refinement_level = config::max_refinement_level;
+        static constexpr std::size_t dim                  = config_t::dim;
+        static constexpr std::size_t max_refinement_level = config_t::max_refinement_level;
 
-        using mesh_id_t  = typename config::mesh_id_t;
-        using interval_t = typename config::interval_t;
+        using mesh_id_t  = get_mesh_id_t<D>;
+        using interval_t = typename config_t::interval_t;
         using value_t    = typename interval_t::value_t;
         using index_t    = typename interval_t::index_t;
 
@@ -214,11 +220,11 @@ namespace samurai
         Mesh_base() = default; // cppcheck-suppress uninitMemberVar
         Mesh_base(const ca_type& ca, const self_type& ref_mesh);
         Mesh_base(const cl_type& cl, const self_type& ref_mesh);
-        Mesh_base(const cl_type& cl, const mesh_config<Config::dim>& config);
-        Mesh_base(const ca_type& ca, const mesh_config<Config::dim>& config);
-        Mesh_base(const samurai::Box<double, dim>& b, const mesh_config<Config::dim>& config);
+        Mesh_base(const cl_type& cl, const config_t& config);
+        Mesh_base(const ca_type& ca, const config_t& config);
+        Mesh_base(const samurai::Box<double, dim>& b, const config_t& config);
 
-        Mesh_base(const samurai::DomainBuilder<dim>& domain_builder, const mesh_config<Config::dim>& config);
+        Mesh_base(const samurai::DomainBuilder<dim>& domain_builder, const config_t& config);
 
         // cppcheck-suppress uninitMemberVar
         Mesh_base(const samurai::Box<double, dim>&, std::size_t, std::size_t, std::size_t, double, double)
@@ -281,7 +287,7 @@ namespace samurai
         std::vector<mpi_subdomain_t> m_mpi_neighbourhood;
         coords_t m_gravity_center;
 
-        mesh_config<dim> m_config;
+        config_t m_config;
 
 #ifdef SAMURAI_WITH_MPI
         friend class boost::serialization::access;
@@ -325,7 +331,7 @@ namespace samurai
     }
 
     template <class D, class Config>
-    SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const samurai::Box<double, dim>& b, const mesh_config<Config::dim>& config)
+    SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const samurai::Box<double, dim>& b, const config_t& config)
         : m_domain{config.start_level(), b, config.approx_box_tol(), config.scaling_factor()}
         , m_config(config)
     {
@@ -355,7 +361,7 @@ namespace samurai
     }
 
     template <class D, class Config>
-    Mesh_base<D, Config>::Mesh_base([[maybe_unused]] const samurai::DomainBuilder<dim>& domain_builder, const mesh_config<Config::dim>& config)
+    Mesh_base<D, Config>::Mesh_base([[maybe_unused]] const samurai::DomainBuilder<dim>& domain_builder, const config_t& config)
         : m_config(config)
     {
         if (std::any_of(config.periodic().begin(),
@@ -410,7 +416,7 @@ namespace samurai
     }
 
     template <class D, class Config>
-    SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const cl_type& cl, const mesh_config<Config::dim>& config)
+    SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const cl_type& cl, const config_t& config)
         : m_config(config)
     {
         m_cells[mesh_id_t::cells] = {cl, false};
@@ -436,7 +442,7 @@ namespace samurai
     }
 
     template <class D, class Config>
-    SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const ca_type& ca, const mesh_config<Config::dim>& config)
+    SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const ca_type& ca, const config_t& config)
         : m_config(config)
     {
         m_cells[mesh_id_t::cells] = ca;

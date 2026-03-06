@@ -5,6 +5,8 @@
 
 #include <fmt/format.h>
 
+#include <string_view>
+
 #include "box.hpp"
 #include "level_cell_array.hpp"
 #include "level_cell_list.hpp"
@@ -22,6 +24,44 @@ namespace samurai
         reference        = cells_and_ghosts
     };
 
+} // namespace samurai
+
+// Formatter specialization for UniformMeshId - must be defined before any use
+template <>
+struct fmt::formatter<samurai::UniformMeshId> : fmt::formatter<std::string_view>
+{
+    // parse is inherited from formatter<string_view>.
+    template <typename FormatContext>
+    auto format(samurai::UniformMeshId c, FormatContext& ctx) const
+    {
+        std::string_view name = "unknown";
+        switch (c)
+        {
+            case samurai::UniformMeshId::cells:
+                name = "cells";
+                break;
+            case samurai::UniformMeshId::cells_and_ghosts:
+                name = "cells and ghosts";
+                break;
+            case samurai::UniformMeshId::count:
+                name = "count";
+                break;
+        }
+        return fmt::formatter<std::string_view>::format(name, ctx);
+    }
+};
+
+namespace samurai
+{
+    template <class Config>
+    class UniformMesh;
+
+    template <class Config>
+    struct get_mesh_id<UniformMesh<Config>>
+    {
+        using type = UniformMeshId;
+    };
+
     template <std::size_t dim_, int ghost_width_ = default_config::ghost_width, class TInterval = default_config::interval_t>
     struct UniformConfig
     {
@@ -36,12 +76,12 @@ namespace samurai
     {
       public:
 
-        using config = Config;
+        using config_t = Config;
 
-        static constexpr std::size_t dim = config::dim;
+        static constexpr std::size_t dim = config_t::dim;
 
-        using mesh_id_t     = typename config::mesh_id_t;
-        using interval_t    = typename config::interval_t;
+        using mesh_id_t     = UniformMeshId;
+        using interval_t    = typename config_t::interval_t;
         using coord_index_t = typename interval_t::coord_index_t;
 
         using cl_type  = LevelCellList<dim, interval_t>;
@@ -167,11 +207,11 @@ namespace samurai
         for_each_interval(this->m_cells[mesh_id_t::cells],
                           [&](std::size_t, const auto& interval, const auto& index_yz)
                           {
-                              static_nested_loop<dim - 1, -config::ghost_width, config::ghost_width + 1>(
+                              static_nested_loop<dim - 1, -config_t::ghost_width, config_t::ghost_width + 1>(
                                   [&](auto stencil)
                                   {
                                       auto index = xt::eval(index_yz + stencil);
-                                      cl[index].add_interval({interval.start - config::ghost_width, interval.end + config::ghost_width});
+                                      cl[index].add_interval({interval.start - config_t::ghost_width, interval.end + config_t::ghost_width});
                                   });
                           });
 
@@ -267,27 +307,3 @@ namespace samurai
         return out;
     }
 } // namespace samurai
-
-template <>
-struct fmt::formatter<samurai::UniformMeshId> : formatter<string_view>
-{
-    // parse is inherited from formatter<string_view>.
-    template <typename FormatContext>
-    auto format(samurai::UniformMeshId c, FormatContext& ctx) const
-    {
-        string_view name = "unknown";
-        switch (c)
-        {
-            case samurai::UniformMeshId::cells:
-                name = "cells";
-                break;
-            case samurai::UniformMeshId::cells_and_ghosts:
-                name = "cells and ghosts";
-                break;
-            case samurai::UniformMeshId::count:
-                name = "count";
-                break;
-        }
-        return formatter<string_view>::format(name, ctx);
-    }
-};

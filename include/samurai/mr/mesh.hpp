@@ -33,6 +33,15 @@ namespace samurai
         all_cells        = reference
     };
 
+    template <class Config>
+    class MRMesh;
+
+    template <class Config>
+    struct get_mesh_id<MRMesh<Config>>
+    {
+        using type = MRMeshId;
+    };
+
     template <std::size_t dim_,
               std::size_t max_stencil_width_    = default_config::ghost_width,
               std::size_t graduation_width_     = default_config::graduation_width,
@@ -67,11 +76,12 @@ namespace samurai
     {
       public:
 
-        using base_type                  = samurai::Mesh_base<MRMesh<Config>, Config>;
-        using self_type                  = MRMesh<Config>;
-        using mpi_subdomain_t            = typename base_type::mpi_subdomain_t;
-        using config                     = typename base_type::config;
-        static constexpr std::size_t dim = config::dim;
+        using base_type       = samurai::Mesh_base<MRMesh<Config>, Config>;
+        using self_type       = MRMesh<Config>;
+        using mpi_subdomain_t = typename base_type::mpi_subdomain_t;
+        using config_t        = Config;
+
+        static constexpr std::size_t dim = config_t::dim;
 
         using mesh_id_t  = typename base_type::mesh_id_t;
         using interval_t = typename base_type::interval_t;
@@ -87,10 +97,10 @@ namespace samurai
         MRMesh() = default;
         MRMesh(const ca_type& ca, const self_type& ref_mesh);
         MRMesh(const cl_type& cl, const self_type& ref_mesh);
-        MRMesh(const cl_type& cl, const mesh_config<Config::dim>& config);
-        MRMesh(const ca_type& ca, const mesh_config<Config::dim>& config);
-        MRMesh(const samurai::Box<double, dim>& b, const mesh_config<Config::dim>& config);
-        MRMesh(const samurai::DomainBuilder<dim>& domain_builder, const mesh_config<Config::dim>& config);
+        MRMesh(const cl_type& cl, const config_t& config);
+        MRMesh(const ca_type& ca, const config_t& config);
+        MRMesh(const samurai::Box<double, dim>& b, const config_t& config);
+        MRMesh(const samurai::DomainBuilder<dim>& domain_builder, const config_t& config);
 
         // deprecated constructors
         MRMesh(const samurai::Box<double, dim>& b,
@@ -129,25 +139,25 @@ namespace samurai
     }
 
     template <class Config>
-    SAMURAI_INLINE MRMesh<Config>::MRMesh(const cl_type& cl, const mesh_config<Config::dim>& config)
+    SAMURAI_INLINE MRMesh<Config>::MRMesh(const cl_type& cl, const config_t& config)
         : base_type(cl, config)
     {
     }
 
     template <class Config>
-    SAMURAI_INLINE MRMesh<Config>::MRMesh(const ca_type& ca, const mesh_config<Config::dim>& config)
+    SAMURAI_INLINE MRMesh<Config>::MRMesh(const ca_type& ca, const config_t& config)
         : base_type(ca, config)
     {
     }
 
     template <class Config>
-    SAMURAI_INLINE MRMesh<Config>::MRMesh(const samurai::Box<double, dim>& b, const mesh_config<Config::dim>& config)
+    SAMURAI_INLINE MRMesh<Config>::MRMesh(const samurai::Box<double, dim>& b, const config_t& config)
         : base_type(b, config)
     {
     }
 
     template <class Config>
-    SAMURAI_INLINE MRMesh<Config>::MRMesh(const samurai::DomainBuilder<dim>& domain_builder, const mesh_config<Config::dim>& config)
+    SAMURAI_INLINE MRMesh<Config>::MRMesh(const samurai::DomainBuilder<dim>& domain_builder, const config_t& config)
         : base_type(domain_builder, config)
     {
     }
@@ -159,9 +169,9 @@ namespace samurai
                                           double approx_box_tol,
                                           double scaling_factor_)
         : base_type(b,
-                    mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
-                        .max_stencil_radius(Config::max_stencil_width)
-                        .graduation_width(Config::graduation_width)
+                    mesh_config<config_t::dim, config_t::prediction_order, config_t::max_refinement_level, typename config_t::interval_t>()
+                        .max_stencil_radius(config_t::max_stencil_width)
+                        .graduation_width(config_t::graduation_width)
                         .start_level(max_level)
                         .min_level(min_level)
                         .max_level(max_level)
@@ -177,9 +187,9 @@ namespace samurai
                                           double approx_box_tol,
                                           double scaling_factor_)
         : base_type(domain_builder,
-                    mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
-                        .max_stencil_radius(Config::max_stencil_width)
-                        .graduation_width(Config::graduation_width)
+                    mesh_config<config_t::dim, config_t::prediction_order, config_t::max_refinement_level, typename config_t::interval_t>()
+                        .max_stencil_radius(config_t::max_stencil_width)
+                        .graduation_width(config_t::graduation_width)
                         .start_level(max_level)
                         .min_level(min_level)
                         .max_level(max_level)
@@ -196,9 +206,9 @@ namespace samurai
                                           double approx_box_tol,
                                           double scaling_factor_)
         : base_type(b,
-                    mesh_config<Config::dim, Config::prediction_order, Config::max_refinement_level, typename Config::interval_t>()
-                        .max_stencil_radius(Config::max_stencil_width)
-                        .graduation_width(Config::graduation_width)
+                    mesh_config<config_t::dim, config_t::prediction_order, config_t::max_refinement_level, typename config_t::interval_t>()
+                        .max_stencil_radius(config_t::max_stencil_width)
+                        .graduation_width(config_t::graduation_width)
                         .start_level(max_level)
                         .min_level(min_level)
                         .max_level(max_level)
@@ -347,10 +357,10 @@ namespace samurai
                 {
                     // own part
                     add_prediction_ghosts(
-                        nestedExpand(self(this->cells()[mesh_id_t::cells][level]).on(level - 2), config::prediction_stencil_radius),
+                        nestedExpand(self(this->cells()[mesh_id_t::cells][level]).on(level - 2), config_t::prediction_stencil_radius),
                         intersection(nestedExpand(self(this->cells()[mesh_id_t::cells_and_ghosts][level]).on(level - 1),
-                                                  config::prediction_stencil_radius),
-                                     nestedExpand(self(this->subdomain()).on(level - 1), config::prediction_stencil_radius)),
+                                                  config_t::prediction_stencil_radius),
+                                     nestedExpand(self(this->subdomain()).on(level - 1), config_t::prediction_stencil_radius)),
                         level);
 
                     // periodic part
@@ -359,10 +369,10 @@ namespace samurai
                     {
                         add_prediction_ghosts(
                             intersection(nestedExpand(translate(this->cells()[mesh_id_t::cells][level], d >> delta_l).on(level - 2),
-                                                      config::prediction_stencil_radius),
+                                                      config_t::prediction_stencil_radius),
                                          self(this->subdomain()).on(level - 2)),
                             intersection(nestedExpand(translate(this->cells()[mesh_id_t::cells_and_ghosts][level], d >> delta_l).on(level - 1),
-                                                      config::prediction_stencil_radius),
+                                                      config_t::prediction_stencil_radius),
                                          self(this->subdomain()).on(level - 1)),
                             level);
                     }
@@ -377,11 +387,11 @@ namespace samurai
                     [&](std::size_t level)
                     {
                         add_prediction_ghosts(
-                            intersection(
-                                nestedExpand(self(neighbour.mesh[mesh_id_t::cells][level]).on(level - 2), config::prediction_stencil_radius),
-                                self(this->subdomain()).on(level - 2)),
+                            intersection(nestedExpand(self(neighbour.mesh[mesh_id_t::cells][level]).on(level - 2),
+                                                      config_t::prediction_stencil_radius),
+                                         self(this->subdomain()).on(level - 2)),
                             intersection(nestedExpand(self(neighbour.mesh[mesh_id_t::cells_and_ghosts][level]).on(level - 1),
-                                                      config::prediction_stencil_radius),
+                                                      config_t::prediction_stencil_radius),
                                          self(this->subdomain()).on(level - 1)),
                             level);
 
@@ -391,11 +401,11 @@ namespace samurai
                         {
                             add_prediction_ghosts(
                                 intersection(nestedExpand(translate(neighbour.mesh[mesh_id_t::cells][level], d >> delta_l).on(level - 2),
-                                                          config::prediction_stencil_radius),
+                                                          config_t::prediction_stencil_radius),
                                              self(this->subdomain()).on(level - 2)),
                                 intersection(
                                     nestedExpand(translate(neighbour.mesh[mesh_id_t::cells_and_ghosts][level], d >> delta_l).on(level - 1),
-                                                 config::prediction_stencil_radius),
+                                                 config_t::prediction_stencil_radius),
                                     self(this->subdomain()).on(level - 1)),
                                 level);
                         }
@@ -471,54 +481,50 @@ namespace samurai
     namespace mra
     {
         // create an empty mesh
-        template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, MRMeshId>>
+        template <class mesh_config_t>
         auto make_empty_mesh(const mesh_config_t&)
         {
-            return MRMesh<complete_mesh_config_t>();
+            return MRMesh<mesh_config_t>();
         }
 
-        template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, MRMeshId>>
-        auto make_mesh(const typename MRMesh<complete_mesh_config_t>::cl_type& cl, const mesh_config_t& cfg)
+        template <class mesh_config_t>
+        auto make_mesh(const typename MRMesh<mesh_config_t>::cl_type& cl, const mesh_config_t& cfg)
         {
             auto mesh_cfg = cfg;
             mesh_cfg.parse_args();
             mesh_cfg.start_level() = mesh_cfg.max_level(); // cppcheck-suppress unreadVariable
 
-            return MRMesh<complete_mesh_config_t>(cl, mesh_cfg);
+            return MRMesh<mesh_config_t>(cl, mesh_cfg);
         }
 
-        template <class mesh_config_t, class complete_mesh_config_t = complete_mesh_config<mesh_config_t, MRMeshId>>
-        auto make_mesh(const typename MRMesh<complete_mesh_config_t>::ca_type& ca, const mesh_config_t& cfg)
+        template <class mesh_config_t>
+        auto make_mesh(const typename MRMesh<mesh_config_t>::ca_type& ca, const mesh_config_t& cfg)
         {
             auto mesh_cfg = cfg;
             mesh_cfg.parse_args();
             mesh_cfg.start_level() = mesh_cfg.max_level(); // cppcheck-suppress unreadVariable
 
-            return MRMesh<complete_mesh_config_t>(ca, mesh_cfg);
+            return MRMesh<mesh_config_t>(ca, mesh_cfg);
         }
 
         template <class mesh_config_t>
         auto make_mesh(const samurai::Box<double, mesh_config_t::dim>& b, const mesh_config_t& cfg)
         {
-            using complete_cfg_t = complete_mesh_config<mesh_config_t, MRMeshId>;
-
             auto mesh_cfg = cfg;
             mesh_cfg.parse_args();
             mesh_cfg.start_level() = mesh_cfg.max_level(); // cppcheck-suppress unreadVariable
 
-            return MRMesh<complete_cfg_t>(b, mesh_cfg);
+            return MRMesh<mesh_config_t>(b, mesh_cfg);
         }
 
         template <class mesh_config_t>
         auto make_mesh(const samurai::DomainBuilder<mesh_config_t::dim>& domain_builder, const mesh_config_t& cfg)
         {
-            using complete_cfg_t = complete_mesh_config<mesh_config_t, MRMeshId>;
-
             auto mesh_cfg = cfg;
             mesh_cfg.parse_args();
             mesh_cfg.start_level() = mesh_cfg.max_level(); // cppcheck-suppress unreadVariable
 
-            return MRMesh<complete_cfg_t>(domain_builder, mesh_cfg);
+            return MRMesh<mesh_config_t>(domain_builder, mesh_cfg);
         }
     }
 } // namespace samurai

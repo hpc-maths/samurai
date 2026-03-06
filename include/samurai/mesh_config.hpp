@@ -430,13 +430,4 @@ namespace samurai
         bool m_disable_args_parse          = false;
         bool m_disable_minimal_ghost_width = false;
     };
-
-    template <class mesh_cfg_t, class mesh_id_t_>
-    class complete_mesh_config
-        : public mesh_config<mesh_cfg_t::dim, mesh_cfg_t::prediction_stencil_radius, mesh_cfg_t::max_refinement_level, typename mesh_cfg_t::interval_t>
-    {
-      public:
-
-        using mesh_id_t = mesh_id_t_;
-    };
 } // namespace samurai

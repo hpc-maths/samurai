@@ -54,7 +54,7 @@ namespace samurai
             static constexpr std::size_t dim                       = field_t::dim;
             static constexpr std::size_t input_n_comp              = field_t::n_comp;
             static constexpr std::size_t output_n_comp             = output_field_t::n_comp;
-            static constexpr std::size_t prediction_stencil_radius = mesh_t::config::prediction_stencil_radius;
+            static constexpr std::size_t prediction_stencil_radius = mesh_t::config_t::prediction_stencil_radius;
             static constexpr std::size_t bdry_neighbourhood_width  = bdry_cfg_t::neighbourhood_width;
             static constexpr std::size_t bdry_stencil_size         = bdry_cfg_t::stencil_size;
             static constexpr std::size_t nb_bdry_ghosts            = bdry_cfg_t::nb_ghosts;
