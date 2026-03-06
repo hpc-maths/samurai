@@ -9,8 +9,10 @@
 #include <fmt/format.h>
 
 #include "../algorithm.hpp"
+#include "../concepts.hpp"
 #include "../field_expression.hpp"
 #include "../mesh_holder.hpp"
+#include "../mr/mesh.hpp"
 #include "../numeric/gauss_legendre.hpp"
 #include "access_base.hpp"
 #include "concepts.hpp"
@@ -171,6 +173,31 @@ namespace samurai
 
         ~VectorField() = default;
     };
+
+    ////////////////////////////////////////////////////////////////////
+    //// explicit instanciation
+    ////////////////////////////////////////////////////////////////////
+
+    extern template class VectorField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, float, 1, false>;
+    extern template class VectorField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, float, 1, true>;
+    extern template class VectorField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, float, 2, false>;
+    extern template class VectorField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, float, 2, true>;
+    extern template class VectorField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, float, 3, false>;
+    extern template class VectorField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, float, 3, true>;
+
+    extern template class VectorField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, double, 1, false>;
+    extern template class VectorField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, double, 1, true>;
+    extern template class VectorField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, double, 2, false>;
+    extern template class VectorField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, double, 2, true>;
+    extern template class VectorField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, double, 3, false>;
+    extern template class VectorField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, double, 3, true>;
+
+    extern template class VectorField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, long double, 1, false>;
+    extern template class VectorField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, long double, 1, true>;
+    extern template class VectorField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, long double, 2, false>;
+    extern template class VectorField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, long double, 2, true>;
+    extern template class VectorField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, long double, 3, false>;
+    extern template class VectorField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, long double, 3, true>;
 
     // VectorField constructors -----------------------------------------------
 

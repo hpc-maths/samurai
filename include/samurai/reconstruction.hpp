@@ -54,6 +54,7 @@ namespace samurai
             return coeff[k];
         }
 
+        /*
         double& get(std::array<index_t, 1> index)
         {
             return (*this)(index[0]);
@@ -68,7 +69,7 @@ namespace samurai
         {
             return (*this)(index[0], index[1], index[2]);
         }
-
+        */
         prediction_map& operator+=(const prediction_map& p)
         {
             for (const auto& c : p.coeff)
@@ -133,6 +134,18 @@ namespace samurai
 
         std::unordered_map<std::array<index_t, dim>, double, ArrayHash<index_t, dim>> coeff;
     };
+
+    ////////////////////////////////////////////////////////////////////
+    //// explicit instanciation
+    ////////////////////////////////////////////////////////////////////
+
+    extern template class prediction_map<1>;
+    extern template class prediction_map<2>;
+    extern template class prediction_map<3>;
+
+    ////////////////////////////////////////////////////////////////////
+    //// methods implementations
+    ////////////////////////////////////////////////////////////////////
 
     template <std::size_t dim, class index_t>
     auto operator+(const prediction_map<dim, index_t>& p1, const prediction_map<dim, index_t>& p2)
@@ -498,6 +511,10 @@ namespace samurai
             }
         }
     };
+
+    extern template class reconstruction_op_<1, default_config::interval_t>;
+    extern template class reconstruction_op_<2, default_config::interval_t>;
+    extern template class reconstruction_op_<3, default_config::interval_t>;
 
     template <class T1, class T2>
     SAMURAI_INLINE auto make_reconstruction(std::size_t& reconstruct_level, T1&& reconstruct_field, T2&& field)
@@ -936,4 +953,5 @@ namespace samurai
             }
         }
     }
+
 }

@@ -2,6 +2,9 @@
 #include <xtensor/containers/xfixed.hpp>
 #include <xtensor/views/xview.hpp>
 
+#include "interval.hpp"
+#include "samurai_config.hpp"
+
 using namespace xt::placeholders;
 
 namespace samurai
@@ -36,6 +39,10 @@ namespace samurai
         {
         }
     };
+
+    extern template class MeshInterval<1, default_config::interval_t>;
+    extern template class MeshInterval<2, default_config::interval_t>;
+    extern template class MeshInterval<3, default_config::interval_t>;
 
     template <std::size_t dim, class TInterval>
     MeshInterval<dim, TInterval>
