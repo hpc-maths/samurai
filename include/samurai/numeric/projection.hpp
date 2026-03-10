@@ -18,9 +18,10 @@ namespace samurai
 
         INIT_OPERATOR(projection_op_)
 
-        template <class T1, class T2>
-        SAMURAI_INLINE void operator()(Dim<dim>, T1& dest, const T2& src) const
+        template <class DEST, class SRC>
+        SAMURAI_INLINE void operator()(Dim<dim>, DEST& dest, const SRC& src) const
         {
+            static_assert(DEST::n_comp == SRC::n_comp, "Source and destination fields must have the same number of components");
             auto dst_offsets = memory_offset(dest.mesh(), {level, i.start, index});
 
             std::array<std::size_t, 1ULL << (dim - 1)> src_offsets;
@@ -45,12 +46,18 @@ namespace samurai
 
             for (std::size_t ii = 0, i_f = 0; ii < i.size(); ++ii, i_f += 2)
             {
-                double sum = 0;
+                std::array<double, SRC::n_comp> sum{};
                 for (std::size_t s = 0; s < src_offsets.size(); ++s)
                 {
-                    sum += src_data[src_offsets[s] + i_f] + src_data[src_offsets[s] + i_f + 1];
+                    for (std::size_t n = 0; n < SRC::n_comp; ++n)
+                    {
+                        sum[n] += src_data[src_offsets[s] + i_f * SRC::n_comp + n] + src_data[src_offsets[s] + (i_f + 1) * SRC::n_comp + n];
+                    }
                 }
-                dest_data[dst_offsets + ii] = sum * inv;
+                for (std::size_t n = 0; n < SRC::n_comp; ++n)
+                {
+                    dest_data[dst_offsets + ii * SRC::n_comp + n] = sum[n] * inv;
+                }
             }
         }
     };
