@@ -378,10 +378,10 @@ namespace samurai
     }
 
     template <std::size_t dim, class TInterval>
-    template <class T1, class T2, std::size_t pred_stencil_size>
+    template <class DEST, class SRC, std::size_t pred_stencil_size>
     SAMURAI_INLINE void prediction_op<dim, TInterval>::operator()(Dim<dim>,
-                                                                  T1& dest,
-                                                                  const T2& src,
+                                                                  DEST& dest,
+                                                                  const SRC& src,
                                                                   std::integral_constant<std::size_t, pred_stencil_size>,
                                                                   std::integral_constant<bool, false>) const
     {
@@ -416,26 +416,33 @@ namespace samurai
 
         auto apply_pred = [&](const auto& i_f, const auto& i_c)
         {
-            double dest_value = 0;
-            std::size_t io    = 0;
+            std::array<double, SRC::n_comp> dest_value{};
+            std::size_t io = 0;
             static_nested_loop<dim, 0, order>(
                 [&](const auto& stencil)
                 {
-                    auto field_ijk = src_data[src_offsets[io++] + i_c];
+                    for (std::size_t n = 0; n < SRC::n_comp; ++n)
+                    {
+                        auto field_ijk = src_data[src_offsets[io++] + i_c * SRC::n_comp + n];
 
-                    dest_value += field_ijk
-                                * std::apply(
-                                      [&](const auto&... ki)
-                                      {
-                                          std::size_t is = 0;
-                                          double coeff   = 1.;
-                                          ((coeff *= interp_coeff_pair[ki][static_cast<std::size_t>(stencil[is])], ++is), ...);
-                                          return coeff;
-                                      },
-                                      parity);
+                        dest_value[n] += field_ijk
+                                       * std::apply(
+                                             [&](const auto&... ki)
+                                             {
+                                                 std::size_t is = 0;
+                                                 double coeff   = 1.;
+                                                 ((coeff *= interp_coeff_pair[ki][static_cast<std::size_t>(stencil[is])], ++is), ...);
+                                                 return coeff;
+                                             },
+                                             parity);
+                    }
                 });
-            dest_data[dest_offset + i_f] = dest_value;
-            parity[0]                    = (parity[0] & 1) ? 0 : 1;
+
+            for (std::size_t n = 0; n < SRC::n_comp; ++n)
+            {
+                dest_data[dest_offset + i_f * SRC::n_comp + n] = dest_value[n];
+            }
+            parity[0] = (parity[0] & 1) ? 0 : 1;
         };
 
         for (std::size_t i_f = 0; i_f < i.size(); ++i_f)
