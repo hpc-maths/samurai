@@ -21,27 +21,27 @@ namespace samurai
         template <class T1, class T2>
         SAMURAI_INLINE void operator()(Dim<dim>, T1& dest, const T2& src) const
         {
-            auto dst_offsets = give_me_offset(dest.mesh(), {level, i.start, index});
+            auto dst_offsets = memory_offset(dest.mesh(), {level, i.start, index});
 
-            std::vector<std::size_t> src_offsets;
-            src_offsets.reserve(1ULL << (dim - 1));
-
+            std::array<std::size_t, 1ULL << (dim - 1)> src_offsets;
             if constexpr (dim == 1)
             {
-                src_offsets.push_back(give_me_offset(src.mesh(), {level + 1, 2 * i.start}));
+                src_offsets[0] = memory_offset(src.mesh(), {level + 1, 2 * i.start});
             }
             else
             {
+                std::size_t ind = 0;
                 static_nested_loop<dim - 1, 0, 2>(
                     [&](const auto& stencil)
                     {
-                        auto new_index = 2 * index + stencil;
-                        src_offsets.push_back(give_me_offset(src.mesh(), {level + 1, 2 * i.start, new_index}));
+                        auto new_index     = 2 * index + stencil;
+                        src_offsets[ind++] = memory_offset(src.mesh(), {level + 1, 2 * i.start, new_index});
                     });
             }
 
             const auto* src_data = src.data();
-            auto dest_data       = dest.data();
+            auto* dest_data      = dest.data();
+            constexpr double inv = 1.0 / static_cast<double>(1ULL << dim);
 
             for (std::size_t ii = 0, i_f = 0; ii < i.size(); ++ii, i_f += 2)
             {
@@ -50,7 +50,7 @@ namespace samurai
                 {
                     sum += src_data[src_offsets[s] + i_f] + src_data[src_offsets[s] + i_f + 1];
                 }
-                dest_data[dst_offsets + ii] = sum / static_cast<double>(1ULL << dim);
+                dest_data[dst_offsets + ii] = sum * inv;
             }
         }
     };
