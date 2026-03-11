@@ -46,17 +46,18 @@ namespace samurai
 
             for (std::size_t ii = 0, i_f = 0; ii < i.size(); ++ii, i_f += 2)
             {
-                std::array<double, SRC::n_comp> sum{};
+                std::array<double, SRC::n_comp> sum;
+                sum.fill(0);
                 for (std::size_t s = 0; s < src_offsets.size(); ++s)
                 {
                     for (std::size_t n = 0; n < SRC::n_comp; ++n)
                     {
-                        sum[n] += src_data[src_offsets[s] + i_f * SRC::n_comp + n] + src_data[src_offsets[s] + (i_f + 1) * SRC::n_comp + n];
+                        sum[n] += src_data[(src_offsets[s] + i_f) * SRC::n_comp + n] + src_data[(src_offsets[s] + i_f + 1) * SRC::n_comp + n];
                     }
                 }
                 for (std::size_t n = 0; n < SRC::n_comp; ++n)
                 {
-                    dest_data[dst_offsets + ii * SRC::n_comp + n] = sum[n] * inv;
+                    dest_data[(dst_offsets + ii) * SRC::n_comp + n] = sum[n] * inv;
                 }
             }
         }
