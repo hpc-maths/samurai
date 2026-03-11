@@ -5,6 +5,8 @@
 
 #include <array>
 #include <set>
+#include <tuple>
+#include <utility>
 
 #include <fmt/format.h>
 
@@ -946,27 +948,38 @@ namespace samurai
     {
         using direction_t = DirectionVector<dim>;
 
-        static_assert(dim <= 3, "Only 2D and 3D are supported.");
-
+        // Generic implementation for any dim >= 2.
+        // For a diagonal direction d (each component ±1), the "corner" subset is:
+        //   domain \ union_{i=0}^{dim-1}( translate(domain, e_i * -d[i]) )
+        // where e_i is the canonical unit vector along axis i.
+        // We build the union_ call generically using an index sequence.
         m_corners.clear();
         for_each_diagonal_direction<dim>(
             [&](const auto& direction)
             {
-                if constexpr (dim == 2)
+                // Build a tuple of dim translates, one per axis
+                auto translates = [&]<std::size_t... Is>(std::index_sequence<Is...>)
                 {
-                    m_corners.push_back(difference(m_domain,
-                                                   union_(translate(m_domain, direction_t{-direction[0], 0}),
-                                                          translate(m_domain, direction_t{0, -direction[1]})))
-                                            .to_lca());
-                }
-                else if constexpr (dim == 3)
-                {
-                    m_corners.push_back(difference(m_domain,
-                                                   union_(translate(m_domain, direction_t{-direction[0], 0, 0}),
-                                                          translate(m_domain, direction_t{0, -direction[1], 0}),
-                                                          translate(m_domain, direction_t{0, 0, -direction[2]})))
-                                            .to_lca());
-                }
+                    // For axis I: shift is -direction[I] along axis I, 0 elsewhere
+                    auto make_translate = [&]<std::size_t I>(std::integral_constant<std::size_t, I>)
+                    {
+                        direction_t shift{};
+                        shift.fill(0);
+                        shift[I] = -direction[I];
+                        return translate(m_domain, shift);
+                    };
+                    return std::make_tuple(make_translate(std::integral_constant<std::size_t, Is>{})...);
+                }(std::make_index_sequence<dim>{});
+
+                // Apply union_ to the tuple of translates
+                auto u = std::apply(
+                    [](const auto&... ts)
+                    {
+                        return union_(ts...);
+                    },
+                    translates);
+
+                m_corners.push_back(difference(m_domain, u).to_lca());
             });
     }
 
