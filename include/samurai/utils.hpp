@@ -456,14 +456,16 @@ namespace samurai
     {
         std::vector<std::size_t> indices;
         indices.reserve(args.size());
-        for (const auto& c : args)
-        {
-            indices.push_back(
-                [&]<std::size_t... Is>(std::index_sequence<Is...>)
-                {
-                    return static_cast<std::size_t>(mesh.get_index(c.level, c.coords[Is]...));
-                }(std::make_index_sequence<Mesh::dim>{}));
-        }
+        std::transform(args.begin(),
+                       args.end(),
+                       std::back_inserter(indices),
+                       [&](const auto& c)
+                       {
+                           return [&]<std::size_t... Is>(std::index_sequence<Is...>)
+                           {
+                               return static_cast<std::size_t>(mesh.get_index(c.level, c.coords[Is]...));
+                           }(std::make_index_sequence<Mesh::dim>{});
+                       });
         return indices;
     }
 
