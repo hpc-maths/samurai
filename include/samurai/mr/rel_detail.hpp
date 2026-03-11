@@ -6,6 +6,8 @@
 #include <array>
 #include <limits>
 
+#include <xtensor/containers/xadapt.hpp>
+
 namespace samurai
 {
     namespace detail

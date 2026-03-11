@@ -4,20 +4,17 @@
 #pragma once
 
 #include <array>
+#include <initializer_list>
+#include <tuple>
 #include <type_traits>
+#include <utility>
+#include <vector>
 
-#include <xtensor/containers/xadapt.hpp>
 #include <xtensor/views/xview.hpp>
 
 #include "../operators_base.hpp"
-#include "../storage/utils.hpp"
-#ifdef SAMURAI_CHECK_NAN
-#include "../io/hdf5.hpp"
-#endif
-
-#ifdef SAMURAI_CHECK_NAN
-#include <mpi.h>
-#endif
+#include "../static_algorithm.hpp"
+#include "../utils.hpp"
 
 namespace samurai
 {
@@ -138,27 +135,6 @@ namespace samurai
                 }
             }
         }
-    }
-
-    template <std::size_t dim, std::size_t b, std::size_t e>
-    consteval auto make_index_ranges()
-    {
-        constexpr std::size_t base = e - b;
-        static_assert(base > 0, "make_index_ranges requires e > b");
-
-        constexpr std::size_t count = ce_pow(base, dim);
-        std::array<std::array<std::size_t, dim>, count> result{};
-
-        for (std::size_t n = 0; n < count; ++n)
-        {
-            std::size_t value = n;
-            for (std::size_t d = 0; d < dim; ++d)
-            {
-                result[n][d] = b + (value % base);
-                value /= base;
-            }
-        }
-        return result;
     }
 
     template <std::size_t dim, class TInterval>

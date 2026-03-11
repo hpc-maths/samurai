@@ -4,12 +4,14 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <functional>
 #include <limits>
 #include <numeric>
 #include <tuple>
 #include <type_traits>
+#include <vector>
 
 #include <xtensor/containers/xfixed.hpp>
 
@@ -372,7 +374,107 @@ namespace samurai
         template <class T>
         constexpr bool is_field_type_v = is_field_type<std::decay_t<T>>::value;
 
+        /**
+         * @brief Aggregate holding a refinement level and `Dim` integer coordinates.
+         *
+         * Designed for ergonomic brace-initialization at call sites without naming the type:
+         * @code
+         * memory_offsets(mesh, {level, x, y}, {level + 1, 2 * x, 2 * y});
+         * @endcode
+         *
+         * @tparam Dim    Number of spatial dimensions (== mesh_t::dim).
+         * @tparam ValueT Coordinate integer type     (== mesh_t::interval_t::value_t).
+         */
+        template <std::size_t Dim, class ValueT>
+        struct CellCoord
+        {
+            std::size_t level;
+            std::array<ValueT, Dim> coords;
+
+            /// Flat construction: @c CellCoord{lvl, x, y, z} without nested braces.
+            template <class... Coords>
+                requires(sizeof...(Coords) == Dim) && (std::convertible_to<Coords, ValueT> && ...)
+            constexpr CellCoord(std::size_t lvl, Coords... c)
+                : level{lvl}
+                , coords{static_cast<ValueT>(c)...}
+            {
+            }
+
+            /// Construct from first coordinate and remaining coordinates packed in an array.
+            template <class FirstT, class RestT>
+                requires std::convertible_to<FirstT, ValueT> && std::convertible_to<RestT, ValueT>
+            constexpr CellCoord(std::size_t lvl, FirstT i, const std::array<RestT, Dim - 1>& rest)
+                : level{lvl}
+                , coords{}
+            {
+                coords[0] = static_cast<ValueT>(i);
+                for (std::size_t d = 1; d < Dim; ++d)
+                {
+                    coords[d] = static_cast<ValueT>(rest[d - 1]);
+                }
+            }
+
+            /// Construct from first coordinate and an indexable container/expression for remaining coordinates.
+            template <class FirstT, class RestContainer>
+                requires std::convertible_to<FirstT, ValueT>
+                          && (!std::same_as<std::remove_cvref_t<RestContainer>, std::array<ValueT, Dim - 1>>)
+                          && requires(const RestContainer& rest) {
+                                 { rest[std::size_t{0}] } -> std::convertible_to<ValueT>;
+                             }
+            constexpr CellCoord(std::size_t lvl, FirstT i, const RestContainer& rest)
+                : level{lvl}
+                , coords{}
+            {
+                coords[0] = static_cast<ValueT>(i);
+                for (std::size_t d = 1; d < Dim; ++d)
+                {
+                    coords[d] = static_cast<ValueT>(rest[d - 1]);
+                }
+            }
+        };
+
     } // namespace detail
+
+    /**
+     * @brief Compute flat cell indices from a list of (level, coordinates) descriptors.
+     *
+     * Each brace-enclosed argument is implicitly constructed as a
+     * @c detail::CellCoord<Mesh::dim, Mesh::interval_t::value_t>, so no explicit type is
+     * required at the call site:
+     * @code
+     * auto offsets = memory_offsets(mesh, {level, i.start, j},
+     *                                      {level + 1, 2 * i.start, 2 * j});
+     * @endcode
+     *
+     * @param mesh The mesh on which indices are computed.
+     * @param args Braced list of (level, coord…) descriptors; one per desired index.
+     * @return @c std::vector<std::size_t> of flat cell indices, one per descriptor.
+     */
+    template <class Mesh>
+    SAMURAI_INLINE auto
+    memory_offsets(const Mesh& mesh, std::initializer_list<detail::CellCoord<Mesh::dim, typename Mesh::interval_t::value_t>> args)
+    {
+        std::vector<std::size_t> indices;
+        indices.reserve(args.size());
+        for (const auto& c : args)
+        {
+            indices.push_back(
+                [&]<std::size_t... Is>(std::index_sequence<Is...>)
+                {
+                    return static_cast<std::size_t>(mesh.get_index(c.level, c.coords[Is]...));
+                }(std::make_index_sequence<Mesh::dim>{}));
+        }
+        return indices;
+    }
+
+    template <class Mesh>
+    SAMURAI_INLINE auto memory_offset(const Mesh& mesh, const detail::CellCoord<Mesh::dim, typename Mesh::interval_t::value_t>& arg)
+    {
+        return [&]<std::size_t... Is>(std::index_sequence<Is...>)
+        {
+            return static_cast<std::size_t>(mesh.get_index(arg.level, arg.coords[Is]...));
+        }(std::make_index_sequence<Mesh::dim>{});
+    }
 
     template <class R, class T1, class T2>
     R safe_subs(T1 a, T2 b)
