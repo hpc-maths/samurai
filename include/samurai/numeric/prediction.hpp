@@ -255,6 +255,8 @@ namespace samurai
                                                                   std::integral_constant<std::size_t, 0>,
                                                                   std::integral_constant<bool, false>) const
     {
+        static_assert(T1::n_comp == T2::n_comp, "Source and destination fields must have the same number of components");
+
         const auto* src_data = src.data();
         auto* dest_data      = dest.data();
 
@@ -265,7 +267,10 @@ namespace samurai
             auto dest_offset = memory_offset(dest.mesh(), {level, even_i.start, index});
             for (std::size_t i_f = 0, i_c = 0; i_f < even_i.size(); i_f += 2, ++i_c)
             {
-                dest_data[dest_offset + i_f] = src_data[src_offset + i_c];
+                for (std::size_t n = 0; n < T2::n_comp; ++n)
+                {
+                    dest_data[(dest_offset + i_f) * T2::n_comp + n] = src_data[(src_offset + i_c) * T2::n_comp + n];
+                }
             }
         }
 
@@ -276,7 +281,10 @@ namespace samurai
             auto dest_offset = memory_offset(dest.mesh(), {level, odd_i.start, index});
             for (std::size_t i_f = 0, i_c = 0; i_f < odd_i.size(); i_f += 2, ++i_c)
             {
-                dest_data[dest_offset + i_f] = src_data[src_offset + i_c];
+                for (std::size_t n = 0; n < T2::n_comp; ++n)
+                {
+                    dest_data[(dest_offset + i_f) * T2::n_comp + n] = src_data[(src_offset + i_c) * T2::n_comp + n];
+                }
             }
         }
     }
