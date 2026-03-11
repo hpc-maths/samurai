@@ -74,12 +74,6 @@ namespace samurai
             directions.pop_back();
             return directions;
         }
-
-        template <std::size_t... Is>
-        auto build_union(const auto& fine_lca, const auto& directions, std::index_sequence<Is...>)
-        {
-            return union_(fine_lca, translate(fine_lca, directions[Is])...);
-        }
     }
 
     ///////////////////////
@@ -257,7 +251,7 @@ namespace samurai
         const std::array<int, dim>& nb_cells_finest_level,
         std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, CellArray<dim, TInterval, max_size>::max_size>& out)
     {
-        const int max_width = int(grad_width) + 1;
+        const int max_width = int(grad_width);
 
         for (size_t i = 0; i != max_size; ++i)
         {
@@ -270,18 +264,14 @@ namespace samurai
             const size_t min_level      = lhs_ca.min_level();
             const size_t min_fine_level = (min_level + 2) - 1; // fine_level =  max_level, max_level-1, ..., min_level+2. Thus fine_level !=
                                                                // min_level+2-1
-            auto apply_refine = [&](const auto& union_func, auto coarse_level, auto& isIntersectionEmpty)
+            auto apply_refine = [&](const auto& union_func, auto coarse_level)
             {
-                for (int width = 1; isIntersectionEmpty and width != max_width; ++width)
-                {
-                    auto refine_subset = intersection(nestedExpand(union_func, 2 * width), rhs_ca[coarse_level]).on(coarse_level);
-                    refine_subset(
-                        [&](const auto& x_interval, const auto& yz)
-                        {
-                            out[coarse_level].push_back(x_interval, yz);
-                            isIntersectionEmpty = false;
-                        });
-                }
+                auto refine_subset = intersection(nestedExpand(union_func, 2 * max_width), rhs_ca[coarse_level]).on(coarse_level);
+                refine_subset(
+                    [&](const auto& x_interval, const auto& yz)
+                    {
+                        out[coarse_level].push_back(x_interval, yz);
+                    });
             };
 
             for (size_t fine_level = max_level; fine_level > min_fine_level; --fine_level)
@@ -291,29 +281,10 @@ namespace samurai
                 auto& fine_lca    = lhs_ca[fine_level];
                 for (size_t coarse_level = fine_level - 2; coarse_level > min_level - 1; --coarse_level)
                 {
-                    bool isIntersectionEmpty = true;
-                    switch (directions.size())
+                    apply_refine(fine_lca, coarse_level);
+                    for (const auto& d : directions)
                     {
-                        case 0:
-                            apply_refine(fine_lca, coarse_level, isIntersectionEmpty);
-                            break;
-                        case 2:
-                            apply_refine(detail::build_union(fine_lca, directions, std::make_index_sequence<2>()),
-                                         coarse_level,
-                                         isIntersectionEmpty);
-                            break;
-                        case 8:
-                            apply_refine(detail::build_union(fine_lca, directions, std::make_index_sequence<8>()),
-                                         coarse_level,
-                                         isIntersectionEmpty);
-                            break;
-                        case 26:
-                            apply_refine(detail::build_union(fine_lca, directions, std::make_index_sequence<26>()),
-                                         coarse_level,
-                                         isIntersectionEmpty);
-                            break;
-                        default:
-                            std::cerr << "Warning: Unsupported number of periodic directions (" << directions.size() << ")." << std::endl;
+                        apply_refine(translate(fine_lca, d), coarse_level);
                     }
                 }
             }

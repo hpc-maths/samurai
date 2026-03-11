@@ -59,7 +59,7 @@ def test_finite_volume_demo_with_restart(exec, Tf, config):
         ("finite-volume-advection-2d", "0.01"),
     ],
 )
-def test_finite_volume_demo_with_restart(exec, Tf, config):
+def test_finite_volume_advection_2d(exec, Tf, config):
     cmd = [
         get_executable(Path("../build/demos/FiniteVolume/"), exec),
         "--path",
