@@ -99,19 +99,9 @@ namespace samurai
         void
         operator()(Dim<dim>, T1& dest, const T2& src, std::integral_constant<std::size_t, order>, std::integral_constant<bool, true>) const;
 
-        // template <class T1, class T2, std::size_t order>
-        // void
-        // operator()(Dim<2>, T1& dest, const T2& src, std::integral_constant<std::size_t, order>, std::integral_constant<bool, true>)
-        // const;
-
         template <class T1, class T2, std::size_t order>
         void
         operator()(Dim<dim>, T1& dest, const T2& src, std::integral_constant<std::size_t, order>, std::integral_constant<bool, false>) const;
-
-        // template <class T1, class T2, std::size_t order>
-        // void
-        // operator()(Dim<2>, T1& dest, const T2& src, std::integral_constant<std::size_t, order>, std::integral_constant<bool, false>)
-        // const;
     };
 
     template <std::size_t dim, class TInterval>
@@ -389,111 +379,6 @@ namespace samurai
             apply_pred(i_f, static_cast<std::size_t>(((i.start + static_cast<value_t>(i_f)) >> 1) - (i.start >> 1)));
         }
     }
-
-    // template <std::size_t dim, class TInterval>
-    // template <class T1, class T2, std::size_t order>
-    // SAMURAI_INLINE void prediction_op<dim, TInterval>::operator()(Dim<2>,
-    //                                                               T1& dest,
-    //                                                               const T2& src,
-    //                                                               std::integral_constant<std::size_t, order>,
-    //                                                               std::integral_constant<bool, true>) const
-    // {
-    //     auto ii = i << 1;
-    //     ii.step = 2;
-
-    //     auto jj = j << 1;
-
-    //     using value_t    = typename TInterval::value_t;
-    //     auto sorder      = static_cast<value_t>(order);
-    //     auto interp_even = interp_coeffs<2 * order + 1>(1.);
-    //     auto interp_odd  = interp_coeffs<2 * order + 1>(-1.);
-
-    //     dest(level + 1, ii, jj)         = 0;
-    //     dest(level + 1, ii + 1, jj)     = 0;
-    //     dest(level + 1, ii, jj + 1)     = 0;
-    //     dest(level + 1, ii + 1, jj + 1) = 0;
-
-    //     for (value_t kj = 0; kj < 2 * sorder + 1; ++kj)
-    //     {
-    //         std::size_t ukj = static_cast<std::size_t>(kj);
-    //         for (value_t ki = 0; ki < 2 * sorder + 1; ++ki)
-    //         {
-    //             std::size_t uki = static_cast<std::size_t>(ki);
-    //             auto field_ij   = src(level, i + ki - sorder, j + kj - sorder);
-    //             dest(level + 1, ii, jj) += interp_even[uki] * interp_even[ukj] * field_ij;
-    //             dest(level + 1, ii + 1, jj) += interp_odd[uki] * interp_even[ukj] * field_ij;
-    //             dest(level + 1, ii, jj + 1) += interp_even[uki] * interp_odd[ukj] * field_ij;
-    //             dest(level + 1, ii + 1, jj + 1) += interp_odd[uki] * interp_odd[ukj] * field_ij;
-    //         }
-    //     }
-    // }
-
-    //     template <std::size_t dim, class TInterval>
-    //     template <class T1, class T2, std::size_t order>
-    //     SAMURAI_INLINE void prediction_op<dim, TInterval>::operator()(Dim<2>,
-    //                                                                   T1& dest,
-    //                                                                   const T2& src,
-    //                                                                   std::integral_constant<std::size_t, order>,
-    //                                                                   std::integral_constant<bool, false>) const
-    //     {
-    //         using value_t    = typename TInterval::value_t;
-    //         auto sorder      = static_cast<value_t>(order);
-    //         auto interp_even = interp_coeffs<2 * order + 1>(1.);
-    //         auto interp_odd  = interp_coeffs<2 * order + 1>(-1.);
-
-    //         auto apply_pred = [&](const auto& i_f, const auto& i_c, const auto& interpi, const auto& interpj)
-    //         {
-    //             dest(level, i_f, j) = 0;
-
-    //             for (value_t kj = 0; kj < 2 * sorder + 1; ++kj)
-    //             {
-    //                 std::size_t ukj = static_cast<std::size_t>(kj);
-    //                 for (value_t ki = 0; ki < 2 * sorder + 1; ++ki)
-    //                 {
-    //                     std::size_t uki = static_cast<std::size_t>(ki);
-    //                     auto field_ij   = src(level - 1, i_c + ki - sorder, (j >> 1) + kj - sorder);
-    // #ifdef SAMURAI_CHECK_NAN
-    //                     if (xt::any(xt::isnan(field_ij)))
-    //                     {
-    //                         std::cerr << "NaN detected in prediction_op at level " << level - 1 << ", i " << i_c + ki - sorder << ", j "
-    //                                   << (j >> 1) + kj - sorder << std::endl;
-    //                         exit(1);
-    //                     }
-    // #endif
-    //                     dest(level, i_f, j) += interpi[uki] * interpj[ukj] * field_ij;
-    //                 };
-    //             }
-    //         };
-
-    //         if (j & 1)
-    //         {
-    //             auto even_i = i.even_elements();
-    //             if (even_i.is_valid())
-    //             {
-    //                 apply_pred(even_i, even_i >> 1, interp_even, interp_odd);
-    //             }
-
-    //             auto odd_i = i.odd_elements();
-    //             if (odd_i.is_valid())
-    //             {
-    //                 apply_pred(odd_i, odd_i >> 1, interp_odd, interp_odd);
-    //             }
-    //         }
-    //         else
-    //         {
-    //             auto even_i = i.even_elements();
-    //             if (even_i.is_valid())
-    //             {
-    //                 apply_pred(even_i, even_i >> 1, interp_even, interp_even);
-    //             }
-
-    //             auto odd_i = i.odd_elements();
-    //             if (odd_i.is_valid())
-    //             {
-    //                 apply_pred(odd_i, odd_i >> 1, interp_odd, interp_even);
-    //             }
-    //         }
-    //     }
 
     template <std::size_t dim, class TInterval>
     class variadic_prediction_op : public field_operator_base<dim, TInterval>
