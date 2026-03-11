@@ -90,12 +90,12 @@ jobs:
                       package: "gcc-13 g++-13"
                       cc: "gcc-13"
                       cxx: "g++-13"
-                    # - cpp-version: gcc-14
-                    #   os: ubuntu-latest
-                    #   compiler: "gcc"
-                    #   package: "gcc-14 g++-14"
-                    #   cc: "gcc-14"
-                    #   cxx: "g++-14"
+                    - cpp-version: gcc-14
+                      os: ubuntu-latest
+                      compiler: "gcc"
+                      package: "gcc-14 g++-14"
+                      cc: "gcc-14"
+                      cxx: "g++-14"
                     - cpp-version: clang-16
                       compiler: "clang"
                       package: "clang-16"
@@ -111,6 +111,11 @@ jobs:
                       package: "clang-18"
                       cc: "clang-18"
                       cxx: "clang++-18"
+                    - cpp-version: clang-19
+                      compiler: "clang"
+                      package: "clang-19"
+                      cc: "clang-19"
+                      cxx: "clang++-19"
         steps:
             - uses: actions/checkout@v4
 
