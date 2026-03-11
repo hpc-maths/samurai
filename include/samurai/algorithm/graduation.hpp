@@ -282,7 +282,7 @@ namespace samurai
                 for (size_t coarse_level = fine_level - 2; coarse_level > min_level - 1; --coarse_level)
                 {
                     apply_refine(fine_lca, coarse_level);
-                    for (auto& d : directions)
+                    for (const auto& d : directions)
                     {
                         apply_refine(translate(fine_lca, d), coarse_level);
                     }
