@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.2](https://github.com/hpc-maths/samurai/compare/v0.29.1...v0.29.2) (2026-03-11)
+
+
+### Bug Fixes
+
+* compilation with clang-19  ([#433](https://github.com/hpc-maths/samurai/issues/433)) ([f9d28fb](https://github.com/hpc-maths/samurai/commit/f9d28fb1073dfb0a49f79ff9dcaca5ad2d3a0ea5))
+
 ## [0.29.1](https://github.com/hpc-maths/samurai/compare/v0.29.0...v0.29.1) (2026-03-06)
 
 
