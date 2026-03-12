@@ -341,43 +341,61 @@ namespace samurai
             const auto* data = detail.data();
             auto* tag_data   = tag.data();
 
-            auto fine_eps   = pow(2.0, regularity) * eps;
-            auto ind_c_base = memory_offset(mesh, {level, i.start, index});
+            auto fine_eps      = pow(2.0, regularity) * eps;
+            auto coarse_eps    = fine_eps / (1 << dim);
+            auto coarse_offset = memory_offset(mesh, {level, i.start, index});
 
-            auto ind_f1 = memory_offset(mesh, {fine_level, 2 * i.start, 2 * j});
-            auto ind_f2 = memory_offset(mesh, {fine_level, 2 * i.start, 2 * j + 1});
+            std::array<std::size_t, 1ULL << dim> fine_offsets;
+            std::size_t ind = 0;
+            static_nested_loop<dim - 1, 0, 2>(
+                [&](const auto& stencil)
+                {
+                    auto new_index        = 2 * index + stencil;
+                    fine_offsets[ind]     = memory_offset(detail.mesh(), {level + 1, 2 * i.start, new_index});
+                    fine_offsets[ind + 1] = fine_offsets[ind] + 1;
+                    ind += 2;
+                });
 
             for (std::size_t ii = 0; ii < i.size(); ++ii)
             {
                 if (fine_level > min_level)
                 {
-                    auto coarsen_check = std::abs(data[ind_f1 + 2 * ii]) < eps && std::abs(data[ind_f1 + 2 * ii + 1]) < eps
-                                      && (std::abs(data[ind_f2 + 2 * ii]) < eps) && (std::abs(data[ind_f2 + 2 * ii + 1]) < eps);
+                    auto coarsen_check = std::apply(
+                        [&](auto... offsets)
+                        {
+                            return ((std::abs(data[offsets + 2 * ii]) < eps) && ...);
+                        },
+                        fine_offsets);
+
                     if (coarsen_check)
                     {
-                        tag_data[ind_f1 + 2 * ii]     = static_cast<std::uint8_t>(CellFlag::coarsen);
-                        tag_data[ind_f1 + 2 * ii + 1] = static_cast<std::uint8_t>(CellFlag::coarsen);
-                        tag_data[ind_f2 + 2 * ii]     = static_cast<std::uint8_t>(CellFlag::coarsen);
-                        tag_data[ind_f2 + 2 * ii + 1] = static_cast<std::uint8_t>(CellFlag::coarsen);
+                        std::apply(
+                            [&](auto... offsets)
+                            {
+                                ((tag_data[offsets + 2 * ii] = static_cast<std::uint8_t>(CellFlag::coarsen)), ...);
+                            },
+                            fine_offsets);
                     }
                 }
 
-                auto eps_coarse = fine_eps / (1 << dim); // No normalization
-                auto ind_c      = ind_c_base + ii;       // Advance to the next coarse cell
-                auto test1      = (std::abs(data[ind_c]) > eps_coarse) * static_cast<std::uint8_t>(CellFlag::keep);
-                tag_data[ind_f1 + 2 * ii] |= test1;
-                tag_data[ind_f1 + 2 * ii + 1] |= test1;
-                tag_data[ind_f2 + 2 * ii] |= test1;
-                tag_data[ind_f2 + 2 * ii + 1] |= test1;
+                auto cond = (std::abs(data[coarse_offset + ii]) > coarse_eps) * static_cast<std::uint8_t>(CellFlag::keep);
+                std::apply(
+                    [&](auto... offsets)
+                    {
+                        ((tag_data[offsets + 2 * ii] |= cond), ...);
+                    },
+                    fine_offsets);
 
                 if (fine_level < max_level)
                 {
-                    tag_data[ind_f1 + 2 * ii] |= (std::abs(data[ind_f1 + 2 * ii]) > fine_eps) * static_cast<std::uint8_t>(CellFlag::refine);
-                    tag_data[ind_f1 + 2 * ii + 1] |= (std::abs(data[ind_f1 + 2 * ii + 1]) > fine_eps)
-                                                   * static_cast<std::uint8_t>(CellFlag::refine);
-                    tag_data[ind_f2 + 2 * ii] |= (std::abs(data[ind_f2 + 2 * ii]) > fine_eps) * static_cast<std::uint8_t>(CellFlag::refine);
-                    tag_data[ind_f2 + 2 * ii + 1] |= (std::abs(data[ind_f2 + 2 * ii + 1]) > fine_eps)
-                                                   * static_cast<std::uint8_t>(CellFlag::refine);
+                    std::apply(
+                        [&](auto... offsets)
+                        {
+                            ((tag_data[offsets + 2 * ii] |= (std::abs(data[offsets + 2 * ii]) > fine_eps)
+                                                          * static_cast<std::uint8_t>(CellFlag::refine)),
+                             ...);
+                        },
+                        fine_offsets);
                 }
             }
         }
