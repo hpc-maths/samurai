@@ -4,6 +4,7 @@
 #pragma once
 
 #include "../operators_base.hpp"
+#include "../static_algorithm.hpp"
 
 namespace samurai
 {

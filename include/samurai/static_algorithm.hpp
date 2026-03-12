@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <array>
 #include <type_traits>
 
 #include <xtensor/containers/xfixed.hpp>

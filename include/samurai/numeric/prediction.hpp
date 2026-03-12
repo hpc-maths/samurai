@@ -109,6 +109,8 @@ namespace samurai
                                                                   std::integral_constant<std::size_t, 0>,
                                                                   std::integral_constant<bool, true>) const
     {
+        static_assert(DEST::n_comp == SRC::n_comp, "Source and destination fields must have the same number of components");
+
         auto src_offset = memory_offset(src.mesh(), {level, i.start, index});
 
         std::vector<std::size_t> dest_offsets;
@@ -128,10 +130,14 @@ namespace samurai
         {
             for (std::size_t s = 0; s < dest_offsets.size(); ++s)
             {
+                const std::size_t src_index   = (src_offset + i_c) * SRC::n_comp;
+                const std::size_t dest_index0 = (dest_offsets[s] + i_f) * SRC::n_comp;
+                const std::size_t dest_index1 = (dest_offsets[s] + i_f + 1) * SRC::n_comp;
+
                 for (std::size_t n = 0; n < SRC::n_comp; ++n)
                 {
-                    dest_data[dest_offsets[s] + i_f * SRC::n_comp + n]       = src_data[src_offset + i_c * SRC::n_comp + n];
-                    dest_data[dest_offsets[s] + (i_f + 1) * SRC::n_comp + n] = src_data[src_offset + i_c * SRC::n_comp + n];
+                    dest_data[dest_index0 + n] = src_data[src_index + n];
+                    dest_data[dest_index1 + n] = src_data[src_index + n];
                 }
             }
         }
@@ -161,7 +167,7 @@ namespace samurai
         // (level, i-1, j  ) (level, i, j  ) (level, i+1, j  )
         // (level, i-1, j-1) (level, i, j-1) (level, i+1, j-1)
         //
-        // Since the data are contiguous in the i direction, we just have to compute the memory adresses of the first column.
+        // Since the data are contiguous in the i direction, we just have to compute the memory addresses of the first column.
 
         std::array<std::size_t, ce_pow(order, dim)> src_offsets;
         std::size_t ind = 0;
@@ -176,9 +182,9 @@ namespace samurai
         // For example, in 2D, we need to access the following cells in the destination field
         //
         // (level + 1, 2i  , 2j  ) (level + 1, 2i+1, 2j  )
-        // (level + 1, 2i+1, 2j+1) (level + 1, 2i+1, 2j+1)
+        // (level + 1, 2i  , 2j+1) (level + 1, 2i+1, 2j+1)
         //
-        // Since the data are contiguous in the i direction, once again, we just have to compute the memory adresses of the first column.
+        // Since the data are contiguous in the i direction, once again, we just have to compute the memory addresses of the first column.
 
         std::array<std::size_t, 1ULL << dim> dest_offsets;
         ind = 0;
@@ -260,31 +266,15 @@ namespace samurai
         const auto* src_data = src.data();
         auto* dest_data      = dest.data();
 
-        auto even_i = i.even_elements();
-        if (even_i.is_valid())
-        {
-            auto src_offset  = memory_offset(src.mesh(), {level - 1, even_i.start >> 1, index >> 1});
-            auto dest_offset = memory_offset(dest.mesh(), {level, even_i.start, index});
-            for (std::size_t i_f = 0, i_c = 0; i_f < even_i.size(); i_f += 2, ++i_c)
-            {
-                for (std::size_t n = 0; n < T2::n_comp; ++n)
-                {
-                    dest_data[(dest_offset + i_f) * T2::n_comp + n] = src_data[(src_offset + i_c) * T2::n_comp + n];
-                }
-            }
-        }
+        auto src_offset  = memory_offset(src.mesh(), {level - 1, i.start >> 1, index >> 1});
+        auto dest_offset = memory_offset(dest.mesh(), {level, i.start, index});
 
-        auto odd_i = i.odd_elements();
-        if (odd_i.is_valid())
+        for (std::size_t i_f = 0; i_f < i.size(); ++i_f)
         {
-            auto src_offset  = memory_offset(src.mesh(), {level - 1, odd_i.start >> 1, index >> 1});
-            auto dest_offset = memory_offset(dest.mesh(), {level, odd_i.start, index});
-            for (std::size_t i_f = 0, i_c = 0; i_f < odd_i.size(); i_f += 2, ++i_c)
+            std::size_t ic = static_cast<std::size_t>(((i.start + static_cast<value_t>(i_f)) >> 1) - (i.start >> 1));
+            for (std::size_t n = 0; n < T2::n_comp; ++n)
             {
-                for (std::size_t n = 0; n < T2::n_comp; ++n)
-                {
-                    dest_data[(dest_offset + i_f) * T2::n_comp + n] = src_data[(src_offset + i_c) * T2::n_comp + n];
-                }
+                dest_data[(dest_offset + i_f) * T2::n_comp + n] = src_data[(src_offset + i_c) * T2::n_comp + n];
             }
         }
     }
@@ -297,6 +287,8 @@ namespace samurai
                                                                   std::integral_constant<std::size_t, pred_stencil_size>,
                                                                   std::integral_constant<bool, false>) const
     {
+        static_assert(DEST::n_comp == SRC::n_comp, "Source and destination fields must have the same number of components");
+
         constexpr std::size_t order = 2 * pred_stencil_size + 1;
         using value_t               = typename TInterval::value_t;
 
