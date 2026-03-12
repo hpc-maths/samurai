@@ -264,6 +264,7 @@ namespace samurai
                                                                   std::integral_constant<bool, false>) const
     {
         static_assert(DEST::n_comp == SRC::n_comp, "Source and destination fields must have the same number of components");
+        using value_t = typename TInterval::value_t;
 
         const auto* src_data = src.data();
         auto* dest_data      = dest.data();
