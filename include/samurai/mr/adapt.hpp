@@ -111,7 +111,7 @@ namespace samurai
         using mesh_t            = typename inner_fields_type::mesh_t;
         using mesh_id_t         = typename mesh_t::mesh_id_t;
         using detail_t          = typename inner_fields_type::detail_t;
-        using tag_t             = ScalarField<mesh_t, int>;
+        using tag_t             = ScalarField<mesh_t, std::uint8_t>;
 
         static constexpr std::size_t dim = mesh_t::dim;
         static constexpr bool enlarge_v  = enlarge_;
@@ -242,7 +242,7 @@ namespace samurai
     }
 
     template <class Mesh>
-    void keep_boundary_refined(const Mesh& mesh, ScalarField<Mesh, int>& tag, const DirectionVector<Mesh::dim>& direction)
+    void keep_boundary_refined(const Mesh& mesh, ScalarField<Mesh, std::uint8_t>& tag, const DirectionVector<Mesh::dim>& direction)
     {
         // Since the adaptation process starts at max_level, we just need to flag to `keep` the boundary cells at max_level only.
         // There will never be boundary cells at lower levels.
@@ -251,12 +251,12 @@ namespace samurai
                       bdry,
                       [&](auto& cell)
                       {
-                          tag[cell] = static_cast<int>(CellFlag::keep);
+                          tag[cell] = static_cast<std::uint8_t>(CellFlag::keep);
                       });
     }
 
     template <class Mesh>
-    void keep_boundary_refined(const Mesh& mesh, ScalarField<Mesh, int>& tag)
+    void keep_boundary_refined(const Mesh& mesh, ScalarField<Mesh, std::uint8_t>& tag)
     {
         constexpr std::size_t dim = Mesh::dim;
 
@@ -285,7 +285,7 @@ namespace samurai
         for_each_cell(mesh[mesh_id_t::cells],
                       [&](auto& cell)
                       {
-                          m_tag[cell] = static_cast<int>(CellFlag::keep);
+                          m_tag[cell] = static_cast<std::uint8_t>(CellFlag::keep);
                       });
 
         for (std::size_t level = min_level; level <= max_level; ++level)
@@ -328,7 +328,7 @@ namespace samurai
 
         update_ghost_subdomains(m_detail);
 
-        times::timers.start("tag computation");
+        times::timers.start("tag cells");
         for (std::size_t level = min_level; level <= max_level - ite; ++level)
         {
             std::size_t exponent = dim * (max_level - level);
@@ -338,45 +338,52 @@ namespace samurai
 
             auto subset_1 = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
 
-            subset_1.apply_op(to_coarsen_mr(m_detail, m_tag, eps_l, min_level),
-                              to_refine_mr(m_detail,
-                                           m_tag,
-                                           (pow(2.0, regularity_to_use)) * eps_l,
-                                           max_level)); // Refinement according to Harten
+            subset_1.apply_op(mr_criteria(m_detail, m_tag, eps_l, regularity_to_use));
+
+            // subset_1.apply_op(to_coarsen_mr(m_detail, m_tag, eps_l, min_level),
+            //                   to_refine_mr(m_detail,
+            //                                m_tag,
+            //                                (pow(2.0, regularity_to_use)) * eps_l,
+            //                                max_level)); // Refinement according to Harten
             update_tag_subdomains(level, m_tag, true);
         }
+        times::timers.stop("tag cells");
 
+        times::timers.start("refine boundary");
         if (args::refine_boundary) // cppcheck-suppress knownConditionTrueFalse
         {
             keep_boundary_refined(mesh, m_tag);
         }
+        times::timers.stop("refine boundary");
 
-        for (std::size_t level = min_level; level <= max_level - ite; ++level)
-        {
-            auto subset_2 = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level]);
+        times::timers.start("tag computation");
 
-            subset_2.apply_op(keep_around_refine(m_tag));
+        // for (std::size_t level = min_level; level <= max_level - ite; ++level)
+        // {
+        //     auto subset_2 = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level]);
 
-            if constexpr (enlarge_v)
-            {
-                auto subset_3 = intersection(mesh[mesh_id_t::cells_and_ghosts][level], mesh[mesh_id_t::cells_and_ghosts][level]);
-                subset_2.apply_op(enlarge(m_tag));
-                subset_3.apply_op(tag_to_keep<0>(m_tag, CellFlag::enlarge));
-            }
+        //     subset_2.apply_op(keep_around_refine(m_tag));
 
-            update_tag_periodic(level, m_tag);
-            update_tag_subdomains(level, m_tag);
-        }
+        //     if constexpr (enlarge_v)
+        //     {
+        //         auto subset_3 = intersection(mesh[mesh_id_t::cells_and_ghosts][level], mesh[mesh_id_t::cells_and_ghosts][level]);
+        //         subset_2.apply_op(enlarge(m_tag));
+        //         subset_3.apply_op(tag_to_keep<0>(m_tag, CellFlag::enlarge));
+        //     }
 
-        for (std::size_t level = max_level; level > 0; --level)
-        {
-            auto keep_subset = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
+        //     update_tag_periodic(level, m_tag);
+        //     update_tag_subdomains(level, m_tag);
+        // }
 
-            update_tag_periodic(level, m_tag);
-            update_tag_subdomains(level, m_tag);
+        // for (std::size_t level = max_level; level > 0; --level)
+        // {
+        //     auto keep_subset = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
 
-            keep_subset.apply_op(maximum(m_tag));
-        }
+        //     update_tag_periodic(level, m_tag);
+        //     update_tag_subdomains(level, m_tag);
+
+        //     keep_subset.apply_op(maximum(m_tag));
+        // }
         times::timers.stop("tag computation");
 
         times::timers.start("mesh update");

@@ -321,4 +321,72 @@ namespace samurai
     {
         return make_field_operator_function<max_detail_mr_op>(std::forward<CT>(e)...);
     }
+
+    template <std::size_t dim, class TInterval>
+    class mr_criteria_op : public field_operator_base<dim, TInterval>
+    {
+      public:
+
+        INIT_OPERATOR(mr_criteria_op)
+
+        template <class T1, class T2>
+        SAMURAI_INLINE void operator()(Dim<dim>, const T1& detail, T2& tag, double eps, double regularity) const
+        {
+            std::size_t fine_level = level + 1;
+
+            auto& mesh     = tag.mesh();
+            auto min_level = mesh.min_level();
+            auto max_level = mesh.max_level();
+
+            const auto* data = detail.data();
+            auto* tag_data   = tag.data();
+
+            auto fine_eps   = pow(2.0, regularity) * eps;
+            auto ind_c_base = memory_offset(mesh, {level, i.start, index});
+
+            auto ind_f1 = memory_offset(mesh, {fine_level, 2 * i.start, 2 * j});
+            auto ind_f2 = memory_offset(mesh, {fine_level, 2 * i.start, 2 * j + 1});
+
+            for (std::size_t ii = 0; ii < i.size(); ++ii)
+            {
+                if (fine_level > min_level)
+                {
+                    auto to_coarsen = std::abs(data[ind_f1 + 2 * ii]) < eps && std::abs(data[ind_f1 + 2 * ii + 1]) < eps
+                                   && (std::abs(data[ind_f2 + 2 * ii]) < eps) && (std::abs(data[ind_f2 + 2 * ii + 1]) < eps);
+                    if (to_coarsen)
+                    {
+                        tag_data[ind_f1 + 2 * ii]     = static_cast<std::uint8_t>(CellFlag::coarsen);
+                        tag_data[ind_f1 + 2 * ii + 1] = static_cast<std::uint8_t>(CellFlag::coarsen);
+                        tag_data[ind_f2 + 2 * ii]     = static_cast<std::uint8_t>(CellFlag::coarsen);
+                        tag_data[ind_f2 + 2 * ii + 1] = static_cast<std::uint8_t>(CellFlag::coarsen);
+                    }
+                }
+
+                auto eps_coarse = fine_eps / (1 << dim); // No normalization
+                auto ind_c      = ind_c_base + ii;       // Advance to the next coarse cell
+                auto test1      = (std::abs(data[ind_c]) > eps_coarse) * static_cast<std::uint8_t>(CellFlag::keep);
+                tag_data[ind_f1 + 2 * ii] |= test1;
+                tag_data[ind_f1 + 2 * ii + 1] |= test1;
+                tag_data[ind_f2 + 2 * ii] |= test1;
+                tag_data[ind_f2 + 2 * ii + 1] |= test1;
+
+                if (fine_level < max_level)
+                {
+                    tag_data[ind_f1 + 2 * ii] |= (std::abs(data[ind_f1 + 2 * ii]) > fine_eps) * static_cast<std::uint8_t>(CellFlag::refine);
+                    tag_data[ind_f1 + 2 * ii + 1] |= (std::abs(data[ind_f1 + 2 * ii + 1]) > fine_eps)
+                                                   * static_cast<std::uint8_t>(CellFlag::refine);
+                    tag_data[ind_f2 + 2 * ii] |= (std::abs(data[ind_f2 + 2 * ii]) > fine_eps) * static_cast<std::uint8_t>(CellFlag::refine);
+                    tag_data[ind_f2 + 2 * ii + 1] |= (std::abs(data[ind_f2 + 2 * ii + 1]) > fine_eps)
+                                                   * static_cast<std::uint8_t>(CellFlag::refine);
+                }
+            }
+        }
+    };
+
+    template <class... CT>
+    SAMURAI_INLINE auto mr_criteria(CT&&... e)
+    {
+        return make_field_operator_function<mr_criteria_op>(std::forward<CT>(e)...);
+    }
+
 } // namespace samurai
