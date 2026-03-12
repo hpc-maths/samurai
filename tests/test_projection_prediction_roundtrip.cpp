@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstddef>
 #include <functional>
+#include <limits>
 #include <string>
 
 #include <samurai/box.hpp>
@@ -99,6 +100,31 @@ namespace samurai
             return max_err;
         }
 
+        // Poison the fine-level cells with NaN so that any un-predicted cell
+        // produces a detectable error — a prediction no-op cannot pass.
+        template <class Field>
+        void fill_by_nan(std::size_t L, Field& u)
+        {
+            auto& mesh      = u.mesh();
+            using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+
+            for_each_cell(mesh[mesh_id_t::cells][L],
+                          [&](const auto& cell)
+                          {
+                              if constexpr (Field::is_scalar)
+                              {
+                                  u[cell] = std::numeric_limits<double>::quiet_NaN();
+                              }
+                              else
+                              {
+                                  for (std::size_t c = 0; c < Field::n_comp; ++c)
+                                  {
+                                      u[cell][c] = std::numeric_limits<double>::quiet_NaN();
+                                  }
+                              }
+                          });
+        }
+
         //=========================================================================
         // Helper: projection + prediction roundtrip.
         //
@@ -156,10 +182,18 @@ namespace samurai
             auto proj_set = intersection(mesh[mesh_id_t::cells][L], mesh[mesh_id_t::reference][L - 1]).on(L - 1);
             proj_set.apply_op(projection(u));
 
+            // from fine level
+            fill_by_nan(L, u);
             auto pred_set = intersection(mesh[mesh_id_t::cells][L], mesh[mesh_id_t::reference][L - 1]).on(L);
             pred_set.apply_op(prediction<s, false>(u));
+            auto from_fine_error = max_abs_error(u, L, cell_avg_fn);
 
-            return max_abs_error(u, L, cell_avg_fn);
+            // from coarse level
+            fill_by_nan(L, u);
+            proj_set.apply_op(prediction<s, true>(u));
+            auto from_coarse_error = max_abs_error(u, L, cell_avg_fn);
+
+            return std::max(from_fine_error, from_coarse_error);
         }
 
         //=========================================================================
