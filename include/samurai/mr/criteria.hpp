@@ -351,9 +351,9 @@ namespace samurai
             {
                 if (fine_level > min_level)
                 {
-                    auto to_coarsen = std::abs(data[ind_f1 + 2 * ii]) < eps && std::abs(data[ind_f1 + 2 * ii + 1]) < eps
-                                   && (std::abs(data[ind_f2 + 2 * ii]) < eps) && (std::abs(data[ind_f2 + 2 * ii + 1]) < eps);
-                    if (to_coarsen)
+                    auto coarsen_check = std::abs(data[ind_f1 + 2 * ii]) < eps && std::abs(data[ind_f1 + 2 * ii + 1]) < eps
+                                      && (std::abs(data[ind_f2 + 2 * ii]) < eps) && (std::abs(data[ind_f2 + 2 * ii + 1]) < eps);
+                    if (coarsen_check)
                     {
                         tag_data[ind_f1 + 2 * ii]     = static_cast<std::uint8_t>(CellFlag::coarsen);
                         tag_data[ind_f1 + 2 * ii + 1] = static_cast<std::uint8_t>(CellFlag::coarsen);
