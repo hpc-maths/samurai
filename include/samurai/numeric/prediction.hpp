@@ -86,19 +86,21 @@ namespace samurai
 
         INIT_OPERATOR(prediction_op)
 
-        template <class T1, class T2>
-        void operator()(Dim<dim>, T1& dest, const T2& src, std::integral_constant<std::size_t, 0>, std::integral_constant<bool, true>) const;
-
-        template <class T1, class T2>
-        void operator()(Dim<dim>, T1& dest, const T2& src, std::integral_constant<std::size_t, 0>, std::integral_constant<bool, false>) const;
-
-        template <class T1, class T2, std::size_t order>
+        template <class DEST, class SRC>
         void
-        operator()(Dim<dim>, T1& dest, const T2& src, std::integral_constant<std::size_t, order>, std::integral_constant<bool, true>) const;
+        operator()(Dim<dim>, DEST& dest, const SRC& src, std::integral_constant<std::size_t, 0>, std::integral_constant<bool, true>) const;
 
-        template <class T1, class T2, std::size_t order>
+        template <class DEST, class SRC>
         void
-        operator()(Dim<dim>, T1& dest, const T2& src, std::integral_constant<std::size_t, order>, std::integral_constant<bool, false>) const;
+        operator()(Dim<dim>, DEST& dest, const SRC& src, std::integral_constant<std::size_t, 0>, std::integral_constant<bool, false>) const;
+
+        template <class DEST, class SRC, std::size_t order>
+        void
+        operator()(Dim<dim>, DEST& dest, const SRC& src, std::integral_constant<std::size_t, order>, std::integral_constant<bool, true>) const;
+
+        template <class DEST, class SRC, std::size_t order>
+        void
+        operator()(Dim<dim>, DEST& dest, const SRC& src, std::integral_constant<std::size_t, order>, std::integral_constant<bool, false>) const;
     };
 
     template <std::size_t dim, class TInterval>
@@ -254,14 +256,14 @@ namespace samurai
     }
 
     template <std::size_t dim, class TInterval>
-    template <class T1, class T2>
+    template <class DEST, class SRC>
     SAMURAI_INLINE void prediction_op<dim, TInterval>::operator()(Dim<dim>,
-                                                                  T1& dest,
-                                                                  const T2& src,
+                                                                  DEST& dest,
+                                                                  const SRC& src,
                                                                   std::integral_constant<std::size_t, 0>,
                                                                   std::integral_constant<bool, false>) const
     {
-        static_assert(T1::n_comp == T2::n_comp, "Source and destination fields must have the same number of components");
+        static_assert(DEST::n_comp == SRC::n_comp, "Source and destination fields must have the same number of components");
 
         const auto* src_data = src.data();
         auto* dest_data      = dest.data();
@@ -271,10 +273,10 @@ namespace samurai
 
         for (std::size_t i_f = 0; i_f < i.size(); ++i_f)
         {
-            std::size_t ic = static_cast<std::size_t>(((i.start + static_cast<value_t>(i_f)) >> 1) - (i.start >> 1));
-            for (std::size_t n = 0; n < T2::n_comp; ++n)
+            const std::size_t i_c = static_cast<std::size_t>(((i.start + static_cast<value_t>(i_f)) >> 1) - (i.start >> 1));
+            for (std::size_t n = 0; n < SRC::n_comp; ++n)
             {
-                dest_data[(dest_offset + i_f) * T2::n_comp + n] = src_data[(src_offset + i_c) * T2::n_comp + n];
+                dest_data[(dest_offset + i_f) * SRC::n_comp + n] = src_data[(src_offset + i_c) * SRC::n_comp + n];
             }
         }
     }
@@ -397,8 +399,8 @@ namespace samurai
                                                            std::integral_constant<bool, dest_on_level>{});
     }
 
-    template <std::size_t order, bool dest_on_level, class T1, class T2>
-    SAMURAI_INLINE auto prediction(T1& field_dest, const T2& field_src)
+    template <std::size_t order, bool dest_on_level, class DEST, class SRC>
+    SAMURAI_INLINE auto prediction(DEST& field_dest, const SRC& field_src)
     {
         return make_field_operator_function<prediction_op>(field_dest,
                                                            field_src,
