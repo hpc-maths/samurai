@@ -4,6 +4,7 @@
 #pragma once
 
 #include "../operators_base.hpp"
+#include "../static_algorithm.hpp"
 
 namespace samurai
 {
@@ -18,28 +19,48 @@ namespace samurai
 
         INIT_OPERATOR(projection_op_)
 
-        template <class T1, class T2>
-        SAMURAI_INLINE void operator()(Dim<1>, T1& dest, const T2& src) const
+        template <class DEST, class SRC>
+        SAMURAI_INLINE void operator()(Dim<dim>, DEST& dest, const SRC& src) const
         {
-            dest(level, i) = .5 * (src(level + 1, 2 * i) + src(level + 1, 2 * i + 1));
-        }
+            static_assert(DEST::n_comp == SRC::n_comp, "Source and destination fields must have the same number of components");
+            auto dst_offsets = memory_offset(dest.mesh(), {level, i.start, index});
 
-        template <class T1, class T2>
-        SAMURAI_INLINE void operator()(Dim<2>, T1& dest, const T2& src) const
-        {
-            dest(level, i, j) = .25
-                              * (src(level + 1, 2 * i, 2 * j) + src(level + 1, 2 * i, 2 * j + 1) + src(level + 1, 2 * i + 1, 2 * j)
-                                 + src(level + 1, 2 * i + 1, 2 * j + 1));
-        }
+            std::array<std::size_t, 1ULL << (dim - 1)> src_offsets;
+            if constexpr (dim == 1)
+            {
+                src_offsets[0] = memory_offset(src.mesh(), {level + 1, 2 * i.start});
+            }
+            else
+            {
+                std::size_t ind = 0;
+                static_nested_loop<dim - 1, 0, 2>(
+                    [&](const auto& stencil)
+                    {
+                        auto new_index     = 2 * index + stencil;
+                        src_offsets[ind++] = memory_offset(src.mesh(), {level + 1, 2 * i.start, new_index});
+                    });
+            }
 
-        template <class T1, class T2>
-        SAMURAI_INLINE void operator()(Dim<3>, T1& dest, const T2& src) const
-        {
-            dest(level, i, j, k) = .125
-                                 * (src(level + 1, 2 * i, 2 * j, 2 * k) + src(level + 1, 2 * i + 1, 2 * j, 2 * k)
-                                    + src(level + 1, 2 * i, 2 * j + 1, 2 * k) + src(level + 1, 2 * i + 1, 2 * j + 1, 2 * k)
-                                    + src(level + 1, 2 * i, 2 * j, 2 * k + 1) + src(level + 1, 2 * i + 1, 2 * j, 2 * k + 1)
-                                    + src(level + 1, 2 * i, 2 * j + 1, 2 * k + 1) + src(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1));
+            const auto* src_data = src.data();
+            auto* dest_data      = dest.data();
+            constexpr double inv = 1.0 / static_cast<double>(1ULL << dim);
+
+            for (std::size_t ii = 0, i_f = 0; ii < i.size(); ++ii, i_f += 2)
+            {
+                std::array<double, SRC::n_comp> sum;
+                sum.fill(0);
+                for (std::size_t s = 0; s < src_offsets.size(); ++s)
+                {
+                    for (std::size_t n = 0; n < SRC::n_comp; ++n)
+                    {
+                        sum[n] += src_data[(src_offsets[s] + i_f) * SRC::n_comp + n] + src_data[(src_offsets[s] + i_f + 1) * SRC::n_comp + n];
+                    }
+                }
+                for (std::size_t n = 0; n < SRC::n_comp; ++n)
+                {
+                    dest_data[(dst_offsets + ii) * SRC::n_comp + n] = sum[n] * inv;
+                }
+            }
         }
     };
 

@@ -30,6 +30,7 @@ set(SAMURAI_TESTS
     test_mra.cpp
     test_periodic.cpp
     test_portion.cpp
+    test_projection_prediction_roundtrip.cpp
     test_restart.cpp
     test_scaling.cpp
     test_stencil.cpp
