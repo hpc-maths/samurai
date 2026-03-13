@@ -351,7 +351,7 @@ namespace samurai
                 [&](const auto& stencil)
                 {
                     auto new_index        = 2 * index + stencil;
-                    fine_offsets[ind]     = memory_offset(detail.mesh(), {level + 1, 2 * i.start, new_index});
+                    fine_offsets[ind]     = memory_offset(detail.mesh(), {fine_level, 2 * i.start, new_index});
                     fine_offsets[ind + 1] = fine_offsets[ind] + 1;
                     ind += 2;
                 });
@@ -363,7 +363,18 @@ namespace samurai
                     auto coarsen_check = std::apply(
                         [&](auto... offsets)
                         {
-                            return ((std::abs(data[offsets + 2 * ii]) < eps) && ...);
+                            auto check_comp = [&](auto offset)
+                            {
+                                for (std::size_t n = 0; n < T1::n_comp; ++n)
+                                {
+                                    if (std::abs(data[(offset + 2 * ii) * T1::n_comp + n]) > eps)
+                                    {
+                                        return false;
+                                    }
+                                }
+                                return true;
+                            };
+                            return (check_comp(offsets) && ...);
                         },
                         fine_offsets);
 
@@ -378,11 +389,19 @@ namespace samurai
                     }
                 }
 
-                auto cond = (std::abs(data[coarse_offset + ii]) > coarse_eps) * static_cast<std::uint8_t>(CellFlag::keep);
+                bool cond = false;
+                for (std::size_t n = 0; n < T1::n_comp; ++n)
+                {
+                    if (std::abs(data[(coarse_offset + ii) * T1::n_comp + n]) > coarse_eps)
+                    {
+                        cond = true;
+                        break;
+                    }
+                }
                 std::apply(
                     [&](auto... offsets)
                     {
-                        ((tag_data[offsets + 2 * ii] |= cond), ...);
+                        ((tag_data[offsets + 2 * ii] |= cond * static_cast<std::uint8_t>(CellFlag::keep)), ...);
                     },
                     fine_offsets);
 
@@ -391,9 +410,18 @@ namespace samurai
                     std::apply(
                         [&](auto... offsets)
                         {
-                            ((tag_data[offsets + 2 * ii] |= (std::abs(data[offsets + 2 * ii]) > fine_eps)
-                                                          * static_cast<std::uint8_t>(CellFlag::refine)),
-                             ...);
+                            auto tag2refine = [&](auto offset)
+                            {
+                                for (std::size_t n = 0; n < T1::n_comp; ++n)
+                                {
+                                    if (std::abs(data[(offset + 2 * ii) * T1::n_comp + n]) > fine_eps)
+                                    {
+                                        return true;
+                                    }
+                                }
+                                return false;
+                            };
+                            ((tag_data[offsets + 2 * ii] |= (tag2refine(offsets)) * static_cast<std::uint8_t>(CellFlag::refine)), ...);
                         },
                         fine_offsets);
                 }
