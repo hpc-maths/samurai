@@ -350,24 +350,7 @@ namespace samurai
         }
         times::timers.stop("refine boundary");
 
-        times::timers.start("tag computation");
-        // for (std::size_t level = min_level; level <= max_level - ite; ++level)
-        // {
-        //     auto subset_2 = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level]);
-
-        //     subset_2.apply_op(keep_around_refine(m_tag));
-
-        //     if constexpr (enlarge_v)
-        //     {
-        //         auto subset_3 = intersection(mesh[mesh_id_t::cells_and_ghosts][level], mesh[mesh_id_t::cells_and_ghosts][level]);
-        //         subset_2.apply_op(enlarge(m_tag));
-        //         subset_3.apply_op(tag_to_keep<0>(m_tag, CellFlag::enlarge));
-        //     }
-
-        //     update_tag_periodic(level, m_tag);
-        //     update_tag_subdomains(level, m_tag);
-        // }
-
+        times::timers.start("tag finalization");
         for (std::size_t level = max_level; level > 0; --level)
         {
             auto keep_subset = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
@@ -377,7 +360,7 @@ namespace samurai
 
             keep_subset.apply_op(maximum(m_tag));
         }
-        times::timers.stop("tag computation");
+        times::timers.stop("tag finalization");
 
         times::timers.start("mesh update");
         using ca_type = typename mesh_t::ca_type;
