@@ -339,13 +339,6 @@ namespace samurai
             auto subset_1 = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
 
             subset_1.apply_op(mr_criteria(m_detail, m_tag, eps_l, regularity_to_use));
-
-            // subset_1.apply_op(to_coarsen_mr(m_detail, m_tag, eps_l, min_level),
-            //                   to_refine_mr(m_detail,
-            //                                m_tag,
-            //                                (pow(2.0, regularity_to_use)) * eps_l,
-            //                                max_level)); // Refinement according to Harten
-            update_tag_subdomains(level, m_tag, true);
         }
         times::timers.stop("tag cells");
 
@@ -357,24 +350,6 @@ namespace samurai
         times::timers.stop("refine boundary");
 
         times::timers.start("tag computation");
-
-        // for (std::size_t level = min_level; level <= max_level - ite; ++level)
-        // {
-        //     auto subset_2 = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level]);
-
-        //     subset_2.apply_op(keep_around_refine(m_tag));
-
-        //     if constexpr (enlarge_v)
-        //     {
-        //         auto subset_3 = intersection(mesh[mesh_id_t::cells_and_ghosts][level], mesh[mesh_id_t::cells_and_ghosts][level]);
-        //         subset_2.apply_op(enlarge(m_tag));
-        //         subset_3.apply_op(tag_to_keep<0>(m_tag, CellFlag::enlarge));
-        //     }
-
-        //     update_tag_periodic(level, m_tag);
-        //     update_tag_subdomains(level, m_tag);
-        // }
-
         for (std::size_t level = max_level; level > 0; --level)
         {
             auto keep_subset = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
