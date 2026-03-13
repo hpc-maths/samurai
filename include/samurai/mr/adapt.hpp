@@ -339,6 +339,7 @@ namespace samurai
             auto subset_1 = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
 
             subset_1.apply_op(mr_criteria(m_detail, m_tag, eps_l, regularity_to_use));
+            update_tag_subdomains(level, m_tag);
         }
         times::timers.stop("tag cells");
 
