@@ -288,11 +288,6 @@ namespace samurai
                           m_tag[cell] = static_cast<std::uint8_t>(CellFlag::keep);
                       });
 
-        for (std::size_t level = min_level; level <= max_level; ++level)
-        {
-            update_tag_subdomains(level, m_tag, true);
-        }
-
         update_ghost_mr(m_fields);
 
         //--------------------//
@@ -326,7 +321,7 @@ namespace samurai
         }
         times::timers.stop("detail computation");
 
-        update_ghost_subdomains(m_detail);
+        // update_ghost_subdomains(m_detail);
 
         times::timers.start("tag cells");
         for (std::size_t level = min_level; level <= max_level - ite; ++level)
@@ -339,6 +334,7 @@ namespace samurai
             auto subset_1 = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
 
             subset_1.apply_op(mr_criteria(m_detail, m_tag, eps_l, regularity_to_use));
+            // TODO: make this update outside the loop with only one communication instead of one per level
             update_tag_subdomains(level, m_tag, true);
         }
         times::timers.stop("tag cells");
@@ -350,17 +346,19 @@ namespace samurai
         }
         times::timers.stop("refine boundary");
 
-        times::timers.start("tag finalization");
-        for (std::size_t level = max_level; level > 0; --level)
-        {
-            auto keep_subset = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
+        // times::timers.start("tag finalization");
+        // for (std::size_t level = max_level; level > 0; --level)
+        // {
+        //     auto keep_subset = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
 
-            update_tag_periodic(level, m_tag);
-            update_tag_subdomains(level, m_tag);
+        //     // These two lines seems unnecessary. It's needed to be confirm and
+        //     // we will remove them definitely if all the applications work without them.
+        //     // update_tag_periodic(level, m_tag);
+        //     // update_tag_subdomains(level, m_tag);
 
-            keep_subset.apply_op(maximum(m_tag));
-        }
-        times::timers.stop("tag finalization");
+        //     // keep_subset.apply_op(maximum(m_tag));
+        // }
+        // times::timers.stop("tag finalization");
 
         times::timers.start("mesh update");
         using ca_type = typename mesh_t::ca_type;

@@ -76,6 +76,15 @@ namespace samurai
                 {
                     tag_data[coarse_offset + ii] |= static_cast<std::uint8_t>(CellFlag::keep);
                 }
+                else
+                {
+                    std::apply(
+                        [&](auto... offsets)
+                        {
+                            ((tag_data[offsets + 2 * ii] &= ~static_cast<std::uint8_t>(CellFlag::coarsen)), ...);
+                        },
+                        fine_offsets);
+                }
             }
         }
     };
