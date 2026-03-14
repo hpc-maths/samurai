@@ -346,19 +346,19 @@ namespace samurai
         }
         times::timers.stop("refine boundary");
 
-        // times::timers.start("tag finalization");
-        // for (std::size_t level = max_level; level > 0; --level)
-        // {
-        //     auto keep_subset = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
+        times::timers.start("tag finalization");
+        for (std::size_t level = max_level; level > 0; --level)
+        {
+            auto keep_subset = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
 
-        //     // These two lines seems unnecessary. It's needed to be confirm and
-        //     // we will remove them definitely if all the applications work without them.
-        //     // update_tag_periodic(level, m_tag);
-        //     // update_tag_subdomains(level, m_tag);
+            // These two lines seems unnecessary. It's needed to be confirm and
+            // we will remove them definitely if all the applications work without them.
+            // update_tag_periodic(level, m_tag);
+            // update_tag_subdomains(level, m_tag);
 
-        //     // keep_subset.apply_op(maximum(m_tag));
-        // }
-        // times::timers.stop("tag finalization");
+            keep_subset.apply_op(maximum(m_tag));
+        }
+        times::timers.stop("tag finalization");
 
         times::timers.start("mesh update");
         using ca_type = typename mesh_t::ca_type;
