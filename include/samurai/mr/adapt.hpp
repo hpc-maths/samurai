@@ -353,8 +353,8 @@ namespace samurai
 
             // These two lines seems unnecessary. It's needed to be confirm and
             // we will remove them definitely if all the applications work without them.
-            // update_tag_periodic(level, m_tag);
-            // update_tag_subdomains(level, m_tag);
+            update_tag_periodic(level, m_tag);
+            update_tag_subdomains(level, m_tag);
 
             keep_subset.apply_op(maximum(m_tag));
         }
