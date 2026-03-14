@@ -321,8 +321,6 @@ namespace samurai
         }
         times::timers.stop("detail computation");
 
-        // update_ghost_subdomains(m_detail);
-
         times::timers.start("tag cells");
         for (std::size_t level = min_level; level <= max_level - ite; ++level)
         {
@@ -351,8 +349,6 @@ namespace samurai
         {
             auto keep_subset = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
 
-            // These two lines seems unnecessary. It's needed to be confirm and
-            // we will remove them definitely if all the applications work without them.
             update_tag_periodic(level, m_tag);
             update_tag_subdomains(level, m_tag);
 
