@@ -321,7 +321,7 @@ namespace samurai
         }
         times::timers.stop("detail computation");
 
-        update_ghost_subdomains(m_detail);
+        // update_ghost_subdomains(m_detail);
 
         times::timers.start("tag cells");
         for (std::size_t level = min_level; level <= max_level - ite; ++level)
