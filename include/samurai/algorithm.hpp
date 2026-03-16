@@ -174,12 +174,16 @@ namespace samurai
     template <class MeshIntervalType, class SetType, class Func>
     SAMURAI_INLINE void parallel_for_each_meshinterval(SetType& set, Func&& f)
     {
+#if defined(SAMURAI_WITH_OPENMP)
 #pragma omp parallel
 #pragma omp single nowait
+#endif
         set(
             [&](const auto& i, const auto& index)
             {
+#if defined(SAMURAI_WITH_OPENMP)
 #pragma omp task
+#endif
                 {
                     MeshIntervalType mesh_interval(set.level());
                     mesh_interval.i     = i;
@@ -235,12 +239,16 @@ namespace samurai
         using cell_t        = Cell<dim, TInterval>;
         using index_value_t = typename cell_t::value_t;
 
+#if defined(SAMURAI_WITH_OPENMP)
 #pragma omp parallel
 #pragma omp single nowait
+#endif
         {
             for (auto it = lca.cbegin(); it != lca.cend(); ++it)
             {
+#if defined(SAMURAI_WITH_OPENMP)
 #pragma omp task
+#endif
                 for (index_value_t i = it->start; i < it->end; ++i)
                 {
                     typename cell_t::indices_t index;
