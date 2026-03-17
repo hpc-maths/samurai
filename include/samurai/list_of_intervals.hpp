@@ -69,7 +69,7 @@ namespace samurai
     //// explicit instanciation
     ////////////////////////////////////////////////////////////////////
 
-    extern template class ListOfIntervals<default_config::value_t>;
+    extern template struct ListOfIntervals<default_config::value_t>;
 
     ////////////////////////////////////
     // ListOfIntervals implementation //

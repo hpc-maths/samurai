@@ -103,7 +103,7 @@ namespace samurai
     //// explicit instanciation
     ////////////////////////////////////////////////////////////////////
 
-    extern template class Interval<default_config::value_t>;
+    extern template struct Interval<default_config::value_t>;
 
     /////////////////////////////
     // Interval implementation //

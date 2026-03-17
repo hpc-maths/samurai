@@ -3,6 +3,6 @@
 namespace samurai
 {
 
-    template class Interval<default_config::value_t>;
+    template struct Interval<default_config::value_t>;
 
 } // namespace samurai

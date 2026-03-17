@@ -4,6 +4,6 @@
 namespace samurai
 {
 
-    template class ListOfIntervals<default_config::value_t>;
+    template struct ListOfIntervals<default_config::value_t>;
 
 } // namespace samurai

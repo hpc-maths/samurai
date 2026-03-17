@@ -40,9 +40,9 @@ namespace samurai
         }
     };
 
-    extern template class MeshInterval<1, default_config::interval_t>;
-    extern template class MeshInterval<2, default_config::interval_t>;
-    extern template class MeshInterval<3, default_config::interval_t>;
+    extern template struct MeshInterval<1, default_config::interval_t>;
+    extern template struct MeshInterval<2, default_config::interval_t>;
+    extern template struct MeshInterval<3, default_config::interval_t>;
 
     template <std::size_t dim, class TInterval>
     MeshInterval<dim, TInterval>
