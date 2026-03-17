@@ -11,15 +11,6 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
-#ifndef H5_USE_XTENSOR
-#define H5_USE_XTENSOR
-#endif
-#ifdef H5_USE_BOOST
-#undef H5_USE_BOOST
-#endif
-
-#include <highfive/H5Easy.hpp>
-#include <highfive/H5PropertyList.hpp>
 #include <pugixml.hpp>
 #include <xtensor/containers/xadapt.hpp>
 #include <xtensor/containers/xarray.hpp>
@@ -27,9 +18,13 @@ namespace fs = std::filesystem;
 
 #include <fmt/core.h>
 
+#include <highfive/H5Easy.hpp>
+#include <highfive/H5PropertyList.hpp>
+
 #ifdef SAMURAI_WITH_MPI
-#include <boost/mpi.hpp>
 #include <boost/mpi/collectives.hpp>
+#include <boost/mpi/communicator.hpp>
+#include <mpi.h>
 namespace mpi = boost::mpi;
 #endif
 
@@ -181,7 +176,11 @@ namespace samurai
 
         using derived_type_save = D;
 
+#ifdef SAMURAI_WITH_MPI
+        Hdf5(const fs::path& path, const std::string& filename, MPI_Comm comm);
+#else
         Hdf5(const fs::path& path, const std::string& filename);
+#endif
 
         ~Hdf5();
 
@@ -205,9 +204,17 @@ namespace samurai
         template <class Submesh, class Field>
         SAMURAI_INLINE void save_field(pugi::xml_node& grid, const std::string& prefix, const Submesh& submesh, const Field& field);
 
+#ifdef SAMURAI_WITH_MPI
+        MPI_Comm m_mpi_comm;
+#endif
+
       private:
 
+#ifdef SAMURAI_WITH_MPI
+        static HighFive::File create_h5file(const fs::path& path, const std::string& filename, MPI_Comm comm);
+#else
         static HighFive::File create_h5file(const fs::path& path, const std::string& filename);
+#endif
 
         HighFive::File h5_file;
         fs::path m_path;
@@ -227,8 +234,11 @@ namespace samurai
         using mesh_t                     = Mesh;
         static constexpr std::size_t dim = mesh_t::dim;
 
+#ifdef SAMURAI_WITH_MPI
+        SaveBase(const fs::path& path, const std::string& filename, MPI_Comm comm, const options_t& options, const Mesh& mesh, const T&... fields);
+#else
         SaveBase(const fs::path& path, const std::string& filename, const options_t& options, const Mesh& mesh, const T&... fields);
-
+#endif
         SaveBase(const SaveBase&)            = delete;
         SaveBase& operator=(const SaveBase&) = delete;
 
@@ -263,6 +273,21 @@ namespace samurai
         fields_type m_fields;
     };
 
+#ifdef SAMURAI_WITH_MPI
+    template <class D, class Mesh, class... T>
+    SAMURAI_INLINE SaveBase<D, Mesh, T...>::SaveBase(const fs::path& path,
+                                                     const std::string& filename,
+                                                     MPI_Comm comm,
+                                                     const options_t& options,
+                                                     const Mesh& mesh,
+                                                     const T&... fields)
+        : hdf5_t(path, filename, comm)
+        , m_mesh(mesh)
+        , m_options(options)
+        , m_fields(fields...)
+    {
+    }
+#else
     template <class D, class Mesh, class... T>
     SAMURAI_INLINE SaveBase<D, Mesh, T...>::SaveBase(const fs::path& path,
                                                      const std::string& filename,
@@ -275,7 +300,7 @@ namespace samurai
         , m_fields(fields...)
     {
     }
-
+#endif
     template <class D, class Mesh, class... T>
     template <class Submesh>
     SAMURAI_INLINE void SaveBase<D, Mesh, T...>::save_fields(pugi::xml_node& grid, const std::string& prefix, const Submesh& submesh)
@@ -340,10 +365,31 @@ namespace samurai
         using mesh_t                     = typename base_class::mesh_t;
         static constexpr std::size_t dim = base_class::dim;
 
+#ifdef SAMURAI_WITH_MPI
+        SaveCellArray(const fs::path& path,
+                      const std::string& filename,
+                      MPI_Comm comm,
+                      const options_t& options,
+                      const mesh_t& mesh,
+                      const T&... fields);
+#else
         SaveCellArray(const fs::path& path, const std::string& filename, const options_t& options, const mesh_t& mesh, const T&... fields);
+#endif
         void save();
     };
 
+#ifdef SAMURAI_WITH_MPI
+    template <class D, class Mesh, class... T>
+    SAMURAI_INLINE SaveCellArray<D, Mesh, T...>::SaveCellArray(const fs::path& path,
+                                                               const std::string& filename,
+                                                               MPI_Comm comm,
+                                                               const options_t& options,
+                                                               const mesh_t& mesh,
+                                                               const T&... fields)
+        : base_class(path, filename, comm, options, mesh, fields...)
+    {
+    }
+#else
     template <class D, class Mesh, class... T>
     SAMURAI_INLINE SaveCellArray<D, Mesh, T...>::SaveCellArray(const fs::path& path,
                                                                const std::string& filename,
@@ -353,6 +399,7 @@ namespace samurai
         : base_class(path, filename, options, mesh, fields...)
     {
     }
+#endif
 
     template <class D, class Mesh, class... T>
     SAMURAI_INLINE void SaveCellArray<D, Mesh, T...>::save()
@@ -360,9 +407,23 @@ namespace samurai
         if (this->options().by_level)
         {
 #ifdef SAMURAI_WITH_MPI
-            mpi::communicator world;
-            auto min_level = mpi::all_reduce(world, this->mesh().min_level(), mpi::minimum<std::size_t>());
-            auto max_level = mpi::all_reduce(world, this->mesh().max_level(), mpi::maximum<std::size_t>());
+            int result;
+            MPI_Comm_compare(this->m_mpi_comm, MPI_COMM_SELF, &result);
+
+            std::size_t min_level;
+            std::size_t max_level;
+
+            if (result == MPI_IDENT || result == MPI_CONGRUENT)
+            {
+                min_level = this->mesh().min_level();
+                max_level = this->mesh().max_level();
+            }
+            else
+            {
+                mpi::communicator world;
+                min_level = mpi::all_reduce(world, this->mesh().min_level(), mpi::minimum<std::size_t>());
+                max_level = mpi::all_reduce(world, this->mesh().max_level(), mpi::maximum<std::size_t>());
+            }
 #else
             auto min_level = this->mesh().min_level();
             auto max_level = this->mesh().max_level();
@@ -441,11 +502,32 @@ namespace samurai
         using mesh_t                     = typename base_class::mesh_t;
         static constexpr std::size_t dim = base_class::dim;
 
+#ifdef SAMURAI_WITH_MPI
+        SaveLevelCellArray(const fs::path& path,
+                           const std::string& filename,
+                           MPI_Comm comm,
+                           const options_t& options,
+                           const mesh_t& mesh,
+                           const T&... fields);
+#else
         SaveLevelCellArray(const fs::path& path, const std::string& filename, const options_t& options, const mesh_t& mesh, const T&... fields);
+#endif
 
         void save();
     };
 
+#ifdef SAMURAI_WITH_MPI
+    template <class D, class Mesh, class... T>
+    SAMURAI_INLINE SaveLevelCellArray<D, Mesh, T...>::SaveLevelCellArray(const fs::path& path,
+                                                                         const std::string& filename,
+                                                                         MPI_Comm comm,
+                                                                         const options_t& options,
+                                                                         const mesh_t& mesh,
+                                                                         const T&... fields)
+        : base_class(path, filename, comm, options, mesh, fields...)
+    {
+    }
+#else
     template <class D, class Mesh, class... T>
     SAMURAI_INLINE SaveLevelCellArray<D, Mesh, T...>::SaveLevelCellArray(const fs::path& path,
                                                                          const std::string& filename,
@@ -455,6 +537,7 @@ namespace samurai
         : base_class(path, filename, options, mesh, fields...)
     {
     }
+#endif
 
     template <class D, class Mesh, class... T>
     SAMURAI_INLINE void SaveLevelCellArray<D, Mesh, T...>::save()
@@ -483,8 +566,52 @@ namespace samurai
         }
     }
 
+#ifdef SAMURAI_WITH_MPI
+    namespace detail
+    {
+        inline auto adjust_filename_for_comm(const std::string& filename, MPI_Comm comm)
+        {
+            mpi::communicator world;
+            mpi::communicator comm_wrapped(comm, mpi::comm_create_kind::comm_duplicate);
+
+            if (comm_wrapped.size() == 1 && world.size() > 1)
+            {
+                return fmt::format("{}_rank{}", filename, world.rank());
+            }
+            return filename;
+        }
+    }
+
     template <class D>
-    SAMURAI_INLINE Hdf5<D>::Hdf5(const fs::path& path, const std::string& filename)
+    Hdf5<D>::Hdf5(const fs::path& path, const std::string& filename, MPI_Comm comm)
+        : m_mpi_comm(comm)
+        , h5_file(create_h5file(path, detail::adjust_filename_for_comm(filename, comm), comm))
+        , m_path(path)
+        , m_filename(detail::adjust_filename_for_comm(filename, comm))
+    {
+        auto xdmf = m_doc.append_child("Xdmf");
+        m_domain  = xdmf.append_child("Domain");
+    }
+
+    template <class D>
+    HighFive::File Hdf5<D>::create_h5file(const fs::path& path, const std::string& filename, MPI_Comm comm)
+    {
+        HighFive::FileAccessProps fapl;
+        // Only use collective metadata for communicators larger than SELF
+        mpi::communicator comm_wrapped(comm, mpi::comm_create_kind::comm_duplicate);
+
+        if (comm_wrapped.size() > 1)
+        {
+            fapl.add(HighFive::MPIOFileAccess{comm, MPI_INFO_NULL});
+            fapl.add(HighFive::MPIOCollectiveMetadata{});
+        }
+
+        return HighFive::File(fmt::format("{}.h5", (path / filename).string()), HighFive::File::Overwrite, fapl);
+    }
+
+#else
+    template <class D>
+    Hdf5<D>::Hdf5(const fs::path& path, const std::string& filename)
         : h5_file(create_h5file(path, filename))
         , m_path(path)
         , m_filename(filename)
@@ -496,21 +623,16 @@ namespace samurai
     template <class D>
     HighFive::File Hdf5<D>::create_h5file(const fs::path& path, const std::string& filename)
     {
-        HighFive::FileAccessProps fapl;
-#ifdef SAMURAI_WITH_MPI
-        fapl.add(HighFive::MPIOFileAccess{MPI_COMM_WORLD, MPI_INFO_NULL});
-        fapl.add(HighFive::MPIOCollectiveMetadata{});
-#endif
-        return HighFive::File(fmt::format("{}.h5", (path / filename).string()), HighFive::File::Overwrite, fapl);
+        return HighFive::File(fmt::format("{}.h5", (path / filename).string()), HighFive::File::Overwrite);
     }
+#endif
 
     template <class D>
     SAMURAI_INLINE Hdf5<D>::~Hdf5()
     {
 #ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-
-        if (world.rank() == 0)
+        mpi::communicator comm_wrapped(m_mpi_comm, mpi::comm_create_kind::comm_duplicate);
+        if (comm_wrapped.rank() == 0)
 #endif
         {
             m_doc.save_file(fmt::format("{}.xdmf", (m_path / m_filename).string()).data());
@@ -529,24 +651,25 @@ namespace samurai
     Hdf5<D>::save_on_mesh(pugi::xml_node& grid_parent, const std::string& prefix, const Submesh& submesh, const std::string& mesh_name)
     {
         static constexpr std::size_t dim = derived_type_save::dim;
+        std::size_t rank                 = 0;
+        std::size_t size                 = 1;
 
         xt::xtensor<std::size_t, 2> local_connectivity;
         xt::xtensor<double, 2> local_coords;
         std::tie(local_coords, local_connectivity) = extract_coords_and_connectivity(submesh);
 
 #ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
+        mpi::communicator comm(m_mpi_comm, mpi::comm_create_kind::comm_duplicate);
 
-        auto rank = static_cast<std::size_t>(world.rank());
-        auto size = static_cast<std::size_t>(world.size());
+        size = static_cast<std::size_t>(comm.size());
+        rank = static_cast<std::size_t>(comm.rank());
 
         xt::xtensor<std::size_t, 1> connectivity_sizes = xt::empty<std::size_t>({size});
-        mpi::all_gather(world, local_connectivity.shape(0), connectivity_sizes.begin());
-        xt::xtensor<std::size_t, 1> coords_sizes = xt::empty<std::size_t>({size});
-        mpi::all_gather(world, local_coords.shape(0), coords_sizes.begin());
+        xt::xtensor<std::size_t, 1> coords_sizes       = xt::empty<std::size_t>({size});
+
+        mpi::all_gather(comm, local_connectivity.shape(0), connectivity_sizes.begin());
+        mpi::all_gather(comm, local_coords.shape(0), coords_sizes.begin());
 #else
-        std::size_t rank                                                 = 0;
-        std::size_t size                                                 = 1;
         xt::xtensor_fixed<std::size_t, xt::xshape<1>> connectivity_sizes = {local_connectivity.shape(0)};
         xt::xtensor_fixed<std::size_t, xt::xshape<1>> coords_sizes       = {local_coords.shape(0)};
 #endif
@@ -566,9 +689,6 @@ namespace samurai
         if (coords_cumsum.back() != 0)
         {
             auto xfer_props = HighFive::DataTransferProps{};
-#ifdef SAMURAI_WITH_MPI
-            xfer_props.add(HighFive::UseCollectiveIO{});
-#endif
             if (size == 1)
             {
                 auto connectivity = h5_file.createDataSet<std::size_t>(
@@ -586,6 +706,9 @@ namespace samurai
             }
             else
             {
+#ifdef SAMURAI_WITH_MPI
+                xfer_props.add(HighFive::UseCollectiveIO{});
+#endif
                 for (std::size_t r = 0; r < size; ++r)
                 {
                     if (coords_sizes[r] != 0)
@@ -686,14 +809,23 @@ namespace samurai
     {
         auto xfer_props = HighFive::DataTransferProps{};
 #ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
 
-        auto rank = static_cast<std::size_t>(world.rank());
-        auto size = static_cast<std::size_t>(world.size());
-        xfer_props.add(HighFive::UseCollectiveIO{});
+        mpi::communicator comm(m_mpi_comm, mpi::comm_create_kind::comm_duplicate);
+
+        std::size_t size = static_cast<std::size_t>(comm.size());
+        std::size_t rank = static_cast<std::size_t>(comm.rank());
 
         xt::xtensor<std::size_t, 1> field_sizes = xt::empty<std::size_t>({size});
-        mpi::all_gather(world, submesh.nb_cells(), field_sizes.begin());
+
+        if (size == 1)
+        {
+            field_sizes[0] = submesh.nb_cells();
+        }
+        else
+        {
+            xfer_props.add(HighFive::UseCollectiveIO{});
+            mpi::all_gather(comm, submesh.nb_cells(), field_sizes.begin());
+        }
 #else
         std::size_t rank                                          = 0;
         std::size_t size                                          = 1;
@@ -816,10 +948,22 @@ namespace samurai
         using mesh_t                     = Mesh;
         static constexpr std::size_t dim = mesh_t::dim;
 
+#ifdef SAMURAI_WITH_MPI
+        Hdf5_CellArray(const fs::path& path,
+                       const std::string& filename,
+                       MPI_Comm comm,
+                       const options_t& options,
+                       const Mesh& mesh,
+                       const T&... fields)
+            : base_type(path, filename, comm, options, mesh, fields...)
+        {
+        }
+#else
         Hdf5_CellArray(const fs::path& path, const std::string& filename, const options_t& options, const Mesh& mesh, const T&... fields)
             : base_type(path, filename, options, mesh, fields...)
         {
         }
+#endif
 
         const mesh_t& get_mesh() const
         {
@@ -854,10 +998,22 @@ namespace samurai
         using ca_type                    = typename mesh_t::ca_type;
         static constexpr std::size_t dim = mesh_t::dim;
 
+#ifdef SAMURAI_WITH_MPI
+        Hdf5_mesh_base_level(const fs::path& path,
+                             const std::string& filename,
+                             MPI_Comm comm,
+                             const options_t& options,
+                             const Mesh& mesh,
+                             const T&... fields)
+            : base_type(path, filename, comm, options, mesh, fields...)
+        {
+        }
+#else
         Hdf5_mesh_base_level(const fs::path& path, const std::string& filename, const options_t& options, const Mesh& mesh, const T&... fields)
             : base_type(path, filename, options, mesh, fields...)
         {
         }
+#endif
 
         const ca_type& get_mesh() const
         {
@@ -890,10 +1046,22 @@ namespace samurai
         using ca_type                    = Mesh;
         static constexpr std::size_t dim = ca_type::dim;
 
+#ifdef SAMURAI_WITH_MPI
+        Hdf5_LevelCellArray(const fs::path& path,
+                            const std::string& filename,
+                            MPI_Comm comm,
+                            const options_t& options,
+                            const Mesh& mesh,
+                            const T&... fields)
+            : base_type(path, filename, comm, options, mesh, fields...)
+        {
+        }
+#else
         Hdf5_LevelCellArray(const fs::path& path, const std::string& filename, const options_t& options, const Mesh& mesh, const T&... fields)
             : base_type(path, filename, options, mesh, fields...)
         {
         }
+#endif
 
         const ca_type& get_mesh() const
         {
@@ -928,11 +1096,22 @@ namespace samurai
         using ca_type                    = typename mesh_t::ca_type;
         static constexpr std::size_t dim = mesh_t::dim;
 
+#ifdef SAMURAI_WITH_MPI
+        Hdf5_mesh_base(const fs::path& path,
+                       const std::string& filename,
+                       MPI_Comm comm,
+                       const options_t& options,
+                       const Mesh& mesh,
+                       const T&... fields)
+            : base_type(path, filename, comm, options, mesh, fields...)
+        {
+        }
+#else
         Hdf5_mesh_base(const fs::path& path, const std::string& filename, const options_t& options, const Mesh& mesh, const T&... fields)
             : base_type(path, filename, options, mesh, fields...)
         {
         }
-
+#endif
         const ca_type& get_mesh() const
         {
             return this->mesh()[mesh_id_t::cells];
@@ -957,7 +1136,7 @@ namespace samurai
     namespace detail
     {
         template <class mesh_t>
-            requires std::is_base_of_v<Mesh_base<mesh_t, typename mesh_t::config>, mesh_t>
+            requires std::is_base_of_v<Mesh_base<mesh_t, typename mesh_t::config_t>, mesh_t>
         const auto& get_all_cells(const mesh_t& mesh)
         {
             using mesh_id_t = typename mesh_t::mesh_id_t;
@@ -998,12 +1177,18 @@ namespace samurai
         using hdf5_mesh_t = typename hdf5_mesh<D, T...>::type;
     }
 
+#ifdef SAMURAI_WITH_MPI
     template <class mesh_t, class... T>
         requires(mesh_like<mesh_t>)
-    void save(const fs::path& path, const std::string& filename, const Hdf5Options<mesh_t>& options, const mesh_t& mesh, const T&... fields)
+    void save(const fs::path& path,
+              const std::string& filename,
+              MPI_Comm comm,
+              const Hdf5Options<mesh_t>& options,
+              const mesh_t& mesh,
+              const T&... fields)
     {
         static constexpr std::size_t dim = mesh_t::dim;
-        times::timers.start("data saving");
+        ScopedTimer timer_save("data saving");
 
         if (!fs::exists(path))
         {
@@ -1028,28 +1213,98 @@ namespace samurai
                               level_field[cell] = cell.level;
                           });
 
-            auto h5 = hdf5_t(path, filename, options, mesh, index_field, coord_field, level_field, fields...);
+            auto h5 = hdf5_t(path, filename, comm, options, mesh, index_field, coord_field, level_field, fields...);
             h5.save();
         }
         else
         {
             using hdf5_t = detail::hdf5_mesh_t<mesh_t, T...>;
-            auto h5      = hdf5_t(path, filename, options, mesh, fields...);
+            auto h5      = hdf5_t(path, filename, comm, options, mesh, fields...);
             h5.save();
         }
-        times::timers.stop("data saving");
+    }
+
+    template <class mesh_t, class... T>
+        requires(mesh_like<mesh_t>)
+    void save(const fs::path& path, const std::string& filename, MPI_Comm comm, const mesh_t& mesh, const T&... fields)
+    {
+        save(path, filename, comm, Hdf5Options<mesh_t>{}, mesh, fields...);
+    }
+
+    template <class mesh_t, class... T>
+        requires(mesh_like<mesh_t>)
+    void save(const std::string& filename, MPI_Comm comm, const Hdf5Options<mesh_t>& options, const mesh_t& mesh, const T&... fields)
+    {
+        save(fs::current_path(), filename, comm, options, mesh, fields...);
+    }
+
+    template <class mesh_t, class... T>
+        requires(mesh_like<mesh_t>)
+    void save(const std::string& filename, MPI_Comm comm, const mesh_t& mesh, const T&... fields)
+    {
+        save(fs::current_path(), filename, comm, Hdf5Options<mesh_t>{}, mesh, fields...);
+    }
+#endif
+
+    template <class mesh_t, class... T>
+        requires(mesh_like<mesh_t>)
+    void save(const fs::path& path, const std::string& filename, const Hdf5Options<mesh_t>& options, const mesh_t& mesh, const T&... fields)
+    {
+        static constexpr std::size_t dim = mesh_t::dim;
+        ScopedTimer timer_save("data saving");
+
+        if (!fs::exists(path))
+        {
+            fs::create_directory(path);
+        }
+
+        if (args::save_debug_fields)
+        {
+            const auto& mesh_ref = detail::get_all_cells(mesh);
+
+            auto index_field = make_vector_field<int, dim>("indices", mesh);
+            auto coord_field = make_vector_field<double, dim>("coordinates", mesh);
+            auto level_field = make_scalar_field<std::size_t>("levels", mesh);
+
+            using hdf5_t = detail::hdf5_mesh_t<mesh_t, decltype(index_field), decltype(coord_field), decltype(level_field), T...>;
+
+            for_each_cell(mesh_ref,
+                          [&](auto& cell)
+                          {
+                              index_field[cell] = cell.indices;
+                              coord_field[cell] = cell.center();
+                              level_field[cell] = cell.level;
+                          });
+
+#ifdef SAMURAI_WITH_MPI
+            auto h5 = hdf5_t(path, filename, MPI_COMM_WORLD, options, mesh, index_field, coord_field, level_field, fields...);
+#else
+            auto h5 = hdf5_t(path, filename, options, mesh, index_field, coord_field, level_field, fields...);
+#endif
+            h5.save();
+        }
+        else
+        {
+            using hdf5_t = detail::hdf5_mesh_t<mesh_t, T...>;
+#ifdef SAMURAI_WITH_MPI
+            auto h5 = hdf5_t(path, filename, MPI_COMM_WORLD, options, mesh, fields...);
+#else
+            auto h5 = hdf5_t(path, filename, options, mesh, fields...);
+#endif
+            h5.save();
+        }
     }
 
     template <class mesh_t, class... T>
         requires(mesh_like<mesh_t>)
     void save(const fs::path& path, const std::string& filename, const mesh_t& mesh, const T&... fields)
     {
-        save(path, filename, {}, mesh, fields...);
+        save(path, filename, Hdf5Options<mesh_t>{}, mesh, fields...);
     }
 
-    template <class options_t, class mesh_t, class... T>
-        requires(mesh_like<mesh_t> && std::is_same_v<options_t, std::initializer_list<bool>>)
-    void save(const std::string& filename, const options_t& options, const mesh_t& mesh, const T&... fields)
+    template <class mesh_t, class... T>
+        requires(mesh_like<mesh_t>)
+    void save(const std::string& filename, const Hdf5Options<mesh_t>& options, const mesh_t& mesh, const T&... fields)
     {
         save(fs::current_path(), filename, options, mesh, fields...);
     }
@@ -1058,6 +1313,52 @@ namespace samurai
         requires(mesh_like<mesh_t>)
     void save(const std::string& filename, const mesh_t& mesh, const T&... fields)
     {
-        save(fs::current_path(), filename, {}, mesh, fields...);
+        save(fs::current_path(), filename, Hdf5Options<mesh_t>{}, mesh, fields...);
     }
+
+    template <class mesh_t, class... T>
+        requires(mesh_like<mesh_t>)
+    void
+    local_save(const fs::path& path, const std::string& filename, const Hdf5Options<mesh_t>& options, const mesh_t& mesh, const T&... fields)
+    {
+#ifdef SAMURAI_WITH_MPI
+        save(path, filename, MPI_COMM_SELF, options, mesh, fields...);
+#else
+        save(path, filename, options, mesh, fields...);
+#endif
+    }
+
+    template <class mesh_t, class... T>
+        requires(mesh_like<mesh_t>)
+    void local_save(const fs::path& path, const std::string& filename, const mesh_t& mesh, const T&... fields)
+    {
+#ifdef SAMURAI_WITH_MPI
+        save(path, filename, MPI_COMM_SELF, Hdf5Options<mesh_t>{}, mesh, fields...);
+#else
+        save(path, filename, Hdf5Options<mesh_t>{}, mesh, fields...);
+#endif
+    }
+
+    template <class mesh_t, class... T>
+        requires(mesh_like<mesh_t>)
+    void local_save(const std::string& filename, const Hdf5Options<mesh_t>& options, const mesh_t& mesh, const T&... fields)
+    {
+#ifdef SAMURAI_WITH_MPI
+        save(fs::current_path(), filename, MPI_COMM_SELF, options, mesh, fields...);
+#else
+        save(fs::current_path(), filename, options, mesh, fields...);
+#endif
+    }
+
+    template <class mesh_t, class... T>
+        requires(mesh_like<mesh_t>)
+    void local_save(const std::string& filename, const mesh_t& mesh, const T&... fields)
+    {
+#ifdef SAMURAI_WITH_MPI
+        save(fs::current_path(), filename, Hdf5Options<mesh_t>{}, mesh, fields...);
+#else
+        save(fs::current_path(), filename, Hdf5Options<mesh_t>{}, mesh, fields...);
+#endif
+    }
+
 } // namespace samurai

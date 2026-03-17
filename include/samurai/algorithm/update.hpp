@@ -36,7 +36,7 @@ namespace samurai
     void update_ghost(Field& field, Fields&... fields)
     {
         using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
-        constexpr std::size_t pred_order = Field::mesh_t::config::prediction_stencil_radius;
+        constexpr std::size_t pred_order = Field::mesh_t::config_t::prediction_stencil_radius;
 
         auto& mesh            = field.mesh();
         std::size_t max_level = mesh.max_level();
@@ -64,7 +64,7 @@ namespace samurai
     void update_ghost_mro(Field& field)
     {
         using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
-        constexpr std::size_t pred_order = Field::mesh_t::config::prediction_stencil_radius;
+        constexpr std::size_t pred_order = Field::mesh_t::config_t::prediction_stencil_radius;
         auto& mesh                       = field.mesh();
 
         std::size_t max_level = mesh.max_level();
@@ -250,7 +250,7 @@ namespace samurai
 
         if (level < mesh.max_level() && level >= (mesh.min_level() > 0 ? mesh.min_level() - 1 : 0))
         {
-            static constexpr std::size_t max_stencil_width = Field::mesh_t::config::max_stencil_width;
+            static constexpr std::size_t max_stencil_width = Field::mesh_t::config_t::max_stencil_width;
             int max_coarse_layer = static_cast<int>(max_stencil_width % 2 == 0 ? max_stencil_width / 2 : (max_stencil_width + 1) / 2);
 
             for_each_cartesian_direction<Field::dim>(
@@ -395,7 +395,7 @@ namespace samurai
     template <class Field>
     void update_outer_ghosts(std::size_t level, Field& field)
     {
-        static_assert(Field::mesh_t::config::prediction_stencil_radius <= 1);
+        static_assert(Field::mesh_t::config_t::prediction_stencil_radius <= 1);
 
         constexpr std::size_t dim = Field::dim;
 
@@ -527,10 +527,9 @@ namespace samurai
     template <class Field, class... Fields>
     void update_ghost_mr(Field& field, Fields&... other_fields)
     {
+        ScopedTimer timer_ghosts("ghost update");
         using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
-        constexpr std::size_t pred_order = Field::mesh_t::config::prediction_stencil_radius;
-
-        times::timers.start("ghost update");
+        constexpr std::size_t pred_order = Field::mesh_t::config_t::prediction_stencil_radius;
 
         auto& mesh            = field.mesh();
         auto max_level        = mesh.max_level();
@@ -540,8 +539,8 @@ namespace samurai
 
         for (std::size_t level = max_level; level > min_level; --level)
         {
-            update_ghost_periodic(level, field, other_fields...);
             update_ghost_subdomains(level, field, other_fields...);
+            update_ghost_periodic(level, field, other_fields...);
 
             auto set_at_levelm1 = intersection(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::proj_cells][level - 1]).on(level - 1);
             set_at_levelm1.apply_op(variadic_projection(field, other_fields...));
@@ -551,12 +550,12 @@ namespace samurai
 
         if (min_level > 0 && min_level != max_level)
         {
-            update_ghost_periodic(min_level - 1, field, other_fields...);
             update_ghost_subdomains(min_level - 1, field, other_fields...);
+            update_ghost_periodic(min_level - 1, field, other_fields...);
             update_outer_ghosts(min_level - 1, field, other_fields...);
         }
-        update_ghost_periodic(min_level, field, other_fields...);
         update_ghost_subdomains(min_level, field, other_fields...);
+        update_ghost_periodic(min_level, field, other_fields...);
 
         for (std::size_t level = min_level + 1; level <= max_level; ++level)
         {
@@ -565,15 +564,15 @@ namespace samurai
             auto expr        = intersection(pred_ghosts, mesh.subdomain(), mesh[mesh_id_t::all_cells][level - 1]).on(level);
 
             expr.apply_op(variadic_prediction<pred_order, false>(field, other_fields...));
-            update_ghost_periodic(level, field, other_fields...);
             update_ghost_subdomains(level, field, other_fields...);
+            update_ghost_periodic(level, field, other_fields...);
         }
         // save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
 
         field.ghosts_updated() = true;
         ((other_fields.ghosts_updated() = true), ...);
 
-        times::timers.stop("ghost update");
+        timer_ghosts.set_cells(mesh.nb_cells(mesh_id_t::cells));
     }
 
     SAMURAI_INLINE void update_ghost_mr()

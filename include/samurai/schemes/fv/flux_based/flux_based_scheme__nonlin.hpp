@@ -202,7 +202,7 @@ namespace samurai
             {
                 copy_stencil_values(field, cells, stencil_values_list[0]);
             }
-            else if constexpr (mesh_t::config::prediction_stencil_radius == 0 && stencil_size <= 4)
+            else if constexpr (mesh_t::config_t::prediction_stencil_radius == 0 && stencil_size <= 4)
             {
                 for (std::size_t fine_flux_index = 0; fine_flux_index < flux_params.n_fine_fluxes; ++fine_flux_index)
                 {
@@ -414,6 +414,10 @@ namespace samurai
             auto& flux_def = flux_definition()[d];
 
             auto flux_function = flux_def.flux_function ? flux_def.flux_function : flux_def.flux_function_as_conservative();
+            if (!flux_function)
+            {
+                return;
+            }
 
             FluxParameters<enable_finer_level_flux> flux_params;
             flux_params.max_level        = mesh.max_level();
@@ -532,6 +536,10 @@ namespace samurai
             auto& flux_def = flux_definition()[d];
 
             auto flux_function = flux_def.flux_function ? flux_def.flux_function : flux_def.flux_function_as_conservative();
+            if (!flux_function)
+            {
+                return;
+            }
 
             for_each_level(mesh,
                            [&](auto level)

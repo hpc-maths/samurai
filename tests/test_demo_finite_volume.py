@@ -23,7 +23,6 @@ def get_executable(path, filename):
     "exec, Tf",
     [
         ("finite-volume-advection-1d", "0.1"),
-        ("finite-volume-advection-2d", "0.01"),
         ("finite-volume-scalar-burgers-2d", "0.001"),
     ],
 )
@@ -49,6 +48,26 @@ def test_finite_volume_demo_with_restart(exec, Tf, config):
         Tf,
         "--restart-file",
         os.path.join(config["path"], f"{config['filename']}_restart_init"),
+    ]
+    output = subprocess.run(cmd, check=True, capture_output=True)
+
+
+@pytest.mark.h5diff()
+@pytest.mark.parametrize(
+    "exec, Tf",
+    [
+        ("finite-volume-advection-2d", "0.01"),
+    ],
+)
+def test_finite_volume_advection_2d(exec, Tf, config):
+    cmd = [
+        get_executable(Path("../build/demos/FiniteVolume/"), exec),
+        "--path",
+        config["path"],
+        "--filename",
+        config["filename"],
+        "--Tf",
+        Tf,
     ]
     output = subprocess.run(cmd, check=True, capture_output=True)
 
@@ -186,8 +205,17 @@ def test_finite_volume_demo_mra_burgers(config):
     ]
     output = subprocess.run(cmd, check=True, capture_output=True)
 
+
 @pytest.mark.h5diff()
-@pytest.mark.parametrize("scheme", ["imp_diff_imp_react", "exp_diff_imp_react", "imp_diff_exp_react", "exp_diff_exp_react"])
+@pytest.mark.parametrize(
+    "scheme",
+    [
+        "imp_diff_imp_react",
+        "exp_diff_imp_react",
+        "imp_diff_exp_react",
+        "exp_diff_exp_react",
+    ],
+)
 def test_finite_volume_demo_nagumo(scheme, config):
     cmd = [
         get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-nagumo"),
@@ -228,7 +256,26 @@ def test_finite_volume_demo_lid_driven_cavity(config):
         "--min-level=3",
         "--max-level=6",
         "--Tf=0.03",
-        "-pc_type", "qr" # we use QR because MUMPS yields different results on macos and linux, so the comparison fails on the CI
+        "-pc_type",
+        "qr",  # we use QR because MUMPS yields different results on macos and linux, so the comparison fails on the CI
+    ]
+    output = subprocess.run(cmd, check=True, capture_output=True)
+
+
+@pytest.mark.h5diff(atol=1e-4, rtol=1e-4)
+def test_finite_volume_demo_diff_heated_cavity(config):
+    cmd = [
+        get_executable(
+            Path("../build/demos/FiniteVolume/"), "finite-volume-diff-heated-cavity"
+        ),
+        "--path",
+        config["path"],
+        "--filename",
+        config["filename"],
+        "--nfiles=1",
+        "--Tf=0.7",
+        "-pc_type",
+        "qr",  # we use QR because MUMPS yields different results on macos and linux, so the comparison fails on the CI
     ]
     output = subprocess.run(cmd, check=True, capture_output=True)
 
@@ -253,11 +300,13 @@ def test_finite_volume_demo_linear_convection(time_scheme, config):
         cmd.append("--implicit")
     output = subprocess.run(cmd, check=True, capture_output=True)
 
+
 @pytest.mark.h5diff()
 def test_finite_volume_demo_obstacle_linear_convection(config):
     cmd = [
         get_executable(
-            Path("../build/demos/FiniteVolume/"), "finite-volume-linear-convection-obstacle"
+            Path("../build/demos/FiniteVolume/"),
+            "finite-volume-linear-convection-obstacle",
         ),
         "--path",
         config["path"],

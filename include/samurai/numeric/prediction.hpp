@@ -4,16 +4,17 @@
 #pragma once
 
 #include <array>
+#include <initializer_list>
+#include <tuple>
 #include <type_traits>
+#include <utility>
+#include <vector>
 
-#include <xtensor/containers/xadapt.hpp>
 #include <xtensor/views/xview.hpp>
 
 #include "../operators_base.hpp"
-#include "../storage/utils.hpp"
-#ifdef SAMURAI_CHECK_NAN
-#include "../io/hdf5.hpp"
-#endif
+#include "../static_algorithm.hpp"
+#include "../utils.hpp"
 
 namespace samurai
 {
@@ -74,245 +75,6 @@ namespace samurai
                 -sign * 63. / 262144.};
     }
 
-    template <std::size_t s>
-    SAMURAI_INLINE std::array<double, s> prediction_coeffs();
-
-    template <>
-    SAMURAI_INLINE std::array<double, 1> prediction_coeffs<1>()
-    {
-        return {-1. / 8.};
-    }
-
-    template <>
-    SAMURAI_INLINE std::array<double, 2> prediction_coeffs<2>()
-    {
-        return {-22. / 128., 3. / 128.};
-    }
-
-    template <>
-    SAMURAI_INLINE std::array<double, 3> prediction_coeffs<3>()
-    {
-        return {-201. / 1024., 11. / 256., -5. / 1024.};
-    }
-
-    template <>
-    SAMURAI_INLINE std::array<double, 4> prediction_coeffs<4>()
-    {
-        return {-3461. / 16384., 949. / 16384, -185. / 16384, 35. / 32768.};
-    }
-
-    template <>
-    SAMURAI_INLINE std::array<double, 5> prediction_coeffs<5>()
-    {
-        return {-29011. / 131072., 569. / 8192., -4661. / 262144., 49. / 16384., -63. / 262144.};
-    }
-
-    template <class T>
-    struct field_hack
-    {
-        field_hack(T&& t)
-            : m_e{std::forward<T>(t)}
-        {
-        }
-
-        template <std::size_t s, class interval_t, class... index_t>
-        SAMURAI_INLINE auto operator()(std::integral_constant<std::size_t, s>, std::size_t level, const interval_t& i, const index_t... index)
-        {
-            return m_e(level, i, index...);
-        }
-
-        T m_e;
-    };
-
-    template <class T>
-    SAMURAI_INLINE auto make_field_hack(T&& t)
-    {
-        return field_hack<T>(std::forward<T>(t));
-    }
-
-    template <std::size_t S, class T, class C>
-    struct Qs_i_impl
-    {
-        static constexpr std::size_t slim = S;
-
-        SAMURAI_INLINE Qs_i_impl(T&& e, C& c)
-            : m_e{std::forward<T>(e)}
-            , m_c{c}
-        {
-        }
-
-        template <std::size_t s, class interval_t, class... index_t>
-        SAMURAI_INLINE auto operator()(std::integral_constant<std::size_t, s>, std::size_t level, const interval_t& i, const index_t... index)
-        {
-            using coord_index_t = typename interval_t::coord_index_t;
-            return eval(m_c[s - 1]
-                            * (m_e(std::integral_constant<std::size_t, s + 1>{}, level, i + static_cast<coord_index_t>(s), index...)
-                               - m_e(std::integral_constant<std::size_t, s + 1>{}, level, i - static_cast<coord_index_t>(s), index...))
-                        + operator()(std::integral_constant<std::size_t, s + 1>{}, level, i, index...));
-        }
-
-        template <class interval_t, class... index_t>
-        SAMURAI_INLINE auto
-        operator()(std::integral_constant<std::size_t, slim>, std::size_t level, const interval_t& i, const index_t... index)
-        {
-            using coord_index_t = typename interval_t::coord_index_t;
-            return eval(m_c[slim - 1]
-                        * (m_e(std::integral_constant<std::size_t, slim>{}, level, i + static_cast<coord_index_t>(slim), index...)
-                           - m_e(std::integral_constant<std::size_t, slim>{}, level, i - static_cast<coord_index_t>(slim), index...)));
-        }
-
-        T m_e;
-        C m_c;
-    };
-
-    template <std::size_t S, class T, class C>
-    SAMURAI_INLINE auto make_Qs_i(T&& t, C&& c)
-    {
-        return Qs_i_impl<S, T, C>(std::forward<T>(t), std::forward<C>(c));
-    }
-
-    template <std::size_t s, class Field, class interval_t, class... index_t>
-    SAMURAI_INLINE auto Qs_i(const Field& field, std::size_t level, const interval_t& i, const index_t... index)
-    {
-        auto c  = prediction_coeffs<s>();
-        auto qs = make_Qs_i<s>(make_field_hack(field), c);
-        return qs(std::integral_constant<std::size_t, 1>{}, level, i, index...);
-    }
-
-    template <std::size_t S, class T, class C>
-    struct Qs_j_impl
-    {
-        static constexpr std::size_t slim = S;
-
-        SAMURAI_INLINE Qs_j_impl(T&& e, C& c)
-            : m_e{std::forward<T>(e)}
-            , m_c{c}
-        {
-        }
-
-        template <std::size_t s, class interval_t, class coord_index_t = typename interval_t::coord_index_t, class... index_t>
-        SAMURAI_INLINE auto
-        operator()(std::integral_constant<std::size_t, s>, std::size_t level, const interval_t& i, const coord_index_t j, const index_t... index)
-        {
-            return eval(m_c[s - 1]
-                            * (m_e(std::integral_constant<std::size_t, s + 1>{}, level, i, j + static_cast<coord_index_t>(s), index...)
-                               - m_e(std::integral_constant<std::size_t, s + 1>{}, level, i, j - static_cast<coord_index_t>(s), index...))
-                        + operator()(std::integral_constant<std::size_t, s + 1>{}, level, i, j, index...));
-        }
-
-        template <class interval_t, class coord_index_t = typename interval_t::coord_index_t, class... index_t>
-        SAMURAI_INLINE auto operator()(std::integral_constant<std::size_t, slim>,
-                                       std::size_t level,
-                                       const interval_t& i,
-                                       const coord_index_t j,
-                                       const index_t... index)
-        {
-            return eval(m_c[slim - 1]
-                        * (m_e(std::integral_constant<std::size_t, slim>{}, level, i, j + static_cast<coord_index_t>(slim), index...)
-                           - m_e(std::integral_constant<std::size_t, slim>{}, level, i, j - static_cast<coord_index_t>(slim), index...)));
-        }
-
-        T m_e;
-        C m_c;
-    };
-
-    template <std::size_t S, class T, class C>
-    SAMURAI_INLINE auto make_Qs_j(T&& t, C&& c)
-    {
-        return Qs_j_impl<S, T, C>(std::forward<T>(t), std::forward<C>(c));
-    }
-
-    template <std::size_t s, class Field, class interval_t, class coord_index_t = typename interval_t::coord_index_t, class... index_t>
-    SAMURAI_INLINE auto Qs_j(const Field& field, std::size_t level, const interval_t& i, const coord_index_t j, const index_t... index)
-    {
-        auto c  = prediction_coeffs<s>();
-        auto qs = make_Qs_j<s>(make_field_hack(field), c);
-        return qs(std::integral_constant<std::size_t, 1>{}, level, i, j, index...);
-    }
-
-    template <std::size_t S, class T, class C>
-    struct Qs_k_impl
-    {
-        static constexpr std::size_t slim = S;
-
-        SAMURAI_INLINE Qs_k_impl(T&& e, C& c)
-            : m_e{std::forward<T>(e)}
-            , m_c{c}
-        {
-        }
-
-        template <std::size_t s, class interval_t, class coord_index_t = typename interval_t::coord_index_t>
-        SAMURAI_INLINE auto
-        operator()(std::integral_constant<std::size_t, s>, std::size_t level, const interval_t& i, const coord_index_t j, const coord_index_t k)
-        {
-            return eval(m_c[s - 1]
-                            * (m_e(std::integral_constant<std::size_t, s + 1>{}, level, i, j, k + static_cast<coord_index_t>(s))
-                               - m_e(std::integral_constant<std::size_t, s + 1>{}, level, i, j, k - static_cast<coord_index_t>(s)))
-                        + operator()(std::integral_constant<std::size_t, s + 1>{}, level, i, j, k));
-        }
-
-        template <class interval_t, class coord_index_t = typename interval_t::coord_index_t>
-        SAMURAI_INLINE auto operator()(std::integral_constant<std::size_t, slim>,
-                                       std::size_t level,
-                                       const interval_t& i,
-                                       const coord_index_t j,
-                                       const coord_index_t k)
-        {
-            return eval(m_c[slim - 1]
-                        * (m_e(std::integral_constant<std::size_t, slim>{}, level, i, j, k + static_cast<coord_index_t>(slim))
-                           - m_e(std::integral_constant<std::size_t, slim>{}, level, i, j, k - static_cast<coord_index_t>(slim))));
-        }
-
-        T m_e;
-        C m_c;
-    };
-
-    template <std::size_t S, class T, class C>
-    SAMURAI_INLINE auto make_Qs_k(T&& t, C&& c)
-    {
-        return Qs_k_impl<S, T, C>(std::forward<T>(t), std::forward<C>(c));
-    }
-
-    template <std::size_t s, class Field, class interval_t, class coord_index_t = typename interval_t::coord_index_t>
-    SAMURAI_INLINE auto Qs_k(const Field& field, std::size_t level, const interval_t& i, const coord_index_t j, const coord_index_t k)
-    {
-        auto c  = prediction_coeffs<s>();
-        auto qs = make_Qs_k<s>(make_field_hack(field), c);
-        return qs(std::integral_constant<std::size_t, 1>{}, level, i, j, k);
-    }
-
-    template <std::size_t s, class Field, class interval_t, class coord_index_t = typename interval_t::coord_index_t, class... index_t>
-    SAMURAI_INLINE auto Qs_ij(const Field& field, std::size_t level, const interval_t& i, const coord_index_t j, const index_t... index)
-    {
-        auto c  = prediction_coeffs<s>();
-        auto qs = make_Qs_i<s>(make_Qs_j<s>(make_field_hack(field), c), c);
-        return qs(std::integral_constant<std::size_t, 1>{}, level, i, j, index...);
-    }
-
-    template <std::size_t s, class Field, class interval_t, class coord_index_t = typename interval_t::coord_index_t, class... index_t>
-    SAMURAI_INLINE auto Qs_ik(const Field& field, std::size_t level, const interval_t& i, const coord_index_t j, const index_t... index)
-    {
-        auto c  = prediction_coeffs<s>();
-        auto qs = make_Qs_i<s>(make_Qs_k<s>(make_field_hack(field), c), c);
-        return qs(std::integral_constant<std::size_t, 1>{}, level, i, j, index...);
-    }
-
-    template <std::size_t s, class Field, class interval_t, class coord_index_t = typename interval_t::coord_index_t, class... index_t>
-    SAMURAI_INLINE auto Qs_jk(const Field& field, std::size_t level, const interval_t& i, const coord_index_t j, const index_t... index)
-    {
-        auto c  = prediction_coeffs<s>();
-        auto qs = make_Qs_j<s>(make_Qs_k<s>(make_field_hack(field), c), c);
-        return qs(std::integral_constant<std::size_t, 1>{}, level, i, j, index...);
-    }
-
-    template <std::size_t s, class Field, class interval_t, class coord_index_t = typename interval_t::coord_index_t>
-    SAMURAI_INLINE auto Qs_ijk(const Field& field, std::size_t level, const interval_t& i, const coord_index_t j, const coord_index_t k)
-    {
-        auto c  = prediction_coeffs<s>();
-        auto qs = make_Qs_i<s>(make_Qs_j<s>(make_Qs_k<s>(make_field_hack(field), c), c), c);
-        return qs(std::integral_constant<std::size_t, 1>{}, level, i, j, k);
-    }
-
     /////////////////////////
     // prediction operator //
     /////////////////////////
@@ -324,503 +86,276 @@ namespace samurai
 
         INIT_OPERATOR(prediction_op)
 
-        template <class T1, class T2>
-        void operator()(Dim<1>, T1& dest, const T2& src, std::integral_constant<std::size_t, 0>, std::integral_constant<bool, true>) const;
-
-        template <class T1, class T2>
-        void operator()(Dim<1>, T1& dest, const T2& src, std::integral_constant<std::size_t, 0>, std::integral_constant<bool, false>) const;
-
-        template <class T1, class T2, std::size_t order>
+        template <class DEST, class SRC>
         void
-        operator()(Dim<1>, T1& dest, const T2& src, std::integral_constant<std::size_t, order>, std::integral_constant<bool, true>) const;
+        operator()(Dim<dim>, DEST& dest, const SRC& src, std::integral_constant<std::size_t, 0>, std::integral_constant<bool, true>) const;
 
-        template <class T1, class T2, std::size_t order>
+        template <class DEST, class SRC>
         void
-        operator()(Dim<1>, T1& dest, const T2& src, std::integral_constant<std::size_t, order>, std::integral_constant<bool, false>) const;
+        operator()(Dim<dim>, DEST& dest, const SRC& src, std::integral_constant<std::size_t, 0>, std::integral_constant<bool, false>) const;
 
-        template <class T1, class T2>
-        void operator()(Dim<2>, T1& dest, const T2& src, std::integral_constant<std::size_t, 0>, std::integral_constant<bool, true>) const;
-
-        template <class T1, class T2>
-        void operator()(Dim<2>, T1& dest, const T2& src, std::integral_constant<std::size_t, 0>, std::integral_constant<bool, false>) const;
-
-        template <class T1, class T2, std::size_t order>
+        template <class DEST, class SRC, std::size_t order>
         void
-        operator()(Dim<2>, T1& dest, const T2& src, std::integral_constant<std::size_t, order>, std::integral_constant<bool, true>) const;
+        operator()(Dim<dim>, DEST& dest, const SRC& src, std::integral_constant<std::size_t, order>, std::integral_constant<bool, true>) const;
 
-        template <class T1, class T2, std::size_t order>
+        template <class DEST, class SRC, std::size_t order>
         void
-        operator()(Dim<2>, T1& dest, const T2& src, std::integral_constant<std::size_t, order>, std::integral_constant<bool, false>) const;
-
-        template <class T1, class T2>
-        void operator()(Dim<3>, T1& dest, const T2& src, std::integral_constant<std::size_t, 0>, std::integral_constant<bool, true>) const;
-
-        template <class T1, class T2>
-        void operator()(Dim<3>, T1& dest, const T2& src, std::integral_constant<std::size_t, 0>, std::integral_constant<bool, false>) const;
-
-        template <class T1, class T2, std::size_t order>
-        void
-        operator()(Dim<3>, T1& dest, const T2& src, std::integral_constant<std::size_t, order>, std::integral_constant<bool, true>) const;
-
-        template <class T1, class T2, std::size_t order>
-        void
-        operator()(Dim<3>, T1& dest, const T2& src, std::integral_constant<std::size_t, order>, std::integral_constant<bool, false>) const;
+        operator()(Dim<dim>, DEST& dest, const SRC& src, std::integral_constant<std::size_t, order>, std::integral_constant<bool, false>) const;
     };
 
-    namespace detail
-    {
-        template <class T, class QS>
-        auto qs_view_even(QS& qs, int dec)
-        {
-            if constexpr (detail::static_size_first_v<T::n_comp, detail::is_soa_v<T>, T::is_scalar, T::static_layout>)
-            {
-                return view(qs, placeholders::all(), range(dec, shape(qs, 1)));
-            }
-            else
-            {
-                return view(qs, range(dec, shape(qs, 0)));
-            }
-        }
-
-        template <class T, class QS>
-        auto qs_view_odd(QS& qs, int dec)
-        {
-            if constexpr (detail::static_size_first_v<T::n_comp, detail::is_soa_v<T>, T::is_scalar, T::static_layout>)
-            {
-                return view(qs, placeholders::all(), range(0, safe_subs<int>(shape(qs, 1), dec)));
-            }
-            else
-            {
-                return view(qs, range(0, safe_subs<int>(shape(qs, 0), dec)));
-            }
-        }
-    }
-
     template <std::size_t dim, class TInterval>
-    template <class T1, class T2>
-    SAMURAI_INLINE void prediction_op<dim, TInterval>::operator()(Dim<1>,
-                                                                  T1& dest,
-                                                                  const T2& src,
+    template <class DEST, class SRC>
+    SAMURAI_INLINE void prediction_op<dim, TInterval>::operator()(Dim<dim>,
+                                                                  DEST& dest,
+                                                                  const SRC& src,
                                                                   std::integral_constant<std::size_t, 0>,
                                                                   std::integral_constant<bool, true>) const
     {
-        auto ii = i << 1;
-        ii.step = 2;
+        static_assert(DEST::n_comp == SRC::n_comp, "Source and destination fields must have the same number of components");
 
-        dest(level + 1, ii)     = src(level, i);
-        dest(level + 1, ii + 1) = src(level, i);
+        auto src_offset = memory_offset(src.mesh(), {level, i.start, index});
+
+        std::vector<std::size_t> dest_offsets;
+        dest_offsets.reserve(1ULL << (dim - 1));
+
+        static_nested_loop<dim - 1, 0, 2>(
+            [&](const auto& stencil)
+            {
+                auto new_index = 2 * index + stencil;
+                dest_offsets.push_back(memory_offset(dest.mesh(), {level + 1, 2 * i.start, new_index}));
+            });
+
+        const auto* src_data = src.data();
+        auto* dest_data      = dest.data();
+
+        for (std::size_t i_c = 0, i_f = 0; i_c < i.size(); ++i_c, i_f += 2)
+        {
+            for (std::size_t s = 0; s < dest_offsets.size(); ++s)
+            {
+                const std::size_t src_index   = (src_offset + i_c) * SRC::n_comp;
+                const std::size_t dest_index0 = (dest_offsets[s] + i_f) * SRC::n_comp;
+                const std::size_t dest_index1 = (dest_offsets[s] + i_f + 1) * SRC::n_comp;
+
+                for (std::size_t n = 0; n < SRC::n_comp; ++n)
+                {
+                    dest_data[dest_index0 + n] = src_data[src_index + n];
+                    dest_data[dest_index1 + n] = src_data[src_index + n];
+                }
+            }
+        }
     }
 
     template <std::size_t dim, class TInterval>
-    template <class T1, class T2>
-    SAMURAI_INLINE void prediction_op<dim, TInterval>::operator()(Dim<1>,
-                                                                  T1& dest,
-                                                                  const T2& src,
+    template <class DEST, class SRC, std::size_t pred_stencil_size>
+    SAMURAI_INLINE void prediction_op<dim, TInterval>::operator()(Dim<dim>,
+                                                                  DEST& dest,
+                                                                  const SRC& src,
+                                                                  std::integral_constant<std::size_t, pred_stencil_size>,
+                                                                  std::integral_constant<bool, true>) const
+    {
+        static_assert(DEST::n_comp == SRC::n_comp, "Source and destination fields must have the same number of components");
+
+        constexpr std::size_t order = 2 * pred_stencil_size + 1;
+
+        // (even index coefficients, odd index coefficients)
+        std::array<std::array<double, order>, 2> interp_coeff_pair = {
+            {interp_coeffs<order>(1.), interp_coeffs<order>(-1.)}
+        };
+
+        // Compute the memory accessors for the source data
+        // For example, in 2D, for a prediction stencil of size 1, we need to access the following cells in the source field
+        //
+        // (level, i-1, j+1) (level, i, j+1) (level, i+1, j+1)
+        // (level, i-1, j  ) (level, i, j  ) (level, i+1, j  )
+        // (level, i-1, j-1) (level, i, j-1) (level, i+1, j-1)
+        //
+        // Since the data are contiguous in the i direction, we just have to compute the memory addresses of the first column.
+
+        std::array<std::size_t, ce_pow(order, dim)> src_offsets;
+        std::size_t ind = 0;
+        static_nested_loop<dim, -static_cast<int>(pred_stencil_size), static_cast<int>(pred_stencil_size) + 1>(
+            [&](const auto& stencil)
+            {
+                auto new_index     = index + xt::view(stencil, xt::range(1, dim));
+                src_offsets[ind++] = memory_offset(src.mesh(), {level, i.start + stencil[0], new_index});
+            });
+
+        // Compute the memory accessors for the destination data
+        // For example, in 2D, we need to access the following cells in the destination field
+        //
+        // (level + 1, 2i  , 2j  ) (level + 1, 2i+1, 2j  )
+        // (level + 1, 2i  , 2j+1) (level + 1, 2i+1, 2j+1)
+        //
+        // Since the data are contiguous in the i direction, once again, we just have to compute the memory addresses of the first column.
+
+        std::array<std::size_t, 1ULL << dim> dest_offsets;
+        ind = 0;
+        static_nested_loop<dim - 1, 0, 2>(
+            [&](const auto& stencil)
+            {
+                auto new_index        = 2 * index + stencil;
+                dest_offsets[ind]     = memory_offset(dest.mesh(), {level + 1, 2 * i.start, new_index});
+                dest_offsets[ind + 1] = dest_offsets[ind] + 1;
+                ind += 2;
+            });
+
+        const auto* src_data = src.data();
+        auto* dest_data      = dest.data();
+
+        std::array<double, (1ULL << dim) * SRC::n_comp> dest_values{};
+        for (std::size_t i_c = 0, i_f = 0; i_c < i.size(); ++i_c, i_f += 2)
+        {
+            dest_values.fill(0);
+            std::size_t io = 0;
+            static_nested_loop<dim, 0, order>(
+                [&](const auto& stencil)
+                {
+                    std::array<double, SRC::n_comp> field_ijk{};
+                    for (std::size_t n = 0; n < SRC::n_comp; ++n)
+                    {
+                        field_ijk[n] = src_data[(src_offsets[io] + i_c) * SRC::n_comp + n];
+                    }
+                    ++io;
+
+                    std::size_t ind = 0;
+                    std::apply(
+                        [&](const auto&... s)
+                        {
+                            for (std::size_t n = 0; n < SRC::n_comp; ++n)
+                            {
+                                (void)std::initializer_list<int>{
+                                    ((dest_values[ind++] += field_ijk[n]
+                                                          * std::apply(
+                                                                [&](const auto&... ki)
+                                                                {
+                                                                    std::size_t is = 0;
+                                                                    double coeff   = 1.;
+                                                                    ((coeff *= interp_coeff_pair[ki][static_cast<std::size_t>(stencil[is])],
+                                                                      ++is),
+                                                                     ...);
+                                                                    return coeff;
+                                                                },
+                                                                s)),
+                                     0)...};
+                            }
+                        },
+                        make_index_ranges<dim, 0, 2>());
+                });
+
+            std::size_t id = 0;
+            std::apply(
+                [&](const auto&... s)
+                {
+                    for (std::size_t n = 0; n < SRC::n_comp; ++n)
+                    {
+                        ((dest_data[(s + i_f) * SRC::n_comp + n] = dest_values[id++]), ...);
+                    }
+                },
+                dest_offsets);
+        }
+    }
+
+    template <std::size_t dim, class TInterval>
+    template <class DEST, class SRC>
+    SAMURAI_INLINE void prediction_op<dim, TInterval>::operator()(Dim<dim>,
+                                                                  DEST& dest,
+                                                                  const SRC& src,
                                                                   std::integral_constant<std::size_t, 0>,
                                                                   std::integral_constant<bool, false>) const
     {
-        auto even_i = i.even_elements();
-        if (even_i.is_valid())
-        {
-            auto coarse_even_i  = even_i >> 1;
-            dest(level, even_i) = src(level - 1, coarse_even_i);
-        }
+        static_assert(DEST::n_comp == SRC::n_comp, "Source and destination fields must have the same number of components");
+        using value_t = typename TInterval::value_t;
 
-        auto odd_i = i.odd_elements();
-        if (odd_i.is_valid())
+        const auto* src_data = src.data();
+        auto* dest_data      = dest.data();
+
+        auto src_offset  = memory_offset(src.mesh(), {level - 1, i.start >> 1, index >> 1});
+        auto dest_offset = memory_offset(dest.mesh(), {level, i.start, index});
+
+        for (std::size_t i_f = 0; i_f < i.size(); ++i_f)
         {
-            auto coarse_odd_i  = odd_i >> 1;
-            dest(level, odd_i) = src(level - 1, coarse_odd_i);
+            const std::size_t i_c = static_cast<std::size_t>(((i.start + static_cast<value_t>(i_f)) >> 1) - (i.start >> 1));
+            for (std::size_t n = 0; n < SRC::n_comp; ++n)
+            {
+                dest_data[(dest_offset + i_f) * SRC::n_comp + n] = src_data[(src_offset + i_c) * SRC::n_comp + n];
+            }
         }
     }
 
     template <std::size_t dim, class TInterval>
-    template <class T1, class T2, std::size_t order>
-    SAMURAI_INLINE void prediction_op<dim, TInterval>::operator()(Dim<1>,
-                                                                  T1& dest,
-                                                                  const T2& src,
-                                                                  std::integral_constant<std::size_t, order>,
-                                                                  std::integral_constant<bool, true>) const
-    {
-        auto ii = i << 1;
-        ii.step = 2;
-
-        auto qs_i = Qs_i<order>(src, level, i);
-
-        dest(level + 1, ii)     = src(level, i) + qs_i;
-        dest(level + 1, ii + 1) = src(level, i) - qs_i;
-    }
-
-    template <std::size_t dim, class TInterval>
-    template <class T1, class T2, std::size_t order>
-    SAMURAI_INLINE void prediction_op<dim, TInterval>::operator()(Dim<1>,
-                                                                  T1& dest,
-                                                                  const T2& src,
-                                                                  std::integral_constant<std::size_t, order>,
+    template <class DEST, class SRC, std::size_t pred_stencil_size>
+    SAMURAI_INLINE void prediction_op<dim, TInterval>::operator()(Dim<dim>,
+                                                                  DEST& dest,
+                                                                  const SRC& src,
+                                                                  std::integral_constant<std::size_t, pred_stencil_size>,
                                                                   std::integral_constant<bool, false>) const
     {
-        auto qs_i = Qs_i<order>(src, level - 1, i >> 1);
+        static_assert(DEST::n_comp == SRC::n_comp, "Source and destination fields must have the same number of components");
 
-        auto even_i = i.even_elements();
-        if (even_i.is_valid())
+        constexpr std::size_t order = 2 * pred_stencil_size + 1;
+        using value_t               = typename TInterval::value_t;
+
+        // (even index coefficients, odd index coefficients)
+        std::array<std::array<double, order>, 2> interp_coeff_pair = {
+            {interp_coeffs<order>(1.), interp_coeffs<order>(-1.)}
+        };
+
+        const auto* src_data = src.data();
+        auto* dest_data      = dest.data();
+
+        auto dest_offset = memory_offset(dest.mesh(), {level, i.start, index});
+
+        std::array<std::size_t, dim> parity;
+        parity[0] = (i.start & 1) ? 1 : 0;
+        for (std::size_t d = 1; d < dim; ++d)
         {
-            auto coarse_even_i  = even_i >> 1;
-            auto dec_even       = (i.start & 1) ? 1 : 0;
-            dest(level, even_i) = src(level - 1, coarse_even_i) + detail::qs_view_even<T2>(qs_i, dec_even);
+            parity[d] = (index[d - 1] & 1) ? 1 : 0;
         }
 
-        auto odd_i = i.odd_elements();
-        if (odd_i.is_valid())
-        {
-            auto coarse_odd_i  = odd_i >> 1;
-            auto dec_odd       = (i.end & 1) ? 1 : 0;
-            dest(level, odd_i) = src(level - 1, coarse_odd_i) - detail::qs_view_odd<T2>(qs_i, dec_odd);
-        }
-    }
-
-    template <std::size_t dim, class TInterval>
-    template <class T1, class T2>
-    SAMURAI_INLINE void prediction_op<dim, TInterval>::operator()(Dim<2>,
-                                                                  T1& dest,
-                                                                  const T2& src,
-                                                                  std::integral_constant<std::size_t, 0>,
-                                                                  std::integral_constant<bool, true>) const
-    {
-        auto ii = i << 1;
-        ii.step = 2;
-
-        auto jj = j << 1;
-
-        dest(level + 1, ii, jj)         = src(level, i, j);
-        dest(level + 1, ii + 1, jj)     = src(level, i, j);
-        dest(level + 1, ii, jj + 1)     = src(level, i, j);
-        dest(level + 1, ii + 1, jj + 1) = src(level, i, j);
-    }
-
-    template <std::size_t dim, class TInterval>
-    template <class T1, class T2>
-    SAMURAI_INLINE void prediction_op<dim, TInterval>::operator()(Dim<2>,
-                                                                  T1& dest,
-                                                                  const T2& src,
-                                                                  std::integral_constant<std::size_t, 0>,
-                                                                  std::integral_constant<bool, false>) const
-    {
-        if (j & 1)
-        {
-            auto even_i = i.even_elements();
-            if (even_i.is_valid())
+        std::array<std::size_t, ce_pow(order, dim)> src_offsets;
+        std::size_t ind = 0;
+        static_nested_loop<dim, -static_cast<int>(pred_stencil_size), static_cast<int>(pred_stencil_size) + 1>(
+            [&](const auto& stencil)
             {
-                auto coarse_even_i     = even_i >> 1;
-                dest(level, even_i, j) = src(level - 1, coarse_even_i, j >> 1);
-            }
+                auto new_index     = (index >> 1) + xt::view(stencil, xt::range(1, dim));
+                src_offsets[ind++] = memory_offset(src.mesh(), {level - 1, (i.start >> 1) + stencil[0], new_index});
+            });
 
-            auto odd_i = i.odd_elements();
-            if (odd_i.is_valid())
-            {
-                auto coarse_odd_i     = odd_i >> 1;
-                dest(level, odd_i, j) = src(level - 1, coarse_odd_i, j >> 1);
-            }
-        }
-        else
+        auto apply_pred = [&](const auto& i_f, const auto& i_c)
         {
-            auto even_i = i.even_elements();
-            if (even_i.is_valid())
-            {
-                auto coarse_even_i     = even_i >> 1;
-                dest(level, even_i, j) = src(level - 1, coarse_even_i, j >> 1);
-            }
-
-            auto odd_i = i.odd_elements();
-            if (odd_i.is_valid())
-            {
-                auto coarse_odd_i     = odd_i >> 1;
-                dest(level, odd_i, j) = src(level - 1, coarse_odd_i, j >> 1);
-            }
-        }
-    }
-
-    template <std::size_t dim, class TInterval>
-    template <class T1, class T2, std::size_t order>
-    SAMURAI_INLINE void prediction_op<dim, TInterval>::operator()(Dim<2>,
-                                                                  T1& dest,
-                                                                  const T2& src,
-                                                                  std::integral_constant<std::size_t, order>,
-                                                                  std::integral_constant<bool, true>) const
-    {
-        auto ii = i << 1;
-        ii.step = 2;
-
-        auto jj = j << 1;
-
-        auto qs_i  = Qs_i<order>(src, level, i, j);
-        auto qs_j  = Qs_j<order>(src, level, i, j);
-        auto qs_ij = Qs_ij<order>(src, level, i, j);
-
-        dest(level + 1, ii, jj)         = src(level, i, j) + qs_i + qs_j - qs_ij;
-        dest(level + 1, ii + 1, jj)     = src(level, i, j) - qs_i + qs_j + qs_ij;
-        dest(level + 1, ii, jj + 1)     = src(level, i, j) + qs_i - qs_j + qs_ij;
-        dest(level + 1, ii + 1, jj + 1) = src(level, i, j) - qs_i - qs_j - qs_ij;
-    }
-
-    template <std::size_t dim, class TInterval>
-    template <class T1, class T2, std::size_t order>
-    SAMURAI_INLINE void prediction_op<dim, TInterval>::operator()(Dim<2>,
-                                                                  T1& dest,
-                                                                  const T2& src,
-                                                                  std::integral_constant<std::size_t, order>,
-                                                                  std::integral_constant<bool, false>) const
-    {
-        auto qs_i  = Qs_i<order>(src, level - 1, i >> 1, j >> 1);
-        auto qs_j  = Qs_j<order>(src, level - 1, i >> 1, j >> 1);
-        auto qs_ij = Qs_ij<order>(src, level - 1, i >> 1, j >> 1);
-
-#ifdef SAMURAI_CHECK_NAN
-        if (xt::any(xt::isnan(qs_ij)))
-        {
-            std::cerr << "NaN detected in the prediction stencil (Qs_ij)." << std::endl;
-            std::cerr << qs_ij << std::endl;
-            save(fs::current_path(), "check_nan", {true, true}, src.mesh(), src);
-        }
-#endif
-
-        if (j & 1)
-        {
-            auto even_i = i.even_elements();
-            if (even_i.is_valid())
-            {
-                auto coarse_even_i     = even_i >> 1;
-                auto dec_even          = (i.start & 1) ? 1 : 0;
-                dest(level, even_i, j) = src(level - 1, coarse_even_i, j >> 1) + detail::qs_view_even<T2>(qs_i, dec_even)
-                                       - detail::qs_view_even<T2>(qs_j, dec_even) + detail::qs_view_even<T2>(qs_ij, dec_even);
-            }
-
-            auto odd_i = i.odd_elements();
-            if (odd_i.is_valid())
-            {
-                auto coarse_odd_i     = odd_i >> 1;
-                auto dec_odd          = (i.end & 1) ? 1 : 0;
-                dest(level, odd_i, j) = src(level - 1, coarse_odd_i, j >> 1) - detail::qs_view_odd<T2>(qs_i, dec_odd)
-                                      - detail::qs_view_odd<T2>(qs_j, dec_odd) - detail::qs_view_odd<T2>(qs_ij, dec_odd);
-            }
-        }
-        else
-        {
-            auto even_i = i.even_elements();
-            if (even_i.is_valid())
-            {
-                auto coarse_even_i     = even_i >> 1;
-                auto dec_even          = (i.start & 1) ? 1 : 0;
-                dest(level, even_i, j) = src(level - 1, coarse_even_i, j >> 1) + detail::qs_view_even<T2>(qs_i, dec_even)
-                                       + detail::qs_view_even<T2>(qs_j, dec_even) - detail::qs_view_even<T2>(qs_ij, dec_even);
-            }
-
-            auto odd_i = i.odd_elements();
-            if (odd_i.is_valid())
-            {
-                auto coarse_odd_i     = odd_i >> 1;
-                auto dec_odd          = (i.end & 1) ? 1 : 0;
-                dest(level, odd_i, j) = src(level - 1, coarse_odd_i, j >> 1) - detail::qs_view_odd<T2>(qs_i, dec_odd)
-                                      + detail::qs_view_odd<T2>(qs_j, dec_odd) + detail::qs_view_odd<T2>(qs_ij, dec_odd);
-            }
-        }
-    }
-
-    template <std::size_t dim, class TInterval>
-    template <class T1, class T2>
-    SAMURAI_INLINE void prediction_op<dim, TInterval>::operator()(Dim<3>,
-                                                                  T1& dest,
-                                                                  const T2& src,
-                                                                  std::integral_constant<std::size_t, 0>,
-                                                                  std::integral_constant<bool, true>) const
-    {
-        auto ii = i << 1;
-        ii.step = 2;
-
-        auto jj = j << 1;
-        auto kk = k << 1;
-
-        dest(level + 1, ii, jj, kk)             = src(level, i, j, k);
-        dest(level + 1, ii + 1, jj, kk)         = src(level, i, j, k);
-        dest(level + 1, ii, jj + 1, kk)         = src(level, i, j, k);
-        dest(level + 1, ii + 1, jj + 1, kk)     = src(level, i, j, k);
-        dest(level + 1, ii, jj, kk + 1)         = src(level, i, j, k);
-        dest(level + 1, ii + 1, jj, kk + 1)     = src(level, i, j, k);
-        dest(level + 1, ii, jj + 1, kk + 1)     = src(level, i, j, k);
-        dest(level + 1, ii + 1, jj + 1, kk + 1) = src(level, i, j, k);
-    }
-
-    template <std::size_t dim, class TInterval>
-    template <class T1, class T2>
-    SAMURAI_INLINE void prediction_op<dim, TInterval>::operator()(Dim<3>,
-                                                                  T1& dest,
-                                                                  const T2& src,
-                                                                  std::integral_constant<std::size_t, 0>,
-                                                                  std::integral_constant<bool, false>) const
-    {
-        auto even_i = i.even_elements();
-        if (even_i.is_valid())
-        {
-            auto coarse_even_i        = even_i >> 1;
-            dest(level, even_i, j, k) = src(level - 1, coarse_even_i, j >> 1, k >> 1);
-        }
-
-        auto odd_i = i.odd_elements();
-        if (odd_i.is_valid())
-        {
-            auto coarse_odd_i        = odd_i >> 1;
-            dest(level, odd_i, j, k) = src(level - 1, coarse_odd_i, j >> 1, k >> 1);
-        }
-    }
-
-    template <std::size_t dim, class TInterval>
-    template <class T1, class T2, std::size_t order>
-    SAMURAI_INLINE void prediction_op<dim, TInterval>::operator()(Dim<3>,
-                                                                  T1& dest,
-                                                                  const T2& src,
-                                                                  std::integral_constant<std::size_t, order>,
-                                                                  std::integral_constant<bool, true>) const
-    {
-        auto ii = i << 1;
-        ii.step = 2;
-
-        auto jj = j << 1;
-        auto kk = k << 1;
-
-        auto qs_i   = Qs_i<order>(src, level, i, j, k);
-        auto qs_j   = Qs_j<order>(src, level, i, j, k);
-        auto qs_k   = Qs_k<order>(src, level, i, j, k);
-        auto qs_ij  = Qs_ij<order>(src, level, i, j, k);
-        auto qs_ik  = Qs_ik<order>(src, level, i, j, k);
-        auto qs_jk  = Qs_jk<order>(src, level, i, j, k);
-        auto qs_ijk = Qs_ijk<order>(src, level, i, j, k);
-
-        dest(level + 1, ii, jj, kk)             = src(level, i, j, k) + qs_i + qs_j + qs_k - qs_ij - qs_ik - qs_jk + qs_ijk;
-        dest(level + 1, ii + 1, jj, kk)         = src(level, i, j, k) - qs_i + qs_j + qs_k + qs_ij + qs_ik - qs_jk - qs_ijk;
-        dest(level + 1, ii, jj + 1, kk)         = src(level, i, j, k) + qs_i - qs_j + qs_k + qs_ij - qs_ik + qs_jk - qs_ijk;
-        dest(level + 1, ii + 1, jj + 1, kk)     = src(level, i, j, k) - qs_i - qs_j + qs_k - qs_ij + qs_ik + qs_jk + qs_ijk;
-        dest(level + 1, ii, jj, kk + 1)         = src(level, i, j, k) + qs_i + qs_j - qs_k - qs_ij + qs_ik + qs_jk - qs_ijk;
-        dest(level + 1, ii + 1, jj, kk + 1)     = src(level, i, j, k) - qs_i + qs_j - qs_k + qs_ij - qs_ik + qs_jk + qs_ijk;
-        dest(level + 1, ii, jj + 1, kk + 1)     = src(level, i, j, k) + qs_i - qs_j - qs_k + qs_ij + qs_ik - qs_jk + qs_ijk;
-        dest(level + 1, ii + 1, jj + 1, kk + 1) = src(level, i, j, k) - qs_i - qs_j - qs_k - qs_ij - qs_ik - qs_jk - qs_ijk;
-    }
-
-    template <std::size_t dim, class TInterval>
-    template <class T1, class T2, std::size_t order>
-    SAMURAI_INLINE void prediction_op<dim, TInterval>::operator()(Dim<3>,
-                                                                  T1& dest,
-                                                                  const T2& src,
-                                                                  std::integral_constant<std::size_t, order>,
-                                                                  std::integral_constant<bool, false>) const
-    {
-        auto qs_i   = Qs_i<order>(src, level - 1, i >> 1, j >> 1, k >> 1);
-        auto qs_j   = Qs_j<order>(src, level - 1, i >> 1, j >> 1, k >> 1);
-        auto qs_k   = Qs_k<order>(src, level - 1, i >> 1, j >> 1, k >> 1);
-        auto qs_ij  = Qs_ij<order>(src, level - 1, i >> 1, j >> 1, k >> 1);
-        auto qs_ik  = Qs_ik<order>(src, level - 1, i >> 1, j >> 1, k >> 1);
-        auto qs_jk  = Qs_jk<order>(src, level - 1, i >> 1, j >> 1, k >> 1);
-        auto qs_ijk = Qs_ijk<order>(src, level - 1, i >> 1, j >> 1, k >> 1);
-
-        if (k & 1)
-        {
-            if (j & 1)
-            {
-                auto even_i = i.even_elements();
-                if (even_i.is_valid())
+            std::array<double, SRC::n_comp> dest_value{};
+            std::size_t io = 0;
+            static_nested_loop<dim, 0, order>(
+                [&](const auto& stencil)
                 {
-                    auto coarse_even_i        = even_i >> 1;
-                    auto dec_even             = (i.start & 1) ? 1 : 0;
-                    dest(level, even_i, j, k) = src(level - 1, coarse_even_i, j >> 1, k >> 1) + detail::qs_view_even<T2>(qs_i, dec_even)
-                                              - detail::qs_view_even<T2>(qs_j, dec_even) - detail::qs_view_even<T2>(qs_k, dec_even)
-                                              + detail::qs_view_even<T2>(qs_ij, dec_even) + detail::qs_view_even<T2>(qs_ik, dec_even)
-                                              - detail::qs_view_even<T2>(qs_jk, dec_even) + detail::qs_view_even<T2>(qs_ijk, dec_even);
-                }
+                    for (std::size_t n = 0; n < SRC::n_comp; ++n)
+                    {
+                        auto field_ijk = src_data[(src_offsets[io] + i_c) * SRC::n_comp + n];
 
-                auto odd_i = i.odd_elements();
-                if (odd_i.is_valid())
-                {
-                    auto coarse_odd_i        = odd_i >> 1;
-                    auto dec_odd             = (i.end & 1) ? 1 : 0;
-                    dest(level, odd_i, j, k) = src(level - 1, coarse_odd_i, j >> 1, k >> 1) - detail::qs_view_odd<T2>(qs_i, dec_odd)
-                                             - detail::qs_view_odd<T2>(qs_j, dec_odd) - detail::qs_view_odd<T2>(qs_k, dec_odd)
-                                             - detail::qs_view_odd<T2>(qs_ij, dec_odd) - detail::qs_view_odd<T2>(qs_ik, dec_odd)
-                                             - detail::qs_view_odd<T2>(qs_jk, dec_odd) - detail::qs_view_odd<T2>(qs_ijk, dec_odd);
-                }
-            }
-            else
+                        dest_value[n] += field_ijk
+                                       * std::apply(
+                                             [&](const auto&... ki)
+                                             {
+                                                 std::size_t is = 0;
+                                                 double coeff   = 1.;
+                                                 ((coeff *= interp_coeff_pair[ki][static_cast<std::size_t>(stencil[is])], ++is), ...);
+                                                 return coeff;
+                                             },
+                                             parity);
+                    }
+                    io++;
+                });
+
+            for (std::size_t n = 0; n < SRC::n_comp; ++n)
             {
-                auto even_i = i.even_elements();
-                if (even_i.is_valid())
-                {
-                    auto coarse_even_i        = even_i >> 1;
-                    auto dec_even             = (i.start & 1) ? 1 : 0;
-                    dest(level, even_i, j, k) = src(level - 1, coarse_even_i, j >> 1, k >> 1) + detail::qs_view_even<T2>(qs_i, dec_even)
-                                              + detail::qs_view_even<T2>(qs_j, dec_even) - detail::qs_view_even<T2>(qs_k, dec_even)
-                                              - detail::qs_view_even<T2>(qs_ij, dec_even) + detail::qs_view_even<T2>(qs_ik, dec_even)
-                                              + detail::qs_view_even<T2>(qs_jk, dec_even) - detail::qs_view_even<T2>(qs_ijk, dec_even);
-                }
-
-                auto odd_i = i.odd_elements();
-                if (odd_i.is_valid())
-                {
-                    auto coarse_odd_i        = odd_i >> 1;
-                    auto dec_odd             = (i.end & 1) ? 1 : 0;
-                    dest(level, odd_i, j, k) = src(level - 1, coarse_odd_i, j >> 1, k >> 1) - detail::qs_view_odd<T2>(qs_i, dec_odd)
-                                             + detail::qs_view_odd<T2>(qs_j, dec_odd) - detail::qs_view_odd<T2>(qs_k, dec_odd)
-                                             + detail::qs_view_odd<T2>(qs_ij, dec_odd) - detail::qs_view_odd<T2>(qs_ik, dec_odd)
-                                             + detail::qs_view_odd<T2>(qs_jk, dec_odd) + detail::qs_view_odd<T2>(qs_ijk, dec_odd);
-                }
+                dest_data[(dest_offset + i_f) * SRC::n_comp + n] = dest_value[n];
             }
-        }
-        else
+            parity[0] = (parity[0] & 1) ? 0 : 1;
+        };
+
+        for (std::size_t i_f = 0; i_f < i.size(); ++i_f)
         {
-            if (j & 1)
-            {
-                auto even_i = i.even_elements();
-                if (even_i.is_valid())
-                {
-                    auto coarse_even_i        = even_i >> 1;
-                    auto dec_even             = (i.start & 1) ? 1 : 0;
-                    dest(level, even_i, j, k) = src(level - 1, coarse_even_i, j >> 1, k >> 1) + detail::qs_view_even<T2>(qs_i, dec_even)
-                                              - detail::qs_view_even<T2>(qs_j, dec_even) + detail::qs_view_even<T2>(qs_k, dec_even)
-                                              + detail::qs_view_even<T2>(qs_ij, dec_even) - detail::qs_view_even<T2>(qs_ik, dec_even)
-                                              + detail::qs_view_even<T2>(qs_jk, dec_even) - detail::qs_view_even<T2>(qs_ijk, dec_even);
-                }
-
-                auto odd_i = i.odd_elements();
-                if (odd_i.is_valid())
-                {
-                    auto coarse_odd_i        = odd_i >> 1;
-                    auto dec_odd             = (i.end & 1) ? 1 : 0;
-                    dest(level, odd_i, j, k) = src(level - 1, coarse_odd_i, j >> 1, k >> 1) - detail::qs_view_odd<T2>(qs_i, dec_odd)
-                                             - detail::qs_view_odd<T2>(qs_j, dec_odd) + detail::qs_view_odd<T2>(qs_k, dec_odd)
-                                             - detail::qs_view_odd<T2>(qs_ij, dec_odd) + detail::qs_view_odd<T2>(qs_ik, dec_odd)
-                                             + detail::qs_view_odd<T2>(qs_jk, dec_odd) + detail::qs_view_odd<T2>(qs_ijk, dec_odd);
-                }
-            }
-            else
-            {
-                auto even_i = i.even_elements();
-                if (even_i.is_valid())
-                {
-                    auto coarse_even_i        = even_i >> 1;
-                    auto dec_even             = (i.start & 1) ? 1 : 0;
-                    dest(level, even_i, j, k) = src(level - 1, coarse_even_i, j >> 1, k >> 1) + detail::qs_view_even<T2>(qs_i, dec_even)
-                                              + detail::qs_view_even<T2>(qs_j, dec_even) + detail::qs_view_even<T2>(qs_k, dec_even)
-                                              - detail::qs_view_even<T2>(qs_ij, dec_even) - detail::qs_view_even<T2>(qs_ik, dec_even)
-                                              - detail::qs_view_even<T2>(qs_jk, dec_even) + detail::qs_view_even<T2>(qs_ijk, dec_even);
-                }
-
-                auto odd_i = i.odd_elements();
-                if (odd_i.is_valid())
-                {
-                    auto coarse_odd_i        = odd_i >> 1;
-                    auto dec_odd             = (i.end & 1) ? 1 : 0;
-                    dest(level, odd_i, j, k) = src(level - 1, coarse_odd_i, j >> 1, k >> 1) - detail::qs_view_odd<T2>(qs_i, dec_odd)
-                                             + detail::qs_view_odd<T2>(qs_j, dec_odd) + detail::qs_view_odd<T2>(qs_k, dec_odd)
-                                             + detail::qs_view_odd<T2>(qs_ij, dec_odd) + detail::qs_view_odd<T2>(qs_ik, dec_odd)
-                                             - detail::qs_view_odd<T2>(qs_jk, dec_odd) - detail::qs_view_odd<T2>(qs_ijk, dec_odd);
-                }
-            }
+            apply_pred(i_f, static_cast<std::size_t>(((i.start + static_cast<value_t>(i_f)) >> 1) - (i.start >> 1)));
         }
     }
 
@@ -837,36 +372,14 @@ namespace samurai
         }
 
         template <std::size_t order, bool dest_on_level, class Head, class... Tail>
-        SAMURAI_INLINE void operator()(Dim<1>,
+        SAMURAI_INLINE void operator()(Dim<dim>,
                                        std::integral_constant<std::size_t, order> o,
                                        std::integral_constant<bool, dest_on_level> dest,
                                        Head& source,
                                        Tail&... sources) const
         {
-            prediction_op<dim, interval_t>(level, i)(Dim<1>{}, source, source, o, dest);
-            this->operator()(Dim<1>{}, o, dest, sources...);
-        }
-
-        template <std::size_t order, bool dest_on_level, class Head, class... Tail>
-        SAMURAI_INLINE void operator()(Dim<2>,
-                                       std::integral_constant<std::size_t, order> o,
-                                       std::integral_constant<bool, dest_on_level> dest,
-                                       Head& source,
-                                       Tail&... sources) const
-        {
-            prediction_op<dim, interval_t>(level, i, j)(Dim<2>{}, source, source, o, dest);
-            this->operator()(Dim<2>{}, o, dest, sources...);
-        }
-
-        template <std::size_t order, bool dest_on_level, class Head, class... Tail>
-        SAMURAI_INLINE void operator()(Dim<3>,
-                                       std::integral_constant<std::size_t, order> o,
-                                       std::integral_constant<bool, dest_on_level> dest,
-                                       Head& source,
-                                       Tail&... sources) const
-        {
-            prediction_op<dim, interval_t>(level, i, j, k)(Dim<3>{}, source, source, o, dest);
-            this->operator()(Dim<3>{}, o, dest, sources...);
+            prediction_op<dim, interval_t>(level, i, index)(Dim<dim>{}, source, source, o, dest);
+            this->operator()(Dim<dim>{}, o, dest, sources...);
         }
     };
 
@@ -887,8 +400,8 @@ namespace samurai
                                                            std::integral_constant<bool, dest_on_level>{});
     }
 
-    template <std::size_t order, bool dest_on_level, class T1, class T2>
-    SAMURAI_INLINE auto prediction(T1& field_dest, const T2& field_src)
+    template <std::size_t order, bool dest_on_level, class DEST, class SRC>
+    SAMURAI_INLINE auto prediction(DEST& field_dest, const SRC& field_src)
     {
         return make_field_operator_function<prediction_op>(field_dest,
                                                            field_src,

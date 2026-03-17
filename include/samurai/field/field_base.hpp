@@ -79,6 +79,9 @@ namespace samurai
             auto& array();
             const auto& array() const;
 
+            auto data();
+            auto data() const;
+
             // ================================================================
             // BOUNDARY CONDITION METHODS
             // ================================================================
@@ -200,7 +203,7 @@ namespace samurai
                 return this->derived_cast();
             }
 
-            times::timers.start("field expressions");
+            ScopedTimer timer_fld("field expressions");
 
             using inner_mesh_t  = typename Derived::inner_mesh_t;
             using data_access_t = typename Derived::data_access_type;
@@ -219,7 +222,6 @@ namespace samurai
             std::swap(p_bc, tmp);
             m_ghosts_updated = other.m_ghosts_updated;
 
-            times::timers.stop("field expressions");
             return this->derived_cast();
         }
 
@@ -227,14 +229,13 @@ namespace samurai
         template <class E>
         SAMURAI_INLINE Derived& FieldBase<Derived>::assign_expression(const field_expression<E>& e)
         {
-            times::timers.start("field expressions");
+            ScopedTimer timer_fld("field expressions");
             for_each_interval(this->derived_cast().mesh(),
                               [&](std::size_t level, const auto& i, const auto& index)
                               {
                                   noalias(this->derived_cast()(level, i, index)) = e.derived_cast()(level, i, index);
                               });
             m_ghosts_updated = false;
-            times::timers.stop("field expressions");
             return this->derived_cast();
         }
 
@@ -280,6 +281,18 @@ namespace samurai
         SAMURAI_INLINE const auto& FieldBase<Derived>::array() const
         {
             return this->derived_cast().storage().data();
+        }
+
+        template <class Derived>
+        SAMURAI_INLINE auto FieldBase<Derived>::data()
+        {
+            return array().data();
+        }
+
+        template <class Derived>
+        SAMURAI_INLINE auto FieldBase<Derived>::data() const
+        {
+            return array().data();
         }
 
         // --- Boundary condition methods -------------------------------------
@@ -329,14 +342,14 @@ namespace samurai
         template <class Derived>
         SAMURAI_INLINE auto FieldBase<Derived>::begin()
         {
-            using mesh_id_t = derived_t::mesh_t::mesh_id_t;
+            using mesh_id_t = typename derived_t::mesh_t::mesh_id_t;
             return iterator(&this->derived_cast(), this->derived_cast().mesh()[mesh_id_t::cells].cbegin());
         }
 
         template <class Derived>
         SAMURAI_INLINE auto FieldBase<Derived>::end()
         {
-            using mesh_id_t = derived_t::mesh_t::mesh_id_t;
+            using mesh_id_t = typename derived_t::mesh_t::mesh_id_t;
             return iterator(&this->derived_cast(), this->derived_cast().mesh()[mesh_id_t::cells].cend());
         }
 
@@ -355,14 +368,14 @@ namespace samurai
         template <class Derived>
         SAMURAI_INLINE auto FieldBase<Derived>::cbegin() const
         {
-            using mesh_id_t = derived_t::mesh_t::mesh_id_t;
+            using mesh_id_t = typename derived_t::mesh_t::mesh_id_t;
             return const_iterator(&this->derived_cast(), this->derived_cast().mesh()[mesh_id_t::cells].cbegin());
         }
 
         template <class Derived>
         SAMURAI_INLINE auto FieldBase<Derived>::cend() const
         {
-            using mesh_id_t = derived_t::mesh_t::mesh_id_t;
+            using mesh_id_t = typename derived_t::mesh_t::mesh_id_t;
             return const_iterator(&this->derived_cast(), this->derived_cast().mesh()[mesh_id_t::cells].cend());
         }
 

@@ -2,6 +2,10 @@
 
 #include <gtest/gtest.h>
 
+#ifdef SAMURAI_WITH_MPI
+#include <mpi.h>
+#endif
+
 #include <samurai/arguments.hpp>
 #include <samurai/box.hpp>
 #include <samurai/cell_array.hpp>
@@ -24,19 +28,49 @@ namespace samurai
     template <typename mesh_t>
     void test_save(const mesh_t& mesh)
     {
-        save("test_save_mesh.h5", mesh);
-        save("test", "test_save_mesh.h5", mesh);
-        save("test", "test_save_mesh.h5", {true, true}, mesh);
-        save("test_save_mesh.h5", {true, true}, mesh);
+        save("test_save_mesh", mesh);
+        save("test", "test_save_mesh", mesh);
+        save("test", "test_save_mesh", {true, true}, mesh);
+        save("test_save_mesh", Hdf5Options<mesh_t>{true, true}, mesh);
+        local_save("test_save_mesh", mesh);
+        local_save("test", "test_save_mesh", mesh);
+        local_save("test", "test_save_mesh", {true, true}, mesh);
+        local_save("test_save_mesh", Hdf5Options<mesh_t>{true, true}, mesh);
+#ifdef SAMURAI_WITH_MPI
+        save("test_save_mesh", MPI_COMM_WORLD, mesh);
+        save("test", "test_save_mesh", MPI_COMM_WORLD, mesh);
+        save("test", "test_save_mesh", MPI_COMM_WORLD, {true, true}, mesh);
+        save("test_save_mesh", MPI_COMM_WORLD, {true, true}, mesh);
+
+        save("test_save_mesh", MPI_COMM_SELF, mesh);
+        save("test", "test_save_mesh", MPI_COMM_SELF, mesh);
+        save("test", "test_save_mesh", MPI_COMM_SELF, {true, true}, mesh);
+        save("test_save_mesh", MPI_COMM_SELF, {true, true}, mesh);
+#endif
     }
 
     template <typename config_t>
     void test_save_uniform(const UniformMesh<config_t>& mesh)
     {
-        save("test_save_mesh.h5", mesh);
-        save("test", "test_save_mesh.h5", mesh);
-        save("test", "test_save_mesh.h5", {true}, mesh);
-        save("test_save_mesh.h5", {true}, mesh);
+        save("test_save_mesh", mesh);
+        save("test", "test_save_mesh", mesh);
+        save("test", "test_save_mesh", Hdf5Options<UniformMesh<config_t>>{true}, mesh);
+        save("test_save_mesh", Hdf5Options<UniformMesh<config_t>>{true}, mesh);
+        local_save("test_save_mesh", mesh);
+        local_save("test", "test_save_mesh", mesh);
+        local_save("test", "test_save_mesh", Hdf5Options<UniformMesh<config_t>>{true}, mesh);
+        local_save("test_save_mesh", Hdf5Options<UniformMesh<config_t>>{true}, mesh);
+#ifdef SAMURAI_WITH_MPI
+        save("test_save_mesh", MPI_COMM_WORLD, mesh);
+        save("test", "test_save_mesh", MPI_COMM_WORLD, mesh);
+        save("test", "test_save_mesh", MPI_COMM_WORLD, {true}, mesh);
+        save("test_save_mesh", MPI_COMM_WORLD, {true}, mesh);
+
+        save("test_save_mesh", MPI_COMM_SELF, mesh);
+        save("test", "test_save_mesh", MPI_COMM_SELF, mesh);
+        save("test", "test_save_mesh", MPI_COMM_SELF, {true}, mesh);
+        save("test_save_mesh", MPI_COMM_SELF, {true}, mesh);
+#endif
     }
 
     TYPED_TEST(hdf5_test, cell_array)

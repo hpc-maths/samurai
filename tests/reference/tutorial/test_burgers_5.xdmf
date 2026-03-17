@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<Xdmf>
+    <Domain>
+        <Grid Name="mesh">
+            <Topology TopologyType="Polyline" NumberOfElements="540">
+                <DataItem Dimensions="1080" Format="HDF">test_burgers_5.h5:/mesh/connectivity</DataItem>
+            </Topology>
+            <Geometry GeometryType="XYZ">
+                <DataItem Dimensions="1623" Format="HDF">test_burgers_5.h5:/mesh/points</DataItem>
+            </Geometry>
+            <Attribute Name="phi" Center="Cell">
+                <DataItem Dimensions="540" Format="HDF" Precision="8">test_burgers_5.h5:/mesh/fields/phi</DataItem>
+            </Attribute>
+            <Attribute Name="level" Center="Cell">
+                <DataItem Dimensions="540" Format="HDF" Precision="8">test_burgers_5.h5:/mesh/fields/level</DataItem>
+            </Attribute>
+        </Grid>
+    </Domain>
+</Xdmf>

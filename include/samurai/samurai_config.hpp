@@ -52,13 +52,15 @@ namespace samurai
         static constexpr int graduation_width          = 1;
         static constexpr int prediction_stencil_radius = 1;
 
+        static constexpr bool use_native_expand = true;
+
         using index_t    = signed long long int;
         using value_t    = int;
         using interval_t = Interval<value_t, index_t>;
 
         inline auto default_prediction_fn = [](auto& new_field, const auto& old_field) // cppcheck-suppress constParameterReference
         {
-            constexpr std::size_t pred_order = std::decay_t<decltype(new_field)>::mesh_t::config::prediction_stencil_radius;
+            constexpr std::size_t pred_order = std::decay_t<decltype(new_field)>::mesh_t::config_t::prediction_stencil_radius;
             return prediction<pred_order, true>(new_field, old_field);
         };
     }

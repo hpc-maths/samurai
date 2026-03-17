@@ -573,7 +573,7 @@ namespace samurai
         static constexpr std::size_t stencil_size = stencil_size_;
         using mesh_t                              = Mesh;
         using mesh_interval_t                     = typename Mesh::mesh_interval_t;
-        using coord_index_t                       = typename Mesh::config::interval_t::coord_index_t;
+        using coord_index_t                       = typename Mesh::config_t::interval_t::coord_index_t;
         using cell_t                              = Cell<dim, typename Mesh::interval_t>;
 
       private:

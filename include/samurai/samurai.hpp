@@ -68,6 +68,10 @@ namespace samurai
             std::cout.rdbuf(null_stream.rdbuf());
         }
 #endif
+        if (args::timers)
+        {
+            times::timers.enable();
+        }
         times::timers.start("total runtime");
 
         return app;

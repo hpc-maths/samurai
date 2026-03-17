@@ -5,6 +5,7 @@ heat_heterogeneous.cpp:finite-volume-heat-heterogeneous
 heat_nonlinear.cpp:finite-volume-heat-nonlinear
 stokes_2d.cpp:finite-volume-stokes-2d
 lid_driven_cavity.cpp:finite-volume-lid-driven-cavity
+diff_heated_cavity.cpp:finite-volume-diff-heated-cavity
 nagumo.cpp:finite-volume-nagumo
 manual_block_matrix_assembly.cpp:manual_block_matrix_assembly
 linear_convection.cpp:finite-volume-linear-convection
@@ -17,6 +18,7 @@ level_set.cpp:finite-volume-level-set
 level_set_from_scratch.cpp:finite-volume-level-set-from-scratch
 advection_1d.cpp:finite-volume-advection-1d
 advection_2d.cpp:finite-volume-advection-2d
+advection_3d.cpp:finite-volume-advection-3d
 advection_2d_user_bc.cpp:finite-volume-advection-2d-user-bc
 scalar_burgers_2d.cpp:finite-volume-scalar-burgers-2d
 linear_convection_obstacle.cpp:finite-volume-linear-convection-obstacle
@@ -24,6 +26,13 @@ burgers.cpp:finite-volume-burgers
 burgers_mra.cpp:finite-volume-burgers-mra
 burgers_os.cpp:finite-volume-burgers-os
 )
+
+# List of MPI demos (only if WITH_MPI is enabled)
+if(${WITH_MPI})
+    list(APPEND STANDARD_DEMOS
+        burgers_os_2d_mpi.cpp:finite-volume-burgers-os-2d-mpi
+    )
+endif()
 
 # Create executables with PETSc
 if(${WITH_PETSC})

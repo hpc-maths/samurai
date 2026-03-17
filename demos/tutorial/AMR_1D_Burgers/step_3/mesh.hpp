@@ -37,15 +37,18 @@ enum class MeshID
     reference        = cells_and_ghosts // Which is the largest ID including all the others
 };
 
-template <std::size_t dim_>
-struct MeshConfig
-{
-    static constexpr std::size_t dim                  = dim_;
-    static constexpr std::size_t max_refinement_level = 20;
+template <class Config>
+class Mesh;
 
-    using interval_t = samurai::Interval<int>;
-    using mesh_id_t  = MeshID;
-};
+namespace samurai
+{
+
+    template <class Config>
+    struct get_mesh_id<Mesh<Config>>
+    {
+        using type = MeshID;
+    };
+}
 
 template <class Config>
 class Mesh : public samurai::Mesh_base<Mesh<Config>, Config>
@@ -54,8 +57,8 @@ class Mesh : public samurai::Mesh_base<Mesh<Config>, Config>
 
     // Importing all the types used in what follows
     using base_type                  = samurai::Mesh_base<Mesh<Config>, Config>;
-    using config                     = typename base_type::config;
-    static constexpr std::size_t dim = config::dim;
+    using config_t                   = typename base_type::config_t;
+    static constexpr std::size_t dim = config_t::dim;
 
     using mesh_id_t = typename base_type::mesh_id_t;
     using cl_type   = typename base_type::cl_type;
@@ -64,14 +67,14 @@ class Mesh : public samurai::Mesh_base<Mesh<Config>, Config>
     Mesh() = default;
 
     // Constructor starting from a cell list
-    SAMURAI_INLINE Mesh(const cl_type& cl, const samurai::mesh_config<Config::dim>& cfg)
+    SAMURAI_INLINE Mesh(const cl_type& cl, const config_t& cfg)
         : base_type(cl, cfg)
     {
     }
 
     // Constructor from a given box (domain)
-    SAMURAI_INLINE Mesh(const samurai::Box<double, dim>& b, samurai::mesh_config<Config::dim>& cfg)
-        : base_type(b, cfg.approx_box_tol(0).scaling_factor(1))
+    SAMURAI_INLINE Mesh(const samurai::Box<double, dim>& b, const config_t& cfg)
+        : base_type(b, config_t(cfg).approx_box_tol(0).scaling_factor(1))
     {
     }
 

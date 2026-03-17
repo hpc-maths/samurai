@@ -37,6 +37,11 @@ namespace samurai
 
         void apply(output_field_t& output_field, input_field_t& input_field) override
         {
+            if constexpr (cfg::stencil_size > 1)
+            {
+                assert(input_field.ghosts_updated());
+            }
+
             scheme().for_each_stencil_and_coeffs(
                 input_field,
                 [&](const auto& cells, const auto& coeffs)

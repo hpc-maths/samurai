@@ -13,6 +13,7 @@
 #include "../arguments.hpp"
 #include "../boundary.hpp"
 #include "../field.hpp"
+#include "../load_balancing/load_balancing_diffusion.hpp"
 #include "../timers.hpp"
 #include "config.hpp"
 #include "criteria.hpp"
@@ -110,7 +111,7 @@ namespace samurai
         using mesh_t            = typename inner_fields_type::mesh_t;
         using mesh_id_t         = typename mesh_t::mesh_id_t;
         using detail_t          = typename inner_fields_type::detail_t;
-        using tag_t             = ScalarField<mesh_t, int>;
+        using tag_t             = ScalarField<mesh_t, std::uint8_t>;
 
         static constexpr std::size_t dim = mesh_t::dim;
         static constexpr bool enlarge_v  = enlarge_;
@@ -126,6 +127,10 @@ namespace samurai
         fields_t m_fields; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
         detail_t m_detail;
         tag_t m_tag;
+#ifdef SAMURAI_WITH_MPI
+        DiffusionLoadBalancer m_balancer;
+        std::size_t m_adapt_ite{0};
+#endif
     };
 
     ////////////////////////////////////////////////////////////////////
@@ -323,6 +328,7 @@ namespace samurai
     template <class... Fields>
     void Adapt<enlarge_, PredictionFn, TField, TFields...>::operator()(mra_config& cfg, Fields&... other_fields)
     {
+        ScopedTimer timer("mesh adaptation");
         auto& mesh            = m_fields.mesh();
         std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
@@ -332,7 +338,6 @@ namespace samurai
             return;
         }
 
-        times::timers.start("mesh adaptation");
         cfg.parse_args();
         for (std::size_t i = 0; i < max_level - min_level; ++i)
         {
@@ -346,7 +351,28 @@ namespace samurai
                 break;
             }
         }
-        times::timers.stop("mesh adaptation");
+#ifdef SAMURAI_WITH_MPI
+        if constexpr (dim == 2) // only works in 2D for now
+        {
+            if (args::load_balancing_at > 0 && m_adapt_ite % args::load_balancing_at == 0)
+            {
+                if constexpr (std::same_as<fields_t, Field_tuple<TField, TFields...>>)
+                {
+                    std::apply(
+                        [&](auto&&... fields)
+                        {
+                            m_balancer.load_balance(fields..., other_fields...);
+                        },
+                        m_fields.elements());
+                }
+                else
+                {
+                    m_balancer.load_balance(m_fields, other_fields...);
+                }
+            }
+            m_adapt_ite++;
+        }
+#endif
     }
 
     template <bool enlarge_, class PredictionFn, class TField, class... TFields>
@@ -398,7 +424,7 @@ namespace samurai
     }
 
     template <class Mesh>
-    void keep_boundary_refined(const Mesh& mesh, ScalarField<Mesh, int>& tag, const DirectionVector<Mesh::dim>& direction)
+    void keep_boundary_refined(const Mesh& mesh, auto& tag, const DirectionVector<Mesh::dim>& direction)
     {
         // Since the adaptation process starts at max_level, we just need to flag to `keep` the boundary cells at max_level only.
         // There will never be boundary cells at lower levels.
@@ -407,12 +433,12 @@ namespace samurai
                       bdry,
                       [&](auto& cell)
                       {
-                          tag[cell] = static_cast<int>(CellFlag::keep);
+                          tag[cell] = static_cast<std::uint8_t>(CellFlag::keep);
                       });
     }
 
     template <class Mesh>
-    void keep_boundary_refined(const Mesh& mesh, ScalarField<Mesh, int>& tag)
+    void keep_boundary_refined(const Mesh& mesh, auto& tag)
     {
         constexpr std::size_t dim = Mesh::dim;
 
@@ -432,26 +458,19 @@ namespace samurai
     template <class... Fields>
     bool Adapt<enlarge_, PredictionFn, TField, TFields...>::harten(std::size_t ite, const mra_config& cfg, Fields&... other_fields)
     {
+        // ScopedTimer timer(fmt::format("harten criterion {}", ite));
         auto& mesh = m_fields.mesh();
 
-        times::timers.start("mesh adaptation");
         std::size_t min_level = mesh.min_level();
         std::size_t max_level = mesh.max_level();
 
         for_each_cell(mesh[mesh_id_t::cells],
                       [&](auto& cell)
                       {
-                          m_tag[cell] = static_cast<int>(CellFlag::keep);
+                          m_tag[cell] = static_cast<std::uint8_t>(CellFlag::keep);
                       });
 
-        for (std::size_t level = min_level; level <= max_level; ++level)
-        {
-            update_tag_subdomains(level, m_tag, true);
-        }
-
-        times::timers.stop("mesh adaptation");
         update_ghost_mr(m_fields);
-        times::timers.start("mesh adaptation");
 
         //--------------------//
         // Detail computation //
@@ -468,49 +487,23 @@ namespace samurai
             contract_directions[d]     = !mesh.is_periodic(d);
         }
 
+        times::timers.start("detail computation");
         for (std::size_t level = ((min_level > 0) ? min_level - 1 : 0); level < max_level - ite; ++level)
         {
-            // 1. detail computation in the cells (at level+1)
-            auto ghosts_below_cells = intersection(mesh[mesh_id_t::all_cells][level], mesh[mesh_id_t::cells][level + 1]).on(level);
-            ghosts_below_cells.apply_op(compute_detail(m_detail, m_fields)); // 'compute_detail' applies 1 level above the set
-                                                                             // it is applied to, i.e. level+1
-
-            // 2. detail computation in the ghosts below cells (at level)
-            if (level >= min_level)
-            {
-                if (periodic_in_all_directions)
-                {
-                    auto ghosts_2_levels_below_cells = intersection(mesh[mesh_id_t::all_cells][level - 1], ghosts_below_cells).on(level - 1);
-                    ghosts_2_levels_below_cells.apply_op(compute_detail(m_detail, m_fields));
-                }
-                else
-                {
-                    // We don't want to compute the detail in the ghosts below the boundary cells. In those ghosts, we want to keep the
-                    // detail to 0. We do that because that detail would use the outer ghost cells at level L-2, which holds the BC
-                    // projected 2 times, and this method actually does not work well. So we're removing a layer of 4 boundary cells
-                    // from the domain. This number of 4 ensures that the outer ghost at level L-2 will not be used in the prediction
-                    // stencil of interior ghosts. Note: where we don't compute the detail, it stays at its initial value of 0.
-
-                    // contract the domain only in non-periodic directions
-                    auto domain_without_bdry = contract(self(mesh.domain()).on(level + 1), 4, contract_directions);
-                    auto cells_without_bdry  = intersection(mesh[mesh_id_t::cells][level + 1], domain_without_bdry);
-                    auto ghosts_below_cells2 = intersection(mesh[mesh_id_t::all_cells][level], cells_without_bdry).on(level);
-                    auto ghosts_2_levels_below_cells = intersection(mesh[mesh_id_t::all_cells][level - 1], ghosts_below_cells2).on(level - 1);
-                    ghosts_2_levels_below_cells.apply_op(compute_detail(m_detail, m_fields)); // 'compute_detail' applies 1
-                                                                                              // level above the set it is
-                                                                                              // applied to, i.e. 1 level below
-                                                                                              // cells
-                }
-            }
+            auto ghosts_below_cells = samurai::intersection(
+                                          mesh[mesh_id_t::all_cells][level],
+                                          samurai::union_(mesh[mesh_id_t::cells][level + 1], mesh[mesh_id_t::cells][level + 2]))
+                                          .on(level);
+            ghosts_below_cells.apply_op(compute_detail(m_detail, m_fields));
         }
 
         if (cfg.relative_detail())
         {
             compute_relative_detail(m_detail, m_fields);
         }
+        times::timers.stop("detail computation");
 
-        update_ghost_subdomains(m_detail);
-
+        times::timers.start("tag cells");
         for (std::size_t level = min_level; level <= max_level - ite; ++level)
         {
             std::size_t exponent = dim * (max_level - level);
@@ -520,36 +513,20 @@ namespace samurai
 
             auto subset_1 = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
 
-            subset_1.apply_op(to_coarsen_mr(m_detail, m_tag, eps_l, min_level),
-                              to_refine_mr(m_detail,
-                                           m_tag,
-                                           (pow(2.0, regularity_to_use)) * eps_l,
-                                           max_level)); // Refinement according to Harten
+            subset_1.apply_op(mr_criteria(m_detail, m_tag, eps_l, regularity_to_use));
+            // TODO: make this update outside the loop with only one communication instead of one per level
             update_tag_subdomains(level, m_tag, true);
         }
+        times::timers.stop("tag cells");
 
+        times::timers.start("refine boundary");
         if (args::refine_boundary) // cppcheck-suppress knownConditionTrueFalse
         {
             keep_boundary_refined(mesh, m_tag);
         }
+        times::timers.stop("refine boundary");
 
-        for (std::size_t level = min_level; level <= max_level - ite; ++level)
-        {
-            auto subset_2 = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level]);
-
-            subset_2.apply_op(keep_around_refine(m_tag));
-
-            if constexpr (enlarge_v)
-            {
-                auto subset_3 = intersection(mesh[mesh_id_t::cells_and_ghosts][level], mesh[mesh_id_t::cells_and_ghosts][level]);
-                subset_2.apply_op(enlarge(m_tag));
-                subset_3.apply_op(tag_to_keep<0>(m_tag, CellFlag::enlarge));
-            }
-
-            update_tag_periodic(level, m_tag);
-            update_tag_subdomains(level, m_tag);
-        }
-
+        times::timers.start("tag finalization");
         for (std::size_t level = max_level; level > 0; --level)
         {
             auto keep_subset = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
@@ -559,6 +536,9 @@ namespace samurai
 
             keep_subset.apply_op(maximum(m_tag));
         }
+        times::timers.stop("tag finalization");
+
+        times::timers.start("mesh update");
         using ca_type = typename mesh_t::ca_type;
 
         ca_type new_ca = update_cell_array_from_tag(mesh[mesh_id_t::cells], m_tag);
@@ -571,15 +551,16 @@ namespace samurai
         if (mesh == new_mesh)
 #endif // SAMURAI_WITH_MPI
         {
+            times::timers.stop("mesh update");
             return true;
         }
-
-        times::timers.stop("mesh adaptation");
+        times::timers.stop("mesh update");
         update_ghost_mr(other_fields...);
-        times::timers.start("mesh adaptation");
 
+        times::timers.start("fields update");
         update_fields(std::forward<PredictionFn>(m_prediction_fn), new_mesh, m_fields, other_fields...);
         m_fields.mesh().swap(new_mesh);
+        times::timers.stop("fields update");
         return false;
     }
 

@@ -58,10 +58,9 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 #endif
 }
 
-int main(int argc, char* argv[])
+template <std::size_t pred_stencil_size>
+int main_fct(bool first_run, int argc, char* argv[])
 {
-    auto& app = samurai::initialize("Finite volume example for the advection equation in 2d using multiresolution", argc, argv);
-
     constexpr std::size_t dim = 2;
 
     // Simulation parameters
@@ -80,23 +79,28 @@ int main(int argc, char* argv[])
     std::string filename = "FV_advection_2d";
     std::size_t nfiles   = 1;
 
-    app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--max-corner", max_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--velocity", a, "The velocity of the advection equation")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--Ti", t, "Initial time")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
-    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
-
+    if (first_run)
+    {
+        auto& app = samurai::app;
+        app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
+        app.add_option("--max-corner", max_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
+        app.add_option("--velocity", a, "The velocity of the advection equation")->capture_default_str()->group("Simulation parameters");
+        app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
+        app.add_option("--Ti", t, "Initial time")->capture_default_str()->group("Simulation parameters");
+        app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
+        app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
+        app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
+        app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
+        app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
+    }
     SAMURAI_PARSE(argc, argv);
 
+    filename = fmt::format("{}_pred_{}", filename, pred_stencil_size);
+
     const samurai::Box<double, dim> box(min_corner, max_corner);
-    auto config = samurai::mesh_config<dim>().min_level(4).max_level(10).max_stencil_size(2).disable_minimal_ghost_width();
-    auto mesh   = samurai::mra::make_empty_mesh(config);
-    auto u      = samurai::make_scalar_field<double>("u", mesh);
+    auto config = samurai::mesh_config<dim, pred_stencil_size>().min_level(4).max_level(10).max_stencil_size(2).disable_minimal_ghost_width();
+    auto mesh = samurai::mra::make_empty_mesh(config);
+    auto u    = samurai::make_scalar_field<double>("u", mesh);
 
     if (restart_file.empty())
     {
@@ -147,6 +151,14 @@ int main(int argc, char* argv[])
             save(path, filename, u, suffix);
         }
     }
+    return 0;
+}
+
+int main(int argc, char* argv[])
+{
+    samurai::initialize("Finite volume example for the advection equation in 2d using multiresolution", argc, argv);
+    main_fct<0>(true, argc, argv);
+    main_fct<1>(false, argc, argv);
     samurai::finalize();
     return 0;
 }

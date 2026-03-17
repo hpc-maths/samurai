@@ -293,6 +293,11 @@ namespace samurai
                 largest_stencil_assembly().copy_rhs(field, v);
             }
 
+            void copy_rhs(const Vec& v, output_field_t& field) const // cppcheck-suppress duplInheritedMember
+            {
+                largest_stencil_assembly().copy_rhs(v, field);
+            }
+
             Vec create_solution_vector(const input_field_t& field) const // cppcheck-suppress duplInheritedMember
             {
                 return largest_stencil_assembly().create_solution_vector(field);

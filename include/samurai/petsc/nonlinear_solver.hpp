@@ -12,23 +12,45 @@ namespace samurai
         template <class Assembly>
         class NonLinearSolverBase
         {
-            using scheme_t       = typename Assembly::scheme_t;
+            using scheme_t = typename Assembly::scheme_t;
+
+            static constexpr bool is_block_solver = IsBlockOperator<scheme_t>;
+
             using output_field_t = typename scheme_t::output_field_t;
+
+            // Helper to conditionally access output_field_no_ref_t only when it exists
+            template <class Scheme, bool is_block>
+            struct worker_output_field_type_helper
+            {
+                using type = output_field_t;
+            };
+
+            template <class Scheme>
+            struct worker_output_field_type_helper<Scheme, true>
+            {
+                using type = typename Scheme::output_field_no_ref_t;
+            };
+
+            // If not a block solver, worker_output_field_t = output_field_t
+            using worker_output_field_t = typename worker_output_field_type_helper<scheme_t, is_block_solver>::type;
 
           protected:
 
             Assembly m_assembly;
-            SNES m_snes                   = nullptr;
-            Mat m_J                       = nullptr;
-            bool m_is_set_up              = false;
-            bool m_reuse_allocated_matrix = false;
+            SNES m_snes                       = nullptr;
+            Mat m_J                           = nullptr;
+            bool m_is_set_up                  = false;
+            bool m_reuse_allocated_matrix     = false;
+            bool m_stop_program_on_divergence = true;
 
-            output_field_t m_worker_output_field;
+            worker_output_field_t m_worker_output_field;
 
           public:
 
             // User callback to configure the solver
-            std::function<void(SNES&, KSP&, PC&)> configure = nullptr;
+            std::function<void(SNES&, KSP&, PC&)> configure                                = nullptr;
+            std::function<void(SNES&, KSP&, PC&, Mat&)> after_matrix_assembly              = nullptr;
+            std::function<void(PetscInt, PetscReal, const worker_output_field_t&)> monitor = nullptr;
 
             explicit NonLinearSolverBase(const scheme_t& scheme)
                 : m_assembly(scheme)
@@ -115,6 +137,11 @@ namespace samurai
                 return assembly().scheme();
             }
 
+            void stop_program_on_divergence(bool value)
+            {
+                m_stop_program_on_divergence = value;
+            }
+
           protected:
 
             virtual void default_solver_configuration()
@@ -150,6 +177,12 @@ namespace samurai
                 // Jacobian function
                 SNESSetJacobian(m_snes, m_J, m_J, PETSC_jacobian_function, this);
 
+                // Sends the successive residuals to the user if he monitors the convergence
+                if (monitor)
+                {
+                    SNESMonitorSet(m_snes, PETSC_monitor, this, nullptr);
+                }
+
                 KSP ksp;
                 PC pc;
                 SNESGetKSP(m_snes, &ksp);
@@ -172,28 +205,54 @@ namespace samurai
                 auto self      = reinterpret_cast<NonLinearSolverBase*>(ctx); // this
                 auto& assembly = self->assembly();
 
-                // Ideally, we would like to wrap a field structure around the data of the Petsc vectors x and f,
-                // but we don't have such a Field constructor.
-                // So, instead, we use worker fields and copy the data.
-                auto& x_field = assembly.unknown();          // for x, we reuse the unknown field
-                auto& f_field = self->m_worker_output_field; // for f, we use an actual worker field
+                if constexpr (!is_block_solver)
+                {
+                    // Ideally, we would like to wrap a field structure around the data of the Petsc vectors x and f,
+                    // but we don't have such a Field constructor.
+                    // So, instead, we use worker fields and copy the data.
+                    auto& x_field = assembly.unknown();          // for x, we reuse the unknown field
+                    auto& f_field = self->m_worker_output_field; // for f, we use an actual worker field
 
-                assembly.copy_unknown(x, x_field);
+                    assembly.copy_unknown(x, x_field);
 
-                // Apply explicit scheme: f = scheme(x)
-                f_field.fill(0); // initialize to zero because we accumulate the results
-                self->scheme().apply(f_field, x_field);
+                    // Apply explicit scheme: f = scheme(x)
+                    f_field.fill(0); // initialize to zero because we accumulate the results
+                    self->scheme().apply(f_field, x_field);
 
-                // Copy the result into the Petsc vector f
-                assembly.copy_rhs(f_field, f);
-                // Set to zero the right-hand side of the ghost equations and apply BCs attached to the unknown field
-                self->prepare_rhs(f);
+                    // Copy the result into the Petsc vector f
+                    assembly.copy_rhs(f_field, f);
+                    // Set to zero the right-hand side of the ghost equations and apply BCs attached to the unknown field
+                    self->prepare_rhs(x, f);
+                }
+                else
+                {
+                    assembly.update_unknowns(x);                  // for x, we reuse the unknown fields
+                    auto& f_fields = self->m_worker_output_field; // for f, we use an actual worker field, which is a tuple of fields
 
+                    // Apply explicit scheme: f = scheme(x)
+                    for_each(f_fields,
+                             [](auto& f_field)
+                             {
+                                 f_field.fill(0); // initialize to zero because we accumulate the results
+                             });
+
+                    auto unknown_tuple = assembly.unknown(); // tuple containing references to the unknown fields
+                    assembly.block_operator().apply(f_fields, unknown_tuple);
+
+                    // Copy the result into the Petsc vector f
+                    assembly.copy_rhs(f_fields, f);
+                    // Set to zero the right-hand side of the ghost equations and apply BCs attached to the unknown field
+                    self->prepare_rhs(x, f);
+                }
+
+#ifdef SAMURAI_CHECK_NAN
+                assert(check_nan_or_inf(f));
+#endif
                 times::timers.start("nonlinear system solve");
                 return PETSC_SUCCESS;
             }
 
-            static PetscErrorCode PETSC_jacobian_function(SNES /*snes*/, Vec x, Mat jac, Mat B, void* ctx)
+            static PetscErrorCode PETSC_jacobian_function(SNES snes, Vec x, Mat jac, Mat B, void* ctx)
             {
                 times::timers.stop("nonlinear system solve");
 
@@ -205,7 +264,14 @@ namespace samurai
                 // Ideally, we would like to wrap a field structure around the data of the Petsc vector x,
                 // but we don't have such a Field constructor.
                 // So, instead, we reuse the unknown field and copy the data.
-                assembly.copy_unknown(x, assembly.unknown());
+                if constexpr (!is_block_solver)
+                {
+                    assembly.copy_unknown(x, assembly.unknown());
+                }
+                else
+                {
+                    assembly.update_unknowns(x);
+                }
 
                 // Assembly of the Jacobian matrix.
                 // In this case, jac = B, but Petsc recommends we assemble B for more general cases.
@@ -218,6 +284,15 @@ namespace samurai
                     MatAssemblyEnd(jac, MAT_FINAL_ASSEMBLY);
                 }
 
+                if (self->after_matrix_assembly)
+                {
+                    KSP ksp;
+                    PC pc;
+                    SNESGetKSP(snes, &ksp);
+                    KSPGetPC(ksp, &pc);
+                    self->after_matrix_assembly(snes, ksp, pc, B);
+                }
+
                 // MatView(B, PETSC_VIEWER_STDOUT_(PETSC_COMM_WORLD));
                 // std::cout << std::endl;
 
@@ -225,10 +300,27 @@ namespace samurai
                 return PETSC_SUCCESS;
             }
 
+            static PetscErrorCode PETSC_monitor(SNES snes, PetscInt it, PetscReal rnorm, void* ctx)
+            {
+                Vec r;
+                SNESGetFunction(snes, &r, NULL, NULL);
+
+                auto self      = reinterpret_cast<NonLinearSolverBase*>(ctx); // this
+                auto& assembly = self->assembly();
+
+                auto& r_field = self->m_worker_output_field;
+                assembly.copy_rhs(r, r_field);
+                assert(self->monitor);
+                self->monitor(it, rnorm, r_field);
+
+                return PETSC_SUCCESS;
+            }
+
           protected:
 
-            void prepare_rhs(Vec& b)
+            void prepare_rhs(Vec& /* x */, Vec& b)
             {
+                // assembly().copy_values_for_all_ghosts(x, b);
                 assembly().set_0_for_all_ghosts(b);
                 // Update the right-hand side with the boundary conditions stored in the solution field
                 assembly().enforce_bc(b);
@@ -242,14 +334,12 @@ namespace samurai
                 // assert(check_nan_or_inf(b));
             }
 
-            void prepare_rhs_and_solve(Vec& b, Vec& x)
+            SNESConvergedReason solve_system(Vec& x, const Vec& b)
             {
-                prepare_rhs(b);
-                solve_system(b, x);
-            }
-
-            void solve_system(Vec& b, Vec& x)
-            {
+#ifdef SAMURAI_CHECK_NAN
+                assert(check_nan_or_inf(x));
+                assert(check_nan_or_inf(b));
+#endif
                 // Solve the system
                 times::timers.start("nonlinear system solve");
                 SNESSolve(m_snes, b, x);
@@ -257,7 +347,7 @@ namespace samurai
 
                 SNESConvergedReason reason_code;
                 SNESGetConvergedReason(m_snes, &reason_code);
-                if (reason_code < 0)
+                if (reason_code < 0 && m_stop_program_on_divergence)
                 {
                     using namespace std::string_literals;
                     const char* reason_text;
@@ -270,6 +360,7 @@ namespace samurai
                     exit(EXIT_FAILURE);
                 }
                 // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_WORLD)); std::cout << std::endl;
+                return reason_code;
             }
 
           public:
@@ -300,7 +391,7 @@ namespace samurai
                 }
                 default_solver_configuration();
                 m_is_set_up              = false;
-                m_reuse_allocated_matrix = true;
+                m_reuse_allocated_matrix = m_J != nullptr;
             }
         };
 
@@ -331,7 +422,7 @@ namespace samurai
                 assembly().set_unknown(unknown);
             }
 
-            void solve(output_field_t& rhs)
+            SNESConvergedReason solve(output_field_t& rhs)
             {
                 m_worker_output_field = output_field_t("worker_output", rhs.mesh());
 
@@ -343,13 +434,16 @@ namespace samurai
                 Vec b = assembly().create_rhs_vector(rhs);
                 Vec x = assembly().create_solution_vector(assembly().unknown());
 
-                this->prepare_rhs_and_solve(b, x);
+                this->prepare_rhs(x, b);
+
+                SNESConvergedReason reason_code = this->solve_system(x, b);
 
 #ifdef SAMURAI_WITH_MPI
                 assembly().copy_unknown(x, assembly().unknown());
 #endif
                 VecDestroy(&b);
                 VecDestroy(&x);
+                return reason_code;
             }
 
             void solve(input_field_t& unknown, output_field_t& rhs)

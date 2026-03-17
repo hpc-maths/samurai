@@ -54,7 +54,7 @@ namespace samurai
             static constexpr std::size_t dim                       = field_t::dim;
             static constexpr std::size_t input_n_comp              = field_t::n_comp;
             static constexpr std::size_t output_n_comp             = output_field_t::n_comp;
-            static constexpr std::size_t prediction_stencil_radius = mesh_t::config::prediction_stencil_radius;
+            static constexpr std::size_t prediction_stencil_radius = mesh_t::config_t::prediction_stencil_radius;
             static constexpr std::size_t bdry_neighbourhood_width  = bdry_cfg_t::neighbourhood_width;
             static constexpr std::size_t bdry_stencil_size         = bdry_cfg_t::stencil_size;
             static constexpr std::size_t nb_bdry_ghosts            = bdry_cfg_t::nb_ghosts;
@@ -678,6 +678,24 @@ namespace samurai
                     }
                 }
                 VecRestoreArray(v, &v_data);
+            }
+
+            void copy_rhs(const Vec& v, output_field_t& field) const
+            {
+                const double* v_data;
+                VecGetArrayRead(v, &v_data);
+                for (std::size_t cell_index = 0; cell_index < cell_ownership().n_local_cells; ++cell_index)
+                {
+                    if (is_locally_owned(cell_index))
+                    {
+                        for (unsigned int i = 0; i < output_n_comp; ++i)
+                        {
+                            auto vec_row                      = local_row_index(cell_index, i);
+                            field_value(field, cell_index, i) = v_data[vec_row];
+                        }
+                    }
+                }
+                VecRestoreArrayRead(v, &v_data);
             }
 
             template <class int_type>

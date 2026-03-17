@@ -4,5 +4,55 @@
     "include-v-in-tag": true,
     "changelog-path": "CHANGELOG.md",
     "versioning-strategy": "always-bump-minor",
-    "bump-minor-pre-major": true
+    "bump-minor-pre-major": true,
+    "changelog-sections": [
+        {
+            "type": "feat",
+            "section": "Features"
+        },
+        {
+            "type": "fix",
+            "section": "Bug Fixes"
+        },
+        {
+            "type": "docs",
+            "section": "Documentation"
+        },
+        {
+            "type": "style",
+            "section": "Code Style"
+        },
+        {
+            "type": "refactor",
+            "section": "Code Refactoring"
+        },
+        {
+            "type": "perf",
+            "section": "Performance"
+        },
+        {
+            "type": "test",
+            "section": "Tests"
+        },
+        {
+            "type": "chore",
+            "section": "Chores"
+        },
+        {
+            "type": "ci",
+            "section": "CI/CD"
+        },
+        {
+            "type": "build",
+            "section": "Build System"
+        },
+        {
+            "type": "revert",
+            "section": "Reverts"
+        },
+        {
+            "type": "deprecation",
+            "section": "Deprecations"
+        }
+    ]
 }

@@ -94,8 +94,11 @@ namespace samurai
         LevelCellArray() = default;
         LevelCellArray(const LevelCellList<Dim, TInterval>& lcl);
 
-        template <class Op, class StartEndOp, class... S>
-        LevelCellArray(Subset<Op, StartEndOp, S...> set);
+        template <class Set>
+        explicit LevelCellArray(const SetBase<Set>& set);
+
+        template <class Set>
+        LevelCellArray(const SetBase<Set>& set, const coords_t& origin_point, const double scaling_factor);
 
         LevelCellArray(std::size_t level, const Box<value_t, dim>& box);
         LevelCellArray(std::size_t level,
@@ -170,6 +173,7 @@ namespace samurai
 
         //// Is it box-shaped?
         bool is_box() const;
+        void box_like();
 
         //
         double cell_length() const;
@@ -205,6 +209,10 @@ namespace samurai
         template <class Archive>
         void serialize(Archive& ar, const unsigned long)
         {
+            // xt::xtensor_fixed cannot be serialized
+            // so we copy it to a std::array before serialization
+            std::array<double, dim> origin;
+            std::copy(m_origin_point.begin(), m_origin_point.end(), origin.begin());
             for (std::size_t d = 0; d < dim; ++d)
             {
                 ar& m_cells[d];
@@ -215,8 +223,9 @@ namespace samurai
             }
             ar & m_level;
             ar & m_is_box;
-            // ar & m_origin_point; // doesn't compile: xt::xtensor_fixed cannot be serialized
+            ar & origin;
             ar & m_scaling_factor;
+            std::copy(origin.begin(), origin.end(), m_origin_point.begin());
         }
 #endif
         template <bool isIntervalListEmpty, bool isParentPointNew, size_t d>
@@ -356,9 +365,24 @@ namespace samurai
     }
 
     template <std::size_t Dim, class TInterval>
-    template <class Op, class StartEndOp, class... S>
-    SAMURAI_INLINE LevelCellArray<Dim, TInterval>::LevelCellArray(Subset<Op, StartEndOp, S...> set)
+    template <class Set>
+    SAMURAI_INLINE LevelCellArray<Dim, TInterval>::LevelCellArray(const SetBase<Set>& set)
         : m_level(set.level())
+    {
+        set(
+            [this](const auto& i, const auto& index)
+            {
+                add_interval_back(i, index);
+            });
+    }
+
+    template <std::size_t Dim, class TInterval>
+    template <class Set>
+    SAMURAI_INLINE
+    LevelCellArray<Dim, TInterval>::LevelCellArray(const SetBase<Set>& set, const coords_t& origin_point, const double scaling_factor)
+        : m_level(set.level())
+        , m_origin_point(origin_point)
+        , m_scaling_factor(scaling_factor)
     {
         set(
             [this](const auto& i, const auto& index)
@@ -822,6 +846,12 @@ namespace samurai
     SAMURAI_INLINE bool LevelCellArray<Dim, TInterval>::is_box() const
     {
         return m_is_box;
+    }
+
+    template <std::size_t Dim, class TInterval>
+    SAMURAI_INLINE void LevelCellArray<Dim, TInterval>::box_like()
+    {
+        m_is_box = true;
     }
 
     template <std::size_t Dim, class TInterval>

@@ -385,14 +385,14 @@ namespace samurai
                 }
             }
 
-            m_ghost_width = std::max(m_max_stencil_radius, static_cast<int>(prediction_stencil_radius));
-
             if (!m_disable_minimal_ghost_width)
             {
                 // 2 is because prediction_stencil_radius=1, if >1 we don't know what to do...
                 // The idea is to have enough ghosts at the boundary for the reconstruction and the transfer to work.
                 m_max_stencil_radius = std::max(m_max_stencil_radius, 2);
             }
+
+            m_ghost_width = std::max(m_max_stencil_radius, static_cast<int>(prediction_stencil_radius));
         }
 
       private:
@@ -429,14 +429,5 @@ namespace samurai
 
         bool m_disable_args_parse          = false;
         bool m_disable_minimal_ghost_width = false;
-    };
-
-    template <class mesh_cfg_t, class mesh_id_t_>
-    class complete_mesh_config
-        : public mesh_config<mesh_cfg_t::dim, mesh_cfg_t::prediction_stencil_radius, mesh_cfg_t::max_refinement_level, typename mesh_cfg_t::interval_t>
-    {
-      public:
-
-        using mesh_id_t = mesh_id_t_;
     };
 } // namespace samurai

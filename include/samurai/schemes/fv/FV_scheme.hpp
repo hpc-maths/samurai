@@ -212,10 +212,9 @@ namespace samurai
         {
             this->update_ghosts_if_needed(input_field);
 
-            times::timers.start(name() + " operator");
+            ScopedTimer timer_op(name() + " operator");
             auto explicit_scheme = make_explicit(derived_cast());
             auto output_field    = explicit_scheme.apply_to(input_field);
-            times::timers.stop(name() + " operator");
             return output_field;
         }
 
@@ -223,20 +222,18 @@ namespace samurai
         {
             this->update_ghosts_if_needed(input_field);
 
-            times::timers.start(name() + " operator");
+            ScopedTimer timer_op(name() + " operator");
             auto explicit_scheme = make_explicit(derived_cast());
             explicit_scheme.apply(output_field, input_field);
-            times::timers.stop(name() + " operator");
         }
 
         auto operator()(std::size_t d, input_field_t& input_field)
         {
             this->update_ghosts_if_needed(input_field);
 
-            times::timers.start(name() + " operator");
+            ScopedTimer timer_op(name() + " operator");
             auto explicit_scheme = make_explicit(derived_cast());
             auto output_field    = explicit_scheme.apply_to(d, input_field);
-            times::timers.stop(name() + " operator");
             return output_field;
         }
 
@@ -244,10 +241,9 @@ namespace samurai
         {
             this->update_ghosts_if_needed(input_field);
 
-            times::timers.start(name() + " operator");
+            ScopedTimer timer_op(name() + " operator");
             auto explicit_scheme = make_explicit(derived_cast());
             explicit_scheme.apply(d, output_field, input_field);
-            times::timers.stop(name() + " operator");
         }
 
         /**

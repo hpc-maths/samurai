@@ -14,6 +14,9 @@
 #include "cell.hpp"
 #include "mesh_holder.hpp"
 
+#include "concepts.hpp"
+#include "subset/node.hpp"
+
 using namespace xt::placeholders;
 
 namespace samurai
@@ -111,18 +114,15 @@ namespace samurai
         }
     }
 
-    template <class Mesh, class Func>
+    template <mesh_like Mesh, class Func>
     SAMURAI_INLINE void for_each_interval(const Mesh& mesh, Func&& f)
     {
-        using mesh_id_t = typename Mesh::config::mesh_id_t;
+        using mesh_id_t = typename Mesh::mesh_id_t;
         for_each_interval(mesh[mesh_id_t::cells], std::forward<Func>(f));
     }
 
-    template <class Op, class StartEndOp, class... S>
-    class Subset;
-
-    template <class Func, class Op, class StartEndOp, class... S>
-    SAMURAI_INLINE void for_each_interval(Subset<Op, StartEndOp, S...>& set, Func&& f)
+    template <class Func, class Set>
+    SAMURAI_INLINE void for_each_interval(const SetBase<Set>& set, Func&& f)
     {
         set(
             [&](const auto& i, const auto& index)
@@ -487,23 +487,12 @@ namespace samurai
     SAMURAI_INLINE auto
     find_cell(const LevelCellArray<dim, TInterval>& lca, const typename LevelCellArray<dim, TInterval>::cell_t::coords_t& cartesian_coords)
     {
-        using cell_t = typename LevelCellArray<dim, TInterval>::cell_t;
+        using indices_t = typename LevelCellArray<dim, TInterval>::cell_t::indices_t;
+        using value_t   = indices_t::value_type;
 
-        cell_t cell;
-        cell.length = 0; // cell not found
+        const indices_t indices = xt::cast<value_t>(xt::floor((cartesian_coords - lca.origin_point()) / lca.cell_length()));
 
-        auto length  = lca.cell_length();
-        cell.indices = xt::floor((cartesian_coords - lca.origin_point()) / length);
-        auto offset  = find(lca, cell.indices);
-        if (offset >= 0)
-        {
-            auto interval     = lca[0][static_cast<std::size_t>(offset)];
-            cell.index        = interval.index + cell.indices[0];
-            cell.level        = lca.level();
-            cell.length       = length;
-            cell.origin_point = lca.origin_point();
-        }
-        return cell;
+        return find_cell(lca, indices);
     }
 
     template <std::size_t dim, class TInterval, std::size_t max_size>
@@ -530,6 +519,78 @@ namespace samurai
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
         return find_cell(mesh[mesh_id_t::cells], cartesian_coords);
+    }
+
+    //----------------------------------------//
+    // Find a cell from indices               //
+    //----------------------------------------//
+
+    template <std::size_t dim, class TInterval>
+    SAMURAI_INLINE auto
+    find_cell(const LevelCellArray<dim, TInterval>& lca, const typename LevelCellArray<dim, TInterval>::cell_t::indices_t& indices)
+    {
+        using cell_t = typename LevelCellArray<dim, TInterval>::cell_t;
+
+        cell_t cell;
+        cell.length = 0; // cell not found
+
+        cell.indices = indices;
+        auto offset  = find(lca, cell.indices);
+        if (offset >= 0)
+        {
+            auto interval     = lca[0][static_cast<std::size_t>(offset)];
+            cell.index        = interval.index + cell.indices[0];
+            cell.level        = lca.level();
+            cell.length       = lca.cell_length();
+            cell.origin_point = lca.origin_point();
+        }
+        return cell;
+    }
+
+    template <std::size_t dim, class TInterval, std::size_t max_size>
+    SAMURAI_INLINE auto find_cell(const CellArray<dim, TInterval, max_size>& ca,
+                                  const typename CellArray<dim, TInterval, max_size>::cell_t::indices_t& indices,
+                                  const std::size_t level_ref)
+    {
+        using indices_t = typename CellArray<dim, TInterval, max_size>::cell_t::indices_t;
+        using cell_t    = typename CellArray<dim, TInterval, max_size>::cell_t;
+
+        cell_t cell;
+        cell.length = 0; // cell not found
+
+        for (std::size_t level = ca.min_level(); level <= level_ref; ++level)
+        {
+            // level < level_ref -> project indices to a lower level
+            const indices_t shifted_indices = indices >> (level_ref - level);
+
+            cell = find_cell(ca[level], shifted_indices);
+            if (cell.length != 0)
+            {
+                return cell;
+            }
+        }
+
+        return cell;
+    }
+
+    template <std::size_t dim, class TInterval, std::size_t max_size>
+    SAMURAI_INLINE auto
+    find_cell(const CellArray<dim, TInterval, max_size>& ca, const typename CellArray<dim, TInterval, max_size>::cell_t::indices_t& indices)
+    {
+        return find_cell(ca, indices, ca.max_level());
+    }
+
+    template <class Mesh>
+    SAMURAI_INLINE auto find_cell(const Mesh& mesh, const typename Mesh::cell_t::indices_t& indices, const std::size_t level_ref)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+        return find_cell(mesh[mesh_id_t::cells], indices, level_ref);
+    }
+
+    template <class Mesh>
+    SAMURAI_INLINE auto find_cell(const Mesh& mesh, const typename Mesh::cell_t::indices_t& indices)
+    {
+        return find_cell(mesh, indices, mesh.max_level());
     }
 
 } // namespace samurai

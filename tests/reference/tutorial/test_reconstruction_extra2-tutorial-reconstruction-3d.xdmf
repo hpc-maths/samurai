@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<Xdmf>
+    <Domain>
+        <Grid Name="mesh">
+            <Topology TopologyType="Hexahedron" NumberOfElements="1632">
+                <DataItem Dimensions="13056" Format="HDF">test_reconstruction_extra2-tutorial-reconstruction-3d.h5:/mesh/connectivity</DataItem>
+            </Topology>
+            <Geometry GeometryType="XYZ">
+                <DataItem Dimensions="6843" Format="HDF">test_reconstruction_extra2-tutorial-reconstruction-3d.h5:/mesh/points</DataItem>
+            </Geometry>
+            <Attribute Name="u" Center="Cell">
+                <DataItem Dimensions="1632" Format="HDF" Precision="8">test_reconstruction_extra2-tutorial-reconstruction-3d.h5:/mesh/fields/u</DataItem>
+            </Attribute>
+            <Attribute Name="level" Center="Cell">
+                <DataItem Dimensions="1632" Format="HDF" Precision="8">test_reconstruction_extra2-tutorial-reconstruction-3d.h5:/mesh/fields/level</DataItem>
+            </Attribute>
+        </Grid>
+    </Domain>
+</Xdmf>

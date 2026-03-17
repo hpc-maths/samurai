@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<Xdmf>
+    <Domain>
+        <Grid Name="mesh">
+            <Topology TopologyType="Quadrilateral" NumberOfElements="6652">
+                <DataItem Dimensions="26608" Format="HDF">test_graduation_3_extra1.h5:/mesh/connectivity</DataItem>
+            </Topology>
+            <Geometry GeometryType="XYZ">
+                <DataItem Dimensions="22731" Format="HDF">test_graduation_3_extra1.h5:/mesh/points</DataItem>
+            </Geometry>
+        </Grid>
+    </Domain>
+</Xdmf>

@@ -10,17 +10,18 @@ namespace samurai
         template <BlockAssemblyType assembly_type_, std::size_t rows_, std::size_t cols_, class... Operators>
         class BlockAssembly;
 
-        template <class UnknownField>
+        template <class OutputField, class InputField>
         class ManualAssembly : public MatrixAssembly
         {
           public:
 
-            using scheme_t      = ManualAssembly<UnknownField>;
-            using input_field_t = UnknownField;
+            using scheme_t       = ManualAssembly<OutputField, InputField>;
+            using input_field_t  = InputField;
+            using output_field_t = OutputField;
 
           private:
 
-            UnknownField* m_unknown = nullptr;
+            input_field_t* m_unknown = nullptr;
 
           protected:
 
@@ -33,17 +34,17 @@ namespace samurai
             {
             }
 
-            UnknownField& unknown() const
+            input_field_t& unknown() const
             {
                 return *m_unknown;
             }
 
-            UnknownField* unknown_ptr() const
+            input_field_t* unknown_ptr() const
             {
                 return m_unknown;
             }
 
-            void set_unknown(UnknownField& unknown)
+            void set_unknown(input_field_t& unknown)
             {
                 m_unknown = &unknown;
             }

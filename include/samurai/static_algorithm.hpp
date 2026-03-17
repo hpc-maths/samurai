@@ -3,11 +3,10 @@
 
 #pragma once
 
+#include <array>
 #include <type_traits>
 
 #include <xtensor/containers/xfixed.hpp>
-
-#include "level_cell_array.hpp"
 
 namespace samurai
 {
@@ -69,6 +68,8 @@ namespace samurai
             template <class LCA_OR_SET>
             static auto run(index_type& idx, const LCA_OR_SET& lca, const int width)
             {
+                assert(!default_config::use_native_expand);
+
                 if constexpr (dim != dim_min)
                 {
                     idx[dim]       = -width;
@@ -99,18 +100,25 @@ namespace samurai
     template <class LCA_OR_SET, size_t dim_min = 0, size_t dim_max = LCA_OR_SET::dim>
     auto nestedExpand(const LCA_OR_SET& lca, const int width)
     {
-        static constexpr std::size_t index_size = LCA_OR_SET::dim;
-        using index_type                        = typename detail::NestedExpand<index_size, dim_max - 1, dim_min>::index_type;
-        index_type idx;
-        for (size_t i = 0; i != dim_min; ++i)
+        if constexpr (default_config::use_native_expand)
         {
-            idx[i] = 0;
+            return expand(lca, width);
         }
-        for (size_t i = dim_max; i != index_size; ++i)
+        else
         {
-            idx[i] = 0;
+            static constexpr std::size_t index_size = LCA_OR_SET::dim;
+            using index_type                        = typename detail::NestedExpand<index_size, dim_max - 1, dim_min>::index_type;
+            index_type idx;
+            for (size_t i = 0; i != dim_min; ++i)
+            {
+                idx[i] = 0;
+            }
+            for (size_t i = dim_max; i != index_size; ++i)
+            {
+                idx[i] = 0;
+            }
+            return detail::NestedExpand<index_size, dim_max - 1, dim_min>::run(idx, lca, width);
         }
-        return detail::NestedExpand<index_size, dim_max - 1, dim_min>::run(idx, lca, width);
     }
 
     template <size_t index_size, size_t dim_min, size_t dim_max, typename Function>
@@ -300,4 +308,25 @@ namespace samurai
             }
         }
     };
+
+    template <std::size_t dim, std::size_t b, std::size_t e>
+    consteval auto make_index_ranges()
+    {
+        constexpr std::size_t base = e - b;
+        static_assert(base > 0, "make_index_ranges requires e > b");
+
+        constexpr std::size_t count = ce_pow(base, dim);
+        std::array<std::array<std::size_t, dim>, count> result{};
+
+        for (std::size_t n = 0; n < count; ++n)
+        {
+            std::size_t value = n;
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                result[n][d] = b + (value % base);
+                value /= base;
+            }
+        }
+        return result;
+    }
 } // namespace samurai
