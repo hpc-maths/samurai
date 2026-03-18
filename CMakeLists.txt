@@ -96,10 +96,24 @@ project_options(
   ${ENABLE_CONAN}
   )
 
-file(GLOB_RECURSE SAMURAI_SOURCES
-    "src/*.cpp"
-    "src/*.c"
-)
+set(SAMURAI_SOURCES
+    src/samurai/mesh_interval.cpp
+    src/samurai/level_cell_list.cpp
+    src/samurai/box.cpp
+    src/samurai/reconstruction.cpp
+    src/samurai/interval.cpp
+    src/samurai/cell.cpp
+    src/samurai/cell_list.cpp
+    src/samurai/stencil_field.cpp
+    src/samurai/cell_array.cpp
+    src/samurai/level_cell_array.cpp
+    src/samurai/list_of_intervals.cpp
+    src/samurai/domain_builder.cpp
+    src/samurai/mr/mesh.cpp
+    src/samurai/mr/adapt.cpp
+    src/samurai/array_of_interval_and_point.cpp
+    src/samurai/field/scalar_field.cpp
+    src/samurai/field/vector_field.cpp)
 
 add_library(samurai ${SAMURAI_SOURCES})
 target_compile_features(samurai PUBLIC cxx_std_20)
