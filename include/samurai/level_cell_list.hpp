@@ -103,6 +103,14 @@ namespace samurai
         double m_scaling_factor = 1;
     };
 
+    ////////////////////////////////////////////////////////////////////
+    //// explicit instanciation
+    ////////////////////////////////////////////////////////////////////
+
+    extern template class LevelCellList<1>;
+    extern template class LevelCellList<2>;
+    extern template class LevelCellList<3>;
+
     //////////////////////////////////
     // LevelCellList implementation //
     //////////////////////////////////
@@ -129,11 +137,11 @@ namespace samurai
     }
 
     /// Constant access to the interval list at given dim-1 coordinates
-    template <std::size_t Dim, class TInterval>
-    SAMURAI_INLINE auto LevelCellList<Dim, TInterval>::operator[](const index_yz_t& index) const -> const list_interval_t&
-    {
-        return detail::access_grid_yz(m_grid_yz, index, std::integral_constant<std::size_t, dim - 1>{});
-    }
+    //~ template <std::size_t Dim, class TInterval>
+    //~ SAMURAI_INLINE auto LevelCellList<Dim, TInterval>::operator[](const index_yz_t& index) const -> const list_interval_t&
+    //~ {
+    //~ return detail::access_grid_yz(m_grid_yz, index, std::integral_constant<std::size_t, dim - 1>{});
+    //~ }
 
     /// Mutable access to the interval list at given dim-1 coordinates
     template <std::size_t Dim, class TInterval>
