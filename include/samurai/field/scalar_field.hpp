@@ -114,17 +114,21 @@ namespace samurai
     //// explicit instanciation
     ////////////////////////////////////////////////////////////////////
 
-    extern template class ScalarField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, float>;
-    extern template class ScalarField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, float>;
-    extern template class ScalarField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, float>;
+    extern template class ScalarField<MRMesh<mesh_config<1>>, float>;
+    extern template class ScalarField<MRMesh<mesh_config<2>>, float>;
+    extern template class ScalarField<MRMesh<mesh_config<3>>, float>;
 
-    extern template class ScalarField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, double>;
-    extern template class ScalarField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, double>;
-    extern template class ScalarField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, double>;
+    extern template class ScalarField<MRMesh<mesh_config<1>>, double>;
+    extern template class ScalarField<MRMesh<mesh_config<2>>, double>;
+    extern template class ScalarField<MRMesh<mesh_config<3>>, double>;
 
-    extern template class ScalarField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, long double>;
-    extern template class ScalarField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, long double>;
-    extern template class ScalarField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, long double>;
+    extern template class ScalarField<MRMesh<mesh_config<1>>, long double>;
+    extern template class ScalarField<MRMesh<mesh_config<2>>, long double>;
+    extern template class ScalarField<MRMesh<mesh_config<3>>, long double>;
+
+    ////////////////////////////////////////////////////////////////////
+    //// methods implementations
+    ////////////////////////////////////////////////////////////////////
 
     // ScalarField constructors -----------------------------------------------
 

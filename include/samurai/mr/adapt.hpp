@@ -137,179 +137,71 @@ namespace samurai
     //// explicit instanciation
     ////////////////////////////////////////////////////////////////////
 
-    extern template class Adapt<false,
-                                decltype(default_config::default_prediction_fn),
-                                ScalarField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, float>>;
-    extern template class Adapt<false,
-                                decltype(default_config::default_prediction_fn),
-                                ScalarField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, float>>;
-    extern template class Adapt<false,
-                                decltype(default_config::default_prediction_fn),
-                                ScalarField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, float>>;
+    extern template class Adapt<false, decltype(default_config::default_prediction_fn), ScalarField<MRMesh<mesh_config<1>>, float>>;
+    extern template class Adapt<false, decltype(default_config::default_prediction_fn), ScalarField<MRMesh<mesh_config<2>>, float>>;
+    extern template class Adapt<false, decltype(default_config::default_prediction_fn), ScalarField<MRMesh<mesh_config<3>>, float>>;
 
-    extern template class Adapt<false,
-                                decltype(default_config::default_prediction_fn),
-                                ScalarField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, double>>;
-    extern template class Adapt<false,
-                                decltype(default_config::default_prediction_fn),
-                                ScalarField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, double>>;
-    extern template class Adapt<false,
-                                decltype(default_config::default_prediction_fn),
-                                ScalarField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, double>>;
+    extern template class Adapt<false, decltype(default_config::default_prediction_fn), ScalarField<MRMesh<mesh_config<1>>, double>>;
+    extern template class Adapt<false, decltype(default_config::default_prediction_fn), ScalarField<MRMesh<mesh_config<2>>, double>>;
+    extern template class Adapt<false, decltype(default_config::default_prediction_fn), ScalarField<MRMesh<mesh_config<3>>, double>>;
 
-    extern template class Adapt<false,
-                                decltype(default_config::default_prediction_fn),
-                                ScalarField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, long double>>;
-    extern template class Adapt<false,
-                                decltype(default_config::default_prediction_fn),
-                                ScalarField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, long double>>;
-    extern template class Adapt<false,
-                                decltype(default_config::default_prediction_fn),
-                                ScalarField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, long double>>;
+    extern template class Adapt<false, decltype(default_config::default_prediction_fn), ScalarField<MRMesh<mesh_config<1>>, long double>>;
+    extern template class Adapt<false, decltype(default_config::default_prediction_fn), ScalarField<MRMesh<mesh_config<2>>, long double>>;
+    extern template class Adapt<false, decltype(default_config::default_prediction_fn), ScalarField<MRMesh<mesh_config<3>>, long double>>;
 
-    extern template class Adapt<true,
-                                decltype(default_config::default_prediction_fn),
-                                ScalarField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, float>>;
-    extern template class Adapt<true,
-                                decltype(default_config::default_prediction_fn),
-                                ScalarField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, float>>;
-    extern template class Adapt<true,
-                                decltype(default_config::default_prediction_fn),
-                                ScalarField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, float>>;
+    extern template class Adapt<true, decltype(default_config::default_prediction_fn), ScalarField<MRMesh<mesh_config<1>>, float>>;
+    extern template class Adapt<true, decltype(default_config::default_prediction_fn), ScalarField<MRMesh<mesh_config<2>>, float>>;
+    extern template class Adapt<true, decltype(default_config::default_prediction_fn), ScalarField<MRMesh<mesh_config<3>>, float>>;
 
-    extern template class Adapt<true,
-                                decltype(default_config::default_prediction_fn),
-                                ScalarField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, double>>;
-    extern template class Adapt<true,
-                                decltype(default_config::default_prediction_fn),
-                                ScalarField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, double>>;
-    extern template class Adapt<true,
-                                decltype(default_config::default_prediction_fn),
-                                ScalarField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, double>>;
+    extern template class Adapt<true, decltype(default_config::default_prediction_fn), ScalarField<MRMesh<mesh_config<1>>, double>>;
+    extern template class Adapt<true, decltype(default_config::default_prediction_fn), ScalarField<MRMesh<mesh_config<2>>, double>>;
+    extern template class Adapt<true, decltype(default_config::default_prediction_fn), ScalarField<MRMesh<mesh_config<3>>, double>>;
 
-    extern template class Adapt<true,
-                                decltype(default_config::default_prediction_fn),
-                                ScalarField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, long double>>;
-    extern template class Adapt<true,
-                                decltype(default_config::default_prediction_fn),
-                                ScalarField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, long double>>;
-    extern template class Adapt<true,
-                                decltype(default_config::default_prediction_fn),
-                                ScalarField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, long double>>;
+    extern template class Adapt<true, decltype(default_config::default_prediction_fn), ScalarField<MRMesh<mesh_config<1>>, long double>>;
+    extern template class Adapt<true, decltype(default_config::default_prediction_fn), ScalarField<MRMesh<mesh_config<2>>, long double>>;
+    extern template class Adapt<true, decltype(default_config::default_prediction_fn), ScalarField<MRMesh<mesh_config<3>>, long double>>;
 
-    extern template class Adapt<false,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, float, 1, false>>;
-    extern template class Adapt<false,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, float, 1, true>>;
-    extern template class Adapt<false,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, float, 2, false>>;
-    extern template class Adapt<false,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, float, 2, true>>;
-    extern template class Adapt<false,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, float, 3, false>>;
-    extern template class Adapt<false,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, float, 3, true>>;
+    extern template class Adapt<false, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<1>>, float, 1, false>>;
+    extern template class Adapt<false, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<1>>, float, 1, true>>;
+    extern template class Adapt<false, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<2>>, float, 2, false>>;
+    extern template class Adapt<false, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<2>>, float, 2, true>>;
+    extern template class Adapt<false, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<3>>, float, 3, false>>;
+    extern template class Adapt<false, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<3>>, float, 3, true>>;
 
-    extern template class Adapt<false,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, double, 1, false>>;
-    extern template class Adapt<false,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, double, 1, true>>;
-    extern template class Adapt<false,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, double, 2, false>>;
-    extern template class Adapt<false,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, double, 2, true>>;
-    extern template class Adapt<false,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, double, 3, false>>;
-    extern template class Adapt<false,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, double, 3, true>>;
+    extern template class Adapt<false, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<1>>, double, 1, false>>;
+    extern template class Adapt<false, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<1>>, double, 1, true>>;
+    extern template class Adapt<false, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<2>>, double, 2, false>>;
+    extern template class Adapt<false, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<2>>, double, 2, true>>;
+    extern template class Adapt<false, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<3>>, double, 3, false>>;
+    extern template class Adapt<false, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<3>>, double, 3, true>>;
 
-    extern template class Adapt<false,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, long double, 1, false>>;
-    extern template class Adapt<false,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, long double, 1, true>>;
-    extern template class Adapt<false,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, long double, 2, false>>;
-    extern template class Adapt<false,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, long double, 2, true>>;
-    extern template class Adapt<false,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, long double, 3, false>>;
-    extern template class Adapt<false,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, long double, 3, true>>;
+    extern template class Adapt<false, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<1>>, long double, 1, false>>;
+    extern template class Adapt<false, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<1>>, long double, 1, true>>;
+    extern template class Adapt<false, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<2>>, long double, 2, false>>;
+    extern template class Adapt<false, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<2>>, long double, 2, true>>;
+    extern template class Adapt<false, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<3>>, long double, 3, false>>;
+    extern template class Adapt<false, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<3>>, long double, 3, true>>;
 
-    extern template class Adapt<true,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, float, 1, false>>;
-    extern template class Adapt<true,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, float, 1, true>>;
-    extern template class Adapt<true,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, float, 2, false>>;
-    extern template class Adapt<true,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, float, 2, true>>;
-    extern template class Adapt<true,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, float, 3, false>>;
-    extern template class Adapt<true,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, float, 3, true>>;
+    extern template class Adapt<true, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<1>>, float, 1, false>>;
+    extern template class Adapt<true, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<1>>, float, 1, true>>;
+    extern template class Adapt<true, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<2>>, float, 2, false>>;
+    extern template class Adapt<true, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<2>>, float, 2, true>>;
+    extern template class Adapt<true, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<3>>, float, 3, false>>;
+    extern template class Adapt<true, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<3>>, float, 3, true>>;
 
-    extern template class Adapt<true,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, double, 1, false>>;
-    extern template class Adapt<true,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, double, 1, true>>;
-    extern template class Adapt<true,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, double, 2, false>>;
-    extern template class Adapt<true,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, double, 2, true>>;
-    extern template class Adapt<true,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, double, 3, false>>;
-    extern template class Adapt<true,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, double, 3, true>>;
+    extern template class Adapt<true, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<1>>, double, 1, false>>;
+    extern template class Adapt<true, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<1>>, double, 1, true>>;
+    extern template class Adapt<true, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<2>>, double, 2, false>>;
+    extern template class Adapt<true, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<2>>, double, 2, true>>;
+    extern template class Adapt<true, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<3>>, double, 3, false>>;
+    extern template class Adapt<true, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<3>>, double, 3, true>>;
 
-    extern template class Adapt<true,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, long double, 1, false>>;
-    extern template class Adapt<true,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<1>, MRMeshId>>, long double, 1, true>>;
-    extern template class Adapt<true,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, long double, 2, false>>;
-    extern template class Adapt<true,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<2>, MRMeshId>>, long double, 2, true>>;
-    extern template class Adapt<true,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, long double, 3, false>>;
-    extern template class Adapt<true,
-                                decltype(default_config::default_prediction_fn),
-                                VectorField<MRMesh<complete_mesh_config<mesh_config<3>, MRMeshId>>, long double, 3, true>>;
+    extern template class Adapt<true, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<1>>, long double, 1, false>>;
+    extern template class Adapt<true, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<1>>, long double, 1, true>>;
+    extern template class Adapt<true, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<2>>, long double, 2, false>>;
+    extern template class Adapt<true, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<2>>, long double, 2, true>>;
+    extern template class Adapt<true, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<3>>, long double, 3, false>>;
+    extern template class Adapt<true, decltype(default_config::default_prediction_fn), VectorField<MRMesh<mesh_config<3>>, long double, 3, true>>;
 
     ////////////////////////////////////////////////////////////////////
     //// method imlementation
