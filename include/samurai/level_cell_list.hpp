@@ -48,7 +48,7 @@ namespace samurai
         SAMURAI_INLINE decltype(auto) access_grid_yz(GridYZ& grid_yz, const Index& index, std::integral_constant<std::size_t, dim>)
         {
             // For other dimensions, we dive into the nested std::map
-            return access_grid_yz(grid_yz.at(index.at(dim - 1)), index, std::integral_constant<std::size_t, dim - 1>{});
+            return access_grid_yz(grid_yz[index[dim - 1]], index, std::integral_constant<std::size_t, dim - 1>{});
         }
     } // namespace detail
 
@@ -137,11 +137,11 @@ namespace samurai
     }
 
     /// Constant access to the interval list at given dim-1 coordinates
-    template <std::size_t Dim, class TInterval>
-    SAMURAI_INLINE auto LevelCellList<Dim, TInterval>::operator[](const index_yz_t& index) const -> const list_interval_t&
-    {
-        return detail::access_grid_yz(m_grid_yz, index, std::integral_constant<std::size_t, dim - 1>{});
-    }
+    //~ template <std::size_t Dim, class TInterval>
+    //~ SAMURAI_INLINE auto LevelCellList<Dim, TInterval>::operator[](const index_yz_t& index) const -> const list_interval_t&
+    //~ {
+    //~ return detail::access_grid_yz(m_grid_yz, index, std::integral_constant<std::size_t, dim - 1>{});
+    //~ }
 
     /// Mutable access to the interval list at given dim-1 coordinates
     template <std::size_t Dim, class TInterval>
