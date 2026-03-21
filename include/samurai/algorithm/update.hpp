@@ -873,10 +873,10 @@ namespace samurai
                         {
                             if constexpr (dim == 1)
                             {
-                                auto mask1 = (tag(level, 2 * i) & static_cast<int>(CellFlag::coarsen))
-                                           & (tag(level, 2 * i + 1) & static_cast<int>(CellFlag::coarsen));
-                                auto mask2 = (tag(level, 2 * i) & static_cast<int>(CellFlag::keep))
-                                           | (tag(level, 2 * i + 1) & static_cast<int>(CellFlag::keep));
+                                auto mask1 = (tag(level, 2 * i) & static_cast<std::uint8_t>(CellFlag::coarsen))
+                                           & (tag(level, 2 * i + 1) & static_cast<std::uint8_t>(CellFlag::coarsen));
+                                auto mask2 = (tag(level, 2 * i) & static_cast<std::uint8_t>(CellFlag::keep))
+                                           | (tag(level, 2 * i + 1) & static_cast<std::uint8_t>(CellFlag::keep));
                                 auto mask = xt::eval(mask1 && !mask2);
 
                                 xt::masked_view(tag(level, 2 * i), mask)     = 0;
@@ -885,14 +885,14 @@ namespace samurai
                             if constexpr (dim == 2)
                             {
                                 auto j     = index[0];
-                                auto mask1 = (tag(level, 2 * i, 2 * j) & static_cast<int>(CellFlag::coarsen))
-                                           & (tag(level, 2 * i + 1, 2 * j) & static_cast<int>(CellFlag::coarsen))
-                                           & (tag(level, 2 * i, 2 * j + 1) & static_cast<int>(CellFlag::coarsen))
-                                           & (tag(level, 2 * i + 1, 2 * j + 1) & static_cast<int>(CellFlag::coarsen));
-                                auto mask2 = (tag(level, 2 * i, 2 * j) & static_cast<int>(CellFlag::keep))
-                                           | (tag(level, 2 * i + 1, 2 * j) & static_cast<int>(CellFlag::keep))
-                                           | (tag(level, 2 * i, 2 * j + 1) & static_cast<int>(CellFlag::keep))
-                                           | (tag(level, 2 * i + 1, 2 * j + 1) & static_cast<int>(CellFlag::keep));
+                                auto mask1 = (tag(level, 2 * i, 2 * j) & static_cast<std::uint8_t>(CellFlag::coarsen))
+                                           & (tag(level, 2 * i + 1, 2 * j) & static_cast<std::uint8_t>(CellFlag::coarsen))
+                                           & (tag(level, 2 * i, 2 * j + 1) & static_cast<std::uint8_t>(CellFlag::coarsen))
+                                           & (tag(level, 2 * i + 1, 2 * j + 1) & static_cast<std::uint8_t>(CellFlag::coarsen));
+                                auto mask2 = (tag(level, 2 * i, 2 * j) & static_cast<std::uint8_t>(CellFlag::keep))
+                                           | (tag(level, 2 * i + 1, 2 * j) & static_cast<std::uint8_t>(CellFlag::keep))
+                                           | (tag(level, 2 * i, 2 * j + 1) & static_cast<std::uint8_t>(CellFlag::keep))
+                                           | (tag(level, 2 * i + 1, 2 * j + 1) & static_cast<std::uint8_t>(CellFlag::keep));
                                 auto mask = xt::eval(mask1 && !mask2);
 
                                 xt::masked_view(tag(level, 2 * i, 2 * j), mask)         = 0;
@@ -904,22 +904,22 @@ namespace samurai
                             {
                                 auto j     = index[0];
                                 auto k     = index[1];
-                                auto mask1 = (tag(level, 2 * i, 2 * j, 2 * k) & static_cast<int>(CellFlag::coarsen))
-                                           & (tag(level, 2 * i + 1, 2 * j, 2 * k) & static_cast<int>(CellFlag::coarsen))
-                                           & (tag(level, 2 * i, 2 * j + 1, 2 * k) & static_cast<int>(CellFlag::coarsen))
-                                           & (tag(level, 2 * i + 1, 2 * j + 1, 2 * k) & static_cast<int>(CellFlag::coarsen))
-                                           & (tag(level, 2 * i, 2 * j, 2 * k + 1) & static_cast<int>(CellFlag::coarsen))
-                                           & (tag(level, 2 * i + 1, 2 * j, 2 * k + 1) & static_cast<int>(CellFlag::coarsen))
-                                           & (tag(level, 2 * i, 2 * j + 1, 2 * k + 1) & static_cast<int>(CellFlag::coarsen))
-                                           & (tag(level, 2 * i + 1, 2 * j + 1, 2 * k + 1) & static_cast<int>(CellFlag::coarsen));
-                                auto mask2 = (tag(level, 2 * i, 2 * j, 2 * k) & static_cast<int>(CellFlag::keep))
-                                           | (tag(level, 2 * i + 1, 2 * j, 2 * k) & static_cast<int>(CellFlag::keep))
-                                           | (tag(level, 2 * i, 2 * j + 1, 2 * k) & static_cast<int>(CellFlag::keep))
-                                           | (tag(level, 2 * i + 1, 2 * j + 1, 2 * k) & static_cast<int>(CellFlag::keep))
-                                           | (tag(level, 2 * i, 2 * j, 2 * k + 1) & static_cast<int>(CellFlag::keep))
-                                           | (tag(level, 2 * i + 1, 2 * j, 2 * k + 1) & static_cast<int>(CellFlag::keep))
-                                           | (tag(level, 2 * i, 2 * j + 1, 2 * k + 1) & static_cast<int>(CellFlag::keep))
-                                           | (tag(level, 2 * i + 1, 2 * j + 1, 2 * k + 1) & static_cast<int>(CellFlag::keep));
+                                auto mask1 = (tag(level, 2 * i, 2 * j, 2 * k) & static_cast<std::uint8_t>(CellFlag::coarsen))
+                                           & (tag(level, 2 * i + 1, 2 * j, 2 * k) & static_cast<std::uint8_t>(CellFlag::coarsen))
+                                           & (tag(level, 2 * i, 2 * j + 1, 2 * k) & static_cast<std::uint8_t>(CellFlag::coarsen))
+                                           & (tag(level, 2 * i + 1, 2 * j + 1, 2 * k) & static_cast<std::uint8_t>(CellFlag::coarsen))
+                                           & (tag(level, 2 * i, 2 * j, 2 * k + 1) & static_cast<std::uint8_t>(CellFlag::coarsen))
+                                           & (tag(level, 2 * i + 1, 2 * j, 2 * k + 1) & static_cast<std::uint8_t>(CellFlag::coarsen))
+                                           & (tag(level, 2 * i, 2 * j + 1, 2 * k + 1) & static_cast<std::uint8_t>(CellFlag::coarsen))
+                                           & (tag(level, 2 * i + 1, 2 * j + 1, 2 * k + 1) & static_cast<std::uint8_t>(CellFlag::coarsen));
+                                auto mask2 = (tag(level, 2 * i, 2 * j, 2 * k) & static_cast<std::uint8_t>(CellFlag::keep))
+                                           | (tag(level, 2 * i + 1, 2 * j, 2 * k) & static_cast<std::uint8_t>(CellFlag::keep))
+                                           | (tag(level, 2 * i, 2 * j + 1, 2 * k) & static_cast<std::uint8_t>(CellFlag::keep))
+                                           | (tag(level, 2 * i + 1, 2 * j + 1, 2 * k) & static_cast<std::uint8_t>(CellFlag::keep))
+                                           | (tag(level, 2 * i, 2 * j, 2 * k + 1) & static_cast<std::uint8_t>(CellFlag::keep))
+                                           | (tag(level, 2 * i + 1, 2 * j, 2 * k + 1) & static_cast<std::uint8_t>(CellFlag::keep))
+                                           | (tag(level, 2 * i, 2 * j + 1, 2 * k + 1) & static_cast<std::uint8_t>(CellFlag::keep))
+                                           | (tag(level, 2 * i + 1, 2 * j + 1, 2 * k + 1) & static_cast<std::uint8_t>(CellFlag::keep));
                                 auto mask = xt::eval(mask1 && !mask2);
 
                                 xt::masked_view(tag(level, 2 * i, 2 * j, 2 * k), mask)             = 0;
@@ -1454,7 +1454,7 @@ namespace samurai
                               auto itag = static_cast<size_type>(interval.start + interval.index);
                               for (auto i = interval.start; i < interval.end; ++i)
                               {
-                                  if (tag[itag] & static_cast<int>(CellFlag::refine))
+                                  if (tag[itag] & static_cast<std::uint8_t>(CellFlag::refine))
                                   {
                                       if (level < mesh.max_level())
                                       {
@@ -1470,11 +1470,11 @@ namespace samurai
                                           cl[level][index].add_point(i);
                                       }
                                   }
-                                  else if (tag[itag] & static_cast<int>(CellFlag::keep))
+                                  else if (tag[itag] & static_cast<std::uint8_t>(CellFlag::keep))
                                   {
                                       cl[level][index].add_point(i);
                                   }
-                                  else if (tag[itag] & static_cast<int>(CellFlag::coarsen))
+                                  else if (tag[itag] & static_cast<std::uint8_t>(CellFlag::coarsen))
                                   {
                                       if (level > mesh.min_level())
                                       {
