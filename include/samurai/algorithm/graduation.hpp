@@ -94,21 +94,21 @@ namespace samurai
 
             auto tag_func = [&](auto& i_f)
             {
-                auto mask = tag(level, i_f - s[0], index - view(s, xt::range(1, _))) & static_cast<int>(CellFlag::refine);
+                auto mask = tag(level, i_f - s[0], index - view(s, xt::range(1, _))) & static_cast<std::uint8_t>(CellFlag::refine);
                 auto i_c  = i_f >> 1;
                 apply_on_masked(tag(level - 1, i_c, index >> 1),
                                 mask,
                                 [](auto& e)
                                 {
-                                    e |= static_cast<int>(CellFlag::refine);
+                                    e |= static_cast<std::uint8_t>(CellFlag::refine);
                                 });
 
-                auto mask2 = tag(level, i_f - s[0], index - view(s, xt::range(1, _))) & static_cast<int>(CellFlag::keep);
+                auto mask2 = tag(level, i_f - s[0], index - view(s, xt::range(1, _))) & static_cast<std::uint8_t>(CellFlag::keep);
                 apply_on_masked(tag(level - 1, i_c, index >> 1),
                                 mask2,
                                 [](auto& e)
                                 {
-                                    e |= static_cast<int>(CellFlag::keep);
+                                    e |= static_cast<std::uint8_t>(CellFlag::keep);
                                 });
             };
 
@@ -692,9 +692,9 @@ namespace samurai
                 for (value_t x = x_interval.start; x < x_interval.end; ++x)
                 {
                     const size_type itag         = static_cast<size_type>(x_interval.index) + static_cast<unsigned_value_t>(x);
-                    const bool refine            = tag[itag] & static_cast<int>(CellFlag::refine);
-                    const bool coarsenAndNotKeep = tag[itag] & static_cast<int>(CellFlag::coarsen)
-                                               and not(tag[itag] & static_cast<int>(CellFlag::keep));
+                    const bool refine            = tag[itag] & static_cast<std::uint8_t>(CellFlag::refine);
+                    const bool coarsenAndNotKeep = tag[itag] & static_cast<std::uint8_t>(CellFlag::coarsen)
+                                               and not(tag[itag] & static_cast<std::uint8_t>(CellFlag::keep));
                     if (refine and level < mesh.max_level())
                     {
                         ca_remove_p[level].add_point_back(x, yz);
