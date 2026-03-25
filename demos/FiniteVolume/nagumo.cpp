@@ -153,12 +153,12 @@ int main(int argc, char* argv[])
         [&](samurai::JacobianMatrix<cfg>& jac, const auto& cell, const auto& field)
         {
             auto v = field[cell];
-            jac    = k * (2 * v * (1 - v) - v * v);
+            jac.fill(0);
+            for (std::size_t i = 0; i < n_comp; ++i)
+            {
+                jac(i, i) = k * (2 * v(i) * (1 - v(i)) - v(i) * v(i));
+            }
         });
-
-    //--------------------//
-    //   Time iteration   //
-    //--------------------//
 
     if (dt == 0)
     {
@@ -182,6 +182,38 @@ int main(int argc, char* argv[])
 
     auto rhs = samurai::make_vector_field<double, n_comp>("rhs", mesh);
 
+    //-------------------------------//
+    // Linear and non-linear solvers //
+    //-------------------------------//
+
+    auto implicit_diffusion_solver      = samurai::petsc::make_solver(id + dt * diff); // Linear solver
+    implicit_diffusion_solver.configure = [](KSP& ksp, PC& pc)
+    {
+        KSPSetType(ksp, KSPPREONLY);
+        PCSetType(pc, PCLU);
+    };
+
+    auto implicit_reaction_solver      = samurai::petsc::make_solver(id - dt * react); // independent, local Newton solvers
+    implicit_reaction_solver.configure = [](SNES& snes, KSP& ksp, PC& pc)
+    {
+        SNESSetType(snes, SNESNEWTONLS);
+        KSPSetType(ksp, KSPPREONLY);
+        PCSetType(pc, PCLU);
+    };
+
+    auto full_implicit_solver      = samurai::petsc::make_solver(id + dt * diff - dt * react); // Non-linear solver
+    full_implicit_solver.configure = [](SNES& snes, KSP& ksp, PC& pc)
+    {
+        SNESSetType(snes, SNESNEWTONLS);
+        KSPSetType(ksp, KSPPREONLY);
+        PCSetType(pc, PCLU);
+    };
+
+    //--------------------//
+    //   Time iteration   //
+    //--------------------//
+
+    bool dt_has_changed = false; // to track if we need to update the solvers
     while (t != Tf)
     {
         // Move to next timestep
@@ -189,7 +221,8 @@ int main(int argc, char* argv[])
         if (t > Tf)
         {
             dt += Tf - t;
-            t = Tf;
+            t              = Tf;
+            dt_has_changed = true;
         }
         std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt) << std::flush;
 
@@ -204,31 +237,31 @@ int main(int argc, char* argv[])
         }
         else if (!explicit_diffusion && explicit_reaction)
         {
-            // u_np1 + dt*diff(u_np1) = u + dt*react(u)
-            auto implicit_operator = id + dt * diff;
-            rhs                    = u + dt * react(u);
-            // Solve the linear equation   [Id + dt*Diff](unp1) = rhs
-            samurai::petsc::solve(implicit_operator, unp1, rhs);
+            rhs = u + dt * react(u);
+            if (dt_has_changed)
+            {
+                implicit_diffusion_solver.set_scheme(id + dt * diff);
+            }
+            implicit_diffusion_solver.solve(unp1, rhs); // Solve the linear equation   [Id + dt*Diff](unp1) = rhs
         }
         else if (explicit_diffusion && !explicit_reaction)
         {
-            // u_np1 - dt*react(u_np1) = u - dt*diff(u)
-            auto implicit_operator = id - dt * react;
-            rhs                    = u - dt * diff(u);
-            // Set initial guess for the Newton algorithm
-            unp1 = u;
-            // Solve the non-linear equation   [Id - dt*React](unp1) = u - dt*Diff(u)
-            // Here, small independent local Newton methods are used.
-            samurai::petsc::solve(implicit_operator, unp1, rhs);
+            rhs = u - dt * diff(u);
+            if (dt_has_changed)
+            {
+                implicit_reaction_solver.set_scheme(id - dt * react);
+            }
+            unp1 = u;                                  // Set initial guess for the Newton algorithm
+            implicit_reaction_solver.solve(unp1, rhs); // Solve the non-linear equation   [Id - dt*React](unp1) = u - dt*Diff(u)
         }
         else
         {
-            // u_np1 + dt*diff(u_np1) - dt*react(u_np1) = u
-            auto implicit_operator = id + dt * diff - dt * react;
-            // Set initial guess for the Newton algorithm
-            unp1 = u;
-            // Solve the non-linear equation   [Id + dt*Diff - dt*React](unp1) = u
-            samurai::petsc::solve(implicit_operator, unp1, u);
+            if (dt_has_changed)
+            {
+                full_implicit_solver.set_scheme(id + dt * diff - dt * react);
+            }
+            unp1 = u;                            // Set initial guess for the Newton algorithm
+            full_implicit_solver.solve(unp1, u); // Solve the non-linear equation   [Id + dt*Diff - dt*React](unp1) = u
         }
 
         // u <-- unp1
@@ -264,6 +297,10 @@ int main(int argc, char* argv[])
     {
         save(path, filename, u);
     }
+
+    implicit_diffusion_solver.destroy_petsc_objects();
+    implicit_reaction_solver.destroy_petsc_objects();
+    full_implicit_solver.destroy_petsc_objects();
 
     samurai::finalize();
     return 0;
