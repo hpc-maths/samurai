@@ -45,6 +45,9 @@ namespace samurai
 
           public:
 
+            // User callback to configure the solver
+            std::function<void(SNES&, KSP&, PC&)> configure = nullptr;
+
             explicit NonLinearLocalSolvers(const scheme_t& scheme)
                 : m_scheme(scheme)
             {
@@ -106,6 +109,8 @@ namespace samurai
             {
                 scheme_t* scheme;
                 cell_t* cell;
+                JacobianMatrix<cfg_t>* jac_coeffs;
+                SchemeValue<cfg_t>* f_scheme_value;
             };
 
           public:
@@ -123,6 +128,8 @@ namespace samurai
 
                 static constexpr PetscInt n = field_t::n_comp;
 
+                times::timers.start("non-linear local solves");
+
 #ifdef ENABLE_PARALLEL_NONLINEAR_SOLVES
                 static constexpr Run run_type = Run::Parallel;
                 std::size_t n_threads         = static_cast<std::size_t>(omp_get_max_threads());
@@ -130,16 +137,39 @@ namespace samurai
                 static constexpr Run run_type = Run::Sequential;
                 std::size_t n_threads         = 1;
 #endif
+                // Create workers
                 std::vector<SNES> snes_list(n_threads);
+                std::vector<JacobianMatrix<cfg_t>> J_coeffs_list(n_threads);
                 std::vector<Mat> J_list(n_threads);
+                std::vector<SchemeValue<cfg_t>> f_scheme_value_list(n_threads);
                 std::vector<Vec> r_list(n_threads);
+                std::vector<Vec> x_list(n_threads);
+                std::vector<Vec> b_list(n_threads);
 
-#pragma omp parallel for
+                // Allocate PETSc objects for each worker and configure the solvers
                 for (std::size_t thread_num = 0; thread_num < n_threads; ++thread_num)
                 {
                     SNESCreate(PETSC_COMM_SELF, &snes_list[thread_num]);
-                    MatCreateSeqDense(PETSC_COMM_SELF, n, n, NULL, &J_list[thread_num]);
+                    if (configure)
+                    {
+                        KSP ksp;
+                        PC pc;
+                        SNESGetKSP(snes_list[thread_num], &ksp);
+                        KSPGetPC(ksp, &pc);
+                        configure(snes_list[thread_num], ksp, pc);
+                    }
+                    SNESSetFromOptions(snes_list[thread_num]);
+                    if constexpr (field_t::is_scalar)
+                    {
+                        MatCreateSeqDense(PETSC_COMM_SELF, n, n, &J_coeffs_list[thread_num], &J_list[thread_num]);
+                    }
+                    else
+                    {
+                        MatCreateSeqDense(PETSC_COMM_SELF, n, n, J_coeffs_list[thread_num].data(), &J_list[thread_num]);
+                    }
                     VecCreateSeq(PETSC_COMM_SELF, n, &r_list[thread_num]);
+                    VecCreateSeq(PETSC_COMM_SELF, n, &x_list[thread_num]);
+                    VecCreateSeq(PETSC_COMM_SELF, n, &b_list[thread_num]);
                 }
 
                 for_each_cell<run_type>(unknown().mesh(),
@@ -148,88 +178,72 @@ namespace samurai
 #ifdef ENABLE_PARALLEL_NONLINEAR_SOLVES
                                             std::size_t thread_num = static_cast<std::size_t>(omp_get_thread_num());
 #else
-                                            std::size_t thread_num = 0;
+                        std::size_t thread_num = 0;
 #endif
-                                            SNES& snes = snes_list[thread_num];
-                                            Mat& J     = J_list[thread_num];
-                                            Vec& r     = r_list[thread_num];
-                                            Vec x;
-                                            Vec b;
+                                            SNES& snes           = snes_list[thread_num];
+                                            auto& J_coeffs       = J_coeffs_list[thread_num];
+                                            Mat& J               = J_list[thread_num];
+                                            Vec& r               = r_list[thread_num];
+                                            auto& f_scheme_value = f_scheme_value_list[thread_num];
+                                            Vec& x               = x_list[thread_num];
+                                            Vec& b               = b_list[thread_num];
 
-                                            if constexpr (n > 1 && detail::is_soa_v<field_t>)
-                                            {
-                                                VecCreateSeq(PETSC_COMM_SELF, n, &x);
-                                                copy(unknown(), cell, x);
+                                            copy(unknown(), cell, x); // local initial guess
+                                            copy(rhs, cell, b);       // local right-hand side
 
-                                                VecCreateSeq(PETSC_COMM_SELF, n, &b);
-                                                copy(rhs, cell, b);
-                                            }
-                                            else
-                                            {
-                                                x = create_petsc_vector_from(unknown(), cell);
-                                                b = create_petsc_vector_from(rhs, cell);
-                                            }
-
-                                            CellContextForPETSc ctx{&m_scheme, &cell};
+                                            CellContextForPETSc ctx{&m_scheme, &cell, &J_coeffs, &f_scheme_value};
                                             SNESSetFunction(snes, r, PETSC_nonlinear_function, &ctx);
                                             SNESSetJacobian(snes, J, J, PETSC_jacobian_function, &ctx);
-                                            SNESSetFromOptions(snes);
+                                            // SNESSetFromOptions(snes);
 
-                                            solve_system(snes, b, x);
+                                            solve_system(snes, b, x); // solve the local non-linear system
 
-                                            if constexpr (n > 1 && detail::is_soa_v<field_t>)
-                                            {
-                                                copy(x, unknown(), cell);
-                                            }
-
-                                            VecDestroy(&x);
-                                            VecDestroy(&b);
+                                            copy(x, unknown(), cell);
                                         });
 
-#pragma omp parallel for
                 for (std::size_t thread_num = 0; thread_num < n_threads; ++thread_num)
                 {
                     MatDestroy(&J_list[thread_num]);
                     VecDestroy(&r_list[thread_num]);
+                    VecDestroy(&x_list[thread_num]);
+                    VecDestroy(&b_list[thread_num]);
                     SNESDestroy(&snes_list[thread_num]);
                 }
+
+                times::timers.stop("non-linear local solves");
             }
 
           private:
 
             static PetscErrorCode PETSC_nonlinear_function(SNES, Vec x, Vec f, void* ctx)
             {
-                auto petsc_ctx = reinterpret_cast<CellContextForPETSc*>(ctx);
-                auto& scheme   = *petsc_ctx->scheme;
-                auto& cell     = *petsc_ctx->cell;
+                auto petsc_ctx       = reinterpret_cast<CellContextForPETSc*>(ctx);
+                auto& scheme         = *petsc_ctx->scheme;
+                auto& cell           = *petsc_ctx->cell;
+                auto& f_scheme_value = *petsc_ctx->f_scheme_value;
 
                 // Wrap a LocalField structure around the data of the Petsc vector x
                 const PetscScalar* x_data;
                 VecGetArrayRead(x, &x_data);
                 LocalField<field_t> x_field(cell, x_data);
 
-                // PetscScalar* f_data;
-                // VecGetArray(f, &f_data);
-                // LocalField<field_t> f_field(cell, f_data);
-
-                // Apply explicit scheme
-                SchemeValue<cfg_t> f_field;
-                scheme.scheme_definition().local_scheme_function(f_field, cell, x_field);
-
-                copy(f_field, f);
+                // Apply explicit scheme function to compute f = scheme(x)
+                scheme.scheme_definition().local_scheme_function(f_scheme_value, cell, x_field);
+                // Copy the computed f_scheme_value into the Petsc vector f
+                copy(f_scheme_value, f);
 
                 VecRestoreArrayRead(x, &x_data);
-                // VecRestoreArray(f, &f_data);
-                return 0; // PETSC_SUCCESS
+                return PETSC_SUCCESS;
             }
 
             static PetscErrorCode PETSC_jacobian_function(SNES, Vec x, Mat jac, Mat B, void* ctx)
             {
                 // Here, jac = B = this.m_J
 
-                auto petsc_ctx = reinterpret_cast<CellContextForPETSc*>(ctx);
-                auto& scheme   = *petsc_ctx->scheme;
-                auto& cell     = *petsc_ctx->cell;
+                auto petsc_ctx   = reinterpret_cast<CellContextForPETSc*>(ctx);
+                auto& scheme     = *petsc_ctx->scheme;
+                auto& cell       = *petsc_ctx->cell;
+                auto& jac_coeffs = *petsc_ctx->jac_coeffs;
 
                 // Wrap a LocalField structure around the data of the Petsc vector x
                 const PetscScalar* x_data;
@@ -238,22 +252,39 @@ namespace samurai
 
                 // Assembly of the Jacobian matrix.
                 // In this case, jac = B, but Petsc recommends we assemble B for more general cases.
-                JacobianMatrix<cfg_t> jac_coeffs;
+
+                // JacobianMatrix<cfg_t> jac_coeffs;
+
                 scheme.scheme_definition().local_jacobian_function(jac_coeffs, cell, x_field);
-                if constexpr (field_t::is_scalar)
-                {
-                    MatSetValue(B, 0, 0, jac_coeffs, INSERT_VALUES);
-                }
-                else
-                {
-                    for (PetscInt i = 0; i < static_cast<PetscInt>(field_t::n_comp); ++i)
-                    {
-                        for (PetscInt j = 0; j < static_cast<PetscInt>(field_t::n_comp); ++j)
-                        {
-                            MatSetValue(B, i, j, jac_coeffs(i, j), INSERT_VALUES);
-                        }
-                    }
-                }
+                // No need to copy the Jacobian coefficients into the PETSc matrix,
+                // since we provided the data pointer of jac_coeffs to the constructor of PETSc matrix so that they share the same memory.
+
+                // if constexpr (field_t::is_scalar)
+                // {
+                //     MatSetValue(B, 0, 0, jac_coeffs, INSERT_VALUES);
+                // }
+                // else
+                // {
+                // for (PetscInt i = 0; i < static_cast<PetscInt>(field_t::n_comp); ++i)
+                // {
+                //     for (PetscInt j = 0; j < static_cast<PetscInt>(field_t::n_comp); ++j)
+                //     {
+                //         MatSetValue(B, i, j, jac_coeffs(i, j), INSERT_VALUES);
+                //     }
+                // }
+                // std::array<PetscInt, field_t::n_comp> rows;
+                // for (std::size_t i = 0; i < field_t::n_comp; ++i)
+                // {
+                //     rows[i] = static_cast<PetscInt>(i);
+                // }
+                // MatSetValues(B,
+                //              static_cast<PetscInt>(field_t::n_comp),
+                //              rows.data(),
+                //              static_cast<PetscInt>(field_t::n_comp),
+                //              rows.data(),
+                //              jac_coeffs.data(),
+                //              INSERT_VALUES);
+                // }
                 PetscObjectSetName(reinterpret_cast<PetscObject>(B), "Jacobian");
                 MatAssemblyBegin(B, MAT_FINAL_ASSEMBLY);
                 MatAssemblyEnd(B, MAT_FINAL_ASSEMBLY);
@@ -268,7 +299,7 @@ namespace samurai
 
                 VecRestoreArrayRead(x, &x_data);
 
-                return 0; // PETSC_SUCCESS
+                return PETSC_SUCCESS;
             }
 
           protected:
