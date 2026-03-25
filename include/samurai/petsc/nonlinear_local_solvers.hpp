@@ -105,14 +105,7 @@ namespace samurai
                 for (std::size_t thread_num = 0; thread_num < m_n_threads; ++thread_num)
                 {
                     SNESCreate(PETSC_COMM_SELF, &m_snes[thread_num]);
-                    if constexpr (field_t::is_scalar)
-                    {
-                        MatCreateSeqDense(PETSC_COMM_SELF, n_comp, n_comp, &m_J_coeffs[thread_num], &m_J[thread_num]);
-                    }
-                    else
-                    {
-                        MatCreateSeqDense(PETSC_COMM_SELF, n_comp, n_comp, m_J_coeffs[thread_num].data(), &m_J[thread_num]);
-                    }
+                    MatCreateSeqDense(PETSC_COMM_SELF, n_comp, n_comp, nullptr, &m_J[thread_num]);
                     VecCreateSeq(PETSC_COMM_SELF, n_comp, &m_r[thread_num]);
                     VecCreateSeq(PETSC_COMM_SELF, n_comp, &m_x[thread_num]);
                     VecCreateSeq(PETSC_COMM_SELF, n_comp, &m_b[thread_num]);
@@ -283,7 +276,7 @@ namespace samurai
                 auto petsc_ctx       = reinterpret_cast<CellContextForPETSc*>(ctx);
                 auto& scheme         = *petsc_ctx->scheme;
                 auto& cell           = *petsc_ctx->cell;
-                auto& f_scheme_value = *petsc_ctx->f_scheme_value;
+                auto& f_scheme_value = *petsc_ctx->f_scheme_value; // worker object for storing the computed scheme value
 
                 // Wrap a LocalField structure around the data of the Petsc vector x
                 const PetscScalar* x_data;
@@ -301,22 +294,34 @@ namespace samurai
 
             static PetscErrorCode PETSC_jacobian_function(SNES, Vec x, Mat jac, Mat B, void* ctx)
             {
+                // Assembly of the Jacobian matrix.
+                // In this case, jac = B, but Petsc recommends we assemble B for more general cases.
+
                 auto petsc_ctx   = reinterpret_cast<CellContextForPETSc*>(ctx);
                 auto& scheme     = *petsc_ctx->scheme;
                 auto& cell       = *petsc_ctx->cell;
-                auto& jac_coeffs = *petsc_ctx->jac_coeffs;
+                auto& jac_coeffs = *petsc_ctx->jac_coeffs; // worker for storing the Jacobian coefficients
 
                 // Wrap a LocalField structure around the data of the Petsc vector x
                 const PetscScalar* x_data;
                 VecGetArrayRead(x, &x_data);
                 LocalField<field_t> x_field(cell, x_data);
 
-                // Assembly of the Jacobian matrix.
-                // In this case, jac = B, but Petsc recommends we assemble B for more general cases.
-
                 scheme.scheme_definition().local_jacobian_function(jac_coeffs, cell, x_field);
-                // No need to copy the Jacobian coefficients into the PETSc matrix B,
-                // since we provided the data pointer of jac_coeffs to the constructor of PETSc matrix so that they share the same memory.
+
+                VecRestoreArrayRead(x, &x_data);
+
+                // Copy the Jacobian coefficients into the PETSc matrix (careful: the dense matrices are stored in column-major order)
+                PetscScalar* array;
+                MatDenseGetArray(B, &array);
+                for (int j = 0; j < n_comp; j++)
+                {
+                    for (int i = 0; i < n_comp; i++)
+                    {
+                        array[j * n_comp + i] = jac_coeffs(i, j);
+                    }
+                }
+                MatDenseRestoreArray(B, &array);
 
                 MatAssemblyBegin(B, MAT_FINAL_ASSEMBLY);
                 MatAssemblyEnd(B, MAT_FINAL_ASSEMBLY);
@@ -328,8 +333,6 @@ namespace samurai
 
                 // MatView(B, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
                 // std::cout << std::endl;
-
-                VecRestoreArrayRead(x, &x_data);
                 return PETSC_SUCCESS;
             }
 
