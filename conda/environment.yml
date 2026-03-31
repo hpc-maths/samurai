@@ -5,7 +5,8 @@ dependencies:
   - cmake
   - ninja
   - xtensor>0.25
-  - highfive=3.2
+  - highfive>=3.0
+  - zlib # Required by highfive (or hdf5) since highfive 3.3 (or hdf5 2.1). Can be removed when highfive (or hdf5) is fixed.
   - fmt
   - pugixml
   - cli11<2.5
