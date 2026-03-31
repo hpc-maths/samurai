@@ -232,7 +232,7 @@ jobs:
             - name: Petsc installation
               shell: micromamba-shell {0}
               run: |
-                  micromamba install -y "petsc>=3.24" pkg-config cxx-compiler ninja highfive=3.2
+                  micromamba install -y "petsc>=3.24" pkg-config cxx-compiler ninja
 
             - name: Micromamba informations
               shell: micromamba-shell {0}
