@@ -242,6 +242,10 @@ int main(int argc, char* argv[])
             {
                 implicit_diffusion_solver.set_scheme(id + dt * diff);
             }
+            if (mesh.min_level() != mesh.max_level())
+            {
+                implicit_diffusion_solver.reset(); // reset the solver after mesh adaptation
+            }
             implicit_diffusion_solver.solve(unp1, rhs); // Solve the linear equation   [Id + dt*Diff](unp1) = rhs
         }
         else if (explicit_diffusion && !explicit_reaction)
@@ -251,6 +255,8 @@ int main(int argc, char* argv[])
             {
                 implicit_reaction_solver.set_scheme(id - dt * react);
             }
+            // Note that we do not need to reset the solver after mesh adaptation because it is composed of local solvers that do not
+            // involve any global matrix assembly that would change size.
             unp1 = u;                                  // Set initial guess for the Newton algorithm
             implicit_reaction_solver.solve(unp1, rhs); // Solve the non-linear equation   [Id - dt*React](unp1) = u - dt*Diff(u)
         }
@@ -259,6 +265,10 @@ int main(int argc, char* argv[])
             if (dt_has_changed)
             {
                 full_implicit_solver.set_scheme(id + dt * diff - dt * react);
+            }
+            if (mesh.min_level() != mesh.max_level())
+            {
+                full_implicit_solver.reset(); // reset the solver after mesh adaptation
             }
             unp1 = u;                            // Set initial guess for the Newton algorithm
             full_implicit_solver.solve(unp1, u); // Solve the non-linear equation   [Id + dt*Diff - dt*React](unp1) = u
