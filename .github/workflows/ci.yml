@@ -240,6 +240,15 @@ jobs:
                   micromamba info
                   micromamba list
 
+            - name: Verify zlib files and CMake context
+              shell: micromamba-shell {0}
+              run: |
+                which cmake
+                echo "CONDA_PREFIX=$CONDA_PREFIX"
+                ls -la "$CONDA_PREFIX/include/zlib.h"
+                ls -la "$CONDA_PREFIX/lib/libz.so"* || true
+                cmake --version
+
             - name: Configure
               shell: micromamba-shell {0}
               run: |
@@ -248,7 +257,6 @@ jobs:
                       -Bbuild \
                       -GNinja \
                       -DCMAKE_BUILD_TYPE=Release \
-                      -DCMAKE_PREFIX_PATH="$CONDA_PREFIX" \
                       -DWITH_MPI=ON \
                       -DWITH_PETSC=ON \
                       -DBUILD_DEMOS=ON \
