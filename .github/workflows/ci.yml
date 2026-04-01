@@ -32,7 +32,6 @@ jobs:
               with:
                   path: |
                       ~/.cache/ccache
-                      ~/micromamba/envs/samurai-env
                   key: cppcheck
 
             - name: Mamba and samurai env installation

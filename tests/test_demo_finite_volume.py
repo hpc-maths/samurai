@@ -226,10 +226,6 @@ def test_finite_volume_demo_nagumo(scheme, config):
         "--save-final-state-only",
         "--min-level=4",
         "--max-level=8",
-        "-ksp_type",
-        "preonly",
-        "-pc_type",
-        "lu",
     ]
     if scheme == "imp_diff_imp_react":
         cmd.extend(["--Tf=0.1", "--dt=0.02"])

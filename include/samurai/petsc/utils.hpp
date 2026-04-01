@@ -207,10 +207,11 @@ namespace samurai
         template <class Field>
         void copy(Field& f, const typename Field::cell_t& cell, Vec& v)
         {
+#if !defined(NDEBUG)
             PetscInt n_vec;
             VecGetSize(v, &n_vec);
             assert(static_cast<PetscInt>(Field::n_comp) == n_vec);
-
+#endif
             double* v_data;
             VecGetArray(v, &v_data);
 
@@ -244,10 +245,11 @@ namespace samurai
         template <class Field>
         void copy(Vec& v, Field& f, const typename Field::cell_t& cell)
         {
+#if !defined(NDEBUG)
             PetscInt n_vec;
             VecGetSize(v, &n_vec);
             assert(static_cast<PetscInt>(Field::n_comp) == n_vec);
-
+#endif
             const double* v_data;
             VecGetArrayRead(v, &v_data);
 
@@ -268,10 +270,11 @@ namespace samurai
 
         void copy(PetscScalar value, Vec& v)
         {
+#if !defined(NDEBUG)
             PetscInt n_vec;
             VecGetSize(v, &n_vec);
             assert(n_vec == 1);
-
+#endif
             PetscScalar* v_data;
             VecGetArray(v, &v_data);
             v_data[0] = value;
@@ -281,10 +284,11 @@ namespace samurai
         template <std::size_t size>
         void copy(xt::xtensor_fixed<PetscScalar, xt::xshape<size>>& container, Vec& v)
         {
+#if !defined(NDEBUG)
             PetscInt n_vec;
             VecGetSize(v, &n_vec);
             assert(n_vec == size);
-
+#endif
             PetscScalar* v_data;
             VecGetArray(v, &v_data);
             std::copy(container.linear_begin(), container.linear_end(), v_data);

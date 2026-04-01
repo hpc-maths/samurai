@@ -1023,8 +1023,8 @@ namespace samurai
                     if (b_rows != this->owned_matrix_cols())
                     {
                         std::cerr << "Operator '" << this->name() << "': the number of rows in vector (" << b_rows
-                                  << ") does not equal the number of columns of the matrix (" << this->owned_matrix_cols() << ")"
-                                  << std::endl;
+                                  << ") does not equal the number of columns of the matrix (" << this->owned_matrix_cols() << ")."
+                                  << " Did you forget to reset the solver after mesh adaptation?" << std::endl;
                         assert(false);
                         return;
                     }
