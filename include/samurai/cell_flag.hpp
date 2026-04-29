@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 namespace samurai
 {
     enum class CellFlag : std::uint8_t
