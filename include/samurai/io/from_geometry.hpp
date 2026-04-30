@@ -52,7 +52,7 @@ namespace samurai
         std::size_t current_level = start_level;
         while (current_level != max_level + 1)
         {
-            auto tag = make_scalar_field<int>("tag", mesh);
+            auto tag = make_scalar_field<std::uint8_t>("tag", mesh);
             tag.fill(0);
 
             for (std::size_t level = mesh.min_level(); level < current_level; ++level)
@@ -60,7 +60,7 @@ namespace samurai
                 for_each_interval(mesh[level],
                                   [&](std::size_t level, const auto& i, const auto& index)
                                   {
-                                      tag(level, i, index[0], index[1]) = static_cast<int>(CellFlag::keep);
+                                      tag(level, i, index[0], index[1]) = static_cast<std::uint8_t>(CellFlag::keep);
                                   });
             }
 
@@ -92,11 +92,11 @@ namespace samurai
                 {
                     if (current_level != max_level)
                     {
-                        tag[cells[b.id() - start_id]] = static_cast<int>(CellFlag::refine);
+                        tag[cells[b.id() - start_id]] = static_cast<std::uint8_t>(CellFlag::refine);
                     }
                     else
                     {
-                        tag[cells[b.id() - start_id]] = static_cast<int>(CellFlag::keep);
+                        tag[cells[b.id() - start_id]] = static_cast<std::uint8_t>(CellFlag::keep);
                     }
                 }
             };
@@ -110,11 +110,11 @@ namespace samurai
                               res = inside({center(0), center(1), center(2)});
                               if (res == CGAL::ON_BOUNDED_SIDE && keep_inside)
                               {
-                                  tag[cell] |= static_cast<int>(CellFlag::keep);
+                                  tag[cell] |= static_cast<std::uint8_t>(CellFlag::keep);
                               }
                               if (res == CGAL::ON_UNBOUNDED_SIDE && keep_outside)
                               {
-                                  tag[cell] |= static_cast<int>(CellFlag::keep);
+                                  tag[cell] |= static_cast<std::uint8_t>(CellFlag::keep);
                               }
                           });
 
@@ -131,7 +131,7 @@ namespace samurai
                                       auto itag = interval.start + interval.index;
                                       for (typename interval_t::value_t i = interval.start; i < interval.end; ++i, ++itag)
                                       {
-                                          if ((tag[itag] & static_cast<int>(CellFlag::refine)) && level < max_level)
+                                          if ((tag[itag] & static_cast<std::uint8_t>(CellFlag::refine)) && level < max_level)
                                           {
                                               static_nested_loop<2, 0, 2>(
                                                   [&](auto stencil)
@@ -140,7 +140,7 @@ namespace samurai
                                                       cl[level + 1][index].add_interval({2 * i, 2 * i + 2});
                                                   });
                                           }
-                                          else if (tag[itag] & static_cast<int>(CellFlag::keep))
+                                          else if (tag[itag] & static_cast<std::uint8_t>(CellFlag::keep))
                                           {
                                               cl[level][index_yz].add_point(i);
                                           }

@@ -4,9 +4,11 @@
 
 #pragma once
 
+#include <cstdint>
+
 namespace samurai
 {
-    enum class CellFlag
+    enum class CellFlag : std::uint8_t
     {
         keep    = 1,
         coarsen = 2,
