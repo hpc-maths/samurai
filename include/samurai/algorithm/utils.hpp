@@ -69,7 +69,7 @@ namespace samurai
         template <class T, class Flag, int s>
         SAMURAI_INLINE void operator()(Dim<1>, T& tag, const Flag& flag, std::integral_constant<int, s>) const
         {
-            auto mask = (tag(level, i) & static_cast<int>(flag));
+            auto mask = (tag(level, i) & static_cast<std::uint8_t>(flag));
 
             apply_on_masked(mask,
                             [&](auto imask)
@@ -95,7 +95,7 @@ namespace samurai
         template <class T, class Flag, int s>
         SAMURAI_INLINE void operator()(Dim<2>, T& tag, const Flag& flag, std::integral_constant<int, s>) const
         {
-            auto mask = (tag(level, i, j) & static_cast<int>(flag));
+            auto mask = (tag(level, i, j) & static_cast<std::uint8_t>(flag));
 
             apply_on_masked(mask,
                             [&](auto imask)
@@ -121,7 +121,7 @@ namespace samurai
         template <class T, class Flag, int s>
         SAMURAI_INLINE void operator()(Dim<3>, T& tag, const Flag& flag, std::integral_constant<int, s>) const
         {
-            auto mask = (tag(level, i, j, k) & static_cast<int>(flag));
+            auto mask = (tag(level, i, j, k) & static_cast<std::uint8_t>(flag));
 
             apply_on_masked(
                 mask,
