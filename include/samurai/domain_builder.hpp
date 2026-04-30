@@ -115,4 +115,12 @@ namespace samurai
             return largest_subdivision;
         }
     };
+
+    ////////////////////////////////////////////////////////////////////
+    //// explicit instanciation
+    ////////////////////////////////////////////////////////////////////
+
+    extern template class DomainBuilder<1>;
+    extern template class DomainBuilder<2>;
+    extern template class DomainBuilder<3>;
 }
