@@ -324,8 +324,8 @@ namespace samurai
 
         static constexpr std::size_t max_stencil_size_PE = PolynomialExtrapolation<Field, 2>::max_stencil_size_implemented_PE;
 
-        int ghost_width = field.mesh().ghost_width();
-        const auto& domain = detail::get_mesh(field.mesh());
+        int ghost_width        = field.mesh().ghost_width();
+        const auto& domain     = detail::get_mesh(field.mesh());
         const auto& corner_lca = field.mesh().corner(direction);
 
         // Step 1: Fill the diagonal ghost cells layer by layer using stencil sizes 2, 4, ..., 2*ghost_width
@@ -373,23 +373,26 @@ namespace samurai
 
         for (std::size_t d = 0; d < Field::dim; ++d)
         {
-            if (direction[d] == 0) continue;
+            if (direction[d] == 0)
+            {
+                continue;
+            }
 
             DirectionVector<Field::dim> e_dir;
             e_dir.fill(0);
             e_dir[d] = direction[d];
 
-            auto stencil_e = convert_for_direction(stencil_0_e, e_dir);
+            auto stencil_e  = convert_for_direction(stencil_0_e, e_dir);
             auto analyzer_e = make_stencil_analyzer(stencil_e);
 
-            auto& mesh = field.mesh();
+            auto& mesh               = field.mesh();
             auto has_outer_neighbour = translate(self(mesh[mesh_id_t::reference][level]).on(level), -e_dir);
 
             // For each layer, extrapolate from diagonal/off-diagonal ghost cells in the e_dir direction
             for (int g = 1; g <= ghost_width; ++g)
             {
                 // Source: translate(corner, direction + (g-1)*e_dir)
-                auto source_set = translate(corner_at_level, direction + (g - 1) * e_dir);
+                auto source_set   = translate(corner_at_level, direction + (g - 1) * e_dir);
                 auto valid_source = intersection(source_set, has_outer_neighbour).on(level);
                 __apply_bc_on_subset(bc_e, field, valid_source, analyzer_e, e_dir);
             }
@@ -402,10 +405,16 @@ namespace samurai
                 // from the cells filled by those directions
                 for (std::size_t i = 0; i < num_nonzero; ++i)
                 {
-                    if (nonzero_dirs[i] == d) continue; // skip the current direction
+                    if (nonzero_dirs[i] == d)
+                    {
+                        continue; // skip the current direction
+                    }
                     for (std::size_t j = i + 1; j < num_nonzero; ++j)
                     {
-                        if (nonzero_dirs[j] == d) continue; // skip the current direction
+                        if (nonzero_dirs[j] == d)
+                        {
+                            continue; // skip the current direction
+                        }
 
                         // Create unit direction vectors for the other two directions
                         DirectionVector<Field::dim> e_dir_i;
@@ -418,8 +427,8 @@ namespace samurai
 
                         // Source: cells filled by sweeps in directions i and j
                         // = translate(corner, direction + e_dir_i) and translate(corner, direction + e_dir_j)
-                        auto source_i = translate(self(corner_lca).on(level), direction + e_dir_i);
-                        auto source_j = translate(self(corner_lca).on(level), direction + e_dir_j);
+                        auto source_i        = translate(self(corner_lca).on(level), direction + e_dir_i);
+                        auto source_j        = translate(self(corner_lca).on(level), direction + e_dir_j);
                         auto combined_source = union_(source_i, source_j);
 
                         auto valid_source = intersection(combined_source, has_outer_neighbour).on(level);

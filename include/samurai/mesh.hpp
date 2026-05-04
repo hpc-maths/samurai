@@ -946,52 +946,86 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE void Mesh_base<D, Config>::construct_corners()
     {
-        using direction_t = DirectionVector<dim>;
+        static_assert(
+            dim <= 6,
+            "Corner construction is currently only implemented up to 6D due to the combinatorial number of cases. Please implement the general ND version if you need higher dimensions.");
+        if constexpr (dim > 1)
+        {
+            using direction_t = DirectionVector<dim>;
 
-        // For a diagonal direction d, the "corner" (inner cells at the boundary corner/edge) is:
-        //   domain \ union_{i: d[i] != 0}( translate(domain, e_i * -d[i]) )
-        // Only non-zero components are included: a zero component would give
-        // translate(domain, 0) = domain, making the union contain the domain itself
-        // and the difference empty. This is the correct formula for both true corner
-        // directions (all components ±1) and edge directions in 3D (one zero component).
-        m_corners.clear();
-        for_each_diagonal_direction<dim>(
-            [&](const auto& direction)
-            {
-                // Collect shifts only for non-zero components
-                std::array<direction_t, dim> nonzero_shifts;
-                std::size_t n = 0;
-                for (std::size_t I = 0; I < dim; ++I)
+            // For a diagonal direction d, the "corner" (inner cells at the boundary corner/edge) is:
+            //   domain \ union_{i: d[i] != 0}( translate(domain, e_i * -d[i]) )
+            // Only non-zero components are included: a zero component would give
+            // translate(domain, 0) = domain, making the union contain the domain itself
+            // and the difference empty. This is the correct formula for both true corner
+            // directions (all components ±1) and edge directions in 3D (one zero component).
+            m_corners.clear();
+            for_each_diagonal_direction<dim>(
+                [&](const auto& direction)
                 {
-                    if (direction[I] != 0)
+                    // Collect shifts only for non-zero components
+                    std::array<direction_t, dim> nonzero_shifts;
+                    std::size_t n = 0;
+                    for (std::size_t I = 0; I < dim; ++I)
                     {
-                        nonzero_shifts[n].fill(0);
-                        nonzero_shifts[n][I] = -direction[I];
-                        ++n;
-                    }
-                }
-
-                // Apply union_ to non-zero-component translates only.
-                // for_each_diagonal_direction guarantees n >= 2.
-                // In 3D: n == 2 for edge directions, n == 3 for true corner directions.
-                if (n > 1)
-                {
-                    // n == dim: all components are non-zero (true corner), use index sequence
-                    auto translates = [&]<std::size_t... Is>(std::index_sequence<Is...>)
-                    {
-                        return std::make_tuple(translate(m_domain, nonzero_shifts[Is])...);
-                    }(std::make_index_sequence<dim>{});
-
-                    auto u = std::apply(
-                        [](const auto&... ts)
+                        if (direction[I] != 0)
                         {
-                            return union_(ts...);
-                        },
-                        translates);
+                            nonzero_shifts[n].fill(0);
+                            nonzero_shifts[n][I] = -direction[I];
+                            ++n;
+                        }
+                    }
 
-                    m_corners.push_back(difference(m_domain, u).to_lca());
-                }
-            });
+                    // Apply union_ to non-zero-component translates only.
+                    // for_each_diagonal_direction guarantees n >= 2.
+                    // In 3D: n == 2 for edge directions, n == 3 for true corner directions.
+                    // TODO: make a ND version
+                    if (n == 2)
+                    {
+                        m_corners.push_back(
+                            difference(m_domain, union_(translate(m_domain, nonzero_shifts[0]), translate(m_domain, nonzero_shifts[1])))
+                                .to_lca());
+                    }
+                    else if (n == 3)
+                    {
+                        m_corners.push_back(difference(m_domain,
+                                                       union_(translate(m_domain, nonzero_shifts[0]),
+                                                              translate(m_domain, nonzero_shifts[1]),
+                                                              translate(m_domain, nonzero_shifts[2])))
+                                                .to_lca());
+                    }
+                    else if (n == 4)
+                    {
+                        m_corners.push_back(difference(m_domain,
+                                                       union_(translate(m_domain, nonzero_shifts[0]),
+                                                              translate(m_domain, nonzero_shifts[1]),
+                                                              translate(m_domain, nonzero_shifts[2]),
+                                                              translate(m_domain, nonzero_shifts[3])))
+                                                .to_lca());
+                    }
+                    else if (n == 5)
+                    {
+                        m_corners.push_back(difference(m_domain,
+                                                       union_(translate(m_domain, nonzero_shifts[0]),
+                                                              translate(m_domain, nonzero_shifts[1]),
+                                                              translate(m_domain, nonzero_shifts[2]),
+                                                              translate(m_domain, nonzero_shifts[3]),
+                                                              translate(m_domain, nonzero_shifts[4])))
+                                                .to_lca());
+                    }
+                    else if (n == 6)
+                    {
+                        m_corners.push_back(difference(m_domain,
+                                                       union_(translate(m_domain, nonzero_shifts[0]),
+                                                              translate(m_domain, nonzero_shifts[1]),
+                                                              translate(m_domain, nonzero_shifts[2]),
+                                                              translate(m_domain, nonzero_shifts[3]),
+                                                              translate(m_domain, nonzero_shifts[4]),
+                                                              translate(m_domain, nonzero_shifts[5])))
+                                                .to_lca());
+                    }
+                });
+        }
     }
 
     template <class D, class Config>
