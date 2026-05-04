@@ -409,8 +409,18 @@ namespace samurai
                 for_each_diagonal_direction<dim>(
                     [&](auto& direction)
                     {
-                        auto d = find_direction_index(direction);
-                        if (!mesh.is_periodic(d))
+                        // Skip if any non-zero component of the direction is periodic:
+                        // a periodic direction has no real boundary, so no corner ghost to fill.
+                        bool any_periodic = false;
+                        for (std::size_t d = 0; d < dim; ++d)
+                        {
+                            if (direction[d] != 0 && mesh.is_periodic(d))
+                            {
+                                any_periodic = true;
+                                break;
+                            }
+                        }
+                        if (!any_periodic)
                         {
                             update_outer_corners_by_polynomial_extrapolation(level, direction, field);
                             project_corner_below(level, direction, field); // project to level-1 and level-2

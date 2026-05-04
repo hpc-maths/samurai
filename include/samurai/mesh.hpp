@@ -948,38 +948,49 @@ namespace samurai
     {
         using direction_t = DirectionVector<dim>;
 
-        // Generic implementation for any dim >= 2.
-        // For a diagonal direction d (each component ±1), the "corner" subset is:
-        //   domain \ union_{i=0}^{dim-1}( translate(domain, e_i * -d[i]) )
-        // where e_i is the canonical unit vector along axis i.
-        // We build the union_ call generically using an index sequence.
+        // For a diagonal direction d, the "corner" (inner cells at the boundary corner/edge) is:
+        //   domain \ union_{i: d[i] != 0}( translate(domain, e_i * -d[i]) )
+        // Only non-zero components are included: a zero component would give
+        // translate(domain, 0) = domain, making the union contain the domain itself
+        // and the difference empty. This is the correct formula for both true corner
+        // directions (all components ±1) and edge directions in 3D (one zero component).
         m_corners.clear();
         for_each_diagonal_direction<dim>(
             [&](const auto& direction)
             {
-                // Build a tuple of dim translates, one per axis
-                auto translates = [&]<std::size_t... Is>(std::index_sequence<Is...>)
+                // Collect shifts only for non-zero components
+                std::array<direction_t, dim> nonzero_shifts;
+                std::size_t n = 0;
+                for (std::size_t I = 0; I < dim; ++I)
                 {
-                    // For axis I: shift is -direction[I] along axis I, 0 elsewhere
-                    auto make_translate = [&]<std::size_t I>(std::integral_constant<std::size_t, I>)
+                    if (direction[I] != 0)
                     {
-                        direction_t shift{};
-                        shift.fill(0);
-                        shift[I] = -direction[I];
-                        return translate(m_domain, shift);
-                    };
-                    return std::make_tuple(make_translate(std::integral_constant<std::size_t, Is>{})...);
-                }(std::make_index_sequence<dim>{});
+                        nonzero_shifts[n].fill(0);
+                        nonzero_shifts[n][I] = -direction[I];
+                        ++n;
+                    }
+                }
 
-                // Apply union_ to the tuple of translates
-                auto u = std::apply(
-                    [](const auto&... ts)
+                // Apply union_ to non-zero-component translates only.
+                // for_each_diagonal_direction guarantees n >= 2.
+                // In 3D: n == 2 for edge directions, n == 3 for true corner directions.
+                if (n > 1)
+                {
+                    // n == dim: all components are non-zero (true corner), use index sequence
+                    auto translates = [&]<std::size_t... Is>(std::index_sequence<Is...>)
                     {
-                        return union_(ts...);
-                    },
-                    translates);
+                        return std::make_tuple(translate(m_domain, nonzero_shifts[Is])...);
+                    }(std::make_index_sequence<dim>{});
 
-                m_corners.push_back(difference(m_domain, u).to_lca());
+                    auto u = std::apply(
+                        [](const auto&... ts)
+                        {
+                            return union_(ts...);
+                        },
+                        translates);
+
+                    m_corners.push_back(difference(m_domain, u).to_lca());
+                }
             });
     }
 
