@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.30.0](https://github.com/hpc-maths/samurai/compare/v0.29.2...v0.30.0) (2026-05-04)
+
+
+### Features
+
+* ND projection and prediction operator ([#435](https://github.com/hpc-maths/samurai/issues/435)) ([55829ab](https://github.com/hpc-maths/samurai/commit/55829ab14ab491b75deb9260e8b57fe5d5e5986e))
+
+
+### Bug Fixes
+
+* mesh_config in load ([#438](https://github.com/hpc-maths/samurai/issues/438)) ([7f43222](https://github.com/hpc-maths/samurai/commit/7f432227c5e39f0a47b5d241d2a8d4a77a6b4a28))
+* set tag type to `uint8_t` ([#437](https://github.com/hpc-maths/samurai/issues/437)) ([44e2ce7](https://github.com/hpc-maths/samurai/commit/44e2ce777b9fe326d8f6e807220d4ba44fc180ea))
+
+
+### Performance Improvements
+
+* improve tag computation ([#436](https://github.com/hpc-maths/samurai/issues/436)) ([b0aadc5](https://github.com/hpc-maths/samurai/commit/b0aadc53fcc791196b5b5bccbc93c5a5e2b570c7))
+* optimizations of local non-linear solvers ([#439](https://github.com/hpc-maths/samurai/issues/439)) ([f0eedea](https://github.com/hpc-maths/samurai/commit/f0eedeaa89b5e8adb84c6e079c12c4869f5a2000))
+
 ## [0.29.2](https://github.com/hpc-maths/samurai/compare/v0.29.1...v0.29.2) (2026-03-11)
 
 
