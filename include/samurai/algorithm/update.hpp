@@ -361,11 +361,20 @@ namespace samurai
 
         auto& mesh = field.mesh();
 
+        std::size_t nnz = 0;
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            if (direction[d] != 0)
+            {
+                nnz++;
+            }
+        }
+
         for (std::size_t delta_l = 1; delta_l <= 2; ++delta_l) // lower level (1 or 2)
         {
             auto proj_level = level - delta_l;
 
-            auto fine_inner_corner = self(mesh.corner(direction)).on(level);
+            auto fine_inner_corner = intersection(self(mesh.corner(direction)).on(level), mesh[mesh_id_t::cells][level]);
             auto fine_outer_corner = intersection(translate(fine_inner_corner, direction), mesh[mesh_id_t::reference][level]);
             auto projection_ghost  = intersection(fine_outer_corner.on(proj_level), mesh[mesh_id_t::reference][proj_level]);
 
@@ -374,15 +383,25 @@ namespace samurai
                 {
                     using index_t = std::decay_t<decltype(index)>;
 
-                    auto i_child = (1 << delta_l) * i;
-                    i_child.start += direction[0] == -1 ? ((1 << delta_l) - 1) : 0;
-                    i_child.end         = i_child.start + 1;
-                    i_child.step        = 1;
-                    index_t index_child = (1 << delta_l) * index;
+                    auto i_child = (i << delta_l) + (direction[0] == -1 ? ((1 << delta_l) - 1) : 0); // this is the interval of the child
+                                                                                                     // cell in the fine level
+                    if (nnz == dim)                                                                  // || direction[0] != 0)
+                    {
+                        i_child.end  = i_child.start + 1; // if we are projecting a corner ghost, we want only 1 child, so end = start + 1
+                        i_child.step = 1;
+                    }
+                    else
+                    {
+                        i_child.step = 1 << delta_l;
+                    }
+
+                    index_t index_child = index << delta_l;
+
                     for (std::size_t d = 0; d < dim - 1; ++d)
                     {
                         index_child[d] += direction[d + 1] == -1 ? ((1 << delta_l) - 1) : 0;
                     }
+
                     field(proj_level, i, index) = field(level, i_child, index_child);
                 });
             if (proj_level == 0)
@@ -409,8 +428,18 @@ namespace samurai
                 for_each_diagonal_direction<dim>(
                     [&](auto& direction)
                     {
-                        auto d = find_direction_index(direction);
-                        if (!mesh.is_periodic(d))
+                        // Skip if any non-zero component of the direction is periodic:
+                        // a periodic direction has no real boundary, so no corner ghost to fill.
+                        bool any_periodic = false;
+                        for (std::size_t d = 0; d < dim; ++d)
+                        {
+                            if (direction[d] != 0 && mesh.is_periodic(d))
+                            {
+                                any_periodic = true;
+                                break;
+                            }
+                        }
+                        if (!any_periodic)
                         {
                             update_outer_corners_by_polynomial_extrapolation(level, direction, field);
                             project_corner_below(level, direction, field); // project to level-1 and level-2

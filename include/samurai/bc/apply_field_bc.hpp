@@ -322,14 +322,121 @@ namespace samurai
             return; // No outer corners in 1D
         }
 
-        static constexpr std::size_t extrap_stencil_size = 2;
+        static constexpr std::size_t max_stencil_size_PE = PolynomialExtrapolation<Field, 2>::max_stencil_size_implemented_PE;
 
-        auto& domain = detail::get_mesh(field.mesh());
-        PolynomialExtrapolation<Field, extrap_stencil_size> bc(domain, ConstantBc<Field>(), true);
+        int ghost_width        = field.mesh().ghost_width();
+        const auto& domain     = detail::get_mesh(field.mesh());
+        const auto& corner_lca = field.mesh().corner(direction);
 
-        auto corner = self(field.mesh().corner(direction)).on(level);
+        // Step 1: Fill the diagonal ghost cells layer by layer using stencil sizes 2, 4, ..., 2*ghost_width
+        for (int ghost_layer = 1; ghost_layer <= ghost_width; ++ghost_layer)
+        {
+            int stencil_s = 2 * ghost_layer;
+            static_for<2, max_stencil_size_PE + 1>::apply(
+                [&](auto stencil_size_)
+                {
+                    static constexpr int stencil_size = static_cast<int>(stencil_size_());
+                    if constexpr (stencil_size % 2 == 0)
+                    {
+                        if (stencil_s == stencil_size)
+                        {
+                            PolynomialExtrapolation<Field, stencil_size> bc(domain, ConstantBc<Field>(), true);
+                            auto corner = self(corner_lca).on(level);
+                            __apply_extrapolation_bc__cells<stencil_size>(bc, level, field, direction, corner);
+                        }
+                    }
+                });
+        }
 
-        __apply_extrapolation_bc__cells<extrap_stencil_size>(bc, level, field, direction, corner);
+        // Step 2: Fill off-diagonal ghost cells using Cartesian constant extrapolation
+        // For each non-zero component of the direction, apply extrapolation from the diagonal ghost cells
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+
+        // Count non-zero direction components
+        std::size_t num_nonzero = 0;
+        std::array<std::size_t, Field::dim> nonzero_dirs;
+        for (std::size_t d = 0; d < Field::dim; ++d)
+        {
+            if (direction[d] != 0)
+            {
+                nonzero_dirs[num_nonzero] = d;
+                ++num_nonzero;
+            }
+        }
+
+        // Check if the corner cells exist at this level
+        // If they don't, skip the off-diagonal fill entirely
+        auto corner_at_level = self(corner_lca).on(level);
+
+        PolynomialExtrapolation<Field, 2> bc_e(domain, ConstantBc<Field>(), true);
+        auto stencil_0_e = bc_e.get_stencil(std::integral_constant<std::size_t, 2>());
+
+        for (std::size_t d = 0; d < Field::dim; ++d)
+        {
+            if (direction[d] == 0)
+            {
+                continue;
+            }
+
+            DirectionVector<Field::dim> e_dir;
+            e_dir.fill(0);
+            e_dir[d] = direction[d];
+
+            auto stencil_e  = convert_for_direction(stencil_0_e, e_dir);
+            auto analyzer_e = make_stencil_analyzer(stencil_e);
+
+            auto& mesh               = field.mesh();
+            auto has_outer_neighbour = translate(self(mesh[mesh_id_t::reference][level]).on(level), -e_dir);
+
+            // For each layer, extrapolate from diagonal/off-diagonal ghost cells in the e_dir direction
+            for (int g = 1; g <= ghost_width; ++g)
+            {
+                // Source: translate(corner, direction + (g-1)*e_dir)
+                auto source_set   = translate(corner_at_level, direction + (g - 1) * e_dir);
+                auto valid_source = intersection(source_set, has_outer_neighbour).on(level);
+                __apply_bc_on_subset(bc_e, field, valid_source, analyzer_e, e_dir);
+            }
+
+            // For true 3D corners (3 non-zero components), apply secondary sweeps
+            // to fill cells at edge-pair positions like (N+1,N+1,N)
+            if (num_nonzero == 3)
+            {
+                // For each pair of the OTHER non-zero directions, apply sweep in e_dir
+                // from the cells filled by those directions
+                for (std::size_t i = 0; i < num_nonzero; ++i)
+                {
+                    if (nonzero_dirs[i] == d)
+                    {
+                        continue; // skip the current direction
+                    }
+                    for (std::size_t j = i + 1; j < num_nonzero; ++j)
+                    {
+                        if (nonzero_dirs[j] == d)
+                        {
+                            continue; // skip the current direction
+                        }
+
+                        // Create unit direction vectors for the other two directions
+                        DirectionVector<Field::dim> e_dir_i;
+                        e_dir_i.fill(0);
+                        e_dir_i[nonzero_dirs[i]] = direction[nonzero_dirs[i]];
+
+                        DirectionVector<Field::dim> e_dir_j;
+                        e_dir_j.fill(0);
+                        e_dir_j[nonzero_dirs[j]] = direction[nonzero_dirs[j]];
+
+                        // Source: cells filled by sweeps in directions i and j
+                        // = translate(corner, direction + e_dir_i) and translate(corner, direction + e_dir_j)
+                        auto source_i        = translate(self(corner_lca).on(level), direction + e_dir_i);
+                        auto source_j        = translate(self(corner_lca).on(level), direction + e_dir_j);
+                        auto combined_source = union_(source_i, source_j);
+
+                        auto valid_source = intersection(combined_source, has_outer_neighbour).on(level);
+                        __apply_bc_on_subset(bc_e, field, valid_source, analyzer_e, e_dir);
+                    }
+                }
+            }
+        }
     }
 
     template <class Field>
