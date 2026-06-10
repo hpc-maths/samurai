@@ -459,7 +459,7 @@ namespace samurai
                 for_each_stencil(field.mesh(),
                                  source_at_k,
                                  analyzer_copy,
-                                 [&](auto& cells)
+                                 [&](const auto& cells)
                                  {
                                      field[cells[1]] = field[cells[0]];
                                  });
