@@ -374,7 +374,12 @@ namespace samurai
         {
             auto proj_level = level - delta_l;
 
-            auto fine_inner_corner = intersection(self(mesh.corner(direction)).on(level), mesh[mesh_id_t::cells][level]);
+            // The source is the corner ghost at `level`, whether the corner has cells at `level`
+            // (ghost filled by polynomial extrapolation) or not (ghost filled by the projection
+            // from level+1, which has already been done since the levels are processed from fine
+            // to coarse). This cascade fills the corner ghosts at every level below the corner
+            // cells, even when max_level - min_level > 2.
+            auto fine_inner_corner = self(mesh.corner(direction)).on(level);
             auto fine_outer_corner = intersection(translate(fine_inner_corner, direction), mesh[mesh_id_t::reference][level]);
             auto projection_ghost  = intersection(fine_outer_corner.on(proj_level), mesh[mesh_id_t::reference][proj_level]);
 
