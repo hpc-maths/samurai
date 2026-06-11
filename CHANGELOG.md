@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.1](https://github.com/hpc-maths/samurai/compare/v0.30.0...v0.30.1) (2026-06-11)
+
+
+### Bug Fixes
+
+* boundary conditions for 3d case ([#441](https://github.com/hpc-maths/samurai/issues/441)) ([6cf3064](https://github.com/hpc-maths/samurai/commit/6cf306421ee353a67612d5f975f38aca29ba30ef))
+
 ## [0.30.0](https://github.com/hpc-maths/samurai/compare/v0.29.2...v0.30.0) (2026-05-04)
 
 
