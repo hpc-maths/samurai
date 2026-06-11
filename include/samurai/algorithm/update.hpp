@@ -390,7 +390,7 @@ namespace samurai
 
                     auto i_child = (i << delta_l) + (direction[0] == -1 ? ((1 << delta_l) - 1) : 0); // this is the interval of the child
                                                                                                      // cell in the fine level
-                    if (nnz == dim)                                                                  // || direction[0] != 0)
+                    if (nnz == dim)
                     {
                         i_child.end  = i_child.start + 1; // if we are projecting a corner ghost, we want only 1 child, so end = start + 1
                         i_child.step = 1;

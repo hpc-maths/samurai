@@ -354,7 +354,7 @@ namespace samurai
         // Step 2: Fill off-diagonal ghost cells by copying the diagonal ghost value.
         //
         // For layer k (k=1..ghost_width), the source is the diagonal cell at
-        //   source_at_k = corner + (k-1)*direction   (already filled by Step 1).
+        //   source_at_k = corner + k*direction   (already filled by Step 1).
         // All other cells in the corner block with first-dim offset k are targets.
         // A target's offset from source_at_k is:
         //   delta = sum_{p=1}^{num_nonzero-1} (g_p - (k-1)) * e_dirs[p],
