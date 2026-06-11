@@ -322,14 +322,149 @@ namespace samurai
             return; // No outer corners in 1D
         }
 
-        static constexpr std::size_t extrap_stencil_size = 2;
+        static constexpr std::size_t max_stencil_size_PE = PolynomialExtrapolation<Field, 2>::max_stencil_size_implemented_PE;
 
-        auto& domain = detail::get_mesh(field.mesh());
-        PolynomialExtrapolation<Field, extrap_stencil_size> bc(domain, ConstantBc<Field>(), true);
+        int ghost_width        = field.mesh().ghost_width();
+        const auto& domain     = detail::get_mesh(field.mesh());
+        const auto& corner_lca = field.mesh().corner(direction);
 
-        auto corner = self(field.mesh().corner(direction)).on(level);
+        assert(static_cast<std::size_t>(2 * ghost_width) <= max_stencil_size_PE); // otherwise we don't have the implementation for such a
+                                                                                  // large stencil size in polynomial extrapolation
 
-        __apply_extrapolation_bc__cells<extrap_stencil_size>(bc, level, field, direction, corner);
+        // Step 1: Fill the diagonal ghost cells layer by layer using stencil sizes 2, 4, ..., 2*ghost_width
+        for (int ghost_layer = 1; ghost_layer <= ghost_width; ++ghost_layer)
+        {
+            int stencil_s = 2 * ghost_layer;
+            static_for<2, max_stencil_size_PE + 1>::apply(
+                [&](auto stencil_size_)
+                {
+                    static constexpr int stencil_size = static_cast<int>(stencil_size_());
+                    if constexpr (stencil_size % 2 == 0)
+                    {
+                        if (stencil_s == stencil_size)
+                        {
+                            PolynomialExtrapolation<Field, stencil_size> bc(domain, ConstantBc<Field>(), true);
+                            auto corner = self(corner_lca).on(level);
+                            __apply_extrapolation_bc__cells<stencil_size>(bc, level, field, direction, corner);
+                        }
+                    }
+                });
+        }
+
+        // Step 2: Fill off-diagonal ghost cells by copying the diagonal ghost value.
+        //
+        // For layer k (k=1..ghost_width), the source is the diagonal cell at
+        //   source_at_k = corner + k*direction   (already filled by Step 1).
+        // All other cells in the corner block with first-dim offset k are targets.
+        // A target's offset from source_at_k is:
+        //   delta = sum_{p=1}^{num_nonzero-1} (g_p - (k-1)) * e_dirs[p],
+        // where g_p in {0,...,ghost_width-1} and not all g_p == k-1.
+        //
+        // Example (direction=(-1,-1,-1), ghost_width=2):
+        //   k=1: source=(-1,-1,-1). Fill: (-1,-2,-1), (-1,-1,-2), (-1,-2,-2).
+        //   k=2: source=(-2,-2,-2). Fill: (-2,-1,-1), (-2,-1,-2), (-2,-2,-1).
+
+        // Collect the non-zero direction dimensions in order.
+        std::size_t num_nonzero = 0;
+        std::array<std::size_t, Field::dim> nonzero_dirs;
+        for (std::size_t d = 0; d < Field::dim; ++d)
+        {
+            if (direction[d] != 0)
+            {
+                nonzero_dirs[num_nonzero] = d;
+                ++num_nonzero;
+            }
+        }
+
+        if (num_nonzero < 2)
+        {
+            return; // No off-diagonal ghosts for Cartesian directions
+        }
+
+        auto corner_at_level = self(corner_lca).on(level);
+
+        // Build unit direction vectors for each non-zero dimension.
+        std::array<DirectionVector<Field::dim>, Field::dim> e_dirs;
+        for (std::size_t idx = 0; idx < num_nonzero; ++idx)
+        {
+            e_dirs[idx].fill(0);
+            e_dirs[idx][nonzero_dirs[idx]] = direction[nonzero_dirs[idx]];
+        }
+
+        // Total number of offset combos for the non-first dimensions: ghost_width^(num_nonzero-1).
+        // For each layer k, enumerate all (g_1,...,g_{n-1}) in {0,...,ghost_width-1}^{n-1}.
+        // The target cell offset from source_at_k is:
+        //   delta = sum_{p=1}^{n-1} (g_p - (k-1)) * e_dirs[p].
+        // Skip when all g_p == k-1 (that is the source diagonal cell itself).
+        std::size_t num_combos = 1;
+        for (std::size_t p = 1; p < num_nonzero; ++p)
+        {
+            num_combos *= static_cast<std::size_t>(ghost_width);
+        }
+
+        // Restrict the corner to the cells that actually exist at this level. This is the same
+        // condition as in Step 1, where __apply_extrapolation_bc__cells() intersects the corner
+        // with mesh[cells][level] before applying the extrapolation.
+        //
+        // Why this restriction is necessary: on an adapted mesh, the domain corner is not
+        // necessarily covered by cells at every level. For instance, in the lid-driven cavity
+        // with min_level=3 and max_level=6, the velocity singularities refine the corners down
+        // to level 6, so at levels 3 to 5 the corner region holds no cells. At such a level:
+        //   - Step 1 did nothing (its subsets are empty after intersection with the cells), so
+        //     the diagonal ghosts hold no valid source value to copy from;
+        //   - worse, the corner ghost cells may not even exist in the mesh at this level (ghost
+        //     cells are only allocated around existing cells). Iterating over them would then
+        //     query intervals that are not in the cell array, which is an out-of-bounds access
+        //     (get_interval() returns m_cells[0][size_t(-1)]) and a crash in practice.
+        //
+        // The corner ghosts at the levels where the corner has no cells are not filled here:
+        // they are filled by projecting the value from the finer levels, level by level from
+        // fine to coarse (see project_corner_below() in algorithm/update.hpp, called right
+        // after this function in update_outer_ghosts()).
+        using mesh_id_t   = typename Field::mesh_t::mesh_id_t;
+        auto corner_cells = intersection(corner_at_level, field.mesh()[mesh_id_t::cells][level]).on(level);
+
+        for (int k = 1; k <= ghost_width; ++k)
+        {
+            auto source_at_k = translate(corner_cells, k * direction);
+
+            for (std::size_t combo = 0; combo < num_combos; ++combo)
+            {
+                DirectionVector<Field::dim> delta;
+                delta.fill(0);
+                bool is_source  = true;
+                std::size_t tmp = combo;
+                for (std::size_t p = 1; p < num_nonzero; ++p)
+                {
+                    int g_p = static_cast<int>(tmp % static_cast<std::size_t>(ghost_width));
+                    tmp /= static_cast<std::size_t>(ghost_width);
+                    int d_p = g_p - (k - 1);
+                    delta += d_p * e_dirs[p];
+                    if (d_p != 0)
+                    {
+                        is_source = false;
+                    }
+                }
+
+                if (is_source)
+                {
+                    continue;
+                }
+
+                Stencil<2, Field::dim> stencil_copy;
+                xt::view(stencil_copy, 0) = 0;
+                xt::view(stencil_copy, 1) = delta;
+                auto analyzer_copy        = make_stencil_analyzer(stencil_copy);
+
+                for_each_stencil(field.mesh(),
+                                 source_at_k,
+                                 analyzer_copy,
+                                 [&](const auto& cells)
+                                 {
+                                     field[cells[1]] = field[cells[0]];
+                                 });
+            }
+        }
     }
 
     template <class Field>
