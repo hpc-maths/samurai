@@ -10,6 +10,7 @@
 #include "../concepts.hpp"
 #include "../field_expression.hpp"
 #include "../mesh_holder.hpp"
+#include "../mr/mesh.hpp"
 #include "../numeric/gauss_legendre.hpp"
 #include "access_base.hpp"
 #include "field_base.hpp"
@@ -108,6 +109,26 @@ namespace samurai
 
         ~ScalarField() = default;
     };
+
+    ////////////////////////////////////////////////////////////////////
+    //// explicit instanciation
+    ////////////////////////////////////////////////////////////////////
+
+    extern template class ScalarField<MRMesh<mesh_config<1>>, float>;
+    extern template class ScalarField<MRMesh<mesh_config<2>>, float>;
+    extern template class ScalarField<MRMesh<mesh_config<3>>, float>;
+
+    extern template class ScalarField<MRMesh<mesh_config<1>>, double>;
+    extern template class ScalarField<MRMesh<mesh_config<2>>, double>;
+    extern template class ScalarField<MRMesh<mesh_config<3>>, double>;
+
+    extern template class ScalarField<MRMesh<mesh_config<1>>, long double>;
+    extern template class ScalarField<MRMesh<mesh_config<2>>, long double>;
+    extern template class ScalarField<MRMesh<mesh_config<3>>, long double>;
+
+    ////////////////////////////////////////////////////////////////////
+    //// methods implementations
+    ////////////////////////////////////////////////////////////////////
 
     // ScalarField constructors -----------------------------------------------
 

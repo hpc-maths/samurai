@@ -9,8 +9,10 @@
 #include <fmt/format.h>
 
 #include "../algorithm.hpp"
+#include "../concepts.hpp"
 #include "../field_expression.hpp"
 #include "../mesh_holder.hpp"
+#include "../mr/mesh.hpp"
 #include "../numeric/gauss_legendre.hpp"
 #include "access_base.hpp"
 #include "concepts.hpp"
@@ -171,6 +173,31 @@ namespace samurai
 
         ~VectorField() = default;
     };
+
+    ////////////////////////////////////////////////////////////////////
+    //// explicit instanciation
+    ////////////////////////////////////////////////////////////////////
+
+    extern template class VectorField<MRMesh<mesh_config<1>>, float, 1, false>;
+    extern template class VectorField<MRMesh<mesh_config<2>>, float, 1, true>;
+    extern template class VectorField<MRMesh<mesh_config<3>>, float, 2, false>;
+    extern template class VectorField<MRMesh<mesh_config<1>>, float, 2, true>;
+    extern template class VectorField<MRMesh<mesh_config<2>>, float, 3, false>;
+    extern template class VectorField<MRMesh<mesh_config<3>>, float, 3, true>;
+
+    extern template class VectorField<MRMesh<mesh_config<1>>, double, 1, false>;
+    extern template class VectorField<MRMesh<mesh_config<2>>, double, 1, true>;
+    extern template class VectorField<MRMesh<mesh_config<3>>, double, 2, false>;
+    extern template class VectorField<MRMesh<mesh_config<1>>, double, 2, true>;
+    extern template class VectorField<MRMesh<mesh_config<2>>, double, 3, false>;
+    extern template class VectorField<MRMesh<mesh_config<3>>, double, 3, true>;
+
+    extern template class VectorField<MRMesh<mesh_config<1>>, long double, 1, false>;
+    extern template class VectorField<MRMesh<mesh_config<2>>, long double, 1, true>;
+    extern template class VectorField<MRMesh<mesh_config<3>>, long double, 2, false>;
+    extern template class VectorField<MRMesh<mesh_config<1>>, long double, 2, true>;
+    extern template class VectorField<MRMesh<mesh_config<2>>, long double, 3, false>;
+    extern template class VectorField<MRMesh<mesh_config<3>>, long double, 3, true>;
 
     // VectorField constructors -----------------------------------------------
 

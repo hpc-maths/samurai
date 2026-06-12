@@ -322,6 +322,14 @@ namespace samurai
         mutable coord_type m_index;
     };
 
+    ////////////////////////////////////////////////////////////////////
+    //// explicit instanciation
+    ////////////////////////////////////////////////////////////////////
+
+    extern template class LevelCellArray<1>;
+    extern template class LevelCellArray<2>;
+    extern template class LevelCellArray<3>;
+
     ///////////////////////////////////
     // LevelCellArray implementation //
     ///////////////////////////////////
@@ -1370,4 +1378,5 @@ namespace samurai
     {
         return it1.base().equal(it2.base());
     }
+
 } // namespace samurai

@@ -9,6 +9,7 @@
 #include <xtensor/io/xio.hpp>
 #include <xtensor/views/xview.hpp>
 
+#include "interval.hpp"
 #include "samurai_config.hpp"
 
 namespace samurai
@@ -75,6 +76,18 @@ namespace samurai
         /// The length of the cell.
         double length = 0;
     };
+
+    ////////////////////////////////////////////////////////////////////
+    //// explicit instanciation
+    ////////////////////////////////////////////////////////////////////
+
+    extern template struct Cell<1, default_config::interval_t>;
+    extern template struct Cell<2, default_config::interval_t>;
+    extern template struct Cell<3, default_config::interval_t>;
+
+    ////////////////////////////////////////////////////////////////////
+    //// method implementation
+    ////////////////////////////////////////////////////////////////////
 
     template <std::size_t dim_, class TInterval>
     SAMURAI_INLINE Cell<dim_, TInterval>::Cell(const coords_t& origin_point_,
@@ -170,4 +183,5 @@ namespace samurai
     {
         return !(c1 == c2);
     }
+
 } // namespace samurai
