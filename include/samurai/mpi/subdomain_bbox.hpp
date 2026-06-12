@@ -35,6 +35,8 @@ namespace samurai::mpi_neighbor
     {
         int rank           = -1;  ///< MPI rank owning this subdomain.
         double cell_length = 0.0; ///< Cell length for conservative expansion.
+        double ghost_reach = 0.0; ///< Physical reach of this rank's ghost construction
+                                  ///< (see Mesh_base::ghost_physical_reach()).
         Box<double, dim> bbox;    ///< Tight axis-aligned bounding box.
 
         SubdomainBoundingBox() = default;
@@ -65,6 +67,7 @@ namespace samurai::mpi_neighbor
         {
             ar & rank;
             ar & cell_length;
+            ar & ghost_reach;
             // Serialize bbox corners element-by-element to avoid xtensor operator& issues
             for (std::size_t d = 0; d < dim; ++d)
             {
@@ -86,6 +89,7 @@ namespace samurai::mpi_neighbor
         {
             ar & rank;
             ar & cell_length;
+            ar & ghost_reach;
             // Deserialize bbox corners element-by-element
             typename Box<double, dim>::point_t min_c, max_c;
             for (std::size_t d = 0; d < dim; ++d)
@@ -105,8 +109,12 @@ namespace samurai::mpi_neighbor
         /**
          * Test if this subdomain could be a neighbor of another.
          *
-         * Expands the bounding box by the minimum cell length before
-         * testing intersection to ensure conservative neighbor detection.
+         * Expands the bounding box by the largest ghost reach of the two
+         * subdomains before testing intersection: a rank must be detected as
+         * a neighbor as soon as it may contribute values to our ghosts (or we
+         * to its), even when a thin third subdomain lies in between. Using the
+         * max of both reaches keeps the decision symmetric. Falls back to one
+         * cell length when no reach is available.
          *
          * @param other Another subdomain's bounding box.
          * @return      True if the expanded boxes intersect.
@@ -120,7 +128,7 @@ namespace samurai::mpi_neighbor
             }
 
             auto expanded  = bbox;
-            auto expansion = std::min(cell_length, other.cell_length);
+            auto expansion = std::max({ghost_reach, other.ghost_reach, std::min(cell_length, other.cell_length)});
 
             for (std::size_t d = 0; d < dim; ++d)
             {

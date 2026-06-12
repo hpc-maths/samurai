@@ -11,6 +11,9 @@
 // non-affine ghost value — this is the minimal reproducer of decomposition
 // dependent ghost bugs (e.g. subdomains touching by a corner only).
 
+#include <map>
+
+#include <boost/serialization/vector.hpp>
 #include <gtest/gtest.h>
 
 #include <samurai/algorithm/update.hpp>
@@ -20,6 +23,7 @@
 #include <samurai/load_balancing/load_balancer.hpp>
 #include <samurai/load_balancing/strategies/sfc.hpp>
 #include <samurai/load_balancing/weight.hpp>
+#include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 
 #include "mpi_test_utils.hpp"
@@ -120,36 +124,150 @@ namespace
 
     // After a Hilbert rebalance (curve-shaped partitions).
     //
-    // DISABLED: exposes a pre-existing samurai bug, NOT a load balancing bug.
-    // `find_neighbourhood()` (mesh.hpp) detects MPI neighbours within ONE cell
-    // of the subdomain (`nestedExpand(m_subdomain, 1)`, and a 1-cell margin in
-    // the bbox screening of mpi/subdomain_bbox.hpp). But the MRA ghosts
-    // (isotropic prediction stencil + coarse projection ghosts, observed down
-    // to level min_level-2) have a geometric footprint of SEVERAL fine cells.
-    // When a partition contains a subdomain strip thinner than that footprint
-    // — which Hilbert cuts produce naturally, e.g. at np3 on this mesh where
-    // rank 1 forms a thin band between ranks 0 and 2 — the rank behind the
-    // strip is needed for ghost values but never detected as a neighbour:
-    // those ghosts silently keep their fill value (0), and the MRA adaptation
-    // then takes different decisions than the sequential run.
-    //
-    // Demonstrated fix: enlarging both expansions to 4 cells makes this test
-    // pass (ranks 0 and 2 become neighbours). The proper width must be derived
-    // from the ghost configuration — see docs/ghost-update-protocol-redesign.md.
-    // Historic stripe partitions never triggered this (that is precisely why
-    // the old balancer enforced straight boundaries by row snapping).
-    //
-    // Run it with: --gtest_also_run_disabled_tests (fails at np3).
-    TEST(load_balancing_ghosts, DISABLED_affine_after_hilbert)
+    // Non-regression test for a neighbourhood detection bug: MPI neighbours
+    // used to be detected within ONE max-level cell of the subdomain, while
+    // the MRA ghosts (isotropic prediction stencil + coarse projection ghosts
+    // down to min_level-2) have a footprint of several cells. A partition
+    // with a subdomain strip thinner than that footprint — which Hilbert cuts
+    // produce naturally, e.g. at np3 on this mesh where rank 1 forms a thin
+    // band between ranks 0 and 2 — hid the rank behind the strip: its ghosts
+    // silently kept their fill value and the MRA adaptation diverged from the
+    // sequential run. Fixed by deriving the neighbourhood expansion from the
+    // ghost configuration (Mesh_base::ghost_physical_reach(), exchanged in
+    // the subdomain bounding boxes); this test failed at np3 before the fix.
+    TEST(load_balancing_ghosts, affine_after_hilbert)
     {
         auto mesh = make_corner_refined_mesh();
         auto u    = samurai::make_scalar_field<double>("u", mesh);
         fill_affine(u);
-        samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
+        samurai::make_bc<samurai::Dirichlet<1>>(u,
+                                                [](const auto&, const auto&, const auto& coords)
+                                                {
+                                                    return affine(coords[0], coords[1]);
+                                                });
 
         auto balancer = lb::make_load_balancer<lb::SFC<lb::Hilbert>>();
         balancer.load_balance(lb::weight::uniform(), u);
         check_interior_ghosts(u, "after hilbert");
+    }
+
+    /// Global adapted state gathered on rank 0: map (level, i, j) -> value.
+    template <class Mesh_t, class Field>
+    auto global_state(Mesh_t& mesh, Field& u)
+    {
+        mpi::communicator world;
+        std::vector<double> local; // flattened (level, i, j, value) tuples
+        samurai::for_each_cell(mesh[mesh_id_t::cells],
+                               [&](const auto& cell)
+                               {
+                                   local.push_back(static_cast<double>(cell.level));
+                                   local.push_back(static_cast<double>(cell.indices[0]));
+                                   local.push_back(static_cast<double>(cell.indices[1]));
+                                   local.push_back(u[cell]);
+                               });
+        std::vector<std::vector<double>> all;
+        boost::mpi::gather(world, local, all, 0);
+
+        std::map<std::array<double, 3>, double> state;
+        if (world.rank() == 0)
+        {
+            for (const auto& chunk : all)
+            {
+                for (std::size_t k = 0; k < chunk.size(); k += 4)
+                {
+                    state[{chunk[k], chunk[k + 1], chunk[k + 2]}] = chunk[k + 3];
+                }
+            }
+        }
+        return state;
+    }
+
+    /// The MRA adaptation must be independent of the domain decomposition:
+    /// starting from the same global mesh and field, adapting directly or
+    /// load balancing first must produce the same global mesh and values.
+    /// (Comparing against an analytic value is NOT a valid oracle here: the
+    /// adaptation is not exact on affine fields, even sequentially.)
+    template <class Strategy>
+    void check_adapt_independence(const Strategy& strategy_tag, const std::string& context)
+    {
+        mpi::communicator world;
+        auto affine_bc = [](const auto&, const auto&, const auto& coords)
+        {
+            return affine(coords[0], coords[1]);
+        };
+
+        // reference: adaptation without load balancing
+        auto mesh_ref = make_corner_refined_mesh();
+        auto u_ref    = samurai::make_scalar_field<double>("u", mesh_ref);
+        fill_affine(u_ref);
+        samurai::make_bc<samurai::Dirichlet<1>>(u_ref, affine_bc);
+        auto adapt_ref = samurai::make_MRAdapt(u_ref);
+        auto cfg       = samurai::mra_config().epsilon(2e-4);
+        adapt_ref(cfg);
+        auto state_ref = global_state(mesh_ref, u_ref);
+
+        // same start, but rebalance before adapting
+        auto mesh_lb = make_corner_refined_mesh();
+        auto u_lb    = samurai::make_scalar_field<double>("u", mesh_lb);
+        fill_affine(u_lb);
+        samurai::make_bc<samurai::Dirichlet<1>>(u_lb, affine_bc);
+        auto balancer = lb::make_load_balancer(lb::LoadBalanceConfig{}, strategy_tag);
+        balancer.load_balance(lb::weight::uniform(), u_lb);
+        auto adapt_lb = samurai::make_MRAdapt(u_lb);
+        adapt_lb(cfg);
+        auto state_lb = global_state(mesh_lb, u_lb);
+
+        bool ok = true;
+        if (world.rank() == 0)
+        {
+            ok = state_ref.size() == state_lb.size();
+            if (ok)
+            {
+                for (const auto& [key, value] : state_ref)
+                {
+                    auto it = state_lb.find(key);
+                    if (it == state_lb.end() || std::abs(it->second - value) > 1e-14)
+                    {
+                        ok = false;
+                        std::cerr << context << ": mismatch at level " << key[0] << " (" << key[1] << ", " << key[2]
+                                  << "): " << (it == state_lb.end() ? std::string("missing cell") : std::to_string(it->second)) << " vs "
+                                  << value << std::endl;
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                std::cerr << context << ": global cell counts differ: " << state_ref.size() << " vs " << state_lb.size() << std::endl;
+            }
+        }
+        boost::mpi::broadcast(world, ok, 0);
+        EXPECT_TRUE_ALL_RANKS(ok);
+    }
+
+    // DISABLED: second, distinct decomposition bug (the neighbourhood fix is
+    // in and update_ghost_mr is now correct after a Hilbert rebalance — see
+    // affine_after_hilbert above — yet the ADAPTATION still produces a
+    // different global mesh at np3: 1240 vs 1252 cells). The extra cells
+    // suggest coarsening decisions that differ near subdomain boundaries
+    // (tag exchange/graduation), but note that the initial stripe
+    // decomposition also splits sibling groups and adapts identically to the
+    // sequential run, so the exact trigger remains to be isolated.
+    // Run with: --gtest_also_run_disabled_tests (fails at np3).
+    TEST(load_balancing_ghosts, DISABLED_adapt_independence_hilbert)
+    {
+        check_adapt_independence(lb::SFC<lb::Hilbert>{}, "adapt independence (hilbert)");
+    }
+
+    TEST(load_balancing_ghosts, adapt_independence_checkerboard)
+    {
+        check_adapt_independence(LambdaStrategy{[](const auto& cell, int, int size)
+                                                {
+                                                    const auto bi = cell.indices[0] >> (cell.level - 3);
+                                                    const auto bj = cell.indices[1] >> (cell.level - 3);
+                                                    return static_cast<int>((bi + bj) % size);
+                                                }},
+                                 "adapt independence (checkerboard)");
     }
 
     // Cell-wise checkerboard: boundaries everywhere, sibling groups split

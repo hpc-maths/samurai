@@ -180,6 +180,19 @@ Two curves are provided in ``load_balancing/sfc/``:
 Default to ``Hilbert``; use ``Morton`` if key computation ever shows up in
 profiles (it rarely does: the partitioning cost is dominated by the sort).
 
+.. warning::
+
+   Partitions with thin subdomain strips (which Hilbert cuts can produce)
+   exposed two pre-existing samurai bugs. The first — MPI neighbour
+   detection ignoring the ghost footprint — is fixed:
+   ``Mesh_base::ghost_physical_reach()`` now derives the neighbourhood
+   expansion from the ghost configuration. The second is still open: the
+   MRA *adaptation* may produce a decomposition dependent mesh (minimal
+   reproducer: ``tests/mpi/test_lb_ghosts.cpp``,
+   ``DISABLED_adapt_independence_hilbert``, fails at 3 processes). Until it
+   is fixed, prefer ``Morton`` for production runs and validate against a
+   sequential reference with ``python/compare.py``.
+
 Limits: the 64-bit keys bound the usable refinement: 32 bits per coordinate
 in 2D and 21 bits in 3D (i.e. max_level up to 21 in 3D on a unit domain).
 Negative cell indices are handled by a global shift; coordinates beyond the
