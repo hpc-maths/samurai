@@ -21,31 +21,7 @@ namespace mpi = boost::mpi;
 
 namespace
 {
-    /// Test-only strategy: destination rank computed by a lambda(cell, rank, size).
-    template <class F>
-    struct LambdaStrategy
-    {
-        F f;
-
-        template <class Mesh, class Weight>
-        auto partition(Mesh& mesh, const Weight& /*weight*/) const
-        {
-            using mesh_id_t = typename Mesh::mesh_id_t;
-            mpi::communicator world;
-            auto flags = samurai::make_scalar_field<int>("lb_flags", mesh);
-            samurai::for_each_cell(mesh[mesh_id_t::cells],
-                                   [&](const auto& cell)
-                                   {
-                                       flags[cell] = f(cell, world.rank(), world.size());
-                                   });
-            return flags;
-        }
-
-        std::string name() const
-        {
-            return "test-lambda";
-        }
-    };
+    using samurai_test::LambdaStrategy;
 
     template <std::size_t d>
     struct DimWrapper
@@ -84,24 +60,12 @@ namespace
         /// (graduated: level jump of 1 at x = 0.5).
         static Mesh make_two_level_mesh()
         {
-            auto fine = samurai::mra::make_mesh(unit_box(), samurai::mesh_config<dim>().min_level(level).max_level(level + 1));
-
-            typename Mesh::cl_type cl;
-            samurai::for_each_cell(fine[mesh_id_t::cells],
-                                   [&](const auto& cell)
-                                   {
-                                       auto yz = xt::view(cell.indices, xt::range(1, cell.indices.size()));
-                                       if (cell.center(0) < 0.5)
-                                       {
-                                           cl[cell.level][yz].add_point(cell.indices[0]);
-                                       }
-                                       else
-                                       {
-                                           auto yz_coarse = xt::eval(yz / 2);
-                                           cl[cell.level - 1][yz_coarse].add_point(cell.indices[0] >> 1);
-                                       }
-                                   });
-            return Mesh(cl, fine);
+            return samurai_test::make_locally_refined_mesh<Mesh>(unit_box(),
+                                                                 level,
+                                                                 [](const auto& cell)
+                                                                 {
+                                                                     return cell.center(0) < 0.5;
+                                                                 });
         }
 
         template <class M>

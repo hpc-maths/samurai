@@ -11,6 +11,8 @@
 
 #include <samurai/algorithm.hpp>
 #include <samurai/cell_array.hpp>
+#include <samurai/field.hpp>
+#include <samurai/mr/mesh.hpp>
 #include <samurai/subset/node.hpp>
 
 /**
@@ -30,6 +32,78 @@
 
 namespace samurai_test
 {
+    /// Test-only strategy: destination rank computed by a lambda(cell, rank, size).
+    /// Lets each test inject hand-crafted flags without writing a real partitioner.
+    template <class F>
+    struct LambdaStrategy
+    {
+        F f;
+
+        template <class Mesh, class Weight>
+        auto partition(Mesh& mesh, const Weight& /*weight*/) const
+        {
+            using mesh_id_t = typename Mesh::mesh_id_t;
+            boost::mpi::communicator world;
+            auto flags = samurai::make_scalar_field<int>("lb_flags", mesh);
+            samurai::for_each_cell(mesh[mesh_id_t::cells],
+                                   [&](const auto& cell)
+                                   {
+                                       flags[cell] = f(cell, world.rank(), world.size());
+                                   });
+            return flags;
+        }
+
+        std::string name() const
+        {
+            return "test-lambda";
+        }
+    };
+
+    /**
+     * Two-level test mesh: uniform mesh at `level`, then the cells selected
+     * by `refine_here(cell)` are replaced by their 2^dim children (graduated
+     * as long as the selected region is a half/quadrant-like block).
+     *
+     * IMPORTANT for MPI: the refinement direction matters. Going the other
+     * way (coarsening fine cells with `indices >> 1`) is wrong in parallel:
+     * the initial decomposition may split the 2^dim children of one parent
+     * across two ranks, and both would emit the same coarse cell — a
+     * duplicated cell in the global mesh. Refining a local parent creates
+     * every child exactly once.
+     */
+    template <class Mesh, class Box, class Pred>
+    Mesh make_locally_refined_mesh(const Box& box, std::size_t level, const Pred& refine_here)
+    {
+        constexpr std::size_t dim = Mesh::dim;
+        using mesh_id_t           = typename Mesh::mesh_id_t;
+        using value_t             = typename Mesh::interval_t::value_t;
+
+        auto coarse = samurai::mra::make_mesh(box, samurai::mesh_config<dim>().min_level(level).max_level(level));
+
+        typename Mesh::cl_type cl;
+        samurai::for_each_cell(coarse[mesh_id_t::cells],
+                               [&](const auto& cell)
+                               {
+                                   auto yz = xt::view(cell.indices, xt::range(1, cell.indices.size()));
+                                   if (!refine_here(cell))
+                                   {
+                                       cl[level][yz].add_point(cell.indices[0]);
+                                       return;
+                                   }
+                                   const auto i = cell.indices[0];
+                                   xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> yz_child;
+                                   for (unsigned m = 0; m < (1U << (dim - 1)); ++m)
+                                   {
+                                       for (std::size_t d = 0; d + 1 < dim; ++d)
+                                       {
+                                           yz_child(d) = 2 * yz(d) + static_cast<value_t>((m >> d) & 1U);
+                                       }
+                                       cl[level + 1][yz_child].add_interval({2 * i, 2 * i + 2});
+                                   }
+                               });
+        return samurai::mra::make_mesh(cl, samurai::mesh_config<dim>().min_level(level).max_level(level + 1));
+    }
+
     /**
      * Injective per-cell value: encodes (level, i, j, k) exactly in a double.
      * Used to verify that field values follow their cell through a migration:

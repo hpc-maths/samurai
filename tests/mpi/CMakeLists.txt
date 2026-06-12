@@ -25,3 +25,5 @@ function(add_mpi_gtest name)
 endfunction()
 
 add_mpi_gtest(test_lb_migration)
+add_mpi_gtest(test_lb_metrics)
+add_mpi_gtest(test_lb_sfc)

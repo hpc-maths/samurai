@@ -142,15 +142,67 @@ Available strategies
    * - ``Void`` (baseline: nothing moves)
      - ``strategies/void.hpp``
      - available
-   * - SFC (Morton / Hilbert), weighted
+   * - ``SFC<Morton>`` / ``SFC<Hilbert>`` (weighted space-filling curves)
      - ``strategies/sfc.hpp``
-     - roadmap step 3
+     - available
    * - ParMETIS / PT-Scotch graph partitioning
      - ``strategies/metis.hpp`` / ``strategies/scotch.hpp``
      - roadmap step 4
    * - Diffusion (heat-equation fluxes + interface layers)
      - ``strategies/diffusion.hpp``
      - roadmap step 5
+
+Space-filling curves (SFC)
+--------------------------
+
+``SFC<Curve>`` orders the cells along a space-filling curve (keys computed at
+the global max level) and cuts the curve into P segments of equal *weighted*
+load, using one MPI scan and one all_reduce — no gather, O(1) communication
+volume. The balance is reached in a single call, up to the weight of the
+heaviest cell, and a second call migrates nothing (deterministic cuts).
+
+Two curves are provided in ``load_balancing/sfc/``:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Curve
+     - Key cost
+     - Locality
+   * - ``Morton`` (Z-order)
+     - a few bit tricks
+     - good — the curve jumps at power-of-two block boundaries
+   * - ``Hilbert`` (Skilling's algorithm)
+     - ~2 passes over the bit planes
+     - best — the curve is continuous: consecutive cells on the curve are
+       always face-adjacent, so the partitions are more compact (fewer ghosts)
+
+Default to ``Hilbert``; use ``Morton`` if key computation ever shows up in
+profiles (it rarely does: the partitioning cost is dominated by the sort).
+
+Limits: the 64-bit keys bound the usable refinement: 32 bits per coordinate
+in 2D and 21 bits in 3D (i.e. max_level up to 21 in 3D on a unit domain).
+Negative cell indices are handled by a global shift; coordinates beyond the
+bit budget trigger an assertion in Debug.
+
+Comparing strategies
+--------------------
+
+The demo ``demos/mpi/load_balancing_2d.cpp`` (target ``mpi-load-balancing-2d``)
+runs the same 2D adaptive advection case with any strategy and collects the
+metrics, e.g.:
+
+.. code-block:: bash
+
+    mpiexec -n 4 ./mpi-load-balancing-2d --lb-strategy sfc-hilbert \
+        --lb-weight level --lb-dump --lb-stats-file stats.csv
+
+``--lb-stats-file`` appends one CSV line per rebalance (imbalance before and
+after, migrated cells, timings) so different strategies can be compared on
+the same scenario; ``--lb-dump`` writes the partition for ParaView at every
+rebalance; ``--lb-threshold`` switches from periodic rebalancing to the
+``required()`` trigger. The full benchmark harness arrives with roadmap
+step 6.
 
 Testing
 -------

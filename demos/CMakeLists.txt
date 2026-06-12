@@ -1,6 +1,6 @@
 add_subdirectory(from_obj)
 add_subdirectory(FiniteVolume)
-# add_subdirectory(MPI)
+add_subdirectory(mpi)
 # add_subdirectory(LBM)
 add_subdirectory(p4est)
 add_subdirectory(pablo)
