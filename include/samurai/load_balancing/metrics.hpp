@@ -18,8 +18,10 @@ namespace samurai::load_balancing
     /**
      * Quality metrics collected by every call to `LoadBalancer::load_balance()`.
      *
-     * This is the minimal version introduced by step 1 of the roadmap; step 2
-     * extends it (weighted loads, global imbalance before/after, unmet fluxes).
+     * The loads are weighted by the policy given to `load_balance()`; the
+     * imbalances are global quantities (identical on every rank). Comparing
+     * `imbalance_before` and `imbalance_after` across strategies on the same
+     * scenario is the basis of the comparative benchmark (roadmap step 6).
      */
     struct LoadBalanceStats
     {
@@ -27,17 +29,20 @@ namespace samurai::load_balancing
         std::size_t cells_after        = 0;  ///< local cell count after balancing
         std::size_t cells_migrated_out = 0;  ///< cells sent to other ranks
         std::size_t cells_migrated_in  = 0;  ///< cells received from other ranks
+        double load_before             = 0.; ///< local weighted load before balancing
+        double load_after              = 0.; ///< local weighted load after balancing
+        double imbalance_before        = 0.; ///< global max(load)/avg(load) - 1 before
+        double imbalance_after         = 0.; ///< global max(load)/avg(load) - 1 after
         double partition_time          = 0.; ///< seconds spent in the strategy
         double migration_time          = 0.; ///< seconds spent migrating cells and fields
         std::string strategy_name;
     };
 
-#ifdef SAMURAI_WITH_MPI
     /**
      * Weighted load owned by this process: sum of `weight(cell)` over the
      * local cells.
      *
-     * @note MPI: no communication.
+     * @note MPI: no communication (also available in non-MPI builds).
      */
     template <class Mesh, class Weight>
     double local_load(const Mesh& mesh, const Weight& weight)
@@ -52,9 +57,10 @@ namespace samurai::load_balancing
         return load;
     }
 
+#ifdef SAMURAI_WITH_MPI
     /**
      * Global load imbalance: `max(load)/avg(load) - 1`. Zero means perfect
-     * balance.
+     * balance; `P - 1` means the whole load sits on a single process.
      *
      * @note MPI: collective on the world communicator (two all_reduce); every
      *       rank gets the same value.

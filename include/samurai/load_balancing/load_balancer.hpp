@@ -156,10 +156,11 @@ namespace samurai::load_balancing
          * All fields must live on the same mesh. With a single MPI process
          * this is a silent no-op.
          *
-         * @note MPI: one all_to_all (routing discovery) + point-to-point
-         *       payloads + the collectives of the mesh constructor (executed
-         *       only when at least one cell migrates somewhere, decided
-         *       globally).
+         * @note MPI: the migration itself performs one all_to_all (routing
+         *       discovery) + point-to-point payloads + the collectives of the
+         *       mesh constructor (executed only when at least one cell
+         *       migrates somewhere, decided globally). The statistics add two
+         *       `imbalance()` evaluations (collective) around the migration.
          */
         template <class Weight, class Field, class... Fields>
             requires PartitionStrategy<Strategy, typename Field::mesh_t, Weight>
@@ -173,6 +174,8 @@ namespace samurai::load_balancing
             stats.strategy_name = m_strategy.name();
             stats.cells_before  = field.mesh().nb_cells(mesh_id_t::cells);
             stats.cells_after   = stats.cells_before;
+            stats.load_before   = local_load(field.mesh(), weight);
+            stats.load_after    = stats.load_before;
 
             boost::mpi::communicator world;
             if (world.size() <= 1)
@@ -181,6 +184,9 @@ namespace samurai::load_balancing
             }
 
             times::timers.start("load_balancing");
+
+            stats.imbalance_before = imbalance(field.mesh(), weight);
+            stats.imbalance_after  = stats.imbalance_before;
 
             const auto t0 = std::chrono::steady_clock::now();
             times::timers.start("load_balancing:partition");
@@ -193,17 +199,19 @@ namespace samurai::load_balancing
             times::timers.stop("load_balancing:migration");
             const auto t2 = std::chrono::steady_clock::now();
 
-            stats.partition_time = std::chrono::duration<double>(t1 - t0).count();
-            stats.migration_time = std::chrono::duration<double>(t2 - t1).count();
-            stats.cells_after    = field.mesh().nb_cells(mesh_id_t::cells);
+            stats.partition_time  = std::chrono::duration<double>(t1 - t0).count();
+            stats.migration_time  = std::chrono::duration<double>(t2 - t1).count();
+            stats.cells_after     = field.mesh().nb_cells(mesh_id_t::cells);
+            stats.load_after      = local_load(field.mesh(), weight);
+            stats.imbalance_after = imbalance(field.mesh(), weight);
 
             times::timers.stop("load_balancing");
 
             if (m_config.verbose)
             {
                 std::clog << "[rank " << world.rank() << "] load_balance(" << stats.strategy_name << "): " << stats.cells_before << " -> "
-                          << stats.cells_after << " cells (out " << stats.cells_migrated_out << ", in " << stats.cells_migrated_in << ")"
-                          << std::endl;
+                          << stats.cells_after << " cells (out " << stats.cells_migrated_out << ", in " << stats.cells_migrated_in
+                          << "), imbalance " << stats.imbalance_before << " -> " << stats.imbalance_after << std::endl;
             }
             return stats;
         }
