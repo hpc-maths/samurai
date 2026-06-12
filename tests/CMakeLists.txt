@@ -74,3 +74,7 @@ if(rapidcheck_FOUND)
 else()
     target_link_libraries(test_samurai_lib samurai gtest_main gtest)
 endif()
+
+if(WITH_MPI)
+    add_subdirectory(mpi)
+endif()

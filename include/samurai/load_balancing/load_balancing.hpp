@@ -1,6 +1,11 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
+// DEPRECATED: superseded by load_balancer.hpp (fused cells+fields migration,
+// arbitrary destination ranks). Kept only until the diffusion strategy is
+// rewritten (step 5 of docs/load_balancing_roadmap.md), then removed.
+// Do not build new code on top of this header.
+
 #pragma once
 
 #include <algorithm>

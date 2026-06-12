@@ -1,6 +1,10 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
+// DEPRECATED: 2D-only row-snapping diffusion built on the old CRTP driver.
+// Replaced by strategies/diffusion.hpp at step 5 of
+// docs/load_balancing_roadmap.md, then removed.
+
 #pragma once
 
 #include <algorithm>
