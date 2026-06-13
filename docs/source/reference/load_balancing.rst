@@ -104,6 +104,7 @@ Every call to ``load_balance()`` returns a ``LoadBalanceStats``:
         double load_before, load_after;                   // local weighted loads
         double imbalance_before, imbalance_after;         // global max/avg - 1
         double partition_time, migration_time;            // seconds
+        double unmet_flux;                                 // load a strategy could not shed
         std::string strategy_name;
     };
 
@@ -148,9 +149,9 @@ Available strategies
    * - ParMETIS / PT-Scotch graph partitioning
      - ``strategies/metis.hpp`` / ``strategies/scotch.hpp``
      - roadmap step 4
-   * - Diffusion (heat-equation fluxes + interface layers)
+   * - ``Diffusion`` (heat-equation fluxes + interface layers)
      - ``strategies/diffusion.hpp``
-     - roadmap step 5
+     - available
 
 Space-filling curves (SFC)
 --------------------------
@@ -198,6 +199,53 @@ in 2D and 21 bits in 3D (i.e. max_level up to 21 in 3D on a unit domain).
 Negative cell indices are handled by a global shift; coordinates beyond the
 bit budget trigger an assertion in Debug.
 
+Diffusion
+---------
+
+``Diffusion`` rebalances **incrementally and locally**, without any external
+dependency, in two phases:
+
+#. **Fluxes.** The processes form a graph (the MPI neighbourhood). A discrete
+   heat equation is solved on that graph: at each iteration every process
+   exchanges its current load **with its neighbours only** and updates a
+   per-edge flux with the generalized Cybenko coefficient
+   ``t_j = (load_j - load_i) / (max(deg_i, deg_j) + 1)``. The
+   ``1/(max(deg)+1)`` factor guarantees stability (the legacy fixed ``0.5``
+   could oscillate). The only collective is one boolean ``all_reduce`` per
+   iteration for convergence (plus one scalar ``all_reduce`` once, for the
+   convergence scale): **no ``all_gather`` of the loads**. Fluxes below
+   ``flux_threshold * mean_load`` are dropped to avoid micro-migrations.
+
+#. **Interface layers (nD).** A negative flux means "I must shed that load to
+   this neighbour". The cells closest to the neighbour are ceded first, then
+   progressively deeper layers, so the ceded region stays **connected to the
+   interface (no islands)**. The cession direction is the dominant cardinal
+   axis of ``barycentre_i - barycentre_j`` (a diagonal is split into its
+   cardinal components). Layers are built by set algebra at ``min_level`` and
+   projected onto every actual level with ``.on(level)``, which makes the
+   construction dimension- and level-jump-agnostic.
+
+Properties:
+
+* converges to balance over **several calls** (each call sheds at most the
+  available domain thickness towards a neighbour); AMR calls the balancer at
+  every adaptation, so partial per-call convergence is expected and fine;
+* partitions are compact with **staircase boundaries** — not straight lines.
+  The straight-line (row-snapping) constraint was exactly what limited the
+  previous implementation to 2D bands; this version is nD;
+* less precise than SFC (a typical target is ``imbalance < 0.1`` after a few
+  calls, looser in 3D), but migrates fewer cells per call and needs no global
+  ordering.
+
+If the interface is exhausted before the requested flux is met, the deficit is
+reported in ``LoadBalanceStats::unmet_flux`` (no exception, no silent log) so
+the phenomenon stays measurable.
+
+Communication: neighbour-only point-to-point (neighbour meshes, loads,
+degrees) + 1 boolean ``all_reduce`` per flux iteration + 1 scalar
+``all_reduce`` for the scale. Reference: G. Cybenko, *Dynamic load balancing
+for distributed memory multiprocessors*, J. Parallel Distrib. Comput. 7 (1989).
+
 Comparing strategies
 --------------------
 
@@ -209,6 +257,7 @@ metrics, e.g.:
 
     mpiexec -n 4 ./mpi-load-balancing-2d --lb-strategy sfc-hilbert \
         --lb-weight level --lb-dump --lb-stats-file stats.csv
+    # other strategies: --lb-strategy void | sfc-morton | diffusion
 
 ``--lb-stats-file`` appends one CSV line per rebalance (imbalance before and
 after, migrated cells, timings) so different strategies can be compared on

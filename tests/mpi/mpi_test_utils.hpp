@@ -227,6 +227,92 @@ namespace samurai_test
     }
 
     /**
+     * Two cells (level, indices) are face-adjacent if, normalized to a common
+     * fine level, their boxes overlap in every dimension but one and just touch
+     * in that one. Corner/edge-only contact does not count.
+     */
+    template <std::size_t dim>
+    bool face_adjacent(const std::array<long, dim + 1>& a, const std::array<long, dim + 1>& b, std::size_t max_level)
+    {
+        int touching = 0;
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            const long sa = static_cast<long>(max_level) - a[0];
+            const long sb = static_cast<long>(max_level) - b[0];
+            const long a0 = a[d + 1] << sa, a1 = (a[d + 1] + 1) << sa;
+            const long b0 = b[d + 1] << sb, b1 = (b[d + 1] + 1) << sb;
+            const bool overlap = a0 < b1 && b0 < a1;
+            if (overlap)
+            {
+                continue;
+            }
+            if (a1 == b0 || b1 == a0)
+            {
+                ++touching;
+            }
+            else
+            {
+                return false; // separated in this dimension
+            }
+        }
+        return touching == 1;
+    }
+
+    /**
+     * Number of face-connected components of the cells held locally by this rank
+     * (flood fill on the pairwise adjacency graph). A correct diffusion partition
+     * cedes only cells connected to the interface, so every rank must keep a
+     * single connected component (no islands).
+     */
+    template <class Mesh>
+    std::size_t local_connected_components(const Mesh& mesh)
+    {
+        using mesh_id_t           = typename Mesh::mesh_id_t;
+        constexpr std::size_t dim = Mesh::dim;
+
+        std::vector<std::array<long, dim + 1>> cells;
+        samurai::for_each_cell(mesh[mesh_id_t::cells],
+                               [&](const auto& cell)
+                               {
+                                   std::array<long, dim + 1> c{};
+                                   c[0] = static_cast<long>(cell.level);
+                                   for (std::size_t d = 0; d < dim; ++d)
+                                   {
+                                       c[d + 1] = static_cast<long>(cell.indices[d]);
+                                   }
+                                   cells.push_back(c);
+                               });
+
+        const std::size_t n = cells.size();
+        std::vector<char> seen(n, 0);
+        std::size_t components = 0;
+        for (std::size_t s = 0; s < n; ++s)
+        {
+            if (seen[s])
+            {
+                continue;
+            }
+            ++components;
+            std::vector<std::size_t> stack{s};
+            seen[s] = 1;
+            while (!stack.empty())
+            {
+                const std::size_t u = stack.back();
+                stack.pop_back();
+                for (std::size_t v = 0; v < n; ++v)
+                {
+                    if (!seen[v] && face_adjacent<dim>(cells[u], cells[v], mesh.max_level()))
+                    {
+                        seen[v] = 1;
+                        stack.push_back(v);
+                    }
+                }
+            }
+        }
+        return components;
+    }
+
+    /**
      * The invariants of a correct migration (roadmap § 4.3):
      *  1. cells are conserved globally (none lost, none duplicated);
      *  2. every field value followed its cell (checked against analytic());

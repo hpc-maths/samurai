@@ -194,6 +194,13 @@ namespace samurai::load_balancing
             times::timers.stop("load_balancing:partition");
             const auto t1 = std::chrono::steady_clock::now();
 
+            // strategies that may fail to shed the requested load (e.g. diffusion)
+            // expose the deficit; the others leave unmet_flux at 0.
+            if constexpr (requires { m_strategy.last_unmet_flux(); })
+            {
+                stats.unmet_flux = m_strategy.last_unmet_flux();
+            }
+
             times::timers.start("load_balancing:migration");
             migrate(flags, stats, field, other_fields...);
             times::timers.stop("load_balancing:migration");

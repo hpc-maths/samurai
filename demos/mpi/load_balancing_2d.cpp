@@ -14,8 +14,8 @@
 //   mpiexec -n 4 ./mpi-load-balancing-2d --lb-strategy void   # baseline: no balancing
 //
 // Useful options:
-//   --lb-strategy  void | sfc-morton | sfc-hilbert    (steps 4-5 of the
-//                  roadmap will add: metis, scotch, diffusion)
+//   --lb-strategy  void | sfc-morton | sfc-hilbert | diffusion    (step 4 of
+//                  the roadmap will add: metis, scotch)
 //   --lb-weight    uniform | level    (level = 2^(l - min_level): cost of an
 //                  explicit scheme with local time stepping)
 //   --nt-loadbalance N   rebalance every N steps (default 10)
@@ -42,6 +42,7 @@
 
 #include <samurai/load_balancing/dump.hpp>
 #include <samurai/load_balancing/load_balancer.hpp>
+#include <samurai/load_balancing/strategies/diffusion.hpp>
 #include <samurai/load_balancing/strategies/sfc.hpp>
 #include <samurai/load_balancing/strategies/void.hpp>
 #include <samurai/load_balancing/weight.hpp>
@@ -249,7 +250,7 @@ int main(int argc, char* argv[])
     app.add_option("--velocity", opt.velocity, "The velocity of the advection equation")->capture_default_str()->group("Simulation parameters");
     app.add_option("--cfl", opt.cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", opt.Tf, "Final time")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--lb-strategy", opt.strategy, "Load balancing strategy: void | sfc-morton | sfc-hilbert")
+    app.add_option("--lb-strategy", opt.strategy, "Load balancing strategy: void | sfc-morton | sfc-hilbert | diffusion")
         ->capture_default_str()
         ->group("Load balancing");
     app.add_option("--lb-weight", opt.weight, "Cell weight: uniform | level")->capture_default_str()->group("Load balancing");
@@ -286,11 +287,16 @@ int main(int argc, char* argv[])
     {
         ret = run<lb::SFC<lb::Hilbert>>(opt);
     }
+    else if (opt.strategy == "diffusion")
+    {
+        ret = run<lb::Diffusion>(opt);
+    }
     else
     {
         if (mpi::communicator{}.rank() == 0)
         {
-            std::cerr << "unknown --lb-strategy '" << opt.strategy << "' (expected: void | sfc-morton | sfc-hilbert)" << std::endl;
+            std::cerr << "unknown --lb-strategy '" << opt.strategy << "' (expected: void | sfc-morton | sfc-hilbert | diffusion)"
+                      << std::endl;
         }
     }
 

@@ -38,4 +38,11 @@ namespace samurai::load_balancing
      * small literal tags used elsewhere in samurai (e.g. ghost updates).
      */
     inline constexpr int tag_migration = 4200;
+
+    /**
+     * MPI tag reserved for the neighbour-only scalar exchanges of the diffusion
+     * strategy (degrees and loads). Distinct from @ref tag_migration so the two
+     * cannot be confused if a future strategy interleaves them.
+     */
+    inline constexpr int tag_diffusion = 4201;
 }
