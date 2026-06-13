@@ -10,6 +10,9 @@ endif()
 
 project(samurai VERSION ${SAMURAI_VERSION} LANGUAGES CXX C)
 
+# Extra CMake search paths (FindParMETIS, FindPTScotch, etc.)
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+
 if (NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 20)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -185,9 +188,25 @@ if(${WITH_MPI})
   target_compile_definitions(samurai INTERFACE SAMURAI_WITH_MPI)
 endif()
 
+# Optional: ParMETIS graph partitioner
+option(SAMURAI_WITH_PARMETIS "Enable ParMETIS-based load balancing strategy" OFF)
+if(SAMURAI_WITH_PARMETIS)
+  find_package(ParMETIS REQUIRED)
+  target_link_libraries(samurai INTERFACE ParMETIS::ParMETIS ParMETIS::Metis)
+  target_compile_definitions(samurai INTERFACE SAMURAI_WITH_PARMETIS)
+endif()
+
+# Optional: PT-Scotch graph partitioner
+option(SAMURAI_WITH_PTSCOTCH "Enable PT-Scotch-based load balancing strategy" OFF)
+if(SAMURAI_WITH_PTSCOTCH)
+  find_package(PTScotch REQUIRED)
+  target_link_libraries(samurai INTERFACE PTScotch::PTScotch PTScotch::Scotch)
+  target_compile_definitions(samurai INTERFACE SAMURAI_WITH_PTSCOTCH)
+endif()
+
 
 target_compile_features(samurai INTERFACE cxx_std_20)
-set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
+# (CMAKE_MODULE_PATH already set above, after project())
 
 OPTION(BUILD_BENCHMARKS "samurai benchmark suite" OFF)
 OPTION(BUILD_SNIPPETS "samurai snippets for the documentation" OFF)
