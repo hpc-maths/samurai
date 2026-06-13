@@ -31,7 +31,7 @@ namespace
     };
 
     template <class T>
-    class LoadBalancingSFC : public ::testing::Test
+    class LoadBalancingSFC : public samurai_test::MpiTest
     {
       public:
 

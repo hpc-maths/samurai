@@ -27,6 +27,10 @@ namespace
 {
     using samurai_test::LambdaStrategy;
 
+    class load_balancing_metrics : public samurai_test::MpiTest
+    {
+    };
+
     constexpr std::size_t dim   = 2;
     constexpr std::size_t level = 5;
     using Mesh                  = samurai::MRMesh<samurai::mesh_config<dim>>;
@@ -49,7 +53,7 @@ namespace
 
     // After concentrating everything on rank 0, the imbalance is exactly
     // P - 1 (max = N, avg = N/P).
-    TEST(load_balancing_metrics, imbalance_exact_value)
+    TEST_F(load_balancing_metrics, imbalance_exact_value)
     {
         mpi::communicator world;
         auto mesh = make_uniform_mesh();
@@ -64,7 +68,7 @@ namespace
 
     // require_balance is a collective decision: every rank must get the same
     // boolean, before (balanced mesh) and after (fully concentrated mesh).
-    TEST(load_balancing_metrics, require_balance_collective)
+    TEST_F(load_balancing_metrics, require_balance_collective)
     {
         mpi::communicator world;
         auto mesh = make_uniform_mesh();
@@ -102,7 +106,7 @@ namespace
 
     // A circular rotation preserves the load distribution: stats must show
     // matching global in/out counts and an unchanged imbalance.
-    TEST(load_balancing_metrics, stats_consistency_on_rotation)
+    TEST_F(load_balancing_metrics, stats_consistency_on_rotation)
     {
         mpi::communicator world;
         auto mesh = make_uniform_mesh();
@@ -130,7 +134,7 @@ namespace
 
     // Weighted loads flow into the stats: with a from_field weight, the load
     // concentrated on rank 0 equals the global weighted sum.
-    TEST(load_balancing_metrics, weighted_load_in_stats)
+    TEST_F(load_balancing_metrics, weighted_load_in_stats)
     {
         mpi::communicator world;
         auto mesh = make_uniform_mesh();
@@ -156,7 +160,7 @@ namespace
     }
 
     // dump_partition writes a readable HDF5 file with the rank field.
-    TEST(load_balancing_metrics, dump_partition)
+    TEST_F(load_balancing_metrics, dump_partition)
     {
         mpi::communicator world;
         auto mesh = make_uniform_mesh();

@@ -25,6 +25,7 @@
 #include <samurai/load_balancing/weight.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
+#include <samurai/stencil_field.hpp>
 
 #include "mpi_test_utils.hpp"
 
@@ -34,6 +35,10 @@ namespace mpi = boost::mpi;
 namespace
 {
     using samurai_test::LambdaStrategy;
+
+    class load_balancing_ghosts : public samurai_test::MpiTest
+    {
+    };
 
     constexpr std::size_t dim   = 2;
     constexpr std::size_t level = 5;
@@ -113,7 +118,7 @@ namespace
     }
 
     // Sanity check: ghosts are affine on the initial (stripe) decomposition.
-    TEST(load_balancing_ghosts, affine_before_migration)
+    TEST_F(load_balancing_ghosts, affine_before_migration)
     {
         auto mesh = make_corner_refined_mesh();
         auto u    = samurai::make_scalar_field<double>("u", mesh);
@@ -135,7 +140,7 @@ namespace
     // sequential run. Fixed by deriving the neighbourhood expansion from the
     // ghost configuration (Mesh_base::ghost_physical_reach(), exchanged in
     // the subdomain bounding boxes); this test failed at np3 before the fix.
-    TEST(load_balancing_ghosts, affine_after_hilbert)
+    TEST_F(load_balancing_ghosts, affine_after_hilbert)
     {
         auto mesh = make_corner_refined_mesh();
         auto u    = samurai::make_scalar_field<double>("u", mesh);
@@ -149,6 +154,32 @@ namespace
         auto balancer = lb::make_load_balancer<lb::SFC<lb::Hilbert>>();
         balancer.load_balance(lb::weight::uniform(), u);
         check_interior_ghosts(u, "after hilbert");
+    }
+
+    /// Canonicalize the non-cell entries of the field (ghosts) to zero,
+    /// keeping the cell values. Rationale: Field::resize() leaves new entries
+    /// uninitialized and a few reference entries are never written by
+    /// update_ghost_mr (e.g. out-of-domain ghosts whose data owner does not
+    /// have them in its own reference). Their garbage content depends on the
+    /// heap history, which would make this test order-dependent; scrubbing
+    /// restores a deterministic state identical for both variants. The
+    /// underlying coverage gap is documented in the roadmap (§ 5bis residue).
+    template <class Field>
+    void scrub_ghosts(Field& u)
+    {
+        std::vector<double> kept;
+        samurai::for_each_cell(u.mesh()[mesh_id_t::cells],
+                               [&](const auto& cell)
+                               {
+                                   kept.push_back(u[cell]);
+                               });
+        u.fill(0);
+        std::size_t k = 0;
+        samurai::for_each_cell(u.mesh()[mesh_id_t::cells],
+                               [&](const auto& cell)
+                               {
+                                   u[cell] = kept[k++];
+                               });
     }
 
     /// Global adapted state gathered on rank 0: map (level, i, j) -> value.
@@ -203,6 +234,7 @@ namespace
         samurai::make_bc<samurai::Dirichlet<1>>(u_ref, affine_bc);
         auto adapt_ref = samurai::make_MRAdapt(u_ref);
         auto cfg       = samurai::mra_config().epsilon(2e-4);
+        scrub_ghosts(u_ref);
         adapt_ref(cfg);
         auto state_ref = global_state(mesh_ref, u_ref);
 
@@ -214,6 +246,7 @@ namespace
         auto balancer = lb::make_load_balancer(lb::LoadBalanceConfig{}, strategy_tag);
         balancer.load_balance(lb::weight::uniform(), u_lb);
         auto adapt_lb = samurai::make_MRAdapt(u_lb);
+        scrub_ghosts(u_lb);
         adapt_lb(cfg);
         auto state_lb = global_state(mesh_lb, u_lb);
 
@@ -239,27 +272,50 @@ namespace
             else
             {
                 std::cerr << context << ": global cell counts differ: " << state_ref.size() << " vs " << state_lb.size() << std::endl;
+                std::map<int, int> per_level_ref, per_level_lb;
+                for (const auto& [key, value] : state_ref)
+                {
+                    per_level_ref[static_cast<int>(key[0])]++;
+                }
+                for (const auto& [key, value] : state_lb)
+                {
+                    per_level_lb[static_cast<int>(key[0])]++;
+                }
+                for (const auto& [l, n] : per_level_ref)
+                {
+                    std::cerr << "  level " << l << ": ref " << n << " vs lb " << per_level_lb[l] << std::endl;
+                }
+                int shown = 0;
+                for (const auto& [key, value] : state_ref)
+                {
+                    if (!state_lb.contains(key) && shown++ < 8)
+                    {
+                        std::cerr << "  ref-only cell: level " << key[0] << " (" << key[1] << ", " << key[2] << ") = " << value
+                                  << std::endl;
+                    }
+                }
             }
         }
         boost::mpi::broadcast(world, ok, 0);
         EXPECT_TRUE_ALL_RANKS(ok);
     }
 
-    // DISABLED: second, distinct decomposition bug (the neighbourhood fix is
-    // in and update_ghost_mr is now correct after a Hilbert rebalance — see
-    // affine_after_hilbert above — yet the ADAPTATION still produces a
-    // different global mesh at np3: 1240 vs 1252 cells). The extra cells
-    // suggest coarsening decisions that differ near subdomain boundaries
-    // (tag exchange/graduation), but note that the initial stripe
-    // decomposition also splits sibling groups and adapts identically to the
-    // sequential run, so the exact trigger remains to be isolated.
-    // Run with: --gtest_also_run_disabled_tests (fails at np3).
-    TEST(load_balancing_ghosts, DISABLED_adapt_independence_hilbert)
+    // Non-regression for the second decomposition bug (failed at np3 before
+    // the fix: 1240 vs 1252 cells). Root cause: the out-of-domain ghosts were
+    // decomposition dependent — (a) outer_subdomain_corner designated the
+    // owner of ALL outer layers with a single translation of ghost_width, so
+    // the owner of layer 1 was the rank owning the cell at distance
+    // ghost_width instead of the adjacent one, and its unfilled value
+    // overwrote the correct one; (b) update_ghost_mr filled the outer ghosts
+    // BEFORE any MPI exchange, so the B.C./extrapolation read stale inner
+    // ghosts. Fixed by per-layer ownership and by the exchange/fill/exchange
+    // order per level in update_ghost_mr.
+    TEST_F(load_balancing_ghosts, adapt_independence_hilbert)
     {
         check_adapt_independence(lb::SFC<lb::Hilbert>{}, "adapt independence (hilbert)");
     }
 
-    TEST(load_balancing_ghosts, adapt_independence_checkerboard)
+    TEST_F(load_balancing_ghosts, adapt_independence_checkerboard)
     {
         check_adapt_independence(LambdaStrategy{[](const auto& cell, int, int size)
                                                 {
@@ -270,10 +326,122 @@ namespace
                                  "adapt independence (checkerboard)");
     }
 
+    // Demo-scale independence: replay of the advected-disk physics (the demo
+    // case, min_level 4 / max_level 10) over 30 steps, with Hilbert rebalances
+    // at steps 1 and 20, compared step by step against the same run without
+    // load balancing. This is the only scenario known to exercise the
+    // graduation bound bug (a neighbour owning only fine cells used to bound
+    // the coarse loop of the cross-rank graduation check above the local
+    // coarse levels): it failed at np4, step 28, before the fix in
+    // list_interval_to_refine_for_graduation. The simpler corner-refined
+    // cases above do NOT cover it.
+    TEST_F(load_balancing_ghosts, adapt_independence_demo_case)
+    {
+        mpi::communicator world;
+
+        auto run_demo = [&](bool with_lb)
+        {
+            std::vector<std::map<std::array<double, 3>, double>> states;
+            const samurai::Box<double, dim> box({0., 0.}, {1., 1.});
+            auto config    = samurai::mesh_config<dim>().min_level(4).max_level(10).max_stencil_size(2).disable_minimal_ghost_width();
+            auto demo_mesh = samurai::mra::make_mesh(box, config);
+            auto u         = samurai::make_scalar_field<double>("u", demo_mesh);
+            u.resize();
+            samurai::for_each_cell(demo_mesh,
+                                   [&](auto& cell)
+                                   {
+                                       auto center     = cell.center();
+                                       const double d2 = (center[0] - 0.3) * (center[0] - 0.3) + (center[1] - 0.3) * (center[1] - 0.3);
+                                       u[cell]         = (d2 <= 0.04) ? 1. : 0.;
+                                   });
+            samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
+
+            const std::array<double, 2> a{1., 1.};
+            const double dt = 0.5 * demo_mesh.min_cell_length();
+            auto unp1       = samurai::make_scalar_field<double>("unp1", demo_mesh);
+            auto adaptation = samurai::make_MRAdapt(u);
+            auto cfg        = samurai::mra_config().epsilon(2e-4);
+            adaptation(cfg);
+
+            auto balancer = lb::make_load_balancer<lb::SFC<lb::Hilbert>>();
+            for (std::size_t nt = 0; nt < 30; ++nt)
+            {
+                if (with_lb && (nt == 1 || nt == 20))
+                {
+                    balancer.load_balance(lb::weight::uniform(), u);
+                }
+                scrub_ghosts(u);
+                adaptation(cfg);
+                samurai::update_ghost_mr(u);
+                unp1.resize();
+                unp1 = u - dt * samurai::upwind(a, u);
+                std::swap(u.array(), unp1.array());
+
+                std::vector<double> local;
+                samurai::for_each_cell(demo_mesh[mesh_id_t::cells],
+                                       [&](const auto& cell)
+                                       {
+                                           local.push_back(static_cast<double>(cell.level));
+                                           local.push_back(static_cast<double>(cell.indices[0]));
+                                           local.push_back(static_cast<double>(cell.indices[1]));
+                                           local.push_back(u[cell]);
+                                       });
+                std::vector<std::vector<double>> all;
+                boost::mpi::gather(world, local, all, 0);
+                std::map<std::array<double, 3>, double> state;
+                if (world.rank() == 0)
+                {
+                    for (const auto& chunk : all)
+                    {
+                        for (std::size_t k = 0; k < chunk.size(); k += 4)
+                        {
+                            state[{chunk[k], chunk[k + 1], chunk[k + 2]}] = chunk[k + 3];
+                        }
+                    }
+                }
+                states.push_back(std::move(state));
+            }
+            return states;
+        };
+
+        auto sref = run_demo(false);
+        auto slb  = run_demo(true);
+
+        bool ok              = true;
+        std::size_t bad_step = 0;
+        if (world.rank() == 0)
+        {
+            for (std::size_t nt = 0; nt < sref.size() && ok; ++nt)
+            {
+                ok = sref[nt].size() == slb[nt].size();
+                for (const auto& [key, value] : sref[nt])
+                {
+                    if (!ok)
+                    {
+                        break;
+                    }
+                    auto it = slb[nt].find(key);
+                    ok      = it != slb[nt].end() && std::abs(it->second - value) <= 1e-13;
+                }
+                if (!ok)
+                {
+                    bad_step = nt;
+                }
+            }
+            if (!ok)
+            {
+                std::cerr << "demo-case independence broken at step " << bad_step << " (" << sref[bad_step].size() << " vs "
+                          << slb[bad_step].size() << " cells)" << std::endl;
+            }
+        }
+        boost::mpi::broadcast(world, ok, 0);
+        EXPECT_TRUE_ALL_RANKS(ok);
+    }
+
     // Cell-wise checkerboard: boundaries everywhere, sibling groups split
     // across ranks. Discriminates "geometry-triggered samurai bug" from
     // "Hilbert-specific bug".
-    TEST(load_balancing_ghosts, affine_after_fine_checkerboard)
+    TEST_F(load_balancing_ghosts, affine_after_fine_checkerboard)
     {
         auto mesh = make_corner_refined_mesh();
         auto u    = samurai::make_scalar_field<double>("u", mesh);
@@ -291,7 +459,7 @@ namespace
 
     // After a checkerboard migration: maximal subdomain boundary, lots of
     // corner-only contacts — the worst case for ghost exchanges.
-    TEST(load_balancing_ghosts, affine_after_checkerboard)
+    TEST_F(load_balancing_ghosts, affine_after_checkerboard)
     {
         auto mesh = make_corner_refined_mesh();
         auto u    = samurai::make_scalar_field<double>("u", mesh);

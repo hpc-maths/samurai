@@ -3,7 +3,10 @@
 
 #pragma once
 
+#include <chrono>
 #include <functional>
+#include <iostream>
+#include <thread>
 
 #include <boost/mpi.hpp>
 #include <boost/mpi/collectives.hpp>
@@ -32,6 +35,41 @@
 
 namespace samurai_test
 {
+    /**
+     * Base fixture for MPI tests: after each test, synchronize the ranks and
+     * verify that no MPI message was left pending. All samurai exchanges share
+     * the tag == receiver rank, so an orphan message would silently
+     * desynchronize the exchanges of the NEXT test; failing here pinpoints the
+     * guilty test instead.
+     */
+    class MpiTest : public ::testing::Test
+    {
+      protected:
+
+        void TearDown() override
+        {
+            boost::mpi::communicator world;
+            world.barrier();
+            // probe in a short loop: an in-flight message may not have landed
+            // yet right after the barrier (MPI progression is not guaranteed
+            // without communication activity)
+            bool clean = true;
+            for (int attempt = 0; attempt < 20; ++attempt)
+            {
+                auto status = world.iprobe(boost::mpi::any_source, boost::mpi::any_tag);
+                if (status.has_value())
+                {
+                    clean = false;
+                    std::cerr << "[rank " << world.rank() << "] pending MPI message after test: source " << status->source() << " tag "
+                              << status->tag() << std::endl;
+                    break;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            }
+            EXPECT_TRUE_ALL_RANKS(clean);
+        }
+    };
+
     /// Test-only strategy: destination rank computed by a lambda(cell, rank, size).
     /// Lets each test inject hand-crafted flags without writing a real partitioner.
     template <class F>

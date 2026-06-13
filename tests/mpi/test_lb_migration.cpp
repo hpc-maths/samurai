@@ -30,7 +30,7 @@ namespace
     };
 
     template <class T>
-    class LoadBalancingMigration : public ::testing::Test
+    class LoadBalancingMigration : public samurai_test::MpiTest
     {
       public:
 

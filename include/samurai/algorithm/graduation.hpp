@@ -260,8 +260,15 @@ namespace samurai
 
         const auto list_overlapping_intervals = [&](const auto& lhs_ca, const auto& rhs_ca)
         {
+            // The fine cells that force a refinement come from lhs_ca, the
+            // coarse cells to refine from rhs_ca: the level bounds must be
+            // taken accordingly. In particular the coarse bound must come from
+            // rhs_ca: in the MPI pass (lhs = neighbour, rhs = local), a
+            // neighbour owning only fine cells used to bound the coarse loop
+            // above the local coarse levels, so the violation was never seen
+            // (decomposition-dependent graduation with non-stripe partitions).
             const size_t max_level      = lhs_ca.max_level() + 1;
-            const size_t min_level      = lhs_ca.min_level();
+            const size_t min_level      = rhs_ca.min_level();
             const size_t min_fine_level = (min_level + 2) - 1; // fine_level =  max_level, max_level-1, ..., min_level+2. Thus fine_level !=
                                                                // min_level+2-1
             auto apply_refine = [&](const auto& union_func, auto coarse_level)
