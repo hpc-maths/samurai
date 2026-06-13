@@ -5,8 +5,14 @@
 // weighted balance quality, negative coordinates, idempotence, and the
 // migration invariants on curve-shaped (non rectangular) partitions.
 
+#include <array>
 #include <cmath>
+#include <cstdint>
+#include <limits>
+#include <utility>
+#include <vector>
 
+#include <boost/serialization/utility.hpp> // std::pair serialization for boost::mpi::gather
 #include <gtest/gtest.h>
 
 #include <samurai/box.hpp>
@@ -108,6 +114,94 @@ namespace
             }
         }
         return components;
+    }
+
+    /**
+     * Universal SFC correctness invariant (valid for *both* curves, unlike
+     * connectivity): a correct partition is a contiguous segment of the curve,
+     * so when all cells are sorted by their key every rank owns exactly one
+     * contiguous block of the global sequence. The pre-fix scan bug produced
+     * interleaved blocks (a rank reappearing after another) for Morton and
+     * Hilbert alike. Keys are recomputed with the very normalization used by
+     * the strategy (same global shift, same `max_level`).
+     */
+    template <class Mesh, class Curve>
+    bool partition_is_curve_contiguous(const Mesh& mesh, const Curve& curve)
+    {
+        using mesh_id_t           = typename Mesh::mesh_id_t;
+        using key_t               = samurai::load_balancing::sfc_key_t;
+        constexpr std::size_t dim = Mesh::dim;
+        mpi::communicator world;
+        const std::size_t max_level = mesh.max_level();
+
+        std::array<std::int64_t, dim> local_min;
+        local_min.fill(std::numeric_limits<std::int64_t>::max());
+        samurai::for_each_cell(mesh[mesh_id_t::cells],
+                               [&](const auto& cell)
+                               {
+                                   const auto shift = max_level - cell.level;
+                                   for (std::size_t d = 0; d < dim; ++d)
+                                   {
+                                       local_min[d] = std::min(local_min[d], static_cast<std::int64_t>(cell.indices[d]) << shift);
+                                   }
+                               });
+        std::array<std::int64_t, dim> global_min;
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            global_min[d] = mpi::all_reduce(world, local_min[d], mpi::minimum<std::int64_t>());
+        }
+
+        std::vector<std::pair<key_t, int>> local;
+        samurai::for_each_cell(mesh[mesh_id_t::cells],
+                               [&](const auto& cell)
+                               {
+                                   const auto shift = max_level - cell.level;
+                                   xt::xtensor_fixed<std::uint32_t, xt::xshape<dim>> p;
+                                   for (std::size_t d = 0; d < dim; ++d)
+                                   {
+                                       p(d) = static_cast<std::uint32_t>((static_cast<std::int64_t>(cell.indices[d]) << shift) - global_min[d]);
+                                   }
+                                   local.emplace_back(curve.template key<dim>(p), world.rank());
+                               });
+
+        std::vector<std::vector<std::pair<key_t, int>>> all;
+        mpi::gather(world, local, all, 0);
+
+        bool ok = true;
+        if (world.rank() == 0)
+        {
+            std::vector<std::pair<key_t, int>> flat;
+            for (const auto& v : all)
+            {
+                flat.insert(flat.end(), v.begin(), v.end());
+            }
+            std::sort(flat.begin(),
+                      flat.end(),
+                      [](const auto& a, const auto& b)
+                      {
+                          return a.first < b.first;
+                      });
+            std::vector<char> closed(static_cast<std::size_t>(world.size()), 0);
+            int current = -1;
+            for (const auto& [k, r] : flat)
+            {
+                if (r != current)
+                {
+                    if (closed[static_cast<std::size_t>(r)]) // rank reappears after another: interleaved
+                    {
+                        ok = false;
+                        break;
+                    }
+                    if (current >= 0)
+                    {
+                        closed[static_cast<std::size_t>(current)] = 1;
+                    }
+                    current = r;
+                }
+            }
+        }
+        mpi::broadcast(world, ok, 0);
+        return ok;
     }
 
     template <class T>
@@ -276,6 +370,50 @@ namespace
             auto balancer = lb::make_load_balancer<typename TestFixture::strategy_t>();
             balancer.load_balance(w, u);
 
+            EXPECT_TRUE_ALL_RANKS(local_connected_components(mesh) == 1);
+        }
+    }
+
+    // The reported failure mode: a mesh living on only a couple of ranks must be
+    // spread over all n ranks. We first collapse the mesh onto ranks {0, 1}
+    // (left/right halves) -- a decomposition that occupies two ranks and
+    // interleaves with the curve -- then let the SFC strategy redistribute it.
+    // The result must be a contiguous segment of the curve on every rank (both
+    // curves), connected for Hilbert, with every rank kept busy.
+    TYPED_TEST(LoadBalancingSFC, redistribute_from_two_ranks)
+    {
+        using mesh_id_t = typename TestFixture::mesh_id_t;
+        mpi::communicator world;
+
+        auto mesh                = TestFixture::make_corner_refined_mesh();
+        auto u                   = TestFixture::make_analytic_field(mesh);
+        const auto cells_before  = mesh[mesh_id_t::cells];
+        const auto count_before  = TestFixture::global_count(mesh);
+
+        // 1. collapse onto ranks {0, 1}: left half -> 0, right half -> 1.
+        auto squash = samurai_test::LambdaStrategy{[](const auto& cell, int, int)
+                                                   {
+                                                       return cell.center(0) < 0.5 ? 0 : 1;
+                                                   }};
+        lb::make_load_balancer<decltype(squash)>({}, squash).load_balance(lb::weight::uniform(), u);
+        const auto occupied = mpi::all_reduce(world, (mesh.nb_cells(mesh_id_t::cells) > 0) ? 1 : 0, std::plus<int>());
+        EXPECT_TRUE_ALL_RANKS(occupied <= 2); // the starting point really lives on <= 2 ranks
+
+        // 2. SFC redistributes over all ranks.
+        auto balancer = lb::make_load_balancer<typename TestFixture::strategy_t>();
+        balancer.load_balance(lb::weight::uniform(), u);
+
+        samurai_test::check_lb_invariants(mesh,
+                                          cells_before,
+                                          count_before,
+                                          [&](const auto& cell)
+                                          {
+                                              return u[cell] == samurai_test::analytic(cell);
+                                          });
+        EXPECT_TRUE_ALL_RANKS(mesh.nb_cells(mesh_id_t::cells) > 0); // every rank gets work back
+        EXPECT_TRUE_ALL_RANKS(partition_is_curve_contiguous(mesh, typename TestFixture::curve_t{}));
+        if constexpr (std::is_same_v<typename TestFixture::curve_t, lb::Hilbert>)
+        {
             EXPECT_TRUE_ALL_RANKS(local_connected_components(mesh) == 1);
         }
     }
