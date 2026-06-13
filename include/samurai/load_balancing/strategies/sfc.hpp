@@ -12,11 +12,13 @@
  *     making all coordinates non-negative (curves require >= 0);
  *  2. local cells are sorted by key: the mesh becomes a set of P chunks of
  *     one global 1D sequence;
- *  3. the weighted cumulative sum along that sequence is computed with one
- *     MPI scan + one all_reduce (no gather of keys or cells: O(1)
- *     communication volume);
- *  4. the curve is cut into P segments of equal weight: cell with cumulative
- *     weight c goes to rank floor(c / (W_total / P)).
+ *  3. the curve is cut into P segments of equal weight by locating the P-1 cut
+ *     keys s_r = smallest key c such that the *global* weight of the cells with
+ *     key < c reaches r * (W_total / P). They are found with a vectorised
+ *     binary search over the key space (one all_reduce per bisection step), so
+ *     no gather of keys or cells is needed;
+ *  4. a cell of key k goes to rank #{ r : s_r <= k }, i.e. floor(c / (W_total /
+ *     P)) where c is its global exclusive-prefix weight along the curve.
  *
  * Guarantees:
  *  - weighted balance up to the heaviest single cell per rank;
@@ -24,14 +26,20 @@
  *    (continuous curve), good for Morton (jumps at power-of-two boundaries);
  *  - deterministic: keys are unique (cells do not overlap), so the global
  *    order is total and two consecutive calls produce the same partition
- *    (second call migrates nothing).
+ *    (second call migrates nothing);
+ *  - correct from *any* initial decomposition: the cut keys depend only on the
+ *    global cumulative weight, never on which rank currently owns a cell.
  *
- * Note: on the *first* call after an arbitrary initial decomposition, the
- * local key chunks of different ranks may interleave; the assignment is
- * still exact because the cuts only depend on the global cumulative weight.
+ * Why a global search and not an MPI scan: a scan over the rank index yields
+ * the weight of the lower-index ranks, which equals the curve prefix only if
+ * each rank already owns a curve-contiguous segment. The default decomposition
+ * (mesh.hpp::partition_mesh) splits the intervals row-major, so the ranks'
+ * key chunks interleave on the curve; a scan-based offset would then mis-assign
+ * cells and fracture every rank into disconnected islands -- even for Hilbert.
  *
- * Communication: 3 all_reduce (2 for the coordinate shift bound, 1 for the
- * total weight) + 1 scan. No data gather.
+ * Communication: 3 all_reduce for the setup (2 for the coordinate shift bound,
+ * 1 for the total weight + 1 for the key bound) plus <= 64 all_reduce of P-1
+ * doubles for the cut search. No data gather.
  */
 
 #include <algorithm>
@@ -71,7 +79,8 @@ namespace samurai::load_balancing
 
         /**
          * Destination rank of each cell by equal-weight cuts of the curve.
-         * @note MPI: 3 all_reduce + 1 scan (collective), no data gather.
+         * @note MPI: O(1) all_reduce for the setup + <= 64 all_reduce of P-1
+         *       doubles for the cut search (collective), no data gather.
          */
         template <class Mesh, class Weight>
         auto partition(Mesh& mesh, const Weight& weight) const
@@ -138,33 +147,103 @@ namespace samurai::load_balancing
                           return a.key < b.key;
                       });
 
-            // -- 3. weighted cumulative sum along the curve --------------------------
+            // -- 3. total weight ----------------------------------------------------
             double w_local = 0.;
             for (const auto& item : items)
             {
                 w_local += item.w;
             }
-            const double w_inclusive = boost::mpi::scan(world, w_local, std::plus<double>());
-            const double w_offset    = w_inclusive - w_local;
-            const double w_total     = boost::mpi::all_reduce(world, w_local, std::plus<double>());
+            const double w_total = boost::mpi::all_reduce(world, w_local, std::plus<double>());
 
             if (w_total <= 0.)
             {
                 return flags; // nothing to balance on
             }
 
-            // -- 4. equal-weight cuts: rank r owns cumulative [r, r+1) * W/P ---------
-            const int last_rank = world.size() - 1;
-            double cumulative   = w_offset;
-            int rank            = 0;
+            // -- 4. equal-weight cuts with a *globally* correct cumulative ----------
+            // A cell whose global exclusive-prefix weight along the curve is c
+            // goes to rank floor(c / chunk), chunk = W_total / P. The prefix must
+            // be the weight of *all* cells (every rank) with a smaller key.
+            //
+            // The previous version derived c from an MPI scan over the *rank
+            // index* (offset = weight of the lower-index ranks). That equals the
+            // curve prefix only if every rank already owns a curve-contiguous
+            // segment. From the default decomposition (mesh.hpp partition_mesh
+            // splits the intervals row-major, not along the curve) the local key
+            // chunks of the ranks interleave, the scan offset is wrong, and the
+            // partition fractures into disconnected pieces -- even for the
+            // continuous Hilbert curve, because the *assignment* is globally
+            // inconsistent, not the curve.
+            //
+            // Instead, locate the P-1 cut keys s_r = smallest key c such that the
+            // global weight of the cells with key < c reaches r * chunk, by a
+            // vectorised binary search over the 64-bit key space: each step
+            // evaluates W_<(mid_r) locally (prefix sum + lower_bound on the
+            // sorted keys) and sums it across ranks with one all_reduce. A cell
+            // of key k then goes to rank #{ r : s_r <= k }. No cell/key gather:
+            // O(64) all_reduce of (P-1) doubles, deterministic and exact.
+            const int P        = world.size();
+            const double chunk = w_total / static_cast<double>(P);
+
+            std::vector<sfc_key_t> keys(items.size());
+            std::vector<double> prefix(items.size() + 1, 0.);
+            for (std::size_t i = 0; i < items.size(); ++i)
+            {
+                keys[i]       = items[i].key;
+                prefix[i + 1] = prefix[i] + items[i].w;
+            }
+            const auto local_weight_below = [&](sfc_key_t c)
+            {
+                const auto it = std::lower_bound(keys.begin(), keys.end(), c);
+                return prefix[static_cast<std::size_t>(it - keys.begin())];
+            };
+
+            const std::size_t n_cuts = (P > 0) ? static_cast<std::size_t>(P - 1) : 0;
+            // search bracket [0, key_sup]: W_<(key_sup) == w_total > r * chunk
+            const sfc_key_t local_max = keys.empty() ? sfc_key_t{0} : keys.back();
+            const sfc_key_t key_sup   = boost::mpi::all_reduce(world, local_max, boost::mpi::maximum<sfc_key_t>()) + 1;
+
+            std::vector<sfc_key_t> lo(n_cuts, 0);
+            std::vector<sfc_key_t> hi(n_cuts, key_sup);
+            std::vector<sfc_key_t> mid(n_cuts);
+            std::vector<double> w_below(n_cuts);
+            std::vector<double> w_below_global(n_cuts);
+            for (int iter = 0; iter < 64; ++iter)
+            {
+                bool active = false;
+                for (std::size_t r = 0; r < n_cuts; ++r)
+                {
+                    active |= (lo[r] < hi[r]);
+                    mid[r]     = lo[r] + (hi[r] - lo[r]) / 2;
+                    w_below[r] = local_weight_below(mid[r]);
+                }
+                if (!active)
+                {
+                    break;
+                }
+                boost::mpi::all_reduce(world, w_below.data(), static_cast<int>(n_cuts), w_below_global.data(), std::plus<double>());
+                for (std::size_t r = 0; r < n_cuts; ++r)
+                {
+                    if (lo[r] >= hi[r])
+                    {
+                        continue;
+                    }
+                    if (w_below_global[r] >= static_cast<double>(r + 1) * chunk)
+                    {
+                        hi[r] = mid[r];
+                    }
+                    else
+                    {
+                        lo[r] = mid[r] + 1;
+                    }
+                }
+            }
+
+            // lo holds the cut keys s_1 <= ... <= s_{P-1}: rank(k) = #{ r : s_r <= k }
             for (const auto& item : items)
             {
-                while (rank < last_rank && cumulative >= (static_cast<double>(rank) + 1.) * w_total / world.size())
-                {
-                    ++rank;
-                }
-                flags[item.cell] = rank;
-                cumulative += item.w;
+                const auto rank  = std::upper_bound(lo.begin(), lo.end(), item.key) - lo.begin();
+                flags[item.cell] = static_cast<int>(rank);
             }
             return flags;
         }

@@ -16,12 +16,6 @@
 // Useful options:
 //   --lb-strategy  void | sfc-morton | sfc-hilbert    (steps 4-5 of the
 //                  roadmap will add: metis, scotch, diffusion)
-//                  KNOWN ISSUE: sfc-hilbert can produce thin subdomain strips
-//                  that trigger a pre-existing samurai bug (ghost values not
-//                  exchanged beyond 1-cell neighbourhood detection, see
-//                  tests/mpi/test_lb_ghosts.cpp) => results may diverge from
-//                  the sequential run (observed at np3/np4). Default is
-//                  sfc-morton until find_neighbourhood() is fixed.
 //   --lb-weight    uniform | level    (level = 2^(l - min_level): cost of an
 //                  explicit scheme with local time stepping)
 //   --nt-loadbalance N   rebalance every N steps (default 10)
@@ -69,7 +63,7 @@ namespace
         std::string filename                                = "lb_2d";
         std::size_t nfiles                                  = 1;
         // load balancing
-        std::string strategy       = "sfc-morton";
+        std::string strategy       = "sfc-hilbert";
         std::string weight         = "uniform";
         std::size_t nt_loadbalance = 10;
         double threshold           = 0.; // 0: rebalance on the period; >0: only when required()
