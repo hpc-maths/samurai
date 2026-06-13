@@ -146,9 +146,9 @@ Available strategies
    * - ``SFC<Morton>`` / ``SFC<Hilbert>`` (weighted space-filling curves)
      - ``strategies/sfc.hpp``
      - available
-   * - ParMETIS / PT-Scotch graph partitioning
+   * - ParMETIS (``Metis``) / PT-Scotch (``Scotch``)
      - ``strategies/metis.hpp`` / ``strategies/scotch.hpp``
-     - roadmap step 4
+     - available (requires ``SAMURAI_WITH_PARMETIS`` / ``SAMURAI_WITH_PTSCOTCH``)
    * - ``Diffusion`` (heat-equation fluxes + interface layers)
      - ``strategies/diffusion.hpp``
      - available
@@ -265,6 +265,129 @@ the same scenario; ``--lb-dump`` writes the partition for ParaView at every
 rebalance; ``--lb-threshold`` switches from periodic rebalancing to the
 ``required()`` trigger. The full benchmark harness arrives with roadmap
 step 6.
+
+Graph partitioners (ParMETIS, PT-Scotch)
+------------------------------------------
+
+ParMETIS and PT-Scotch are external graph partitioners that produce
+near-optimal partitions by minimising the edge cut (the number of ghost
+cells that must be exchanged between processes). They are the best choice
+when communication volume matters more than partitioning speed, and when
+the mesh has irregular geometry (non-convex domains, highly adaptive
+refinement).
+
+.. list-table::
+   :header-rows: 1
+
+   * - Strategy
+     - Header
+     - External dependency
+     - Build option
+   * - ``Metis``
+     - ``strategies/metis.hpp``
+     - ParMETIS
+     - ``SAMURAI_WITH_PARMETIS=ON``
+   * - ``Scotch``
+     - ``strategies/scotch.hpp``
+     - PT-Scotch
+     - ``SAMURAI_WITH_PTSCOTCH=ON``
+
+Both options require ``WITH_MPI=ON`` and the corresponding library
+installed. In conda, install them with:
+
+.. code-block:: bash
+
+    conda install parmetis ptscotch
+
+CMake configuration example:
+
+.. code-block:: bash
+
+    cmake . -Bbuild \
+        -DWITH_MPI=ON \
+        -DSAMURAI_WITH_PARMETIS=ON \
+        -DSAMURAI_WITH_PTSCOTCH=ON \
+        -DBUILD_TESTS=ON
+
+Usage (ParMETIS):
+
+.. code-block:: c++
+
+    #include <samurai/load_balancing/load_balancer.hpp>
+    #include <samurai/load_balancing/strategies/metis.hpp>
+
+    namespace lb = samurai::load_balancing;
+
+    // Default: geometric k-way partitioning
+    auto balancer = lb::make_load_balancer<lb::Metis>();
+
+    // Adaptive repartitioning (minimises data movement, recommended for AMR)
+    auto balancer = lb::make_load_balancer<lb::Metis>(lb::MetisOptions{.adaptive = true});
+
+Usage (PT-Scotch):
+
+.. code-block:: c++
+
+    #include <samurai/load_balancing/load_balancer.hpp>
+    #include <samurai/load_balancing/strategies/scotch.hpp>
+
+    namespace lb = samurai::load_balancing;
+
+    auto balancer = lb::make_load_balancer<lb::Scotch>();
+
+Cell graph
+^^^^^^^^^^
+
+The graph used by both strategies is built by ``build_cell_graph()`` in
+``graph.hpp``. Each cell is a vertex whose weight is the user-provided cell
+weight (scaled to integers, average ~100). Edges connect face-adjacent cells
+(across level jumps of at most 1, guaranteed by the graduation constraint);
+edge weights count the number of shared reference-level faces, which models
+the ghost communication volume. The graph also carries cell centre coordinates
+for ParMETIS' geometric partitioning mode.
+
+The graph is extended across MPI boundaries: for each pair of neighbouring
+processes, the cells on the interface exchange their global IDs, and edges are
+added between face-adjacent pairs that belong to different processes.
+
+ParMETIS details
+^^^^^^^^^^^^^^^^
+
+Two modes are available:
+
+- **Geometric k-way** (``MetisOptions::adaptive = false``, the default):
+  calls ``ParMETIS_V3_PartGeomKway`` with cell coordinates, then falls back to
+  ``ParMETIS_V3_PartKway`` if the geometric hint is unavailable. Best for cold
+  starts.
+
+- **Adaptive repartitioning** (``MetisOptions::adaptive = true``): calls
+  ``ParMETIS_V3_AdaptiveRepart`` with the current partition as a hint. The
+  ``itr`` parameter (redistribution cost) penalises moving cells unless the
+  balance improvement is significant. Recommended for AMR, where the mesh
+  changes incrementally between time steps.
+
+PT-Scotch details
+^^^^^^^^^^^^^^^^^
+
+Calls ``SCOTCH_dgraphPart`` with ``nparts = world.size()`` and a
+``SCOTCH_STRATBALANCE`` strategy (imbalance tolerance 5 %). Unlike the
+original Strafella implementation which hardcoded ``nparts = 2``, this version
+uses the full communicator size. The distributed graph is built via
+``SCOTCH_dgraphBuild`` with vertex and edge weights.
+
+When to choose graph partitioners
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- **Use Metis/Scotch** when minimising the edge cut matters (irregular
+  domains, adaptive refinement, many processes), and when the overhead of
+  building the graph is amortised over many time steps.
+- **Use SFC** (especially Hilbert) for fast partitioning with good locality,
+  no external dependency, and deterministic results.
+- **Use Diffusion** for incremental, neighbour-only rebalancing with no
+  external dependency and minimal cell movement per call.
+
+All strategies produce the same ``LoadBalanceStats`` and can be compared
+on the same scenario using the demo or the benchmark (roadmap step 6).
 
 Testing
 -------
