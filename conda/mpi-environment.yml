@@ -1,4 +1,4 @@
-name: samurai-mpi-2-env
+name: samurai-mpi-env
 channels:
   - conda-forge
 dependencies:
@@ -17,3 +17,6 @@ dependencies:
   - libboost-headers
   - "hdf5=*=mpi_*"
   - mpich
+  # Optional graph partitioners (for SAMURAI_WITH_PARMETIS and SAMURAI_WITH_PTSCOTCH)
+  - parmetis
+  - ptscotch
