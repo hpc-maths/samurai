@@ -33,23 +33,28 @@ import pytest
 ALWAYS_AVAILABLE = ["sfc-morton", "sfc-hilbert", "diffusion"]
 OPTIONAL = ["metis", "scotch"]
 
-# Short physical horizon: enough adaptations to drive an imbalance, fast enough
-# for CI. Keep it identical between the reference and every strategy run.
-TF = "0.02"
+# Physical horizon and rebalance period, per dimension. They must be identical
+# between the reference and every strategy run. The 3D mesh is coarser
+# (max_level 6 vs 10), so it advances in far fewer time steps for a given final
+# time; the horizon is stretched and the period shortened so that the
+# incremental Diffusion strategy gets enough passes to converge (it balances
+# asymptotically, see the roadmap).
+TF = {2: "0.02", 3: "0.06"}
+PERIOD = {2: "5", 3: "2"}
 
 
 def _mpiexec():
     return shutil.which("mpiexec") or shutil.which("mpirun")
 
 
-def _find_executable():
-    """Locate mpi-load-balancing-2d across the usual build trees.
+def _find_executable(dim):
+    """Locate mpi-load-balancing-{dim}d across the usual build trees.
 
     Honours $SAMURAI_MPI_BUILD_DIR first so CI can point at its build, then
     falls back to the conventional in-tree build directories (tests are run
     from the ``tests/`` directory, hence the ``..`` prefixes).
     """
-    name = "mpi-load-balancing-2d"
+    name = f"mpi-load-balancing-{dim}d"
     candidates = []
     env_dir = os.environ.get("SAMURAI_MPI_BUILD_DIR")
     if env_dir:
@@ -74,34 +79,34 @@ def _compare_script():
 pytestmark = pytest.mark.mpi
 
 _MPIEXEC = _mpiexec()
-_EXE = _find_executable()
 _COMPARE = _compare_script()
+_EXE = {dim: _find_executable(dim) for dim in (2, 3)}
 
 _skip_reason = None
 if _MPIEXEC is None:
     _skip_reason = "mpiexec/mpirun not found"
-elif _EXE is None:
-    _skip_reason = "mpi-load-balancing-2d not built (configure with WITH_MPI=ON)"
 elif _COMPARE is None:
     _skip_reason = "python/compare.py not found"
+elif all(exe is None for exe in _EXE.values()):
+    _skip_reason = "mpi-load-balancing-{2,3}d not built (configure with WITH_MPI=ON)"
 
 if _skip_reason is not None:
     pytest.skip(_skip_reason, allow_module_level=True)
 
 
-def _run_demo(strategy, nprocs, out_dir, filename, stats_file=None):
-    """Run the demo; return the CompletedProcess (text mode)."""
+def _run_demo(dim, strategy, nprocs, out_dir, filename, stats_file=None):
+    """Run the {dim}d demo; return the CompletedProcess (text mode)."""
     cmd = [
         _MPIEXEC,
         "-n",
         str(nprocs),
-        str(_EXE),
+        str(_EXE[dim]),
         "--lb-strategy",
         strategy,
         "--Tf",
-        TF,
+        TF[dim],
         "--nt-loadbalance",
-        "5",
+        PERIOD[dim],
         "--path",
         str(out_dir),
         "--filename",
@@ -116,20 +121,24 @@ def _run_demo(strategy, nprocs, out_dir, filename, stats_file=None):
 
 @pytest.fixture(scope="module")
 def reference(tmp_path_factory):
-    """Sequential ``void`` run: the physical reference every strategy matches."""
-    out = tmp_path_factory.mktemp("lb_ref")
-    res = _run_demo("void", 1, out, "ref")
-    ref_prefix = out / "ref_size_1"
-    if res.returncode != 0 or not ref_prefix.with_suffix(".h5").exists():
-        pytest.skip(f"reference run failed:\n{res.stdout}\n{res.stderr}")
-    return ref_prefix
+    """Sequential ``void`` run per dimension: the physical reference."""
+    refs = {}
+    for dim, exe in _EXE.items():
+        if exe is None:
+            continue
+        out = tmp_path_factory.mktemp(f"lb_ref_{dim}d")
+        res = _run_demo(dim, "void", 1, out, "ref")
+        prefix = out / "ref_size_1"
+        if res.returncode == 0 and prefix.with_suffix(".h5").exists():
+            refs[dim] = prefix
+    return refs
 
 
-def _available(strategy):
+def _available(dim, strategy):
     """metis/scotch are only usable if the demo was compiled with them."""
     if strategy in ALWAYS_AVAILABLE:
         return True
-    res = _run_demo(strategy, 1, Path("/tmp"), f"probe_{strategy}")
+    res = _run_demo(dim, strategy, 1, Path("/tmp"), f"probe_{strategy}")
     return "unknown --lb-strategy" not in (res.stdout + res.stderr)
 
 
@@ -142,27 +151,32 @@ def _min_imbalance_after(stats_file):
     return min(float(r["imbalance_after"]) for r in rows)
 
 
+@pytest.mark.parametrize("dim", [2, 3])
 @pytest.mark.parametrize("strategy", ALWAYS_AVAILABLE + OPTIONAL)
 @pytest.mark.parametrize("nprocs", [2, 4])
-def test_strategy_matches_sequential(strategy, nprocs, reference, tmp_path):
+def test_strategy_matches_sequential(dim, strategy, nprocs, reference, tmp_path):
     """Every strategy must reproduce the sequential physics and balance the load."""
-    if not _available(strategy):
+    if _EXE[dim] is None:
+        pytest.skip(f"mpi-load-balancing-{dim}d not built")
+    if dim not in reference:
+        pytest.skip(f"{dim}d reference run unavailable")
+    if not _available(dim, strategy):
         pytest.skip(f"demo built without {strategy}")
 
     stats = tmp_path / "stats.csv"
-    res = _run_demo(strategy, nprocs, tmp_path, strategy, stats_file=stats)
+    res = _run_demo(dim, strategy, nprocs, tmp_path, strategy, stats_file=stats)
     out_prefix = tmp_path / f"{strategy}_size_{nprocs}"
     assert res.returncode == 0, f"demo failed:\n{res.stdout}\n{res.stderr}"
     assert out_prefix.with_suffix(".h5").exists(), "no output produced"
 
     # 1. physical identity to the sequential reference (machine tolerance).
     cmp = subprocess.run(
-        [sys.executable, str(_COMPARE), str(reference), str(out_prefix), "--tol", "1e-12"],
+        [sys.executable, str(_COMPARE), str(reference[dim]), str(out_prefix), "--tol", "1e-12"],
         capture_output=True,
         text=True,
     )
     assert cmp.returncode == 0, (
-        f"{strategy} (np={nprocs}) diverged from the sequential reference:\n"
+        f"{strategy} ({dim}d, np={nprocs}) diverged from the sequential reference:\n"
         f"{cmp.stdout}\n{cmp.stderr}"
     )
 

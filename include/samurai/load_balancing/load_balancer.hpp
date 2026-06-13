@@ -223,6 +223,28 @@ namespace samurai::load_balancing
             return stats;
         }
 
+        /**
+         * Debug helper: move every cell and all given fields onto
+         * `dest_rank`, producing a maximally skewed distribution. Useful to
+         * stress-test the strategies from an extreme initial state. Reuses the
+         * same migration path as load_balance(). No-op with a single process.
+         *
+         * @note MPI: same communication scheme as load_balance()'s migration.
+         */
+        template <class Field, class... Fields>
+        void concentrate_on(int dest_rank, Field& field, Fields&... other_fields)
+        {
+            boost::mpi::communicator world;
+            if (world.size() <= 1)
+            {
+                return;
+            }
+            auto flags = make_scalar_field<int>("lb_flags", field.mesh());
+            flags.fill(dest_rank);
+            LoadBalanceStats stats;
+            migrate(flags, stats, field, other_fields...);
+        }
+
         const LoadBalanceConfig& config() const
         {
             return m_config;

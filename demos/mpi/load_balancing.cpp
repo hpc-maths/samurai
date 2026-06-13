@@ -1,17 +1,21 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-// Comparative load balancing demo on a 2D adaptive advection case.
+// Comparative load balancing demo on an nD adaptive advection case.
 //
-// The mesh follows an advected disk (multiresolution), so the work per
-// process drifts at every adaptation: this is the dynamic-imbalance scenario
-// the load balancing strategies are made for. Every strategy of the module
-// can be selected on the command line and produces the same physics — only
-// the distribution of cells across processes differs.
+// A disk (2D) / sphere (3D) is advected on a multiresolution mesh, so the
+// mesh follows the front and the work per process drifts at every adaptation:
+// this is the dynamic-imbalance scenario the load balancing strategies are
+// made for. Every strategy of the module can be selected on the command line
+// and produces the same physics — only the distribution of cells across
+// processes differs.
+//
+// The dimension is fixed at compile time through SAMURAI_LB_DIM, so the same
+// source builds both mpi-load-balancing-2d and mpi-load-balancing-3d.
 //
 //   mpiexec -n 4 ./mpi-load-balancing-2d --lb-strategy sfc-hilbert
-//   mpiexec -n 4 ./mpi-load-balancing-2d --lb-strategy sfc-morton --lb-weight level
-//   mpiexec -n 4 ./mpi-load-balancing-2d --lb-strategy void   # baseline: no balancing
+//   mpiexec -n 4 ./mpi-load-balancing-3d --lb-strategy diffusion --lb-weight level
+//   mpiexec -n 4 ./mpi-load-balancing-2d --lb-strategy void   # baseline
 //
 // Useful options:
 //   --lb-strategy  void | sfc-morton | sfc-hilbert | diffusion | metis | scotch
@@ -23,6 +27,8 @@
 //   --lb-dump            write the partition (field "rank") at every
 //                        rebalance, for visual comparison in ParaView
 //   --lb-stats-file f    append one CSV line per rebalance (rank 0)
+//   --lb-skew            (debug) start with every cell on rank 0, to exercise
+//                        the strategies on a maximally skewed initial state
 
 #include <array>
 #include <fstream>
@@ -53,27 +59,46 @@
 #include <samurai/load_balancing/weight.hpp>
 
 #include <filesystem>
+
+#ifndef SAMURAI_LB_DIM
+#define SAMURAI_LB_DIM 2
+#endif
+
 namespace fs = std::filesystem;
 namespace lb = samurai::load_balancing;
 
 namespace
 {
+    constexpr std::size_t dim = SAMURAI_LB_DIM;
+
+    // Refinement bracket: 3D at max_level 10 would be intractable, so the
+    // ceiling is lowered while the base level stays coarse enough for a few
+    // processes to share the work.
+    constexpr std::size_t demo_min_level = (dim == 2) ? 4 : 3;
+    constexpr std::size_t demo_max_level = (dim == 2) ? 10 : 6;
+
     struct Options
     {
-        xt::xtensor_fixed<double, xt::xshape<2>> min_corner = {0., 0.};
-        xt::xtensor_fixed<double, xt::xshape<2>> max_corner = {1., 1.};
-        std::array<double, 2> velocity                      = {1., 1.};
-        double Tf                                           = 0.1;
-        double cfl                                          = 0.5;
-        fs::path path                                       = fs::current_path();
-        std::string filename                                = "lb_2d";
-        std::size_t nfiles                                  = 1;
+        xt::xtensor_fixed<double, xt::xshape<dim>> min_corner = xt::zeros<double>({dim});
+        xt::xtensor_fixed<double, xt::xshape<dim>> max_corner = xt::ones<double>({dim});
+        std::array<double, dim> velocity                      = []
+        {
+            std::array<double, dim> v{};
+            v.fill(1.);
+            return v;
+        }();
+        double Tf            = 0.1;
+        double cfl           = 0.5;
+        fs::path path        = fs::current_path();
+        std::string filename = "lb_" + std::to_string(dim) + "d";
+        std::size_t nfiles   = 1;
         // load balancing
         std::string strategy       = "sfc-hilbert";
         std::string weight         = "uniform";
         std::size_t nt_loadbalance = 10;
         double threshold           = 0.; // 0: rebalance on the period; >0: only when required()
         bool dump_partitions       = false;
+        bool skew                  = false;
         std::string stats_file;
     };
 
@@ -86,12 +111,14 @@ namespace
         samurai::for_each_cell(mesh,
                                [&](auto& cell)
                                {
-                                   auto center           = cell.center();
-                                   const double radius   = .2;
-                                   const double x_center = 0.3;
-                                   const double y_center = 0.3;
-                                   const double d2       = (center[0] - x_center) * (center[0] - x_center)
-                                                   + (center[1] - y_center) * (center[1] - y_center);
+                                   auto center         = cell.center();
+                                   const double radius = .2;
+                                   double d2           = 0.;
+                                   for (std::size_t d = 0; d < dim; ++d)
+                                   {
+                                       const double c = center[d] - 0.3;
+                                       d2 += c * c;
+                                   }
                                    u[cell] = (d2 <= radius * radius) ? 1. : 0.;
                                });
     }
@@ -162,15 +189,22 @@ namespace
     template <class Strategy>
     int run(const Options& opt)
     {
-        constexpr std::size_t dim = 2;
         mpi::communicator world;
 
+        // Periodic domain: the advected blob wraps around, so the test is free
+        // of boundary-condition complications and the same setup runs in 2D and
+        // 3D. (Dirichlet on an adaptive 3D distributed mesh currently trips a
+        // core ghost-protocol limitation, see docs/load_balancing_roadmap.md.)
         const samurai::Box<double, dim> box(opt.min_corner, opt.max_corner);
-        auto config = samurai::mesh_config<dim>().min_level(4).max_level(10).max_stencil_size(2).disable_minimal_ghost_width();
-        auto mesh   = samurai::mra::make_mesh(box, config);
-        auto u      = samurai::make_scalar_field<double>("u", mesh);
+        auto config = samurai::mesh_config<dim>()
+                          .min_level(demo_min_level)
+                          .max_level(demo_max_level)
+                          .max_stencil_size(2)
+                          .periodic(true)
+                          .disable_minimal_ghost_width();
+        auto mesh = samurai::mra::make_mesh(box, config);
+        auto u    = samurai::make_scalar_field<double>("u", mesh);
         init(u);
-        samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
 
         double t             = 0.;
         double dt            = opt.cfl * mesh.min_cell_length();
@@ -191,6 +225,13 @@ namespace
             {
                 return std::pow(2.0, static_cast<double>(l) - static_cast<double>(mesh.min_level()));
             });
+
+        // Debug: collapse everything onto rank 0 before the time loop so that
+        // the first rebalance starts from a maximally skewed state.
+        if (opt.skew)
+        {
+            balancer.concentrate_on(0, u);
+        }
 
         std::size_t nsave = 1;
         std::size_t nt    = 0;
@@ -247,7 +288,7 @@ namespace
 
 int main(int argc, char* argv[])
 {
-    auto& app = samurai::initialize("Compare load balancing strategies on a 2d adaptive advection case", argc, argv);
+    auto& app = samurai::initialize(fmt::format("Compare load balancing strategies on a {}d adaptive advection case", dim), argc, argv);
 
     Options opt;
     app.add_option("--min-corner", opt.min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
@@ -264,6 +305,11 @@ int main(int argc, char* argv[])
         ->capture_default_str()
         ->group("Load balancing");
     app.add_flag("--lb-dump", opt.dump_partitions, "Dump the partition (field 'rank') at every rebalance")->group("Load balancing");
+    app.add_flag("--lb-skew",
+                 opt.skew,
+                 "Start with every cell on rank 0 (debug: maximally skewed initial state; "
+                 "incompatible with metis/scotch, which reject empty subdomains)")
+        ->group("Load balancing");
     app.add_option("--lb-stats-file", opt.stats_file, "Append one CSV line per rebalance to this file (rank 0)")
         ->capture_default_str()
         ->group("Load balancing");
@@ -277,8 +323,8 @@ int main(int argc, char* argv[])
         fs::create_directory(opt.path);
     }
 
-    // one line per strategy: this is the only place to extend when the
-    // roadmap steps 4-5 add metis, scotch and diffusion
+    // one line per strategy: this is the only place to extend when a new
+    // strategy is added to the module.
     int ret = 1;
     if (opt.strategy == "void")
     {
@@ -319,8 +365,7 @@ int main(int argc, char* argv[])
 #endif
         if (mpi::communicator{}.rank() == 0)
         {
-            std::cerr << "unknown --lb-strategy '" << opt.strategy << "' (expected: " << available << ")"
-                      << std::endl;
+            std::cerr << "unknown --lb-strategy '" << opt.strategy << "' (expected: " << available << ")" << std::endl;
         }
     }
 

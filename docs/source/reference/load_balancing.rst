@@ -249,34 +249,62 @@ for distributed memory multiprocessors*, J. Parallel Distrib. Comput. 7 (1989).
 Comparing strategies
 --------------------
 
-The demo ``demos/mpi/load_balancing_2d.cpp`` (target ``mpi-load-balancing-2d``)
-runs the same 2D adaptive advection case with any strategy and collects the
-metrics, e.g.:
+The demo ``demos/mpi/load_balancing.cpp`` builds two executables,
+``mpi-load-balancing-2d`` and ``mpi-load-balancing-3d`` (the dimension is fixed
+at compile time through ``SAMURAI_LB_DIM``). It advects a disk / sphere on a
+periodic adaptive mesh with any strategy and collects the metrics, e.g.:
 
 .. code-block:: bash
 
     mpiexec -n 4 ./mpi-load-balancing-2d --lb-strategy sfc-hilbert \
         --lb-weight level --lb-dump --lb-stats-file stats.csv
-    # other strategies: --lb-strategy void | sfc-morton | diffusion
+    mpiexec -n 4 ./mpi-load-balancing-3d --lb-strategy diffusion
+    # other strategies: --lb-strategy void | sfc-morton | metis | scotch
 
 ``--lb-stats-file`` appends one CSV line per rebalance (imbalance before and
 after, migrated cells, timings) so different strategies can be compared on
 the same scenario; ``--lb-dump`` writes the partition for ParaView at every
 rebalance; ``--lb-threshold`` switches from periodic rebalancing to the
-``required()`` trigger.
+``required()`` trigger; ``--lb-skew`` starts with every cell on rank 0 to
+exercise the strategies from a maximally skewed state.
 
-The integration suite ``tests/test_load_balancing.py`` drives this demo: for
-every available strategy and several process counts it checks (a) that the
-final field is **bit-for-bit identical** to the sequential ``void`` run
-(load balancing must never change the physics, only the distribution) and
-(b) that the strategy reaches ``imbalance < 0.1``. It is skipped cleanly when
-MPI or the demo executable is absent. Point it at an MPI-enabled build with
-``SAMURAI_MPI_BUILD_DIR`` if it is not under ``../build``.
+.. note::
+
+   The demo uses a **periodic** domain. A Dirichlet boundary on a distributed
+   *adaptive* 3D mesh currently trips a pre-existing core ghost-protocol
+   limitation (unrelated to load balancing, see
+   ``docs/load_balancing_roadmap.md`` §5bis), so the periodic setup is used to
+   keep the same case valid in 2D and 3D.
+
+The integration suite ``tests/test_load_balancing.py`` drives the demo: for
+every available strategy, both dimensions and several process counts it checks
+(a) that the final field is **bit-for-bit identical** to the sequential
+``void`` run (load balancing must never change the physics, only the
+distribution) and (b) that the strategy reaches ``imbalance < 0.1``. It is
+skipped cleanly when MPI or the demo executable is absent. Point it at an
+MPI-enabled build with ``SAMURAI_MPI_BUILD_DIR`` if it is not under
+``../build``.
+
+The micro-benchmark ``benchmark/benchmark_load_balancing.cpp`` (target
+``bench_load_balancing``, built with ``-DBUILD_BENCHMARKS=ON -DWITH_MPI=ON``)
+times ``partition()`` alone and a full ``load_balance()`` pass from a skewed
+state, per strategy, on a uniform mesh:
+
+.. code-block:: bash
+
+    mpiexec -n 4 ./benchmark/bench_load_balancing
+
+Measured ``partition()`` cost per call (4 processes, uniform mesh) ranks the
+strategies over two orders of magnitude: the space-filling curves are the
+cheapest (≈ 1 ms), ``Diffusion`` slightly above, ``Metis`` an order of
+magnitude higher (graph build + ParMETIS, ≈ 10 ms) and ``Scotch`` two orders
+higher still (≈ 100–200 ms). The migration + rebuild cost that follows is the
+same for every strategy (it does not depend on which one produced the flags).
 
 Choosing a strategy
 ^^^^^^^^^^^^^^^^^^^^
 
-Measured on the demo (advected disk, 2 and 4 processes, uniform weight):
+Measured on the demo (advected blob, 2 and 4 processes, uniform weight):
 
 .. list-table::
    :header-rows: 1
