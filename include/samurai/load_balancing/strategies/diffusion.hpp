@@ -54,6 +54,15 @@
  *     (a coarse cell then holds only a thin band of fine cells), and the
  *     diffusion converges over several calls anyway.
  *
+ *  3. Connectivity repair. Shedding to several neighbours whose territories
+ *     wrap around a process can still split the cells it keeps into
+ *     disconnected pockets (it happens in 3D, where a subdomain has more
+ *     neighbours). A final pass labels the kept region's connected components
+ *     (seed-growth flood fill at `min_level`) and hands every pocket but the
+ *     largest to the neighbour that borders it most — restoring a single
+ *     connected island per process. The pass is a no-op (one flood fill) when
+ *     the kept region is already connected, i.e. on almost every call.
+ *
  * If the interface is exhausted before the requested flux is met, the deficit is
  * accumulated in `last_unmet_flux()` (surfaced as LoadBalanceStats::unmet_flux):
  * no exception, no silent log — the phenomenon stays measurable.
@@ -72,6 +81,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <map>
 #include <numeric>
 #include <string>
 #include <vector>
@@ -243,7 +253,33 @@ namespace samurai::load_balancing
             mesh.update_mesh_neighbour();
 
             // -- phase 1: fluxes (neighbour-only diffusion) -------------------------
-            const std::vector<double> fluxes = compute_fluxes(mesh, weight, neighbourhood);
+            std::vector<double> fluxes = compute_fluxes(mesh, weight, neighbourhood);
+
+            // A process cannot shed more cells than it owns. The iterative flux
+            // solver may transiently ask for more than the whole load (it
+            // oscillates before converging, especially with many processes), so
+            // we cap the total cession and keep a small reserve: this guarantees
+            // a non-empty subdomain, which the subsequent mesh adaptation needs.
+            double total_give = 0.;
+            for (const double f : fluxes)
+            {
+                if (f < 0.)
+                {
+                    total_give -= f;
+                }
+            }
+            const double max_give = (1. - m_config.min_retained_load_fraction) * local_load(mesh, weight);
+            if (total_give > max_give && total_give > 0.)
+            {
+                const double scale = max_give / total_give;
+                for (double& f : fluxes)
+                {
+                    if (f < 0.)
+                    {
+                        f *= scale;
+                    }
+                }
+            }
 
             // Process the biggest givers first (most negative flux), deterministic
             // tie-break on the neighbour rank.
@@ -276,6 +312,11 @@ namespace samurai::load_balancing
                     m_unmet_flux += remaining; // interface exhausted: report the deficit
                 }
             }
+
+            // Shedding to several neighbours that wrap around me can split the
+            // cells I keep into disconnected pockets; relabel the secondary ones
+            // so every subdomain stays in one piece (see repair_connectivity).
+            repair_connectivity<cl_type, ca_type>(mesh, flags);
 
             return flags;
         }
@@ -417,6 +458,182 @@ namespace samurai::load_balancing
                 if (stop)
                 {
                     break;
+                }
+            }
+        }
+
+        /**
+         * Repair the connectivity of the kept region. The per-neighbour peel
+         * cedes regions each connected to their neighbour, but when a process
+         * sheds to several neighbours whose territories wrap around it, the
+         * cells it keeps can split into disconnected pockets (this happens in
+         * 3D, where a subdomain has more neighbours). Each secondary pocket is
+         * fully surrounded by cells already promised to neighbours, so we hand
+         * it to the neighbour that borders it most: the pocket is connected and
+         * adjacent to that neighbour, hence both subdomains stay in one piece.
+         *
+         * Connected components are found by a seed-growth flood fill at
+         * `min_level` (set algebra over the cardinal translations, no O(n^2)
+         * cell scan); the largest component is kept. The pass is a no-op — one
+         * flood fill that converges to the whole region — when the kept region
+         * is already connected, i.e. on the vast majority of calls.
+         */
+        template <class cl_type, class ca_type, class Mesh, class Flags>
+        void repair_connectivity(Mesh& mesh, Flags& flags) const
+        {
+            using mesh_id_t           = typename Mesh::mesh_id_t;
+            constexpr std::size_t dim = Mesh::dim;
+            const std::size_t ref     = mesh.min_level();
+            const int rank            = boost::mpi::communicator{}.rank();
+            const auto directions     = cartesian_directions<dim>();
+
+            // my kept cells (flags == me), projected to the coarsest level
+            cl_type kept_cl;
+            for_each_cell(mesh[mesh_id_t::cells],
+                          [&](const auto& cell)
+                          {
+                              if (flags[cell] != rank)
+                              {
+                                  return;
+                              }
+                              auto yz = xt::view(cell.indices, xt::range(1, cell.indices.size()));
+                              kept_cl[cell.level][yz].add_point(cell.indices[0]);
+                          });
+            const ca_type kept = project_to_level<cl_type, ca_type>(ca_type{kept_cl, false}, ref);
+            if (kept[ref].empty())
+            {
+                return;
+            }
+
+            // enumerate connected components by seed growth (BFS at ref)
+            std::vector<ca_type> components;
+            ca_type remaining = kept;
+            while (!remaining[ref].empty())
+            {
+                cl_type seed_cl;
+                bool placed = false;
+                for_each_interval(remaining[ref],
+                                  [&](std::size_t /*lvl*/, const auto& interval, const auto& index)
+                                  {
+                                      if (!placed)
+                                      {
+                                          seed_cl[ref][index].add_point(interval.start);
+                                          placed = true;
+                                      }
+                                  });
+                ca_type comp = {seed_cl, false};
+                for (;;)
+                {
+                    cl_type grow_cl;
+                    for (std::size_t k = 0; k < directions.shape()[0]; ++k)
+                    {
+                        auto d = xt::view(directions, k);
+                        intersection(remaining[ref], translate(comp[ref], d))(
+                            [&](const auto& interval, const auto& index)
+                            {
+                                grow_cl[ref][index].add_interval(interval);
+                            });
+                    }
+                    const ca_type grown = set_union<cl_type, ca_type>(comp, ca_type{grow_cl, false}, ref);
+                    if (grown[ref].nb_cells() == comp[ref].nb_cells())
+                    {
+                        break; // no new neighbour reached: component complete
+                    }
+                    comp = grown;
+                }
+                components.push_back(comp);
+                remaining = set_difference<cl_type, ca_type>(remaining, comp, ref);
+            }
+
+            if (components.size() <= 1)
+            {
+                return; // already a single connected island
+            }
+
+            // keep the largest component, relabel every other one
+            std::size_t main = 0;
+            for (std::size_t c = 1; c < components.size(); ++c)
+            {
+                if (components[c][ref].nb_cells() > components[main][ref].nb_cells())
+                {
+                    main = c;
+                }
+            }
+
+            // my cells already ceded to a neighbour (mine \ kept), at the coarse level
+            const ca_type mine  = project_to_level<cl_type, ca_type>(mesh[mesh_id_t::cells], ref);
+            const ca_type ceded = set_difference<cl_type, ca_type>(mine, kept, ref);
+
+            for (std::size_t c = 0; c < components.size(); ++c)
+            {
+                if (c == main)
+                {
+                    continue;
+                }
+                const ca_type& comp = components[c];
+
+                // ceded coarse cells touching this pocket
+                cl_type border_cl;
+                for (std::size_t k = 0; k < directions.shape()[0]; ++k)
+                {
+                    auto d = xt::view(directions, k);
+                    intersection(translate(comp[ref], d), ceded[ref])(
+                        [&](const auto& interval, const auto& index)
+                        {
+                            border_cl[ref][index].add_interval(interval);
+                        });
+                }
+                const ca_type border = {border_cl, false};
+
+                // vote: which neighbour owns the most of the pocket's border
+                std::map<int, std::size_t> votes;
+                for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
+                {
+                    intersection(border[ref], mesh[mesh_id_t::cells][level])
+                        .on(level)(
+                            [&](const auto& interval, const auto& index)
+                            {
+                                for (auto i = interval.start; i < interval.end; ++i)
+                                {
+                                    const int f = flags[mesh.get_cell(level, i, index)];
+                                    if (f != rank)
+                                    {
+                                        ++votes[f];
+                                    }
+                                }
+                            });
+                }
+                if (votes.empty())
+                {
+                    continue; // no neighbour borders it (rare): leave it with me
+                }
+                int target          = votes.begin()->first;
+                std::size_t best    = 0;
+                for (const auto& [r, v] : votes)
+                {
+                    if (v > best)
+                    {
+                        best   = v;
+                        target = r;
+                    }
+                }
+
+                // hand the whole pocket to that neighbour
+                for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
+                {
+                    intersection(comp[ref], mesh[mesh_id_t::cells][level])
+                        .on(level)(
+                            [&](const auto& interval, const auto& index)
+                            {
+                                for (auto i = interval.start; i < interval.end; ++i)
+                                {
+                                    auto cell = mesh.get_cell(level, i, index);
+                                    if (flags[cell] == rank)
+                                    {
+                                        flags[cell] = target;
+                                    }
+                                }
+                            });
                 }
             }
         }

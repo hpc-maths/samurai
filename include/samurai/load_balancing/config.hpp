@@ -25,6 +25,17 @@ namespace samurai::load_balancing
         /// flux solver.
         int diffusion_iterations = 50;
 
+        /// (diffusion strategy) fraction of its weighted load a process always
+        /// keeps: the total it sheds in one call is capped at
+        /// `(1 - min_retained_load_fraction) * local_load`. A process cannot
+        /// give away more cells than it owns, and the iterative flux solver may
+        /// transiently ask for more than the whole load (it oscillates before
+        /// converging, especially with many processes); without this floor a
+        /// process could empty itself, which breaks the subsequent mesh
+        /// adaptation. Keeping a small reserve guarantees a non-empty, valid
+        /// subdomain every call.
+        double min_retained_load_fraction = 0.1;
+
         /// When true, the driver traces its decisions on std::clog, prefixed
         /// by the MPI rank. Never use std::cout in library code.
         bool verbose = false;
