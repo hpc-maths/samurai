@@ -263,8 +263,50 @@ metrics, e.g.:
 after, migrated cells, timings) so different strategies can be compared on
 the same scenario; ``--lb-dump`` writes the partition for ParaView at every
 rebalance; ``--lb-threshold`` switches from periodic rebalancing to the
-``required()`` trigger. The full benchmark harness arrives with roadmap
-step 6.
+``required()`` trigger.
+
+The integration suite ``tests/test_load_balancing.py`` drives this demo: for
+every available strategy and several process counts it checks (a) that the
+final field is **bit-for-bit identical** to the sequential ``void`` run
+(load balancing must never change the physics, only the distribution) and
+(b) that the strategy reaches ``imbalance < 0.1``. It is skipped cleanly when
+MPI or the demo executable is absent. Point it at an MPI-enabled build with
+``SAMURAI_MPI_BUILD_DIR`` if it is not under ``../build``.
+
+Choosing a strategy
+^^^^^^^^^^^^^^^^^^^^
+
+Measured on the demo (advected disk, 2 and 4 processes, uniform weight):
+
+.. list-table::
+   :header-rows: 1
+
+   * - Situation
+     - Recommended
+     - Why
+   * - Default / no external dependency
+     - ``SFC<Hilbert>``
+     - Reaches ``imbalance ≈ 0`` with little migration; one ``all_reduce`` +
+       one ``scan``, no library needed. Good locality.
+   * - Minimal communication volume (ghost cut)
+     - ``Metis`` (``adaptive = true`` in AMR)
+     - Lowest edge cut of all strategies; adaptive mode reuses the previous
+       partition to limit migration. Cost: builds the cell graph, needs ParMETIS.
+   * - Incremental rebalancing, neighbour-only communication
+     - ``Diffusion``
+     - Migrates the fewest cells per call and talks only to MPI neighbours;
+       balances asymptotically (a few calls) rather than in one shot.
+   * - Cheapest key computation, locality not critical
+     - ``SFC<Morton>``
+     - Same algorithm as Hilbert with cheaper keys but poorer locality.
+   * - Baseline / disable balancing
+     - ``Void``
+     - No migration; used as the reference in the comparison suite.
+
+``Scotch`` produces excellent balance (``imbalance ≈ 0``) but re-partitions
+from scratch at every call, so it migrates far more cells than ``Metis`` or
+``Diffusion`` — prefer it for a one-off (re)partition rather than per-step
+rebalancing.
 
 Graph partitioners (ParMETIS, PT-Scotch)
 ------------------------------------------
