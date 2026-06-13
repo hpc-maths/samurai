@@ -271,8 +271,6 @@ namespace samurai
         void compute_gravity_center();
 
         void partition_mesh(std::size_t start_level, const Box<double, dim>& global_box);
-        void load_balancing();
-        void load_transfer(const std::vector<double>& load_fluxes);
         std::size_t max_nb_cells(std::size_t level) const;
 
 #ifdef SAMURAI_WITH_MPI
@@ -340,7 +338,6 @@ namespace samurai
     {
 #ifdef SAMURAI_WITH_MPI
         partition_mesh(m_config.start_level(), b);
-        // load_balancing();
 #else
         this->m_cells[mesh_id_t::cells][m_config.start_level()] = m_domain;
 #endif
@@ -381,9 +378,6 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
         std::cerr << "MPI is not implemented with DomainBuilder." << std::endl;
         std::exit(EXIT_FAILURE);
-        // partition_mesh(m_config.start_level(), b);
-        //  load_balancing();
-
 #else
         double scaling_factor_ = m_config.scaling_factor();
         compute_scaling_factor(domain_builder, scaling_factor_);
@@ -1481,83 +1475,6 @@ namespace samurai
         }
 
         this->m_cells[mesh_id_t::cells][start_level] = subdomain_cells;
-#endif
-    }
-
-    template <class D, class Config>
-    void Mesh_base<D, Config>::load_balancing()
-    {
-#ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-        auto rank = world.rank();
-
-        std::size_t load = nb_cells(mesh_id_t::cells);
-        std::vector<std::size_t> loads;
-
-        std::vector<double> load_fluxes(m_mpi_neighbourhood.size(), 0);
-
-        const std::size_t n_iterations = 1;
-
-        for (std::size_t k = 0; k < n_iterations; ++k)
-        {
-            world.barrier();
-            if (rank == 0)
-            {
-                std::cout << "---------------- k = " << k << " ----------------" << std::endl;
-            }
-            mpi::all_gather(world, load, loads);
-
-            std::vector<std::size_t> nb_neighbours;
-            mpi::all_gather(world, m_mpi_neighbourhood.size(), nb_neighbours);
-
-            double load_np1 = static_cast<double>(load);
-            for (std::size_t i_rank = 0; i_rank < m_mpi_neighbourhood.size(); ++i_rank)
-            {
-                auto neighbour = m_mpi_neighbourhood[i_rank];
-
-                auto neighbour_load = loads[static_cast<std::size_t>(neighbour.rank)];
-                int neighbour_load_minus_my_load;
-                if (load < neighbour_load)
-                {
-                    neighbour_load_minus_my_load = static_cast<int>(neighbour_load - load);
-                }
-                else
-                {
-                    neighbour_load_minus_my_load = -static_cast<int>(load - neighbour_load);
-                }
-                double weight       = 1. / std::max(m_mpi_neighbourhood.size(), nb_neighbours[neighbour.rank]);
-                load_fluxes[i_rank] = weight * neighbour_load_minus_my_load;
-                load_np1 += load_fluxes[i_rank];
-            }
-            load_np1 = floor(load_np1);
-
-            load_transfer(load_fluxes);
-
-            std::cout << rank << ": load = " << load << ", load_np1 = " << load_np1 << std::endl;
-
-            load = static_cast<std::size_t>(load_np1);
-        }
-#endif
-    }
-
-    template <class D, class Config>
-    void Mesh_base<D, Config>::load_transfer([[maybe_unused]] const std::vector<double>& load_fluxes)
-    {
-#ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-        std::cout << world.rank() << ": ";
-        for (std::size_t i_rank = 0; i_rank < m_mpi_neighbourhood.size(); ++i_rank)
-        {
-            auto neighbour = m_mpi_neighbourhood[i_rank];
-            if (load_fluxes[i_rank] < 0) // must tranfer load to the neighbour
-            {
-            }
-            else if (load_fluxes[i_rank] > 0) // must receive load from the neighbour
-            {
-            }
-            std::cout << "--> " << neighbour.rank << ": " << load_fluxes[i_rank] << ", ";
-        }
-        std::cout << std::endl;
 #endif
     }
 
