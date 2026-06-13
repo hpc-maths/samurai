@@ -167,6 +167,25 @@ namespace
                                                                  });
         }
 
+        /// Off-centre refined disk/sphere on top of a uniform mesh: an
+        /// irregular refined region like the one the advection demo produces
+        /// (this is the geometry that broke the direction-based version).
+        static Mesh make_disk_refined_mesh()
+        {
+            return samurai_test::make_locally_refined_mesh<Mesh>(box(),
+                                                                 level,
+                                                                 [](const auto& cell)
+                                                                 {
+                                                                     double d2 = 0.;
+                                                                     for (std::size_t d = 0; d < dim; ++d)
+                                                                     {
+                                                                         const double c = cell.center(d) - 0.35;
+                                                                         d2 += c * c;
+                                                                     }
+                                                                     return d2 < 0.2 * 0.2;
+                                                                 });
+        }
+
         template <class M>
         static auto make_analytic_field(M& mesh)
         {
@@ -268,6 +287,41 @@ namespace
         }
 
         EXPECT_TRUE_ALL_RANKS(samurai_test::local_connected_components(mesh) == 1);
+    }
+
+    // The demo scenario that broke the direction-based version: an irregular
+    // refined disk on top of the *default* (row-major) decomposition. Starting
+    // from connected bands, several diffusion calls must keep every rank a
+    // single face-connected island, never scattering cells across the domain.
+    TYPED_TEST(LoadBalancingDiffusion, connectivity_from_default_decomposition)
+    {
+        using mesh_id_t = typename TestFixture::mesh_id_t;
+        mpi::communicator world;
+
+        auto mesh   = TestFixture::make_disk_refined_mesh();
+        auto u      = TestFixture::make_analytic_field(mesh);
+        auto weight = lb::weight::uniform();
+
+        const auto cells_before = mesh[mesh_id_t::cells];
+        const auto count_before = TestFixture::global_count(mesh);
+
+        // the default decomposition is already connected; check it stays so
+        EXPECT_TRUE_ALL_RANKS(mesh.nb_cells(mesh_id_t::cells) == 0 || samurai_test::local_connected_components(mesh) == 1);
+
+        auto balancer = lb::make_load_balancer<lb::Diffusion>();
+        for (int call = 0; call < 8; ++call)
+        {
+            balancer.load_balance(weight, u);
+            EXPECT_TRUE_ALL_RANKS(mesh.nb_cells(mesh_id_t::cells) == 0 || samurai_test::local_connected_components(mesh) == 1);
+        }
+
+        samurai_test::check_lb_invariants(mesh,
+                                          cells_before,
+                                          count_before,
+                                          [&](const auto& cell)
+                                          {
+                                              return u[cell] == samurai_test::analytic(cell);
+                                          });
     }
 
     // Per-level weight on a refined corner: diffusion balances the *work*, not

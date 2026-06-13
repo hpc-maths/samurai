@@ -25,17 +25,34 @@
  *     the process graph; since AMR calls the balancer again at every adaptation,
  *     a partial convergence per call is acceptable.
  *
- *  2. Layer assignment (nD). A negative flux fluxes[j] means "I must shed
- *     |fluxes[j]| of load to neighbour j". We give away the cells closest to j
- *     first, then progressively deeper layers, so the ceded region stays
- *     connected to the interface (no islands). The cession direction is the
- *     dominant cardinal axis of (barycentre_i - barycentre_j); a diagonal is
- *     split into its cardinal components, treated one after the other. Layers are
- *     built by set algebra at the coarsest level (`min_level`) and projected onto
- *     every actual level with `.on(level)`, which makes the whole construction
- *     dimension-agnostic and level-jump aware. The frontier between subdomains is
- *     therefore a staircase, not a straight line (the straight-line / row-snapping
- *     constraint was exactly what limited the old version to 2D bands).
+ *  2. Layer assignment (nD), by a geometric breadth-first peel. A negative flux
+ *     fluxes[j] means "I must shed |fluxes[j]| of load to neighbour j". We grow
+ *     the ceded region OUT OF THE ACTUAL INTERFACE with j: the first layer is my
+ *     cells face-adjacent to j's cells, the next layer is my still-owned cells
+ *     face-adjacent to what I just ceded, and so on (a BFS front advancing into
+ *     my domain). Crucially the front only ever crosses cells I still own, so:
+ *       - the ceded region stays attached to j (it is connected to j's side);
+ *       - what remains mine stays a single connected island — the peel never
+ *         jumps across the domain, because adjacency is recomputed from the
+ *         cells just given, not from a fixed Cartesian direction.
+ *     There is therefore no notion of direction at all (the previous
+ *     barycentre-direction version scattered cells on adaptive meshes and broke
+ *     connectivity). Adjacency is evaluated at the coarsest level (`min_level`)
+ *     by set algebra over the 2*dim cardinal translations and projected onto
+ *     every actual level with `.on(level)`, which is dimension- and level-jump
+ *     agnostic. The frontier between subdomains is a staircase, not a straight
+ *     line (the straight-line / row-snapping constraint limited the old version
+ *     to 2D bands).
+ *
+ *     The peel is ATOMIC at `min_level`: a coarse cell is ceded with ALL the
+ *     fine cells it contains, or not at all, and we stop at a coarse-cell
+ *     boundary once the requested flux is met. This is essential on adaptive
+ *     meshes: stopping mid-cell at the finest level (a raw cell scan) used to
+ *     dice the refined front into disconnected single-cell slivers — the very
+ *     islands this peel is meant to avoid. The cost is an overshoot bounded by
+ *     one coarse cell's load; it is small when refinement tracks an interface
+ *     (a coarse cell then holds only a thin band of fine cells), and the
+ *     diffusion converges over several calls anyway.
  *
  * If the interface is exhausted before the requested flux is met, the deficit is
  * accumulated in `last_unmet_flux()` (surfaced as LoadBalanceStats::unmet_flux):
@@ -63,6 +80,7 @@
 
 #include "../../algorithm.hpp"
 #include "../../field.hpp"
+#include "../../stencil.hpp"
 #include "../../subset/node.hpp"
 #include "../config.hpp"
 #include "../metrics.hpp"
@@ -203,9 +221,8 @@ namespace samurai::load_balancing
         template <class Mesh, class Weight>
         auto partition(Mesh& mesh, const Weight& weight) const
         {
-            using mesh_id_t = typename Mesh::mesh_id_t;
-            using cl_type   = typename Mesh::cl_type;
-            using ca_type   = typename Mesh::ca_type;
+            using cl_type = typename Mesh::cl_type;
+            using ca_type = typename Mesh::ca_type;
 
             boost::mpi::communicator world;
 
@@ -243,9 +260,7 @@ namespace samurai::load_balancing
                           return neighbourhood[a].rank < neighbourhood[b].rank;
                       });
 
-            const auto bc_me = barycenter(mesh);
-
-            // -- phase 2: cede interface layers, neighbour by neighbour -------------
+            // -- phase 2: peel interface layers, neighbour by neighbour ------------
             for (std::size_t idx : order)
             {
                 if (fluxes[idx] >= 0.)
@@ -254,18 +269,7 @@ namespace samurai::load_balancing
                 }
                 double remaining = -fluxes[idx]; // load I must give to this neighbour
 
-                const int neigh_rank = neighbourhood[idx].rank;
-                const auto bc_j      = barycenter(neighbourhood[idx].mesh);
-                const auto dirs      = cession_directions<Mesh::dim>(bc_me, bc_j);
-
-                for (const auto& dir : dirs)
-                {
-                    if (remaining <= 0.)
-                    {
-                        break;
-                    }
-                    give_layers<cl_type, ca_type>(mesh, flags, neighbourhood[idx].mesh, dir, neigh_rank, weight, remaining);
-                }
+                give_to_neighbour<cl_type, ca_type>(mesh, flags, neighbourhood[idx].mesh, neighbourhood[idx].rank, weight, remaining);
 
                 if (remaining > 0.)
                 {
@@ -293,140 +297,154 @@ namespace samurai::load_balancing
             return detail::diffusion_fluxes(local_load(mesh, weight), ranks, m_config);
         }
 
-        /// Geometric (unweighted) barycenter of a mesh's leaves. Used only to
-        /// pick the cession direction, so weighting is irrelevant — and it lets
-        /// us reuse it on a neighbour mesh, where a field-based weight would be
-        /// out of range.
-        template <class Mesh>
-        static auto barycenter(const Mesh& mesh)
+        /**
+         * Cede load to `neigh_rank` by a geometric breadth-first peel that keeps
+         * both the ceded region and my remaining region connected (see the file
+         * header). Adjacency is computed at `min_level`; a coarse cell is ceded
+         * by handing every still-owned fine cell it contains to the neighbour.
+         *
+         * `boundary` is the advancing front (the neighbour's region plus what I
+         * have already given); `owned` shrinks as I peel, and the next ring is
+         * always `owned ∩ (cells face-adjacent to boundary)`, so the front never
+         * leaves the cells I own — no island is ever created.
+         */
+        template <class cl_type, class ca_type, class Mesh, class Flags, class NeighMesh, class Weight>
+        void give_to_neighbour(Mesh& mesh, Flags& flags, const NeighMesh& neigh_mesh, int neigh_rank, const Weight& weight, double& remaining) const
         {
             using mesh_id_t           = typename Mesh::mesh_id_t;
             constexpr std::size_t dim = Mesh::dim;
-            xt::xtensor_fixed<double, xt::xshape<dim>> bc;
-            bc.fill(0.);
-            double count = 0.;
+            const std::size_t ref     = mesh.min_level();
+            const int rank            = boost::mpi::communicator{}.rank();
+
+            // my still-owned cells (flags == me), at their own levels then
+            // projected to the coarsest level for the adjacency computation
+            cl_type owned_full_cl;
             for_each_cell(mesh[mesh_id_t::cells],
                           [&](const auto& cell)
                           {
-                              const auto center = cell.center();
-                              for (std::size_t d = 0; d < dim; ++d)
+                              if (flags[cell] != rank)
                               {
-                                  bc(d) += center(d);
+                                  return;
                               }
-                              count += 1.;
+                              auto yz = xt::view(cell.indices, xt::range(1, cell.indices.size()));
+                              owned_full_cl[cell.level][yz].add_point(cell.indices[0]);
                           });
-            count = std::max(count, 1e-12);
-            for (std::size_t d = 0; d < dim; ++d)
-            {
-                bc(d) /= count;
-            }
-            return bc;
-        }
+            const ca_type owned_full = {owned_full_cl, false};
+            ca_type owned            = project_to_level<cl_type, ca_type>(owned_full, ref);
 
-        /// Cardinal axes pointing from the neighbour towards me (i.e. into my
-        /// domain): one unit vector per axis along which my barycenter is past
-        /// the neighbour's. A face neighbour yields one axis, a corner several.
-        template <std::size_t dim, class Coord>
-        static auto cession_directions(const Coord& bc_me, const Coord& bc_neigh)
-        {
-            using direction_t = xt::xtensor_fixed<int, xt::xshape<dim>>;
+            // the BFS front, seeded with the neighbour's region at the coarse level
+            ca_type boundary = project_to_level<cl_type, ca_type>(neigh_mesh[mesh_id_t::cells], ref);
 
-            std::vector<direction_t> dirs;
-            double norm = 0.;
-            for (std::size_t d = 0; d < dim; ++d)
+            const auto directions = cartesian_directions<dim>();
+
+            while (remaining > 0.)
             {
-                norm += (bc_me(d) - bc_neigh(d)) * (bc_me(d) - bc_neigh(d));
-            }
-            norm = std::sqrt(norm);
-            if (norm < 1e-12)
-            {
-                return dirs;
-            }
-            for (std::size_t d = 0; d < dim; ++d)
-            {
-                const double comp = (bc_me(d) - bc_neigh(d)) / norm;
-                int s             = static_cast<int>(comp / 0.5); // |comp| >= 0.5 -> +-1
-                s                 = std::clamp(s, -1, 1);
-                if (s != 0)
+                // ring = my owned coarse cells face-adjacent to the current front
+                cl_type ring_cl;
+                for (std::size_t k = 0; k < directions.shape()[0]; ++k)
                 {
-                    direction_t dd;
-                    dd.fill(0);
-                    dd(d) = s;
-                    dirs.push_back(dd);
+                    auto d = xt::view(directions, k);
+                    intersection(owned[ref], translate(boundary[ref], d))(
+                        [&](const auto& interval, const auto& index)
+                        {
+                            ring_cl[ref][index].add_interval(interval);
+                        });
+                }
+                ca_type ring = {ring_cl, false};
+                if (ring[ref].empty())
+                {
+                    break; // front cannot advance without leaving my owned cells
+                }
+
+                // Cede the ring ONE COARSE CELL AT A TIME, atomically: a coarse
+                // cell (at `ref` = min_level) is either fully handed to the
+                // neighbour or fully kept. This is what keeps the partition
+                // compact. Ceding whole rings and stopping mid-ring at the finest
+                // level — a raw cell scan — used to slice the refined front into
+                // disconnected single-cell slivers (the islands seen on adaptive
+                // meshes). With atomic coarse cells the frontier is a min_level
+                // staircase, and since every coarse cell of the ring is
+                // face-adjacent to the front, everything we cede stays connected
+                // to the neighbour: no island can appear. The price is an
+                // overshoot bounded by one coarse cell's worth of load — small
+                // when refinement is along an interface (a coarse cell then holds
+                // only a thin band of fine cells).
+                cl_type ceded_cl;
+                bool stop = false;
+                for_each_interval(ring[ref],
+                                  [&](std::size_t /*lvl*/, const auto& interval, const auto& index)
+                                  {
+                                      for (auto i = interval.start; i < interval.end && !stop; ++i)
+                                      {
+                                          // hand every still-owned fine cell of this one coarse cell
+                                          cl_type cc_cl;
+                                          cc_cl[ref][index].add_point(i);
+                                          const ca_type cc = {cc_cl, false};
+
+                                          for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
+                                          {
+                                              intersection(cc[ref], mesh[mesh_id_t::cells][level])
+                                                  .on(level)(
+                                                      [&](const auto& fine_interval, const auto& fine_index)
+                                                      {
+                                                          for (auto fi = fine_interval.start; fi < fine_interval.end; ++fi)
+                                                          {
+                                                              auto cell = mesh.get_cell(level, fi, fine_index);
+                                                              if (flags[cell] == rank)
+                                                              {
+                                                                  flags[cell] = neigh_rank;
+                                                                  remaining -= weight(cell);
+                                                              }
+                                                          }
+                                                      });
+                                          }
+
+                                          ceded_cl[ref][index].add_point(i);
+                                          if (remaining <= 0.)
+                                          {
+                                              stop = true; // requested flux met: stop at this coarse-cell boundary
+                                          }
+                                      }
+                                  });
+
+                // advance the front onto the coarse cells actually ceded, and
+                // drop them from the owned set (a partially-peeled ring leaves
+                // its remaining coarse cells owned, for the next neighbour or me)
+                const ca_type ceded = {ceded_cl, false};
+                boundary            = set_union<cl_type, ca_type>(boundary, ceded, ref);
+                owned               = set_difference<cl_type, ca_type>(owned, ceded, ref);
+
+                if (stop)
+                {
+                    break;
                 }
             }
-            return dirs;
         }
 
-        /**
-         * Cede successive layers of my cells to `neigh_rank`, starting at the
-         * interface with the neighbour and moving by `dir` into my domain, until
-         * `remaining` load is shed or the interface is exhausted. `dir` is a unit
-         * cardinal vector pointing from the neighbour into my domain.
-         *
-         * Everything is built at `min_level` and projected onto each real level
-         * with `.on(level)`, which is dimension- and level-jump-agnostic.
-         */
-        template <class cl_type, class ca_type, class Mesh, class Flags, class NeighMesh, class Direction, class Weight>
-        void give_layers(Mesh& mesh,
-                         Flags& flags,
-                         const NeighMesh& neigh_mesh,
-                         const Direction& dir,
-                         int neigh_rank,
-                         const Weight& weight,
-                         double& remaining) const
+        /// Materialize `a ∪ b` at level `ref` into a single-level CellArray.
+        template <class cl_type, class ca_type, class CellArray>
+        static ca_type set_union(const CellArray& a, const CellArray& b, std::size_t ref)
         {
-            using mesh_id_t       = typename Mesh::mesh_id_t;
-            const std::size_t ref = mesh.min_level();
-            const int rank        = boost::mpi::communicator{}.rank();
-
-            // my whole subdomain and the neighbour's cells, projected to ref
-            const ca_type my_ref    = project_to_level<cl_type, ca_type>(mesh[mesh_id_t::cells], ref);
-            const ca_type neigh_ref = project_to_level<cl_type, ca_type>(neigh_mesh[mesh_id_t::cells], ref);
-
-            // layer 0: my ref cells one step `dir` away from the neighbour, i.e.
-            // the neighbour cells brought onto my side intersected with mine.
-            cl_type if0_cl;
-            intersection(my_ref[ref], translate(neigh_ref[ref], dir))(
+            cl_type cl;
+            union_(a[ref], b[ref])(
                 [&](const auto& interval, const auto& index)
                 {
-                    if0_cl[ref][index].add_interval(interval);
+                    cl[ref][index].add_interval(interval);
                 });
-            const ca_type interface = {if0_cl, false};
-            if (interface[ref].empty())
-            {
-                return;
-            }
+            return ca_type{cl, false};
+        }
 
-            for (int offset = 0; remaining > 0.; ++offset)
-            {
-                auto band        = translate(interface[ref], dir * offset); // ref-level slab
-                std::size_t gave = 0;
-
-                for (std::size_t level = mesh.min_level(); level <= mesh.max_level() && remaining > 0.; ++level)
+        /// Materialize `a \ b` at level `ref` into a single-level CellArray.
+        template <class cl_type, class ca_type, class CellArray>
+        static ca_type set_difference(const CellArray& a, const CellArray& b, std::size_t ref)
+        {
+            cl_type cl;
+            difference(a[ref], b[ref])(
+                [&](const auto& interval, const auto& index)
                 {
-                    intersection(band, mesh[mesh_id_t::cells][level])
-                        .on(level)(
-                            [&](const auto& interval, const auto& index)
-                            {
-                                for (auto i = interval.start; i < interval.end && remaining > 0.; ++i)
-                                {
-                                    auto cell = mesh.get_cell(level, i, index);
-                                    if (flags[cell] == rank)
-                                    {
-                                        flags[cell] = neigh_rank;
-                                        remaining -= weight(cell);
-                                        ++gave;
-                                    }
-                                }
-                            });
-                }
-
-                if (gave == 0)
-                {
-                    break; // nothing left connected to the interface in this direction
-                }
-            }
+                    cl[ref][index].add_interval(interval);
+                });
+            return ca_type{cl, false};
         }
 
         /// Project all levels of `cells` down to `ref` (coarsening), returning a

@@ -29,3 +29,21 @@ add_mpi_gtest(test_lb_metrics)
 add_mpi_gtest(test_lb_sfc)
 add_mpi_gtest(test_lb_diffusion)
 add_mpi_gtest(test_lb_ghosts)
+
+# Graph construction test (always built with MPI; no external library needed)
+add_mpi_gtest(test_lb_graph)
+
+# ParMETIS tests (only if ParMETIS is available)
+if(SAMURAI_WITH_PARMETIS)
+    add_mpi_gtest(test_lb_metis)
+    target_compile_definitions(test_lb_metis PRIVATE SAMURAI_WITH_PARMETIS)
+    target_link_libraries(test_lb_metis ParMETIS::ParMETIS ParMETIS::Metis)
+
+endif()
+
+# PT-Scotch tests (only if PT-Scotch is available)
+if(SAMURAI_WITH_PTSCOTCH)
+    add_mpi_gtest(test_lb_scotch)
+    target_compile_definitions(test_lb_scotch PRIVATE SAMURAI_WITH_PTSCOTCH)
+    target_link_libraries(test_lb_scotch PTScotch::PTScotch PTScotch::Scotch)
+endif()

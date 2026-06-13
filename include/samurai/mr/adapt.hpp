@@ -13,7 +13,9 @@
 #include "../arguments.hpp"
 #include "../boundary.hpp"
 #include "../field.hpp"
-#include "../load_balancing/load_balancing_diffusion.hpp"
+#include "../load_balancing/load_balancer.hpp"
+#include "../load_balancing/strategies/diffusion.hpp"
+#include "../load_balancing/weight.hpp"
 #include "../timers.hpp"
 #include "config.hpp"
 #include "criteria.hpp"
@@ -128,7 +130,7 @@ namespace samurai
         detail_t m_detail;
         tag_t m_tag;
 #ifdef SAMURAI_WITH_MPI
-        DiffusionLoadBalancer m_balancer;
+        load_balancing::LoadBalancer<load_balancing::Diffusion> m_balancer;
         std::size_t m_adapt_ite{0};
 #endif
     };
@@ -170,26 +172,25 @@ namespace samurai
             }
         }
 #ifdef SAMURAI_WITH_MPI
-        if constexpr (dim == 2) // only works in 2D for now
+        // the diffusion strategy is nD: no dimension restriction anymore.
+        if (args::load_balancing_at > 0 && m_adapt_ite % args::load_balancing_at == 0)
         {
-            if (args::load_balancing_at > 0 && m_adapt_ite % args::load_balancing_at == 0)
+            const auto weight = load_balancing::weight::uniform();
+            if constexpr (std::same_as<fields_t, Field_tuple<TField, TFields...>>)
             {
-                if constexpr (std::same_as<fields_t, Field_tuple<TField, TFields...>>)
-                {
-                    std::apply(
-                        [&](auto&&... fields)
-                        {
-                            m_balancer.load_balance(fields..., other_fields...);
-                        },
-                        m_fields.elements());
-                }
-                else
-                {
-                    m_balancer.load_balance(m_fields, other_fields...);
-                }
+                std::apply(
+                    [&](auto&&... fields)
+                    {
+                        m_balancer.load_balance(weight, fields..., other_fields...);
+                    },
+                    m_fields.elements());
             }
-            m_adapt_ite++;
+            else
+            {
+                m_balancer.load_balance(weight, m_fields, other_fields...);
+            }
         }
+        m_adapt_ite++;
 #endif
     }
 
