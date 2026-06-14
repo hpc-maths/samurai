@@ -232,7 +232,7 @@ jobs:
             - name: Petsc installation
               shell: micromamba-shell {0}
               run: |
-                  micromamba install -y "petsc>=3.24" pkg-config cxx-compiler ninja
+                  micromamba install -y petsc pkg-config cxx-compiler
 
             - name: Micromamba informations
               shell: micromamba-shell {0}
@@ -246,7 +246,6 @@ jobs:
                   cmake \
                       . \
                       -Bbuild \
-                      -GNinja \
                       -DCMAKE_BUILD_TYPE=Release \
                       -DWITH_MPI=ON \
                       -DWITH_PETSC=ON \

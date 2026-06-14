@@ -14,7 +14,7 @@
 #include "../boundary.hpp"
 #include "../field.hpp"
 #include "../load_balancing/load_balancer.hpp"
-#include "../load_balancing/strategies/diffusion.hpp"
+#include "../load_balancing/strategies/sfc.hpp"
 #include "../load_balancing/weight.hpp"
 #include "../timers.hpp"
 #include "config.hpp"
@@ -130,7 +130,7 @@ namespace samurai
         detail_t m_detail;
         tag_t m_tag;
 #ifdef SAMURAI_WITH_MPI
-        load_balancing::LoadBalancer<load_balancing::Diffusion> m_balancer;
+        load_balancing::LoadBalancer<load_balancing::SFC<load_balancing::Hilbert>> m_balancer;
         std::size_t m_adapt_ite{0};
 #endif
     };
