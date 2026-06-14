@@ -96,22 +96,22 @@ namespace samurai::load_balancing
             SCOTCH_Dgraph grafdat;
             SCOTCH_dgraphInit(&grafdat, MPI_COMM_WORLD);
 
-            SCOTCH_Num nvtx_local  = graph.nvtx_local();
+            SCOTCH_Num nvtx_local   = graph.nvtx_local();
             SCOTCH_Num nedges_local = static_cast<SCOTCH_Num>(graph.adjncy.size());
 
             int result = SCOTCH_dgraphBuild(&grafdat,
-                                             0,                   // baseval: C-style numbering
-                                             nvtx_local,           // vertlocnbr
-                                             nvtx_local,           // vertlocmax
-                                             graph.xadj.data(),    // vertloctab
-                                             nullptr,              // vendloctab
-                                             graph.vwgt.data(),    // veloloctab (vertex weights)
-                                             nullptr,              // vlblloctab
-                                             nedges_local,          // edgelocnbr
-                                             nedges_local,          // edgelocsiz
-                                             graph.adjncy.data(),  // edgeloctab
-                                             nullptr,               // edgegsttab
-                                             graph.adjwgt.data()); // edlotabtab (edge weights)
+                                            0,                    // baseval: C-style numbering
+                                            nvtx_local,           // vertlocnbr
+                                            nvtx_local,           // vertlocmax
+                                            graph.xadj.data(),    // vertloctab
+                                            nullptr,              // vendloctab
+                                            graph.vwgt.data(),    // veloloctab (vertex weights)
+                                            nullptr,              // vlblloctab
+                                            nedges_local,         // edgelocnbr
+                                            nedges_local,         // edgelocsiz
+                                            graph.adjncy.data(),  // edgeloctab
+                                            nullptr,              // edgegsttab
+                                            graph.adjwgt.data()); // edlotabtab (edge weights)
 
             if (result != 0)
             {
@@ -127,10 +127,10 @@ namespace samurai::load_balancing
 
             // Build a balance-oriented strategy with the target imbalance
             result = SCOTCH_stratDgraphMapBuild(&stratdat,
-                                                  SCOTCH_STRATBALANCE,
-                                                  0,                                    //1855, rep
-                                                  static_cast<SCOTCH_Num>(world.size()), // nparts
-                                                  static_cast<double>(m_options.imbalance_tolerance)); // balance param
+                                                SCOTCH_STRATBALANCE,
+                                                0,                                                   // 1855, rep
+                                                static_cast<SCOTCH_Num>(world.size()),               // nparts
+                                                static_cast<double>(m_options.imbalance_tolerance)); // balance param
 
             if (result != 0)
             {
@@ -141,10 +141,7 @@ namespace samurai::load_balancing
 
             std::vector<SCOTCH_Num> part(static_cast<std::size_t>(nvtx_local));
 
-            result = SCOTCH_dgraphPart(&grafdat,
-                                         static_cast<SCOTCH_Num>(world.size()),
-                                         &stratdat,
-                                         part.data());
+            result = SCOTCH_dgraphPart(&grafdat, static_cast<SCOTCH_Num>(world.size()), &stratdat, part.data());
 
             if (result != 0)
             {

@@ -152,17 +152,18 @@ namespace
         }
 
         std::vector<std::pair<key_t, int>> local;
-        samurai::for_each_cell(mesh[mesh_id_t::cells],
-                               [&](const auto& cell)
-                               {
-                                   const auto shift = max_level - cell.level;
-                                   xt::xtensor_fixed<std::uint32_t, xt::xshape<dim>> p;
-                                   for (std::size_t d = 0; d < dim; ++d)
-                                   {
-                                       p(d) = static_cast<std::uint32_t>((static_cast<std::int64_t>(cell.indices[d]) << shift) - global_min[d]);
-                                   }
-                                   local.emplace_back(curve.template key<dim>(p), world.rank());
-                               });
+        samurai::for_each_cell(
+            mesh[mesh_id_t::cells],
+            [&](const auto& cell)
+            {
+                const auto shift = max_level - cell.level;
+                xt::xtensor_fixed<std::uint32_t, xt::xshape<dim>> p;
+                for (std::size_t d = 0; d < dim; ++d)
+                {
+                    p(d) = static_cast<std::uint32_t>((static_cast<std::int64_t>(cell.indices[d]) << shift) - global_min[d]);
+                }
+                local.emplace_back(curve.template key<dim>(p), world.rank());
+            });
 
         std::vector<std::vector<std::pair<key_t, int>>> all;
         mpi::gather(world, local, all, 0);
@@ -385,10 +386,10 @@ namespace
         using mesh_id_t = typename TestFixture::mesh_id_t;
         mpi::communicator world;
 
-        auto mesh                = TestFixture::make_corner_refined_mesh();
-        auto u                   = TestFixture::make_analytic_field(mesh);
-        const auto cells_before  = mesh[mesh_id_t::cells];
-        const auto count_before  = TestFixture::global_count(mesh);
+        auto mesh               = TestFixture::make_corner_refined_mesh();
+        auto u                  = TestFixture::make_analytic_field(mesh);
+        const auto cells_before = mesh[mesh_id_t::cells];
+        const auto count_before = TestFixture::global_count(mesh);
 
         // 1. collapse onto ranks {0, 1}: left half -> 0, right half -> 1.
         auto squash = samurai_test::LambdaStrategy{[](const auto& cell, int, int)

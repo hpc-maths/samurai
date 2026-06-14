@@ -60,6 +60,7 @@ namespace samurai::load_balancing
         {
             std::size_t level{};
             std::array<value_t, dim> indices{};
+
             bool operator==(const CellKey& o) const
             {
                 return level == o.level && indices == o.indices;
@@ -85,8 +86,8 @@ namespace samurai::load_balancing
         template <class Mesh>
         auto build_cell_index(const Mesh& mesh)
         {
-            using mesh_id_t = typename Mesh::mesh_id_t;
-            using value_t   = typename Mesh::interval_t::value_t;
+            using mesh_id_t           = typename Mesh::mesh_id_t;
+            using value_t             = typename Mesh::interval_t::value_t;
             constexpr std::size_t dim = Mesh::dim;
             using key_t               = CellKey<dim, value_t>;
             using map_t               = std::unordered_map<key_t, std::size_t, CellKeyHash<dim, value_t>>;
@@ -108,12 +109,11 @@ namespace samurai::load_balancing
         }
 
         template <class Mesh>
-        std::size_t lookup(
-            const std::unordered_map<CellKey<Mesh::dim, typename Mesh::interval_t::value_t>,
-                                     std::size_t,
-                                     CellKeyHash<Mesh::dim, typename Mesh::interval_t::value_t>>& idx,
-            std::size_t level,
-            const typename Mesh::cell_t::indices_t& indices)
+        std::size_t lookup(const std::unordered_map<CellKey<Mesh::dim, typename Mesh::interval_t::value_t>,
+                                                    std::size_t,
+                                                    CellKeyHash<Mesh::dim, typename Mesh::interval_t::value_t>>& idx,
+                           std::size_t level,
+                           const typename Mesh::cell_t::indices_t& indices)
         {
             using value_t = typename Mesh::interval_t::value_t;
             CellKey<Mesh::dim, value_t> key{level, {}};
@@ -129,15 +129,13 @@ namespace samurai::load_balancing
          *  except exactly one, where they just touch. Level jumps are handled
          *  by projecting both cells to their finest common level. */
         template <std::size_t dim, class value_t>
-        bool are_face_adjacent(std::size_t u_level,
-                               const std::array<value_t, dim>& u_idx,
-                               std::size_t v_level,
-                               const std::array<value_t, dim>& v_idx)
+        bool
+        are_face_adjacent(std::size_t u_level, const std::array<value_t, dim>& u_idx, std::size_t v_level, const std::array<value_t, dim>& v_idx)
         {
             const std::size_t ref = std::max(u_level, v_level);
-            const int su   = static_cast<int>(ref) - static_cast<int>(u_level);
-            const int sv   = static_cast<int>(ref) - static_cast<int>(v_level);
-            int touching   = 0;
+            const int su          = static_cast<int>(ref) - static_cast<int>(u_level);
+            const int sv          = static_cast<int>(ref) - static_cast<int>(v_level);
+            int touching          = 0;
             for (std::size_t d = 0; d < dim; ++d)
             {
                 const long long u0 = static_cast<long long>(u_idx[d]) << su;
@@ -162,13 +160,13 @@ namespace samurai::load_balancing
     {
         constexpr std::size_t dim = Mesh::dim;
         using mesh_id_t           = typename Mesh::mesh_id_t;
-        using value_t            = typename Mesh::interval_t::value_t;
+        using value_t             = typename Mesh::interval_t::value_t;
         using key_t               = detail::CellKey<dim, value_t>;
         using map_t               = std::unordered_map<key_t, std::size_t, detail::CellKeyHash<dim, value_t>>;
 
         boost::mpi::communicator world;
         const int rank = world.rank();
-        const int size  = world.size();
+        const int size = world.size();
 
         const idx_t n_local = static_cast<idx_t>(mesh.nb_cells(mesh_id_t::cells));
         map_t id_map        = detail::build_cell_index(mesh);
@@ -187,106 +185,109 @@ namespace samurai::load_balancing
 
         // Vertex weights & coordinates
         double w_total = 0.;
-        for_each_cell(mesh[mesh_id_t::cells], [&](const auto& c)
-        {
-            w_total += weight(c);
-        });
+        for_each_cell(mesh[mesh_id_t::cells],
+                      [&](const auto& c)
+                      {
+                          w_total += weight(c);
+                      });
         const double avg_w   = (n_local > 0) ? w_total / static_cast<double>(n_local) : 1.;
         const double w_scale = (avg_w > 0.) ? weight_scale_factor / avg_w : 1.;
 
         g.vwgt.reserve(static_cast<std::size_t>(n_local));
         g.xyz.reserve(static_cast<std::size_t>(n_local) * dim);
-        for_each_cell(mesh[mesh_id_t::cells], [&](const auto& c)
-        {
-            g.vwgt.push_back(static_cast<idx_t>(std::max(1., std::round(weight(c) * w_scale))));
-            auto ctr = c.center();
-            for (std::size_t d = 0; d < dim; ++d)
-            {
-                g.xyz.push_back(static_cast<float>(ctr[d]));
-            }
-        });
+        for_each_cell(mesh[mesh_id_t::cells],
+                      [&](const auto& c)
+                      {
+                          g.vwgt.push_back(static_cast<idx_t>(std::max(1., std::round(weight(c) * w_scale))));
+                          auto ctr = c.center();
+                          for (std::size_t d = 0; d < dim; ++d)
+                          {
+                              g.xyz.push_back(static_cast<float>(ctr[d]));
+                          }
+                      });
 
         // Adjacency lists: adj[u] = list of (global_v, edge_weight)
         std::vector<std::vector<std::pair<idx_t, idx_t>>> adj(static_cast<std::size_t>(n_local));
 
         // --- Internal edges: for each cell, check 2*dim directions at l-1, l, l+1 ---
-        for_each_cell(mesh[mesh_id_t::cells], [&](const auto& cell)
-        {
-            key_t k{cell.level, {}};
-            for (std::size_t d = 0; d < dim; ++d)
-            {
-                k.indices[d] = cell.indices[d];
-            }
-            const std::size_t u = id_map.at(k);
+        for_each_cell(mesh[mesh_id_t::cells],
+                      [&](const auto& cell)
+                      {
+                          key_t k{cell.level, {}};
+                          for (std::size_t d = 0; d < dim; ++d)
+                          {
+                              k.indices[d] = cell.indices[d];
+                          }
+                          const std::size_t u = id_map.at(k);
 
-            for (std::size_t d = 0; d < dim; ++d)
-            {
-                for (int sign : {-1, 1})
-                {
-                    // Same-level neighbour
-                    {
-                        typename Mesh::cell_t::indices_t ni{};
-                        for (std::size_t dd = 0; dd < dim; ++dd)
-                        {
-                            ni[dd] = cell.indices[dd];
-                        }
-                        ni[d] += static_cast<value_t>(sign);
-                        auto v = detail::lookup<Mesh>(id_map, cell.level, ni);
-                        if (v != detail::npos)
-                        {
-                            adj[u].emplace_back(go + static_cast<idx_t>(v), idx_t{1});
-                        }
-                    }
-                    // Coarser (l-1)
-                    if (cell.level > mesh.min_level())
-                    {
-                        typename Mesh::cell_t::indices_t ni{};
-                        for (std::size_t dd = 0; dd < dim; ++dd)
-                        {
-                            if (dd == d)
-                            {
-                                ni[dd] = (cell.indices[dd] + static_cast<value_t>((sign > 0) ? 1 : 0)) >> 1;
-                            }
-                            else
-                            {
-                                ni[dd] = cell.indices[dd] >> 1;
-                            }
-                        }
-                        auto v = detail::lookup<Mesh>(id_map, cell.level - 1, ni);
-                        if (v != detail::npos)
-                        {
-                            adj[u].emplace_back(go + static_cast<idx_t>(v), idx_t{1});
-                        }
-                    }
-                    // Finer (l+1): 2^(dim-1) cells on the face
-                    if (cell.level < mesh.max_level())
-                    {
-                        const value_t face = static_cast<value_t>(2 * cell.indices[d] + ((sign > 0) ? 1 : -1));
-                        const std::size_t nf = std::size_t{1} << (dim - 1);
-                        for (std::size_t mask = 0; mask < nf; ++mask)
-                        {
-                            typename Mesh::cell_t::indices_t ni{};
-                            ni[d] = face;
-                            std::size_t bit = 0;
-                            for (std::size_t dd = 0; dd < dim; ++dd)
-                            {
-                                if (dd == d)
-                                {
-                                    continue;
-                                }
-                                ni[dd] = static_cast<value_t>((cell.indices[dd] << 1) + ((mask >> bit) & 1));
-                                ++bit;
-                            }
-                            auto v = detail::lookup<Mesh>(id_map, cell.level + 1, ni);
-                            if (v != detail::npos)
-                            {
-                                adj[u].emplace_back(go + static_cast<idx_t>(v), idx_t{1});
-                            }
-                        }
-                    }
-                }
-            }
-        });
+                          for (std::size_t d = 0; d < dim; ++d)
+                          {
+                              for (int sign : {-1, 1})
+                              {
+                                  // Same-level neighbour
+                                  {
+                                      typename Mesh::cell_t::indices_t ni{};
+                                      for (std::size_t dd = 0; dd < dim; ++dd)
+                                      {
+                                          ni[dd] = cell.indices[dd];
+                                      }
+                                      ni[d] += static_cast<value_t>(sign);
+                                      auto v = detail::lookup<Mesh>(id_map, cell.level, ni);
+                                      if (v != detail::npos)
+                                      {
+                                          adj[u].emplace_back(go + static_cast<idx_t>(v), idx_t{1});
+                                      }
+                                  }
+                                  // Coarser (l-1)
+                                  if (cell.level > mesh.min_level())
+                                  {
+                                      typename Mesh::cell_t::indices_t ni{};
+                                      for (std::size_t dd = 0; dd < dim; ++dd)
+                                      {
+                                          if (dd == d)
+                                          {
+                                              ni[dd] = (cell.indices[dd] + static_cast<value_t>((sign > 0) ? 1 : 0)) >> 1;
+                                          }
+                                          else
+                                          {
+                                              ni[dd] = cell.indices[dd] >> 1;
+                                          }
+                                      }
+                                      auto v = detail::lookup<Mesh>(id_map, cell.level - 1, ni);
+                                      if (v != detail::npos)
+                                      {
+                                          adj[u].emplace_back(go + static_cast<idx_t>(v), idx_t{1});
+                                      }
+                                  }
+                                  // Finer (l+1): 2^(dim-1) cells on the face
+                                  if (cell.level < mesh.max_level())
+                                  {
+                                      const value_t face   = static_cast<value_t>(2 * cell.indices[d] + ((sign > 0) ? 1 : -1));
+                                      const std::size_t nf = std::size_t{1} << (dim - 1);
+                                      for (std::size_t mask = 0; mask < nf; ++mask)
+                                      {
+                                          typename Mesh::cell_t::indices_t ni{};
+                                          ni[d]           = face;
+                                          std::size_t bit = 0;
+                                          for (std::size_t dd = 0; dd < dim; ++dd)
+                                          {
+                                              if (dd == d)
+                                              {
+                                                  continue;
+                                              }
+                                              ni[dd] = static_cast<value_t>((cell.indices[dd] << 1) + ((mask >> bit) & 1));
+                                              ++bit;
+                                          }
+                                          auto v = detail::lookup<Mesh>(id_map, cell.level + 1, ni);
+                                          if (v != detail::npos)
+                                          {
+                                              adj[u].emplace_back(go + static_cast<idx_t>(v), idx_t{1});
+                                          }
+                                      }
+                                  }
+                              }
+                          }
+                      });
 
         // --- MPI boundary edges ---
         // Exchange (global_id, level, indices) for boundary cells with each
@@ -306,109 +307,110 @@ namespace samurai::load_balancing
             // in a direction that is inside the neighbour's bounding box.
 
             std::vector<bc_t> my_bc;
-            for_each_cell(mesh[mesh_id_t::cells], [&](const auto& cell)
-            {
-                key_t k{cell.level, {}};
-                for (std::size_t dd = 0; dd < dim; ++dd)
-                {
-                    k.indices[dd] = cell.indices[dd];
-                }
-                const std::size_t u = id_map.at(k);
+            for_each_cell(mesh[mesh_id_t::cells],
+                          [&](const auto& cell)
+                          {
+                              key_t k{cell.level, {}};
+                              for (std::size_t dd = 0; dd < dim; ++dd)
+                              {
+                                  k.indices[dd] = cell.indices[dd];
+                              }
+                              const std::size_t u = id_map.at(k);
 
-                for (std::size_t d = 0; d < dim; ++d)
-                {
-                    for (int sign : {-1, 1})
-                    {
-                        // Check same level
-                        {
-                            typename Mesh::cell_t::indices_t ni{};
-                            for (std::size_t dd = 0; dd < dim; ++dd)
-                            {
-                                ni[dd] = cell.indices[dd];
-                            }
-                            ni[d] += static_cast<value_t>(sign);
-                            auto v = detail::lookup<Mesh>(id_map, cell.level, ni);
-                            if (v == detail::npos)
-                            {
-                                // Not found locally: could be in the neighbour's mesh
-                                std::array<value_t, dim> idx{};
-                                for (std::size_t dd = 0; dd < dim; ++dd)
-                                {
-                                    idx[dd] = cell.indices[dd];
-                                }
-                                my_bc.emplace_back(go + static_cast<idx_t>(u), cell.level, idx);
-                                goto next_direction; // Only add once per cell
-                            }
-                        }
-                        // Also check level jump neighbours
-                        if (cell.level > mesh.min_level())
-                        {
-                            typename Mesh::cell_t::indices_t ni{};
-                            for (std::size_t dd = 0; dd < dim; ++dd)
-                            {
-                                if (dd == d)
-                                {
-                                    ni[dd] = (cell.indices[dd] + static_cast<value_t>((sign > 0) ? 1 : 0)) >> 1;
-                                }
-                                else
-                                {
-                                    ni[dd] = cell.indices[dd] >> 1;
-                                }
-                            }
-                            auto v = detail::lookup<Mesh>(id_map, cell.level - 1, ni);
-                            if (v == detail::npos)
-                            {
-                                std::array<value_t, dim> idx{};
-                                for (std::size_t dd = 0; dd < dim; ++dd)
-                                {
-                                    idx[dd] = cell.indices[dd];
-                                }
-                                my_bc.emplace_back(go + static_cast<idx_t>(u), cell.level, idx);
-                                goto next_direction;
-                            }
-                        }
-                        if (cell.level < mesh.max_level())
-                        {
-                            const value_t face = static_cast<value_t>(2 * cell.indices[d] + ((sign > 0) ? 1 : -1));
-                            const std::size_t nf = std::size_t{1} << (dim - 1);
-                            for (std::size_t mask = 0; mask < nf; ++mask)
-                            {
-                                typename Mesh::cell_t::indices_t ni{};
-                                ni[d] = face;
-                                std::size_t bit = 0;
-                                for (std::size_t dd = 0; dd < dim; ++dd)
-                                {
-                                    if (dd == d)
-                                    {
-                                        continue;
-                                    }
-                                    ni[dd] = static_cast<value_t>((cell.indices[dd] << 1) + ((mask >> bit) & 1));
-                                    ++bit;
-                                }
-                                auto v = detail::lookup<Mesh>(id_map, cell.level + 1, ni);
-                                if (v == detail::npos)
-                                {
-                                    std::array<value_t, dim> idx{};
-                                    for (std::size_t dd = 0; dd < dim; ++dd)
-                                    {
-                                        idx[dd] = cell.indices[dd];
-                                    }
-                                    my_bc.emplace_back(go + static_cast<idx_t>(u), cell.level, idx);
-                                    goto next_direction;
-                                }
-                            }
-                        }
-                    next_direction:;
-                    }
-                }
-            });
+                              for (std::size_t d = 0; d < dim; ++d)
+                              {
+                                  for (int sign : {-1, 1})
+                                  {
+                                      // Check same level
+                                      {
+                                          typename Mesh::cell_t::indices_t ni{};
+                                          for (std::size_t dd = 0; dd < dim; ++dd)
+                                          {
+                                              ni[dd] = cell.indices[dd];
+                                          }
+                                          ni[d] += static_cast<value_t>(sign);
+                                          auto v = detail::lookup<Mesh>(id_map, cell.level, ni);
+                                          if (v == detail::npos)
+                                          {
+                                              // Not found locally: could be in the neighbour's mesh
+                                              std::array<value_t, dim> idx{};
+                                              for (std::size_t dd = 0; dd < dim; ++dd)
+                                              {
+                                                  idx[dd] = cell.indices[dd];
+                                              }
+                                              my_bc.emplace_back(go + static_cast<idx_t>(u), cell.level, idx);
+                                              goto next_direction; // Only add once per cell
+                                          }
+                                      }
+                                      // Also check level jump neighbours
+                                      if (cell.level > mesh.min_level())
+                                      {
+                                          typename Mesh::cell_t::indices_t ni{};
+                                          for (std::size_t dd = 0; dd < dim; ++dd)
+                                          {
+                                              if (dd == d)
+                                              {
+                                                  ni[dd] = (cell.indices[dd] + static_cast<value_t>((sign > 0) ? 1 : 0)) >> 1;
+                                              }
+                                              else
+                                              {
+                                                  ni[dd] = cell.indices[dd] >> 1;
+                                              }
+                                          }
+                                          auto v = detail::lookup<Mesh>(id_map, cell.level - 1, ni);
+                                          if (v == detail::npos)
+                                          {
+                                              std::array<value_t, dim> idx{};
+                                              for (std::size_t dd = 0; dd < dim; ++dd)
+                                              {
+                                                  idx[dd] = cell.indices[dd];
+                                              }
+                                              my_bc.emplace_back(go + static_cast<idx_t>(u), cell.level, idx);
+                                              goto next_direction;
+                                          }
+                                      }
+                                      if (cell.level < mesh.max_level())
+                                      {
+                                          const value_t face   = static_cast<value_t>(2 * cell.indices[d] + ((sign > 0) ? 1 : -1));
+                                          const std::size_t nf = std::size_t{1} << (dim - 1);
+                                          for (std::size_t mask = 0; mask < nf; ++mask)
+                                          {
+                                              typename Mesh::cell_t::indices_t ni{};
+                                              ni[d]           = face;
+                                              std::size_t bit = 0;
+                                              for (std::size_t dd = 0; dd < dim; ++dd)
+                                              {
+                                                  if (dd == d)
+                                                  {
+                                                      continue;
+                                                  }
+                                                  ni[dd] = static_cast<value_t>((cell.indices[dd] << 1) + ((mask >> bit) & 1));
+                                                  ++bit;
+                                              }
+                                              auto v = detail::lookup<Mesh>(id_map, cell.level + 1, ni);
+                                              if (v == detail::npos)
+                                              {
+                                                  std::array<value_t, dim> idx{};
+                                                  for (std::size_t dd = 0; dd < dim; ++dd)
+                                                  {
+                                                      idx[dd] = cell.indices[dd];
+                                                  }
+                                                  my_bc.emplace_back(go + static_cast<idx_t>(u), cell.level, idx);
+                                                  goto next_direction;
+                                              }
+                                          }
+                                      }
+                                  next_direction:;
+                                  }
+                              }
+                          });
 
             // Deduplicate
             std::sort(my_bc.begin(), my_bc.end());
             my_bc.erase(std::unique(my_bc.begin(), my_bc.end()), my_bc.end());
 
             // Exchange with neighbour
-            auto my_size = static_cast<std::size_t>(my_bc.size());
+            auto my_size           = static_cast<std::size_t>(my_bc.size());
             std::size_t their_size = 0;
             world.send(neigh.rank, tag_migration + 100, my_size);
             world.recv(neigh.rank, tag_migration + 100, their_size);
@@ -475,7 +477,7 @@ namespace samurai::load_balancing
             if (!edges.empty())
             {
                 std::size_t write = 0;
-                idx_t w = edges[0].second;
+                idx_t w           = edges[0].second;
                 for (std::size_t read = 1; read < edges.size(); ++read)
                 {
                     if (edges[read].first == edges[write].first)
@@ -487,7 +489,7 @@ namespace samurai::load_balancing
                         edges[write].second = w;
                         ++write;
                         edges[write] = edges[read];
-                        w = edges[write].second;
+                        w            = edges[write].second;
                     }
                 }
                 edges[write].second = w;

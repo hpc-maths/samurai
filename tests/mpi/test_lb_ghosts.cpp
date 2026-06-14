@@ -290,8 +290,7 @@ namespace
                 {
                     if (!state_lb.contains(key) && shown++ < 8)
                     {
-                        std::cerr << "  ref-only cell: level " << key[0] << " (" << key[1] << ", " << key[2] << ") = " << value
-                                  << std::endl;
+                        std::cerr << "  ref-only cell: level " << key[0] << " (" << key[1] << ", " << key[2] << ") = " << value << std::endl;
                     }
                 }
             }

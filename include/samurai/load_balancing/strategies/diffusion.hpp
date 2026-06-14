@@ -350,7 +350,8 @@ namespace samurai::load_balancing
          * leaves the cells I own — no island is ever created.
          */
         template <class cl_type, class ca_type, class Mesh, class Flags, class NeighMesh, class Weight>
-        void give_to_neighbour(Mesh& mesh, Flags& flags, const NeighMesh& neigh_mesh, int neigh_rank, const Weight& weight, double& remaining) const
+        void
+        give_to_neighbour(Mesh& mesh, Flags& flags, const NeighMesh& neigh_mesh, int neigh_rank, const Weight& weight, double& remaining) const
         {
             using mesh_id_t           = typename Mesh::mesh_id_t;
             constexpr std::size_t dim = Mesh::dim;
@@ -607,8 +608,8 @@ namespace samurai::load_balancing
                 {
                     continue; // no neighbour borders it (rare): leave it with me
                 }
-                int target          = votes.begin()->first;
-                std::size_t best    = 0;
+                int target       = votes.begin()->first;
+                std::size_t best = 0;
                 for (const auto& [r, v] : votes)
                 {
                     if (v > best)

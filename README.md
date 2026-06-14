@@ -313,6 +313,15 @@ add_executable(my_samurai_project main.cpp)
 target_link_libraries(my_samurai_project PRIVATE samurai::samurai)
 ```
 
+The MPI load balancing module can optionally use external graph partitioners.
+Both require `SAMURAI_WITH_MPI=ON` and the corresponding library (available in
+conda-forge as `parmetis` / `ptscotch`):
+
+```cmake
+set(SAMURAI_WITH_PARMETIS ON)  # enable the ParMETIS (Metis) strategy
+set(SAMURAI_WITH_PTSCOTCH ON)  # enable the PT-Scotch (Scotch) strategy
+```
+
 ## Get help
 
 For a better understanding of all the components of samurai, you can consult the documentation https://hpc-math-samurai.readthedocs.io.

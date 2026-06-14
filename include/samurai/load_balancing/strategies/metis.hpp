@@ -80,7 +80,7 @@ namespace samurai::load_balancing
         template <class Mesh, class Weight>
         auto partition(Mesh& mesh, const Weight& weight) const
         {
-            using mesh_id_t = typename Mesh::mesh_id_t;
+            using mesh_id_t           = typename Mesh::mesh_id_t;
             constexpr std::size_t dim = Mesh::dim;
 
             boost::mpi::communicator world;
@@ -98,10 +98,8 @@ namespace samurai::load_balancing
             idx_t numflag = 0;
             idx_t ncon    = 1;
             idx_t nparts  = world.size();
-            std::vector<real_t> tpwgts(static_cast<std::size_t>(ncon * nparts),
-                                        1.0 / static_cast<real_t>(nparts));
-            std::vector<real_t> ubvec(static_cast<std::size_t>(ncon),
-                                      static_cast<real_t>(m_options.imbalance_tolerance));
+            std::vector<real_t> tpwgts(static_cast<std::size_t>(ncon * nparts), 1.0 / static_cast<real_t>(nparts));
+            std::vector<real_t> ubvec(static_cast<std::size_t>(ncon), static_cast<real_t>(m_options.imbalance_tolerance));
             idx_t edgecut = 0;
             std::vector<idx_t> part(static_cast<std::size_t>(graph.nvtx_local()), -1);
             MPI_Comm comm = MPI_COMM_WORLD;
@@ -114,7 +112,7 @@ namespace samurai::load_balancing
                     part[i] = world.rank();
                 }
                 real_t itr       = 1000.0;
-                real_t itr_val     = 1000.0;
+                real_t itr_val   = 1000.0;
                 idx_t options[3] = {0};
 
                 int result = ParMETIS_V3_AdaptiveRepart(graph.vtxdist.data(),
@@ -145,44 +143,44 @@ namespace samurai::load_balancing
                 idx_t options[3] = {0};
 
                 int result = ParMETIS_V3_PartGeomKway(graph.vtxdist.data(),
-                                                     graph.xadj.data(),
-                                                     graph.adjncy.data(),
-                                                     graph.vwgt.data(),
-                                                     graph.adjwgt.data(),
-                                                     &wgtflag,
-                                                     &numflag,
-                                                     &ndims,
-                                                     graph.xyz.data(),
-                                                     &ncon,
-                                                     &nparts,
-                                                     tpwgts.data(),
-                                                     ubvec.data(),
-                                                     options,
-                                                     &edgecut,
-                                                     part.data(),
-                                                     &comm);
+                                                      graph.xadj.data(),
+                                                      graph.adjncy.data(),
+                                                      graph.vwgt.data(),
+                                                      graph.adjwgt.data(),
+                                                      &wgtflag,
+                                                      &numflag,
+                                                      &ndims,
+                                                      graph.xyz.data(),
+                                                      &ncon,
+                                                      &nparts,
+                                                      tpwgts.data(),
+                                                      ubvec.data(),
+                                                      options,
+                                                      &edgecut,
+                                                      part.data(),
+                                                      &comm);
 
                 if (result != METIS_OK)
                 {
                     // PartGeomKway may fail if coordinates are degenerate;
                     // fall back to PartKway without geometric hint.
-                    idx_t edgecut2   = 0;
+                    idx_t edgecut2    = 0;
                     idx_t options2[3] = {0};
-                    int result2      = ParMETIS_V3_PartKway(graph.vtxdist.data(),
-                                                    graph.xadj.data(),
-                                                    graph.adjncy.data(),
-                                                    graph.vwgt.data(),
-                                                    graph.adjwgt.data(),
-                                                    &wgtflag,
-                                                    &numflag,
-                                                    &ncon,
-                                                    &nparts,
-                                                    tpwgts.data(),
-                                                    ubvec.data(),
-                                                    options2,
-                                                    &edgecut2,
-                                                    part.data(),
-                                                    &comm);
+                    int result2       = ParMETIS_V3_PartKway(graph.vtxdist.data(),
+                                                       graph.xadj.data(),
+                                                       graph.adjncy.data(),
+                                                       graph.vwgt.data(),
+                                                       graph.adjwgt.data(),
+                                                       &wgtflag,
+                                                       &numflag,
+                                                       &ncon,
+                                                       &nparts,
+                                                       tpwgts.data(),
+                                                       ubvec.data(),
+                                                       options2,
+                                                       &edgecut2,
+                                                       part.data(),
+                                                       &comm);
                     if (result2 != METIS_OK)
                     {
                         throw std::runtime_error("ParMETIS_V3_PartKway failed (error " + std::to_string(result2) + ")");

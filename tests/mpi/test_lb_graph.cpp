@@ -15,7 +15,7 @@
 
 #include "mpi_test_utils.hpp"
 
-namespace lb = samurai::load_balancing;
+namespace lb  = samurai::load_balancing;
 namespace mpi = boost::mpi;
 
 namespace
@@ -66,10 +66,10 @@ namespace
             GTEST_SKIP() << "This test requires exactly 1 process";
         }
 
-        auto mesh = TestFixture::make_uniform_mesh();
+        auto mesh  = TestFixture::make_uniform_mesh();
         auto graph = lb::build_cell_graph<int>(mesh, lb::weight::uniform());
 
-        const auto n = mesh.nb_cells(TestFixture::mesh_id_t::cells);
+        const auto n              = mesh.nb_cells(TestFixture::mesh_id_t::cells);
         constexpr std::size_t dim = TestFixture::dim;
 
         // vtxdist: [0, n]
@@ -118,7 +118,7 @@ namespace
         auto graph = lb::build_cell_graph<int>(mesh, lb::weight::uniform());
 
         const auto n_local  = mesh.nb_cells(TestFixture::mesh_id_t::cells);
-        const auto n_global  = mpi::all_reduce(world, n_local, std::plus<std::size_t>());
+        const auto n_global = mpi::all_reduce(world, n_local, std::plus<std::size_t>());
 
         // vtxdist[P] = total global count
         EXPECT_EQ(static_cast<std::size_t>(graph.vtxdist.back()), n_global);
@@ -151,18 +151,18 @@ namespace
     TYPED_TEST(LoadBalancingGraph, adapted_mesh)
     {
         constexpr std::size_t dim = TestFixture::dim;
-        auto mesh = samurai_test::make_locally_refined_mesh<typename TestFixture::Mesh>(
-            TestFixture::unit_box(),
-            TestFixture::level,
-            [](const auto& cell)
-            {
-                bool in_corner = true;
-                for (std::size_t d = 0; d < dim; ++d)
-                {
-                    in_corner = in_corner && (cell.center(d) < 0.5);
-                }
-                return in_corner;
-            });
+        auto mesh                 = samurai_test::make_locally_refined_mesh<typename TestFixture::Mesh>(TestFixture::unit_box(),
+                                                                                        TestFixture::level,
+                                                                                        [](const auto& cell)
+                                                                                        {
+                                                                                            bool in_corner = true;
+                                                                                            for (std::size_t d = 0; d < dim; ++d)
+                                                                                            {
+                                                                                                in_corner = in_corner
+                                                                                                         && (cell.center(d) < 0.5);
+                                                                                            }
+                                                                                            return in_corner;
+                                                                                        });
 
         auto graph = lb::build_cell_graph<int>(mesh, lb::weight::uniform());
 
