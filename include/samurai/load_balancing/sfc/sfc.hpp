@@ -63,7 +63,7 @@ namespace samurai::load_balancing
 
         std::string name() const
         {
-            return derived().name();
+            return derived().name_impl();
         }
 
       private:

@@ -203,7 +203,7 @@ namespace samurai::load_balancing
 
         Diffusion() = default;
 
-        explicit Diffusion(LoadBalanceConfig config)
+        explicit Diffusion(const LoadBalanceConfig& config)
             : m_config(config)
         {
         }

@@ -37,7 +37,7 @@ namespace samurai::load_balancing
     {
       public:
 
-        std::string name() const
+        std::string name_impl() const
         {
             return "hilbert";
         }
