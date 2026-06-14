@@ -704,15 +704,15 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE double Mesh_base<D, Config>::ghost_physical_reach() const
     {
-        const auto& cells = m_cells[mesh_id_t::cells];
-        if (cells.nb_cells() == 0)
+        const auto& my_cells = m_cells[mesh_id_t::cells];
+        if (my_cells.nb_cells() == 0)
         {
             return 0.;
         }
-        const int radius     = max_stencil_radius();
-        const int prediction = (min_level() != max_level()) ? config_t::prediction_stencil_radius : 0;
-        const int reach      = (2 * radius) + (4 * prediction) + 4;
-        return reach * cell_length(cells.min_level());
+        const int radius          = max_stencil_radius();
+        const int prediction_size = (min_level() != max_level()) ? config_t::prediction_stencil_radius : 0;
+        const int reach           = (2 * radius) + (4 * prediction_size) + 4;
+        return reach * cell_length(my_cells.min_level());
     }
 
     template <class D, class Config>
@@ -807,17 +807,17 @@ namespace samurai
 
     template <class D, class Config>
     template <typename... T, typename U>
-    SAMURAI_INLINE auto
-    Mesh_base<D, Config>::get_interval(std::size_t level, const interval_t& interval, T... index) const -> const interval_t&
+    SAMURAI_INLINE auto Mesh_base<D, Config>::get_interval(std::size_t level, const interval_t& interval, T... index) const
+        -> const interval_t&
     {
         return m_cells[mesh_id_t::reference].get_interval(level, interval, index...);
     }
 
     template <class D, class Config>
     template <class E>
-    SAMURAI_INLINE auto Mesh_base<D, Config>::get_interval(std::size_t level,
-                                                           const interval_t& interval,
-                                                           const xt::xexpression<E>& index) const -> const interval_t&
+    SAMURAI_INLINE auto
+    Mesh_base<D, Config>::get_interval(std::size_t level, const interval_t& interval, const xt::xexpression<E>& index) const
+        -> const interval_t&
     {
         return m_cells[mesh_id_t::reference].get_interval(level, interval, index);
     }

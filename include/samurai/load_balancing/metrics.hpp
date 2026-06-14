@@ -52,13 +52,13 @@ namespace samurai::load_balancing
     double local_load(const Mesh& mesh, const Weight& weight)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
-        double load     = 0.;
+        double my_load  = 0.;
         for_each_cell(mesh[mesh_id_t::cells],
                       [&](const auto& cell)
                       {
-                          load += weight(cell);
+                          my_load += weight(cell);
                       });
-        return load;
+        return my_load;
     }
 
 #ifdef SAMURAI_WITH_MPI
