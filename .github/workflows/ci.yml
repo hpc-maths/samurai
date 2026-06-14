@@ -251,7 +251,9 @@ jobs:
                       -DWITH_MPI=ON \
                       -DWITH_PETSC=ON \
                       -DBUILD_DEMOS=ON \
-                      -DBUILD_TESTS=ON
+                      -DBUILD_TESTS=ON \
+                      -DSAMURAI_WITH_PARMETIS=ON \
+                      -DSAMURAI_WITH_PTSCOTCH=ON
 
             - name: Build
               shell: micromamba-shell {0}
@@ -385,6 +387,25 @@ jobs:
                   mpiexec -n 8 ./demos/FiniteVolume/finite-volume-burgers-os-2d-mpi --npx=4 --npy=2 --min-level=0 --max-level=8 --Tf=6 --nfiles 1
                   mpiexec -n 8 ./demos/FiniteVolume/finite-volume-burgers-os-2d-mpi --npx=2 --npy=4 --min-level=0 --max-level=8 --Tf=6 --nfiles 1
                   mpiexec -n 9 ./demos/FiniteVolume/finite-volume-burgers-os-2d-mpi --npx=3 --npy=3 --min-level=0 --max-level=8 --Tf=6 --nfiles 1
+
+            - name: Build load balancing tests and demos
+              shell: micromamba-shell {0}
+              run: |
+                  cmake --build build --target \
+                      test_lb_migration test_lb_metrics test_lb_sfc test_lb_diffusion \
+                      test_lb_graph test_lb_metis test_lb_scotch test_lb_ghosts \
+                      mpi-load-balancing-2d mpi-load-balancing-3d
+
+            - name: MPI load balancing unit tests (ctest, 2/3/4 procs)
+              shell: micromamba-shell {0}
+              run: |
+                  ctest --test-dir build -R "test_lb" --output-on-failure
+
+            - name: Load balancing strategy comparison (pytest)
+              shell: micromamba-shell {0}
+              run: |
+                  cd tests
+                  SAMURAI_MPI_BUILD_DIR="${GITHUB_WORKSPACE}/build" python -m pytest test_load_balancing.py -v
 
     macos-mamba:
         needs: [pre-commit, cppcheck]
