@@ -223,10 +223,10 @@ jobs:
               uses: mamba-org/setup-micromamba@v2
               with:
                   environment-file: conda/mpi-environment.yml
-                  #   download-micromamba: false
+                  download-micromamba: false
+                  micromamba-binary-path: /home/ubuntu/.local/bin/micromamba
                   #   environment-name: samurai-env
                   #   generate-run-shell: true
-                  #   micromamba-binary-path: /home/ubuntu/.local/bin/micromamba
                   # post-cleanup: environment
 
             - name: Petsc installation
