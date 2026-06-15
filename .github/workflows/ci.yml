@@ -226,8 +226,8 @@ jobs:
                   #   environment-name: samurai-env
                   #   generate-run-shell: true
                   #   micromamba-binary-path: /home/ubuntu/.local/bin/micromamba
-                  #   download-micromamba: false
-                  #   post-cleanup: environment
+                    download-micromamba: false
+                    # post-cleanup: environment
 
             - name: Petsc installation
               shell: micromamba-shell {0}
