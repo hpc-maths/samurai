@@ -425,10 +425,9 @@ jobs:
               shell: micromamba-shell {0}
               run: |
                   cmake --build build --target \
-                      test_lb_diffusion
-                    #   test_lb_migration test_lb_metrics test_lb_sfc test_lb_diffusion \
-                    #   test_lb_graph test_lb_metis test_lb_scotch test_lb_ghosts \
-                    #   mpi-load-balancing-2d mpi-load-balancing-3d
+                      test_lb_migration test_lb_metrics test_lb_sfc test_lb_diffusion \
+                      test_lb_graph test_lb_metis test_lb_scotch test_lb_ghosts \
+                      mpi-load-balancing-2d mpi-load-balancing-3d
 
             - name: MPI load balancing unit tests (ctest, 2/3/4 procs)
               shell: micromamba-shell {0}
