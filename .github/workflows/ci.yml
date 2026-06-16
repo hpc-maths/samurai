@@ -421,6 +421,11 @@ jobs:
             #       mpiexec -n 8 ./demos/FiniteVolume/finite-volume-burgers-os-2d-mpi --npx=2 --npy=4 --min-level=0 --max-level=8 --Tf=6 --nfiles 1
             #       mpiexec -n 9 ./demos/FiniteVolume/finite-volume-burgers-os-2d-mpi --npx=3 --npy=3 --min-level=0 --max-level=8 --Tf=6 --nfiles 1
 
+            - name: Build load balancing diffusion
+              shell: micromamba-shell {0}
+              run: |
+                  cmake --build build --target test_lb_diffusion
+
             - name: Build load balancing tests and demos
               shell: micromamba-shell {0}
               run: |
