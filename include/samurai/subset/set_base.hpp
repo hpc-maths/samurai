@@ -143,6 +143,7 @@ namespace samurai
         SAMURAI_INLINE bool empty_default_impl() const
         {
             yz_index_t index;
+            index.fill(0); // xt::xtensor_fixed does not zero-initialize; empty_default_impl_rec reads index before all components are set
             Workspace workspace;
             return empty_default_impl_rec(index, std::integral_constant<std::size_t, dim - 1>{}, workspace);
         }
