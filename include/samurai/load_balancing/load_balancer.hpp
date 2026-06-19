@@ -214,12 +214,6 @@ namespace samurai::load_balancing
 
             times::timers.stop("load_balancing");
 
-            if (m_config.verbose)
-            {
-                std::clog << "[rank " << world.rank() << "] load_balance(" << stats.strategy_name << "): " << stats.cells_before << " -> "
-                          << stats.cells_after << " cells (out " << stats.cells_migrated_out << ", in " << stats.cells_migrated_in
-                          << "), imbalance " << stats.imbalance_before << " -> " << stats.imbalance_after << std::endl;
-            }
             return stats;
         }
 
