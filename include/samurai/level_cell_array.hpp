@@ -91,16 +91,7 @@ namespace samurai
 
         static constexpr double default_approx_box_tol = 0.05;
 
-        LevelCellArray()
-        {
-            // xt::xtensor_fixed is not zero-initialized by default. A default-constructed
-            // LevelCellArray (e.g. m_domain before construct_domain() in the CellList/CellArray
-            // mesh constructors) would otherwise expose a garbage origin point: construct_subdomain()
-            // reads m_domain.origin_point(), and a per-rank-different garbage origin makes the
-            // physical bounding boxes inconsistent across MPI ranks, breaking neighbour discovery
-            // and leaving some ghosts unfilled.
-            m_origin_point.fill(0);
-        }
+        LevelCellArray();
         LevelCellArray(const LevelCellList<Dim, TInterval>& lcl);
 
         template <class Set>
@@ -334,6 +325,12 @@ namespace samurai
     ///////////////////////////////////
     // LevelCellArray implementation //
     ///////////////////////////////////
+    template <std::size_t Dim, class TInterval>
+    SAMURAI_INLINE LevelCellArray<Dim, TInterval>::LevelCellArray()
+    {
+        m_origin_point.fill(0);
+    }
+
     template <std::size_t Dim, class TInterval>
     SAMURAI_INLINE LevelCellArray<Dim, TInterval>::LevelCellArray(const LevelCellList<Dim, TInterval>& lcl)
         : m_level(lcl.level())
