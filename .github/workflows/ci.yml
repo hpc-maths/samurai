@@ -240,39 +240,6 @@ jobs:
                   micromamba info
                   micromamba list
 
-            - name: Diagnostics environnement
-              shell: micromamba-shell {0}
-              run: |
-                  echo "=== whoami / HOME ==="; whoami; echo "$HOME"
-                  echo "=== env (trié) ==="; env | sort
-                  echo "=== MPI ==="; which mpiexec; mpiexec --version
-                  command -v ompi_info && ompi_info | head -40 || mpichversion
-                  echo "=== réseau ==="; ip addr || ifconfig
-                  echo "=== limites ==="; ulimit -a; df -h /dev/shm
-                  echo "=== cpus ==="; nproc
-
-            - name: Diagnostics environnement
-              shell: micromamba-shell {0}
-              run: |
-                  echo "=== whoami / HOME ==="; whoami; echo "$HOME"
-                  echo "=== env (trié) ==="; env | sort
-                  echo "=== MPI ==="; which mpiexec; mpiexec --version
-                  command -v ompi_info && ompi_info | head -40 || mpichversion
-                  echo "=== réseau ==="; ip addr || ifconfig
-                  echo "=== limites ==="; ulimit -a; df -h /dev/shm
-
-            - name: Diagnostics environnement
-              shell: micromamba-shell {0}
-              run: |
-                  echo "=== whoami / HOME ==="; whoami; echo "$HOME"
-                  echo "=== env (trié) ==="; env | sort
-                  echo "=== MPI ==="; which mpiexec; mpiexec --version
-                  command -v ompi_info && ompi_info | head -40 || mpichversion
-                  echo "=== réseau ==="; ip addr || ifconfig
-                  echo "=== limites ==="; ulimit -a; df -h /dev/shm
-                  echo "=== cpus ==="; nproc
-                  echo "=== ldd d'un binaire test ==="; ldd build/tests/test_lb_* 2>/dev/null | sort -u
-
             - name: Configure
               shell: micromamba-shell {0}
               run: |
