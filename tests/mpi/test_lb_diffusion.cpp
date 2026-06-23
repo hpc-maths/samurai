@@ -38,8 +38,8 @@ namespace
         mpi::communicator world;
         ASSERT_GE(world.size(), 2);
 
-        auto cfg                 = lb::LoadBalanceConfig{};
-        cfg.diffusion_iterations = 200;
+        auto opts                 = lb::DiffusionOptions{};
+        opts.diffusion_iterations = 200;
 
         std::vector<int> ranks;
         double my_load = 0.;
@@ -56,7 +56,7 @@ namespace
         // ranks >= 2: empty neighbour list, zero load (they still join the
         // collectives inside diffusion_fluxes).
 
-        const auto fluxes = lb::detail::diffusion_fluxes(my_load, ranks, cfg);
+        const auto fluxes = lb::detail::diffusion_fluxes(my_load, ranks, opts);
 
         if (world.rank() == 0)
         {
@@ -79,8 +79,8 @@ namespace
         const int size = world.size();
         ASSERT_GE(size, 2);
 
-        auto cfg                 = lb::LoadBalanceConfig{};
-        cfg.diffusion_iterations = 1000;
+        auto opts                 = lb::DiffusionOptions{};
+        opts.diffusion_iterations = 1000;
 
         std::vector<int> ranks;
         if (world.rank() > 0)
@@ -93,7 +93,7 @@ namespace
         }
         const double my_load = (world.rank() == size - 1) ? 400. : 0.;
 
-        const auto fluxes = lb::detail::diffusion_fluxes(my_load, ranks, cfg);
+        const auto fluxes = lb::detail::diffusion_fluxes(my_load, ranks, opts);
 
         double net = 0.;
         for (double f : fluxes)

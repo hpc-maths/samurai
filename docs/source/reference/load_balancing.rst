@@ -246,6 +246,21 @@ degrees) + 1 boolean ``all_reduce`` per flux iteration + 1 scalar
 ``all_reduce`` for the scale. Reference: G. Cybenko, *Dynamic load balancing
 for distributed memory multiprocessors*, J. Parallel Distrib. Comput. 7 (1989).
 
+The tunables (``flux_threshold``, ``diffusion_iterations``,
+``min_retained_load_fraction``) live in ``lb::DiffusionOptions`` — separate from
+the driver's ``LoadBalanceConfig``, exactly like ``MetisOptions`` /
+``ScotchOptions``. Pass an instance to the strategy:
+
+.. code-block:: c++
+
+    #include <samurai/load_balancing/load_balancer.hpp>
+    #include <samurai/load_balancing/strategies/diffusion.hpp>
+
+    namespace lb = samurai::load_balancing;
+
+    lb::DiffusionOptions opts{.flux_threshold = 0.001, .diffusion_iterations = 100};
+    auto balancer = lb::make_load_balancer(lb::LoadBalanceConfig{}, lb::Diffusion{opts});
+
 Comparing strategies
 --------------------
 
@@ -392,7 +407,7 @@ Usage (ParMETIS):
     auto balancer = lb::make_load_balancer<lb::Metis>();
 
     // Adaptive repartitioning (minimises data movement, recommended for AMR)
-    auto balancer = lb::make_load_balancer<lb::Metis>(lb::MetisOptions{.adaptive = true});
+    auto balancer = lb::make_load_balancer(lb::LoadBalanceConfig{}, lb::Metis{lb::MetisOptions{.adaptive = true}});
 
 Usage (PT-Scotch):
 

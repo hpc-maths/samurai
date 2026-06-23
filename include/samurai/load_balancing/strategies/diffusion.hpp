@@ -101,6 +101,31 @@
 
 namespace samurai::load_balancing
 {
+    /**
+     * Options for the diffusion strategy. Mirrors the per-strategy option
+     * structs of the module (`MetisOptions`, `ScotchOptions`) so the strategy's
+     * tunables stay separate from the driver's `LoadBalanceConfig`.
+     */
+    struct DiffusionOptions
+    {
+        /// Fluxes smaller than this fraction of the local average load are
+        /// zeroed out to avoid micro-migrations.
+        double flux_threshold = 0.01;
+
+        /// Maximum number of iterations of the iterative flux solver.
+        int diffusion_iterations = 50;
+
+        /// Fraction of its weighted load a process always keeps: the total it
+        /// sheds in one call is capped at `(1 - min_retained_load_fraction) *
+        /// local_load`. A process cannot give away more cells than it owns, and
+        /// the iterative flux solver may transiently ask for more than the whole
+        /// load (it oscillates before converging, especially with many
+        /// processes); without this floor a process could empty itself, which
+        /// breaks the subsequent mesh adaptation. Keeping a small reserve
+        /// guarantees a non-empty, valid subdomain every call.
+        double min_retained_load_fraction = 0.1;
+    };
+
     namespace detail
     {
         /// Symmetric scalar exchange with every neighbour rank (isend all, recv
@@ -135,7 +160,7 @@ namespace samurai::load_balancing
          *       iteration) + 1 scalar all_reduce (convergence scale) + 1 boolean
          *       all_reduce per iteration. No load gather.
          */
-        inline std::vector<double> diffusion_fluxes(double my_load, const std::vector<int>& neighbour_ranks, const LoadBalanceConfig& config)
+        inline std::vector<double> diffusion_fluxes(double my_load, const std::vector<int>& neighbour_ranks, const DiffusionOptions& options)
         {
             namespace mpi = boost::mpi;
             mpi::communicator world;
@@ -154,7 +179,7 @@ namespace samurai::load_balancing
             const double scale   = (avg > 0.) ? avg : 1.;
             const double epsilon = 1e-3 * scale;
 
-            for (int iter = 0; iter < config.diffusion_iterations; ++iter)
+            for (int iter = 0; iter < options.diffusion_iterations; ++iter)
             {
                 std::vector<double> neigh_load;
                 exchange_scalar(neighbour_ranks, my_load, neigh_load);
@@ -182,7 +207,7 @@ namespace samurai::load_balancing
             // drop micro-fluxes (avoid migrating a handful of cells back and forth)
             for (std::size_t j = 0; j < n; ++j)
             {
-                if (std::abs(fluxes[j]) < config.flux_threshold * scale)
+                if (std::abs(fluxes[j]) < options.flux_threshold * scale)
                 {
                     fluxes[j] = 0.;
                 }
@@ -194,8 +219,9 @@ namespace samurai::load_balancing
     /**
      * Diffusion strategy (see the file header for the algorithm).
      *
-     * Holds a `LoadBalanceConfig` (flux threshold, iteration count) and exposes
-     * `last_unmet_flux()` so the driver can report the load it could not shed.
+     * Holds its `DiffusionOptions` (flux threshold, iteration count, retained
+     * load fraction) and exposes `last_unmet_flux()` so the driver can report
+     * the load it could not shed.
      */
     class Diffusion
     {
@@ -203,8 +229,8 @@ namespace samurai::load_balancing
 
         Diffusion() = default;
 
-        explicit Diffusion(const LoadBalanceConfig& config)
-            : m_config(config)
+        explicit Diffusion(DiffusionOptions options)
+            : m_options(options)
         {
         }
 
@@ -268,7 +294,7 @@ namespace samurai::load_balancing
                     total_give -= f;
                 }
             }
-            const double max_give = (1. - m_config.min_retained_load_fraction) * local_load(mesh, weight);
+            const double max_give = (1. - m_options.min_retained_load_fraction) * local_load(mesh, weight);
             if (total_give > max_give && total_give > 0.)
             {
                 const double scale = max_give / total_give;
@@ -335,7 +361,7 @@ namespace samurai::load_balancing
             {
                 ranks.push_back(neigh.rank);
             }
-            return detail::diffusion_fluxes(local_load(mesh, weight), ranks, m_config);
+            return detail::diffusion_fluxes(local_load(mesh, weight), ranks, m_options);
         }
 
         /**
@@ -683,7 +709,7 @@ namespace samurai::load_balancing
             return ca_type{cl, false};
         }
 
-        LoadBalanceConfig m_config{};
+        DiffusionOptions m_options{};
         mutable double m_unmet_flux = 0.;
     };
 }

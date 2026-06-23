@@ -100,6 +100,8 @@ namespace
         bool dump_partitions       = false;
         bool skew                  = false;
         std::string stats_file;
+        // diffusion strategy options (ignored by the other strategies)
+        lb::DiffusionOptions diffusion;
     };
 
     template <class Field>
@@ -187,7 +189,7 @@ namespace
     /// the only function a new strategy needs to be plugged into (one line
     /// in the dispatch of main()).
     template <class Strategy>
-    int run(const Options& opt)
+    int run(const Options& opt, Strategy strategy = {})
     {
         mpi::communicator world;
 
@@ -217,7 +219,7 @@ namespace
         MRadaptation(mra_config);
         save(opt, u, "_init");
 
-        auto balancer = lb::make_load_balancer<Strategy>(lb::LoadBalanceConfig{.imbalance_threshold = opt.threshold});
+        auto balancer = lb::make_load_balancer<Strategy>(lb::LoadBalanceConfig{.imbalance_threshold = opt.threshold}, std::move(strategy));
 
         auto weight_is_level = opt.weight == "level";
         auto level_weight    = lb::weight::per_level(
@@ -246,7 +248,8 @@ namespace
                              || (weight_is_level ? balancer.required(mesh, level_weight) : balancer.required(mesh, lb::weight::uniform()));
                 if (go)
                 {
-                    auto stats = weight_is_level ? balancer.load_balance_with_stats(level_weight, u) : balancer.load_balance_with_stats(lb::weight::uniform(), u);
+                    auto stats = weight_is_level ? balancer.load_balance_with_stats(level_weight, u)
+                                                 : balancer.load_balance_with_stats(lb::weight::uniform(), u);
                     log_stats(opt, nt, t, stats);
                     if (opt.dump_partitions)
                     {
@@ -313,6 +316,19 @@ int main(int argc, char* argv[])
     app.add_option("--lb-stats-file", opt.stats_file, "Append one CSV line per rebalance to this file (rank 0)")
         ->capture_default_str()
         ->group("Load balancing");
+    app.add_option("--lb-diffusion-iterations", opt.diffusion.diffusion_iterations, "(diffusion) max iterations of the flux solver")
+        ->capture_default_str()
+        ->group("Load balancing");
+    app.add_option("--lb-diffusion-flux-threshold",
+                   opt.diffusion.flux_threshold,
+                   "(diffusion) zero out fluxes below this fraction of the mean load")
+        ->capture_default_str()
+        ->group("Load balancing");
+    app.add_option("--lb-diffusion-min-retained",
+                   opt.diffusion.min_retained_load_fraction,
+                   "(diffusion) fraction of its load a process always keeps")
+        ->capture_default_str()
+        ->group("Load balancing");
     app.add_option("--path", opt.path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", opt.filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", opt.nfiles, "Number of output files")->capture_default_str()->group("Output");
@@ -340,7 +356,7 @@ int main(int argc, char* argv[])
     }
     else if (opt.strategy == "diffusion")
     {
-        ret = run<lb::Diffusion>(opt);
+        ret = run<lb::Diffusion>(opt, lb::Diffusion{opt.diffusion});
     }
 #ifdef SAMURAI_WITH_PARMETIS
     else if (opt.strategy == "metis")
