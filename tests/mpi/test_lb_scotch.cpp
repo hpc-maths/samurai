@@ -102,7 +102,7 @@ namespace
         const auto count_before = TestFixture::global_count(mesh);
 
         auto balancer = lb::make_load_balancer<lb::Scotch>();
-        auto stats    = balancer.load_balance(lb::weight::uniform(), u);
+        auto stats    = balancer.load_balance_with_stats(lb::weight::uniform(), u);
 
         samurai_test::check_lb_invariants(mesh,
                                           cells_before,
@@ -129,7 +129,7 @@ namespace
         const auto count_before = TestFixture::global_count(mesh);
 
         auto balancer = lb::make_load_balancer<lb::Scotch>();
-        auto stats    = balancer.load_balance(w, u);
+        auto stats    = balancer.load_balance_with_stats(w, u);
 
         samurai_test::check_lb_invariants(mesh,
                                           cells_before,

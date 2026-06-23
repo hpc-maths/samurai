@@ -117,7 +117,7 @@ namespace
                                                               {
                                                                   return (rank + 1) % size;
                                                               }});
-        auto stats    = balancer.load_balance(lb::weight::uniform(), u);
+        auto stats    = balancer.load_balance_with_stats(lb::weight::uniform(), u);
 
         const auto total_out = mpi::all_reduce(world, stats.cells_migrated_out, std::plus<std::size_t>());
         const auto total_in  = mpi::all_reduce(world, stats.cells_migrated_in, std::plus<std::size_t>());
@@ -151,7 +151,7 @@ namespace
 
         auto balancer = concentrate_on_rank0();
         // note: cost must migrate together with u so that the weight follows the cells
-        auto stats = balancer.load_balance(lb::weight::from_field(cost), u, cost);
+        auto stats = balancer.load_balance_with_stats(lb::weight::from_field(cost), u, cost);
 
         EXPECT_TRUE_ALL_RANKS(stats.load_before == my_load);
         const bool load_ok = (world.rank() == 0) ? stats.load_after == global_load : stats.load_after == 0.;

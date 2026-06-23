@@ -377,7 +377,7 @@ namespace
         TestFixture::make_banded_imbalance(mesh, u, weight);
 
         auto balancer = lb::make_load_balancer<lb::Diffusion>();
-        auto stats    = balancer.load_balance(weight, u);
+        auto stats    = balancer.load_balance_with_stats(weight, u);
 
         EXPECT_TRUE_ALL_RANKS(stats.unmet_flux >= 0.);
         EXPECT_TRUE_ALL_RANKS(stats.unmet_flux == balancer.strategy().last_unmet_flux());

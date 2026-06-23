@@ -120,7 +120,7 @@ namespace
         const auto count_before = TestFixture::global_count(mesh);
 
         auto balancer = lb::make_load_balancer<lb::Void>();
-        auto stats    = balancer.load_balance(lb::weight::uniform(), u);
+        auto stats    = balancer.load_balance_with_stats(lb::weight::uniform(), u);
 
         EXPECT_TRUE_ALL_RANKS(stats.cells_migrated_out == 0);
         EXPECT_TRUE_ALL_RANKS(stats.cells_migrated_in == 0);
@@ -151,7 +151,7 @@ namespace
                                                               {
                                                                   return (rank + 1) % size;
                                                               }});
-        auto stats    = balancer.load_balance(lb::weight::uniform(), u);
+        auto stats    = balancer.load_balance_with_stats(lb::weight::uniform(), u);
 
         samurai_test::check_lb_invariants(mesh,
                                           cells_before,

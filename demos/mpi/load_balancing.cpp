@@ -246,7 +246,7 @@ namespace
                              || (weight_is_level ? balancer.required(mesh, level_weight) : balancer.required(mesh, lb::weight::uniform()));
                 if (go)
                 {
-                    auto stats = weight_is_level ? balancer.load_balance(level_weight, u) : balancer.load_balance(lb::weight::uniform(), u);
+                    auto stats = weight_is_level ? balancer.load_balance_with_stats(level_weight, u) : balancer.load_balance_with_stats(lb::weight::uniform(), u);
                     log_stats(opt, nt, t, stats);
                     if (opt.dump_partitions)
                     {

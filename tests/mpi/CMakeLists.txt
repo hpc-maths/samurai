@@ -29,6 +29,7 @@ add_mpi_gtest(test_lb_metrics)
 add_mpi_gtest(test_lb_sfc)
 add_mpi_gtest(test_lb_diffusion)
 add_mpi_gtest(test_lb_ghosts)
+add_mpi_gtest(test_lb_flux)
 
 # Graph construction test (always built with MPI; no external library needed)
 add_mpi_gtest(test_lb_graph)

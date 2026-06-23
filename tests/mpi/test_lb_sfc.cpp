@@ -273,7 +273,7 @@ namespace
             const auto count_before = global_count(mesh);
 
             auto balancer = lb::make_load_balancer<strategy_t>();
-            auto stats    = balancer.load_balance(weight, u);
+            auto stats    = balancer.load_balance_with_stats(weight, u);
 
             samurai_test::check_lb_invariants(mesh,
                                               cells_before,
@@ -322,7 +322,7 @@ namespace
         const auto count_before = TestFixture::global_count(mesh);
 
         auto balancer = lb::make_load_balancer<typename TestFixture::strategy_t>();
-        auto stats    = balancer.load_balance(lb::weight::uniform(), u);
+        auto stats    = balancer.load_balance_with_stats(lb::weight::uniform(), u);
 
         // note: analytic() requires non-negative indices, so check conservation
         // by count and global cell set only
@@ -343,7 +343,7 @@ namespace
         auto balancer = lb::make_load_balancer<typename TestFixture::strategy_t>();
         balancer.load_balance(lb::weight::uniform(), u);
 
-        auto stats             = balancer.load_balance(lb::weight::uniform(), u);
+        auto stats             = balancer.load_balance_with_stats(lb::weight::uniform(), u);
         const auto total_moved = mpi::all_reduce(world, stats.cells_migrated_out, std::plus<std::size_t>());
         const auto total_cells = TestFixture::global_count(mesh);
         EXPECT_TRUE_ALL_RANKS(total_moved <= total_cells / 100);
