@@ -52,3 +52,20 @@ target_link_libraries(bench_samurai samurai benchmark::benchmark)
 # add_custom_target(xbenchmark
 #     COMMAND benchmark_samurai
 #     DEPENDS ${SAMURAI_BENCHMARK_TARGET})
+
+# Load balancing micro-benchmarks (MPI-only; provides its own MPI-aware main).
+if(WITH_MPI)
+    add_executable(bench_load_balancing benchmark_load_balancing.cpp)
+    target_include_directories(bench_load_balancing PRIVATE ${SAMURAI_INCLUDE_DIR})
+    target_link_libraries(bench_load_balancing samurai benchmark::benchmark Threads::Threads)
+
+    if(SAMURAI_WITH_PARMETIS)
+        target_compile_definitions(bench_load_balancing PRIVATE SAMURAI_WITH_PARMETIS)
+        target_link_libraries(bench_load_balancing ParMETIS::ParMETIS ParMETIS::Metis)
+    endif()
+
+    if(SAMURAI_WITH_PTSCOTCH)
+        target_compile_definitions(bench_load_balancing PRIVATE SAMURAI_WITH_PTSCOTCH)
+        target_link_libraries(bench_load_balancing PTScotch::PTScotch PTScotch::Scotch)
+    endif()
+endif()

@@ -102,7 +102,7 @@ namespace
             state.PauseTiming();
             balancer.concentrate_on(0, u); // skew: everything onto rank 0
             state.ResumeTiming();
-            auto stats = balancer.load_balance(weight, u);
+            auto stats = balancer.load_balance_with_stats(weight, u);
             benchmark::DoNotOptimize(stats.cells_migrated_in);
         }
     }
