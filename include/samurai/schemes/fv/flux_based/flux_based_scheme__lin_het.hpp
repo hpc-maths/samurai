@@ -76,16 +76,11 @@ namespace samurai
         {
             auto& mesh = field.mesh();
 
-#ifdef SAMURAI_WITH_MPI
             // The neighbor subdomain may have a finer level or a coarser level than the current subdomain.
             // To ensure that we compute the fluxes at every jump interface, we need to go one level below the min_level and one level above
             // the max_level of the current subdomain.
-            auto min_level = mesh[mesh_id_t::cells].min_level() - 1;
-            auto max_level = mesh[mesh_id_t::cells].max_level() + 1;
-#else
-            auto min_level = mesh.min_level();
-            auto max_level = mesh.max_level();
-#endif
+            auto min_level = std::max(mesh.min_level(), mesh[mesh_id_t::cells].min_level() - 1);
+            auto max_level = std::min(mesh.max_level(), mesh[mesh_id_t::cells].max_level() + 1);
 
             auto& flux_def = flux_definition()[d];
 
