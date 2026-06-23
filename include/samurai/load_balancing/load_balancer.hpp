@@ -104,6 +104,16 @@ namespace samurai::load_balancing
                     field_data);
             }
         };
+
+        /// Cheap by-products of one migration (already known from the routing
+        /// collective): how many local cells left and arrived. Returned by
+        /// `migrate()` so the diagnostic path can record them without the
+        /// production path paying for a stats struct it does not use.
+        struct MigrationCounts
+        {
+            std::size_t out = 0; ///< cells sent to other ranks
+            std::size_t in  = 0; ///< cells received from other ranks
+        };
     }
 
     /**
@@ -116,9 +126,15 @@ namespace samurai::load_balancing
      * auto balancer = lb::make_load_balancer<lb::Void>();
      * if (balancer.required(u.mesh(), lb::weight::uniform()))
      * {
-     *     auto stats = balancer.load_balance(lb::weight::uniform(), u, v);
+     *     balancer.load_balance(lb::weight::uniform(), u, v);
      * }
      * @endcode
+     *
+     * `load_balance()` is the lean production path: it only partitions and
+     * migrates. When you need the quality metrics (imbalance before/after,
+     * weighted loads, migrated counts, timings) for diagnostics, a benchmark
+     * or a test, call `load_balance_with_stats()` instead, which performs the
+     * extra (collective) measurements around the very same work.
      */
     template <class Strategy>
     class LoadBalancer
@@ -153,18 +169,39 @@ namespace samurai::load_balancing
          * migrate cells and all given fields, then swap the balanced mesh into
          * the caller's mesh object.
          *
+         * This is the lean production path: no quality metric is computed, so
+         * it adds no collective beyond the migration itself. Use
+         * `load_balance_with_stats()` when you need the metrics.
+         *
          * All fields must live on the same mesh. With a single MPI process
          * this is a silent no-op.
          *
-         * @note MPI: the migration itself performs one all_to_all (routing
-         *       discovery) + point-to-point payloads + the collectives of the
-         *       mesh constructor (executed only when at least one cell
-         *       migrates somewhere, decided globally). The statistics add two
-         *       `imbalance()` evaluations (collective) around the migration.
+         * @note MPI: the migration performs one all_to_all (routing discovery)
+         *       + point-to-point payloads + the collectives of the mesh
+         *       constructor (executed only when at least one cell migrates
+         *       somewhere, decided globally).
          */
         template <class Weight, class Field, class... Fields>
             requires PartitionStrategy<Strategy, typename Field::mesh_t, Weight>
-        LoadBalanceStats load_balance(const Weight& weight, Field& field, Fields&... other_fields)
+        void load_balance(const Weight& weight, Field& field, Fields&... other_fields)
+        {
+            assert(((&field.mesh() == &other_fields.mesh()) && ... && true) && "all fields must share the same mesh");
+            run_load_balance(weight, nullptr, field, other_fields...);
+        }
+
+        /**
+         * Same work as `load_balance()`, but wrapped in the quality
+         * measurements collected into a `LoadBalanceStats`: weighted loads and
+         * global imbalance before/after, migrated cell counts, partition and
+         * migration timings. Meant for diagnostics, benchmarks and tests, not
+         * for the hot production path.
+         *
+         * @note MPI: adds two `imbalance()` evaluations (collective) and two
+         *       `local_load()` traversals around the migration.
+         */
+        template <class Weight, class Field, class... Fields>
+            requires PartitionStrategy<Strategy, typename Field::mesh_t, Weight>
+        LoadBalanceStats load_balance_with_stats(const Weight& weight, Field& field, Fields&... other_fields)
         {
             using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
@@ -183,36 +220,14 @@ namespace samurai::load_balancing
                 return stats;
             }
 
-            times::timers.start("load_balancing");
-
             stats.imbalance_before = imbalance(field.mesh(), weight);
             stats.imbalance_after  = stats.imbalance_before;
 
-            const auto t0 = std::chrono::steady_clock::now();
-            times::timers.start("load_balancing:partition");
-            auto flags = m_strategy.partition(field.mesh(), weight);
-            times::timers.stop("load_balancing:partition");
-            const auto t1 = std::chrono::steady_clock::now();
+            run_load_balance(weight, &stats, field, other_fields...);
 
-            // strategies that may fail to shed the requested load (e.g. diffusion)
-            // expose the deficit; the others leave unmet_flux at 0.
-            if constexpr (requires { m_strategy.last_unmet_flux(); })
-            {
-                stats.unmet_flux = m_strategy.last_unmet_flux();
-            }
-
-            times::timers.start("load_balancing:migration");
-            migrate(flags, stats, field, other_fields...);
-            times::timers.stop("load_balancing:migration");
-            const auto t2 = std::chrono::steady_clock::now();
-
-            stats.partition_time  = std::chrono::duration<double>(t1 - t0).count();
-            stats.migration_time  = std::chrono::duration<double>(t2 - t1).count();
             stats.cells_after     = field.mesh().nb_cells(mesh_id_t::cells);
             stats.load_after      = local_load(field.mesh(), weight);
             stats.imbalance_after = imbalance(field.mesh(), weight);
-
-            times::timers.stop("load_balancing");
 
             return stats;
         }
@@ -235,8 +250,7 @@ namespace samurai::load_balancing
             }
             auto flags = make_scalar_field<int>("lb_flags", field.mesh());
             flags.fill(dest_rank);
-            LoadBalanceStats stats;
-            migrate(flags, stats, field, other_fields...);
+            migrate(flags, field, other_fields...);
         }
 
         const LoadBalanceConfig& config() const
@@ -252,12 +266,59 @@ namespace samurai::load_balancing
       private:
 
         /**
+         * Shared core of `load_balance()` and `load_balance_with_stats()`:
+         * partition, migrate, swap. When `stats` is non-null, the cheap
+         * by-products of the work (timings, migrated counts, unmet flux,
+         * strategy name) are recorded into it; the costly before/after metrics
+         * are the caller's responsibility. No-op with a single MPI process.
+         */
+        template <class Weight, class Field, class... Fields>
+        void run_load_balance(const Weight& weight, LoadBalanceStats* stats, Field& field, Fields&... other_fields)
+        {
+            boost::mpi::communicator world;
+            if (world.size() <= 1)
+            {
+                return;
+            }
+
+            times::timers.start("load_balancing");
+
+            const auto t0 = std::chrono::steady_clock::now();
+            times::timers.start("load_balancing:partition");
+            auto flags = m_strategy.partition(field.mesh(), weight);
+            times::timers.stop("load_balancing:partition");
+            const auto t1 = std::chrono::steady_clock::now();
+
+            times::timers.start("load_balancing:migration");
+            const auto counts = migrate(flags, field, other_fields...);
+            times::timers.stop("load_balancing:migration");
+            const auto t2 = std::chrono::steady_clock::now();
+
+            if (stats != nullptr)
+            {
+                stats->strategy_name      = m_strategy.name();
+                stats->partition_time     = std::chrono::duration<double>(t1 - t0).count();
+                stats->migration_time     = std::chrono::duration<double>(t2 - t1).count();
+                stats->cells_migrated_out = counts.out;
+                stats->cells_migrated_in  = counts.in;
+                // strategies that may fail to shed the requested load (e.g.
+                // diffusion) expose the deficit; the others leave it at 0.
+                if constexpr (requires { m_strategy.last_unmet_flux(); })
+                {
+                    stats->unmet_flux = m_strategy.last_unmet_flux();
+                }
+            }
+
+            times::timers.stop("load_balancing");
+        }
+
+        /**
          * Fused cells+fields migration (steps 1-6 of the scheme documented in
          * the file header). `flags[cell]` must hold a valid rank for every
-         * local cell.
+         * local cell. Returns how many local cells left and arrived.
          */
         template <class Flags, class Field, class... Fields>
-        void migrate(const Flags& flags, LoadBalanceStats& stats, Field& field, Fields&... other_fields)
+        detail::MigrationCounts migrate(const Flags& flags, Field& field, Fields&... other_fields)
         {
             using Mesh_t    = typename Field::mesh_t;
             using mesh_id_t = typename Mesh_t::mesh_id_t;
@@ -269,6 +330,8 @@ namespace samurai::load_balancing
             const auto size = static_cast<std::size_t>(world.size());
             const int rank  = world.rank();
             auto& mesh      = field.mesh();
+
+            detail::MigrationCounts counts;
 
             // -- 1. sort local cells by destination ---------------------------------
             cl_type new_cl;
@@ -314,10 +377,10 @@ namespace samurai::load_balancing
                                                    });
             if (!any_migration)
             {
-                return; // perfect status quo everywhere: keep mesh and fields untouched
+                return counts; // perfect status quo everywhere: keep mesh and fields untouched
             }
 
-            stats.cells_migrated_out = static_cast<std::size_t>(total_out);
+            counts.out = static_cast<std::size_t>(total_out);
 
             // -- 3. build and send payloads -----------------------------------------
             std::size_t n_dest = 0;
@@ -359,7 +422,7 @@ namespace samurai::load_balancing
                                   {
                                       new_cl[level][index].add_interval(interval);
                                   });
-                stats.cells_migrated_in += static_cast<std::size_t>(from_all[r][0]);
+                counts.in += static_cast<std::size_t>(from_all[r][0]);
                 inbox.push_back(std::move(payload));
             }
 
@@ -374,6 +437,8 @@ namespace samurai::load_balancing
             rebuild_fields(new_mesh, inbox, std::index_sequence_for<Field, Fields...>{}, field, other_fields...);
 
             mesh.swap(new_mesh);
+
+            return counts;
         }
 
         /// Flatten the values of every field on the cells of `payload.cells`,

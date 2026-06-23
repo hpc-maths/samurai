@@ -16,9 +16,10 @@
 namespace samurai::load_balancing
 {
     /**
-     * Quality metrics collected by every call to `LoadBalancer::load_balance()`.
+     * Quality metrics collected by `LoadBalancer::load_balance_with_stats()`
+     * (the lean `load_balance()` computes none of them).
      *
-     * The loads are weighted by the policy given to `load_balance()`; the
+     * The loads are weighted by the policy given to the balancer; the
      * imbalances are global quantities (identical on every rank). Comparing
      * `imbalance_before` and `imbalance_after` across strategies on the same
      * scenario is the basis of the comparative benchmark (roadmap step 6).
@@ -56,6 +57,7 @@ namespace samurai::load_balancing
         for_each_cell(mesh[mesh_id_t::cells],
                       [&](const auto& cell)
                       {
+                          assert(weight(cell) >= 0. && "weight must be non-negative");
                           my_load += weight(cell);
                       });
         return my_load;
@@ -64,7 +66,9 @@ namespace samurai::load_balancing
 #ifdef SAMURAI_WITH_MPI
     /**
      * Global load imbalance: `max(load)/avg(load) - 1`. Zero means perfect
-     * balance; `P - 1` means the whole load sits on a single process.
+     * balance; `P - 1` means the whole load sits on a single process where
+     * `P` is the number of ranks.
+     * The imbalance is a global quantity (identical on every rank).
      *
      * @note MPI: collective on the world communicator (two all_reduce); every
      *       rank gets the same value.
@@ -77,7 +81,7 @@ namespace samurai::load_balancing
         const double max  = boost::mpi::all_reduce(world, load, boost::mpi::maximum<double>());
         const double sum  = boost::mpi::all_reduce(world, load, std::plus<double>());
         const double avg  = sum / world.size();
-        return avg > 0. ? max / avg - 1. : 0.;
+        return max / avg - 1.;
     }
 
     /**
