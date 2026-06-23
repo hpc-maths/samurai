@@ -205,8 +205,6 @@ namespace
         auto flux = samurai::make_vector_field<n_comp>("flux", mesh);
         flux.fill(0);
         flux = conv(u);
-        samurai::save(std::filesystem::current_path(), fmt::format("{}_cells", name), mesh, u, flux);
-        samurai::save(std::filesystem::current_path(), name, {true, true}, mesh, u, flux);
         return global_flux(flux);
     }
 
