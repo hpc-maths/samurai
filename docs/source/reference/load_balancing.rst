@@ -8,8 +8,7 @@ the fields living on them — between processes.
 
 The module lives in ``include/samurai/load_balancing/`` under the namespace
 ``samurai::load_balancing`` and is only active when samurai is built with
-``WITH_MPI=ON``. Its design and development plan are described in
-``docs/load_balancing_roadmap.md``.
+``WITH_MPI=ON``.
 
 Design
 ------
@@ -93,7 +92,7 @@ balance entirely.
 Metrics
 -------
 
-Every call to ``load_balance()`` returns a ``LoadBalanceStats``:
+Every call to ``load_balance_with_stats()`` returns a ``LoadBalanceStats``:
 
 .. code-block:: c++
 
@@ -282,14 +281,6 @@ the same scenario; ``--lb-dump`` writes the partition for ParaView at every
 rebalance; ``--lb-threshold`` switches from periodic rebalancing to the
 ``required()`` trigger; ``--lb-skew`` starts with every cell on rank 0 to
 exercise the strategies from a maximally skewed state.
-
-.. note::
-
-   The demo uses a **periodic** domain. A Dirichlet boundary on a distributed
-   *adaptive* 3D mesh currently trips a pre-existing core ghost-protocol
-   limitation (unrelated to load balancing, see
-   ``docs/load_balancing_roadmap.md`` §5bis), so the periodic setup is used to
-   keep the same case valid in 2D and 3D.
 
 The integration suite ``tests/test_load_balancing.py`` drives the demo: for
 every available strategy, both dimensions and several process counts it checks
