@@ -158,7 +158,7 @@ namespace samurai::mpi_neighbor
                 // Reproduces Box::intersects (strict, half-open) on the box
                 // expanded by `expansion`: overlap on this axis requires both
                 // gaps strictly below the expansion. Symmetric under A<->B swap.
-                if (!(lo_gap < expansion && hi_gap < expansion))
+                if (lo_gap >= expansion || hi_gap >= expansion)
                 {
                     return false;
                 }
