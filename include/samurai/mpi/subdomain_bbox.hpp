@@ -4,6 +4,8 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
+#include <cstdint>
 #include <limits>
 
 #ifdef SAMURAI_WITH_MPI
@@ -127,16 +129,42 @@ namespace samurai::mpi_neighbor
                 return false;
             }
 
-            auto expanded  = bbox;
-            auto expansion = std::max({ghost_reach, other.ghost_reach, std::min(cell_length, other.cell_length)});
+            // The decision is taken in integer cell units rather than physical
+            // coordinates. Subdomains live at the configuration max level, so
+            // cell_length is identical on every rank and is an exact common
+            // unit. In physical doubles, two subdomains separated by exactly the
+            // expansion distance fall on a knife-edge where rounding can make
+            // A.could_be_neighbor(B) != B.could_be_neighbor(A); that asymmetry
+            // then deadlocks the (symmetry-assuming) candidate exchange in
+            // Mesh_base::find_neighbourhood(). Integer arithmetic is exactly
+            // symmetric, so the two ranks always agree.
+            const double cl = std::min(cell_length, other.cell_length);
+
+            // Expansion in whole cells, mirroring the physical version's
+            // max(my reach, other reach, one cell). ghost_reach / cl is an exact
+            // integer count (ghost_reach is a whole number of coarse cells);
+            // llround clears the floating-point noise.
+            const std::int64_t expansion = std::max<std::int64_t>(
+                {std::llround(ghost_reach / cl), std::llround(other.ghost_reach / cl), std::int64_t{1}});
 
             for (std::size_t d = 0; d < dim; ++d)
             {
-                expanded.min_corner()[d] -= expansion;
-                expanded.max_corner()[d] += expansion;
+                // Integer cell gaps along axis d. The shared domain origin baked
+                // into both corners cancels in the differences, leaving exact
+                // index gaps; llround removes the residual float noise.
+                const std::int64_t lo_gap = std::llround((bbox.min_corner()[d] - other.bbox.max_corner()[d]) / cl);
+                const std::int64_t hi_gap = std::llround((other.bbox.min_corner()[d] - bbox.max_corner()[d]) / cl);
+
+                // Reproduces Box::intersects (strict, half-open) on the box
+                // expanded by `expansion`: overlap on this axis requires both
+                // gaps strictly below the expansion. Symmetric under A<->B swap.
+                if (!(lo_gap < expansion && hi_gap < expansion))
+                {
+                    return false;
+                }
             }
 
-            return expanded.intersects(other.bbox);
+            return true;
         }
     };
 
