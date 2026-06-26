@@ -97,22 +97,31 @@ namespace samurai::load_balancing
             // rank (the local max level is not!)
             const std::size_t max_level = mesh.max_level();
 
-            // -- 1a. global coordinate shift: curves need non-negative input --------
-            std::array<std::int64_t, dim> local_min;
-            local_min.fill(std::numeric_limits<std::int64_t>::max());
-            for_each_cell(mesh[mesh_id_t::cells],
-                          [&](const auto& cell)
-                          {
-                              const auto shift = max_level - cell.level;
-                              for (std::size_t d = 0; d < dim; ++d)
-                              {
-                                  local_min[d] = std::min(local_min[d], static_cast<std::int64_t>(cell.indices[d]) << shift);
-                              }
-                          });
+            // -- 1a. global bounding box: curves need non-negative input, and the
+            // per-dimension extent lets the curve preserve locality on non-square
+            // domains (Hilbert lays a generalized curve over the exact box; a
+            // square mapping fractures a thin domain's partitions into islands) --
             std::array<std::int64_t, dim> global_min;
-            for (std::size_t d = 0; d < dim; ++d)
+            xt::xtensor_fixed<std::int64_t, xt::xshape<dim>> extent; // box size per dim, normalized to max_level
+
+            if constexpr (requires { mesh.domain(); })
             {
-                global_min[d] = boost::mpi::all_reduce(world, local_min[d], boost::mpi::minimum<std::int64_t>());
+                const auto coord_minmax = mesh.domain().minmax_indices();
+                for (std::size_t d = 0; d < dim; ++d)
+                {
+                    global_min[d] = coord_minmax[d].first;
+                    extent[d]     = coord_minmax[d].second - global_min[d] + 1; // >= 1
+                }
+            }
+            else
+            {
+                const auto coord_minmax = mesh.minmax_indices();
+                for (std::size_t d = 0; d < dim; ++d)
+                {
+                    global_min[d]              = boost::mpi::all_reduce(world, coord_minmax[d].first, boost::mpi::minimum<std::int64_t>());
+                    const std::int64_t box_max = boost::mpi::all_reduce(world, coord_minmax[d].second, boost::mpi::maximum<std::int64_t>());
+                    extent[d]                  = box_max - global_min[d] + 1; // >= 1
+                }
             }
 
             // -- 1b/2. keys + local sort --------------------------------------------
@@ -137,7 +146,7 @@ namespace samurai::load_balancing
                                          && "normalized coordinate exceeds the curve range: max_level too deep for 64-bit keys");
                                   p(d) = static_cast<std::uint32_t>(c);
                               }
-                              items.push_back({m_curve.template key<dim>(p), weight(cell), cell});
+                              items.push_back({m_curve.template key<dim>(p, extent), weight(cell), cell});
                           });
 
             std::sort(items.begin(),

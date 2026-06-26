@@ -135,20 +135,27 @@ namespace
         const std::size_t max_level = mesh.max_level();
 
         std::array<std::int64_t, dim> local_min;
+        std::array<std::int64_t, dim> local_max;
         local_min.fill(std::numeric_limits<std::int64_t>::max());
+        local_max.fill(std::numeric_limits<std::int64_t>::min());
         samurai::for_each_cell(mesh[mesh_id_t::cells],
                                [&](const auto& cell)
                                {
                                    const auto shift = max_level - cell.level;
                                    for (std::size_t d = 0; d < dim; ++d)
                                    {
-                                       local_min[d] = std::min(local_min[d], static_cast<std::int64_t>(cell.indices[d]) << shift);
+                                       const std::int64_t c = static_cast<std::int64_t>(cell.indices[d]) << shift;
+                                       local_min[d]         = std::min(local_min[d], c);
+                                       local_max[d]         = std::max(local_max[d], c);
                                    }
                                });
         std::array<std::int64_t, dim> global_min;
+        xt::xtensor_fixed<std::int64_t, xt::xshape<dim>> extent;
         for (std::size_t d = 0; d < dim; ++d)
         {
-            global_min[d] = mpi::all_reduce(world, local_min[d], mpi::minimum<std::int64_t>());
+            global_min[d]              = mpi::all_reduce(world, local_min[d], mpi::minimum<std::int64_t>());
+            const std::int64_t box_max = mpi::all_reduce(world, local_max[d], mpi::maximum<std::int64_t>());
+            extent[d]                  = box_max - global_min[d] + 1;
         }
 
         std::vector<std::pair<key_t, int>> local;
@@ -162,7 +169,7 @@ namespace
                 {
                     p(d) = static_cast<std::uint32_t>((static_cast<std::int64_t>(cell.indices[d]) << shift) - global_min[d]);
                 }
-                local.emplace_back(curve.template key<dim>(p), world.rank());
+                local.emplace_back(curve.template key<dim>(p, extent), world.rank());
             });
 
         std::vector<std::vector<std::pair<key_t, int>>> all;

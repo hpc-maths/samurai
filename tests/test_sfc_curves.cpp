@@ -179,6 +179,67 @@ namespace
         check_hilbert_block<3>((1U << 21) - 16U, 16); // [2^21-16, 2^21)
     }
 
+    // Rectangle-aware Hilbert (generalized "gilbert" curve): over an arbitrary
+    // w x h box the keys must be a bijection onto [0, w*h) AND consecutive keys
+    // must be face-adjacent. The continuity over a *non-square* box is what the
+    // square curve lacks and what keeps a load-balancing partition spatially
+    // connected on thin domains (e.g. a [1 x 10] tube).
+    void check_gilbert_rect(std::uint32_t w, std::uint32_t h)
+    {
+        const lb::Hilbert hilbert;
+        const coord2 n{w, h};
+        std::map<lb::sfc_key_t, coord2> cells;
+        for (std::uint32_t j = 0; j < h; ++j)
+        {
+            for (std::uint32_t i = 0; i < w; ++i)
+            {
+                cells[hilbert.key<2>(coord2{i, j}, n)] = coord2{i, j};
+            }
+        }
+
+        const std::size_t expected_count = static_cast<std::size_t>(w) * static_cast<std::size_t>(h);
+        ASSERT_EQ(cells.size(), expected_count) << "gilbert keys must be a bijection on " << w << "x" << h;
+
+        lb::sfc_key_t expected_key = 0;
+        bool has_prev              = false;
+        coord2 prev{0, 0};
+        for (const auto& [key, p] : cells)
+        {
+            ASSERT_EQ(key, expected_key) << "gilbert keys must be the consecutive integers 0.." << expected_count - 1;
+            if (has_prev)
+            {
+                const std::uint64_t dx = (p(0) > prev(0)) ? p(0) - prev(0) : prev(0) - p(0);
+                const std::uint64_t dy = (p(1) > prev(1)) ? p(1) - prev(1) : prev(1) - p(1);
+                ASSERT_EQ(dx + dy, 1U) << "consecutive gilbert keys must be face-adjacent on " << w << "x" << h;
+            }
+            prev     = p;
+            has_prev = true;
+            ++expected_key;
+        }
+    }
+
+    TEST(sfc_hilbert, gilbert_rectangles)
+    {
+        check_gilbert_rect(1, 1);
+        check_gilbert_rect(1, 10); // thin tube (degenerate width)
+        check_gilbert_rect(10, 1);
+        check_gilbert_rect(4, 10);
+        check_gilbert_rect(8, 8); // square, power of two
+        check_gilbert_rect(7, 7); // square, odd
+        check_gilbert_rect(3, 7);
+        check_gilbert_rect(13, 5);
+        check_gilbert_rect(32, 320); // tube discretized at level 5
+    }
+
+    // On a square power-of-two box the generalized curve must keep the defining
+    // Hilbert property (consecutive keys face-adjacent); only the index origin
+    // may differ from key<2>(p). Covered by gilbert_rectangles(8x8); this is the
+    // explicit non-regression marker.
+    TEST(sfc_hilbert, gilbert_square_is_continuous)
+    {
+        check_gilbert_rect(64, 64);
+    }
+
     TEST(sfc_curves, dim1_is_identity)
     {
         const lb::Morton morton;

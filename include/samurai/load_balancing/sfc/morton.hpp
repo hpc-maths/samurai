@@ -46,6 +46,21 @@ namespace samurai::load_balancing
             return split3(p(0)) | (split3(p(1)) << 1) | (split3(p(2)) << 2);
         }
 
+        /// Rectangle-aware overloads: Morton interleaving is independent of the
+        /// bounding box, so the extent `n` is ignored (the curve is allowed to
+        /// be spatially disconnected -- only Hilbert exploits `n`).
+        template <class Coord, class Extent>
+        sfc_key_t key_2d(const Coord& p, const Extent& /*n*/) const
+        {
+            return key_2d(p);
+        }
+
+        template <class Coord, class Extent>
+        sfc_key_t key_3d(const Coord& p, const Extent& /*n*/) const
+        {
+            return key_3d(p);
+        }
+
         /// Inverse of key_2d (Morton-specific extra, used for debug/tests).
         static auto decode_2d(sfc_key_t key)
         {

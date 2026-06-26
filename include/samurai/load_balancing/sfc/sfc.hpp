@@ -43,6 +43,7 @@ namespace samurai::load_balancing
         }
 
         /// 1D key of the point `p` (p(d) >= 0, fitting in max_bits(dim) bits).
+        /// Maps the full 2^max_bits square/cube grid.
         template <std::size_t dim, class Coord>
         sfc_key_t key(const Coord& p) const
         {
@@ -58,6 +59,29 @@ namespace samurai::load_balancing
             else
             {
                 return derived().key_3d(p);
+            }
+        }
+
+        /// 1D key of `p` inside the `n(0) x n(1) [x n(2)]` bounding box. A flavor
+        /// may exploit the box extent to preserve locality on non-square domains
+        /// (Hilbert lays a generalized curve); flavors that don't simply ignore
+        /// `n` and fall back to the square mapping. `p(d)` must satisfy
+        /// 0 <= p(d) < n(d).
+        template <std::size_t dim, class Coord, class Extent>
+        sfc_key_t key(const Coord& p, const Extent& n) const
+        {
+            static_assert(1 <= dim && dim <= 3, "space-filling curves are implemented for dim 1, 2, 3");
+            if constexpr (dim == 1)
+            {
+                return static_cast<sfc_key_t>(p(0)); // the identity curve
+            }
+            else if constexpr (dim == 2)
+            {
+                return derived().key_2d(p, n);
+            }
+            else
+            {
+                return derived().key_3d(p, n);
             }
         }
 
