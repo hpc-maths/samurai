@@ -116,10 +116,10 @@ namespace samurai::load_balancing
                               std::int64_t bx,
                               std::int64_t by)
         {
-            const std::int64_t ex = ax + bx; // signed x-extent (one of ax/bx is 0)
-            const std::int64_t ey = ay + by; // signed y-extent (one of ay/by is 0)
-            const std::int64_t fx = x + ex - sgn(ex);
-            const std::int64_t fy = y + ey - sgn(ey);
+            const std::int64_t ex  = ax + bx; // signed x-extent (one of ax/bx is 0)
+            const std::int64_t ey  = ay + by; // signed y-extent (one of ay/by is 0)
+            const std::int64_t fx  = x + ex - sgn(ex);
+            const std::int64_t fy  = y + ey - sgn(ey);
             const std::int64_t xlo = std::min(x, fx), xhi = std::max(x, fx);
             const std::int64_t ylo = std::min(y, fy), yhi = std::max(y, fy);
             return px >= xlo && px <= xhi && py >= ylo && py <= yhi;
@@ -191,16 +191,8 @@ namespace samurai::load_balancing
             }
             base += static_cast<sfc_key_t>(iabs((ax + ay) * ((bx - bx2) + (by - by2))));
             return base
-                 + gilbert_xy2d(x_dst,
-                                y_dst,
-                                x + (ax - dax) + (bx2 - dbx),
-                                y + (ay - day) + (by2 - dby),
-                                -bx2,
-                                -by2,
-                                -(ax - ax2),
-                                -(ay - ay2));
+                 + gilbert_xy2d(x_dst, y_dst, x + (ax - dax) + (bx2 - dbx), y + (ay - day) + (by2 - dby), -bx2, -by2, -(ax - ax2), -(ay - ay2));
         }
-
 
         template <std::size_t dim, class Coord>
         sfc_key_t key_impl(const Coord& p) const
