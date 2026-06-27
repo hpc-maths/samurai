@@ -233,8 +233,8 @@ namespace samurai
         // Case 3: same one-cell gap, but a ghost reach of two cells on a single
         // rank bridges it. Expansion uses the max of both reaches, so the test
         // stays symmetric whichever rank carries the reach.
-        BBox reach_left  = gap_left;
-        BBox reach_right = gap_right;
+        BBox reach_left        = gap_left;
+        BBox reach_right       = gap_right;
         reach_left.ghost_reach = 2 * cl; // two-cell physical reach
         EXPECT_TRUE(reach_left.could_be_neighbor(reach_right));
         EXPECT_TRUE(reach_right.could_be_neighbor(reach_left)); // max(reach) is symmetric
