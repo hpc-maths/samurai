@@ -184,49 +184,25 @@ namespace
     template <class Mesh, class Curve>
     bool partition_is_curve_contiguous(const Mesh& mesh, const Curve& curve)
     {
-        using mesh_id_t           = typename Mesh::mesh_id_t;
-        using key_t               = samurai::load_balancing::sfc_key_t;
-        constexpr std::size_t dim = Mesh::dim;
+        using mesh_id_t = typename Mesh::mesh_id_t;
+        using key_t     = samurai::load_balancing::sfc_key_t;
         mpi::communicator world;
         const std::size_t max_level = mesh.max_level();
 
-        std::array<std::int64_t, dim> local_min;
-        std::array<std::int64_t, dim> local_max;
-        local_min.fill(std::numeric_limits<std::int64_t>::max());
-        local_max.fill(std::numeric_limits<std::int64_t>::min());
+        // Recompute the keys with the *exact* normalization the strategy used
+        // (sfc_normalized_box + sfc_cell_key): same global shift, same
+        // per-dimension extent, same curve. Sharing this code is what keeps the
+        // validator and the strategy from drifting onto two different gilbert
+        // curves (a contiguous arc on one is fractured on the other).
+        const auto [global_min, extent] = samurai::load_balancing::sfc_normalized_box(mesh);
+
+        std::vector<std::pair<key_t, int>> local;
         samurai::for_each_cell(mesh[mesh_id_t::cells],
                                [&](const auto& cell)
                                {
-                                   const auto shift = max_level - cell.level;
-                                   for (std::size_t d = 0; d < dim; ++d)
-                                   {
-                                       const std::int64_t c = static_cast<std::int64_t>(cell.indices[d]) << shift;
-                                       local_min[d]         = std::min(local_min[d], c);
-                                       local_max[d]         = std::max(local_max[d], c);
-                                   }
+                                   local.emplace_back(samurai::load_balancing::sfc_cell_key(curve, cell, max_level, global_min, extent),
+                                                      world.rank());
                                });
-        std::array<std::int64_t, dim> global_min;
-        xt::xtensor_fixed<std::int64_t, xt::xshape<dim>> extent;
-        for (std::size_t d = 0; d < dim; ++d)
-        {
-            global_min[d]              = mpi::all_reduce(world, local_min[d], mpi::minimum<std::int64_t>());
-            const std::int64_t box_max = mpi::all_reduce(world, local_max[d], mpi::maximum<std::int64_t>());
-            extent[d]                  = box_max - global_min[d] + 1;
-        }
-
-        std::vector<std::pair<key_t, int>> local;
-        samurai::for_each_cell(
-            mesh[mesh_id_t::cells],
-            [&](const auto& cell)
-            {
-                const auto shift = max_level - cell.level;
-                xt::xtensor_fixed<std::uint32_t, xt::xshape<dim>> p;
-                for (std::size_t d = 0; d < dim; ++d)
-                {
-                    p(d) = static_cast<std::uint32_t>((static_cast<std::int64_t>(cell.indices[d]) << shift) - global_min[d]);
-                }
-                local.emplace_back(curve.template key<dim>(p, extent), world.rank());
-            });
 
         std::vector<std::vector<std::pair<key_t, int>>> all;
         mpi::gather(world, local, all, 0);

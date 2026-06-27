@@ -43,9 +43,12 @@
  */
 
 #include <algorithm>
+#include <array>
+#include <cassert>
 #include <cstdint>
 #include <limits>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <xtensor/containers/xfixed.hpp>
@@ -60,6 +63,70 @@
 
 namespace samurai::load_balancing
 {
+    /**
+     * Global bounding box of the mesh, normalized to its max level.
+     *
+     * Single source of truth shared by the SFC strategy and its tests so the
+     * key normalization cannot drift apart. `minmax_indices()` is half-open
+     * (`.first` inclusive, `.second` exclusive), hence the per-dimension box
+     * size is `second - first`. The per-dimension extent lets Hilbert lay a
+     * generalized curve over the exact box, preserving locality on non-square
+     * domains (a square mapping fractures a thin domain into islands).
+     *
+     * @return {global_min, extent}: the shift making coordinates non-negative
+     *         (curves require >= 0) and the box size per dimension.
+     */
+    template <class Mesh>
+    auto sfc_normalized_box(const Mesh& mesh)
+    {
+        constexpr std::size_t dim = Mesh::dim;
+        std::array<std::int64_t, dim> global_min;
+        xt::xtensor_fixed<std::int64_t, xt::xshape<dim>> extent; // box size per dim, normalized to max_level
+
+        if constexpr (requires { mesh.domain(); })
+        {
+            const auto coord_minmax = mesh.domain().minmax_indices();
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                global_min[d] = coord_minmax[d].first;
+                extent[d]     = coord_minmax[d].second - global_min[d]; // >= 1
+            }
+        }
+        else
+        {
+            boost::mpi::communicator world;
+            const auto coord_minmax = mesh.minmax_indices();
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                global_min[d]              = boost::mpi::all_reduce(world, coord_minmax[d].first, boost::mpi::minimum<std::int64_t>());
+                const std::int64_t box_max = boost::mpi::all_reduce(world, coord_minmax[d].second, boost::mpi::maximum<std::int64_t>());
+                extent[d]                  = box_max - global_min[d]; // >= 1
+            }
+        }
+        return std::make_pair(global_min, extent);
+    }
+
+    /**
+     * SFC key of a cell, normalized to `max_level` and shifted into the box
+     * returned by sfc_normalized_box. Single source of truth for the key so the
+     * strategy and its validators stay in lock-step.
+     */
+    template <class Curve, class Cell, class GlobalMin, class Extent>
+    sfc_key_t sfc_cell_key(const Curve& curve, const Cell& cell, std::size_t max_level, const GlobalMin& global_min, const Extent& extent)
+    {
+        constexpr std::size_t dim = Cell::dim;
+        const auto shift          = max_level - cell.level;
+        xt::xtensor_fixed<std::uint32_t, xt::xshape<dim>> p;
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            const std::int64_t c = (static_cast<std::int64_t>(cell.indices[d]) << shift) - global_min[d];
+            assert(c >= 0 && c < (std::int64_t(1) << Curve::max_bits(dim))
+                   && "normalized coordinate exceeds the curve range: max_level too deep for 64-bit keys");
+            p(d) = static_cast<std::uint32_t>(c);
+        }
+        return curve.template key<dim>(p, extent);
+    }
+
     template <class Curve>
     class SFC
     {
@@ -85,9 +152,8 @@ namespace samurai::load_balancing
         template <class Mesh, class Weight>
         auto partition(Mesh& mesh, const Weight& weight) const
         {
-            using mesh_id_t           = typename Mesh::mesh_id_t;
-            using cell_t              = typename Mesh::cell_t;
-            constexpr std::size_t dim = Mesh::dim;
+            using mesh_id_t = typename Mesh::mesh_id_t;
+            using cell_t    = typename Mesh::cell_t;
 
             boost::mpi::communicator world;
             auto flags = make_scalar_field<int>("lb_flags", mesh);
@@ -97,32 +163,9 @@ namespace samurai::load_balancing
             // rank (the local max level is not!)
             const std::size_t max_level = mesh.max_level();
 
-            // -- 1a. global bounding box: curves need non-negative input, and the
-            // per-dimension extent lets the curve preserve locality on non-square
-            // domains (Hilbert lays a generalized curve over the exact box; a
-            // square mapping fractures a thin domain's partitions into islands) --
-            std::array<std::int64_t, dim> global_min;
-            xt::xtensor_fixed<std::int64_t, xt::xshape<dim>> extent; // box size per dim, normalized to max_level
-
-            if constexpr (requires { mesh.domain(); })
-            {
-                const auto coord_minmax = mesh.domain().minmax_indices();
-                for (std::size_t d = 0; d < dim; ++d)
-                {
-                    global_min[d] = coord_minmax[d].first;
-                    extent[d]     = coord_minmax[d].second - global_min[d] + 1; // >= 1
-                }
-            }
-            else
-            {
-                const auto coord_minmax = mesh.minmax_indices();
-                for (std::size_t d = 0; d < dim; ++d)
-                {
-                    global_min[d]              = boost::mpi::all_reduce(world, coord_minmax[d].first, boost::mpi::minimum<std::int64_t>());
-                    const std::int64_t box_max = boost::mpi::all_reduce(world, coord_minmax[d].second, boost::mpi::maximum<std::int64_t>());
-                    extent[d]                  = box_max - global_min[d] + 1; // >= 1
-                }
-            }
+            // -- 1a. global bounding box (shift + per-dimension extent), shared
+            // with the partition validators via sfc_normalized_box. --
+            const auto [global_min, extent] = sfc_normalized_box(mesh);
 
             // -- 1b/2. keys + local sort --------------------------------------------
             struct Item
@@ -137,16 +180,7 @@ namespace samurai::load_balancing
             for_each_cell(mesh[mesh_id_t::cells],
                           [&](const auto& cell)
                           {
-                              const auto shift = max_level - cell.level;
-                              xt::xtensor_fixed<std::uint32_t, xt::xshape<dim>> p;
-                              for (std::size_t d = 0; d < dim; ++d)
-                              {
-                                  const std::int64_t c = (static_cast<std::int64_t>(cell.indices[d]) << shift) - global_min[d];
-                                  assert(c >= 0 && c < (std::int64_t(1) << Curve::max_bits(dim))
-                                         && "normalized coordinate exceeds the curve range: max_level too deep for 64-bit keys");
-                                  p(d) = static_cast<std::uint32_t>(c);
-                              }
-                              items.push_back({m_curve.template key<dim>(p, extent), weight(cell), cell});
+                              items.push_back({sfc_cell_key(m_curve, cell, max_level, global_min, extent), weight(cell), cell});
                           });
 
             std::sort(items.begin(),
