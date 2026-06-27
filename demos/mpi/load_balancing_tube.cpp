@@ -109,7 +109,7 @@ namespace
     template <class Field>
     void init(const Options& opt, Field& u)
     {
-        auto& mesh        = u.mesh();
+        auto& mesh         = u.mesh();
         const auto circles = make_circles(opt);
         u.resize();
         u.fill(0.);
@@ -241,8 +241,7 @@ namespace
         // needs inter-rank interfaces to move cells (see BandedImbalance).
         if (opt.skew)
         {
-            lb::make_load_balancer<BandedImbalance>(lb::LoadBalanceConfig{}, BandedImbalance{opt.length})
-                .load_balance(lb::weight::uniform(), u);
+            lb::make_load_balancer<BandedImbalance>(lb::LoadBalanceConfig{}, BandedImbalance{opt.length}).load_balance(lb::weight::uniform(), u);
         }
 
         save_state(opt, u, "_init"); // decomposition before balancing
@@ -256,7 +255,7 @@ namespace
                 return std::pow(2.0, static_cast<double>(l) - static_cast<double>(mesh.min_level()));
             });
 
-        constexpr double stop_bound = 0.02;
+        constexpr double stop_bound = 0.05;
         for (std::size_t pass = 0; pass < opt.iterations; ++pass)
         {
             auto stats = weight_is_level ? balancer.load_balance_with_stats(level_weight, u)
@@ -312,6 +311,13 @@ int main(int argc, char* argv[])
                    opt.diffusion.relaxation,
                    "(diffusion) under-relaxation factor in (0,1]: shed only this fraction of the flux per pass "
                    "to damp the oscillation that appears with many ranks (try 0.5)")
+        ->capture_default_str()
+        ->group("Load balancing");
+    app.add_flag("--lb-diffusion-monotonic,!--no-lb-diffusion-monotonic",
+                 opt.diffusion.monotonic,
+                 "(diffusion) cap each cession at half the local load gradient (deal-agreement): forbids the "
+                 "receiver from passing the giver, so the imbalance decreases monotonically and cannot enter a "
+                 "limit cycle. On by default; pass --no-lb-diffusion-monotonic to compare")
         ->capture_default_str()
         ->group("Load balancing");
     app.add_option("--path", opt.path, "Output path")->capture_default_str()->group("Output");

@@ -92,8 +92,8 @@ namespace
     /// the geometry is the same, only the partitioner changes.
     namespace tube
     {
-        using Mesh                   = samurai::MRMesh<samurai::mesh_config<2>>;
-        constexpr std::size_t level  = 5;
+        using Mesh                  = samurai::MRMesh<samurai::mesh_config<2>>;
+        constexpr std::size_t level = 5;
 
         /// The non-square tube: 1 unit wide, 10 units long.
         inline samurai::Box<double, 2> box()
