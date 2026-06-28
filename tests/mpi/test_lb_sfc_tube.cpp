@@ -197,12 +197,12 @@ namespace
         const auto [global_min, extent] = samurai::load_balancing::sfc_normalized_box(mesh);
 
         std::vector<std::pair<key_t, int>> local;
-        samurai::for_each_cell(mesh[mesh_id_t::cells],
-                               [&](const auto& cell)
-                               {
-                                   local.emplace_back(samurai::load_balancing::sfc_cell_key(curve, cell, max_level, global_min, extent),
-                                                      world.rank());
-                               });
+        samurai::for_each_cell(
+            mesh[mesh_id_t::cells],
+            [&](const auto& cell)
+            {
+                local.emplace_back(samurai::load_balancing::sfc_cell_key(curve, cell, max_level, global_min, extent), world.rank());
+            });
 
         std::vector<std::vector<std::pair<key_t, int>>> all;
         mpi::gather(world, local, all, 0);
