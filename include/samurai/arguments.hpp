@@ -29,6 +29,10 @@ namespace samurai
 
         static uint32_t load_balancing_at = 0;
 
+        // Use the aggregated (field-merged, non-blocking) ghost update path in
+        // update_ghost_mr. Default false ⇒ historic per-field/per-sync path.
+        static bool aggregated_ghost_update = false;
+
         // MRA arguments
         static double epsilon    = std::numeric_limits<double>::infinity();
         static double regularity = std::numeric_limits<double>::infinity();
@@ -63,6 +67,11 @@ namespace samurai
             ->capture_default_str()
             ->group("SAMURAI");
         app.add_flag("--refine-boundary", args::refine_boundary, "Keep the boundary refined at max_level")->capture_default_str()->group("SAMURAI");
+        app.add_flag("--aggregated-ghost-update",
+                     args::aggregated_ghost_update,
+                     "Use the aggregated (field-merged, non-blocking) MPI ghost update path")
+            ->capture_default_str()
+            ->group("SAMURAI");
         app.add_flag("--print-petsc-numbering", args::print_petsc_numbering, "Print the local and global numbering used for PETSc")
             ->capture_default_str()
             ->group("SAMURAI");
