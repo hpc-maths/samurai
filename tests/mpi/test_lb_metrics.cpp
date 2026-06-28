@@ -158,29 +158,4 @@ namespace
         EXPECT_TRUE_ALL_RANKS(load_ok);
         EXPECT_TRUE_ALL_RANKS(stats.imbalance_after == static_cast<double>(world.size() - 1));
     }
-
-    // dump_partition writes a readable HDF5 file with the rank field.
-    TEST_F(load_balancing_metrics, dump_partition)
-    {
-        mpi::communicator world;
-        auto mesh = make_uniform_mesh();
-
-        const fs::path dir = fs::temp_directory_path() / "samurai_lb_dump_test";
-        if (world.rank() == 0)
-        {
-            fs::create_directories(dir);
-        }
-        world.barrier();
-
-        lb::dump_partition(dir, "partition", mesh);
-
-        bool exists = true;
-        if (world.rank() == 0)
-        {
-            const fs::path file = dir / fmt::format("partition_size_{}.h5", world.size());
-            exists              = fs::exists(file) && fs::file_size(file) > 0;
-            fs::remove_all(dir);
-        }
-        EXPECT_TRUE_ALL_RANKS(exists);
-    }
 }

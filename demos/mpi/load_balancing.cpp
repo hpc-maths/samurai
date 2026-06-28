@@ -97,7 +97,6 @@ namespace
         std::string weight         = "uniform";
         std::size_t nt_loadbalance = 10;
         double threshold           = 0.; // 0: rebalance on the period; >0: only when required()
-        bool dump_partitions       = false;
         bool skew                  = false;
         std::string stats_file;
         // diffusion strategy options (ignored by the other strategies)
@@ -251,10 +250,6 @@ namespace
                     auto stats = weight_is_level ? balancer.load_balance_with_stats(level_weight, u)
                                                  : balancer.load_balance_with_stats(lb::weight::uniform(), u);
                     log_stats(opt, nt, t, stats);
-                    if (opt.dump_partitions)
-                    {
-                        lb::dump_partition(opt.path, fmt::format("{}_partition_ite_{}", opt.filename, nt), mesh);
-                    }
                 }
             }
 
@@ -307,7 +302,6 @@ int main(int argc, char* argv[])
     app.add_option("--lb-threshold", opt.threshold, "If > 0, rebalance only when the global imbalance exceeds this value")
         ->capture_default_str()
         ->group("Load balancing");
-    app.add_flag("--lb-dump", opt.dump_partitions, "Dump the partition (field 'rank') at every rebalance")->group("Load balancing");
     app.add_flag("--lb-skew",
                  opt.skew,
                  "Start with every cell on rank 0 (debug: maximally skewed initial state; "
