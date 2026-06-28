@@ -42,7 +42,6 @@
 #include <samurai/mr/mesh.hpp>
 #include <samurai/samurai.hpp>
 
-#include <samurai/load_balancing/dump.hpp>
 #include <samurai/load_balancing/load_balancer.hpp>
 #include <samurai/load_balancing/strategies/diffusion.hpp>
 #include <samurai/load_balancing/strategies/sfc.hpp>
@@ -207,7 +206,7 @@ namespace
     };
 
     /// Generic on the partitioning strategy: build the tube, refine around the
-    /// circles, then balance and dump the partition. Adding a strategy is one
+    /// circles, then balance. Adding a strategy is one
     /// line in the dispatch of main().
     template <class Strategy>
     int run(const Options& opt, Strategy strategy = {})

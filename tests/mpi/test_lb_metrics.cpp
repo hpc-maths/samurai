@@ -3,7 +3,7 @@
 
 // Metrics and statistics of the load balancing module (roadmap step 2):
 // global imbalance, collective require_balance decision, LoadBalanceStats
-// consistency, weighted loads through load_balance, partition dump.
+// consistency, weighted loads through load_balance.
 
 #include <cmath>
 #include <filesystem>
@@ -12,7 +12,6 @@
 
 #include <samurai/box.hpp>
 #include <samurai/field.hpp>
-#include <samurai/load_balancing/dump.hpp>
 #include <samurai/load_balancing/load_balancer.hpp>
 #include <samurai/load_balancing/weight.hpp>
 #include <samurai/mr/mesh.hpp>
