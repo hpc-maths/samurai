@@ -126,7 +126,6 @@ namespace
 
         EXPECT_TRUE_ALL_RANKS(stats.imbalance_after == stats.imbalance_before);
         EXPECT_TRUE_ALL_RANKS(stats.strategy_name == "test-lambda");
-        EXPECT_TRUE_ALL_RANKS(stats.partition_time >= 0. && stats.migration_time >= 0.);
         // the rotation moves everything: local loads swap between ranks
         EXPECT_TRUE_ALL_RANKS(stats.cells_migrated_out == stats.cells_before);
         EXPECT_TRUE_ALL_RANKS(stats.cells_migrated_in == stats.cells_after);

@@ -34,8 +34,6 @@ namespace samurai::load_balancing
         double load_after              = 0.; ///< local weighted load after balancing
         double imbalance_before        = 0.; ///< global max(load)/avg(load) - 1 before
         double imbalance_after         = 0.; ///< global max(load)/avg(load) - 1 after
-        double partition_time          = 0.; ///< seconds spent in the strategy
-        double migration_time          = 0.; ///< seconds spent migrating cells and fields
         double unmet_flux              = 0.; ///< load a strategy wanted to shed but could not
                                              ///< (e.g. diffusion: interface exhausted before
                                              ///< the requested flux was satisfied). 0 for

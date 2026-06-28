@@ -6,7 +6,7 @@
 /**
  * Load balancing driver.
  *
- * Design (see docs/load_balancing_roadmap.md, step 1):
+ * Design:
  *  - a *strategy* is an object exposing `partition(mesh, weight) -> flags`
  *    where `flags[cell]` is the destination rank of `cell`. It performs no
  *    migration itself (see the PartitionStrategy concept below);
@@ -157,11 +157,11 @@ namespace samurai::load_balancing
         bool required(const Mesh& mesh, const Weight& weight) const
         {
             boost::mpi::communicator world;
-            if (world.size() <= 1)
+            if (world.size() > 1)
             {
-                return false;
+                return require_balance(mesh, weight, m_config.imbalance_threshold);
             }
-            return require_balance(mesh, weight, m_config.imbalance_threshold);
+            return false;
         }
 
         /**
@@ -244,13 +244,12 @@ namespace samurai::load_balancing
         void concentrate_on(int dest_rank, Field& field, Fields&... other_fields)
         {
             boost::mpi::communicator world;
-            if (world.size() <= 1)
+            if (world.size() > 1)
             {
-                return;
+                auto flags = make_scalar_field<int>("lb_flags", field.mesh());
+                flags.fill(dest_rank);
+                migrate(flags, field, other_fields...);
             }
-            auto flags = make_scalar_field<int>("lb_flags", field.mesh());
-            flags.fill(dest_rank);
-            migrate(flags, field, other_fields...);
         }
 
         const LoadBalanceConfig& config() const
@@ -275,30 +274,25 @@ namespace samurai::load_balancing
         template <class Weight, class Field, class... Fields>
         void run_load_balance(const Weight& weight, LoadBalanceStats* stats, Field& field, Fields&... other_fields)
         {
+            samurai::ScopedTimer t("load_balancing");
+
             boost::mpi::communicator world;
-            if (world.size() <= 1)
+            if (world.size() == 1)
             {
                 return;
             }
 
-            times::timers.start("load_balancing");
-
-            const auto t0 = std::chrono::steady_clock::now();
-            times::timers.start("load_balancing:partition");
+            times::timers.start("partition");
             auto flags = m_strategy.partition(field.mesh(), weight);
-            times::timers.stop("load_balancing:partition");
-            const auto t1 = std::chrono::steady_clock::now();
+            times::timers.stop("partition");
 
-            times::timers.start("load_balancing:migration");
+            times::timers.start("migration");
             const auto counts = migrate(flags, field, other_fields...);
-            times::timers.stop("load_balancing:migration");
-            const auto t2 = std::chrono::steady_clock::now();
+            times::timers.stop("migration");
 
             if (stats != nullptr)
             {
                 stats->strategy_name      = m_strategy.name();
-                stats->partition_time     = std::chrono::duration<double>(t1 - t0).count();
-                stats->migration_time     = std::chrono::duration<double>(t2 - t1).count();
                 stats->cells_migrated_out = counts.out;
                 stats->cells_migrated_in  = counts.in;
                 // strategies that may fail to shed the requested load (e.g.
@@ -308,8 +302,6 @@ namespace samurai::load_balancing
                     stats->unmet_flux = m_strategy.last_unmet_flux();
                 }
             }
-
-            times::timers.stop("load_balancing");
         }
 
         /**

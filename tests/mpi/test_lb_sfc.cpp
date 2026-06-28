@@ -5,10 +5,12 @@
 // weighted balance quality, negative coordinates, idempotence, and the
 // migration invariants on curve-shaped (non rectangular) partitions.
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <numeric>
 #include <utility>
 #include <vector>
 
@@ -400,5 +402,106 @@ namespace
         {
             EXPECT_TRUE_ALL_RANKS(local_connected_components(mesh) == 1);
         }
+    }
+
+    // -- cut-key equivalence: gather path == search path -----------------------
+    // The interval-atom fast path (sfc_equal_weight_cuts_gather, one all_gatherv)
+    // must produce the exact same P-1 cut keys as the cell-atom distributed
+    // binary search (sfc_equal_weight_cuts_search). Weights are kept integral so
+    // the prefix sums are exact in double and the two summation orders (per-step
+    // all_reduce vs local accumulation) cannot diverge on a threshold boundary.
+
+    /// Build the two cut-key vectors from the same per-rank atom set and assert
+    /// they are bit-identical on every rank.
+    void check_cut_equivalence(const std::vector<samurai::load_balancing::sfc_key_t>& local_keys, const std::vector<double>& local_w)
+    {
+        using samurai::load_balancing::sfc_key_t;
+        mpi::communicator world;
+        const int P = world.size();
+
+        const double w_local = std::accumulate(local_w.begin(), local_w.end(), 0.);
+        const double w_total = mpi::all_reduce(world, w_local, std::plus<double>());
+        const double chunk   = w_total / static_cast<double>(P);
+
+        // the search path expects locally key-sorted (key, weight)
+        std::vector<std::size_t> ord(local_keys.size());
+        std::iota(ord.begin(), ord.end(), std::size_t{0});
+        std::sort(ord.begin(),
+                  ord.end(),
+                  [&](std::size_t a, std::size_t b)
+                  {
+                      return local_keys[a] < local_keys[b];
+                  });
+        std::vector<sfc_key_t> skeys(local_keys.size());
+        std::vector<double> sw(local_w.size());
+        for (std::size_t i = 0; i < ord.size(); ++i)
+        {
+            skeys[i] = local_keys[ord[i]];
+            sw[i]    = local_w[ord[i]];
+        }
+
+        std::vector<int> counts;
+        mpi::all_gather(world, static_cast<int>(local_keys.size()), counts);
+
+        const auto lo_search = lb::sfc_equal_weight_cuts_search(skeys, sw, P, chunk, world);
+        const auto lo_gather = lb::sfc_equal_weight_cuts_gather(local_keys, local_w, counts, P, chunk, world);
+
+        EXPECT_TRUE_ALL_RANKS(lo_search.size() == static_cast<std::size_t>(P - 1));
+        EXPECT_TRUE_ALL_RANKS(lo_search == lo_gather);
+        EXPECT_TRUE_ALL_RANKS(std::is_sorted(lo_gather.begin(), lo_gather.end()));
+    }
+
+    // Uniform weight, keys interleaved across ranks (rank r owns r, r+P, r+2P, ...
+    // -- a curve-discontiguous decomposition like the row-major default).
+    TEST(SFCCuts, search_equals_gather_uniform)
+    {
+        mpi::communicator world;
+        std::vector<samurai::load_balancing::sfc_key_t> keys;
+        std::vector<double> w;
+        for (int i = 0; i < 1000; ++i)
+        {
+            keys.push_back(static_cast<samurai::load_balancing::sfc_key_t>(world.rank() + i * world.size()));
+            w.push_back(1.);
+        }
+        check_cut_equivalence(keys, w);
+    }
+
+    // Non-uniform integral weights and pseudo-random keys (xorshift seeded per
+    // rank): exercises uneven prefixes and heavy atoms straddling cuts.
+    TEST(SFCCuts, search_equals_gather_weighted)
+    {
+        mpi::communicator world;
+        std::uint64_t s = 0x9e3779b97f4a7c15ull * static_cast<std::uint64_t>(world.rank() + 1);
+        auto next       = [&]
+        {
+            s ^= s << 13;
+            s ^= s >> 7;
+            s ^= s << 17;
+            return s;
+        };
+        std::vector<samurai::load_balancing::sfc_key_t> keys;
+        std::vector<double> w;
+        for (int i = 0; i < 777; ++i)
+        {
+            keys.push_back(static_cast<samurai::load_balancing::sfc_key_t>(next() % (1u << 22)));
+            w.push_back(1. + static_cast<double>(next() % 100)); // integral
+        }
+        check_cut_equivalence(keys, w);
+    }
+
+    // Few distinct keys so the same key recurs within and across ranks: checks
+    // the gather's block grouping (equal keys accumulated together) matches the
+    // search, where W_<(c) jumps by the whole block.
+    TEST(SFCCuts, search_equals_gather_duplicate_keys)
+    {
+        mpi::communicator world;
+        std::vector<samurai::load_balancing::sfc_key_t> keys;
+        std::vector<double> w;
+        for (int i = 0; i < 200; ++i)
+        {
+            keys.push_back(static_cast<samurai::load_balancing::sfc_key_t>((world.rank() + i) % 17));
+            w.push_back(1. + static_cast<double>(i % 3)); // integral
+        }
+        check_cut_equivalence(keys, w);
     }
 }

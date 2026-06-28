@@ -24,8 +24,6 @@
 //   --nt-loadbalance N   rebalance every N steps (default 10)
 //   --lb-threshold x     if x > 0, rebalance only when the global imbalance
 //                        exceeds x (uses LoadBalancer::required())
-//   --lb-dump            write the partition (field "rank") at every
-//                        rebalance, for visual comparison in ParaView
 //   --lb-stats-file f    append one CSV line per rebalance (rank 0)
 //   --lb-skew            (debug) start with every cell on rank 0, to exercise
 //                        the strategies on a maximally skewed initial state
@@ -45,7 +43,6 @@
 #include <samurai/samurai.hpp>
 #include <samurai/stencil_field.hpp>
 
-#include <samurai/load_balancing/dump.hpp>
 #include <samurai/load_balancing/load_balancer.hpp>
 #include <samurai/load_balancing/strategies/diffusion.hpp>
 #include <samurai/load_balancing/strategies/sfc.hpp>
@@ -98,6 +95,7 @@ namespace
         std::size_t nt_loadbalance = 10;
         double threshold           = 0.; // 0: rebalance on the period; >0: only when required()
         bool skew                  = false;
+        bool sfc_interval          = false; // (sfc) atoms = whole x-intervals instead of cells
         std::string stats_file;
         // diffusion strategy options (ignored by the other strategies)
         lb::DiffusionOptions diffusion;
@@ -126,7 +124,7 @@ namespace
 
     // note: only u and level here — no per-rank field, so the outputs of runs
     // with different process counts (or strategies) stay comparable with
-    // python/compare.py. The partition itself is dumped via --lb-dump.
+    // python/compare.py.
     template <class Field>
     void save(const Options& opt, const Field& u, const std::string& suffix = "")
     {
@@ -146,9 +144,7 @@ namespace
     void log_stats(const Options& opt, std::size_t nt, double t, const lb::LoadBalanceStats& stats)
     {
         mpi::communicator world;
-        const auto migrated  = boost::mpi::all_reduce(world, stats.cells_migrated_out, std::plus<std::size_t>());
-        const auto part_time = boost::mpi::all_reduce(world, stats.partition_time, boost::mpi::maximum<double>());
-        const auto migr_time = boost::mpi::all_reduce(world, stats.migration_time, boost::mpi::maximum<double>());
+        const auto migrated = boost::mpi::all_reduce(world, stats.cells_migrated_out, std::plus<std::size_t>());
 
         if (world.rank() == 0)
         {
@@ -167,9 +163,9 @@ namespace
                 if (write_header)
                 {
                     csv << "nt,t,strategy,weight,ranks,imbalance_before,imbalance_after,"
-                           "cells_migrated,partition_time_max,migration_time_max\n";
+                           "cells_migrated\n";
                 }
-                csv << fmt::format("{},{},{},{},{},{},{},{},{},{}\n",
+                csv << fmt::format("{},{},{},{},{},{},{},{}\n",
                                    nt,
                                    t,
                                    stats.strategy_name,
@@ -177,9 +173,7 @@ namespace
                                    world.size(),
                                    stats.imbalance_before,
                                    stats.imbalance_after,
-                                   migrated,
-                                   part_time,
-                                   migr_time);
+                                   migrated);
             }
         }
     }
@@ -310,6 +304,11 @@ int main(int argc, char* argv[])
     app.add_option("--lb-stats-file", opt.stats_file, "Append one CSV line per rebalance to this file (rank 0)")
         ->capture_default_str()
         ->group("Load balancing");
+    app.add_flag("--lb-sfc-interval",
+                 opt.sfc_interval,
+                 "(sfc) use whole x-intervals as partition atoms instead of cells "
+                 "(~10-20x fewer atoms; an interval is never split across ranks)")
+        ->group("Load balancing");
     app.add_option("--lb-diffusion-iterations", opt.diffusion.diffusion_iterations, "(diffusion) max iterations of the flux solver")
         ->capture_default_str()
         ->group("Load balancing");
@@ -342,11 +341,11 @@ int main(int argc, char* argv[])
     }
     else if (opt.strategy == "sfc-morton")
     {
-        ret = run<lb::SFC<lb::Morton>>(opt);
+        ret = run<lb::SFC<lb::Morton>>(opt, lb::SFC<lb::Morton>{}.with_interval_atoms(opt.sfc_interval));
     }
     else if (opt.strategy == "sfc-hilbert")
     {
-        ret = run<lb::SFC<lb::Hilbert>>(opt);
+        ret = run<lb::SFC<lb::Hilbert>>(opt, lb::SFC<lb::Hilbert>{}.with_interval_atoms(opt.sfc_interval));
     }
     else if (opt.strategy == "diffusion")
     {
