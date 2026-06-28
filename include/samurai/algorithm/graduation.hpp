@@ -353,6 +353,16 @@ namespace samurai
             min_level = std::min(min_level, mpi_mesh.min_level());
         }
 
+        // An empty (sub)mesh with no non-empty neighbour -- e.g. a rank emptied by
+        // load balancing -- has no boundary cells to refine. Its min_level is
+        // max_size + 1 and max_level is 0, so min_level > max_level: bail out
+        // before the descending level loops below underflow size_t. Local set
+        // algebra only here (no collective), so an early return cannot deadlock.
+        if (min_level > max_level)
+        {
+            return;
+        }
+
         // We want to avoid a flux being computed with ghosts outside of the domain if the cell doesn't touch the boundary,
         // because we only want to apply the B.C. on the cells that touch the boundary.
         // For details and figures, see https://github.com/hpc-maths/samurai/pull/320
@@ -582,7 +592,11 @@ namespace samurai
             add_p_interval.clear();
             add_p_inner_stencil.clear();
             add_p_idx.clear();
-            for (size_t level = min_level; level != max_level + 1; ++level)
+            // `<` not `!=`: on an empty rank min_level (max_size + 1) > max_level
+            // (0), so this runs zero times instead of walking off remove_m_all.
+            // The empty rank must still reach the collective all_reduce above, so
+            // it cannot early-return -- it just does no per-level work.
+            for (size_t level = min_level; level < max_level + 1; ++level)
             {
                 remove_m_all[level].remove_overlapping_intervals();
                 const size_t imax = remove_m_all[level].size();
@@ -622,7 +636,7 @@ namespace samurai
             // We then create new_ca as ca U ca_add
             new_ca.clear();
             for (std::size_t level = std::min(ca.min_level(), ca_add_p.min_level());
-                 level != std::max(ca.max_level(), ca_add_p.max_level()) + 1;
+                 level < std::max(ca.max_level(), ca_add_p.max_level()) + 1;
                  ++level)
             {
                 auto set = difference(union_(ca[level], ca_add_p[level]), ca_remove_p[level]);
@@ -666,6 +680,12 @@ namespace samurai
 
         const auto& mesh = tag.mesh();
 
+        // On an empty (sub)mesh min_level() returns max_size + 1 and max_level()
+        // returns 0, so start_level > end_level: the half-open `<` test then runs
+        // zero iterations instead of walking off the level array (a `!=` test
+        // would overflow past max_size and segfault). An empty rank -- e.g. right
+        // after load balancing concentrates every cell elsewhere -- must adapt to
+        // an empty cell array, not crash.
         const size_t start_level = old_ca.min_level();
         const size_t end_level   = old_ca.max_level() + 1;
 
@@ -679,7 +699,7 @@ namespace samurai
         std::vector<coord_type> add_p_inner_stencil;
         std::vector<size_t> add_p_idx;
 
-        for (size_t level = start_level; level != end_level; ++level)
+        for (size_t level = start_level; level < end_level; ++level)
         {
             const auto begin = old_ca[level].cbegin();
             const auto end   = old_ca[level].cend();
