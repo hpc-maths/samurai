@@ -12,23 +12,28 @@
  * graduation). Vertex weights are the cell weights scaled to integers; edge
  * weights are 1 (in a Cartesian AMR grid two cells share at most one face).
  *
- * The adjacency reuses the finite-volume interface machinery: a global-index
- * field is filled on the real cells and propagated to the ghosts by the MPI /
- * periodic copy updates, then `for_each_interior_interface` enumerates every
- * interior interface (same level + level jumps, all directions, MPI neighbours
- * and periodicity) via set algebra. Each interface yields one edge.
+ * The adjacency reuses the finite-volume interface machinery: every interior
+ * interface (same level + level jumps, all directions, MPI neighbours and
+ * periodicity) is enumerated with `for_each_interior_interface` (set algebra),
+ * and each interface yields one edge. Global vertex indices are resolved with a
+ * map keyed on (level, indices) covering the local cells and every neighbour's
+ * cells (obtained from update_mesh_neighbour, which gathers the full neighbour
+ * meshes) — so no field ghost-update is needed. The distributed graph is then
+ * symmetrized (PT-Scotch requires an undirected graph).
  *
- * Communication: one all_gather (vtxdist) + the standard ghost-copy exchanges
- * of the global-index field.
+ * Communication: one all_gather (vtxdist), the neighbour-mesh exchange, and one
+ * all_to_all to symmetrize the boundary edges.
  */
 
 #include <algorithm>
-#include <cassert>
+#include <array>
 #include <cmath>
+#include <cstddef>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "../algorithm.hpp"
-#include "../algorithm/update.hpp"
 #include "../field.hpp"
 #include "../interface.hpp"
 #include "../mesh.hpp"
@@ -37,6 +42,8 @@
 #ifdef SAMURAI_WITH_MPI
 #include <boost/mpi.hpp>
 #include <boost/mpi/collectives.hpp>
+#include <boost/serialization/utility.hpp>
+#include <boost/serialization/vector.hpp>
 
 namespace samurai::load_balancing
 {
@@ -58,20 +65,59 @@ namespace samurai::load_balancing
         }
     };
 
+    namespace detail
+    {
+        template <std::size_t dim, class value_t>
+        struct CellKey
+        {
+            std::size_t level{};
+            std::array<value_t, dim> indices{};
+
+            bool operator==(const CellKey& o) const
+            {
+                return level == o.level && indices == o.indices;
+            }
+        };
+
+        template <std::size_t dim, class value_t>
+        struct CellKeyHash
+        {
+            std::size_t operator()(const CellKey<dim, value_t>& k) const
+            {
+                std::size_t h = k.level;
+                for (std::size_t d = 0; d < dim; ++d)
+                {
+                    h ^= std::hash<value_t>{}(k.indices[d]) + 0x9e3779b9 + (h << 6) + (h >> 2);
+                }
+                return h;
+            }
+        };
+
+        constexpr std::size_t npos = static_cast<std::size_t>(-1);
+
+        template <std::size_t dim, class value_t, class Cell>
+        CellKey<dim, value_t> cell_key(const Cell& c)
+        {
+            CellKey<dim, value_t> k{c.level, {}};
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                k.indices[d] = c.indices[d];
+            }
+            return k;
+        }
+    }
+
     /**
      * Build the distributed cell graph for the metis/scotch strategies.
      *
-     * Instead of per-cell hash lookups and an O(n_neighbours * n_local) boundary
-     * scan, this reuses the FV interface machinery:
-     *  - a global-index field `gid` is filled on the real cells (gid = go + local
-     *    order, matching the vwgt order) and propagated to the ghosts by the MPI
-     *    / periodic *copy* updates. Every interface endpoint (local real cell,
-     *    neighbour ghost or periodic ghost) is then a real cell of some rank, so
-     *    its global ParMETIS/Scotch index is readable in O(1) via gid[cell];
-     *  - `for_each_interior_interface` enumerates every interior interface
-     *    (same level + level jumps l/l+1, all directions, MPI neighbours and
-     *    periodicity) using intersection/translate of the per-level cell arrays.
-     *    Each interface is exactly one undirected edge of the graph.
+     * Each interior interface (same level + level jumps l/l+1, all directions,
+     * MPI neighbours and periodicity) enumerated by `for_each_interior_interface`
+     * is exactly one undirected edge. Global indices are looked up in a map
+     * keyed on (level, indices) holding the local cells (gid = go + local order,
+     * matching the vwgt order) and every neighbour's cells (gid = neighbour
+     * offset + the cell's order in the neighbour mesh, which matches the
+     * neighbour's own numbering because update_mesh_neighbour copies the full
+     * mesh and for_each_cell is deterministic).
      *
      * Edge weights are 1: in a Cartesian AMR grid two cells share at most one
      * face, and a coarse cell facing several fine cells yields one distinct
@@ -82,6 +128,9 @@ namespace samurai::load_balancing
     {
         constexpr std::size_t dim = Mesh::dim;
         using mesh_id_t           = typename Mesh::mesh_id_t;
+        using value_t             = typename Mesh::interval_t::value_t;
+        using key_t               = detail::CellKey<dim, value_t>;
+        using map_t               = std::unordered_map<key_t, idx_t, detail::CellKeyHash<dim, value_t>>;
 
         boost::mpi::communicator world;
         const int rank = world.rank();
@@ -101,8 +150,11 @@ namespace samurai::load_balancing
         }
         const idx_t go = g.vtxdist[static_cast<std::size_t>(rank)];
 
-        // Vertex weights, coordinates and global-index field, all in the same
-        // for_each_cell order so that local index == gid - go.
+        // Global-index map (level, indices) -> global id, plus the local vertex
+        // weights and coordinates (same for_each_cell order as the gid).
+        map_t gid;
+        gid.reserve(static_cast<std::size_t>(n_local) * 2);
+
         double w_total = 0.;
         for_each_cell(mesh[mesh_id_t::cells],
                       [&](const auto& c)
@@ -114,10 +166,6 @@ namespace samurai::load_balancing
 
         g.vwgt.reserve(static_cast<std::size_t>(n_local));
         g.xyz.reserve(static_cast<std::size_t>(n_local) * dim);
-
-        auto gid = make_scalar_field<idx_t>("lb_gid", mesh);
-        gid.fill(static_cast<idx_t>(-1)); // sentinel: every interface endpoint must be overwritten
-
         idx_t order = 0;
         for_each_cell(mesh[mesh_id_t::cells],
                       [&](const auto& c)
@@ -128,36 +176,81 @@ namespace samurai::load_balancing
                           {
                               g.xyz.push_back(static_cast<float>(ctr[d]));
                           }
-                          gid[c] = go + order;
+                          gid[detail::cell_key<dim, value_t>(c)] = go + order;
                           ++order;
                       });
 
-        // Propagate the global indices to the ghosts. update_mesh_neighbour is
-        // required by for_each_interior_interface (it reads neigh.mesh); the
-        // subdomain/periodic updates are direct copies (no prediction), which is
-        // exactly what is needed since every interface endpoint is a real cell.
+        // Bring in the neighbours' full meshes and number their cells with the
+        // same offset/order their owner uses (deterministic for_each_cell order).
         mesh.update_mesh_neighbour();
-        update_ghost_subdomains(gid);
-        update_ghost_periodic(gid);
+        for (const auto& neigh : mesh.mpi_neighbourhood())
+        {
+            const idx_t neigh_go = g.vtxdist[static_cast<std::size_t>(neigh.rank)];
+            idx_t norder         = 0;
+            for_each_cell(neigh.mesh[mesh_id_t::cells],
+                          [&](const auto& c)
+                          {
+                              gid[detail::cell_key<dim, value_t>(c)] = neigh_go + norder;
+                              ++norder;
+                          });
+        }
 
-        // Adjacency: one edge per interior interface.
+        // Adjacency: one edge per interior interface. Each endpoint is a real
+        // cell of some rank, hence present in the gid map.
         std::vector<std::vector<idx_t>> adj(static_cast<std::size_t>(n_local));
-        for_each_interior_interface(
-            mesh,
-            [&](const auto& interface_cells, const auto& /*comput_cells*/)
+        for_each_interior_interface(mesh,
+                                    [&](const auto& interface_cells, const auto& /*comput_cells*/)
+                                    {
+                                        const auto ita = gid.find(detail::cell_key<dim, value_t>(interface_cells[0]));
+                                        const auto itb = gid.find(detail::cell_key<dim, value_t>(interface_cells[1]));
+                                        if (ita == gid.end() || itb == gid.end())
+                                        {
+                                            return;
+                                        }
+                                        const idx_t ga = ita->second;
+                                        const idx_t gb = itb->second;
+                                        if (ga >= go && ga < go + n_local)
+                                        {
+                                            adj[static_cast<std::size_t>(ga - go)].push_back(gb);
+                                        }
+                                        if (gb >= go && gb < go + n_local)
+                                        {
+                                            adj[static_cast<std::size_t>(gb - go)].push_back(ga);
+                                        }
+                                    });
+
+        // Symmetrize the distributed graph. for_each_interior_interface may
+        // enumerate an MPI level-jump interface on only one of the two ranks
+        // (parity of the fine interval), leaving u->v on u's owner without the
+        // reverse v->u on v's owner. PT-Scotch requires a symmetric distributed
+        // graph (its halo Alltoallv aborts otherwise); ParMETIS expects one too.
+        // For every remote neighbour v of a local u, ask v's owner to add v->u.
+        auto owner_of = [&](idx_t v)
+        {
+            auto it = std::upper_bound(g.vtxdist.begin(), g.vtxdist.end(), v);
+            return static_cast<int>(std::distance(g.vtxdist.begin(), it)) - 1;
+        };
+        std::vector<std::vector<std::pair<idx_t, idx_t>>> sym_send(static_cast<std::size_t>(size));
+        std::vector<std::vector<std::pair<idx_t, idx_t>>> sym_recv;
+        for (std::size_t u = 0; u < static_cast<std::size_t>(n_local); ++u)
+        {
+            const idx_t ug = go + static_cast<idx_t>(u);
+            for (const idx_t v : adj[u])
             {
-                const idx_t ga = gid[interface_cells[0]];
-                const idx_t gb = gid[interface_cells[1]];
-                assert(ga != static_cast<idx_t>(-1) && gb != static_cast<idx_t>(-1) && "interface endpoint without a global index");
-                if (ga >= go && ga < go + n_local)
+                if (v < go || v >= go + n_local) // remote neighbour
                 {
-                    adj[static_cast<std::size_t>(ga - go)].push_back(gb);
+                    sym_send[static_cast<std::size_t>(owner_of(v))].emplace_back(v, ug); // owner adds v -> ug
                 }
-                if (gb >= go && gb < go + n_local)
-                {
-                    adj[static_cast<std::size_t>(gb - go)].push_back(ga);
-                }
-            });
+            }
+        }
+        boost::mpi::all_to_all(world, sym_send, sym_recv);
+        for (const auto& from_rank : sym_recv)
+        {
+            for (const auto& [v, ug] : from_rank)
+            {
+                adj[static_cast<std::size_t>(v - go)].push_back(ug);
+            }
+        }
 
         // Assemble CSR: sort + unique per vertex (weight 1 per edge).
         g.xadj.resize(static_cast<std::size_t>(n_local) + 1);
