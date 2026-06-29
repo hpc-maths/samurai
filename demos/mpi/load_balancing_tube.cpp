@@ -306,19 +306,6 @@ int main(int argc, char* argv[])
     app.add_option("--lb-diffusion-iterations", opt.diffusion.diffusion_iterations, "(diffusion) max iterations of the flux solver")
         ->capture_default_str()
         ->group("Load balancing");
-    app.add_option("--lb-diffusion-relaxation",
-                   opt.diffusion.relaxation,
-                   "(diffusion) under-relaxation factor in (0,1]: shed only this fraction of the flux per pass "
-                   "to damp the oscillation that appears with many ranks (try 0.5)")
-        ->capture_default_str()
-        ->group("Load balancing");
-    app.add_flag("--lb-diffusion-monotonic,!--no-lb-diffusion-monotonic",
-                 opt.diffusion.monotonic,
-                 "(diffusion) cap each cession at half the local load gradient (deal-agreement): forbids the "
-                 "receiver from passing the giver, so the imbalance decreases monotonically and cannot enter a "
-                 "limit cycle. On by default; pass --no-lb-diffusion-monotonic to compare")
-        ->capture_default_str()
-        ->group("Load balancing");
     app.add_option("--path", opt.path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", opt.filename, "File name prefix")->capture_default_str()->group("Output");
     SAMURAI_PARSE(argc, argv);
