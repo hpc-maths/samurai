@@ -25,6 +25,18 @@
  *     the process graph; since AMR calls the balancer again at every adaptation,
  *     a partial convergence per call is acceptable.
  *
+ *     Anti-overshoot (quantum-aware peel, always on; see phase 2). The flux
+ *     solver gives the right (balanced, L2-minimal) flow, but the actuation is
+ *     discrete (whole coarse cells are ceded) and the balancer is re-run at every
+ *     adaptation: ceding a cell heavier than the prescribed flux overshoots, and
+ *     that overshoot fed back through the recomputed flow is a closed loop that
+ *     settles into a limit cycle. The peel therefore never cedes a coarse cell
+ *     heavier than the remaining budget, so a cession can never push the receiver
+ *     past balance -- no overshoot, no oscillation. The cost is that, near
+ *     balance on a long process chain, the per-edge flux can drop below one coarse
+ *     cell and the actuation freezes short of perfect balance (this is the regime
+ *     where a global partitioner -- SFC/metis/scotch -- is preferable anyway).
+ *
  *  2. Layer assignment (nD), by a geometric breadth-first peel. A negative flux
  *     fluxes[j] means "I must shed |fluxes[j]| of load to neighbour j". We grow
  *     the ceded region OUT OF THE ACTUAL INTERFACE with j: the first layer is my
@@ -49,10 +61,10 @@
  *     boundary once the requested flux is met. This is essential on adaptive
  *     meshes: stopping mid-cell at the finest level (a raw cell scan) used to
  *     dice the refined front into disconnected single-cell slivers — the very
- *     islands this peel is meant to avoid. The cost is an overshoot bounded by
- *     one coarse cell's load; it is small when refinement tracks an interface
- *     (a coarse cell then holds only a thin band of fine cells), and the
- *     diffusion converges over several calls anyway.
+ *     islands this peel is meant to avoid. A coarse cell is ceded only when it
+ *     fits the remaining budget (the quantum-aware anti-overshoot of phase 1), so
+ *     there is no overshoot: a cell that does not fit stops the peel and is left
+ *     for a later call.
  *
  *  3. Connectivity repair. Shedding to several neighbours whose territories
  *     wrap around a process can still split the cells it keeps into
@@ -457,11 +469,50 @@ namespace samurai::load_balancing
                                   {
                                       for (auto i = interval.start; i < interval.end && !stop; ++i)
                                       {
-                                          // hand every still-owned fine cell of this one coarse cell
+                                          // this one coarse cell at `ref`
                                           cl_type cc_cl;
                                           cc_cl[ref][index].add_point(i);
                                           const ca_type cc = {cc_cl, false};
 
+                                          // weight of the still-owned fine cells it contains
+                                          double cc_weight = 0.;
+                                          for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
+                                          {
+                                              intersection(cc[ref], mesh[mesh_id_t::cells][level])
+                                                  .on(level)(
+                                                      [&](const auto& fine_interval, const auto& fine_index)
+                                                      {
+                                                          for (auto fi = fine_interval.start; fi < fine_interval.end; ++fi)
+                                                          {
+                                                              if (flags[mesh.get_cell(level, fi, fine_index)] == rank)
+                                                              {
+                                                                  cc_weight += weight(mesh.get_cell(level, fi, fine_index));
+                                                              }
+                                                          }
+                                                      });
+                                          }
+
+                                          // Quantum-aware guard: never cede a coarse cell heavier than the
+                                          // remaining budget. `remaining` is the prescribed flux to this
+                                          // neighbour; the Cybenko flow is the balanced (conservative) flux,
+                                          // so actuating AT MOST the prescribed amount can never push the
+                                          // receiver past balance -- no overshoot, hence no limit cycle. This
+                                          // is the property that the previous (deal-agreement) flux cap
+                                          // duplicated and that closes the persistent oscillation seen with
+                                          // many ranks on a long chain. Without it the atomic cell overshoots
+                                          // a budget that has shrunk below one cell near convergence, which is
+                                          // the residual limit cycle. A non-empty cell that does not fit stops
+                                          // the peel (no partial cell, no overshoot); progress along this edge
+                                          // resumes on a later call once a lighter cell is available. Empty
+                                          // cells (cc_weight == 0, already ceded to another neighbour) still
+                                          // advance the front.
+                                          if (cc_weight > remaining && cc_weight > 0.)
+                                          {
+                                              stop = true;
+                                              break;
+                                          }
+
+                                          // commit: hand every still-owned fine cell of this coarse cell
                                           for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
                                           {
                                               intersection(cc[ref], mesh[mesh_id_t::cells][level])
@@ -474,16 +525,16 @@ namespace samurai::load_balancing
                                                               if (flags[cell] == rank)
                                                               {
                                                                   flags[cell] = neigh_rank;
-                                                                  remaining -= weight(cell);
                                                               }
                                                           }
                                                       });
                                           }
+                                          remaining -= cc_weight;
 
                                           ceded_cl[ref][index].add_point(i);
                                           if (remaining <= 0.)
                                           {
-                                              stop = true; // requested flux met: stop at this coarse-cell boundary
+                                              stop = true; // budget met: stop at this coarse-cell boundary
                                           }
                                       }
                                   });

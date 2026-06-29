@@ -248,9 +248,13 @@ namespace
         TestFixture::make_banded_imbalance(mesh, u, weight);
         EXPECT_TRUE_ALL_RANKS(samurai::load_balancing::imbalance(mesh, weight) > 0.1); // really imbalanced
 
-        auto balancer      = lb::make_load_balancer<lb::Diffusion>();
-        const double bound = (TestFixture::dim == 2) ? 0.10 : 0.15;
-        for (int call = 0; call < 12 && samurai::load_balancing::imbalance(mesh, weight) > bound; ++call)
+        // The quantum-aware anti-overshoot guard makes local diffusion converge
+        // incrementally from this extreme banded start (~0.85 per call, no
+        // overshoot), so 3D needs a few more calls than 2D to reach the bound.
+        auto balancer          = lb::make_load_balancer<lb::Diffusion>();
+        const double bound     = (TestFixture::dim == 2) ? 0.10 : 0.15;
+        const int max_calls    = (TestFixture::dim == 2) ? 12 : 18;
+        for (int call = 0; call < max_calls && samurai::load_balancing::imbalance(mesh, weight) > bound; ++call)
         {
             balancer.load_balance(weight, u);
         }
