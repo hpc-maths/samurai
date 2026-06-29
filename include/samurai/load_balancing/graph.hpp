@@ -225,13 +225,21 @@ namespace samurai::load_balancing
         // reverse v->u on v's owner. PT-Scotch requires a symmetric distributed
         // graph (its halo Alltoallv aborts otherwise); ParMETIS expects one too.
         // For every remote neighbour v of a local u, ask v's owner to add v->u.
+        // The exchange is neighbour-to-neighbour (point-to-point, O(#neighbours)
+        // not O(#ranks)): the owner of any boundary endpoint is an MPI neighbour,
+        // since interfaces only connect face-adjacent cells.
         auto owner_of = [&](idx_t v)
         {
             auto it = std::upper_bound(g.vtxdist.begin(), g.vtxdist.end(), v);
             return static_cast<int>(std::distance(g.vtxdist.begin(), it)) - 1;
         };
-        std::vector<std::vector<std::pair<idx_t, idx_t>>> sym_send(static_cast<std::size_t>(size));
-        std::vector<std::vector<std::pair<idx_t, idx_t>>> sym_recv;
+        const auto& neighbourhood = mesh.mpi_neighbourhood();
+        std::unordered_map<int, std::size_t> neigh_slot;
+        for (std::size_t i = 0; i < neighbourhood.size(); ++i)
+        {
+            neigh_slot[neighbourhood[i].rank] = i;
+        }
+        std::vector<std::vector<std::pair<idx_t, idx_t>>> sym_send(neighbourhood.size());
         for (std::size_t u = 0; u < static_cast<std::size_t>(n_local); ++u)
         {
             const idx_t ug = go + static_cast<idx_t>(u);
@@ -239,18 +247,26 @@ namespace samurai::load_balancing
             {
                 if (v < go || v >= go + n_local) // remote neighbour
                 {
-                    sym_send[static_cast<std::size_t>(owner_of(v))].emplace_back(v, ug); // owner adds v -> ug
+                    sym_send[neigh_slot.at(owner_of(v))].emplace_back(v, ug); // owner adds v -> ug
                 }
             }
         }
-        boost::mpi::all_to_all(world, sym_send, sym_recv);
-        for (const auto& from_rank : sym_recv)
+        std::vector<boost::mpi::request> sym_req;
+        sym_req.reserve(neighbourhood.size());
+        for (std::size_t i = 0; i < neighbourhood.size(); ++i)
         {
-            for (const auto& [v, ug] : from_rank)
+            sym_req.push_back(world.isend(neighbourhood[i].rank, tag_migration + 200, sym_send[i]));
+        }
+        for (const auto& neigh : neighbourhood)
+        {
+            std::vector<std::pair<idx_t, idx_t>> in;
+            world.recv(neigh.rank, tag_migration + 200, in);
+            for (const auto& [v, ug] : in)
             {
                 adj[static_cast<std::size_t>(v - go)].push_back(ug);
             }
         }
+        boost::mpi::wait_all(sym_req.begin(), sym_req.end());
 
         // Assemble CSR: sort + unique per vertex (weight 1 per edge).
         g.xadj.resize(static_cast<std::size_t>(n_local) + 1);
