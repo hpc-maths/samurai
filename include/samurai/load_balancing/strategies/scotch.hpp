@@ -37,6 +37,7 @@
 #include "../../algorithm.hpp"
 #include "../../field.hpp"
 #include "../../mesh.hpp"
+#include "../../timers.hpp"
 #include "../config.hpp"
 #include "../graph.hpp"
 #include "../weight.hpp"
@@ -91,7 +92,9 @@ namespace samurai::load_balancing
                 return flags;
             }
 
+            times::timers.start("lb:scotch:build_graph");
             auto graph = build_cell_graph<SCOTCH_Num>(mesh, weight);
+            times::timers.stop("lb:scotch:build_graph");
 
             SCOTCH_Dgraph grafdat;
             SCOTCH_dgraphInit(&grafdat, MPI_COMM_WORLD);
@@ -141,7 +144,9 @@ namespace samurai::load_balancing
 
             std::vector<SCOTCH_Num> part(static_cast<std::size_t>(nvtx_local));
 
+            times::timers.start("lb:scotch:partition");
             result = SCOTCH_dgraphPart(&grafdat, static_cast<SCOTCH_Num>(world.size()), &stratdat, part.data());
+            times::timers.stop("lb:scotch:partition");
 
             if (result != 0)
             {

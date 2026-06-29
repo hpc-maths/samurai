@@ -33,6 +33,7 @@
 #include "../../algorithm.hpp"
 #include "../../field.hpp"
 #include "../../mesh.hpp"
+#include "../../timers.hpp"
 #include "../config.hpp"
 #include "../graph.hpp"
 #include "../weight.hpp"
@@ -92,7 +93,9 @@ namespace samurai::load_balancing
                 return flags;
             }
 
+            times::timers.start("lb:metis:build_graph");
             auto graph = build_cell_graph<idx_t>(mesh, weight);
+            times::timers.stop("lb:metis:build_graph");
 
             idx_t wgtflag = 2; // vertex weights only
             idx_t numflag = 0;
@@ -104,6 +107,7 @@ namespace samurai::load_balancing
             std::vector<idx_t> part(static_cast<std::size_t>(graph.nvtx_local()), -1);
             MPI_Comm comm = MPI_COMM_WORLD;
 
+            times::timers.start("lb:metis:partition");
             if (m_options.adaptive)
             {
                 std::vector<idx_t> vsize(static_cast<std::size_t>(graph.nvtx_local()), 1000);
@@ -187,6 +191,7 @@ namespace samurai::load_balancing
                     }
                 }
             }
+            times::timers.stop("lb:metis:partition");
 
             // Copy partition result into flags (same iteration order as graph)
             std::size_t i = 0;
