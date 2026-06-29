@@ -268,18 +268,31 @@ namespace samurai::load_balancing
 
             auto& neighbourhood = mesh.mpi_neighbourhood();
             const std::size_t n = neighbourhood.size();
-            if (n == 0)
-            {
-                return flags; // isolated subdomain: nothing to exchange
-            }
 
             // The layer construction needs the neighbours' actual cells, which
             // the mesh keeps only as a bounding box after construction. This is
-            // a neighbour-only point-to-point exchange.
-            mesh.update_mesh_neighbour();
+            // a neighbour-only point-to-point exchange -- nothing to do, and
+            // safe to skip, when this rank has no neighbour.
+            if (n > 0)
+            {
+                mesh.update_mesh_neighbour();
+            }
 
             // -- phase 1: fluxes (neighbour-only diffusion) -------------------------
+            // EVERY rank must reach the flux solver, even one with no MPI
+            // neighbour: diffusion_fluxes runs world-collective all_reduce calls
+            // (the global load once, the convergence flag every iteration). A
+            // rank that returned early on n == 0 would skip those collectives and
+            // deadlock every rank that still has a neighbour -- this happens once
+            // the partition isolates a subdomain (e.g. many ranks on a thin
+            // domain). With an empty neighbour list the solver only joins the
+            // all_reduce and returns no flux, so the peel below is simply empty.
             std::vector<double> fluxes = compute_fluxes(mesh, weight, neighbourhood);
+
+            if (n == 0)
+            {
+                return flags; // isolated subdomain: collectives joined, nothing to peel
+            }
 
             // A process cannot shed more cells than it owns. The iterative flux
             // solver may transiently ask for more than the whole load (it

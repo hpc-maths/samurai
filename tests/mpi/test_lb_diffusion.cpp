@@ -392,4 +392,96 @@ namespace
                                               return u[cell] == samurai_test::analytic(cell);
                                           });
     }
+
+    // ---------------------------------------------------------------------------
+    // Regression: a rank with NO MPI neighbour must not deadlock the others.
+    // ---------------------------------------------------------------------------
+
+    using IsoMesh = samurai::MRMesh<samurai::mesh_config<2>>;
+
+    /// Two detached boxes [0,1]x[0,1] and [2,3]x[0,1] separated by an empty gap
+    /// [1,2]: a disconnected domain. A rank owning only one box has no neighbour.
+    IsoMesh make_two_detached_boxes()
+    {
+        using mesh_id_t             = IsoMesh::mesh_id_t;
+        constexpr std::size_t level = 4;
+
+        xt::xtensor_fixed<double, xt::xshape<2>> lo = {0., 0.};
+        xt::xtensor_fixed<double, xt::xshape<2>> hi = {3., 1.};
+        const samurai::Box<double, 2> box(lo, hi);
+        auto coarse = samurai::mra::make_mesh(box, samurai::mesh_config<2>().min_level(level).max_level(level));
+
+        IsoMesh::cl_type cl;
+        samurai::for_each_cell(coarse[mesh_id_t::cells],
+                               [&](const auto& cell)
+                               {
+                                   const double x = cell.center(0);
+                                   if (x > 1. && x < 2.)
+                                   {
+                                       return; // carve the gap -> two detached boxes
+                                   }
+                                   auto yz = xt::view(cell.indices, xt::range(1, cell.indices.size()));
+                                   cl[level][yz].add_point(cell.indices[0]);
+                               });
+        return samurai::mra::make_mesh(cl, samurai::mesh_config<2>().min_level(level).max_level(level));
+    }
+
+    class DiffusionIsolatedRank : public samurai_test::MpiTest
+    {
+    };
+
+    // The flux solver runs world-collective all_reduce (total load, per-iteration
+    // convergence flag); every rank must join them, including one whose subdomain
+    // has no MPI neighbour. The strategy used to return early on an empty
+    // neighbourhood, skipping those collectives and deadlocking the ranks that
+    // did have neighbours -- exactly what isolates a subdomain does (seen with
+    // many ranks on a thin domain). Here the small box is owned alone by the last
+    // rank (no neighbour) while the big box is shared by the others (adjacent):
+    // without the fix this load_balance call never returns.
+    TEST_F(DiffusionIsolatedRank, no_neighbour_does_not_deadlock)
+    {
+        using mesh_id_t = IsoMesh::mesh_id_t;
+        mpi::communicator world;
+        if (world.size() < 3)
+        {
+            GTEST_SKIP() << "need >= 3 ranks: with 2, both boxes are isolated (symmetric, no deadlock)";
+        }
+
+        auto mesh = make_two_detached_boxes();
+        auto u    = samurai::make_scalar_field<double>("u", mesh);
+        samurai::for_each_cell(mesh[mesh_id_t::cells],
+                               [&](const auto& cell)
+                               {
+                                   u[cell] = samurai_test::analytic(cell);
+                               });
+
+        // big box [0,1] -> ranks 0..size-2 (contiguous x-bands, adjacent);
+        // small box [2,3] -> rank size-1, alone and with no neighbour.
+        auto decomp = samurai_test::LambdaStrategy{[](const auto& cell, int /*rank*/, int size)
+                                                   {
+                                                       const double x = cell.center(0);
+                                                       if (x > 1.5)
+                                                       {
+                                                           return size - 1; // isolated rank
+                                                       }
+                                                       const int r = static_cast<int>(x * static_cast<double>(size - 1));
+                                                       return (r > size - 2) ? size - 2 : r;
+                                                   }};
+        lb::make_load_balancer<decltype(decomp)>({}, decomp).load_balance(lb::weight::uniform(), u);
+
+        const auto cells_before = mesh[mesh_id_t::cells];
+        const auto count_before = mpi::all_reduce(world, mesh.nb_cells(mesh_id_t::cells), std::plus<std::size_t>());
+
+        // The call that used to hang when a rank has no neighbour.
+        auto balancer = lb::make_load_balancer<lb::Diffusion>();
+        balancer.load_balance(lb::weight::uniform(), u);
+
+        samurai_test::check_lb_invariants(mesh,
+                                          cells_before,
+                                          count_before,
+                                          [&](const auto& cell)
+                                          {
+                                              return u[cell] == samurai_test::analytic(cell);
+                                          });
+    }
 }
