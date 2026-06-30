@@ -561,9 +561,10 @@ namespace samurai
 
     namespace detail
     {
-        // Defined in "update_ghost_mr_aggregated.hpp" (included at the end of
-        // this file). Forward-declared here so the opt-in dispatch below can
-        // reference it.
+        // The MR ghost-update algorithm lives in "update_ghost_mr_aggregated.hpp"
+        // (field-merged, non-blocking subdomain exchanges). That header is
+        // included at the end of this file, so the implementation is
+        // forward-declared here for update_ghost_mr below to call.
         template <class Field, class... Fields>
         void update_ghost_mr_aggregated(Field& field, Fields&... other_fields);
     }
@@ -572,59 +573,10 @@ namespace samurai
     void update_ghost_mr(Field& field, Fields&... other_fields)
     {
         ScopedTimer timer_ghosts("ghost update");
-        using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
-        constexpr std::size_t pred_order = Field::mesh_t::config_t::prediction_stencil_radius;
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        auto& mesh      = field.mesh();
 
-        auto& mesh            = field.mesh();
-        auto max_level        = mesh.max_level();
-        std::size_t min_level = 0;
-
-        // Opt-in aggregated (field-merged, non-blocking) MPI path. Default off
-        // ⇒ historic behaviour below is unchanged.
-        if (args::aggregated_ghost_update)
-        {
-            detail::update_ghost_mr_aggregated(field, other_fields...);
-            timer_ghosts.set_cells(mesh.nb_cells(mesh_id_t::cells));
-            return;
-        }
-
-        // Top-down pass. For each level: first synchronize the inner MPI
-        // ghosts, then fill the outer (out-of-domain) ghosts — the B.C.
-        // application and the polynomial extrapolation of the outer layers
-        // read inner cells that may belong to a neighbour — then synchronize
-        // again so that every rank receives the outer values computed by the
-        // layer owner (see outer_subdomain_corner). The historic order (outer
-        // fill before any exchange) read stale inner ghosts and produced
-        // decomposition-dependent outer ghosts with non-stripe partitions.
-        for (std::size_t level = max_level + 1; level-- > min_level;)
-        {
-            update_ghost_subdomains(level, field, other_fields...);
-            update_ghost_periodic(level, field, other_fields...);
-            update_outer_ghosts(level, field, other_fields...);
-            update_ghost_subdomains(level, field, other_fields...);
-            update_ghost_periodic(level, field, other_fields...);
-
-            if (level > min_level)
-            {
-                auto set_at_levelm1 = intersection(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::proj_cells][level - 1]).on(level - 1);
-                set_at_levelm1.apply_op(variadic_projection(field, other_fields...));
-            }
-        }
-
-        for (std::size_t level = min_level + 1; level <= max_level; ++level)
-        {
-            auto pred_ghosts = difference(mesh[mesh_id_t::all_cells][level],
-                                          union_(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::proj_cells][level]));
-            auto expr        = intersection(pred_ghosts, mesh.subdomain(), mesh[mesh_id_t::all_cells][level - 1]).on(level);
-
-            expr.apply_op(variadic_prediction<pred_order, false>(field, other_fields...));
-            update_ghost_subdomains(level, field, other_fields...);
-            update_ghost_periodic(level, field, other_fields...);
-        }
-        // save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
-
-        field.ghosts_updated() = true;
-        ((other_fields.ghosts_updated() = true), ...);
+        detail::update_ghost_mr_aggregated(field, other_fields...);
 
         timer_ghosts.set_cells(mesh.nb_cells(mesh_id_t::cells));
     }

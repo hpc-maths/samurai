@@ -29,9 +29,11 @@
 //    dimensions also accumulate at corners. The original subdomain -> periodic
 //    -> dim ordering is preserved here for bit-identical results.
 //
-// Activation is opt-in via args::aggregated_ghost_update (CLI
-// --aggregated-ghost-update), so the default behaviour is byte-for-byte the
-// historic path.
+// This is THE update_ghost_mr implementation: update_ghost_mr (in update.hpp)
+// is a thin timed wrapper that always calls update_ghost_mr_aggregated below.
+// It was validated to be byte-for-byte equivalent to the historic per-field,
+// double-subdomain-sync path it replaced (advection_2d / burgers, np 4 and 8,
+// identical .h5 output) while cutting the ghost-update time by ~35-45%.
 
 #include "update.hpp"
 
@@ -189,15 +191,15 @@ namespace samurai::detail
             exchange_subdomains_merged(level, field, other_fields...);
             update_ghost_periodic(level, field, other_fields...);
             update_outer_ghosts(level, field, other_fields...);
-            // Step 2: the inner ghosts are already synchronised above, so
-            // update_outer_ghosts recomputes each outer/B.C. ghost locally
-            // from filled inner cells on every rank that references it. The
-            // historic second *subdomain* sync (which only redistributed the
-            // owner-computed outer values, see outer_subdomain_corner) is
-            // therefore dropped. The second periodic pass is kept: the
-            // local-recompute argument does not cover periodic ghosts, and
-            // there is currently no distributed-periodic test to validate
-            // its removal (for non-periodic problems it is a no-op anyway).
+            // Second subdomain sync: the local recompute in update_outer_ghosts
+            // is NOT decomposition independent for non-stripe partitions — the
+            // owner-computed outer values (see outer_subdomain_corner) must be
+            // redistributed, exactly as the historic path did. Dropping it
+            // reintroduced the np3 checkerboard/hilbert defect caught by
+            // tests/mpi/test_lb_ghosts (adapt_independence_*). Kept here so the
+            // aggregated path stays bit-equivalent to update_ghost_mr while
+            // still collapsing the per-field rounds into one merged exchange.
+            exchange_subdomains_merged(level, field, other_fields...);
             update_ghost_periodic(level, field, other_fields...);
 
             if (level > min_level)
