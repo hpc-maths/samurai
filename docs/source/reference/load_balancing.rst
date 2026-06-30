@@ -43,11 +43,11 @@ Basic usage
         .imbalance_threshold = 0.05,
     });
 
-    // inside the time loop, after mesh adaptation:
+    // inside the time loop (see "Integration with MR adaptation" below):
     auto weight = lb::weight::uniform();
     if (balancer.required(u.mesh(), weight))
     {
-        auto stats = balancer.load_balance(weight, u, v, w); // all fields!
+        balancer.load_balance(weight, u, v, w); // all fields!
     }
 
 Two rules:
@@ -57,6 +57,78 @@ Two rules:
 * ``required()`` and ``load_balance()`` are **collective**: every rank must
   call them (the decision returned by ``required()`` is guaranteed identical
   on all ranks).
+
+Integration with MR adaptation
+-----------------------------
+
+The multiresolution adaptation helper ``samurai::make_MRAdapt`` (header
+``<samurai/mr/adapt.hpp>``) is able to drive the load balancer itself: at the
+end of an adaptation pass it calls ``load_balance()`` with a ``SFC<Hilbert>``
+strategy and a uniform weight. **Load balancing is off by default**: the
+counter ``args::load_balancing_at`` is ``0`` and the rebalance step is
+skipped. To let the adaptation rebalance, pass the command-line option
+``--load-balancing-at N`` (declared in ``<samurai/arguments.hpp>``), where
+``N`` is the number of adaptation iterations between two rebalances.
+
+.. code-block:: bash
+
+    # rebalance every 10 adaptation passes, Hilbert SFC, uniform weight
+    mpiexec -n 4 ./my_mpi_demo --load-balancing-at 10
+
+.. code-block:: c++
+
+    #include <samurai/mr/adapt.hpp>
+
+    auto MRadaptation = samurai::make_MRAdapt(u);
+    auto mra_config   = samurai::mra_config().epsilon(2e-4);
+
+    // inside the time loop:
+    MRadaptation(mra_config);      // refine/coarsen + graduation + ghost update
+                                   //   (+ load balancing when --load-balancing-at > 0)
+    samurai::update_ghost_mr(u);   // refresh ghosts for the next scheme call
+
+Use an explicit ``LoadBalancer`` when you want to:
+
+* select another strategy (``Diffusion``, ``Metis``, ``Scotch``, ...) or
+  another weight policy (e.g. ``weight::per_level`` for local time stepping);
+* collect ``LoadBalanceStats`` for diagnostics or comparison;
+* rebalance on a trigger (``required()``) or on a period that does not match
+  the adaptation period.
+
+In that case the canonical order, taken from ``demos/mpi/load_balancing.cpp``,
+is to rebalance **before** the adaptation so the chosen strategy acts on the
+current mesh, then let ``MRadaptation`` adapt (and rebalance with the default
+Hilbert curve, but only when ``--load-balancing-at`` is set on the command
+line):
+
+.. code-block:: c++
+
+    namespace lb = samurai::load_balancing;
+    auto balancer = lb::make_load_balancer<lb::Diffusion>(lb::LoadBalanceConfig{});
+
+    // inside the time loop:
+    if (time_to_rebalance)
+    {
+        auto weight = lb::weight::per_level(
+            [&](std::size_t l) { return std::pow(2.0, l - mesh.min_level()); });
+        auto stats  = balancer.load_balance_with_stats(weight, u);
+        // ... log / save stats ...
+    }
+    MRadaptation(mra_config);
+    samurai::update_ghost_mr(u);
+    // ... scheme ...
+
+Two rules to keep in mind:
+
+* ``load_balance()`` preserves the field values that are in memory; the
+  migrated values are the correct state and must not be overwritten in a
+  production run. Re-filling the field from an analytic formula is only useful
+  in regression tests that need a bit-for-bit identical input across
+  decompositions (see ``tests/mpi/test_lb_flux.cpp``).
+* **every** field that lives on the mesh must be passed to the explicit
+  ``load_balance()`` call (a field that does not migrate with its cells holds
+  garbage afterwards). ``make_MRAdapt`` takes care of this for the fields it
+  knows about; an explicit rebalance has to list them all.
 
 Weight policies
 ---------------
@@ -102,7 +174,6 @@ Every call to ``load_balance_with_stats()`` returns a ``LoadBalanceStats``:
         std::size_t cells_migrated_out, cells_migrated_in;
         double load_before, load_after;                   // local weighted loads
         double imbalance_before, imbalance_after;         // global max/avg - 1
-        double partition_time, migration_time;            // seconds
         double unmet_flux;                                 // load a strategy could not shed
         std::string strategy_name;
     };
@@ -113,22 +184,6 @@ compared across strategies by the benchmark (roadmap step 6). The free
 functions ``local_load()``, ``imbalance()`` and ``require_balance()`` of
 ``metrics.hpp`` expose the same computations; the documentation of each one
 states whether it communicates.
-
-Visualizing partitions
-----------------------
-
-.. code-block:: c++
-
-    #include <samurai/load_balancing/dump.hpp>
-
-    lb::dump_partition(path, "partition", mesh);
-    // writes <path>/partition_size_<P>.h5 + .xdmf
-
-The file holds one scalar field ``rank`` (the owning process of each cell):
-open it in ParaView and color by ``rank`` to compare the shapes produced by
-different strategies. This is the quickest way to *see* whether a partition
-is made of compact blobs (graph partitioners, diffusion), curve segments
-(SFC) or stripes (legacy balancer).
 
 Available strategies
 --------------------
@@ -157,8 +212,12 @@ Space-filling curves (SFC)
 
 ``SFC<Curve>`` orders the cells along a space-filling curve (keys computed at
 the global max level) and cuts the curve into P segments of equal *weighted*
-load, using one MPI scan and one all_reduce — no gather, O(1) communication
-volume. The balance is reached in a single call, up to the weight of the
+load. The cuts are found with a gather-free vectorised binary search over the
+key space: each bisection step sums a local prefix weight across ranks with a
+single ``all_reduce``. In total the strategy issues a few ``all_reduce`` for
+the bounding box, the total weight and the key upper bound, then at most 64
+``all_reduce`` of ``P-1`` doubles for the cut search. No cell or key is
+gathered. The balance is reached in a single call, up to the weight of the
 heaviest cell, and a second call migrates nothing (deterministic cuts).
 
 Two curves are provided in ``load_balancing/sfc/``:
@@ -271,14 +330,13 @@ periodic adaptive mesh with any strategy and collects the metrics, e.g.:
 .. code-block:: bash
 
     mpiexec -n 4 ./mpi-load-balancing-2d --lb-strategy sfc-hilbert \
-        --lb-weight level --lb-dump --lb-stats-file stats.csv
+        --lb-weight level --lb-stats-file stats.csv
     mpiexec -n 4 ./mpi-load-balancing-3d --lb-strategy diffusion
     # other strategies: --lb-strategy void | sfc-morton | metis | scotch
 
 ``--lb-stats-file`` appends one CSV line per rebalance (imbalance before and
-after, migrated cells, timings) so different strategies can be compared on
-the same scenario; ``--lb-dump`` writes the partition for ParaView at every
-rebalance; ``--lb-threshold`` switches from periodic rebalancing to the
+after, migrated cells) so different strategies can be compared on the same
+scenario; ``--lb-threshold`` switches from periodic rebalancing to the
 ``required()`` trigger; ``--lb-skew`` starts with every cell on rank 0 to
 exercise the strategies from a maximally skewed state.
 
@@ -320,8 +378,8 @@ Measured on the demo (advected blob, 2 and 4 processes, uniform weight):
      - Why
    * - Default / no external dependency
      - ``SFC<Hilbert>``
-     - Reaches ``imbalance ≈ 0`` with little migration; one ``all_reduce`` +
-       one ``scan``, no library needed. Good locality.
+     - Reaches ``imbalance ≈ 0`` with little migration; a small number of
+       ``all_reduce`` and no external library. Good locality.
    * - Minimal communication volume (ghost cut)
      - ``Metis`` (``adaptive = true`` in AMR)
      - Lowest edge cut of all strategies; adaptive mode reuses the previous
