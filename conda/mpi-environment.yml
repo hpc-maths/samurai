@@ -19,4 +19,4 @@ dependencies:
   - mpich
   # Optional graph partitioners (for SAMURAI_WITH_PARMETIS and SAMURAI_WITH_PTSCOTCH)
   - parmetis
-  - ptscotch
+  # - ptscotch # the tests are too long on the CI, so we disable it for now. It can be re-enabled when the problem will be resolved.
