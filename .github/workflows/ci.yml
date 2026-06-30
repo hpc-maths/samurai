@@ -251,8 +251,7 @@ jobs:
                       -DWITH_PETSC=ON \
                       -DBUILD_DEMOS=ON \
                       -DBUILD_TESTS=ON \
-                      -DSAMURAI_WITH_PARMETIS=ON \
-                      -DSAMURAI_WITH_PTSCOTCH=ON
+                      -DSAMURAI_WITH_PARMETIS=ON
 
             - name: Build
               shell: micromamba-shell {0}
