@@ -142,7 +142,6 @@ namespace samurai
         , m_detail("detail", field.mesh())
         , m_tag("tag", field.mesh())
     {
-        m_balancer.with_interval_atoms(true);
     }
 
     template <bool enlarge_, class PredictionFn, class TField, class... TFields>
