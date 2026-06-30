@@ -8,6 +8,7 @@
 #include <xtensor/containers/xfixed.hpp>
 
 #include "../algorithm.hpp"
+#include "../arguments.hpp"
 #include "../bc/apply_field_bc.hpp"
 #include "../concepts.hpp"
 #include "../field.hpp"
@@ -558,6 +559,15 @@ namespace samurai
         update_ghost_mr_if_needed(other_fields...);
     }
 
+    namespace detail
+    {
+        // Defined in "update_ghost_mr_aggregated.hpp" (included at the end of
+        // this file). Forward-declared here so the opt-in dispatch below can
+        // reference it.
+        template <class Field, class... Fields>
+        void update_ghost_mr_aggregated(Field& field, Fields&... other_fields);
+    }
+
     template <class Field, class... Fields>
     void update_ghost_mr(Field& field, Fields&... other_fields)
     {
@@ -568,6 +578,15 @@ namespace samurai
         auto& mesh            = field.mesh();
         auto max_level        = mesh.max_level();
         std::size_t min_level = 0;
+
+        // Opt-in aggregated (field-merged, non-blocking) MPI path. Default off
+        // ⇒ historic behaviour below is unchanged.
+        if (args::aggregated_ghost_update)
+        {
+            detail::update_ghost_mr_aggregated(field, other_fields...);
+            timer_ghosts.set_cells(mesh.nb_cells(mesh_id_t::cells));
+            return;
+        }
 
         // Top-down pass. For each level: first synchronize the inner MPI
         // ghosts, then fill the outer (out-of-domain) ghosts — the B.C.
@@ -1556,3 +1575,8 @@ namespace samurai
         return false;
     }
 }
+
+// Aggregated MPI ghost-update path. Included last so its definitions see every
+// helper declared above (outer_subdomain_corner, update_ghost_periodic,
+// update_outer_ghosts, variadic_projection/prediction, ...).
+#include "update_ghost_mr_aggregated.hpp"
