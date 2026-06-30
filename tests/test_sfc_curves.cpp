@@ -4,7 +4,9 @@
 // Space-filling curves of the load balancing module (roadmap step 3).
 // MPI-free: the curves are pure functions of the coordinates.
 
+#include <array>
 #include <cstdint>
+#include <iterator>
 #include <map>
 
 #include <gtest/gtest.h>

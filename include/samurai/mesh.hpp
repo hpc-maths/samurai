@@ -4,6 +4,7 @@
 #pragma once
 
 #include <array>
+#include <cmath>
 #include <set>
 #include <tuple>
 #include <utility>

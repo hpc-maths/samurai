@@ -172,7 +172,7 @@ namespace samurai
             }
         }
 #ifdef SAMURAI_WITH_MPI
-        // the diffusion strategy is nD: no dimension restriction anymore.
+        // Load balancing (MPI): rebalance every args::load_balancing_at adaptations using the SFC Hilbert strategy.
         if (args::load_balancing_at > 0 && m_adapt_ite % args::load_balancing_at == 0)
         {
             const auto weight = load_balancing::weight::uniform();

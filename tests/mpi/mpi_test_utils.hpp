@@ -57,7 +57,7 @@ namespace samurai_test
             for (int attempt = 0; attempt < 20; ++attempt)
             {
                 auto status = world.iprobe(boost::mpi::any_source, boost::mpi::any_tag);
-                if (status.has_value())
+                if (status)
                 {
                     clean = false;
                     std::cerr << "[rank " << world.rank() << "] pending MPI message after test: source " << status->source() << " tag "

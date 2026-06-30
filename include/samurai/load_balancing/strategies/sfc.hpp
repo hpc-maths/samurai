@@ -160,7 +160,9 @@ namespace samurai::load_balancing
 
         // search bracket [0, key_sup]: W_<(key_sup) == w_total > r * chunk
         const sfc_key_t local_max = sorted_keys.empty() ? sfc_key_t{0} : sorted_keys.back();
-        const sfc_key_t key_sup   = boost::mpi::all_reduce(world, local_max, boost::mpi::maximum<sfc_key_t>()) + 1;
+        const auto global_max     = boost::mpi::all_reduce(world, local_max, boost::mpi::maximum<sfc_key_t>());
+        const sfc_key_t key_sup   = (global_max == std::numeric_limits<sfc_key_t>::max()) ? global_max : global_max + 1;
+        ;
 
         std::vector<sfc_key_t> lo(n_cuts, 0);
         std::vector<sfc_key_t> hi(n_cuts, key_sup);
