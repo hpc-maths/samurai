@@ -27,12 +27,14 @@ set(SAMURAI_TESTS
     test_interval.cpp
     test_level_cell_list.cpp
     test_list_of_intervals.cpp
+    test_load_balancing_weight.cpp
     test_mra.cpp
     test_periodic.cpp
     test_portion.cpp
     test_projection_prediction_roundtrip.cpp
     test_restart.cpp
     test_scaling.cpp
+    test_sfc_curves.cpp
     test_stencil.cpp
     test_subdomain_bbox.cpp
     test_subset.cpp
@@ -73,4 +75,8 @@ if(rapidcheck_FOUND)
     target_link_libraries(test_samurai_lib samurai gtest_main gtest rapidcheck rapidcheck_gtest)
 else()
     target_link_libraries(test_samurai_lib samurai gtest_main gtest)
+endif()
+
+if(WITH_MPI)
+    add_subdirectory(mpi)
 endif()

@@ -187,34 +187,57 @@ namespace samurai
         EXPECT_FALSE(bbox2.could_be_neighbor(bbox1));
     }
 
-    // Test 5: Expansion factor influence
+    // Test 5: Expansion is driven by ghost_reach, with a one-cell fallback.
+    //
+    // could_be_neighbor reproduces the strict half-open Box::intersects in
+    // integer cell units: ranks are neighbors iff the per-axis cell gap is
+    // strictly below the expansion, expressed in whole cells as
+    //   max(round(ghost_reach / cl), round(other.ghost_reach / cl), 1).
+    // With ghost_reach == 0 the fallback expansion is exactly one cell, which
+    // only catches face-adjacent subdomains (gap == 0); a full-cell gap is not
+    // a neighbor until a ghost reach bridges it.
     TYPED_TEST(SubdomainBBoxTest, ExpansionFactor)
     {
         constexpr std::size_t dim = TypeParam::value;
         using BBox                = mpi_neighbor::SubdomainBoundingBox<dim>;
         using point_t             = typename Box<double, dim>::point_t;
 
-        // Test that expansion uses min(cell_length, other.cell_length)
-        point_t min1, max1, min2, max2;
-        min1.fill(0.0);
-        max1.fill(0.4);
-        min2.fill(0.6);
-        max2.fill(1.0);
+        constexpr double cl = 0.1;
 
-        // Case 1: Same cell lengths - gap exactly equals cell_length
-        BBox bbox1a(0, 0.2, Box<double, dim>(min1, max1)); // cell_length = 0.2
-        BBox bbox2a(1, 0.2, Box<double, dim>(min2, max2)); // cell_length = 0.2, gap = 0.2
-        EXPECT_TRUE(bbox1a.could_be_neighbor(bbox2a));     // Expansion = min(0.2, 0.2) = 0.2, should touch
+        // Case 1: face-adjacent subdomains (gap == 0). The one-cell fallback
+        // makes them neighbors even though strict Box::intersects alone would
+        // reject boxes that only touch.
+        point_t amin, amax, bmin, bmax;
+        amin.fill(0.0);
+        amax.fill(0.5);
+        bmin.fill(0.5);
+        bmax.fill(1.0);
+        BBox adj_left(0, cl, Box<double, dim>(amin, amax));
+        BBox adj_right(1, cl, Box<double, dim>(bmin, bmax));
+        EXPECT_TRUE(adj_left.could_be_neighbor(adj_right));
+        EXPECT_TRUE(adj_right.could_be_neighbor(adj_left)); // symmetric
 
-        // Case 2: Different cell lengths - expansion uses minimum
-        BBox bbox1b(0, 0.1, Box<double, dim>(min1, max1)); // cell_length = 0.1
-        BBox bbox2b(1, 0.3, Box<double, dim>(min2, max2)); // cell_length = 0.3, gap = 0.2
-        EXPECT_FALSE(bbox1b.could_be_neighbor(bbox2b));    // Expansion = min(0.1, 0.3) = 0.1, gap too large
+        // Case 2: exactly one cell of gap with no ghost reach -> not neighbors.
+        // The fallback expansion (one cell) reaches the gap edge but, being
+        // strict, does not overlap.
+        point_t gmin1, gmax1, gmin2, gmax2;
+        gmin1.fill(0.0);
+        gmax1.fill(0.4);
+        gmin2.fill(0.5); // gap = 0.1 = one cell
+        gmax2.fill(1.0);
+        BBox gap_left(0, cl, Box<double, dim>(gmin1, gmax1));
+        BBox gap_right(1, cl, Box<double, dim>(gmin2, gmax2));
+        EXPECT_FALSE(gap_left.could_be_neighbor(gap_right));
+        EXPECT_FALSE(gap_right.could_be_neighbor(gap_left));
 
-        // Case 3: Larger cell length reaches across gap
-        BBox bbox1c(0, 0.25, Box<double, dim>(min1, max1)); // cell_length = 0.25
-        BBox bbox2c(1, 0.25, Box<double, dim>(min2, max2)); // cell_length = 0.25, gap = 0.2
-        EXPECT_TRUE(bbox1c.could_be_neighbor(bbox2c));      // Expansion = min(0.25, 0.25) = 0.25 > gap
+        // Case 3: same one-cell gap, but a ghost reach of two cells on a single
+        // rank bridges it. Expansion uses the max of both reaches, so the test
+        // stays symmetric whichever rank carries the reach.
+        BBox reach_left        = gap_left;
+        BBox reach_right       = gap_right;
+        reach_left.ghost_reach = 2 * cl; // two-cell physical reach
+        EXPECT_TRUE(reach_left.could_be_neighbor(reach_right));
+        EXPECT_TRUE(reach_right.could_be_neighbor(reach_left)); // max(reach) is symmetric
     }
 
     // Test 6: Empty subdomain handling

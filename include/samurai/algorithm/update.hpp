@@ -569,27 +569,28 @@ namespace samurai
         auto max_level        = mesh.max_level();
         std::size_t min_level = 0;
 
-        update_outer_ghosts(max_level, field, other_fields...);
-
-        for (std::size_t level = max_level; level > min_level; --level)
+        // Top-down pass. For each level: first synchronize the inner MPI
+        // ghosts, then fill the outer (out-of-domain) ghosts — the B.C.
+        // application and the polynomial extrapolation of the outer layers
+        // read inner cells that may belong to a neighbour — then synchronize
+        // again so that every rank receives the outer values computed by the
+        // layer owner (see outer_subdomain_corner). The historic order (outer
+        // fill before any exchange) read stale inner ghosts and produced
+        // decomposition-dependent outer ghosts with non-stripe partitions.
+        for (std::size_t level = max_level + 1; level-- > min_level;)
         {
             update_ghost_subdomains(level, field, other_fields...);
             update_ghost_periodic(level, field, other_fields...);
+            update_outer_ghosts(level, field, other_fields...);
+            update_ghost_subdomains(level, field, other_fields...);
+            update_ghost_periodic(level, field, other_fields...);
 
-            auto set_at_levelm1 = intersection(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::proj_cells][level - 1]).on(level - 1);
-            set_at_levelm1.apply_op(variadic_projection(field, other_fields...));
-
-            update_outer_ghosts(level - 1, field, other_fields...);
+            if (level > min_level)
+            {
+                auto set_at_levelm1 = intersection(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::proj_cells][level - 1]).on(level - 1);
+                set_at_levelm1.apply_op(variadic_projection(field, other_fields...));
+            }
         }
-
-        if (min_level > 0 && min_level != max_level)
-        {
-            update_ghost_subdomains(min_level - 1, field, other_fields...);
-            update_ghost_periodic(min_level - 1, field, other_fields...);
-            update_outer_ghosts(min_level - 1, field, other_fields...);
-        }
-        update_ghost_subdomains(min_level, field, other_fields...);
-        update_ghost_periodic(min_level, field, other_fields...);
 
         for (std::size_t level = min_level + 1; level <= max_level; ++level)
         {
@@ -652,18 +653,33 @@ namespace samurai
                     auto& mesh1 = to_send ? mesh : neighbour.mesh;
                     auto& mesh2 = to_send ? neighbour.mesh : mesh;
 
-                    auto my_boundary_ghosts = difference(
-                        intersection(mesh1[mesh_id_t::reference][level],
-                                     translate(domain, ghost_width * bdry_direction),
-                                     translate(self(mesh1.subdomain()).on(level), ghost_width * bdry_direction)),
-                        domain);
+                    // The owner of an out-of-domain ghost is determined LAYER BY
+                    // LAYER: the ghost at distance `layer` from the boundary
+                    // belongs to the rank owning the inner cell facing it, i.e.
+                    // whose subdomain translated by layer*direction covers it.
+                    // Using a single translation of ghost_width for all layers
+                    // (historic behaviour) designated the rank owning the cell
+                    // at distance ghost_width instead: wrong as soon as the
+                    // partition splits the columns adjacent to the boundary
+                    // (e.g. SFC partitions), and the wrong owner then spread an
+                    // unfilled value over the correctly filled one.
+                    for (int layer = 1; layer <= ghost_width; ++layer)
+                    {
+                        // exact ghost layer `layer` in this direction
+                        auto layer_band = difference(translate(domain, layer * bdry_direction),
+                                                     translate(domain, (layer - 1) * bdry_direction));
 
-                    auto neighbour_outer_corner = intersection(my_boundary_ghosts, mesh2[mesh_id_t::reference][level]);
-                    neighbour_outer_corner(
-                        [&](const auto& i, const auto& index)
-                        {
-                            interval_list.push_back(i, index);
-                        });
+                        auto owned_ghosts = intersection(mesh1[mesh_id_t::reference][level],
+                                                         layer_band,
+                                                         translate(self(mesh1.subdomain()).on(level), layer * bdry_direction));
+
+                        auto neighbour_outer_corner = intersection(owned_ghosts, mesh2[mesh_id_t::reference][level]);
+                        neighbour_outer_corner(
+                            [&](const auto& i, const auto& index)
+                            {
+                                interval_list.push_back(i, index);
+                            });
+                    }
                 }
             });
 

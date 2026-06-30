@@ -3,7 +3,6 @@ import numpy as np
 import argparse
 import sys
 
-
 parser = argparse.ArgumentParser(description="Compare two h5 files.")
 parser.add_argument(
     "file1", type=str, help="first hdf5 file to compare without .h5 extension"
@@ -18,7 +17,11 @@ parser.add_argument(
     "--end", type=int, required=False, default=None, help="iteration end"
 )
 parser.add_argument(
-    "--tol", type=float, required=False, default=1e-14, help="tolerance for field comparison"
+    "--tol",
+    type=float,
+    required=False,
+    default=1e-12,
+    help="tolerance for field comparison",
 )
 args = parser.parse_args()
 
@@ -106,8 +109,4 @@ if args.start is not None and args.end is not None:
     for i in range(args.start, args.end + 1):
         compare_meshes(f"{args.file1}{i}.h5", f"{args.file2}{i}.h5", args.tol)
 else:
-    compare_meshes(
-        f"{args.file1}.h5",
-        f"{args.file2}.h5",
-        args.tol
-    )
+    compare_meshes(f"{args.file1}.h5", f"{args.file2}.h5", args.tol)

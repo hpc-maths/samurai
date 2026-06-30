@@ -757,7 +757,12 @@ namespace samurai
             m_cells[coarse] = m_coarse_it.cells()[0];
             m_cells[fine]   = m_fine_it->cells()[m_direction_index];
 
-            m_move_coarse_cell = false;
+            // The coarse cell advances once every two fine cells. The fine interval does not
+            // necessarily start on an even index aligned with a coarse-cell boundary: with MPI
+            // a subdomain may own only a subset of the fine children of a coarse cell, so the
+            // fine interval can start on an odd index (the right child). In that case the coarse
+            // cell must advance right after the first fine cell, hence the parity-based init.
+            m_move_coarse_cell = (fine_mesh_interval.i.start & 1) != 0;
         }
 
         SAMURAI_INLINE auto& interval() const

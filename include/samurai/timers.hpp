@@ -22,6 +22,8 @@
 
 #ifdef SAMURAI_WITH_MPI
 #include <boost/mpi.hpp>
+// required by the gather of std::vector<double> in print_timers()
+#include <boost/serialization/vector.hpp>
 #else
 #include <chrono>
 #endif

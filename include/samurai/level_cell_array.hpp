@@ -91,7 +91,7 @@ namespace samurai
 
         static constexpr double default_approx_box_tol = 0.05;
 
-        LevelCellArray() = default;
+        LevelCellArray();
         LevelCellArray(const LevelCellList<Dim, TInterval>& lcl);
 
         template <class Set>
@@ -325,6 +325,12 @@ namespace samurai
     ///////////////////////////////////
     // LevelCellArray implementation //
     ///////////////////////////////////
+    template <std::size_t Dim, class TInterval>
+    SAMURAI_INLINE LevelCellArray<Dim, TInterval>::LevelCellArray()
+    {
+        m_origin_point.fill(0);
+    }
+
     template <std::size_t Dim, class TInterval>
     SAMURAI_INLINE LevelCellArray<Dim, TInterval>::LevelCellArray(const LevelCellList<Dim, TInterval>& lcl)
         : m_level(lcl.level())

@@ -4,6 +4,7 @@
 #pragma once
 
 #include <array>
+#include <cmath>
 #include <set>
 #include <tuple>
 #include <utility>
@@ -155,6 +156,7 @@ namespace samurai
         std::size_t graduation_width() const;
         int ghost_width() const;
         int max_stencil_radius() const;
+        double ghost_physical_reach() const;
         auto& cfg() const;
         auto& cfg();
 
@@ -270,8 +272,6 @@ namespace samurai
         void compute_gravity_center();
 
         void partition_mesh(std::size_t start_level, const Box<double, dim>& global_box);
-        void load_balancing();
-        void load_transfer(const std::vector<double>& load_fluxes);
         std::size_t max_nb_cells(std::size_t level) const;
 
 #ifdef SAMURAI_WITH_MPI
@@ -339,7 +339,6 @@ namespace samurai
     {
 #ifdef SAMURAI_WITH_MPI
         partition_mesh(m_config.start_level(), b);
-        // load_balancing();
 #else
         this->m_cells[mesh_id_t::cells][m_config.start_level()] = m_domain;
 #endif
@@ -380,9 +379,6 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
         std::cerr << "MPI is not implemented with DomainBuilder." << std::endl;
         std::exit(EXIT_FAILURE);
-        // partition_mesh(m_config.start_level(), b);
-        //  load_balancing();
-
 #else
         double scaling_factor_ = m_config.scaling_factor();
         compute_scaling_factor(domain_builder, scaling_factor_);
@@ -684,6 +680,40 @@ namespace samurai
     SAMURAI_INLINE int Mesh_base<D, Config>::max_stencil_radius() const
     {
         return m_config.max_stencil_radius();
+    }
+
+    /**
+     * Physical reach of the ghost construction around the local cells, used by
+     * find_neighbourhood() to decide which ranks must be MPI neighbours: any
+     * rank owning cells closer than this distance may contribute values to our
+     * ghosts (and conversely), even when a thin third subdomain lies in
+     * between.
+     *
+     * The bound is derived from the ghost construction of update_sub_mesh():
+     *  - scheme ghosts: both subdomains are expanded by R = max_stencil_radius
+     *    cells at level l, hence an interaction range of up to 2R cells of
+     *    level l between real cells;
+     *  - MRA prediction ghosts (only when min_level != max_level): expansion
+     *    by P = prediction_stencil_radius cells at levels l-1 and l-2 around
+     *    the already R-expanded cells, plus the outward rounding of the
+     *    .on(l-1)/.on(l-2) projections, bounded by 4P + 4 extra cells of
+     *    level l.
+     * The reach is evaluated at the coarsest level locally present (largest
+     * cells, hence the largest physical footprint). Overestimation only costs
+     * a few extra neighbours in the exchange lists.
+     */
+    template <class D, class Config>
+    SAMURAI_INLINE double Mesh_base<D, Config>::ghost_physical_reach() const
+    {
+        const auto& my_cells = m_cells[mesh_id_t::cells];
+        if (my_cells.nb_cells() == 0)
+        {
+            return 0.;
+        }
+        const int radius          = max_stencil_radius();
+        const int prediction_size = (min_level() != max_level()) ? config_t::prediction_stencil_radius : 0;
+        const int reach           = (2 * radius) + (4 * prediction_size) + 4;
+        return reach * cell_length(my_cells.min_level());
     }
 
     template <class D, class Config>
@@ -1252,8 +1282,9 @@ namespace samurai
         const int size = world.size();
 
         // Phase 1: Exchange bounding boxes (64 bytes each vs KB of mesh data)
-        auto my_bbox = mpi_neighbor::compute_subdomain_bbox(m_subdomain);
-        my_bbox.rank = rank;
+        auto my_bbox        = mpi_neighbor::compute_subdomain_bbox(m_subdomain);
+        my_bbox.rank        = rank;
+        my_bbox.ghost_reach = ghost_physical_reach();
 
         std::vector<mpi_neighbor::SubdomainBoundingBox<dim>> all_bboxes(static_cast<std::size_t>(size));
         mpi::all_gather(world, my_bbox, all_bboxes);
@@ -1310,11 +1341,25 @@ namespace samurai
         }
 
         // Verify candidates with precise interval algebra
-        // And update neighborhood list
+        // And update neighborhood list.
+        // The expansion width must cover the ghost reach of BOTH sides of the
+        // pair (symmetric decision: both ranks compute the same max), converted
+        // in cells at the subdomain level. The historic hardcoded width of 1
+        // missed ranks lying behind a subdomain strip thinner than the ghost
+        // footprint (see tests/mpi/test_lb_ghosts.cpp).
+        const double subdomain_dx = m_subdomain.cell_length();
+        auto expansion_width      = [&](const auto& other_bbox)
+        {
+            const double reach = std::max(my_bbox.ghost_reach, other_bbox.ghost_reach);
+            return std::max(1, static_cast<int>(std::ceil(reach / subdomain_dx)));
+        };
+
         m_mpi_neighbourhood.clear();
         for (std::size_t i = 0; i < candidate_ranks.size(); ++i)
         {
-            auto set = intersection(nestedExpand(m_subdomain, 1), candidate_subdomains[i]);
+            const int width = expansion_width(all_bboxes[static_cast<std::size_t>(candidate_ranks[i])]);
+
+            auto set = intersection(nestedExpand(m_subdomain, width), candidate_subdomains[i]);
             if (!set.empty())
             {
                 m_mpi_neighbourhood.emplace_back(candidate_ranks[i]);
@@ -1325,7 +1370,7 @@ namespace samurai
             for (const auto& direction : directions)
             {
                 auto shift        = direction * domain_size;
-                auto periodic_set = intersection(nestedExpand(m_subdomain, 1), translate(candidate_subdomains[i], shift));
+                auto periodic_set = intersection(nestedExpand(m_subdomain, width), translate(candidate_subdomains[i], shift));
 
                 if (!periodic_set.empty())
                 {
@@ -1431,83 +1476,6 @@ namespace samurai
         }
 
         this->m_cells[mesh_id_t::cells][start_level] = subdomain_cells;
-#endif
-    }
-
-    template <class D, class Config>
-    void Mesh_base<D, Config>::load_balancing()
-    {
-#ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-        auto rank = world.rank();
-
-        std::size_t load = nb_cells(mesh_id_t::cells);
-        std::vector<std::size_t> loads;
-
-        std::vector<double> load_fluxes(m_mpi_neighbourhood.size(), 0);
-
-        const std::size_t n_iterations = 1;
-
-        for (std::size_t k = 0; k < n_iterations; ++k)
-        {
-            world.barrier();
-            if (rank == 0)
-            {
-                std::cout << "---------------- k = " << k << " ----------------" << std::endl;
-            }
-            mpi::all_gather(world, load, loads);
-
-            std::vector<std::size_t> nb_neighbours;
-            mpi::all_gather(world, m_mpi_neighbourhood.size(), nb_neighbours);
-
-            double load_np1 = static_cast<double>(load);
-            for (std::size_t i_rank = 0; i_rank < m_mpi_neighbourhood.size(); ++i_rank)
-            {
-                auto neighbour = m_mpi_neighbourhood[i_rank];
-
-                auto neighbour_load = loads[static_cast<std::size_t>(neighbour.rank)];
-                int neighbour_load_minus_my_load;
-                if (load < neighbour_load)
-                {
-                    neighbour_load_minus_my_load = static_cast<int>(neighbour_load - load);
-                }
-                else
-                {
-                    neighbour_load_minus_my_load = -static_cast<int>(load - neighbour_load);
-                }
-                double weight       = 1. / std::max(m_mpi_neighbourhood.size(), nb_neighbours[neighbour.rank]);
-                load_fluxes[i_rank] = weight * neighbour_load_minus_my_load;
-                load_np1 += load_fluxes[i_rank];
-            }
-            load_np1 = floor(load_np1);
-
-            load_transfer(load_fluxes);
-
-            std::cout << rank << ": load = " << load << ", load_np1 = " << load_np1 << std::endl;
-
-            load = static_cast<std::size_t>(load_np1);
-        }
-#endif
-    }
-
-    template <class D, class Config>
-    void Mesh_base<D, Config>::load_transfer([[maybe_unused]] const std::vector<double>& load_fluxes)
-    {
-#ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-        std::cout << world.rank() << ": ";
-        for (std::size_t i_rank = 0; i_rank < m_mpi_neighbourhood.size(); ++i_rank)
-        {
-            auto neighbour = m_mpi_neighbourhood[i_rank];
-            if (load_fluxes[i_rank] < 0) // must tranfer load to the neighbour
-            {
-            }
-            else if (load_fluxes[i_rank] > 0) // must receive load from the neighbour
-            {
-            }
-            std::cout << "--> " << neighbour.rank << ": " << load_fluxes[i_rank] << ", ";
-        }
-        std::cout << std::endl;
 #endif
     }
 
