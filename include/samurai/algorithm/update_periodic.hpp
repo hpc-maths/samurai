@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <vector>
 
 #include <xtensor/containers/xfixed.hpp>
 

@@ -49,6 +49,7 @@
 
 #ifdef SAMURAI_WITH_MPI
 #include <boost/mpi.hpp>
+#include <boost/serialization/vector.hpp>
 namespace mpi = boost::mpi;
 #endif
 
@@ -57,8 +58,8 @@ namespace samurai::detail
 #ifdef SAMURAI_WITH_MPI
     // Append, for a single field, the subdomain "send" data for one
     // neighbour into `buf`: the inner-interface cells owned by this rank and
-    // then the outer-subdomain corners owned by this rank. Mirrors the send
-    // side of update_ghost_subdomains.
+    // then the outer-subdomain corners owned by this rank (the send side of
+    // the subdomain ghost exchange).
     template <class Field>
     void pack_subdomain_send(std::size_t level,
                              Field& field,
@@ -85,9 +86,9 @@ namespace samurai::detail
     }
 
     // Read back, for a single field, the subdomain "recv" data for one
-    // neighbour from the iterator `it` (advanced in place). Mirrors the recv
-    // side of update_ghost_subdomains and uses the very same intersections,
-    // so the packing order matches by construction.
+    // neighbour from the iterator `it` (advanced in place). The recv side of
+    // the subdomain ghost exchange; it uses the very same intersections as the
+    // send side, so the packing order matches by construction.
     template <class Field, class It>
     void unpack_subdomain_recv(std::size_t level, Field& field, const typename Field::mesh_t::mpi_subdomain_t& neighbour, It& it)
     {
@@ -117,11 +118,10 @@ namespace samurai::detail
     }
 #endif // SAMURAI_WITH_MPI
 
-    // Field-merged, non-blocking replacement for
-    // update_ghost_subdomains(level, field, other_fields...). One message
-    // per neighbour carries the subdomain ghosts of every field, in pack
-    // order [field, other_fields...]. Result is identical to the per-field
-    // path.
+    // Field-merged, non-blocking subdomain ghost exchange for
+    // (level, field, other_fields...). One message per neighbour carries the
+    // subdomain ghosts of every field, in pack order [field, other_fields...].
+    // Result is identical to exchanging each field on its own.
     template <class Field, class... Fields>
     void
     exchange_subdomains_merged([[maybe_unused]] std::size_t level, [[maybe_unused]] Field& field, [[maybe_unused]] Fields&... other_fields)
@@ -137,9 +137,9 @@ namespace samurai::detail
         const auto& neighbourhood = mesh.mpi_neighbourhood();
         const std::size_t n       = neighbourhood.size();
 
-        // Same symmetric guard as update_ghost_subdomains: both ranks of a
-        // pair evaluate the identical predicate, so they agree on whether a
-        // message is exchanged (no deadlock, no mismatch).
+        // Symmetric guard: both ranks of a pair evaluate the identical
+        // predicate, so they agree on whether a message is exchanged (no
+        // deadlock, no mismatch).
         auto active = [&](const auto& neighbour)
         {
             return !mesh[mesh_id_t::reference][level].empty() && !neighbour.mesh[mesh_id_t::reference][level].empty();

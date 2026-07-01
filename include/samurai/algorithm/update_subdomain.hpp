@@ -4,6 +4,7 @@
 #pragma once
 
 #include <algorithm>
+#include <vector>
 
 #include "../algorithm.hpp"
 #include "../array_of_interval_and_point.hpp"
@@ -78,101 +79,6 @@ namespace samurai
         }
 
         return lca;
-    }
-
-    template <class Field>
-    void update_ghost_subdomains([[maybe_unused]] std::size_t level, [[maybe_unused]] Field& field)
-    {
-#ifdef SAMURAI_WITH_MPI
-        using mesh_t    = typename Field::mesh_t;
-        using value_t   = typename Field::value_type;
-        using mesh_id_t = typename mesh_t::mesh_id_t;
-        std::vector<mpi::request> req;
-
-        auto& mesh = field.mesh();
-        mpi::communicator world;
-        std::vector<std::vector<value_t>> to_send(mesh.mpi_neighbourhood().size());
-
-        std::size_t i_neigh = 0;
-        for (auto& neighbour : mesh.mpi_neighbourhood())
-        {
-            if (!mesh[mesh_id_t::reference][level].empty() && !neighbour.mesh[mesh_id_t::reference][level].empty())
-            {
-                auto out_interface = intersection(mesh[mesh_id_t::reference][level],
-                                                  neighbour.mesh[mesh_id_t::reference][level],
-                                                  mesh.subdomain())
-                                         .on(level);
-                out_interface(
-                    [&](const auto& i, const auto& index)
-                    {
-                        std::copy(field(level, i, index).begin(), field(level, i, index).end(), std::back_inserter(to_send[i_neigh]));
-                    });
-                auto subdomain_corners = outer_subdomain_corner<true>(level, field, neighbour);
-                for_each_interval(
-                    subdomain_corners,
-                    [&](const auto, const auto& i, const auto& index)
-                    {
-                        std::copy(field(level, i, index).begin(), field(level, i, index).end(), std::back_inserter(to_send[i_neigh]));
-                    });
-
-                req.push_back(world.isend(neighbour.rank, neighbour.rank, to_send[i_neigh++]));
-            }
-        }
-
-        for (auto& neighbour : mesh.mpi_neighbourhood())
-        {
-            if (!mesh[mesh_id_t::reference][level].empty() && !neighbour.mesh[mesh_id_t::reference][level].empty())
-            {
-                std::vector<value_t> to_recv;
-                std::ptrdiff_t count = 0;
-
-                world.recv(neighbour.rank, world.rank(), to_recv);
-                auto in_interface = intersection(neighbour.mesh[mesh_id_t::reference][level],
-                                                 mesh[mesh_id_t::reference][level],
-                                                 neighbour.mesh.subdomain())
-                                        .on(level);
-                in_interface(
-                    [&](const auto& i, const auto& index)
-                    {
-                        std::copy(to_recv.begin() + count,
-                                  to_recv.begin() + count + static_cast<ptrdiff_t>(i.size() * Field::n_comp),
-                                  field(level, i, index).begin());
-                        count += static_cast<ptrdiff_t>(i.size() * Field::n_comp);
-                    });
-                auto subdomain_corners = outer_subdomain_corner<false>(level, field, neighbour);
-                for_each_interval(subdomain_corners,
-                                  [&](const auto, const auto& i, const auto& index)
-                                  {
-                                      std::copy(to_recv.begin() + count,
-                                                to_recv.begin() + count + static_cast<ptrdiff_t>(i.size() * Field::n_comp),
-                                                field(level, i, index).begin());
-                                      count += static_cast<ptrdiff_t>(i.size() * Field::n_comp);
-                                  });
-            }
-        }
-        mpi::wait_all(req.begin(), req.end());
-#endif
-    }
-
-    template <class Field, class... Fields>
-    void update_ghost_subdomains(std::size_t level, Field& field, Fields&... other_fields)
-    {
-        update_ghost_subdomains(level, field);
-        update_ghost_subdomains(level, other_fields...);
-    }
-
-    template <class Field>
-    void update_ghost_subdomains([[maybe_unused]] Field& field)
-    {
-#ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-        auto& mesh     = field.mesh();
-        auto max_level = mesh.max_level();
-        for (std::size_t level = 0; level <= max_level; ++level)
-        {
-            update_ghost_subdomains(level, field);
-        }
-#endif
     }
 
     template <class Field>
