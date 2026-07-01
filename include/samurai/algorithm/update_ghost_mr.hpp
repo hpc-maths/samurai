@@ -3,39 +3,39 @@
 
 #pragma once
 
-// Aggregated MPI ghost-update path for update_ghost_mr.
+// update_ghost_mr: multiresolution ghost update.
 //
-// This header is an internal extension of "update.hpp": it is included at the
-// end of "update.hpp" and, conversely, pulls "update.hpp" so it can also be
-// compiled standalone (the include guards make the relationship acyclic).
+// Public API (namespace samurai):
+//   update_ghost_mr(field, others...)      time and run the MR ghost update
+//   update_ghost_mr(tuple / Field_tuple)   tuple dispatch
+//   update_ghost_mr_if_needed(...)         skip fields whose ghosts are current
 //
-// Rationale
-// ---------
-// The historic update_ghost_mr issues, per level, one full isend/recv round
-// *per field* for the subdomain ghosts (update_ghost_subdomains recurses over
-// the variadic pack) and one round per periodic dimension. Fields are mutually
-// independent, so we can safely pack every field of a single call into one
-// buffer per neighbour and post the receives non-blocking. This collapses the
-// F per-field subdomain rounds into a single round, with no change to the
-// values written (same intersections, same order, deterministic).
+// Implementation (namespace samurai::detail):
+//   update_ghost_mr_aggregated(...)        the algorithm below
+//   exchange_subdomains_merged(...)        one non-blocking, field-merged
+//                                          subdomain exchange per neighbour
+//   pack_subdomain_send / unpack_subdomain_recv   (de)serialise one field
 //
-// What is NOT aggregated (and why)
-// --------------------------------
-//  - Across levels: the projection reference[L] -> proj_cells[L-1] reads ghosts
-//    synchronised at level L (true inter-level wavefront).
-//  - subdomain vs periodic, and periodic dim vs dim: the periodic send reads
-//    field(level, i - shift), which is NOT restricted to mesh.subdomain() and
-//    may therefore read a subdomain ghost just synchronised; periodic
-//    dimensions also accumulate at corners. The original subdomain -> periodic
-//    -> dim ordering is preserved here for bit-identical results.
+// This header is included last by update.hpp: the algorithm calls
+// outer_subdomain_corner<...> (explicit template argument, so the template must
+// be visible at definition), update_ghost_periodic and update_outer_ghosts. It
+// pulls only those helper headers, so there is no mutual include with update.hpp.
 //
-// This is THE update_ghost_mr implementation: update_ghost_mr (in update.hpp)
-// is a thin timed wrapper that always calls update_ghost_mr_aggregated below.
-// It was validated to be byte-for-byte equivalent to the historic per-field,
-// double-subdomain-sync path it replaced (advection_2d / burgers, np 4 and 8,
-// identical .h5 output) while cutting the ghost-update time by ~35-45%.
+// Algorithm. Per level (top-down then bottom-up), the subdomain ghosts of all
+// fields are exchanged in a single non-blocking round per neighbour: fields are
+// independent, so they are packed into one buffer per neighbour and the
+// receives are posted before the sends. Periodic ghosts keep their per-dimension
+// ordering through update_ghost_periodic. What is deliberately NOT merged:
+//   - across levels: the projection reference[L] -> proj_cells[L-1] reads ghosts
+//     synchronised at level L (inter-level wavefront);
+//   - subdomain vs periodic, and periodic dim vs dim: a periodic send reads
+//     field(level, i - shift), which is not restricted to mesh.subdomain() and
+//     may thus read a subdomain ghost just synchronised, and periodic dimensions
+//     accumulate at corners — hence the subdomain -> periodic -> dim ordering.
 
-#include "update.hpp"
+#include "update_outer_ghost.hpp" // update_outer_ghosts
+#include "update_periodic.hpp"    // update_ghost_periodic
+#include "update_subdomain.hpp"   // outer_subdomain_corner
 
 namespace samurai::detail
 {
@@ -191,14 +191,11 @@ namespace samurai::detail
             exchange_subdomains_merged(level, field, other_fields...);
             update_ghost_periodic(level, field, other_fields...);
             update_outer_ghosts(level, field, other_fields...);
-            // Second subdomain sync: the local recompute in update_outer_ghosts
-            // is NOT decomposition independent for non-stripe partitions — the
-            // owner-computed outer values (see outer_subdomain_corner) must be
-            // redistributed, exactly as the historic path did. Dropping it
-            // reintroduced the np3 checkerboard/hilbert defect caught by
-            // tests/mpi/test_lb_ghosts (adapt_independence_*). Kept here so the
-            // aggregated path stays bit-equivalent to update_ghost_mr while
-            // still collapsing the per-field rounds into one merged exchange.
+            // Second subdomain sync, required for decomposition independence:
+            // update_outer_ghosts recomputes the outer/B.C. ghosts locally, but
+            // for non-stripe partitions the owner-computed outer values (see
+            // outer_subdomain_corner) must still be redistributed to every rank
+            // that references them.
             exchange_subdomains_merged(level, field, other_fields...);
             update_ghost_periodic(level, field, other_fields...);
 
@@ -224,3 +221,57 @@ namespace samurai::detail
         ((other_fields.ghosts_updated() = true), ...);
     }
 } // namespace samurai::detail
+
+namespace samurai
+{
+    template <class Field>
+    void update_ghost_mr_if_needed(Field& field)
+    {
+        if (!field.ghosts_updated())
+        {
+            update_ghost_mr(field);
+        }
+    }
+
+    template <class Field, class... Fields>
+    void update_ghost_mr_if_needed(Field& field, Fields&... other_fields)
+    {
+        update_ghost_mr_if_needed(field);
+        update_ghost_mr_if_needed(other_fields...);
+    }
+
+    // Public entry point: times the update and delegates to the aggregated
+    // implementation above.
+    template <class Field, class... Fields>
+    void update_ghost_mr(Field& field, Fields&... other_fields)
+    {
+        ScopedTimer timer_ghosts("ghost update");
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        auto& mesh      = field.mesh();
+
+        detail::update_ghost_mr_aggregated(field, other_fields...);
+
+        timer_ghosts.set_cells(mesh.nb_cells(mesh_id_t::cells));
+    }
+
+    SAMURAI_INLINE void update_ghost_mr()
+    {
+    }
+
+    template <class... T>
+    SAMURAI_INLINE void update_ghost_mr(std::tuple<T...>& fields)
+    {
+        std::apply(
+            [](T&... tupleArgs)
+            {
+                update_ghost_mr(tupleArgs...);
+            },
+            fields);
+    }
+
+    template <class... T>
+    SAMURAI_INLINE void update_ghost_mr(Field_tuple<T...>& fields)
+    {
+        update_ghost_mr(fields.elements());
+    }
+}
