@@ -5,28 +5,13 @@
 
 #include <algorithm>
 
-#include <xtensor/containers/xfixed.hpp>
+#include <xtensor/views/xmasked_view.hpp>
 
 #include "../algorithm.hpp"
-#include "../bc/apply_field_bc.hpp"
-#include "../concepts.hpp"
-#include "../field.hpp"
-#include "../numeric/prediction.hpp"
-#include "../numeric/projection.hpp"
-#include "../subset/node.hpp"
-#include "../timers.hpp"
-#include "graduation.hpp"
-#include "utils.hpp"
-
-#ifndef NDEBUG
-#include "../io/hdf5.hpp"
-#endif
-
-using namespace xt::placeholders;
+#include "../cell_flag.hpp"
 
 #ifdef SAMURAI_WITH_MPI
 #include <boost/mpi.hpp>
-#include <xtensor/views/xmasked_view.hpp>
 namespace mpi = boost::mpi;
 #endif
 

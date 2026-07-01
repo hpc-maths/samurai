@@ -33,9 +33,24 @@
 //     may thus read a subdomain ghost just synchronised, and periodic dimensions
 //     accumulate at corners — hence the subdomain -> periodic -> dim ordering.
 
+#include <algorithm>
+#include <iterator>
+#include <vector>
+
+#include "../algorithm.hpp"
+#include "../field.hpp"
+#include "../numeric/prediction.hpp"
+#include "../numeric/projection.hpp"
+#include "../timers.hpp"
+
 #include "update_outer_ghost.hpp" // update_outer_ghosts
 #include "update_periodic.hpp"    // update_ghost_periodic
 #include "update_subdomain.hpp"   // outer_subdomain_corner
+
+#ifdef SAMURAI_WITH_MPI
+#include <boost/mpi.hpp>
+namespace mpi = boost::mpi;
+#endif
 
 namespace samurai::detail
 {
