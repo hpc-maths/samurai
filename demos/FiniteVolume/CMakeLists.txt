@@ -14,7 +14,8 @@ linear_convection.cpp:finite-volume-linear-convection
 # List of standard files (without PETSc)
 set(STANDARD_DEMOS
 AMR_Burgers_Hat.cpp:finite-volume-amr-burgers-hat
-level_set.cpp:finite-volume-level-set
+level_set_AMR.cpp:finite-volume-level-set-amr
+level_set_MRA.cpp:finite-volume-level-set-mra
 level_set_from_scratch.cpp:finite-volume-level-set-from-scratch
 advection_1d.cpp:finite-volume-advection-1d
 advection_2d.cpp:finite-volume-advection-2d
