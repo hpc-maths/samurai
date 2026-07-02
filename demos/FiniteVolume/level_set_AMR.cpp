@@ -251,7 +251,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 int main(int argc, char* argv[])
 {
     samurai::args::timers = true;
-    auto& app = samurai::initialize("Finite volume example with a level set in 2d using AMR", argc, argv);
+    auto& app             = samurai::initialize("Finite volume example with a level set in 2d using AMR", argc, argv);
 
     constexpr std::size_t dim = 2;
 
@@ -323,7 +323,7 @@ int main(int argc, char* argv[])
     while (t != Tf)
     {
         // AMR adaptation
-        std::size_t ite = 0;
+        // std::size_t ite = 0;
         while (true)
         {
             // std::cout << "Mesh adaptation iteration " << ite++ << std::endl;

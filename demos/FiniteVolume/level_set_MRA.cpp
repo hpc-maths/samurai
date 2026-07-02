@@ -3,13 +3,13 @@
 
 #include <samurai/algorithm/graduation.hpp>
 #include <samurai/algorithm/update.hpp>
-#include <samurai/mr/adapt.hpp>
-#include <samurai/mr/mesh.hpp>
 #include <samurai/bc.hpp>
 #include <samurai/box.hpp>
 #include <samurai/field.hpp>
 #include <samurai/io/hdf5.hpp>
 #include <samurai/io/restart.hpp>
+#include <samurai/mr/adapt.hpp>
+#include <samurai/mr/mesh.hpp>
 #include <samurai/samurai.hpp>
 
 #include "stencil_field.hpp"
@@ -213,7 +213,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 int main(int argc, char* argv[])
 {
     samurai::args::timers = true;
-    auto& app = samurai::initialize("Finite volume example with a level set in 2d using AMR", argc, argv);
+    auto& app             = samurai::initialize("Finite volume example with a level set in 2d using AMR", argc, argv);
 
     constexpr std::size_t dim = 2;
 
@@ -270,7 +270,7 @@ int main(int argc, char* argv[])
     auto phinp1 = samurai::make_scalar_field<double>("phi", mesh);
     auto phihat = samurai::make_scalar_field<double>("phi", mesh);
     samurai::make_bc<samurai::Neumann<1>>(phihat, 0.);
-    auto rho    = samurai::make_scalar_field<double>("rho", mesh, 0.);
+    auto rho = samurai::make_scalar_field<double>("rho", mesh, 0.);
     samurai::make_bc<samurai::Neumann<1>>(rho, 0.);
 
     auto MRadaptation = samurai::make_MRAdapt(rho);
@@ -293,10 +293,10 @@ int main(int argc, char* argv[])
         {
             // create discontinuous variable rho to artificially adapt around interface
             samurai::for_each_cell(mesh,
-                                [&](auto& cell)
-                                {
-                                    rho[cell] = (phi[cell] > 0.) ? 1000.:1.;
-                                });
+                                   [&](const auto& cell)
+                                   {
+                                       rho[cell] = (phi[cell] > 0.) ? 1000. : 1.;
+                                   });
             MRadaptation(mra_config, phi, u);
         }
 
