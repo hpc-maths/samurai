@@ -133,6 +133,7 @@ namespace samurai
     template <class Tag, class Stencil>
     void graduation(Tag& tag, const Stencil& stencil)
     {
+        ScopedTimer timer("mesh graduation");
         auto& mesh      = tag.mesh();
         using mesh_t    = typename Tag::mesh_t;
         using mesh_id_t = typename mesh_t::mesh_id_t;
