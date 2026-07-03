@@ -96,11 +96,12 @@ def compare_meshes(file1, file2, tol, rtol=0.0):
     field2 = construct_fields(mesh2)
 
     check = True
-    for field in field1.keys():
-        if not field in field2.keys():
-            print(f"{field} is not in second file")
-            sys.exit(f"files {file1} and {file2} are different")
+    extra_fields = set(field2.keys()) - set(field1.keys())
+    if extra_fields:
+        print(f"extra fields in second file: {sorted(extra_fields)}")
+        sys.exit(f"files {file1} and {file2} are different")
 
+    for field in field1.keys():
         v1 = field1[field][:][index1]
         v2 = field2[field][:][index2]
         exact_compare = np.issubdtype(v1.dtype, np.integer) and np.issubdtype(
@@ -132,6 +133,10 @@ def compare_meshes(file1, file2, tol, rtol=0.0):
             continue
 
         abs_diff = np.abs(v1 - v2)
+        # Ensure NaN vs non-NaN mismatches are detected (NaN comparisons are always False)
+        nan_mismatch = np.isnan(v1) ^ np.isnan(v2)
+        if np.any(nan_mismatch):
+            abs_diff = np.where(nan_mismatch, np.inf, abs_diff)
         # relative diff normalized by the larger of the two magnitudes, so it stays
         # meaningful (and bounded) even when v1 and v2 have opposite signs
         denom = np.maximum(np.abs(v1), np.abs(v2))
