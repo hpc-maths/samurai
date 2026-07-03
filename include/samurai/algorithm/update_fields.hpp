@@ -11,6 +11,7 @@
 #include "../concepts.hpp"
 #include "../field.hpp"
 #include "../numeric/projection.hpp"
+#include "../timers.hpp"
 #include "utils.hpp"
 
 #ifdef SAMURAI_WITH_MPI

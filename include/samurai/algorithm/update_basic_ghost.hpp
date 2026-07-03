@@ -6,6 +6,7 @@
 #include "../algorithm.hpp"
 #include "../numeric/prediction.hpp"
 #include "../numeric/projection.hpp"
+#include "../timers.hpp"
 #include "update_outer_ghost.hpp"
 
 namespace samurai
