@@ -21,7 +21,21 @@ parser.add_argument(
     type=float,
     required=False,
     default=1e-12,
-    help="tolerance for field comparison",
+    help="absolute tolerance for field comparison",
+)
+parser.add_argument(
+    "--rtol",
+    type=float,
+    required=False,
+    default=0.0,
+    help="relative tolerance for field comparison (combined with --tol as atol: "
+    "a field value differs if |v1-v2| > tol + rtol*|v2|, same convention as "
+    "numpy.isclose)",
+)
+parser.add_argument(
+    "--verbose",
+    action="store_true",
+    help="print more information about the comparison",
 )
 args = parser.parse_args()
 
@@ -60,7 +74,7 @@ def construct_fields(mesh):
         return output
 
 
-def compare_meshes(file1, file2, tol):
+def compare_meshes(file1, file2, tol, rtol=0.0):
     mesh1 = h5py.File(file1, "r")["mesh"]
     mesh2 = h5py.File(file2, "r")["mesh"]
     cells1 = construct_cells(mesh1)
@@ -81,32 +95,101 @@ def compare_meshes(file1, file2, tol):
     field1 = construct_fields(mesh1)
     field2 = construct_fields(mesh2)
 
-    for field in field1.keys():
-        if not field in field2.keys():
-            print(f"{field} is not in second file")
-            sys.exit(f"files {file1} and {file2} are different")
+    check = True
+    extra_fields = set(field2.keys()) - set(field1.keys())
+    if extra_fields:
+        print(f"extra fields in second file: {sorted(extra_fields)}")
+        sys.exit(f"files {file1} and {file2} are different")
 
-        if np.any(np.abs(field1[field][:][index1] - field2[field][:][index2]) > tol):
-            # if np.any(field1[field][:][index1] != field2[field][:][index2]):
-            ind = np.where(
-                np.abs(field1[field][:][index1] - field2[field][:][index2]) > tol
+    for field in field1.keys():
+        v1 = field1[field][:][index1]
+        v2 = field2[field][:][index2]
+        exact_compare = np.issubdtype(v1.dtype, np.integer) and np.issubdtype(
+            v2.dtype, np.integer
+        )
+
+        if exact_compare:
+            mismatch = v1 != v2
+            if np.any(mismatch):
+                ind = np.where(mismatch)[0]
+                centers = cells1[index1[ind]].mean(axis=1)
+                worst = 0
+                print(
+                    f"{field} is not the same between {file1} and {file2}: "
+                    f"{len(ind)}/{len(v1)} cells differ  "
+                    "exact integer comparison"
+                )
+                if args.verbose:
+                    print(
+                        f"{'idx':>8s}  {'center (x,y,z)':>30s}  "
+                        f"{'value 1':>22s}  {'value 2':>22s}  note"
+                    )
+                    for i, c in zip(ind, centers):
+                        print(
+                            f"{i:8d}  ({c[0]: .8f},{c[1]: .8f},{c[2]: .8f})  "
+                            f"{v1[i]!s:>22s}  {v2[i]!s:>22s}  exact mismatch"
+                        )
+                check = False
+            continue
+
+        abs_diff = np.abs(v1 - v2)
+        # Ensure NaN vs non-NaN mismatches are detected (NaN comparisons are always False)
+        nan_mismatch = np.isnan(v1) ^ np.isnan(v2)
+        if np.any(nan_mismatch):
+            abs_diff = np.where(nan_mismatch, np.inf, abs_diff)
+        # relative diff normalized by the larger of the two magnitudes, so it stays
+        # meaningful (and bounded) even when v1 and v2 have opposite signs
+        denom = np.maximum(np.abs(v1), np.abs(v2))
+        rel_diff = np.divide(
+            abs_diff, denom, out=np.zeros_like(abs_diff), where=denom > 0
+        )
+        # scale of this field, to tell "genuinely near zero" (e.g. a component that is
+        # 0 by symmetry, where a relative diff is meaningless) from a real small value
+        field_scale = max(np.abs(v1).max(), np.abs(v2).max(), 1e-300)
+        threshold = tol + rtol * np.abs(v2)
+
+        if np.any(abs_diff > threshold):
+            ind = np.where(abs_diff > threshold)[0]
+            centers = cells1[index1[ind]].mean(axis=1)
+            worst = np.argmax(abs_diff[ind])
+            print(
+                f"{field} is not the same between {file1} and {file2}: "
+                f"{len(ind)}/{len(v1)} cells differ  "
+                f"max|abs diff|={abs_diff[ind].max():.6e} (tol={tol:.3e})  "
+                f"max|rel diff|={rel_diff[ind].max():.6e} (rtol={rtol:.3e})  "
+                f"worst at center~{centers[worst]}"
             )
-            # ind = np.where(field1[field][:][index1] != field2[field][:][index2])
-            print(f"-- Values {file1}")
-            print(field1[field][:][index1[ind]])
-            print(f"-- Values {file2}")
-            print(field2[field][:][index2[ind]])
-            print("-- Difference:")
-            print(np.abs(field1[field][:][index1[ind]] - field2[field][:][index2[ind]]))
-            print("-- Coordinates (x,y,z):")
-            print(cells1[index1[ind]], cells2[index2[ind]])
-            # print(np.abs(field1[field][:][index1[ind]]-field2[field][:][index2[ind]]))
-            sys.exit(f"{field} is not the same between {file1} and {file2}")
+            if args.verbose:
+                print(
+                    f"{'idx':>8s}  {'center (x,y,z)':>30s}  "
+                    f"{'value 1':>22s}  {'value 2':>22s}  "
+                    f"{'abs diff':>12s}  {'rel diff':>12s}  note"
+                )
+                for i, c in zip(ind, centers):
+                    # a relative diff can look huge on a value that is itself ~0
+                    # (e.g. a component that is 0 by symmetry): flag it so it isn't
+                    # mistaken for a large real discrepancy
+                    note = (
+                        "value~0 rel. to field scale, rel diff not meaningful"
+                        if denom[i] < 1e-6 * field_scale
+                        else ""
+                    )
+                    print(
+                        f"{i:8d}  ({c[0]: .8f},{c[1]: .8f},{c[2]: .8f})  "
+                        f"{v1[i]: .15e}  {v2[i]: .15e}  "
+                        f"{abs_diff[i]:.6e}  {rel_diff[i]:.6e}  {note}"
+                    )
+            check = False
+    if not check:
+        sys.exit(f"files {file1} and {file2} are different")
+
     print(f"files {file1} and {file2} are the same")
 
 
 if args.start is not None and args.end is not None:
     for i in range(args.start, args.end + 1):
-        compare_meshes(f"{args.file1}{i}.h5", f"{args.file2}{i}.h5", args.tol)
+        compare_meshes(
+            f"{args.file1}{i}.h5", f"{args.file2}{i}.h5", args.tol, args.rtol
+        )
 else:
-    compare_meshes(f"{args.file1}.h5", f"{args.file2}.h5", args.tol)
+    compare_meshes(f"{args.file1}.h5", f"{args.file2}.h5", args.tol, args.rtol)
