@@ -11,6 +11,7 @@
 #include "../concepts.hpp"
 #include "../field.hpp"
 #include "../numeric/projection.hpp"
+#include "../timers.hpp"
 #include "utils.hpp"
 
 #ifdef SAMURAI_WITH_MPI
@@ -25,6 +26,7 @@ namespace samurai
         template <class PredictionOp, class Mesh, class Field>
         void update_field(PredictionOp&& prediction_op, Mesh& new_mesh, Field& field)
         {
+            ScopedTimer timer("fields update");
             using mesh_id_t = typename Mesh::mesh_id_t;
 
             Field new_field("new_f", new_mesh);

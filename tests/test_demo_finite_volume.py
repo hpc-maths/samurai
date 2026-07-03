@@ -77,7 +77,8 @@ def test_finite_volume_advection_2d(exec, Tf, config):
     "exec, Tf",
     [
         ("finite-volume-amr-burgers-hat", "1"),
-        ("finite-volume-level-set", "0.1"),
+        ("finite-volume-level-set-amr", "0.1"),
+        ("finite-volume-level-set-mra", "0.1"),
         ("finite-volume-level-set-from-scratch", "0.1"),
     ],
 )

@@ -250,7 +250,8 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 
 int main(int argc, char* argv[])
 {
-    auto& app = samurai::initialize("Finite volume example with a level set in 2d using AMR", argc, argv);
+    samurai::args::timers = true;
+    auto& app             = samurai::initialize("Finite volume example with a level set in 2d using AMR", argc, argv);
 
     constexpr std::size_t dim = 2;
 
@@ -267,7 +268,7 @@ int main(int argc, char* argv[])
 
     // Output parameters
     fs::path path        = fs::current_path();
-    std::string filename = "FV_level_set_2d";
+    std::string filename = "FV_level_set_2d_AMR";
     std::size_t nfiles   = 1;
 
     app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
@@ -322,10 +323,10 @@ int main(int argc, char* argv[])
     while (t != Tf)
     {
         // AMR adaptation
-        std::size_t ite = 0;
+        // std::size_t ite = 0;
         while (true)
         {
-            std::cout << "Mesh adaptation iteration " << ite++ << std::endl;
+            // std::cout << "Mesh adaptation iteration " << ite++ << std::endl;
             tag.resize();
             AMR_criteria(phi, tag);
             samurai::graduation(tag, stencil_grad);

@@ -6,6 +6,7 @@
 #include "../algorithm.hpp"
 #include "../numeric/prediction.hpp"
 #include "../numeric/projection.hpp"
+#include "../timers.hpp"
 #include "update_outer_ghost.hpp"
 
 namespace samurai
@@ -13,6 +14,7 @@ namespace samurai
     template <class Field, class... Fields>
     void update_ghost(Field& field, Fields&... fields)
     {
+        ScopedTimer timer_ghosts("ghost update");
         using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
         constexpr std::size_t pred_order = Field::mesh_t::config_t::prediction_stencil_radius;
 
@@ -36,5 +38,7 @@ namespace samurai
 
         field.ghosts_updated() = true;
         ((fields.ghosts_updated() = true), ...);
+
+        timer_ghosts.set_cells(mesh.nb_cells(mesh_id_t::cells));
     }
 }
