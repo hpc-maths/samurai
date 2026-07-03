@@ -103,11 +103,41 @@ def compare_meshes(file1, file2, tol, rtol=0.0):
 
         v1 = field1[field][:][index1]
         v2 = field2[field][:][index2]
+        exact_compare = np.issubdtype(v1.dtype, np.integer) and np.issubdtype(
+            v2.dtype, np.integer
+        )
+
+        if exact_compare:
+            mismatch = v1 != v2
+            if np.any(mismatch):
+                ind = np.where(mismatch)[0]
+                centers = cells1[index1[ind]].mean(axis=1)
+                worst = 0
+                print(
+                    f"{field} is not the same between {file1} and {file2}: "
+                    f"{len(ind)}/{len(v1)} cells differ  "
+                    "exact integer comparison"
+                )
+                if args.verbose:
+                    print(
+                        f"{'idx':>8s}  {'center (x,y,z)':>30s}  "
+                        f"{'value 1':>22s}  {'value 2':>22s}  note"
+                    )
+                    for i, c in zip(ind, centers):
+                        print(
+                            f"{i:8d}  ({c[0]: .8f},{c[1]: .8f},{c[2]: .8f})  "
+                            f"{v1[i]!s:>22s}  {v2[i]!s:>22s}  exact mismatch"
+                        )
+                check = False
+            continue
+
         abs_diff = np.abs(v1 - v2)
         # relative diff normalized by the larger of the two magnitudes, so it stays
         # meaningful (and bounded) even when v1 and v2 have opposite signs
         denom = np.maximum(np.abs(v1), np.abs(v2))
-        rel_diff = np.divide(abs_diff, denom, out=np.zeros_like(abs_diff), where=denom > 0)
+        rel_diff = np.divide(
+            abs_diff, denom, out=np.zeros_like(abs_diff), where=denom > 0
+        )
         # scale of this field, to tell "genuinely near zero" (e.g. a component that is
         # 0 by symmetry, where a relative diff is meaningless) from a real small value
         field_scale = max(np.abs(v1).max(), np.abs(v2).max(), 1e-300)
@@ -153,6 +183,8 @@ def compare_meshes(file1, file2, tol, rtol=0.0):
 
 if args.start is not None and args.end is not None:
     for i in range(args.start, args.end + 1):
-        compare_meshes(f"{args.file1}{i}.h5", f"{args.file2}{i}.h5", args.tol, args.rtol)
+        compare_meshes(
+            f"{args.file1}{i}.h5", f"{args.file2}{i}.h5", args.tol, args.rtol
+        )
 else:
     compare_meshes(f"{args.file1}.h5", f"{args.file2}.h5", args.tol, args.rtol)
