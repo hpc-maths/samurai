@@ -35,7 +35,7 @@ namespace samurai
             {
                 if (!mesh.is_periodic(bdry_direction_index))
                 {
-                    auto domain = self(mesh.domain()).on(level);
+                    auto domain = self(mesh.domain(level));
                     auto& mesh1 = to_send ? mesh : neighbour.mesh;
                     auto& mesh2 = to_send ? neighbour.mesh : mesh;
 
@@ -57,7 +57,7 @@ namespace samurai
 
                         auto owned_ghosts = intersection(mesh1[mesh_id_t::reference][level],
                                                          layer_band,
-                                                         translate(self(mesh1.subdomain()).on(level), layer * bdry_direction));
+                                                         translate(self(mesh1.subdomain(level)), layer * bdry_direction));
 
                         auto neighbour_outer_corner = intersection(owned_ghosts, mesh2[mesh_id_t::reference][level]);
                         neighbour_outer_corner(
@@ -101,8 +101,7 @@ namespace samurai
             {
                 auto out_interface = intersection(mesh[mesh_id_t::reference][level],
                                                   neighbour.mesh[mesh_id_t::reference][level],
-                                                  mesh.subdomain())
-                                         .on(level);
+                                                  mesh.subdomain(level));
                 out_interface(
                     [&](const auto& i, const auto& index)
                     {
@@ -124,8 +123,7 @@ namespace samurai
 
                 auto in_interface = intersection(mesh[mesh_id_t::reference][level],
                                                  neighbour.mesh[mesh_id_t::reference][level],
-                                                 neighbour.mesh.subdomain())
-                                        .on(level);
+                                                 neighbour.mesh.subdomain(level));
                 in_interface(
                     [&](const auto& i, const auto& index)
                     {

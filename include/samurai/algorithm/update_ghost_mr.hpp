@@ -29,7 +29,7 @@
 //   - across levels: the projection reference[L] -> proj_cells[L-1] reads ghosts
 //     synchronised at level L (inter-level wavefront);
 //   - subdomain vs periodic, and periodic dim vs dim: a periodic send reads
-//     field(level, i - shift), which is not restricted to mesh.subdomain() and
+//     field(level, i - shift), which is not restricted to mesh.subdomain(level) and
 //     may thus read a subdomain ghost just synchronised, and periodic dimensions
 //     accumulate at corners — hence the subdomain -> periodic -> dim ordering.
 
@@ -69,8 +69,9 @@ namespace samurai::detail
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
         auto& mesh      = field.mesh();
 
-        auto out_interface = intersection(mesh[mesh_id_t::reference][level], neighbour.mesh[mesh_id_t::reference][level], mesh.subdomain())
-                                 .on(level);
+        auto out_interface = intersection(mesh[mesh_id_t::reference][level],
+                                          neighbour.mesh[mesh_id_t::reference][level],
+                                          mesh.subdomain(level));
         out_interface(
             [&](const auto& i, const auto& index)
             {
@@ -97,8 +98,7 @@ namespace samurai::detail
 
         auto in_interface = intersection(neighbour.mesh[mesh_id_t::reference][level],
                                          mesh[mesh_id_t::reference][level],
-                                         neighbour.mesh.subdomain())
-                                .on(level);
+                                         neighbour.mesh.subdomain(level));
         in_interface(
             [&](const auto& i, const auto& index)
             {
@@ -225,7 +225,7 @@ namespace samurai::detail
         {
             auto pred_ghosts = difference(mesh[mesh_id_t::all_cells][level],
                                           union_(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::proj_cells][level]));
-            auto expr        = intersection(pred_ghosts, mesh.subdomain(), mesh[mesh_id_t::all_cells][level - 1]).on(level);
+            auto expr        = intersection(pred_ghosts, mesh.subdomain(level), mesh[mesh_id_t::all_cells][level - 1]).on(level);
 
             expr.apply_op(variadic_prediction<pred_order, false>(field, other_fields...));
             exchange_subdomains_merged(level, field, other_fields...);
