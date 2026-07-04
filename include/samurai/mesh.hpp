@@ -1236,32 +1236,32 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE void Mesh_base<D, Config>::construct_subdomain()
     {
-#ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-        if (world.size() > 1)
-        {
-            lcl_type lcl = {max_level(), m_domain.origin_point(), m_domain.scaling_factor()};
+        // #ifdef SAMURAI_WITH_MPI
+        //         mpi::communicator world;
+        //         if (world.size() > 1)
+        //         {
+        lcl_type lcl = {max_level(), m_domain.origin_point(), m_domain.scaling_factor()};
 
-            for_each_interval(m_cells[mesh_id_t::cells],
-                              [&](std::size_t level, const auto& i, const auto& index)
-                              {
-                                  std::size_t shift = max_level() - level;
-                                  interval_t to_add = i << shift;
-                                  auto shift_index  = index << shift;
-                                  static_nested_loop<dim - 1>(0,
-                                                              1 << shift,
-                                                              1,
-                                                              [&](auto stencil)
-                                                              {
-                                                                  auto new_index = shift_index + stencil;
-                                                                  lcl[new_index].add_interval(to_add);
-                                                              });
-                              });
-            build_pyramid(m_subdomain, lca_type{lcl});
-            return;
-        }
-#endif
-        m_subdomain = m_domain;
+        for_each_interval(m_cells[mesh_id_t::cells],
+                          [&](std::size_t level, const auto& i, const auto& index)
+                          {
+                              std::size_t shift = max_level() - level;
+                              interval_t to_add = i << shift;
+                              auto shift_index  = index << shift;
+                              static_nested_loop<dim - 1>(0,
+                                                          1 << shift,
+                                                          1,
+                                                          [&](auto stencil)
+                                                          {
+                                                              auto new_index = shift_index + stencil;
+                                                              lcl[new_index].add_interval(to_add);
+                                                          });
+                          });
+        build_pyramid(m_subdomain, lca_type{lcl});
+        //             return;
+        //         }
+        // #endif
+        //         m_subdomain = m_domain;
     }
 
     // Materialises `reference` (a full-resolution LCA defined at its own
