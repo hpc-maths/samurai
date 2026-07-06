@@ -814,7 +814,10 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE void Mesh_base<D, Config>::box_like()
     {
-        m_domain[max_level()].box_like();
+        for (std::size_t level = min_level(); level <= max_level(); ++level)
+        {
+            m_domain[level].box_like();
+        }
     }
 
     template <class D, class Config>
@@ -1277,7 +1280,7 @@ namespace samurai
     SAMURAI_INLINE void Mesh_base<D, Config>::build_pyramid(ca_type& pyramid, const lca_type& reference)
     {
         const std::size_t hi = std::max(max_level(), reference.level());
-
+        pyramid.clear();
         pyramid.set_origin_point(reference.origin_point());
         pyramid.set_scaling_factor(reference.scaling_factor());
 
