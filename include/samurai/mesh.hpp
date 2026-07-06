@@ -1239,10 +1239,8 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE void Mesh_base<D, Config>::construct_subdomain()
     {
-        // #ifdef SAMURAI_WITH_MPI
-        //         mpi::communicator world;
-        //         if (world.size() > 1)
-        //         {
+        // TODO: Don't build subdomain when we are in serial or in parallel with only one rank. This is a waste of memory and time.
+        // Just use the domain as subdomain in this case.
         lcl_type lcl = {max_level(), m_domain.origin_point(), m_domain.scaling_factor()};
 
         for_each_interval(m_cells[mesh_id_t::cells],
@@ -1261,10 +1259,6 @@ namespace samurai
                                                           });
                           });
         build_pyramid(m_subdomain, lca_type{lcl});
-        //             return;
-        //         }
-        // #endif
-        //         m_subdomain = m_domain;
     }
 
     // Materialises `reference` (a full-resolution LCA defined at its own
