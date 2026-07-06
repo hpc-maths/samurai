@@ -168,7 +168,9 @@ namespace samurai
         double cell_length(std::size_t level) const;
         double min_cell_length() const;
         const lca_type& domain() const;
+        const lca_type& domain(std::size_t level) const;
         const lca_type& subdomain() const;
+        const lca_type& subdomain(std::size_t level) const;
 
         void box_like();
 
@@ -263,6 +265,7 @@ namespace samurai
 
         void construct_subdomain();
         void construct_domain();
+        void build_pyramid(ca_type& pyramid, const lca_type& reference);
         void construct_union();
         void construct_corners();
         void update_sub_mesh();
@@ -281,8 +284,8 @@ namespace samurai
                                      std::set<int>& candidates) const;
 #endif
 
-        lca_type m_domain;
-        lca_type m_subdomain;
+        ca_type m_domain;
+        ca_type m_subdomain;
         mesh_t m_cells;
         ca_type m_union;
         std::vector<lca_type> m_corners;
@@ -334,13 +337,15 @@ namespace samurai
 
     template <class D, class Config>
     SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const samurai::Box<double, dim>& b, const config_t& config)
-        : m_domain{config.start_level(), b, config.approx_box_tol(), config.scaling_factor()}
-        , m_config(config)
+        : m_config(config)
     {
+        lca_type domain_ref(m_config.start_level(), b, m_config.approx_box_tol(), m_config.scaling_factor());
+        build_pyramid(m_domain, domain_ref);
+
 #ifdef SAMURAI_WITH_MPI
         partition_mesh(m_config.start_level(), b);
 #else
-        this->m_cells[mesh_id_t::cells][m_config.start_level()] = m_domain;
+        this->m_cells[mesh_id_t::cells][m_config.start_level()] = m_domain[m_config.start_level()];
 #endif
 
         construct_subdomain();
@@ -785,19 +790,34 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE auto Mesh_base<D, Config>::domain() const -> const lca_type&
     {
-        return m_domain;
+        return m_domain[max_level()];
+    }
+
+    template <class D, class Config>
+    SAMURAI_INLINE auto Mesh_base<D, Config>::domain(std::size_t level) const -> const lca_type&
+    {
+        return m_domain[level];
     }
 
     template <class D, class Config>
     SAMURAI_INLINE auto Mesh_base<D, Config>::subdomain() const -> const lca_type&
     {
-        return m_subdomain;
+        return m_subdomain[max_level()];
+    }
+
+    template <class D, class Config>
+    SAMURAI_INLINE auto Mesh_base<D, Config>::subdomain(std::size_t level) const -> const lca_type&
+    {
+        return m_subdomain[level];
     }
 
     template <class D, class Config>
     SAMURAI_INLINE void Mesh_base<D, Config>::box_like()
     {
-        m_domain.box_like();
+        for (std::size_t level = min_level(); level <= max_level(); ++level)
+        {
+            m_domain[level].box_like();
+        }
     }
 
     template <class D, class Config>
@@ -990,6 +1010,7 @@ namespace samurai
             // and the difference empty. This is the correct formula for both true corner
             // directions (all components ±1) and edge directions in 3D (one zero component).
             m_corners.clear();
+            const auto& domain_lca = m_domain[max_level()];
             for_each_diagonal_direction<dim>(
                 [&](const auto& direction)
                 {
@@ -1013,45 +1034,45 @@ namespace samurai
                     if (n == 2)
                     {
                         m_corners.push_back(
-                            difference(m_domain, union_(translate(m_domain, nonzero_shifts[0]), translate(m_domain, nonzero_shifts[1])))
+                            difference(domain_lca, union_(translate(domain_lca, nonzero_shifts[0]), translate(domain_lca, nonzero_shifts[1])))
                                 .to_lca());
                     }
                     else if (n == 3)
                     {
-                        m_corners.push_back(difference(m_domain,
-                                                       union_(translate(m_domain, nonzero_shifts[0]),
-                                                              translate(m_domain, nonzero_shifts[1]),
-                                                              translate(m_domain, nonzero_shifts[2])))
+                        m_corners.push_back(difference(domain_lca,
+                                                       union_(translate(domain_lca, nonzero_shifts[0]),
+                                                              translate(domain_lca, nonzero_shifts[1]),
+                                                              translate(domain_lca, nonzero_shifts[2])))
                                                 .to_lca());
                     }
                     else if (n == 4)
                     {
-                        m_corners.push_back(difference(m_domain,
-                                                       union_(translate(m_domain, nonzero_shifts[0]),
-                                                              translate(m_domain, nonzero_shifts[1]),
-                                                              translate(m_domain, nonzero_shifts[2]),
-                                                              translate(m_domain, nonzero_shifts[3])))
+                        m_corners.push_back(difference(domain_lca,
+                                                       union_(translate(domain_lca, nonzero_shifts[0]),
+                                                              translate(domain_lca, nonzero_shifts[1]),
+                                                              translate(domain_lca, nonzero_shifts[2]),
+                                                              translate(domain_lca, nonzero_shifts[3])))
                                                 .to_lca());
                     }
                     else if (n == 5)
                     {
-                        m_corners.push_back(difference(m_domain,
-                                                       union_(translate(m_domain, nonzero_shifts[0]),
-                                                              translate(m_domain, nonzero_shifts[1]),
-                                                              translate(m_domain, nonzero_shifts[2]),
-                                                              translate(m_domain, nonzero_shifts[3]),
-                                                              translate(m_domain, nonzero_shifts[4])))
+                        m_corners.push_back(difference(domain_lca,
+                                                       union_(translate(domain_lca, nonzero_shifts[0]),
+                                                              translate(domain_lca, nonzero_shifts[1]),
+                                                              translate(domain_lca, nonzero_shifts[2]),
+                                                              translate(domain_lca, nonzero_shifts[3]),
+                                                              translate(domain_lca, nonzero_shifts[4])))
                                                 .to_lca());
                     }
                     else if (n == 6)
                     {
-                        m_corners.push_back(difference(m_domain,
-                                                       union_(translate(m_domain, nonzero_shifts[0]),
-                                                              translate(m_domain, nonzero_shifts[1]),
-                                                              translate(m_domain, nonzero_shifts[2]),
-                                                              translate(m_domain, nonzero_shifts[3]),
-                                                              translate(m_domain, nonzero_shifts[4]),
-                                                              translate(m_domain, nonzero_shifts[5])))
+                        m_corners.push_back(difference(domain_lca,
+                                                       union_(translate(domain_lca, nonzero_shifts[0]),
+                                                              translate(domain_lca, nonzero_shifts[1]),
+                                                              translate(domain_lca, nonzero_shifts[2]),
+                                                              translate(domain_lca, nonzero_shifts[3]),
+                                                              translate(domain_lca, nonzero_shifts[4]),
+                                                              translate(domain_lca, nonzero_shifts[5])))
                                                 .to_lca());
                     }
                 });
@@ -1198,7 +1219,7 @@ namespace samurai
         lcl_type lcl = {max_level()};
         mpi::communicator world;
         std::vector<lca_type> all_subdomains(static_cast<std::size_t>(world.size()));
-        mpi::all_gather(world, m_subdomain, all_subdomains);
+        mpi::all_gather(world, m_subdomain[max_level()], all_subdomains);
 
         for (std::size_t k = 0; k < all_subdomains.size(); ++k)
         {
@@ -1209,7 +1230,7 @@ namespace samurai
                               });
         }
 
-        m_domain = {lcl};
+        build_pyramid(m_domain, lca_type{lcl});
 #else
         m_domain = m_subdomain;
 #endif
@@ -1218,7 +1239,8 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE void Mesh_base<D, Config>::construct_subdomain()
     {
-        // lcl_type lcl = {m_cells[mesh_id_t::cells].max_level()};
+        // TODO: Don't build subdomain when we are in serial or in parallel with only one rank. This is a waste of memory and time.
+        // Just use the domain as subdomain in this case.
         lcl_type lcl = {max_level(), m_domain.origin_point(), m_domain.scaling_factor()};
 
         for_each_interval(m_cells[mesh_id_t::cells],
@@ -1236,7 +1258,40 @@ namespace samurai
                                                               lcl[new_index].add_interval(to_add);
                                                           });
                           });
-        m_subdomain = {lcl};
+        build_pyramid(m_subdomain, lca_type{lcl});
+    }
+
+    // Materialises `reference` (a full-resolution LCA defined at its own
+    // level) into every level of `pyramid` from 0 to max_level(), coarsening
+    // or refining as needed via the usual `.on(level)` projection. Doing this
+    // once, here, instead of lazily in the ghost update (previously
+    // `self(mesh.domain()).on(level)` / `self(mesh.subdomain()).on(level)`,
+    // recomputed on every call) is the whole point: domain(level) and
+    // subdomain(level) become plain array look-ups. The range must cover 0,
+    // not just [min_level(), max_level()]: update_ghost_mr_aggregated walks
+    // levels down to 0 regardless of mesh.min_level().
+    template <class D, class Config>
+    SAMURAI_INLINE void Mesh_base<D, Config>::build_pyramid(ca_type& pyramid, const lca_type& reference)
+    {
+        const std::size_t hi = std::max(max_level(), reference.level());
+        pyramid.clear();
+        pyramid.set_origin_point(reference.origin_point());
+        pyramid.set_scaling_factor(reference.scaling_factor());
+
+        for (std::size_t level = 0; level <= hi; ++level)
+        {
+            if (level == reference.level())
+            {
+                pyramid[level] = reference;
+                continue;
+            }
+
+            self(reference).on(level)(
+                [&](const auto& i, const auto& index)
+                {
+                    pyramid[level].add_interval_back(i, index);
+                });
+        }
     }
 
     template <class D, class Config>
@@ -1282,7 +1337,7 @@ namespace samurai
         const int size = world.size();
 
         // Phase 1: Exchange bounding boxes (64 bytes each vs KB of mesh data)
-        auto my_bbox        = mpi_neighbor::compute_subdomain_bbox(m_subdomain);
+        auto my_bbox        = mpi_neighbor::compute_subdomain_bbox(m_subdomain[max_level()]);
         my_bbox.rank        = rank;
         my_bbox.ghost_reach = ghost_physical_reach();
 
@@ -1327,13 +1382,13 @@ namespace samurai
         // Send my subdomain to all candidates
         for (int candidate_rank : candidate_ranks)
         {
-            requests.push_back(world.isend(candidate_rank, 0, m_subdomain));
+            requests.push_back(world.isend(candidate_rank, 0, m_subdomain[max_level()]));
         }
 
         mpi::wait_all(requests.begin(), requests.end());
 
         auto directions     = detail::get_periodic_directions(m_config.periodic());
-        auto minmax_indices = m_domain.minmax_indices();
+        auto minmax_indices = m_domain[max_level()].minmax_indices();
         xt::xtensor_fixed<value_t, xt::xshape<dim>> domain_size;
         for (std::size_t d = 0; d < dim; ++d)
         {
@@ -1347,7 +1402,7 @@ namespace samurai
         // in cells at the subdomain level. The historic hardcoded width of 1
         // missed ranks lying behind a subdomain strip thinner than the ghost
         // footprint (see tests/mpi/test_lb_ghosts.cpp).
-        const double subdomain_dx = m_subdomain.cell_length();
+        const double subdomain_dx = m_subdomain[max_level()].cell_length();
         auto expansion_width      = [&](const auto& other_bbox)
         {
             const double reach = std::max(my_bbox.ghost_reach, other_bbox.ghost_reach);
@@ -1359,7 +1414,7 @@ namespace samurai
         {
             const int width = expansion_width(all_bboxes[static_cast<std::size_t>(candidate_ranks[i])]);
 
-            auto set = intersection(nestedExpand(m_subdomain, width), candidate_subdomains[i]);
+            auto set = intersection(nestedExpand(m_subdomain[max_level()], width), candidate_subdomains[i]);
             if (!set.empty())
             {
                 m_mpi_neighbourhood.emplace_back(candidate_ranks[i]);
@@ -1370,7 +1425,7 @@ namespace samurai
             for (const auto& direction : directions)
             {
                 auto shift        = direction * domain_size;
-                auto periodic_set = intersection(nestedExpand(m_subdomain, width), translate(candidate_subdomains[i], shift));
+                auto periodic_set = intersection(nestedExpand(m_subdomain[max_level()], width), translate(candidate_subdomains[i], shift));
 
                 if (!periodic_set.empty())
                 {
@@ -1393,7 +1448,7 @@ namespace samurai
         // when wrapped around the periodic boundaries
         auto directions = detail::get_periodic_directions(m_config.periodic());
 
-        auto domain_size = xt::eval(m_domain.max_corner() - m_domain.min_corner());
+        auto domain_size = xt::eval(m_domain[max_level()].max_corner() - m_domain[max_level()].min_corner());
 
         for (const auto& other_bbox : all_bboxes)
         {
@@ -1427,13 +1482,15 @@ namespace samurai
         auto rank = world.rank();
         auto size = world.size();
 
+        const auto& domain_at_start_level = m_domain[start_level];
+
         std::size_t subdomain_start = 0;
         std::size_t subdomain_end   = 0;
         lcl_type subdomain_cells(start_level, m_domain.origin_point(), m_domain.scaling_factor());
         // in 1D MPI, we need a specific partitioning
         if (dim == 1)
         {
-            std::size_t n_cells               = m_domain.nb_cells();
+            std::size_t n_cells               = domain_at_start_level.nb_cells();
             std::size_t n_cells_per_subdomain = n_cells / static_cast<std::size_t>(size);
             subdomain_start                   = n_cells_per_subdomain * static_cast<std::size_t>(rank);
             subdomain_end                     = n_cells_per_subdomain * (static_cast<std::size_t>(rank) + 1);
@@ -1442,7 +1499,7 @@ namespace samurai
             {
                 subdomain_end = n_cells;
             }
-            for_each_meshinterval(m_domain,
+            for_each_meshinterval(domain_at_start_level,
                                   [&](auto mi)
                                   {
                                       for (auto i = mi.i.start; i < mi.i.end; ++i)
@@ -1456,15 +1513,15 @@ namespace samurai
         }
         else if (dim >= 2)
         {
-            auto subdomain_nb_intervals = m_domain.nb_intervals() / static_cast<std::size_t>(size);
+            auto subdomain_nb_intervals = domain_at_start_level.nb_intervals() / static_cast<std::size_t>(size);
             subdomain_start             = static_cast<std::size_t>(rank) * subdomain_nb_intervals;
             subdomain_end               = (static_cast<std::size_t>(rank) + 1) * subdomain_nb_intervals;
             if (rank == size - 1)
             {
-                subdomain_end = m_domain.nb_intervals();
+                subdomain_end = domain_at_start_level.nb_intervals();
             }
             std::size_t k = 0;
-            for_each_meshinterval(m_domain,
+            for_each_meshinterval(domain_at_start_level,
                                   [&](auto mi)
                                   {
                                       if (k >= subdomain_start && k < subdomain_end)
