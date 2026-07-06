@@ -295,7 +295,7 @@ namespace samurai
                                 out[coarse_level].push_back(x_interval, yz);
                             });
                     }
-                    if (coarse_level == min_level)
+                    if (coarse_level == min_level || proj.empty())
                     {
                         break;
                     }
@@ -305,13 +305,13 @@ namespace samurai
 
             for (size_t fine_level = max_level; fine_level > min_fine_level; --fine_level)
             {
-                const int delta_l = int(domain.level() - fine_level);
-                auto directions   = detail::get_periodic_directions(nb_cells_finest_level, delta_l, is_periodic);
-                auto& fine_lca    = lhs_ca[fine_level];
+                auto& fine_lca = lhs_ca[fine_level];
                 if (fine_lca.empty())
                 {
                     continue;
                 }
+                const int delta_l = int(domain.level() - fine_level);
+                auto directions   = detail::get_periodic_directions(nb_cells_finest_level, delta_l, is_periodic);
                 cascade_refine(fine_lca, fine_level);
                 for (const auto& d : directions)
                 {
