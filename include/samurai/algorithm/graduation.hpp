@@ -272,28 +272,50 @@ namespace samurai
             const size_t min_level      = rhs_ca.min_level();
             const size_t min_fine_level = (min_level + 2) - 1; // fine_level =  max_level, max_level-1, ..., min_level+2. Thus fine_level !=
                                                                // min_level+2-1
-            auto apply_refine = [&](const auto& union_func, auto coarse_level)
+
+            using lca_t = LevelCellArray<dim, TInterval>;
+
+            // The fine cells at `fine_level`, expanded by 2*max_width, must force the refinement of every coarser
+            // cell they overlap, from `fine_level - 2` down to `min_level`. Instead of re-expanding and re-projecting
+            // the (potentially huge) fine array once per coarse level, we materialize the expanded set projected on
+            // `fine_level - 2` a single time, then coarsen it by one level at each step. Coarsening is
+            // level-composable (`X.on(l-1) == X.on(l).on(l-1)`), so the result is identical while the fine array is
+            // walked only once instead of O(fine_level - min_level) times.
+            auto cascade_refine = [&](const auto& fine_set, size_t fine_level)
             {
-                auto refine_subset = intersection(nestedExpand(union_func, 2 * max_width), rhs_ca[coarse_level]).on(coarse_level);
-                refine_subset(
-                    [&](const auto& x_interval, const auto& yz)
+                lca_t proj(nestedExpand(fine_set, 2 * max_width).on(fine_level - 2));
+                for (size_t coarse_level = fine_level - 2;; --coarse_level)
+                {
+                    if (!proj.empty())
                     {
-                        out[coarse_level].push_back(x_interval, yz);
-                    });
+                        auto refine_subset = intersection(proj, rhs_ca[coarse_level]);
+                        refine_subset(
+                            [&](const auto& x_interval, const auto& yz)
+                            {
+                                out[coarse_level].push_back(x_interval, yz);
+                            });
+                    }
+                    if (coarse_level == min_level || proj.empty())
+                    {
+                        break;
+                    }
+                    proj = lca_t(self(proj).on(coarse_level - 1));
+                }
             };
 
             for (size_t fine_level = max_level; fine_level > min_fine_level; --fine_level)
             {
+                auto& fine_lca = lhs_ca[fine_level];
+                if (fine_lca.empty())
+                {
+                    continue;
+                }
                 const int delta_l = int(domain.level() - fine_level);
                 auto directions   = detail::get_periodic_directions(nb_cells_finest_level, delta_l, is_periodic);
-                auto& fine_lca    = lhs_ca[fine_level];
-                for (size_t coarse_level = fine_level - 2; coarse_level > min_level - 1; --coarse_level)
+                cascade_refine(fine_lca, fine_level);
+                for (const auto& d : directions)
                 {
-                    apply_refine(fine_lca, coarse_level);
-                    for (const auto& d : directions)
-                    {
-                        apply_refine(translate(fine_lca, d), coarse_level);
-                    }
+                    cascade_refine(translate(fine_lca, d), fine_level);
                 }
             }
         };
@@ -312,6 +334,12 @@ namespace samurai
     {
         std::vector<mesh_t> mpi_meshes(mpi_neighbourhood.size());
 #ifdef SAMURAI_WITH_MPI
+        // No neighbour to exchange with (e.g. a sequential run or an emptied rank): serializing the whole
+        // mesh below would be pure waste, so bail out before touching the archive.
+        if (mpi_neighbourhood.empty())
+        {
+            return mpi_meshes;
+        }
         mpi::communicator world;
         std::vector<mpi::request> req;
 
@@ -582,14 +610,27 @@ namespace samurai
         ca_type ca_remove_p;
         ca_type new_ca;
 
-        size_t nit;
+        size_t nit = 0;
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
-        for (nit = 0; mpi::all_reduce(world, new_ca != ca, std::logical_or()); ++nit)
-#else
-        for (nit = 0; new_ca != ca; ++nit)
 #endif // SAMURAI_WITH_MPI
+
+        // `ca_changed` drives the fixed-point loop: it is true as long as the local `ca` was modified during the
+        // previous iteration. It is primed to true so the loop runs at least once. Compared to the former
+        // `new_ca != ca` test, this lets us skip both the full `new_ca` reconstruction and the whole-array
+        // comparison whenever an iteration produces no cell to refine (the common case: an already-graduated mesh),
+        // for which `new_ca == ca` holds algebraically.
+        bool ca_changed = true;
+        while (
+#ifdef SAMURAI_WITH_MPI
+            mpi::all_reduce(world, ca_changed, std::logical_or())
+#else
+            ca_changed
+#endif // SAMURAI_WITH_MPI
+        )
         {
+            ++nit;
+
             // test if mesh is correctly graduated.
             // We first build a set of non-graduated cells
             // Then, if the non-graduated is not tagged as keep, we coarsen it
@@ -600,6 +641,9 @@ namespace samurai
             add_p_interval.clear();
             add_p_inner_stencil.clear();
             add_p_idx.clear();
+            // Whether any cell was flagged for refinement this iteration. When nothing is flagged, `ca_add_p` and
+            // `ca_remove_p` stay empty, so the reconstruction below would rebuild `ca` identically: we skip it.
+            bool any_change = false;
             // `<` not `!=`: on an empty rank min_level (max_size + 1) > max_level
             // (0), so this runs zero times instead of walking off remove_m_all.
             // The empty rank must still reach the collective all_reduce above, so
@@ -608,6 +652,10 @@ namespace samurai
             {
                 remove_m_all[level].remove_overlapping_intervals();
                 const size_t imax = remove_m_all[level].size();
+                if (imax > 0)
+                {
+                    any_change = true;
+                }
                 for (size_t i = 0; i != imax; ++i)
                 {
                     const auto& x_interval = remove_m_all[level][i].first;
@@ -641,6 +689,15 @@ namespace samurai
                     }
                 } // end for remove_m_all
             } // end for level
+
+            if (!any_change)
+            {
+                // Nothing was flagged: `ca` is unchanged, so this rank has reached its fixed point. We still loop
+                // back to the collective all_reduce (a neighbour may keep refining), but do no more local work.
+                ca_changed = false;
+                continue;
+            }
+
             // We then create new_ca as ca U ca_add
             new_ca.clear();
             for (std::size_t level = std::min(ca.min_level(), ca_add_p.min_level());
@@ -654,7 +711,9 @@ namespace samurai
                         new_ca[level].add_interval_back(x_interval, yz);
                     });
             }
-            //
+            // Even though something was flagged, the flagged cells may already be refined, leaving `ca`
+            // effectively unchanged: keep the explicit comparison here as the loop's termination guarantee.
+            ca_changed = (new_ca != ca);
             std::swap(new_ca, ca);
         }
 
