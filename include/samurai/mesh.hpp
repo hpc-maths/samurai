@@ -274,6 +274,14 @@ namespace samurai
 
         void compute_gravity_center();
 
+        // Common tail shared by every non-default constructor.
+        // exchange_neighbour_meshes() wraps the MPI neighbour exchange, and
+        // finalize_mesh() performs the post-construction steps (sub-mesh update,
+        // corners, renumbering, origin/scaling propagation, ghost exchange and,
+        // under MPI+PETSc, the gravity-center computation).
+        void exchange_neighbour_meshes();
+        void finalize_mesh(const coords_t& origin_point, double scaling_factor);
+
         void partition_mesh(std::size_t start_level, const Box<double, dim>& global_box);
         std::size_t max_nb_cells(std::size_t level) const;
 
@@ -350,20 +358,8 @@ namespace samurai
 
         construct_subdomain();
         construct_union();
-#ifdef SAMURAI_WITH_MPI
-        find_neighbourhood();
-        update_neighbour_subdomain();
-#endif
-        update_meshid_neighbour(mesh_id_t::cells);
-        update_sub_mesh();
-        construct_corners();
-        renumbering();
-        set_origin_point(origin_point());
-        set_scaling_factor(scaling_factor());
-        update_mesh_neighbour();
-#if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
-        compute_gravity_center();
-#endif
+        exchange_neighbour_meshes();
+        finalize_mesh(origin_point(), scaling_factor());
     }
 
     template <class D, class Config>
@@ -401,47 +397,14 @@ namespace samurai
         construct_subdomain();
         m_domain = m_subdomain;
         construct_union();
-#ifdef SAMURAI_WITH_MPI
-        find_neighbourhood();
-        update_neighbour_subdomain();
-#endif
-        update_meshid_neighbour(mesh_id_t::cells);
-        update_sub_mesh();
-        construct_corners();
-        renumbering();
-        set_origin_point(domain_builder.origin_point());
-        set_scaling_factor(m_config.scaling_factor());
-        update_mesh_neighbour();
-#if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
-        compute_gravity_center();
-        // set_scaling_factor(scaling_factor_);
-#endif
+        exchange_neighbour_meshes();
+        finalize_mesh(domain_builder.origin_point(), m_config.scaling_factor());
     }
 
     template <class D, class Config>
     SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const cl_type& cl, const config_t& config)
-        : m_config(config)
+        : Mesh_base(ca_type{cl, false}, config)
     {
-        m_cells[mesh_id_t::cells] = {cl, false};
-
-        construct_subdomain();
-        construct_domain();
-#ifdef SAMURAI_WITH_MPI
-        find_neighbourhood();
-        update_neighbour_subdomain();
-#endif
-        construct_union();
-        update_meshid_neighbour(mesh_id_t::cells);
-        update_sub_mesh();
-        construct_corners();
-        renumbering();
-        set_origin_point(cl.origin_point());
-        set_scaling_factor(cl.scaling_factor());
-        update_mesh_neighbour();
-
-#if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
-        compute_gravity_center();
-#endif
     }
 
     template <class D, class Config>
@@ -452,21 +415,9 @@ namespace samurai
 
         construct_subdomain();
         construct_domain();
-#ifdef SAMURAI_WITH_MPI
-        find_neighbourhood();
-        update_neighbour_subdomain();
-#endif
+        exchange_neighbour_meshes();
         construct_union();
-        update_meshid_neighbour(mesh_id_t::cells);
-        update_sub_mesh();
-        construct_corners();
-        renumbering();
-        set_origin_point(ca.origin_point());
-        set_scaling_factor(ca.scaling_factor());
-        update_mesh_neighbour();
-#if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
-        compute_gravity_center();
-#endif
+        finalize_mesh(ca.origin_point(), ca.scaling_factor());
     }
 
     template <class D, class Config>
@@ -479,42 +430,34 @@ namespace samurai
 
         construct_subdomain();
         construct_union();
-#ifdef SAMURAI_WITH_MPI
-        find_neighbourhood();
-        update_neighbour_subdomain();
-#endif
-        update_meshid_neighbour(mesh_id_t::cells);
-        update_sub_mesh();
-        construct_corners();
-        renumbering();
-        set_origin_point(ref_mesh.origin_point());
-        set_scaling_factor(ref_mesh.scaling_factor());
-        update_mesh_neighbour();
-#if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
-        compute_gravity_center();
-#endif
+        exchange_neighbour_meshes();
+        finalize_mesh(ref_mesh.origin_point(), ref_mesh.scaling_factor());
     }
 
     template <class D, class Config>
     SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const cl_type& cl, const self_type& ref_mesh)
-        : m_domain(ref_mesh.m_domain)
-        , m_mpi_neighbourhood(ref_mesh.m_mpi_neighbourhood)
-        , m_config(ref_mesh.m_config)
+        : Mesh_base(ca_type{cl, false}, ref_mesh)
     {
-        m_cells[mesh_id_t::cells] = {cl, false};
+    }
 
-        construct_subdomain();
-        construct_union();
+    template <class D, class Config>
+    SAMURAI_INLINE void Mesh_base<D, Config>::exchange_neighbour_meshes()
+    {
 #ifdef SAMURAI_WITH_MPI
         find_neighbourhood();
         update_neighbour_subdomain();
 #endif
+    }
+
+    template <class D, class Config>
+    SAMURAI_INLINE void Mesh_base<D, Config>::finalize_mesh(const coords_t& origin_point, double scaling_factor)
+    {
         update_meshid_neighbour(mesh_id_t::cells);
         update_sub_mesh();
         construct_corners();
         renumbering();
-        set_origin_point(ref_mesh.origin_point());
-        set_scaling_factor(ref_mesh.scaling_factor());
+        set_origin_point(origin_point);
+        set_scaling_factor(scaling_factor);
         update_mesh_neighbour();
 #if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
         compute_gravity_center();
