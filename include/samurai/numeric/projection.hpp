@@ -161,7 +161,7 @@ namespace samurai
             const std::size_t off_d = cell_offset(std::get<0>(dests).mesh());
 
             std::array<std::size_t, 1ULL << (dim - 1)> off_s;
-            auto& src_mesh = std::get<0>(srcs).mesh();
+            const auto& src_mesh = std::get<0>(srcs).mesh();
             if constexpr (dim == 1)
             {
                 off_s[0] = memory_offset(src_mesh, {level + 1, 2 * i.start});
