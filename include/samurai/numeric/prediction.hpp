@@ -12,6 +12,7 @@
 
 #include <xtensor/views/xview.hpp>
 
+#include "../field/concepts.hpp"
 #include "../operators_base.hpp"
 #include "../static_algorithm.hpp"
 #include "../utils.hpp"
