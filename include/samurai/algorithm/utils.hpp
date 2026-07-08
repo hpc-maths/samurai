@@ -15,14 +15,6 @@
 
 namespace samurai
 {
-    // ---------------------------------------------------------------------
-    // Forward declaration so that the tuple overload of copy() (below) can
-    // accept a Field_tuple without including the full definition.
-    // ---------------------------------------------------------------------
-    template <class TField, class... TFields>
-        requires(field_like<TField> && (field_like<TFields> && ...))
-    class Field_tuple;
-
     ///////////////////
     // copy operator //
     ///////////////////
@@ -81,8 +73,8 @@ namespace samurai
         template <class Dsts, class Srcs, class FirstField>
         SAMURAI_INLINE void operator()(Dim<dim>, Dsts& dests, const Srcs& srcs, const FirstField&) const
         {
-            const std::size_t off_d = cell_offset(std::get<0>(dests));
-            const std::size_t off_s = cell_offset(std::get<0>(srcs));
+            const std::size_t off_d = cell_offset(std::get<0>(dests).mesh());
+            const std::size_t off_s = cell_offset(std::get<0>(srcs).mesh());
             const std::size_t n     = static_cast<std::size_t>(i.size());
 
             auto copy_one = [&](auto& dest, const auto& src)
@@ -90,8 +82,7 @@ namespace samurai
                 using Dest = std::remove_cvref_t<decltype(dest)>;
                 using Src  = std::remove_cvref_t<decltype(src)>;
 
-                static_assert(Dest::n_comp == Src::n_comp,
-                              "tuple_copy: dest and src fields must have the same number of components");
+                static_assert(Dest::n_comp == Src::n_comp, "tuple_copy: dest and src fields must have the same number of components");
                 constexpr std::size_t nc = Dest::n_comp;
 
                 auto* d_data       = dest.data();
