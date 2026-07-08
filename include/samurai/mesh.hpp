@@ -1137,7 +1137,6 @@ namespace samurai
         if (world.size() > 1)
         {
             lcl_type lcl = {max_level()};
-            mpi::communicator world;
             std::vector<lca_type> all_subdomains(static_cast<std::size_t>(world.size()));
             mpi::all_gather(world, m_subdomain[max_level()], all_subdomains);
 
@@ -1162,7 +1161,7 @@ namespace samurai
     {
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
-        if (world.size() > 1)
+        if (world.size() > 1 || m_domain.empty())
         {
 #else
         if (m_domain.empty())
