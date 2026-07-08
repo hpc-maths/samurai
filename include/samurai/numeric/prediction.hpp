@@ -383,6 +383,46 @@ namespace samurai
         }
     };
 
+    // Tuple-based prediction: predicts pairs (dest, src) in a single traversal
+    template <std::size_t dim, class TInterval>
+    class tuple_prediction_op : public field_operator_base<dim, TInterval>
+    {
+      public:
+
+        INIT_OPERATOR(tuple_prediction_op)
+
+        // Predict one (dest, src) field pair over the current interval.
+        // This uses the base prediction_op for each pair.
+        template <std::size_t order, bool dest_on_level, class Dest, class Src>
+        SAMURAI_INLINE void predict_one(Dest& dest, const Src& src) const
+        {
+            prediction_op<dim, interval_t>(level, i, index)(
+                Dim<dim>{}, dest, src,
+                std::integral_constant<std::size_t, order>{},
+                std::integral_constant<bool, dest_on_level>{});
+        }
+
+        // nD entry point: walk the interleaved (dest, src, dest, src, ...) pack
+        // one pair at a time.
+        template <std::size_t order, bool dest_on_level, class DHead, class SHead, class... Tail>
+        SAMURAI_INLINE void operator()(Dim<dim>,
+                                       std::integral_constant<std::size_t, order>,
+                                       std::integral_constant<bool, dest_on_level>,
+                                       DHead& dest_head,
+                                       const SHead& src_head,
+                                       Tail&... tail) const
+        {
+            predict_one<order, dest_on_level>(dest_head, src_head);
+            if constexpr (sizeof...(Tail) > 0)
+            {
+                (*this)(Dim<dim>{},
+                       std::integral_constant<std::size_t, order>{},
+                       std::integral_constant<bool, dest_on_level>{},
+                       tail...);
+            }
+        }
+    };
+
     template <std::size_t order, bool dest_on_level, class... T>
     SAMURAI_INLINE auto variadic_prediction(T&&... fields)
     {
@@ -407,5 +447,37 @@ namespace samurai
                                                            field_src,
                                                            std::integral_constant<std::size_t, order>{},
                                                            std::integral_constant<bool, dest_on_level>{});
+    }
+
+    namespace detail
+    {
+        template <std::size_t order, bool dest_on_level, class DestTuple, class SrcTuple, std::size_t... Is>
+        SAMURAI_INLINE auto make_tuple_prediction(DestTuple& dests, SrcTuple& srcs, std::index_sequence<Is...>)
+        {
+            // Build the interleaved argument list (dest0, src0, dest1, src1, ...).
+            auto interleaved = std::tuple_cat(std::tie(std::get<Is>(dests), std::get<Is>(srcs))...);
+            return std::apply(
+                [](auto&... args)
+                {
+                    return make_field_operator_function<tuple_prediction_op>(
+                        std::integral_constant<std::size_t, order>{},
+                        std::integral_constant<bool, dest_on_level>{},
+                        args...);
+                },
+                interleaved);
+        }
+    }
+
+    // Predict a tuple of destination fields from a tuple of source fields
+    template <std::size_t order, bool dest_on_level, class DestTuple, class SrcTuple>
+        requires(!field_like<std::remove_cvref_t<DestTuple>> && !field_like<std::remove_cvref_t<SrcTuple>>)
+    SAMURAI_INLINE auto prediction(DestTuple&& dests, SrcTuple&& srcs)
+    {
+        auto& dt = detail::tuple_refs(dests);
+        auto& st = detail::tuple_refs(srcs);
+        constexpr std::size_t n = std::tuple_size_v<std::remove_cvref_t<decltype(dt)>>;
+        static_assert(n == std::tuple_size_v<std::remove_cvref_t<decltype(st)>>,
+                      "prediction(tuples): the dest and src tuples must contain the same number of fields");
+        return detail::make_tuple_prediction<order, dest_on_level>(dt, st, std::make_index_sequence<n>{});
     }
 }
