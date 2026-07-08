@@ -397,10 +397,10 @@ namespace samurai
         template <std::size_t order, bool dest_on_level, class Dest, class Src>
         SAMURAI_INLINE void predict_one(Dest& dest, const Src& src) const
         {
-            prediction_op<dim, interval_t>(level, i, index)(
-                Dim<dim>{}, dest, src,
-                std::integral_constant<std::size_t, order>{},
-                std::integral_constant<bool, dest_on_level>{});
+            prediction_op<dim, interval_t>(
+                level,
+                i,
+                index)(Dim<dim>{}, dest, src, std::integral_constant<std::size_t, order>{}, std::integral_constant<bool, dest_on_level>{});
         }
 
         // nD entry point: walk the (dest, src) pairs inside the two tuples.
@@ -468,11 +468,10 @@ namespace samurai
         constexpr std::size_t n = std::tuple_size_v<std::remove_cvref_t<DestTuple>>;
         static_assert(n == std::tuple_size_v<std::remove_cvref_t<SrcTuple>>,
                       "prediction(tuples): the dest and src tuples must contain the same number of fields");
-        return make_field_operator_function<tuple_prediction_op>(
-            std::integral_constant<std::size_t, order>{},
-            std::integral_constant<bool, dest_on_level>{},
-            dests,
-            srcs,
-            std::get<0>(dests));
+        return make_field_operator_function<tuple_prediction_op>(std::integral_constant<std::size_t, order>{},
+                                                                 std::integral_constant<bool, dest_on_level>{},
+                                                                 dests,
+                                                                 srcs,
+                                                                 std::get<0>(dests));
     }
 }

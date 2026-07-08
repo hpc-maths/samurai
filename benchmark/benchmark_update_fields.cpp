@@ -77,8 +77,7 @@ namespace
 
     const MeshPair& meshes()
     {
-        static const MeshPair p{make_adapted_mesh(0.30, 0.30, 2e-4),
-                                make_adapted_mesh(0.35, 0.30, 2e-4)};
+        static const MeshPair p{make_adapted_mesh(0.30, 0.30, 2e-4), make_adapted_mesh(0.35, 0.30, 2e-4)};
         return p;
     }
 
@@ -111,7 +110,7 @@ namespace
     template <class Tuple, std::size_t... Is>
     double tuple_checksum(const Tuple& t, std::index_sequence<Is...>)
     {
-        double s = 0.0;
+        double s     = 0.0;
         auto add_one = [&](const auto& f)
         {
             const auto& arr = f.array();
@@ -247,14 +246,14 @@ namespace
         {
             const auto min_l = om.min_level();
             const auto max_l = om.max_level();
-            
+
             // Copy phase
             for (std::size_t l = min_l; l <= max_l; ++l)
             {
                 auto set = samurai::intersection(om[mesh_id_t::reference][l], nm[mesh_id_t::cells][l]);
                 set.apply_op(samurai::copy(nw, old));
             }
-            
+
             // Projection and prediction phases
             constexpr std::size_t pred_order = mesh_t::config_t::prediction_stencil_radius;
             for (std::size_t l = min_l + 1; l <= max_l; ++l)
@@ -272,14 +271,13 @@ namespace
     //                       Benchmark body
     // =====================================================================
     template <class Runner, class BuildOld, class BuildNew, class SeqType>
-    void bench_body(benchmark::State& state, const char* style,
-                    Runner runner, BuildOld build_old, BuildNew build_new, SeqType)
+    void bench_body(benchmark::State& state, const char* style, Runner runner, BuildOld build_old, BuildNew build_new, SeqType)
     {
         const auto& mp = meshes();
-        auto om  = mp.mesh_old;
-        auto nm  = mp.mesh_new;
-        auto old = build_old(om, 1.0);
-        auto nw  = build_new(nm, 0.0);
+        auto om        = mp.mesh_old;
+        auto nm        = mp.mesh_new;
+        auto old       = build_old(om, 1.0);
+        auto nw        = build_new(nm, 0.0);
         SeqType seq{};
         const std::size_t nfields = std::tuple_size_v<std::decay_t<decltype(nw)>>;
 
@@ -293,48 +291,59 @@ namespace
         state.SetLabel(std::string(style) + " n=" + std::to_string(nfields));
     }
 
-#define SAMURAI_REG3(BenchName, OldRunner, FoldRunner, VarRunner, BuildOld, BuildNew, SeqType)     \
-    static void BenchName##_old(benchmark::State& state)                                         \
-    {                                                                                            \
-        bench_body(state, "OLD", OldRunner{}, BuildOld, BuildNew, SeqType{});                   \
-    }                                                                                            \
-    static void BenchName##_fold(benchmark::State& state)                                        \
-    {                                                                                            \
-        bench_body(state, "FOLD", FoldRunner{}, BuildOld, BuildNew, SeqType{});                  \
-    }                                                                                            \
-    static void BenchName##_var(benchmark::State& state)                                         \
-    {                                                                                            \
-        bench_body(state, "VAR", VarRunner{}, BuildOld, BuildNew, SeqType{});                    \
-    }                                                                                            \
-    BENCHMARK(BenchName##_old)->Unit(benchmark::kMillisecond)->UseRealTime();                     \
-    BENCHMARK(BenchName##_fold)->Unit(benchmark::kMillisecond)->UseRealTime();                    \
+#define SAMURAI_REG3(BenchName, OldRunner, FoldRunner, VarRunner, BuildOld, BuildNew, SeqType) \
+    static void BenchName##_old(benchmark::State& state)                                       \
+    {                                                                                          \
+        bench_body(state, "OLD", OldRunner{}, BuildOld, BuildNew, SeqType{});                  \
+    }                                                                                          \
+    static void BenchName##_fold(benchmark::State& state)                                      \
+    {                                                                                          \
+        bench_body(state, "FOLD", FoldRunner{}, BuildOld, BuildNew, SeqType{});                \
+    }                                                                                          \
+    static void BenchName##_var(benchmark::State& state)                                       \
+    {                                                                                          \
+        bench_body(state, "VAR", VarRunner{}, BuildOld, BuildNew, SeqType{});                  \
+    }                                                                                          \
+    BENCHMARK(BenchName##_old)->Unit(benchmark::kMillisecond)->UseRealTime();                  \
+    BENCHMARK(BenchName##_fold)->Unit(benchmark::kMillisecond)->UseRealTime();                 \
     BENCHMARK(BenchName##_var)->Unit(benchmark::kMillisecond)->UseRealTime()
 
-#define SAMURAI_REG2(BenchName, OldRunner, VarRunner, BuildOld, BuildNew, SeqType)                \
-    static void BenchName##_old(benchmark::State& state)                                         \
-    {                                                                                            \
-        bench_body(state, "OLD", OldRunner{}, BuildOld, BuildNew, SeqType{});                   \
-    }                                                                                            \
-    static void BenchName##_var(benchmark::State& state)                                         \
-    {                                                                                            \
-        bench_body(state, "VAR", VarRunner{}, BuildOld, BuildNew, SeqType{});                    \
-    }                                                                                            \
-    BENCHMARK(BenchName##_old)->Unit(benchmark::kMillisecond)->UseRealTime();                     \
+#define SAMURAI_REG2(BenchName, OldRunner, VarRunner, BuildOld, BuildNew, SeqType) \
+    static void BenchName##_old(benchmark::State& state)                           \
+    {                                                                              \
+        bench_body(state, "OLD", OldRunner{}, BuildOld, BuildNew, SeqType{});      \
+    }                                                                              \
+    static void BenchName##_var(benchmark::State& state)                           \
+    {                                                                              \
+        bench_body(state, "VAR", VarRunner{}, BuildOld, BuildNew, SeqType{});      \
+    }                                                                              \
+    BENCHMARK(BenchName##_old)->Unit(benchmark::kMillisecond)->UseRealTime();      \
     BENCHMARK(BenchName##_var)->Unit(benchmark::kMillisecond)->UseRealTime()
 
     // Copy operator only — three strategies.
-    SAMURAI_REG3(Copy_1scalar,  OldCopy, NewCopyFold, NewCopyVariadic, make_scalars<1>,  make_scalars<1>,  std::make_index_sequence<1>);
-    SAMURAI_REG3(Copy_4scalar,  OldCopy, NewCopyFold, NewCopyVariadic, make_scalars<4>,  make_scalars<4>,  std::make_index_sequence<4>);
-    SAMURAI_REG3(Copy_8scalar,  OldCopy, NewCopyFold, NewCopyVariadic, make_scalars<8>,  make_scalars<8>,  std::make_index_sequence<8>);
+    SAMURAI_REG3(Copy_1scalar, OldCopy, NewCopyFold, NewCopyVariadic, make_scalars<1>, make_scalars<1>, std::make_index_sequence<1>);
+    SAMURAI_REG3(Copy_4scalar, OldCopy, NewCopyFold, NewCopyVariadic, make_scalars<4>, make_scalars<4>, std::make_index_sequence<4>);
+    SAMURAI_REG3(Copy_8scalar, OldCopy, NewCopyFold, NewCopyVariadic, make_scalars<8>, make_scalars<8>, std::make_index_sequence<8>);
     SAMURAI_REG3(Copy_16scalar, OldCopy, NewCopyFold, NewCopyVariadic, make_scalars<16>, make_scalars<16>, std::make_index_sequence<16>);
-    SAMURAI_REG3(Copy_mixed,   OldCopy, NewCopyFold, NewCopyVariadic, make_mixed,      make_mixed,      std::make_index_sequence<std::tuple_size_v<std::decay_t<decltype(make_mixed(std::declval<mesh_t&>(), 0.0))>>>);
+    SAMURAI_REG3(Copy_mixed,
+                 OldCopy,
+                 NewCopyFold,
+                 NewCopyVariadic,
+                 make_mixed,
+                 make_mixed,
+                 std::make_index_sequence<std::tuple_size_v<std::decay_t<decltype(make_mixed(std::declval<mesh_t&>(), 0.0))>>>);
 
     // Full update (variadic copy + per-field projection + per-field prediction).
-    SAMURAI_REG2(Update_1scalar,  OldUpdate, NewUpdate, make_scalars<1>,  make_scalars<1>,  std::make_index_sequence<1>);
-    SAMURAI_REG2(Update_4scalar,  OldUpdate, NewUpdate, make_scalars<4>,  make_scalars<4>,  std::make_index_sequence<4>);
-    SAMURAI_REG2(Update_8scalar,  OldUpdate, NewUpdate, make_scalars<8>,  make_scalars<8>,  std::make_index_sequence<8>);
+    SAMURAI_REG2(Update_1scalar, OldUpdate, NewUpdate, make_scalars<1>, make_scalars<1>, std::make_index_sequence<1>);
+    SAMURAI_REG2(Update_4scalar, OldUpdate, NewUpdate, make_scalars<4>, make_scalars<4>, std::make_index_sequence<4>);
+    SAMURAI_REG2(Update_8scalar, OldUpdate, NewUpdate, make_scalars<8>, make_scalars<8>, std::make_index_sequence<8>);
     SAMURAI_REG2(Update_16scalar, OldUpdate, NewUpdate, make_scalars<16>, make_scalars<16>, std::make_index_sequence<16>);
-    SAMURAI_REG2(Update_mixed,   OldUpdate, NewUpdate, make_mixed,      make_mixed,      std::make_index_sequence<std::tuple_size_v<std::decay_t<decltype(make_mixed(std::declval<mesh_t&>(), 0.0))>>>);
+    SAMURAI_REG2(Update_mixed,
+                 OldUpdate,
+                 NewUpdate,
+                 make_mixed,
+                 make_mixed,
+                 std::make_index_sequence<std::tuple_size_v<std::decay_t<decltype(make_mixed(std::declval<mesh_t&>(), 0.0))>>>);
 
 #undef SAMURAI_REG3
 #undef SAMURAI_REG2
