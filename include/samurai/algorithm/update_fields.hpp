@@ -58,8 +58,56 @@ namespace samurai
 
             swap(field, new_field);
         }
+
+        template <class Field, class Mesh>
+        Field make_new_field(const std::string& name, Mesh& mesh)
+        {
+            Field new_field(name, mesh);
+#ifdef SAMURAI_CHECK_NAN
+            new_field.fill(std::nan(""));
+#else
+            new_field.fill(0);
+#endif
+            return new_field;
+        }
+
+        template <class PredictionOp, class Mesh, class FieldsTuple, class NewFieldsTuple, std::size_t... Is>
+        void update_fields_impl(PredictionOp&& prediction_op,
+                                Mesh& new_mesh,
+                                FieldsTuple& fields,
+                                NewFieldsTuple& new_fields,
+                                std::index_sequence<Is...>)
+        {
+            ScopedTimer timer("fields update");
+            using mesh_id_t = typename Mesh::mesh_id_t;
+
+            auto& mesh = std::get<0>(fields).mesh();
+            auto min_level = mesh.min_level();
+            auto max_level = mesh.max_level();
+
+            // Single loop over levels: copy reference -> cells for ALL fields
+            for (std::size_t level = min_level; level <= max_level; ++level)
+            {
+                auto set = intersection(mesh[mesh_id_t::reference][level], new_mesh[mesh_id_t::cells][level]);
+                (set.apply_op(copy(std::get<Is>(new_fields), std::get<Is>(fields))), ...);
+            }
+
+            // Single loop over levels: coarsen and refine for ALL fields
+            for (std::size_t level = min_level + 1; level <= max_level; ++level)
+            {
+                auto set_coarsen = intersection(mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level - 1]).on(level - 1);
+                (set_coarsen.apply_op(projection(std::get<Is>(new_fields), std::get<Is>(fields))), ...);
+
+                auto set_refine = intersection(new_mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level - 1]).on(level - 1);
+                (set_refine.apply_op(std::forward<PredictionOp>(prediction_op)(std::get<Is>(new_fields), std::get<Is>(fields))), ...);
+            }
+
+            // Swap all old fields with their new versions
+            (swap(std::get<Is>(fields), std::get<Is>(new_fields)), ...);
+        }
     }
 
+    // Base cases: no fields to update
     template <class PredictionFn, class Mesh>
         requires mesh_like<Mesh>
     void update_fields(PredictionFn&&, Mesh&)
@@ -72,48 +120,58 @@ namespace samurai
     {
     }
 
-    template <class PredictionFn, class Mesh, class Fields, std::size_t... Is>
-    void update_fields(PredictionFn&& prediction_fn, Mesh& new_mesh, Fields& fields, std::index_sequence<Is...>)
-    {
-        (detail::update_field(std::forward<PredictionFn>(prediction_fn), new_mesh, std::get<Is>(fields)), ...);
-    }
-
-    template <class Mesh, class Fields, std::size_t... Is>
-    void update_fields(Mesh& new_mesh, Fields& fields, std::index_sequence<Is...>)
-    {
-        using prediction_fn_t = decltype(default_config::default_prediction_fn);
-        (detail::update_field(std::forward<prediction_fn_t>(default_config::default_prediction_fn), new_mesh, std::get<Is>(fields)), ...);
-    }
-
+    // Field_tuple overloads (no other fields)
     template <class PredictionFn, class Mesh, class... T>
         requires mesh_like<Mesh> && (field_like<T> && ...)
     void update_fields(PredictionFn&& prediction_fn, Mesh& new_mesh, Field_tuple<T...>& fields)
     {
-        update_fields(std::forward<PredictionFn>(prediction_fn), new_mesh, fields.elements(), std::make_index_sequence<sizeof...(T)>{});
+        auto new_fields = std::make_tuple(detail::make_new_field<T>("new_f", new_mesh)...);
+        detail::update_fields_impl(std::forward<PredictionFn>(prediction_fn),
+                                   new_mesh,
+                                   fields.elements(),
+                                   new_fields,
+                                   std::make_index_sequence<sizeof...(T)>{});
     }
 
     template <class Mesh, class... T>
         requires mesh_like<Mesh> && (field_like<T> && ...)
     void update_fields(Mesh& new_mesh, Field_tuple<T...>& fields)
     {
-        update_fields(new_mesh, fields.elements(), std::make_index_sequence<sizeof...(T)>{});
+        using prediction_fn_t = decltype(default_config::default_prediction_fn);
+        auto new_fields = std::make_tuple(detail::make_new_field<T>("new_f", new_mesh)...);
+        detail::update_fields_impl(std::forward<prediction_fn_t>(default_config::default_prediction_fn),
+                                   new_mesh,
+                                   fields.elements(),
+                                   new_fields,
+                                   std::make_index_sequence<sizeof...(T)>{});
     }
 
-    template <class Mesh, class Field, class... Fields>
-        requires mesh_like<Mesh> && field_like<Field> && (field_like<Fields> && ...)
-    void update_fields(Mesh& new_mesh, Field& field, Fields&... fields)
+    // Variadic field overloads: single loop over levels for ALL fields
+    template <class PredictionFn, class Mesh, class... Fields>
+        requires mesh_like<Mesh> && (field_like<Fields> && ...) && (sizeof...(Fields) > 0)
+    void update_fields(PredictionFn&& prediction_fn, Mesh& new_mesh, Fields&... fields)
+    {
+        auto new_fields  = std::make_tuple(detail::make_new_field<Fields>("new_f", new_mesh)...);
+        auto tied_fields = std::tie(fields...);
+        detail::update_fields_impl(std::forward<PredictionFn>(prediction_fn),
+                                   new_mesh,
+                                   tied_fields,
+                                   new_fields,
+                                   std::index_sequence_for<Fields...>{});
+    }
+
+    template <class Mesh, class... Fields>
+        requires mesh_like<Mesh> && (field_like<Fields> && ...) && (sizeof...(Fields) > 0)
+    void update_fields(Mesh& new_mesh, Fields&... fields)
     {
         using prediction_fn_t = decltype(default_config::default_prediction_fn);
-        detail::update_field(std::forward<prediction_fn_t>(default_config::default_prediction_fn), new_mesh, field);
-        update_fields(new_mesh, fields...);
-    }
-
-    template <class PredictionFn, class Mesh, class Field, class... Fields>
-        requires mesh_like<Mesh> && field_like<Field> && (field_like<Fields> && ...)
-    void update_fields(PredictionFn&& prediction_fn, Mesh& new_mesh, Field& field, Fields&... fields)
-    {
-        detail::update_field(std::forward<PredictionFn>(prediction_fn), new_mesh, field);
-        update_fields(std::forward<PredictionFn>(prediction_fn), new_mesh, fields...);
+        auto new_fields  = std::make_tuple(detail::make_new_field<Fields>("new_f", new_mesh)...);
+        auto tied_fields = std::tie(fields...);
+        detail::update_fields_impl(std::forward<prediction_fn_t>(default_config::default_prediction_fn),
+                                   new_mesh,
+                                   tied_fields,
+                                   new_fields,
+                                   std::index_sequence_for<Fields...>{});
     }
 
     template <class Tag, class... Fields>
