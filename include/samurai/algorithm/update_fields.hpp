@@ -89,7 +89,7 @@ namespace samurai
         auto dst_tuple = std::apply(
             [&](auto&... args)
             {
-                return std::make_tuple(std::decay_t<decltype(args)>(args)...);
+                return std::make_tuple(detail::make_new_field<std::decay_t<decltype(args)>>("new_f", new_mesh)...);
             },
             src_tuple);
 

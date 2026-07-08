@@ -15,18 +15,6 @@ namespace samurai
         requires(field_like<TField> && (field_like<TFields> && ...))
     class Field_tuple;
 
-    namespace detail
-    {
-        // Unwrap a Field_tuple into its underlying std::tuple of field
-        // references, so that the tuple overload of `copy()` can treat a
-        // Field_tuple and a plain std::tuple uniformly.
-        template <class TField, class... TFields>
-        auto& tuple_refs(Field_tuple<TField, TFields...>& ft)
-        {
-            return ft.elements();
-        }
-    }
-
     template <class TField, class... TFields>
         requires(field_like<TField> && (field_like<TFields> && ...))
     class Field_tuple

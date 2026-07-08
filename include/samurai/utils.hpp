@@ -270,20 +270,6 @@ namespace samurai
         template <class... T>
         using common_type_t = typename common_type<T...>::type;
 
-        // Identity overload for plain tuples (used by projection, prediction).
-        // Specialised for Field_tuple in tuple_field.hpp.
-        template <class... T>
-        SAMURAI_INLINE std::tuple<T&...>& tuple_refs(std::tuple<T&...>& t)
-        {
-            return t;
-        }
-
-        template <class... T>
-        SAMURAI_INLINE const std::tuple<T&...>& tuple_refs(const std::tuple<T&...>& t)
-        {
-            return t;
-        }
-
         template <class Head, class... Tail>
         auto& extract_mesh(Head&& h, Tail&&... t)
         {
