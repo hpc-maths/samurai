@@ -65,8 +65,22 @@ namespace samurai
         }
     }
 
-    // Update fields with custom prediction function
+    namespace detail
+    {
+        template <class T, class = void>
+        struct is_std_tuple : std::false_type
+        {
+        };
+
+        template <class... Ts>
+        struct is_std_tuple<std::tuple<Ts...>, void> : std::true_type
+        {
+        };
+    }
+
+    // Update fields with custom prediction function (tuple version)
     template <class PredictionFn, class DestTuple, class SrcTuple, class Mesh>
+        requires(detail::is_std_tuple<std::remove_cvref_t<DestTuple>>::value && detail::is_std_tuple<std::remove_cvref_t<SrcTuple>>::value)
     void update_fields(PredictionFn&& prediction_fn, Mesh& new_mesh, DestTuple& dests, SrcTuple& srcs)
     {
         constexpr std::size_t n = std::tuple_size_v<std::remove_cvref_t<DestTuple>>;
@@ -83,6 +97,7 @@ namespace samurai
     }
 
     template <class PredictionFn, class Mesh, class Field, class... Fields>
+        requires(!mesh_like<std::remove_cvref_t<PredictionFn>> && !detail::is_std_tuple<std::remove_cvref_t<Field>>::value)
     void update_fields(PredictionFn&& prediction_fn, Mesh& new_mesh, Field& field, Fields&... fields)
     {
         auto src_tuple = std::tuple_cat(get_elements(field), std::tie(fields...));
