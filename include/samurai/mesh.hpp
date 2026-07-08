@@ -228,32 +228,9 @@ namespace samurai
         Mesh_base(const cl_type& cl, const self_type& ref_mesh);
         Mesh_base(const cl_type& cl, const config_t& config);
         Mesh_base(const ca_type& ca, const config_t& config);
+
         Mesh_base(const samurai::Box<double, dim>& b, const config_t& config);
-
         Mesh_base(const samurai::DomainBuilder<dim>& domain_builder, const config_t& config);
-
-        // cppcheck-suppress uninitMemberVar
-        Mesh_base(const samurai::Box<double, dim>&, std::size_t, std::size_t, std::size_t, double, double)
-        {
-            std::cerr << "Delete min_level and max_level from CLI11 options and use mesh_config object and the make_mesh function"
-                      << std::endl;
-            exit(EXIT_FAILURE);
-        }
-
-        Mesh_base(const samurai::DomainBuilder<dim>& domain_builder,
-                  std::size_t start_level,
-                  std::size_t min_level,
-                  std::size_t max_level,
-                  double approx_box_tol = lca_type::default_approx_box_tol,
-                  double scaling_factor = 0);
-
-        // cppcheck-suppress uninitMemberVar
-        Mesh_base(const samurai::Box<double, dim>&, std::size_t, std::size_t, std::size_t, const std::array<bool, dim>&, double, double)
-        {
-            std::cerr << "Delete min_level and max_level from CLI11 options and use mesh_config object and the make_mesh function"
-                      << std::endl;
-            exit(EXIT_FAILURE);
-        }
 
         derived_type& derived_cast() & noexcept;
         const derived_type& derived_cast() const& noexcept;
@@ -357,9 +334,8 @@ namespace samurai
 #endif
 
         construct_subdomain();
-        construct_union();
         exchange_neighbour_meshes();
-        finalize_mesh(origin_point(), scaling_factor());
+        finalize_mesh(domain_ref.origin_point(), domain_ref.scaling_factor());
     }
 
     template <class D, class Config>
@@ -396,7 +372,6 @@ namespace samurai
 
         construct_subdomain();
         m_domain = m_subdomain;
-        construct_union();
         exchange_neighbour_meshes();
         finalize_mesh(domain_builder.origin_point(), m_config.scaling_factor());
     }
@@ -416,7 +391,6 @@ namespace samurai
         construct_subdomain();
         construct_domain();
         exchange_neighbour_meshes();
-        construct_union();
         finalize_mesh(ca.origin_point(), ca.scaling_factor());
     }
 
@@ -429,7 +403,6 @@ namespace samurai
         m_cells[mesh_id_t::cells] = ca;
 
         construct_subdomain();
-        construct_union();
         exchange_neighbour_meshes();
         finalize_mesh(ref_mesh.origin_point(), ref_mesh.scaling_factor());
     }
@@ -452,6 +425,7 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE void Mesh_base<D, Config>::finalize_mesh(const coords_t& origin_point, double scaling_factor)
     {
+        construct_union();
         update_meshid_neighbour(mesh_id_t::cells);
         update_sub_mesh();
         construct_corners();
@@ -1159,49 +1133,66 @@ namespace samurai
     SAMURAI_INLINE void Mesh_base<D, Config>::construct_domain()
     {
 #ifdef SAMURAI_WITH_MPI
-        lcl_type lcl = {max_level()};
         mpi::communicator world;
-        std::vector<lca_type> all_subdomains(static_cast<std::size_t>(world.size()));
-        mpi::all_gather(world, m_subdomain[max_level()], all_subdomains);
-
-        for (std::size_t k = 0; k < all_subdomains.size(); ++k)
+        if (world.size() > 1)
         {
-            for_each_interval(all_subdomains[k],
-                              [&](auto, const auto& i, const auto& index)
-                              {
-                                  lcl[index].add_interval(i);
-                              });
-        }
+            lcl_type lcl = {max_level()};
+            mpi::communicator world;
+            std::vector<lca_type> all_subdomains(static_cast<std::size_t>(world.size()));
+            mpi::all_gather(world, m_subdomain[max_level()], all_subdomains);
 
-        build_pyramid(m_domain, lca_type{lcl});
-#else
-        m_domain = m_subdomain;
+            for (std::size_t k = 0; k < all_subdomains.size(); ++k)
+            {
+                for_each_interval(all_subdomains[k],
+                                  [&](auto, const auto& i, const auto& index)
+                                  {
+                                      lcl[index].add_interval(i);
+                                  });
+            }
+
+            build_pyramid(m_domain, lca_type{lcl});
+            return;
+        }
 #endif
+        m_domain = m_subdomain;
     }
 
     template <class D, class Config>
     SAMURAI_INLINE void Mesh_base<D, Config>::construct_subdomain()
     {
-        // TODO: Don't build subdomain when we are in serial or in parallel with only one rank. This is a waste of memory and time.
-        // Just use the domain as subdomain in this case.
-        lcl_type lcl = {max_level(), m_domain.origin_point(), m_domain.scaling_factor()};
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        if (world.size() > 1)
+        {
+#else
+        if (m_domain.empty())
+        {
+#endif
+            // TODO: Don't build subdomain when we are in serial or in parallel with only one rank. This is a waste of memory and time.
+            // Just use the domain as subdomain in this case.
+            lcl_type lcl = {max_level(), m_domain.origin_point(), m_domain.scaling_factor()};
 
-        for_each_interval(m_cells[mesh_id_t::cells],
-                          [&](std::size_t level, const auto& i, const auto& index)
-                          {
-                              std::size_t shift = max_level() - level;
-                              interval_t to_add = i << shift;
-                              auto shift_index  = index << shift;
-                              static_nested_loop<dim - 1>(0,
-                                                          1 << shift,
-                                                          1,
-                                                          [&](auto stencil)
-                                                          {
-                                                              auto new_index = shift_index + stencil;
-                                                              lcl[new_index].add_interval(to_add);
-                                                          });
-                          });
-        build_pyramid(m_subdomain, lca_type{lcl});
+            for_each_interval(m_cells[mesh_id_t::cells],
+                              [&](std::size_t level, const auto& i, const auto& index)
+                              {
+                                  std::size_t shift = max_level() - level;
+                                  interval_t to_add = i << shift;
+                                  auto shift_index  = index << shift;
+                                  static_nested_loop<dim - 1>(0,
+                                                              1 << shift,
+                                                              1,
+                                                              [&](auto stencil)
+                                                              {
+                                                                  auto new_index = shift_index + stencil;
+                                                                  lcl[new_index].add_interval(to_add);
+                                                              });
+                              });
+            build_pyramid(m_subdomain, lca_type{lcl});
+        }
+        else
+        {
+            m_subdomain = m_domain;
+        }
     }
 
     // Materialises `reference` (a full-resolution LCA defined at its own
