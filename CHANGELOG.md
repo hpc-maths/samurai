@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.31.1](https://github.com/hpc-maths/samurai/compare/v0.31.0...v0.31.1) (2026-07-09)
+
+
+### Bug Fixes
+
+* acknowledge windows build fix for release ([7067279](https://github.com/hpc-maths/samurai/commit/70672797684ec0a6633853890fb15cb6e4e62d39))
+
 ## [0.31.0](https://github.com/hpc-maths/samurai/compare/v0.30.1...v0.31.0) (2026-07-09)
 
 
