@@ -87,10 +87,19 @@ namespace samurai
         std::string version;
     };
 
+    namespace detail
+    {
+        /// Format a "major.minor.patch" version triplet.
+        inline std::string format_triplet(long major, long minor, long patch)
+        {
+            return fmt::format("{}.{}.{}", major, minor, patch);
+        }
+    }
+
     /// samurai's version, e.g. "0.31.2".
     inline std::string version()
     {
-        return fmt::format("{}.{}.{}", SAMURAI_VERSION_MAJOR, SAMURAI_VERSION_MINOR, SAMURAI_VERSION_PATCH);
+        return detail::format_triplet(SAMURAI_VERSION_MAJOR, SAMURAI_VERSION_MINOR, SAMURAI_VERSION_PATCH);
     }
 
     /// The compiler used to build the current translation unit, e.g. "Clang 18.1.0".
@@ -108,46 +117,57 @@ namespace samurai
     }
 
     /// The version of every dependency detected at compile time.
+    ///
+    /// Each version is read from the dependency's own macros, so the report always
+    /// matches the headers that were actually compiled. The integer-encoded macros
+    /// (fmt, pugixml, Boost) are decoded following each library's documented scheme.
     inline std::vector<dependency_info> dependencies_info()
     {
+        using detail::format_triplet;
         std::vector<dependency_info> deps;
 
-#ifdef FMT_VERSION
-        deps.push_back({"fmt", fmt::format("{}.{}.{}", FMT_VERSION / 10000, (FMT_VERSION % 10000) / 100, FMT_VERSION % 100)});
+        // --- Mandatory dependencies (always part of the build) ---
+#ifdef FMT_VERSION // encoded as major * 10000 + minor * 100 + patch
+        deps.push_back({"fmt", format_triplet(FMT_VERSION / 10000, (FMT_VERSION % 10000) / 100, FMT_VERSION % 100)});
 #endif
 #ifdef CLI11_VERSION
         deps.push_back({"CLI11", CLI11_VERSION});
 #endif
-#ifdef PUGIXML_VERSION
+#ifdef PUGIXML_VERSION // encoded as major * 1000 + minor * 10
         deps.push_back({"pugixml", fmt::format("{}.{}", PUGIXML_VERSION / 1000, (PUGIXML_VERSION % 1000) / 10)});
 #endif
 #ifdef HIGHFIVE_VERSION_STRING
         deps.push_back({"HighFive", HIGHFIVE_VERSION_STRING});
 #endif
 #ifdef H5_VERS_MAJOR
-        deps.push_back({"HDF5", fmt::format("{}.{}.{}", H5_VERS_MAJOR, H5_VERS_MINOR, H5_VERS_RELEASE)});
+        deps.push_back({"HDF5", format_triplet(H5_VERS_MAJOR, H5_VERS_MINOR, H5_VERS_RELEASE)});
 #endif
 #ifdef XTENSOR_VERSION_MAJOR
-        deps.push_back({"xtensor", fmt::format("{}.{}.{}", XTENSOR_VERSION_MAJOR, XTENSOR_VERSION_MINOR, XTENSOR_VERSION_PATCH)});
+        deps.push_back({"xtensor", format_triplet(XTENSOR_VERSION_MAJOR, XTENSOR_VERSION_MINOR, XTENSOR_VERSION_PATCH)});
 #endif
 #ifdef XTL_VERSION_MAJOR
-        deps.push_back({"xtl", fmt::format("{}.{}.{}", XTL_VERSION_MAJOR, XTL_VERSION_MINOR, XTL_VERSION_PATCH)});
+        deps.push_back({"xtl", format_triplet(XTL_VERSION_MAJOR, XTL_VERSION_MINOR, XTL_VERSION_PATCH)});
 #endif
 #ifdef EIGEN_WORLD_VERSION
-        deps.push_back({"Eigen", fmt::format("{}.{}.{}", EIGEN_WORLD_VERSION, EIGEN_MAJOR_VERSION, EIGEN_MINOR_VERSION)});
+        deps.push_back({"Eigen", format_triplet(EIGEN_WORLD_VERSION, EIGEN_MAJOR_VERSION, EIGEN_MINOR_VERSION)});
 #endif
-        // Feature-gated dependencies: reported only when the corresponding build
-        // option is enabled, so the list mirrors what this build actually uses
-        // (and not merely what happens to be installed in the environment).
-#if (defined(SAMURAI_WITH_PARMETIS) || defined(SAMURAI_WITH_PTSCOTCH)) && defined(NLOHMANN_JSON_VERSION_MAJOR)
-        deps.push_back({"nlohmann_json",
-                        fmt::format("{}.{}.{}", NLOHMANN_JSON_VERSION_MAJOR, NLOHMANN_JSON_VERSION_MINOR, NLOHMANN_JSON_VERSION_PATCH)});
+
+        // --- Feature-gated dependencies ---
+        // Reported only when the build option that pulls them in is enabled, so
+        // the list mirrors what this build actually links (and not merely what
+        // happens to be installed in the environment). The corresponding build
+        // options are, per the top-level CMakeLists.txt:
+        //   - nlohmann_json : WITH_STATS         (statistics.hpp)
+        //   - Boost / MPI   : SAMURAI_WITH_MPI   (serialization + boost::mpi)
+        //   - PETSc         : SAMURAI_WITH_PETSC
+#if defined(WITH_STATS) && defined(NLOHMANN_JSON_VERSION_MAJOR)
+        deps.push_back({"nlohmann_json", format_triplet(NLOHMANN_JSON_VERSION_MAJOR, NLOHMANN_JSON_VERSION_MINOR, NLOHMANN_JSON_VERSION_PATCH)});
 #endif
-#if defined(SAMURAI_WITH_MPI) && defined(BOOST_VERSION)
-        deps.push_back({"Boost", fmt::format("{}.{}.{}", BOOST_VERSION / 100000, (BOOST_VERSION / 100) % 1000, BOOST_VERSION % 100)});
+#if defined(SAMURAI_WITH_MPI) && defined(BOOST_VERSION) // encoded as major * 100000 + minor * 100 + patch
+        deps.push_back({"Boost", format_triplet(BOOST_VERSION / 100000, (BOOST_VERSION / 100) % 1000, BOOST_VERSION % 100)});
 #endif
 #if defined(SAMURAI_WITH_PETSC) && defined(PETSC_VERSION_MAJOR)
-        deps.push_back({"PETSc", fmt::format("{}.{}.{}", PETSC_VERSION_MAJOR, PETSC_VERSION_MINOR, PETSC_VERSION_SUBMINOR)});
+        deps.push_back({"PETSc", format_triplet(PETSC_VERSION_MAJOR, PETSC_VERSION_MINOR, PETSC_VERSION_SUBMINOR)});
 #endif
 #if defined(SAMURAI_WITH_MPI) && defined(MPI_VERSION)
         deps.push_back({"MPI (standard)", fmt::format("{}.{}", MPI_VERSION, MPI_SUBVERSION)});
@@ -157,50 +177,41 @@ namespace samurai
     }
 
     /// The build-time configuration (enabled features, selected containers, ...).
+    /// A feature reads "ON" when its compile-time macro is defined, "OFF" otherwise.
     inline std::vector<dependency_info> build_info()
     {
         std::vector<dependency_info> info;
-
-        const auto on_off = [](bool enabled)
-        {
-            return enabled ? "ON" : "OFF";
-        };
 
 #if defined(SAMURAI_FIELD_CONTAINER_EIGEN3)
         info.push_back({"field container", "eigen3"});
 #else
         info.push_back({"field container", "xtensor"});
 #endif
-
-        bool with_mpi = false;
 #ifdef SAMURAI_WITH_MPI
-        with_mpi = true;
+        info.push_back({"MPI", "ON"});
+#else
+        info.push_back({"MPI", "OFF"});
 #endif
-        info.push_back({"MPI", on_off(with_mpi)});
-
-        bool with_petsc = false;
 #ifdef SAMURAI_WITH_PETSC
-        with_petsc = true;
+        info.push_back({"PETSc", "ON"});
+#else
+        info.push_back({"PETSc", "OFF"});
 #endif
-        info.push_back({"PETSc", on_off(with_petsc)});
-
-        bool with_openmp = false;
 #ifdef SAMURAI_WITH_OPENMP
-        with_openmp = true;
+        info.push_back({"OpenMP", "ON"});
+#else
+        info.push_back({"OpenMP", "OFF"});
 #endif
-        info.push_back({"OpenMP", on_off(with_openmp)});
-
-        bool with_parmetis = false;
 #ifdef SAMURAI_WITH_PARMETIS
-        with_parmetis = true;
+        info.push_back({"ParMETIS", "ON"});
+#else
+        info.push_back({"ParMETIS", "OFF"});
 #endif
-        info.push_back({"ParMETIS", on_off(with_parmetis)});
-
-        bool with_ptscotch = false;
 #ifdef SAMURAI_WITH_PTSCOTCH
-        with_ptscotch = true;
+        info.push_back({"PT-Scotch", "ON"});
+#else
+        info.push_back({"PT-Scotch", "OFF"});
 #endif
-        info.push_back({"PT-Scotch", on_off(with_ptscotch)});
 
         return info;
     }
