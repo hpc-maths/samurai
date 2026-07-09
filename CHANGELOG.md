@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.31.2](https://github.com/hpc-maths/samurai/compare/v0.31.1...v0.31.2) (2026-07-09)
+
+
+### Bug Fixes
+
+* update_fields ambiguity ([#456](https://github.com/hpc-maths/samurai/issues/456)) ([1c2bdc3](https://github.com/hpc-maths/samurai/commit/1c2bdc3ebea7d1ec4d238da90e954249fe577168))
+
 ## [0.31.1](https://github.com/hpc-maths/samurai/compare/v0.31.0...v0.31.1) (2026-07-09)
 
 
