@@ -161,7 +161,8 @@ namespace samurai
         //   - Boost / MPI   : SAMURAI_WITH_MPI   (serialization + boost::mpi)
         //   - PETSc         : SAMURAI_WITH_PETSC
 #if defined(WITH_STATS) && defined(NLOHMANN_JSON_VERSION_MAJOR)
-        deps.push_back({"nlohmann_json", format_triplet(NLOHMANN_JSON_VERSION_MAJOR, NLOHMANN_JSON_VERSION_MINOR, NLOHMANN_JSON_VERSION_PATCH)});
+        deps.push_back(
+            {"nlohmann_json", format_triplet(NLOHMANN_JSON_VERSION_MAJOR, NLOHMANN_JSON_VERSION_MINOR, NLOHMANN_JSON_VERSION_PATCH)});
 #endif
 #if defined(SAMURAI_WITH_MPI) && defined(BOOST_VERSION) // encoded as major * 100000 + minor * 100 + patch
         deps.push_back({"Boost", format_triplet(BOOST_VERSION / 100000, (BOOST_VERSION / 100) % 1000, BOOST_VERSION % 100)});
