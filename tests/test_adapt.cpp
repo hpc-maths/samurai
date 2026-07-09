@@ -41,6 +41,12 @@ namespace samurai
         auto adapt      = make_MRAdapt(u_1, u_2, u_3);
         auto mra_config = samurai::mra_config().regularity(2.);
         adapt(mra_config);
+
+        // After adaptation the fields must live on the new mesh topology.
+        EXPECT_EQ(u_1.array().size(), u_1.mesh().nb_cells());
+        EXPECT_EQ(u_2.array().size(), u_2.mesh().nb_cells() * u_2.n_comp);
+        EXPECT_EQ(u_3.array().size(), u_3.mesh().nb_cells() * u_3.n_comp);
+
         ::samurai::finalize();
     }
 }

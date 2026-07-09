@@ -13,6 +13,10 @@ namespace samurai
 
     template <class TField, class... TFields>
         requires(field_like<TField> && (field_like<TFields> && ...))
+    class Field_tuple;
+
+    template <class TField, class... TFields>
+        requires(field_like<TField> && (field_like<TFields> && ...))
     class Field_tuple
     {
       public:
@@ -23,6 +27,10 @@ namespace samurai
         using mesh_t                 = typename TField::mesh_t;
         using mesh_id_t              = typename mesh_t::mesh_id_t;
         using size_type              = typename TField::size_type;
+
+        // dim is exposed so that set-algebra helpers (e.g. the variadic copy
+        // operator) can deduce the dimensionality from a Field_tuple argument.
+        static constexpr std::size_t dim = mesh_t::dim;
 
         Field_tuple(TField& field, TFields&... fields)
             : m_fields(field, fields...)

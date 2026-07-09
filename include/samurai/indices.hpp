@@ -185,7 +185,7 @@ namespace samurai
 
         for (std::size_t level = min_level; level <= max_level; ++level)
         {
-            auto set = difference(mesh[mesh_id_t::reference][level], mesh.domain()).on(level);
+            auto set = difference(mesh[mesh_id_t::reference][level], mesh.domain(level)).on(level);
 
             for_each_cell(mesh, set, std::forward<Func>(f));
         }

@@ -12,6 +12,7 @@
 
 #include <xtensor/views/xview.hpp>
 
+#include "../field/concepts.hpp"
 #include "../operators_base.hpp"
 #include "../static_algorithm.hpp"
 #include "../utils.hpp"
@@ -383,6 +384,51 @@ namespace samurai
         }
     };
 
+    // Tuple-based prediction: predicts pairs (dest, src) given as two tuples
+    // in a single traversal of the interval set.
+    template <std::size_t dim, class TInterval>
+    class tuple_prediction_op : public field_operator_base<dim, TInterval>
+    {
+      public:
+
+        INIT_OPERATOR(tuple_prediction_op)
+
+        // Predict one (dest, src) field pair over the current interval.
+        // Uses the base prediction_op for each pair.
+        template <std::size_t order, bool dest_on_level, class Dest, class Src>
+        SAMURAI_INLINE void predict_one(Dest& dest, const Src& src) const
+        {
+            prediction_op<dim, interval_t>(
+                level,
+                i,
+                index)(Dim<dim>{}, dest, src, std::integral_constant<std::size_t, order>{}, std::integral_constant<bool, dest_on_level>{});
+        }
+
+        // nD entry point: walk the (dest, src) pairs inside the two tuples.
+        // The first_field argument is only used as a type carrier for `dim`
+        // and `mesh_t` by the enclosing field_operator_function.
+        template <std::size_t order, bool dest_on_level, class Dsts, class Srcs, class FirstField>
+        SAMURAI_INLINE void operator()(Dim<dim>,
+                                       std::integral_constant<std::size_t, order>,
+                                       std::integral_constant<bool, dest_on_level>,
+                                       Dsts& dests,
+                                       const Srcs& srcs,
+                                       const FirstField&) const
+        {
+            std::apply(
+                [&](auto&... dest)
+                {
+                    std::apply(
+                        [&](auto&... src)
+                        {
+                            ((predict_one<order, dest_on_level>(dest, src)), ...);
+                        },
+                        srcs);
+                },
+                dests);
+        }
+    };
+
     template <std::size_t order, bool dest_on_level, class... T>
     SAMURAI_INLINE auto variadic_prediction(T&&... fields)
     {
@@ -407,5 +453,26 @@ namespace samurai
                                                            field_src,
                                                            std::integral_constant<std::size_t, order>{},
                                                            std::integral_constant<bool, dest_on_level>{});
+    }
+
+    // Predict a tuple of destination fields from a tuple of source fields,
+    // every pair in a single traversal of the interval set.
+    //
+    // The first field of dests is passed as an extra argument to
+    // make_field_operator_function so that detail::compute_dim<CT...>() and
+    // detail::extract_mesh() can find the dimension and the mesh from the
+    // argument types (the plain std::tuple arguments carry neither).
+    template <std::size_t order, bool dest_on_level, class DestTuple, class SrcTuple>
+        requires(!field_like<std::remove_cvref_t<DestTuple>> && !field_like<std::remove_cvref_t<SrcTuple>>)
+    SAMURAI_INLINE auto prediction(DestTuple&& dests, SrcTuple&& srcs)
+    {
+        constexpr std::size_t n = std::tuple_size_v<std::remove_cvref_t<DestTuple>>;
+        static_assert(n == std::tuple_size_v<std::remove_cvref_t<SrcTuple>>,
+                      "prediction(tuples): the dest and src tuples must contain the same number of fields");
+        return make_field_operator_function<tuple_prediction_op>(std::integral_constant<std::size_t, order>{},
+                                                                 std::integral_constant<bool, dest_on_level>{},
+                                                                 dests,
+                                                                 srcs,
+                                                                 std::get<0>(dests));
     }
 }

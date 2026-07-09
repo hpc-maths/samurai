@@ -53,6 +53,10 @@ target_link_libraries(bench_samurai samurai benchmark::benchmark)
 #     COMMAND benchmark_samurai
 #     DEPENDS ${SAMURAI_BENCHMARK_TARGET})
 
+# update_fields set-algebra micro-benchmark (OLD vs FOLD vs VAR field-batching strategy).
+add_executable(bench_update_fields benchmark_update_fields.cpp)
+target_link_libraries(bench_update_fields samurai benchmark::benchmark)
+
 # Load balancing micro-benchmarks (MPI-only; provides its own MPI-aware main).
 if(WITH_MPI)
     add_executable(bench_load_balancing benchmark_load_balancing.cpp)
