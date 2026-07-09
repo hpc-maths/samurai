@@ -18,6 +18,7 @@ namespace samurai
         static int max_stencil_radius       = std::numeric_limits<int>::max();
 
         static bool timers = false;
+        static bool info   = false;
 #ifdef SAMURAI_WITH_MPI
         static bool dont_redirect_output = false;
 #endif
@@ -51,6 +52,8 @@ namespace samurai
             ->group("IO");
 #endif
         app.add_flag("--timers", args::timers, "Print timers at the end of the program")->capture_default_str()->group("Tools");
+        app.add_flag("--info", args::info, "Print samurai's version, its dependencies and the build configuration, then exit")
+            ->group("Tools");
         app.add_option("--sleep-at-startup",
                        args::sleep_at_startup,
                        "Sleep for a given number of seconds at startup (useful to attach a debugger when running with mpirun/mpiexec)")

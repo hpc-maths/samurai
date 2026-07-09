@@ -103,6 +103,12 @@ add_library(samurai INTERFACE)
 target_compile_features(samurai INTERFACE cxx_std_20)
 target_link_libraries(samurai INTERFACE project_options project_warnings)
 
+# Expose the samurai version to the C++ code (see include/samurai/version.hpp)
+target_compile_definitions(samurai INTERFACE
+  SAMURAI_VERSION_MAJOR=${samurai_VERSION_MAJOR}
+  SAMURAI_VERSION_MINOR=${samurai_VERSION_MINOR}
+  SAMURAI_VERSION_PATCH=${samurai_VERSION_PATCH})
+
 # Includes
 set(INCLUDE_DIR "include") # must be relative paths
 target_include_directories(samurai INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/${INCLUDE_DIR}>"

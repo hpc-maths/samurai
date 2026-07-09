@@ -13,6 +13,8 @@ namespace mpi = boost::mpi;
 
 #include "arguments.hpp"
 #include "timers.hpp"
+#include "version.hpp"
+#include <cstdlib>
 #include <thread>
 
 namespace samurai
@@ -47,6 +49,12 @@ namespace samurai
         app.description(description);
         app.set_config("--config");
         read_samurai_arguments(app, argc, argv);
+
+        if (args::info)
+        {
+            print_info();
+            std::exit(EXIT_SUCCESS);
+        }
 
         std::this_thread::sleep_for(std::chrono::seconds(args::sleep_at_startup));
 
