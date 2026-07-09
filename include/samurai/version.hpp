@@ -139,8 +139,8 @@ namespace samurai
         // option is enabled, so the list mirrors what this build actually uses
         // (and not merely what happens to be installed in the environment).
 #if (defined(SAMURAI_WITH_PARMETIS) || defined(SAMURAI_WITH_PTSCOTCH)) && defined(NLOHMANN_JSON_VERSION_MAJOR)
-        deps.push_back(
-            {"nlohmann_json", fmt::format("{}.{}.{}", NLOHMANN_JSON_VERSION_MAJOR, NLOHMANN_JSON_VERSION_MINOR, NLOHMANN_JSON_VERSION_PATCH)});
+        deps.push_back({"nlohmann_json",
+                        fmt::format("{}.{}.{}", NLOHMANN_JSON_VERSION_MAJOR, NLOHMANN_JSON_VERSION_MINOR, NLOHMANN_JSON_VERSION_PATCH)});
 #endif
 #if defined(SAMURAI_WITH_MPI) && defined(BOOST_VERSION)
         deps.push_back({"Boost", fmt::format("{}.{}.{}", BOOST_VERSION / 100000, (BOOST_VERSION / 100) % 1000, BOOST_VERSION % 100)});
