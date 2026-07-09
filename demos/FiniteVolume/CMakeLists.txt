@@ -69,7 +69,8 @@ endforeach()
 # Specific options for MSVC
 if(MSVC)
     target_compile_options(finite-volume-level-set-from-scratch PUBLIC /bigobj)
-    target_compile_options(finite-volume-level-set PUBLIC /bigobj)
+    target_compile_options(finite-volume-level-set-amr PUBLIC /bigobj)
+    target_compile_options(finite-volume-level-set-mra PUBLIC /bigobj)
 endif()
 
 # add_subdirectory(BZ)
