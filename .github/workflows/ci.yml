@@ -123,14 +123,22 @@ jobs:
               with:
                   path: |
                       ~/.cache/ccache
-                  key: linux-${{ matrix.cpp-version }}
+                  # Rotating key: each run saves a fresh entry, restore-keys falls
+                  # back to the most recent cache for this compiler. A static key
+                  # would restore but never re-save, freezing the cache forever.
+                  key: ccache-linux-${{ matrix.cpp-version }}-${{ github.run_id }}
                   restore-keys: |
-                      linux-${{ matrix.cpp-version }}
+                      ccache-linux-${{ matrix.cpp-version }}-
 
             - name: Compiler and dev tools installation
               run: |
                   sudo apt update
-                  sudo apt install ${{ matrix.package }}
+                  sudo apt install ${{ matrix.package }} ccache
+
+            - name: ccache setup
+              run: |
+                  ccache --max-size=2G
+                  ccache --zero-stats
 
             # - name: Information about ccache
             #   run: |
@@ -164,11 +172,17 @@ jobs:
               shell: bash -l {0}
               run: |
                   export LDFLAGS="${LDFLAGS} -L$CONDA_PREFIX/lib"
+                  # PR CI is compile-bound (7-compiler matrix x ~70 TUs, gcc serial).
+                  # Debug (-O0) roughly halves cold-cache compile time; only -O0 helps
+                  # (-O1/-Og/RelWithDebInfo already pay most of the -O2 backend cost).
+                  # The h5diff suite already tolerates cross-compiler -O3 FP variance at
+                  # rtol=1e-14, so -O0 (no FMA, more conservative FP) stays in-envelope.
+                  # Heavy MPI simulations keep Release in the linux-mpi-mamba job.
                   CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
                       . \
                       -Bbuild \
                       -GNinja \
-                      -DCMAKE_BUILD_TYPE=Release \
+                      -DCMAKE_BUILD_TYPE=Debug \
                       -DWITH_PETSC=ON \
                       -DBUILD_DEMOS=ON \
                       -DBUILD_TESTS=ON
@@ -181,6 +195,10 @@ jobs:
                   else
                     cmake --build build --target all --parallel 2
                   fi
+
+            - name: ccache statistics
+              if: always()
+              run: ccache --show-stats --verbose
 
             - name: Test with googletest
               shell: bash -l {0}
@@ -232,7 +250,10 @@ jobs:
             - name: Petsc installation
               shell: micromamba-shell {0}
               run: |
-                  micromamba install -y petsc pkg-config cxx-compiler
+                  micromamba install -y petsc pkg-config cxx-compiler ccache
+                  # Self-hosted runner: ccache dir persists on disk across runs,
+                  # so no actions/cache step is needed here.
+                  ccache --max-size=5G
 
             - name: Micromamba informations
               shell: micromamba-shell {0}

@@ -1,0 +1,76 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "SAMURAI_ENABLE_CACHE": "ON"
+      }
+    },
+    {
+      "name": "dev",
+      "displayName": "dev (fast iteration: -O0 -g, ccache, Ninja)",
+      "description": "Debug build for the edit-compile-test loop. Skips the LLVM optimizer (backend ~= 65% of -O2 time). Demos/tests are EXCLUDE_FROM_ALL: build a single target, e.g. `cmake --build build/dev --target finite-volume-advection-2d`.",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "dev-fast",
+      "displayName": "dev-fast (-O0, no debug info)",
+      "description": "Fastest possible compile: -O0 and no -g. Use when you don't need a debugger; trims frontend memory and link time vs dev.",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_FLAGS_DEBUG": "-O0",
+        "CMAKE_C_FLAGS_DEBUG": "-O0"
+      }
+    },
+    {
+      "name": "relwithdebinfo",
+      "displayName": "relwithdebinfo (-O2 -g)",
+      "description": "Optimized build with debug info. Slow to compile (full LLVM backend) but debuggable and fast at runtime.",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "release (-O3)",
+      "description": "Fully optimized. Slowest to compile; use for benchmarks and production runs.",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "dev",
+      "configurePreset": "dev"
+    },
+    {
+      "name": "dev-fast",
+      "configurePreset": "dev-fast"
+    },
+    {
+      "name": "relwithdebinfo",
+      "configurePreset": "relwithdebinfo"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release"
+    }
+  ]
+}
