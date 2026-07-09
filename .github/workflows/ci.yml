@@ -172,17 +172,11 @@ jobs:
               shell: bash -l {0}
               run: |
                   export LDFLAGS="${LDFLAGS} -L$CONDA_PREFIX/lib"
-                  # PR CI is compile-bound (7-compiler matrix x ~70 TUs, gcc serial).
-                  # Debug (-O0) roughly halves cold-cache compile time; only -O0 helps
-                  # (-O1/-Og/RelWithDebInfo already pay most of the -O2 backend cost).
-                  # The h5diff suite already tolerates cross-compiler -O3 FP variance at
-                  # rtol=1e-14, so -O0 (no FMA, more conservative FP) stays in-envelope.
-                  # Heavy MPI simulations keep Release in the linux-mpi-mamba job.
                   CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} cmake \
                       . \
                       -Bbuild \
                       -GNinja \
-                      -DCMAKE_BUILD_TYPE=Debug \
+                      -DCMAKE_BUILD_TYPE=Release \
                       -DWITH_PETSC=ON \
                       -DBUILD_DEMOS=ON \
                       -DBUILD_TESTS=ON
@@ -190,11 +184,12 @@ jobs:
             - name: Build
               shell: bash -l {0}
               run: |
-                  if [[ "${{ matrix.compiler }}" == "gcc" ]]; then
-                    cmake --build build --target all --parallel 1 # Limit parallelism with gcc to avoid memory issues
-                  else
-                    cmake --build build --target all --parallel 2
-                  fi
+                  cmake --build build --target all --parallel 4
+                  # if [[ "${{ matrix.compiler }}" == "gcc" ]]; then
+                  #   cmake --build build --target all --parallel 1 # Limit parallelism with gcc to avoid memory issues
+                  # else
+                  #   cmake --build build --target all --parallel 2
+                  # fi
 
             - name: ccache statistics
               if: always()
@@ -478,7 +473,7 @@ jobs:
             - name: Build
               shell: bash -l {0}
               run: |
-                  cmake --build ./build --config Release --parallel 3
+                  cmake --build ./build --config Release --parallel 4
 
             - name: Run tests
               shell: bash -l {0}
