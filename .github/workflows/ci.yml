@@ -473,7 +473,7 @@ jobs:
             - name: Build
               shell: bash -l {0}
               run: |
-                  cmake --build ./build --config Release --parallel 4
+                  cmake --build ./build --config Release --parallel 3
 
             - name: Run tests
               shell: bash -l {0}
