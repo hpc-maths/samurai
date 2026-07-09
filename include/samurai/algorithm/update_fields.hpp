@@ -90,7 +90,7 @@ namespace samurai
     }
 
     template <class Mesh, class... Fields>
-      requires(mesh_like<Mesh> && (field_like<Fields> && ...))
+        requires(mesh_like<Mesh> && (field_like<Fields> && ...))
     void update_fields(Mesh& new_mesh, Fields&... fields)
     {
         using prediction_fn_t = decltype(default_config::default_prediction_fn);
