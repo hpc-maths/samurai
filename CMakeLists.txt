@@ -48,6 +48,7 @@ endif()
 option(CLANG_TIDY "Activate clang-tidy" OFF)
 option(CPPCHECK "Activate cppcheck" OFF)
 option(IWYU "Activate include-what-you-use" OFF)
+option(SAMURAI_ENABLE_CACHE "Use a compiler cache (ccache/sccache) when available" ON)
 option(SANITIZERS "Activate sanitizers" OFF)
 option(ENABLE_COVERAGE "Activate coverage" OFF)
 option(WITH_MPI "Enable MPI" OFF)
@@ -81,6 +82,10 @@ endif()
 
 if(${IWYU})
   LIST(APPEND FEATURES ENABLE_INCLUDE_WHAT_YOU_USE)
+endif()
+
+if(${SAMURAI_ENABLE_CACHE})
+  LIST(APPEND FEATURES ENABLE_CACHE)
 endif()
 
 if(${SANITIZERS})

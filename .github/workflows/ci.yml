@@ -7,6 +7,13 @@ concurrency:
     group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
     cancel-in-progress: true
 
+# GitHub-hosted runners on Azure sometimes expose a "mana" RDMA/InfiniBand NIC whose UCX
+# driver randomly fails to initialize (UCX ERROR ... mana_0 ... failed: Operation not supported),
+# which aborts MPI_Init (used by PETSc even for single-rank runs) and kills the process with
+# exit code 143. Restricting UCX to shared-memory/TCP transports avoids probing that NIC.
+env:
+    UCX_TLS: self,sm,tcp
+
 jobs:
     #
     # Check samurai with pre-commit
@@ -26,13 +33,6 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
-
-            - name: Cache
-              uses: actions/cache@v4
-              with:
-                  path: |
-                      ~/.cache/ccache
-                  key: cppcheck
 
             - name: Mamba and samurai env installation
               uses: mamba-org/setup-micromamba@v1
@@ -123,14 +123,22 @@ jobs:
               with:
                   path: |
                       ~/.cache/ccache
-                  key: linux-${{ matrix.cpp-version }}
+                  # Rotating key: each run saves a fresh entry, restore-keys falls
+                  # back to the most recent cache for this compiler. A static key
+                  # would restore but never re-save, freezing the cache forever.
+                  key: ccache-linux-${{ matrix.cpp-version }}-${{ github.run_id }}
                   restore-keys: |
-                      linux-${{ matrix.cpp-version }}
+                      ccache-linux-${{ matrix.cpp-version }}-
 
             - name: Compiler and dev tools installation
               run: |
                   sudo apt update
-                  sudo apt install ${{ matrix.package }}
+                  sudo apt install ${{ matrix.package }} ccache
+
+            - name: ccache setup
+              run: |
+                  ccache --max-size=2G
+                  ccache --zero-stats
 
             # - name: Information about ccache
             #   run: |
@@ -176,11 +184,16 @@ jobs:
             - name: Build
               shell: bash -l {0}
               run: |
-                  if [[ "${{ matrix.compiler }}" == "gcc" ]]; then
-                    cmake --build build --target all --parallel 1 # Limit parallelism with gcc to avoid memory issues
-                  else
-                    cmake --build build --target all --parallel 2
-                  fi
+                  cmake --build build --target all --parallel 4
+                  # if [[ "${{ matrix.compiler }}" == "gcc" ]]; then
+                  #   cmake --build build --target all --parallel 1 # Limit parallelism with gcc to avoid memory issues
+                  # else
+                  #   cmake --build build --target all --parallel 2
+                  # fi
+
+            - name: ccache statistics
+              if: always()
+              run: ccache --show-stats --verbose
 
             - name: Test with googletest
               shell: bash -l {0}
@@ -232,7 +245,10 @@ jobs:
             - name: Petsc installation
               shell: micromamba-shell {0}
               run: |
-                  micromamba install -y petsc pkg-config cxx-compiler
+                  micromamba install -y petsc pkg-config cxx-compiler ccache
+                  # Self-hosted runner: ccache dir persists on disk across runs,
+                  # so no actions/cache step is needed here.
+                  ccache --max-size=5G
 
             - name: Micromamba informations
               shell: micromamba-shell {0}
@@ -414,11 +430,26 @@ jobs:
                   cd tests
                   SAMURAI_MPI_BUILD_DIR="${GITHUB_WORKSPACE}/build" python -m pytest test_load_balancing.py -v
 
+            - name: ccache statistics
+              shell: micromamba-shell {0}
+              if: always()
+              run: ccache --show-stats --verbose
+
     macos-mamba:
         needs: [pre-commit, cppcheck]
         runs-on: macos-26
         steps:
             - uses: actions/checkout@v4
+
+            - name: Cache
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      ~/Library/Caches/ccache
+                  key: ccache-macos-${{ github.run_id }}
+                  restore-keys: |
+                      ccache-macos-
+
             - name: Mamba and samurai env installation
               uses: mamba-org/setup-micromamba@v1
               with:
@@ -434,7 +465,9 @@ jobs:
             - name: Install cxx compiler
               shell: bash -l {0}
               run: |
-                  micromamba install -y cxx-compiler
+                  micromamba install -y cxx-compiler ccache
+                  ccache --max-size=2G
+                  ccache --zero-stats
 
             - name: micromamba informations
               shell: bash -l {0}
@@ -459,6 +492,11 @@ jobs:
               run: |
                   cmake --build ./build --config Release --parallel 3
 
+            - name: ccache statistics
+              shell: bash -l {0}
+              if: always()
+              run: ccache --show-stats --verbose
+
             - name: Run tests
               shell: bash -l {0}
               run: |
@@ -479,9 +517,9 @@ jobs:
               with:
                   path: |
                       ~/.cache/ccache
-                  key: linux-mamba-check-nan
+                  key: ccache-linux-mamba-check-nan-${{ github.run_id }}
                   restore-keys: |
-                      linux-mamba-check-nan
+                      ccache-linux-mamba-check-nan-
 
             - name: Mamba and samurai env installation
               uses: mamba-org/setup-micromamba@v2
@@ -494,7 +532,9 @@ jobs:
             - name: Petsc installation
               shell: bash -l {0}
               run: |
-                  conda install -y petsc pkg-config cxx-compiler
+                  conda install -y petsc pkg-config cxx-compiler ccache
+                  ccache --max-size=2G
+                  ccache --zero-stats
 
             - name: Conda informations
               shell: bash -l {0}
@@ -519,6 +559,11 @@ jobs:
               run: |
                   cmake --build build --target finite-volume-burgers
                   cmake --build build --target finite-volume-lid-driven-cavity
+
+            - name: ccache statistics
+              shell: bash -l {0}
+              if: always()
+              run: ccache --show-stats --verbose
 
             - name: test finite-volume-burgers
               shell: bash -l {0}
@@ -549,9 +594,9 @@ jobs:
               with:
                   path: |
                       ~/.cache/ccache
-                  key: linux-mamba-check-nan-mpi
+                  key: ccache-linux-mamba-check-nan-mpi-${{ github.run_id }}
                   restore-keys: |
-                      linux-mamba-check-nan-mpi
+                      ccache-linux-mamba-check-nan-mpi-
 
             - name: Mamba and samurai env installation
               uses: mamba-org/setup-micromamba@v2
@@ -564,7 +609,9 @@ jobs:
             - name: Petsc installation
               shell: bash -l {0}
               run: |
-                  conda install -y petsc pkg-config cxx-compiler
+                  conda install -y petsc pkg-config cxx-compiler ccache
+                  ccache --max-size=2G
+                  ccache --zero-stats
 
             - name: Conda informations
               shell: bash -l {0}
@@ -589,6 +636,11 @@ jobs:
               run: |
                   cmake --build build --target finite-volume-advection-2d
                   cmake --build build --target finite-volume-burgers
+
+            - name: ccache statistics
+              shell: bash -l {0}
+              if: always()
+              run: ccache --show-stats --verbose
 
             - name: test finite-volume-advection-2d
               shell: bash -l {0}
@@ -622,6 +674,15 @@ jobs:
         steps:
             - uses: actions/checkout@v4
 
+            - name: Cache
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      ~/.cache/ccache
+                  key: ccache-compile-snippets-${{ github.run_id }}
+                  restore-keys: |
+                      ccache-compile-snippets-
+
             - name: Mamba and samurai env installation
               uses: mamba-org/setup-micromamba@v2
               with:
@@ -633,7 +694,9 @@ jobs:
             - name: Compiler installation
               shell: bash -l {0}
               run: |
-                  micromamba install -y cxx-compiler
+                  micromamba install -y cxx-compiler ccache
+                  ccache --max-size=2G
+                  ccache --zero-stats
 
             - name: Configure
               shell: bash -l {0}
@@ -647,3 +710,8 @@ jobs:
               shell: bash -l {0}
               run: |
                   cmake --build build --target all --parallel 4
+
+            - name: ccache statistics
+              shell: bash -l {0}
+              if: always()
+              run: ccache --show-stats --verbose
