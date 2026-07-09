@@ -48,7 +48,7 @@ namespace samurai
                 set_coarsen.apply_op(projection(dests, srcs));
 
                 auto set_refine = intersection(new_mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level - 1]).on(level - 1);
-                (set_refine.apply_op(std::forward<PredictionFn>(prediction_fn)(std::get<Is>(dests), std::get<Is>(srcs))), ...);
+                (set_refine.apply_op(prediction_fn(std::get<Is>(dests), std::get<Is>(srcs))), ...);
             }
         }
 
