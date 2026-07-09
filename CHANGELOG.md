@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.31.0](https://github.com/hpc-maths/samurai/compare/v0.30.1...v0.31.0) (2026-07-09)
+
+
+### Features
+
+* Instrument AMR main functions ([#446](https://github.com/hpc-maths/samurai/issues/446)) ([1cbf142](https://github.com/hpc-maths/samurai/commit/1cbf142ec7e839d10094db18a509eafeb48da101))
+* new load balancing ([#443](https://github.com/hpc-maths/samurai/issues/443)) ([b1e9142](https://github.com/hpc-maths/samurai/commit/b1e914268eda9b2122427404216e3513a138777a))
+* update compare.py script ([#447](https://github.com/hpc-maths/samurai/issues/447)) ([68cf509](https://github.com/hpc-maths/samurai/commit/68cf509e2ca7115e46745495f06cd2a4f9de6b4b))
+
+
+### Bug Fixes
+
+* upper bounds of the loop in the graduation when the mesh is empty ([#444](https://github.com/hpc-maths/samurai/issues/444)) ([b46f293](https://github.com/hpc-maths/samurai/commit/b46f293a903fdc8c7b8f83d84d0faab867b711f9))
+
+
+### Performance Improvements
+
+* graduation ([#449](https://github.com/hpc-maths/samurai/issues/449)) ([e301b8a](https://github.com/hpc-maths/samurai/commit/e301b8a0d5b15da3e372282a419f6e404ead8175))
+* Improve update ghost mr for mpi ([#445](https://github.com/hpc-maths/samurai/issues/445)) ([a999b56](https://github.com/hpc-maths/samurai/commit/a999b563f1ffe0bd9b2d47f8c892af093ca419d6))
+* update fields refactor ([#451](https://github.com/hpc-maths/samurai/issues/451)) ([10cf55d](https://github.com/hpc-maths/samurai/commit/10cf55d510d22c784fb5b6ac79a41ce0a34829ed))
+
 ## [0.30.1](https://github.com/hpc-maths/samurai/compare/v0.30.0...v0.30.1) (2026-06-11)
 
 
