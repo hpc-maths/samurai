@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <iostream>
+#include <numeric>
 #include <ostream>
 #include <string>
 #include <vector>
@@ -211,21 +212,24 @@ namespace samurai
         const auto build = build_info();
 
         // Column width computed from the widest label so the two colons align.
-        std::size_t width = std::string("samurai").size();
-        for (const auto& d : deps)
+        const auto widest = [](std::size_t w, const std::vector<dependency_info>& items)
         {
-            width = std::max(width, d.name.size());
-        }
-        for (const auto& b : build)
-        {
-            width = std::max(width, b.name.size());
-        }
+            return std::accumulate(items.begin(),
+                                   items.end(),
+                                   w,
+                                   [](std::size_t acc, const dependency_info& it)
+                                   {
+                                       return std::max(acc, it.name.size());
+                                   });
+        };
+        std::size_t width = widest(widest(std::string("samurai").size(), deps), build);
 
         const auto title = disable_color ? fmt::text_style() : fmt::emphasis::bold;
 
         os << fmt::format(title, "samurai {}\n", version());
         os << "\n";
         os << fmt::format(title, "Dependencies\n");
+        // cppcheck-suppress knownEmptyContainer  // the dependency macros are defined by external headers, invisible to cppcheck
         for (const auto& d : deps)
         {
             os << fmt::format("  {:<{}} : {}\n", d.name, width, d.version);
