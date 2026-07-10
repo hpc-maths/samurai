@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <array>
+#include <functional>
 #include <string>
 #include <type_traits>
 
@@ -35,6 +36,7 @@ namespace mpi = boost::mpi;
 #include "../interval.hpp"
 #include "../timers.hpp"
 #include "../utils.hpp"
+#include "metadata.hpp"
 #include "util.hpp"
 
 namespace samurai
@@ -153,6 +155,10 @@ namespace samurai
 
         bool by_level   = false;
         bool by_mesh_id = false;
+
+        // User callback to inject arbitrary metadata (time, simulation
+        // parameters, ...) into the HDF5 file and the XDMF document.
+        std::function<void(MetadataWriter&)> metadata = {};
     };
 
     template <class Config>
@@ -167,6 +173,10 @@ namespace samurai
         }
 
         bool by_mesh_id;
+
+        // User callback to inject arbitrary metadata (time, simulation
+        // parameters, ...) into the HDF5 file and the XDMF document.
+        std::function<void(MetadataWriter&)> metadata = {};
     };
 
     template <class D>
@@ -197,6 +207,7 @@ namespace samurai
       protected:
 
         pugi::xml_node& domain();
+        HighFive::File& file();
 
         template <class Submesh>
         void save_on_mesh(pugi::xml_node& grid_parent, const std::string& prefix, const Submesh& submesh, const std::string& mesh_name);
@@ -263,6 +274,7 @@ namespace samurai
 
         const mesh_t& mesh() const;
         const options_t& options() const;
+        void write_metadata();
 
       private:
 
@@ -352,6 +364,16 @@ namespace samurai
     SAMURAI_INLINE auto SaveBase<D, Mesh, T...>::options() const -> const options_t&
     {
         return m_options;
+    }
+
+    template <class D, class Mesh, class... T>
+    SAMURAI_INLINE void SaveBase<D, Mesh, T...>::write_metadata()
+    {
+        if (m_options.metadata)
+        {
+            MetadataWriter writer(this->file(), this->domain());
+            m_options.metadata(writer);
+        }
     }
 
     template <class D, class Mesh, class... T>
@@ -489,6 +511,7 @@ namespace samurai
                 this->save_on_mesh(this->domain(), prefix, mesh, "mesh");
             }
         }
+        this->write_metadata();
     }
 
     template <class D, class Mesh, class... T>
@@ -564,6 +587,7 @@ namespace samurai
             std::string prefix = fmt::format("/mesh");
             this->save_on_mesh(this->domain(), prefix, mesh, "mesh");
         }
+        this->write_metadata();
     }
 
 #ifdef SAMURAI_WITH_MPI
@@ -643,6 +667,12 @@ namespace samurai
     SAMURAI_INLINE pugi::xml_node& Hdf5<D>::domain()
     {
         return m_domain;
+    }
+
+    template <class D>
+    SAMURAI_INLINE HighFive::File& Hdf5<D>::file()
+    {
+        return h5_file;
     }
 
     template <class D>

@@ -3,7 +3,9 @@
 
 #pragma once
 
+#include <concepts>
 #include <filesystem>
+#include <utility>
 namespace fs = std::filesystem;
 
 #include <highfive/H5Easy.hpp>
@@ -21,6 +23,7 @@ namespace mpi = boost::mpi;
 #include "../level_cell_array.hpp"
 #include "../mesh.hpp"
 #include "../uniform_mesh.hpp"
+#include "metadata.hpp"
 #include "util.hpp"
 
 namespace HighFive
@@ -185,6 +188,7 @@ namespace samurai
     }
 
     template <class Mesh, class... Fields>
+        requires mesh_like<Mesh>
     void dump(const fs::path& path, const std::string& filename, const Mesh& mesh, const Fields&... fields)
     {
         HighFive::FileAccessProps fapl;
@@ -196,11 +200,36 @@ namespace samurai
         dump(file, mesh, fields...);
     }
 
+    // Same as above, with a user callback to write arbitrary metadata (time,
+    // simulation parameters, ...) into the checkpoint file. The callback is a
+    // template parameter invoked in place: no std::function, no allocation.
+    template <class Callback, class Mesh, class... Fields>
+        requires mesh_like<Mesh> && std::invocable<Callback&, MetadataWriter&>
+    void dump(const fs::path& path, const std::string& filename, Callback&& metadata, const Mesh& mesh, const Fields&... fields)
+    {
+        HighFive::FileAccessProps fapl;
+#ifdef SAMURAI_WITH_MPI
+        fapl.add(HighFive::MPIOFileAccess{MPI_COMM_WORLD, MPI_INFO_NULL});
+        fapl.add(HighFive::MPIOCollectiveMetadata{});
+#endif
+        HighFive::File file(fmt::format("{}.h5", (path / filename).string()), HighFive::File::Overwrite, fapl);
+        dump(file, mesh, fields...);
+        MetadataWriter writer(file); // no XDMF for a checkpoint: HDF5 only
+        std::forward<Callback>(metadata)(writer);
+    }
+
     template <class Mesh, class... Fields>
         requires mesh_like<Mesh>
     void dump(const std::string& filename, const Mesh& mesh, const Fields&... fields)
     {
         dump(fs::current_path(), filename, mesh, fields...);
+    }
+
+    template <class Callback, class Mesh, class... Fields>
+        requires mesh_like<Mesh> && std::invocable<Callback&, MetadataWriter&>
+    void dump(const std::string& filename, Callback&& metadata, const Mesh& mesh, const Fields&... fields)
+    {
+        dump(fs::current_path(), filename, std::forward<Callback>(metadata), mesh, fields...);
     }
 
     template <class T>
@@ -423,6 +452,7 @@ namespace samurai
     }
 
     template <class Mesh, class... Fields>
+        requires mesh_like<Mesh>
     void load(const fs::path& path, const std::string& filename, Mesh& mesh, Fields&... fields)
     {
         HighFive::FileAccessProps fapl;
@@ -434,10 +464,34 @@ namespace samurai
         load(file, mesh, fields...);
     }
 
+    // Same as above, with a user callback to read back arbitrary metadata
+    // (time, simulation parameters, ...) previously written by dump.
+    template <class Callback, class Mesh, class... Fields>
+        requires mesh_like<Mesh> && std::invocable<Callback&, MetadataReader&>
+    void load(const fs::path& path, const std::string& filename, Callback&& metadata, Mesh& mesh, Fields&... fields)
+    {
+        HighFive::FileAccessProps fapl;
+#ifdef SAMURAI_WITH_MPI
+        fapl.add(HighFive::MPIOFileAccess{MPI_COMM_WORLD, MPI_INFO_NULL});
+        fapl.add(HighFive::MPIOCollectiveMetadata{});
+#endif
+        HighFive::File file(fmt::format("{}.h5", (path / filename).string()), HighFive::File::ReadOnly, fapl);
+        load(file, mesh, fields...);
+        MetadataReader reader(file);
+        std::forward<Callback>(metadata)(reader);
+    }
+
     template <class Mesh, class... Fields>
         requires mesh_like<Mesh>
     void load(const std::string& filename, Mesh& mesh, Fields&... fields)
     {
         load(fs::current_path(), filename, mesh, fields...);
+    }
+
+    template <class Callback, class Mesh, class... Fields>
+        requires mesh_like<Mesh> && std::invocable<Callback&, MetadataReader&>
+    void load(const std::string& filename, Callback&& metadata, Mesh& mesh, Fields&... fields)
+    {
+        load(fs::current_path(), filename, std::forward<Callback>(metadata), mesh, fields...);
     }
 }
