@@ -20,7 +20,9 @@ on the fly. It replaces the old explicit-mesh export (points + connectivity +
 
 ## Requirements
 
-The reader needs **`h5py`** (and `numpy`, always bundled) in ParaView's Python.
+- **ParaView 5.10+ / VTK 9** — the reader uses `vtkCellArray.SetData(offsets,
+  connectivity)` and `vtkPartitionedDataSet`.
+- **`h5py`** (and `numpy`, always bundled) in ParaView's Python.
 
 Check inside ParaView's Python shell (*View > Python Shell*):
 
@@ -122,6 +124,27 @@ mpic++ -DSAMURAI_WITH_MPI -DSAMURAI_ENABLE_INLINE \
 ./generate_reference ../../../tests/reference/paraview            # ref_1d/2d/3d.h5
 mpirun -n 2 ./generate_reference ../../../tests/reference/paraview --mpi  # ref_2d_mpi.h5
 ```
+
+## Troubleshooting
+
+- **The reader does not appear / a wrong reader opens the file.** `.h5` is a
+  generic extension shared by many tools, so ParaView may pick another reader.
+  Use *File > Open*, then in the dialog choose **"Samurai reader"** explicitly
+  (or *Open With...*). The reader validates the file structure and raises a clear
+  error on non-samurai `.h5` files (e.g. a `save()` file), rather than crashing.
+- **Changes to the plugin are not picked up.** ParaView caches imported Python
+  modules for the whole session. After editing `SamuraiReader.py` /
+  `samurai_load.py`, **fully quit and relaunch ParaView** — reloading the plugin
+  is not enough.
+- **`import h5py` fails in the Python shell.** Install it into ParaView's
+  interpreter (see Requirements).
+
+## Multiple grids in one file
+
+`samurai_load.load(filename, group=...)` can read a samurai layout stored under a
+subgroup, e.g. `load("multi.h5", group="grids/g0")`. This is the extension point
+for files that hold several grids side by side; the default (`group=None`) reads
+the file root.
 
 ## Current limitations
 

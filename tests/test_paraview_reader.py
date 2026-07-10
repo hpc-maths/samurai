@@ -71,6 +71,24 @@ def test_extra_arrays_optional():
     assert "u" in block["fields"]
 
 
+def test_load_from_subgroup(tmp_path):
+    # A file may hold the samurai layout under a subgroup; load(group=...) must
+    # reconstruct it identically to a root-level file.
+    ref = os.path.join(_REF_DIR, "ref_2d.h5")
+    nested = tmp_path / "multigrid.h5"
+    with h5py.File(ref, "r") as src, h5py.File(nested, "w") as dst:
+        grid = dst.create_group("grids/g0")
+        for key in ("mesh", "fields", "n_process"):
+            src.copy(key, grid)
+
+    root_block = load(ref)[0]
+    nested_block = load(str(nested), group="grids/g0")[0]
+    np.testing.assert_array_equal(nested_block["center"], root_block["center"])
+    np.testing.assert_array_equal(
+        nested_block["fields"]["u"], root_block["fields"]["u"]
+    )
+
+
 def test_load_rejects_save_file(tmp_path):
     # A save() file (explicit points/connectivity, no /mesh/dim) must raise a
     # clear error rather than a raw KeyError.

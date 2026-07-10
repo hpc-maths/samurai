@@ -270,13 +270,43 @@ def _build_geometry(indices, levels, origin_point, scaling_factor, dim):
     return points, connectivity, centers3
 
 
-def load(filename, extra_arrays=True):
+def _validate_samurai_group(root, filename):
+    """Raise a clear error if ``root`` is not a samurai mesh group."""
+    if "mesh/dim" in root:
+        return
+    # Give an actionable message instead of a raw KeyError on 'dim'.
+    looks_like_save = ("mesh" in root) and any(
+        key in root["mesh"] for key in ("points", "connectivity")
+    )
+    if not looks_like_save and "mesh" in root:
+        # multi-rank save() nests points/connectivity under rank groups
+        looks_like_save = any(
+            isinstance(root["mesh"][k], h5py.Group)
+            and ("points" in root["mesh"][k] or "connectivity" in root["mesh"][k])
+            for k in root["mesh"].keys()
+        )
+    if looks_like_save:
+        raise ValueError(
+            f"'{filename}' looks like a samurai save() file (explicit "
+            "points/connectivity mesh), which this reader does not handle. "
+            "Open the compressed dump/restart file instead."
+        )
+    raise ValueError(
+        f"'{filename}' is not a samurai dump file: '/mesh/dim' is missing."
+    )
+
+
+def load(filename, group=None, extra_arrays=True):
     """Read a samurai ``.h5`` file and reconstruct the finite-element mesh.
 
     Parameters
     ----------
     filename : str
         Path to the samurai file (with or without the ``.h5`` extension).
+    group : str, optional
+        HDF5 group under which the samurai layout (``mesh``, ``fields``,
+        ``n_process``) lives. Defaults to the file root. Pass e.g.
+        ``"grids/my_grid"`` for files that hold several grids side by side.
     extra_arrays : bool
         Also expose ``level``, ``indices`` and ``center`` as cell arrays
         (computed for free during reconstruction).
@@ -293,41 +323,22 @@ def load(filename, extra_arrays=True):
         filename = filename + ".h5"
 
     with h5py.File(filename, "r") as f:
-        if "mesh/dim" not in f:
-            # Give an actionable message instead of a raw KeyError on 'dim'.
-            looks_like_save = ("mesh" in f) and any(
-                key in f["mesh"] for key in ("points", "connectivity")
-            )
-            if not looks_like_save and "mesh" in f:
-                # multi-rank save() nests points/connectivity under rank groups
-                looks_like_save = any(
-                    isinstance(f["mesh"][k], h5py.Group)
-                    and ("points" in f["mesh"][k] or "connectivity" in f["mesh"][k])
-                    for k in f["mesh"].keys()
-                )
-            if looks_like_save:
-                raise ValueError(
-                    f"'{filename}' looks like a samurai save() file (explicit "
-                    "points/connectivity mesh), which this reader does not handle. "
-                    "Open the compressed dump/restart file instead."
-                )
-            raise ValueError(
-                f"'{filename}' is not a samurai dump file: '/mesh/dim' is missing."
-            )
+        root = f[group] if group else f
+        _validate_samurai_group(root, filename)
 
-        mesh = f["mesh"]
-        dim = int(f["mesh/dim"][()])
-        min_level = int(f["mesh/min_level"][()])
-        max_level = int(f["mesh/max_level"][()])
-        origin_point = np.asarray(f["mesh/origin_point"][()], dtype=float).reshape(-1)[:dim]
-        scaling_factor = float(f["mesh/scaling_factor"][()])
-        n_process = int(f["n_process"][()]) if "n_process" in f else 1
+        mesh = root["mesh"]
+        dim = int(root["mesh/dim"][()])
+        min_level = int(root["mesh/min_level"][()])
+        max_level = int(root["mesh/max_level"][()])
+        origin_point = np.asarray(root["mesh/origin_point"][()], dtype=float).reshape(-1)[:dim]
+        scaling_factor = float(root["mesh/scaling_factor"][()])
+        n_process = int(root["n_process"][()]) if "n_process" in root else 1
 
         # Field metadata (n_comp) and partitioned data groups.
         field_meta = {}
-        if "fields" in f:
-            for name in f["fields"].keys():
-                n_comp = int(f[f"fields/{name}/n_comp"][()])
+        if "fields" in root:
+            for name in root["fields"].keys():
+                n_comp = int(root[f"fields/{name}/n_comp"][()])
                 field_meta[name] = n_comp
 
         blocks = []
@@ -340,7 +351,7 @@ def load(filename, extra_arrays=True):
 
             fields = {}
             for name, n_comp in field_meta.items():
-                data_group = f[f"fields/{name}/data"]
+                data_group = root[f"fields/{name}/data"]
                 flat = _slice_partitioned(data_group, rank)
                 values = np.asarray(flat).reshape(-1, n_comp)
                 if values.shape[0] != n_cells:

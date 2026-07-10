@@ -41,6 +41,7 @@ from vtkmodules.vtkCommonDataModel import vtkDataObject  # noqa: E402
 from vtkmodules.vtkCommonCore import vtkPoints  # noqa: E402
 from vtkmodules.vtkCommonExecutionModel import vtkStreamingDemandDrivenPipeline  # noqa: E402
 from vtkmodules.util.numpy_support import numpy_to_vtk, numpy_to_vtkIdTypeArray  # noqa: E402
+from vtkmodules.util.vtkConstants import VTK_UNSIGNED_CHAR  # noqa: E402
 
 
 def _build_unstructured_grid(block):
@@ -68,7 +69,7 @@ def _build_unstructured_grid(block):
             numpy_to_vtkIdTypeArray(conn, deep=1),
         )
         cell_types = np.full(n_cells, block["vtk_cell_type"], dtype=np.uint8)
-        ug.SetCells(numpy_to_vtk(cell_types, deep=1, array_type=3), cell_array)  # 3 = VTK_UNSIGNED_CHAR
+        ug.SetCells(numpy_to_vtk(cell_types, deep=1, array_type=VTK_UNSIGNED_CHAR), cell_array)
 
     cell_data = ug.GetCellData()
 
@@ -79,6 +80,8 @@ def _build_unstructured_grid(block):
         if active_scalar and values.ndim == 1:
             cell_data.SetActiveScalars(name)
 
+    # The first field is set as the active scalar so ParaView colors by it by
+    # default; the user can always switch the coloring array afterwards.
     first = True
     for name, values in block["fields"].items():
         v = values[:, 0] if values.shape[1] == 1 else values
@@ -103,8 +106,7 @@ class SamuraiReader(VTKPythonAlgorithmBase):
         super().__init__(nInputPorts=0, nOutputPorts=1, outputType="vtkPartitionedDataSet")
         self._filename = None
         self._extra_arrays = True
-        self._files = []
-        self._times = []
+        self._series_cache = None  # (filename, files, times)
 
     # -- File name: open any one file; the numbered series is auto-discovered. --
     @smproperty.stringvector(name="FileName")
@@ -113,7 +115,22 @@ class SamuraiReader(VTKPythonAlgorithmBase):
     def SetFileName(self, name):
         if name != self._filename:
             self._filename = name
+            self._series_cache = None  # invalidate the discovered series
             self.Modified()
+
+    def _series(self):
+        """Discovered ``(files, times)`` for the current file, memoized.
+
+        ``GetTimestepValues`` is polled often by the GUI and ``discover_series``
+        lists the directory and opens every sibling file, so the result is cached
+        until the file name changes.
+        """
+        if not self._filename:
+            return [], []
+        if self._series_cache is None or self._series_cache[0] != self._filename:
+            files, times = discover_series(self._filename)
+            self._series_cache = (self._filename, files, times)
+        return self._series_cache[1], self._series_cache[2]
 
     # Exposes the time controls in the GUI and populates the animation.
     @smproperty.doublevector(
@@ -122,10 +139,8 @@ class SamuraiReader(VTKPythonAlgorithmBase):
         si_class="vtkSITimeStepsProperty",
     )
     def GetTimestepValues(self):
-        if not self._filename:
-            return None
-        _, times = discover_series(self._filename)
-        return times
+        _, times = self._series()
+        return times or None
 
     @smproperty.intvector(name="ExposeMeshArrays", default_values=1)
     @smdomain.xml('<BooleanDomain name="bool"/>')
@@ -137,39 +152,36 @@ class SamuraiReader(VTKPythonAlgorithmBase):
 
     # -- Pipeline ---------------------------------------------------------------
     def RequestInformation(self, request, inInfoVec, outInfoVec):
-        if not self._filename:
+        _, times = self._series()
+        if not times:
             return 1
-
-        self._files, self._times = discover_series(self._filename)
 
         info = outInfoVec.GetInformationObject(0)
         info.Remove(vtkStreamingDemandDrivenPipeline.TIME_STEPS())
         info.Remove(vtkStreamingDemandDrivenPipeline.TIME_RANGE())
-        for t in self._times:
+        for t in times:
             info.Append(vtkStreamingDemandDrivenPipeline.TIME_STEPS(), t)
-        info.Append(vtkStreamingDemandDrivenPipeline.TIME_RANGE(), self._times[0])
-        info.Append(vtkStreamingDemandDrivenPipeline.TIME_RANGE(), self._times[-1])
+        info.Append(vtkStreamingDemandDrivenPipeline.TIME_RANGE(), times[0])
+        info.Append(vtkStreamingDemandDrivenPipeline.TIME_RANGE(), times[-1])
         return 1
 
-    def _requested_index(self, info):
-        if not self._times:
+    def _requested_index(self, info, times):
+        if not times:
             return 0
         if info.Has(vtkStreamingDemandDrivenPipeline.UPDATE_TIME_STEP()):
             t = info.Get(vtkStreamingDemandDrivenPipeline.UPDATE_TIME_STEP())
             # nearest advertised time
-            return min(range(len(self._times)), key=lambda i: abs(self._times[i] - t))
+            return min(range(len(times)), key=lambda i: abs(times[i] - t))
         return 0
 
     def RequestData(self, request, inInfoVec, outInfoVec):
         if not self._filename:
             raise RuntimeError("No file name set for SamuraiReader")
 
-        if not self._files:
-            self._files, self._times = discover_series(self._filename)
-
+        files, times = self._series()
         info = outInfoVec.GetInformationObject(0)
-        index = self._requested_index(info)
-        filename = self._files[index]
+        index = self._requested_index(info, times)
+        filename = files[index]
 
         blocks = load(filename, extra_arrays=self._extra_arrays)
         output = vtkPartitionedDataSet.GetData(outInfoVec, 0)
@@ -177,5 +189,5 @@ class SamuraiReader(VTKPythonAlgorithmBase):
         for p, block in enumerate(blocks):
             output.SetPartition(p, _build_unstructured_grid(block))
 
-        output.GetInformation().Set(vtkDataObject.DATA_TIME_STEP(), float(self._times[index]))
+        output.GetInformation().Set(vtkDataObject.DATA_TIME_STEP(), float(times[index]))
         return 1
