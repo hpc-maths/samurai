@@ -109,6 +109,28 @@ target_compile_definitions(samurai INTERFACE
   SAMURAI_VERSION_MINOR=${samurai_VERSION_MINOR}
   SAMURAI_VERSION_PATCH=${samurai_VERSION_PATCH})
 
+# When the current commit is not exactly on a tag (i.e. not a release), also
+# expose its short SHA so that `--info` can display it. Captured at configure
+# time; harmless when git is unavailable (e.g. building from a source tarball).
+find_package(Git QUIET)
+if(Git_FOUND AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
+  execute_process(
+    COMMAND ${GIT_EXECUTABLE} describe --tags --exact-match
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    RESULT_VARIABLE SAMURAI_GIT_ON_TAG
+    OUTPUT_QUIET ERROR_QUIET)
+  if(NOT SAMURAI_GIT_ON_TAG EQUAL 0)
+    execute_process(
+      COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
+      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+      OUTPUT_VARIABLE SAMURAI_GIT_SHA
+      OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+    if(SAMURAI_GIT_SHA)
+      target_compile_definitions(samurai INTERFACE SAMURAI_GIT_SHA="${SAMURAI_GIT_SHA}")
+    endif()
+  endif()
+endif()
+
 # Includes
 set(INCLUDE_DIR "include") # must be relative paths
 target_include_directories(samurai INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/${INCLUDE_DIR}>"

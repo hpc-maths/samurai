@@ -60,6 +60,16 @@ namespace samurai
 #endif
     }
 
+    TEST(version, git_sha)
+    {
+        const auto sha = git_sha();
+        // Empty on a tagged release, otherwise a lowercase hex short SHA.
+        if (!sha.empty())
+        {
+            EXPECT_TRUE(std::regex_match(sha, std::regex("[0-9a-f]+")));
+        }
+    }
+
     TEST(version, print)
     {
         std::ostringstream os;
@@ -70,5 +80,11 @@ namespace samurai
         EXPECT_NE(out.find(version()), std::string::npos);
         EXPECT_NE(out.find("Dependencies"), std::string::npos);
         EXPECT_NE(out.find("Build configuration"), std::string::npos);
+
+        // When built off a tag, the commit SHA must appear next to the version.
+        if (const auto sha = git_sha(); !sha.empty())
+        {
+            EXPECT_NE(out.find(sha), std::string::npos);
+        }
     }
 }

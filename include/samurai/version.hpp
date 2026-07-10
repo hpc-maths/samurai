@@ -102,6 +102,17 @@ namespace samurai
         return detail::format_triplet(SAMURAI_VERSION_MAJOR, SAMURAI_VERSION_MINOR, SAMURAI_VERSION_PATCH);
     }
 
+    /// The short SHA of the current commit, or an empty string on a tagged
+    /// release (or when git was unavailable at configure time). Injected by CMake.
+    inline std::string git_sha()
+    {
+#ifdef SAMURAI_GIT_SHA
+        return SAMURAI_GIT_SHA;
+#else
+        return {};
+#endif
+    }
+
     /// The compiler used to build the current translation unit, e.g. "Clang 18.1.0".
     inline std::string compiler_info()
     {
@@ -238,7 +249,9 @@ namespace samurai
 
         const auto title = disable_color ? fmt::text_style() : fmt::emphasis::bold;
 
-        os << fmt::format(title, "samurai {}\n", version());
+        const auto sha    = git_sha();
+        const auto tagged = sha.empty() ? std::string{} : fmt::format(" ({})", sha);
+        os << fmt::format(title, "samurai {}{}\n", version(), tagged);
         os << "\n";
         os << fmt::format(title, "Dependencies\n");
         // cppcheck-suppress knownEmptyContainer  // the dependency macros are defined by external headers, invisible to cppcheck
