@@ -131,4 +131,80 @@ namespace samurai
         EXPECT_TRUE(u == u2);
         EXPECT_TRUE(v == v2);
     }
+
+    TEST(restart, restart_metadata)
+    {
+        auto mesh = create_mesh<2>(1);
+        auto u    = make_scalar_field<double>("u", mesh);
+        u.fill(1.);
+
+        const double time = 1.5;
+        const double Re   = 100.;
+        const int iter    = 42;
+
+        dump(
+            "mesh",
+            [&](MetadataWriter& w)
+            {
+                w.time(time).attribute("Re", Re).attribute("iteration", iter);
+            },
+            mesh,
+            u);
+
+        auto mesh2 = create_mesh<2>(10);
+        auto u2    = make_scalar_field<double>("u", mesh2);
+
+        double time_read = 0.;
+        double Re_read   = 0.;
+        int iter_read    = 0;
+        bool has_time    = false;
+        bool has_missing = true;
+        load(
+            "mesh",
+            [&](MetadataReader& r)
+            {
+                has_time    = r.has("time");
+                has_missing = r.has("does_not_exist");
+                time_read   = r.time();
+                Re_read     = r.attribute<double>("Re");
+                iter_read   = r.attribute<int>("iteration");
+            },
+            mesh2,
+            u2);
+
+        EXPECT_TRUE(u == u2); // fields still round-trip alongside the metadata
+        EXPECT_TRUE(has_time);
+        EXPECT_FALSE(has_missing);
+        EXPECT_DOUBLE_EQ(time_read, time);
+        EXPECT_DOUBLE_EQ(Re_read, Re);
+        EXPECT_EQ(iter_read, iter);
+    }
+
+    TEST(restart, restart_metadata_with_path)
+    {
+        auto mesh         = create_mesh<2>(1);
+        const double time = 2.5;
+        dump(
+            fs::current_path(),
+            "mesh_meta",
+            [&](MetadataWriter& w)
+            {
+                w.time(time);
+            },
+            mesh);
+
+        decltype(mesh) mesh2;
+        double time_read = 0.;
+        load(
+            fs::current_path(),
+            "mesh_meta",
+            [&](MetadataReader& r)
+            {
+                time_read = r.time();
+            },
+            mesh2);
+
+        EXPECT_TRUE(mesh == mesh2);
+        EXPECT_DOUBLE_EQ(time_read, time);
+    }
 }
