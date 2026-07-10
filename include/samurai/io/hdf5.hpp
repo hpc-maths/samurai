@@ -156,8 +156,9 @@ namespace samurai
         bool by_level   = false;
         bool by_mesh_id = false;
 
-        // User callback to inject arbitrary metadata (time, simulation
-        // parameters, ...) into the HDF5 file and the XDMF document.
+        // User callback to inject arbitrary metadata (time, simulation parameters, ...)
+        // into the HDF5 file and the XDMF document. Under MPI (comm size > 1),
+        // it must be executed collectively on all ranks.
         std::function<void(MetadataWriter&)> metadata = {};
     };
 

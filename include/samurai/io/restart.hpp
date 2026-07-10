@@ -204,7 +204,7 @@ namespace samurai
     // simulation parameters, ...) into the checkpoint file. The callback is a
     // template parameter invoked in place: no std::function, no allocation.
     template <class Callback, class Mesh, class... Fields>
-        requires mesh_like<Mesh> && std::invocable<Callback&, MetadataWriter&>
+        requires mesh_like<Mesh> && std::invocable<Callback&&, MetadataWriter&>
     void dump(const fs::path& path, const std::string& filename, Callback&& metadata, const Mesh& mesh, const Fields&... fields)
     {
         HighFive::FileAccessProps fapl;
@@ -215,6 +215,7 @@ namespace samurai
         HighFive::File file(fmt::format("{}.h5", (path / filename).string()), HighFive::File::Overwrite, fapl);
         dump(file, mesh, fields...);
         MetadataWriter writer(file); // no XDMF for a checkpoint: HDF5 only
+        // NOTE: Under MPI, this callback must be executed collectively on all ranks.
         std::forward<Callback>(metadata)(writer);
     }
 
@@ -467,7 +468,7 @@ namespace samurai
     // Same as above, with a user callback to read back arbitrary metadata
     // (time, simulation parameters, ...) previously written by dump.
     template <class Callback, class Mesh, class... Fields>
-        requires mesh_like<Mesh> && std::invocable<Callback&, MetadataReader&>
+        requires mesh_like<Mesh> && std::invocable<Callback&&, MetadataReader&>
     void load(const fs::path& path, const std::string& filename, Callback&& metadata, Mesh& mesh, Fields&... fields)
     {
         HighFive::FileAccessProps fapl;
@@ -478,6 +479,7 @@ namespace samurai
         HighFive::File file(fmt::format("{}.h5", (path / filename).string()), HighFive::File::ReadOnly, fapl);
         load(file, mesh, fields...);
         MetadataReader reader(file);
+        // NOTE: Under MPI, this callback must be executed collectively on all ranks.
         std::forward<Callback>(metadata)(reader);
     }
 
