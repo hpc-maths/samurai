@@ -1,12 +1,12 @@
 # Copyright 2018-2025 the samurai's authors
 # SPDX-License-Identifier:  BSD-3-Clause
 """
-Reconstruction of a samurai data file as a list of AMR grids, ready to be handed
-to ``yt.load_amr_grids``.
+Reconstruction of a samurai data file as a list of AMR grids.
 
-This module only depends on ``numpy`` and ``h5py`` so that it can be unit-tested
-without yt.  The yt loader (``samurai_yt.py``) is a thin wrapper that turns the
-grids returned here into a ``StreamDataset``.
+The result is ready to be handed to ``yt.load_amr_grids``. This module only
+depends on ``numpy`` and ``h5py`` so that it can be unit-tested without yt.
+The yt loader (``samurai_yt.py``) is a thin wrapper that turns the grids
+returned here into a ``StreamDataset``.
 
 Samurai never stores the cell geometry.  A data file only contains, per level and
 per direction, the compressed interval representation of the mesh (``m_cells`` /
@@ -265,8 +265,9 @@ def _read_file(filename, group):
         _validate_samurai_group(root, filename)
 
         dim = int(root["mesh/dim"][()])
+        origin_point = np.asarray(root["mesh/origin_point"][()], dtype=np.float64)
         origin = np.zeros(3, dtype=np.float64)
-        origin[:dim] = np.asarray(root["mesh/origin_point"][()], dtype=np.float64).reshape(-1)[:dim]
+        origin[:dim] = origin_point.reshape(-1)[:dim]
         meta = {
             "dim": dim,
             "min_level": int(root["mesh/min_level"][()]),
@@ -358,8 +359,9 @@ def read_amr_grids(filename, group=None):
         split into ``name_<c>`` components).
     meta : dict
         ``dim``, ``domain_dimensions`` (3 ints), ``bbox`` (3x2 floats),
-        ``min_level``, ``max_level``, ``time`` (or ``None``) and ``fields`` (the
-        list of yt field names).
+        ``min_level``, ``max_level``, ``time`` (or ``None``) and ``fields``
+        (the list of yt field names).
+
     """
     meta, keys, levels, values = _read_file(filename, group)
     dim = meta["dim"]

@@ -10,8 +10,8 @@ representation *is* a patch-AMR description -- one contiguous x-run of cells per
 patch -- it maps directly onto :func:`yt.load_amr_grids`, so the full yt toolbox
 (slices, projections, profiles, volume rendering) works on samurai data.
 
-Example
--------
+Examples
+--------
 >>> import samurai_yt
 >>> ds = samurai_yt.load_samurai("solution.h5")
 >>> yt.SlicePlot(ds, "z", ("stream", "u")).save()

@@ -1,14 +1,15 @@
 # Copyright 2018-2025 the samurai's authors
 # SPDX-License-Identifier:  BSD-3-Clause
 """
-Validate the samurai yt loader (tools/yt/) against small reference files produced
-by tools/yt/tests/generate_reference.cpp.
+Validate the samurai yt loader (tools/yt/) against small reference files.
 
-The reference field is the analytic oracle ``u(center) = sum_d center[d]*10**d``.
-Checking ``u == u(reconstructed center)`` for every cell validates, at once, the
-geometry reconstruction and the (offset-driven) ``for_each_cell`` traversal order
-on which the flat field buffer relies -- first at the patch level (pure numpy /
-h5py, no yt) and then end-to-end through a loaded yt dataset.
+The reference files are produced by tools/yt/tests/generate_reference.cpp.
+The reference field is the analytic oracle ``u(center) = sum_d
+center[d]*10**d``. Checking ``u == u(reconstructed center)`` for every cell
+validates, at once, the geometry reconstruction and the (offset-driven)
+``for_each_cell`` traversal order on which the flat field buffer relies --
+first at the patch level (pure numpy / h5py, no yt) and then end-to-end
+through a loaded yt dataset.
 """
 
 import os
@@ -171,7 +172,7 @@ def test_yt_dataset(name, dim):
 
 
 def test_yt_time():
-    yt = pytest.importorskip("yt")
+    pytest.importorskip("yt")
     from samurai_yt import load_samurai
 
     ref = os.path.join(_REF_DIR, "ref_2d.h5")
