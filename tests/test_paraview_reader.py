@@ -49,7 +49,12 @@ def test_sequential_reconstruction(name, dim):
 
 
 def test_mpi_reconstruction():
-    blocks = load(os.path.join(_REF_DIR, "ref_2d_mpi.h5"))
+    ref = os.path.join(_REF_DIR, "ref_2d_mpi.h5")
+    if not os.path.exists(ref):
+        # Only produced by generate_paraview_reference on an MPI-enabled build
+        # (see .github/workflows/ci.yml, job linux-mpi-mamba).
+        pytest.skip("ref_2d_mpi.h5 not generated (requires an MPI-enabled build)")
+    blocks = load(ref)
     assert len(blocks) >= 2  # generated with mpirun -n 2
 
     centers = np.concatenate([b["center"] for b in blocks])

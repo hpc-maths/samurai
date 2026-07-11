@@ -12,11 +12,11 @@ on the fly. It replaces the old explicit-mesh export (points + connectivity +
 
 ## Files
 
-| File | Role |
-|------|------|
-| `samurai_load.py` | Pure `numpy` + `h5py` reconstruction of a samurai file. No ParaView dependency; unit-testable. Exposes `load()`, `discover_series()`, `read_time()`. |
-| `SamuraiReader.py` | ParaView reader (`@smproxy.reader`) wrapping `samurai_load`. |
-| `tests/generate_reference.cpp` | Regenerates the small reference files used by the tests. |
+| File                           | Role                                                                                                                                                 |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `samurai_load.py`              | Pure `numpy` + `h5py` reconstruction of a samurai file. No ParaView dependency; unit-testable. Exposes `load()`, `discover_series()`, `read_time()`. |
+| `SamuraiReader.py`             | ParaView reader (`@smproxy.reader`) wrapping `samurai_load`.                                                                                         |
+| `tests/generate_reference.cpp` | Regenerates the small reference files used by the tests.                                                                                             |
 
 ## Requirements
 
@@ -110,8 +110,15 @@ partition and time-series invariants.
 
 ### Regenerating the reference files
 
-They are produced by `tests/generate_reference.cpp`, compiled against the
-samurai headers. Example (adapt the toolchain to your environment):
+CI (re)builds and runs the
+`generate_paraview_reference` CMake target (see `.github/workflows/ci.yml`,
+jobs `linux-mamba`/`macos-mamba` for `ref_1d/2d/3d.h5`, and `linux-mpi-mamba`
+for `ref_2d_mpi.h5`) before running the pytest suite, so they never go stale.
+
+To regenerate them locally, build that target (requires `-DBUILD_TESTS=ON`)
+and run the resulting `generate_paraview_reference` executable — or compile
+`tests/generate_reference.cpp` by hand against the samurai headers. Example
+(adapt the toolchain to your environment):
 
 ```bash
 mpic++ -DSAMURAI_WITH_MPI -DSAMURAI_ENABLE_INLINE \
