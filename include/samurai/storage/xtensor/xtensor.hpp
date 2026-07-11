@@ -176,9 +176,8 @@ namespace samurai
     }
 
     template <class value_t, std::size_t size, bool can_collapse>
-    auto view(xtensor_container<value_t, size, can_collapse>& container,
-              const range_t<std::size_t>& range_item,
-              const range_t<long long>& range)
+    auto
+    view(xtensor_container<value_t, size, can_collapse>& container, const range_t<std::size_t>& range_item, const range_t<long long>& range)
     {
         static_assert(size > 1, "size must be greater than 1");
         static constexpr layout_type static_layout = xtensor_container<value_t, size, can_collapse>::static_layout;

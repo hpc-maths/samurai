@@ -193,15 +193,15 @@ int main(int argc, char* argv[])
 
         // Right-hand side
         auto f    = samurai::make_vector_field<dim>("f",
-                                                         mesh,
-                                                         [](const auto& coord)
-                                                         {
-                                                             const auto& x = coord[0];
-                                                             const auto& y = coord[1];
-                                                             double f_x    = 2 * sin(pi * (x + y)) + (1 / pi) * cos(pi * (x + y));
-                                                             double f_y    = -2 * sin(pi * (x + y)) + (1 / pi) * cos(pi * (x + y));
-                                                             return samurai::Array<double, dim>{f_x, f_y};
-                                                         });
+                                                 mesh,
+                                                 [](const auto& coord)
+                                                 {
+                                                     const auto& x = coord[0];
+                                                     const auto& y = coord[1];
+                                                     double f_x    = 2 * sin(pi * (x + y)) + (1 / pi) * cos(pi * (x + y));
+                                                     double f_y    = -2 * sin(pi * (x + y)) + (1 / pi) * cos(pi * (x + y));
+                                                     return samurai::Array<double, dim>{f_x, f_y};
+                                                 });
         auto zero = samurai::make_scalar_field<double>("zero", mesh);
         zero.fill(0);
 
@@ -235,15 +235,15 @@ int main(int argc, char* argv[])
         samurai::save(path, "pressure", mesh, pressure);
 
         auto exact_velocity = samurai::make_vector_field<dim>("exact_velocity",
-                                                                      mesh,
-                                                                      [](const auto& coord)
-                                                                      {
-                                                                          const auto& x = coord[0];
-                                                                          const auto& y = coord[1];
-                                                                          auto v_x      = 1 / (pi * pi) * sin(pi * (x + y));
-                                                                          auto v_y      = -v_x;
-                                                                          return samurai::Array<double, dim>{v_x, v_y};
-                                                                      });
+                                                              mesh,
+                                                              [](const auto& coord)
+                                                              {
+                                                                  const auto& x = coord[0];
+                                                                  const auto& y = coord[1];
+                                                                  auto v_x      = 1 / (pi * pi) * sin(pi * (x + y));
+                                                                  auto v_y      = -v_x;
+                                                                  return samurai::Array<double, dim>{v_x, v_y};
+                                                              });
         samurai::save(path, "exact_velocity", mesh, exact_velocity);
 
         /*auto err = samurai::make_vector_field<dim>("error", mesh);
@@ -446,11 +446,11 @@ int main(int argc, char* argv[])
             //                [I + dt*Diff] v_np1 + dt*p_np1 = v_n + dt*f
             //                         -Div v_np1            = 0
             auto f = samurai::make_vector_field<dim>("f",
-                                                             mesh,
-                                                             [&](const auto& coord)
-                                                             {
-                                                                 return analytic_f(t_n, coord);
-                                                             });
+                                                     mesh,
+                                                     [&](const auto& coord)
+                                                     {
+                                                         return analytic_f(t_n, coord);
+                                                     });
             rhs.fill(0);
             rhs = velocity + dt * f;
             zero.fill(0);

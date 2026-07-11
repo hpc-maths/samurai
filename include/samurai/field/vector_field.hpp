@@ -43,8 +43,7 @@ namespace samurai
         };
 
         template <class mesh_t, class value_t, std::size_t n_comp>
-        struct field_data_access<VectorField<mesh_t, value_t, n_comp>>
-            : public field_data_access_base<VectorField<mesh_t, value_t, n_comp>>
+        struct field_data_access<VectorField<mesh_t, value_t, n_comp>> : public field_data_access_base<VectorField<mesh_t, value_t, n_comp>>
         {
             using base_type = field_data_access_base<VectorField<mesh_t, value_t, n_comp>>;
 

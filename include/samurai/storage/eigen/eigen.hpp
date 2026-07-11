@@ -121,8 +121,7 @@ namespace samurai
     }
 
     template <class value_t, std::size_t size>
-    auto
-    view(const eigen_container<value_t, size>& container, const range_t<std::size_t>& range_item, const range_t<Eigen::Index>& range)
+    auto view(const eigen_container<value_t, size>& container, const range_t<std::size_t>& range_item, const range_t<Eigen::Index>& range)
     {
         return container.data()(Eigen::seq(range.start, range.end - 1, range.step),
                                 Eigen::seq(range_item.start, range_item.end - 1, range_item.step));
