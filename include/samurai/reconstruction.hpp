@@ -541,8 +541,7 @@ namespace samurai
         reconstruct_mesh[reconstruct_level] = mesh.domain();
         reconstruct_mesh.update_index();
 
-        auto m = holder(reconstruct_mesh);
-        // auto reconstruct_field = make_field<typename Field::value_type, Field::n_comp>(field.name(), m);
+        auto m                 = holder(reconstruct_mesh);
         auto reconstruct_field = make_field_like(field.name(), m);
         reconstruct_field.fill(0.);
 
@@ -847,7 +846,8 @@ namespace samurai
                                                                 - (i.start >> static_cast<value_t>(shift)));
 #if defined(SAMURAI_FIELD_CONTAINER_EIGEN3)
                             static_assert(sizeof(Field_src) == 0,
-                                          "transfer() is not implemented with Eigen for scalar and vectorial fields.");
+                                          "transfer() is not implemented with the Eigen field container (SAMURAI_FIELD_CONTAINER_EIGEN3) "
+                                          "for scalar and vectorial fields. Use the xtensor field container (default) instead.");
                         // In the lid-driven-cavity demo, the following line of code does not compile with Eigen.
 #else
                             static_assert(Field_src::static_layout == layout_type::row_major,

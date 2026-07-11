@@ -199,25 +199,16 @@ namespace samurai
                         // Coefficient insertion
                         if constexpr (field_t::is_scalar)
                         {
-                            // The indices are ordered in field_i for
-                            // all cells, then field_j for all cells:
+                            // A scalar field has a single component, so
+                            // field_i == field_j == 0 and each row corresponds
+                            // to one cell. The coefficients of a row are the
+                            // stencil coefficients acting on that cell:
                             //
-                            // - Diffusion example:
-                            //            [         field_i        |         field_j        ]
-                            //            [  L    R    C    B    T |  L    R    C    B    T ]
-                            //  coupling: [ i j| i j| i j| i j| i j| i j| i j| i j| i j| i j]
-                            //            [-1 0|-1 0| 4 0|-1 0|-1 0|0 -1|0 -1|0
-                            //            4|0 -1|0 -1]
+                            //   row c: |-1 -1  4 -1 -1|
+                            //           L  R  C  B  T
                             //
-                            // For the cell of global index c:
-                            //
-                            //                field_i       ...       field_j
-                            //   row c*i: |-1 -1  4 -1 -1|  ...  | 0  0  0  0 0|
-                            //
-                            //   row c*j: | 0  0  0  0  0|  ...  |-1 -1  4 -1
-                            //   -1|
-                            //                |_______|              |_______|
-                            //               contiguous              contiguous
+                            // The contiguous stencil indices are inserted with a
+                            // single MatSetValuesLocal call, the others one by one.
                             //
                             for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                             {

@@ -75,7 +75,7 @@ namespace samurai
     using flux_array_t    = StdArrayWrapper<value_type, size>;
     using flux_index_type = std::size_t;
 #elif defined(SAMURAI_FLUX_CONTAINER_EIGEN3)
-    using flux_array_t    = eigen_static_array<value_type, size, false>;
+    using flux_array_t    = eigen_static_array<value_type, size>;
     using flux_index_type = Eigen::Index;
 #else // SAMURAI_FLUX_CONTAINER_XTENSOR
     using flux_array_t    = xtensor_static_array<value_type, size>;
