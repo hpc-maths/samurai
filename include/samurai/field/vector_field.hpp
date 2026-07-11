@@ -38,8 +38,6 @@ namespace samurai
             using data_type                  = field_data_storage_t<value_t, n_comp, false>;
             using local_data_type            = local_field_data_t<value_t, n_comp, false>;
             using size_type                  = typename data_type::size_type;
-
-            static constexpr auto static_layout = data_type::static_layout;
         };
 
         template <class mesh_t, class value_t, std::size_t n_comp>

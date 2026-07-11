@@ -849,10 +849,6 @@ namespace samurai
                                           "transfer() is not implemented with the Eigen field container (SAMURAI_FIELD_CONTAINER_EIGEN3) "
                                           "for scalar and vectorial fields. Use the xtensor field container (default) instead.");
                         // In the lid-driven-cavity demo, the following line of code does not compile with Eigen.
-#else
-                            static_assert(Field_src::static_layout == layout_type::row_major,
-                                          "transfer() is not implemented when the xtensor within a field is col-major.");
-                        // In the lid-driven-cavity demo, the following line of code crashes at execution in col_major.
 #endif
                             view(dst, i_dst) += view(src, static_cast<size_type>(ii)) / (1 << shift * dim);
                         }

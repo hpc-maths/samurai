@@ -34,7 +34,6 @@ namespace samurai
             using data_type                     = field_data_storage_t<value_t, 1>;
             using local_data_type               = local_field_data_t<value_t, 1, true>;
             using size_type                     = typename data_type::size_type;
-            static constexpr auto static_layout = data_type::static_layout;
         };
 
         // ScalarField specialization ---------------------------------------------

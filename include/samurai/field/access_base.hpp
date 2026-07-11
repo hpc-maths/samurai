@@ -34,7 +34,6 @@ namespace samurai
             using index_t                       = typename inner_types::index_t;
             using size_type                     = typename inner_types::size_type;
             using cell_t                        = typename inner_types::cell_t;
-            static constexpr auto static_layout = data_type::static_layout;
 
             derived_type& derived_cast() & noexcept
             {
