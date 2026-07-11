@@ -21,37 +21,31 @@ namespace samurai
 
     namespace detail
     {
-        template <class value_t, std::size_t size, bool SOA, class = void>
+        template <class value_t, std::size_t size, class = void>
         struct eigen_type;
 
-        template <class value_t, bool SOA>
-        struct eigen_type<value_t, 1, SOA>
+        template <class value_t>
+        struct eigen_type<value_t, 1>
         {
             using type = Eigen::Array<value_t, Eigen::Dynamic, 1>;
         };
 
         template <class value_t, std::size_t size>
-        struct eigen_type<value_t, size, true, std::enable_if_t<(size > 1)>>
-        {
-            using type = Eigen::Array<value_t, size, Eigen::Dynamic, Eigen::RowMajor>;
-        };
-
-        template <class value_t, std::size_t size>
-        struct eigen_type<value_t, size, false, std::enable_if_t<(size > 1)>>
+        struct eigen_type<value_t, size, std::enable_if_t<(size > 1)>>
         {
             using type = Eigen::Array<value_t, Eigen::Dynamic, size, Eigen::ColMajor>;
         };
 
-        template <class value_t, std::size_t size, bool SOA>
-        using eigen_type_t = typename eigen_type<value_t, size, SOA>::type;
+        template <class value_t, std::size_t size>
+        using eigen_type_t = typename eigen_type<value_t, size>::type;
 
     }
 
-    template <class value_t, std::size_t size, bool SOA>
+    template <class value_t, std::size_t size>
     struct eigen_container
     {
         static constexpr layout_type static_layout = SAMURAI_DEFAULT_LAYOUT; // cppcheck-suppress unusedStructMember
-        using container_t                          = detail::eigen_type_t<value_t, size, SOA>;
+        using container_t                          = detail::eigen_type_t<value_t, size>;
         using size_type                            = Eigen::Index;
 
         eigen_container() = default;
@@ -80,14 +74,7 @@ namespace samurai
             }
             else
             {
-                if constexpr (SOA)
-                {
-                    m_data.resize(size, dynamic_size);
-                }
-                else
-                {
-                    m_data.resize(dynamic_size, size);
-                }
+                m_data.resize(dynamic_size, size);
             }
         }
 
@@ -96,118 +83,67 @@ namespace samurai
         container_t m_data;
     };
 
-    template <class value_t, bool SOA>
-    auto view(eigen_container<value_t, 1, SOA>& container, const range_t<Eigen::Index>& range)
+    template <class value_t>
+    auto view(eigen_container<value_t, 1>& container, const range_t<Eigen::Index>& range)
     {
         return container.data()(Eigen::seq(range.start, range.end - 1, range.step));
     }
 
     template <class value_t, std::size_t size, typename = std::enable_if_t<(size > 1)>>
-    auto view(eigen_container<value_t, size, true>& container, const range_t<Eigen::Index>& range)
-    {
-        return container.data()(Eigen::placeholders::all, Eigen::seq(range.start, range.end - 1, range.step));
-    }
-
-    template <class value_t, std::size_t size, typename = std::enable_if_t<(size > 1)>>
-    auto view(eigen_container<value_t, size, false>& container, const range_t<Eigen::Index>& range)
+    auto view(eigen_container<value_t, size>& container, const range_t<Eigen::Index>& range)
     {
         return container.data()(Eigen::seq(range.start, range.end - 1, range.step), Eigen::placeholders::all);
     }
 
     template <class value_t, std::size_t size>
-    auto view(eigen_container<value_t, size, true>& container, const range_t<std::size_t>& range_item, const range_t<Eigen::Index>& range)
-    {
-        return container.data()(Eigen::seq(range_item.start, range_item.end - 1, range_item.step),
-                                Eigen::seq(range.start, range.end - 1, range.step));
-    }
-
-    template <class value_t, std::size_t size>
-    auto view(eigen_container<value_t, size, false>& container, const range_t<std::size_t>& range_item, const range_t<Eigen::Index>& range)
+    auto view(eigen_container<value_t, size>& container, const range_t<std::size_t>& range_item, const range_t<Eigen::Index>& range)
     {
         return container.data()(Eigen::seq(range.start, range.end - 1, range.step),
                                 Eigen::seq(range_item.start, range_item.end - 1, range_item.step));
     }
 
     template <class value_t, std::size_t size>
-    auto view(eigen_container<value_t, size, true>& container, std::size_t item, const range_t<Eigen::Index>& range)
-    {
-        return container.data()(item, Eigen::seq(range.start, range.end - 1, range.step));
-    }
-
-    template <class value_t, std::size_t size>
-    auto view(eigen_container<value_t, size, false>& container, std::size_t item, const range_t<Eigen::Index>& range)
+    auto view(eigen_container<value_t, size>& container, std::size_t item, const range_t<Eigen::Index>& range)
     {
         return container.data()(Eigen::seq(range.start, range.end - 1, range.step), item);
     }
 
-    template <class value_t, bool SOA>
-    auto view(const eigen_container<value_t, 1, SOA>& container, const range_t<Eigen::Index>& range)
+    template <class value_t>
+    auto view(const eigen_container<value_t, 1>& container, const range_t<Eigen::Index>& range)
     {
         return container.data()(Eigen::seq(range.start, range.end - 1, range.step));
     }
 
     template <class value_t, std::size_t size, typename = std::enable_if_t<(size > 1)>>
-    auto view(const eigen_container<value_t, size, true>& container, const range_t<Eigen::Index>& range)
-    {
-        return container.data()(Eigen::placeholders::all, Eigen::seq(range.start, range.end - 1, range.step));
-    }
-
-    template <class value_t, std::size_t size, typename = std::enable_if_t<(size > 1)>>
-    auto view(const eigen_container<value_t, size, false>& container, const range_t<Eigen::Index>& range)
+    auto view(const eigen_container<value_t, size>& container, const range_t<Eigen::Index>& range)
     {
         return container.data()(Eigen::seq(range.start, range.end - 1, range.step), Eigen::placeholders::all);
     }
 
     template <class value_t, std::size_t size>
     auto
-    view(const eigen_container<value_t, size, true>& container, const range_t<std::size_t>& range_item, const range_t<Eigen::Index>& range)
-    {
-        return container.data()(Eigen::seq(range_item.start, range_item.end - 1, range_item.step),
-                                Eigen::seq(range.start, range.end - 1, range.step));
-    }
-
-    template <class value_t, std::size_t size>
-    auto
-    view(const eigen_container<value_t, size, false>& container, const range_t<std::size_t>& range_item, const range_t<Eigen::Index>& range)
+    view(const eigen_container<value_t, size>& container, const range_t<std::size_t>& range_item, const range_t<Eigen::Index>& range)
     {
         return container.data()(Eigen::seq(range.start, range.end - 1, range.step),
                                 Eigen::seq(range_item.start, range_item.end - 1, range_item.step));
     }
 
     template <class value_t, std::size_t size>
-    auto view(const eigen_container<value_t, size, true>& container, std::size_t item, const range_t<Eigen::Index>& range)
-    {
-        return container.data()(item, Eigen::seq(range.start, range.end - 1, range.step));
-    }
-
-    template <class value_t, std::size_t size>
-    auto view(const eigen_container<value_t, size, false>& container, std::size_t item, const range_t<Eigen::Index>& range)
+    auto view(const eigen_container<value_t, size>& container, std::size_t item, const range_t<Eigen::Index>& range)
     {
         return container.data()(Eigen::seq(range.start, range.end - 1, range.step), item);
     }
 
     template <class value_t, std::size_t size>
-    auto view(const eigen_container<value_t, size, false>& container, Eigen::Index index)
+    auto view(const eigen_container<value_t, size>& container, Eigen::Index index)
     {
         return container.data()(index, Eigen::placeholders::all);
     }
 
     template <class value_t, std::size_t size>
-    auto view(eigen_container<value_t, size, false>& container, Eigen::Index index)
+    auto view(eigen_container<value_t, size>& container, Eigen::Index index)
     {
         return container.data()(index, Eigen::placeholders::all);
-    }
-
-    template <class value_t, std::size_t size>
-    auto view(const eigen_container<value_t, size, true>& container, Eigen::Index index)
-    {
-        return container.data()(Eigen::placeholders::all, index);
-    }
-
-    template <class value_t, std::size_t size>
-    auto view(eigen_container<value_t, size, true>& container, Eigen::Index index)
-    {
-        return container.data()(Eigen::placeholders::all, index);
     }
 
     template <class D>

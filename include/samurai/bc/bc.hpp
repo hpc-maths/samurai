@@ -81,7 +81,7 @@ namespace samurai
     template <class Config>
     class UniformMesh;
 
-    template <class mesh_t, class value_t, std::size_t size, bool SOA>
+    template <class mesh_t, class value_t, std::size_t size>
     class VectorField;
 
     template <class mesh_t, class value_t>
@@ -94,7 +94,7 @@ namespace samurai
     struct BcValue
     {
         static constexpr std::size_t dim = Field::dim;
-        using value_t     = CollapsArray<typename Field::value_type, Field::n_comp, detail::is_soa_v<Field>, Field::is_scalar>;
+        using value_t     = CollapsArray<typename Field::value_type, Field::n_comp, Field::is_scalar>;
         using coords_t    = xt::xtensor_fixed<double, xt::xshape<dim>>;
         using direction_t = DirectionVector<dim>;
         using cell_t      = typename Field::cell_t;

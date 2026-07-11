@@ -125,9 +125,8 @@ int main(int argc, char* argv[])
 
     constexpr std::size_t dim     = 2;
     constexpr unsigned int n_comp = 1;
-    constexpr bool is_soa         = false;
     using Mesh                    = decltype(create_uniform_mesh<dim>(1));
-    using Field                   = samurai::VectorField<Mesh, double, n_comp, is_soa>;
+    using Field                   = samurai::VectorField<Mesh, double, n_comp>;
 
     //----------------//
     //   Parameters   //
@@ -208,8 +207,8 @@ int main(int argc, char* argv[])
     // Create problem //
     //----------------//
 
-    auto source   = samurai::make_vector_field<double, n_comp, is_soa>("source", mesh, test_case->source());
-    auto solution = samurai::make_vector_field<double, n_comp, is_soa>("solution", mesh);
+    auto source   = samurai::make_vector_field<double, n_comp>("source", mesh, test_case->source());
+    auto solution = samurai::make_vector_field<double, n_comp>("solution", mesh);
     solution.fill(0);
 
     // Boundary conditions
@@ -270,7 +269,7 @@ int main(int argc, char* argv[])
     std::cout << "Elapsed time: " << total_timer.Elapsed() << std::endl;
     std::cout << std::endl;
 
-    /*auto right_fluxes = samurai::make_vector_field<double, n_comp, is_soa>("fluxes", mesh);
+    /*auto right_fluxes = samurai::make_vector_field<double, n_comp>("fluxes", mesh);
     samurai::DirectionVector<dim> right = {1, 0};
     samurai::Stencil<2, dim> comput_stencil = {{0, 0}, {1, 0}};
     samurai::for_each_interface(mesh, right, comput_stencil,

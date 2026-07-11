@@ -233,8 +233,6 @@ namespace samurai
         template <class Field>
         Vec create_petsc_vector_from(Field& f, const typename Field::cell_t& cell)
         {
-            static_assert(Field::is_scalar || !detail::is_soa_v<Field>);
-
             Vec v;
             auto vec_size        = static_cast<PetscInt>(Field::n_comp);
             auto cell_data_index = Field::n_comp * static_cast<std::size_t>(cell.index);

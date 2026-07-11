@@ -82,7 +82,6 @@ namespace samurai
     template <class cfg>
     using SchemeValue = CollapsArray<typename cfg::output_field_t::value_type,
                                      cfg::output_field_t::n_comp,
-                                     detail::is_soa_v<typename cfg::output_field_t>,
                                      cfg::output_field_t::is_scalar>;
 
     /**

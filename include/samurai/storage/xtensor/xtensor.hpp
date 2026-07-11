@@ -39,7 +39,7 @@ namespace samurai
         static constexpr ::xt::layout_type xtensor_layout_v = xtensor_layout<L>::value;
     }
 
-    template <class value_t, std::size_t size, bool SOA = false, bool can_collapse = true>
+    template <class value_t, std::size_t size, bool can_collapse = true>
     struct xtensor_container
     {
         static constexpr layout_type static_layout = SAMURAI_DEFAULT_LAYOUT;
@@ -72,7 +72,7 @@ namespace samurai
             }
             else
             {
-                if constexpr (detail::static_size_first_v<size, SOA, can_collapse, static_layout>)
+                if constexpr (detail::static_size_first_v<size, can_collapse, static_layout>)
                 {
                     m_data.resize({size, dynamic_size});
                 }
@@ -92,11 +92,11 @@ namespace samurai
     // VIEW: CONST IMPLEMENTATION //
     ////////////////////////////////
 
-    template <class value_t, std::size_t size, bool SOA, bool can_collapse>
-    auto view(const xtensor_container<value_t, size, SOA, can_collapse>& container, const range_t<long long>& range)
+    template <class value_t, std::size_t size, bool can_collapse>
+    auto view(const xtensor_container<value_t, size, can_collapse>& container, const range_t<long long>& range)
     {
-        static constexpr layout_type static_layout = xtensor_container<value_t, size, SOA, can_collapse>::static_layout;
-        if constexpr (detail::static_size_first_v<size, SOA, can_collapse, static_layout>)
+        static constexpr layout_type static_layout = xtensor_container<value_t, size, can_collapse>::static_layout;
+        if constexpr (detail::static_size_first_v<size, can_collapse, static_layout>)
         {
             return xt::view(container.data(), xt::all(), xt::range(range.start, range.end, range.step));
         }
@@ -106,14 +106,14 @@ namespace samurai
         }
     }
 
-    template <class value_t, std::size_t size, bool SOA, bool can_collapse>
-    auto view(const xtensor_container<value_t, size, SOA, can_collapse>& container,
+    template <class value_t, std::size_t size, bool can_collapse>
+    auto view(const xtensor_container<value_t, size, can_collapse>& container,
               const range_t<std::size_t>& range_item,
               const range_t<long long>& range)
     {
         static_assert(size > 1, "size must be greater than 1");
-        static constexpr layout_type static_layout = xtensor_container<value_t, size, SOA, can_collapse>::static_layout;
-        if constexpr (detail::static_size_first_v<size, SOA, can_collapse, static_layout>)
+        static constexpr layout_type static_layout = xtensor_container<value_t, size, can_collapse>::static_layout;
+        if constexpr (detail::static_size_first_v<size, can_collapse, static_layout>)
         {
             return xt::view(container.data(),
                             xt::range(range_item.start, range_item.end, range_item.step),
@@ -127,12 +127,12 @@ namespace samurai
         }
     }
 
-    template <class value_t, std::size_t size, bool SOA, bool can_collapse>
-    auto view(const xtensor_container<value_t, size, SOA, can_collapse>& container, std::size_t item, const range_t<long long>& range)
+    template <class value_t, std::size_t size, bool can_collapse>
+    auto view(const xtensor_container<value_t, size, can_collapse>& container, std::size_t item, const range_t<long long>& range)
     {
         static_assert(size > 1, "size must be greater than 1");
-        static constexpr layout_type static_layout = xtensor_container<value_t, size, SOA, can_collapse>::static_layout;
-        if constexpr (detail::static_size_first_v<size, SOA, can_collapse, static_layout>)
+        static constexpr layout_type static_layout = xtensor_container<value_t, size, can_collapse>::static_layout;
+        if constexpr (detail::static_size_first_v<size, can_collapse, static_layout>)
         {
             return xt::view(container.data(), item, xt::range(range.start, range.end, range.step));
         }
@@ -142,12 +142,12 @@ namespace samurai
         }
     }
 
-    template <class value_t, std::size_t size, bool SOA, bool can_collapse>
-    auto view(const xtensor_container<value_t, size, SOA, can_collapse>& container, std::size_t index)
+    template <class value_t, std::size_t size, bool can_collapse>
+    auto view(const xtensor_container<value_t, size, can_collapse>& container, std::size_t index)
     {
-        static constexpr layout_type static_layout = xtensor_container<value_t, size, SOA, can_collapse>::static_layout;
+        static constexpr layout_type static_layout = xtensor_container<value_t, size, can_collapse>::static_layout;
 
-        if constexpr (detail::static_size_first_v<size, SOA, can_collapse, static_layout>)
+        if constexpr (detail::static_size_first_v<size, can_collapse, static_layout>)
         {
             return xt::view(container.data(), xt::all(), index);
         }
@@ -161,11 +161,11 @@ namespace samurai
     // VIEW: NON CONST IMPLEMENTATION //
     ////////////////////////////////////
 
-    template <class value_t, std::size_t size, bool SOA, bool can_collapse>
-    auto view(xtensor_container<value_t, size, SOA, can_collapse>& container, const range_t<long long>& range)
+    template <class value_t, std::size_t size, bool can_collapse>
+    auto view(xtensor_container<value_t, size, can_collapse>& container, const range_t<long long>& range)
     {
-        static constexpr layout_type static_layout = xtensor_container<value_t, size, SOA, can_collapse>::static_layout;
-        if constexpr (detail::static_size_first_v<size, SOA, can_collapse, static_layout>)
+        static constexpr layout_type static_layout = xtensor_container<value_t, size, can_collapse>::static_layout;
+        if constexpr (detail::static_size_first_v<size, can_collapse, static_layout>)
         {
             return xt::view(container.data(), xt::all(), xt::range(range.start, range.end, range.step));
         }
@@ -175,14 +175,14 @@ namespace samurai
         }
     }
 
-    template <class value_t, std::size_t size, bool SOA, bool can_collapse>
-    auto view(xtensor_container<value_t, size, SOA, can_collapse>& container,
+    template <class value_t, std::size_t size, bool can_collapse>
+    auto view(xtensor_container<value_t, size, can_collapse>& container,
               const range_t<std::size_t>& range_item,
               const range_t<long long>& range)
     {
         static_assert(size > 1, "size must be greater than 1");
-        static constexpr layout_type static_layout = xtensor_container<value_t, size, SOA, can_collapse>::static_layout;
-        if constexpr (detail::static_size_first_v<size, SOA, can_collapse, static_layout>)
+        static constexpr layout_type static_layout = xtensor_container<value_t, size, can_collapse>::static_layout;
+        if constexpr (detail::static_size_first_v<size, can_collapse, static_layout>)
         {
             return xt::view(container.data(),
                             xt::range(range_item.start, range_item.end, range_item.step),
@@ -196,12 +196,12 @@ namespace samurai
         }
     }
 
-    template <class value_t, std::size_t size, bool SOA, bool can_collapse>
-    auto view(xtensor_container<value_t, size, SOA, can_collapse>& container, std::size_t item, const range_t<long long>& range)
+    template <class value_t, std::size_t size, bool can_collapse>
+    auto view(xtensor_container<value_t, size, can_collapse>& container, std::size_t item, const range_t<long long>& range)
     {
         static_assert(size > 1, "size must be greater than 1");
-        static constexpr layout_type static_layout = xtensor_container<value_t, size, SOA, can_collapse>::static_layout;
-        if constexpr (detail::static_size_first_v<size, SOA, can_collapse, static_layout>)
+        static constexpr layout_type static_layout = xtensor_container<value_t, size, can_collapse>::static_layout;
+        if constexpr (detail::static_size_first_v<size, can_collapse, static_layout>)
         {
             return xt::view(container.data(), item, xt::range(range.start, range.end, range.step));
         }
@@ -211,11 +211,11 @@ namespace samurai
         }
     }
 
-    template <class value_t, std::size_t size, bool SOA, bool can_collapse>
-    auto view(xtensor_container<value_t, size, SOA, can_collapse>& container, std::size_t index)
+    template <class value_t, std::size_t size, bool can_collapse>
+    auto view(xtensor_container<value_t, size, can_collapse>& container, std::size_t index)
     {
-        static constexpr layout_type static_layout = xtensor_container<value_t, size, SOA, can_collapse>::static_layout;
-        if constexpr (detail::static_size_first_v<size, SOA, can_collapse, static_layout>)
+        static constexpr layout_type static_layout = xtensor_container<value_t, size, can_collapse>::static_layout;
+        if constexpr (detail::static_size_first_v<size, can_collapse, static_layout>)
         {
             return xt::view(container.data(), xt::all(), index);
         }

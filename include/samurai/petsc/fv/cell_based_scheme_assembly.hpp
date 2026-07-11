@@ -55,10 +55,6 @@ namespace samurai
                 {
                     return cell_local_index;
                 }
-                else if constexpr (detail::is_soa_v<field_t>)
-                {
-                    return field_j * stencil_size + cell_local_index;
-                }
                 else
                 {
                     return cell_local_index * input_n_comp + field_j;
@@ -70,10 +66,6 @@ namespace samurai
                 if constexpr (output_n_comp == 1)
                 {
                     return cell_local_index;
-                }
-                else if constexpr (detail::is_soa_v<field_t>)
-                {
-                    return field_i * stencil_size + cell_local_index;
                 }
                 else
                 {
@@ -132,72 +124,15 @@ namespace samurai
                     return;
                 }
 
-                StencilCoeffs<cfg_t> coeffs;
-
-                // If LinearHomogeneous, take only the non-zero coefficients into account.
-                // Not sure if this optimization really makes a difference though...
-                if constexpr (cfg_t::scheme_type == SchemeType::LinearHomogeneous && detail::is_soa_v<field_t>)
-                {
-                    for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
-                    {
-                        scheme().coefficients(coeffs, cell_length(1., 0));
-                        PetscInt scheme_nnz_i = 0;
-                        for (unsigned int field_j = 0; field_j < input_n_comp; ++field_j)
-                        {
-                            if constexpr (cfg_t::contiguous_indices_start > 0)
-                            {
-                                for (unsigned int c = 0; c < cfg_t::contiguous_indices_start; ++c)
-                                {
-                                    double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
-                                    if (coeff != 0)
-                                    {
-                                        scheme_nnz_i++;
-                                    }
-                                }
-                            }
-                            if constexpr (cfg_t::contiguous_indices_size > 0)
-                            {
-                                for (unsigned int c = 0; c < cfg_t::contiguous_indices_size; ++c)
-                                {
-                                    double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
-                                    if (coeff != 0)
-                                    {
-                                        scheme_nnz_i += cfg_t::contiguous_indices_size;
-                                        break;
-                                    }
-                                }
-                            }
-                            if constexpr (cfg_t::contiguous_indices_start + cfg_t::contiguous_indices_size < cfg_t::stencil_size)
-                            {
-                                for (unsigned int c = cfg_t::contiguous_indices_start + cfg_t::contiguous_indices_size; c < stencil_size; ++c)
-                                {
-                                    double coeff = scheme().cell_coeff(coeffs, c, field_i, field_j);
-                                    if (coeff != 0)
-                                    {
-                                        scheme_nnz_i++;
-                                    }
-                                }
-                            }
-                        }
-                        for_each_cell(mesh(),
-                                      [&](auto& cell)
-                                      {
-                                          d_nnz[static_cast<std::size_t>(this->local_row_index(cell, field_i))] += scheme_nnz_i;
-                                      });
-                    }
-                }
-                else
-                {
-                    PetscInt scheme_nnz_i = stencil_size * input_n_comp;
-                    for_each_cell(mesh(),
-                                  [&](auto& cell)
+                PetscInt scheme_nnz_i = stencil_size * input_n_comp;
+                for_each_cell(mesh(),
+                              [&](auto& cell)
+                              {
+                                  for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
                                   {
-                                      for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
-                                      {
-                                          d_nnz[static_cast<std::size_t>(this->local_row_index(cell, field_i))] += scheme_nnz_i;
-                                      }
-                                  });
-                }
+                                      d_nnz[static_cast<std::size_t>(this->local_row_index(cell, field_i))] += scheme_nnz_i;
+                                  }
+                              });
             }
 #endif
 
@@ -262,9 +197,9 @@ namespace samurai
                         //     field_j (Grad_y) |  |  |  |-1| 1|
 
                         // Coefficient insertion
-                        if constexpr (field_t::is_scalar || detail::is_soa_v<field_t>)
+                        if constexpr (field_t::is_scalar)
                         {
-                            // In SOA, the indices are ordered in field_i for
+                            // The indices are ordered in field_i for
                             // all cells, then field_j for all cells:
                             //
                             // - Diffusion example:

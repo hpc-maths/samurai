@@ -89,7 +89,7 @@ namespace samurai
             using mesh_t   = typename TField::mesh_t;
             using detail_t = std::conditional_t<TField::is_scalar,
                                                 ScalarField<mesh_t, typename TField::value_type>,
-                                                VectorField<mesh_t, typename TField::value_type, TField::n_comp, detail::is_soa_v<TField>>>;
+                                                VectorField<mesh_t, typename TField::value_type, TField::n_comp>>;
         };
     }
 

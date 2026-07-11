@@ -108,7 +108,7 @@ namespace samurai
 
         // using output_field_t = std::conditional_t<input_field_t::is_scalar && output_n_comp == 1,
         //                                           ScalarField<mesh_t, field_value_type>,
-        //                                           VectorField<mesh_t, field_value_type, output_n_comp, detail::is_soa_v<input_field_t>>>;
+        //                                           VectorField<mesh_t, field_value_type, output_n_comp>>;
 
         using dirichlet_t = DirichletImpl<nb_bdry_ghosts, field_t>;
         using neumann_t   = NeumannImpl<nb_bdry_ghosts, field_t>;

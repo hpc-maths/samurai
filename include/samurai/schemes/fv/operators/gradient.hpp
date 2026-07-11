@@ -13,7 +13,7 @@ namespace samurai
 
         static constexpr std::size_t stencil_size = 2;
         using input_field_t                       = Field;
-        using output_field_t = VectorField<typename Field::mesh_t, typename Field::value_type, dim, detail::is_soa_v<input_field_t>>;
+        using output_field_t = VectorField<typename Field::mesh_t, typename Field::value_type, dim>;
 
         using cfg = FluxConfig<SchemeType::LinearHomogeneous, stencil_size, output_field_t, input_field_t>;
 

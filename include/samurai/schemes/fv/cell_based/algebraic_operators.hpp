@@ -167,7 +167,7 @@ namespace samurai
                 StencilCoeffs<lin_cfg> coeffs;
                 auto h = cell.length;
                 lin_scheme.coefficients(coeffs, h);
-                value += mat_vec<detail::is_soa_v<input_field_t>, can_collapse>(coeffs, field[cell]);
+                value += mat_vec<can_collapse>(coeffs, field[cell]);
             };
 
             addition_scheme.local_scheme_function() = nullptr;
@@ -180,7 +180,7 @@ namespace samurai
                     StencilCoeffs<lin_cfg> coeffs;
                     auto h = cell.length;
                     lin_scheme.coefficients(coeffs, h);
-                    value += mat_vec<detail::is_soa_v<input_field_t>, can_collapse>(coeffs, field[cell]);
+                    value += mat_vec<can_collapse>(coeffs, field[cell]);
                 };
             }
 

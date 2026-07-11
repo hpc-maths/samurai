@@ -189,7 +189,7 @@ namespace
             u,
             [](const auto&, const auto&, const auto& coords)
             {
-                return samurai::CollapsArray<double, n_comp, false>({curved(coords[0], coords[1], 0), curved(coords[0], coords[1], 1)});
+                return samurai::CollapsArray<double, n_comp>({curved(coords[0], coords[1], 0), curved(coords[0], coords[1], 1)});
             });
 
         auto balancer = lb::make_load_balancer(lb::LoadBalanceConfig{}, strategy);
@@ -221,7 +221,7 @@ namespace
             u,
             [](const auto&, const auto&, const auto& coords)
             {
-                return samurai::CollapsArray<double, n_comp, false>({curved(coords[0], coords[1], 0), curved(coords[0], coords[1], 1)});
+                return samurai::CollapsArray<double, n_comp>({curved(coords[0], coords[1], 0), curved(coords[0], coords[1], 1)});
             });
         auto balancer = lb::make_load_balancer(lb::LoadBalanceConfig{}, strategy);
         balancer.load_balance(lb::weight::uniform(), u);

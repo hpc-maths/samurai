@@ -524,7 +524,7 @@ In the configuration, the number of components of the output field is set to the
     auto u = samurai::make_scalar_field<double>("u", mesh);
 
     using input_field_t                       = decltype(u);
-    using output_field_t = VectorField<typename input_field_t::mesh_t, typename input_field_t::value_type, dim, detail::is_soa_v<input_field_t>>;
+    using output_field_t = VectorField<typename input_field_t::mesh_t, typename input_field_t::value_type, dim>;
 
     using cfg = samurai::FluxConfig<samurai::SchemeType::LinearHomogeneous,
                                     2,              // stencil_size

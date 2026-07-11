@@ -114,16 +114,16 @@ namespace samurai
                       });
 
         auto it = field.begin();
-        EXPECT_TRUE(compare(*it, samurai::Array<std::size_t, 2, true>{0, 1}));
+        EXPECT_TRUE(compare(*it, samurai::Array<std::size_t, 2>{0, 1}));
         it += 2;
-        EXPECT_TRUE(compare(*it, samurai::Array<std::size_t, 4, true>{4, 5, 6, 7}));
+        EXPECT_TRUE(compare(*it, samurai::Array<std::size_t, 4>{4, 5, 6, 7}));
         ++it;
         EXPECT_EQ(it, field.end());
 
         auto itr = field.rbegin();
-        EXPECT_TRUE(compare(*itr, samurai::Array<std::size_t, 4, true>{4, 5, 6, 7}));
+        EXPECT_TRUE(compare(*itr, samurai::Array<std::size_t, 4>{4, 5, 6, 7}));
         itr += 2;
-        EXPECT_TRUE(compare(*itr, samurai::Array<std::size_t, 2, true>{0, 1}));
+        EXPECT_TRUE(compare(*itr, samurai::Array<std::size_t, 2>{0, 1}));
         ++itr;
         EXPECT_EQ(itr, field.rend());
     }

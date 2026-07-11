@@ -1258,8 +1258,8 @@ namespace samurai
          * monolithicAssembly.create_matrix(monolithicA);
          * monolithicAssembly.assemble_matrix(monolithicA);
          * Vec mono_x                = monolithicAssembly.create_applicable_vector(x); // copy
-         * auto result_velocity_mono = samurai::make_field<dim, is_soa>("result_velocity", mesh);
-         * auto result_pressure_mono = samurai::make_field<1, is_soa>("result_pressure", mesh);
+         * auto result_velocity_mono = samurai::make_field<dim>("result_velocity", mesh);
+         * auto result_pressure_mono = samurai::make_field<1>("result_pressure", mesh);
          * auto result_mono          = stokes.tie_rhs(result_velocity_mono, result_pressure_mono);
          * Vec mono_result           = monolithicAssembly.create_rhs_vector(result_mono); // copy
          * MatMult(monolithicA, mono_x, mono_result);
@@ -1271,8 +1271,8 @@ namespace samurai
          * nestedAssembly.create_matrix(nestedA);
          * nestedAssembly.assemble_matrix(nestedA);
          * Vec nest_x                = nestedAssembly.create_applicable_vector(x);
-         * auto result_velocity_nest = samurai::make_field<dim, is_soa>("result_velocity", mesh);
-         * auto result_pressure_nest = samurai::make_field<1, is_soa>("result_pressure", mesh);
+         * auto result_velocity_nest = samurai::make_field<dim>("result_velocity", mesh);
+         * auto result_pressure_nest = samurai::make_field<1>("result_pressure", mesh);
          * auto result_nest          = stokes.tie_rhs(result_velocity_nest, result_pressure_nest);
          * Vec nest_result           = nestedAssembly.create_rhs_vector(result_nest);
          * MatMult(nestedA, nest_x, nest_result);
