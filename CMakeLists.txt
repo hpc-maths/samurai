@@ -56,7 +56,6 @@ option(WITH_OPENMP "Enable OpenMP" OFF)
 option(WITH_PETSC "Enable PETSc" OFF)
 option(SAMURAI_ENABLE_INLINE "Enable inline keyword for performance" ON)
 option(SAMURAI_FORCE_INLINE "Force aggressive inlining (takes precedence)" OFF)
-option(SAMURAI_CONTAINER_LAYOUT_COL_MAJOR "Set the containers' layout to column-major" OFF)
 
 set(FIELD_CONTAINER_LIST "xtensor" "eigen3")
 set(SAMURAI_FIELD_CONTAINER "xtensor" CACHE STRING "Container to store fields: ${FIELD_CONTAINER_LIST}")
@@ -284,10 +283,6 @@ if(BUILD_DEMOS)
   add_subdirectory(demos)
 else()
   add_subdirectory(demos EXCLUDE_FROM_ALL)
-endif()
-
-if(SAMURAI_CONTAINER_LAYOUT_COL_MAJOR)
-  target_compile_definitions(samurai INTERFACE SAMURAI_CONTAINER_LAYOUT_COL_MAJOR)
 endif()
 
 if(NOT SAMURAI_FIELD_CONTAINER IN_LIST FIELD_CONTAINER_LIST)

@@ -531,7 +531,7 @@ namespace samurai
             }
             else
             {
-                return make_vector_field<typename Field::value_type, Field::n_comp, detail::is_soa_v<Field>>(name, mesh);
+                return make_vector_field<typename Field::value_type, Field::n_comp>(name, mesh);
             }
         };
 
@@ -541,8 +541,7 @@ namespace samurai
         reconstruct_mesh[reconstruct_level] = mesh.domain();
         reconstruct_mesh.update_index();
 
-        auto m = holder(reconstruct_mesh);
-        // auto reconstruct_field = make_field<typename Field::value_type, Field::n_comp, detail::is_soa_v<Field>>(field.name(), m);
+        auto m                 = holder(reconstruct_mesh);
         auto reconstruct_field = make_field_like(field.name(), m);
         reconstruct_field.fill(0.);
 
@@ -789,14 +788,7 @@ namespace samurai
             }
             else
             {
-                if constexpr (Field::is_soa)
-                {
-                    return xt::view(f(level, indices...), xt::all(), 0);
-                }
-                else
-                {
-                    return xt::view(f(level, indices...), 0);
-                }
+                return xt::view(f(level, indices...), 0);
             }
         };
 
@@ -852,24 +844,13 @@ namespace samurai
                         {
                             auto i_dst = static_cast<size_type>(((i.start + ii) >> static_cast<value_t>(shift))
                                                                 - (i.start >> static_cast<value_t>(shift)));
-                            if constexpr (detail::is_soa_v<Field_src> && !Field_src::is_scalar)
-                            {
-                                view(dst, placeholders::all(), i_dst) += view(src, placeholders::all(), static_cast<size_type>(ii))
-                                                                       / (1 << shift * dim);
-                            }
-                            else
-                            {
 #if defined(SAMURAI_FIELD_CONTAINER_EIGEN3)
-                                static_assert(detail::is_soa_v<Field_src> && !Field_src::is_scalar,
-                                              "transfer() is not implemented with Eigen for scalar fields and vectorial fields in AOS.");
-                            // In the lid-driven-cavity demo, the following line of code does not compile with Eigen.
-#else
-                                static_assert(Field_src::static_layout == layout_type::row_major,
-                                              "transfer() is not implemented when the xtensor within a field is col-major.");
-                            // In the lid-driven-cavity demo, the following line of code crashes at execution in col_major.
+                            static_assert(sizeof(Field_src) == 0,
+                                          "transfer() is not implemented with the Eigen field container (SAMURAI_FIELD_CONTAINER_EIGEN3) "
+                                          "for scalar and vectorial fields. Use the xtensor field container (default) instead.");
+                        // In the lid-driven-cavity demo, the following line of code does not compile with Eigen.
 #endif
-                                view(dst, i_dst) += view(src, static_cast<size_type>(ii)) / (1 << shift * dim);
-                            }
+                            view(dst, i_dst) += view(src, static_cast<size_type>(ii)) / (1 << shift * dim);
                         }
                     });
             }

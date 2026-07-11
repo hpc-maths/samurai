@@ -95,18 +95,6 @@ namespace samurai
                         d_data[off_d + ii] = s_data[off_s + ii];
                     }
                 }
-                else if constexpr (detail::is_soa_v<Dest>) // SoA: data()[comp * nb_cells + cell]
-                {
-                    const std::size_t nb_d = static_cast<std::size_t>(dest.array().shape()[1]);
-                    const std::size_t nb_s = static_cast<std::size_t>(src.array().shape()[1]);
-                    for (std::size_t ii = 0; ii < n; ++ii)
-                    {
-                        for (std::size_t c = 0; c < nc; ++c)
-                        {
-                            d_data[c * nb_d + off_d + ii] = s_data[c * nb_s + off_s + ii];
-                        }
-                    }
-                }
                 else // AoS (cell-major): data()[cell * n_comp + comp]
                 {
                     for (std::size_t ii = 0; ii < n; ++ii)

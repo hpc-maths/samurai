@@ -95,7 +95,6 @@ int main(int argc, char* argv[])
 
     constexpr std::size_t dim = 2;
 
-    static constexpr bool is_soa                                     = false;
     static constexpr samurai::petsc::BlockAssemblyType assembly_type = samurai::petsc::BlockAssemblyType::NestedMatrices;
 
     //----------------//
@@ -153,7 +152,7 @@ int main(int argc, char* argv[])
         //       p = pressure
 
         // Unknowns
-        auto velocity = samurai::make_vector_field<dim, is_soa>("velocity", mesh);
+        auto velocity = samurai::make_vector_field<dim>("velocity", mesh);
         auto pressure = samurai::make_scalar_field<double>("pressure", mesh);
 
         using VelocityField = decltype(velocity);
@@ -167,7 +166,7 @@ int main(int argc, char* argv[])
                                                     const auto& y = coord[1];
                                                     double v_x    = 1 / (pi * pi) * sin(pi * (x + y));
                                                     double v_y    = -v_x;
-                                                    return samurai::Array<double, dim, is_soa>{v_x, v_y};
+                                                    return samurai::Array<double, dim>{v_x, v_y};
                                                 });
 
         samurai::make_bc<samurai::Neumann<1>>(pressure,
@@ -193,16 +192,16 @@ int main(int argc, char* argv[])
         // clang-format on
 
         // Right-hand side
-        auto f    = samurai::make_vector_field<dim, is_soa>("f",
-                                                         mesh,
-                                                         [](const auto& coord)
-                                                         {
-                                                             const auto& x = coord[0];
-                                                             const auto& y = coord[1];
-                                                             double f_x    = 2 * sin(pi * (x + y)) + (1 / pi) * cos(pi * (x + y));
-                                                             double f_y    = -2 * sin(pi * (x + y)) + (1 / pi) * cos(pi * (x + y));
-                                                             return samurai::Array<double, dim, is_soa>{f_x, f_y};
-                                                         });
+        auto f    = samurai::make_vector_field<dim>("f",
+                                                 mesh,
+                                                 [](const auto& coord)
+                                                 {
+                                                     const auto& x = coord[0];
+                                                     const auto& y = coord[1];
+                                                     double f_x    = 2 * sin(pi * (x + y)) + (1 / pi) * cos(pi * (x + y));
+                                                     double f_y    = -2 * sin(pi * (x + y)) + (1 / pi) * cos(pi * (x + y));
+                                                     return samurai::Array<double, dim>{f_x, f_y};
+                                                 });
         auto zero = samurai::make_scalar_field<double>("zero", mesh);
         zero.fill(0);
 
@@ -224,7 +223,7 @@ int main(int argc, char* argv[])
                                     const auto& y = coord[1];
                                     auto v_x      = 1 / (pi * pi) * sin(pi * (x + y));
                                     auto v_y      = -v_x;
-                                    return samurai::Array<double, dim, is_soa>{v_x, v_y};
+                                    return samurai::Array<double, dim>{v_x, v_y};
                                 });
         std::cout.precision(2);
         std::cout << "L2-error on the velocity: " << std::scientific << error << std::endl;
@@ -235,19 +234,19 @@ int main(int argc, char* argv[])
         samurai::save(path, filename, mesh, velocity);
         samurai::save(path, "pressure", mesh, pressure);
 
-        auto exact_velocity = samurai::make_vector_field<dim, is_soa>("exact_velocity",
-                                                                      mesh,
-                                                                      [](const auto& coord)
-                                                                      {
-                                                                          const auto& x = coord[0];
-                                                                          const auto& y = coord[1];
-                                                                          auto v_x      = 1 / (pi * pi) * sin(pi * (x + y));
-                                                                          auto v_y      = -v_x;
-                                                                          return samurai::Array<double, dim, is_soa>{v_x, v_y};
-                                                                      });
+        auto exact_velocity = samurai::make_vector_field<dim>("exact_velocity",
+                                                              mesh,
+                                                              [](const auto& coord)
+                                                              {
+                                                                  const auto& x = coord[0];
+                                                                  const auto& y = coord[1];
+                                                                  auto v_x      = 1 / (pi * pi) * sin(pi * (x + y));
+                                                                  auto v_y      = -v_x;
+                                                                  return samurai::Array<double, dim>{v_x, v_y};
+                                                              });
         samurai::save(path, "exact_velocity", mesh, exact_velocity);
 
-        /*auto err = samurai::make_vector_field<dim, is_soa>("error", mesh);
+        /*auto err = samurai::make_vector_field<dim>("error", mesh);
         for_each_cell(err.mesh(), [&](const auto& cell)
             {
                 err[cell] = exact_velocity[cell] - velocity[cell];
@@ -293,7 +292,7 @@ int main(int argc, char* argv[])
                        - pi * sin(t) * sin(t) * sin(pi * x) * sin(pi * y);
             double f_y = -(cos(t) + 8 * diff_coeff * pi * pi * sin(t)) * cos(2 * pi * x) * sin(2 * pi * y)
                        + pi * sin(t) * sin(t) * cos(pi * x) * cos(pi * y);
-            return samurai::Array<double, dim, is_soa>{f_x, f_y};
+            return samurai::Array<double, dim>{f_x, f_y};
         };
 
         // Exact solution
@@ -303,7 +302,7 @@ int main(int argc, char* argv[])
             const auto& y = coord[1];
             double v_x    = std::sin(t) * std::sin(2 * pi * x) * std::cos(2 * pi * y);
             double v_y    = -std::sin(t) * std::cos(2 * pi * x) * std::sin(2 * pi * y);
-            return samurai::Array<double, dim, is_soa>{v_x, v_y};
+            return samurai::Array<double, dim>{v_x, v_y};
         };
         auto exact_normal_grad_pressure = [&](double t, const auto& coord)
         {
@@ -314,15 +313,15 @@ int main(int argc, char* argv[])
         };
 
         // Unknowns
-        auto velocity     = samurai::make_vector_field<dim, is_soa>("velocity", mesh);
-        auto velocity_np1 = samurai::make_vector_field<dim, is_soa>("velocity_np1", mesh);
+        auto velocity     = samurai::make_vector_field<dim>("velocity", mesh);
+        auto velocity_np1 = samurai::make_vector_field<dim>("velocity_np1", mesh);
         auto pressure_np1 = samurai::make_scalar_field<double>("pressure_np1", mesh);
 
         using VelocityField = decltype(velocity);
         using PressureField = decltype(pressure_np1);
 
         // Right-hand side
-        auto rhs  = samurai::make_vector_field<dim, is_soa>("rhs", mesh);
+        auto rhs  = samurai::make_vector_field<dim>("rhs", mesh);
         auto zero = samurai::make_scalar_field<double>("zero", mesh);
 
         // Boundary conditions
@@ -446,12 +445,12 @@ int main(int argc, char* argv[])
             // Solve the linear equation
             //                [I + dt*Diff] v_np1 + dt*p_np1 = v_n + dt*f
             //                         -Div v_np1            = 0
-            auto f = samurai::make_vector_field<dim, is_soa>("f",
-                                                             mesh,
-                                                             [&](const auto& coord)
-                                                             {
-                                                                 return analytic_f(t_n, coord);
-                                                             });
+            auto f = samurai::make_vector_field<dim>("f",
+                                                     mesh,
+                                                     [&](const auto& coord)
+                                                     {
+                                                         return analytic_f(t_n, coord);
+                                                     });
             rhs.fill(0);
             rhs = velocity + dt * f;
             zero.fill(0);

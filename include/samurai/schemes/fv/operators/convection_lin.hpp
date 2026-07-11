@@ -86,7 +86,6 @@ namespace samurai
     auto make_convection_weno5(const VelocityVector<Field::dim>& velocity)
     {
         static constexpr std::size_t dim          = Field::dim;
-        static constexpr bool is_soa              = detail::is_soa_v<Field>;
         static constexpr std::size_t stencil_size = 6;
         using input_field_t                       = Field;
         using output_field_t                      = Field;
@@ -110,14 +109,14 @@ namespace samurai
                     weno5[d].cons_flux_function =
                         [&velocity](FluxValue<cfg>& flux, const StencilData<cfg>& /*data*/, const StencilValues<cfg>& u)
                     {
-                        Array<FluxValue<cfg>, 5, is_soa> f({u[0], u[1], u[2], u[3], u[4]});
+                        Array<FluxValue<cfg>, 5> f({u[0], u[1], u[2], u[3], u[4]});
                         f *= velocity(d);
                         compute_weno5_flux(flux, f);
                     };
                     weno5[d].cons_jacobian_function =
                         [&velocity](StencilJacobian<cfg>& jac, const StencilData<cfg>& /*data*/, const StencilValues<cfg>& u)
                     {
-                        Array<FluxValue<cfg>, 5, is_soa> f({u[0], u[1], u[2], u[3], u[4]});
+                        Array<FluxValue<cfg>, 5> f({u[0], u[1], u[2], u[3], u[4]});
                         f *= velocity(d);
 
                         std::array<decltype(&jac[0]), 5> jacobians({&jac[0], &jac[1], &jac[2], &jac[3], &jac[4]});
@@ -138,14 +137,14 @@ namespace samurai
                     weno5[d].cons_flux_function =
                         [&velocity](FluxValue<cfg>& flux, const StencilData<cfg>& /*data*/, const StencilValues<cfg>& u)
                     {
-                        Array<FluxValue<cfg>, 5, is_soa> f({u[5], u[4], u[3], u[2], u[1]});
+                        Array<FluxValue<cfg>, 5> f({u[5], u[4], u[3], u[2], u[1]});
                         f *= velocity(d);
                         compute_weno5_flux(flux, f);
                     };
                     weno5[d].cons_jacobian_function =
                         [&velocity](StencilJacobian<cfg>& jac, const StencilData<cfg>& /*data*/, const StencilValues<cfg>& u)
                     {
-                        Array<FluxValue<cfg>, 5, is_soa> f({u[5], u[4], u[3], u[2], u[1]});
+                        Array<FluxValue<cfg>, 5> f({u[5], u[4], u[3], u[2], u[1]});
                         f *= velocity(d);
 
                         std::array<decltype(&jac[0]), 5> jacobians({&jac[5], &jac[4], &jac[3], &jac[2], &jac[1]});
@@ -254,7 +253,6 @@ namespace samurai
     auto make_convection_weno5(VelocityField& velocity_field)
     {
         static constexpr std::size_t dim = Field::dim;
-        static constexpr bool is_soa     = detail::is_soa_v<Field>;
 
         static constexpr std::size_t stencil_size = 6;
         using input_field_t                       = Field;
@@ -285,13 +283,13 @@ namespace samurai
 
                     if (v >= 0)
                     {
-                        Array<FluxValue<cfg>, 5, is_soa> f({u[0], u[1], u[2], u[3], u[4]});
+                        Array<FluxValue<cfg>, 5> f({u[0], u[1], u[2], u[3], u[4]});
                         f *= v;
                         compute_weno5_flux(flux, f);
                     }
                     else
                     {
-                        Array<FluxValue<cfg>, 5, is_soa> f({u[5], u[4], u[3], u[2], u[1]});
+                        Array<FluxValue<cfg>, 5> f({u[5], u[4], u[3], u[2], u[1]});
                         f *= v;
                         compute_weno5_flux(flux, f);
                     }

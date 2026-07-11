@@ -50,7 +50,7 @@ namespace samurai
         auto u                           = make_vector_field<double, 4>("u", mesh);
 
         make_bc<Dirichlet<1>>(u, 1., 2., 3., 4.);
-        samurai::Array<double, 4, false> expected({1, 2, 3, 4});
+        samurai::Array<double, 4> expected({1, 2, 3, 4});
         EXPECT_TRUE(compare(u.get_bc()[0]->constant_value(), expected));
     }
 

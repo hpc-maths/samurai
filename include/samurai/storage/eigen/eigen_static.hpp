@@ -14,24 +14,18 @@ namespace samurai
 
     namespace detail
     {
-        template <class value_type, std::size_t size, bool SOA>
+        template <class value_type, std::size_t size>
         struct eigen_static_array
         {
             using type = Eigen::Array<value_type, 1, size>;
         };
 
         template <class value_type, std::size_t size>
-        struct eigen_static_array<value_type, size, true>
-        {
-            using type = Eigen::Array<value_type, size, 1>;
-        };
-
-        template <class value_type, std::size_t size, bool SOA>
-        using eigen_static_array_t = typename eigen_static_array<value_type, size, SOA>::type;
+        using eigen_static_array_t = typename eigen_static_array<value_type, size>::type;
 
     }
-    template <class value_type, std::size_t size, bool SOA>
-    using eigen_static_array = detail::eigen_static_array_t<value_type, size, SOA>;
+    template <class value_type, std::size_t size>
+    using eigen_static_array = detail::eigen_static_array_t<value_type, size>;
 
     // using eigen_static_array = Eigen::Matrix<value_type, 1, size>;
     // using eigen_static_array = Eigen::Array<value_type, size, 1>;
@@ -41,8 +35,8 @@ namespace samurai
     template <class value_type, std::size_t rows, std::size_t cols>
     using eigen_static_matrix = Eigen::Matrix<value_type, rows, cols>;
 
-    template <class value_type, std::size_t size, bool SOA, bool can_collapse>
-    using eigen_collapsable_static_array = CollapsableArray<eigen_static_array<value_type, size, SOA>, value_type, size, can_collapse>;
+    template <class value_type, std::size_t size, bool can_collapse>
+    using eigen_collapsable_static_array = CollapsableArray<eigen_static_array<value_type, size>, value_type, size, can_collapse>;
 
     template <class value_type, std::size_t rows, std::size_t cols>
     using eigen_collapsable_static_matrix = CollapsableMatrix<eigen_static_matrix<value_type, rows, cols>, value_type, rows, cols>;
@@ -65,8 +59,8 @@ namespace samurai
     // Functions //
     //-----------//
 
-    template <class value_type, std::size_t size, bool SOA>
-    void fill(eigen_static_array<value_type, size, SOA>& array, value_type value)
+    template <class value_type, std::size_t size>
+    void fill(eigen_static_array<value_type, size>& array, value_type value)
     {
         array.fill(value);
     }

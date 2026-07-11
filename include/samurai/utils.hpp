@@ -104,7 +104,7 @@ namespace samurai
     template <template <std::size_t dim, class T> class OP, class... CT>
     class field_operator_function;
 
-    template <class mesh_t, class value_t, std::size_t n_comp, bool SOA = false>
+    template <class mesh_t, class value_t, std::size_t n_comp>
     class VectorField;
 
     template <class mesh_t, class value_t>
@@ -321,30 +321,6 @@ namespace samurai
         }
 
         /**
-         * @brief test if template parameter is SOA of AOS Field (false by default like VectorField)
-         *
-         * @tparam T type to test
-         */
-        template <class T>
-        struct is_soa : std::false_type
-        {
-        };
-
-        // specialization for VectorField
-        template <class Mesh, class value_t, std::size_t n_comp, bool SOA>
-        struct is_soa<VectorField<Mesh, value_t, n_comp, SOA>> : std::bool_constant<SOA>
-        {
-        };
-
-        /**
-         * @brief helper to get value of is_soa
-         *
-         * @tparam T type to test
-         */
-        template <class T>
-        constexpr bool is_soa_v = is_soa<std::decay_t<T>>::value;
-
-        /**
          * @brief test if template parameter is a samurai field (ScalarField or VectorField)
          *
          * @tparam T type to test
@@ -355,8 +331,8 @@ namespace samurai
         };
 
         // specialization for VectorField
-        template <class Mesh, class value_t, std::size_t n_comp, bool SOA>
-        struct is_field_type<VectorField<Mesh, value_t, n_comp, SOA>> : std::true_type
+        template <class Mesh, class value_t, std::size_t n_comp>
+        struct is_field_type<VectorField<Mesh, value_t, n_comp>> : std::true_type
         {
         };
 
@@ -524,25 +500,6 @@ namespace samurai
         shift[d] = (max_indices[d] - min_indices[d]) >> delta_l;
         return shift;
     }
-
-    // template <class Field>
-    // SAMURAI_INLINE auto&
-    // field_value(typename Field::value_type* data, const typename Field::index_t& cell_index, [[maybe_unused]] std::size_t field_i)
-    // {
-    //     if constexpr (Field::is_scalar)
-    //     {
-    //         return *data[cell_index];
-    //     }
-    //     else if constexpr (detail::is_soa_v<Field>)
-    //     {
-    //         static_assert(Field::is_scalar || !detail::is_soa_v<Field>, "field_value() is not implemented for SOA fields");
-    //         return *data[field_i /*  *n_cells */ + cell_index];
-    //     }
-    //     else
-    //     {
-    //         return *data[cell_index * Field::n_comp + field_i];
-    //     }
-    // }
 
     //------------------------------//
     // Greater Common Divisor (GCD) //

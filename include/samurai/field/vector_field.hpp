@@ -18,15 +18,15 @@
 
 namespace samurai
 {
-    template <class mesh_t, class value_t, std::size_t n_comp, bool SOA>
+    template <class mesh_t, class value_t, std::size_t n_comp>
     class VectorField;
 
     namespace detail
     {
         // VectorField specialization ---------------------------------------------
 
-        template <class mesh_t_, class value_t, std::size_t n_comp, bool SOA>
-        struct inner_field_types<VectorField<mesh_t_, value_t, n_comp, SOA>>
+        template <class mesh_t_, class value_t, std::size_t n_comp>
+        struct inner_field_types<VectorField<mesh_t_, value_t, n_comp>>
         {
             using mesh_t                     = mesh_t_;
             static constexpr std::size_t dim = mesh_t::dim;
@@ -35,18 +35,15 @@ namespace samurai
             using index_t                    = typename interval_t::index_t;
             using interval_value_t           = typename interval_t::value_t;
             using cell_t                     = typename mesh_t::cell_t;
-            using data_type                  = field_data_storage_t<value_t, n_comp, SOA, false>;
-            using local_data_type            = local_field_data_t<value_t, n_comp, SOA, false>;
+            using data_type                  = field_data_storage_t<value_t, n_comp, false>;
+            using local_data_type            = local_field_data_t<value_t, n_comp, false>;
             using size_type                  = typename data_type::size_type;
-
-            static constexpr auto static_layout = data_type::static_layout;
         };
 
-        template <class mesh_t, class value_t, std::size_t n_comp, bool SOA>
-        struct field_data_access<VectorField<mesh_t, value_t, n_comp, SOA>>
-            : public field_data_access_base<VectorField<mesh_t, value_t, n_comp, SOA>>
+        template <class mesh_t, class value_t, std::size_t n_comp>
+        struct field_data_access<VectorField<mesh_t, value_t, n_comp>> : public field_data_access_base<VectorField<mesh_t, value_t, n_comp>>
         {
-            using base_type = field_data_access_base<VectorField<mesh_t, value_t, n_comp, SOA>>;
+            using base_type = field_data_access_base<VectorField<mesh_t, value_t, n_comp>>;
 
             using data_type  = typename base_type::data_type;
             using size_type  = typename data_type::size_type;
@@ -134,15 +131,15 @@ namespace samurai
     // class VectorField
     // ------------------------------------------------------------------------
 
-    template <class mesh_t_, class value_t, std::size_t n_comp_, bool SOA>
-    class VectorField : public field_expression<VectorField<mesh_t_, value_t, n_comp_, SOA>>,
+    template <class mesh_t_, class value_t, std::size_t n_comp_>
+    class VectorField : public field_expression<VectorField<mesh_t_, value_t, n_comp_>>,
                         public inner_mesh_type<mesh_t_>,
-                        public detail::field_data_access<VectorField<mesh_t_, value_t, n_comp_, SOA>>,
-                        public detail::FieldBase<VectorField<mesh_t_, value_t, n_comp_, SOA>>
+                        public detail::field_data_access<VectorField<mesh_t_, value_t, n_comp_>>,
+                        public detail::FieldBase<VectorField<mesh_t_, value_t, n_comp_>>
     {
       public:
 
-        using self_type  = VectorField<mesh_t_, value_t, n_comp_, SOA>;
+        using self_type  = VectorField<mesh_t_, value_t, n_comp_>;
         using mesh_t     = mesh_t_;
         using value_type = value_t;
 
@@ -151,7 +148,6 @@ namespace samurai
         using size_type        = typename data_access_type::size_type;
 
         static constexpr size_type n_comp = n_comp_;
-        static constexpr bool is_soa      = SOA;
         static constexpr bool is_scalar   = false;
 
         VectorField() = default;
@@ -174,41 +170,41 @@ namespace samurai
 
     // VectorField constructors -----------------------------------------------
 
-    template <class mesh_t, class value_t, std::size_t n_comp_, bool SOA>
-    SAMURAI_INLINE VectorField<mesh_t, value_t, n_comp_, SOA>::VectorField(std::string name, mesh_t& mesh)
+    template <class mesh_t, class value_t, std::size_t n_comp_>
+    SAMURAI_INLINE VectorField<mesh_t, value_t, n_comp_>::VectorField(std::string name, mesh_t& mesh)
         : inner_mesh_t(mesh)
     {
         this->m_name = std::move(name);
         this->resize();
     }
 
-    template <class mesh_t, class value_t, std::size_t n_comp_, bool SOA>
+    template <class mesh_t, class value_t, std::size_t n_comp_>
     template <class E>
-    SAMURAI_INLINE VectorField<mesh_t, value_t, n_comp_, SOA>::VectorField(const field_expression<E>& e)
+    SAMURAI_INLINE VectorField<mesh_t, value_t, n_comp_>::VectorField(const field_expression<E>& e)
         : inner_mesh_t(detail::extract_mesh(e.derived_cast()))
     {
         this->resize();
         *this = e;
     }
 
-    template <class mesh_t, class value_t, std::size_t n_comp_, bool SOA>
-    SAMURAI_INLINE VectorField<mesh_t, value_t, n_comp_, SOA>::VectorField(const VectorField& field)
+    template <class mesh_t, class value_t, std::size_t n_comp_>
+    SAMURAI_INLINE VectorField<mesh_t, value_t, n_comp_>::VectorField(const VectorField& field)
     {
         this->assign_from(field);
     }
 
     // VectorField operators --------------------------------------------------
 
-    template <class mesh_t, class value_t, std::size_t n_comp_, bool SOA>
-    SAMURAI_INLINE auto VectorField<mesh_t, value_t, n_comp_, SOA>::operator=(const VectorField& field) -> VectorField&
+    template <class mesh_t, class value_t, std::size_t n_comp_>
+    SAMURAI_INLINE auto VectorField<mesh_t, value_t, n_comp_>::operator=(const VectorField& field) -> VectorField&
     {
         this->assign_from(field);
         return *this;
     }
 
-    template <class mesh_t, class value_t, std::size_t n_comp_, bool SOA>
+    template <class mesh_t, class value_t, std::size_t n_comp_>
     template <class E>
-    SAMURAI_INLINE auto VectorField<mesh_t, value_t, n_comp_, SOA>::operator=(const field_expression<E>& e) -> VectorField&
+    SAMURAI_INLINE auto VectorField<mesh_t, value_t, n_comp_>::operator=(const field_expression<E>& e) -> VectorField&
     {
         this->assign_expression(e);
         return *this;
@@ -218,10 +214,10 @@ namespace samurai
 
     namespace detail
     {
-        template <class value_t, std::size_t n_comp, bool SOA, class mesh_t>
+        template <class value_t, std::size_t n_comp, class mesh_t>
         auto make_vector_field_with_nan_init(const std::string& name, mesh_t& mesh)
         {
-            VectorField<mesh_t, value_t, n_comp, SOA> field(name, mesh);
+            VectorField<mesh_t, value_t, n_comp> field(name, mesh);
 #ifdef SAMURAI_CHECK_NAN
             if constexpr (std::is_floating_point_v<value_t>)
             {
@@ -232,28 +228,28 @@ namespace samurai
         }
     }
 
-    // Overloads with explicit value_t, n_comp, SOA
-    template <class value_t, std::size_t n_comp, bool SOA = false, class mesh_t>
+    // Overloads with explicit value_t, n_comp
+    template <class value_t, std::size_t n_comp, class mesh_t>
         requires mesh_like<mesh_t>
     auto make_vector_field(const std::string& name, mesh_t& mesh)
     {
-        return detail::make_vector_field_with_nan_init<value_t, n_comp, SOA>(name, mesh);
+        return detail::make_vector_field_with_nan_init<value_t, n_comp>(name, mesh);
     }
 
-    template <class value_t, std::size_t n_comp, bool SOA = false, class mesh_t>
+    template <class value_t, std::size_t n_comp, class mesh_t>
         requires mesh_like<mesh_t>
     auto make_vector_field(const std::string& name, mesh_t& mesh, value_t init_value)
     {
-        auto field = detail::make_vector_field_with_nan_init<value_t, n_comp, SOA>(name, mesh);
+        auto field = detail::make_vector_field_with_nan_init<value_t, n_comp>(name, mesh);
         field.fill(init_value);
         return field;
     }
 
-    template <class value_t, std::size_t n_comp, bool SOA = false, class mesh_t, class Func, std::size_t polynomial_degree>
+    template <class value_t, std::size_t n_comp, class mesh_t, class Func, std::size_t polynomial_degree>
         requires mesh_like<mesh_t>
     auto make_vector_field(const std::string& name, mesh_t& mesh, Func&& f, const GaussLegendre<polynomial_degree>& gl)
     {
-        auto field = detail::make_vector_field_with_nan_init<value_t, n_comp, SOA>(name, mesh);
+        auto field = detail::make_vector_field_with_nan_init<value_t, n_comp>(name, mesh);
         field.fill(0);
 
         for_each_cell(mesh,
@@ -264,11 +260,11 @@ namespace samurai
         return field;
     }
 
-    template <class value_t, std::size_t n_comp, bool SOA = false, class mesh_t, class Func>
+    template <class value_t, std::size_t n_comp, class mesh_t, class Func>
         requires mesh_like<mesh_t> && std::is_invocable_v<Func, typename Cell<mesh_t::dim, typename mesh_t::interval_t>::coords_t>
     auto make_vector_field(const std::string& name, mesh_t& mesh, Func&& f)
     {
-        auto field = detail::make_vector_field_with_nan_init<value_t, n_comp, SOA>(name, mesh);
+        auto field = detail::make_vector_field_with_nan_init<value_t, n_comp>(name, mesh);
         field.fill(0);
 
         for_each_cell(mesh,
@@ -279,32 +275,32 @@ namespace samurai
         return field;
     }
 
-    // Overloads with default value_t = double (allows make_vector_field<2, false>)
-    template <std::size_t n_comp, bool SOA = false, class mesh_t>
+    // Overloads with default value_t = double (allows make_vector_field<2>)
+    template <std::size_t n_comp, class mesh_t>
         requires mesh_like<mesh_t>
     auto make_vector_field(const std::string& name, mesh_t& mesh)
     {
-        return make_vector_field<double, n_comp, SOA>(name, mesh);
+        return make_vector_field<double, n_comp>(name, mesh);
     }
 
-    template <std::size_t n_comp, bool SOA = false, class mesh_t>
+    template <std::size_t n_comp, class mesh_t>
         requires mesh_like<mesh_t>
     auto make_vector_field(const std::string& name, mesh_t& mesh, double init_value)
     {
-        return make_vector_field<double, n_comp, SOA>(name, mesh, init_value);
+        return make_vector_field<double, n_comp>(name, mesh, init_value);
     }
 
-    template <std::size_t n_comp, bool SOA = false, class mesh_t, class Func, std::size_t polynomial_degree>
+    template <std::size_t n_comp, class mesh_t, class Func, std::size_t polynomial_degree>
         requires mesh_like<mesh_t>
     auto make_vector_field(const std::string& name, mesh_t& mesh, Func&& f, const GaussLegendre<polynomial_degree>& gl)
     {
-        return make_vector_field<double, n_comp, SOA>(name, mesh, std::forward<Func>(f), gl);
+        return make_vector_field<double, n_comp>(name, mesh, std::forward<Func>(f), gl);
     }
 
-    template <std::size_t n_comp, bool SOA = false, class mesh_t, class Func>
+    template <std::size_t n_comp, class mesh_t, class Func>
         requires mesh_like<mesh_t> && std::is_invocable_v<Func, typename Cell<mesh_t::dim, typename mesh_t::interval_t>::coords_t>
     auto make_vector_field(const std::string& name, mesh_t& mesh, Func&& f)
     {
-        return make_vector_field<double, n_comp, SOA>(name, mesh, std::forward<Func>(f));
+        return make_vector_field<double, n_comp>(name, mesh, std::forward<Func>(f));
     }
 } // namespace samurai

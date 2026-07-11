@@ -291,21 +291,10 @@ namespace samurai
                         for (std::size_t nc = 0; nc < T2::n_comp; ++nc)
                         {
                             double d1, d2, d3, d4;
-                            if constexpr (T2::is_soa)
-                            {
-                                std::size_t size = field.mesh().nb_cells();
-                                d1               = data[(ind1 + i_f) + nc * size];
-                                d2               = data[(ind1 + i_f + 1) + nc * size];
-                                d3               = data[(ind2 + i_f) + nc * size];
-                                d4               = data[(ind2 + i_f + 1) + nc * size];
-                            }
-                            else
-                            {
-                                d1 = data[(ind1 + i_f) * T2::n_comp + nc];
-                                d2 = data[(ind1 + i_f + 1) * T2::n_comp + nc];
-                                d3 = data[(ind2 + i_f) * T2::n_comp + nc];
-                                d4 = data[(ind2 + i_f + 1) * T2::n_comp + nc];
-                            }
+                            d1 = data[(ind1 + i_f) * T2::n_comp + nc];
+                            d2 = data[(ind1 + i_f + 1) * T2::n_comp + nc];
+                            d3 = data[(ind2 + i_f) * T2::n_comp + nc];
+                            d4 = data[(ind2 + i_f + 1) * T2::n_comp + nc];
 
                             for (std::size_t kj = 0; kj < interp_size; ++kj)
                             {
@@ -442,29 +431,14 @@ namespace samurai
                         for (std::size_t nc = 0; nc < T2::n_comp; ++nc)
                         {
                             double d1, d2, d3, d4, d5, d6, d7, d8;
-                            if constexpr (T2::is_soa)
-                            {
-                                std::size_t size = field.mesh().nb_cells();
-                                d1               = data[(ind1 + i_f) + nc * size];
-                                d2               = data[(ind1 + i_f + 1) + nc * size];
-                                d3               = data[(ind2 + i_f) + nc * size];
-                                d4               = data[(ind2 + i_f + 1) + nc * size];
-                                d5               = data[(ind3 + i_f) + nc * size];
-                                d6               = data[(ind3 + i_f + 1) + nc * size];
-                                d7               = data[(ind4 + i_f) + nc * size];
-                                d8               = data[(ind4 + i_f + 1) + nc * size];
-                            }
-                            else
-                            {
-                                d1 = data[(ind1 + i_f) * T2::n_comp + nc];
-                                d2 = data[(ind1 + i_f + 1) * T2::n_comp + nc];
-                                d3 = data[(ind2 + i_f) * T2::n_comp + nc];
-                                d4 = data[(ind2 + i_f + 1) * T2::n_comp + nc];
-                                d5 = data[(ind3 + i_f) * T2::n_comp + nc];
-                                d6 = data[(ind3 + i_f + 1) * T2::n_comp + nc];
-                                d7 = data[(ind4 + i_f) * T2::n_comp + nc];
-                                d8 = data[(ind4 + i_f + 1) * T2::n_comp + nc];
-                            }
+                            d1 = data[(ind1 + i_f) * T2::n_comp + nc];
+                            d2 = data[(ind1 + i_f + 1) * T2::n_comp + nc];
+                            d3 = data[(ind2 + i_f) * T2::n_comp + nc];
+                            d4 = data[(ind2 + i_f + 1) * T2::n_comp + nc];
+                            d5 = data[(ind3 + i_f) * T2::n_comp + nc];
+                            d6 = data[(ind3 + i_f + 1) * T2::n_comp + nc];
+                            d7 = data[(ind4 + i_f) * T2::n_comp + nc];
+                            d8 = data[(ind4 + i_f + 1) * T2::n_comp + nc];
 
                             for (std::size_t kk = 0; kk < interp_size; ++kk)
                             {
@@ -540,7 +514,6 @@ namespace samurai
 
             static constexpr std::size_t dim    = Field::dim;
             static constexpr std::size_t n_comp = Field::n_comp;
-            static constexpr bool is_soa        = detail::is_soa_v<Field>;
             static constexpr bool is_scalar     = false;
 
             using interval_t    = typename Field::interval_t;

@@ -11,7 +11,7 @@ namespace samurai
 {
     template <class mesh_t, class value_t>
     class ScalarField;
-    template <class mesh_t, class value_t, std::size_t n_comp, bool SOA>
+    template <class mesh_t, class value_t, std::size_t n_comp>
     class VectorField;
 
     template <class T>
@@ -20,8 +20,8 @@ namespace samurai
     template <class mesh_t, class value_t>
     constexpr bool field_like_helper<ScalarField<mesh_t, value_t>> = true;
 
-    template <class mesh_t, class value_t, std::size_t n_comp, bool SOA>
-    constexpr bool field_like_helper<VectorField<mesh_t, value_t, n_comp, SOA>> = true;
+    template <class mesh_t, class value_t, std::size_t n_comp>
+    constexpr bool field_like_helper<VectorField<mesh_t, value_t, n_comp>> = true;
 
     template <class T>
     concept field_like = field_like_helper<std::remove_cvref_t<T>>;

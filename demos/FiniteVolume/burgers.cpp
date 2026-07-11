@@ -18,7 +18,7 @@ auto exact_solution(xt::xtensor_fixed<double, xt::xshape<dim>> coords, double t)
     const double b  = 0;
     const double& x = coords(0);
     auto value      = (a * x + b) / (a * t + 1);
-    return samurai::CollapsArray<double, n_comp, false>(value);
+    return samurai::CollapsArray<double, n_comp>(value);
 }
 
 template <class Field>
