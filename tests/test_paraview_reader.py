@@ -10,19 +10,32 @@ geometry reconstruction and the (offset-driven) ``for_each_cell`` traversal orde
 on which the flat field buffer relies.
 """
 
+import importlib.util
 import os
-import sys
 
 import numpy as np
 import pytest
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _PLUGIN_DIR = os.path.join(_HERE, "..", "tools", "paraview")
-sys.path.insert(0, _PLUGIN_DIR)
 _REF_DIR = os.path.join(_HERE, "reference", "paraview")
 
 h5py = pytest.importorskip("h5py")
-from samurai_load import load, discover_series  # noqa: E402
+
+
+def _load_module(name, path):
+    # tools/paraview and tools/yt each ship a module named "samurai_load.py";
+    # loading both under that same name in one pytest session would make the
+    # second import silently reuse the first module (via sys.modules), so each
+    # plugin's module is loaded here under its own unique name instead.
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_samurai_load = _load_module("paraview_samurai_load", os.path.join(_PLUGIN_DIR, "samurai_load.py"))
+load, discover_series = _samurai_load.load, _samurai_load.discover_series
 
 
 def analytic(centers, dim):

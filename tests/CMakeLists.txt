@@ -78,12 +78,16 @@ else()
     target_link_libraries(test_samurai_lib samurai gtest_main gtest)
 endif()
 
-# Standalone tool (no gtest): regenerates the small samurai files consumed by
-# test_paraview_reader.py. Not tracked in git (they are gitignored .h5 files),
-# so CI must build and run this before running that test.
+# Standalone tools (no gtest): regenerate the small samurai files consumed by
+# test_paraview_reader.py / test_yt_reader.py. Not tracked in git (they are
+# gitignored .h5 files), so CI must build and run these before running those tests.
 add_executable(generate_paraview_reference ${CMAKE_CURRENT_SOURCE_DIR}/../tools/paraview/tests/generate_reference.cpp)
 target_include_directories(generate_paraview_reference PRIVATE ${SAMURAI_INCLUDE_DIR})
 target_link_libraries(generate_paraview_reference samurai)
+
+add_executable(generate_yt_reference ${CMAKE_CURRENT_SOURCE_DIR}/../tools/yt/tests/generate_reference.cpp)
+target_include_directories(generate_yt_reference PRIVATE ${SAMURAI_INCLUDE_DIR})
+target_link_libraries(generate_yt_reference samurai)
 
 if(WITH_MPI)
     add_subdirectory(mpi)
