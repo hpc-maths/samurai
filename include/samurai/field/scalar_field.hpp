@@ -24,16 +24,16 @@ namespace samurai
         template <class mesh_t_, class value_t>
         struct inner_field_types<ScalarField<mesh_t_, value_t>>
         {
-            using mesh_t                        = mesh_t_;
-            static constexpr std::size_t dim    = mesh_t::dim;
-            using interval_t                    = typename mesh_t::interval_t;
-            using value_type                    = value_t;
-            using index_t                       = typename interval_t::index_t;
-            using interval_value_t              = typename interval_t::value_t;
-            using cell_t                        = typename mesh_t::cell_t;
-            using data_type                     = field_data_storage_t<value_t, 1>;
-            using local_data_type               = local_field_data_t<value_t, 1, true>;
-            using size_type                     = typename data_type::size_type;
+            using mesh_t                     = mesh_t_;
+            static constexpr std::size_t dim = mesh_t::dim;
+            using interval_t                 = typename mesh_t::interval_t;
+            using value_type                 = value_t;
+            using index_t                    = typename interval_t::index_t;
+            using interval_value_t           = typename interval_t::value_t;
+            using cell_t                     = typename mesh_t::cell_t;
+            using data_type                  = field_data_storage_t<value_t, 1>;
+            using local_data_type            = local_field_data_t<value_t, 1, true>;
+            using size_type                  = typename data_type::size_type;
         };
 
         // ScalarField specialization ---------------------------------------------

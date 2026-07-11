@@ -23,17 +23,17 @@ namespace samurai
         {
           public:
 
-            using derived_type                  = D;
-            using inner_types                   = inner_field_types<derived_type>;
-            static constexpr std::size_t dim    = inner_types::dim;
-            using data_type                     = typename inner_types::data_type;
-            using local_data_type               = typename inner_types::local_data_type;
-            using value_type                    = typename inner_types::value_type;
-            using interval_t                    = typename inner_types::interval_t;
-            using interval_value_t              = typename inner_types::interval_value_t;
-            using index_t                       = typename inner_types::index_t;
-            using size_type                     = typename inner_types::size_type;
-            using cell_t                        = typename inner_types::cell_t;
+            using derived_type               = D;
+            using inner_types                = inner_field_types<derived_type>;
+            static constexpr std::size_t dim = inner_types::dim;
+            using data_type                  = typename inner_types::data_type;
+            using local_data_type            = typename inner_types::local_data_type;
+            using value_type                 = typename inner_types::value_type;
+            using interval_t                 = typename inner_types::interval_t;
+            using interval_value_t           = typename inner_types::interval_value_t;
+            using index_t                    = typename inner_types::index_t;
+            using size_type                  = typename inner_types::size_type;
+            using cell_t                     = typename inner_types::cell_t;
 
             derived_type& derived_cast() & noexcept
             {
