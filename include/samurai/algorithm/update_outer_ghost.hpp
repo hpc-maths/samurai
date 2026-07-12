@@ -268,6 +268,7 @@ namespace samurai
     void project_corner_below(std::size_t level, const DirectionVector<Field::dim>& direction, Field& field)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        using coord_t   = typename Field::mesh_t::lca_type::all_coord_type;
 
         static constexpr std::size_t dim = Field::dim;
 
@@ -277,15 +278,6 @@ namespace samurai
         }
 
         auto& mesh = field.mesh();
-
-        std::size_t nnz = 0;
-        for (std::size_t d = 0; d < dim; ++d)
-        {
-            if (direction[d] != 0)
-            {
-                nnz++;
-            }
-        }
 
         for (std::size_t delta_l = 1; delta_l <= 2; ++delta_l) // lower level (1 or 2)
         {
@@ -300,31 +292,41 @@ namespace samurai
             auto fine_outer_corner = intersection(translate(fine_inner_corner, direction), mesh[mesh_id_t::reference][level]);
             auto projection_ghost  = intersection(fine_outer_corner.on(proj_level), mesh[mesh_id_t::reference][proj_level]);
 
+            // Each coarse corner ghost is copied from its corner-most child at `level`, the cell at
+            // the reconstructed fixed-parity position (ii << delta_l) + offset. projection_ghost keeps
+            // a coarse ghost as soon as one of its children lies in the reference array, but on an
+            // adapted mesh whose refinement reaches the domain boundary the corner-most child may be
+            // absent while another child is present. Reading the absent child would index the cell
+            // array with the not-found offset (out of bounds). The child is therefore looked up per
+            // cell and copied only when it exists; where it exists it is the single relevant child, so
+            // the value matches the former unconditional read.
+            const auto& ref_level = mesh[mesh_id_t::reference][level];
             projection_ghost(
                 [&](const auto& i, const auto& index)
                 {
                     using index_t = std::decay_t<decltype(index)>;
 
-                    auto i_child = (i << delta_l) + (direction[0] == -1 ? ((1 << delta_l) - 1) : 0); // this is the interval of the child
-                                                                                                     // cell in the fine level
-                    if (nnz == dim)
-                    {
-                        i_child.end  = i_child.start + 1; // if we are projecting a corner ghost, we want only 1 child, so end = start + 1
-                        i_child.step = 1;
-                    }
-                    else
-                    {
-                        i_child.step = 1 << delta_l;
-                    }
-
                     index_t index_child = index << delta_l;
-
                     for (std::size_t d = 0; d < dim - 1; ++d)
                     {
                         index_child[d] += direction[d + 1] == -1 ? ((1 << delta_l) - 1) : 0;
                     }
 
-                    field(proj_level, i, index) = field(level, i_child, index_child);
+                    coord_t child_coord;
+                    auto i_child = (i.start << delta_l) + (direction[0] == -1 ? ((1 << delta_l) - 1) : 0);
+                    for (auto ii = i.start; ii < i.end; ++ii, i_child += (1 << delta_l))
+                    {
+                        child_coord[0] = i_child;
+                        for (std::size_t d = 1; d < dim; ++d)
+                        {
+                            child_coord[d] = index_child[d - 1];
+                        }
+
+                        if (find(ref_level, child_coord) >= 0)
+                        {
+                            field(proj_level, {ii, ii + 1}, index) = field(level, {i_child, i_child + 1}, index_child);
+                        }
+                    }
                 });
             if (proj_level == 0)
             {

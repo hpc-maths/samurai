@@ -1,11 +1,28 @@
-#include <filesystem>
-#include <iostream>
-namespace fs = std::filesystem;
+// Copyright 2018-2025 the samurai's authors
+// SPDX-License-Identifier:  BSD-3-Clause
+
+// compute_detail() -- the wavelet-detail computation MR adaptation uses to
+// decide which cells to keep or coarsen -- compared across two traversal
+// strategies for its footprint (the ghost layer immediately below the next
+// two finer levels):
+//
+//   - benchmark_detail_with_set: rebuilds the set expression
+//     intersection(all_cells[l], union(cells[l+1], cells[l+2])).on(l) on
+//     every level, for every timed iteration, then applies compute_detail
+//     while iterating it.
+//   - benchmark_detail_with_ca: builds the same footprint once, outside the
+//     timed loop, into a plain CellArray, then applies compute_detail while
+//     iterating that CellArray on every timed iteration.
+//
+// This isolates the cost of the set-algebra traversal itself (construction
+// and lazy evaluation of the intersection/union expression) from the
+// wavelet arithmetic, on an MR-adapted mesh built from a moving tanh front
+// (init_mesh, deterministic, no RNG). detail computation is one of the
+// timed items in the advection_2d baseline (Improvement/perf-baseline.md,
+// ~6% of the long run).
 
 #include <benchmark/benchmark.h>
 #include <samurai/field.hpp>
-#include <samurai/io/hdf5.hpp>
-#include <samurai/io/restart.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/mr/operators.hpp>
@@ -52,7 +69,6 @@ auto init_mesh(double eps, std::size_t direction, std::size_t nb)
     using cl_type = std::decay_t<decltype(mesh)>::cl_type;
     while (jump > 0)
     {
-        std::cout << "MR mesh adaptation " << jump << std::endl;
         cl_type cl;
         for_each_interval(mesh,
                           [&](std::size_t level, const auto& i, const auto& index)
@@ -76,7 +92,6 @@ auto init_mesh(double eps, std::size_t direction, std::size_t nb)
         MRadaptation(mra_config);
         jump--;
     }
-    samurai::save(std::filesystem::current_path(), fmt::format("initial_mesh_{}_{}_{}", eps, direction, nb), mesh);
     return mesh;
 }
 
@@ -158,11 +173,8 @@ void benchmark_detail_with_set(benchmark::State& state)
                                static_cast<std::size_t>(state.range(1)),
                                static_cast<std::size_t>(state.range(2)));
     using mesh_id_t = typename decltype(mesh)::mesh_id_t;
-    auto u          = samurai::make_vector_field<double, 1>("u", mesh);
-    auto detail     = samurai::make_vector_field<double, 1>("detail", mesh);
-
-    using mesh_t    = decltype(mesh);
-    using mesh_id_t = typename mesh_t::mesh_id_t;
+    auto u          = samurai::make_scalar_field<double>("u", mesh);
+    auto detail     = samurai::make_scalar_field<double>("detail", mesh);
 
     auto min_level = mesh[mesh_id_t::cells].min_level();
     auto max_level = mesh[mesh_id_t::cells].max_level();
@@ -243,3 +255,5 @@ BENCHMARK(benchmark_detail_with_set<2>)->Unit(benchmark::kMillisecond)->ArgsProd
 BENCHMARK(benchmark_detail_with_ca<2>)->Unit(benchmark::kMillisecond)->ArgsProduct(args_2d);
 // BENCHMARK(benchmark_detail_with_set<3>)->Unit(benchmark::kMillisecond)->ArgsProduct(args_3d);
 // BENCHMARK(benchmark_detail_with_ca<3>)->Unit(benchmark::kMillisecond)->ArgsProduct(args_3d);
+
+BENCHMARK_MAIN();

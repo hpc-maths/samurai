@@ -1,14 +1,42 @@
-#include <array>
-#include <benchmark/benchmark.h>
-#include <experimental/random>
+// Copyright 2018-2025 the samurai's authors
+// SPDX-License-Identifier:  BSD-3-Clause
 
-#include <xtensor/xfixed.hpp>
-#include <xtensor/xrandom.hpp>
+// Cost of samurai::find() (coordinate -> cell lookup) on a randomly-refined
+// CellArray, in 1D/2D/3D, as the number of lookups per timed iteration grows
+// (state.range(0)).
+//
+// find() is the primitive behind every coordinate-based query (boundary
+// extrapolation, point-location tests, restart consistency checks); this
+// isolates its cost from the set-algebra machinery that surrounds it
+// elsewhere in the library. The mesh (generated once per fixture, not
+// rebuilt per iteration) is refined by an unstructured coin flip per
+// interval, not by MR adaptation, so its topology does not correspond to
+// any physical solution field.
+
+#include <array>
+#include <random>
+
+#include <benchmark/benchmark.h>
+
+#include <xtensor/containers/xfixed.hpp>
+#include <xtensor/generators/xrandom.hpp>
 
 #include <samurai/algorithm.hpp>
 #include <samurai/cell_array.hpp>
 #include <samurai/cell_list.hpp>
 #include <samurai/static_algorithm.hpp>
+
+namespace
+{
+    // Fixed-seed uniform integer draw, reproducible across runs.
+    template <class T>
+    T randint(T lo, T hi)
+    {
+        static std::mt19937 gen{42};
+        std::uniform_int_distribution<T> dist(lo, hi);
+        return dist(gen);
+    }
+}
 
 template <std::size_t dim>
 auto generate_mesh(int bound, std::size_t start_level, std::size_t max_level)
@@ -29,7 +57,7 @@ auto generate_mesh(int bound, std::size_t start_level, std::size_t max_level)
                                        auto choice = xt::random::choice(xt::xtensor_fixed<bool, xt::xshape<2>>{true, false}, interval.size());
                                        for (int i = interval.start, ic = 0; i < interval.end; ++i, ++ic)
                                        {
-                                           if (choice[ic])
+                                           if (choice[static_cast<std::size_t>(ic)])
                                            {
                                                samurai::static_nested_loop<dim - 1, 0, 2>(
                                                    [&](auto stencil)
@@ -70,13 +98,13 @@ class MyFixture : public ::benchmark::Fixture
         std::size_t found = 0;
         for (auto _ : state)
         {
-            for (std::size_t s = 0; s < state.range(0); ++s)
+            for (int64_t s = 0; s < state.range(0); ++s)
             {
-                auto level = std::experimental::randint(min_level, max_level);
-                std::array<int, dim> coord;
+                auto level = randint(min_level, max_level);
+                xt::xtensor_fixed<int, xt::xshape<dim>> coord;
                 for (auto& c : coord)
                 {
-                    c = std::experimental::randint(-bound << level, (bound << level) - 1);
+                    c = randint(-bound << level, (bound << level) - 1);
                 }
                 auto out = samurai::find(mesh[level], coord);
                 if (out != -1)
@@ -85,8 +113,8 @@ class MyFixture : public ::benchmark::Fixture
                 }
             }
         }
-        state.counters["nb cells"] = mesh.nb_cells();
-        state.counters["found"]    = static_cast<double>(found) / state.iterations();
+        state.counters["nb cells"] = static_cast<double>(mesh.nb_cells());
+        state.counters["found"]    = static_cast<double>(found) / static_cast<double>(state.iterations());
     }
 
     samurai::CellArray<dim_> mesh;
@@ -116,3 +144,5 @@ BENCHMARK_TEMPLATE_DEFINE_F(MyFixture, Search_3D, 3, 1)(benchmark::State& state)
 }
 
 BENCHMARK_REGISTER_F(MyFixture, Search_3D)->DenseRange(1, 10, 1);
+
+BENCHMARK_MAIN();
