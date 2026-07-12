@@ -1,3 +1,18 @@
+// Copyright 2018-2025 the samurai's authors
+// SPDX-License-Identifier:  BSD-3-Clause
+
+// Cost of populating a CellList by random point insertion, and of the
+// CellList -> CellArray conversion, in 2D and 3D, for a range of insertion
+// counts (state.range(0)).
+//
+// CellList is the intermediate structure every mesh-construction path (box
+// initialization, MR adaptation, restart loading) writes into before it is
+// compacted into the interval-based CellArray. This isolates the cost of
+// that write-then-compact step from the rest of mesh construction; it does
+// not measure a realistic access pattern (points are independent and
+// uniformly distributed across levels, not spatially coherent as in an
+// adapted mesh).
+
 #include <random>
 
 #include <benchmark/benchmark.h>

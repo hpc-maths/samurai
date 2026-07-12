@@ -1,3 +1,30 @@
+// Copyright 2018-2025 the samurai's authors
+// SPDX-License-Identifier:  BSD-3-Clause
+
+// Cost of the set-algebra primitives (intersection, union, translate,
+// on()) that every mesh traversal in the library is built from
+// (include/samurai/subset/). Two tiers:
+//
+//   - "uniform": the raw operator cost on three fixed, overlapping boxes at a
+//     single level (Box::box construction, no MR mesh). Each subset is
+//     iterated and its interval sizes accumulated into a DoNotOptimize'd
+//     variable, so the lazy expression is actually evaluated -- an
+//     unconsumed expression is legal C++ and the compiler is free to remove
+//     it entirely.
+//   - "adapted": the same operators applied across levels of a genuinely
+//     MR-adapted mesh (intersection(all_cells[l], cells[l+1]).on(l), the
+//     projection footprint used by compute_detail and update_ghost_mr; and
+//     intersection(cells[l], translate(cells[l], stencil)), the pattern
+//     behind ghost filling). A static uniform mesh does not exercise
+//     cross-level traversal and is not representative of mesh adaptation,
+//     which is ~62% of the advection_2d baseline (Improvement/perf-baseline.md).
+//
+// A prior attempt to replace this set-algebra engine with a "batch"
+// evaluation strategy won on tier-1-style micro-benchmarks but was 24-32%
+// slower on the end-to-end advection_2d run; the "adapted" tier exists so
+// that this class of regression is visible without having to rebuild and run
+// a full demo.
+
 #include <cmath>
 #include <cstddef>
 #include <vector>
@@ -14,14 +41,6 @@
 #include <samurai/mr/mesh.hpp>
 #include <samurai/subset/nary_set_operator.hpp>
 #include <samurai/subset/node.hpp>
-
-// Set-algebra benchmarks. Two tiers:
-//  - "uniform" : the raw operator cost on fixed overlapping boxes at a single
-//    level. The subset is *iterated* (interval sizes accumulated) so the lazy
-//    expression is actually evaluated; without that the operation is dead code.
-//  - "adapted" : the cost on a genuine multi-level MR mesh, exercising the
-//    cross-level intersections/unions/translations that dominate mesh adaptation
-//    in the advection_2d baseline. A static uniform mesh does not reproduce this.
 
 namespace
 {

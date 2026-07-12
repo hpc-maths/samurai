@@ -1,3 +1,18 @@
+// Copyright 2018-2025 the samurai's authors
+// SPDX-License-Identifier:  BSD-3-Clause
+
+// Cost of samurai::find() (coordinate -> cell lookup) on a randomly-refined
+// CellArray, in 1D/2D/3D, as the number of lookups per timed iteration grows
+// (state.range(0)).
+//
+// find() is the primitive behind every coordinate-based query (boundary
+// extrapolation, point-location tests, restart consistency checks); this
+// isolates its cost from the set-algebra machinery that surrounds it
+// elsewhere in the library. The mesh (generated once per fixture, not
+// rebuilt per iteration) is refined by an unstructured coin flip per
+// interval, not by MR adaptation, so its topology does not correspond to
+// any physical solution field.
+
 #include <array>
 #include <random>
 

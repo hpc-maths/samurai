@@ -1,3 +1,26 @@
+// Copyright 2018-2025 the samurai's authors
+// SPDX-License-Identifier:  BSD-3-Clause
+
+// compute_detail() -- the wavelet-detail computation MR adaptation uses to
+// decide which cells to keep or coarsen -- compared across two traversal
+// strategies for its footprint (the ghost layer immediately below the next
+// two finer levels):
+//
+//   - benchmark_detail_with_set: rebuilds the set expression
+//     intersection(all_cells[l], union(cells[l+1], cells[l+2])).on(l) on
+//     every level, for every timed iteration, then applies compute_detail
+//     while iterating it.
+//   - benchmark_detail_with_ca: builds the same footprint once, outside the
+//     timed loop, into a plain CellArray, then applies compute_detail while
+//     iterating that CellArray on every timed iteration.
+//
+// This isolates the cost of the set-algebra traversal itself (construction
+// and lazy evaluation of the intersection/union expression) from the
+// wavelet arithmetic, on an MR-adapted mesh built from a moving tanh front
+// (init_mesh, deterministic, no RNG). detail computation is one of the
+// timed items in the advection_2d baseline (Improvement/perf-baseline.md,
+// ~6% of the long run).
+
 #include <benchmark/benchmark.h>
 #include <samurai/field.hpp>
 #include <samurai/mr/adapt.hpp>

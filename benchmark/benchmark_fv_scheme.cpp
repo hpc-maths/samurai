@@ -13,16 +13,29 @@
 #include <samurai/schemes/fv.hpp>
 #include <samurai/stencil_field.hpp>
 
-// Finite-volume scheme evaluation. In the advection_2d baseline the field
-// expression `unp1 = u - dt*upwind(a,u)` (the "field expressions" timer) is the
-// single largest timed poste after mesh adaptation (~29% of the long run), yet no
-// micro-benchmark exercised it. The ghost update is done once before the timed
-// loop so only the flux evaluation and field arithmetic are measured.
+// Copyright 2018-2025 the samurai's authors
+// SPDX-License-Identifier:  BSD-3-Clause
+
+// Evaluation cost of the linear-advection operator `u - dt * conv(u)`, on
+// an MR-adapted mesh (an interior spherical blob refined by epsilon; see
+// make_adapted_mesh), compared across two independent implementations of
+// the same operator: identical mesh, velocity vector (1 in every Cartesian
+// direction) and dt.
 //
-// Two implementations of the same linear-advection operator are compared on the
-// identical mesh/velocity/dt: samurai::upwind() (direct field-expression stencil,
-// stencil_field.hpp) against samurai::make_convection_upwind<Field>(velocity)
-// (flux-based scheme framework, schemes/fv/operators/convection_lin.hpp).
+//   - benchmark_upwind: samurai::upwind(a, u), the direct field-expression
+//     stencil (stencil_field.hpp) used by demos/FiniteVolume/advection_2d.cpp.
+//   - benchmark_convection_upwind_flux: samurai::make_convection_upwind
+//     <Field>(velocity), the flux-based scheme framework (FluxDefinition /
+//     FluxConfig in schemes/fv/operators/convection_lin.hpp), the same
+//     construction used by demos/FiniteVolume/linear_convection.cpp.
+//
+// In the advection_2d baseline, the field expression built on
+// samurai::upwind() (the "field expressions" timer) is the single largest
+// timed item after mesh adaptation, ~29% of the long run
+// (Improvement/perf-baseline.md), yet was not covered by any
+// micro-benchmark before this file. The ghost update is done once before
+// the timed loop in both benchmarks, so only flux evaluation and field
+// arithmetic are measured, not ghost filling.
 
 namespace
 {

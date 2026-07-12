@@ -1,3 +1,20 @@
+// Copyright 2018-2025 the samurai's authors
+// SPDX-License-Identifier:  BSD-3-Clause
+
+// Cost of update_ghost_mr(), the projection/prediction sweep that fills the
+// ghost cells of an adapted MR mesh, on a genuinely MR-adapted mesh (an
+// interior spherical blob refined by epsilon; see make_adapted_mesh below --
+// a refinement touching the domain boundary in 3D triggers an unrelated
+// out-of-bounds read in LevelCellArray::get_interval, tracked by
+// tests/test_ghost_update.cpp). Arguments: 1/epsilon (refinement threshold)
+// and the number of fields updated together in one call (1 or 4), to
+// separate the per-call set-algebra cost from the per-field arithmetic cost.
+//
+// update_ghost_mr sums to ~26% of the advection_2d baseline once its two
+// call sites (inside mesh adaptation and in the explicit time-integration
+// loop) are added together (Improvement/perf-baseline.md), the second
+// largest item after mesh adaptation's own rebuild cost.
+
 #include <cmath>
 
 #include <benchmark/benchmark.h>
@@ -5,11 +22,6 @@
 #include <samurai/field.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
-
-// update_ghost_mr is the projection/prediction sweep that fills the ghost cells
-// of an adapted MR mesh. In the advection_2d baseline it accounts for ~26% of the
-// total runtime (adaptation + time loop), so it is measured here on a genuinely
-// adapted mesh rather than a static uniform one.
 
 namespace
 {
