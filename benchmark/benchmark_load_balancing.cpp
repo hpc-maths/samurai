@@ -1,7 +1,7 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-// Micro-benchmarks for the load balancing module (roadmap step 6).
+// Micro-benchmarks for the load balancing module.
 //
 // Two costs are measured per strategy on a uniform distributed mesh:
 //   * BM_partition  — the strategy's partition() call alone (the part that
