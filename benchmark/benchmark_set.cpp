@@ -95,11 +95,10 @@ static void BM_Intersection3_uniform(benchmark::State& state)
 {
     constexpr std::size_t dim = 2;
     auto [set1, set2, set3]   = make_three_boxes<dim>();
-    std::size_t acc           = 0;
     for (auto _ : state)
     {
-        acc         = 0;
-        auto subset = samurai::intersection(samurai::intersection(set1, set2), set3);
+        std::size_t acc = 0;
+        auto subset     = samurai::intersection(samurai::intersection(set1, set2), set3);
         subset(
             [&](const auto& i, const auto&)
             {
@@ -113,11 +112,10 @@ static void BM_Intersection3_uniform_on(benchmark::State& state)
 {
     constexpr std::size_t dim = 2;
     auto [set1, set2, set3]   = make_three_boxes<dim>();
-    std::size_t acc           = 0;
     for (auto _ : state)
     {
-        acc         = 0;
-        auto subset = samurai::intersection(samurai::intersection(set1, set2), set3).on(7);
+        std::size_t acc = 0;
+        auto subset     = samurai::intersection(samurai::intersection(set1, set2), set3).on(7);
         subset(
             [&](const auto& i, const auto&)
             {
@@ -132,11 +130,10 @@ static void BM_TranslatedIntersection_uniform(benchmark::State& state)
     constexpr std::size_t dim                       = 2;
     auto [set1, set2, set3]                         = make_three_boxes<dim>();
     xt::xtensor_fixed<int, xt::xshape<dim>> stencil = {1, 0};
-    std::size_t acc                                 = 0;
     for (auto _ : state)
     {
-        acc         = 0;
-        auto subset = samurai::intersection(set1, samurai::translate(set2, stencil));
+        std::size_t acc = 0;
+        auto subset     = samurai::intersection(set1, samurai::translate(set2, stencil));
         subset(
             [&](const auto& i, const auto&)
             {
