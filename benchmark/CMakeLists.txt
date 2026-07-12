@@ -19,57 +19,36 @@ include(addGoogleBench)
 
 find_package(Threads)
 
-set(SAMURAI_BENCHMARKS
+# Self-sufficient benchmarks: one source file, one executable, each file
+# providing its own main (BENCHMARK_MAIN() or, where samurai::initialize()/
+# finalize() is required, a hand-written one), linking only samurai and
+# Google Benchmark. To add a benchmark, add its source file to this list;
+# samurai_add_benchmark() below turns benchmark_<name>.cpp into the
+# bench_<name> executable.
+set(SAMURAI_BENCHMARK_SOURCES
     benchmark_celllist_construction.cpp
+    benchmark_detail_computation.cpp
+    benchmark_fv_scheme.cpp
     benchmark_search.cpp
     benchmark_set.cpp
-    main.cpp
+    benchmark_update_fields.cpp
+    benchmark_update_ghost.cpp
 )
 
-# foreach(filename IN LISTS SAMURAI_BENCHMARKS)
-#     string(REPLACE ".cpp" "" targetname ${filename})
-#     add_executable(${targetname} ${COMMON_BASE} ${filename} ${SAMURAI_HEADERS})
-#     target_include_directories(${targetname} PRIVATE ${SAMURAI_INCLUDE_DIR})
-#     target_link_libraries(${targetname} samurai benchmark::benchmark)
-#     # gbenchk_add_tests(TARGET ${targetname})
-# endforeach()
+function(samurai_add_benchmark source)
+    get_filename_component(name ${source} NAME_WE)
+    string(REPLACE "benchmark_" "bench_" target ${name})
+    add_executable(${target} ${source})
+    target_link_libraries(${target} samurai benchmark::benchmark)
+endfunction()
 
-add_executable(bench_samurai ${SAMURAI_BENCHMARKS})
-# target_include_directories(bench_samurai PRIVATE ${SAMURAI_INCLUDE_DIR})
-target_link_libraries(bench_samurai samurai benchmark::benchmark)
+foreach(source IN LISTS SAMURAI_BENCHMARK_SOURCES)
+    samurai_add_benchmark(${source})
+endforeach()
 
-# target_include_directories(bench_samurai_lib PRIVATE ${SAMURAI_INCLUDE_DIR})
-# # if(DOWNLOAD_GTEST OR GTEST_SRC_DIR)
-# #     add_dependencies(test_samurai_lib gtest_main)
-# # endif()
-# target_link_libraries(bench_samurai_lib samurai benchmark::benchmark)
-
-# # set(SAMURAI_BENCHMARK_TARGET benchmark_samurai)
-# # add_executable(${SAMURAI_BENCHMARK_TARGET} EXCLUDE_FROM_ALL ${SAMURAI_BENCHMARK} ${SAMURAI_HEADERS})
-# add_executable(benchmark_set benchmark_set.cpp)
-# target_link_libraries(benchmark_set samurai benchmark::benchmark)
-
-# add_custom_target(xbenchmark
-#     COMMAND benchmark_samurai
-#     DEPENDS ${SAMURAI_BENCHMARK_TARGET})
-
-# update_fields set-algebra micro-benchmark (OLD vs FOLD vs VAR field-batching strategy).
-add_executable(bench_update_fields benchmark_update_fields.cpp)
-target_link_libraries(bench_update_fields samurai benchmark::benchmark)
-
-# update_ghost_mr on an adapted mesh: 1 vs 4 fields, 2D/3D.
-add_executable(bench_update_ghost benchmark_update_ghost.cpp)
-target_link_libraries(bench_update_ghost samurai benchmark::benchmark)
-
-# compute_detail: set-algebra traversal vs materialized cell-array traversal.
-add_executable(bench_detail_computation benchmark_detail_computation.cpp)
-target_link_libraries(bench_detail_computation samurai benchmark::benchmark)
-
-# Finite-volume scheme evaluation (upwind flux + field expression).
-add_executable(bench_fv_scheme benchmark_fv_scheme.cpp)
-target_link_libraries(bench_fv_scheme samurai benchmark::benchmark)
-
-# Load balancing micro-benchmarks (MPI-only; provides its own MPI-aware main).
+# Load balancing micro-benchmarks: MPI-only, its own MPI-aware main(), and
+# optional extra links (ParMETIS / PT-Scotch), so it is built outside the
+# generic loop above.
 if(WITH_MPI)
     add_executable(bench_load_balancing benchmark_load_balancing.cpp)
     target_include_directories(bench_load_balancing PRIVATE ${SAMURAI_INCLUDE_DIR})

@@ -135,3 +135,5 @@ static void BM_CellList2CellArray_3D(benchmark::State& state)
 }
 
 BENCHMARK(BM_CellList2CellArray_3D)->Range(8, 8 << 18);
+
+BENCHMARK_MAIN();

@@ -144,3 +144,5 @@ BENCHMARK_TEMPLATE_DEFINE_F(MyFixture, Search_3D, 3, 1)(benchmark::State& state)
 }
 
 BENCHMARK_REGISTER_F(MyFixture, Search_3D)->DenseRange(1, 10, 1);
+
+BENCHMARK_MAIN();

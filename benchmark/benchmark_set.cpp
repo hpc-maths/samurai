@@ -219,3 +219,5 @@ BENCHMARK(BM_ProjectionFootprint_adapted<2>)->Arg(1000)->Arg(100000);
 BENCHMARK(BM_ProjectionFootprint_adapted<3>)->Arg(1000)->Arg(100000);
 BENCHMARK(BM_StencilTranslation_adapted<2>)->Arg(1000)->Arg(100000);
 BENCHMARK(BM_StencilTranslation_adapted<3>)->Arg(1000)->Arg(100000);
+
+BENCHMARK_MAIN();
