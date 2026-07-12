@@ -129,8 +129,8 @@ static void BM_Intersection3_uniform_on(benchmark::State& state)
 
 static void BM_TranslatedIntersection_uniform(benchmark::State& state)
 {
-    constexpr std::size_t dim = 2;
-    auto [set1, set2, set3]   = make_three_boxes<dim>();
+    constexpr std::size_t dim                       = 2;
+    auto [set1, set2, set3]                         = make_three_boxes<dim>();
     xt::xtensor_fixed<int, xt::xshape<dim>> stencil = {1, 0};
     std::size_t acc                                 = 0;
     for (auto _ : state)
@@ -164,10 +164,9 @@ static void BM_ProjectionFootprint_adapted(benchmark::State& state)
     const auto min_l = mesh[mesh_id_t::cells].min_level();
     const auto max_l = mesh[mesh_id_t::cells].max_level();
 
-    std::size_t acc = 0;
     for (auto _ : state)
     {
-        acc = 0;
+        std::size_t acc = 0;
         for (std::size_t level = min_l; level < max_l; ++level)
         {
             auto subset = samurai::intersection(mesh[mesh_id_t::all_cells][level], mesh[mesh_id_t::cells][level + 1]).on(level);
@@ -197,10 +196,9 @@ static void BM_StencilTranslation_adapted(benchmark::State& state)
     stencil.fill(0);
     stencil[0] = 1;
 
-    std::size_t acc = 0;
     for (auto _ : state)
     {
-        acc = 0;
+        std::size_t acc = 0;
         for (std::size_t level = min_l; level <= max_l; ++level)
         {
             auto subset = samurai::intersection(mesh[mesh_id_t::cells][level], samurai::translate(mesh[mesh_id_t::cells][level], stencil));
