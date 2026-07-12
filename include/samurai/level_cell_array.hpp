@@ -6,6 +6,8 @@
 #include <array>
 #include <iterator>
 #include <limits>
+#include <sstream>
+#include <stdexcept>
 #include <type_traits>
 #include <vector>
 
@@ -669,14 +671,13 @@ namespace samurai
     SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::get_interval(const interval_t& interval, T... index) const -> const interval_t&
     {
         auto offset = find(*this, {interval.start, index...});
-#ifndef NDEBUG
         if (offset < 0)
         {
-            std::cerr << "Error: Interval not found: level " << m_level << ", i = " << interval << ", index = ";
-            ((std::cerr << index << " "), ...);
-            std::cerr << std::endl;
+            std::ostringstream msg;
+            msg << "LevelCellArray::get_interval: interval not found at level " << m_level << ", i = " << interval << ", index = ";
+            ((msg << index << " "), ...);
+            throw std::out_of_range(msg.str());
         }
-#endif
         return m_cells[0][static_cast<std::size_t>(offset)];
     }
 
@@ -691,17 +692,16 @@ namespace samurai
             point[d] = index[d - 1];
         }
         auto offset = find(*this, point);
-#ifndef NDEBUG
         if (offset < 0)
         {
-            std::cerr << "Error: Interval not found: level " << m_level << ", i = " << interval << ", index =";
+            std::ostringstream msg;
+            msg << "LevelCellArray::get_interval: interval not found at level " << m_level << ", i = " << interval << ", index =";
             for (std::size_t d = 0; d < dim - 1; ++d)
             {
-                std::cerr << index[d] << " ";
+                msg << index[d] << " ";
             }
-            std::cerr << std::endl;
+            throw std::out_of_range(msg.str());
         }
-#endif
         return m_cells[0][static_cast<std::size_t>(offset)];
     }
 
@@ -709,17 +709,16 @@ namespace samurai
     SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::get_interval(const all_coord_type& coord) const -> const interval_t&
     {
         auto offset = find(*this, coord);
-#ifndef NDEBUG
         if (offset < 0)
         {
-            std::cerr << "Error: Interval not found: level " << m_level << ", coord = ";
+            std::ostringstream msg;
+            msg << "LevelCellArray::get_interval: interval not found at level " << m_level << ", coord = ";
             for (std::size_t d = 0; d < dim; ++d)
             {
-                std::cerr << coord[d] << " ";
+                msg << coord[d] << " ";
             }
-            std::cerr << std::endl;
+            throw std::out_of_range(msg.str());
         }
-#endif
         return m_cells[0][static_cast<std::size_t>(offset)];
     }
 

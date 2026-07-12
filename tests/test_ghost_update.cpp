@@ -1,5 +1,4 @@
 #include <cmath>
-#include <cstdlib>
 
 #include <gtest/gtest.h>
 
@@ -71,25 +70,18 @@ namespace samurai
         ::samurai::finalize();
     }
 
-    // Regression (currently FAILING): when the refined region reaches the domain
-    // boundary/corner in 3D, update_ghost_mr queries a corner ghost interval that
-    // does not exist at the finest level. LevelCellArray::get_interval then indexes
-    // its storage with a negative offset cast to size_t -> out-of-bounds read
-    // (SIGSEGV). The 2D analogue does not crash.
-    //
-    // The work runs in a forked child (death test) so the crash does not abort the
-    // whole suite. This test turns green once the 3D boundary ghost handling is fixed
-    // and the child exits cleanly.
+    // Regression: when the refined region reaches the domain boundary/corner in 3D,
+    // update_ghost_mr projects the outer corner/edge ghosts two levels down
+    // (project_corner_below). It reads the corner-most child at a reconstructed,
+    // fixed-parity position; on such a mesh that child may not exist, so
+    // LevelCellArray::get_interval indexed its storage with a negative offset cast to
+    // size_t (out-of-bounds read, SIGSEGV). get_interval now raises std::out_of_range
+    // in that case, and project_corner_below looks the child up per cell and copies it
+    // only when it exists. The 2D analogue never triggered it.
     TEST(ghost_update, boundary_touching_refinement_3d)
     {
-        EXPECT_EXIT(
-            {
-                ::samurai::initialize();
-                run_ghost_update_3d(/*boundary_touching=*/true);
-                ::samurai::finalize();
-                std::exit(EXIT_SUCCESS);
-            },
-            ::testing::ExitedWithCode(EXIT_SUCCESS),
-            "");
+        ::samurai::initialize();
+        EXPECT_NO_THROW(run_ghost_update_3d(/*boundary_touching=*/true));
+        ::samurai::finalize();
     }
 }
