@@ -28,18 +28,18 @@ namespace
     template <class Field>
     void fill_field(Field& u, std::size_t nb, std::size_t direction)
     {
-        samurai::for_each_cell(u.mesh(),
-                               [&](auto& cell)
-                               {
-                                   auto center = cell.center();
-                                   u[cell]     = 0;
-                                   for (std::size_t i = 1; i <= nb; ++i)
-                                   {
-                                       u[cell] += std::tanh(
-                                           1000 * std::abs(center[direction] - static_cast<double>(i) / static_cast<double>(nb + 1)));
-                                   }
-                                   u[cell] -= static_cast<double>(nb);
-                               });
+        samurai::for_each_cell(
+            u.mesh(),
+            [&](auto& cell)
+            {
+                auto center = cell.center();
+                u[cell]     = 0;
+                for (std::size_t i = 1; i <= nb; ++i)
+                {
+                    u[cell] += std::tanh(1000 * std::abs(center[direction] - static_cast<double>(i) / static_cast<double>(nb + 1)));
+                }
+                u[cell] -= static_cast<double>(nb);
+            });
     }
 
     template <std::size_t dim>
