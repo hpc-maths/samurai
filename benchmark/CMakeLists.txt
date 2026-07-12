@@ -57,6 +57,18 @@ target_link_libraries(bench_samurai samurai benchmark::benchmark)
 add_executable(bench_update_fields benchmark_update_fields.cpp)
 target_link_libraries(bench_update_fields samurai benchmark::benchmark)
 
+# update_ghost_mr on an adapted mesh: 1 vs 4 fields, 2D/3D.
+add_executable(bench_update_ghost benchmark_update_ghost.cpp)
+target_link_libraries(bench_update_ghost samurai benchmark::benchmark)
+
+# compute_detail: set-algebra traversal vs materialized cell-array traversal.
+add_executable(bench_detail_computation benchmark_detail_computation.cpp)
+target_link_libraries(bench_detail_computation samurai benchmark::benchmark)
+
+# Finite-volume scheme evaluation (upwind flux + field expression).
+add_executable(bench_fv_scheme benchmark_fv_scheme.cpp)
+target_link_libraries(bench_fv_scheme samurai benchmark::benchmark)
+
 # Load balancing micro-benchmarks (MPI-only; provides its own MPI-aware main).
 if(WITH_MPI)
     add_executable(bench_load_balancing benchmark_load_balancing.cpp)

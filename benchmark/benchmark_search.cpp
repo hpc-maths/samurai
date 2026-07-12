@@ -1,14 +1,27 @@
 #include <array>
-#include <benchmark/benchmark.h>
-#include <experimental/random>
+#include <random>
 
-#include <xtensor/xfixed.hpp>
-#include <xtensor/xrandom.hpp>
+#include <benchmark/benchmark.h>
+
+#include <xtensor/containers/xfixed.hpp>
+#include <xtensor/generators/xrandom.hpp>
 
 #include <samurai/algorithm.hpp>
 #include <samurai/cell_array.hpp>
 #include <samurai/cell_list.hpp>
 #include <samurai/static_algorithm.hpp>
+
+namespace
+{
+    // Fixed-seed uniform integer draw, reproducible across runs.
+    template <class T>
+    T randint(T lo, T hi)
+    {
+        static std::mt19937 gen{42};
+        std::uniform_int_distribution<T> dist(lo, hi);
+        return dist(gen);
+    }
+}
 
 template <std::size_t dim>
 auto generate_mesh(int bound, std::size_t start_level, std::size_t max_level)
@@ -72,11 +85,11 @@ class MyFixture : public ::benchmark::Fixture
         {
             for (std::size_t s = 0; s < state.range(0); ++s)
             {
-                auto level = std::experimental::randint(min_level, max_level);
-                std::array<int, dim> coord;
+                auto level = randint(min_level, max_level);
+                xt::xtensor_fixed<int, xt::xshape<dim>> coord;
                 for (auto& c : coord)
                 {
-                    c = std::experimental::randint(-bound << level, (bound << level) - 1);
+                    c = randint(-bound << level, (bound << level) - 1);
                 }
                 auto out = samurai::find(mesh[level], coord);
                 if (out != -1)
