@@ -22,6 +22,7 @@ set(SAMURAI_TESTS
     test_field.cpp
     test_find.cpp
     test_for_each.cpp
+    test_ghost_update.cpp
     test_graduation.cpp
     test_hdf5.cpp
     test_interval.cpp
