@@ -14,6 +14,8 @@
 // - SetRegion: a B.C. restricted to a user subset via ->on(subset).
 
 #include <cmath>
+#include <map>
+#include <string>
 
 #include <gtest/gtest.h>
 
@@ -142,8 +144,9 @@ namespace samurai
                 {
                     auto [normal_axis, s] = axis_and_sign<dim>(direction);
 
-                    // Polynomial 1 + 3x - 2x^2 in the normal coordinate (truncated to `order`),
-                    // plus a transverse-linear term in the functional case.
+                    // Polynomial of degree `order` in the normal coordinate (the Dirichlet
+                    // reconstruction of that order is exact on it), plus a transverse-linear
+                    // term in the functional case.
                     auto f = [normal_axis, functional](const auto& coords)
                     {
                         double x = coords[normal_axis];
@@ -151,6 +154,14 @@ namespace samurai
                         if constexpr (order >= 2)
                         {
                             p += -2. * x * x;
+                        }
+                        if constexpr (order >= 3)
+                        {
+                            p += 0.7 * x * x * x;
+                        }
+                        if constexpr (order >= 4)
+                        {
+                            p += -0.4 * x * x * x * x;
                         }
                         if (functional)
                         {
@@ -270,12 +281,17 @@ namespace samurai
             return nout;
         }
 
-        // Expected value of a corner-block ghost. update_outer_corners fills the
-        // diagonal ghosts by an extrapolation that reflects the field about the
-        // domain corner (exact up to degree 3), then copies each diagonal value
-        // to the off-diagonal cells of the same first-axis layer. Both are
-        // captured by: value == f(reflection of q), where q replaces every
-        // outside-axis offset by the first outside-axis offset (keeping signs).
+        // Expected value of a corner-block ghost. This oracle freezes the
+        // *observed* behavior of the current implementation (it is not a claim
+        // about the extrapolation order): on a uniform mesh update_outer_corners
+        // fills the diagonal ghosts with the field reflected about the domain
+        // corner, and copies each diagonal value to the off-diagonal cells of the
+        // same first-axis layer. Both are captured by value == f(reflection of q),
+        // where q replaces every outside-axis offset by the first outside-axis
+        // offset (keeping signs). The reflection identity was verified for
+        // polynomials up to degree 3; a change to the corner algorithm is
+        // expected to require updating this oracle (see also the decoupled copy
+        // invariant in corners_offdiagonal_copy_property).
         template <std::size_t dim, class F>
         double corner_oracle(const xt::xtensor_fixed<double, xt::xshape<dim>>& c, F&& f)
         {
@@ -350,22 +366,43 @@ namespace samurai
             EXPECT_GT(nb, 0u);
         }
 
+        // Separable polynomial, degree `order` in each coordinate: along every
+        // Cartesian normal its restriction has degree `order`, so a Dirichlet
+        // B.C. of that order (and every higher-order polynomial extrapolation)
+        // is exact on it.
+        template <std::size_t dim, std::size_t order, class Coords>
+        double separable_polynomial(const Coords& c)
+        {
+            double p = 1.;
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                double x = c[d];
+                p += static_cast<double>(d + 1) * x;
+                if constexpr (order >= 2)
+                {
+                    p += 0.3 * x * x;
+                }
+                if constexpr (order >= 3)
+                {
+                    p += 0.1 * x * x * x;
+                }
+            }
+            return p;
+        }
+
         // Fill the far ghost layers (beyond those written by the B.C.) with
-        // update_further_ghosts_by_polynomial_extrapolation and check them. A
-        // linear field with a first-order Dirichlet B.C. is exact for every
-        // layer, so each ghost equals f(ghost center). ghost_width > 1 is
-        // required for there to be far layers at all.
-        template <std::size_t dim, class Mesh>
+        // update_further_ghosts_by_polynomial_extrapolation and check them.
+        // A Dirichlet<order> (resp. Neumann<1>) B.C. on a degree-`order` (resp.
+        // linear) separable field is exact for the near layers, and the far
+        // layers are extrapolated exactly, so each ghost equals f(ghost center).
+        // ghost_width must exceed the number of layers the B.C. fills (= order
+        // for Dirichlet, 1 for Neumann) for there to be far layers at all.
+        template <std::size_t dim, std::size_t order, bool is_neumann, class Mesh>
         void run_further(Mesh& mesh, int ghost_width)
         {
             auto f = [](const auto& c)
             {
-                double p = 1.;
-                for (std::size_t d = 0; d < dim; ++d)
-                {
-                    p += static_cast<double>(d + 1) * c[d];
-                }
-                return p;
+                return separable_polynomial<dim, order>(c);
             };
 
             auto u = make_scalar_field<double>("u", mesh);
@@ -377,11 +414,28 @@ namespace samurai
 
             using cell_t   = typename decltype(u)::cell_t;
             using coords_t = typename cell_t::coords_t;
-            make_bc<Dirichlet<1>>(u,
-                                  [f](const auto&, const cell_t&, const coords_t& c)
-                                  {
-                                      return f(c);
-                                  });
+            if constexpr (is_neumann)
+            {
+                // Outward normal derivative of the linear field: sum_d dir[d]*(d+1).
+                make_bc<Neumann<1>>(u,
+                                    [](const auto& dir, const cell_t&, const coords_t&)
+                                    {
+                                        double dd = 0.;
+                                        for (std::size_t d = 0; d < dim; ++d)
+                                        {
+                                            dd += static_cast<double>(dir[d]) * static_cast<double>(d + 1);
+                                        }
+                                        return dd;
+                                    });
+            }
+            else
+            {
+                make_bc<Dirichlet<order>>(u,
+                                          [f](const auto&, const cell_t&, const coords_t& c)
+                                          {
+                                              return f(c);
+                                          });
+            }
             apply_field_bc(u);
             update_further_ghosts_by_polynomial_extrapolation(u);
 
@@ -389,6 +443,103 @@ namespace samurai
                 [&](const auto& direction)
                 {
                     EXPECT_GT(check_ghosts(u, DirectionVector<dim>(direction), ghost_width, f), 0u);
+                });
+        }
+
+        // Vector-field variant of check_ghosts: fc(coords, comp) gives the
+        // expected value of component `comp`.
+        template <class Field, class FC>
+        std::size_t check_vector_ghosts(Field& u, const DirectionVector<Field::dim>& direction, int h, FC&& fc)
+        {
+            using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+            auto& mesh      = u.mesh();
+
+            std::size_t nb = 0;
+            for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
+            {
+                auto inner  = domain_boundary(mesh, level, direction);
+                auto domain = self(mesh.domain()).on(level);
+                for (int k = 1; k <= h; ++k)
+                {
+                    auto ghosts = intersection(difference(translate(inner, k * direction), domain), mesh[mesh_id_t::reference][level]).on(level);
+                    for_each_cell(mesh[mesh_id_t::reference],
+                                  ghosts,
+                                  [&](auto& cell)
+                                  {
+                                      ++nb;
+                                      for (std::size_t comp = 0; comp < Field::n_comp; ++comp)
+                                      {
+                                          EXPECT_NEAR(u[cell](comp), fc(cell.center(), comp), 1e-11)
+                                              << "direction=" << direction << " comp=" << comp;
+                                      }
+                                  });
+                }
+            }
+            return nb;
+        }
+
+        // Vector Dirichlet<1> / Neumann<1> (functional path). Component `comp`
+        // carries (comp + 1) times a scalar field the first-order reconstruction
+        // is exact on, so each ghost component equals fc(ghost center, comp) and
+        // the reconstruction is checked to act component by component.
+        template <std::size_t dim, std::size_t n_comp, bool is_neumann, class Mesh>
+        void run_vector(Mesh& mesh)
+        {
+            const double slope = 3.;
+
+            for_each_cartesian_direction<dim>(
+                [&](const auto& direction)
+                {
+                    auto [normal_axis, s] = axis_and_sign<dim>(direction);
+
+                    auto fc = [normal_axis, slope](const auto& coords, std::size_t comp)
+                    {
+                        return static_cast<double>(comp + 1) * (1. + slope * coords[normal_axis]);
+                    };
+
+                    auto u = make_vector_field<double, n_comp>("u", mesh);
+                    for_each_cell(mesh,
+                                  [&](auto& cell)
+                                  {
+                                      for (std::size_t comp = 0; comp < n_comp; ++comp)
+                                      {
+                                          u[cell](comp) = fc(cell.center(), comp);
+                                      }
+                                  });
+
+                    using field_t  = decltype(u);
+                    using cell_t   = typename field_t::cell_t;
+                    using coords_t = typename cell_t::coords_t;
+                    using value_t  = typename field_t::value_type;
+                    if constexpr (is_neumann)
+                    {
+                        make_bc<Neumann<1>>(u,
+                                            [slope, s](const auto&, const cell_t&, const coords_t&)
+                                            {
+                                                samurai::CollapsArray<value_t, n_comp, false> val;
+                                                for (std::size_t comp = 0; comp < n_comp; ++comp)
+                                                {
+                                                    val(comp) = static_cast<double>(comp + 1) * slope * s;
+                                                }
+                                                return val;
+                                            });
+                    }
+                    else
+                    {
+                        make_bc<Dirichlet<1>>(u,
+                                              [fc](const auto&, const cell_t&, const coords_t& coords)
+                                              {
+                                                  samurai::CollapsArray<value_t, n_comp, false> val;
+                                                  for (std::size_t comp = 0; comp < n_comp; ++comp)
+                                                  {
+                                                      val(comp) = fc(coords, comp);
+                                                  }
+                                                  return val;
+                                              });
+                    }
+                    apply_field_bc(u, DirectionVector<dim>(direction));
+
+                    EXPECT_GT(check_vector_ghosts(u, DirectionVector<dim>(direction), 1, fc), 0u);
                 });
         }
     }
@@ -462,6 +613,36 @@ namespace samurai
         run_dirichlet<3, 2>(mesh, true);
     }
 
+    TEST(bc_ghost_values, dirichlet3_constant_1d)
+    {
+        auto mesh = uniform_mesh<1>(4, 3);
+        run_dirichlet<1, 3>(mesh, false);
+    }
+
+    TEST(bc_ghost_values, dirichlet3_constant_2d)
+    {
+        auto mesh = uniform_mesh<2>(4, 3);
+        run_dirichlet<2, 3>(mesh, false);
+    }
+
+    TEST(bc_ghost_values, dirichlet3_function_2d)
+    {
+        auto mesh = uniform_mesh<2>(4, 3);
+        run_dirichlet<2, 3>(mesh, true);
+    }
+
+    TEST(bc_ghost_values, dirichlet4_constant_1d)
+    {
+        auto mesh = uniform_mesh<1>(4, 4);
+        run_dirichlet<1, 4>(mesh, false);
+    }
+
+    TEST(bc_ghost_values, dirichlet4_constant_2d)
+    {
+        auto mesh = uniform_mesh<2>(4, 4);
+        run_dirichlet<2, 4>(mesh, false);
+    }
+
     TEST(bc_ghost_values, neumann_constant_1d)
     {
         auto mesh = uniform_mesh<1>(4, 1);
@@ -490,6 +671,33 @@ namespace samurai
     {
         auto mesh = uniform_mesh<3>(4, 1);
         run_neumann<3>(mesh, true);
+    }
+
+    //-------------------------------------------------------------------------
+    // Vector fields (reconstruction applied component by component).
+    //-------------------------------------------------------------------------
+    TEST(bc_ghost_values, vector_dirichlet_2d)
+    {
+        auto mesh = uniform_mesh<2>(4, 1);
+        run_vector<2, 3, false>(mesh);
+    }
+
+    TEST(bc_ghost_values, vector_dirichlet_3d)
+    {
+        auto mesh = uniform_mesh<3>(4, 1);
+        run_vector<3, 2, false>(mesh);
+    }
+
+    TEST(bc_ghost_values, vector_neumann_2d)
+    {
+        auto mesh = uniform_mesh<2>(4, 1);
+        run_vector<2, 3, true>(mesh);
+    }
+
+    TEST(bc_ghost_values, vector_neumann_3d)
+    {
+        auto mesh = uniform_mesh<3>(4, 1);
+        run_vector<3, 2, true>(mesh);
     }
 
     //-------------------------------------------------------------------------
@@ -566,62 +774,173 @@ namespace samurai
         run_corners<3>(2);
     }
 
-    //-------------------------------------------------------------------------
-    // Far ghost layers by polynomial extrapolation (ghost_width > 1).
-    //-------------------------------------------------------------------------
-    TEST(bc_ghost_values, further_ghosts_uniform_2d)
-    {
-        auto mesh = uniform_mesh<2>(4, 3);
-        run_further<2>(mesh, 3);
-    }
-
-    TEST(bc_ghost_values, further_ghosts_uniform_3d)
-    {
-        auto mesh = uniform_mesh<3>(4, 3);
-        run_further<3>(mesh, 3);
-    }
-
-    TEST(bc_ghost_values, further_ghosts_adapted_2d)
-    {
-        auto mesh = adapted_mesh<2>(3);
-        run_further<2>(mesh, 3);
-    }
-
-    TEST(bc_ghost_values, further_ghosts_adapted_3d)
-    {
-        auto mesh = adapted_mesh<3>(3);
-        run_further<3>(mesh, 3);
-    }
-
-    //-------------------------------------------------------------------------
-    // SetRegion: restrict a boundary condition to a user-provided subset of the
-    // boundary via make_bc(...)->on(subset).
-    //-------------------------------------------------------------------------
-    TEST(bc_ghost_values, set_region_restricts_to_subset)
+    // Copy invariant, independent of the reflection oracle: within a corner
+    // block, all ghosts that share the same outward-sign pattern and the same
+    // offset along the first outside axis hold the same value (the off-diagonal
+    // ghosts copy the diagonal value of their layer). Uses an asymmetric field
+    // so the check would fail if the copy structure were wrong.
+    TEST(bc_ghost_values, corners_offdiagonal_copy_property)
     {
         static constexpr std::size_t dim = 2;
+        using mesh_id_t                  = typename MRMesh<mesh_config<dim>>::mesh_id_t;
         const std::size_t level          = 3;
-        auto cfg                         = mesh_config<dim>().min_level(level).max_level(level);
-        auto mesh                        = mra::make_mesh(
+        auto cfg  = mesh_config<dim>().min_level(level).max_level(level).max_stencil_size(4).disable_minimal_ghost_width();
+        auto mesh = mra::make_mesh(
             Box<double, dim>{
                 {0., 0.},
                 {1., 1.}
         },
             cfg);
 
-        using mesh_t     = decltype(mesh);
-        using interval_t = typename mesh_t::interval_t;
-        using mesh_id_t  = typename mesh_t::mesh_id_t;
-        using lcl_t      = LevelCellList<dim, interval_t>;
-        using lca_t      = LevelCellArray<dim, interval_t>;
+        auto u = make_scalar_field<double>("u", mesh);
+        for_each_cell(mesh,
+                      [&](auto& cell)
+                      {
+                          auto c  = cell.center();
+                          u[cell] = 1. + 2. * c[0] + 5. * c[1] + 3. * c[0] * c[1];
+                      });
+        update_outer_corners_by_polynomial_extrapolation(level, u);
 
-        // Left boundary column (i = 0), rows j = 2..5 only (corners at j = 0, 7 excluded).
-        lcl_t lcl(level, mesh.origin_point(), mesh.scaling_factor());
-        for (int j = 2; j < 6; ++j)
+        double dx = mesh.cell_length(level);
+        std::map<std::string, double> by_layer;
+        std::size_t nb = 0;
+        for_each_cell(mesh[mesh_id_t::reference],
+                      [&](auto& cell)
+                      {
+                          auto c = cell.center();
+                          if (count_outside<dim>(c) < 2)
+                          {
+                              return;
+                          }
+                          std::string key;
+                          std::size_t first = dim;
+                          for (std::size_t d = 0; d < dim; ++d)
+                          {
+                              int s = (c[d] < 0.) ? -1 : (c[d] > 1.) ? 1 : 0;
+                              key += std::to_string(s) + ",";
+                              if (s != 0 && first == dim)
+                              {
+                                  first = d;
+                              }
+                          }
+                          double r_first = c[first] < 0. ? 0. : 1.;
+                          int layer      = static_cast<int>(std::llround(std::abs(c[first] - r_first) / dx + 0.5));
+                          key += "|" + std::to_string(layer);
+
+                          auto it = by_layer.find(key);
+                          if (it == by_layer.end())
+                          {
+                              by_layer[key] = u[cell];
+                          }
+                          else
+                          {
+                              EXPECT_NEAR(u[cell], it->second, 1e-12) << "key=" << key;
+                          }
+                          ++nb;
+                      });
+        EXPECT_GT(nb, 0u);
+    }
+
+    //-------------------------------------------------------------------------
+    // Far ghost layers by polynomial extrapolation (ghost_width > 1).
+    //-------------------------------------------------------------------------
+    TEST(bc_ghost_values, further_ghosts_dirichlet1_uniform_2d)
+    {
+        auto mesh = uniform_mesh<2>(4, 3);
+        run_further<2, 1, false>(mesh, 3);
+    }
+
+    TEST(bc_ghost_values, further_ghosts_dirichlet1_uniform_3d)
+    {
+        auto mesh = uniform_mesh<3>(4, 3);
+        run_further<3, 1, false>(mesh, 3);
+    }
+
+    TEST(bc_ghost_values, further_ghosts_dirichlet1_adapted_2d)
+    {
+        auto mesh = adapted_mesh<2>(3);
+        run_further<2, 1, false>(mesh, 3);
+    }
+
+    TEST(bc_ghost_values, further_ghosts_dirichlet1_adapted_3d)
+    {
+        auto mesh = adapted_mesh<3>(3);
+        run_further<3, 1, false>(mesh, 3);
+    }
+
+    // Dirichlet<2> fills 2 near layers; layer 3 is the one extrapolated (stencil
+    // size 6, the largest the polynomial extrapolation implements).
+    TEST(bc_ghost_values, further_ghosts_dirichlet2_uniform_2d)
+    {
+        auto mesh = uniform_mesh<2>(4, 3);
+        run_further<2, 2, false>(mesh, 3);
+    }
+
+    TEST(bc_ghost_values, further_ghosts_neumann_uniform_2d)
+    {
+        auto mesh = uniform_mesh<2>(4, 3);
+        run_further<2, 1, true>(mesh, 3);
+    }
+
+    TEST(bc_ghost_values, further_ghosts_neumann_uniform_3d)
+    {
+        auto mesh = uniform_mesh<3>(4, 3);
+        run_further<3, 1, true>(mesh, 3);
+    }
+
+    //-------------------------------------------------------------------------
+    // SetRegion: restrict a boundary condition to a user-provided subset of the
+    // boundary via make_bc(...)->on(subset).
+    //-------------------------------------------------------------------------
+    namespace
+    {
+        // LCA of one 2D boundary strip: the cells adjacent to side `side` (-1/+1)
+        // of axis `axis`, restricted to the transverse index range [tlo, thi).
+        template <class Mesh>
+        auto boundary_strip(const Mesh& mesh, std::size_t level, std::size_t axis, int side, int tlo, int thi)
         {
-            lcl[{j}].add_interval({0, 1});
+            using interval_t = typename Mesh::interval_t;
+            using lcl_t      = LevelCellList<2, interval_t>;
+            using lca_t      = LevelCellArray<2, interval_t>;
+
+            int n = 1 << level;
+            int b = (side < 0) ? 0 : n - 1; // boundary index along `axis`
+
+            lcl_t lcl(level, mesh.origin_point(), mesh.scaling_factor());
+            if (axis == 0)
+            {
+                for (int t = tlo; t < thi; ++t)
+                {
+                    lcl[{t}].add_interval({b, b + 1});
+                }
+            }
+            else
+            {
+                lcl[{b}].add_interval({tlo, thi});
+            }
+            return lca_t(lcl);
         }
-        lca_t sub(lcl);
+
+        auto unit_square_mesh(std::size_t level, int ghost_width)
+        {
+            auto cfg = mesh_config<2>().min_level(level).max_level(level).max_stencil_size(2 * ghost_width);
+            return mra::make_mesh(
+                Box<double, 2>{
+                    {0., 0.},
+                    {1., 1.}
+            },
+                cfg);
+        }
+    }
+
+    TEST(bc_ghost_values, set_region_restricts_to_subset)
+    {
+        const std::size_t level = 3;
+        auto mesh               = unit_square_mesh(level, 1);
+        using mesh_id_t         = typename decltype(mesh)::mesh_id_t;
+
+        // Left boundary column, rows j = 2..5 only (corners at j = 0, 7 excluded).
+        auto sub = boundary_strip(mesh, level, 0, -1, 2, 6);
 
         auto u = make_scalar_field<double>("u", mesh);
         u.fill(0.);
@@ -645,16 +964,15 @@ namespace samurai
 
         // Only the left ghosts at j = 2..5 are filled (ghost = 2v - cell); the
         // other left ghosts are left at their initial value.
-        DirectionVector<dim> left = {-1, 0};
-        auto inner                = domain_boundary(mesh, level, left);
-        auto ghosts               = intersection(translate(inner, left), mesh[mesh_id_t::reference][level]).on(level);
-        double dx                 = mesh.cell_length(level);
-        std::size_t nb_filled     = 0;
+        DirectionVector<2> left = {-1, 0};
+        auto inner              = domain_boundary(mesh, level, left);
+        auto ghosts             = intersection(translate(inner, left), mesh[mesh_id_t::reference][level]).on(level);
+        std::size_t nb_filled   = 0;
         for_each_cell(mesh[mesh_id_t::reference],
                       ghosts,
                       [&](auto& cell)
                       {
-                          int j = static_cast<int>(std::llround(cell.center(1) / dx - 0.5));
+                          int j = static_cast<int>(cell.indices[1]);
                           if (j >= 2 && j < 6)
                           {
                               EXPECT_NEAR(u[cell], 2. * v - 5., 1e-12) << "j=" << j;
@@ -666,5 +984,222 @@ namespace samurai
                           }
                       });
         EXPECT_EQ(nb_filled, 4u);
+    }
+
+    // The region direction has the correct axis and sign for each of the four sides.
+    TEST(bc_ghost_values, set_region_direction_per_side)
+    {
+        const std::size_t level = 3;
+        auto mesh               = unit_square_mesh(level, 1);
+
+        for (std::size_t axis = 0; axis < 2; ++axis)
+        {
+            for (int side : {-1, 1})
+            {
+                auto sub = boundary_strip(mesh, level, axis, side, 2, 6); // mid-edge, no corners
+                auto u   = make_scalar_field<double>("u", mesh);
+                u.fill(0.);
+                auto bc = make_bc<Dirichlet<1>>(u, 1.)->on(self(sub));
+
+                const auto& region = bc->get_region();
+                ASSERT_EQ(region.first.size(), 1u) << "axis=" << axis << " side=" << side;
+                EXPECT_EQ(region.first[0][axis], side);
+                EXPECT_EQ(region.first[0][1 - axis], 0);
+                EXPECT_EQ(region.second[0].nb_cells(), 4u);
+            }
+        }
+    }
+
+    // A subset spanning the whole left column also touches the two corners, so the
+    // region holds several directions.
+    TEST(bc_ghost_values, set_region_multiple_directions)
+    {
+        const std::size_t level = 3;
+        auto mesh               = unit_square_mesh(level, 1);
+
+        auto sub = boundary_strip(mesh, level, 0, -1, 0, 1 << level); // full left column
+        auto u   = make_scalar_field<double>("u", mesh);
+        u.fill(0.);
+        auto bc = make_bc<Dirichlet<1>>(u, 1.)->on(self(sub));
+
+        const auto& region = bc->get_region();
+        EXPECT_GT(region.first.size(), 1u);
+        bool has_left = false;
+        for (const auto& d : region.first)
+        {
+            if (d[0] == -1 && d[1] == 0)
+            {
+                has_left = true;
+            }
+        }
+        EXPECT_TRUE(has_left);
+    }
+
+    // SetRegion works with a Neumann condition.
+    TEST(bc_ghost_values, set_region_neumann)
+    {
+        const std::size_t level = 3;
+        auto mesh               = unit_square_mesh(level, 1);
+        using mesh_id_t         = typename decltype(mesh)::mesh_id_t;
+
+        auto sub = boundary_strip(mesh, level, 0, -1, 2, 6);
+        auto u   = make_scalar_field<double>("u", mesh);
+        u.fill(0.);
+        for_each_cell(mesh,
+                      [&](auto& cell)
+                      {
+                          u[cell] = 5.;
+                      });
+
+        const double v = 2.;
+        auto bc        = make_bc<Neumann<1>>(u, v)->on(self(sub));
+
+        const auto& region = bc->get_region();
+        ASSERT_EQ(region.first.size(), 1u);
+        EXPECT_EQ(region.first[0][0], -1);
+
+        apply_field_bc(u);
+
+        double dx               = mesh.cell_length(level);
+        DirectionVector<2> left = {-1, 0};
+        auto inner              = domain_boundary(mesh, level, left);
+        auto ghosts             = intersection(translate(inner, left), mesh[mesh_id_t::reference][level]).on(level);
+        std::size_t nb_filled   = 0;
+        for_each_cell(mesh[mesh_id_t::reference],
+                      ghosts,
+                      [&](auto& cell)
+                      {
+                          int j = static_cast<int>(cell.indices[1]);
+                          if (j >= 2 && j < 6)
+                          {
+                              EXPECT_NEAR(u[cell], 5. + dx * v, 1e-12) << "j=" << j;
+                              ++nb_filled;
+                          }
+                          else
+                          {
+                              EXPECT_EQ(u[cell], 0.) << "j=" << j;
+                          }
+                      });
+        EXPECT_EQ(nb_filled, 4u);
+    }
+
+    // SetRegion works with a two-layer (order 2) condition: both ghost layers of
+    // the selected cells are filled, the others are left untouched.
+    TEST(bc_ghost_values, set_region_dirichlet2)
+    {
+        const std::size_t level = 3;
+        auto mesh               = unit_square_mesh(level, 2);
+        using mesh_id_t         = typename decltype(mesh)::mesh_id_t;
+
+        auto sub = boundary_strip(mesh, level, 0, -1, 2, 6);
+        auto u   = make_scalar_field<double>("u", mesh);
+        u.fill(0.);
+        for_each_cell(mesh,
+                      [&](auto& cell)
+                      {
+                          u[cell] = 5.;
+                      });
+
+        auto bc = make_bc<Dirichlet<2>>(u, 1.)->on(self(sub));
+
+        const auto& region = bc->get_region();
+        ASSERT_EQ(region.first.size(), 1u);
+        EXPECT_EQ(region.first[0][0], -1);
+
+        apply_field_bc(u);
+
+        DirectionVector<2> left = {-1, 0};
+        auto inner              = domain_boundary(mesh, level, left);
+        for (int layer = 1; layer <= 2; ++layer)
+        {
+            auto ghosts           = intersection(translate(inner, layer * left), mesh[mesh_id_t::reference][level]).on(level);
+            std::size_t nb_filled = 0;
+            for_each_cell(mesh[mesh_id_t::reference],
+                          ghosts,
+                          [&](auto& cell)
+                          {
+                              int j = static_cast<int>(cell.indices[1]);
+                              if (j >= 2 && j < 6)
+                              {
+                                  EXPECT_NE(u[cell], 0.) << "layer=" << layer << " j=" << j; // filled
+                                  ++nb_filled;
+                              }
+                              else
+                              {
+                                  EXPECT_EQ(u[cell], 0.) << "layer=" << layer << " j=" << j; // untouched
+                              }
+                          });
+            EXPECT_EQ(nb_filled, 4u);
+        }
+    }
+
+    // SetRegion on an adapted mesh: restricting to the whole left boundary yields a
+    // non-empty region containing the left direction.
+    TEST(bc_ghost_values, set_region_adapted)
+    {
+        auto mesh = adapted_mesh<2>(1);
+
+        auto left_boundary = difference(mesh.domain(), translate(mesh.domain(), DirectionVector<2>{1, 0}));
+        auto u             = make_scalar_field<double>("u", mesh);
+        u.fill(0.);
+        auto bc = make_bc<Dirichlet<1>>(u, 1.)->on(left_boundary);
+
+        const auto& region = bc->get_region();
+        ASSERT_GT(region.first.size(), 0u);
+        bool has_left = false;
+        for (const auto& d : region.first)
+        {
+            if (d[0] == -1 && d[1] == 0)
+            {
+                has_left = true;
+            }
+        }
+        EXPECT_TRUE(has_left);
+    }
+
+    //-------------------------------------------------------------------------
+    // Mixed conditions: Dirichlet on one side, Neumann on the opposite side.
+    //-------------------------------------------------------------------------
+    TEST(bc_ghost_values, mixed_dirichlet_neumann)
+    {
+        const std::size_t level = 3;
+        auto mesh               = unit_square_mesh(level, 1);
+        using mesh_id_t         = typename decltype(mesh)::mesh_id_t;
+
+        auto u = make_scalar_field<double>("u", mesh);
+        u.fill(0.);
+        for_each_cell(mesh,
+                      [&](auto& cell)
+                      {
+                          u[cell] = 5.;
+                      });
+
+        const double vD = 1.;
+        const double vN = 2.;
+        make_bc<Dirichlet<1>>(u, vD)->on(DirectionVector<2>{-1, 0}); // left
+        make_bc<Neumann<1>>(u, vN)->on(DirectionVector<2>{1, 0});    // right
+
+        apply_field_bc(u);
+
+        double dx = mesh.cell_length(level);
+        for (int side : {-1, 1})
+        {
+            DirectionVector<2> dir = {side, 0};
+            auto inner             = domain_boundary(mesh, level, dir);
+            auto ghosts            = intersection(translate(inner, dir), mesh[mesh_id_t::reference][level]).on(level);
+            for_each_cell(mesh[mesh_id_t::reference],
+                          ghosts,
+                          [&](auto& cell)
+                          {
+                              if (side < 0)
+                              {
+                                  EXPECT_NEAR(u[cell], 2. * vD - 5., 1e-12); // Dirichlet
+                              }
+                              else
+                              {
+                                  EXPECT_NEAR(u[cell], 5. + dx * vN, 1e-12); // Neumann
+                              }
+                          });
+        }
     }
 }
