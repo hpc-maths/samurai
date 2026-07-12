@@ -43,7 +43,7 @@ static void BM_CellListConstruction_2D(benchmark::State& state)
 
     for (auto _ : state)
     {
-        for (std::size_t s = 0; s < state.range(0); ++s)
+        for (int64_t s = 0; s < state.range(0); ++s)
         {
             auto level = randint(min_level, max_level);
             auto x     = randint(0, (100 << level) - 1);
@@ -67,7 +67,7 @@ static void BM_CellListConstruction_3D(benchmark::State& state)
 
     for (auto _ : state)
     {
-        for (std::size_t s = 0; s < state.range(0); ++s)
+        for (int64_t s = 0; s < state.range(0); ++s)
         {
             auto level = randint(min_level, max_level);
             auto x     = randint(0, (100 << level) - 1);
@@ -91,7 +91,7 @@ static void BM_CellList2CellArray_2D(benchmark::State& state)
     samurai::CellList<dim> cl;
     samurai::CellArray<dim> ca;
 
-    for (std::size_t s = 0; s < state.range(0); ++s)
+    for (int64_t s = 0; s < state.range(0); ++s)
     {
         auto level = randint(min_level, max_level);
         auto x     = randint(0, (100 << level) - 1);
@@ -118,7 +118,7 @@ static void BM_CellList2CellArray_3D(benchmark::State& state)
     samurai::CellList<dim> cl;
     samurai::CellArray<dim> ca;
 
-    for (std::size_t s = 0; s < state.range(0); ++s)
+    for (int64_t s = 0; s < state.range(0); ++s)
     {
         auto level = randint(min_level, max_level);
         auto x     = randint(0, (100 << level) - 1);

@@ -1,18 +1,3 @@
-#include <array>
-#include <cmath>
-
-#include <benchmark/benchmark.h>
-
-#include <xtensor/containers/xfixed.hpp>
-
-#include <samurai/algorithm.hpp>
-#include <samurai/bc.hpp>
-#include <samurai/field.hpp>
-#include <samurai/mr/adapt.hpp>
-#include <samurai/mr/mesh.hpp>
-#include <samurai/schemes/fv.hpp>
-#include <samurai/stencil_field.hpp>
-
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
@@ -36,6 +21,21 @@
 // micro-benchmark before this file. The ghost update is done once before
 // the timed loop in both benchmarks, so only flux evaluation and field
 // arithmetic are measured, not ghost filling.
+
+#include <array>
+#include <cmath>
+
+#include <benchmark/benchmark.h>
+
+#include <xtensor/containers/xfixed.hpp>
+
+#include <samurai/algorithm.hpp>
+#include <samurai/bc.hpp>
+#include <samurai/field.hpp>
+#include <samurai/mr/adapt.hpp>
+#include <samurai/mr/mesh.hpp>
+#include <samurai/schemes/fv.hpp>
+#include <samurai/stencil_field.hpp>
 
 namespace
 {

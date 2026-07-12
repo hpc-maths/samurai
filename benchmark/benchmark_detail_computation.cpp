@@ -173,11 +173,8 @@ void benchmark_detail_with_set(benchmark::State& state)
                                static_cast<std::size_t>(state.range(1)),
                                static_cast<std::size_t>(state.range(2)));
     using mesh_id_t = typename decltype(mesh)::mesh_id_t;
-    auto u          = samurai::make_vector_field<double, 1>("u", mesh);
-    auto detail     = samurai::make_vector_field<double, 1>("detail", mesh);
-
-    using mesh_t    = decltype(mesh);
-    using mesh_id_t = typename mesh_t::mesh_id_t;
+    auto u          = samurai::make_scalar_field<double>("u", mesh);
+    auto detail     = samurai::make_scalar_field<double>("detail", mesh);
 
     auto min_level = mesh[mesh_id_t::cells].min_level();
     auto max_level = mesh[mesh_id_t::cells].max_level();

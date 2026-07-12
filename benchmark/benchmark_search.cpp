@@ -57,7 +57,7 @@ auto generate_mesh(int bound, std::size_t start_level, std::size_t max_level)
                                        auto choice = xt::random::choice(xt::xtensor_fixed<bool, xt::xshape<2>>{true, false}, interval.size());
                                        for (int i = interval.start, ic = 0; i < interval.end; ++i, ++ic)
                                        {
-                                           if (choice[ic])
+                                           if (choice[static_cast<std::size_t>(ic)])
                                            {
                                                samurai::static_nested_loop<dim - 1, 0, 2>(
                                                    [&](auto stencil)
@@ -98,7 +98,7 @@ class MyFixture : public ::benchmark::Fixture
         std::size_t found = 0;
         for (auto _ : state)
         {
-            for (std::size_t s = 0; s < state.range(0); ++s)
+            for (int64_t s = 0; s < state.range(0); ++s)
             {
                 auto level = randint(min_level, max_level);
                 xt::xtensor_fixed<int, xt::xshape<dim>> coord;
@@ -113,8 +113,8 @@ class MyFixture : public ::benchmark::Fixture
                 }
             }
         }
-        state.counters["nb cells"] = mesh.nb_cells();
-        state.counters["found"]    = static_cast<double>(found) / state.iterations();
+        state.counters["nb cells"] = static_cast<double>(mesh.nb_cells());
+        state.counters["found"]    = static_cast<double>(found) / static_cast<double>(state.iterations());
     }
 
     samurai::CellArray<dim_> mesh;
