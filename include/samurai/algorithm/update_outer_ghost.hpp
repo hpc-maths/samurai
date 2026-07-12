@@ -268,7 +268,7 @@ namespace samurai
     void project_corner_below(std::size_t level, const DirectionVector<Field::dim>& direction, Field& field)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
-        using lca_t     = typename Field::mesh_t::lca_type;
+        using coord_t   = typename Field::mesh_t::lca_type::all_coord_type;
 
         static constexpr std::size_t dim = Field::dim;
 
@@ -300,7 +300,7 @@ namespace samurai
             // array with the not-found offset (out of bounds). The child is therefore looked up per
             // cell and copied only when it exists; where it exists it is the single relevant child, so
             // the value matches the former unconditional read.
-            lca_t child_lca(level, mesh.origin_point(), mesh.scaling_factor());
+            const auto& ref_level = mesh[mesh_id_t::reference][level];
             projection_ghost(
                 [&](const auto& i, const auto& index)
                 {
@@ -312,24 +312,20 @@ namespace samurai
                         index_child[d] += direction[d + 1] == -1 ? ((1 << delta_l) - 1) : 0;
                     }
 
+                    coord_t child_coord;
                     auto i_child = (i.start << delta_l) + (direction[0] == -1 ? ((1 << delta_l) - 1) : 0);
                     for (auto ii = i.start; ii < i.end; ++ii, i_child += (1 << delta_l))
                     {
-                        child_lca.add_point_back(i_child, index_child);
+                        child_coord[0] = i_child;
+                        for (std::size_t d = 1; d < dim; ++d)
+                        {
+                            child_coord[d] = index_child[d - 1];
+                        }
 
-                        bool child_exists = false;
-                        auto child        = intersection(self(child_lca), mesh[mesh_id_t::reference][level]);
-                        child(
-                            [&](const auto&, const auto&)
-                            {
-                                child_exists = true;
-                            });
-
-                        if (child_exists)
+                        if (find(ref_level, child_coord) >= 0)
                         {
                             field(proj_level, {ii, ii + 1}, index) = field(level, {i_child, i_child + 1}, index_child);
                         }
-                        child_lca.clear();
                     }
                 });
             if (proj_level == 0)
