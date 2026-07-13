@@ -56,6 +56,7 @@ set(SAMURAI_TESTS
     test_restart.cpp
     test_scaling.cpp
     test_sfc_curves.cpp
+    test_static_dispatch.cpp
     test_stencil.cpp
     test_subdomain_bbox.cpp
     test_subset.cpp
