@@ -359,9 +359,10 @@ namespace samurai
         check_divergence_exact<3>();
     }
 
-    // Same operators applied to a genuine vector field (n_comp == dim), to cover
-    // the vector code path of the schemes. Each component is an independent
-    // polynomial, so the operator acts component-wise.
+    // Same operators applied to a vector field (n_comp == dim), to cover the
+    // vector code path of the schemes (n_comp x n_comp coefficient matrices).
+    // Each component is an independent polynomial, so the operator acts
+    // component-wise. Includes 1D (n_comp == 1), i.e. the VectorField<1> path.
     template <std::size_t dim>
     void check_diffusion_exact_vector()
     {
@@ -431,6 +432,11 @@ namespace samurai
                           }
                       });
         EXPECT_GT(nb_checked, 0u);
+    }
+
+    TEST(fv_operators, diffusion_vector_exact_1d)
+    {
+        check_diffusion_exact_vector<1>();
     }
 
     TEST(fv_operators, diffusion_vector_exact_2d)
@@ -515,6 +521,11 @@ namespace samurai
                           }
                       });
         EXPECT_GT(nb_checked, 0u);
+    }
+
+    TEST(fv_operators, convection_vector_exact_1d)
+    {
+        check_convection_exact_vector<1>();
     }
 
     TEST(fv_operators, convection_vector_exact_2d)
