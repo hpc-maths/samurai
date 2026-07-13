@@ -164,8 +164,8 @@ namespace samurai
                                 {
                                     throw std::runtime_error(
                                         fmt::format("Assembly failure: incompatible number of rows of block ({}, {}): {} (expected {})",
-                                                    row,
-                                                    col,
+                                                    static_cast<std::size_t>(row),
+                                                    static_cast<std::size_t>(col),
                                                     op.owned_matrix_rows(),
                                                     block_owned_rows));
                                 }
@@ -205,8 +205,8 @@ namespace samurai
                                 {
                                     throw std::runtime_error(
                                         fmt::format("Assembly failure: incompatible number of columns of block ({}, {}): {} (expected {})",
-                                                    row,
-                                                    col,
+                                                    static_cast<std::size_t>(row),
+                                                    static_cast<std::size_t>(col),
                                                     op.owned_matrix_cols(),
                                                     block_owned_cols));
                                 }
@@ -248,8 +248,8 @@ namespace samurai
                                                  throw std::invalid_argument(
                                                      fmt::format("unknown {} is not compatible with the scheme ({}, {}) (named '{}')",
                                                                  i,
-                                                                 row,
-                                                                 col,
+                                                                 static_cast<std::size_t>(row),
+                                                                 static_cast<std::size_t>(col),
                                                                  op.name()));
                                              }
                                          }
@@ -319,8 +319,8 @@ namespace samurai
                             throw std::runtime_error(
                                 fmt::format("Function 'create_vector()' is ambiguous in this context, because the block ({}, {}) is not "
                                             "square. Use 'create_applicable_vector()' or 'create_rhs_vector()' instead.",
-                                            row,
-                                            col));
+                                            static_cast<std::size_t>(row),
+                                            static_cast<std::size_t>(col)));
                         }
                     });
             }
