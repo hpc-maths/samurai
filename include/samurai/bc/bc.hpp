@@ -66,9 +66,6 @@ namespace samurai
         function = 1,
     };
 
-    template <class F, class... CT>
-    class subset_operator;
-
     template <std::size_t dim, class TInterval>
     class LevelCellArray;
 
@@ -494,26 +491,30 @@ namespace samurai
     {
         std::vector<direction_t> dir;
         std::vector<lca_t> lca;
-        for (std::size_t d = 0; d < 2 * dim; ++d)
-        {
-            DirectionVector<dim> stencil = xt::view(cartesian_directions<dim>(), d);
-            lca_t lca_temp               = intersection(m_set, difference(translate(domain, d), domain));
-            if (!lca_temp.empty())
+        for_each_cartesian_direction<dim>(
+            [&](const auto& d)
             {
-                dir.emplace_back(-d);
-                lca.emplace_back(std::move(lca_temp));
-            }
-        }
+                direction_t direction = d;
+                // Boundary cells of the domain in this direction (same as Everywhere),
+                // restricted to the user-provided set.
+                lca_t lca_temp(intersection(m_set, difference(domain, translate(domain, -direction))));
+                if (!lca_temp.empty())
+                {
+                    dir.emplace_back(direction);
+                    lca.emplace_back(std::move(lca_temp));
+                }
+            });
         return std::make_pair(dir, lca);
     }
 
     ///////////////////////////////
     // BcRegion helper functions //
     ///////////////////////////////
-    template <std::size_t dim, class TInterval, class F, class... CT>
-    auto make_bc_region(subset_operator<F, CT...> region)
+    template <std::size_t dim, class TInterval, class Set>
+        requires IsSet<Set>::value
+    auto make_bc_region(const Set& region)
     {
-        return SetRegion<dim, TInterval, subset_operator<F, CT...>>(region);
+        return SetRegion<dim, TInterval, Set>(region);
     }
 
     template <std::size_t dim, class TInterval>

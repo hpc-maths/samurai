@@ -13,6 +13,7 @@ set(COMMON_BASE
 set(SAMURAI_TESTS
     test_adapt.cpp
     test_bc.cpp
+    test_bc_ghost_values.cpp
     test_box.cpp
     test_cell.cpp
     test_cell_array.cpp
