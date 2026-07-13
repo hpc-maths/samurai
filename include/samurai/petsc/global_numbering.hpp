@@ -258,7 +258,7 @@ namespace samurai
         }
 #endif
 
-        bool has_duplicates(const std::vector<PetscInt>& local_to_global_mapping)
+        inline bool has_duplicates(const std::vector<PetscInt>& local_to_global_mapping)
         {
             bool duplicate_found = false;
             for (std::size_t i = 0; i < local_to_global_mapping.size(); ++i)

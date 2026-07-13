@@ -28,7 +28,7 @@ namespace samurai
         template <typename T>
         concept is_xtensor = is_xtensor_impl<std::remove_cv_t<T>>::value;
 
-        Vec create_petsc_vector(PetscInt local_size)
+        inline Vec create_petsc_vector(PetscInt local_size)
         {
             Vec v;
             VecCreate(PETSC_COMM_WORLD, &v);
@@ -182,7 +182,7 @@ namespace samurai
             }
         }
 
-        bool check_nan_or_inf(const Vec& v)
+        inline bool check_nan_or_inf(const Vec& v)
         {
             PetscInt n;
             VecGetSize(v, &n);
@@ -266,7 +266,7 @@ namespace samurai
             VecRestoreArrayRead(v, &v_data);
         }
 
-        void copy(PetscScalar value, Vec& v)
+        inline void copy(PetscScalar value, Vec& v)
         {
 #if !defined(NDEBUG)
             PetscInt n_vec;

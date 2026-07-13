@@ -6,6 +6,24 @@ message(STATUS "Found Rapidcheck: ${rapidcheck_FOUND}")
 
 find_package(Threads)
 
+# PETSc support for the tests (mirrors demos/FiniteVolume/CMakeLists.txt). Enables
+# the explicit/implicit consistency tests guarded by SAMURAI_WITH_PETSC.
+if(WITH_PETSC)
+    message(STATUS "Building tests with PETSc support")
+    include(CMakeFindDependencyMacro)
+    find_dependency(PkgConfig)
+    pkg_check_modules(PETSC REQUIRED PETSc)
+    include_directories(${PETSC_INCLUDE_DIRS})
+endif()
+
+# Adds the PETSc compile definition and libraries to a test target when enabled.
+function(samurai_test_petsc target)
+    if(WITH_PETSC)
+        target_compile_definitions(${target} PUBLIC SAMURAI_WITH_PETSC)
+        target_link_libraries(${target} ${PETSC_LINK_LIBRARIES})
+    endif()
+endfunction()
+
 set(COMMON_BASE
     main.cpp
 )
@@ -23,6 +41,7 @@ set(SAMURAI_TESTS
     test_field.cpp
     test_find.cpp
     test_for_each.cpp
+    test_fv_operators.cpp
     test_ghost_update.cpp
     test_graduation.cpp
     test_hdf5.cpp
@@ -78,6 +97,21 @@ if(rapidcheck_FOUND)
     target_link_libraries(test_samurai_lib samurai gtest_main gtest rapidcheck rapidcheck_gtest)
 else()
     target_link_libraries(test_samurai_lib samurai gtest_main gtest)
+endif()
+
+# The PETSc-backed tests (SAMURAI_WITH_PETSC) live in a dedicated executable.
+# They cannot share the process with the rest of the suite: PetscFinalize() (called
+# by samurai::finalize() in some tests) tears down MPI, which cannot be restarted,
+# so a later PETSc test in the same binary would abort. Isolating them also keeps
+# SAMURAI_WITH_PETSC off the main suite, avoiding pulling PETSc into every TU.
+if(WITH_PETSC)
+    add_executable(test_fv_operators_petsc ${COMMON_BASE} test_fv_operators.cpp ${SAMURAI_HEADERS})
+    target_include_directories(test_fv_operators_petsc PRIVATE ${SAMURAI_INCLUDE_DIR})
+    if(MSVC)
+        target_compile_options(test_fv_operators_petsc PUBLIC /bigobj)
+    endif()
+    target_link_libraries(test_fv_operators_petsc samurai gtest_main gtest)
+    samurai_test_petsc(test_fv_operators_petsc)
 endif()
 
 # Standalone tools (no gtest): regenerate the small samurai files consumed by

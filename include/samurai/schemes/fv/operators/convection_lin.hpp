@@ -46,10 +46,15 @@ namespace samurai
                         }
                         else
                         {
+                            // Each component is advected independently: the flux in
+                            // direction d is velocity(d) * u_i, i.e. velocity(d) on the
+                            // diagonal of the (n_comp x n_comp) coefficient matrix.
                             coeffs[left].fill(0);
                             coeffs[right].fill(0);
-                            xt::col(coeffs[left], d)  = velocity(d);
-                            xt::col(coeffs[right], d) = 0;
+                            for (std::size_t i = 0; i < Field::n_comp; ++i)
+                            {
+                                coeffs[left](i, i) = velocity(d);
+                            }
                         }
                     };
                 }
@@ -64,10 +69,15 @@ namespace samurai
                         }
                         else
                         {
+                            // Each component is advected independently: the flux in
+                            // direction d is velocity(d) * u_i, i.e. velocity(d) on the
+                            // diagonal of the (n_comp x n_comp) coefficient matrix.
                             coeffs[left].fill(0);
                             coeffs[right].fill(0);
-                            xt::col(coeffs[left], d)  = 0;
-                            xt::col(coeffs[right], d) = velocity(d);
+                            for (std::size_t i = 0; i < Field::n_comp; ++i)
+                            {
+                                coeffs[right](i, i) = velocity(d);
+                            }
                         }
                     };
                 }
@@ -214,10 +224,15 @@ namespace samurai
                         }
                         else
                         {
+                            // Each component is advected independently: the flux in
+                            // direction d is velocity(d) * u_i, i.e. velocity(d) on the
+                            // diagonal of the (n_comp x n_comp) coefficient matrix.
                             coeffs[left].fill(0);
                             coeffs[right].fill(0);
-                            xt::col(coeffs[left], d)  = velocity(d);
-                            xt::col(coeffs[right], d) = 0;
+                            for (std::size_t i = 0; i < Field::n_comp; ++i)
+                            {
+                                coeffs[left](i, i) = velocity(d);
+                            }
                         }
                     }
                     else // use the right values
@@ -229,10 +244,15 @@ namespace samurai
                         }
                         else
                         {
+                            // Each component is advected independently: the flux in
+                            // direction d is velocity(d) * u_i, i.e. velocity(d) on the
+                            // diagonal of the (n_comp x n_comp) coefficient matrix.
                             coeffs[left].fill(0);
                             coeffs[right].fill(0);
-                            xt::col(coeffs[left], d)  = 0;
-                            xt::col(coeffs[right], d) = velocity(d);
+                            for (std::size_t i = 0; i < Field::n_comp; ++i)
+                            {
+                                coeffs[right](i, i) = velocity(d);
+                            }
                         }
                     }
                 };
