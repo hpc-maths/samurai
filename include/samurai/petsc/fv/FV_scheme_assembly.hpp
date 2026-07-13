@@ -583,7 +583,7 @@ namespace samurai
             SAMURAI_INLINE double
             rhs_coeff(const Coeffs& coeffs, [[maybe_unused]] unsigned int field_i, [[maybe_unused]] unsigned int field_j) const
             {
-                if constexpr (field_t::is_scalar && output_n_comp == 1)
+                if constexpr (field_t::is_scalar && output_field_t::is_scalar)
                 {
                     return coeffs;
                 }

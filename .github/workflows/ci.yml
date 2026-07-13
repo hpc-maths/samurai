@@ -201,6 +201,7 @@ jobs:
                   export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
                   cd build
                   ./tests/test_samurai_lib
+                  ./tests/test_fv_operators_petsc
 
             - name: Generate ParaView reader reference files
               shell: bash -l {0}
@@ -555,6 +556,7 @@ jobs:
               shell: bash -l {0}
               run: |
                   ./build/tests/test_samurai_lib
+                  ./build/tests/test_fv_operators_petsc
                   cd tests; pytest -v -s --h5diff
     #
     # CHECK_NAN
