@@ -5,6 +5,7 @@
 
 #include "../boundary.hpp"
 #include "../field/concepts.hpp"
+#include "../static_dispatch.hpp"
 #include "polynomial_extrapolation.hpp"
 
 #include <stdexcept>
@@ -149,55 +150,38 @@ namespace samurai
         }
     }
 
+    template <std::size_t layers, class Mesh, std::size_t... Is>
+    auto translated_outer_neighbours_impl(const Mesh& mesh,
+                                          std::size_t level,
+                                          const DirectionVector<Mesh::dim>& direction,
+                                          std::index_sequence<Is...>)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+
+        // One translated copy of the reference cells per ghost layer, at offsets
+        // -layers, -(layers - 1), ..., -1 (i.e. -(layers - Is) for Is = 0 .. layers-1).
+        if constexpr (sizeof...(Is) == 1)
+        {
+            // `intersection` requires at least two sets, so the single-layer case is returned as-is.
+            return translate(mesh[mesh_id_t::reference][level], -layers * direction);
+        }
+        else
+        {
+            return intersection(translate(mesh[mesh_id_t::reference][level], -(layers - Is) * direction)...);
+        }
+    }
+
     template <std::size_t layers, class Mesh>
     auto translated_outer_neighbours(const Mesh& mesh, std::size_t level, const DirectionVector<Mesh::dim>& direction)
     {
-        using mesh_id_t = typename Mesh::mesh_id_t;
-        static_assert(layers <= 5, "not implemented for layers > 10");
+        static_assert(layers >= 1, "at least one ghost layer is required");
 
         // Technically, if mesh.domain().is_box(), then we can only test that the furthest layer of ghosts exists
         // (i.e. the set return by the case stencil_size == 2 below).
         // On the other hand, if the domain has holes, we have to check that all the intermediary ghost layers exist.
         // Since we can't easily make the distinction in a static way, we always check that all the ghost layers exist.
 
-        if constexpr (layers == 1)
-        {
-            return translate(mesh[mesh_id_t::reference][level], -layers * direction);
-        }
-        else if constexpr (layers == 2)
-        {
-            // clang-format off
-            return intersection(translate(mesh[mesh_id_t::reference][level], -(layers    ) * direction),
-                                translate(mesh[mesh_id_t::reference][level], -(layers - 1) * direction));
-            // clang-format on
-        }
-        else if constexpr (layers == 3)
-        {
-            // clang-format off
-            return intersection(translate(mesh[mesh_id_t::reference][level], -(layers    ) * direction),
-                                translate(mesh[mesh_id_t::reference][level], -(layers - 1) * direction),
-                                translate(mesh[mesh_id_t::reference][level], -(layers - 2) * direction));
-            // clang-format on
-        }
-        else if constexpr (layers == 4)
-        {
-            // clang-format off
-            return intersection(translate(mesh[mesh_id_t::reference][level], -(layers    ) * direction),
-                                translate(mesh[mesh_id_t::reference][level], -(layers - 1) * direction),
-                                translate(mesh[mesh_id_t::reference][level], -(layers - 2) * direction),
-                                translate(mesh[mesh_id_t::reference][level], -(layers - 3) * direction));
-            // clang-format on
-        }
-        else if constexpr (layers == 5)
-        {
-            // clang-format off
-            return intersection(translate(mesh[mesh_id_t::reference][level], -(layers    ) * direction),
-                                translate(mesh[mesh_id_t::reference][level], -(layers - 1) * direction),
-                                translate(mesh[mesh_id_t::reference][level], -(layers - 2) * direction),
-                                translate(mesh[mesh_id_t::reference][level], -(layers - 3) * direction),
-                                translate(mesh[mesh_id_t::reference][level], -(layers - 4) * direction));
-            // clang-format on
-        }
+        return translated_outer_neighbours_impl<layers>(mesh, level, direction, std::make_index_sequence<layers>{});
     }
 
     /**
@@ -240,16 +224,14 @@ namespace samurai
 
         for (auto& bc : field.get_bc())
         {
-            static_for<1, max_stencil_size_implemented_BC + 1>::apply( // for (int i=1; i<=max_stencil_size_implemented; i++)
-                [&](auto integral_constant_i)
-                {
-                    static constexpr std::size_t i = decltype(integral_constant_i)::value;
-
-                    if (bc->stencil_size() == i)
-                    {
-                        apply_bc_impl<Field, i>(*bc.get(), level, direction, field);
-                    }
-                });
+            // Dispatch on the runtime stencil size (in [1, max_stencil_size_implemented_BC]) to the
+            // corresponding compile-time instantiation of apply_bc_impl.
+            dispatch_static<1, max_stencil_size_implemented_BC>(bc->stencil_size(),
+                                                                [&](auto integral_constant_i)
+                                                                {
+                                                                    static constexpr std::size_t i = decltype(integral_constant_i)::value;
+                                                                    apply_bc_impl<Field, i>(*bc.get(), level, direction, field);
+                                                                });
         }
     }
 
@@ -333,18 +315,16 @@ namespace samurai
         for (int ghost_layer = 1; ghost_layer <= ghost_width; ++ghost_layer)
         {
             int stencil_s = 2 * ghost_layer;
-            static_for<2, max_stencil_size_PE + 1>::apply(
+            dispatch_static<2, max_stencil_size_PE>(
+                static_cast<std::size_t>(stencil_s),
                 [&](auto stencil_size_)
                 {
                     static constexpr int stencil_size = static_cast<int>(stencil_size_());
-                    if constexpr (stencil_size % 2 == 0)
+                    if constexpr (stencil_size % 2 == 0) // (PolynomialExtrapolation is only implemented for even stencil_size)
                     {
-                        if (stencil_s == stencil_size)
-                        {
-                            PolynomialExtrapolation<Field, stencil_size> bc(domain, ConstantBc<Field>(), true);
-                            auto corner = self(corner_lca).on(level);
-                            apply_extrapolation_bc_cells<stencil_size>(bc, level, field, direction, corner);
-                        }
+                        PolynomialExtrapolation<Field, stencil_size> bc(domain, ConstantBc<Field>(), true);
+                        auto corner = self(corner_lca).on(level);
+                        apply_extrapolation_bc_cells<stencil_size>(bc, level, field, direction, corner);
                     }
                 });
         }
@@ -514,21 +494,19 @@ namespace samurai
         for (int ghost_layer = ghost_layers_filled_by_bc + 1; ghost_layer <= ghost_width; ++ghost_layer)
         {
             int stencil_s = 2 * ghost_layer;
-            static_for<2, max_stencil_size_implemented_PE + 1>::apply(
+            dispatch_static<2, max_stencil_size_implemented_PE>(
+                static_cast<std::size_t>(stencil_s),
                 [&](auto stencil_size_)
                 {
                     static constexpr int stencil_size = static_cast<int>(stencil_size_());
 
                     if constexpr (stencil_size % 2 == 0) // (because PolynomialExtrapolation is only implemented for even stencil_size)
                     {
-                        if (stencil_s == stencil_size)
-                        {
-                            auto& domain = detail::get_mesh(field.mesh());
-                            PolynomialExtrapolation<Field, stencil_size> bc(domain, ConstantBc<Field>(), true);
+                        auto& domain = detail::get_mesh(field.mesh());
+                        PolynomialExtrapolation<Field, stencil_size> bc(domain, ConstantBc<Field>(), true);
 
-                            auto boundary_cells = domain_boundary(field.mesh(), level, direction);
-                            apply_extrapolation_bc_cells<stencil_size>(bc, level, field, direction, boundary_cells);
-                        }
+                        auto boundary_cells = domain_boundary(field.mesh(), level, direction);
+                        apply_extrapolation_bc_cells<stencil_size>(bc, level, field, direction, boundary_cells);
                     }
                 });
         }
@@ -541,22 +519,20 @@ namespace samurai
         for (int ghost_layer = ghost_layers_filled_by_projection_bc + 1; ghost_layer <= ghost_width; ++ghost_layer)
         {
             int stencil_s = 2 * ghost_layer;
-            static_for<2, max_stencil_size_implemented_PE + 1>::apply(
+            dispatch_static<2, max_stencil_size_implemented_PE>(
+                static_cast<std::size_t>(stencil_s),
                 [&](auto stencil_size_)
                 {
                     static constexpr int stencil_size = static_cast<int>(stencil_size_());
 
                     if constexpr (stencil_size % 2 == 0) // (because PolynomialExtrapolation is only implemented for even stencil_size)
                     {
-                        if (stencil_s == stencil_size)
-                        {
-                            auto& domain = detail::get_mesh(field.mesh());
-                            PolynomialExtrapolation<Field, stencil_size> bc(domain, ConstantBc<Field>(), true);
+                        auto& domain = detail::get_mesh(field.mesh());
+                        PolynomialExtrapolation<Field, stencil_size> bc(domain, ConstantBc<Field>(), true);
 
-                            auto domain2         = self(field.mesh().domain()).on(level);
-                            auto boundary_ghosts = difference(domain2, translate(domain2, -direction));
-                            apply_extrapolation_bc_ghosts<stencil_size>(bc, level, field, direction, boundary_ghosts);
-                        }
+                        auto domain2         = self(field.mesh().domain()).on(level);
+                        auto boundary_ghosts = difference(domain2, translate(domain2, -direction));
+                        apply_extrapolation_bc_ghosts<stencil_size>(bc, level, field, direction, boundary_ghosts);
                     }
                 });
         }
