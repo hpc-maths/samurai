@@ -45,7 +45,7 @@ namespace samurai
 
         const auto& cells = mesh[mesh_id_t::cells][level];
 
-        return difference(cells, contract(self(mesh.domain()).on(level), 1));
+        return difference(cells, contract(self(mesh.domain(level)), 1));
     }
 
     template <class Mesh>
@@ -54,7 +54,7 @@ namespace samurai
         using lca_t = typename Mesh::lca_type;
         using lcl_t = typename Mesh::lcl_type;
 
-        auto domain = self(mesh.domain()).on(level);
+        auto domain = self(mesh.domain(level));
 
         lcl_t outer_boundary_lcl(level, mesh.origin_point(), mesh.scaling_factor());
 
@@ -81,7 +81,7 @@ namespace samurai
         using lca_t = typename Mesh::lca_type;
         using lcl_t = typename Mesh::lcl_type;
 
-        auto domain = self(mesh.domain()).on(level);
+        auto domain = self(mesh.domain(level));
 
         lcl_t outer_boundary_lcl(level, mesh.origin_point(), mesh.scaling_factor());
 

@@ -86,13 +86,7 @@ namespace samurai
             std::size_t n = 0;
             for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
             {
-                bool any = false;
-                domain_boundary(mesh, level, direction)(
-                    [&](const auto&, const auto&)
-                    {
-                        any = true;
-                    });
-                if (any)
+                if (domain_boundary(mesh, level, direction).exist())
                 {
                     ++n;
                 }
@@ -114,10 +108,10 @@ namespace samurai
             for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
             {
                 auto inner  = domain_boundary(mesh, level, direction);
-                auto domain = self(mesh.domain()).on(level);
+                auto domain = self(mesh.domain(level));
                 for (int k = 1; k <= h; ++k)
                 {
-                    auto ghosts = intersection(difference(translate(inner, k * direction), domain), mesh[mesh_id_t::reference][level]).on(level);
+                    auto ghosts = intersection(difference(translate(inner, k * direction), domain), mesh[mesh_id_t::reference][level]);
                     for_each_cell(mesh[mesh_id_t::reference],
                                   ghosts,
                                   [&](auto& cell)
@@ -458,7 +452,7 @@ namespace samurai
             for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
             {
                 auto inner  = domain_boundary(mesh, level, direction);
-                auto domain = self(mesh.domain()).on(level);
+                auto domain = self(mesh.domain(level));
                 for (int k = 1; k <= h; ++k)
                 {
                     auto ghosts = intersection(difference(translate(inner, k * direction), domain), mesh[mesh_id_t::reference][level]).on(level);
