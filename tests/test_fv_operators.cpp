@@ -60,8 +60,8 @@ namespace samurai
         template <class Cell>
         bool is_interior(const Cell& cell, std::size_t nb_cells_per_dir, std::size_t half_width)
         {
-            const auto w   = static_cast<long long>(half_width);
-            const auto nx  = static_cast<long long>(nb_cells_per_dir);
+            const auto w  = static_cast<long long>(half_width);
+            const auto nx = static_cast<long long>(nb_cells_per_dir);
             for (std::size_t d = 0; d < Cell::dim; ++d)
             {
                 const auto i = static_cast<long long>(cell.indices[d]);
@@ -732,9 +732,9 @@ namespace samurai
         auto two_level_mesh_2d()
         {
             constexpr std::size_t dim = 2;
-            auto cfg  = mesh_config<dim>().min_level(coarse_level).max_level(fine_level);
-            using Mesh = decltype(mra::make_empty_mesh(cfg));
-            using cl_t = typename Mesh::cl_type;
+            auto cfg                  = mesh_config<dim>().min_level(coarse_level).max_level(fine_level);
+            using Mesh                = decltype(mra::make_empty_mesh(cfg));
+            using cl_t                = typename Mesh::cl_type;
 
             const int nc = 1 << coarse_level; // 8
             const int nf = 1 << fine_level;   // 16
