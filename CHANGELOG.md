@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.32.0](https://github.com/hpc-maths/samurai/compare/v0.31.2...v0.32.0) (2026-07-13)
+
+
+### Features
+
+* get samurai version and its dependencies ([#458](https://github.com/hpc-maths/samurai/issues/458)) ([bda9784](https://github.com/hpc-maths/samurai/commit/bda9784930d67377ff48c96fcfef9d13d2698eee))
+* hdf5/xdmf metadata provided by the user ([#459](https://github.com/hpc-maths/samurai/issues/459)) ([50b8837](https://github.com/hpc-maths/samurai/commit/50b8837575f0f0a0fd460cb44174102fe84ccc62))
+* paraview reader ([#460](https://github.com/hpc-maths/samurai/issues/460)) ([83d6cc1](https://github.com/hpc-maths/samurai/commit/83d6cc1f2c9c759b38ee83d60bcb1c709d622baa))
+* yt reader ([#461](https://github.com/hpc-maths/samurai/issues/461)) ([0e02fe3](https://github.com/hpc-maths/samurai/commit/0e02fe384fca3b5500c44ee9e4e4ff3783db1b9c))
+
 ## [0.31.2](https://github.com/hpc-maths/samurai/compare/v0.31.1...v0.31.2) (2026-07-09)
 
 
