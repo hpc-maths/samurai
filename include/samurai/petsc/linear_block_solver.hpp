@@ -3,6 +3,8 @@
 #include "block_assembly.hpp"
 #include "linear_solver.hpp"
 
+#include <stdexcept>
+
 namespace samurai
 {
     namespace petsc
@@ -63,8 +65,7 @@ namespace samurai
                 {
                     if (m_A == nullptr)
                     {
-                        std::cerr << "The matrix must be assemble before calling set_pc_fieldsplit()." << std::endl;
-                        exit(EXIT_FAILURE);
+                        throw std::runtime_error("The matrix must be assembled before calling set_pc_fieldsplit().");
                     }
                     IS IS_fields[cols];
                     MatNestGetISs(m_A, IS_fields, NULL);
@@ -127,9 +128,7 @@ namespace samurai
                     // PetscErrorCode err = KSPSetUp(m_ksp); // PETSc fails at KSPSolve() for some reason.
                     if (err != PETSC_SUCCESS)
                     {
-                        std::cerr << "The setup of the solver failed!" << std::endl;
-                        assert(false && "Failed solver setup");
-                        exit(EXIT_FAILURE);
+                        throw std::runtime_error("The setup of the solver failed!");
                     }
                     times::timers.stop("solver setup");
 

@@ -4,6 +4,8 @@
 #include "../field.hpp"
 #include "../io/hdf5.hpp"
 
+#include <stdexcept>
+
 namespace samurai
 {
     namespace petsc
@@ -527,7 +529,7 @@ namespace samurai
                 std::cerr << fmt::format(
                     "[{}] This usually happens when low level ghosts are shared between subdomains that are not in each other's direct neighbourhood. To solve this issue, try increasing the min level.\n",
                     rank);
-                exit(EXIT_FAILURE);
+                throw std::runtime_error(fmt::format("[{}] Cell ownership mismatch detected. See 'owner_mismatch.xdmf' for details.", rank));
             }
 
             //--------------------------//

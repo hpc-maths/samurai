@@ -1,6 +1,9 @@
 #pragma once
 #include "matrix_assembly.hpp"
 
+#include <fmt/format.h>
+#include <stdexcept>
+
 namespace samurai
 {
     namespace petsc
@@ -31,8 +34,7 @@ namespace samurai
             {
                 if (value != 0)
                 {
-                    std::cerr << "Unimplemented Assembly(" << value << ")" << std::endl;
-                    exit(EXIT_FAILURE);
+                    throw std::runtime_error(fmt::format("Unimplemented Assembly({})", value));
                 }
                 this->set_name("0");
             }

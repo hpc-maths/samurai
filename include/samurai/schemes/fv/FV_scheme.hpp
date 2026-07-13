@@ -106,10 +106,6 @@ namespace samurai
         static constexpr std::size_t bdry_stencil_size        = bdry_cfg::stencil_size;
         static constexpr std::size_t nb_bdry_ghosts           = bdry_cfg::nb_ghosts;
 
-        // using output_field_t = std::conditional_t<input_field_t::is_scalar && output_n_comp == 1,
-        //                                           ScalarField<mesh_t, field_value_type>,
-        //                                           VectorField<mesh_t, field_value_type, output_n_comp>>;
-
         using dirichlet_t = DirichletImpl<nb_bdry_ghosts, field_t>;
         using neumann_t   = NeumannImpl<nb_bdry_ghosts, field_t>;
 
@@ -143,11 +139,6 @@ namespace samurai
         void set_name(const std::string& name)
         {
             m_name = name;
-        }
-
-        virtual ~FVScheme()
-        {
-            m_name += " (deleted)";
         }
 
         DerivedScheme& derived_cast() & noexcept

@@ -5,6 +5,9 @@
 #include "utils.hpp"
 #include <petsc.h>
 
+#include <fmt/format.h>
+#include <stdexcept>
+
 namespace samurai
 {
     namespace petsc
@@ -66,17 +69,13 @@ namespace samurai
             {
                 if (!m_scheme.scheme_definition().local_scheme_function)
                 {
-                    std::cerr << "The scheme function 'local_scheme_function' of operator '" << scheme.name()
-                              << "' has not been implemented." << std::endl;
-                    assert(false && "Undefined 'local_scheme_function'");
-                    exit(EXIT_FAILURE);
+                    throw std::runtime_error(
+                        fmt::format("The scheme function 'local_scheme_function' of operator '{}' has not been implemented.", scheme.name()));
                 }
                 if (!m_scheme.scheme_definition().local_jacobian_function)
                 {
-                    std::cerr << "The function 'local_jacobian_function' of operator '" << scheme.name() << "' has not been implemented."
-                              << std::endl;
-                    assert(false && "Undefined 'local_jacobian_function'");
-                    exit(EXIT_FAILURE);
+                    throw std::runtime_error(
+                        fmt::format("The function 'local_jacobian_function' of operator '{}' has not been implemented.", scheme.name()));
                 }
 
 #ifdef ENABLE_PARALLEL_NONLINEAR_SOLVES
@@ -174,10 +173,8 @@ namespace samurai
 
                 if (!m_unknown)
                 {
-                    std::cerr << "Undefined unknown for this non-linear system. Please set the unknowns using the instruction '[solver].set_unknown(u);'."
-                              << std::endl;
-                    assert(false && "Undefined unknown");
-                    exit(EXIT_FAILURE);
+                    throw std::runtime_error("Undefined unknown for this non-linear system. Please set the unknowns using the instruction "
+                                             "'[solver].set_unknown(u);'.");
                 }
 
                 // Configure the solvers
@@ -350,12 +347,7 @@ namespace samurai
                     using namespace std::string_literals;
                     const char* reason_text;
                     SNESGetConvergedReasonString(snes, &reason_text);
-                    std::cerr << "Divergence of the non-linear solver ("s + reason_text + ")" << std::endl;
-                    // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                    // std::cout << std::endl;
-                    // assert(check_nan_or_inf(b));
-                    assert(false && "Divergence of the solver");
-                    exit(EXIT_FAILURE);
+                    throw std::runtime_error("Divergence of the non-linear solver ("s + reason_text + ")");
                 }
                 // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
             }

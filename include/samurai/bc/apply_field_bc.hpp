@@ -7,14 +7,16 @@
 #include "../field/concepts.hpp"
 #include "polynomial_extrapolation.hpp"
 
+#include <stdexcept>
+
 namespace samurai
 {
     template <class Field, class Subset, std::size_t stencil_size, class Vector>
-    void __apply_bc_on_subset(Bc<Field>& bc,
-                              Field& field,
-                              Subset& subset,
-                              const StencilAnalyzer<stencil_size, Field::dim>& stencil,
-                              const Vector& direction)
+    void apply_bc_on_subset(Bc<Field>& bc,
+                            Field& field,
+                            Subset& subset,
+                            const StencilAnalyzer<stencil_size, Field::dim>& stencil,
+                            const Vector& direction)
     {
         auto bc_function = bc.get_apply_function(std::integral_constant<std::size_t, stencil_size>(), direction);
         if (bc.get_value_type() == BCVType::constant)
@@ -44,8 +46,7 @@ namespace samurai
         }
         else
         {
-            std::cerr << "Unknown BC type" << std::endl;
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("Unknown BC type");
         }
     }
 
@@ -92,7 +93,7 @@ namespace samurai
                     auto bdry_cells = intersection(mesh[mesh_id_t::cells][level], region_lca[d]).on(level);
                     if (level >= mesh.min_level()) // otherwise there is no cells
                     {
-                        __apply_bc_on_subset(bc, field, bdry_cells, stencil_analyzer, direction);
+                        apply_bc_on_subset(bc, field, bdry_cells, stencil_analyzer, direction);
                     }
                 }
             }
@@ -121,11 +122,8 @@ namespace samurai
      * @param bdry_cells subset corresponding to boundary cells where to apply the extrapolation on (center of the BC stencil)
      */
     template <std::size_t stencil_size, class Field, class Subset>
-    void __apply_extrapolation_bc__cells(Bc<Field>& bc,
-                                         std::size_t level,
-                                         Field& field,
-                                         const DirectionVector<Field::dim>& direction,
-                                         Subset& bdry_cells)
+    void
+    apply_extrapolation_bc_cells(Bc<Field>& bc, std::size_t level, Field& field, const DirectionVector<Field::dim>& direction, Subset& bdry_cells)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
@@ -140,14 +138,14 @@ namespace samurai
         {
             auto cells = intersection(mesh[mesh_id_t::cells][level], bdry_cells).on(level);
 
-            __apply_bc_on_subset(bc, field, cells, stencil_analyzer, direction);
+            apply_bc_on_subset(bc, field, cells, stencil_analyzer, direction);
         }
         else
         {
             auto translated_outer_nghbr = translate(mesh[mesh_id_t::reference][level], -(stencil_size / 2) * direction); // can be removed?
             auto cells                  = intersection(translated_outer_nghbr, mesh[mesh_id_t::cells][level], bdry_cells).on(level);
 
-            __apply_bc_on_subset(bc, field, cells, stencil_analyzer, direction);
+            apply_bc_on_subset(bc, field, cells, stencil_analyzer, direction);
         }
     }
 
@@ -212,11 +210,11 @@ namespace samurai
      * @param subset subset corresponding to inner ghosts where to apply the extrapolation on (center of the BC stencil)
      */
     template <std::size_t stencil_size, class Field, class Subset>
-    void __apply_extrapolation_bc__ghosts(Bc<Field>& bc,
-                                          std::size_t level,
-                                          Field& field,
-                                          const DirectionVector<Field::dim>& direction,
-                                          Subset& inner_ghosts_location)
+    void apply_extrapolation_bc_ghosts(Bc<Field>& bc,
+                                       std::size_t level,
+                                       Field& field,
+                                       const DirectionVector<Field::dim>& direction,
+                                       Subset& inner_ghosts_location)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
@@ -231,7 +229,7 @@ namespace samurai
         auto inner_cells_and_ghosts           = intersection(potential_inner_cells_and_ghosts, mesh.get_union()[level]).on(level);
         // auto inner_cells_and_ghosts        = intersection(potential_inner_cells_and_ghosts, mesh[mesh_id_t::cells][level + 1]).on(level);
         auto inner_ghosts_with_outer_nghbr = difference(inner_cells_and_ghosts, mesh[mesh_id_t::cells][level]).on(level);
-        __apply_bc_on_subset(bc, field, inner_ghosts_with_outer_nghbr, stencil_analyzer, direction);
+        apply_bc_on_subset(bc, field, inner_ghosts_with_outer_nghbr, stencil_analyzer, direction);
     }
 
     template <class Field>
@@ -345,7 +343,7 @@ namespace samurai
                         {
                             PolynomialExtrapolation<Field, stencil_size> bc(domain, ConstantBc<Field>(), true);
                             auto corner = self(corner_lca).on(level);
-                            __apply_extrapolation_bc__cells<stencil_size>(bc, level, field, direction, corner);
+                            apply_extrapolation_bc_cells<stencil_size>(bc, level, field, direction, corner);
                         }
                     }
                 });
@@ -403,7 +401,7 @@ namespace samurai
         }
 
         // Restrict the corner to the cells that actually exist at this level. This is the same
-        // condition as in Step 1, where __apply_extrapolation_bc__cells() intersects the corner
+        // condition as in Step 1, where apply_extrapolation_bc_cells() intersects the corner
         // with mesh[cells][level] before applying the extrapolation.
         //
         // Why this restriction is necessary: on an adapted mesh, the domain corner is not
@@ -529,7 +527,7 @@ namespace samurai
                             PolynomialExtrapolation<Field, stencil_size> bc(domain, ConstantBc<Field>(), true);
 
                             auto boundary_cells = domain_boundary(field.mesh(), level, direction);
-                            __apply_extrapolation_bc__cells<stencil_size>(bc, level, field, direction, boundary_cells);
+                            apply_extrapolation_bc_cells<stencil_size>(bc, level, field, direction, boundary_cells);
                         }
                     }
                 });
@@ -557,7 +555,7 @@ namespace samurai
 
                             auto domain2         = self(field.mesh().domain()).on(level);
                             auto boundary_ghosts = difference(domain2, translate(domain2, -direction));
-                            __apply_extrapolation_bc__ghosts<stencil_size>(bc, level, field, direction, boundary_ghosts);
+                            apply_extrapolation_bc_ghosts<stencil_size>(bc, level, field, direction, boundary_ghosts);
                         }
                     }
                 });

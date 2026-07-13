@@ -12,6 +12,8 @@
 
 #include <fmt/format.h>
 
+#include <stdexcept>
+
 #include "../algorithm.hpp"
 #include "../bc/bc.hpp"
 #include "../field_expression.hpp"
@@ -303,11 +305,13 @@ namespace samurai
         {
             if (bc.stencil_size() > this->derived_cast().mesh().cfg().max_stencil_size())
             {
-                std::cerr << "The stencil size required by this boundary condition (" << bc.stencil_size()
-                          << ") is larger than the max_stencil_size parameter of the mesh ("
-                          << this->derived_cast().mesh().cfg().max_stencil_size() << ").\nYou can set it with mesh_config.max_stencil_radius("
-                          << bc.stencil_size() / 2 << ") or mesh_config.max_stencil_size(" << bc.stencil_size() << ")." << std::endl;
-                exit(EXIT_FAILURE);
+                throw std::invalid_argument(fmt::format(
+                    "The stencil size required by this boundary condition ({}) is larger than the max_stencil_size parameter of "
+                    "the mesh ({}).\nYou can set it with mesh_config.max_stencil_radius({}) or mesh_config.max_stencil_size({}).",
+                    bc.stencil_size(),
+                    this->derived_cast().mesh().cfg().max_stencil_size(),
+                    bc.stencil_size() / 2,
+                    bc.stencil_size()));
             }
             p_bc.push_back(bc.clone());
             return p_bc.back().get();

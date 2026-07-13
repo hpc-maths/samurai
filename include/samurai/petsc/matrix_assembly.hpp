@@ -2,6 +2,9 @@
 #include "../timers.hpp"
 #include <petsc.h>
 
+#include <fmt/format.h>
+#include <stdexcept>
+
 namespace samurai
 {
     namespace petsc
@@ -384,8 +387,7 @@ namespace samurai
                         PetscErrorCode ierr = MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
                         if (ierr != PETSC_SUCCESS)
                         {
-                            std::cerr << "Error during MatAssemblyEnd of matrix '" << name() << "'." << std::endl;
-                            exit(EXIT_FAILURE);
+                            throw std::runtime_error(fmt::format("Error during MatAssemblyEnd of matrix '{}'.", name()));
                         }
                     }
                 }

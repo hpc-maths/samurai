@@ -5,6 +5,9 @@
 #include "utils.hpp"
 #include "zero_block_assembly.hpp"
 
+#include <fmt/format.h>
+#include <stdexcept>
+
 namespace samurai
 {
     namespace petsc
@@ -159,9 +162,12 @@ namespace samurai
                                 }
                                 else if (op.owned_matrix_rows() != block_owned_rows)
                                 {
-                                    std::cerr << "Assembly failure: incompatible number of rows of block (" << row << ", " << col
-                                              << "): " << op.owned_matrix_rows() << " (expected " << block_owned_rows << ")" << std::endl;
-                                    exit(EXIT_FAILURE);
+                                    throw std::runtime_error(
+                                        fmt::format("Assembly failure: incompatible number of rows of block ({}, {}): {} (expected {})",
+                                                    static_cast<std::size_t>(row),
+                                                    static_cast<std::size_t>(col),
+                                                    op.owned_matrix_rows(),
+                                                    block_owned_rows));
                                 }
                             }
                         });
@@ -197,9 +203,12 @@ namespace samurai
                                 }
                                 else if (op.owned_matrix_cols() != block_owned_cols)
                                 {
-                                    std::cerr << "Assembly failure: incompatible number of columns of block (" << row << ", " << col
-                                              << "): " << op.owned_matrix_cols() << " (expected " << block_owned_cols << ")" << std::endl;
-                                    exit(EXIT_FAILURE);
+                                    throw std::runtime_error(
+                                        fmt::format("Assembly failure: incompatible number of columns of block ({}, {}): {} (expected {})",
+                                                    static_cast<std::size_t>(row),
+                                                    static_cast<std::size_t>(col),
+                                                    op.owned_matrix_cols(),
+                                                    block_owned_cols));
                                 }
                             }
                         });
@@ -236,10 +245,12 @@ namespace samurai
                                              }
                                              else
                                              {
-                                                 std::cerr << "unknown " << i << " is not compatible with the scheme (" << row << ", "
-                                                           << col << ") (named '" << op.name() << "')" << std::endl;
-                                                 assert(false);
-                                                 exit(EXIT_FAILURE);
+                                                 throw std::invalid_argument(
+                                                     fmt::format("unknown {} is not compatible with the scheme ({}, {}) (named '{}')",
+                                                                 i,
+                                                                 static_cast<std::size_t>(row),
+                                                                 static_cast<std::size_t>(col),
+                                                                 op.name()));
                                              }
                                          }
                                      }
@@ -305,9 +316,11 @@ namespace samurai
                     {
                         if (row == col && op.owned_matrix_rows() != op.owned_matrix_cols())
                         {
-                            std::cerr << "Function 'create_vector()' is ambiguous in this context, because the block (" << row << ", " << col
-                                      << ") is not square. Use 'create_applicable_vector()' or 'create_rhs_vector()' instead." << std::endl;
-                            exit(EXIT_FAILURE);
+                            throw std::runtime_error(
+                                fmt::format("Function 'create_vector()' is ambiguous in this context, because the block ({}, {}) is not "
+                                            "square. Use 'create_applicable_vector()' or 'create_rhs_vector()' instead.",
+                                            static_cast<std::size_t>(row),
+                                            static_cast<std::size_t>(col)));
                         }
                     });
             }

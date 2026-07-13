@@ -623,7 +623,6 @@ namespace samurai
         bcvalue_impl p_bcvalue;
         const lca_t& m_domain; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
         region_t m_region;
-        // xt::xtensor<typename Field::value_type, detail::return_type<typename Field::value_type, n_comp>::dim> m_value;
     };
 
     ///////////////////

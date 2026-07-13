@@ -3,6 +3,8 @@
 #include "matrix_assembly.hpp"
 #include "utils.hpp"
 
+#include <stdexcept>
+
 namespace samurai
 {
     namespace petsc
@@ -99,8 +101,7 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
                     if (mpi::communicator().size() > 1)
                     {
-                        std::cerr << "This function is not implemented for MPI yet in ManualAssembly." << std::endl;
-                        exit(EXIT_FAILURE);
+                        throw std::runtime_error("This function is not implemented for MPI yet in ManualAssembly.");
                     }
 #endif
                     copy(field, x, this->block_col_shift());
