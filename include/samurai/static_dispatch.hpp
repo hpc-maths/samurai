@@ -22,8 +22,7 @@ namespace samurai
             {
                 // Fold over the candidates: the ternary short-circuits so `f` is
                 // invoked at most once (for the branch where `value == min + Is`).
-                const bool matched = ((value == min + Is ? (std::forward<F>(f)(std::integral_constant<std::size_t, min + Is>{}), true)
-                                                         : false)
+                const bool matched = ((value == min + Is ? (std::forward<F>(f)(std::integral_constant<std::size_t, min + Is>{}), true) : false)
                                       || ...);
                 if (!matched)
                 {
