@@ -225,8 +225,8 @@ namespace samurai
                         using op_field_t = typename operator_t::input_field_t;
                         if constexpr (!std::is_same_v<std::decay_t<decltype(u)>, op_field_t>)
                         {
-                            throw std::invalid_argument(fmt::format(
-                                "unknown {} is not compatible with the scheme ({}, {}) (named '{}')", col, row, col, op.name()));
+                            throw std::invalid_argument(
+                                fmt::format("unknown {} is not compatible with the scheme ({}, {}) (named '{}')", col, row, col, op.name()));
                         }
                     }
                 });

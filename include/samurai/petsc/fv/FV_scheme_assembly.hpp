@@ -5,11 +5,11 @@
 #include "../../schemes/fv/FV_scheme.hpp"
 #include "../../schemes/fv/scheme_operators.hpp"
 
-#include <fmt/format.h>
-#include <stdexcept>
 #include "../compute_cell_ownership.hpp"
 #include "../global_numbering.hpp"
 #include "../matrix_assembly.hpp"
+#include <fmt/format.h>
+#include <stdexcept>
 
 namespace samurai
 {
@@ -1308,11 +1308,10 @@ namespace samurai
                                                                   current_insert_mode());
                                     if (error)
                                     {
-                                        throw std::runtime_error(
-                                            fmt::format("{}: failure to insert projection coefficient at ({}, {}).",
-                                                        scheme().name(),
-                                                        ghost_index,
-                                                        local_col_index(children[i], field_i)));
+                                        throw std::runtime_error(fmt::format("{}: failure to insert projection coefficient at ({}, {}).",
+                                                                             scheme().name(),
+                                                                             ghost_index,
+                                                                             local_col_index(children[i], field_i)));
                                     }
                                 }
                                 set_is_row_not_empty(ghost_index);

@@ -13,10 +13,10 @@ namespace samurai
 {
     template <class Field, class Subset, std::size_t stencil_size, class Vector>
     void apply_bc_on_subset(Bc<Field>& bc,
-                              Field& field,
-                              Subset& subset,
-                              const StencilAnalyzer<stencil_size, Field::dim>& stencil,
-                              const Vector& direction)
+                            Field& field,
+                            Subset& subset,
+                            const StencilAnalyzer<stencil_size, Field::dim>& stencil,
+                            const Vector& direction)
     {
         auto bc_function = bc.get_apply_function(std::integral_constant<std::size_t, stencil_size>(), direction);
         if (bc.get_value_type() == BCVType::constant)
@@ -122,11 +122,8 @@ namespace samurai
      * @param bdry_cells subset corresponding to boundary cells where to apply the extrapolation on (center of the BC stencil)
      */
     template <std::size_t stencil_size, class Field, class Subset>
-    void apply_extrapolation_bc_cells(Bc<Field>& bc,
-                                         std::size_t level,
-                                         Field& field,
-                                         const DirectionVector<Field::dim>& direction,
-                                         Subset& bdry_cells)
+    void
+    apply_extrapolation_bc_cells(Bc<Field>& bc, std::size_t level, Field& field, const DirectionVector<Field::dim>& direction, Subset& bdry_cells)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
@@ -214,10 +211,10 @@ namespace samurai
      */
     template <std::size_t stencil_size, class Field, class Subset>
     void apply_extrapolation_bc_ghosts(Bc<Field>& bc,
-                                          std::size_t level,
-                                          Field& field,
-                                          const DirectionVector<Field::dim>& direction,
-                                          Subset& inner_ghosts_location)
+                                       std::size_t level,
+                                       Field& field,
+                                       const DirectionVector<Field::dim>& direction,
+                                       Subset& inner_ghosts_location)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 

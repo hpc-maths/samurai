@@ -184,10 +184,9 @@ namespace samurai
         {
             if (!jacobian_function())
             {
-                throw std::runtime_error(
-                    fmt::format("The jacobian function of operator '{}' has not been implemented.\n"
-                                "Use option -snes_mf or -snes_fd for an automatic computation of the jacobian matrix.",
-                                this->name()));
+                throw std::runtime_error(fmt::format("The jacobian function of operator '{}' has not been implemented.\n"
+                                                     "Use option -snes_mf or -snes_fd for an automatic computation of the jacobian matrix.",
+                                                     this->name()));
             }
 
             StencilJacobian<cfg> coeffs;
