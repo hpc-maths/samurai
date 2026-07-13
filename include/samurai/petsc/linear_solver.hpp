@@ -8,9 +8,8 @@
 #include "multigrid/petsc/GeometricMultigrid.hpp"
 #else
 #include "utils.hpp"
-
-#include <stdexcept>
 #endif
+#include <stdexcept>
 
 namespace samurai
 {

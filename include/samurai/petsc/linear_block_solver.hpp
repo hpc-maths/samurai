@@ -65,7 +65,7 @@ namespace samurai
                 {
                     if (m_A == nullptr)
                     {
-                        throw std::runtime_error("The matrix must be assemble before calling set_pc_fieldsplit().");
+                        throw std::runtime_error("The matrix must be assembled before calling set_pc_fieldsplit().");
                     }
                     IS IS_fields[cols];
                     MatNestGetISs(m_A, IS_fields, NULL);
