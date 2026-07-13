@@ -8,6 +8,7 @@
 #include "samurai_config.hpp"
 
 #include <array>
+#include <stdexcept>
 
 namespace samurai
 {
@@ -380,8 +381,7 @@ namespace samurai
                 }
                 if (m_max_level < m_min_level)
                 {
-                    std::cerr << "Max level must be greater than min level." << std::endl;
-                    exit(EXIT_FAILURE);
+                    throw std::invalid_argument("Max level must be greater than min level.");
                 }
             }
 

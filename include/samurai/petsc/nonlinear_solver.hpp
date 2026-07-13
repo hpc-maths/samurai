@@ -5,6 +5,8 @@
 #include "utils.hpp"
 #include <petsc.h>
 
+#include <stdexcept>
+
 namespace samurai
 {
     namespace petsc
@@ -159,10 +161,8 @@ namespace samurai
 
                 if (assembly().undefined_unknown())
                 {
-                    std::cerr << "Undefined unknown(s) for this non-linear system. Please set the unknowns using the instruction '[solver].set_unknown(u);' or '[solver].set_unknowns(u1, u2...);'."
-                              << std::endl;
-                    assert(false && "Undefined unknown(s)");
-                    exit(EXIT_FAILURE);
+                    throw std::runtime_error("Undefined unknown(s) for this non-linear system. Please set the unknowns using the instruction "
+                                             "'[solver].set_unknown(u);' or '[solver].set_unknowns(u1, u2...);'.");
                 }
 
                 // Non-linear function
@@ -352,12 +352,7 @@ namespace samurai
                     using namespace std::string_literals;
                     const char* reason_text;
                     SNESGetConvergedReasonString(m_snes, &reason_text);
-                    std::cerr << "Divergence of the non-linear solver ("s + reason_text + ")" << std::endl;
-                    // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_WORLD));
-                    // std::cout << std::endl;
-                    // assert(check_nan_or_inf(b));
-                    assert(false && "Divergence of the solver");
-                    exit(EXIT_FAILURE);
+                    throw std::runtime_error("Divergence of the non-linear solver ("s + reason_text + ")");
                 }
                 // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_WORLD)); std::cout << std::endl;
                 return reason_code;

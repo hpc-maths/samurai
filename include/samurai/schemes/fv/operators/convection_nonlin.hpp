@@ -2,6 +2,8 @@
 #include "flux_divergence.hpp"
 #include "weno_impl.hpp"
 
+#include <stdexcept>
+
 namespace samurai
 {
     /**
@@ -123,8 +125,7 @@ namespace samurai
                             }
                             else
                             {
-                                std::cerr << "Not implemented for dim > 2" << std::endl;
-                                std::exit(EXIT_FAILURE);
+                                throw std::runtime_error("Not implemented for dim > 2");
                             }
                         }
                         else
@@ -148,8 +149,7 @@ namespace samurai
                             }
                             else
                             {
-                                std::cerr << "Not implemented for dim > 2" << std::endl;
-                                std::exit(EXIT_FAILURE);
+                                throw std::runtime_error("Not implemented for dim > 2");
                             }
                         }
                     }

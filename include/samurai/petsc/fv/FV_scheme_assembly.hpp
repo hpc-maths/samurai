@@ -4,6 +4,9 @@
 #include "../../numeric/prediction.hpp"
 #include "../../schemes/fv/FV_scheme.hpp"
 #include "../../schemes/fv/scheme_operators.hpp"
+
+#include <fmt/format.h>
+#include <stdexcept>
 #include "../compute_cell_ownership.hpp"
 #include "../global_numbering.hpp"
 #include "../matrix_assembly.hpp"
@@ -163,9 +166,8 @@ namespace samurai
             {
                 if (!m_unknown)
                 {
-                    std::cerr << "Undefined unknown for operator " << scheme().name() << ". Assembly initialization failed!" << std::endl;
-                    assert(false);
-                    exit(EXIT_FAILURE);
+                    throw std::runtime_error(
+                        fmt::format("Undefined unknown for operator {}. Assembly initialization failed!", scheme().name()));
                 }
 
                 mesh().cell_ownership().is_computed = false;
@@ -920,8 +922,7 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
                     if (mpi::communicator().size() > 1)
                     {
-                        std::cerr << "Periodic boundary conditions are not supported with MPI." << std::endl;
-                        exit(EXIT_FAILURE);
+                        throw std::runtime_error("Periodic boundary conditions are not supported with MPI.");
                     }
 #endif
                     assemble_periodic_bc(A);
@@ -1122,11 +1123,13 @@ namespace samurai
                                                       INSERT_VALUES);
                         if (error)
                         {
-                            std::cerr << scheme().name() << ": failure to insert diagonal coefficient at ("
-                                      << m_block_row_shift + static_cast<PetscInt>(i) << ", " << m_block_col_shift + static_cast<PetscInt>(i)
-                                      << "), i.e. (" << i << ", " << i << ") in the block." << std::endl;
-                            assert(false);
-                            exit(EXIT_FAILURE);
+                            throw std::runtime_error(
+                                fmt::format("{}: failure to insert diagonal coefficient at ({}, {}), i.e. ({}, {}) in the block.",
+                                            scheme().name(),
+                                            m_block_row_shift + static_cast<PetscInt>(i),
+                                            m_block_col_shift + static_cast<PetscInt>(i),
+                                            i,
+                                            i));
                         }
                         // m_is_row_empty[i] = false;
                     }
@@ -1305,10 +1308,11 @@ namespace samurai
                                                                   current_insert_mode());
                                     if (error)
                                     {
-                                        std::cerr << scheme().name() << ": failure to insert projection coefficient at (" << ghost_index
-                                                  << ", " << local_col_index(children[i], field_i) << ")." << std::endl;
-                                        assert(false);
-                                        exit(EXIT_FAILURE);
+                                        throw std::runtime_error(
+                                            fmt::format("{}: failure to insert projection coefficient at ({}, {}).",
+                                                        scheme().name(),
+                                                        ghost_index,
+                                                        local_col_index(children[i], field_i)));
                                     }
                                 }
                                 set_is_row_not_empty(ghost_index);

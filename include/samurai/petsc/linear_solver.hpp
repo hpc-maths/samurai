@@ -8,6 +8,8 @@
 #include "multigrid/petsc/GeometricMultigrid.hpp"
 #else
 #include "utils.hpp"
+
+#include <stdexcept>
 #endif
 
 namespace samurai
@@ -126,10 +128,8 @@ namespace samurai
             {
                 if (assembly().undefined_unknown())
                 {
-                    std::cerr << "Undefined unknown(s) for this linear system. Please set the unknowns using the instruction '[solver].set_unknown(u);' or '[solver].set_unknowns(u1, u2...);'."
-                              << std::endl;
-                    assert(false && "Undefined unknown(s)");
-                    exit(EXIT_FAILURE);
+                    throw std::runtime_error("Undefined unknown(s) for this linear system. Please set the unknowns using the instruction "
+                                             "'[solver].set_unknown(u);' or '[solver].set_unknowns(u1, u2...);'.");
                 }
 
                 if (m_reuse_allocated_matrix)
@@ -177,9 +177,7 @@ namespace samurai
 
                 if (err != PETSC_SUCCESS)
                 {
-                    std::cerr << "The setup of the solver failed!" << std::endl;
-                    assert(false && "Failed solver setup");
-                    exit(EXIT_FAILURE);
+                    throw std::runtime_error("The setup of the solver failed!");
                 }
 
                 if (after_setup)
@@ -237,12 +235,7 @@ namespace samurai
                     using namespace std::string_literals;
                     const char* reason_text;
                     KSPGetConvergedReasonString(m_ksp, &reason_text);
-                    std::cerr << "Divergence of the solver ("s + reason_text + ")" << std::endl;
-                    // VecView(b, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
-                    // std::cout << std::endl;
-                    // assert(check_nan_or_inf(b));
-                    assert(false && "Divergence of the solver");
-                    exit(EXIT_FAILURE);
+                    throw std::runtime_error("Divergence of the solver ("s + reason_text + ")");
                 }
                 // VecView(x, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF)); std::cout << std::endl;
             }
@@ -337,11 +330,7 @@ namespace samurai
                 {
                     if constexpr (Mesh::dim > 2)
                     {
-                        std::cerr << "Samurai Multigrid is not implemented for "
-                                     "dim > 2."
-                                  << std::endl;
-                        assert(false);
-                        exit(EXIT_FAILURE);
+                        throw std::runtime_error("Samurai Multigrid is not implemented for dim > 2.");
                     }
                     _samurai_mg = GeometricMultigrid(assembly(), assembly().mesh());
                     _samurai_mg.apply_as_pc(m_ksp);
@@ -366,10 +355,8 @@ namespace samurai
 
                 if (assembly().undefined_unknown())
                 {
-                    std::cerr << "Undefined unknown for this linear system. Please set the unknown using the instruction '[solver].set_unknown(u);'."
-                              << std::endl;
-                    assert(false && "Undefined unknown");
-                    exit(EXIT_FAILURE);
+                    throw std::runtime_error(
+                        "Undefined unknown for this linear system. Please set the unknown using the instruction '[solver].set_unknown(u);'.");
                 }
                 if (!m_use_samurai_mg)
                 {

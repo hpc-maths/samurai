@@ -2,6 +2,9 @@
 #include "../explicit_scheme.hpp"
 #include "FV_scheme.hpp"
 
+#include <fmt/format.h>
+#include <stdexcept>
+
 namespace samurai
 {
     /**
@@ -80,11 +83,14 @@ namespace samurai
 
             if (scheme_stencil_size > mesh_stencil_size)
             {
-                std::cerr << "The stencil size required by the scheme '" << scheme().name() << "' (" << scheme_stencil_size
-                          << ") is larger than the max_stencil_size parameter of the mesh (" << mesh_stencil_size
-                          << ").\nYou can set it with mesh_config.max_stencil_radius(" << scheme_stencil_size / 2
-                          << ") or mesh_config.max_stencil_size(" << scheme_stencil_size << ")." << std::endl;
-                exit(EXIT_FAILURE);
+                throw std::invalid_argument(
+                    fmt::format("The stencil size required by the scheme '{}' ({}) is larger than the max_stencil_size parameter of the "
+                                "mesh ({}).\nYou can set it with mesh_config.max_stencil_radius({}) or mesh_config.max_stencil_size({}).",
+                                scheme().name(),
+                                scheme_stencil_size,
+                                mesh_stencil_size,
+                                scheme_stencil_size / 2,
+                                scheme_stencil_size));
             }
 
             for (std::size_t d = 0; d < dim; ++d)
@@ -95,9 +101,7 @@ namespace samurai
 
         virtual void apply(std::size_t /* d */, output_field_t& /* output_field */, input_field_t& /* input_field */)
         {
-            std::cerr << "The scheme '" << scheme().name() << "' cannot be applied by direction." << std::endl;
-            assert(false);
-            exit(EXIT_FAILURE);
+            throw std::runtime_error(fmt::format("The scheme '{}' cannot be applied by direction.", scheme().name()));
         }
     };
 }

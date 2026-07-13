@@ -7,6 +7,8 @@
 #include "../field/concepts.hpp"
 #include "polynomial_extrapolation.hpp"
 
+#include <stdexcept>
+
 namespace samurai
 {
     template <class Field, class Subset, std::size_t stencil_size, class Vector>
@@ -44,8 +46,7 @@ namespace samurai
         }
         else
         {
-            std::cerr << "Unknown BC type" << std::endl;
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("Unknown BC type");
         }
     }
 

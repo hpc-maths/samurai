@@ -11,6 +11,8 @@
 
 #include <fmt/format.h>
 
+#include <stdexcept>
+
 #include "cell_array.hpp"
 #include "cell_list.hpp"
 #include "domain_builder.hpp"
@@ -349,13 +351,11 @@ namespace samurai
                             return b;
                         }))
         {
-            std::cerr << "Periodicity is not implemented with DomainBuilder." << std::endl;
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("Periodicity is not implemented with DomainBuilder.");
         }
 
 #ifdef SAMURAI_WITH_MPI
-        std::cerr << "MPI is not implemented with DomainBuilder." << std::endl;
-        std::exit(EXIT_FAILURE);
+        throw std::runtime_error("MPI is not implemented with DomainBuilder.");
 #else
         double scaling_factor_ = m_config.scaling_factor();
         compute_scaling_factor(domain_builder, scaling_factor_);
