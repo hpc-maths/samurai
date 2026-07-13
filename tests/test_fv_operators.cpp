@@ -533,6 +533,190 @@ namespace samurai
         check_convection_exact_vector<2>();
     }
 
+    // Same as above, but through the *variable-velocity* overload
+    // make_convection_upwind(VelocityField&) (the LinearHeterogeneous path used in
+    // production, e.g. lid_driven_cavity). The velocity is a constant field, so the
+    // face-averaged velocity equals that constant and the expected result matches
+    // the constant-velocity case. Exercises the (fixed) diagonal branch of the
+    // heterogeneous flux for a genuine vector field.
+    template <std::size_t dim>
+    void check_convection_variable_velocity_vector()
+    {
+        const std::size_t level = 3;
+        const std::size_t nx    = 1u << level;
+
+        auto mesh = uniform_mesh<dim>(level);
+
+        auto w = [](std::size_t d)
+        {
+            return static_cast<double>(d + 1);
+        };
+        auto velocity_field = make_vector_field<double, dim>("velocity", mesh);
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          for (std::size_t d = 0; d < dim; ++d)
+                          {
+                              velocity_field[cell](d) = w(d);
+                          }
+                      });
+        make_bc<Dirichlet<1>>(velocity_field,
+                              [&](const auto&, const auto&, const auto&)
+                              {
+                                  Array<double, dim> v;
+                                  for (std::size_t d = 0; d < dim; ++d)
+                                  {
+                                      v(d) = w(d);
+                                  }
+                                  return v;
+                              });
+
+        auto b = [](std::size_t c, std::size_t d)
+        {
+            return static_cast<double>(c + d + 1);
+        };
+        auto u = make_vector_field<double, dim>("u", mesh);
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          for (std::size_t c = 0; c < dim; ++c)
+                          {
+                              double v = 0.;
+                              for (std::size_t d = 0; d < dim; ++d)
+                              {
+                                  v += b(c, d) * cell.center(d);
+                              }
+                              u[cell](c) = v;
+                          }
+                      });
+        make_bc<Dirichlet<1>>(u,
+                              [](const auto&, const auto&, const auto&)
+                              {
+                                  Array<double, dim> zero;
+                                  zero.fill(0.);
+                                  return zero;
+                              });
+
+        std::array<double, dim> expected;
+        for (std::size_t c = 0; c < dim; ++c)
+        {
+            double e = 0.;
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                e += w(d) * b(c, d);
+            }
+            expected[c] = e;
+        }
+
+        auto conv   = make_convection_upwind<decltype(u)>(velocity_field);
+        auto result = conv(u);
+
+        std::size_t nb_checked = 0;
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          if (is_interior(cell, nx, 1))
+                          {
+                              for (std::size_t c = 0; c < dim; ++c)
+                              {
+                                  EXPECT_NEAR(result[cell](c), expected[c], tol) << "dim=" << dim << " c=" << c;
+                              }
+                              ++nb_checked;
+                          }
+                      });
+        EXPECT_GT(nb_checked, 0u);
+    }
+
+    TEST(fv_operators, convection_variable_velocity_vector_2d)
+    {
+        check_convection_variable_velocity_vector<2>();
+    }
+
+    TEST(fv_operators, convection_variable_velocity_vector_3d)
+    {
+        check_convection_variable_velocity_vector<3>();
+    }
+
+    // Variable-velocity convection of a scalar field (the n_comp == 1 branch of the
+    // heterogeneous flux).
+    template <std::size_t dim>
+    void check_convection_variable_velocity_scalar()
+    {
+        const std::size_t level = 3;
+        const std::size_t nx    = 1u << level;
+
+        auto mesh = uniform_mesh<dim>(level);
+
+        auto w = [](std::size_t d)
+        {
+            return static_cast<double>(d + 1);
+        };
+        auto velocity_field = make_vector_field<double, dim>("velocity", mesh);
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          for (std::size_t d = 0; d < dim; ++d)
+                          {
+                              velocity_field[cell](d) = w(d);
+                          }
+                      });
+        make_bc<Dirichlet<1>>(velocity_field,
+                              [&](const auto&, const auto&, const auto&)
+                              {
+                                  Array<double, dim> v;
+                                  for (std::size_t d = 0; d < dim; ++d)
+                                  {
+                                      v(d) = w(d);
+                                  }
+                                  return v;
+                              });
+
+        std::array<double, dim> b;
+        double expected = 0.;
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            b[d] = static_cast<double>(d + 2);
+            expected += w(d) * b[d];
+        }
+        auto u = make_scalar_field<double>("u", mesh);
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          double v = 0.;
+                          for (std::size_t d = 0; d < dim; ++d)
+                          {
+                              v += b[d] * cell.center(d);
+                          }
+                          u[cell] = v;
+                      });
+        make_bc<Dirichlet<1>>(u, 0.);
+
+        auto conv   = make_convection_upwind<decltype(u)>(velocity_field);
+        auto result = conv(u);
+
+        std::size_t nb_checked = 0;
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          if (is_interior(cell, nx, 1))
+                          {
+                              EXPECT_NEAR(result[cell], expected, tol) << "dim=" << dim;
+                              ++nb_checked;
+                          }
+                      });
+        EXPECT_GT(nb_checked, 0u);
+    }
+
+    TEST(fv_operators, convection_variable_velocity_scalar_1d)
+    {
+        check_convection_variable_velocity_scalar<1>();
+    }
+
+    TEST(fv_operators, convection_variable_velocity_scalar_2d)
+    {
+        check_convection_variable_velocity_scalar<2>();
+    }
+
     TEST(fv_operators, convection_vector_exact_3d)
     {
         check_convection_exact_vector<3>();
@@ -581,6 +765,51 @@ namespace samurai
     TEST(fv_operators, identity_exact_3d)
     {
         check_identity_exact<3>();
+    }
+
+    // The zero operator returns 0 everywhere, whatever the field.
+    template <std::size_t dim>
+    void check_zero_operator_exact()
+    {
+        const std::size_t level = 3;
+        auto mesh               = uniform_mesh<dim>(level);
+        auto u                  = make_scalar_field<double>("u", mesh);
+
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          double v = 1.;
+                          for (std::size_t d = 0; d < dim; ++d)
+                          {
+                              v += static_cast<double>(d + 1) * cell.center(d);
+                          }
+                          u[cell] = v;
+                      });
+        make_bc<Dirichlet<1>>(u, 0.);
+
+        auto zero   = make_zero_operator<decltype(u)>();
+        auto result = zero(u);
+
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          EXPECT_NEAR(result[cell], 0., tol) << "dim=" << dim;
+                      });
+    }
+
+    TEST(fv_operators, zero_operator_exact_1d)
+    {
+        check_zero_operator_exact<1>();
+    }
+
+    TEST(fv_operators, zero_operator_exact_2d)
+    {
+        check_zero_operator_exact<2>();
+    }
+
+    TEST(fv_operators, zero_operator_exact_3d)
+    {
+        check_zero_operator_exact<3>();
     }
 
     // =====================================================================
@@ -903,65 +1132,77 @@ namespace samurai
     //  Explicit / implicit consistency (PETSc)
     // =====================================================================
     //
-    // The same diffusion operator has two consumers: the explicit application
-    // op(u) and the matrix assembled by petsc/. On interior cells (whose stencil
-    // never reaches a ghost, so no boundary-condition folding takes place) the
-    // matrix-vector product A*u must reproduce op(u) to round-off.
-    TEST(fv_operators, explicit_vs_implicit_diffusion)
+    // Every operator has two consumers: the explicit application op(u) and the
+    // matrix assembled by petsc/. On interior cells (whose stencil never reaches a
+    // ghost, so no boundary-condition folding takes place) the matrix-vector
+    // product A*u must reproduce op(u) to round-off. This covers scalar and vector
+    // operators (rectangular ones too, e.g. divergence), validating the assembly's
+    // scalar/matrix coefficient handling on the same footing as the explicit path.
+
+    namespace
     {
-        // PETSc/MPI are initialized once in tests/main.cpp.
+        // op(u) (explicit) vs A*u (assembled), compared on interior cells for every
+        // output component. `u` must already carry a boundary condition.
+        //
+        // The explicit result is snapshotted into a plain std::vector before the
+        // matrix is applied, so the comparison holds no matter how fields copy.
+        template <class Scheme, class InputField>
+        void expect_explicit_matches_implicit(Scheme& scheme, InputField& u, std::size_t nx, std::size_t half_width)
         {
-            constexpr std::size_t dim = 2;
-            const std::size_t level   = 4;
-            const std::size_t nx      = 1u << level;
+            auto expl         = scheme(u); // explicit; also fills u's ghosts through the BC
+            using out_field_t = decltype(expl);
 
-            auto mesh = uniform_mesh<dim>(level);
-            auto u    = make_scalar_field<double>("u", mesh);
-
-            auto poly = [](const auto& x)
-            {
-                return x(0) * x(0) + 2 * x(1) * x(1) + x(0) * x(1) + 0.5;
-            };
-            for_each_cell(mesh,
+            std::vector<double> explicit_values;
+            for_each_cell(u.mesh(),
                           [&](const auto& cell)
                           {
-                              u[cell] = poly(cell.center());
-                          });
-            make_bc<Dirichlet<1>>(u,
-                                  [&](const auto&, const auto&, const auto& coord)
+                              if (is_interior(cell, nx, half_width))
+                              {
+                                  if constexpr (out_field_t::is_scalar)
                                   {
-                                      return coord[0] * coord[0] + 2 * coord[1] * coord[1] + coord[0] * coord[1] + 0.5;
-                                  });
+                                      explicit_values.push_back(expl[cell]);
+                                  }
+                                  else
+                                  {
+                                      for (std::size_t c = 0; c < out_field_t::n_comp; ++c)
+                                      {
+                                          explicit_values.push_back(expl[cell](c));
+                                      }
+                                  }
+                              }
+                          });
 
-            DiffCoeff<dim> K;
-            K.fill(1.);
-            auto diff = make_diffusion_order2<decltype(u)>(K);
+            auto impl = expl; // same (output) field type; receives A*u
+            impl.fill(0.);
 
-            // Explicit application (also fills u's ghosts through the BC).
-            auto expl = diff(u);
-
-            // Implicit: assemble A and compute A*u.
-            auto assembly = petsc::make_assembly(diff);
+            auto assembly = petsc::make_assembly(scheme);
             assembly.set_unknown(u);
             Mat A;
             assembly.create_matrix(A);
             assembly.assemble_matrix(A);
 
-            Vec x = petsc::create_petsc_vector_from(u);
-            Vec y;
-            VecDuplicate(x, &y);
+            Vec x = petsc::create_petsc_vector_from(u);    // input unknowns (columns)
+            Vec y = petsc::create_petsc_vector_from(impl); // output values (rows), aliases impl
             MatMult(A, x, y);
 
-            auto impl = make_scalar_field<double>("impl", mesh);
-            petsc::copy(y, impl);
-
+            std::size_t k          = 0;
             std::size_t nb_checked = 0;
-            for_each_cell(mesh,
+            for_each_cell(u.mesh(),
                           [&](const auto& cell)
                           {
-                              if (is_interior(cell, nx, 1))
+                              if (is_interior(cell, nx, half_width))
                               {
-                                  EXPECT_NEAR(impl[cell], expl[cell], 1e-10) << "cell level " << cell.level;
+                                  if constexpr (out_field_t::is_scalar)
+                                  {
+                                      EXPECT_NEAR(impl[cell], explicit_values[k++], 1e-10);
+                                  }
+                                  else
+                                  {
+                                      for (std::size_t c = 0; c < out_field_t::n_comp; ++c)
+                                      {
+                                          EXPECT_NEAR(impl[cell](c), explicit_values[k++], 1e-10) << "c=" << c;
+                                      }
+                                  }
                                   ++nb_checked;
                               }
                           });
@@ -971,6 +1212,139 @@ namespace samurai
             VecDestroy(&y);
             MatDestroy(&A);
         }
+    }
+
+    TEST(fv_operators, explicit_vs_implicit_diffusion)
+    {
+        constexpr std::size_t dim = 2;
+        const std::size_t level   = 4;
+        const std::size_t nx      = 1u << level;
+
+        auto mesh = uniform_mesh<dim>(level);
+        auto u    = make_scalar_field<double>("u", mesh);
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          auto x  = cell.center();
+                          u[cell] = x(0) * x(0) + 2 * x(1) * x(1) + x(0) * x(1) + 0.5;
+                      });
+        make_bc<Dirichlet<1>>(u, 0.);
+
+        DiffCoeff<dim> K;
+        K.fill(1.);
+        auto diff = make_diffusion_order2<decltype(u)>(K);
+        expect_explicit_matches_implicit(diff, u, nx, 1);
+    }
+
+    TEST(fv_operators, explicit_vs_implicit_diffusion_vector)
+    {
+        constexpr std::size_t dim = 2;
+        const std::size_t level   = 4;
+        const std::size_t nx      = 1u << level;
+
+        auto mesh = uniform_mesh<dim>(level);
+        auto u    = make_vector_field<double, dim>("u", mesh);
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          auto x = cell.center();
+                          for (std::size_t c = 0; c < dim; ++c)
+                          {
+                              u[cell](c) = static_cast<double>(c + 1) * x(0) * x(0) + x(1) * x(1) + static_cast<double>(c) * x(0) * x(1);
+                          }
+                      });
+        make_bc<Dirichlet<1>>(u,
+                              [](const auto&, const auto&, const auto&)
+                              {
+                                  Array<double, dim> zero;
+                                  zero.fill(0.);
+                                  return zero;
+                              });
+
+        DiffCoeff<dim> K;
+        K.fill(1.);
+        auto diff = make_diffusion_order2<decltype(u)>(K);
+        expect_explicit_matches_implicit(diff, u, nx, 1);
+    }
+
+    TEST(fv_operators, explicit_vs_implicit_divergence)
+    {
+        constexpr std::size_t dim = 2;
+        const std::size_t level   = 4;
+        const std::size_t nx      = 1u << level;
+
+        auto mesh = uniform_mesh<dim>(level);
+        auto u    = make_vector_field<double, dim>("u", mesh);
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          auto x = cell.center();
+                          for (std::size_t c = 0; c < dim; ++c)
+                          {
+                              u[cell](c) = static_cast<double>(c + 1) * x(0) + static_cast<double>(c + 2) * x(1);
+                          }
+                      });
+        make_bc<Dirichlet<1>>(u,
+                              [](const auto&, const auto&, const auto&)
+                              {
+                                  Array<double, dim> zero;
+                                  zero.fill(0.);
+                                  return zero;
+                              });
+
+        auto div = make_divergence_order2<decltype(u)>();
+        expect_explicit_matches_implicit(div, u, nx, 1);
+    }
+
+    TEST(fv_operators, explicit_vs_implicit_convection)
+    {
+        constexpr std::size_t dim = 2;
+        const std::size_t level   = 4;
+        const std::size_t nx      = 1u << level;
+
+        auto mesh = uniform_mesh<dim>(level);
+        auto u    = make_scalar_field<double>("u", mesh);
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          auto x  = cell.center();
+                          u[cell] = 2 * x(0) + 3 * x(1) + 0.5;
+                      });
+        make_bc<Dirichlet<1>>(u, 0.);
+
+        VelocityVector<dim> velocity = {1., 2.};
+        auto conv                    = make_convection_upwind<decltype(u)>(velocity);
+        expect_explicit_matches_implicit(conv, u, nx, 1);
+    }
+
+    TEST(fv_operators, explicit_vs_implicit_convection_vector)
+    {
+        constexpr std::size_t dim = 2;
+        const std::size_t level   = 4;
+        const std::size_t nx      = 1u << level;
+
+        auto mesh = uniform_mesh<dim>(level);
+        auto u    = make_vector_field<double, dim>("u", mesh);
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          auto x = cell.center();
+                          for (std::size_t c = 0; c < dim; ++c)
+                          {
+                              u[cell](c) = static_cast<double>(c + 1) * x(0) + static_cast<double>(c + 2) * x(1);
+                          }
+                      });
+        make_bc<Dirichlet<1>>(u,
+                              [](const auto&, const auto&, const auto&)
+                              {
+                                  Array<double, dim> zero;
+                                  zero.fill(0.);
+                                  return zero;
+                              });
+
+        VelocityVector<dim> velocity = {1., 2.};
+        auto conv                    = make_convection_upwind<decltype(u)>(velocity);
+        expect_explicit_matches_implicit(conv, u, nx, 1);
     }
 #endif
 }
