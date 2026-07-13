@@ -141,8 +141,6 @@ namespace samurai
             m_name = name;
         }
 
-        virtual ~FVScheme() = default;
-
         DerivedScheme& derived_cast() & noexcept
         {
             return *static_cast<DerivedScheme*>(this);
