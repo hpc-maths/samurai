@@ -128,6 +128,7 @@ namespace samurai
     template <class Tag, class... Fields>
     bool update_field(Tag& tag, Fields&... fields)
     {
+        ScopedTimer timer("update_field");
         static constexpr std::size_t dim = Tag::dim;
         using mesh_t                     = typename Tag::mesh_t;
         using size_type                  = typename Tag::size_type;
