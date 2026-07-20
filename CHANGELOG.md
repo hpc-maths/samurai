@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.33.0](https://github.com/hpc-maths/samurai/compare/v0.32.0...v0.33.0) (2026-07-20)
+
+
+### Features
+
+* Add timers for AMR: update field ([#470](https://github.com/hpc-maths/samurai/issues/470)) ([fc03234](https://github.com/hpc-maths/samurai/commit/fc0323467891cf9abeec7d9ce59bc1d774fb33ac))
+
+
+### Performance Improvements
+
+* improve interval insertion for list of intervals ([#471](https://github.com/hpc-maths/samurai/issues/471)) ([5c86fe6](https://github.com/hpc-maths/samurai/commit/5c86fe6fbbba4e3a1a7ba67d03693f8d8bacf6b2))
+
 ## [0.32.0](https://github.com/hpc-maths/samurai/compare/v0.31.2...v0.32.0) (2026-07-13)
 
 
