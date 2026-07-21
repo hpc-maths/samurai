@@ -24,6 +24,16 @@
 // slower on the end-to-end advection_2d run; the "adapted" tier exists so
 // that this class of regression is visible without having to rebuild and run
 // a full demo.
+//
+// BM_RefineFootprint_adapted<3> is also a codegen canary: the fully-inlined
+// 3D traversal is so register-tight that perturbing the Projection code was
+// measured to cost ~+30% executed instructions (spills) on the REFINE path
+// even when the perturbation is never executed. Measured triggers: adding a
+// member holding a std::vector to SetTraits<Projection>::Workspace, or
+// writing to a Workspace member from the COARSEN branch of
+// get_traverser_impl (a branch this benchmark never takes); noinline / cold
+// / preserve_most on the added code did not help. Re-run this benchmark
+// after any change to include/samurai/subset/, however innocuous.
 
 #include <cmath>
 #include <cstddef>
