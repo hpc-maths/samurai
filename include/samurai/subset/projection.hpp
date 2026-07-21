@@ -27,7 +27,7 @@ namespace samurai
             using child_traverser_t = typename Set::template traverser_t<d>;
 
             template <std::size_t d>
-            using work_t = ListOfIntervals<typename child_traverser_t<d>::value_t>;
+            using work_t = FlatListOfIntervals<typename child_traverser_t<d>::value_t>;
 
             using Type = std::tuple<work_t<ds>...>;
         };
@@ -142,9 +142,7 @@ namespace samurai
                                                    workspace.tmp_child_workspace,
                                                    list_of_intervals);
 
-                    return traverser_t<d>(m_set.get_traverser(utils::pow2(index, m_shift), d_ic, workspace.child_workspace),
-                                          list_of_intervals.cbegin(),
-                                          list_of_intervals.cend());
+                    return traverser_t<d>(list_of_intervals.cbegin(), list_of_intervals.cend());
                 }
                 else
                 {

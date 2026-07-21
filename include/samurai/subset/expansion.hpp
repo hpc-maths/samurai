@@ -26,7 +26,7 @@ namespace samurai
             using array_of_traversers_t = std::vector<child_traverser_t<d>>;
 
             template <std::size_t d>
-            using list_of_intervals_t = ListOfIntervals<typename child_traverser_t<d>::value_t>;
+            using list_of_intervals_t = FlatListOfIntervals<typename child_traverser_t<d>::value_t>;
 
             template <std::size_t d>
             using InnerType = std::conditional_t<d == Set::dim - 2, array_of_traversers_t<d>, list_of_intervals_t<d>>;

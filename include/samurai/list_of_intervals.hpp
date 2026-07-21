@@ -9,6 +9,7 @@
 #include <iostream>
 #include <iterator>
 #include <utility>
+#include <vector>
 
 #include "interval.hpp"
 #include "samurai_config.hpp"
@@ -226,6 +227,164 @@ namespace samurai
 
     template <typename value_t, typename index_t>
     SAMURAI_INLINE std::ostream& operator<<(std::ostream& out, const ListOfIntervals<value_t, index_t>& interval_list)
+    {
+        for (const auto& interval : interval_list)
+        {
+            out << interval << " ";
+        }
+        return out;
+    }
+
+    ///////////////////////////////////////
+    // FlatListOfIntervals definition    //
+    ///////////////////////////////////////
+
+    /** @class FlatListOfIntervals
+     *  @brief Vector-backed sorted list of disjoint intervals.
+     *
+     * Scratch buffer used by the subset workspaces. Same semantics as
+     * ListOfIntervals (the buffer always holds the union of the added
+     * intervals, sorted and disjoint) but on contiguous storage: insertion
+     * uses a binary search plus a memmove of a handful of PODs instead of
+     * walking a node-based list, and clear() keeps the capacity, so a buffer
+     * reused across rows stops allocating after the first few insertions.
+     */
+    template <typename TValue, typename TIndex = default_config::index_t>
+    struct FlatListOfIntervals
+    {
+        using value_t    = TValue;
+        using index_t    = TIndex;
+        using interval_t = Interval<value_t, index_t>;
+
+        using storage_t      = std::vector<interval_t>;
+        using const_iterator = typename storage_t::const_iterator;
+        using iterator       = typename storage_t::iterator;
+        using value_type     = interval_t;
+
+        SAMURAI_INLINE void clear()
+        {
+            m_intervals.clear();
+            m_hint = 0;
+        }
+
+        SAMURAI_INLINE bool empty() const
+        {
+            return m_intervals.empty();
+        }
+
+        SAMURAI_INLINE std::size_t size() const
+        {
+            return m_intervals.size();
+        }
+
+        SAMURAI_INLINE void add_interval(const interval_t& interval)
+        {
+            if (!interval.is_valid())
+            {
+                return;
+            }
+
+            if (m_intervals.empty())
+            {
+                m_intervals.push_back(interval);
+                m_hint = 0;
+                return;
+            }
+
+            // Same hint strategy as ListOfIntervals: intervals are almost
+            // always added in increasing order, starting the search from the
+            // last interval touched makes the insertion amortized O(1).
+            std::size_t i = 0;
+            if (interval.start >= m_intervals[m_hint].start)
+            {
+                if (interval.start <= m_intervals[m_hint].end)
+                {
+                    // overlaps or touches the hinted interval: extend it
+                    if (interval.end > m_intervals[m_hint].end)
+                    {
+                        m_intervals[m_hint].end = interval.end;
+                        absorb_following(m_hint);
+                    }
+                    return;
+                }
+                i = m_hint + 1;
+            }
+
+            // first interval that ends at or after the new one starts
+            while (i != m_intervals.size() && m_intervals[i].end < interval.start)
+            {
+                ++i;
+            }
+
+            if (i == m_intervals.size())
+            {
+                m_intervals.push_back(interval);
+            }
+            else if (interval.end < m_intervals[i].start)
+            {
+                // disjoint: insert in place
+                m_intervals.insert(m_intervals.begin() + std::ptrdiff_t(i), interval);
+            }
+            else
+            {
+                // overlap: extend *it, then absorb the intervals it now covers
+                m_intervals[i].start = std::min(m_intervals[i].start, interval.start);
+                if (interval.end > m_intervals[i].end)
+                {
+                    m_intervals[i].end = interval.end;
+                    absorb_following(i);
+                }
+            }
+            m_hint = i;
+        }
+
+        SAMURAI_INLINE void add_point(value_t point)
+        {
+            add_interval({point, point + 1});
+        }
+
+        SAMURAI_INLINE const_iterator cbegin() const
+        {
+            return m_intervals.cbegin();
+        }
+
+        SAMURAI_INLINE const_iterator cend() const
+        {
+            return m_intervals.cend();
+        }
+
+        SAMURAI_INLINE const_iterator begin() const
+        {
+            return m_intervals.begin();
+        }
+
+        SAMURAI_INLINE const_iterator end() const
+        {
+            return m_intervals.end();
+        }
+
+      private:
+
+        /// Merge into m_intervals[i] all the following intervals it now overlaps.
+        void absorb_following(std::size_t i)
+        {
+            std::size_t j = i + 1;
+            while (j != m_intervals.size() && m_intervals[j].start <= m_intervals[i].end)
+            {
+                m_intervals[i].end = std::max(m_intervals[i].end, m_intervals[j].end);
+                ++j;
+            }
+            m_intervals.erase(m_intervals.begin() + std::ptrdiff_t(i) + 1, m_intervals.begin() + std::ptrdiff_t(j));
+        }
+
+        storage_t m_intervals;
+
+        /// Index of the last interval touched.
+        std::size_t m_hint = 0;
+    };
+
+    template <typename value_t, typename index_t>
+    SAMURAI_INLINE std::ostream& operator<<(std::ostream& out, const FlatListOfIntervals<value_t, index_t>& interval_list)
     {
         for (const auto& interval : interval_list)
         {
