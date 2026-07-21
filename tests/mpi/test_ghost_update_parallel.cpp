@@ -206,10 +206,10 @@ namespace
     // Several disjoint refined blocks spread over the domain (2D geometry; uses
     // the first two coordinates only, valid at any Dim).
     template <std::size_t Dim>
-    typename config<Dim>::Mesh make_scattered_patches(int stencil_size)
+    typename config<Dim>::Mesh make_scattered_patches(int stencil_size, bool periodic)
     {
         return make_two_level_mesh<Dim>(stencil_size,
-                                        false,
+                                        periodic,
                                         [](const auto& cell)
                                         {
                                             const double x = cell.center(0);
@@ -229,7 +229,7 @@ namespace
     // affine field on it. This is the "tarabiscoté" geometry: scattered level
     // jumps in every direction.
     template <std::size_t Dim>
-    typename config<Dim>::Mesh make_adapted_complex(int stencil_size)
+    typename config<Dim>::Mesh make_adapted_complex(int stencil_size, bool periodic)
     {
         constexpr auto bl = config<Dim>::base;
         const samurai::Box<double, Dim> box(xt::zeros<double>({Dim}), xt::ones<double>({Dim}));
@@ -237,6 +237,7 @@ namespace
                        .min_level(bl)
                        .max_level(bl + 2)
                        .max_stencil_size(stencil_size)
+                       .periodic(periodic)
                        .disable_minimal_ghost_width();
         auto mesh = samurai::mra::make_mesh(box, cfg);
 
@@ -267,7 +268,10 @@ namespace
                                    }
                                    bump[cell] = v;
                                });
-        samurai::make_bc<samurai::Dirichlet<1>>(bump, 0.);
+        if (!periodic)
+        {
+            samurai::make_bc<samurai::Dirichlet<1>>(bump, 0.);
+        }
         samurai::make_MRAdapt(bump)(samurai::mra_config().epsilon(1e-3));
         return bump.mesh();
     }
@@ -294,17 +298,17 @@ namespace
     }
 
     template <std::size_t Dim>
-    typename config<Dim>::Mesh build_mesh(Geometry geom, int stencil_size)
+    typename config<Dim>::Mesh build_mesh(Geometry geom, int stencil_size, bool periodic)
     {
         switch (geom)
         {
             case Geometry::CornerQuadrant:
-                return make_corner_mesh<Dim>(stencil_size, false);
+                return make_corner_mesh<Dim>(stencil_size, periodic);
             case Geometry::ScatteredPatches:
-                return make_scattered_patches<Dim>(stencil_size);
+                return make_scattered_patches<Dim>(stencil_size, periodic);
             case Geometry::AdaptedComplex:
             default:
-                return make_adapted_complex<Dim>(stencil_size);
+                return make_adapted_complex<Dim>(stencil_size, periodic);
         }
     }
 
@@ -633,23 +637,24 @@ namespace
     // NB: the mesh must outlive the field it is bound to (the field holds only a
     // reference to it), so both meshes are kept in local variables here.
     template <std::size_t Dim>
-    void expect_decomposition_independent(int stencil_size, bool periodic, Decomp decomp, const std::string& ctx)
+    void expect_decomposition_independent(Geometry geom, int stencil_size, bool periodic, Decomp decomp, const std::string& ctx)
     {
         mpi::communicator world;
 
-        auto mesh_ref = make_corner_mesh<Dim>(stencil_size, periodic);
+        auto mesh_ref = build_mesh<Dim>(geom, stencil_size, periodic);
         auto u_ref    = samurai::make_scalar_field<double>("u", mesh_ref);
         fill_affine<Dim>(u_ref, periodic);
-        // Non-periodic: exclude a boundary band a few fine cells thick, where the
-        // Dirichlet-BC ghosts (and the prediction that reads them) are a
-        // decomposition-dependent residue outside samurai's guarantees.
-        const double margin = periodic ? 0. : (2. * ghost_width_of(stencil_size) + 2.) * mesh_ref.min_cell_length();
+        // Non-periodic: exclude a boundary band, where the Dirichlet-BC ghosts
+        // (and the prediction that reads them) are a decomposition-dependent
+        // residue outside samurai's guarantees. Scaled to the coarsest cells so
+        // the band is thick enough whatever the finest level of the geometry.
+        const double margin = periodic ? 0. : (ghost_width_of(stencil_size) + 2.) * mesh_ref.cell_length(mesh_ref.min_level());
         apply_decomposition<Dim>(Decomp::None, u_ref);
         samurai::update_ghost_mr(u_ref);
         bool ref_consistent = true;
         auto ref            = gather_reference<Dim>(u_ref, ref_consistent, margin);
 
-        auto mesh_tst = make_corner_mesh<Dim>(stencil_size, periodic);
+        auto mesh_tst = build_mesh<Dim>(geom, stencil_size, periodic);
         auto u_tst    = samurai::make_scalar_field<double>("u", mesh_tst);
         fill_affine<Dim>(u_tst, periodic);
         apply_decomposition<Dim>(decomp, u_tst);
@@ -758,7 +763,7 @@ namespace
         const std::string ctx = case_name(testing::TestParamInfo<Case>(c, 0));
         mpi::communicator world;
 
-        auto mesh = build_mesh<2>(c.geom, c.stencil_size);
+        auto mesh = build_mesh<2>(c.geom, c.stencil_size, /*periodic=*/false);
         auto u    = samurai::make_scalar_field<double>("u", mesh);
         u.fill(0.);
         samurai::for_each_cell(mesh[config<2>::mesh_id_t::cells],
@@ -792,20 +797,29 @@ namespace
     struct ICase
     {
         int stencil_size;
+        Geometry geom;
         bool periodic;
         Decomp decomp;
     };
 
+    // The independence oracle is the one that actually exercises the neighbour
+    // exchange (all in-domain ghosts, boundary and level jumps included, 2D/3D,
+    // periodic/Dirichlet), so it is run on the COMPLEX geometries too: the
+    // multi-level MRAdapt mesh has level jumps scattered everywhere, including
+    // right at subdomain interfaces once a tangled decomposition cuts through it.
     std::vector<ICase> make_icases()
     {
         std::vector<ICase> cases;
-        for (int s : {1, 2, 3, 5})
+        for (Geometry g : {Geometry::CornerQuadrant, Geometry::AdaptedComplex})
         {
-            for (bool periodic : {false, true})
+            for (int s : {2, 5}) // ghost width 1 and 3 (the extremes); 1-5 swept by the 2D analytic suite
             {
-                for (Decomp d : {Decomp::FineCheckerboard, Decomp::ThinVStrips, Decomp::Hilbert})
+                for (bool periodic : {false, true})
                 {
-                    cases.push_back({s, periodic, d});
+                    for (Decomp d : {Decomp::FineCheckerboard, Decomp::Hilbert})
+                    {
+                        cases.push_back({s, g, periodic, d});
+                    }
                 }
             }
         }
@@ -815,8 +829,8 @@ namespace
     std::string icase_name(const testing::TestParamInfo<ICase>& info)
     {
         const auto& c = info.param;
-        return std::string("s") + std::to_string(c.stencil_size) + "_" + (c.periodic ? "periodic" : "dirichlet") + "_"
-             + decomp_name(c.decomp);
+        return std::string("s") + std::to_string(c.stencil_size) + "_" + geom_name(c.geom) + "_"
+             + (c.periodic ? "periodic" : "dirichlet") + "_" + decomp_name(c.decomp);
     }
 
     class ghost_independence_2d
@@ -828,7 +842,7 @@ namespace
     TEST_P(ghost_independence_2d, ghosts_match_reference)
     {
         const ICase c = GetParam();
-        expect_decomposition_independent<2>(c.stencil_size, c.periodic, c.decomp, "2d_" + icase_name(testing::TestParamInfo<ICase>(c, 0)));
+        expect_decomposition_independent<2>(c.geom, c.stencil_size, c.periodic, c.decomp, "2d_" + icase_name(testing::TestParamInfo<ICase>(c, 0)));
     }
 
     INSTANTIATE_TEST_SUITE_P(all, ghost_independence_2d, testing::ValuesIn(make_icases()), icase_name);
@@ -847,7 +861,7 @@ namespace
         // request vector across periodic dimensions, calling wait_all() again on
         // already-completed boost::mpi serialized requests. Fixed by scoping the
         // request vector per dimension in update_periodic.hpp.
-        expect_decomposition_independent<3>(c.stencil_size, c.periodic, c.decomp, "3d_" + icase_name(testing::TestParamInfo<ICase>(c, 0)));
+        expect_decomposition_independent<3>(c.geom, c.stencil_size, c.periodic, c.decomp, "3d_" + icase_name(testing::TestParamInfo<ICase>(c, 0)));
     }
 
     INSTANTIATE_TEST_SUITE_P(all, ghost_independence_3d, testing::ValuesIn(make_icases()), icase_name);
