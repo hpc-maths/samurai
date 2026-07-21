@@ -48,11 +48,11 @@
 // Every combination is a distinct GoogleTest case so a failure pinpoints it,
 // and each executable is run at np = 2, 3, 4 by CTest.
 //
-// KNOWN ISSUE surfaced by this suite: the 3D periodic ghost update deadlocks
-// intermittently under MPI (>= 2 ranks) - np=1 always passes, and 2D periodic
-// and all 3D Dirichlet cases are stable. The 3D periodic cases are therefore
-// GTEST_SKIP()-ped (see ghost_independence_3d) so the suite stays usable; the
-// skip should be removed once the periodic parallel exchange is fixed.
+// This suite surfaced a real bug: the 3D periodic ghost update deadlocked/crashed
+// intermittently under MPI because update_ghost_periodic reused its MPI request
+// vector across periodic dimensions (double wait_all on completed boost::mpi
+// serialized requests). Fixed in update_periodic.hpp; the 3D periodic cases below
+// are the regression guard.
 
 #include <array>
 #include <cmath>
@@ -842,21 +842,11 @@ namespace
     TEST_P(ghost_independence_3d, ghosts_match_reference)
     {
         const ICase c = GetParam();
-        mpi::communicator world;
-
-        // KNOWN ISSUE - 3D periodic ghost update deadlocks intermittently under
-        // MPI (>= 3 ranks). Reproduced here on the corner-refined periodic mesh:
-        // np=1 always passes, np>=3 spin-waits forever (~2/3 of runs) inside the
-        // parallel exchange, for every stencil size and every decomposition,
-        // while 2D periodic and all 3D Dirichlet cases are stable. The periodic
-        // MPI path is not otherwise covered (test_lb_ghosts never exercises
-        // periodicity). Skipped so the suite stays usable; drop the skip once the
-        // periodic parallel exchange is fixed to turn this into a regression test.
-        if (c.periodic && world.size() >= 2)
-        {
-            GTEST_SKIP() << "3D periodic ghost update deadlocks intermittently under MPI (see comment)";
-        }
-
+        // Regression: the 3D periodic ghost update used to deadlock/crash
+        // intermittently under MPI because update_ghost_periodic reused its MPI
+        // request vector across periodic dimensions, calling wait_all() again on
+        // already-completed boost::mpi serialized requests. Fixed by scoping the
+        // request vector per dimension in update_periodic.hpp.
         expect_decomposition_independent<3>(c.stencil_size, c.periodic, c.decomp, "3d_" + icase_name(testing::TestParamInfo<ICase>(c, 0)));
     }
 
