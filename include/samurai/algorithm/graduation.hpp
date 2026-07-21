@@ -473,8 +473,9 @@ namespace samurai
                                 auto boundaryCells = difference(src[level], translate(self(domain).on(level), -translation));
                                 for (int i = 1; i != max_stencil_radius; ++i)
                                 {
-                                    auto refine_subset = translate(intersection(translate(boundaryCells, -i * translation), ca[level + 1]).on(level),
-                                                                   i * translation)
+                                    auto refine_subset = translate(
+                                                             intersection(translate(boundaryCells, -i * translation), ca[level + 1]).on(level),
+                                                             i * translation)
                                                              .on(level);
                                     refine_subset(
                                         [&](const auto& x_interval, const auto& yz)
