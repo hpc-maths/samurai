@@ -243,9 +243,8 @@ namespace
                                             {
                                                 return x > x0 && x < x1 && y > y0 && y < y1;
                                             };
-                                            return in(0.15, 0.30, 0.15, 0.30) || in(0.62, 0.82, 0.20, 0.35)
-                                                || in(0.20, 0.35, 0.62, 0.80) || in(0.62, 0.82, 0.62, 0.82)
-                                                || in(0.42, 0.58, 0.42, 0.58);
+                                            return in(0.15, 0.30, 0.15, 0.30) || in(0.62, 0.82, 0.20, 0.35) || in(0.20, 0.35, 0.62, 0.80)
+                                                || in(0.62, 0.82, 0.62, 0.82) || in(0.42, 0.58, 0.42, 0.58);
                                         });
     }
 
@@ -270,13 +269,15 @@ namespace
         bump.resize();
         // A handful of spherical fronts scattered across the interior; the sharp
         // tanh transitions force local refinement all around them.
-        const std::array<std::array<double, 4>, 5> fronts = {{
-            {0.32, 0.62, 0.45, 0.10},
-            {0.68, 0.34, 0.55, 0.08},
-            {0.55, 0.70, 0.40, 0.07},
-            {0.40, 0.38, 0.60, 0.09},
-            {0.70, 0.66, 0.50, 0.06},
-        }};
+        const std::array<std::array<double, 4>, 5> fronts = {
+            {
+             {0.32, 0.62, 0.45, 0.10},
+             {0.68, 0.34, 0.55, 0.08},
+             {0.55, 0.70, 0.40, 0.07},
+             {0.40, 0.38, 0.60, 0.09},
+             {0.70, 0.66, 0.50, 0.06},
+             }
+        };
         samurai::for_each_cell(mesh,
                                [&](auto& cell)
                                {
@@ -544,7 +545,7 @@ namespace
         using mesh_id_t = typename config<Dim>::mesh_id_t;
         samurai::update_ghost_mr(u);
 
-        auto& mesh = u.mesh();
+        auto& mesh      = u.mesh();
         const double dx = mesh.cell_length(mesh.min_level());
         // Stay away from the physical boundary: outer ghosts there are set by the
         // boundary condition (and by coarse projection ghosts reaching down below
@@ -739,8 +740,12 @@ namespace
     // paired with the corner geometry (the matrix guarantees this), built through
     // the box-aware corner builder; every unit-cube case goes through build_mesh.
     template <std::size_t Dim>
-    typename config<Dim>::Mesh build_mesh_on_domain(Geometry geom, DomainShape shape, int stencil_size, bool periodic,
-                                                    const DomainCorner<Dim>& lo, const DomainCorner<Dim>& hi)
+    typename config<Dim>::Mesh build_mesh_on_domain(Geometry geom,
+                                                    DomainShape shape,
+                                                    int stencil_size,
+                                                    bool periodic,
+                                                    const DomainCorner<Dim>& lo,
+                                                    const DomainCorner<Dim>& hi)
     {
         if (shape == DomainShape::UnitCube)
         {
@@ -750,8 +755,8 @@ namespace
     }
 
     template <std::size_t Dim>
-    void expect_decomposition_independent(Geometry geom, DomainShape shape, int stencil_size, bool periodic, Decomp decomp,
-                                          const std::string& ctx)
+    void
+    expect_decomposition_independent(Geometry geom, DomainShape shape, int stencil_size, bool periodic, Decomp decomp, const std::string& ctx)
     {
         mpi::communicator world;
 
@@ -849,11 +854,8 @@ namespace
         {
             for (Geometry g : {Geometry::CornerQuadrant, Geometry::ScatteredPatches, Geometry::AdaptedComplex})
             {
-                for (Decomp d : {Decomp::ThinVStrips,
-                                 Decomp::FineCheckerboard,
-                                 Decomp::CoarseCheckerboard,
-                                 Decomp::DiagonalBands,
-                                 Decomp::Hilbert})
+                for (Decomp d :
+                     {Decomp::ThinVStrips, Decomp::FineCheckerboard, Decomp::CoarseCheckerboard, Decomp::DiagonalBands, Decomp::Hilbert})
                 {
                     cases.push_back({s, g, d});
                 }
@@ -868,9 +870,8 @@ namespace
         return std::string("s") + std::to_string(c.stencil_size) + "_" + geom_name(c.geom) + "_" + decomp_name(c.decomp);
     }
 
-    class ghost_update_2d
-        : public samurai_test::MpiTest
-        , public testing::WithParamInterface<Case>
+    class ghost_update_2d : public samurai_test::MpiTest,
+                            public testing::WithParamInterface<Case>
     {
     };
 
@@ -973,24 +974,26 @@ namespace
              + (c.periodic ? "periodic" : "dirichlet") + "_" + decomp_name(c.decomp);
     }
 
-    class ghost_independence_2d
-        : public samurai_test::MpiTest
-        , public testing::WithParamInterface<ICase>
+    class ghost_independence_2d : public samurai_test::MpiTest,
+                                  public testing::WithParamInterface<ICase>
     {
     };
 
     TEST_P(ghost_independence_2d, ghosts_match_reference)
     {
         const ICase c = GetParam();
-        expect_decomposition_independent<2>(c.geom, c.domain, c.stencil_size, c.periodic, c.decomp,
+        expect_decomposition_independent<2>(c.geom,
+                                            c.domain,
+                                            c.stencil_size,
+                                            c.periodic,
+                                            c.decomp,
                                             "2d_" + icase_name(testing::TestParamInfo<ICase>(c, 0)));
     }
 
     INSTANTIATE_TEST_SUITE_P(all, ghost_independence_2d, testing::ValuesIn(make_icases()), icase_name);
 
-    class ghost_independence_3d
-        : public samurai_test::MpiTest
-        , public testing::WithParamInterface<ICase>
+    class ghost_independence_3d : public samurai_test::MpiTest,
+                                  public testing::WithParamInterface<ICase>
     {
     };
 
@@ -1002,7 +1005,11 @@ namespace
         // request vector across periodic dimensions, calling wait_all() again on
         // already-completed boost::mpi serialized requests. Fixed by scoping the
         // request vector per dimension in update_periodic.hpp.
-        expect_decomposition_independent<3>(c.geom, c.domain, c.stencil_size, c.periodic, c.decomp,
+        expect_decomposition_independent<3>(c.geom,
+                                            c.domain,
+                                            c.stencil_size,
+                                            c.periodic,
+                                            c.decomp,
                                             "3d_" + icase_name(testing::TestParamInfo<ICase>(c, 0)));
     }
 
