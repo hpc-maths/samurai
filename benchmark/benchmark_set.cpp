@@ -210,9 +210,74 @@ static void BM_StencilTranslation_adapted(benchmark::State& state)
     state.counters["cells"] = static_cast<double>(mesh.nb_cells(mesh_id_t::cells));
 }
 
+// cells[l] refined onto max_level: the REFINE projection footprint of
+// reconstruction and transfer (reconstruction.hpp), where every coarse row is
+// fanned out on 2^(max_level - l) fine rows per dimension. Arg: 1/eps.
+template <std::size_t dim>
+static void BM_RefineFootprint_adapted(benchmark::State& state)
+{
+    const std::size_t max_level = (dim == 2) ? 11 : 8;
+    auto mesh                   = make_adapted_mesh<dim>(1. / static_cast<double>(state.range(0)), max_level);
+    using mesh_id_t             = typename std::decay_t<decltype(mesh)>::mesh_id_t;
+
+    const auto min_l = mesh[mesh_id_t::cells].min_level();
+    const auto max_l = mesh[mesh_id_t::cells].max_level();
+
+    for (auto _ : state)
+    {
+        std::size_t acc = 0;
+        for (std::size_t level = min_l; level < max_l; ++level)
+        {
+            auto subset = samurai::self(mesh[mesh_id_t::cells][level]).on(max_l);
+            subset(
+                [&](const auto& i, const auto&)
+                {
+                    acc += i.size();
+                });
+        }
+        benchmark::DoNotOptimize(acc);
+    }
+    state.counters["cells"] = static_cast<double>(mesh.nb_cells(mesh_id_t::cells));
+}
+
+// intersection(all_cells[l], cells[l]).on(max_level): the REFINE projection
+// of a composite set, the pattern of transfer() (reconstruction.hpp), where
+// every fine row used to redo the intersection merge of its coarse row.
+// Arg: 1/eps.
+template <std::size_t dim>
+static void BM_TransferFootprint_adapted(benchmark::State& state)
+{
+    const std::size_t max_level = (dim == 2) ? 11 : 8;
+    auto mesh                   = make_adapted_mesh<dim>(1. / static_cast<double>(state.range(0)), max_level);
+    using mesh_id_t             = typename std::decay_t<decltype(mesh)>::mesh_id_t;
+
+    const auto min_l = mesh[mesh_id_t::cells].min_level();
+    const auto max_l = mesh[mesh_id_t::cells].max_level();
+
+    for (auto _ : state)
+    {
+        std::size_t acc = 0;
+        for (std::size_t level = min_l; level < max_l; ++level)
+        {
+            auto subset = samurai::intersection(mesh[mesh_id_t::all_cells][level], mesh[mesh_id_t::cells][level]).on(max_l);
+            subset(
+                [&](const auto& i, const auto&)
+                {
+                    acc += i.size();
+                });
+        }
+        benchmark::DoNotOptimize(acc);
+    }
+    state.counters["cells"] = static_cast<double>(mesh.nb_cells(mesh_id_t::cells));
+}
+
 BENCHMARK(BM_ProjectionFootprint_adapted<2>)->Arg(1000)->Arg(100000);
 BENCHMARK(BM_ProjectionFootprint_adapted<3>)->Arg(1000)->Arg(100000);
 BENCHMARK(BM_StencilTranslation_adapted<2>)->Arg(1000)->Arg(100000);
 BENCHMARK(BM_StencilTranslation_adapted<3>)->Arg(1000)->Arg(100000);
+BENCHMARK(BM_RefineFootprint_adapted<2>)->Arg(1000)->Arg(100000);
+BENCHMARK(BM_RefineFootprint_adapted<3>)->Arg(1000)->Arg(100000);
+BENCHMARK(BM_TransferFootprint_adapted<2>)->Arg(1000)->Arg(100000);
+BENCHMARK(BM_TransferFootprint_adapted<3>)->Arg(1000)->Arg(100000);
 
 BENCHMARK_MAIN();
