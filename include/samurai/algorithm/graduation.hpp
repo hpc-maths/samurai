@@ -424,33 +424,35 @@ namespace samurai
                     {
                         for (size_t level = max_level; level != min_level; --level)
                         {
-                            auto boundaryCells = difference(ca[level], translate(self(domain).on(level), -translation)).on(level);
-
-                            for (int i = 2; i <= n_contiguous_boundary_cells; i += 2)
+                            // The boundary cells that drive the inward refinement must be seen from EVERY mesh (this rank
+                            // and all its neighbours), otherwise the set of boundary cells - and hence the refinement -
+                            // depends on the MPI partition: a boundary cell owned by a neighbour would be invisible here.
+                            // We therefore refine ONLY this rank's own level-1 cells (out drives the local `ca`), but from
+                            // boundary cells taken from `ca` and from each neighbour mesh. In sequential runs mpi_meshes is
+                            // empty and this reduces to the original single-mesh behaviour.
+                            auto refine_from = [&](const auto& src)
                             {
-                                // Here, the set algebra doesn't work, so we put the translation in a LevelCellArray before computing
-                                // the intersection. When the problem is fixed, remove the two following lines and uncomment the line
-                                // below.
-                                LevelCellArray<dim, TInterval> translated_boundary(translate(boundaryCells, -i * translation));
-                                auto refine_impl = [&](const auto& ca_lm1)
+                                auto boundaryCells = difference(src[level], translate(self(domain).on(level), -translation)).on(level);
+                                for (int i = 2; i <= n_contiguous_boundary_cells; i += 2)
                                 {
-                                    auto refine_subset = intersection(translated_boundary, ca_lm1).on(level - 1);
-                                    // auto refine_subset = intersection(translate(boundaryCells, -i*translation), ca[level-1]).on(level-1);
-
+                                    // Here, the set algebra doesn't work, so we put the translation in a LevelCellArray before
+                                    // computing the intersection.
+                                    LevelCellArray<dim, TInterval> translated_boundary(translate(boundaryCells, -i * translation));
+                                    auto refine_subset = intersection(translated_boundary, ca[level - 1]).on(level - 1);
                                     refine_subset(
                                         [&](const auto& x_interval, const auto& yz)
                                         {
                                             out[level - 1].push_back(x_interval, yz);
                                         });
-                                };
-                                refine_impl(ca[level - 1]);
-#ifdef SAMURAI_WITH_MPI
-                                for (const auto& mpi_mesh : mpi_meshes)
-                                {
-                                    refine_impl(mpi_mesh[level - 1]);
                                 }
-#endif
+                            };
+                            refine_from(ca);
+#ifdef SAMURAI_WITH_MPI
+                            for (const auto& mpi_mesh : mpi_meshes)
+                            {
+                                refine_from(mpi_mesh);
                             }
+#endif
                         }
                     }
 
@@ -464,12 +466,14 @@ namespace samurai
                     {
                         for (size_t level = max_level - 1; level != min_level - 1; --level)
                         {
-                            auto boundaryCells = difference(ca[level], translate(self(domain).on(level), -translation));
-                            for (int i = 1; i != max_stencil_radius; ++i)
+                            // Same partition-independence concern as the level-1 case above: take the boundary cells from
+                            // `ca` and from every neighbour mesh, but refine only this rank's own level+1 cells.
+                            auto refine_from = [&](const auto& src)
                             {
-                                auto refine_impl = [&](const auto& ca_lp1)
+                                auto boundaryCells = difference(src[level], translate(self(domain).on(level), -translation));
+                                for (int i = 1; i != max_stencil_radius; ++i)
                                 {
-                                    auto refine_subset = translate(intersection(translate(boundaryCells, -i * translation), ca_lp1).on(level),
+                                    auto refine_subset = translate(intersection(translate(boundaryCells, -i * translation), ca[level + 1]).on(level),
                                                                    i * translation)
                                                              .on(level);
                                     refine_subset(
@@ -477,15 +481,15 @@ namespace samurai
                                         {
                                             out[level].push_back(x_interval, yz);
                                         });
-                                };
-                                refine_impl(ca[level + 1]);
-#ifdef SAMURAI_WITH_MPI
-                                for (const auto& mpi_mesh : mpi_meshes)
-                                {
-                                    refine_impl(mpi_mesh[level + 1]);
                                 }
-#endif
+                            };
+                            refine_from(ca);
+#ifdef SAMURAI_WITH_MPI
+                            for (const auto& mpi_mesh : mpi_meshes)
+                            {
+                                refine_from(mpi_mesh);
                             }
+#endif
                         }
                     }
                 }
