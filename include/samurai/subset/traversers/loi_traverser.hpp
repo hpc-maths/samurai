@@ -9,6 +9,6 @@
 namespace samurai
 {
     template <typename TValue>
-    using LOITraverser = RangeTraverser<typename ListOfIntervals<TValue>::const_iterator>;
+    using LOITraverser = RangeTraverser<typename FlatListOfIntervals<TValue>::const_iterator>;
 
 } // namespace samurai

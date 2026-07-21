@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <optional>
+
 #include "../../list_of_intervals.hpp"
 #include "set_traverser_base.hpp"
 
@@ -24,23 +26,22 @@ namespace samurai
     class ProjectionTraverser : public SetTraverserBase<ProjectionTraverser<SetTraverser>>
     {
         using Self                 = ProjectionTraverser<SetTraverser>;
-        using SetTraverserIterator = typename ListOfIntervals<typename SetTraverser::value_t>::const_iterator;
+        using SetTraverserIterator = typename FlatListOfIntervals<typename SetTraverser::value_t>::const_iterator;
 
       public:
 
         SAMURAI_SET_TRAVERSER_TYPEDEFS
 
         ProjectionTraverser(SetTraverser set_traverser, [[maybe_unused]] const ProjectionType projectionType, const std::size_t shift)
-            : m_set_traverser(set_traverser)
+            : m_set_traverser(std::move(set_traverser))
             , m_shift(shift)
             , m_projectionType(ProjectionType::REFINE)
         {
             assert(projectionType == m_projectionType);
         }
 
-        ProjectionTraverser(SetTraverser set_traverser, SetTraverserIterator first_interval, SetTraverserIterator bound_interval)
-            : m_set_traverser(set_traverser)
-            , m_shift(0)
+        ProjectionTraverser(SetTraverserIterator first_interval, SetTraverserIterator bound_interval)
+            : m_shift(0)
             , m_first_interval(first_interval)
             , m_bound_interval(bound_interval)
             , m_projectionType(ProjectionType::COARSEN)
@@ -55,7 +56,7 @@ namespace samurai
             }
             else
             {
-                return m_set_traverser.is_empty();
+                return m_set_traverser->is_empty();
             }
         }
 
@@ -67,21 +68,21 @@ namespace samurai
             }
             else
             {
-                m_set_traverser.next_interval();
+                m_set_traverser->next_interval();
             }
         }
 
         SAMURAI_INLINE current_interval_t current_interval_impl() const
         {
-            return (m_projectionType == ProjectionType::COARSEN) ? *m_first_interval : m_set_traverser.current_interval() << m_shift;
+            return (m_projectionType == ProjectionType::COARSEN) ? *m_first_interval : m_set_traverser->current_interval() << m_shift;
         }
 
       private:
 
-        SetTraverser m_set_traverser;          // only used when refining
-        std::size_t m_shift;                   // only used when refining
-        SetTraverserIterator m_first_interval; // only use when coarsening
-        SetTraverserIterator m_bound_interval; // only use when coarsening
+        std::optional<SetTraverser> m_set_traverser; // only engaged when refining
+        std::size_t m_shift;                         // only used when refining
+        SetTraverserIterator m_first_interval;       // only used when coarsening
+        SetTraverserIterator m_bound_interval;       // only used when coarsening
         ProjectionType m_projectionType;
     };
 

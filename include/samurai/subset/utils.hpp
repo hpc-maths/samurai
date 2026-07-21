@@ -216,7 +216,7 @@ namespace samurai
                                       UnaryFunc&& unaryFunc,
                                       typename Set::yz_index_t& index,
                                       typename Set::Workspace& child_workspace,
-                                      ListOfIntervals<typename Set::value_t>& list_of_intervals)
+                                      FlatListOfIntervals<typename Set::value_t>& list_of_intervals)
             {
                 using child_traverser_t        = typename Set::template traverser_t<d_cur>;
                 using child_interval_t         = typename child_traverser_t::interval_t;
@@ -265,7 +265,7 @@ namespace samurai
                               std::integral_constant<std::size_t, D> d,
                               UnaryFunc&& unaryFunc,
                               typename Set::Workspace& child_workspace,
-                              ListOfIntervals<typename Set::value_t>& list_of_intervals)
+                              FlatListOfIntervals<typename Set::value_t>& list_of_intervals)
         {
             using yz_index_t = typename Set::yz_index_t;
 
