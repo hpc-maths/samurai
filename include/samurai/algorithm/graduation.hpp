@@ -329,41 +329,67 @@ namespace samurai
 #endif // SAMURAI_WITH_MPI
     }
 
+    /**
+     * @brief Exchange this rank's cell array with every neighbour (token protocol).
+     *
+     * A one-int header announces whether the serialized cell array follows.
+     * `mesh_changed` must be true whenever `mesh` was modified since the
+     * previous call with the same `mpi_meshes` (and on the first call). The
+     * caller owns `mpi_meshes`, the receive-side cache: entry i keeps the last
+     * fully received cell array of neighbour i, and is left untouched when the
+     * neighbour sends a token. Inside the graduation fixed-point loop this
+     * means a rank that reached its local fixed point stops resending its
+     * (identical) cell array while a neighbour keeps refining.
+     */
     template <mesh_like mesh_t>
-    auto update_subdomains_mpi([[maybe_unused]] const mesh_t& mesh, const auto& mpi_neighbourhood)
+    void update_subdomains_mpi([[maybe_unused]] const mesh_t& mesh,
+                               [[maybe_unused]] const bool mesh_changed,
+                               const auto& mpi_neighbourhood,
+                               std::vector<mesh_t>& mpi_meshes)
     {
-        std::vector<mesh_t> mpi_meshes(mpi_neighbourhood.size());
+        mpi_meshes.resize(mpi_neighbourhood.size());
 #ifdef SAMURAI_WITH_MPI
         // No neighbour to exchange with (e.g. a sequential run or an emptied rank): serializing the whole
         // mesh below would be pure waste, so bail out before touching the archive.
         if (mpi_neighbourhood.empty())
         {
-            return mpi_meshes;
+            return;
         }
         mpi::communicator world;
         std::vector<mpi::request> req;
+        req.reserve(2 * mpi_neighbourhood.size());
 
         boost::mpi::packed_oarchive::buffer_type buffer;
-        boost::mpi::packed_oarchive oa(world, buffer);
-        oa << mesh;
+        if (mesh_changed)
+        {
+            boost::mpi::packed_oarchive oa(world, buffer);
+            oa << mesh;
+        }
+        const int flag = mesh_changed ? 1 : 0;
 
-        std::transform(mpi_neighbourhood.cbegin(),
-                       mpi_neighbourhood.cend(),
-                       std::back_inserter(req),
-                       [&](const auto& neighbour)
-                       {
-                           return world.isend(neighbour.rank, neighbour.rank, buffer);
-                       });
+        for (const auto& neighbour : mpi_neighbourhood)
+        {
+            req.push_back(world.isend(neighbour.rank, neighbour.rank, flag));
+            if (mesh_changed)
+            {
+                req.push_back(world.isend(neighbour.rank, neighbour.rank, buffer));
+            }
+        }
 
         std::size_t index = 0;
-        for (auto& neighbour : mpi_neighbourhood)
+        for (const auto& neighbour : mpi_neighbourhood)
         {
-            world.recv(neighbour.rank, world.rank(), mpi_meshes[index++]);
+            int neighbour_changed = 0;
+            world.recv(neighbour.rank, world.rank(), neighbour_changed);
+            if (neighbour_changed != 0)
+            {
+                world.recv(neighbour.rank, world.rank(), mpi_meshes[index]);
+            }
+            ++index;
         }
 
         mpi::wait_all(req.begin(), req.end());
 #endif // SAMURAI_WITH_MPI
-        return mpi_meshes;
     }
 
     template <size_t dim, typename TInterval, size_t max_size, typename TCoord>
@@ -497,17 +523,16 @@ namespace samurai
             });
     }
 
-    template <size_t dim, typename TInterval, typename MeshType, size_t max_size, typename TCoord>
+    template <size_t dim, typename TInterval, size_t max_size, typename TCoord>
     void list_intervals_to_refine(const std::size_t grad_width,
                                   const int max_stencil_radius,
                                   const CellArray<dim, TInterval, max_size>& ca,
                                   const LevelCellArray<dim, TInterval>& domain,
-                                  [[maybe_unused]] const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood,
+                                  const std::vector<CellArray<dim, TInterval, max_size>>& mpi_meshes,
                                   const std::array<bool, dim>& is_periodic,
                                   const std::array<int, dim>& nb_cells_finest_level,
                                   std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, CellArray<dim, TInterval, max_size>::max_size>& out)
     {
-        auto mpi_meshes = update_subdomains_mpi(ca, mpi_neighbourhood);
         list_interval_to_refine_for_graduation(grad_width, ca, domain, mpi_meshes, is_periodic, nb_cells_finest_level, out);
         if (!domain.empty())
         {
@@ -615,6 +640,10 @@ namespace samurai
         ca_type ca_remove_p;
         ca_type new_ca;
 
+        // Receive-side cache of the neighbours' cell arrays, persistent across
+        // the iterations of the fixed-point loop (see update_subdomains_mpi).
+        std::vector<ca_type> mpi_meshes;
+
         size_t nit = 0;
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
@@ -641,7 +670,10 @@ namespace samurai
             // Then, if the non-graduated is not tagged as keep, we coarsen it
             ca_add_p.clear();
             ca_remove_p.clear();
-            list_intervals_to_refine(grad_width, max_stencil_radius, ca, domain, mpi_neighbourhood, is_periodic, nb_cells_finest_level, remove_m_all);
+            // `ca_changed` is exactly "our ca was modified since the previous
+            // exchange" (primed to true, so the first iteration sends in full).
+            update_subdomains_mpi(ca, ca_changed, mpi_neighbourhood, mpi_meshes);
+            list_intervals_to_refine(grad_width, max_stencil_radius, ca, domain, mpi_meshes, is_periodic, nb_cells_finest_level, remove_m_all);
 
             add_p_interval.clear();
             add_p_inner_stencil.clear();
