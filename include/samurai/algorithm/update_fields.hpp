@@ -5,6 +5,7 @@
 
 #include <functional>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 
 #include "../algorithm.hpp"
@@ -197,7 +198,21 @@ namespace samurai
             return true;
         }
 
-        mesh_t new_mesh = {new_cells, mesh};
+        // Not every mesh type exposes a (cell array, reference mesh)
+        // constructor - user-defined meshes often only have the cell-list one:
+        // reuse new_cells when possible, otherwise rebuild from the cell list.
+        auto make_new_mesh = [&]()
+        {
+            if constexpr (std::is_constructible_v<mesh_t, ca_type&, mesh_t&>)
+            {
+                return mesh_t{new_cells, mesh};
+            }
+            else
+            {
+                return mesh_t{cl, mesh};
+            }
+        };
+        mesh_t new_mesh = make_new_mesh();
         update_fields(new_mesh, fields...);
         tag.mesh().swap(new_mesh);
         return false;
