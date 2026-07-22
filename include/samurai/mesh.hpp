@@ -211,7 +211,6 @@ namespace samurai
         cell_t get_cell(std::size_t level, const xt::xexpression<E>& coord) const;
 
         void update_mesh_neighbour();
-        void update_neighbour_subdomain();
         void update_meshid_neighbour(const mesh_id_t& mesh_id);
 
         void to_stream(std::ostream& os) const;
@@ -287,12 +286,18 @@ namespace samurai
         // provably hold identical data from a previous exchange:
         // - m_same_cells_as_ref: the cells of this mesh are geometrically
         //   identical to those of the reference mesh it was built from;
+        // - m_same_subdomain_as_ref: the subdomain and the ghost reach (both
+        //   functions of the cells) are identical to the reference mesh's - the
+        //   neighbourhood, a pure function of every rank's subdomain and ghost
+        //   reach, cannot change when this holds on every rank (see
+        //   exchange_neighbour_meshes);
         // - m_same_neighbourhood: the neighbour rank set is the same as the
         //   reference mesh's (set by find_neighbourhood);
         // - m_neighbours_cells_unchanged: every neighbour sent a token in
         //   update_meshid_neighbour(cells), i.e. the derived mesh ids (which
         //   depend on the neighbours' cells) are unchanged too.
         bool m_same_cells_as_ref          = false;
+        bool m_same_subdomain_as_ref      = false;
         bool m_same_neighbourhood         = false;
         bool m_neighbours_cells_unchanged = false;
 
@@ -429,6 +434,17 @@ namespace samurai
 #endif
 
         construct_subdomain();
+
+#ifdef SAMURAI_WITH_MPI
+        // Identical cells imply an identical subdomain; otherwise compare.
+        // The neighbourhood is a function of the subdomains AND of the ghost
+        // reaches (the pairwise expansion width is max(reach_a, reach_b), and
+        // the reach varies with the coarsest populated level of the cells):
+        // both must be unchanged for the discovery skip to be valid.
+        m_same_subdomain_as_ref = (m_same_cells_as_ref || m_subdomain == ref_mesh.m_subdomain)
+                               && ghost_physical_reach() == ref_mesh.ghost_physical_reach();
+#endif
+
         exchange_neighbour_meshes();
         finalize_mesh(ref_mesh.origin_point(), ref_mesh.scaling_factor());
     }
@@ -443,8 +459,21 @@ namespace samurai
     SAMURAI_INLINE void Mesh_base<D, Config>::exchange_neighbour_meshes()
     {
 #ifdef SAMURAI_WITH_MPI
+        // The neighbourhood is a pure function of every rank's subdomain: when
+        // no rank's subdomain changed, the neighbour set and the cached
+        // neighbour subdomains inherited from the reference mesh are provably
+        // still valid. One all_reduce of a bool then replaces the whole of
+        // find_neighbourhood (bounding-box all_gather + candidate subdomain
+        // exchange). The decision is collective, so every rank skips or none.
+        mpi::communicator world;
+        if (mpi::all_reduce(world, m_same_subdomain_as_ref, std::logical_and()))
+        {
+            // m_mpi_neighbourhood was copied from the reference mesh,
+            // subdomain caches included.
+            m_same_neighbourhood = true;
+            return;
+        }
         find_neighbourhood();
-        update_neighbour_subdomain();
 #endif
     }
 
@@ -1140,31 +1169,6 @@ namespace samurai
 
     // TODO : find a clever way to factorize the two next functions. For new, I have to duplicate the code 2 times.
 
-    // This function is to only send m_subdomain instead of the whole mesh data
-    template <class D, class Config>
-    SAMURAI_INLINE void Mesh_base<D, Config>::update_neighbour_subdomain()
-    {
-#ifdef SAMURAI_WITH_MPI
-        // The subdomain is a function of our cells only: token when the cells
-        // and the neighbour set are those of the reference mesh.
-        const bool send_full = !(m_same_cells_as_ref && m_same_neighbourhood);
-        exchange_with_neighbours(derived_cast().m_subdomain,
-                                 send_full,
-                                 [](auto& world, auto& neighbour)
-                                 {
-                                     world.recv(neighbour.rank, world.rank(), neighbour.mesh.m_subdomain);
-                                 });
-
-        for (auto& neighbour : m_mpi_neighbourhood)
-        {
-            neighbour.mesh.m_domain = m_domain;
-#ifdef SAMURAI_WITH_PETSC
-            neighbour.mesh.compute_gravity_center();
-#endif
-        }
-#endif
-    }
-
     // Modified function definition
     template <class D, class Config>
     SAMURAI_INLINE void Mesh_base<D, Config>::update_meshid_neighbour([[maybe_unused]] const mesh_id_t& mesh_id)
@@ -1360,10 +1364,13 @@ namespace samurai
         }
 
         // Phase 3: Precise verification with interval algebra (only for candidates)
-        std::vector<lca_type> candidate_subdomains;
+        std::vector<ca_type> candidate_subdomains;
         candidate_subdomains.reserve(candidates.size());
 
-        // Gather only candidate subdomains
+        // Gather only candidate subdomains. The FULL subdomain (every level) is
+        // exchanged, not only its max_level slice: the confirmed neighbours
+        // keep it directly, which fuses the former update_neighbour_subdomain
+        // round into this one.
         std::vector<int> candidate_ranks(candidates.begin(), candidates.end());
         std::vector<mpi::request> requests;
         requests.reserve(candidates.size());
@@ -1377,7 +1384,7 @@ namespace samurai
         // Send my subdomain to all candidates
         for (int candidate_rank : candidate_ranks)
         {
-            requests.push_back(world.isend(candidate_rank, 0, m_subdomain[max_level()]));
+            requests.push_back(world.isend(candidate_rank, 0, derived_cast().m_subdomain));
         }
 
         mpi::wait_all(requests.begin(), requests.end());
@@ -1410,14 +1417,16 @@ namespace samurai
         std::vector<mpi_subdomain_t> previous_neighbourhood = std::move(m_mpi_neighbourhood);
 
         m_mpi_neighbourhood.clear();
+        std::vector<std::size_t> neighbour_candidate_index;
         for (std::size_t i = 0; i < candidate_ranks.size(); ++i)
         {
             const int width = expansion_width(all_bboxes[static_cast<std::size_t>(candidate_ranks[i])]);
 
-            auto set = intersection(nestedExpand(m_subdomain[max_level()], width), candidate_subdomains[i]);
+            auto set = intersection(nestedExpand(m_subdomain[max_level()], width), candidate_subdomains[i][max_level()]);
             if (!set.empty())
             {
                 m_mpi_neighbourhood.emplace_back(candidate_ranks[i]);
+                neighbour_candidate_index.push_back(i);
                 continue; // No need to check periodic boundaries if they are already neighbors
             }
 
@@ -1425,20 +1434,23 @@ namespace samurai
             for (const auto& direction : directions)
             {
                 auto shift        = direction * domain_size;
-                auto periodic_set = intersection(nestedExpand(m_subdomain[max_level()], width), translate(candidate_subdomains[i], shift));
+                auto periodic_set = intersection(nestedExpand(m_subdomain[max_level()], width),
+                                                 translate(candidate_subdomains[i][max_level()], shift));
 
                 if (!periodic_set.empty())
                 {
                     m_mpi_neighbourhood.emplace_back(candidate_ranks[i]);
+                    neighbour_candidate_index.push_back(i);
                     break; // No need to check other directions if we already found a neighbor
                 }
             }
         }
 
         m_same_neighbourhood = previous_neighbourhood.size() == m_mpi_neighbourhood.size();
-        for (auto& neighbour : m_mpi_neighbourhood)
+        for (std::size_t j = 0; j < m_mpi_neighbourhood.size(); ++j)
         {
-            auto previous = std::find_if(previous_neighbourhood.begin(),
+            auto& neighbour = m_mpi_neighbourhood[j];
+            auto previous   = std::find_if(previous_neighbourhood.begin(),
                                          previous_neighbourhood.end(),
                                          [&](const auto& p)
                                          {
@@ -1452,6 +1464,14 @@ namespace samurai
             {
                 m_same_neighbourhood = false;
             }
+
+            // The freshly exchanged subdomain replaces the cached one (this is
+            // what the former update_neighbour_subdomain round used to bring).
+            neighbour.mesh.m_subdomain = std::move(candidate_subdomains[neighbour_candidate_index[j]]);
+            neighbour.mesh.m_domain    = m_domain;
+#ifdef SAMURAI_WITH_PETSC
+            neighbour.mesh.compute_gravity_center();
+#endif
         }
 
 #endif
