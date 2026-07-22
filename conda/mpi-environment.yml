@@ -12,6 +12,8 @@ dependencies:
   - cli11<2.5
   - pytest
   - h5py
+  - matplotlib-base # ghost-update case visualisation (demos/mpi/ghost_cases/render.py, test_ghost_cases.py)
+  - pytest-mpl # baseline image comparison for the ghost-update overviews (test_ghost_cases.py --mpl)
   - libboost-mpi #<1.87 # MPI seems broken with 1.87 with the error : symbol not found in flat namespace '_PyBaseObject_Type'
   - libboost-devel
   - libboost-headers

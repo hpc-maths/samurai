@@ -24,6 +24,15 @@ foreach(d 2 3)
     endif()
 endforeach()
 
+# Visual validation of the parallel ghost-update robustness suite: rebuilds
+# every mesh + decomposition swept by tests/mpi/test_ghost_update_parallel.cpp
+# and dumps them to HDF5/XDMF. The case catalog (ghost_cases.hpp) is shared with
+# the test, so this tool visualises exactly the cases the test validates.
+set(ghost_cases_target mpi-ghost-cases)
+add_executable(${ghost_cases_target} ghost_cases/dump_ghost_cases.cpp)
+target_include_directories(${ghost_cases_target} PRIVATE ${CMAKE_SOURCE_DIR}/tests/mpi)
+target_link_libraries(${ghost_cases_target} samurai)
+
 # Interactive tube demo: play with the number of circles and the load balancing
 # strategy on a non-square (1 x length) domain. 2D only.
 set(tube_target mpi-load-balancing-tube)

@@ -65,17 +65,23 @@ namespace samurai
             shift[d]      = 0;
         }
 #ifdef SAMURAI_WITH_MPI
-        std::vector<mpi::request> req;
-        req.reserve(mesh.mpi_neighbourhood().size());
         mpi::communicator world;
-
-        std::vector<std::vector<field_value_t>> field_data_out(mesh.mpi_neighbourhood().size());
-        std::vector<field_value_t> field_data_in;
 #endif // SAMURAI_WITH_MPI
         for (std::size_t d = 0; d < dim; ++d)
         {
             if (mesh.is_periodic(d))
             {
+#ifdef SAMURAI_WITH_MPI
+                // These MUST be scoped to the current dimension: reusing the same
+                // request vector across dimensions would call wait_all() again on
+                // requests already completed in the previous dimension, which is
+                // undefined for boost::mpi's serialized-vector requests and
+                // corrupts the MPI request state (intermittent hangs/crashes).
+                std::vector<mpi::request> req;
+                req.reserve(mesh.mpi_neighbourhood().size());
+                std::vector<std::vector<field_value_t>> field_data_out(mesh.mpi_neighbourhood().size());
+                std::vector<field_value_t> field_data_in;
+#endif // SAMURAI_WITH_MPI
                 shift[d]                  = (max_indices[d] - min_indices[d]) >> delta_l;
                 const auto shift_interval = shift[0];
                 const auto shift_index    = xt::view(shift, xt::range(1, _));
@@ -233,18 +239,23 @@ namespace samurai
             max_corner[d] = (max_indices[d] >> delta_l) + mesh.ghost_width();
         }
 #ifdef SAMURAI_WITH_MPI
-        using tag_value_type = typename Tag::value_type;
-        std::vector<mpi::request> req;
-        req.reserve(mesh.mpi_neighbourhood().size());
         mpi::communicator world;
-
-        std::vector<std::vector<tag_value_type>> tag_data_out(mesh.mpi_neighbourhood().size());
-        std::vector<tag_value_type> tag_data_in;
 #endif // SAMURAI_WITH_MPI
         for (std::size_t d = 0; d < dim; ++d)
         {
             if (mesh.is_periodic(d))
             {
+#ifdef SAMURAI_WITH_MPI
+                // Scoped to the current dimension on purpose: sharing the request
+                // vector across dimensions (or across the two passes below) would
+                // wait_all() again on already-completed boost::mpi serialized
+                // requests, which corrupts the MPI request state (intermittent
+                // hangs/crashes). See the same fix in iterate_over_periodic_ghosts.
+                std::vector<mpi::request> req;
+                req.reserve(mesh.mpi_neighbourhood().size());
+                std::vector<std::vector<tag_value_type>> tag_data_out(mesh.mpi_neighbourhood().size());
+                std::vector<tag_value_type> tag_data_in;
+#endif // SAMURAI_WITH_MPI
                 shift[d]                  = (max_indices[d] - min_indices[d]) >> delta_l;
                 const auto shift_interval = shift[0];
                 const auto shift_index    = xt::view(shift, xt::range(1, _));
@@ -341,6 +352,9 @@ namespace samurai
                 }
                 mpi::wait_all(req.begin(), req.end());
                 // second pass tag(level, i - shift_interval, index - shift_index) |= tag(level, i, index);
+                // Fresh request vector: the first-pass requests are done, waiting
+                // on them again would corrupt the MPI request state.
+                req.clear();
                 neighbor_id = 0;
                 for (const auto& mpi_neighbor : mesh.mpi_neighbourhood())
                 {

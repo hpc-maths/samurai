@@ -32,6 +32,13 @@ add_mpi_gtest(test_lb_diffusion)
 add_mpi_gtest(test_lb_ghosts)
 add_mpi_gtest(test_lb_flux)
 
+# This suite sweeps a large matrix (stencil size x geometry x decomposition, in
+# 2D and 3D) so it needs a longer wall-clock budget than the default MPI tests.
+add_mpi_gtest(test_ghost_update_parallel)
+foreach(np IN LISTS MPI_TEST_PROCS)
+    set_tests_properties(test_ghost_update_parallel_np${np} PROPERTIES TIMEOUT 600)
+endforeach()
+
 # Graph construction test (always built with MPI; no external library needed)
 add_mpi_gtest(test_lb_graph)
 
