@@ -18,6 +18,8 @@
 #include <samurai/mr/mesh.hpp>
 #include <samurai/subset/node.hpp>
 
+#include "lambda_strategy.hpp"
+
 /**
  * An MPI test passes only if it passes on EVERY rank. A bare EXPECT_* that
  * fails on a single rank would let the other ranks report success; this macro
@@ -67,33 +69,6 @@ namespace samurai_test
                 std::this_thread::sleep_for(std::chrono::milliseconds(5));
             }
             EXPECT_TRUE_ALL_RANKS(clean);
-        }
-    };
-
-    /// Test-only strategy: destination rank computed by a lambda(cell, rank, size).
-    /// Lets each test inject hand-crafted flags without writing a real partitioner.
-    template <class F>
-    struct LambdaStrategy
-    {
-        F f;
-
-        template <class Mesh, class Weight>
-        auto partition(Mesh& mesh, const Weight& /*weight*/) const
-        {
-            using mesh_id_t = typename Mesh::mesh_id_t;
-            boost::mpi::communicator world;
-            auto flags = samurai::make_scalar_field<int>("lb_flags", mesh);
-            samurai::for_each_cell(mesh[mesh_id_t::cells],
-                                   [&](const auto& cell)
-                                   {
-                                       flags[cell] = f(cell, world.rank(), world.size());
-                                   });
-            return flags;
-        }
-
-        std::string name() const
-        {
-            return "test-lambda";
         }
     };
 

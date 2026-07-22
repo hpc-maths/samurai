@@ -447,6 +447,28 @@ jobs:
                   cd tests
                   SAMURAI_MPI_BUILD_DIR="${GITHUB_WORKSPACE}/build" python -m pytest test_load_balancing.py -v
 
+            - name: Build ghost-update robustness test and case dumper
+              shell: micromamba-shell {0}
+              run: |
+                  cmake --build build --target test_ghost_update_parallel mpi-ghost-cases
+
+            - name: MPI ghost-update robustness tests (ctest, 2/3/4 procs)
+              shell: micromamba-shell {0}
+              env:
+                  FI_PROVIDER: tcp
+                  OMP_NUM_THREADS: "1"
+              run: |
+                  ctest --test-dir build -R "test_ghost_update_parallel" --output-on-failure
+
+            - name: Ghost-update case catalog and visualisation (pytest)
+              shell: micromamba-shell {0}
+              env:
+                  FI_PROVIDER: tcp
+                  OMP_NUM_THREADS: "1"
+              run: |
+                  cd tests
+                  SAMURAI_MPI_BUILD_DIR="${GITHUB_WORKSPACE}/build" python -m pytest test_ghost_cases.py --mpl -v
+
             - name: Generate ParaView reader reference files
               shell: micromamba-shell {0}
               run: |
