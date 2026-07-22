@@ -369,9 +369,9 @@ namespace samurai
         // away when the adaptation has converged.
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
-        if (mpi::all_reduce(world, same_cells(mesh, new_ca), std::logical_and()))
+        if (mpi::all_reduce(world, mesh[mesh_id_t::cells] == new_ca, std::logical_and()))
 #else
-        if (same_cells(mesh, new_ca))
+        if (mesh[mesh_id_t::cells] == new_ca)
 #endif // SAMURAI_WITH_MPI
         {
             times::timers.stop("mesh update");

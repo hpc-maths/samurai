@@ -190,9 +190,9 @@ namespace samurai
 
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
-        if (mpi::all_reduce(world, same_cells(mesh, new_cells), std::logical_and()))
+        if (mpi::all_reduce(world, mesh[mesh_id_t::cells] == new_cells, std::logical_and()))
 #else
-        if (same_cells(mesh, new_cells))
+        if (mesh[mesh_id_t::cells] == new_cells)
 #endif
         {
             return true;
