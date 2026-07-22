@@ -5,6 +5,7 @@
 
 #include <functional>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 
 #include "../algorithm.hpp"
@@ -134,6 +135,7 @@ namespace samurai
         using size_type                  = typename Tag::size_type;
         using mesh_id_t                  = typename Tag::mesh_t::mesh_id_t;
         using cl_type                    = typename Tag::mesh_t::cl_type;
+        using ca_type                    = typename Tag::mesh_t::ca_type;
 
         auto& mesh = tag.mesh();
 
@@ -180,18 +182,37 @@ namespace samurai
                               }
                           });
 
-        mesh_t new_mesh = {cl, mesh};
+        // Fixed-point detection BEFORE constructing the new mesh: the
+        // construction builds every derived mesh id and, with MPI, exchanges
+        // the full meshes with the neighbouring subdomains - all of it thrown
+        // away when the adaptation has converged.
+        ca_type new_cells{cl, false};
 
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
-        if (mpi::all_reduce(world, mesh == new_mesh, std::logical_and()))
+        if (mpi::all_reduce(world, mesh[mesh_id_t::cells] == new_cells, std::logical_and()))
 #else
-        if (mesh == new_mesh)
+        if (mesh[mesh_id_t::cells] == new_cells)
 #endif
         {
             return true;
         }
 
+        // Not every mesh type exposes a (cell array, reference mesh)
+        // constructor - user-defined meshes often only have the cell-list one:
+        // reuse new_cells when possible, otherwise rebuild from the cell list.
+        auto make_new_mesh = [&]()
+        {
+            if constexpr (std::is_constructible_v<mesh_t, ca_type&, mesh_t&>)
+            {
+                return mesh_t{new_cells, mesh};
+            }
+            else
+            {
+                return mesh_t{cl, mesh};
+            }
+        };
+        mesh_t new_mesh = make_new_mesh();
         update_fields(new_mesh, fields...);
         tag.mesh().swap(new_mesh);
         return false;
