@@ -1507,6 +1507,30 @@ namespace samurai
         return !(mesh1 == mesh2);
     }
 
+    /**
+     * @brief Compare the cells of an existing mesh with a candidate cell array.
+     *
+     * Equivalent to building a mesh from @p ca with @p mesh as reference and
+     * testing `mesh == new_mesh`, without paying the construction of the
+     * derived mesh ids nor, with MPI, the exchange of the full meshes with the
+     * neighbouring subdomains. Used to detect the fixed point of the
+     * adaptation loop before constructing a new mesh.
+     */
+    template <class D, class Config>
+    SAMURAI_INLINE bool same_cells(const Mesh_base<D, Config>& mesh, const typename Mesh_base<D, Config>::ca_type& ca)
+    {
+        using mesh_id_t = typename Mesh_base<D, Config>::mesh_id_t;
+
+        for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
+        {
+            if (!(mesh[mesh_id_t::cells][level] == ca[level]))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
     template <class D, class Config>
     SAMURAI_INLINE std::ostream& operator<<(std::ostream& out, const Mesh_base<D, Config>& mesh)
     {

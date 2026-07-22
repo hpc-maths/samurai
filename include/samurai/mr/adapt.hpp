@@ -362,17 +362,22 @@ namespace samurai
 
         ca_type new_ca = update_cell_array_from_tag(mesh[mesh_id_t::cells], m_tag);
         make_graduation(new_ca, mesh.domain(), mesh.mpi_neighbourhood(), mesh.periodicity(), mesh.graduation_width(), mesh.max_stencil_radius());
-        mesh_t new_mesh{new_ca, mesh};
+
+        // Fixed-point detection BEFORE constructing the new mesh: the
+        // construction builds every derived mesh id and, with MPI, exchanges
+        // the full meshes with the neighbouring subdomains - all of it thrown
+        // away when the adaptation has converged.
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
-        if (mpi::all_reduce(world, mesh == new_mesh, std::logical_and()))
+        if (mpi::all_reduce(world, same_cells(mesh, new_ca), std::logical_and()))
 #else
-        if (mesh == new_mesh)
+        if (same_cells(mesh, new_ca))
 #endif // SAMURAI_WITH_MPI
         {
             times::timers.stop("mesh update");
             return true;
         }
+        mesh_t new_mesh{new_ca, mesh};
         times::timers.stop("mesh update");
         update_ghost_mr(other_fields...);
 
