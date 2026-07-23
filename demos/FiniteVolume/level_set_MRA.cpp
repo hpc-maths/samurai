@@ -79,116 +79,6 @@ auto init_velocity(Mesh& mesh)
     return u;
 }
 
-template <class Field, class Field_u>
-void flux_correction(Field& phi_np1, const Field& phi_n, const Field_u& u, double dt)
-{
-    using mesh_t              = typename Field::mesh_t;
-    using mesh_id_t           = typename mesh_t::mesh_id_t;
-    using interval_t          = typename mesh_t::interval_t;
-    constexpr std::size_t dim = Field::dim;
-
-    auto& mesh                  = phi_np1.mesh();
-    const std::size_t min_level = mesh[mesh_id_t::cells].min_level();
-    const std::size_t max_level = mesh[mesh_id_t::cells].max_level();
-    for (std::size_t level = min_level; level < max_level; ++level)
-    {
-        xt::xtensor_fixed<int, xt::xshape<2>> stencil;
-
-        stencil = {
-            {-1, 0}
-        };
-
-        auto subset_right = samurai::intersection(samurai::translate(mesh[mesh_id_t::cells][level + 1], stencil),
-                                                  mesh[mesh_id_t::cells][level])
-                                .on(level);
-
-        subset_right(
-            [&](const auto& i, const auto& index)
-            {
-                auto j          = index[0];
-                const double dx = mesh.cell_length(level);
-
-                phi_np1(
-                    level,
-                    i,
-                    j) = phi_np1(level, i, j)
-                       + dt / dx
-                             * (samurai::upwind_variable_op<dim, interval_t>(level, i, j).right_flux(u, phi_n, dt)
-                                - .5 * samurai::upwind_variable_op<dim, interval_t>(level + 1, 2 * i + 1, 2 * j).right_flux(u, phi_n, dt)
-                                - .5 * samurai::upwind_variable_op<dim, interval_t>(level + 1, 2 * i + 1, 2 * j + 1).right_flux(u, phi_n, dt));
-            });
-
-        stencil = {
-            {1, 0}
-        };
-
-        auto subset_left = samurai::intersection(samurai::translate(mesh[mesh_id_t::cells][level + 1], stencil),
-                                                 mesh[mesh_id_t::cells][level])
-                               .on(level);
-
-        subset_left(
-            [&](const auto& i, const auto& index)
-            {
-                auto j          = index[0];
-                const double dx = mesh.cell_length(level);
-
-                phi_np1(level,
-                        i,
-                        j) = phi_np1(level, i, j)
-                           - dt / dx
-                                 * (samurai::upwind_variable_op<dim, interval_t>(level, i, j).left_flux(u, phi_n, dt)
-                                    - .5 * samurai::upwind_variable_op<dim, interval_t>(level + 1, 2 * i, 2 * j).left_flux(u, phi_n, dt)
-                                    - .5 * samurai::upwind_variable_op<dim, interval_t>(level + 1, 2 * i, 2 * j + 1).left_flux(u, phi_n, dt));
-            });
-
-        stencil = {
-            {0, -1}
-        };
-
-        auto subset_up = samurai::intersection(samurai::translate(mesh[mesh_id_t::cells][level + 1], stencil), mesh[mesh_id_t::cells][level])
-                             .on(level);
-
-        subset_up(
-            [&](const auto& i, const auto& index)
-            {
-                auto j          = index[0];
-                const double dx = mesh.cell_length(level);
-
-                phi_np1(
-                    level,
-                    i,
-                    j) = phi_np1(level, i, j)
-                       + dt / dx
-                             * (samurai::upwind_variable_op<dim, interval_t>(level, i, j).up_flux(u, phi_n, dt)
-                                - .5 * samurai::upwind_variable_op<dim, interval_t>(level + 1, 2 * i, 2 * j + 1).up_flux(u, phi_n, dt)
-                                - .5 * samurai::upwind_variable_op<dim, interval_t>(level + 1, 2 * i + 1, 2 * j + 1).up_flux(u, phi_n, dt));
-            });
-
-        stencil = {
-            {0, 1}
-        };
-
-        auto subset_down = samurai::intersection(samurai::translate(mesh[mesh_id_t::cells][level + 1], stencil),
-                                                 mesh[mesh_id_t::cells][level])
-                               .on(level);
-
-        subset_down(
-            [&](const auto& i, const auto& index)
-            {
-                auto j          = index[0];
-                const double dx = mesh.cell_length(level);
-
-                phi_np1(level,
-                        i,
-                        j) = phi_np1(level, i, j)
-                           - dt / dx
-                                 * (samurai::upwind_variable_op<dim, interval_t>(level, i, j).down_flux(u, phi_n, dt)
-                                    - .5 * samurai::upwind_variable_op<dim, interval_t>(level + 1, 2 * i, 2 * j).down_flux(u, phi_n, dt)
-                                    - .5 * samurai::upwind_variable_op<dim, interval_t>(level + 1, 2 * i + 1, 2 * j).down_flux(u, phi_n, dt));
-            });
-    }
-}
-
 template <class Field, class Phi>
 void save(const fs::path& path, const std::string& filename, const Field& u, const Phi& phi, const Phi& rho, const std::string& suffix = "")
 {
@@ -225,9 +115,6 @@ int main(int argc, char* argv[])
     double t                                              = 0.;
     std::string restart_file;
 
-    // MRA parameters
-    bool correction = false;
-
     // Output parameters
     fs::path path        = fs::current_path();
     std::string filename = "FV_level_set_2d_MRA";
@@ -239,9 +126,6 @@ int main(int argc, char* argv[])
     app.add_option("--Ti", t, "Initial time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--with-correction", correction, "Apply flux correction at the interface of two refinement levels")
-        ->capture_default_str()
-        ->group("MRA parameters");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
@@ -313,7 +197,6 @@ int main(int argc, char* argv[])
         samurai::update_ghost_mr(phi, u);
         phinp1.resize();
         phinp1 = phi - dt * samurai::upwind_variable(u, phi, dt);
-        flux_correction(phinp1, phi, u, dt);
 
         std::swap(phi.array(), phinp1.array());
 
