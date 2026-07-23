@@ -21,6 +21,7 @@
 #include "static_algorithm.hpp"
 #include "stencil.hpp"
 #include "subset/node.hpp"
+#include "timers.hpp"
 
 #ifdef SAMURAI_WITH_MPI
 #include <boost/serialization/vector.hpp>
@@ -416,6 +417,7 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE void Mesh_base<D, Config>::exchange_neighbour_meshes()
     {
+        ScopedTimer timer("exchange neighbour meshes");
 #ifdef SAMURAI_WITH_MPI
         find_neighbourhood();
         update_neighbour_subdomain();
@@ -893,6 +895,7 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE void Mesh_base<D, Config>::renumbering()
     {
+        ScopedTimer timer("renumbering");
         m_cells[mesh_id_t::reference].update_index();
 
         for (std::size_t id = 0; id < static_cast<std::size_t>(mesh_id_t::count); ++id)
@@ -916,6 +919,7 @@ namespace samurai
         static_assert(
             dim <= 6,
             "Corner construction is currently only implemented up to 6D due to the combinatorial number of cases. Please implement the general ND version if you need higher dimensions.");
+        ScopedTimer timer("construct_corners");
         if constexpr (dim > 1)
         {
             using direction_t = DirectionVector<dim>;
@@ -1031,6 +1035,7 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE void Mesh_base<D, Config>::update_mesh_neighbour()
     {
+        ScopedTimer timer("update_mesh_neighbour");
 #ifdef SAMURAI_WITH_MPI
         // send/recv the meshes of the neighbouring subdomains
         mpi::communicator world;
@@ -1104,6 +1109,7 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE void Mesh_base<D, Config>::update_meshid_neighbour([[maybe_unused]] const mesh_id_t& mesh_id)
     {
+        ScopedTimer timer("update_meshid_neighbour");
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
         std::vector<mpi::request> req;
@@ -1159,6 +1165,7 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE void Mesh_base<D, Config>::construct_subdomain()
     {
+        ScopedTimer timer("construct_subdomain");
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
         if (world.size() > 1 || m_domain.empty())
@@ -1230,6 +1237,7 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE void Mesh_base<D, Config>::construct_union()
     {
+        ScopedTimer timer("construct_union");
         std::size_t max_lvl = max_level();
 
         // Construction of union cells

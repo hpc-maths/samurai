@@ -27,7 +27,7 @@ namespace samurai
         template <class PredictionFn, class DestTuple, class SrcTuple, class Mesh, std::size_t... Is>
         void update_fields_impl(PredictionFn&& prediction_fn, Mesh& new_mesh, DestTuple& dests, SrcTuple& srcs, std::index_sequence<Is...>)
         {
-            ScopedTimer timer("fields update");
+            ScopedTimer timer("field transfer");
             using mesh_id_t = typename Mesh::mesh_id_t;
 
             auto& mesh     = std::get<0>(srcs).mesh();
@@ -36,20 +36,26 @@ namespace samurai
 
             // Single loop over levels: copy reference -> cells for ALL fields in
             // a single traversal of the set (variadic copy over the two tuples).
-            for (std::size_t level = min_level; level <= max_level; ++level)
             {
-                auto set = intersection(mesh[mesh_id_t::reference][level], new_mesh[mesh_id_t::cells][level]);
-                set.apply_op(copy(dests, srcs));
+                ScopedTimer timer_copy("copy unchanged");
+                for (std::size_t level = min_level; level <= max_level; ++level)
+                {
+                    auto set = intersection(mesh[mesh_id_t::reference][level], new_mesh[mesh_id_t::cells][level]);
+                    set.apply_op(copy(dests, srcs));
+                }
             }
 
             // Single loop over levels: coarsen and refine for ALL fields
-            for (std::size_t level = min_level + 1; level <= max_level; ++level)
             {
-                auto set_coarsen = intersection(mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level - 1]).on(level - 1);
-                set_coarsen.apply_op(projection(dests, srcs));
+                ScopedTimer timer_cr("coarsen + refine");
+                for (std::size_t level = min_level + 1; level <= max_level; ++level)
+                {
+                    auto set_coarsen = intersection(mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level - 1]).on(level - 1);
+                    set_coarsen.apply_op(projection(dests, srcs));
 
-                auto set_refine = intersection(new_mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level - 1]).on(level - 1);
-                (set_refine.apply_op(prediction_fn(std::get<Is>(dests), std::get<Is>(srcs))), ...);
+                    auto set_refine = intersection(new_mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level - 1]).on(level - 1);
+                    (set_refine.apply_op(prediction_fn(std::get<Is>(dests), std::get<Is>(srcs))), ...);
+                }
             }
         }
 
@@ -103,12 +109,14 @@ namespace samurai
     void update_fields(PredictionFn&& prediction_fn, Mesh& new_mesh, Field& field, Fields&... fields)
     {
         auto src_tuple = std::tuple_cat(get_elements(field), std::tie(fields...));
+        times::timers.start("field allocation");
         auto dst_tuple = std::apply(
             [&](auto&... args)
             {
                 return std::make_tuple(detail::make_new_field<std::decay_t<decltype(args)>>("new_f", new_mesh)...);
             },
             src_tuple);
+        times::timers.stop("field allocation");
 
         update_fields(std::forward<PredictionFn>(prediction_fn), new_mesh, dst_tuple, src_tuple);
 

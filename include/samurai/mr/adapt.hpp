@@ -367,17 +367,26 @@ namespace samurai
         // construction builds every derived mesh id and, with MPI, exchanges
         // the full meshes with the neighbouring subdomains - all of it thrown
         // away when the adaptation has converged.
+        bool fixed_point;
+        {
+            times::timers.start("fixed-point check");
 #ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-        if (mpi::all_reduce(world, mesh[mesh_id_t::cells] == new_ca, std::logical_and()))
+            mpi::communicator world;
+            fixed_point = mpi::all_reduce(world, mesh[mesh_id_t::cells] == new_ca, std::logical_and());
 #else
-        if (mesh[mesh_id_t::cells] == new_ca)
+            fixed_point = (mesh[mesh_id_t::cells] == new_ca);
 #endif // SAMURAI_WITH_MPI
+            times::timers.stop("fixed-point check");
+        }
+        if (fixed_point)
         {
             times::timers.stop("mesh update");
             return true;
         }
+
+        times::timers.start("mesh construction");
         mesh_t new_mesh{new_ca, mesh};
+        times::timers.stop("mesh construction");
         times::timers.stop("mesh update");
         update_ghost_mr(other_fields...);
 
