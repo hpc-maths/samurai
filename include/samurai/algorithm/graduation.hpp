@@ -816,8 +816,18 @@ namespace samurai
             // Seed the next iteration with the mesh cells around the ones just added
             // (see the roi comment above): this covers additions acting as fine sources
             // and old fine cells forcing additions that became coarser targets.
-            prev_roi       = build_roi(ca_add_p);
-            iteration_seed = &prev_roi;
+            //
+            // Only when there is no MPI neighbour (sequential run, or a rank with no
+            // neighbour). With neighbours the scan must stay FULL: the seed is built
+            // from this rank's LOCAL additions, which depend on the domain
+            // decomposition, so seeding would make the graduation - and hence the mesh -
+            // partition-dependent. The full scan is partition-independent (as on main),
+            // and a single-rank incremental result is bit-identical to it.
+            if (mpi_neighbourhood.empty())
+            {
+                prev_roi       = build_roi(ca_add_p);
+                iteration_seed = &prev_roi;
+            }
         }
 
 #ifdef SAMURAI_DEBUG_GRADUATION
