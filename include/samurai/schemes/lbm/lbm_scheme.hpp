@@ -224,6 +224,7 @@ namespace samurai
          */
         template <std::size_t... T, std::size_t... D>
         static auto portion_column(const field_t& f,
+                                   std::size_t comp,
                                    std::size_t level,
                                    std::size_t j,
                                    const auto& i,
@@ -242,12 +243,12 @@ namespace samurai
                 return std::make_tuple((static_cast<value_t>((n >> (D * j)) & (width - 1)) - static_cast<value_t>(c[D]))...);
             };
 
-            // portion() reconstructs the whole distribution vector at once (its per-component
-            // overload is unusable for vector fields); the caller keeps the component owning c.
-            auto res = portion(f, level, j, i_tuple, sub(0));
+            // Reconstruct only component @a comp (the one owning velocity c), vectorised over the
+            // coarse interval; portion() caches the underlying prediction map (reconstruction.hpp).
+            auto res = portion(f, comp, level, j, i_tuple, sub(0));
             for (std::size_t n = 1; n < nc; ++n)
             {
-                res += portion(f, level, j, i_tuple, sub(n));
+                res += portion(f, comp, level, j, i_tuple, sub(n));
             }
             return res;
         }
@@ -291,9 +292,8 @@ namespace samurai
                                               for (std::size_t a = 0; a < q; ++a)
                                               {
                                                   const std::size_t comp = offset + a;
-                                                  auto res = portion_column(f_in, lvl, j, i, index, block.velocities[a], tseq, dseq);
-                                                  access(f_out, comp, lvl, i, index, no_shift, tseq) = inv_nc
-                                                                                                     * xt::view(res, xt::all(), comp);
+                                                  auto res = portion_column(f_in, comp, lvl, j, i, index, block.velocities[a], tseq, dseq);
+                                                  access(f_out, comp, lvl, i, index, no_shift, tseq) = inv_nc * res;
                                               }
                                           });
                                   });
