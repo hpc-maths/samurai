@@ -1037,6 +1037,12 @@ namespace samurai
     {
         ScopedTimer timer("update_mesh_neighbour");
 #ifdef SAMURAI_WITH_MPI
+        // No neighbouring subdomain (e.g. single rank): nothing to exchange.
+        // Return before serializing the whole mesh, which is otherwise pure waste.
+        if (m_mpi_neighbourhood.empty())
+        {
+            return;
+        }
         // send/recv the meshes of the neighbouring subdomains
         mpi::communicator world;
         std::vector<mpi::request> req;
@@ -1076,6 +1082,11 @@ namespace samurai
     SAMURAI_INLINE void Mesh_base<D, Config>::update_neighbour_subdomain()
     {
 #ifdef SAMURAI_WITH_MPI
+        // No neighbouring subdomain (e.g. single rank): nothing to exchange.
+        if (m_mpi_neighbourhood.empty())
+        {
+            return;
+        }
         // send/recv the meshes of the neighbouring subdomains
         mpi::communicator world;
         std::vector<mpi::request> req;
@@ -1111,6 +1122,12 @@ namespace samurai
     {
         ScopedTimer timer("update_meshid_neighbour");
 #ifdef SAMURAI_WITH_MPI
+        // No neighbouring subdomain (e.g. single rank): nothing to exchange.
+        // Return before serializing the mesh id, which is otherwise pure waste.
+        if (m_mpi_neighbourhood.empty())
+        {
+            return;
+        }
         mpi::communicator world;
         std::vector<mpi::request> req;
 
