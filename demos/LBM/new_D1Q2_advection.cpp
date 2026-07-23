@@ -1,8 +1,9 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 //
-// D1Q2 linear advection on a UNIFORM mesh, validating the new schemes/lbm
-// formalism (step 1: stream = nearest-neighbour shift, local collision).
+// D1Q2 linear advection / Burgers, validating the new schemes/lbm formalism.
+// Uniform mesh (--level) or multiresolution (--adapt): the multi-level stream
+// uses precomputed inflow/outflow prediction maps; the collision is local.
 //
 // Moments : m0 = f0 + f1        (conserved, u)
 //           m1 = lambda (f0 - f1)
@@ -16,6 +17,7 @@
 #include <samurai/algorithm.hpp>
 #include <samurai/field.hpp>
 #include <samurai/io/hdf5.hpp>
+#include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/samurai.hpp>
 #include <samurai/schemes/lbm.hpp>
@@ -31,18 +33,24 @@ int main(int argc, char* argv[])
     using Box                        = samurai::Box<double, dim>;
 
     // Parameters
-    double left_box  = -1.;
-    double right_box = 1.;
-    std::size_t level = 8;
-    double lambda    = 1.;
-    double a         = 0.75; // advection velocity (|a| < lambda)
-    double s1        = 1.5;  // relaxation parameter
-    double Tf        = 0.4;
-    bool burgers     = false;
-    fs::path path        = fs::current_path();
-    std::string filename = "new_D1Q2_advection";
+    double left_box       = -1.;
+    double right_box      = 1.;
+    std::size_t max_level = 8;
+    std::size_t min_level = 2;
+    double eps            = 1e-4;
+    bool adapt            = false;
+    double lambda         = 1.;
+    double a              = 0.75; // advection velocity (|a| < lambda)
+    double s1             = 1.5;  // relaxation parameter
+    double Tf             = 0.4;
+    bool burgers          = false;
+    fs::path path         = fs::current_path();
+    std::string filename  = "new_D1Q2_advection";
 
-    app.add_option("--level", level, "Uniform mesh level")->capture_default_str();
+    app.add_option("--level", max_level, "Finest level")->capture_default_str();
+    app.add_option("--min-lvl", min_level, "Coarsest level (adaptive)")->capture_default_str();
+    app.add_flag("--adapt", adapt, "Enable multiresolution adaptation")->capture_default_str();
+    app.add_option("--eps", eps, "MR adaptation threshold")->capture_default_str();
     app.add_option("--lambda", lambda, "Lattice velocity")->capture_default_str();
     app.add_option("--velocity", a, "Advection velocity")->capture_default_str();
     app.add_option("--s", s1, "Relaxation parameter")->capture_default_str();
@@ -57,14 +65,15 @@ int main(int argc, char* argv[])
         lambda = std::max(lambda, 2.); // lattice velocity must dominate |u|
     }
 
-    // Uniform periodic mesh
+    // Periodic mesh (uniform if !adapt, else min_level..max_level).
     const Box box({left_box}, {right_box});
-    auto config = samurai::mesh_config<dim>().min_level(level).max_level(level).periodic(true).max_stencil_size(2);
-    auto mesh   = samurai::mra::make_mesh(box, config);
+    const std::size_t ml = adapt ? min_level : max_level;
+    auto config          = samurai::mesh_config<dim>().min_level(ml).max_level(max_level).periodic(true).max_stencil_size(4);
+    auto mesh            = samurai::mra::make_mesh(box, config);
 
-    const double L        = right_box - left_box;
-    constexpr double pi   = 3.14159265358979323846;
-    auto u0               = [&](double x)
+    const double L      = right_box - left_box;
+    constexpr double pi = 3.14159265358979323846;
+    auto u0             = [&](double x)
     {
         return std::sin(pi * x); // periodic on [-1, 1]
     };
@@ -98,23 +107,33 @@ int main(int argc, char* argv[])
         "D1Q2_advection",
         lambda,
         samurai::velocity_scheme<dim, 2>({{{1}, {-1}}}, M, invM, {0., s1}, eq));
+    scheme.set_max_level(max_level); // fixes dt / the level jump used by the stream
 
     scheme.init_equilibrium(f, m);
 
-    // Time stepping: lambda = dx / dt  =>  one-cell stream per step at the finest level
-    const double dx = mesh.min_cell_length();
-    const double dt = dx / lambda;
-    const auto nt   = static_cast<std::size_t>(std::round(Tf / dt));
-    const double Tf_eff = static_cast<double>(nt) * dt;
+    // Time stepping: lambda = dx_fine / dt  =>  one-cell stream per step at the finest level
+    const double dx_fine = L / static_cast<double>(std::size_t{1} << max_level);
+    const double dt      = dx_fine / lambda;
+    const auto nt        = static_cast<std::size_t>(std::round(Tf / dt));
+    const double Tf_eff  = static_cast<double>(nt) * dt;
 
-    // Mass (should be conserved for a periodic domain, both for advection and Burgers)
+    // Adaptation acts on the distributions f (the full LBM state); m is a derived diagnostic.
+    auto MRadaptation = samurai::make_MRAdapt(f);
+    auto mra_config   = samurai::mra_config().epsilon(eps);
+    if (adapt)
+    {
+        MRadaptation(mra_config);
+        m.resize();
+    }
+
+    // Mass = integral of u = f0 + f1 (conserved for a periodic domain)
     auto mass = [&]()
     {
         double s = 0.;
         samurai::for_each_cell(mesh,
                                [&](const auto& cell)
                                {
-                                   s += m[cell](0) * dx;
+                                   s += (f[cell](0) + f[cell](1)) * cell.length;
                                });
         return s;
     };
@@ -122,11 +141,17 @@ int main(int argc, char* argv[])
 
     for (std::size_t n = 0; n < nt; ++n)
     {
+        if (adapt)
+        {
+            MRadaptation(mra_config);
+            m.resize();
+        }
         scheme(f, m);
     }
 
-    std::cout << "case = " << (burgers ? "Burgers" : "advection") << ", level = " << level << ", cells = " << (1u << level)
-              << ", dt = " << dt << ", nt = " << nt << ", Tf_eff = " << Tf_eff << std::endl;
+    std::cout << "case = " << (burgers ? "Burgers" : "advection") << ", " << (adapt ? "adaptive" : "uniform")
+              << ", max_level = " << max_level << (adapt ? (", min_level = " + std::to_string(min_level)) : "")
+              << ", cells = " << mesh.nb_cells() << ", dt = " << dt << ", nt = " << nt << ", Tf_eff = " << Tf_eff << std::endl;
 
     // Mass conservation + boundedness
     double umin = std::numeric_limits<double>::max();
@@ -141,7 +166,7 @@ int main(int argc, char* argv[])
 
     if (!burgers)
     {
-        // Error vs the exact solution u(x, t) = u0(x - a t)  (periodic wrap)
+        // Error vs the exact solution u(x, t) = u0(x - a t)  (periodic wrap), cell.length-weighted
         double err_l2 = 0.;
         double norm   = 0.;
         samurai::for_each_cell(mesh,
@@ -152,8 +177,8 @@ int main(int argc, char* argv[])
                                    xs           = left_box + std::fmod(std::fmod(xs - left_box, L) + L, L); // wrap into [left, right)
                                    double exact = u0(xs);
                                    double diff  = m[cell](0) - exact;
-                                   err_l2 += diff * diff * dx;
-                                   norm += exact * exact * dx;
+                                   err_l2 += diff * diff * cell.length;
+                                   norm += exact * exact * cell.length;
                                });
         err_l2 = std::sqrt(err_l2 / norm);
         std::cout << "relative L2 error = " << err_l2 << std::endl;

@@ -10,6 +10,7 @@
 
 #include "../../algorithm.hpp"
 #include "../../algorithm/update_ghost_mr.hpp"
+#include "../../reconstruction.hpp"
 #include "velocity_scheme.hpp"
 
 namespace samurai
@@ -60,6 +61,16 @@ namespace samurai
         double lambda() const
         {
             return m_lambda;
+        }
+
+        /**
+         * Finest level of the hierarchy, used to compute the level jump j = max_level - level
+         * that drives the multi-level stream. If left unset (0), the current mesh finest level
+         * is used (correct for a uniform mesh, where j == 0 everywhere).
+         */
+        void set_max_level(std::size_t max_level)
+        {
+            m_max_level = max_level;
         }
 
         /**
@@ -152,25 +163,105 @@ namespace samurai
                 m_blocks);
         }
 
-        // stream: f_out(x) = f_in(x - c_alpha), per component (uniform mesh, dim == 1 for now).
+        using index_t         = default_config::value_t;
+        using stream_stencil_t = prediction_map<dim, index_t>;
+
+        static constexpr std::size_t pred_order = Field::mesh_t::config_t::prediction_stencil_radius;
+
+        /**
+         * Build the per-cell stream stencil for a velocity component at a given level jump j.
+         *
+         * The transport is linear, so the reconstruction of the fine "slab" entering/leaving a
+         * coarse cell over one time step composes into a single prediction map applied at the
+         * cell's own level:
+         *
+         *     f_out(C) = f_in(C) + sum_{(o,w)} w * f_in(C + o).
+         *
+         * With coeff = 1/2^j and P = prediction(j, .) the MR reconstruction of a fine sub-cell:
+         *   - c > 0: inflow = last sub-cell of C-1, outflow = last sub-cell of C  -> P = prediction(j, 2^j - 1)
+         *   - c < 0: inflow = first sub-cell of C+1, outflow = first sub-cell of C -> P = prediction(j, 0)
+         * At the finest level (j == 0) this degenerates to the plain nearest-neighbour shift.
+         */
+        static stream_stencil_t build_stream_stencil(std::size_t j, int cx)
+        {
+            stream_stencil_t stencil;
+            if (cx == 0)
+            {
+                return stencil; // rest velocity: no transport
+            }
+            assert(std::abs(cx) == 1 && "|velocity| > 1 (e.g. D1Q5) is not supported yet");
+
+            const double coeff = 1. / static_cast<double>(index_t{1} << j);
+
+            if (cx > 0)
+            {
+                const auto& P = prediction<pred_order>(j, static_cast<index_t>((index_t{1} << j) - 1));
+                for (const auto& [o, w] : P.coeff)
+                {
+                    stencil({o[0] - 1}) += w; // inflow from C-1
+                    stencil({o[0]}) -= w;     // outflow from C
+                }
+            }
+            else
+            {
+                const auto& P = prediction<pred_order>(j, static_cast<index_t>(0));
+                for (const auto& [o, w] : P.coeff)
+                {
+                    stencil({o[0] + 1}) += w; // inflow from C+1
+                    stencil({o[0]}) -= w;     // outflow from C
+                }
+            }
+            stencil *= coeff;
+            stencil.remove_small_entries();
+            return stencil;
+        }
+
+        // stream: multi-level transport using precomputed inflow/outflow prediction maps (dim == 1).
         void stream(const field_t& f_in, field_t& f_out) const
         {
-            static_assert(dim == 1, "multi-dimensional / multi-level stream comes in a later step");
-            for_each_interval(f_in.mesh(),
-                              [&](std::size_t level, const auto& i, const auto&)
-                              {
-                                  for_each_block(
-                                      [&](const auto& block, std::size_t offset)
+            static_assert(dim == 1, "multi-dimensional stream comes in a later step");
+            using mesh_id_t = typename field_t::mesh_t::mesh_id_t;
+
+            auto& mesh                  = f_in.mesh();
+            const std::size_t max_level = (m_max_level == 0) ? mesh.max_level() : m_max_level;
+            const int ghost_width       = static_cast<int>(mesh.cfg().ghost_width());
+
+            for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
+            {
+                const std::size_t j = max_level - level;
+
+                // Precompute the stencil of every velocity component once per level.
+                std::vector<std::pair<std::size_t, stream_stencil_t>> stencils;
+                for_each_block(
+                    [&](const auto& block, std::size_t offset)
+                    {
+                        constexpr std::size_t q = std::decay_t<decltype(block)>::q;
+                        for (std::size_t a = 0; a < q; ++a)
+                        {
+                            auto stencil = build_stream_stencil(j, block.velocities[a][0]);
+                            for ([[maybe_unused]] const auto& [o, w] : stencil.coeff)
+                            {
+                                assert(std::abs(o[0]) <= ghost_width
+                                       && "stream stencil reaches beyond the ghost band; increase max_stencil_size");
+                            }
+                            stencils.emplace_back(offset + a, std::move(stencil));
+                        }
+                    });
+
+                for_each_interval(mesh[mesh_id_t::cells][level],
+                                  [&](std::size_t lvl, const auto& i, const auto&)
+                                  {
+                                      for (const auto& [comp, stencil] : stencils)
                                       {
-                                          constexpr std::size_t q = std::decay_t<decltype(block)>::q;
-                                          for (std::size_t a = 0; a < q; ++a)
+                                          auto res = xt::eval(f_in(comp, lvl, i));
+                                          for (const auto& [o, w] : stencil.coeff)
                                           {
-                                              const int cx           = block.velocities[a][0];
-                                              const std::size_t comp = offset + a;
-                                              f_out(comp, level, i) = f_in(comp, level, i - cx);
+                                              res += w * f_in(comp, lvl, i + o[0]);
                                           }
-                                      });
-                              });
+                                          f_out(comp, lvl, i) = res;
+                                      }
+                                  });
+            }
         }
 
         // collide: m = M.f ; relax (MRT) ; f = M^{-1} m  (local, per cell).
@@ -209,6 +300,7 @@ namespace samurai
 
         std::string m_name;
         double m_lambda;
+        std::size_t m_max_level = 0; // 0 = use the current mesh finest level (uniform case)
         std::tuple<Blocks...> m_blocks;
     };
 
