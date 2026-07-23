@@ -81,6 +81,7 @@ namespace samurai
 
         apply_function_t get_apply_function(constant_stencil_size_t, const direction_t&) const override
         {
+            // cppcheck-suppress constParameterReference // f is written through f[cells[1]](a)
             return [opposite = m_opposite](Field& f, const stencil_cells_t& cells, const value_t&)
             {
                 // [0] = inner cell, [1] = outer ghost
@@ -115,6 +116,7 @@ namespace samurai
 
         apply_function_t get_apply_function(constant_stencil_size_t, const direction_t&) const override
         {
+            // cppcheck-suppress constParameterReference // f is written through f[cells[1]](a)
             return [opposite = m_opposite, add = m_add](Field& f, const stencil_cells_t& cells, const value_t&)
             {
                 for (std::size_t a = 0; a < n_comp; ++a)

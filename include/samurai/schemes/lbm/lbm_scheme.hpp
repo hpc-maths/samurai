@@ -187,6 +187,7 @@ namespace samurai
             std::apply(
                 [&](const auto&... block)
                 {
+                    // cppcheck-suppress variableScope // offset is accumulated across the fold expansion below
                     std::size_t offset = 0;
                     (
                         [&]
