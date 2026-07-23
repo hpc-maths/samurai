@@ -129,26 +129,27 @@ int main(int argc, char* argv[])
                                                         eq));
     scheme.set_max_level(max_level);
 
+    // Lattice velocities (same list as the scheme), used by the wall boundary conditions.
+    const std::array<std::array<int, dim>, 3> velocities{
+        {{0}, {1}, {-1}}
+    };
+    const xt::xtensor_fixed<int, xt::xshape<dim>> left{-1};
+    const xt::xtensor_fixed<int, xt::xshape<dim>> right{1};
+
     if (bc == "antibounceback")
     {
-        // Impose the initial wall height at each wall (fluid at rest -> q = 0), via anti-bounce-back.
-        scheme.add_bc(samurai::AntiBounceBack<dim>({hL, 0., 0.5 * g * hL * hL}).on({-1})); // west wall
-        scheme.add_bc(samurai::AntiBounceBack<dim>({hR, 0., 0.5 * g * hR * hR}).on({1}));  // east wall
+        // Impose the initial wall height at each wall (fluid at rest -> q = 0) via anti-bounce-back:
+        // the equilibrium distribution to reflect around is built by the scheme from the wall moments.
+        samurai::make_bc<samurai::AntiBounceBack>(f, velocities, scheme.equilibrium_f({hL, 0., 0.}))->on(left);
+        samurai::make_bc<samurai::AntiBounceBack>(f, velocities, scheme.equilibrium_f({hR, 0., 0.}))->on(right);
     }
     else
     {
         // Reflecting solid walls on both sides.
-        scheme.add_bc(samurai::BounceBack<dim>{});
+        samurai::make_bc<samurai::BounceBack>(f, velocities);
     }
 
     scheme.init_equilibrium(f, m);
-
-    // On an adaptive mesh, extend f into the outer ghosts so the near-wall MR reconstruction of
-    // the stream reads sane values (the incoming populations are overwritten by the wall BC anyway).
-    if (adapt)
-    {
-        samurai::make_bc<samurai::Neumann<1>>(f, 0., 0., 0.);
-    }
 
     // Time stepping: lambda = dx_fine / dt  =>  one-cell stream per step at the finest level
     const double dx_fine = L / static_cast<double>(std::size_t{1} << max_level);

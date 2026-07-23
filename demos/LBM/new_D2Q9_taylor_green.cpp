@@ -31,49 +31,6 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
-// Gauss-Jordan inverse of a 9x9 matrix (used once at startup to get M = invM^{-1}).
-static std::array<std::array<double, 9>, 9> inverse9(std::array<std::array<double, 9>, 9> a)
-{
-    std::array<std::array<double, 9>, 9> inv{};
-    for (std::size_t i = 0; i < 9; ++i)
-    {
-        inv[i][i] = 1.;
-    }
-    for (std::size_t col = 0; col < 9; ++col)
-    {
-        std::size_t piv = col;
-        for (std::size_t r = col + 1; r < 9; ++r)
-        {
-            if (std::abs(a[r][col]) > std::abs(a[piv][col]))
-            {
-                piv = r;
-            }
-        }
-        std::swap(a[piv], a[col]);
-        std::swap(inv[piv], inv[col]);
-        const double d = a[col][col];
-        for (std::size_t k = 0; k < 9; ++k)
-        {
-            a[col][k] /= d;
-            inv[col][k] /= d;
-        }
-        for (std::size_t r = 0; r < 9; ++r)
-        {
-            if (r == col)
-            {
-                continue;
-            }
-            const double factor = a[r][col];
-            for (std::size_t k = 0; k < 9; ++k)
-            {
-                a[r][k] -= factor * a[col][k];
-                inv[r][k] -= factor * inv[col][k];
-            }
-        }
-    }
-    return inv;
-}
-
 int main(int argc, char* argv[])
 {
     auto& app = samurai::initialize("D2Q9 MRT Taylor-Green vortex (schemes/lbm)", argc, argv);
@@ -147,12 +104,35 @@ int main(int argc, char* argv[])
                                m[cell](2)     = rho0 * v_exact(x, y, 0.);
                            });
 
-    // Lallemand-Luo m -> f matrix (invM), then M = invM^{-1}.
+    // Lallemand-Luo D2Q9 moment matrices, written explicitly (both M and its exact inverse invM).
+    // Velocity ordering: 0:(0,0) 1:(1,0) 2:(0,1) 3:(-1,0) 4:(0,-1) 5:(1,1) 6:(-1,1) 7:(-1,-1) 8:(1,-1).
+    // Moment ordering: (rho, qx, qy, e, qx-flux, qy-flux, eps, pxx, pxy); each moment row is scaled by
+    // lambda^{order} = (1, l, l, l^2, l^3, l^3, l^4, l^2, l^2).
+    const double l  = lambda;
+    const double l2 = lambda * lambda;
+    const double l3 = l2 * lambda;
+    const double l4 = l2 * l2;
+
+    // M : f -> m
+    std::array<std::array<double, 9>, 9> M{
+        {
+         {1., 1., 1., 1., 1., 1., 1., 1., 1.},                               // rho
+            {0., l, 0., -l, 0., l, -l, -l, l},                                  // qx
+            {0., 0., l, 0., -l, l, l, -l, -l},                                  // qy
+            {-4. * l2, -l2, -l2, -l2, -l2, 2. * l2, 2. * l2, 2. * l2, 2. * l2}, // e
+            {0., -2. * l3, 0., 2. * l3, 0., l3, -l3, -l3, l3},                  // qx-flux
+            {0., 0., -2. * l3, 0., 2. * l3, l3, l3, -l3, -l3},                  // qy-flux
+            {4. * l4, -2. * l4, -2. * l4, -2. * l4, -2. * l4, l4, l4, l4, l4},  // eps
+            {0., l2, -l2, l2, -l2, 0., 0., 0., 0.},                             // pxx
+            {0., 0., 0., 0., 0., l2, -l2, l2, -l2},                             // pxy
+        }
+    };
+
+    // invM : m -> f  (exact inverse of M; M * invM = I)
     const double r1 = 1. / lambda;
     const double r2 = 1. / (lambda * lambda);
     const double r3 = 1. / (lambda * lambda * lambda);
     const double r4 = 1. / (lambda * lambda * lambda * lambda);
-    // Columns: (rho, qx, qy, e, qx-flux, qy-flux, eps, pxx, pxy)
     std::array<std::array<double, 9>, 9> invM{
         {
          {1. / 9, 0., 0., -r2 / 9, 0., 0., r4 / 9, 0., 0.},
@@ -166,11 +146,7 @@ int main(int argc, char* argv[])
          {1. / 9, r1 / 6, -r1 / 6, r2 / 18, r3 / 12, -r3 / 12, r4 / 36, 0., -r2 / 4},
          }
     };
-    const auto M = inverse9(invM);
-
-    const double l2 = lambda * lambda;
-    const double l4 = l2 * l2;
-    auto eq         = [l2, l4](std::array<double, 9>& meq, std::span<const double> mm)
+    auto eq = [l2, l4](std::array<double, 9>& meq, std::span<const double> mm)
     {
         const double rho = mm[0];
         const double qx  = mm[1];

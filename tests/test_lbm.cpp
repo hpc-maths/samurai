@@ -368,14 +368,20 @@ namespace samurai
                                                        {0., 0., s2},
                                                        eq));
             scheme.set_max_level(max_level);
+
+            const std::array<std::array<int, dim>, 3> velocities{
+                {{0}, {1}, {-1}}
+            };
+            const xt::xtensor_fixed<int, xt::xshape<dim>> west{-1};
+            const xt::xtensor_fixed<int, xt::xshape<dim>> east{1};
             if (bc == "antibounceback")
             {
-                scheme.add_bc(AntiBounceBack<dim>({hL, 0., 0.5 * g * hL * hL}).on({-1}));
-                scheme.add_bc(AntiBounceBack<dim>({hR, 0., 0.5 * g * hR * hR}).on({1}));
+                make_bc<AntiBounceBack>(f, velocities, scheme.equilibrium_f({hL, 0., 0.}))->on(west);
+                make_bc<AntiBounceBack>(f, velocities, scheme.equilibrium_f({hR, 0., 0.}))->on(east);
             }
             else
             {
-                scheme.add_bc(BounceBack<dim>{});
+                make_bc<BounceBack>(f, velocities);
             }
             scheme.init_equilibrium(f, m);
 
@@ -432,52 +438,6 @@ namespace samurai
     }
 
     // ==================================================================== D2Q9 MRT Navier-Stokes
-    namespace
-    {
-        // Gauss-Jordan inverse of a 9x9 matrix.
-        std::array<std::array<double, 9>, 9> inverse9(std::array<std::array<double, 9>, 9> a)
-        {
-            std::array<std::array<double, 9>, 9> inv{};
-            for (std::size_t i = 0; i < 9; ++i)
-            {
-                inv[i][i] = 1.;
-            }
-            for (std::size_t col = 0; col < 9; ++col)
-            {
-                std::size_t piv = col;
-                for (std::size_t rr = col + 1; rr < 9; ++rr)
-                {
-                    if (std::abs(a[rr][col]) > std::abs(a[piv][col]))
-                    {
-                        piv = rr;
-                    }
-                }
-                std::swap(a[piv], a[col]);
-                std::swap(inv[piv], inv[col]);
-                const double d = a[col][col];
-                for (std::size_t k = 0; k < 9; ++k)
-                {
-                    a[col][k] /= d;
-                    inv[col][k] /= d;
-                }
-                for (std::size_t rr = 0; rr < 9; ++rr)
-                {
-                    if (rr == col)
-                    {
-                        continue;
-                    }
-                    const double fac = a[rr][col];
-                    for (std::size_t k = 0; k < 9; ++k)
-                    {
-                        a[rr][k] -= fac * a[col][k];
-                        inv[rr][k] -= fac * inv[col][k];
-                    }
-                }
-            }
-            return inv;
-        }
-    }
-
     TEST(lbm_d2q9, taylor_green_viscous_decay_and_mass)
     {
         static constexpr std::size_t dim = 2;
@@ -516,6 +476,22 @@ namespace samurai
                           m[cell](2) = rho0 * v_exact(x, y, 0.);
                       });
 
+        // Explicit Lallemand-Luo M (f -> m) and its exact inverse invM (m -> f); no numerical inverse.
+        const double l  = lambda;
+        const double l2 = lambda * lambda, l3 = l2 * lambda, l4 = l2 * l2;
+        std::array<std::array<double, 9>, 9> M{
+            {
+             {1., 1., 1., 1., 1., 1., 1., 1., 1.},
+             {0., l, 0., -l, 0., l, -l, -l, l},
+             {0., 0., l, 0., -l, l, l, -l, -l},
+             {-4. * l2, -l2, -l2, -l2, -l2, 2. * l2, 2. * l2, 2. * l2, 2. * l2},
+             {0., -2. * l3, 0., 2. * l3, 0., l3, -l3, -l3, l3},
+             {0., 0., -2. * l3, 0., 2. * l3, l3, l3, -l3, -l3},
+             {4. * l4, -2. * l4, -2. * l4, -2. * l4, -2. * l4, l4, l4, l4, l4},
+             {0., l2, -l2, l2, -l2, 0., 0., 0., 0.},
+             {0., 0., 0., 0., 0., l2, -l2, l2, -l2},
+             }
+        };
         const double r1 = 1. / lambda, r2 = r1 * r1, r3 = r2 * r1, r4 = r3 * r1;
         std::array<std::array<double, 9>, 9> invM{
             {
@@ -530,9 +506,19 @@ namespace samurai
              {1. / 9, r1 / 6, -r1 / 6, r2 / 18, r3 / 12, -r3 / 12, r4 / 36, 0., -r2 / 4},
              }
         };
-        const auto M = inverse9(invM);
-
-        const double l2 = lambda * lambda, l4 = l2 * l2;
+        // Sanity: M is the exact inverse of invM.
+        for (std::size_t a = 0; a < 9; ++a)
+        {
+            for (std::size_t b = 0; b < 9; ++b)
+            {
+                double acc = 0.;
+                for (std::size_t k = 0; k < 9; ++k)
+                {
+                    acc += M[a][k] * invM[k][b];
+                }
+                EXPECT_NEAR(acc, (a == b) ? 1. : 0., 1e-12);
+            }
+        }
         auto eq = [l2, l4](std::array<double, 9>& meq, std::span<const double> mm)
         {
             const double rho = mm[0], qx = mm[1], qy = mm[2];
