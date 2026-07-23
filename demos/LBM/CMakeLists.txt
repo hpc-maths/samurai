@@ -17,6 +17,15 @@ target_link_libraries(lbm-new-D2Q4diag-advection samurai)
 add_executable(lbm-new-D2Q9-taylor-green new_D2Q9_taylor_green.cpp)
 target_link_libraries(lbm-new-D2Q9-taylor-green samurai)
 
+add_executable(lbm-new-D1Q5-shallow-waters-dam new_D1Q5_shallow_waters_dam.cpp)
+target_link_libraries(lbm-new-D1Q5-shallow-waters-dam samurai)
+
+add_executable(lbm-new-D1Q222-euler-sod new_D1Q222_euler_sod.cpp)
+target_link_libraries(lbm-new-D1Q222-euler-sod samurai)
+
+add_executable(lbm-new-D2Q4444-euler-lax-liu new_D2Q4444_euler_lax_liu.cpp)
+target_link_libraries(lbm-new-D2Q4444-euler-lax-liu samurai)
+
 # ---------------------------------------------------------------------------
 # Legacy demos (outdated: overleaves, hand-rolled prediction maps, old BC).
 # Kept for reference during the migration to schemes/lbm; not built for now.

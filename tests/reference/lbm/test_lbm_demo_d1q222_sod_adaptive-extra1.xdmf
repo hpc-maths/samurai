@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<Xdmf>
+	<Domain>
+		<Grid Name="mesh">
+			<Topology TopologyType="Polyline" NumberOfElements="116">
+				<DataItem Dimensions="232" Format="HDF">test_lbm_demo_d1q222_sod_adaptive-extra1.h5:/mesh/connectivity</DataItem>
+			</Topology>
+			<Geometry GeometryType="XYZ">
+				<DataItem Dimensions="351" Format="HDF">test_lbm_demo_d1q222_sod_adaptive-extra1.h5:/mesh/points</DataItem>
+			</Geometry>
+			<Attribute Name="m_0" Center="Cell">
+				<DataItem Dimensions="116" Format="HDF" Precision="8">test_lbm_demo_d1q222_sod_adaptive-extra1.h5:/mesh/fields/m_0</DataItem>
+			</Attribute>
+			<Attribute Name="m_1" Center="Cell">
+				<DataItem Dimensions="116" Format="HDF" Precision="8">test_lbm_demo_d1q222_sod_adaptive-extra1.h5:/mesh/fields/m_1</DataItem>
+			</Attribute>
+			<Attribute Name="m_2" Center="Cell">
+				<DataItem Dimensions="116" Format="HDF" Precision="8">test_lbm_demo_d1q222_sod_adaptive-extra1.h5:/mesh/fields/m_2</DataItem>
+			</Attribute>
+			<Attribute Name="m_3" Center="Cell">
+				<DataItem Dimensions="116" Format="HDF" Precision="8">test_lbm_demo_d1q222_sod_adaptive-extra1.h5:/mesh/fields/m_3</DataItem>
+			</Attribute>
+			<Attribute Name="m_4" Center="Cell">
+				<DataItem Dimensions="116" Format="HDF" Precision="8">test_lbm_demo_d1q222_sod_adaptive-extra1.h5:/mesh/fields/m_4</DataItem>
+			</Attribute>
+			<Attribute Name="m_5" Center="Cell">
+				<DataItem Dimensions="116" Format="HDF" Precision="8">test_lbm_demo_d1q222_sod_adaptive-extra1.h5:/mesh/fields/m_5</DataItem>
+			</Attribute>
+			<Attribute Name="rho" Center="Cell">
+				<DataItem Dimensions="116" Format="HDF" Precision="8">test_lbm_demo_d1q222_sod_adaptive-extra1.h5:/mesh/fields/rho</DataItem>
+			</Attribute>
+			<Attribute Name="u" Center="Cell">
+				<DataItem Dimensions="116" Format="HDF" Precision="8">test_lbm_demo_d1q222_sod_adaptive-extra1.h5:/mesh/fields/u</DataItem>
+			</Attribute>
+			<Attribute Name="p" Center="Cell">
+				<DataItem Dimensions="116" Format="HDF" Precision="8">test_lbm_demo_d1q222_sod_adaptive-extra1.h5:/mesh/fields/p</DataItem>
+			</Attribute>
+		</Grid>
+	</Domain>
+</Xdmf>

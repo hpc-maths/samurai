@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<Xdmf>
+	<Domain>
+		<Grid Name="mesh">
+			<Topology TopologyType="Polyline" NumberOfElements="102">
+				<DataItem Dimensions="204" Format="HDF">test_lbm_demo_d1q5_dam_adaptive-extra1.h5:/mesh/connectivity</DataItem>
+			</Topology>
+			<Geometry GeometryType="XYZ">
+				<DataItem Dimensions="309" Format="HDF">test_lbm_demo_d1q5_dam_adaptive-extra1.h5:/mesh/points</DataItem>
+			</Geometry>
+			<Attribute Name="m_0" Center="Cell">
+				<DataItem Dimensions="102" Format="HDF" Precision="8">test_lbm_demo_d1q5_dam_adaptive-extra1.h5:/mesh/fields/m_0</DataItem>
+			</Attribute>
+			<Attribute Name="m_1" Center="Cell">
+				<DataItem Dimensions="102" Format="HDF" Precision="8">test_lbm_demo_d1q5_dam_adaptive-extra1.h5:/mesh/fields/m_1</DataItem>
+			</Attribute>
+			<Attribute Name="m_2" Center="Cell">
+				<DataItem Dimensions="102" Format="HDF" Precision="8">test_lbm_demo_d1q5_dam_adaptive-extra1.h5:/mesh/fields/m_2</DataItem>
+			</Attribute>
+			<Attribute Name="m_3" Center="Cell">
+				<DataItem Dimensions="102" Format="HDF" Precision="8">test_lbm_demo_d1q5_dam_adaptive-extra1.h5:/mesh/fields/m_3</DataItem>
+			</Attribute>
+			<Attribute Name="m_4" Center="Cell">
+				<DataItem Dimensions="102" Format="HDF" Precision="8">test_lbm_demo_d1q5_dam_adaptive-extra1.h5:/mesh/fields/m_4</DataItem>
+			</Attribute>
+			<Attribute Name="h" Center="Cell">
+				<DataItem Dimensions="102" Format="HDF" Precision="8">test_lbm_demo_d1q5_dam_adaptive-extra1.h5:/mesh/fields/h</DataItem>
+			</Attribute>
+			<Attribute Name="u" Center="Cell">
+				<DataItem Dimensions="102" Format="HDF" Precision="8">test_lbm_demo_d1q5_dam_adaptive-extra1.h5:/mesh/fields/u</DataItem>
+			</Attribute>
+		</Grid>
+	</Domain>
+</Xdmf>
