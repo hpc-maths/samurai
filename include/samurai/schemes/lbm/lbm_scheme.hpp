@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cstddef>
+#include <functional>
 #include <optional>
 #include <span>
 #include <string>
@@ -133,13 +134,28 @@ namespace samurai
             return feq;
         }
 
+        using source_t = std::function<void(std::span<double> m_all, double dt)>;
+
+        /**
+         * Register a body-force source term (e.g. gravity). It is applied once per time step,
+         * after the MRT relaxation and before the moment-to-distribution transform, and receives
+         * the full moment vector (writable, all blocks concatenated) and the time step @a dt.
+         * Forward-Euler: the source usually adds @c dt * force to the conserved momenta / energy.
+         * @a dt must then be passed to @c operator().
+         */
+        void set_source(source_t source)
+        {
+            m_source = std::move(source);
+        }
+
         /**
          * One LBM time step. Updates both @a f (distributions) and @a m (moments). Wall boundary
          * conditions are the ones attached to @a f (see @ref BounceBack / @ref AntiBounceBack and
          * @c make_bc); they are applied by @c update_ghost_mr before the stream reads the ghosts.
+         * @a dt is only used by a registered source term (see @ref set_source).
          */
         template <class MField>
-        void operator()(field_t& f, MField& m) const
+        void operator()(field_t& f, MField& m, double dt = 0.) const
         {
             update_ghost_mr(f);
 
@@ -158,7 +174,7 @@ namespace samurai
 
             stream(f, *m_f_stream);
             std::swap(f.array(), m_f_stream->array());
-            collide(f, m);
+            collide(f, m, dt);
         }
 
       private:
@@ -300,9 +316,10 @@ namespace samurai
             }
         }
 
-        // collide: m = M.f (all blocks) ; equilibrium (sees all moments) ; relax (MRT) ; f = M^{-1} m.
+        // collide: m = M.f (all blocks) ; equilibrium (sees all moments) ; relax (MRT) ;
+        //          optional source (body force) ; f = M^{-1} m.
         template <class MField>
-        void collide(field_t& f, MField& m) const
+        void collide(field_t& f, MField& m, double dt) const
         {
             for_each_cell(f.mesh(),
                           [&](const auto& cell)
@@ -344,12 +361,28 @@ namespace samurai
                                   [&](const auto& block, std::size_t offset)
                                   {
                                       constexpr std::size_t q = std::decay_t<decltype(block)>::q;
-                                      std::array<double, q> mblock;
                                       for (std::size_t k = 0; k < q; ++k)
                                       {
                                           const std::size_t g = offset + k;
                                           mall[g] += block.s[k] * (meq_all[g] - mall[g]); // relax (MRT)
-                                          mblock[k] = mall[g];
+                                      }
+                                  });
+
+                              // Body-force source (e.g. gravity), applied after relaxation on the
+                              // (conserved) moments, before rebuilding the distributions.
+                              if (m_source)
+                              {
+                                  m_source(std::span<double>(mall.data(), n_comp), dt);
+                              }
+
+                              for_each_block(
+                                  [&](const auto& block, std::size_t offset)
+                                  {
+                                      constexpr std::size_t q = std::decay_t<decltype(block)>::q;
+                                      std::array<double, q> mblock;
+                                      for (std::size_t k = 0; k < q; ++k)
+                                      {
+                                          mblock[k] = mall[offset + k];
                                       }
                                       const auto fnew = matvec(block.invM, mblock); // m2f
                                       for (std::size_t k = 0; k < q; ++k)
@@ -368,6 +401,7 @@ namespace samurai
         std::string m_name;
         double m_lambda;
         std::tuple<Blocks...> m_blocks;
+        source_t m_source;                         // optional body-force source term (see set_source)
         mutable std::optional<field_t> m_f_stream; // worker for the streamed distributions (reused across steps)
     };
 
