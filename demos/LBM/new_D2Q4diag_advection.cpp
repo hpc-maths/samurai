@@ -88,12 +88,16 @@ int main(int argc, char* argv[])
     const double l  = lambda;
     const double l2 = lambda * lambda;
     // Rows: (u, x-flux, y-flux, cross) for velocities {(1,1),(-1,1),(-1,-1),(1,-1)}.
-    std::array<std::array<double, 4>, 4> M{{{1., 1., 1., 1.}, {l, -l, -l, l}, {l, l, -l, -l}, {l2, -l2, l2, -l2}}};
+    std::array<std::array<double, 4>, 4> M{
+        {{1., 1., 1., 1.}, {l, -l, -l, l}, {l, l, -l, -l}, {l2, -l2, l2, -l2}}
+    };
     // Inverse: f_i = 1/4 (u + ex_i m1/lambda + ey_i m2/lambda + ex_i ey_i m3/lambda^2).
-    std::array<std::array<double, 4>, 4> invM{{{0.25, 0.25 / l, 0.25 / l, 0.25 / l2},
-                                               {0.25, -0.25 / l, 0.25 / l, -0.25 / l2},
-                                               {0.25, -0.25 / l, -0.25 / l, 0.25 / l2},
-                                               {0.25, 0.25 / l, -0.25 / l, -0.25 / l2}}};
+    std::array<std::array<double, 4>, 4> invM{
+        {{0.25, 0.25 / l, 0.25 / l, 0.25 / l2},
+         {0.25, -0.25 / l, 0.25 / l, -0.25 / l2},
+         {0.25, -0.25 / l, -0.25 / l, 0.25 / l2},
+         {0.25, 0.25 / l, -0.25 / l, -0.25 / l2}}
+    };
     auto eq = [ax, ay](std::array<double, 4>& meq, std::span<const double> mm)
     {
         meq[0] = mm[0];
@@ -102,10 +106,16 @@ int main(int argc, char* argv[])
         meq[3] = 0.;
     };
 
-    auto scheme = samurai::make_lbm_scheme<field_t>(
-        "D2Q4diag_advection",
-        lambda,
-        samurai::velocity_scheme<dim, 4>({{{1, 1}, {-1, 1}, {-1, -1}, {1, -1}}}, M, invM, {0., s1, s1, s2}, eq));
+    auto scheme = samurai::make_lbm_scheme<field_t>("D2Q4diag_advection",
+                                                    lambda,
+                                                    samurai::velocity_scheme<dim, 4>(
+                                                        {
+                                                            {{1, 1}, {-1, 1}, {-1, -1}, {1, -1}}
+    },
+                                                        M,
+                                                        invM,
+                                                        {0., s1, s1, s2},
+                                                        eq));
     scheme.set_max_level(max_level);
     scheme.init_equilibrium(f, m);
 
@@ -167,8 +177,8 @@ int main(int argc, char* argv[])
     err_l2 = std::sqrt(err_l2 / norm);
 
     std::cout << "case = D2Q4 diagonal advection, " << (adapt ? "adaptive" : "uniform") << ", max_level = " << max_level
-              << (adapt ? (", min_level = " + std::to_string(min_level)) : "") << ", cells = " << mesh.nb_cells()
-              << ", dt = " << dt << ", nt = " << nt << ", Tf_eff = " << Tf_eff << std::endl;
+              << (adapt ? (", min_level = " + std::to_string(min_level)) : "") << ", cells = " << mesh.nb_cells() << ", dt = " << dt
+              << ", nt = " << nt << ", Tf_eff = " << Tf_eff << std::endl;
     std::cout << "mass drift = " << std::abs(mass() - mass0) << ", u in [" << umin << ", " << umax << "]" << std::endl;
     std::cout << "relative L2 error = " << err_l2 << std::endl;
 

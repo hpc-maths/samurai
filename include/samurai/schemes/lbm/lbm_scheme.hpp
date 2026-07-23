@@ -335,8 +335,8 @@ namespace samurai
         // stream: multi-level transport via the cached column stencils.
         void stream(const field_t& f_in, field_t& f_out) const
         {
-            using mesh_id_t                        = typename field_t::mesh_t::mesh_id_t;
-            constexpr auto tseq                    = std::make_index_sequence<dim - 1>{};
+            using mesh_id_t     = typename field_t::mesh_t::mesh_id_t;
+            constexpr auto tseq = std::make_index_sequence<dim - 1>{};
             const std::array<int, dim> no_shift{};
 
             auto& mesh                             = f_in.mesh();
@@ -450,13 +450,18 @@ namespace samurai
                                                           const std::size_t opp  = m_opposite[comp];
                                                           if (bc.type == lbm_bc_type::bounce_back)
                                                           {
-                                                              access(f_out, comp, lvl, i, index, no_shift, tseq)
-                                                                  = access(f_in, opp, lvl, i, index, no_shift, tseq);
+                                                              access(f_out, comp, lvl, i, index, no_shift, tseq) = access(f_in,
+                                                                                                                          opp,
+                                                                                                                          lvl,
+                                                                                                                          i,
+                                                                                                                          index,
+                                                                                                                          no_shift,
+                                                                                                                          tseq);
                                                           }
                                                           else
                                                           {
-                                                              access(f_out, comp, lvl, i, index, no_shift, tseq)
-                                                                  = xt::eval(bc.add[comp] - access(f_in, opp, lvl, i, index, no_shift, tseq));
+                                                              access(f_out, comp, lvl, i, index, no_shift, tseq) = xt::eval(
+                                                                  bc.add[comp] - access(f_in, opp, lvl, i, index, no_shift, tseq));
                                                           }
                                                       }
                                                   });
@@ -465,7 +470,11 @@ namespace samurai
 
                     if (bc.all_boundaries)
                     {
-                        for_each_cartesian_direction<dim>([&](const DirectionVector<dim>& n) { apply_on_normal(n); });
+                        for_each_cartesian_direction<dim>(
+                            [&](const DirectionVector<dim>& n)
+                            {
+                                apply_on_normal(n);
+                            });
                     }
                     else
                     {

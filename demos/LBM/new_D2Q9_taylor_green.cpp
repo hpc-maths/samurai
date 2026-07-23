@@ -153,17 +153,19 @@ int main(int argc, char* argv[])
     const double r3 = 1. / (lambda * lambda * lambda);
     const double r4 = 1. / (lambda * lambda * lambda * lambda);
     // Columns: (rho, qx, qy, e, qx-flux, qy-flux, eps, pxx, pxy)
-    std::array<std::array<double, 9>, 9> invM{{
-        {1. / 9, 0., 0., -r2 / 9, 0., 0., r4 / 9, 0., 0.},
-        {1. / 9, r1 / 6, 0., -r2 / 36, -r3 / 6, 0., -r4 / 18, r2 / 4, 0.},
-        {1. / 9, 0., r1 / 6, -r2 / 36, 0., -r3 / 6, -r4 / 18, -r2 / 4, 0.},
-        {1. / 9, -r1 / 6, 0., -r2 / 36, r3 / 6, 0., -r4 / 18, r2 / 4, 0.},
-        {1. / 9, 0., -r1 / 6, -r2 / 36, 0., r3 / 6, -r4 / 18, -r2 / 4, 0.},
-        {1. / 9, r1 / 6, r1 / 6, r2 / 18, r3 / 12, r3 / 12, r4 / 36, 0., r2 / 4},
-        {1. / 9, -r1 / 6, r1 / 6, r2 / 18, -r3 / 12, r3 / 12, r4 / 36, 0., -r2 / 4},
-        {1. / 9, -r1 / 6, -r1 / 6, r2 / 18, -r3 / 12, -r3 / 12, r4 / 36, 0., r2 / 4},
-        {1. / 9, r1 / 6, -r1 / 6, r2 / 18, r3 / 12, -r3 / 12, r4 / 36, 0., -r2 / 4},
-    }};
+    std::array<std::array<double, 9>, 9> invM{
+        {
+         {1. / 9, 0., 0., -r2 / 9, 0., 0., r4 / 9, 0., 0.},
+         {1. / 9, r1 / 6, 0., -r2 / 36, -r3 / 6, 0., -r4 / 18, r2 / 4, 0.},
+         {1. / 9, 0., r1 / 6, -r2 / 36, 0., -r3 / 6, -r4 / 18, -r2 / 4, 0.},
+         {1. / 9, -r1 / 6, 0., -r2 / 36, r3 / 6, 0., -r4 / 18, r2 / 4, 0.},
+         {1. / 9, 0., -r1 / 6, -r2 / 36, 0., r3 / 6, -r4 / 18, -r2 / 4, 0.},
+         {1. / 9, r1 / 6, r1 / 6, r2 / 18, r3 / 12, r3 / 12, r4 / 36, 0., r2 / 4},
+         {1. / 9, -r1 / 6, r1 / 6, r2 / 18, -r3 / 12, r3 / 12, r4 / 36, 0., -r2 / 4},
+         {1. / 9, -r1 / 6, -r1 / 6, r2 / 18, -r3 / 12, -r3 / 12, r4 / 36, 0., r2 / 4},
+         {1. / 9, r1 / 6, -r1 / 6, r2 / 18, r3 / 12, -r3 / 12, r4 / 36, 0., -r2 / 4},
+         }
+    };
     const auto M = inverse9(invM);
 
     const double l2 = lambda * lambda;
@@ -174,15 +176,15 @@ int main(int argc, char* argv[])
         const double qx  = mm[1];
         const double qy  = mm[2];
         const double q2  = (qx * qx + qy * qy) / rho;
-        meq[0]           = rho; // conserved
-        meq[1]           = qx;  // conserved
-        meq[2]           = qy;  // conserved
-        meq[3]           = -2. * l2 * rho + 3. * q2;                  // e
-        meq[4]           = -l2 * qx;                                  // energy flux x
-        meq[5]           = -l2 * qy;                                  // energy flux y
-        meq[6]           = l4 * rho - 3. * l2 * q2;                   // epsilon
-        meq[7]           = (qx * qx - qy * qy) / rho;                 // pxx
-        meq[8]           = qx * qy / rho;                             // pxy
+        meq[0]           = rho;                       // conserved
+        meq[1]           = qx;                        // conserved
+        meq[2]           = qy;                        // conserved
+        meq[3]           = -2. * l2 * rho + 3. * q2;  // e
+        meq[4]           = -l2 * qx;                  // energy flux x
+        meq[5]           = -l2 * qy;                  // energy flux y
+        meq[6]           = l4 * rho - 3. * l2 * q2;   // epsilon
+        meq[7]           = (qx * qx - qy * qy) / rho; // pxx
+        meq[8]           = qx * qy / rho;             // pxy
     };
 
     // Relaxation rates: conserved (rho, qx, qy) frozen; standard MRT values for the ghost/bulk
@@ -190,11 +192,16 @@ int main(int argc, char* argv[])
     std::array<double, 9> s{0., 0., 0., 1.64, 1.54, 1.54, 1.64, s_nu, s_nu};
 
     using field_t = decltype(f);
-    auto scheme   = samurai::make_lbm_scheme<field_t>(
-        "D2Q9_taylor_green",
-        lambda,
-        samurai::velocity_scheme<dim, 9>(
-            {{{0, 0}, {1, 0}, {0, 1}, {-1, 0}, {0, -1}, {1, 1}, {-1, 1}, {-1, -1}, {1, -1}}}, M, invM, s, eq));
+    auto scheme   = samurai::make_lbm_scheme<field_t>("D2Q9_taylor_green",
+                                                    lambda,
+                                                    samurai::velocity_scheme<dim, 9>(
+                                                        {
+                                                            {{0, 0}, {1, 0}, {0, 1}, {-1, 0}, {0, -1}, {1, 1}, {-1, 1}, {-1, -1}, {1, -1}}
+    },
+                                                        M,
+                                                        invM,
+                                                        s,
+                                                        eq));
     scheme.set_max_level(max_level);
     scheme.init_equilibrium(f, m);
 
@@ -251,8 +258,8 @@ int main(int argc, char* argv[])
     const double err_l2 = std::sqrt(err2 / nrm2);
 
     std::cout << "case = D2Q9 Taylor-Green, " << (adapt ? "adaptive" : "uniform") << ", max_level = " << max_level
-              << (adapt ? (", min_level = " + std::to_string(min_level)) : "") << ", cells = " << mesh.nb_cells()
-              << ", nu = " << nu << ", dt = " << dt << ", nt = " << nt << ", Tf_eff = " << Tf_eff << std::endl;
+              << (adapt ? (", min_level = " + std::to_string(min_level)) : "") << ", cells = " << mesh.nb_cells() << ", nu = " << nu
+              << ", dt = " << dt << ", nt = " << nt << ", Tf_eff = " << Tf_eff << std::endl;
     std::cout << "mass drift = " << std::abs(mass() - mass0) << ", |u|max = " << umax
               << " (exact decay factor exp(-2 nu Tf) = " << std::exp(-2. * nu * Tf_eff) << ")" << std::endl;
     std::cout << "relative L2 velocity error = " << err_l2 << std::endl;

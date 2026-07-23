@@ -102,21 +102,31 @@ int main(int argc, char* argv[])
     using field_t   = decltype(f);
     const double l  = lambda;
     const double l2 = lambda * lambda;
-    std::array<std::array<double, 3>, 3> M{{{1., 1., 1.}, {0., l, -l}, {0., l2, l2}}};
-    std::array<std::array<double, 3>, 3> invM{{{1., 0., -1. / l2}, {0., 0.5 / l, 0.5 / l2}, {0., -0.5 / l, 0.5 / l2}}};
+    std::array<std::array<double, 3>, 3> M{
+        {{1., 1., 1.}, {0., l, -l}, {0., l2, l2}}
+    };
+    std::array<std::array<double, 3>, 3> invM{
+        {{1., 0., -1. / l2}, {0., 0.5 / l, 0.5 / l2}, {0., -0.5 / l, 0.5 / l2}}
+    };
     auto eq = [g](std::array<double, 3>& meq, std::span<const double> mm)
     {
         const double h = mm[0];
         const double q = mm[1];
-        meq[0]         = h;                             // conserved
-        meq[1]         = q;                             // conserved
-        meq[2]         = q * q / h + 0.5 * g * h * h;   // shallow-water flux
+        meq[0]         = h;                           // conserved
+        meq[1]         = q;                           // conserved
+        meq[2]         = q * q / h + 0.5 * g * h * h; // shallow-water flux
     };
 
-    auto scheme = samurai::make_lbm_scheme<field_t>(
-        "D1Q3_shallow_waters",
-        lambda,
-        samurai::velocity_scheme<dim, 3>({{{0}, {1}, {-1}}}, M, invM, {0., 0., s2}, eq));
+    auto scheme = samurai::make_lbm_scheme<field_t>("D1Q3_shallow_waters",
+                                                    lambda,
+                                                    samurai::velocity_scheme<dim, 3>(
+                                                        {
+                                                            {{0}, {1}, {-1}}
+    },
+                                                        M,
+                                                        invM,
+                                                        {0., 0., s2},
+                                                        eq));
     scheme.set_max_level(max_level);
 
     if (bc == "antibounceback")
@@ -186,9 +196,9 @@ int main(int argc, char* argv[])
                                hmax = std::max(hmax, m[cell](0));
                            });
 
-    std::cout << "case = D1Q3 shallow-water dam, bc = " << bc << ", " << (adapt ? "adaptive" : "uniform")
-              << ", max_level = " << max_level << (adapt ? (", min_level = " + std::to_string(min_level)) : "")
-              << ", cells = " << mesh.nb_cells() << ", dt = " << dt << ", nt = " << nt << ", Tf_eff = " << Tf_eff << std::endl;
+    std::cout << "case = D1Q3 shallow-water dam, bc = " << bc << ", " << (adapt ? "adaptive" : "uniform") << ", max_level = " << max_level
+              << (adapt ? (", min_level = " + std::to_string(min_level)) : "") << ", cells = " << mesh.nb_cells() << ", dt = " << dt
+              << ", nt = " << nt << ", Tf_eff = " << Tf_eff << std::endl;
     std::cout << "mass drift = " << std::abs(mass() - mass0) << ", h in [" << hmin << ", " << hmax << "]" << std::endl;
 
     // Diagnostic fields for the output

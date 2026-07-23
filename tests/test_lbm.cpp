@@ -67,8 +67,12 @@ namespace samurai
                               m[cell](0) = u0(cell.center(0));
                           });
 
-            std::array<std::array<double, 2>, 2> M{{{1., 1.}, {lambda, -lambda}}};
-            std::array<std::array<double, 2>, 2> invM{{{0.5, 0.5 / lambda}, {0.5, -0.5 / lambda}}};
+            std::array<std::array<double, 2>, 2> M{
+                {{1., 1.}, {lambda, -lambda}}
+            };
+            std::array<std::array<double, 2>, 2> invM{
+                {{0.5, 0.5 / lambda}, {0.5, -0.5 / lambda}}
+            };
             auto eq = [a, burgers](std::array<double, 2>& meq, std::span<const double> mm)
             {
                 meq[0] = mm[0];
@@ -76,7 +80,16 @@ namespace samurai
             };
 
             using field_t = decltype(f);
-            auto scheme   = make_lbm_scheme<field_t>("D1Q2", lambda, velocity_scheme<dim, 2>({{{1}, {-1}}}, M, invM, {0., s1}, eq));
+            auto scheme   = make_lbm_scheme<field_t>("D1Q2",
+                                                   lambda,
+                                                   velocity_scheme<dim, 2>(
+                                                       {
+                                                           {{1}, {-1}}
+            },
+                                                       M,
+                                                       invM,
+                                                       {0., s1},
+                                                       eq));
             scheme.set_max_level(max_level);
             scheme.init_equilibrium(f, m);
 
@@ -154,13 +167,21 @@ namespace samurai
             if (diagonal)
             {
                 // Velocities {(1,1),(-1,1),(-1,-1),(1,-1)}; moments (u, x-flux, y-flux, cross).
-                M    = {{{1., 1., 1., 1.}, {1., -1., -1., 1.}, {1., 1., -1., -1.}, {1., -1., 1., -1.}}};
-                invM = {{{0.25, 0.25, 0.25, 0.25}, {0.25, -0.25, 0.25, -0.25}, {0.25, -0.25, -0.25, 0.25}, {0.25, 0.25, -0.25, -0.25}}};
+                M = {
+                    {{1., 1., 1., 1.}, {1., -1., -1., 1.}, {1., 1., -1., -1.}, {1., -1., 1., -1.}}
+                };
+                invM = {
+                    {{0.25, 0.25, 0.25, 0.25}, {0.25, -0.25, 0.25, -0.25}, {0.25, -0.25, -0.25, 0.25}, {0.25, 0.25, -0.25, -0.25}}
+                };
             }
             else
             {
-                M    = {{{1., 1., 1., 1.}, {lambda, 0., -lambda, 0.}, {0., lambda, 0., -lambda}, {l2, -l2, l2, -l2}}};
-                invM = {{{0.25, 0.5, 0., 0.25}, {0.25, 0., 0.5, -0.25}, {0.25, -0.5, 0., 0.25}, {0.25, 0., -0.5, -0.25}}};
+                M = {
+                    {{1., 1., 1., 1.}, {lambda, 0., -lambda, 0.}, {0., lambda, 0., -lambda}, {l2, -l2, l2, -l2}}
+                };
+                invM = {
+                    {{0.25, 0.5, 0., 0.25}, {0.25, 0., 0.5, -0.25}, {0.25, -0.5, 0., 0.25}, {0.25, 0., -0.5, -0.25}}
+                };
             }
             auto eq = [ax, ay](std::array<double, 4>& meq, std::span<const double> mm)
             {
@@ -232,9 +253,9 @@ namespace samurai
     // ==================================================================== D1Q2 (single block)
     TEST(lbm_d1q2, advection_mass_bounded_and_convergent)
     {
-        const double a  = 0.75;
-        auto r6         = run_d1q2_advection(6, 0.4, a);
-        auto r7         = run_d1q2_advection(7, 0.4, a);
+        const double a = 0.75;
+        auto r6        = run_d1q2_advection(6, 0.4, a);
+        auto r7        = run_d1q2_advection(7, 0.4, a);
 
         // Mass conserved to round-off on a periodic domain.
         EXPECT_LT(r6.mass_drift, 1e-11);
@@ -321,8 +342,12 @@ namespace samurai
                           });
 
             const double l = lambda, l2 = lambda * lambda;
-            std::array<std::array<double, 3>, 3> M{{{1., 1., 1.}, {0., l, -l}, {0., l2, l2}}};
-            std::array<std::array<double, 3>, 3> invM{{{1., 0., -1. / l2}, {0., 0.5 / l, 0.5 / l2}, {0., -0.5 / l, 0.5 / l2}}};
+            std::array<std::array<double, 3>, 3> M{
+                {{1., 1., 1.}, {0., l, -l}, {0., l2, l2}}
+            };
+            std::array<std::array<double, 3>, 3> invM{
+                {{1., 0., -1. / l2}, {0., 0.5 / l, 0.5 / l2}, {0., -0.5 / l, 0.5 / l2}}
+            };
             auto eq = [g](std::array<double, 3>& meq, std::span<const double> mm)
             {
                 const double h = mm[0], q = mm[1];
@@ -332,7 +357,16 @@ namespace samurai
             };
 
             using field_t = decltype(f);
-            auto scheme   = make_lbm_scheme<field_t>("D1Q3", lambda, velocity_scheme<dim, 3>({{{0}, {1}, {-1}}}, M, invM, {0., 0., s2}, eq));
+            auto scheme   = make_lbm_scheme<field_t>("D1Q3",
+                                                   lambda,
+                                                   velocity_scheme<dim, 3>(
+                                                       {
+                                                           {{0}, {1}, {-1}}
+            },
+                                                       M,
+                                                       invM,
+                                                       {0., 0., s2},
+                                                       eq));
             scheme.set_max_level(max_level);
             if (bc == "antibounceback")
             {
@@ -359,8 +393,8 @@ namespace samurai
                               });
                 return s;
             };
-            const double mass0    = mass();
-            const double h_rest   = hL; // used only when hL == hR
+            const double mass0  = mass();
+            const double h_rest = hL; // used only when hL == hR
 
             for (std::size_t n = 0; n < nt; ++n)
             {
@@ -371,9 +405,9 @@ namespace samurai
             for_each_cell(mesh,
                           [&](const auto& cell)
                           {
-                              const double h = m[cell](0);
-                              r.hmin         = std::min(r.hmin, h);
-                              r.hmax         = std::max(r.hmax, h);
+                              const double h      = m[cell](0);
+                              r.hmin              = std::min(r.hmin, h);
+                              r.hmax              = std::max(r.hmax, h);
                               r.max_dev_from_rest = std::max(r.max_dev_from_rest, std::abs(h - h_rest));
                           });
             return r;
@@ -477,52 +511,60 @@ namespace samurai
                       [&](const auto& cell)
                       {
                           const double x = cell.center(0), y = cell.center(1);
-                          m[cell](0)     = rho0;
-                          m[cell](1)     = rho0 * u_exact(x, y, 0.);
-                          m[cell](2)     = rho0 * v_exact(x, y, 0.);
+                          m[cell](0) = rho0;
+                          m[cell](1) = rho0 * u_exact(x, y, 0.);
+                          m[cell](2) = rho0 * v_exact(x, y, 0.);
                       });
 
         const double r1 = 1. / lambda, r2 = r1 * r1, r3 = r2 * r1, r4 = r3 * r1;
-        std::array<std::array<double, 9>, 9> invM{{
-            {1. / 9, 0., 0., -r2 / 9, 0., 0., r4 / 9, 0., 0.},
-            {1. / 9, r1 / 6, 0., -r2 / 36, -r3 / 6, 0., -r4 / 18, r2 / 4, 0.},
-            {1. / 9, 0., r1 / 6, -r2 / 36, 0., -r3 / 6, -r4 / 18, -r2 / 4, 0.},
-            {1. / 9, -r1 / 6, 0., -r2 / 36, r3 / 6, 0., -r4 / 18, r2 / 4, 0.},
-            {1. / 9, 0., -r1 / 6, -r2 / 36, 0., r3 / 6, -r4 / 18, -r2 / 4, 0.},
-            {1. / 9, r1 / 6, r1 / 6, r2 / 18, r3 / 12, r3 / 12, r4 / 36, 0., r2 / 4},
-            {1. / 9, -r1 / 6, r1 / 6, r2 / 18, -r3 / 12, r3 / 12, r4 / 36, 0., -r2 / 4},
-            {1. / 9, -r1 / 6, -r1 / 6, r2 / 18, -r3 / 12, -r3 / 12, r4 / 36, 0., r2 / 4},
-            {1. / 9, r1 / 6, -r1 / 6, r2 / 18, r3 / 12, -r3 / 12, r4 / 36, 0., -r2 / 4},
-        }};
+        std::array<std::array<double, 9>, 9> invM{
+            {
+             {1. / 9, 0., 0., -r2 / 9, 0., 0., r4 / 9, 0., 0.},
+             {1. / 9, r1 / 6, 0., -r2 / 36, -r3 / 6, 0., -r4 / 18, r2 / 4, 0.},
+             {1. / 9, 0., r1 / 6, -r2 / 36, 0., -r3 / 6, -r4 / 18, -r2 / 4, 0.},
+             {1. / 9, -r1 / 6, 0., -r2 / 36, r3 / 6, 0., -r4 / 18, r2 / 4, 0.},
+             {1. / 9, 0., -r1 / 6, -r2 / 36, 0., r3 / 6, -r4 / 18, -r2 / 4, 0.},
+             {1. / 9, r1 / 6, r1 / 6, r2 / 18, r3 / 12, r3 / 12, r4 / 36, 0., r2 / 4},
+             {1. / 9, -r1 / 6, r1 / 6, r2 / 18, -r3 / 12, r3 / 12, r4 / 36, 0., -r2 / 4},
+             {1. / 9, -r1 / 6, -r1 / 6, r2 / 18, -r3 / 12, -r3 / 12, r4 / 36, 0., r2 / 4},
+             {1. / 9, r1 / 6, -r1 / 6, r2 / 18, r3 / 12, -r3 / 12, r4 / 36, 0., -r2 / 4},
+             }
+        };
         const auto M = inverse9(invM);
 
         const double l2 = lambda * lambda, l4 = l2 * l2;
-        auto eq         = [l2, l4](std::array<double, 9>& meq, std::span<const double> mm)
+        auto eq = [l2, l4](std::array<double, 9>& meq, std::span<const double> mm)
         {
             const double rho = mm[0], qx = mm[1], qy = mm[2];
-            const double q2  = (qx * qx + qy * qy) / rho;
-            meq[0]           = rho;
-            meq[1]           = qx;
-            meq[2]           = qy;
-            meq[3]           = -2. * l2 * rho + 3. * q2;
-            meq[4]           = -l2 * qx;
-            meq[5]           = -l2 * qy;
-            meq[6]           = l4 * rho - 3. * l2 * q2;
-            meq[7]           = (qx * qx - qy * qy) / rho;
-            meq[8]           = qx * qy / rho;
+            const double q2 = (qx * qx + qy * qy) / rho;
+            meq[0]          = rho;
+            meq[1]          = qx;
+            meq[2]          = qy;
+            meq[3]          = -2. * l2 * rho + 3. * q2;
+            meq[4]          = -l2 * qx;
+            meq[5]          = -l2 * qy;
+            meq[6]          = l4 * rho - 3. * l2 * q2;
+            meq[7]          = (qx * qx - qy * qy) / rho;
+            meq[8]          = qx * qy / rho;
         };
         std::array<double, 9> s{0., 0., 0., 1.64, 1.54, 1.54, 1.64, s_nu, s_nu};
 
         using field_t = decltype(f);
-        auto scheme   = make_lbm_scheme<field_t>(
-            "D2Q9",
-            lambda,
-            velocity_scheme<dim, 9>({{{0, 0}, {1, 0}, {0, 1}, {-1, 0}, {0, -1}, {1, 1}, {-1, 1}, {-1, -1}, {1, -1}}}, M, invM, s, eq));
+        auto scheme   = make_lbm_scheme<field_t>("D2Q9",
+                                               lambda,
+                                               velocity_scheme<dim, 9>(
+                                                   {
+                                                       {{0, 0}, {1, 0}, {0, 1}, {-1, 0}, {0, -1}, {1, 1}, {-1, 1}, {-1, -1}, {1, -1}}
+        },
+                                                   M,
+                                                   invM,
+                                                   s,
+                                                   eq));
         scheme.set_max_level(max_level);
         scheme.init_equilibrium(f, m);
 
-        const auto nt       = static_cast<std::size_t>(std::round(Tf / dt));
-        const double Te     = static_cast<double>(nt) * dt;
+        const auto nt   = static_cast<std::size_t>(std::round(Tf / dt));
+        const double Te = static_cast<double>(nt) * dt;
 
         auto mass = [&]()
         {
