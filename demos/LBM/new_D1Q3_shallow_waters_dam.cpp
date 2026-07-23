@@ -127,7 +127,6 @@ int main(int argc, char* argv[])
                                                         invM,
                                                         {0., 0., s2},
                                                         eq));
-    scheme.set_max_level(max_level);
 
     // Lattice velocities (same list as the scheme), used by the wall boundary conditions.
     const std::array<std::array<int, dim>, 3> velocities{

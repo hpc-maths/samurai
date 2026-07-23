@@ -90,7 +90,6 @@ namespace samurai
                                                        invM,
                                                        {0., s1},
                                                        eq));
-            scheme.set_max_level(max_level);
             scheme.init_equilibrium(f, m);
 
             const double dx = L / static_cast<double>(std::size_t{1} << max_level);
@@ -193,7 +192,6 @@ namespace samurai
 
             using field_t = decltype(f);
             auto scheme   = make_lbm_scheme<field_t>("D2Q4", lambda, velocity_scheme<dim, 4>(vel, M, invM, {0., s1, s1, s2}, eq));
-            scheme.set_max_level(max_level);
             scheme.init_equilibrium(f, m);
 
             const double dx = L / static_cast<double>(std::size_t{1} << max_level);
@@ -367,7 +365,6 @@ namespace samurai
                                                        invM,
                                                        {0., 0., s2},
                                                        eq));
-            scheme.set_max_level(max_level);
 
             const std::array<std::array<int, dim>, 3> velocities{
                 {{0}, {1}, {-1}}
@@ -546,7 +543,6 @@ namespace samurai
                                                    invM,
                                                    s,
                                                    eq));
-        scheme.set_max_level(max_level);
         scheme.init_equilibrium(f, m);
 
         const auto nt   = static_cast<std::size_t>(std::round(Tf / dt));

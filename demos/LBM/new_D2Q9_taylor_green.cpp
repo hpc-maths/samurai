@@ -178,7 +178,6 @@ int main(int argc, char* argv[])
                                                         invM,
                                                         s,
                                                         eq));
-    scheme.set_max_level(max_level);
     scheme.init_equilibrium(f, m);
 
     const auto nt       = static_cast<std::size_t>(std::round(Tf / dt));

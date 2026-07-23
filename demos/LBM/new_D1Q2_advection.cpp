@@ -95,8 +95,12 @@ int main(int argc, char* argv[])
 
     // D1Q2 scheme definition
     using field_t = decltype(f);
-    std::array<std::array<double, 2>, 2> M{{{1., 1.}, {lambda, -lambda}}};
-    std::array<std::array<double, 2>, 2> invM{{{0.5, 0.5 / lambda}, {0.5, -0.5 / lambda}}};
+    std::array<std::array<double, 2>, 2> M{
+        {{1., 1.}, {lambda, -lambda}}
+    };
+    std::array<std::array<double, 2>, 2> invM{
+        {{0.5, 0.5 / lambda}, {0.5, -0.5 / lambda}}
+    };
     auto eq = [a, burgers](std::array<double, 2>& meq, std::span<const double> mm)
     {
         meq[0] = mm[0];                        // conserved
@@ -104,11 +108,16 @@ int main(int argc, char* argv[])
                          : a * mm[0];          // linear advection flux
     };
 
-    auto scheme = samurai::make_lbm_scheme<field_t>(
-        "D1Q2_advection",
-        lambda,
-        samurai::velocity_scheme<dim, 2>({{{1}, {-1}}}, M, invM, {0., s1}, eq));
-    scheme.set_max_level(max_level); // fixes dt / the level jump used by the stream
+    auto scheme = samurai::make_lbm_scheme<field_t>("D1Q2_advection",
+                                                    lambda,
+                                                    samurai::velocity_scheme<dim, 2>(
+                                                        {
+                                                            {{1}, {-1}}
+    },
+                                                        M,
+                                                        invM,
+                                                        {0., s1},
+                                                        eq));
 
     scheme.init_equilibrium(f, m);
 

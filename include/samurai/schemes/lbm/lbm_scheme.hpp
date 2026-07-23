@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cstddef>
+#include <optional>
 #include <span>
 #include <string>
 #include <tuple>
@@ -62,16 +63,6 @@ namespace samurai
         double lambda() const
         {
             return m_lambda;
-        }
-
-        /**
-         * Finest level of the hierarchy, used to compute the level jump j = max_level - level
-         * that drives the multi-level stream. If left unset (0), the current mesh finest level
-         * is used (correct for a uniform mesh, where j == 0 everywhere).
-         */
-        void set_max_level(std::size_t max_level)
-        {
-            m_max_level = max_level;
         }
 
         /**
@@ -151,9 +142,22 @@ namespace samurai
         void operator()(field_t& f, MField& m) const
         {
             update_ghost_mr(f);
-            auto f_stream = f; // same mesh; stream overwrites every (real) cell
-            stream(f, f_stream);
-            std::swap(f.array(), f_stream.array());
+
+            // Reuse a worker field for the streamed distributions instead of reallocating it every
+            // step; (re)bind it to f's mesh on the first call or after a mesh change, otherwise just
+            // resize it to the current cell count. The stream overwrites every real cell, so its
+            // previous content is irrelevant.
+            if (!m_f_stream || &m_f_stream->mesh() != &f.mesh())
+            {
+                m_f_stream.emplace("lbm_f_stream", f.mesh());
+            }
+            else
+            {
+                m_f_stream->resize();
+            }
+
+            stream(f, *m_f_stream);
+            std::swap(f.array(), m_f_stream->array());
             collide(f, m);
         }
 
@@ -269,7 +273,7 @@ namespace samurai
             const std::array<int, dim> no_shift{};
 
             auto& mesh                  = f_in.mesh();
-            const std::size_t max_level = (m_max_level == 0) ? mesh.max_level() : m_max_level;
+            const std::size_t max_level = mesh.max_level(); // configured finest level of the hierarchy
 
             for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
             {
@@ -362,8 +366,8 @@ namespace samurai
 
         std::string m_name;
         double m_lambda;
-        std::size_t m_max_level = 0; // 0 = use the current mesh finest level (uniform case)
         std::tuple<Blocks...> m_blocks;
+        mutable std::optional<field_t> m_f_stream; // worker for the streamed distributions (reused across steps)
     };
 
     /**

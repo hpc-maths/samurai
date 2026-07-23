@@ -116,7 +116,6 @@ int main(int argc, char* argv[])
                                                         invM,
                                                         {0., s1, s1, s2},
                                                         eq));
-    scheme.set_max_level(max_level);
     scheme.init_equilibrium(f, m);
 
     const double dx_fine = L / static_cast<double>(std::size_t{1} << max_level);

@@ -86,14 +86,15 @@ int main(int argc, char* argv[])
                            });
 
     // D2Q4 scheme
-    using field_t = decltype(f);
+    using field_t   = decltype(f);
     const double l  = lambda;
     const double l2 = lambda * lambda;
-    std::array<std::array<double, 4>, 4> M{{{1., 1., 1., 1.}, {l, 0., -l, 0.}, {0., l, 0., -l}, {l2, -l2, l2, -l2}}};
-    std::array<std::array<double, 4>, 4> invM{{{0.25, 0.5 / l, 0., 0.25 / l2},
-                                               {0.25, 0., 0.5 / l, -0.25 / l2},
-                                               {0.25, -0.5 / l, 0., 0.25 / l2},
-                                               {0.25, 0., -0.5 / l, -0.25 / l2}}};
+    std::array<std::array<double, 4>, 4> M{
+        {{1., 1., 1., 1.}, {l, 0., -l, 0.}, {0., l, 0., -l}, {l2, -l2, l2, -l2}}
+    };
+    std::array<std::array<double, 4>, 4> invM{
+        {{0.25, 0.5 / l, 0., 0.25 / l2}, {0.25, 0., 0.5 / l, -0.25 / l2}, {0.25, -0.5 / l, 0., 0.25 / l2}, {0.25, 0., -0.5 / l, -0.25 / l2}}
+    };
     auto eq = [ax, ay](std::array<double, 4>& meq, std::span<const double> mm)
     {
         meq[0] = mm[0];      // conserved
@@ -102,11 +103,16 @@ int main(int argc, char* argv[])
         meq[3] = 0.;         // diagonal
     };
 
-    auto scheme = samurai::make_lbm_scheme<field_t>(
-        "D2Q4_advection",
-        lambda,
-        samurai::velocity_scheme<dim, 4>({{{1, 0}, {0, 1}, {-1, 0}, {0, -1}}}, M, invM, {0., s1, s1, s2}, eq));
-    scheme.set_max_level(max_level);
+    auto scheme = samurai::make_lbm_scheme<field_t>("D2Q4_advection",
+                                                    lambda,
+                                                    samurai::velocity_scheme<dim, 4>(
+                                                        {
+                                                            {{1, 0}, {0, 1}, {-1, 0}, {0, -1}}
+    },
+                                                        M,
+                                                        invM,
+                                                        {0., s1, s1, s2},
+                                                        eq));
     scheme.init_equilibrium(f, m);
 
     const double dx_fine = L / static_cast<double>(std::size_t{1} << max_level);
@@ -146,8 +152,8 @@ int main(int argc, char* argv[])
     }
 
     std::cout << "case = D2Q4 advection, " << (adapt ? "adaptive" : "uniform") << ", max_level = " << max_level
-              << (adapt ? (", min_level = " + std::to_string(min_level)) : "") << ", cells = " << mesh.nb_cells()
-              << ", dt = " << dt << ", nt = " << nt << ", Tf_eff = " << Tf_eff << std::endl;
+              << (adapt ? (", min_level = " + std::to_string(min_level)) : "") << ", cells = " << mesh.nb_cells() << ", dt = " << dt
+              << ", nt = " << nt << ", Tf_eff = " << Tf_eff << std::endl;
 
     // Error vs exact u(x,y,t) = u0(x - ax t, y - ay t) (periodic wrap), area-weighted
     double err_l2 = 0.;
