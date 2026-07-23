@@ -11,6 +11,9 @@ target_link_libraries(lbm-new-D2Q4-advection samurai)
 add_executable(lbm-new-D1Q3-shallow-waters-dam new_D1Q3_shallow_waters_dam.cpp)
 target_link_libraries(lbm-new-D1Q3-shallow-waters-dam samurai)
 
+add_executable(lbm-new-D2Q4diag-advection new_D2Q4diag_advection.cpp)
+target_link_libraries(lbm-new-D2Q4diag-advection samurai)
+
 # ---------------------------------------------------------------------------
 # Legacy demos (outdated: overleaves, hand-rolled prediction maps, old BC).
 # Kept for reference during the migration to schemes/lbm; not built for now.
