@@ -10,11 +10,9 @@
 //   m3 = v  = lambda^3 (f1 - f2 + 8 f3 - 8 f4)               (relaxed towards q lambda^2)
 //   m4 = z  = lambda^4 (f1 + f2 + 16 f3 + 16 f4)             (relaxed towards (q^2/h + 1/2 g h^2) lambda^2)
 //
-// The domain is NON-periodic with a zero-gradient (constant extension) boundary on both sides,
-// realised as a homogeneous Neumann condition on the distributions f; the dam-break waves leave
-// the domain (open ends) so the water mass is not exactly conserved once a wave reaches a border,
-// but it stays bounded and positive. This is the 1D counterpart of the 2D diagonal / |c| > 1
-// streaming validation (see new_D2Q4diag_advection).
+// The domain is NON-periodic with a zero-gradient (constant extension) boundary on both sides
+// (homogeneous Neumann on the distributions f). Multiresolution adaptation is enabled by default
+// (set --min-level equal to --max-level for a uniform mesh).
 
 #include <cmath>
 #include <limits>
@@ -40,43 +38,39 @@ int main(int argc, char* argv[])
     static constexpr std::size_t dim = 1;
     using Box                        = samurai::Box<double, dim>;
 
-    // Parameters
-    double left_box       = -1.;
-    double right_box      = 1.;
-    std::size_t max_level = 8;
-    std::size_t min_level = 2;
-    double eps            = 1e-4;
-    bool adapt            = false;
-    double lambda         = 2.;
-    double g              = 1.;
-    double s2             = 1.; // relaxation of the non-conserved moments (k, v, z)
-    double hL             = 2.; // left  water height
-    double hR             = 1.; // right water height
-    double Tf             = 0.35;
-    fs::path path         = fs::current_path();
-    std::string filename  = "new_D1Q5_shallow_waters_dam";
+    // Simulation parameters
+    double left_box  = -1.;
+    double right_box = 1.;
+    double lambda    = 2.;
+    double g         = 1.;
+    double s2        = 1.; // relaxation of the non-conserved moments (k, v, z)
+    double hL        = 2.; // left  water height
+    double hR        = 1.; // right water height
+    double Tf        = 0.35;
 
-    app.add_option("--level", max_level, "Finest level")->capture_default_str();
-    app.add_option("--min-lvl", min_level, "Coarsest level (adaptive)")->capture_default_str();
-    app.add_flag("--adapt", adapt, "Enable multiresolution adaptation")->capture_default_str();
-    app.add_option("--eps", eps, "MR adaptation threshold")->capture_default_str();
-    app.add_option("--lambda", lambda, "Lattice velocity")->capture_default_str();
-    app.add_option("--gravity", g, "Gravity")->capture_default_str();
-    app.add_option("--s", s2, "Relaxation parameter of the non-conserved moments")->capture_default_str();
-    app.add_option("--hL", hL, "Left water height")->capture_default_str();
-    app.add_option("--hR", hR, "Right water height")->capture_default_str();
-    app.add_option("--Tf", Tf, "Final time")->capture_default_str();
-    app.add_option("--path", path, "Output path")->capture_default_str();
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str();
+    // Output parameters
+    fs::path path        = fs::current_path();
+    std::string filename = "new_D1Q5_shallow_waters_dam";
+    std::size_t nfiles   = 1;
+
+    app.add_option("--left", left_box, "Left border of the box")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--right", right_box, "Right border of the box")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--lambda", lambda, "Lattice velocity")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--gravity", g, "Gravity")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--s", s2, "Relaxation parameter of the non-conserved moments")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--hL", hL, "Left water height")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--hR", hR, "Right water height")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
+    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
     SAMURAI_PARSE(argc, argv);
 
-    // NON-periodic mesh (uniform if !adapt, else min_level..max_level).
+    // NON-periodic mesh. Default levels (overridden by --min-level / --max-level); min < max enables
+    // multiresolution, min == max gives a uniform mesh.
     const Box box({left_box}, {right_box});
-    const std::size_t ml = adapt ? min_level : max_level;
-    auto config          = samurai::mesh_config<dim>().min_level(ml).max_level(max_level).periodic(false).max_stencil_size(4);
-    auto mesh            = samurai::mra::make_mesh(box, config);
-
-    const double L = right_box - left_box;
+    auto config = samurai::mesh_config<dim>().min_level(4).max_level(9).periodic(false).max_stencil_size(4).graduation_width(2);
+    auto mesh   = samurai::mra::make_mesh(box, config);
 
     // Fields: n_comp = 5 (D1Q5)
     auto m = samurai::make_vector_field<double, 5>("m", mesh);
@@ -142,27 +136,53 @@ int main(int argc, char* argv[])
     scheme.init_equilibrium(f, m);
 
     // Time stepping: lambda = dx_fine / dt  =>  one-cell stream per step at the finest level
-    const double dx_fine = L / static_cast<double>(std::size_t{1} << max_level);
-    const double dt      = dx_fine / lambda;
-    const auto nt        = static_cast<std::size_t>(std::round(Tf / dt));
-    const double Tf_eff  = static_cast<double>(nt) * dt;
+    const double dt = mesh.min_cell_length() / lambda;
+
+    // Save the height and velocity (and the mesh level) at a given output index.
+    auto save_solution = [&](const std::string& suffix)
+    {
+        auto level = samurai::make_scalar_field<std::size_t>("level", mesh);
+        auto h     = samurai::make_scalar_field<double>("h", mesh);
+        auto u     = samurai::make_scalar_field<double>("u", mesh);
+        samurai::for_each_cell(mesh,
+                               [&](const auto& cell)
+                               {
+                                   level[cell] = cell.level;
+                                   h[cell]     = m[cell](0);
+                                   u[cell]     = m[cell](1) / m[cell](0);
+                               });
+        samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, m, h, u, level);
+    };
 
     auto MRadaptation = samurai::make_MRAdapt(f);
-    auto mra_config   = samurai::mra_config().epsilon(eps);
-    if (adapt)
-    {
-        MRadaptation(mra_config);
-        m.resize();
-    }
+    auto mra_config   = samurai::mra_config();
+    mra_config.parse_args();
+    MRadaptation(mra_config, m);
+    save_solution("_init");
 
-    for (std::size_t n = 0; n < nt; ++n)
+    const double dt_save = Tf / static_cast<double>(nfiles);
+    std::size_t nsave    = 1;
+    std::size_t nt       = 0;
+    double t             = 0.;
+    while (t != Tf)
     {
-        if (adapt)
+        MRadaptation(mra_config, m);
+
+        t += dt;
+        if (t > Tf)
         {
-            MRadaptation(mra_config);
-            m.resize();
+            t = Tf;
         }
+
+        std::cout << fmt::format("iteration {}: t = {:.4f}, dt = {:.4e}", nt++, t, dt) << std::endl;
+
         scheme(f, m);
+
+        if (t >= static_cast<double>(nsave) * dt_save || t == Tf)
+        {
+            const std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
+            save_solution(suffix);
+        }
     }
 
     double hmin = std::numeric_limits<double>::max();
@@ -173,22 +193,7 @@ int main(int argc, char* argv[])
                                hmin = std::min(hmin, m[cell](0));
                                hmax = std::max(hmax, m[cell](0));
                            });
-
-    std::cout << "case = D1Q5 shallow-water dam, " << (adapt ? "adaptive" : "uniform") << ", max_level = " << max_level
-              << (adapt ? (", min_level = " + std::to_string(min_level)) : "") << ", cells = " << mesh.nb_cells() << ", dt = " << dt
-              << ", nt = " << nt << ", Tf_eff = " << Tf_eff << std::endl;
-    std::cout << "h in [" << hmin << ", " << hmax << "]" << std::endl;
-
-    // Diagnostic fields for the output
-    auto h = samurai::make_scalar_field<double>("h", mesh);
-    auto u = samurai::make_scalar_field<double>("u", mesh);
-    samurai::for_each_cell(mesh,
-                           [&](const auto& cell)
-                           {
-                               h[cell] = m[cell](0);
-                               u[cell] = m[cell](1) / m[cell](0);
-                           });
-    samurai::save(path, filename, mesh, m, h, u);
+    std::cout << "cells = " << mesh.nb_cells() << ", h in [" << hmin << ", " << hmax << "]" << std::endl;
 
     samurai::finalize();
     return 0;

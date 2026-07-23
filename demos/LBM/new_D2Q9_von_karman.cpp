@@ -39,46 +39,41 @@ int main(int argc, char* argv[])
     static constexpr std::size_t dim = 2;
     using Box                        = samurai::Box<double, dim>;
 
-    std::size_t max_level = 7;
-    std::size_t min_level = 4;
-    double eps            = 1e-3;
-    bool adapt            = false;
-    double lambda         = 1.;
-    double rho0           = 1.;
-    double u0             = 0.1;  // free-stream velocity (<< cs = lambda/sqrt(3))
-    double Re             = 100.; // Reynolds number on the cylinder diameter
-    double radius         = 1. / 16.;
-    double cx             = 0.5; // cylinder centre
-    double cy             = 0.5;
-    double Tf             = 20.;
-    fs::path path         = fs::current_path();
-    std::string filename  = "new_D2Q9_von_karman";
+    // Simulation parameters
+    double lambda = 1.;
+    double rho0   = 1.;
+    double u0     = 0.1;  // free-stream velocity (<< cs = lambda/sqrt(3))
+    double Re     = 100.; // Reynolds number on the cylinder diameter
+    double radius = 1. / 16.;
+    double cx     = 0.5; // cylinder centre
+    double cy     = 0.5;
+    double Tf     = 20.;
 
-    app.add_option("--level", max_level, "Finest level")->capture_default_str();
-    app.add_option("--min-lvl", min_level, "Coarsest level (adaptive)")->capture_default_str();
-    app.add_flag("--adapt", adapt, "Enable multiresolution adaptation")->capture_default_str();
-    app.add_option("--eps", eps, "MR adaptation threshold")->capture_default_str();
-    app.add_option("--lambda", lambda, "Lattice velocity")->capture_default_str();
-    app.add_option("--u0", u0, "Free-stream velocity")->capture_default_str();
-    app.add_option("--Re", Re, "Reynolds number (on the diameter)")->capture_default_str();
-    app.add_option("--radius", radius, "Cylinder radius")->capture_default_str();
-    app.add_option("--Tf", Tf, "Final time")->capture_default_str();
-    app.add_option("--path", path, "Output path")->capture_default_str();
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str();
+    // Output parameters
+    fs::path path        = fs::current_path();
+    std::string filename = "new_D2Q9_von_karman";
+    std::size_t nfiles   = 1;
+
+    app.add_option("--lambda", lambda, "Lattice velocity")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--u0", u0, "Free-stream velocity")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--Re", Re, "Reynolds number (on the diameter)")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--radius", radius, "Cylinder radius")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
+    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
     SAMURAI_PARSE(argc, argv);
 
-    // Channel [0,2] x [0,1] (uniform if !adapt, else min_level..max_level), non-periodic.
+    // Channel [0,2] x [0,1], non-periodic.
     const Box box({0., 0.}, {2., 1.});
-    const std::size_t ml = adapt ? min_level : max_level;
-    auto config          = samurai::mesh_config<dim>().min_level(ml).max_level(max_level).periodic(false).max_stencil_size(4);
-    auto mesh            = samurai::mra::make_mesh(box, config);
+    auto config = samurai::mesh_config<dim>().min_level(4).max_level(7).periodic(false).max_stencil_size(4).graduation_width(2);
+    auto mesh   = samurai::mra::make_mesh(box, config);
 
-    const double dx_fine = 1. / static_cast<double>(std::size_t{1} << max_level);
-    const double dt      = dx_fine / lambda;
-    const double cs2     = lambda * lambda / 3.;
-    const double diam    = 2. * radius;
-    const double nu      = u0 * diam / Re;               // kinematic viscosity from the Reynolds number
-    const double s_nu    = 1. / (0.5 + nu / (cs2 * dt)); // shear relaxation fixing nu
+    const double dt   = mesh.min_cell_length() / lambda;
+    const double cs2  = lambda * lambda / 3.;
+    const double diam = 2. * radius;
+    const double nu   = u0 * diam / Re;               // kinematic viscosity from the Reynolds number
+    const double s_nu = 1. / (0.5 + nu / (cs2 * dt)); // shear relaxation fixing nu
 
     // Fraction of a cell inside the cylinder, by n x n subsampling (0 outside, 1 fully inside).
     auto solid_fraction = [&](double xc, double yc, double h)
@@ -228,30 +223,77 @@ int main(int argc, char* argv[])
         return std::array<double, 2>{Fx / norm, Fy / norm};
     };
 
-    const auto nt       = static_cast<std::size_t>(std::round(Tf / dt));
-    const double Tf_eff = static_cast<double>(nt) * dt;
+    // Save the level, the diagnostics (rho, velocity) and the solid fraction at a given output
+    // index. The moments are refreshed from the distributions first, since the penalisation
+    // modifies f after the last collision.
+    auto save_solution = [&](const std::string& suffix)
+    {
+        samurai::for_each_cell(mesh,
+                               [&](const auto& cell)
+                               {
+                                   auto fc    = f[cell];
+                                   double rho = 0., qx = 0., qy = 0.;
+                                   for (std::size_t a = 0; a < 9; ++a)
+                                   {
+                                       rho += fc(a);
+                                       qx += M[1][a] * fc(a);
+                                       qy += M[2][a] * fc(a);
+                                   }
+                                   m[cell](0) = rho;
+                                   m[cell](1) = qx;
+                                   m[cell](2) = qy;
+                               });
+
+        auto level    = samurai::make_scalar_field<std::size_t>("level", mesh);
+        auto rho      = samurai::make_scalar_field<double>("rho", mesh);
+        auto velocity = samurai::make_vector_field<double, 2>("velocity", mesh);
+        auto solid    = samurai::make_scalar_field<double>("solid", mesh);
+        samurai::for_each_cell(mesh,
+                               [&](const auto& cell)
+                               {
+                                   level[cell]       = cell.level;
+                                   rho[cell]         = m[cell](0);
+                                   velocity[cell](0) = m[cell](1) / m[cell](0);
+                                   velocity[cell](1) = m[cell](2) / m[cell](0);
+                                   solid[cell]       = solid_fraction(cell.center(0), cell.center(1), cell.length);
+                               });
+        samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, m, rho, velocity, solid, level);
+    };
 
     auto MRadaptation = samurai::make_MRAdapt(f);
-    auto mra_config   = samurai::mra_config().epsilon(eps);
-    if (adapt)
-    {
-        MRadaptation(mra_config);
-        m.resize();
-    }
+    auto mra_config   = samurai::mra_config();
+    mra_config.parse_args();
+    MRadaptation(mra_config, m);
+    save_solution("_init");
 
+    const double dt_save = Tf / static_cast<double>(nfiles);
+    std::size_t nsave    = 1;
+    std::size_t nt       = 0;
+    double t             = 0.;
     std::array<double, 2> cdl{0., 0.};
-    for (std::size_t n = 0; n < nt; ++n)
+    while (t != Tf)
     {
-        if (adapt)
+        MRadaptation(mra_config, m);
+
+        t += dt;
+        if (t > Tf)
         {
-            MRadaptation(mra_config);
-            m.resize();
+            t = Tf;
         }
+
+        std::cout << fmt::format("iteration {}: t = {:.4f}, dt = {:.4e}", nt++, t, dt) << std::endl;
+
         scheme(f, m);
         cdl = penalise();
+
+        if (t >= static_cast<double>(nsave) * dt_save || t == Tf)
+        {
+            const std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
+            save_solution(suffix);
+        }
     }
 
-    // Recompute the moments from the penalised distributions for the diagnostics / output.
+    // Recompute the moments from the penalised distributions for the final diagnostics.
     double umax = 0., u_solid_max = 0.;
     double rhomin = std::numeric_limits<double>::max(), rhomax = std::numeric_limits<double>::lowest();
     samurai::for_each_cell(mesh,
@@ -278,25 +320,9 @@ int main(int argc, char* argv[])
                                }
                            });
 
-    std::cout << "case = D2Q9 von Karman, " << (adapt ? "adaptive" : "uniform") << ", max_level = " << max_level
-              << (adapt ? (", min_level = " + std::to_string(min_level)) : "") << ", cells = " << mesh.nb_cells() << ", Re = " << Re
-              << ", nu = " << nu << ", s_nu = " << s_nu << ", dt = " << dt << ", nt = " << nt << ", Tf_eff = " << Tf_eff << std::endl;
+    std::cout << "cells = " << mesh.nb_cells() << ", Re = " << Re << ", nu = " << nu << ", s_nu = " << s_nu << ", dt = " << dt << std::endl;
     std::cout << "rho in [" << rhomin << ", " << rhomax << "], |u|max = " << umax << ", |u|max in solid = " << u_solid_max
               << ", Cd = " << cdl[0] << ", Cl = " << cdl[1] << std::endl;
-
-    // Diagnostic fields for the output
-    auto rho       = samurai::make_scalar_field<double>("rho", mesh);
-    auto vel_field = samurai::make_vector_field<double, 2>("velocity", mesh);
-    auto vort      = samurai::make_scalar_field<double>("solid", mesh);
-    samurai::for_each_cell(mesh,
-                           [&](const auto& cell)
-                           {
-                               rho[cell]          = m[cell](0);
-                               vel_field[cell](0) = m[cell](1) / m[cell](0);
-                               vel_field[cell](1) = m[cell](2) / m[cell](0);
-                               vort[cell]         = solid_fraction(cell.center(0), cell.center(1), cell.length);
-                           });
-    samurai::save(path, filename, mesh, m, rho, vel_field, vort);
 
     samurai::finalize();
     return 0;

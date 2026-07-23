@@ -94,8 +94,8 @@ def test_lbm_demo_d2q9_taylor_green(config):
 @pytest.mark.parametrize(
     "case, extra",
     [
-        ("uniform", ["--level", "7", "--Tf", "0.2"]),
-        ("adaptive", ["--adapt", "--level", "8", "--min-lvl", "3", "--eps", "1e-4", "--Tf", "0.2"]),
+        ("uniform", ["--min-level", "7", "--max-level", "7", "--Tf", "0.2", "--nfiles", "1"]),
+        ("adaptive", ["--min-level", "3", "--max-level", "8", "--mr-eps", "1e-4", "--Tf", "0.2", "--nfiles", "1"]),
     ],
 )
 def test_lbm_demo_d1q5_dam(case, extra, config):
@@ -107,8 +107,8 @@ def test_lbm_demo_d1q5_dam(case, extra, config):
 @pytest.mark.parametrize(
     "case, extra",
     [
-        ("uniform", ["--level", "8", "--Tf", "0.2"]),
-        ("adaptive", ["--adapt", "--level", "9", "--min-lvl", "3", "--eps", "1e-3", "--Tf", "0.2"]),
+        ("uniform", ["--min-level", "8", "--max-level", "8", "--Tf", "0.2", "--nfiles", "1"]),
+        ("adaptive", ["--min-level", "3", "--max-level", "9", "--mr-eps", "1e-3", "--Tf", "0.2", "--nfiles", "1"]),
     ],
 )
 def test_lbm_demo_d1q222_sod(case, extra, config):
@@ -120,8 +120,8 @@ def test_lbm_demo_d1q222_sod(case, extra, config):
 @pytest.mark.parametrize(
     "case, extra",
     [
-        ("uniform", ["--level", "5", "--Tf", "0.1"]),
-        ("adaptive", ["--adapt", "--level", "6", "--min-lvl", "2", "--eps", "1e-3", "--Tf", "0.1"]),
+        ("uniform", ["--min-level", "5", "--max-level", "5", "--Tf", "0.1", "--nfiles", "1"]),
+        ("adaptive", ["--min-level", "2", "--max-level", "6", "--mr-eps", "1e-3", "--Tf", "0.1", "--nfiles", "1"]),
     ],
 )
 def test_lbm_demo_d2q4444_lax_liu(case, extra, config):
@@ -133,8 +133,8 @@ def test_lbm_demo_d2q4444_lax_liu(case, extra, config):
 @pytest.mark.parametrize(
     "case, extra",
     [
-        ("uniform", ["--level", "5", "--Tf", "0.3"]),
-        ("adaptive", ["--adapt", "--level", "6", "--min-lvl", "2", "--eps", "1e-3", "--Tf", "0.3"]),
+        ("uniform", ["--min-level", "5", "--max-level", "5", "--Tf", "0.3", "--nfiles", "1"]),
+        ("adaptive", ["--min-level", "2", "--max-level", "6", "--mr-eps", "1e-3", "--Tf", "0.3", "--nfiles", "1"]),
     ],
 )
 def test_lbm_demo_d2q4444_implosion(case, extra, config):
@@ -146,8 +146,8 @@ def test_lbm_demo_d2q4444_implosion(case, extra, config):
 @pytest.mark.parametrize(
     "case, extra",
     [
-        ("uniform", ["--level", "6", "--Tf", "0.5"]),
-        ("adaptive", ["--adapt", "--level", "7", "--min-lvl", "2", "--eps", "1e-3", "--Tf", "0.5"]),
+        ("uniform", ["--min-level", "6", "--max-level", "6", "--Tf", "0.5", "--nfiles", "1"]),
+        ("adaptive", ["--min-level", "2", "--max-level", "7", "--mr-eps", "1e-3", "--Tf", "0.5", "--nfiles", "1"]),
     ],
 )
 def test_lbm_demo_d2q5444_rayleigh_taylor(case, extra, config):
@@ -159,8 +159,8 @@ def test_lbm_demo_d2q5444_rayleigh_taylor(case, extra, config):
 @pytest.mark.parametrize(
     "case, extra",
     [
-        ("uniform", ["--level", "5", "--Tf", "2"]),
-        ("adaptive", ["--adapt", "--level", "6", "--min-lvl", "4", "--eps", "1e-3", "--Tf", "1"]),
+        ("uniform", ["--min-level", "5", "--max-level", "5", "--Tf", "2", "--nfiles", "1"]),
+        ("adaptive", ["--min-level", "4", "--max-level", "6", "--mr-eps", "1e-3", "--Tf", "1", "--nfiles", "1"]),
     ],
 )
 def test_lbm_demo_d2q9_von_karman(case, extra, config):

@@ -49,7 +49,7 @@ namespace samurai
             const double left = -1., right = 1., L = right - left;
 
             Box<double, dim> box({left}, {right});
-            auto cfg  = mesh_config<dim>().min_level(max_level).max_level(max_level).periodic(true).max_stencil_size(4);
+            auto cfg  = mesh_config<dim>().min_level(max_level).max_level(max_level).periodic(true).max_stencil_size(4).graduation_width(2);
             auto mesh = mra::make_mesh(box, cfg);
 
             auto u0 = [&](double x)
@@ -142,8 +142,8 @@ namespace samurai
 
             Box<double, dim> box({left, left}, {right, right});
             const std::size_t ml = adapt ? 2 : max_level;
-            auto cfg             = mesh_config<dim>().min_level(ml).max_level(max_level).periodic(true).max_stencil_size(4);
-            auto mesh            = mra::make_mesh(box, cfg);
+            auto cfg  = mesh_config<dim>().min_level(ml).max_level(max_level).periodic(true).max_stencil_size(4).graduation_width(2);
+            auto mesh = mra::make_mesh(box, cfg);
 
             auto u0 = [&](double x, double y)
             {
@@ -325,8 +325,8 @@ namespace samurai
 
             Box<double, dim> box({left}, {right});
             const std::size_t ml = adapt ? 3 : max_level;
-            auto cfg             = mesh_config<dim>().min_level(ml).max_level(max_level).periodic(false).max_stencil_size(4);
-            auto mesh            = mra::make_mesh(box, cfg);
+            auto cfg  = mesh_config<dim>().min_level(ml).max_level(max_level).periodic(false).max_stencil_size(4).graduation_width(2);
+            auto mesh = mra::make_mesh(box, cfg);
 
             auto m = make_vector_field<double, 5>("m", mesh);
             auto f = make_vector_field<double, 5>("f", mesh);
@@ -457,8 +457,8 @@ namespace samurai
 
             Box<double, dim> box({left}, {right});
             const std::size_t ml = adapt ? 3 : max_level;
-            auto cfg             = mesh_config<dim>().min_level(ml).max_level(max_level).periodic(false).max_stencil_size(4);
-            auto mesh            = mra::make_mesh(box, cfg);
+            auto cfg  = mesh_config<dim>().min_level(ml).max_level(max_level).periodic(false).max_stencil_size(4).graduation_width(2);
+            auto mesh = mra::make_mesh(box, cfg);
 
             auto m = make_vector_field<double, 6>("m", mesh);
             auto f = make_vector_field<double, 6>("f", mesh);
@@ -597,8 +597,8 @@ namespace samurai
 
             Box<double, dim> box({0., 0.}, {1., 1.});
             const std::size_t ml = adapt ? 2 : max_level;
-            auto cfg             = mesh_config<dim>().min_level(ml).max_level(max_level).periodic(false).max_stencil_size(4);
-            auto mesh            = mra::make_mesh(box, cfg);
+            auto cfg  = mesh_config<dim>().min_level(ml).max_level(max_level).periodic(false).max_stencil_size(4).graduation_width(2);
+            auto mesh = mra::make_mesh(box, cfg);
 
             auto m = make_vector_field<double, 16>("m", mesh);
             auto f = make_vector_field<double, 16>("f", mesh);
@@ -753,7 +753,7 @@ namespace samurai
             const double l = lambda, l2 = l * l;
 
             Box<double, dim> box({0., 0.}, {1., 1.});
-            auto cfg  = mesh_config<dim>().min_level(max_level).max_level(max_level).periodic(false).max_stencil_size(4);
+            auto cfg = mesh_config<dim>().min_level(max_level).max_level(max_level).periodic(false).max_stencil_size(4).graduation_width(2);
             auto mesh = mra::make_mesh(box, cfg);
 
             auto m = make_vector_field<double, 16>("m", mesh);
@@ -910,7 +910,7 @@ namespace samurai
             constexpr double pi = 3.14159265358979323846;
 
             Box<double, dim> box({0., 0.}, {1., 1.});
-            auto cfg  = mesh_config<dim>().min_level(max_level).max_level(max_level).periodic(false).max_stencil_size(4);
+            auto cfg = mesh_config<dim>().min_level(max_level).max_level(max_level).periodic(false).max_stencil_size(4).graduation_width(2);
             auto mesh = mra::make_mesh(box, cfg);
 
             auto m = make_vector_field<double, 17>("m", mesh);
@@ -1113,7 +1113,7 @@ namespace samurai
             const double left = -1., right = 1., L = right - left;
 
             Box<double, dim> box({left}, {right});
-            auto cfg  = mesh_config<dim>().min_level(max_level).max_level(max_level).periodic(false).max_stencil_size(4);
+            auto cfg = mesh_config<dim>().min_level(max_level).max_level(max_level).periodic(false).max_stencil_size(4).graduation_width(2);
             auto mesh = mra::make_mesh(box, cfg);
 
             auto m = make_vector_field<double, 3>("m", mesh);
@@ -1233,7 +1233,7 @@ namespace samurai
         const double left = 0., right = 2. * pi;
 
         Box<double, dim> box({left, left}, {right, right});
-        auto cfg  = mesh_config<dim>().min_level(max_level).max_level(max_level).periodic(true).max_stencil_size(4);
+        auto cfg  = mesh_config<dim>().min_level(max_level).max_level(max_level).periodic(true).max_stencil_size(4).graduation_width(2);
         auto mesh = mra::make_mesh(box, cfg);
 
         const double dx   = (right - left) / static_cast<double>(std::size_t{1} << max_level);
@@ -1401,8 +1401,8 @@ namespace samurai
 
             Box<double, dim> box({0., 0.}, {2., 1.});
             const std::size_t ml = adapt ? 4 : max_level;
-            auto cfg             = mesh_config<dim>().min_level(ml).max_level(max_level).periodic(false).max_stencil_size(4);
-            auto mesh            = mra::make_mesh(box, cfg);
+            auto cfg  = mesh_config<dim>().min_level(ml).max_level(max_level).periodic(false).max_stencil_size(4).graduation_width(2);
+            auto mesh = mra::make_mesh(box, cfg);
 
             const double dx_fine = 1. / static_cast<double>(std::size_t{1} << max_level);
             const double dt      = dx_fine / lambda;

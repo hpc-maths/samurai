@@ -68,6 +68,9 @@
             <Attribute Name="p" Center="Cell">
                 <DataItem Dimensions="1024" Format="HDF" Precision="8">test_lbm_demo_d2q4444_implosion_uniform-extra0.h5:/mesh/fields/p</DataItem>
             </Attribute>
+            <Attribute Name="level" Center="Cell">
+                <DataItem Dimensions="1024" Format="HDF" Precision="8">test_lbm_demo_d2q4444_implosion_uniform-extra0.h5:/mesh/fields/level</DataItem>
+            </Attribute>
         </Grid>
     </Domain>
 </Xdmf>

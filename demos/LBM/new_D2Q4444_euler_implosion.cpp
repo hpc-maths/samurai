@@ -39,35 +39,30 @@ int main(int argc, char* argv[])
     static constexpr std::size_t dim = 2;
     using Box                        = samurai::Box<double, dim>;
 
-    // Parameters
-    std::size_t max_level = 7;
-    std::size_t min_level = 2;
-    double eps            = 1e-4;
-    bool adapt            = false;
-    double lambda         = 10.;
-    double gamma          = 1.4;
-    double s_x            = 1.9; // relaxation of the flux moments (all blocks)
-    double Tf             = 1.5;
-    fs::path path         = fs::current_path();
-    std::string filename  = "new_D2Q4444_euler_implosion";
+    // Simulation parameters
+    double lambda = 10.;
+    double gamma  = 1.4;
+    double s_x    = 1.9; // relaxation of the flux moments (all blocks)
+    double Tf     = 1.5;
 
-    app.add_option("--level", max_level, "Finest level")->capture_default_str();
-    app.add_option("--min-lvl", min_level, "Coarsest level (adaptive)")->capture_default_str();
-    app.add_flag("--adapt", adapt, "Enable multiresolution adaptation")->capture_default_str();
-    app.add_option("--eps", eps, "MR adaptation threshold")->capture_default_str();
-    app.add_option("--lambda", lambda, "Lattice velocity")->capture_default_str();
-    app.add_option("--gamma", gamma, "Ratio of specific heats")->capture_default_str();
-    app.add_option("--s", s_x, "Relaxation parameter of the flux moments")->capture_default_str();
-    app.add_option("--Tf", Tf, "Final time")->capture_default_str();
-    app.add_option("--path", path, "Output path")->capture_default_str();
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str();
+    // Output parameters
+    fs::path path        = fs::current_path();
+    std::string filename = "new_D2Q4444_euler_implosion";
+    std::size_t nfiles   = 1;
+
+    app.add_option("--lambda", lambda, "Lattice velocity")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--gamma", gamma, "Ratio of specific heats")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--s", s_x, "Relaxation parameter of the flux moments")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
+    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
+    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
     SAMURAI_PARSE(argc, argv);
 
-    // Closed box [0,1]^2 (uniform if !adapt, else min_level..max_level).
+    // Closed box [0,1]^2.
     const Box box({0., 0.}, {1., 1.});
-    const std::size_t ml = adapt ? min_level : max_level;
-    auto mesh_config     = samurai::mesh_config<dim>().min_level(ml).max_level(max_level).periodic(false).max_stencil_size(4);
-    auto mesh            = samurai::mra::make_mesh(box, mesh_config);
+    auto config = samurai::mesh_config<dim>().min_level(2).max_level(7).periodic(false).max_stencil_size(4).graduation_width(2);
+    auto mesh   = samurai::mra::make_mesh(box, config);
 
     // Fields: n_comp = 16 (D2Q4444)
     auto m = samurai::make_vector_field<double, 16>("m", mesh);
@@ -164,19 +159,38 @@ int main(int argc, char* argv[])
 
     scheme.init_equilibrium(f, m);
 
-    const double dx_fine = 1. / static_cast<double>(std::size_t{1} << max_level);
-    const double dt      = dx_fine / lambda;
-    const auto nt        = static_cast<std::size_t>(std::round(Tf / dt));
-    const double Tf_eff  = static_cast<double>(nt) * dt;
+    // Time stepping: lambda = dx_fine / dt  =>  one-cell stream per step at the finest level
+    const double dt = mesh.min_cell_length() / lambda;
+
+    // Save the diagnostic fields (density, velocity, pressure) and the mesh level at a given
+    // output index.
+    auto save_solution = [&](const std::string& suffix)
+    {
+        auto level    = samurai::make_scalar_field<std::size_t>("level", mesh);
+        auto rho      = samurai::make_scalar_field<double>("rho", mesh);
+        auto velocity = samurai::make_vector_field<double, 2>("velocity", mesh);
+        auto p        = samurai::make_scalar_field<double>("p", mesh);
+        samurai::for_each_cell(mesh,
+                               [&](const auto& cell)
+                               {
+                                   level[cell]       = cell.level;
+                                   rho[cell]         = m[cell](0);
+                                   velocity[cell](0) = m[cell](4) / m[cell](0);
+                                   velocity[cell](1) = m[cell](8) / m[cell](0);
+                                   p[cell]           = (gamma - 1.)
+                                           * (m[cell](12) - 0.5 * (m[cell](4) * m[cell](4) + m[cell](8) * m[cell](8)) / m[cell](0));
+                               });
+        samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, m, rho, velocity, p, level);
+    };
 
     auto MRadaptation = samurai::make_MRAdapt(f);
-    auto mra_config   = samurai::mra_config().epsilon(eps);
-    if (adapt)
-    {
-        MRadaptation(mra_config);
-        m.resize();
-    }
+    auto mra_config   = samurai::mra_config();
+    mra_config.parse_args();
+    MRadaptation(mra_config, m);
+    save_solution("_init");
 
+    // Total mass (integral of rho = f0 + f1 + f2 + f3), computed right before the time loop to
+    // track its conservation through the reflecting walls.
     auto mass = [&]()
     {
         double s = 0.;
@@ -190,14 +204,29 @@ int main(int argc, char* argv[])
     };
     const double mass0 = mass();
 
-    for (std::size_t n = 0; n < nt; ++n)
+    const double dt_save = Tf / static_cast<double>(nfiles);
+    std::size_t nsave    = 1;
+    std::size_t nt       = 0;
+    double t             = 0.;
+    while (t != Tf)
     {
-        if (adapt)
+        MRadaptation(mra_config, m);
+
+        t += dt;
+        if (t > Tf)
         {
-            MRadaptation(mra_config);
-            m.resize();
+            t = Tf;
         }
+
+        std::cout << fmt::format("iteration {}: t = {:.4f}, dt = {:.4e}", nt++, t, dt) << std::endl;
+
         scheme(f, m);
+
+        if (t >= static_cast<double>(nsave) * dt_save || t == Tf)
+        {
+            const std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
+            save_solution(suffix);
+        }
     }
 
     double rhomin = std::numeric_limits<double>::max();
@@ -215,30 +244,8 @@ int main(int argc, char* argv[])
                                rhomax          = std::max(rhomax, r);
                                pmin            = std::min(pmin, p);
                            });
-
-    std::cout << "case = D2Q4444 Euler implosion, " << (adapt ? "adaptive" : "uniform") << ", max_level = " << max_level
-              << (adapt ? (", min_level = " + std::to_string(min_level)) : "") << ", cells = " << mesh.nb_cells() << ", dt = " << dt
-              << ", nt = " << nt << ", Tf_eff = " << Tf_eff << std::endl;
-    std::cout << "mass drift = " << std::abs(mass() - mass0) << ", rho in [" << rhomin << ", " << rhomax << "], p_min = " << pmin
-              << std::endl;
-
-    // Diagnostic fields for the output
-    auto rho       = samurai::make_scalar_field<double>("rho", mesh);
-    auto vel_field = samurai::make_vector_field<double, 2>("velocity", mesh);
-    auto p         = samurai::make_scalar_field<double>("p", mesh);
-    samurai::for_each_cell(mesh,
-                           [&](const auto& cell)
-                           {
-                               const double r     = m[cell](0);
-                               const double qx    = m[cell](4);
-                               const double qy    = m[cell](8);
-                               const double E     = m[cell](12);
-                               rho[cell]          = r;
-                               vel_field[cell](0) = qx / r;
-                               vel_field[cell](1) = qy / r;
-                               p[cell]            = (gamma - 1.) * (E - 0.5 * (qx * qx + qy * qy) / r);
-                           });
-    samurai::save(path, filename, mesh, m, rho, vel_field, p);
+    std::cout << "cells = " << mesh.nb_cells() << ", mass drift = " << std::abs(mass() - mass0) << ", rho in [" << rhomin << ", " << rhomax
+              << "], p_min = " << pmin << std::endl;
 
     samurai::finalize();
     return 0;

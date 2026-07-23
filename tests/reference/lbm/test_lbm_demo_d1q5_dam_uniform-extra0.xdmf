@@ -29,6 +29,9 @@
             <Attribute Name="u" Center="Cell">
                 <DataItem Dimensions="128" Format="HDF" Precision="8">test_lbm_demo_d1q5_dam_uniform-extra0.h5:/mesh/fields/u</DataItem>
             </Attribute>
+            <Attribute Name="level" Center="Cell">
+                <DataItem Dimensions="128" Format="HDF" Precision="8">test_lbm_demo_d1q5_dam_uniform-extra0.h5:/mesh/fields/level</DataItem>
+            </Attribute>
         </Grid>
     </Domain>
 </Xdmf>

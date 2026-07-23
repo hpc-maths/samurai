@@ -47,6 +47,9 @@
             <Attribute Name="solid" Center="Cell">
                 <DataItem Dimensions="2048" Format="HDF" Precision="8">test_lbm_demo_d2q9_von_karman_uniform-extra0.h5:/mesh/fields/solid</DataItem>
             </Attribute>
+            <Attribute Name="level" Center="Cell">
+                <DataItem Dimensions="2048" Format="HDF" Precision="8">test_lbm_demo_d2q9_von_karman_uniform-extra0.h5:/mesh/fields/level</DataItem>
+            </Attribute>
         </Grid>
     </Domain>
 </Xdmf>

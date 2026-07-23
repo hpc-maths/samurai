@@ -71,6 +71,9 @@
             <Attribute Name="p" Center="Cell">
                 <DataItem Dimensions="6580" Format="HDF" Precision="8">test_lbm_demo_d2q5444_rayleigh_taylor_adaptive-extra1.h5:/mesh/fields/p</DataItem>
             </Attribute>
+            <Attribute Name="level" Center="Cell">
+                <DataItem Dimensions="6580" Format="HDF" Precision="8">test_lbm_demo_d2q5444_rayleigh_taylor_adaptive-extra1.h5:/mesh/fields/level</DataItem>
+            </Attribute>
         </Grid>
     </Domain>
 </Xdmf>
