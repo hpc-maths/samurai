@@ -13,7 +13,10 @@
 
 #include "../../algorithm.hpp"
 #include "../../algorithm/update_ghost_mr.hpp"
+#include "../../boundary.hpp"
 #include "../../reconstruction.hpp"
+#include "../../stencil.hpp"
+#include "boundary.hpp"
 #include "velocity_scheme.hpp"
 
 namespace samurai
@@ -54,6 +57,7 @@ namespace samurai
             , m_lambda(lambda)
             , m_blocks(std::move(blocks)...)
         {
+            compute_opposite_velocities();
         }
 
         const std::string& name() const
@@ -96,37 +100,40 @@ namespace samurai
                                   mall[k] = mc(k);
                               }
 
-                              // Equilibrium moments (each block sees the full moment vector).
-                              std::array<double, n_comp> meq_all{};
-                              for_each_block(
-                                  [&](const auto& block, std::size_t offset)
-                                  {
-                                      constexpr std::size_t q = std::decay_t<decltype(block)>::q;
-                                      std::array<double, q> meq;
-                                      block.equilibrium(meq, std::span<const double>(mall.data(), n_comp));
-                                      for (std::size_t k = 0; k < q; ++k)
-                                      {
-                                          meq_all[offset + k] = meq[k];
-                                      }
-                                  });
-
-                              // Non-conserved moments start at equilibrium; then f = M^{-1} m.
-                              for_each_block(
-                                  [&](const auto& block, std::size_t offset)
-                                  {
-                                      constexpr std::size_t q = std::decay_t<decltype(block)>::q;
-                                      std::array<double, q> mblock;
-                                      for (std::size_t k = 0; k < q; ++k)
-                                      {
-                                          mblock[k] = (block.s[k] != 0.) ? meq_all[offset + k] : mall[offset + k];
-                                      }
-                                      const auto fblock = matvec(block.invM, mblock);
-                                      for (std::size_t k = 0; k < q; ++k)
-                                      {
-                                          fc(offset + k) = fblock[k];
-                                      }
-                                  });
+                              const auto feq = equilibrium_f(mall);
+                              for (std::size_t k = 0; k < n_comp; ++k)
+                              {
+                                  fc(k) = feq[k];
+                              }
                           });
+        }
+
+        /**
+         * Attach a boundary condition (@ref BounceBack / @ref AntiBounceBack). It is applied
+         * after streaming, on every non-periodic boundary by default (or on the single boundary
+         * selected with @c bc.on(normal)).
+         */
+        void add_bc(const BounceBack<dim>& bc)
+        {
+            m_bcs.push_back({lbm_bc_type::bounce_back, bc.all_boundaries, bc.normal, std::array<double, n_comp>{}});
+        }
+
+        void add_bc(const AntiBounceBack<dim>& bc)
+        {
+            assert(bc.wall_moments.size() == n_comp && "AntiBounceBack: wall_moments must have n_comp entries");
+            std::array<double, n_comp> mwall{};
+            for (std::size_t k = 0; k < n_comp; ++k)
+            {
+                mwall[k] = bc.wall_moments[k];
+            }
+            // Reflect around the equilibrium distribution at the wall: add_k = 2 f_k^eq(m_wall).
+            const auto feq = equilibrium_f(mwall);
+            std::array<double, n_comp> add{};
+            for (std::size_t k = 0; k < n_comp; ++k)
+            {
+                add[k] = 2. * feq[k];
+            }
+            m_bcs.push_back({lbm_bc_type::anti_bounce_back, bc.all_boundaries, bc.normal, add});
         }
 
         /**
@@ -138,6 +145,7 @@ namespace samurai
             update_ghost_mr(f);
             auto f_stream = f; // same mesh; stream overwrites every (real) cell
             stream(f, f_stream);
+            apply_bc(f, f_stream); // reflect the incoming populations on the physical walls
             std::swap(f.array(), f_stream.array());
             collide(f, m);
         }
@@ -178,6 +186,75 @@ namespace samurai
                         ...);
                 },
                 m_blocks);
+        }
+
+        /**
+         * Equilibrium distribution f^eq from a full moment vector: the conserved moments (s_k == 0)
+         * are kept, the non-conserved ones are set to their equilibrium value, then f^eq = M^{-1} m.
+         * Shared by init_equilibrium (per cell) and the anti-bounce-back reflection value.
+         */
+        std::array<double, n_comp> equilibrium_f(const std::array<double, n_comp>& mall) const
+        {
+            std::array<double, n_comp> meq_all{};
+            for_each_block(
+                [&](const auto& block, std::size_t offset)
+                {
+                    constexpr std::size_t q = std::decay_t<decltype(block)>::q;
+                    std::array<double, q> meq;
+                    block.equilibrium(meq, std::span<const double>(mall.data(), n_comp));
+                    for (std::size_t k = 0; k < q; ++k)
+                    {
+                        meq_all[offset + k] = meq[k];
+                    }
+                });
+
+            std::array<double, n_comp> feq{};
+            for_each_block(
+                [&](const auto& block, std::size_t offset)
+                {
+                    constexpr std::size_t q = std::decay_t<decltype(block)>::q;
+                    std::array<double, q> mblock;
+                    for (std::size_t k = 0; k < q; ++k)
+                    {
+                        mblock[k] = (block.s[k] != 0.) ? meq_all[offset + k] : mall[offset + k];
+                    }
+                    const auto fblock = matvec(block.invM, mblock);
+                    for (std::size_t k = 0; k < q; ++k)
+                    {
+                        feq[offset + k] = fblock[k];
+                    }
+                });
+            return feq;
+        }
+
+        // For each (global) velocity component, the component of the opposite velocity (c -> -c)
+        // within the same block. A velocity with no opposite in its block (e.g. the rest velocity
+        // c == 0) maps to itself; it is never an incoming velocity so the value is unused.
+        void compute_opposite_velocities()
+        {
+            for_each_block(
+                [&](const auto& block, std::size_t offset)
+                {
+                    constexpr std::size_t q = std::decay_t<decltype(block)>::q;
+                    for (std::size_t a = 0; a < q; ++a)
+                    {
+                        std::size_t opp = offset + a;
+                        for (std::size_t b = 0; b < q; ++b)
+                        {
+                            bool is_opposite = true;
+                            for (std::size_t d = 0; d < dim; ++d)
+                            {
+                                is_opposite &= (block.velocities[b][d] == -block.velocities[a][d]);
+                            }
+                            if (is_opposite)
+                            {
+                                opp = offset + b;
+                                break;
+                            }
+                        }
+                        m_opposite[offset + a] = opp;
+                    }
+                });
         }
 
         using index_t          = default_config::value_t;
@@ -307,6 +384,97 @@ namespace samurai
             }
         }
 
+        /**
+         * Apply the wall boundary conditions after streaming (half-way bounce-back /
+         * anti-bounce-back). For a boundary with outward normal n, every incoming velocity
+         * alpha (c_alpha . n < 0) at the boundary cell C is overwritten from the opposite
+         * (outgoing) population at the same cell in the pre-stream field:
+         *
+         *     bounce_back      : f_out(alpha, C) =  f_in(alphabar, C)
+         *     anti_bounce_back : f_out(alpha, C) = -f_in(alphabar, C) + 2 f_alpha^eq(m_wall)
+         *
+         * f_in is the pre-stream field (@a f), f_out the streamed field (@a f_stream); they are
+         * distinct arrays so there is no aliasing. This is level-local and mass-conserving.
+         */
+        void apply_bc(const field_t& f_in, field_t& f_out) const
+        {
+            if (m_bcs.empty())
+            {
+                return;
+            }
+
+            constexpr auto tseq = std::make_index_sequence<dim - 1>{};
+            const std::array<int, dim> no_shift{};
+            auto& mesh = f_in.mesh();
+
+            for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
+            {
+                for (const auto& bc : m_bcs)
+                {
+                    auto apply_on_normal = [&](const DirectionVector<dim>& n)
+                    {
+                        // Cartesian axis of this boundary; skip periodic directions.
+                        std::size_t axis = 0;
+                        for (std::size_t d = 0; d < dim; ++d)
+                        {
+                            if (n[d] != 0)
+                            {
+                                axis = d;
+                            }
+                        }
+                        if (mesh.is_periodic(axis))
+                        {
+                            return;
+                        }
+
+                        auto bdry = domain_boundary(mesh, level, n);
+                        for_each_interval(bdry,
+                                          [&](std::size_t lvl, const auto& i, const auto& index)
+                                          {
+                                              for_each_block(
+                                                  [&](const auto& block, std::size_t offset)
+                                                  {
+                                                      constexpr std::size_t q = std::decay_t<decltype(block)>::q;
+                                                      for (std::size_t a = 0; a < q; ++a)
+                                                      {
+                                                          int dot = 0;
+                                                          for (std::size_t d = 0; d < dim; ++d)
+                                                          {
+                                                              dot += block.velocities[a][d] * n[d];
+                                                          }
+                                                          if (dot >= 0) // keep only incoming velocities (c.n < 0)
+                                                          {
+                                                              continue;
+                                                          }
+                                                          const std::size_t comp = offset + a;
+                                                          const std::size_t opp  = m_opposite[comp];
+                                                          if (bc.type == lbm_bc_type::bounce_back)
+                                                          {
+                                                              access(f_out, comp, lvl, i, index, no_shift, tseq)
+                                                                  = access(f_in, opp, lvl, i, index, no_shift, tseq);
+                                                          }
+                                                          else
+                                                          {
+                                                              access(f_out, comp, lvl, i, index, no_shift, tseq)
+                                                                  = xt::eval(bc.add[comp] - access(f_in, opp, lvl, i, index, no_shift, tseq));
+                                                          }
+                                                      }
+                                                  });
+                                          });
+                    };
+
+                    if (bc.all_boundaries)
+                    {
+                        for_each_cartesian_direction<dim>([&](const DirectionVector<dim>& n) { apply_on_normal(n); });
+                    }
+                    else
+                    {
+                        apply_on_normal(bc.normal);
+                    }
+                }
+            }
+        }
+
         // collide: m = M.f (all blocks) ; equilibrium (sees all moments) ; relax (MRT) ; f = M^{-1} m.
         template <class MField>
         void collide(field_t& f, MField& m) const
@@ -372,11 +540,22 @@ namespace samurai
                           });
         }
 
+        // Internal record of an attached boundary condition (see add_bc / apply_bc).
+        struct bc_entry_t
+        {
+            lbm_bc_type type;
+            bool all_boundaries;
+            DirectionVector<dim> normal;
+            std::array<double, n_comp> add; // 2 f^eq(m_wall) for anti-bounce-back, 0 for bounce-back
+        };
+
         std::string m_name;
         double m_lambda;
         std::size_t m_max_level = 0; // 0 = use the current mesh finest level (uniform case)
         std::tuple<Blocks...> m_blocks;
         mutable std::map<std::pair<std::size_t, velocity_t>, stream_stencil_t> m_stencil_cache; // keyed by (level jump j, velocity)
+        std::vector<bc_entry_t> m_bcs;
+        std::array<std::size_t, n_comp> m_opposite{}; // global opposite-velocity component index
     };
 
     /**
