@@ -377,6 +377,34 @@ namespace samurai
                 auto interp_even = interp_coeffs<2 * order + 1>(1.);
                 auto interp_odd  = interp_coeffs<2 * order + 1>(-1.);
 
+                constexpr std::size_t interp_size = 2 * order + 1;
+
+                // Precompute, once per operator call, the 8 child coefficients of
+                // each stencil point (they depend only on (ki,kj,kk), never on the
+                // cell or the component). Layout matches the 8 children in the
+                // (2i[+1], 2j[+1], 2k[+1]) order below. Each product keeps the
+                // left-associated form of the scalar code, so the wavelet details
+                // are bit-identical; the per-child loop is a SIMD update.
+                std::array<std::array<double, 8>, interp_size * interp_size * interp_size> coeff;
+                for (std::size_t kk = 0; kk < interp_size; ++kk)
+                {
+                    for (std::size_t kj = 0; kj < interp_size; ++kj)
+                    {
+                        for (std::size_t ki = 0; ki < interp_size; ++ki)
+                        {
+                            coeff[ki + kj * interp_size + kk * interp_size * interp_size] = {
+                                interp_even[ki] * interp_even[kj] * interp_even[kk],
+                                interp_odd[ki] * interp_even[kj] * interp_even[kk],
+                                interp_even[ki] * interp_odd[kj] * interp_even[kk],
+                                interp_odd[ki] * interp_odd[kj] * interp_even[kk],
+                                interp_even[ki] * interp_even[kj] * interp_odd[kk],
+                                interp_odd[ki] * interp_even[kj] * interp_odd[kk],
+                                interp_even[ki] * interp_odd[kj] * interp_odd[kk],
+                                interp_odd[ki] * interp_odd[kj] * interp_odd[kk]};
+                        }
+                    }
+                }
+
                 auto indices = get_indices<order>(Dim<3>{}, field.mesh());
 
                 const auto* data = field.data();
@@ -388,20 +416,18 @@ namespace samurai
                 auto ind3 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * i.start, 2 * j, 2 * k + 1));
                 auto ind4 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * i.start, 2 * j + 1, 2 * k + 1));
 
-                constexpr std::size_t interp_size = 2 * order + 1;
-
                 for (std::size_t ii = 0, i_f = 0; ii < i.size(); ++ii, i_f += 2)
                 {
                     if constexpr (T2::is_scalar)
                     {
-                        double d1 = data[ind1 + i_f];
-                        double d2 = data[ind1 + i_f + 1];
-                        double d3 = data[ind2 + i_f];
-                        double d4 = data[ind2 + i_f + 1];
-                        double d5 = data[ind3 + i_f];
-                        double d6 = data[ind3 + i_f + 1];
-                        double d7 = data[ind4 + i_f];
-                        double d8 = data[ind4 + i_f + 1];
+                        std::array<double, 8> d = {data[ind1 + i_f],
+                                                   data[ind1 + i_f + 1],
+                                                   data[ind2 + i_f],
+                                                   data[ind2 + i_f + 1],
+                                                   data[ind3 + i_f],
+                                                   data[ind3 + i_f + 1],
+                                                   data[ind4 + i_f],
+                                                   data[ind4 + i_f + 1]};
 
                         for (std::size_t kk = 0; kk < interp_size; ++kk)
                         {
@@ -409,8 +435,8 @@ namespace samurai
                             {
                                 for (std::size_t ki = 0; ki < interp_size; ++ki)
                                 {
-                                    auto idx         = ki + kj * interp_size + kk * interp_size * interp_size;
-                                    const double src = data[indices[idx] + ii];
+                                    const std::size_t idx = ki + kj * interp_size + kk * interp_size * interp_size;
+                                    const double src      = data[indices[idx] + ii];
 #ifdef SAMURAI_CHECK_NAN
                                     if (std::isnan(src))
                                     {
@@ -420,40 +446,36 @@ namespace samurai
                                         exit(1);
                                     }
 #endif
-                                    d1 -= interp_even[ki] * interp_even[kj] * interp_even[kk] * src;
-                                    d2 -= interp_odd[ki] * interp_even[kj] * interp_even[kk] * src;
-                                    d3 -= interp_even[ki] * interp_odd[kj] * interp_even[kk] * src;
-                                    d4 -= interp_odd[ki] * interp_odd[kj] * interp_even[kk] * src;
-                                    d5 -= interp_even[ki] * interp_even[kj] * interp_odd[kk] * src;
-                                    d6 -= interp_odd[ki] * interp_even[kj] * interp_odd[kk] * src;
-                                    d7 -= interp_even[ki] * interp_odd[kj] * interp_odd[kk] * src;
-                                    d8 -= interp_odd[ki] * interp_odd[kj] * interp_odd[kk] * src;
+                                    const auto& c = coeff[idx];
+                                    for (std::size_t m = 0; m < 8; ++m)
+                                    {
+                                        d[m] -= c[m] * src;
+                                    }
                                 }
                             }
                         }
 
-                        detail_data[ind1 + i_f]     = d1;
-                        detail_data[ind1 + i_f + 1] = d2;
-                        detail_data[ind2 + i_f]     = d3;
-                        detail_data[ind2 + i_f + 1] = d4;
-                        detail_data[ind3 + i_f]     = d5;
-                        detail_data[ind3 + i_f + 1] = d6;
-                        detail_data[ind4 + i_f]     = d7;
-                        detail_data[ind4 + i_f + 1] = d8;
+                        detail_data[ind1 + i_f]     = d[0];
+                        detail_data[ind1 + i_f + 1] = d[1];
+                        detail_data[ind2 + i_f]     = d[2];
+                        detail_data[ind2 + i_f + 1] = d[3];
+                        detail_data[ind3 + i_f]     = d[4];
+                        detail_data[ind3 + i_f + 1] = d[5];
+                        detail_data[ind4 + i_f]     = d[6];
+                        detail_data[ind4 + i_f + 1] = d[7];
                     }
                     else
                     {
                         for (std::size_t nc = 0; nc < T2::n_comp; ++nc)
                         {
-                            double d1, d2, d3, d4, d5, d6, d7, d8;
-                            d1 = data[(ind1 + i_f) * T2::n_comp + nc];
-                            d2 = data[(ind1 + i_f + 1) * T2::n_comp + nc];
-                            d3 = data[(ind2 + i_f) * T2::n_comp + nc];
-                            d4 = data[(ind2 + i_f + 1) * T2::n_comp + nc];
-                            d5 = data[(ind3 + i_f) * T2::n_comp + nc];
-                            d6 = data[(ind3 + i_f + 1) * T2::n_comp + nc];
-                            d7 = data[(ind4 + i_f) * T2::n_comp + nc];
-                            d8 = data[(ind4 + i_f + 1) * T2::n_comp + nc];
+                            std::array<double, 8> d = {data[(ind1 + i_f) * T2::n_comp + nc],
+                                                       data[(ind1 + i_f + 1) * T2::n_comp + nc],
+                                                       data[(ind2 + i_f) * T2::n_comp + nc],
+                                                       data[(ind2 + i_f + 1) * T2::n_comp + nc],
+                                                       data[(ind3 + i_f) * T2::n_comp + nc],
+                                                       data[(ind3 + i_f + 1) * T2::n_comp + nc],
+                                                       data[(ind4 + i_f) * T2::n_comp + nc],
+                                                       data[(ind4 + i_f + 1) * T2::n_comp + nc]};
 
                             for (std::size_t kk = 0; kk < interp_size; ++kk)
                             {
@@ -461,8 +483,8 @@ namespace samurai
                                 {
                                     for (std::size_t ki = 0; ki < interp_size; ++ki)
                                     {
-                                        auto idx = (indices[ki + kj * interp_size + kk * interp_size * interp_size] + ii) * T2::n_comp;
-                                        const double src = data[idx + nc];
+                                        const std::size_t idx = ki + kj * interp_size + kk * interp_size * interp_size;
+                                        const double src      = data[(indices[idx] + ii) * T2::n_comp + nc];
 #ifdef SAMURAI_CHECK_NAN
                                         if (std::isnan(src))
                                         {
@@ -473,39 +495,36 @@ namespace samurai
                                             exit(1);
                                         }
 #endif
-                                        d1 -= interp_even[ki] * interp_even[kj] * interp_even[kk] * src;
-                                        d2 -= interp_odd[ki] * interp_even[kj] * interp_even[kk] * src;
-                                        d3 -= interp_even[ki] * interp_odd[kj] * interp_even[kk] * src;
-                                        d4 -= interp_odd[ki] * interp_odd[kj] * interp_even[kk] * src;
-                                        d5 -= interp_even[ki] * interp_even[kj] * interp_odd[kk] * src;
-                                        d6 -= interp_odd[ki] * interp_even[kj] * interp_odd[kk] * src;
-                                        d7 -= interp_even[ki] * interp_odd[kj] * interp_odd[kk] * src;
-                                        d8 -= interp_odd[ki] * interp_odd[kj] * interp_odd[kk] * src;
+                                        const auto& c = coeff[idx];
+                                        for (std::size_t m = 0; m < 8; ++m)
+                                        {
+                                            d[m] -= c[m] * src;
+                                        }
                                     }
                                 }
+                            }
 
-                                if constexpr (requires { detail.begin_item(); })
-                                {
-                                    detail_data[detail.begin_item() + (ind1 + i_f) * T1::n_comp + nc]     = d1;
-                                    detail_data[detail.begin_item() + (ind1 + i_f + 1) * T1::n_comp + nc] = d2;
-                                    detail_data[detail.begin_item() + (ind2 + i_f) * T1::n_comp + nc]     = d3;
-                                    detail_data[detail.begin_item() + (ind2 + i_f + 1) * T1::n_comp + nc] = d4;
-                                    detail_data[detail.begin_item() + (ind3 + i_f) * T1::n_comp + nc]     = d5;
-                                    detail_data[detail.begin_item() + (ind3 + i_f + 1) * T1::n_comp + nc] = d6;
-                                    detail_data[detail.begin_item() + (ind4 + i_f) * T1::n_comp + nc]     = d7;
-                                    detail_data[detail.begin_item() + (ind4 + i_f + 1) * T1::n_comp + nc] = d8;
-                                }
-                                else
-                                {
-                                    detail_data[(ind1 + i_f) * T1::n_comp + nc]     = d1;
-                                    detail_data[(ind1 + i_f + 1) * T1::n_comp + nc] = d2;
-                                    detail_data[(ind2 + i_f) * T1::n_comp + nc]     = d3;
-                                    detail_data[(ind2 + i_f + 1) * T1::n_comp + nc] = d4;
-                                    detail_data[(ind3 + i_f) * T1::n_comp + nc]     = d5;
-                                    detail_data[(ind3 + i_f + 1) * T1::n_comp + nc] = d6;
-                                    detail_data[(ind4 + i_f) * T1::n_comp + nc]     = d7;
-                                    detail_data[(ind4 + i_f + 1) * T1::n_comp + nc] = d8;
-                                }
+                            if constexpr (requires { detail.begin_item(); })
+                            {
+                                detail_data[detail.begin_item() + (ind1 + i_f) * T1::n_comp + nc]     = d[0];
+                                detail_data[detail.begin_item() + (ind1 + i_f + 1) * T1::n_comp + nc] = d[1];
+                                detail_data[detail.begin_item() + (ind2 + i_f) * T1::n_comp + nc]     = d[2];
+                                detail_data[detail.begin_item() + (ind2 + i_f + 1) * T1::n_comp + nc] = d[3];
+                                detail_data[detail.begin_item() + (ind3 + i_f) * T1::n_comp + nc]     = d[4];
+                                detail_data[detail.begin_item() + (ind3 + i_f + 1) * T1::n_comp + nc] = d[5];
+                                detail_data[detail.begin_item() + (ind4 + i_f) * T1::n_comp + nc]     = d[6];
+                                detail_data[detail.begin_item() + (ind4 + i_f + 1) * T1::n_comp + nc] = d[7];
+                            }
+                            else
+                            {
+                                detail_data[(ind1 + i_f) * T1::n_comp + nc]     = d[0];
+                                detail_data[(ind1 + i_f + 1) * T1::n_comp + nc] = d[1];
+                                detail_data[(ind2 + i_f) * T1::n_comp + nc]     = d[2];
+                                detail_data[(ind2 + i_f + 1) * T1::n_comp + nc] = d[3];
+                                detail_data[(ind3 + i_f) * T1::n_comp + nc]     = d[4];
+                                detail_data[(ind3 + i_f + 1) * T1::n_comp + nc] = d[5];
+                                detail_data[(ind4 + i_f) * T1::n_comp + nc]     = d[6];
+                                detail_data[(ind4 + i_f + 1) * T1::n_comp + nc] = d[7];
                             }
                         }
                     }
