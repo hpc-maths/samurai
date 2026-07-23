@@ -667,7 +667,7 @@ namespace samurai
         // check (enabled by SAMURAI_DEBUG_GRADUATION below).
         ca_type prev_add_p;
         const ca_type* iteration_seed = nullptr;
-        bool ca_changed              = true;
+        bool ca_changed               = true;
         while (
 #ifdef SAMURAI_WITH_MPI
             mpi::all_reduce(world, ca_changed, std::logical_or())
@@ -772,7 +772,7 @@ namespace samurai
             std::swap(new_ca, ca);
 
             // Seed the next iteration's interior pass with the fine cells just added.
-            prev_add_p    = ca_add_p;
+            prev_add_p     = ca_add_p;
             iteration_seed = &prev_add_p;
         }
 
