@@ -5,6 +5,7 @@
 #include <array>
 #include <cstddef>
 #include <functional>
+#include <span>
 
 namespace samurai
 {
@@ -23,11 +24,9 @@ namespace samurai
      *  - velocities are integer lattice vectors c_alpha (unit shift at the finest level);
      *  - M maps distributions to moments (f -> m = M.f), invM the inverse;
      *  - s is the per-moment relaxation vector (s_k = 0 for a conserved moment);
-     *  - equilibrium fills the q equilibrium moments meq from the block moments m.
-     *
-     * @note For now the equilibrium receives the *block* moments (size q). Inter-block
-     *       coupling (e.g. Euler), where an equilibrium depends on moments of other
-     *       blocks, is a later generalisation (design note 9.2).
+     *  - equilibrium fills the q equilibrium moments meq of this block from the full
+     *    moment vector m_all (all blocks concatenated), which allows inter-block
+     *    coupling (e.g. the Euler equilibria).
      */
     template <std::size_t dim_, std::size_t q_>
     struct VelocityScheme
@@ -38,7 +37,7 @@ namespace samurai
         using velocity_t    = std::array<int, dim>;
         using matrix_t      = std::array<std::array<double, q>, q>; // row-major
         using moments_t     = std::array<double, q>;
-        using equilibrium_t = std::function<void(moments_t& meq, const moments_t& m)>;
+        using equilibrium_t = std::function<void(moments_t& meq, std::span<const double> m_all)>;
 
         std::array<velocity_t, q> velocities;
         matrix_t M;    // f -> m

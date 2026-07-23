@@ -13,6 +13,7 @@
 
 #include <cmath>
 #include <limits>
+#include <span>
 
 #include <samurai/algorithm.hpp>
 #include <samurai/field.hpp>
@@ -96,7 +97,7 @@ int main(int argc, char* argv[])
     using field_t = decltype(f);
     std::array<std::array<double, 2>, 2> M{{{1., 1.}, {lambda, -lambda}}};
     std::array<std::array<double, 2>, 2> invM{{{0.5, 0.5 / lambda}, {0.5, -0.5 / lambda}}};
-    auto eq = [a, burgers](std::array<double, 2>& meq, const std::array<double, 2>& mm)
+    auto eq = [a, burgers](std::array<double, 2>& meq, std::span<const double> mm)
     {
         meq[0] = mm[0];                        // conserved
         meq[1] = burgers ? 0.5 * mm[0] * mm[0] // Burgers flux

@@ -5,6 +5,9 @@ find_package(cxxopts)
 add_executable(lbm-new-D1Q2-advection new_D1Q2_advection.cpp)
 target_link_libraries(lbm-new-D1Q2-advection samurai)
 
+add_executable(lbm-new-D2Q4-advection new_D2Q4_advection.cpp)
+target_link_libraries(lbm-new-D2Q4-advection samurai)
+
 # ---------------------------------------------------------------------------
 # Legacy demos (outdated: overleaves, hand-rolled prediction maps, old BC).
 # Kept for reference during the migration to schemes/lbm; not built for now.
