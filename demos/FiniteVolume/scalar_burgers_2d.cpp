@@ -50,113 +50,6 @@ void init(Field& u)
 }
 
 template <class Field>
-void flux_correction(double dt, const std::array<double, 2>& k, const Field& u, Field& unp1)
-{
-    using mesh_t              = typename Field::mesh_t;
-    using mesh_id_t           = typename mesh_t::mesh_id_t;
-    using interval_t          = typename mesh_t::interval_t;
-    constexpr std::size_t dim = Field::dim;
-
-    auto mesh = u.mesh();
-
-    for (std::size_t level = mesh.min_level(); level < mesh.max_level(); ++level)
-    {
-        xt::xtensor_fixed<int, xt::xshape<dim>> stencil;
-
-        stencil = {
-            {-1, 0}
-        };
-
-        auto subset_right = samurai::intersection(samurai::translate(mesh[mesh_id_t::cells][level + 1], stencil),
-                                                  mesh[mesh_id_t::cells][level])
-                                .on(level);
-
-        subset_right(
-            [&](const auto& i, const auto& index)
-            {
-                auto j          = index[0];
-                const double dx = mesh.cell_length(level);
-
-                unp1(level,
-                     i,
-                     j) = unp1(level, i, j)
-                        + dt / dx
-                              * (samurai::upwind_scalar_burgers_op<dim, interval_t>(level, i, j).right_flux(k, u)
-                                 - 0.5 * samurai::upwind_scalar_burgers_op<dim, interval_t>(level + 1, 2 * i + 1, 2 * j).right_flux(k, u)
-                                 - 0.5 * samurai::upwind_scalar_burgers_op<dim, interval_t>(level + 1, 2 * i + 1, 2 * j + 1).right_flux(k, u));
-            });
-
-        stencil = {
-            {1, 0}
-        };
-
-        auto subset_left = samurai::intersection(samurai::translate(mesh[mesh_id_t::cells][level + 1], stencil),
-                                                 mesh[mesh_id_t::cells][level])
-                               .on(level);
-
-        subset_left(
-            [&](const auto& i, const auto& index)
-            {
-                auto j          = index[0];
-                const double dx = mesh.cell_length(level);
-
-                unp1(level,
-                     i,
-                     j) = unp1(level, i, j)
-                        - dt / dx
-                              * (samurai::upwind_scalar_burgers_op<dim, interval_t>(level, i, j).left_flux(k, u)
-                                 - 0.5 * samurai::upwind_scalar_burgers_op<dim, interval_t>(level + 1, 2 * i, 2 * j).left_flux(k, u)
-                                 - 0.5 * samurai::upwind_scalar_burgers_op<dim, interval_t>(level + 1, 2 * i, 2 * j + 1).left_flux(k, u));
-            });
-
-        stencil = {
-            {0, -1}
-        };
-
-        auto subset_up = samurai::intersection(samurai::translate(mesh[mesh_id_t::cells][level + 1], stencil), mesh[mesh_id_t::cells][level])
-                             .on(level);
-
-        subset_up(
-            [&](const auto& i, const auto& index)
-            {
-                auto j          = index[0];
-                const double dx = mesh.cell_length(level);
-
-                unp1(level,
-                     i,
-                     j) = unp1(level, i, j)
-                        + dt / dx
-                              * (samurai::upwind_scalar_burgers_op<dim, interval_t>(level, i, j).up_flux(k, u)
-                                 - 0.5 * samurai::upwind_scalar_burgers_op<dim, interval_t>(level + 1, 2 * i, 2 * j + 1).up_flux(k, u)
-                                 - 0.5 * samurai::upwind_scalar_burgers_op<dim, interval_t>(level + 1, 2 * i + 1, 2 * j + 1).up_flux(k, u));
-            });
-
-        stencil = {
-            {0, 1}
-        };
-
-        auto subset_down = samurai::intersection(samurai::translate(mesh[mesh_id_t::cells][level + 1], stencil),
-                                                 mesh[mesh_id_t::cells][level])
-                               .on(level);
-
-        subset_down(
-            [&](const auto& i, const auto& index)
-            {
-                auto j          = index[0];
-                const double dx = mesh.cell_length(level);
-
-                unp1(level,
-                     i,
-                     j) = unp1(level, i, j)
-                        - dt / dx
-                              * (samurai::upwind_scalar_burgers_op<dim, interval_t>(level, i, j).down_flux(k, u)
-                                 - 0.5 * samurai::upwind_scalar_burgers_op<dim, interval_t>(level + 1, 2 * i, 2 * j).down_flux(k, u)
-                                 - 0.5 * samurai::upwind_scalar_burgers_op<dim, interval_t>(level + 1, 2 * i + 1, 2 * j).down_flux(k, u));
-            });
-    }
-}
-
-template <class Field>
 void save(const fs::path& path, const std::string& filename, const Field& u, const std::string& suffix = "")
 {
     auto mesh   = u.mesh();
@@ -197,7 +90,6 @@ int main(int argc, char* argv[])
     // Multiresolution parameters
     std::size_t min_level = 4;
     std::size_t max_level = 10;
-    bool correction       = false;
 
     // Output parameters
     fs::path path        = fs::current_path();
@@ -211,9 +103,6 @@ int main(int argc, char* argv[])
     app.add_option("--Ti", t, "Initial time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--with-correction", correction, "Apply flux correction at the interface of two refinement levels")
-        ->capture_default_str()
-        ->group("Multiresolution");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
@@ -267,7 +156,6 @@ int main(int argc, char* argv[])
         samurai::update_ghost_mr(u);
         unp1.resize();
         unp1 = u - dt * samurai::upwind_scalar_burgers(k, u);
-        flux_correction(dt, k, u, unp1);
 
         std::swap(u.array(), unp1.array());
 

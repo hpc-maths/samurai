@@ -143,55 +143,6 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
     samurai::dump(path, fmt::format("{}_restart{}", filename, suffix), mesh, u);
 }
 
-template <class Field>
-void flux_correction(Field& phi_np1, const Field& phi_n, double dt)
-{
-    using mesh_t                     = typename Field::mesh_t;
-    static constexpr std::size_t dim = Field::dim;
-    using mesh_id_t                  = typename mesh_t::mesh_id_t;
-    using interval_t                 = typename mesh_t::interval_t;
-
-    auto mesh                   = phi_np1.mesh();
-    const std::size_t min_level = mesh[mesh_id_t::cells].min_level();
-    const std::size_t max_level = mesh[mesh_id_t::cells].max_level();
-
-    const double dx = mesh.cell_length(max_level);
-
-    for (std::size_t level = min_level; level < max_level; ++level)
-    {
-        const double dx_loc = mesh.cell_length(level);
-        xt::xtensor_fixed<int, xt::xshape<1>> stencil;
-
-        stencil           = {-1};
-        auto subset_right = samurai::intersection(samurai::translate(mesh[mesh_id_t::cells][level + 1], stencil),
-                                                  mesh[mesh_id_t::cells][level])
-                                .on(level);
-
-        subset_right(
-            [&](const auto& i, const auto&)
-            {
-                phi_np1(level, i) = phi_np1(level, i)
-                                  + dt / dx_loc
-                                        * (samurai::upwind_Burgers_op<dim, interval_t>(level, i).right_flux(phi_n, dx / dt)
-                                           - samurai::upwind_Burgers_op<dim, interval_t>(level + 1, 2 * i + 1).right_flux(phi_n, dx / dt));
-            });
-
-        stencil          = {1};
-        auto subset_left = samurai::intersection(samurai::translate(mesh[mesh_id_t::cells][level + 1], stencil),
-                                                 mesh[mesh_id_t::cells][level])
-                               .on(level);
-
-        subset_left(
-            [&](const auto& i, const auto&)
-            {
-                phi_np1(level, i) = phi_np1(level, i)
-                                  - dt / dx_loc
-                                        * (samurai::upwind_Burgers_op<dim, interval_t>(level, i).left_flux(phi_n, dx / dt)
-                                           - samurai::upwind_Burgers_op<dim, interval_t>(level + 1, 2 * i).left_flux(phi_n, dx / dt));
-            });
-    }
-}
-
 int main(int argc, char* argv[])
 {
     auto& app = samurai::initialize("Finite volume example for the Burgers equation in 2d using AMR", argc, argv);
@@ -206,9 +157,6 @@ int main(int argc, char* argv[])
     double t         = 0.;
     std::string restart_file;
 
-    // AMR parameters
-    bool correction = false;
-
     // Output parameters
     fs::path path        = fs::current_path();
     std::string filename = "FV_AMR_Burgers_Hat_1d";
@@ -220,9 +168,6 @@ int main(int argc, char* argv[])
     app.add_option("--Ti", t, "Initial time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
     app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--with-correction", correction, "Apply flux correction at the interface of two refinement levels")
-        ->capture_default_str()
-        ->group("AMR parameters");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
@@ -287,10 +232,6 @@ int main(int argc, char* argv[])
         samurai::update_ghost(phi);
         phinp1.resize();
         phinp1 = phi - dt * samurai::upwind_Burgers(phi, dx / dt);
-        if (correction)
-        {
-            flux_correction(phinp1, phi, dt);
-        }
 
         std::swap(phi.array(), phinp1.array());
 
