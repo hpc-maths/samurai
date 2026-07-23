@@ -12,31 +12,43 @@ namespace samurai
 {
     namespace detail
     {
+        // Per-component max of |field| over the leaf cells. Iterated per interval
+        // over the raw field data (the interval's index is the flat cell offset,
+        // as used by field[cell]) rather than per cell with for_each_cell, which
+        // builds a Cell object for every cell - the dominant cost of the previous
+        // version. max is order-independent, so the result is bit-identical.
         void set_inv_max_field(auto& inv_max_fields, const auto& field, std::size_t dec = 0)
             requires(std::decay_t<decltype(field)>::is_scalar)
         {
-            auto& mesh = field.mesh();
-
-            for_each_cell(mesh,
-                          [&](const auto& cell)
-                          {
-                              inv_max_fields[dec] = std::max(inv_max_fields[dec], std::abs(field[cell]));
-                          });
+            const auto* data = field.data();
+            for_each_interval(field.mesh(),
+                              [&](std::size_t, const auto& i, const auto&)
+                              {
+                                  for (auto x = i.start; x < i.end; ++x)
+                                  {
+                                      const auto flat     = static_cast<std::size_t>(i.index + x);
+                                      inv_max_fields[dec] = std::max(inv_max_fields[dec], std::abs(data[flat]));
+                                  }
+                              });
         }
 
         void set_inv_max_field(auto& inv_max_fields, const auto& field, std::size_t dec = 0)
             requires(!std::decay_t<decltype(field)>::is_scalar)
         {
-            auto& mesh = field.mesh();
-
-            for_each_cell(mesh,
-                          [&](const auto& cell)
-                          {
-                              for (std::size_t i = 0; i < field.n_comp; ++i)
+            constexpr std::size_t nc = std::decay_t<decltype(field)>::n_comp;
+            const auto* data         = field.data();
+            for_each_interval(field.mesh(),
+                              [&](std::size_t, const auto& i, const auto&)
                               {
-                                  inv_max_fields[dec + i] = std::max(inv_max_fields[dec + i], std::abs(field[cell][i]));
-                              }
-                          });
+                                  for (auto x = i.start; x < i.end; ++x)
+                                  {
+                                      const auto flat = static_cast<std::size_t>(i.index + x) * nc;
+                                      for (std::size_t c = 0; c < nc; ++c)
+                                      {
+                                          inv_max_fields[dec + c] = std::max(inv_max_fields[dec + c], std::abs(data[flat + c]));
+                                      }
+                                  }
+                              });
         }
 
         template <class... TFields>
@@ -83,7 +95,19 @@ namespace samurai
             inv_max_fields[i] = 1. / inv_max_fields[i];
         }
 
-        auto inv_max_fields_xt = xt::adapt(inv_max_fields);
-        detail.array() *= inv_max_fields_xt;
+        // Raw, cache-streaming normalization instead of xtensor's broadcast
+        // `detail.array() *= inv_max_fields_xt`: the latter does not vectorize and
+        // dominated the whole detail computation (~5 s out of 7 s on the euler_2d
+        // demo). Same result, bit-identical.
+        constexpr std::size_t nc = detail_t::n_comp;
+        auto* dd                 = detail.data();
+        const std::size_t n      = detail.array().size();
+        for (std::size_t k = 0; k < n; k += nc)
+        {
+            for (std::size_t c = 0; c < nc; ++c)
+            {
+                dd[k + c] *= inv_max_fields[c];
+            }
+        }
     }
 }
