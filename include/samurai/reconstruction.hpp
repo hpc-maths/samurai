@@ -670,7 +670,7 @@ namespace samurai
         {
             return f(element, level, indices...);
         };
-        detail::portion_impl<Field::mesh_t::config_t::prediction_stencil_radius, Field>(result, f, get_f, level, delta_l, i, ii);
+        detail::portion_impl<Field::mesh_t::config_t::prediction_stencil_radius, Field>(result, get_f, level, delta_l, i, ii);
     }
 
     template <class Field, class... index_t, class... cell_index_t>
@@ -687,7 +687,7 @@ namespace samurai
                 return zeros_like(f(element, level, indices...));
             },
             i);
-        portion(result, f, level, delta_l, i, ii);
+        portion(result, f, element, level, delta_l, i, ii);
         return result;
     }
 

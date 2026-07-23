@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<Xdmf>
+    <Domain>
+        <Grid Name="mesh">
+            <Topology TopologyType="Polyline" NumberOfElements="128">
+                <DataItem Dimensions="256" Format="HDF">test_lbm_demo_d1q3_bounce_back.h5:/mesh/connectivity</DataItem>
+            </Topology>
+            <Geometry GeometryType="XYZ">
+                <DataItem Dimensions="387" Format="HDF">test_lbm_demo_d1q3_bounce_back.h5:/mesh/points</DataItem>
+            </Geometry>
+            <Attribute Name="m_0" Center="Cell">
+                <DataItem Dimensions="128" Format="HDF" Precision="8">test_lbm_demo_d1q3_bounce_back.h5:/mesh/fields/m_0</DataItem>
+            </Attribute>
+            <Attribute Name="m_1" Center="Cell">
+                <DataItem Dimensions="128" Format="HDF" Precision="8">test_lbm_demo_d1q3_bounce_back.h5:/mesh/fields/m_1</DataItem>
+            </Attribute>
+            <Attribute Name="m_2" Center="Cell">
+                <DataItem Dimensions="128" Format="HDF" Precision="8">test_lbm_demo_d1q3_bounce_back.h5:/mesh/fields/m_2</DataItem>
+            </Attribute>
+            <Attribute Name="h" Center="Cell">
+                <DataItem Dimensions="128" Format="HDF" Precision="8">test_lbm_demo_d1q3_bounce_back.h5:/mesh/fields/h</DataItem>
+            </Attribute>
+            <Attribute Name="q" Center="Cell">
+                <DataItem Dimensions="128" Format="HDF" Precision="8">test_lbm_demo_d1q3_bounce_back.h5:/mesh/fields/q</DataItem>
+            </Attribute>
+        </Grid>
+    </Domain>
+</Xdmf>

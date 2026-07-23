@@ -46,6 +46,7 @@ set(SAMURAI_TESTS
     test_graduation.cpp
     test_hdf5.cpp
     test_interval.cpp
+    test_lbm.cpp
     test_level_cell_list.cpp
     test_list_of_intervals.cpp
     test_load_balancing_weight.cpp
