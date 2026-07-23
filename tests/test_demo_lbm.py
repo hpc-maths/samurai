@@ -152,3 +152,16 @@ def test_lbm_demo_d2q4444_implosion(case, extra, config):
 )
 def test_lbm_demo_d2q5444_rayleigh_taylor(case, extra, config):
     run_demo("lbm-new-D2Q5444-euler-rayleigh-taylor", config, extra)
+
+
+# ------------------------------------------------------------------ D2Q9 von Karman (obstacle + inflow/outflow)
+@pytest.mark.h5diff()
+@pytest.mark.parametrize(
+    "case, extra",
+    [
+        ("uniform", ["--level", "5", "--Tf", "2"]),
+        ("adaptive", ["--adapt", "--level", "6", "--min-lvl", "4", "--eps", "1e-3", "--Tf", "1"]),
+    ],
+)
+def test_lbm_demo_d2q9_von_karman(case, extra, config):
+    run_demo("lbm-new-D2Q9-von-karman", config, extra)

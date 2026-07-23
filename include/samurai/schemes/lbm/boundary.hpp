@@ -193,6 +193,46 @@ namespace samurai
         }
     };
 
+    /**
+     * Imposed-distribution inflow: the outer ghost holds a fixed distribution (typically the
+     * free-stream equilibrium @c LBMScheme::equilibrium_f({rho, rho u, rho v, ...})), so streaming
+     * pulls that distribution into the domain. This is the LBM counterpart of a Dirichlet inflow;
+     * combine it with a homogeneous @c Neumann outflow on the opposite side.
+     *
+     *   samurai::make_bc<samurai::ImposedDistribution>(f, f_in)->on(left, top, bottom);
+     */
+    template <class Field>
+    struct ImposedDistributionImpl : public Bc<Field>
+    {
+        INIT_BC(ImposedDistributionImpl, 2) // stencil [inner, ghost]
+
+        static constexpr std::size_t n_comp = Field::n_comp;
+
+        std::array<double, n_comp> m_value{}; // distribution imposed in the ghost
+
+        template <class Dist>
+        ImposedDistributionImpl(const typename base_t::lca_t& domain, const BcValue<Field>& bcv, const Dist& value)
+            : base_t(domain, bcv)
+        {
+            for (std::size_t a = 0; a < n_comp; ++a)
+            {
+                m_value[a] = static_cast<double>(value[a]);
+            }
+        }
+
+        apply_function_t get_apply_function(constant_stencil_size_t, const direction_t&) const override
+        {
+            // cppcheck-suppress constParameterReference // f is written through f[cells[1]](a)
+            return [value = m_value](Field& f, const stencil_cells_t& cells, const value_t&)
+            {
+                for (std::size_t a = 0; a < n_comp; ++a)
+                {
+                    f[cells[1]](a) = value[a];
+                }
+            };
+        }
+    };
+
     // Tags selecting the implementation (mirrors samurai::Dirichlet / samurai::Neumann).
     struct BounceBack
     {
@@ -208,6 +248,14 @@ namespace samurai
 
         template <class Field>
         using impl_t = AntiBounceBackImpl<Field>;
+    };
+
+    struct ImposedDistribution
+    {
+        using lbm_bc_tag = void;
+
+        template <class Field>
+        using impl_t = ImposedDistributionImpl<Field>;
     };
 
     /**

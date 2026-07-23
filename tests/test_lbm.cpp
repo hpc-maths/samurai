@@ -1377,4 +1377,225 @@ namespace samurai
         // Velocity field matches the exact Taylor-Green vortex to a few percent at this resolution.
         EXPECT_LT(rel_l2, 0.05);
     }
+
+    // ============================================= D2Q9 inflow / outflow + immersed obstacle
+    namespace
+    {
+        struct vk_result
+        {
+            double rhomin;
+            double rhomax;
+            double umax;
+            double u_solid_max; // peak speed inside the cylinder, should be ~0
+            double cd;          // drag coefficient
+        };
+
+        // D2Q9 flow past a cylinder: imposed free-stream inflow, Neumann outflow, volume-penalised
+        // obstacle. Small and short so it runs quickly.
+        vk_result run_d2q9_von_karman(std::size_t max_level, double Tf, bool adapt)
+        {
+            static constexpr std::size_t dim = 2;
+            const double lambda = 1., rho0 = 1., u0 = 0.1, Re = 100., radius = 1. / 16.;
+            const double cx = 0.5, cy = 0.5;
+            const double l = lambda, l2 = l * l, l3 = l2 * l, l4 = l2 * l2;
+
+            Box<double, dim> box({0., 0.}, {2., 1.});
+            const std::size_t ml = adapt ? 4 : max_level;
+            auto cfg             = mesh_config<dim>().min_level(ml).max_level(max_level).periodic(false).max_stencil_size(4);
+            auto mesh            = mra::make_mesh(box, cfg);
+
+            const double dx_fine = 1. / static_cast<double>(std::size_t{1} << max_level);
+            const double dt      = dx_fine / lambda;
+            const double cs2     = lambda * lambda / 3.;
+            const double diam    = 2. * radius;
+            const double nu      = u0 * diam / Re;
+            const double s_nu    = 1. / (0.5 + nu / (cs2 * dt));
+
+            auto solid_fraction = [&](double xc, double yc, double h)
+            {
+                constexpr int n = 8;
+                int inside      = 0;
+                for (int i = 0; i < n; ++i)
+                {
+                    for (int j = 0; j < n; ++j)
+                    {
+                        const double xs = xc - 0.5 * h + (i + 0.5) * h / n;
+                        const double ys = yc - 0.5 * h + (j + 0.5) * h / n;
+                        if ((xs - cx) * (xs - cx) + (ys - cy) * (ys - cy) <= radius * radius)
+                        {
+                            ++inside;
+                        }
+                    }
+                }
+                return static_cast<double>(inside) / static_cast<double>(n * n);
+            };
+
+            auto m = make_vector_field<double, 9>("m", mesh);
+            auto f = make_vector_field<double, 9>("f", mesh);
+            m.fill(0.);
+            f.fill(0.);
+            for_each_cell(mesh,
+                          [&](const auto& cell)
+                          {
+                              const double frac = solid_fraction(cell.center(0), cell.center(1), cell.length);
+                              m[cell](0)        = rho0;
+                              m[cell](1)        = (1. - frac) * rho0 * u0;
+                              m[cell](2)        = (1. - frac) * 0.01 * rho0 * u0;
+                          });
+
+            std::array<std::array<double, 9>, 9> M{
+                {
+                 {1., 1., 1., 1., 1., 1., 1., 1., 1.},
+                 {0., l, 0., -l, 0., l, -l, -l, l},
+                 {0., 0., l, 0., -l, l, l, -l, -l},
+                 {-4. * l2, -l2, -l2, -l2, -l2, 2. * l2, 2. * l2, 2. * l2, 2. * l2},
+                 {0., -2. * l3, 0., 2. * l3, 0., l3, -l3, -l3, l3},
+                 {0., 0., -2. * l3, 0., 2. * l3, l3, l3, -l3, -l3},
+                 {4. * l4, -2. * l4, -2. * l4, -2. * l4, -2. * l4, l4, l4, l4, l4},
+                 {0., l2, -l2, l2, -l2, 0., 0., 0., 0.},
+                 {0., 0., 0., 0., 0., l2, -l2, l2, -l2},
+                 }
+            };
+            const double r1 = 1. / lambda, r2 = 1. / (lambda * lambda), r3 = 1. / (lambda * lambda * lambda),
+                         r4 = 1. / (lambda * lambda * lambda * lambda);
+            std::array<std::array<double, 9>, 9> invM{
+                {
+                 {1. / 9, 0., 0., -r2 / 9, 0., 0., r4 / 9, 0., 0.},
+                 {1. / 9, r1 / 6, 0., -r2 / 36, -r3 / 6, 0., -r4 / 18, r2 / 4, 0.},
+                 {1. / 9, 0., r1 / 6, -r2 / 36, 0., -r3 / 6, -r4 / 18, -r2 / 4, 0.},
+                 {1. / 9, -r1 / 6, 0., -r2 / 36, r3 / 6, 0., -r4 / 18, r2 / 4, 0.},
+                 {1. / 9, 0., -r1 / 6, -r2 / 36, 0., r3 / 6, -r4 / 18, -r2 / 4, 0.},
+                 {1. / 9, r1 / 6, r1 / 6, r2 / 18, r3 / 12, r3 / 12, r4 / 36, 0., r2 / 4},
+                 {1. / 9, -r1 / 6, r1 / 6, r2 / 18, -r3 / 12, r3 / 12, r4 / 36, 0., -r2 / 4},
+                 {1. / 9, -r1 / 6, -r1 / 6, r2 / 18, -r3 / 12, -r3 / 12, r4 / 36, 0., r2 / 4},
+                 {1. / 9, r1 / 6, -r1 / 6, r2 / 18, r3 / 12, -r3 / 12, r4 / 36, 0., -r2 / 4},
+                 }
+            };
+            auto eq = [l2, l4](std::array<double, 9>& meq, std::span<const double> mm)
+            {
+                const double rho = mm[0], qx = mm[1], qy = mm[2];
+                const double q2 = (qx * qx + qy * qy) / rho;
+                meq[0]          = rho;
+                meq[1]          = qx;
+                meq[2]          = qy;
+                meq[3]          = -2. * l2 * rho + 3. * q2;
+                meq[4]          = -l2 * qx;
+                meq[5]          = -l2 * qy;
+                meq[6]          = l4 * rho - 3. * l2 * q2;
+                meq[7]          = (qx * qx - qy * qy) / rho;
+                meq[8]          = qx * qy / rho;
+            };
+            std::array<double, 9> s{0., 0., 0., 1.64, 1.54, 1.54, 1.64, s_nu, s_nu};
+
+            using field_t = decltype(f);
+            auto scheme   = make_lbm_scheme<field_t>("D2Q9_vk",
+                                                   lambda,
+                                                   velocity_scheme<dim, 9>(
+                                                       {
+                                                           {{0, 0}, {1, 0}, {0, 1}, {-1, 0}, {0, -1}, {1, 1}, {-1, 1}, {-1, -1}, {1, -1}}
+            },
+                                                       M,
+                                                       invM,
+                                                       s,
+                                                       eq));
+
+            const std::array<double, 9> feq_inflow = scheme.equilibrium_f({rho0, rho0 * u0, 0., 0., 0., 0., 0., 0., 0.});
+            const std::array<double, 9> feq_rest   = scheme.equilibrium_f({rho0, 0., 0., 0., 0., 0., 0., 0., 0.});
+            const xt::xtensor_fixed<int, xt::xshape<dim>> left{-1, 0}, right{1, 0}, top{0, 1}, bottom{0, -1};
+            make_bc<ImposedDistribution>(f, feq_inflow)->on(left, top, bottom);
+            make_bc<Neumann<1>>(f)->on(right);
+            scheme.init_equilibrium(f, m);
+
+            const auto nt     = static_cast<std::size_t>(std::round(Tf / dt));
+            auto MRadaptation = make_MRAdapt(f);
+            auto mra_config   = samurai::mra_config().epsilon(1e-3);
+            if (adapt)
+            {
+                MRadaptation(mra_config);
+                m.resize();
+            }
+
+            double cd = 0.;
+            for (std::size_t n = 0; n < nt; ++n)
+            {
+                if (adapt)
+                {
+                    MRadaptation(mra_config);
+                    m.resize();
+                }
+                scheme(f, m);
+                double Fx = 0.;
+                for_each_cell(mesh,
+                              [&](const auto& cell)
+                              {
+                                  const double frac = solid_fraction(cell.center(0), cell.center(1), cell.length);
+                                  if (frac == 0.)
+                                  {
+                                      return;
+                                  }
+                                  auto fc   = f[cell];
+                                  double qx = 0.;
+                                  for (std::size_t a = 0; a < 9; ++a)
+                                  {
+                                      qx += M[1][a] * fc(a);
+                                  }
+                                  Fx += frac * qx / dt * cell.length * cell.length;
+                                  for (std::size_t a = 0; a < 9; ++a)
+                                  {
+                                      fc(a) = (1. - frac) * fc(a) + frac * feq_rest[a];
+                                  }
+                              });
+                cd = Fx / (0.5 * rho0 * u0 * u0 * diam);
+            }
+
+            vk_result r{std::numeric_limits<double>::max(), std::numeric_limits<double>::lowest(), 0., 0., cd};
+            for_each_cell(mesh,
+                          [&](const auto& cell)
+                          {
+                              auto fc    = f[cell];
+                              double rho = 0., qx = 0., qy = 0.;
+                              for (std::size_t a = 0; a < 9; ++a)
+                              {
+                                  rho += fc(a);
+                                  qx += M[1][a] * fc(a);
+                                  qy += M[2][a] * fc(a);
+                              }
+                              const double speed = std::sqrt(qx * qx + qy * qy) / rho;
+                              r.rhomin           = std::min(r.rhomin, rho);
+                              r.rhomax           = std::max(r.rhomax, rho);
+                              r.umax             = std::max(r.umax, speed);
+                              if (solid_fraction(cell.center(0), cell.center(1), cell.length) == 1.)
+                              {
+                                  r.u_solid_max = std::max(r.u_solid_max, speed);
+                              }
+                          });
+            return r;
+        }
+    }
+
+    TEST(lbm_d2q9, von_karman_obstacle_and_inflow_outflow)
+    {
+        auto r = run_d2q9_von_karman(5, 2.0, /*adapt*/ false);
+        // Stable, weakly compressible flow (rho stays close to 1).
+        EXPECT_GT(r.rhomin, 0.9);
+        EXPECT_LT(r.rhomax, 1.1);
+        // The stream accelerates around the cylinder (peak speed above the free stream u0 = 0.1).
+        EXPECT_GT(r.umax, 0.1);
+        EXPECT_LT(r.umax, 0.5);
+        // The volume penalisation holds the fluid at rest inside the cylinder.
+        EXPECT_LT(r.u_solid_max, 1e-12);
+        // Physical, positive drag of order one.
+        EXPECT_GT(r.cd, 0.);
+        EXPECT_LT(r.cd, 10.);
+    }
+
+    TEST(lbm_d2q9, von_karman_adaptive_is_stable)
+    {
+        auto r = run_d2q9_von_karman(6, 1.0, /*adapt*/ true);
+        EXPECT_GT(r.rhomin, 0.9);
+        EXPECT_LT(r.rhomax, 1.1);
+        EXPECT_LT(r.u_solid_max, 1e-12);
+        EXPECT_GT(r.cd, 0.);
+        EXPECT_LT(r.cd, 10.);
+    }
 }

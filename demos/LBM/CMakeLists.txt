@@ -32,6 +32,9 @@ target_link_libraries(lbm-new-D2Q4444-euler-implosion samurai)
 add_executable(lbm-new-D2Q5444-euler-rayleigh-taylor new_D2Q5444_euler_rayleigh_taylor.cpp)
 target_link_libraries(lbm-new-D2Q5444-euler-rayleigh-taylor samurai)
 
+add_executable(lbm-new-D2Q9-von-karman new_D2Q9_von_karman.cpp)
+target_link_libraries(lbm-new-D2Q9-von-karman samurai)
+
 # ---------------------------------------------------------------------------
 # Legacy demos (outdated: overleaves, hand-rolled prediction maps, old BC).
 # Kept for reference during the migration to schemes/lbm; not built for now.
