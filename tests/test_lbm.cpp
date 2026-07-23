@@ -887,6 +887,213 @@ namespace samurai
         EXPECT_LT(r.momentum_asymmetry, 1e-10);
     }
 
+    // ============================================= D2Q5444 Euler with gravity (source term)
+    namespace
+    {
+        struct rt_result
+        {
+            double mass_drift;
+            double rhomin;
+            double pmin;
+            double umax;
+        };
+
+        // D2Q5444 compressible Euler with a gravity source in a closed box. uniform_density == true
+        // gives a single hydrostatic layer (equilibrium the scheme should keep at rest up to a
+        // consistent discretisation error); false gives the Rayleigh-Taylor two-layer datum.
+        rt_result run_d2q5444_rt(std::size_t max_level, double Tf, bool uniform_density)
+        {
+            static constexpr std::size_t dim = 2;
+            const double lambda = 5., gamma = 1.4, gm1 = gamma - 1., g = 2.;
+            const double rho_down = 1., rho_up = uniform_density ? 1. : 2.;
+            const double l = lambda, l2 = l * l;
+            constexpr double pi = 3.14159265358979323846;
+
+            Box<double, dim> box({0., 0.}, {1., 1.});
+            auto cfg  = mesh_config<dim>().min_level(max_level).max_level(max_level).periodic(false).max_stencil_size(4);
+            auto mesh = mra::make_mesh(box, cfg);
+
+            auto m = make_vector_field<double, 17>("m", mesh);
+            auto f = make_vector_field<double, 17>("f", mesh);
+            m.fill(0.);
+            f.fill(0.);
+            for_each_cell(mesh,
+                          [&](const auto& cell)
+                          {
+                              const double x = cell.center(0), y = cell.center(1);
+                              const double y_i = 0.5 + 0.01 * std::cos(4. * pi * x);
+                              double rho, press;
+                              if (y < y_i)
+                              {
+                                  rho   = rho_down;
+                                  press = 1. + (1. - y_i) * g * rho_up + (y_i - y) * g * rho_down;
+                              }
+                              else
+                              {
+                                  rho   = rho_up;
+                                  press = 1. + (1. - y) * g * rho_up;
+                              }
+                              m[cell](0)  = rho;
+                              m[cell](13) = press / gm1;
+                          });
+
+            std::array<std::array<double, 5>, 5> M5{
+                {{1., 1., 1., 1., 1.},
+                 {0., l, 0., -l, 0.},
+                 {0., 0., l, 0., -l},
+                 {-4. * l2 / 5., 21. * l2 / 5., 21. * l2 / 5., 21. * l2 / 5., 21. * l2 / 5.},
+                 {0., l2, -l2, l2, -l2}}
+            };
+            std::array<std::array<double, 5>, 5> invM5{
+                {{21. / 25., 0., 0., -1. / (5. * l2), 0.},
+                 {1. / 25., 0.5 / l, 0., 1. / (20. * l2), 0.25 / l2},
+                 {1. / 25., 0., 0.5 / l, 1. / (20. * l2), -0.25 / l2},
+                 {1. / 25., -0.5 / l, 0., 1. / (20. * l2), 0.25 / l2},
+                 {1. / 25., 0., -0.5 / l, 1. / (20. * l2), -0.25 / l2}}
+            };
+            const std::array<std::array<int, dim>, 5> vel5{
+                {{0, 0}, {1, 0}, {0, 1}, {-1, 0}, {0, -1}}
+            };
+            std::array<std::array<double, 4>, 4> M4{
+                {{1., 1., 1., 1.}, {l, 0., -l, 0.}, {0., l, 0., -l}, {l2, -l2, l2, -l2}}
+            };
+            std::array<std::array<double, 4>, 4> invM4{
+                {{0.25, 0.5 / l, 0., 0.25 / l2},
+                 {0.25, 0., 0.5 / l, -0.25 / l2},
+                 {0.25, -0.5 / l, 0., 0.25 / l2},
+                 {0.25, 0., -0.5 / l, -0.25 / l2}}
+            };
+            const std::array<std::array<int, dim>, 4> vel4{
+                {{1, 0}, {0, 1}, {-1, 0}, {0, -1}}
+            };
+            auto eq_rho = [](std::array<double, 5>& meq, std::span<const double> mm)
+            {
+                const double r = mm[0], qx = mm[5], qy = mm[9];
+                meq[0] = r;
+                meq[1] = qx;
+                meq[2] = qy;
+                meq[3] = (qx * qx + qy * qy) / r;
+                meq[4] = 0.;
+            };
+            auto eq_qx = [gamma, gm1](std::array<double, 4>& meq, std::span<const double> mm)
+            {
+                const double r = mm[0], qx = mm[5], qy = mm[9], E = mm[13];
+                meq[0] = qx;
+                meq[1] = (1.5 - 0.5 * gamma) * qx * qx / r + (0.5 - 0.5 * gamma) * qy * qy / r + gm1 * E;
+                meq[2] = qx * qy / r;
+                meq[3] = 0.;
+            };
+            auto eq_qy = [gamma, gm1](std::array<double, 4>& meq, std::span<const double> mm)
+            {
+                const double r = mm[0], qx = mm[5], qy = mm[9], E = mm[13];
+                meq[0] = qy;
+                meq[1] = qx * qy / r;
+                meq[2] = (1.5 - 0.5 * gamma) * qy * qy / r + (0.5 - 0.5 * gamma) * qx * qx / r + gm1 * E;
+                meq[3] = 0.;
+            };
+            auto eq_E = [gamma](std::array<double, 4>& meq, std::span<const double> mm)
+            {
+                const double r = mm[0], qx = mm[5], qy = mm[9], E = mm[13];
+                const double h = 0.5 * (gamma - 1.);
+                meq[0]         = E;
+                meq[1]         = gamma * qx * E / r - h * qx * qx * qx / (r * r) - h * qx * qy * qy / (r * r);
+                meq[2]         = gamma * qy * E / r - h * qy * qy * qy / (r * r) - h * qy * qx * qx / (r * r);
+                meq[3]         = 0.;
+            };
+            const std::array<double, 5> s_rho{0., 1.75, 1.75, 1.0, 1.0};
+            const std::array<double, 4> s_var{0., 1.5, 1.5, 1.0};
+
+            using field_t = decltype(f);
+            auto scheme   = make_lbm_scheme<field_t>("D2Q5444_rt",
+                                                   lambda,
+                                                   velocity_scheme<dim, 5>(vel5, M5, invM5, s_rho, eq_rho),
+                                                   velocity_scheme<dim, 4>(vel4, M4, invM4, s_var, eq_qx),
+                                                   velocity_scheme<dim, 4>(vel4, M4, invM4, s_var, eq_qy),
+                                                   velocity_scheme<dim, 4>(vel4, M4, invM4, s_var, eq_E));
+            scheme.set_source(
+                [g](std::span<double> mm, double dt)
+                {
+                    mm[9] += -mm[0] * g * dt;
+                    mm[13] += -mm[9] * g * dt;
+                });
+
+            std::array<std::array<int, dim>, 17> velocities{};
+            for (std::size_t k = 0; k < 5; ++k)
+            {
+                velocities[k] = vel5[k];
+            }
+            for (std::size_t blk = 0; blk < 3; ++blk)
+            {
+                for (std::size_t k = 0; k < 4; ++k)
+                {
+                    velocities[5 + 4 * blk + k] = vel4[k];
+                }
+            }
+            make_bc<BounceBack>(f, velocities, std::vector<std::size_t>{5, 4, 4, 4}, std::vector<int>{-1, 0, 1, -1});
+            scheme.init_equilibrium(f, m);
+
+            const double dx = 1. / static_cast<double>(std::size_t{1} << max_level);
+            const double dt = dx / lambda;
+            const auto nt   = static_cast<std::size_t>(std::round(Tf / dt));
+
+            auto mass = [&]()
+            {
+                double s = 0.;
+                for_each_cell(mesh,
+                              [&](const auto& cell)
+                              {
+                                  const double area = cell.length * cell.length;
+                                  s += (f[cell](0) + f[cell](1) + f[cell](2) + f[cell](3) + f[cell](4)) * area;
+                              });
+                return s;
+            };
+            const double mass0 = mass();
+
+            for (std::size_t n = 0; n < nt; ++n)
+            {
+                scheme(f, m, dt);
+            }
+
+            rt_result r{0., std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), 0.};
+            for_each_cell(mesh,
+                          [&](const auto& cell)
+                          {
+                              const double rho = m[cell](0), qx = m[cell](5), qy = m[cell](9), E = m[cell](13);
+                              const double p = (gamma - 1.) * (E - 0.5 * (qx * qx + qy * qy) / rho);
+                              r.rhomin       = std::min(r.rhomin, rho);
+                              r.pmin         = std::min(r.pmin, p);
+                              r.umax         = std::max(r.umax, std::sqrt(qx * qx + qy * qy) / rho);
+                          });
+            r.mass_drift = std::abs(mass() - mass0);
+            return r;
+        }
+    }
+
+    TEST(lbm_d2q5444, rayleigh_taylor_source_conserves_mass_and_grows)
+    {
+        auto r = run_d2q5444_rt(6, 1.0, /*uniform_density*/ false);
+        // Closed box, density carries no source: mass conserved to round-off.
+        EXPECT_LT(r.mass_drift, 1e-11);
+        EXPECT_GT(r.rhomin, 0.);
+        EXPECT_GT(r.pmin, 0.);
+        // The heavy-over-light interface is unstable: the perturbation has grown into motion.
+        EXPECT_GT(r.umax, 0.02);
+    }
+
+    TEST(lbm_d2q5444, gravity_source_hydrostatic_error_is_consistent)
+    {
+        // A single hydrostatic layer is a rest equilibrium; the (non-well-balanced) scheme keeps
+        // it at rest up to a discretisation error that must shrink under refinement.
+        auto r6 = run_d2q5444_rt(6, 0.5, /*uniform_density*/ true);
+        auto r7 = run_d2q5444_rt(7, 0.5, /*uniform_density*/ true);
+        EXPECT_LT(r6.mass_drift, 1e-11);
+        EXPECT_LT(r7.mass_drift, 1e-11);
+        EXPECT_GT(r6.pmin, 0.);
+        EXPECT_GT(r7.pmin, 0.);
+        // Spurious current decreases with resolution (consistent gravity source).
+        EXPECT_LT(r7.umax, r6.umax);
+    }
+
     // ==================================================================== D1Q3 + wall BC
     namespace
     {

@@ -139,3 +139,16 @@ def test_lbm_demo_d2q4444_lax_liu(case, extra, config):
 )
 def test_lbm_demo_d2q4444_implosion(case, extra, config):
     run_demo("lbm-new-D2Q4444-euler-implosion", config, extra)
+
+
+# ------------------------------------------------------------------ D2Q5444 Euler + gravity source
+@pytest.mark.h5diff()
+@pytest.mark.parametrize(
+    "case, extra",
+    [
+        ("uniform", ["--level", "6", "--Tf", "0.5"]),
+        ("adaptive", ["--adapt", "--level", "7", "--min-lvl", "2", "--eps", "1e-3", "--Tf", "0.5"]),
+    ],
+)
+def test_lbm_demo_d2q5444_rayleigh_taylor(case, extra, config):
+    run_demo("lbm-new-D2Q5444-euler-rayleigh-taylor", config, extra)
