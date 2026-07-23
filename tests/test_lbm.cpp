@@ -734,6 +734,159 @@ namespace samurai
         EXPECT_NEAR(ra.vmax, ru.vmax, 0.1);
     }
 
+    // ============================================= D2Q4444 Euler reflecting (slip) wall
+    namespace
+    {
+        struct implosion_result
+        {
+            double mass_drift;
+            double rhomin;
+            double pmin;
+            double momentum_asymmetry; // |integral(qx) - integral(qy)|, zero by diagonal symmetry
+        };
+
+        // D2Q4444 Euler implosion in a closed box with multi-block reflecting slip walls.
+        implosion_result run_d2q4444_implosion(std::size_t max_level, double Tf)
+        {
+            static constexpr std::size_t dim = 2;
+            const double lambda = 10., gamma = 1.4, gm1 = gamma - 1., s_x = 1.9;
+            const double l = lambda, l2 = l * l;
+
+            Box<double, dim> box({0., 0.}, {1., 1.});
+            auto cfg  = mesh_config<dim>().min_level(max_level).max_level(max_level).periodic(false).max_stencil_size(4);
+            auto mesh = mra::make_mesh(box, cfg);
+
+            auto m = make_vector_field<double, 16>("m", mesh);
+            auto f = make_vector_field<double, 16>("f", mesh);
+            m.fill(0.);
+            f.fill(0.);
+            for_each_cell(mesh,
+                          [&](const auto& cell)
+                          {
+                              const bool inside = (cell.center(0) + cell.center(1)) <= 0.5;
+                              m[cell](0)        = inside ? 0.125 : 1.;
+                              m[cell](12)       = (inside ? 0.14 : 1.) / gm1;
+                          });
+
+            std::array<std::array<double, 4>, 4> M{
+                {{1., 1., 1., 1.}, {l, 0., -l, 0.}, {0., l, 0., -l}, {l2, -l2, l2, -l2}}
+            };
+            std::array<std::array<double, 4>, 4> invM{
+                {{0.25, 0.5 / l, 0., 0.25 / l2},
+                 {0.25, 0., 0.5 / l, -0.25 / l2},
+                 {0.25, -0.5 / l, 0., 0.25 / l2},
+                 {0.25, 0., -0.5 / l, -0.25 / l2}}
+            };
+            const std::array<std::array<int, dim>, 4> vel{
+                {{1, 0}, {0, 1}, {-1, 0}, {0, -1}}
+            };
+            auto eq_rho = [](std::array<double, 4>& meq, std::span<const double> mm)
+            {
+                meq[0] = mm[0];
+                meq[1] = mm[4];
+                meq[2] = mm[8];
+                meq[3] = 0.;
+            };
+            auto eq_qx = [gamma, gm1](std::array<double, 4>& meq, std::span<const double> mm)
+            {
+                const double r = mm[0], qx = mm[4], qy = mm[8], E = mm[12];
+                meq[0] = qx;
+                meq[1] = (1.5 - 0.5 * gamma) * qx * qx / r + (0.5 - 0.5 * gamma) * qy * qy / r + gm1 * E;
+                meq[2] = qx * qy / r;
+                meq[3] = 0.;
+            };
+            auto eq_qy = [gamma, gm1](std::array<double, 4>& meq, std::span<const double> mm)
+            {
+                const double r = mm[0], qx = mm[4], qy = mm[8], E = mm[12];
+                meq[0] = qy;
+                meq[1] = qx * qy / r;
+                meq[2] = (1.5 - 0.5 * gamma) * qy * qy / r + (0.5 - 0.5 * gamma) * qx * qx / r + gm1 * E;
+                meq[3] = 0.;
+            };
+            auto eq_E = [gamma](std::array<double, 4>& meq, std::span<const double> mm)
+            {
+                const double r = mm[0], qx = mm[4], qy = mm[8], E = mm[12];
+                const double h = 0.5 * (gamma - 1.);
+                meq[0]         = E;
+                meq[1]         = gamma * qx * E / r - h * qx * qx * qx / (r * r) - h * qx * qy * qy / (r * r);
+                meq[2]         = gamma * qy * E / r - h * qy * qy * qy / (r * r) - h * qy * qx * qx / (r * r);
+                meq[3]         = 0.;
+            };
+            const std::array<double, 4> s_blk{0., s_x, s_x, 1.0};
+
+            using field_t = decltype(f);
+            auto scheme   = make_lbm_scheme<field_t>("D2Q4444_implosion",
+                                                   lambda,
+                                                   velocity_scheme<dim, 4>(vel, M, invM, s_blk, eq_rho),
+                                                   velocity_scheme<dim, 4>(vel, M, invM, s_blk, eq_qx),
+                                                   velocity_scheme<dim, 4>(vel, M, invM, s_blk, eq_qy),
+                                                   velocity_scheme<dim, 4>(vel, M, invM, s_blk, eq_E));
+
+            std::array<std::array<int, dim>, 16> velocities{};
+            for (std::size_t blk = 0; blk < 4; ++blk)
+            {
+                for (std::size_t k = 0; k < 4; ++k)
+                {
+                    velocities[4 * blk + k] = vel[k];
+                }
+            }
+            make_bc<BounceBack>(f, velocities, std::vector<std::size_t>{4, 4, 4, 4}, std::vector<int>{-1, 0, 1, -1});
+            scheme.init_equilibrium(f, m);
+
+            const double dx = 1. / static_cast<double>(std::size_t{1} << max_level);
+            const double dt = dx / lambda;
+            const auto nt   = static_cast<std::size_t>(std::round(Tf / dt));
+
+            auto mass = [&]()
+            {
+                double s = 0.;
+                for_each_cell(mesh,
+                              [&](const auto& cell)
+                              {
+                                  const double area = cell.length * cell.length;
+                                  s += (f[cell](0) + f[cell](1) + f[cell](2) + f[cell](3)) * area;
+                              });
+                return s;
+            };
+            const double mass0 = mass();
+
+            for (std::size_t n = 0; n < nt; ++n)
+            {
+                scheme(f, m);
+            }
+
+            implosion_result r{0., std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), 0.};
+            double sum_qx = 0., sum_qy = 0.;
+            for_each_cell(mesh,
+                          [&](const auto& cell)
+                          {
+                              const double area = cell.length * cell.length;
+                              const double rho = m[cell](0), qx = m[cell](4), qy = m[cell](8), E = m[cell](12);
+                              const double p = (gamma - 1.) * (E - 0.5 * (qx * qx + qy * qy) / rho);
+                              r.rhomin       = std::min(r.rhomin, rho);
+                              r.pmin         = std::min(r.pmin, p);
+                              sum_qx += qx * area;
+                              sum_qy += qy * area;
+                          });
+            r.mass_drift         = std::abs(mass() - mass0);
+            r.momentum_asymmetry = std::abs(sum_qx - sum_qy);
+            return r;
+        }
+    }
+
+    TEST(lbm_d2q4444, implosion_reflecting_wall_conserves_mass_and_symmetry)
+    {
+        auto r = run_d2q4444_implosion(6, 0.5);
+        // Closed box with reflecting walls: the mass is conserved to round-off.
+        EXPECT_LT(r.mass_drift, 1e-11);
+        // Physical state throughout.
+        EXPECT_GT(r.rhomin, 0.);
+        EXPECT_GT(r.pmin, 0.);
+        // The initial datum is symmetric under (x,y) -> (y,x); the reflecting walls preserve it,
+        // so the total x- and y-momenta stay equal.
+        EXPECT_LT(r.momentum_asymmetry, 1e-10);
+    }
+
     // ==================================================================== D1Q3 + wall BC
     namespace
     {

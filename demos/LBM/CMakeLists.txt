@@ -26,6 +26,9 @@ target_link_libraries(lbm-new-D1Q222-euler-sod samurai)
 add_executable(lbm-new-D2Q4444-euler-lax-liu new_D2Q4444_euler_lax_liu.cpp)
 target_link_libraries(lbm-new-D2Q4444-euler-lax-liu samurai)
 
+add_executable(lbm-new-D2Q4444-euler-implosion new_D2Q4444_euler_implosion.cpp)
+target_link_libraries(lbm-new-D2Q4444-euler-implosion samurai)
+
 # ---------------------------------------------------------------------------
 # Legacy demos (outdated: overleaves, hand-rolled prediction maps, old BC).
 # Kept for reference during the migration to schemes/lbm; not built for now.

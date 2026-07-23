@@ -126,3 +126,16 @@ def test_lbm_demo_d1q222_sod(case, extra, config):
 )
 def test_lbm_demo_d2q4444_lax_liu(case, extra, config):
     run_demo("lbm-new-D2Q4444-euler-lax-liu", config, extra)
+
+
+# ------------------------------------------------------------------ D2Q4444 Euler reflecting wall
+@pytest.mark.h5diff()
+@pytest.mark.parametrize(
+    "case, extra",
+    [
+        ("uniform", ["--level", "5", "--Tf", "0.3"]),
+        ("adaptive", ["--adapt", "--level", "6", "--min-lvl", "2", "--eps", "1e-3", "--Tf", "0.3"]),
+    ],
+)
+def test_lbm_demo_d2q4444_implosion(case, extra, config):
+    run_demo("lbm-new-D2Q4444-euler-implosion", config, extra)
