@@ -361,7 +361,7 @@ namespace samurai
         using ca_type = typename mesh_t::ca_type;
 
         ca_type new_ca = update_cell_array_from_tag(mesh[mesh_id_t::cells], m_tag);
-        make_graduation(new_ca, mesh.domain(), mesh.mpi_neighbourhood(), mesh.periodicity(), mesh.graduation_width(), mesh.max_stencil_radius());
+        make_graduation(new_ca, mesh.domain_pyramid(), mesh.mpi_neighbourhood(), mesh.periodicity(), mesh.graduation_width(), mesh.max_stencil_radius());
 
         // Fixed-point detection BEFORE constructing the new mesh: the
         // construction builds every derived mesh id and, with MPI, exchanges

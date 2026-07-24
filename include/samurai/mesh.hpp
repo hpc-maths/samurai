@@ -172,6 +172,7 @@ namespace samurai
         double min_cell_length() const;
         const lca_type& domain() const;
         const lca_type& domain(std::size_t level) const;
+        const ca_type& domain_pyramid() const;
         const lca_type& subdomain() const;
         const lca_type& subdomain(std::size_t level) const;
 
@@ -716,6 +717,16 @@ namespace samurai
     SAMURAI_INLINE auto Mesh_base<D, Config>::domain(std::size_t level) const -> const lca_type&
     {
         return m_domain[level];
+    }
+
+    // Whole-domain pyramid: the domain represented at every level (m_domain[level]
+    // is precomputed for all levels). Exposed so that consumers needing the domain
+    // at several levels - e.g. make_graduation - can index domain[level] directly
+    // instead of projecting the finest-level domain with self(domain).on(level).
+    template <class D, class Config>
+    SAMURAI_INLINE auto Mesh_base<D, Config>::domain_pyramid() const -> const ca_type&
+    {
+        return m_domain;
     }
 
     template <class D, class Config>

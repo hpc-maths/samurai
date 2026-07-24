@@ -68,9 +68,14 @@ namespace samurai
         using coord_type = typename ca_type::lca_type::coord_type;
         using out_t      = std::array<ArrayOfIntervalAndPoint<interval_t, coord_type>, ca_type::max_size>;
 
+        // Domain pyramid: [0, 16) at level 4, [0, 8) at level 3. make_graduation now
+        // receives the domain as a multi-level CellArray and indexes domain[level]
+        // directly (no self(domain).on(level) projection), so the helper is exercised
+        // with the same per-level domain it gets from mesh.domain_pyramid().
         CellList<dim> domain_cl;
         domain_cl[4][{}].add_interval({0, 16});
-        LevelCellArray<dim> domain(domain_cl[4]);
+        domain_cl[3][{}].add_interval({0, 8});
+        CellArray<dim> domain{domain_cl};
 
         const std::array<bool, dim> is_periodic{false};
 

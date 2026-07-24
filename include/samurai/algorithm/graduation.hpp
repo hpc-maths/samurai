@@ -246,7 +246,7 @@ namespace samurai
     void list_interval_to_refine_for_graduation(
         const size_t grad_width,
         const CellArray<dim, TInterval, max_size>& ca,
-        const LevelCellArray<dim, TInterval>& domain,
+        const CellArray<dim, TInterval, max_size>& domain,
         [[maybe_unused]] const auto& mpi_meshes,
         const std::array<bool, dim>& is_periodic,
         const std::array<int, dim>& nb_cells_finest_level,
@@ -316,7 +316,7 @@ namespace samurai
                 {
                     continue;
                 }
-                const int delta_l = int(domain.level() - fine_level);
+                const int delta_l = int(domain.max_level() - fine_level);
                 auto directions   = detail::get_periodic_directions(nb_cells_finest_level, delta_l, is_periodic);
                 cascade_refine(fine_lca, fine_level);
                 for (const auto& d : directions)
@@ -387,7 +387,7 @@ namespace samurai
     void list_interval_to_refine_for_contiguous_boundary_cells(
         const int max_stencil_radius,
         const CellArray<dim, TInterval, max_size>& ca,
-        const LevelCellArray<dim, TInterval>& domain,
+        const CellArray<dim, TInterval, max_size>& domain,
         [[maybe_unused]] const auto& mpi_meshes,
         const std::array<bool, dim>& is_periodic,
         std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, CellArray<dim, TInterval, max_size>::max_size>& out,
@@ -456,7 +456,7 @@ namespace samurai
                             // empty and this reduces to the original single-mesh behaviour.
                             auto refine_from = [&](const auto& src, const auto* src_seed)
                             {
-                                auto boundary_expr = difference(src[level], translate(self(domain).on(level), -translation));
+                                auto boundary_expr = difference(src[level], translate(domain[level], -translation));
                                 // With a seed, keep only the new boundary cells at this level.
                                 LevelCellArray<dim, TInterval> boundaryCells = src_seed
                                                                                  ? LevelCellArray<dim, TInterval>(
@@ -500,7 +500,7 @@ namespace samurai
                             // `ca` and from every neighbour mesh, but refine only this rank's own level+1 cells.
                             auto refine_from = [&](const auto& src)
                             {
-                                auto boundaryCells = difference(src[level], translate(self(domain).on(level), -translation));
+                                auto boundaryCells = difference(src[level], translate(domain[level], -translation));
                                 for (int i = 1; i != max_stencil_radius; ++i)
                                 {
                                     auto refine_subset = translate(
@@ -531,7 +531,7 @@ namespace samurai
     void list_intervals_to_refine(const std::size_t grad_width,
                                   const int max_stencil_radius,
                                   const CellArray<dim, TInterval, max_size>& ca,
-                                  const LevelCellArray<dim, TInterval>& domain,
+                                  const CellArray<dim, TInterval, max_size>& domain,
                                   [[maybe_unused]] const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood,
                                   const std::array<bool, dim>& is_periodic,
                                   const std::array<int, dim>& nb_cells_finest_level,
@@ -602,9 +602,204 @@ namespace samurai
         } // end for
     }
 
+    // Single-pass graded closure (no MPI neighbour, no periodicity, no boundary
+    // contiguity - interior grading only). One top-down sweep, no fixed-point.
+    //
+    // F[l] = the region required at level >= l, as whole level-l cells, built from the
+    // finest level down:
+    //   F[max] = ca[max]
+    //   F[l]   = ( ca[l] UNION expand(F[l+1].on(l), grad_width) ) rounded up to whole
+    //            level-(l-1) parents
+    // The rounding enforces samurai's complete-tree invariant: a cell of level l exists
+    // iff its (l-1) parent is refined, which forces ALL that parent's children to level
+    // >= l. So a coarse cell touched by grading is refined IN FULL - never partially,
+    // which is what would leave a hole. A cell sits at exactly level l where it is
+    // required at l but not at l+1:
+    //   graded[l] = F[l] \ F[l+1].on(l)
+    template <std::size_t dim, class TInterval, size_t max_size>
+    void graded_closure_single_pass(CellArray<dim, TInterval, max_size>& ca,
+                                    const CellArray<dim, TInterval, max_size>& domain,
+                                    const std::array<bool, dim>& is_periodic,
+                                    const size_t grad_width)
+    {
+        using ca_type = CellArray<dim, TInterval, max_size>;
+        using lca_t   = typename ca_type::lca_type;
+
+        const size_t max_level = ca.max_level();
+        const size_t min_level = ca.min_level();
+        if (max_level <= min_level)
+        {
+            return; // a single level is always graded
+        }
+        const int w = static_cast<int>(grad_width);
+
+        const bool any_periodic = std::any_of(is_periodic.begin(), is_periodic.end(), [](bool b) { return b; });
+        std::array<int, dim> nb_cells_finest_level{};
+        if (any_periodic)
+        {
+            const auto& mn = domain[domain.max_level()].min_indices();
+            const auto& mx = domain[domain.max_level()].max_indices();
+            for (size_t d = 0; d != mx.size(); ++d)
+            {
+                nb_cells_finest_level[d] = mx[d] - mn[d];
+            }
+        }
+
+        // Graduation only ever refines EXISTING cells (the iterative version intersects
+        // with ca[coarse_level] at each step), so every F[l] must be clipped to the mesh
+        // coverage - otherwise the grading expansion would spill cells outside the
+        // mesh/domain. The mesh fills its domain, so the precomputed domain pyramid
+        // domain[l] IS that coverage at level l (cheap). When no domain is available
+        // (the standalone make_graduation(ca) overload), fall back to computing the
+        // coverage from ca itself.
+        const bool has_domain = !domain.empty();
+        lca_t coverage;
+        if (!has_domain)
+        {
+            bool first = true;
+            for (size_t l = min_level; l <= max_level; ++l)
+            {
+                if (ca[l].empty())
+                {
+                    continue;
+                }
+                lca_t projected(self(ca[l]).on(max_level));
+                coverage = first ? projected : lca_t(union_(coverage, projected).on(max_level));
+                first    = false;
+            }
+        }
+        const auto clip = [&](lca_t&& x, size_t l) -> lca_t
+        {
+            return has_domain ? lca_t(intersection(x, domain[l]).on(l)) : lca_t(intersection(x, self(coverage).on(l)).on(l));
+        };
+
+        std::array<lca_t, max_size> F;
+        F[max_level] = ca[max_level];
+        for (size_t l = max_level; l-- > min_level;)
+        {
+            // Grading buffer at level l: the finer requirement, expanded by grad_width.
+            lca_t expanded(nestedExpand(self(F[l + 1]).on(l), w));
+            // Periodicity: a finer cell near a periodic boundary must also force
+            // refinement near the opposite boundary. Add the wrapped copies of the
+            // buffer (translated by the domain size at level l).
+            if (any_periodic)
+            {
+                const lca_t base = expanded;
+                for (const auto& d : detail::get_periodic_directions(nb_cells_finest_level, int(domain.max_level()) - int(l), is_periodic))
+                {
+                    expanded = lca_t(union_(expanded, translate(base, d)).on(l));
+                }
+            }
+            lca_t req(union_(ca[l], expanded).on(l));
+            // Round up to whole (l-1) parents (complete-tree invariant) - except at
+            // min_level, which has no coarser parent in the mesh - then clip so nothing
+            // spills outside the domain.
+            F[l] = (l > min_level) ? clip(lca_t(self(req).on(l - 1).on(l)), l) : clip(std::move(req), l);
+        }
+
+        ca_type graded_ca;
+        const auto collect = [&](size_t l)
+        {
+            return [&, l](const auto& x_interval, const auto& yz)
+            {
+                graded_ca[l].add_interval_back(x_interval, yz);
+            };
+        };
+        self(F[max_level]).on(max_level)(collect(max_level));
+        for (size_t l = min_level; l < max_level; ++l)
+        {
+            difference(F[l], self(F[l + 1]).on(l)).on(l)(collect(l));
+        }
+        std::swap(ca, graded_ca);
+    }
+
+    // Apply a refinement list (produced by list_interval_to_refine_*): each flagged
+    // cell at level l is removed and replaced by its 2^dim children at level l+1.
+    // Returns whether `ca` actually changed. Shared by the fixed-point loop and the
+    // single-pass boundary-contiguity loop.
+    template <std::size_t dim, class TInterval, size_t max_size, class TCoord>
+    bool apply_refinement_list(CellArray<dim, TInterval, max_size>& ca,
+                               std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, max_size>& out)
+    {
+        using ca_type    = CellArray<dim, TInterval, max_size>;
+        using coord_type = typename ca_type::lca_type::coord_type;
+
+        const size_t max_level = ca.max_level();
+        const size_t min_level = ca.min_level();
+
+        ca_type ca_add_p;
+        ca_type ca_remove_p;
+        std::vector<TInterval> add_p_interval;
+        std::vector<coord_type> add_p_inner_stencil;
+        std::vector<size_t> add_p_idx;
+
+        bool any_change = false;
+        for (size_t level = min_level; level < max_level + 1; ++level)
+        {
+            out[level].remove_overlapping_intervals();
+            const size_t imax = out[level].size();
+            if (imax > 0)
+            {
+                any_change = true;
+            }
+            for (size_t i = 0; i != imax; ++i)
+            {
+                const auto& x_interval = out[level][i].first;
+                const auto& yz         = out[level][i].second;
+                ca_remove_p[level].add_interval_back(x_interval, yz);
+                if constexpr (dim == 1)
+                {
+                    ca_add_p[level + 1].add_interval_back(2 * x_interval, 2 * yz);
+                }
+                else
+                {
+                    nestedLoop<dim - 1, 0, dim - 2>(0,
+                                                    2,
+                                                    [&](const auto& inner_stencil)
+                                                    {
+                                                        add_p_interval.push_back(2 * x_interval);
+                                                        if constexpr (dim > 2)
+                                                        {
+                                                            add_p_inner_stencil.emplace_back(2 * yz + inner_stencil);
+                                                            add_p_idx.push_back(add_p_interval.size() - 1);
+                                                        }
+                                                    });
+                }
+                if (dim != 1 and (i + 1 == imax or yz[dim - 2] != out[level].get_coord(i + 1)[dim - 2]))
+                {
+                    add_list_of_interval_back(add_p_interval, coord_type(2 * yz), add_p_inner_stencil, add_p_idx, ca_add_p[level + 1]);
+                    add_p_interval.clear();
+                    add_p_inner_stencil.clear();
+                    add_p_idx.clear();
+                }
+            }
+        }
+
+        if (!any_change)
+        {
+            return false;
+        }
+
+        ca_type new_ca;
+        for (std::size_t level = std::min(ca.min_level(), ca_add_p.min_level());
+             level < std::max(ca.max_level(), ca_add_p.max_level()) + 1;
+             ++level)
+        {
+            auto set = difference(union_(ca[level], ca_add_p[level]), ca_remove_p[level]);
+            set(
+                [&](const auto& x_interval, const auto& yz)
+                {
+                    new_ca[level].add_interval_back(x_interval, yz);
+                });
+        }
+        const bool changed = (new_ca != ca);
+        std::swap(new_ca, ca);
+        return changed;
+    }
+
     template <std::size_t dim, class TInterval, class MeshType, size_t max_size>
     size_t make_graduation(CellArray<dim, TInterval, max_size>& ca,
-                           const LevelCellArray<dim, TInterval>& domain,
+                           const CellArray<dim, TInterval, max_size>& domain,
                            [[maybe_unused]] const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood,
                            const std::array<bool, dim>& is_periodic,
                            const size_t grad_width      = 1,
@@ -619,6 +814,44 @@ namespace samurai
         const size_t max_level = ca.max_level();
         const size_t min_level = ca.min_level();
 
+        // Single-pass fast path: no MPI neighbour (a cross-rank cascade needs the
+        // cells the neighbour creates, which only the fixed-point loop's per-iteration
+        // mesh exchange provides). The interior grading is done in one top-down sweep
+        // by graded_closure_single_pass (periodicity handled inside). When the scheme
+        // needs boundary contiguity (max_stencil_radius > 1), that pass ADDS cells that
+        // can create new interior violations, so we re-grade in a short outer loop -
+        // usually one or two turns, and skipped entirely for max_stencil_radius == 1.
+        if (mpi_neighbourhood.empty())
+        {
+            size_t nit   = 0;
+            bool changed = true;
+            while (changed)
+            {
+                ++nit;
+                graded_closure_single_pass(ca, domain, is_periodic, grad_width);
+                changed = false;
+                if (max_stencil_radius > 1 && !domain.empty())
+                {
+                    std::array<ArrayOfIntervalAndPoint<TInterval, coord_type>, max_size> boundary_out;
+                    for (auto& o : boundary_out)
+                    {
+                        o.clear();
+                    }
+                    const std::vector<ca_type> no_neighbour_meshes;
+                    list_interval_to_refine_for_contiguous_boundary_cells(max_stencil_radius, ca, domain, no_neighbour_meshes, is_periodic, boundary_out);
+                    changed = apply_refinement_list(ca, boundary_out);
+                }
+            }
+#ifdef SAMURAI_DEBUG_GRADUATION
+            if (!is_graduated(ca))
+            {
+                std::cerr << "[SAMURAI_DEBUG_GRADUATION] single-pass graduation produced a non-graduated mesh\n";
+                std::abort();
+            }
+#endif
+            return nit;
+        }
+
         std::array<int, dim> nb_cells_finest_level;
 
         if (std::any_of(is_periodic.begin(),
@@ -628,8 +861,8 @@ namespace samurai
                             return b;
                         }))
         {
-            const auto& min_indices = domain.min_indices();
-            const auto& max_indices = domain.max_indices();
+            const auto& min_indices = domain[domain.max_level()].min_indices();
+            const auto& max_indices = domain[domain.max_level()].max_indices();
 
             for (size_t d = 0; d != max_indices.size(); ++d)
             {
@@ -854,7 +1087,7 @@ namespace samurai
 
         std::vector<MPI_Subdomain<DummyMesh>> mpi_neighbourhood;
         std::array<bool, dim> is_periodic;
-        LevelCellArray<dim, TInterval> domain;
+        CellArray<dim, TInterval, max_size> domain;
 
         is_periodic.fill(false);
         return make_graduation(ca, domain, mpi_neighbourhood, is_periodic, grad_width);
