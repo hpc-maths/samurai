@@ -14,9 +14,39 @@
 #include "subset/node.hpp"
 #include "utils.hpp"
 
+/**
+ * @file reconstruction.hpp
+ *
+ * Multiresolution prediction and reconstruction: recovering the value a field
+ * would take on a grid finer than the one it is stored on.
+ *
+ * A cell at level @c l splits into @c 2^dim children at level @c l+1. samurai
+ * keeps only the cells actually present in the adapted mesh; the value of an
+ * absent finer cell is @e predicted from its coarser neighbours through the
+ * wavelet interpolation of half-width @c prediction_stencil_radius (the
+ * @c interp_coeffs<2*radius+1> of numeric/prediction.hpp). Prediction is linear,
+ * so the predicted value is a fixed linear combination of coarse-cell values
+ * that depends only on the level gap and on the child position inside its coarse
+ * cell, never on the field. Three layers build on that fact:
+ *
+ *   - @ref prediction_map        the combination itself: a sparse map
+ *                                {coarse-cell offset -> weight}.
+ *   - @ref prediction "prediction(delta_l, ii)"
+ *                                builds and memoises the map predicting child
+ *                                @c ii, @c delta_l levels below its coarse cell.
+ *   - @ref portion "portion(f, ...)"
+ *                                applies such a map to a field @c f, vectorised
+ *                                over a whole x-interval of coarse cells.
+ *
+ * Two higher-level operations consume them: @ref reconstruction projects an
+ * adapted field onto a uniform fine mesh (I/O, post-processing), and
+ * @ref transfer moves a field from one adapted mesh to another.
+ */
+
 namespace samurai
 {
-    // Hash function for std::array
+    /// Hash a std::array by folding element hashes (boost::hash_combine mix), so
+    /// an offset key can index the unordered_map of a @ref prediction_map.
     template <typename T, std::size_t N>
     struct ArrayHash
     {
@@ -32,6 +62,18 @@ namespace samurai
         }
     };
 
+    /**
+     * Sparse linear combination of cell values. @c coeff maps a @c dim-D integer
+     * offset @c k (relative to a reference cell) to its weight, so the map stands
+     * for  @c sum_k coeff[k] * value(reference + k).
+     *
+     * The class is the algebra of such combinations: @c += / @c -= merge or cancel
+     * the weights of matching offsets, @c *= and the scalar @c += scale or shift
+     * every weight. Because prediction is linear, summing the maps of several
+     * children yields the map of their sum in one object (used by the slice form
+     * of @ref get_prediction). The single-offset constructor is the identity
+     * combination @c value(reference + k) (weight 1).
+     */
     template <std::size_t dim, class index_t = default_config::value_t>
     class prediction_map
     {
@@ -46,6 +88,7 @@ namespace samurai
             coeff[k] = 1.;
         }
 
+        /// Weight of offset @c k, inserted at 0 if absent (so it can be accumulated into).
         double& operator()(const key_t& k)
         {
             auto it = coeff.find(k);
@@ -122,13 +165,11 @@ namespace samurai
             }
         }
 
+        /// Print each `offset: weight` entry, one per line (debugging).
         void to_stream(std::ostream& out) const
         {
             for (const auto& c : coeff)
             {
-                for (const auto& i : c.first)
-                {
-                }
                 out << fmt::format("({}):  {}", c.first, c.second) << std::endl;
             }
         }
@@ -177,6 +218,9 @@ namespace samurai
 
     namespace detail
     {
+        /// Shift @c parent_indices by the stencil offset of a tensor-product node: per
+        /// direction, @c loop_indices runs over @c [0, 2*order+1) and @c loop_index - order
+        /// is the signed offset around the parent (0 at the stencil centre).
         template <std::size_t... Is>
         auto compute_new_indices(auto order, const auto& parent_indices, const auto& loop_indices, std::index_sequence<Is...>)
         {
@@ -192,6 +236,8 @@ namespace samurai
                                        std::make_index_sequence<std::tuple_size_v<std::decay_t<decltype(parent_indices)>>>{});
         }
 
+        /// Tensor-product weight of a stencil node: the product over the directions of the
+        /// per-direction interpolation coefficients @c interp_coeffs[d][indices[d]].
         template <std::size_t... Is>
         auto compute_coeff(const auto& interp_coeffs, const auto& indices, std::index_sequence<Is...>)
         {
@@ -203,6 +249,17 @@ namespace samurai
             return compute_coeff(interp_coeffs, indices, std::make_index_sequence<std::tuple_size_v<std::decay_t<decltype(interp_coeffs)>>>{});
         }
 
+        /**
+         * Cartesian-product loop: call @c func once per node of the box
+         * @c [start, end) (one range per direction), passing the @c dim indices of
+         * the node. @c compute_idx_func maps each raw counter to the index handed to
+         * @c func. The convenience overloads below take a tuple of coefficient arrays
+         * (range @c [0, size)) or of intervals (range @c [start, end)).
+         *
+         * @note The counter is @c std::size_t, so the ranges must be non-negative.
+         *       A signed range (e.g. sub-cell indices shifted below 0) needs its own
+         *       loop, see @ref accumulate_slice.
+         */
         template <class FuncIdx, class Func, std::size_t d>
         void multi_dim_loop(auto& current_index,
                             const auto& start,
@@ -307,6 +364,29 @@ namespace samurai
 
     }
 
+    /**
+     * Prediction stencil of a single fine child, as a @ref prediction_map.
+     *
+     * Returns the linear combination of coarse-cell values that predicts the child
+     * whose integer position is @c indices, sitting @c level levels below a
+     * reference coarse cell placed at the origin; the map offsets are in coarse-cell
+     * units, relative to that reference. For @c indices in @c [0, 2^level)^dim the
+     * child lies inside the reference cell; outside that box the stencil reaches into
+     * the neighbouring coarse cells (this is how the LBM stream expresses a shift by
+     * crossing coarse-cell boundaries).
+     *
+     * @tparam order  half-width of the wavelet interpolation, i.e.
+     *                @c prediction_stencil_radius (uses @c interp_coeffs<2*order+1>).
+     * @param  level  the level gap @c delta_l (NOT an absolute level). @c 0 is the
+     *                identity map @c {indices: 1} (the cell itself).
+     *
+     * Built by recursion on the gap: the child's parent is @c indices>>1 one level up,
+     * and the odd/even parity @c indices&1 picks the interpolation sign per direction.
+     * The map is the parent's stencil plus the tensor-product interpolation correction
+     * of the non-central neighbours, each itself a @c level-1 stencil, so composing the
+     * one-level wavelet prediction @c level times. Every intermediate map is memoised in
+     * a static cache keyed by @c (order, level, indices).
+     */
     template <std::size_t order = 1, class... index_t>
     auto& prediction(std::size_t level, index_t... indices)
     {
@@ -364,44 +444,22 @@ namespace samurai
         return values[key];
     }
 
+    /**
+     * Subset operator used by @ref reconstruction. On the intersection of a coarse
+     * level with the uniform reconstruction level, it writes every fine child of the
+     * coarse cells: for each of the @c 2^{delta_l.dim} sub-positions it applies the
+     * @ref prediction stencil of that child. The whole coarse x-interval is handled at
+     * once by addressing its fine cells with a strided interval (@c i_f.step), so the
+     * prediction of a given sub-position is broadcast over the interval. @c delta_l == 0
+     * (source already at the reconstruction level) is a plain copy. One overload per
+     * dimension, same logic with one more nested sub-position loop.
+     */
     template <std::size_t dim, class TInterval>
     class reconstruction_op_ : public field_operator_base<dim, TInterval>
     {
       public:
 
         INIT_OPERATOR(reconstruction_op_)
-
-        // template <std::size_t d, class T1, class T2>
-        // SAMURAI_INLINE void operator()(Dim<d>, std::size_t& reconstruct_level, T1& dest, const T2& src) const
-        // {
-        //     using index_t                          = typename T2::interval_t::value_t;
-        //     constexpr std::size_t prediction_stencil_radius = T2::mesh_t::config_t::prediction_stencil_radius;
-
-        //     std::size_t delta_l = reconstruct_level - level;
-        //     if (delta_l == 0)
-        //     {
-        //         dest(level, i, index) = src(level, i, index);
-        //     }
-        //     else
-        //     {
-        //         index_t nb_cells = 1 << delta_l;
-        //         detail::multi_dim_loop(interp_coeff_values,
-        //                                  [&](auto&... out_indices)
-        //                                  {
-        //                                      auto& pred = prediction<prediction_stencil_radius, index_t>(delta_l, out_indices...);
-        //                                      for (const auto& kv : pred.coeff)
-        //                                      {
-        //                                          std::apply(
-        //                                              [&](auto&... in_indices)
-        //                                              {
-        //                                                  dest(reconstruct_level, out_indices...) += kv.second * src(level,
-        //                                                  in_indices...);
-        //                                              },
-        //                                              detail::compute_new_indices(0, i, kv.first));
-        //                                      }
-        //                                  });
-        //     }
-        // }
 
         template <class T1, class T2>
         SAMURAI_INLINE void operator()(Dim<1>, std::size_t& reconstruct_level, T1& dest, const T2& src) const
@@ -501,6 +559,7 @@ namespace samurai
         }
     };
 
+    /// Wrap @ref reconstruction_op_ as a subset operator (see @c apply_op).
     template <class T1, class T2>
     SAMURAI_INLINE auto make_reconstruction(std::size_t& reconstruct_level, T1&& reconstruct_field, T2&& field)
     {
@@ -509,6 +568,15 @@ namespace samurai
                                                                 std::forward<T2>(field));
     }
 
+    /**
+     * Reconstruct an adapted field onto the uniform grid at the domain (finest) level
+     * and return it as a new field on that grid. Every coarse cell is expanded into its
+     * fine children by @ref reconstruction_op_. Mainly for I/O and post-processing, where
+     * a single-resolution image of the solution is wanted.
+     *
+     * Requires at least two boundary ghosts (the prediction stencil reaches two coarse
+     * cells); throws otherwise. Ghosts are refreshed first via @c update_ghost_mr_if_needed.
+     */
     template <class Field>
     auto reconstruction(Field& field)
     {
@@ -559,47 +627,99 @@ namespace samurai
 
     namespace detail
     {
+        /**
+         * Sum into @a out the @ref prediction stencils of every child of a signed box
+         * @c [start, end) of child indices, one @ref prediction call per child.
+         * Compile-time recursion over the directions with a @e signed @c value_t counter:
+         * child indices may be negative (e.g. the LBM donor slice shifted by @c -c),
+         * which the @c std::size_t @ref multi_dim_loop cannot iterate.
+         */
+        template <std::size_t prediction_stencil_radius, class value_t, std::size_t dim, class PMap, class Prefix>
+        void accumulate_slice(PMap& out,
+                              std::size_t delta_l,
+                              const std::array<value_t, dim>& start,
+                              const std::array<value_t, dim>& end,
+                              const Prefix& prefix)
+        {
+            constexpr std::size_t d = std::tuple_size_v<Prefix>;
+            if constexpr (d == dim)
+            {
+                out += std::apply(
+                    [&](auto... idx)
+                    {
+                        return prediction<prediction_stencil_radius, value_t>(delta_l, idx...);
+                    },
+                    prefix);
+            }
+            else
+            {
+                for (value_t k = start[d]; k < end[d]; ++k)
+                {
+                    accumulate_slice<prediction_stencil_radius, value_t, dim>(out,
+                                                                              delta_l,
+                                                                              start,
+                                                                              end,
+                                                                              std::tuple_cat(prefix, std::make_tuple(k)));
+                }
+            }
+        }
+
+        /**
+         * Prediction stencil to apply for a @ref portion request, dispatched on the type
+         * of the child index @a ii. Two forms:
+         *
+         *  - @b scalar (@c ii all @c value_t): the stencil of that single child, i.e.
+         *    @ref prediction "prediction(delta_l, ii)". The scalar overload just forwards
+         *    to the already-cached @ref prediction and ignores @a level.
+         *
+         *  - @b slice (@c ii all @c interval_t, this overload): each direction is a range
+         *    of children, so @a ii describes a whole box of them. Reconstruction is linear,
+         *    so the box's stencil is the sum of its children's stencils; that sum is built
+         *    once (via @ref accumulate_slice) and cached, keyed by @c (radius, level, ii).
+         *    A later @ref portion then reconstructs and sums the whole box in one pass over
+         *    a small, gap-independent stencil, instead of one call per child. This is what
+         *    makes the LBM stream cheap (see @c LBMScheme::portion_column); a nonlinear user
+         *    such as the FV flux must instead recompute each child with the scalar form.
+         *
+         * @param level  coarse level where the field is read; only a cache discriminator,
+         *               the stencil itself depends on @c delta_l and @a ii alone.
+         */
         template <std::size_t prediction_stencil_radius, class Field, class... index_t>
-            requires(Field::dim == sizeof...(index_t) + 1 && (std::same_as<typename Field::interval_t, index_t> && ...))
+            requires(Field::dim == sizeof...(index_t) && (std::same_as<typename Field::interval_t, index_t> && ...))
         decltype(auto) get_prediction(std::size_t level, std::size_t delta_l, const std::tuple<index_t...>& ii)
         {
             static constexpr std::size_t dim = Field::dim;
             using value_t                    = typename Field::interval_t::value_t;
-            static std::unordered_map<std::tuple<std::size_t, std::size_t, typename Field::interval_t, index_t...>, prediction_map<dim, value_t>>
-                values;
+            static std::unordered_map<std::tuple<std::size_t, std::size_t, index_t...>, prediction_map<dim, value_t>> values;
 
-            auto iter = std::apply(
-                [&](auto&... index)
-                {
-                    return values.find({prediction_stencil_radius, level, index...});
-                },
-                ii);
-
-            if (iter == values.end())
-            {
-                multi_dim_loop(
-                    ii,
-                    [&](auto... ii_)
-                    {
-                        std::apply(
-                            [&](auto&... index)
-                            {
-                                values[{prediction_stencil_radius, level, index...}] += prediction<prediction_stencil_radius, value_t>(
-                                    delta_l,
-                                    ii_...);
-                            },
-                            ii);
-                    });
-            }
-
-            return std::apply(
+            auto& map = std::apply(
                 [&](auto&... index) -> auto&
                 {
                     return values[{prediction_stencil_radius, level, index...}];
                 },
                 ii);
+
+            if (map.coeff.empty())
+            {
+                const auto start = std::apply(
+                    [](const auto&... iv)
+                    {
+                        return std::array<value_t, dim>{iv.start...};
+                    },
+                    ii);
+                const auto end = std::apply(
+                    [](const auto&... iv)
+                    {
+                        return std::array<value_t, dim>{iv.end...};
+                    },
+                    ii);
+                accumulate_slice<prediction_stencil_radius, value_t, dim>(map, delta_l, start, end, std::tuple<>{});
+            }
+
+            return map;
         }
 
+        /// Scalar form of @ref get_prediction: the stencil of the single child @a ii.
         template <std::size_t prediction_stencil_radius, class Field, class... index_t>
             requires((std::same_as<typename Field::interval_t::value_t, index_t> && ...))
         decltype(auto) get_prediction(std::size_t, std::size_t delta_l, const std::tuple<index_t...>& ii)
@@ -613,6 +733,14 @@ namespace samurai
                 ii);
         }
 
+        /**
+         * Apply the @ref get_prediction stencil of the child(ren) @a ii to a field, over a
+         * whole coarse cell / interval: @c result = sum_k weight_k * get_f(level, i + offset_k).
+         * @a get_f reads the field (a component, the full vector, ...); @a i is the coarse
+         * location, its first entry an interval so the whole row is reconstructed at once, its
+         * remaining entries the transverse coarse indices. @a ii selects the child (scalar) or
+         * the child box (interval slice, summed by @ref get_prediction).
+         */
         template <std::size_t prediction_stencil_radius, class Field, class Func, class... index_t, class... cell_index_t>
             requires(Field::dim == sizeof...(index_t) + 1 && Field::dim == sizeof...(cell_index_t)
                      && ((std::same_as<typename Field::interval_t, cell_index_t> && ...)
@@ -657,6 +785,24 @@ namespace samurai
         }
     }
 
+    /**
+     * Reconstructed value of the child(ren) @a ii of the coarse cell(s) @a i, for a field
+     * @a f stored @a delta_l levels coarser than those children.
+     *
+     * @param f       the field, read at @a level.
+     * @param element (per-component overloads only) reconstruct just this component.
+     * @param level   coarse level where @a f is read.
+     * @param delta_l level gap between @a f and the children (0 = same level = plain read).
+     * @param i       coarse location: its first entry is an interval (the reconstruction is
+     *                vectorised over that whole row of coarse cells), the rest are the
+     *                transverse coarse indices.
+     * @param ii      one child index per direction: a @c value_t picks a single child, an
+     *                @c interval_t sums the whole child slice at once (see @ref get_prediction).
+     *
+     * The @c (result, ...) overloads accumulate into a caller-provided buffer; the returning
+     * overloads allocate a zeroed result first. The stencil half-width defaults to the mesh's
+     * @c prediction_stencil_radius, or is given explicitly as the first template argument.
+     */
     template <class Field, class... index_t, class... cell_index_t>
     void portion(auto& result,
                  const Field& f,
@@ -691,6 +837,7 @@ namespace samurai
         return result;
     }
 
+    /// Whole-field @ref portion (no @c element): reconstructs every component at once.
     template <std::size_t prediction_stencil_radius, class Field, class... index_t, class... cell_index_t>
     void portion(auto& result,
                  const Field& f,
@@ -747,6 +894,8 @@ namespace samurai
 
     namespace detail
     {
+        /// Turn a coarse-cell index array into the @a i tuple @ref portion expects: the x index
+        /// becomes the degenerate interval @c [x, x+1), the transverse indices are kept scalar.
         template <std::size_t dim, class interval_t>
         auto extract_src_tuple(const auto& src_indices)
         {
@@ -756,6 +905,8 @@ namespace samurai
             }(std::make_index_sequence<dim - 1>{});
         }
 
+        /// Turn a child index array into the @a ii tuple @ref portion expects (kept scalar,
+        /// one child per direction).
         template <std::size_t dim>
         auto extract_dst_tuple([[maybe_unused]] auto delta_l, const auto& dst_indices)
         {
@@ -768,7 +919,9 @@ namespace samurai
         }
     }
 
-    // N-D
+    /// Single-cell @ref portion taking plain index arrays (a coarse cell and one of its
+    /// children) instead of the interval tuples; convenience for @ref transfer. Reconstructs
+    /// component 0 for a vector field.
     template <class Field>
     void portion(auto& result,
                  const Field& f,
@@ -799,6 +952,14 @@ namespace samurai
         detail::portion_impl<Field::mesh_t::config_t::prediction_stencil_radius, Field>(result, get_f, level, delta_l, src_tuple, dst_tuple);
     }
 
+    /**
+     * Copy a field from one adapted mesh onto another (of the same domain), resampling where
+     * the two meshes differ in resolution. For each destination level, a cell is filled from
+     * the source by one of three cases: an exact copy where the source has the same cell; a
+     * projection (average of the @c 2^{shift.dim} finer source cells) where the source is finer;
+     * or a @ref portion prediction where the source is coarser. Requires at least two boundary
+     * ghosts on the source (prediction stencil); throws otherwise.
+     */
     template <class Field_src, class Field_dst>
     void transfer(Field_src& field_src, Field_dst& field_dst)
     {
@@ -822,6 +983,7 @@ namespace samurai
 
         for (std::size_t level_dst = mesh_dst.min_level(); level_dst <= mesh_dst.max_level(); ++level_dst)
         {
+            // Case 1: same cell on both meshes -> copy.
             auto same_cell = intersection(mesh_dst[mesh_id_t::cells][level_dst], mesh_src[mesh_id_t::cells][level_dst]);
             same_cell(
                 [&](const auto& i, const auto& index)
@@ -829,6 +991,7 @@ namespace samurai
                     field_dst(level_dst, i, index) = field_src(level_dst, i, index);
                 });
 
+            // Case 2: source finer -> average its children onto the destination cell.
             for (std::size_t level_src = level_dst + 1; level_src <= mesh_src.max_level(); ++level_src)
             {
                 auto proj_cell = intersection(mesh_dst[mesh_id_t::cells][level_dst], mesh_src[mesh_id_t::cells][level_src]).on(level_src);
@@ -855,6 +1018,7 @@ namespace samurai
                     });
             }
 
+            // Case 3: source coarser -> predict each destination child from it (see @ref portion).
             for (std::size_t level_src = mesh_src.min_level(); level_src < level_dst; ++level_src)
             {
                 auto pred_cell = intersection(mesh_dst[mesh_id_t::cells][level_dst], mesh_src[mesh_id_t::cells][level_src]).on(level_dst);

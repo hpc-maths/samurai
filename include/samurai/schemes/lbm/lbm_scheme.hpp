@@ -10,6 +10,7 @@
 #include <string>
 #include <tuple>
 #include <utility>
+#include <vector>
 
 #include "../../algorithm.hpp"
 #include "../../algorithm/update_ghost_mr.hpp"
@@ -184,6 +185,8 @@ namespace samurai
         template <class MField>
         void operator()(field_t& f, MField& m, double dt = 0.) const
         {
+            ScopedTimer timer_op(m_name + " operator");
+
             update_ghost_mr(f);
 
             // Reuse a worker field for the streamed distributions instead of reallocating it every
@@ -199,9 +202,15 @@ namespace samurai
                 m_f_stream->resize();
             }
 
-            stream(f, *m_f_stream);
+            {
+                ScopedTimer timer_stream("lbm stream");
+                stream(f, *m_f_stream);
+            }
             std::swap(f.array(), m_f_stream->array());
-            collide(f, m, dt);
+            {
+                ScopedTimer timer_collide("lbm collide");
+                collide(f, m, dt);
+            }
         }
 
       private:
@@ -247,53 +256,51 @@ namespace samurai
         using interval_t = typename field_t::interval_t;
         using value_t    = typename interval_t::value_t;
 
-        /**
-         * Streamed value of one velocity at a coarse interval, using the library's cached portion().
-         *
-         * The streamed coarse value is the projection (average) over the coarse cell's 2^{j.dim}
-         * fine sub-cells of their reconstructed donor value (the sub-cell shifted by -c at the
-         * finest level):
-         *
-         *     f_out(C) = (1/2^{j.dim}) sum_{local in [0,2^j)^dim} reconstruct(f, C, local - c).
-         *
-         * Each term is one portion() call reconstructing sub-cell (local - c) of the coarse cell,
-         * vectorised over the whole coarse interval; portion() caches the underlying prediction map
-         * (reconstruction.hpp). The caller applies the 1/2^{j.dim} projection weight. This handles
-         * axial, diagonal and |c| > 1 velocities uniformly; at the finest level (j == 0) the column
-         * is the single sub-cell {-c}, i.e. the plain shift by -c.
-         *
-         * @c transverse_seq is 0..dim-2 (the coarse-cell transverse indices), @c dim_seq is
-         * 0..dim-1 (used to decode the sub-cell offsets, one per direction).
-         */
-        template <std::size_t... T, std::size_t... D>
-        static auto portion_column(const field_t& f,
-                                   std::size_t comp,
-                                   std::size_t level,
-                                   std::size_t j,
-                                   const auto& i,
-                                   const auto& index,
-                                   const velocity_t& c,
-                                   std::index_sequence<T...> /*transverse_seq*/,
-                                   std::index_sequence<D...> /*dim_seq*/)
+        // One tap of a stream stencil: read f_in at offset @c off and add it, weighted by @c w (the
+        // 1/2^{j.dim} projection already folded in), into f_out.
+        struct stencil_tap
         {
-            const auto width     = std::size_t{1} << j;         // 2^j sub-cells per direction
-            const std::size_t nc = std::size_t{1} << (j * dim); // 2^{j.dim} sub-cells in the column
-            const auto i_tuple   = std::make_tuple(i, index[T]...);
+            std::array<int, dim> off;
+            double w;
+        };
 
-            // Sub-cell offsets (donor = local - c) of the n-th fine sub-cell, as a value_t tuple.
-            auto sub = [&](std::size_t n)
-            {
-                return std::make_tuple((static_cast<value_t>((n >> (D * j)) & (width - 1)) - static_cast<value_t>(c[D]))...);
-            };
+        /**
+         * Flattened stream stencil of one velocity at a level gap @a j: the combined slice prediction
+         * map (@ref get_prediction), with the 1/2^{j.dim} projection weight @a inv_nc folded into
+         * every coefficient. The streamed value of a coarse cell C is then simply
+         *
+         *     f_out(C) = sum_tap tap.w * f_in(C + tap.off).
+         *
+         * The stream is linear, so the projection (average) over the 2^{j.dim} fine sub-cells of their
+         * reconstructed donor value is a single application of the summed prediction map of the donor
+         * sub-cell slice [-c[d], 2^j - c[d]) (one interval per direction, the full column shifted by
+         * -c). That map depends only on (j, c), not on the cell, so the stencil is built once per
+         * (level, component) and reused over the whole level. It handles axial, diagonal and |c| > 1
+         * velocities uniformly; at the finest level (j == 0) it is the plain shift by -c, and for the
+         * rest velocity c == 0 it reduces to the identity (mean conservation).
+         */
+        template <std::size_t... D>
+        static std::vector<stencil_tap>
+        build_stencil(std::size_t level, std::size_t j, const velocity_t& c, double inv_nc, std::index_sequence<D...> /*dim_seq*/)
+        {
+            constexpr std::size_t radius = field_t::mesh_t::config_t::prediction_stencil_radius;
+            const auto width             = static_cast<value_t>(std::size_t{1} << j); // 2^j sub-cells per direction
+            const auto slice             = std::make_tuple(interval_t{-static_cast<value_t>(c[D]), width - static_cast<value_t>(c[D])}...);
 
-            // Reconstruct only component @a comp (the one owning velocity c), vectorised over the
-            // coarse interval; portion() caches the underlying prediction map (reconstruction.hpp).
-            auto res = portion(f, comp, level, j, i_tuple, sub(0));
-            for (std::size_t n = 1; n < nc; ++n)
+            const auto& map = detail::get_prediction<radius, field_t>(level, j, slice);
+
+            std::vector<stencil_tap> taps;
+            taps.reserve(map.coeff.size());
+            for (const auto& kv : map.coeff)
             {
-                res += portion(f, comp, level, j, i_tuple, sub(n));
+                std::array<int, dim> off{};
+                for (std::size_t d = 0; d < dim; ++d)
+                {
+                    off[d] = static_cast<int>(kv.first[d]);
+                }
+                taps.push_back({off, inv_nc * kv.second});
             }
-            return res;
+            return taps;
         }
 
         // Read/write f(comp, level, i + off[0], index[.] + off[.+1]) unpacking the transverse dims.
@@ -309,36 +316,73 @@ namespace samurai
             return f(comp, level, i + off[0], (index[K] + off[K + 1])...);
         }
 
-        // stream: multi-level transport via the library's cached portion().
+        // stream: multi-level linear transport. For each level the per-component stencils are built
+        // once (build_stencil; the underlying prediction maps are cached across steps), then applied
+        // to every cell strip - reading f_in and writing f_out directly, with no per-strip prediction
+        // lookup and no temporary.
         void stream(const field_t& f_in, field_t& f_out) const
         {
             using mesh_id_t     = typename field_t::mesh_t::mesh_id_t;
             constexpr auto tseq = std::make_index_sequence<dim - 1>{}; // transverse indices of the coarse cell
-            constexpr auto dseq = std::make_index_sequence<dim>{};     // one sub-cell range per direction
+            constexpr auto dseq = std::make_index_sequence<dim>{};     // one sub-cell interval per direction
             const std::array<int, dim> no_shift{};
 
             auto& mesh                  = f_in.mesh();
             const std::size_t max_level = mesh.max_level(); // configured finest level of the hierarchy
+
+            std::array<std::vector<stencil_tap>, n_comp> stencil;
+            std::vector<double> res; // reused accumulation buffer, sized to the current strip
 
             for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
             {
                 const std::size_t j = max_level - level;
                 const double inv_nc = 1. / static_cast<double>(std::size_t{1} << (j * dim)); // 1/2^{j.dim} projection weight
 
+                for_each_block(
+                    [&](const auto& block, std::size_t offset)
+                    {
+                        constexpr std::size_t q = std::decay_t<decltype(block)>::q;
+                        for (std::size_t a = 0; a < q; ++a)
+                        {
+                            stencil[offset + a] = build_stencil(level, j, block.velocities[a], inv_nc, dseq);
+                        }
+                    });
+
                 for_each_interval(mesh[mesh_id_t::cells][level],
                                   [&](std::size_t lvl, const auto& i, const auto& index)
                                   {
-                                      for_each_block(
-                                          [&](const auto& block, std::size_t offset)
+                                      for (std::size_t comp = 0; comp < n_comp; ++comp)
+                                      {
+                                          const auto& taps     = stencil[comp];
+                                          auto out             = access(f_out, comp, lvl, i, index, no_shift, tseq);
+                                          const std::size_t sz = static_cast<std::size_t>(out.size());
+
+                                          // Accumulate the taps into a reused contiguous buffer with plain scalar
+                                          // loops (no temporary allocation, no lazy-expression machinery), then write
+                                          // the strided f_out strip once.
+                                          res.resize(sz);
                                           {
-                                              constexpr std::size_t q = std::decay_t<decltype(block)>::q;
-                                              for (std::size_t a = 0; a < q; ++a)
+                                              auto vin       = access(f_in, comp, lvl, i, index, taps[0].off, tseq);
+                                              const double w = taps[0].w;
+                                              for (std::size_t ic = 0; ic < sz; ++ic)
                                               {
-                                                  const std::size_t comp = offset + a;
-                                                  auto res = portion_column(f_in, comp, lvl, j, i, index, block.velocities[a], tseq, dseq);
-                                                  access(f_out, comp, lvl, i, index, no_shift, tseq) = inv_nc * res;
+                                                  res[ic] = w * vin(ic);
                                               }
-                                          });
+                                          }
+                                          for (std::size_t t = 1; t < taps.size(); ++t)
+                                          {
+                                              auto vin       = access(f_in, comp, lvl, i, index, taps[t].off, tseq);
+                                              const double w = taps[t].w;
+                                              for (std::size_t ic = 0; ic < sz; ++ic)
+                                              {
+                                                  res[ic] += w * vin(ic);
+                                              }
+                                          }
+                                          for (std::size_t ic = 0; ic < sz; ++ic)
+                                          {
+                                              out(ic) = res[ic];
+                                          }
+                                      }
                                   });
             }
         }
