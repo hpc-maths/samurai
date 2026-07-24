@@ -264,14 +264,18 @@ namespace samurai
          *
          *     f_out(C) = (1/2^{j.dim}) sum_{local in [0,2^j)^dim} reconstruct(f, C, local - c).
          *
-         * Each term is one portion() call reconstructing sub-cell (local - c) of the coarse cell,
-         * vectorised over the whole coarse interval; portion() caches the underlying prediction map
-         * (reconstruction.hpp). The caller applies the 1/2^{j.dim} projection weight. This handles
-         * axial, diagonal and |c| > 1 velocities uniformly; at the finest level (j == 0) the column
-         * is the single sub-cell {-c}, i.e. the plain shift by -c.
+         * The stream operator is linear, so this whole sum is a single application of the prediction
+         * map of the sub-cell *slice* [0,2^j)^dim shifted by -c: per direction the donor sub-cell
+         * index runs over the interval [-c[d], 2^j - c[d]). We pass that interval tuple to portion(),
+         * which builds the slice's combined prediction map once and caches it (see the interval
+         * overload of get_prediction in reconstruction.hpp); every later step is then one vectorised
+         * pass over that small combined stencil instead of 2^{j.dim} separate reconstructions. This
+         * handles axial, diagonal and |c| > 1 velocities uniformly; at the finest level (j == 0) the
+         * slice is the single sub-cell {-c}, i.e. the plain shift by -c. The caller applies the
+         * 1/2^{j.dim} projection weight.
          *
          * @c transverse_seq is 0..dim-2 (the coarse-cell transverse indices), @c dim_seq is
-         * 0..dim-1 (used to decode the sub-cell offsets, one per direction).
+         * 0..dim-1 (one sub-cell interval per direction).
          */
         template <std::size_t... T, std::size_t... D>
         static auto portion_column(const field_t& f,
@@ -284,24 +288,16 @@ namespace samurai
                                    std::index_sequence<T...> /*transverse_seq*/,
                                    std::index_sequence<D...> /*dim_seq*/)
         {
-            const auto width     = std::size_t{1} << j;         // 2^j sub-cells per direction
-            const std::size_t nc = std::size_t{1} << (j * dim); // 2^{j.dim} sub-cells in the column
-            const auto i_tuple   = std::make_tuple(i, index[T]...);
+            const auto width   = static_cast<value_t>(std::size_t{1} << j); // 2^j sub-cells per direction
+            const auto i_tuple = std::make_tuple(i, index[T]...);
 
-            // Sub-cell offsets (donor = local - c) of the n-th fine sub-cell, as a value_t tuple.
-            auto sub = [&](std::size_t n)
-            {
-                return std::make_tuple((static_cast<value_t>((n >> (D * j)) & (width - 1)) - static_cast<value_t>(c[D]))...);
-            };
+            // Donor sub-cell slice: index runs over [-c[d], 2^j - c[d]) in each direction, i.e. the
+            // full 2^{j.dim} column shifted by -c. portion() sums it via one cached combined map.
+            const auto slice = std::make_tuple(interval_t{-static_cast<value_t>(c[D]), width - static_cast<value_t>(c[D])}...);
 
             // Reconstruct only component @a comp (the one owning velocity c), vectorised over the
             // coarse interval; portion() caches the underlying prediction map (reconstruction.hpp).
-            auto res = portion(f, comp, level, j, i_tuple, sub(0));
-            for (std::size_t n = 1; n < nc; ++n)
-            {
-                res += portion(f, comp, level, j, i_tuple, sub(n));
-            }
-            return res;
+            return portion(f, comp, level, j, i_tuple, slice);
         }
 
         // Read/write f(comp, level, i + off[0], index[.] + off[.+1]) unpacking the transverse dims.

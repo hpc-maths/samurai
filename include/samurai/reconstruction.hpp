@@ -559,45 +559,75 @@ namespace samurai
 
     namespace detail
     {
+        // Accumulate into @a out the (linear) prediction maps of every sub-cell of a signed box
+        // [start, end) of sub-cell indices, one map per sub-cell. Compile-time recursion over the
+        // dimensions with a *signed* value_t counter: sub-cell indices may be negative (e.g. the LBM
+        // donor slice shifted by -c), unlike the std::size_t multi_dim_loop used elsewhere.
+        template <std::size_t prediction_stencil_radius, class value_t, std::size_t dim, class PMap, class Prefix>
+        void accumulate_slice(PMap& out,
+                              std::size_t delta_l,
+                              const std::array<value_t, dim>& start,
+                              const std::array<value_t, dim>& end,
+                              const Prefix& prefix)
+        {
+            constexpr std::size_t d = std::tuple_size_v<Prefix>;
+            if constexpr (d == dim)
+            {
+                out += std::apply(
+                    [&](auto... idx)
+                    {
+                        return prediction<prediction_stencil_radius, value_t>(delta_l, idx...);
+                    },
+                    prefix);
+            }
+            else
+            {
+                for (value_t k = start[d]; k < end[d]; ++k)
+                {
+                    accumulate_slice<prediction_stencil_radius, value_t, dim>(out, delta_l, start, end, std::tuple_cat(prefix, std::make_tuple(k)));
+                }
+            }
+        }
+
+        // Slice variant: each sub-cell index is a full interval instead of a scalar. Because the
+        // reconstruction is linear, the prediction map of the whole slice is the sum of the maps of
+        // its sub-cells; that sum is built once and cached, so a single application then reconstructs
+        // (and sums) the entire slice at once. This is what makes the LBM stream cheap: one interval
+        // call replaces 2^{delta_l.dim} scalar calls (see LBMScheme::portion_column). Nonlinear users
+        // (e.g. the FV flux) must keep the scalar path and recompute each sub-cell.
         template <std::size_t prediction_stencil_radius, class Field, class... index_t>
-            requires(Field::dim == sizeof...(index_t) + 1 && (std::same_as<typename Field::interval_t, index_t> && ...))
+            requires(Field::dim == sizeof...(index_t) && (std::same_as<typename Field::interval_t, index_t> && ...))
         decltype(auto) get_prediction(std::size_t level, std::size_t delta_l, const std::tuple<index_t...>& ii)
         {
             static constexpr std::size_t dim = Field::dim;
             using value_t                    = typename Field::interval_t::value_t;
-            static std::unordered_map<std::tuple<std::size_t, std::size_t, typename Field::interval_t, index_t...>, prediction_map<dim, value_t>>
-                values;
+            static std::unordered_map<std::tuple<std::size_t, std::size_t, index_t...>, prediction_map<dim, value_t>> values;
 
-            auto iter = std::apply(
-                [&](auto&... index)
-                {
-                    return values.find({prediction_stencil_radius, level, index...});
-                },
-                ii);
-
-            if (iter == values.end())
-            {
-                multi_dim_loop(
-                    ii,
-                    [&](auto... ii_)
-                    {
-                        std::apply(
-                            [&](auto&... index)
-                            {
-                                values[{prediction_stencil_radius, level, index...}] += prediction<prediction_stencil_radius, value_t>(
-                                    delta_l,
-                                    ii_...);
-                            },
-                            ii);
-                    });
-            }
-
-            return std::apply(
+            auto& map = std::apply(
                 [&](auto&... index) -> auto&
                 {
                     return values[{prediction_stencil_radius, level, index...}];
                 },
                 ii);
+
+            if (map.coeff.empty())
+            {
+                const auto start = std::apply(
+                    [](const auto&... iv)
+                    {
+                        return std::array<value_t, dim>{iv.start...};
+                    },
+                    ii);
+                const auto end = std::apply(
+                    [](const auto&... iv)
+                    {
+                        return std::array<value_t, dim>{iv.end...};
+                    },
+                    ii);
+                accumulate_slice<prediction_stencil_radius, value_t, dim>(map, delta_l, start, end, std::tuple<>{});
+            }
+
+            return map;
         }
 
         template <std::size_t prediction_stencil_radius, class Field, class... index_t>
