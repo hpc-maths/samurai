@@ -61,8 +61,7 @@ namespace samurai
     template <class StaticSet>
     class ExecNode : public ISet<StaticSet::dim, typename StaticSet::interval_t>
     {
-        using Base                       = ISet<StaticSet::dim, typename StaticSet::interval_t>;
-        static constexpr std::size_t dim = StaticSet::dim;
+        using Base = ISet<StaticSet::dim, typename StaticSet::interval_t>;
 
       public:
 
@@ -86,29 +85,29 @@ namespace samurai
 
         void init_workspace(std::size_t d, std::size_t n_traversers) override
         {
-            detail::static_switch<dim>(d,
-                                       [&](auto d_ic)
-                                       {
-                                           m_exec.init_workspace(n_traversers, d_ic, m_ws);
-                                       });
+            detail::static_switch<Base::dim>(d,
+                                             [&](auto d_ic)
+                                             {
+                                                 m_exec.init_workspace(n_traversers, d_ic, m_ws);
+                                             });
         }
 
         traverser_t get_traverser(std::size_t d, const yz_index_t& index) override
         {
-            return detail::static_switch<dim>(d,
-                                              [&](auto d_ic)
-                                              {
-                                                  return make_any_traverser(m_exec.get_traverser(index, d_ic, m_ws));
-                                              });
+            return detail::static_switch<Base::dim>(d,
+                                                    [&](auto d_ic)
+                                                    {
+                                                        return make_any_traverser(m_exec.get_traverser(index, d_ic, m_ws));
+                                                    });
         }
 
         traverser_t get_traverser_unordered(std::size_t d, const yz_index_t& index) override
         {
-            return detail::static_switch<dim>(d,
-                                              [&](auto d_ic)
-                                              {
-                                                  return make_any_traverser(m_exec.get_traverser_unordered(index, d_ic, m_ws));
-                                              });
+            return detail::static_switch<Base::dim>(d,
+                                                    [&](auto d_ic)
+                                                    {
+                                                        return make_any_traverser(m_exec.get_traverser_unordered(index, d_ic, m_ws));
+                                                    });
         }
 
       protected:
@@ -188,8 +187,6 @@ namespace samurai
     class DynamicSet
     {
       public:
-
-        static constexpr std::size_t dim = dim_;
 
         using interval_t = TInterval;
         using iset_t     = ISet<dim_, TInterval>;
