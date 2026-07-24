@@ -184,6 +184,8 @@ namespace samurai
         template <class MField>
         void operator()(field_t& f, MField& m, double dt = 0.) const
         {
+            ScopedTimer timer_op(m_name + " operator");
+
             update_ghost_mr(f);
 
             // Reuse a worker field for the streamed distributions instead of reallocating it every
@@ -199,9 +201,15 @@ namespace samurai
                 m_f_stream->resize();
             }
 
-            stream(f, *m_f_stream);
+            {
+                ScopedTimer timer_stream("lbm stream");
+                stream(f, *m_f_stream);
+            }
             std::swap(f.array(), m_f_stream->array());
-            collide(f, m, dt);
+            {
+                ScopedTimer timer_collide("lbm collide");
+                collide(f, m, dt);
+            }
         }
 
       private:
