@@ -331,6 +331,7 @@ namespace samurai
             const std::size_t max_level = mesh.max_level(); // configured finest level of the hierarchy
 
             std::array<std::vector<stencil_tap>, n_comp> stencil;
+            std::vector<double> res; // reused accumulation buffer, sized to the current strip
 
             for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
             {
@@ -353,14 +354,34 @@ namespace samurai
                                       for (std::size_t comp = 0; comp < n_comp; ++comp)
                                       {
                                           const auto& taps = stencil[comp];
-                                          // Accumulate into a contiguous temporary (cache-resident), then write the
-                                          // strided component strip of f_out once, rather than accumulating in place.
-                                          auto res = xt::eval(taps[0].w * access(f_in, comp, lvl, i, index, taps[0].off, tseq));
+                                          auto out         = access(f_out, comp, lvl, i, index, no_shift, tseq);
+                                          const std::size_t sz = static_cast<std::size_t>(out.size());
+
+                                          // Accumulate the taps into a reused contiguous buffer with plain scalar
+                                          // loops (no temporary allocation, no lazy-expression machinery), then write
+                                          // the strided f_out strip once.
+                                          res.resize(sz);
+                                          {
+                                              auto vin       = access(f_in, comp, lvl, i, index, taps[0].off, tseq);
+                                              const double w = taps[0].w;
+                                              for (std::size_t ic = 0; ic < sz; ++ic)
+                                              {
+                                                  res[ic] = w * vin(ic);
+                                              }
+                                          }
                                           for (std::size_t t = 1; t < taps.size(); ++t)
                                           {
-                                              res += taps[t].w * access(f_in, comp, lvl, i, index, taps[t].off, tseq);
+                                              auto vin       = access(f_in, comp, lvl, i, index, taps[t].off, tseq);
+                                              const double w = taps[t].w;
+                                              for (std::size_t ic = 0; ic < sz; ++ic)
+                                              {
+                                                  res[ic] += w * vin(ic);
+                                              }
                                           }
-                                          access(f_out, comp, lvl, i, index, no_shift, tseq) = res;
+                                          for (std::size_t ic = 0; ic < sz; ++ic)
+                                          {
+                                              out(ic) = res[ic];
+                                          }
                                       }
                                   });
             }
