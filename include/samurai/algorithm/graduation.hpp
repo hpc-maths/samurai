@@ -242,110 +242,6 @@ namespace samurai
         return true;
     }
 
-    template <size_t dim, typename TInterval, size_t max_size, typename TCoord>
-    void list_interval_to_refine_for_graduation(
-        const size_t grad_width,
-        const CellArray<dim, TInterval, max_size>& ca,
-        const CellArray<dim, TInterval, max_size>& domain,
-        [[maybe_unused]] const auto& mpi_meshes,
-        const std::array<bool, dim>& is_periodic,
-        const std::array<int, dim>& nb_cells_finest_level,
-        std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, CellArray<dim, TInterval, max_size>::max_size>& out,
-        // Incremental seed: when non-null, the LOCAL pass only cascades from these
-        // cells (the fine cells added by the previous graduation iteration) instead
-        // of from every fine cell. Exact because a graduation iteration only adds
-        // fine cells, so a new violation can only involve one of them as its fine
-        // source. MPI neighbour passes always run full (seed is local).
-        const CellArray<dim, TInterval, max_size>* seed = nullptr)
-    {
-        const int max_width = int(grad_width);
-
-        for (size_t i = 0; i != max_size; ++i)
-        {
-            out[i].clear();
-        }
-
-        const auto list_overlapping_intervals = [&](const auto& lhs_ca, const auto& rhs_ca)
-        {
-            // The fine cells that force a refinement come from lhs_ca, the
-            // coarse cells to refine from rhs_ca: the level bounds must be
-            // taken accordingly. In particular the coarse bound must come from
-            // rhs_ca: in the MPI pass (lhs = neighbour, rhs = local), a
-            // neighbour owning only fine cells used to bound the coarse loop
-            // above the local coarse levels, so the violation was never seen
-            // (decomposition-dependent graduation with non-stripe partitions).
-            const size_t max_level      = lhs_ca.max_level() + 1;
-            const size_t min_level      = rhs_ca.min_level();
-            const size_t min_fine_level = (min_level + 2) - 1; // fine_level =  max_level, max_level-1, ..., min_level+2. Thus fine_level !=
-                                                               // min_level+2-1
-
-            using lca_t = LevelCellArray<dim, TInterval>;
-
-            // The fine cells at `fine_level`, expanded by 2*max_width, must force the refinement of every coarser
-            // cell they overlap, from `fine_level - 2` down to `min_level`. Instead of re-expanding and re-projecting
-            // the (potentially huge) fine array once per coarse level, we materialize the expanded set projected on
-            // `fine_level - 2` a single time, then coarsen it by one level at each step. Coarsening is
-            // level-composable (`X.on(l-1) == X.on(l).on(l-1)`), so the result is identical while the fine array is
-            // walked only once instead of O(fine_level - min_level) times.
-            auto cascade_refine = [&](const auto& fine_set, size_t fine_level)
-            {
-                lca_t proj(nestedExpand(fine_set, 2 * max_width).on(fine_level - 2));
-                for (size_t coarse_level = fine_level - 2;; --coarse_level)
-                {
-                    if (!proj.empty())
-                    {
-                        auto refine_subset = intersection(proj, rhs_ca[coarse_level]);
-                        refine_subset(
-                            [&](const auto& x_interval, const auto& yz)
-                            {
-                                out[coarse_level].push_back(x_interval, yz);
-                            });
-                    }
-                    if (coarse_level == min_level || proj.empty())
-                    {
-                        break;
-                    }
-                    proj = lca_t(self(proj).on(coarse_level - 1));
-                }
-            };
-
-            for (size_t fine_level = max_level; fine_level > min_fine_level; --fine_level)
-            {
-                auto& fine_lca = lhs_ca[fine_level];
-                if (fine_lca.empty())
-                {
-                    continue;
-                }
-                const int delta_l = int(domain.max_level() - fine_level);
-                auto directions   = detail::get_periodic_directions(nb_cells_finest_level, delta_l, is_periodic);
-                cascade_refine(fine_lca, fine_level);
-                for (const auto& d : directions)
-                {
-                    cascade_refine(translate(fine_lca, d), fine_level);
-                }
-            }
-        };
-
-        // Local pass. With a seed, cascade only from the seeded fine cells (a subset
-        // of `ca` added by the previous graduation iteration) against `ca`'s coarse
-        // targets: exact, because a graduation iteration only adds fine cells.
-        if (seed)
-        {
-            list_overlapping_intervals(*seed, ca);
-        }
-        else
-        {
-            list_overlapping_intervals(ca, ca);
-        }
-#ifdef SAMURAI_WITH_MPI
-        // Neighbour passes always run full: the seed only covers local additions.
-        for (const auto& mpi_mesh : mpi_meshes)
-        {
-            list_overlapping_intervals(mpi_mesh, ca);
-        }
-#endif // SAMURAI_WITH_MPI
-    }
-
     template <mesh_like mesh_t>
     auto update_subdomains_mpi([[maybe_unused]] const mesh_t& mesh, const auto& mpi_neighbourhood)
     {
@@ -383,6 +279,43 @@ namespace samurai
         return mpi_meshes;
     }
 
+    // Exchange a SINGLE level-array with the MPI neighbours (one message per neighbour),
+    // returning their level-arrays. Used by the single-pass graduation to share, at each
+    // level of its top-down sweep, only that level's cells - instead of serializing the
+    // whole multi-level mesh as update_subdomains_mpi does. The message tag is the level
+    // so the per-level exchanges (issued in lock-step across ranks) never cross.
+    template <size_t dim, typename TInterval>
+    std::vector<LevelCellArray<dim, TInterval>> exchange_level_mpi([[maybe_unused]] const LevelCellArray<dim, TInterval>& lca,
+                                                                   [[maybe_unused]] const auto& mpi_neighbourhood,
+                                                                   [[maybe_unused]] const int tag)
+    {
+        std::vector<LevelCellArray<dim, TInterval>> neighbour_levels(mpi_neighbourhood.size());
+#ifdef SAMURAI_WITH_MPI
+        if (mpi_neighbourhood.empty())
+        {
+            return neighbour_levels;
+        }
+        mpi::communicator world;
+        std::vector<mpi::request> req;
+
+        boost::mpi::packed_oarchive::buffer_type buffer;
+        boost::mpi::packed_oarchive oa(world, buffer);
+        oa << lca;
+
+        for (const auto& neighbour : mpi_neighbourhood)
+        {
+            req.push_back(world.isend(neighbour.rank, tag, buffer));
+        }
+        std::size_t index = 0;
+        for (const auto& neighbour : mpi_neighbourhood)
+        {
+            world.recv(neighbour.rank, tag, neighbour_levels[index++]);
+        }
+        mpi::wait_all(req.begin(), req.end());
+#endif // SAMURAI_WITH_MPI
+        return neighbour_levels;
+    }
+
     template <size_t dim, typename TInterval, size_t max_size, typename TCoord>
     void list_interval_to_refine_for_contiguous_boundary_cells(
         const int max_stencil_radius,
@@ -390,14 +323,7 @@ namespace samurai
         const CellArray<dim, TInterval, max_size>& domain,
         [[maybe_unused]] const auto& mpi_meshes,
         const std::array<bool, dim>& is_periodic,
-        std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, CellArray<dim, TInterval, max_size>::max_size>& out,
-        // Incremental seed: when non-null, the LOCAL level->level-1 pass only considers
-        // boundary cells that are among the fine cells added by the previous graduation
-        // iteration. Exact for that pass because a graduation iteration only adds fine
-        // cells (so new boundary sources at `level` are a subset of the seed) and adding
-        // fine cells inward can only increase contiguity, never create a new violation
-        // for an existing boundary cell. MPI neighbour passes always run full.
-        const CellArray<dim, TInterval, max_size>* seed = nullptr)
+        std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, CellArray<dim, TInterval, max_size>::max_size>& out)
     {
         if (max_stencil_radius == 1)
         {
@@ -454,14 +380,10 @@ namespace samurai
                             // We therefore refine ONLY this rank's own level-1 cells (out drives the local `ca`), but from
                             // boundary cells taken from `ca` and from each neighbour mesh. In sequential runs mpi_meshes is
                             // empty and this reduces to the original single-mesh behaviour.
-                            auto refine_from = [&](const auto& src, const auto* src_seed)
+                            auto refine_from = [&](const auto& src)
                             {
                                 auto boundary_expr = difference(src[level], translate(domain[level], -translation));
-                                // With a seed, keep only the new boundary cells at this level.
-                                LevelCellArray<dim, TInterval> boundaryCells = src_seed
-                                                                                 ? LevelCellArray<dim, TInterval>(
-                                                                                       intersection(boundary_expr, (*src_seed)[level]).on(level))
-                                                                                 : LevelCellArray<dim, TInterval>(boundary_expr.on(level));
+                                LevelCellArray<dim, TInterval> boundaryCells(boundary_expr.on(level));
                                 for (int i = 2; i <= n_contiguous_boundary_cells; i += 2)
                                 {
                                     // Here, the set algebra doesn't work, so we put the translation in a LevelCellArray before
@@ -475,12 +397,11 @@ namespace samurai
                                         });
                                 }
                             };
-                            refine_from(ca, seed);
+                            refine_from(ca);
 #ifdef SAMURAI_WITH_MPI
                             for (const auto& mpi_mesh : mpi_meshes)
                             {
-                                // Neighbour passes always run full: the seed only covers local additions.
-                                refine_from(mpi_mesh, decltype(seed){nullptr});
+                                refine_from(mpi_mesh);
                             }
 #endif
                         }
@@ -525,26 +446,6 @@ namespace samurai
                     }
                 }
             });
-    }
-
-    template <size_t dim, typename TInterval, typename MeshType, size_t max_size, typename TCoord>
-    void list_intervals_to_refine(const std::size_t grad_width,
-                                  const int max_stencil_radius,
-                                  const CellArray<dim, TInterval, max_size>& ca,
-                                  const CellArray<dim, TInterval, max_size>& domain,
-                                  [[maybe_unused]] const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood,
-                                  const std::array<bool, dim>& is_periodic,
-                                  const std::array<int, dim>& nb_cells_finest_level,
-                                  std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, CellArray<dim, TInterval, max_size>::max_size>& out,
-                                  // Incremental seed forwarded to the interior graduation pass (see there).
-                                  const CellArray<dim, TInterval, max_size>* seed = nullptr)
-    {
-        auto mpi_meshes = update_subdomains_mpi(ca, mpi_neighbourhood);
-        list_interval_to_refine_for_graduation(grad_width, ca, domain, mpi_meshes, is_periodic, nb_cells_finest_level, out, seed);
-        if (!domain.empty())
-        {
-            list_interval_to_refine_for_contiguous_boundary_cells(max_stencil_radius, ca, domain, mpi_meshes, is_periodic, out, seed);
-        }
     }
 
     // if add the intervals in add_m_interval
@@ -616,24 +517,67 @@ namespace samurai
     // which is what would leave a hole. A cell sits at exactly level l where it is
     // required at l but not at l+1:
     //   graded[l] = F[l] \ F[l+1].on(l)
-    template <std::size_t dim, class TInterval, size_t max_size>
+    // Single-pass graded closure - interior grading only, one top-down sweep, no
+    // fixed-point.
+    //
+    // F[l] = the region required at level >= l, as whole level-l cells, built from the
+    // finest level down:
+    //   F[max] = ca[max]
+    //   F[l]   = ( ca[l] UNION expand( (F[l+1] U neighbours' F[l+1]).on(l), grad_width) )
+    //            rounded up to whole level-(l-1) parents, clipped to the mesh coverage
+    // Rounding to whole parents enforces samurai's complete-tree invariant (a coarse
+    // cell touched by grading is refined IN FULL, never partially - which would leave a
+    // hole). A cell sits at exactly level l where it is required at l but not at l+1:
+    //   graded[l] = F[l] \ F[l+1].on(l)
+    //
+    // MPI: the sweep is synchronised across ranks over the GLOBAL level range (one tiny
+    // all_reduce of the level bounds, once - not per iteration), and at each level only
+    // that level's F is exchanged with the neighbours (exchange_level_mpi) - so a cascade
+    // crossing a partition boundary is captured, without the whole-mesh exchange the
+    // fixed-point loop does per iteration.
+    template <std::size_t dim, class TInterval, size_t max_size, class MeshType>
     void graded_closure_single_pass(CellArray<dim, TInterval, max_size>& ca,
                                     const CellArray<dim, TInterval, max_size>& domain,
                                     const std::array<bool, dim>& is_periodic,
-                                    const size_t grad_width)
+                                    const size_t grad_width,
+                                    [[maybe_unused]] const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood)
     {
         using ca_type = CellArray<dim, TInterval, max_size>;
         using lca_t   = typename ca_type::lca_type;
 
-        const size_t max_level = ca.max_level();
-        const size_t min_level = ca.min_level();
+        const bool has_neighbour = !mpi_neighbourhood.empty();
+
+        size_t max_level = ca.max_level();
+        size_t min_level = ca.min_level();
+#ifdef SAMURAI_WITH_MPI
+        // Sweep over the GLOBAL level range so every rank issues the same per-level
+        // exchanges in lock-step (an empty rank still participates with empty level
+        // arrays). One tiny all_reduce (two ints) gives the TIGHT global range: this is
+        // cheaper than the alternative of using the domain's full 0..max_level range,
+        // which would make every rank exchange several empty coarse levels (extra
+        // latency-bound messages per call). Gated on world.size() (identical on every
+        // rank) so a neighbour-less rank still joins the collective and does not deadlock.
+        {
+            mpi::communicator world;
+            if (world.size() > 1)
+            {
+                max_level = mpi::all_reduce(world, max_level, mpi::maximum<size_t>());
+                min_level = mpi::all_reduce(world, min_level, mpi::minimum<size_t>());
+            }
+        }
+#endif
         if (max_level <= min_level)
         {
             return; // a single level is always graded
         }
         const int w = static_cast<int>(grad_width);
 
-        const bool any_periodic = std::any_of(is_periodic.begin(), is_periodic.end(), [](bool b) { return b; });
+        const bool any_periodic = std::any_of(is_periodic.begin(),
+                                              is_periodic.end(),
+                                              [](bool b)
+                                              {
+                                                  return b;
+                                              });
         std::array<int, dim> nb_cells_finest_level{};
         if (any_periodic)
         {
@@ -645,56 +589,76 @@ namespace samurai
             }
         }
 
-        // Graduation only ever refines EXISTING cells (the iterative version intersects
-        // with ca[coarse_level] at each step), so every F[l] must be clipped to the mesh
-        // coverage - otherwise the grading expansion would spill cells outside the
-        // mesh/domain. The mesh fills its domain, so the precomputed domain pyramid
-        // domain[l] IS that coverage at level l (cheap). When no domain is available
-        // (the standalone make_graduation(ca) overload), fall back to computing the
-        // coverage from ca itself.
-        const bool has_domain = !domain.empty();
+        // Graduation only ever refines EXISTING cells, so every F[l] must be clipped to
+        // the mesh coverage - otherwise the grading expansion would spill cells outside
+        // the mesh. Without neighbours the mesh fills its domain, so the precomputed
+        // domain pyramid domain[l] IS that coverage (cheap). With neighbours the local
+        // mesh is only a subdomain, so we must clip to the LOCAL coverage (its own cells)
+        // - clipping to the global domain would let a rank claim cells it does not own.
+        const bool has_domain   = !domain.empty();
+        const bool use_coverage = has_neighbour || !has_domain;
         lca_t coverage;
-        if (!has_domain)
+        if (use_coverage)
         {
             bool first = true;
-            for (size_t l = min_level; l <= max_level; ++l)
+            for (size_t l = ca.min_level(); l <= ca.max_level(); ++l)
             {
                 if (ca[l].empty())
                 {
                     continue;
                 }
-                lca_t projected(self(ca[l]).on(max_level));
-                coverage = first ? projected : lca_t(union_(coverage, projected).on(max_level));
+                lca_t projected(self(ca[l]).on(ca.max_level()));
+                coverage = first ? projected : lca_t(union_(coverage, projected).on(ca.max_level()));
                 first    = false;
             }
         }
         const auto clip = [&](lca_t&& x, size_t l) -> lca_t
         {
-            return has_domain ? lca_t(intersection(x, domain[l]).on(l)) : lca_t(intersection(x, self(coverage).on(l)).on(l));
+            return use_coverage ? lca_t(intersection(x, self(coverage).on(l)).on(l)) : lca_t(intersection(x, domain[l]).on(l));
         };
 
         std::array<lca_t, max_size> F;
+        std::array<std::vector<lca_t>, max_size> neighbour_F;
         F[max_level] = ca[max_level];
+        if (has_neighbour)
+        {
+            neighbour_F[max_level] = exchange_level_mpi(F[max_level], mpi_neighbourhood, static_cast<int>(max_level));
+        }
         for (size_t l = max_level; l-- > min_level;)
         {
-            // Grading buffer at level l: the finer requirement, expanded by grad_width.
-            lca_t expanded(nestedExpand(self(F[l + 1]).on(l), w));
+            // Finer requirement driving grading at level l: this rank's F[l+1] plus the
+            // neighbours' F[l+1] (so a cascade from a neighbour reaches across the shared
+            // boundary). The neighbour cells outside this subdomain are removed by the
+            // coverage clip below; those within grad_width of the boundary force the local
+            // boundary cells.
+            lca_t finer = F[l + 1];
+            for (const auto& nf : neighbour_F[l + 1])
+            {
+                // Union accumulation with a per-step .on() reconstruction: a raw loop reads better than std::accumulate.
+                // cppcheck-suppress useStlAlgorithm
+                finer = lca_t(union_(finer, nf).on(l + 1));
+            }
+
+            lca_t expanded(nestedExpand(self(finer).on(l), w));
             // Periodicity: a finer cell near a periodic boundary must also force
-            // refinement near the opposite boundary. Add the wrapped copies of the
-            // buffer (translated by the domain size at level l).
+            // refinement near the opposite boundary (wrapped copies of the buffer).
             if (any_periodic)
             {
                 const lca_t base = expanded;
                 for (const auto& d : detail::get_periodic_directions(nb_cells_finest_level, int(domain.max_level()) - int(l), is_periodic))
                 {
+                    // Union accumulation with a per-step .on() reconstruction: a raw loop reads better than std::accumulate.
+                    // cppcheck-suppress useStlAlgorithm
                     expanded = lca_t(union_(expanded, translate(base, d)).on(l));
                 }
             }
             lca_t req(union_(ca[l], expanded).on(l));
-            // Round up to whole (l-1) parents (complete-tree invariant) - except at
-            // min_level, which has no coarser parent in the mesh - then clip so nothing
-            // spills outside the domain.
+            // Round up to whole (l-1) parents (complete-tree invariant) then clip.
             F[l] = (l > min_level) ? clip(lca_t(self(req).on(l - 1).on(l)), l) : clip(std::move(req), l);
+            if (has_neighbour)
+            {
+                neighbour_F[l] = exchange_level_mpi(F[l], mpi_neighbourhood, static_cast<int>(l));
+            }
         }
 
         ca_type graded_ca;
@@ -718,8 +682,7 @@ namespace samurai
     // Returns whether `ca` actually changed. Shared by the fixed-point loop and the
     // single-pass boundary-contiguity loop.
     template <std::size_t dim, class TInterval, size_t max_size, class TCoord>
-    bool apply_refinement_list(CellArray<dim, TInterval, max_size>& ca,
-                               std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, max_size>& out)
+    bool apply_refinement_list(CellArray<dim, TInterval, max_size>& ca, std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, max_size>& out)
     {
         using ca_type    = CellArray<dim, TInterval, max_size>;
         using coord_type = typename ca_type::lca_type::coord_type;
@@ -781,8 +744,7 @@ namespace samurai
         }
 
         ca_type new_ca;
-        for (std::size_t level = std::min(ca.min_level(), ca_add_p.min_level());
-             level < std::max(ca.max_level(), ca_add_p.max_level()) + 1;
+        for (std::size_t level = std::min(ca.min_level(), ca_add_p.min_level()); level < std::max(ca.max_level(), ca_add_p.max_level()) + 1;
              ++level)
         {
             auto set = difference(union_(ca[level], ca_add_p[level]), ca_remove_p[level]);
@@ -811,39 +773,64 @@ namespace samurai
         using ca_type    = CellArray<dim, TInterval, max_size>;
         using coord_type = typename ca_type::lca_type::coord_type;
 
-        const size_t max_level = ca.max_level();
-        const size_t min_level = ca.min_level();
-
-        // Single-pass fast path: no MPI neighbour (a cross-rank cascade needs the
-        // cells the neighbour creates, which only the fixed-point loop's per-iteration
-        // mesh exchange provides). The interior grading is done in one top-down sweep
-        // by graded_closure_single_pass (periodicity handled inside). When the scheme
-        // needs boundary contiguity (max_stencil_radius > 1), that pass ADDS cells that
-        // can create new interior violations, so we re-grade in a short outer loop -
-        // usually one or two turns, and skipped entirely for max_stencil_radius == 1.
-        if (mpi_neighbourhood.empty())
+        // Single-pass interior grading (one top-down sweep). With MPI neighbours the
+        // sweep is synchronised and exchanges only the current level's cells at each
+        // step (see graded_closure_single_pass), so it replaces the fixed-point loop's
+        // whole-mesh exchanges. When there is no boundary contiguity to enforce
+        // (max_stencil_radius == 1) a single sweep is the whole graduation.
+        if (max_stencil_radius == 1)
         {
+            graded_closure_single_pass(ca, domain, is_periodic, grad_width, mpi_neighbourhood);
+#ifdef SAMURAI_DEBUG_GRADUATION
+            // is_graduated is a purely local check; under MPI the boundary grading is
+            // completed by the neighbours, so only assert in the sequential case.
+            if (mpi_neighbourhood.empty() && !is_graduated(ca))
+            {
+                std::cerr << "[SAMURAI_DEBUG_GRADUATION] single-pass graduation produced a non-graduated mesh\n";
+                std::abort();
+            }
+#endif
+            return 1;
+        }
+
+        // Boundary contiguity (max_stencil_radius > 1): the interior single-pass grades
+        // in one sweep, but the boundary pass ADDS cells that can create new interior
+        // violations, so re-grade in a short outer loop (usually one or two turns). This
+        // handles both the sequential and the MPI case - the neighbour cells the boundary
+        // pass needs are fetched with update_subdomains_mpi (a no-op without neighbours),
+        // and the outer-loop termination is agreed with one collective per turn.
+        {
+#ifdef SAMURAI_WITH_MPI
+            mpi::communicator world;
+#endif
             size_t nit   = 0;
             bool changed = true;
-            while (changed)
+            while (
+#ifdef SAMURAI_WITH_MPI
+                mpi::all_reduce(world, changed, std::logical_or())
+#else
+                changed
+#endif
+            )
             {
                 ++nit;
-                graded_closure_single_pass(ca, domain, is_periodic, grad_width);
+                graded_closure_single_pass(ca, domain, is_periodic, grad_width, mpi_neighbourhood);
                 changed = false;
-                if (max_stencil_radius > 1 && !domain.empty())
+                if (!domain.empty())
                 {
+                    const auto mpi_meshes = update_subdomains_mpi(ca, mpi_neighbourhood);
                     std::array<ArrayOfIntervalAndPoint<TInterval, coord_type>, max_size> boundary_out;
                     for (auto& o : boundary_out)
                     {
                         o.clear();
                     }
-                    const std::vector<ca_type> no_neighbour_meshes;
-                    list_interval_to_refine_for_contiguous_boundary_cells(max_stencil_radius, ca, domain, no_neighbour_meshes, is_periodic, boundary_out);
+                    list_interval_to_refine_for_contiguous_boundary_cells(max_stencil_radius, ca, domain, mpi_meshes, is_periodic, boundary_out);
                     changed = apply_refinement_list(ca, boundary_out);
                 }
             }
 #ifdef SAMURAI_DEBUG_GRADUATION
-            if (!is_graduated(ca))
+            // is_graduated is a purely local check; only assert without neighbours.
+            if (mpi_neighbourhood.empty() && !is_graduated(ca))
             {
                 std::cerr << "[SAMURAI_DEBUG_GRADUATION] single-pass graduation produced a non-graduated mesh\n";
                 std::abort();
@@ -851,231 +838,6 @@ namespace samurai
 #endif
             return nit;
         }
-
-        std::array<int, dim> nb_cells_finest_level;
-
-        if (std::any_of(is_periodic.begin(),
-                        is_periodic.end(),
-                        [](const bool& b)
-                        {
-                            return b;
-                        }))
-        {
-            const auto& min_indices = domain[domain.max_level()].min_indices();
-            const auto& max_indices = domain[domain.max_level()].max_indices();
-
-            for (size_t d = 0; d != max_indices.size(); ++d)
-            {
-                nb_cells_finest_level[d] = max_indices[d] - min_indices[d];
-            }
-        }
-
-        std::vector<TInterval> add_p_interval;
-        std::vector<coord_type> add_p_inner_stencil;
-        std::vector<size_t> add_p_idx;
-
-        std::array<ArrayOfIntervalAndPoint<TInterval, coord_type>, max_size> remove_m_all;
-
-        ca_type ca_add_p;
-        ca_type ca_remove_p;
-        ca_type new_ca;
-
-        size_t nit = 0;
-#ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-#endif // SAMURAI_WITH_MPI
-
-        // `ca_changed` drives the fixed-point loop: it is true as long as the local `ca` was modified during the
-        // previous iteration. It is primed to true so the loop runs at least once. Compared to the former
-        // `new_ca != ca` test, this lets us skip both the full `new_ca` reconstruction and the whole-array
-        // comparison whenever an iteration produces no cell to refine (the common case: an already-graduated mesh),
-        // for which `new_ca == ca` holds algebraically.
-        // Incremental graduation. The first iteration scans the whole mesh. Each
-        // subsequent iteration only needs to look for new violations around the fine
-        // cells the previous iteration added: a graduation iteration only ADDS fine
-        // cells, so those are the only possible new fine sources. Seeding the interior
-        // pass with them is therefore exact (the boundary pass still runs full each
-        // iteration). Under-seeding could only ever miss a refinement, never add a
-        // spurious one, so `is_graduated(ca)` on the result is a complete correctness
-        // check (enabled by SAMURAI_DEBUG_GRADUATION below).
-        //
-        // A new violation of iteration i+1 involves a cell ADDED by iteration i either
-        // as its fine SOURCE or as its (coarser) TARGET - the latter happens on a
-        // multi-level cascade, where an old fine cell forces a cell iteration i just
-        // added one level up. Seeding only from the additions (as sources) misses the
-        // target case, so the seed must be the mesh cells in the NEIGHBOURHOOD of the
-        // additions: ca INTER expand(additions, roi_width), projected across levels.
-        // This lets the scan cascade from the old fine cells near the new targets too.
-        // roi_width covers the interior grading reach (2*grad_width) and the boundary
-        // contiguity reach.
-        const int roi_width = std::max(2 * static_cast<int>(grad_width), std::max(max_stencil_radius, 2 * (max_stencil_radius - 2)));
-
-        auto build_roi = [&](const ca_type& additions) -> ca_type
-        {
-            using lca_t = typename ca_type::lca_type;
-            ca_type roi;
-            for (size_t L = ca.min_level(); L <= ca.max_level(); ++L)
-            {
-                lca_t acc;
-                bool has = false;
-                for (size_t d = additions.min_level(); d <= additions.max_level(); ++d)
-                {
-                    if (additions[d].empty())
-                    {
-                        continue;
-                    }
-                    lca_t contrib(nestedExpand(self(additions[d]).on(L), roi_width));
-                    acc = has ? lca_t(union_(acc, contrib).on(L)) : contrib;
-                    has = true;
-                }
-                if (has)
-                {
-                    intersection(ca[L], acc)(
-                        [&](const auto& i, const auto& idx)
-                        {
-                            roi[L].add_interval_back(i, idx);
-                        });
-                }
-            }
-            return roi;
-        };
-
-        ca_type prev_roi;
-        const ca_type* iteration_seed = nullptr;
-        bool ca_changed               = true;
-        while (
-#ifdef SAMURAI_WITH_MPI
-            mpi::all_reduce(world, ca_changed, std::logical_or())
-#else
-            ca_changed
-#endif // SAMURAI_WITH_MPI
-        )
-        {
-            ++nit;
-
-            // test if mesh is correctly graduated.
-            // We first build a set of non-graduated cells
-            // Then, if the non-graduated is not tagged as keep, we coarsen it
-            ca_add_p.clear();
-            ca_remove_p.clear();
-            list_intervals_to_refine(grad_width,
-                                     max_stencil_radius,
-                                     ca,
-                                     domain,
-                                     mpi_neighbourhood,
-                                     is_periodic,
-                                     nb_cells_finest_level,
-                                     remove_m_all,
-                                     iteration_seed);
-
-            add_p_interval.clear();
-            add_p_inner_stencil.clear();
-            add_p_idx.clear();
-            // Whether any cell was flagged for refinement this iteration. When nothing is flagged, `ca_add_p` and
-            // `ca_remove_p` stay empty, so the reconstruction below would rebuild `ca` identically: we skip it.
-            bool any_change = false;
-            // `<` not `!=`: on an empty rank min_level (max_size + 1) > max_level
-            // (0), so this runs zero times instead of walking off remove_m_all.
-            // The empty rank must still reach the collective all_reduce above, so
-            // it cannot early-return -- it just does no per-level work.
-            for (size_t level = min_level; level < max_level + 1; ++level)
-            {
-                remove_m_all[level].remove_overlapping_intervals();
-                const size_t imax = remove_m_all[level].size();
-                if (imax > 0)
-                {
-                    any_change = true;
-                }
-                for (size_t i = 0; i != imax; ++i)
-                {
-                    const auto& x_interval = remove_m_all[level][i].first;
-                    const auto& yz         = remove_m_all[level][i].second;
-                    ca_remove_p[level].add_interval_back(x_interval, yz);
-                    if constexpr (dim == 1)
-                    {
-                        ca_add_p[level + 1].add_interval_back(2 * x_interval, 2 * yz);
-                    }
-                    else
-                    {
-                        nestedLoop<dim - 1, 0, dim - 2>(0,
-                                                        2,
-                                                        [&](const auto& inner_stencil)
-                                                        {
-                                                            add_p_interval.push_back(2 * x_interval);
-                                                            if constexpr (dim > 2)
-                                                            {
-                                                                add_p_inner_stencil.emplace_back(2 * yz + inner_stencil);
-                                                                add_p_idx.push_back(add_p_interval.size() - 1); // std::iota on
-                                                                                                                // the fly
-                                                            }
-                                                        });
-                    }
-                    if (dim != 1 and (i + 1 == imax or yz[dim - 2] != remove_m_all[level].get_coord(i + 1)[dim - 2]))
-                    {
-                        add_list_of_interval_back(add_p_interval, coord_type(2 * yz), add_p_inner_stencil, add_p_idx, ca_add_p[level + 1]);
-                        add_p_interval.clear();
-                        add_p_inner_stencil.clear();
-                        add_p_idx.clear();
-                    }
-                } // end for remove_m_all
-            } // end for level
-
-            if (!any_change)
-            {
-                // Nothing was flagged: `ca` is unchanged, so this rank has reached its fixed point. We still loop
-                // back to the collective all_reduce (a neighbour may keep refining), but do no more local work.
-                ca_changed = false;
-                continue;
-            }
-
-            // We then create new_ca as ca U ca_add
-            new_ca.clear();
-            for (std::size_t level = std::min(ca.min_level(), ca_add_p.min_level());
-                 level < std::max(ca.max_level(), ca_add_p.max_level()) + 1;
-                 ++level)
-            {
-                auto set = difference(union_(ca[level], ca_add_p[level]), ca_remove_p[level]);
-                set(
-                    [&](const auto& x_interval, const auto& yz)
-                    {
-                        new_ca[level].add_interval_back(x_interval, yz);
-                    });
-            }
-            // Even though something was flagged, the flagged cells may already be refined, leaving `ca`
-            // effectively unchanged: keep the explicit comparison here as the loop's termination guarantee.
-            ca_changed = (new_ca != ca);
-            std::swap(new_ca, ca);
-
-            // Seed the next iteration with the mesh cells around the ones just added
-            // (see the roi comment above): this covers additions acting as fine sources
-            // and old fine cells forcing additions that became coarser targets.
-            //
-            // Only when there is no MPI neighbour (sequential run, or a rank with no
-            // neighbour). With neighbours the scan must stay FULL: the seed is built
-            // from this rank's LOCAL additions, which depend on the domain
-            // decomposition, so seeding would make the graduation - and hence the mesh -
-            // partition-dependent. The full scan is partition-independent (as on main),
-            // and a single-rank incremental result is bit-identical to it.
-            if (mpi_neighbourhood.empty())
-            {
-                prev_roi       = build_roi(ca_add_p);
-                iteration_seed = &prev_roi;
-            }
-        }
-
-#ifdef SAMURAI_DEBUG_GRADUATION
-        // Complete correctness gate for the incremental scan: because seeding can
-        // only ever under-refine (never add a spurious refinement), a graduated
-        // result is necessarily identical to the full-scan result. Explicit check
-        // (not assert) so it also fires in NDEBUG builds when the flag is set.
-        if (!is_graduated(ca))
-        {
-            std::cerr << "[SAMURAI_DEBUG_GRADUATION] incremental graduation produced a non-graduated mesh\n";
-            std::abort();
-        }
-#endif
-
-        return nit - 1;
     }
 
     template <std::size_t dim, class TInterval, size_t max_size>
