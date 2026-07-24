@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <array>
 #include <cassert>
 #include <concepts>
 #include <cstddef>
@@ -11,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include "../../box.hpp"
 #include "../../static_algorithm.hpp"
 #include "../node.hpp" // the static set DSL (self, intersection, translate, ...)
 #include "dynamic_set.hpp"
@@ -266,6 +268,17 @@ namespace samurai
                                              });
         }
 
+        template <class TValue, std::size_t Dim>
+        DynamicSet<Dim, Interval<TValue>> box(std::size_t level, const Box<TValue, Dim>& b)
+        {
+            // `b` must outlive the returned set, as for the static `asBoxView`.
+            return make_node<Dim, Interval<TValue>>({},
+                                                    [level, box_ptr = &b](const auto&)
+                                                    {
+                                                        return asBoxView(level, *box_ptr);
+                                                    });
+        }
+
         namespace detail
         {
             template <SetOperator op, std::size_t dim, class TInterval>
@@ -379,6 +392,27 @@ namespace samurai
                                              [width](const auto& children)
                                              {
                                                  return nestedExpand(as_static_set(children[0]), width);
+                                             });
+        }
+
+        template <std::size_t dim, class TInterval>
+        DynamicSet<dim, TInterval> contract(const DynamicSet<dim, TInterval>& set, std::size_t width)
+        {
+            return make_node<dim, TInterval>({set.ptr()},
+                                             [width](const auto& children)
+                                             {
+                                                 return samurai::contract(as_static_set(children[0]), width);
+                                             });
+        }
+
+        template <std::size_t dim, class TInterval>
+        DynamicSet<dim, TInterval>
+        contract(const DynamicSet<dim, TInterval>& set, std::size_t width, const std::array<bool, dim>& directions)
+        {
+            return make_node<dim, TInterval>({set.ptr()},
+                                             [width, directions](const auto& children)
+                                             {
+                                                 return samurai::contract(as_static_set(children[0]), width, directions);
                                              });
         }
     } // namespace dyn

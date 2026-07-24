@@ -2,15 +2,18 @@
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <xtensor/containers/xfixed.hpp>
 
 #include <gtest/gtest.h>
 
+#include <samurai/box.hpp>
 #include <samurai/cell_list.hpp>
 #include <samurai/level_cell_array.hpp>
 #include <samurai/subset/node.hpp>
+#include <samurai/subset/traversers/range_traverser.hpp>
 
 #include <samurai/subset/dynamic/dynamic.hpp>
 
@@ -80,6 +83,16 @@ namespace samurai
                 lcl[{y}].add_interval({x0, x1});
             }
             return LevelCellArray<2>(lcl);
+        }
+
+        LevelCellArray<3> lca3(std::size_t level, std::initializer_list<std::tuple<int, int, int, int>> boxes)
+        {
+            LevelCellList<3> lcl{level};
+            for (auto [y, z, x0, x1] : boxes)
+            {
+                lcl[{y, z}].add_interval({x0, x1});
+            }
+            return LevelCellArray<3>(lcl);
         }
     } // namespace
 
@@ -195,6 +208,107 @@ namespace samurai
         auto c = lca2(3, {{1, 1, 7}, {2, 0, 10}});
         EXPECT_EQ(traverse_static(intersection(nestedExpand(self(a), 1), self(c))),
                   traverse_dynamic(dyn::intersection(dyn::expand(dyn::self(a), 1), dyn::self(c))));
+    }
+
+    TEST(subset_dynamic, box)
+    {
+        auto a = lca2(0, {{0, 0, 10}, {1, 0, 10}, {2, 0, 10}, {3, 0, 10}});
+        Box<int, 2> b({1, 1}, {5, 4});
+
+        // box alone, and combined with an LCA leaf (mixing box + self).
+        EXPECT_EQ(traverse_static(asBoxView(0, b)), traverse_dynamic(dyn::box(0, b)));
+        EXPECT_EQ(traverse_static(intersection(self(a), asBoxView(0, b))),
+                  traverse_dynamic(dyn::intersection(dyn::self(a), dyn::box(0, b))));
+    }
+
+    TEST(subset_dynamic, contract)
+    {
+        auto a = lca2(0, {{0, 0, 10}, {1, 0, 10}, {2, 0, 10}, {3, 0, 10}});
+        EXPECT_EQ(traverse_static(contract(self(a), 1)), traverse_dynamic(dyn::contract(dyn::self(a), 1)));
+
+        std::array<bool, 2> directions{true, false};
+        EXPECT_EQ(traverse_static(contract(self(a), 1, directions)),
+                  traverse_dynamic(dyn::contract(dyn::self(a), 1, directions)));
+    }
+
+    ////////////////////////////////////////////////////////////////////////
+    //// 3D equivalence (deepest runtime -> compile-time dimension switch)
+    ////////////////////////////////////////////////////////////////////////
+
+    TEST(subset_dynamic, intersection_3d)
+    {
+        auto a = lca3(2, {{0, 0, 0, 6}, {1, 0, 2, 8}, {0, 1, 1, 5}});
+        auto b = lca3(2, {{0, 0, 3, 9}, {1, 0, 0, 4}, {0, 1, 2, 7}});
+        EXPECT_EQ(traverse_static(intersection(self(a), self(b))),
+                  traverse_dynamic(dyn::intersection(dyn::self(a), dyn::self(b))));
+    }
+
+    TEST(subset_dynamic, difference_3d)
+    {
+        auto a = lca3(2, {{0, 0, 0, 6}, {1, 0, 2, 8}, {0, 1, 1, 5}});
+        auto b = lca3(2, {{0, 0, 3, 9}, {1, 0, 0, 4}, {0, 1, 2, 7}});
+        EXPECT_EQ(traverse_static(difference(self(a), self(b))),
+                  traverse_dynamic(dyn::difference(dyn::self(a), dyn::self(b))));
+    }
+
+    TEST(subset_dynamic, projection_3d)
+    {
+        auto a = lca3(2, {{0, 0, 0, 6}, {1, 0, 2, 8}, {0, 1, 1, 5}});
+        auto b = lca3(2, {{0, 0, 3, 9}, {1, 0, 0, 4}, {0, 1, 2, 7}});
+        EXPECT_EQ(traverse_static(intersection(self(a), self(b)).on(1)),
+                  traverse_dynamic(dyn::intersection(dyn::self(a), dyn::self(b)).on(1)));
+    }
+
+    ////////////////////////////////////////////////////////////////////////
+    //// Empty / disjoint results (exercises exist() / empty() and no output)
+    ////////////////////////////////////////////////////////////////////////
+
+    TEST(subset_dynamic, disjoint_intersection_is_empty)
+    {
+        auto a = lca1(0, {{0, 5}});
+        auto b = lca1(0, {{10, 15}});
+
+        auto dyn_result = traverse_dynamic(dyn::intersection(dyn::self(a), dyn::self(b)));
+        EXPECT_TRUE(dyn_result.empty());
+        EXPECT_EQ(traverse_static(intersection(self(a), self(b))), dyn_result);
+
+        // to_lca of an empty dynamic set is empty, and matches the static one.
+        EXPECT_TRUE(dyn::intersection(dyn::self(a), dyn::self(b)).to_lca().empty());
+        EXPECT_EQ(intersection(self(a), self(b)).to_lca(), dyn::intersection(dyn::self(a), dyn::self(b)).to_lca());
+    }
+
+    TEST(subset_dynamic, difference_emptied_by_cover)
+    {
+        auto a = lca1(0, {{2, 6}});
+        auto b = lca1(0, {{0, 10}});
+        auto dyn_result = traverse_dynamic(dyn::difference(dyn::self(a), dyn::self(b)));
+        EXPECT_TRUE(dyn_result.empty());
+        EXPECT_EQ(traverse_static(difference(self(a), self(b))), dyn_result);
+    }
+
+    ////////////////////////////////////////////////////////////////////////
+    //// AnyTraverser move (exercises the small-buffer move path)
+    ////////////////////////////////////////////////////////////////////////
+
+    TEST(subset_dynamic, any_traverser_move)
+    {
+        using interval_t = LevelCellArray<1>::interval_t;
+        auto lca         = lca1(0, {{0, 5}, {8, 12}});
+
+        // A leaf traverser is held inline in the small buffer; moving it must
+        // move-construct into the destination's buffer, not dangle.
+        AnyTraverser<interval_t> source = make_any_traverser(RangeTraverser(lca[0].cbegin(), lca[0].cend()));
+
+        AnyTraverser<interval_t> moved = std::move(source); // move ctor -> SmallObject move
+        EXPECT_FALSE(moved.is_empty());
+        EXPECT_EQ(moved.current_interval(), interval_t(0, 5));
+        moved.next_interval();
+        EXPECT_EQ(moved.current_interval(), interval_t(8, 12));
+
+        // Move assignment onto an existing holder.
+        AnyTraverser<interval_t> target = make_any_traverser(RangeTraverser(lca[0].cbegin(), lca[0].cend()));
+        target                          = std::move(moved);
+        EXPECT_EQ(target.current_interval(), interval_t(8, 12));
     }
 
     ////////////////////////////////////////////////////////////////////////
