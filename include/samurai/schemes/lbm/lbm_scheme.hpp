@@ -134,6 +134,33 @@ namespace samurai
             return feq;
         }
 
+        /**
+         * Moments m = M.f from a full distribution vector (all blocks concatenated). Public so that a
+         * velocity-consistent wall boundary condition can read the LOCAL flow state from the inner
+         * cell distribution (e.g. anti-bounce-back imposing a height/pressure while letting the
+         * momentum float, see @ref AntiBounceBack).
+         */
+        std::array<double, n_comp> moments(const std::array<double, n_comp>& fall) const
+        {
+            std::array<double, n_comp> mall{};
+            for_each_block(
+                [&](const auto& block, std::size_t offset)
+                {
+                    constexpr std::size_t q = std::decay_t<decltype(block)>::q;
+                    std::array<double, q> fblock;
+                    for (std::size_t k = 0; k < q; ++k)
+                    {
+                        fblock[k] = fall[offset + k];
+                    }
+                    const auto mblock = matvec(block.M, fblock);
+                    for (std::size_t k = 0; k < q; ++k)
+                    {
+                        mall[offset + k] = mblock[k];
+                    }
+                });
+            return mall;
+        }
+
         using source_t = std::function<void(std::span<double> m_all, double dt)>;
 
         /**

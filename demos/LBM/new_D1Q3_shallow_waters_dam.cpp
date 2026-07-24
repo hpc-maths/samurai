@@ -13,10 +13,20 @@
 //
 // Boundaries (default): reflecting solid walls on both sides (bounce-back), so the
 // dam-break waves bounce back and forth and the total water mass is conserved to
-// machine precision. With --bc antibounceback a fixed water height is imposed at each wall
-// (an open "reservoir" condition: it exchanges mass with the reservoir, so the mass is NOT
-// conserved, and it preserves a matching rest state exactly). It is well posed for moderate
-// flows; a strong Riemann surge crashing against a low imposed height is physically stiff.
+// machine precision.
+//
+// With --bc antibounceback the tank is half-open: the left wall stays a reflecting bounce-back
+// wall, the right wall is an open "reservoir" imposing the water height hR via anti-bounce-back.
+// The dam-break water sloshes against the closed left wall and drains through the open right end
+// until the tank settles back to rest at h = hR (the mass is NOT conserved: the excess leaves
+// through the reservoir). The reservoir reflects around the equilibrium built from the LOCAL flow
+// (height forced to hR, momentum kept), so its even part carries the through-flow kinetic energy
+// and the boundary stays stable for arbitrarily long times.
+//
+// (A channel between two reservoirs of DIFFERENT fixed heights is deliberately avoided: it would
+// drive a permanent current that, with no shock limiter, slowly steepens to a transcritical bore
+// and eventually produces a negative height. The half-open tank settles to rest instead and is
+// unconditionally stable.)
 
 #include <cmath>
 #include <limits>
@@ -137,10 +147,23 @@ int main(int argc, char* argv[])
 
     if (bc == "antibounceback")
     {
-        // Impose the initial wall height at each wall (fluid at rest -> q = 0) via anti-bounce-back:
-        // the equilibrium distribution to reflect around is built by the scheme from the wall moments.
-        samurai::make_bc<samurai::AntiBounceBack>(f, velocities, scheme.equilibrium_f({hL, 0., 0.}))->on(left);
-        samurai::make_bc<samurai::AntiBounceBack>(f, velocities, scheme.equilibrium_f({hR, 0., 0.}))->on(right);
+        // Half-open tank: closed (bounce-back) left wall, open reservoir on the right. The reservoir
+        // rebuilds the equilibrium to reflect around at every step from the LOCAL cell: the height is
+        // forced to hR while the momentum floats. This keeps the even part (which carries the kinetic
+        // energy q^2/h) consistent with the through-flow, so the wall stays stable for arbitrarily
+        // long times instead of driving the boundary height negative. At rest (q = 0) it reduces to
+        // reflecting around equilibrium_f({hR, 0, 0}).
+        auto reservoir = [&scheme](double h_wall)
+        {
+            return [&scheme, h_wall](const std::array<double, 3>& fin)
+            {
+                auto mm = scheme.moments(fin);
+                mm[0]   = h_wall; // impose the height, keep the local momentum
+                return scheme.equilibrium_f(mm);
+            };
+        };
+        samurai::make_bc<samurai::BounceBack>(f, velocities)->on(left);
+        samurai::make_bc<samurai::AntiBounceBack>(f, velocities, reservoir(hR))->on(right);
     }
     else
     {
