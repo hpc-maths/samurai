@@ -102,15 +102,32 @@ namespace samurai
 
     TEST(subset_dynamic, leaf)
     {
-        auto a = lca1(0, {{0, 2}, {5, 9}, {12, 14}});
+        auto a = lca1(0,
+                      {
+                          {0,  2 },
+                          {5,  9 },
+                          {12, 14}
+        });
         EXPECT_EQ(traverse_static(self(a)), traverse_dynamic(dyn::self(a)));
     }
 
     TEST(subset_dynamic, intersection_1d)
     {
-        auto a = lca1(2, {{0, 5}, {8, 12}});
-        auto b = lca1(2, {{3, 9}, {11, 20}});
-        auto c = lca1(2, {{4, 7}, {10, 30}});
+        auto a = lca1(2,
+                      {
+                          {0, 5 },
+                          {8, 12}
+        });
+        auto b = lca1(2,
+                      {
+                          {3,  9 },
+                          {11, 20}
+        });
+        auto c = lca1(2,
+                      {
+                          {4,  7 },
+                          {10, 30}
+        });
 
         EXPECT_EQ(traverse_static(intersection(self(a), self(b), self(c))),
                   traverse_dynamic(dyn::intersection(dyn::self(a), dyn::self(b), dyn::self(c))));
@@ -118,9 +135,21 @@ namespace samurai
 
     TEST(subset_dynamic, union_1d)
     {
-        auto a = lca1(2, {{0, 5}, {8, 12}});
-        auto b = lca1(2, {{3, 9}, {11, 20}});
-        auto c = lca1(2, {{4, 7}, {10, 30}});
+        auto a = lca1(2,
+                      {
+                          {0, 5 },
+                          {8, 12}
+        });
+        auto b = lca1(2,
+                      {
+                          {3,  9 },
+                          {11, 20}
+        });
+        auto c = lca1(2,
+                      {
+                          {4,  7 },
+                          {10, 30}
+        });
 
         EXPECT_EQ(traverse_static(union_(self(a), self(b), self(c))),
                   traverse_dynamic(dyn::union_(dyn::self(a), dyn::self(b), dyn::self(c))));
@@ -128,9 +157,21 @@ namespace samurai
 
     TEST(subset_dynamic, difference_1d)
     {
-        auto a = lca1(2, {{0, 5}, {8, 12}});
-        auto b = lca1(2, {{3, 9}, {11, 20}});
-        auto c = lca1(2, {{4, 7}, {10, 30}});
+        auto a = lca1(2,
+                      {
+                          {0, 5 },
+                          {8, 12}
+        });
+        auto b = lca1(2,
+                      {
+                          {3,  9 },
+                          {11, 20}
+        });
+        auto c = lca1(2,
+                      {
+                          {4,  7 },
+                          {10, 30}
+        });
 
         EXPECT_EQ(traverse_static(difference(self(a), self(b), self(c))),
                   traverse_dynamic(dyn::difference(dyn::self(a), dyn::self(b), dyn::self(c))));
@@ -138,9 +179,21 @@ namespace samurai
 
     TEST(subset_dynamic, nested_1d)
     {
-        auto a = lca1(2, {{0, 5}, {8, 12}});
-        auto b = lca1(2, {{3, 9}, {11, 20}});
-        auto c = lca1(2, {{4, 7}, {10, 30}});
+        auto a = lca1(2,
+                      {
+                          {0, 5 },
+                          {8, 12}
+        });
+        auto b = lca1(2,
+                      {
+                          {3,  9 },
+                          {11, 20}
+        });
+        auto c = lca1(2,
+                      {
+                          {4,  7 },
+                          {10, 30}
+        });
 
         auto stat = union_(intersection(self(a), self(b)).on(1), self(c));
         auto dynv = dyn::union_(dyn::intersection(dyn::self(a), dyn::self(b)).on(1), dyn::self(c));
@@ -149,10 +202,16 @@ namespace samurai
 
     TEST(subset_dynamic, mixed_levels_1d)
     {
-        auto a = lca1(2, {{0, 5}, {8, 12}});
-        auto d = lca1(4, {{0, 40}});
-        EXPECT_EQ(traverse_static(intersection(self(a), self(d))),
-                  traverse_dynamic(dyn::intersection(dyn::self(a), dyn::self(d))));
+        auto a = lca1(2,
+                      {
+                          {0, 5 },
+                          {8, 12}
+        });
+        auto d = lca1(4,
+                      {
+                          {0, 40}
+        });
+        EXPECT_EQ(traverse_static(intersection(self(a), self(d))), traverse_dynamic(dyn::intersection(dyn::self(a), dyn::self(d))));
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -161,41 +220,93 @@ namespace samurai
 
     TEST(subset_dynamic, intersection_2d)
     {
-        auto a = lca2(3, {{0, 0, 5}, {1, 2, 8}, {2, 0, 4}});
-        auto b = lca2(3, {{0, 3, 9}, {1, 0, 6}, {2, 1, 3}});
-        EXPECT_EQ(traverse_static(intersection(self(a), self(b))),
-                  traverse_dynamic(dyn::intersection(dyn::self(a), dyn::self(b))));
+        auto a = lca2(3,
+                      {
+                          {0, 0, 5},
+                          {1, 2, 8},
+                          {2, 0, 4}
+        });
+        auto b = lca2(3,
+                      {
+                          {0, 3, 9},
+                          {1, 0, 6},
+                          {2, 1, 3}
+        });
+        EXPECT_EQ(traverse_static(intersection(self(a), self(b))), traverse_dynamic(dyn::intersection(dyn::self(a), dyn::self(b))));
     }
 
     TEST(subset_dynamic, union_2d)
     {
-        auto a = lca2(3, {{0, 0, 5}, {1, 2, 8}, {2, 0, 4}});
-        auto b = lca2(3, {{0, 3, 9}, {1, 0, 6}, {2, 1, 3}});
-        auto c = lca2(3, {{1, 1, 7}, {2, 0, 10}});
+        auto a = lca2(3,
+                      {
+                          {0, 0, 5},
+                          {1, 2, 8},
+                          {2, 0, 4}
+        });
+        auto b = lca2(3,
+                      {
+                          {0, 3, 9},
+                          {1, 0, 6},
+                          {2, 1, 3}
+        });
+        auto c = lca2(3,
+                      {
+                          {1, 1, 7 },
+                          {2, 0, 10}
+        });
         EXPECT_EQ(traverse_static(union_(self(a), self(b), self(c))),
                   traverse_dynamic(dyn::union_(dyn::self(a), dyn::self(b), dyn::self(c))));
     }
 
     TEST(subset_dynamic, difference_2d)
     {
-        auto a = lca2(3, {{0, 0, 5}, {1, 2, 8}, {2, 0, 4}});
-        auto b = lca2(3, {{0, 3, 9}, {1, 0, 6}, {2, 1, 3}});
-        EXPECT_EQ(traverse_static(difference(self(a), self(b))),
-                  traverse_dynamic(dyn::difference(dyn::self(a), dyn::self(b))));
+        auto a = lca2(3,
+                      {
+                          {0, 0, 5},
+                          {1, 2, 8},
+                          {2, 0, 4}
+        });
+        auto b = lca2(3,
+                      {
+                          {0, 3, 9},
+                          {1, 0, 6},
+                          {2, 1, 3}
+        });
+        EXPECT_EQ(traverse_static(difference(self(a), self(b))), traverse_dynamic(dyn::difference(dyn::self(a), dyn::self(b))));
     }
 
     TEST(subset_dynamic, projection_2d)
     {
-        auto a = lca2(3, {{0, 0, 5}, {1, 2, 8}, {2, 0, 4}});
-        auto b = lca2(3, {{0, 3, 9}, {1, 0, 6}, {2, 1, 3}});
+        auto a = lca2(3,
+                      {
+                          {0, 0, 5},
+                          {1, 2, 8},
+                          {2, 0, 4}
+        });
+        auto b = lca2(3,
+                      {
+                          {0, 3, 9},
+                          {1, 0, 6},
+                          {2, 1, 3}
+        });
         EXPECT_EQ(traverse_static(intersection(self(a), self(b)).on(2)),
                   traverse_dynamic(dyn::intersection(dyn::self(a), dyn::self(b)).on(2)));
     }
 
     TEST(subset_dynamic, translate_2d)
     {
-        auto a = lca2(3, {{0, 0, 5}, {1, 2, 8}, {2, 0, 4}});
-        auto b = lca2(3, {{0, 3, 9}, {1, 0, 6}, {2, 1, 3}});
+        auto a = lca2(3,
+                      {
+                          {0, 0, 5},
+                          {1, 2, 8},
+                          {2, 0, 4}
+        });
+        auto b = lca2(3,
+                      {
+                          {0, 3, 9},
+                          {1, 0, 6},
+                          {2, 1, 3}
+        });
 
         xt::xtensor_fixed<int, xt::xshape<2>> t{1, 2};
         EXPECT_EQ(traverse_static(intersection(translate(self(a), t), self(b))),
@@ -204,31 +315,50 @@ namespace samurai
 
     TEST(subset_dynamic, expand_2d)
     {
-        auto a = lca2(3, {{0, 0, 5}, {1, 2, 8}, {2, 0, 4}});
-        auto c = lca2(3, {{1, 1, 7}, {2, 0, 10}});
+        auto a = lca2(3,
+                      {
+                          {0, 0, 5},
+                          {1, 2, 8},
+                          {2, 0, 4}
+        });
+        auto c = lca2(3,
+                      {
+                          {1, 1, 7 },
+                          {2, 0, 10}
+        });
         EXPECT_EQ(traverse_static(intersection(nestedExpand(self(a), 1), self(c))),
                   traverse_dynamic(dyn::intersection(dyn::expand(dyn::self(a), 1), dyn::self(c))));
     }
 
     TEST(subset_dynamic, box)
     {
-        auto a = lca2(0, {{0, 0, 10}, {1, 0, 10}, {2, 0, 10}, {3, 0, 10}});
+        auto a = lca2(0,
+                      {
+                          {0, 0, 10},
+                          {1, 0, 10},
+                          {2, 0, 10},
+                          {3, 0, 10}
+        });
         Box<int, 2> b({1, 1}, {5, 4});
 
         // box alone, and combined with an LCA leaf (mixing box + self).
         EXPECT_EQ(traverse_static(asBoxView(0, b)), traverse_dynamic(dyn::box(0, b)));
-        EXPECT_EQ(traverse_static(intersection(self(a), asBoxView(0, b))),
-                  traverse_dynamic(dyn::intersection(dyn::self(a), dyn::box(0, b))));
+        EXPECT_EQ(traverse_static(intersection(self(a), asBoxView(0, b))), traverse_dynamic(dyn::intersection(dyn::self(a), dyn::box(0, b))));
     }
 
     TEST(subset_dynamic, contract)
     {
-        auto a = lca2(0, {{0, 0, 10}, {1, 0, 10}, {2, 0, 10}, {3, 0, 10}});
+        auto a = lca2(0,
+                      {
+                          {0, 0, 10},
+                          {1, 0, 10},
+                          {2, 0, 10},
+                          {3, 0, 10}
+        });
         EXPECT_EQ(traverse_static(contract(self(a), 1)), traverse_dynamic(dyn::contract(dyn::self(a), 1)));
 
         std::array<bool, 2> directions{true, false};
-        EXPECT_EQ(traverse_static(contract(self(a), 1, directions)),
-                  traverse_dynamic(dyn::contract(dyn::self(a), 1, directions)));
+        EXPECT_EQ(traverse_static(contract(self(a), 1, directions)), traverse_dynamic(dyn::contract(dyn::self(a), 1, directions)));
     }
 
     ////////////////////////////////////////////////////////////////////////
@@ -237,24 +367,52 @@ namespace samurai
 
     TEST(subset_dynamic, intersection_3d)
     {
-        auto a = lca3(2, {{0, 0, 0, 6}, {1, 0, 2, 8}, {0, 1, 1, 5}});
-        auto b = lca3(2, {{0, 0, 3, 9}, {1, 0, 0, 4}, {0, 1, 2, 7}});
-        EXPECT_EQ(traverse_static(intersection(self(a), self(b))),
-                  traverse_dynamic(dyn::intersection(dyn::self(a), dyn::self(b))));
+        auto a = lca3(2,
+                      {
+                          {0, 0, 0, 6},
+                          {1, 0, 2, 8},
+                          {0, 1, 1, 5}
+        });
+        auto b = lca3(2,
+                      {
+                          {0, 0, 3, 9},
+                          {1, 0, 0, 4},
+                          {0, 1, 2, 7}
+        });
+        EXPECT_EQ(traverse_static(intersection(self(a), self(b))), traverse_dynamic(dyn::intersection(dyn::self(a), dyn::self(b))));
     }
 
     TEST(subset_dynamic, difference_3d)
     {
-        auto a = lca3(2, {{0, 0, 0, 6}, {1, 0, 2, 8}, {0, 1, 1, 5}});
-        auto b = lca3(2, {{0, 0, 3, 9}, {1, 0, 0, 4}, {0, 1, 2, 7}});
-        EXPECT_EQ(traverse_static(difference(self(a), self(b))),
-                  traverse_dynamic(dyn::difference(dyn::self(a), dyn::self(b))));
+        auto a = lca3(2,
+                      {
+                          {0, 0, 0, 6},
+                          {1, 0, 2, 8},
+                          {0, 1, 1, 5}
+        });
+        auto b = lca3(2,
+                      {
+                          {0, 0, 3, 9},
+                          {1, 0, 0, 4},
+                          {0, 1, 2, 7}
+        });
+        EXPECT_EQ(traverse_static(difference(self(a), self(b))), traverse_dynamic(dyn::difference(dyn::self(a), dyn::self(b))));
     }
 
     TEST(subset_dynamic, projection_3d)
     {
-        auto a = lca3(2, {{0, 0, 0, 6}, {1, 0, 2, 8}, {0, 1, 1, 5}});
-        auto b = lca3(2, {{0, 0, 3, 9}, {1, 0, 0, 4}, {0, 1, 2, 7}});
+        auto a = lca3(2,
+                      {
+                          {0, 0, 0, 6},
+                          {1, 0, 2, 8},
+                          {0, 1, 1, 5}
+        });
+        auto b = lca3(2,
+                      {
+                          {0, 0, 3, 9},
+                          {1, 0, 0, 4},
+                          {0, 1, 2, 7}
+        });
         EXPECT_EQ(traverse_static(intersection(self(a), self(b)).on(1)),
                   traverse_dynamic(dyn::intersection(dyn::self(a), dyn::self(b)).on(1)));
     }
@@ -265,8 +423,14 @@ namespace samurai
 
     TEST(subset_dynamic, disjoint_intersection_is_empty)
     {
-        auto a = lca1(0, {{0, 5}});
-        auto b = lca1(0, {{10, 15}});
+        auto a = lca1(0,
+                      {
+                          {0, 5}
+        });
+        auto b = lca1(0,
+                      {
+                          {10, 15}
+        });
 
         auto dyn_result = traverse_dynamic(dyn::intersection(dyn::self(a), dyn::self(b)));
         EXPECT_TRUE(dyn_result.empty());
@@ -279,8 +443,14 @@ namespace samurai
 
     TEST(subset_dynamic, difference_emptied_by_cover)
     {
-        auto a = lca1(0, {{2, 6}});
-        auto b = lca1(0, {{0, 10}});
+        auto a          = lca1(0,
+                               {
+                          {2, 6}
+        });
+        auto b          = lca1(0,
+                               {
+                          {0, 10}
+        });
         auto dyn_result = traverse_dynamic(dyn::difference(dyn::self(a), dyn::self(b)));
         EXPECT_TRUE(dyn_result.empty());
         EXPECT_EQ(traverse_static(difference(self(a), self(b))), dyn_result);
@@ -293,7 +463,11 @@ namespace samurai
     TEST(subset_dynamic, any_traverser_move)
     {
         using interval_t = LevelCellArray<1>::interval_t;
-        auto lca         = lca1(0, {{0, 5}, {8, 12}});
+        auto lca         = lca1(0,
+                                {
+                            {0, 5 },
+                            {8, 12}
+        });
 
         // A leaf traverser is held inline in the small buffer; moving it must
         // move-construct into the destination's buffer, not dangle.
@@ -319,9 +493,18 @@ namespace samurai
     // bindings. Must match the variadic form.
     TEST(subset_dynamic, runtime_vector_api)
     {
-        auto a = lca1(0, {{0, 10}});
-        auto b = lca1(0, {{5, 15}});
-        auto c = lca1(0, {{2, 8}});
+        auto a = lca1(0,
+                      {
+                          {0, 10}
+        });
+        auto b = lca1(0,
+                      {
+                          {5, 15}
+        });
+        auto c = lca1(0,
+                      {
+                          {2, 8}
+        });
 
         using set_t = DynamicSet<1, LevelCellArray<1>::interval_t>;
         std::vector<set_t> operands{dyn::self(a), dyn::self(b), dyn::self(c)};
@@ -333,8 +516,14 @@ namespace samurai
     // clone() must yield an independent tree giving the same result.
     TEST(subset_dynamic, clone_is_independent)
     {
-        auto a = lca1(0, {{0, 10}});
-        auto b = lca1(0, {{5, 15}});
+        auto a = lca1(0,
+                      {
+                          {0, 10}
+        });
+        auto b = lca1(0,
+                      {
+                          {5, 15}
+        });
 
         auto original = dyn::intersection(dyn::self(a), dyn::self(b));
         auto copy     = original.clone();
@@ -347,8 +536,16 @@ namespace samurai
     // to_lca() of a dynamic expression equals the static one.
     TEST(subset_dynamic, to_lca)
     {
-        auto a = lca1(2, {{0, 5}, {8, 12}});
-        auto b = lca1(2, {{3, 9}, {11, 20}});
+        auto a = lca1(2,
+                      {
+                          {0, 5 },
+                          {8, 12}
+        });
+        auto b = lca1(2,
+                      {
+                          {3,  9 },
+                          {11, 20}
+        });
 
         auto static_lca  = intersection(self(a), self(b)).on(1).to_lca();
         auto dynamic_lca = dyn::intersection(dyn::self(a), dyn::self(b)).on(1).to_lca();

@@ -284,24 +284,23 @@ namespace samurai
             template <SetOperator op, std::size_t dim, class TInterval>
             DynamicSet<dim, TInterval> binary(const DynamicSet<dim, TInterval>& a, const DynamicSet<dim, TInterval>& b)
             {
-                return make_node<dim, TInterval>(
-                    {a.ptr(), b.ptr()},
-                    [](const auto& children)
-                    {
-                        using adaptor_t = DynamicSetAdaptor<dim, TInterval>;
-                        if constexpr (op == SetOperator::UNION)
-                        {
-                            return union_(adaptor_t(children[0]), adaptor_t(children[1]));
-                        }
-                        else if constexpr (op == SetOperator::INTERSECTION)
-                        {
-                            return intersection(adaptor_t(children[0]), adaptor_t(children[1]));
-                        }
-                        else
-                        {
-                            return difference(adaptor_t(children[0]), adaptor_t(children[1]));
-                        }
-                    });
+                return make_node<dim, TInterval>({a.ptr(), b.ptr()},
+                                                 [](const auto& children)
+                                                 {
+                                                     using adaptor_t = DynamicSetAdaptor<dim, TInterval>;
+                                                     if constexpr (op == SetOperator::UNION)
+                                                     {
+                                                         return union_(adaptor_t(children[0]), adaptor_t(children[1]));
+                                                     }
+                                                     else if constexpr (op == SetOperator::INTERSECTION)
+                                                     {
+                                                         return intersection(adaptor_t(children[0]), adaptor_t(children[1]));
+                                                     }
+                                                     else
+                                                     {
+                                                         return difference(adaptor_t(children[0]), adaptor_t(children[1]));
+                                                     }
+                                                 });
             }
 
             template <SetOperator op, std::size_t dim, class TInterval>
@@ -406,8 +405,7 @@ namespace samurai
         }
 
         template <std::size_t dim, class TInterval>
-        DynamicSet<dim, TInterval>
-        contract(const DynamicSet<dim, TInterval>& set, std::size_t width, const std::array<bool, dim>& directions)
+        DynamicSet<dim, TInterval> contract(const DynamicSet<dim, TInterval>& set, std::size_t width, const std::array<bool, dim>& directions)
         {
             return make_node<dim, TInterval>({set.ptr()},
                                              [width, directions](const auto& children)

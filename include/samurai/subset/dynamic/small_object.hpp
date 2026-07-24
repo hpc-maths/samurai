@@ -187,9 +187,9 @@ namespace samurai::sbo
             if (other.m_heap != nullptr)
             {
                 // Heap object: transfer ownership. Nothing left to destroy in `other`.
-                m_heap       = std::move(other.m_heap);
-                m_ptr        = m_heap.get();
-                other.m_ptr  = nullptr;
+                m_heap      = std::move(other.m_heap);
+                m_ptr       = m_heap.get();
+                other.m_ptr = nullptr;
             }
             else if (other.m_ptr != nullptr)
             {
