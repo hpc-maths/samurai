@@ -4,9 +4,11 @@
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 
+#include <map>
 #include <stdexcept>
 #include <tuple>
 #include <unordered_map>
+#include <vector>
 
 #include "field.hpp"
 #include "numeric/prediction.hpp"
@@ -572,63 +574,6 @@ namespace samurai
                                                                 std::forward<T2>(field));
     }
 
-    /**
-     * Reconstruct an adapted field onto the uniform grid at the domain (finest) level
-     * and return it as a new field on that grid. Every coarse cell is expanded into its
-     * fine children by @ref reconstruction_op_. Mainly for I/O and post-processing, where
-     * a single-resolution image of the solution is wanted.
-     *
-     * Requires at least two boundary ghosts (the prediction stencil reaches two coarse
-     * cells); throws otherwise. Ghosts are refreshed first via @c update_ghost_mr_if_needed.
-     */
-    template <class Field>
-    auto reconstruction(Field& field)
-    {
-        using mesh_t    = typename Field::mesh_t;
-        using mesh_id_t = typename mesh_t::mesh_id_t;
-        using ca_type   = typename mesh_t::ca_type;
-
-        if (field.mesh().max_stencil_radius() < 2)
-        {
-            throw std::runtime_error("The reconstruction function requires at least 2 ghosts on the boundary.\nTo fix this issue, remove "
-                                     "mesh_config.disable_minimal_ghost_width().");
-        }
-
-        update_ghost_mr_if_needed(field);
-
-        auto make_field_like = [](const std::string& name, auto& mesh)
-        {
-            if constexpr (Field::is_scalar)
-            {
-                return make_scalar_field<typename Field::value_type>(name, mesh);
-            }
-            else
-            {
-                return make_vector_field<typename Field::value_type, Field::n_comp>(name, mesh);
-            }
-        };
-
-        auto& mesh = field.mesh();
-        ca_type reconstruct_mesh;
-        std::size_t reconstruct_level       = mesh.domain().level();
-        reconstruct_mesh[reconstruct_level] = mesh.domain();
-        reconstruct_mesh.update_index();
-
-        auto m                 = holder(reconstruct_mesh);
-        auto reconstruct_field = make_field_like(field.name(), m);
-        reconstruct_field.fill(0.);
-
-        std::size_t min_level = mesh[mesh_id_t::cells].min_level();
-        std::size_t max_level = mesh[mesh_id_t::cells].max_level();
-
-        for (std::size_t level = min_level; level <= max_level; ++level)
-        {
-            auto set = intersection(mesh[mesh_id_t::cells][level], reconstruct_mesh[reconstruct_level]).on(level);
-            set.apply_op(make_reconstruction(reconstruct_level, reconstruct_field, field));
-        }
-        return reconstruct_field;
-    }
-
     namespace detail
     {
         /**
@@ -954,6 +899,468 @@ namespace samurai
         auto dst_tuple = detail::extract_dst_tuple<dim>(delta_l, dst_indices);
 
         detail::portion_impl<Field::mesh_t::config_t::prediction_stencil_radius, Field>(result, get_f, level, delta_l, src_tuple, dst_tuple);
+    }
+
+    // =====================================================================================
+    //  "exact-reconstruction" reconstruction on adapted meshes
+    //
+    //  portion() (and hence the LBM stream / finer-level FV flux) reconstructs the value a
+    //  field would take on a finer grid as a *flat* linear combination of level-l0 cells,
+    //  lifted to the target level L via the interpolating-wavelet prediction. When the level
+    //  gap delta_l = L - l0 >= 2 and the prediction cone crosses a refinement boundary, the
+    //  flat stencil skips the intermediate levels and never uses the real detail carried by
+    //  the finer leaves that are actually present, propagating a projection error.
+    //
+    //  reconstruct_exact() computes instead the multiresolution reconstruction *capped
+    //  at the donor's own base level l0*: only finer real cells (levels > l0) override; the
+    //  coarser-neighbour ghosts stay exactly as the flat path sees them (filled by
+    //  update_ghost_mr). This is the correct value when reconstructing a donor cell from its
+    //  own level. Writing it as the capped cascade
+    //
+    //      A(l0, i) = f(l0, i)                                   (base: level-l0 value, real or ghost)
+    //      A(m , i) = f(m , i)                    if (m,i) is a stored finer leaf/proj  (override)
+    //      A(m , i) = sum_k c_k(i) * A(m-1, parent(i)+k)        otherwise (one-level prediction)
+    //
+    //  with c_k(i) = prediction<r>(1, i & 1) (offsets relative to parent i>>1), handles nested
+    //  refinement without double counting, and equals the flat value wherever the cone stays
+    //  clear of refinement. Crucially it reads f ONLY at stored cells (base l0 + overrides) and
+    //  RECURSES at non-stored intermediate cells, so it never reads outside all_cells, at any
+    //  depth (unlike a per-cell recursion on the value, which reads predicted positions that
+    //  the adapted mesh does not store).
+    // =====================================================================================
+
+    namespace detail
+    {
+        // Non-throwing membership test: is `coord` (integer indices at the lca's level) a cell
+        // of `lca`? (get_interval throws when absent; find returns a negative offset instead.)
+        template <std::size_t dim, class TInterval, class value_t>
+        bool lca_contains(const LevelCellArray<dim, TInterval>& lca, const std::array<value_t, dim>& coord)
+        {
+            xt::xtensor_fixed<typename TInterval::coord_index_t, xt::xshape<dim>> c;
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                c[d] = static_cast<typename TInterval::coord_index_t>(coord[d]);
+            }
+            return find(lca, c) >= 0;
+        }
+
+        // A(m, coord): capped exact-reconstruction reconstruction (see banner above). `read_at(level, coord)`
+        // returns the field value at a single stored cell; `stored[level]` is the level's
+        // (cells U proj_cells) LevelCellArray; `memo` caches A over the cone (shared across the
+        // sub-cells of one reconstruction so the cascade is O(cone x depth), not exponential).
+        template <std::size_t r, std::size_t dim, class value_t, class Reader, class LCA, class Memo>
+        double exact_value(std::size_t l0,
+                           std::size_t m,
+                           const std::array<value_t, dim>& coord,
+                           Reader&& read_at,
+                           const std::vector<LCA>& stored,
+                           Memo& memo)
+        {
+            if (m == l0)
+            {
+                return read_at(l0, coord); // base: level-l0 value (real or ghost), exactly as flat sees it
+            }
+            if (lca_contains(stored[m], coord))
+            {
+                return read_at(m, coord); // finer real leaf / proj => real value overrides
+            }
+
+            auto key = std::make_pair(m, coord);
+            if (auto it = memo.find(key); it != memo.end())
+            {
+                return it->second;
+            }
+
+            std::array<value_t, dim> parent;
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                parent[d] = coord[d] >> 1;
+            }
+            // one-level prediction map: offsets are relative to the parent cell (coord >> 1)
+            const auto& pred = [&]<std::size_t... D>(std::index_sequence<D...>) -> const prediction_map<dim, value_t>&
+            {
+                return prediction<r, value_t>(1, (coord[D] & value_t{1})...);
+            }(std::make_index_sequence<dim>{});
+
+            double res = 0.;
+            for (const auto& kv : pred.coeff)
+            {
+                std::array<value_t, dim> child;
+                for (std::size_t d = 0; d < dim; ++d)
+                {
+                    child[d] = parent[d] + kv.first[d];
+                }
+                res += kv.second * exact_value<r>(l0, m - 1, child, std::forward<Reader>(read_at), stored, memo);
+            }
+            memo[key] = res;
+            return res;
+        }
+    } // namespace detail
+
+    // Build, per level, the (cells U proj_cells) LevelCellArray used as the "real-backed" set by
+    // the exact-reconstruction reconstruction. Index by level; entries below min_level / above max_level are
+    // empty. update_ghost_mr must have run so proj_cells carry the exact child means.
+    template <class Mesh>
+    auto make_real_backed_lca(const Mesh& mesh)
+    {
+        static constexpr std::size_t dim = Mesh::dim;
+        using interval_t                 = typename Mesh::interval_t;
+        using lca_t                      = LevelCellArray<dim, interval_t>;
+        using lcl_t                      = LevelCellList<dim, interval_t>;
+        using mesh_id_t                  = typename Mesh::mesh_id_t;
+
+        std::vector<lca_t> stored(mesh.max_level() + 1);
+        for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
+        {
+            lcl_t lcl{level};
+            auto expr = union_(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::proj_cells][level]);
+            expr(
+                [&](const auto& interval, const auto& index_yz)
+                {
+                    lcl[index_yz].add_interval(interval);
+                });
+            stored[level] = {lcl};
+        }
+        return stored;
+    }
+
+    // Real-aware reconstruction of a single fine cell at level L = l0 + delta_l, whose integer
+    // indices at that level are `coord`. `read_at(level, coord)` reads one stored cell of the field;
+    // `stored` comes from make_real_backed_lca(); `memo` is reused across the sub-cells of one
+    // donor. Returns the flat value wherever the cone stays clear of refinement.
+    template <std::size_t r, std::size_t dim, class value_t, class Reader, class LCA, class Memo>
+    double reconstruct_exact(std::size_t l0,
+                             std::size_t delta_l,
+                             const std::array<value_t, dim>& coord,
+                             Reader&& read_at,
+                             const std::vector<LCA>& stored,
+                             Memo& memo)
+    {
+        return detail::exact_value<r>(l0, l0 + delta_l, coord, std::forward<Reader>(read_at), stored, memo);
+    }
+
+    namespace detail
+    {
+        // Hash for the (level, coord) memo key of reconstruct_exact.
+        template <std::size_t dim, class value_t>
+        struct level_coord_hash
+        {
+            std::size_t operator()(const std::pair<std::size_t, std::array<value_t, dim>>& key) const
+            {
+                std::size_t h = std::hash<std::size_t>{}(key.first);
+                h ^= ArrayHash<value_t, dim>{}(key.second) + 0x9e3779b9 + (h << 6) + (h >> 2);
+                return h;
+            }
+        };
+    }
+
+    // Recommended memo type for the scalar reconstruct_exact: an open-addressing hash map on
+    // (level, coord), faster than a node-based std::map when a whole column is reconstructed at once.
+    // (The LBM stream uses the vectorised reconstruct_exact_box below, which needs no memo.)
+    template <std::size_t dim, class value_t>
+    using exact_reconstruction_memo_t = std::
+        unordered_map<std::pair<std::size_t, std::array<value_t, dim>>, double, detail::level_coord_hash<dim, value_t>>;
+
+    namespace detail
+    {
+        // A half-open integer box [lo, hi) at one level, row-major (dimension 0 slowest).
+        template <std::size_t dim, class value_t>
+        struct ra_box
+        {
+            std::array<value_t, dim> lo, hi;
+
+            std::size_t count() const
+            {
+                std::size_t n = 1;
+                for (std::size_t d = 0; d < dim; ++d)
+                {
+                    n *= static_cast<std::size_t>(hi[d] - lo[d]);
+                }
+                return n;
+            }
+
+            std::size_t offset(const std::array<value_t, dim>& c) const
+            {
+                std::size_t idx = 0;
+                for (std::size_t d = 0; d < dim; ++d)
+                {
+                    idx = idx * static_cast<std::size_t>(hi[d] - lo[d]) + static_cast<std::size_t>(c[d] - lo[d]);
+                }
+                return idx;
+            }
+
+            bool contains(const std::array<value_t, dim>& c) const
+            {
+                for (std::size_t d = 0; d < dim; ++d)
+                {
+                    if (c[d] < lo[d] || c[d] >= hi[d])
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            std::array<value_t, dim> coord(std::size_t flat) const
+            {
+                std::array<value_t, dim> c;
+                for (std::size_t dd = dim; dd-- > 0;)
+                {
+                    auto n = static_cast<std::size_t>(hi[dd] - lo[dd]);
+                    c[dd]  = lo[dd] + static_cast<value_t>(flat % n);
+                    flat /= n;
+                }
+                return c;
+            }
+        };
+    }
+
+    namespace detail
+    {
+        // Reconstruct a whole finest-level box [lo_L, hi_L) (level L) from base level l0, level by
+        // level over dense contiguous buffers with hoisted one-level stencils. At each level a cell
+        // is either overridden by the real value (when `is_stored(m, coord)` is true) or predicted
+        // from the level below. With `is_stored` always false this is the plain flat reconstruction;
+        // with the (cells U proj_cells) membership it is the capped exact-reconstruction cascade. Reads the
+        // field only at the base level and at stored cells - never outside all_cells. Fills `out`
+        // (row-major over the box). This is the fast path shared by the flat and exact-reconstruction streams.
+        template <std::size_t r, std::size_t dim, class value_t, class Reader, class Stored>
+        void reconstruct_box(std::size_t l0,
+                             std::size_t L,
+                             const std::array<value_t, dim>& lo_L,
+                             const std::array<value_t, dim>& hi_L,
+                             Reader&& read_at,
+                             Stored&& is_stored,
+                             std::vector<double>& out)
+        {
+            using box_t             = ra_box<dim, value_t>;
+            const std::size_t depth = L - l0;
+
+            // Per-level boxes (index d: level l0 + d), grown top-down: a cell at level m needs its
+            // parent +-r at level m-1.
+            std::vector<box_t> box(depth + 1);
+            box[depth] = {lo_L, hi_L};
+            for (std::size_t d = depth; d-- > 0;)
+            {
+                for (std::size_t k = 0; k < dim; ++k)
+                {
+                    box[d].lo[k] = (box[d + 1].lo[k] >> 1) - static_cast<value_t>(r);
+                    box[d].hi[k] = ((box[d + 1].hi[k] - 1) >> 1) + static_cast<value_t>(r) + 1;
+                }
+            }
+
+            std::vector<std::vector<double>> buf(depth + 1);
+            for (std::size_t d = 0; d <= depth; ++d)
+            {
+                buf[d].resize(box[d].count());
+            }
+
+            // Base level l0: the field values (real cells + ghosts), exactly as the flat path reads.
+            for (std::size_t f = 0; f < box[0].count(); ++f)
+            {
+                buf[0][f] = read_at(l0, box[0].coord(f));
+            }
+
+            for (std::size_t d = 1; d <= depth; ++d)
+            {
+                const std::size_t m = l0 + d;
+                const auto& below   = box[d - 1];
+                for (std::size_t f = 0; f < box[d].count(); ++f)
+                {
+                    auto i = box[d].coord(f);
+                    if (is_stored(m, i))
+                    {
+                        buf[d][f] = read_at(m, i);
+                        continue;
+                    }
+                    std::array<value_t, dim> parent;
+                    for (std::size_t k = 0; k < dim; ++k)
+                    {
+                        parent[k] = i[k] >> 1;
+                    }
+                    const auto& pred = [&]<std::size_t... D>(std::index_sequence<D...>) -> const prediction_map<dim, value_t>&
+                    {
+                        return prediction<r, value_t>(1, (i[D] & value_t{1})...);
+                    }(std::make_index_sequence<dim>{});
+                    double v = 0.;
+                    for (const auto& kv : pred.coeff)
+                    {
+                        std::array<value_t, dim> pc;
+                        for (std::size_t k = 0; k < dim; ++k)
+                        {
+                            pc[k] = parent[k] + kv.first[k];
+                        }
+                        v += kv.second * buf[d - 1][below.offset(pc)];
+                    }
+                    buf[d][f] = v;
+                }
+            }
+            out.swap(buf[depth]);
+        }
+    }
+
+    // Vectorised exact-reconstruction reconstruction of a whole finest-level box [lo_L, hi_L) (level L), from
+    // base level l0: the capped cascade of reconstruct_exact(), but over dense buffers instead
+    // of a per-cell memoised recursion. `read_at`, `stored` as in reconstruct_exact().
+    template <std::size_t r, std::size_t dim, class value_t, class Reader, class LCA>
+    void reconstruct_exact_box(std::size_t l0,
+                               std::size_t L,
+                               const std::array<value_t, dim>& lo_L,
+                               const std::array<value_t, dim>& hi_L,
+                               Reader&& read_at,
+                               const std::vector<LCA>& stored,
+                               std::vector<double>& out)
+    {
+        detail::reconstruct_box<r>(
+            l0,
+            L,
+            lo_L,
+            hi_L,
+            std::forward<Reader>(read_at),
+            [&](std::size_t m, const std::array<value_t, dim>& c)
+            {
+                return detail::lca_contains(stored[m], c);
+            },
+            out);
+    }
+
+    // Vectorised flat reconstruction of a whole finest-level box [lo_L, hi_L) (level L) from base
+    // level l0 - the same dense cascade with no real-cell override (equivalent to portion() over the
+    // box, up to the rounding of a cascade vs a single flattened stencil).
+    template <std::size_t r, std::size_t dim, class value_t, class Reader>
+    void reconstruct_flat_box(std::size_t l0,
+                              std::size_t L,
+                              const std::array<value_t, dim>& lo_L,
+                              const std::array<value_t, dim>& hi_L,
+                              Reader&& read_at,
+                              std::vector<double>& out)
+    {
+        detail::reconstruct_box<r>(
+            l0,
+            L,
+            lo_L,
+            hi_L,
+            std::forward<Reader>(read_at),
+            [](std::size_t, const std::array<value_t, dim>&)
+            {
+                return false;
+            },
+            out);
+    }
+
+    // Reconstruct `field` onto a uniform mesh at the domain's finest level. By default each leaf is
+    // predicted flat from its own level; with `exact` (defaulting to the --exact-reconstruction
+    // option) the reconstruction instead uses the real finer cells across refinement boundaries (the
+    // capped cascade, see reconstruct_exact_box), removing the projection error at interfaces.
+    template <class Field>
+    auto reconstruction(Field& field, bool exact = args::exact_reconstruction)
+    {
+        using mesh_t     = typename Field::mesh_t;
+        using mesh_id_t  = typename mesh_t::mesh_id_t;
+        using ca_type    = typename mesh_t::ca_type;
+        using interval_t = typename mesh_t::interval_t;
+        using value_t    = typename interval_t::value_t;
+
+        if (field.mesh().max_stencil_radius() < 2)
+        {
+            throw std::runtime_error("The reconstruction function requires at least 2 ghosts on the boundary.\nTo fix this issue, remove "
+                                     "mesh_config.disable_minimal_ghost_width().");
+        }
+
+        update_ghost_mr_if_needed(field);
+
+        auto make_field_like = [](const std::string& name, auto& mesh)
+        {
+            if constexpr (Field::is_scalar)
+            {
+                return make_scalar_field<typename Field::value_type>(name, mesh);
+            }
+            else
+            {
+                return make_vector_field<typename Field::value_type, Field::n_comp>(name, mesh);
+            }
+        };
+
+        auto& mesh = field.mesh();
+        ca_type reconstruct_mesh;
+        std::size_t reconstruct_level       = mesh.domain().level();
+        reconstruct_mesh[reconstruct_level] = mesh.domain();
+        reconstruct_mesh.update_index();
+
+        auto m                 = holder(reconstruct_mesh);
+        auto reconstruct_field = make_field_like(field.name(), m);
+        reconstruct_field.fill(0.);
+
+        std::size_t min_level = mesh[mesh_id_t::cells].min_level();
+        std::size_t max_level = mesh[mesh_id_t::cells].max_level();
+
+        if (!exact)
+        {
+            for (std::size_t level = min_level; level <= max_level; ++level)
+            {
+                auto set = intersection(mesh[mesh_id_t::cells][level], reconstruct_mesh[reconstruct_level]).on(level);
+                set.apply_op(make_reconstruction(reconstruct_level, reconstruct_field, field));
+            }
+            return reconstruct_field;
+        }
+
+        // Exact reconstruction: cascade each leaf's finest sub-region using the real finer cells.
+        static constexpr std::size_t dim = mesh_t::dim;
+        constexpr std::size_t n_comp     = Field::is_scalar ? 1 : Field::n_comp;
+
+        auto cell_access = [&](auto& f, std::size_t comp, std::size_t lvl, const std::array<value_t, dim>& c) -> decltype(auto)
+        {
+            return [&]<std::size_t... K>(std::index_sequence<K...>) -> decltype(auto)
+            {
+                if constexpr (Field::is_scalar)
+                {
+                    (void)comp;
+                    return f(lvl, interval_t{c[0], c[0] + 1}, c[K + 1]...);
+                }
+                else
+                {
+                    return f(comp, lvl, interval_t{c[0], c[0] + 1}, c[K + 1]...);
+                }
+            }(std::make_index_sequence<dim - 1>{});
+        };
+
+        auto stored = make_real_backed_lca(mesh);
+        std::vector<double> box_vals;
+        for (std::size_t level = min_level; level <= max_level; ++level)
+        {
+            const std::size_t delta_l = reconstruct_level - level;
+            for_each_interval(mesh[mesh_id_t::cells][level],
+                              [&](std::size_t, const auto& i, const auto& index)
+                              {
+                                  std::array<value_t, dim> lo, hi;
+                                  [&]<std::size_t... D>(std::index_sequence<D...>)
+                                  {
+                                      ((lo[D] = (D == 0 ? i.start : static_cast<value_t>(index[(D == 0 ? 0 : D - 1)])) << delta_l), ...);
+                                      ((hi[D] = (D == 0 ? i.end : static_cast<value_t>(index[(D == 0 ? 0 : D - 1)]) + 1) << delta_l), ...);
+                                  }(std::make_index_sequence<dim>{});
+                                  const detail::ra_box<dim, value_t> box{lo, hi};
+
+                                  for (std::size_t comp = 0; comp < n_comp; ++comp)
+                                  {
+                                      auto read_at = [&](std::size_t lvl, const std::array<value_t, dim>& c) -> double
+                                      {
+                                          return cell_access(field, comp, lvl, c)[0];
+                                      };
+                                      reconstruct_exact_box<mesh_t::config_t::prediction_stencil_radius>(level,
+                                                                                                         reconstruct_level,
+                                                                                                         lo,
+                                                                                                         hi,
+                                                                                                         read_at,
+                                                                                                         stored,
+                                                                                                         box_vals);
+                                      for (std::size_t f = 0; f < box.count(); ++f)
+                                      {
+                                          cell_access(reconstruct_field, comp, reconstruct_level, box.coord(f)) = box_vals[f];
+                                      }
+                                  }
+                              });
+        }
+        return reconstruct_field;
     }
 
     /**
