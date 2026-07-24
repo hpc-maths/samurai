@@ -5,6 +5,7 @@
 #include <array>
 #include <cstddef>
 #include <functional>
+#include <type_traits>
 #include <vector>
 
 #include "../../bc.hpp"
@@ -138,13 +139,18 @@ namespace samurai
         }
     }
 
+    // The two reflection tags (defined below); forward-declared so LbmReflectionImpl can pick the
+    // base sign from the tag type.
+    struct BounceBack;
+    struct AntiBounceBack;
+
     /**
      * Unified half-way reflection filling the outer ghost as
      *
      *   f_ghost(a) = sign(a) * f_inner(opposite[a]) + add(a)
      *
      * with sign(a) = base_sign * (odd-axis flip) and add(a) = 2 f^eq(m_wall) (0 when homogeneous).
-     * The @c bc_type tag (@ref BounceBack / @ref AntiBounceBack) provides @c base_sign (+1 / -1);
+     * The @c bc_type tag (@ref BounceBack / @ref AntiBounceBack) selects @c base_sign (+1 / -1);
      * bounce-back and anti-bounce-back are otherwise the same operation (see the file header).
      */
     template <class Field, class bc_type>
@@ -153,7 +159,7 @@ namespace samurai
         INIT_BC(LbmReflectionImpl, 2) // stencil [inner, ghost]
 
         static constexpr std::size_t n_comp = Field::n_comp;
-        static constexpr double base_sign   = bc_type::base_sign;
+        static constexpr double base_sign   = std::is_same_v<bc_type, AntiBounceBack> ? -1. : 1.;
 
         using feq_fn = std::function<std::array<double, n_comp>(const std::array<double, n_comp>&)>;
 
@@ -327,11 +333,11 @@ namespace samurai
     };
 
     // Tags selecting the implementation (mirrors samurai::Dirichlet / samurai::Neumann). Both map
-    // to the same LbmReflectionImpl and only carry the base reflection sign (see the file header).
+    // to the same LbmReflectionImpl, which reads the base reflection sign from the tag type (+1 for
+    // BounceBack, -1 for AntiBounceBack; see the file header).
     struct BounceBack
     {
-        using lbm_bc_tag                  = void; // marks the LBM make_bc overloads below
-        static constexpr double base_sign = +1.;
+        using lbm_bc_tag = void; // marks the LBM make_bc overloads below
 
         template <class Field>
         using impl_t = LbmReflectionImpl<Field, BounceBack>;
@@ -339,8 +345,7 @@ namespace samurai
 
     struct AntiBounceBack
     {
-        using lbm_bc_tag                  = void;
-        static constexpr double base_sign = -1.;
+        using lbm_bc_tag = void;
 
         template <class Field>
         using impl_t = LbmReflectionImpl<Field, AntiBounceBack>;
