@@ -2,8 +2,11 @@
 
 #include <gtest/gtest.h>
 #include <samurai/algorithm.hpp>
+#include <samurai/algorithm/update_ghost_mr.hpp>
 #include <samurai/box.hpp>
+#include <samurai/cell_list.hpp>
 #include <samurai/field.hpp>
+#include <samurai/mr/mesh.hpp>
 #include <samurai/reconstruction.hpp>
 #include <samurai/uniform_mesh.hpp>
 
@@ -294,5 +297,57 @@ namespace samurai
         const double x0 = ((i << dl) + child + .5) / (1 << (L + dl));
         EXPECT_DOUBLE_EQ(pv(0, 0), x0);
         EXPECT_DOUBLE_EQ(pv(0, 1), 2. * x0);
+    }
+
+    // Reconstruction across a refinement boundary must use the real finer leaves, not the projected
+    // coarse value. A flat delta_l >= 2 portion reconstructs from level l only: where a level-l
+    // stencil neighbour is refined, it reads that neighbour's projection (its exact average) and so
+    // skips the real detail carried by the finer leaves at the intermediate levels. Descending one
+    // level at a time and reading the real leaves gives a different - and more accurate - value.
+    //
+    // This test pins that difference down, so a real-aware reconstruction can be validated against
+    // the descending answer (which it must reproduce) rather than the flat one (which it must not).
+    TEST(portion, reconstruction_uses_real_cells_across_refinement)
+    {
+        constexpr std::size_t dim = 1;
+        using config              = mesh_config<dim>;
+        using Mesh                = MRMesh<config>;
+        using interval_t          = typename Mesh::interval_t;
+        using mesh_id_t           = typename Mesh::mesh_id_t;
+
+        // Graded 1D mesh: level-1 leaves 0..3, level-1 cells 4-5 refined to level-2 leaves 8..11,
+        // level-1 cells 6-7 refined to level-3 leaves 24..31. Cell 3 (level 1) is a coarse leaf whose
+        // right neighbour (cell 4) is refined, so its level-2 children 8,9 are real leaves.
+        CellList<dim> cl;
+        cl[1][{}].add_interval({0, 4});
+        cl[2][{}].add_interval({8, 12});
+        cl[3][{}].add_interval({24, 32});
+        auto cfg  = config().min_level(1).max_level(3).max_stencil_radius(2);
+        auto mesh = mra::make_mesh(cl, cfg);
+
+        auto u = make_scalar_field<double>("u", mesh);
+        u.fill(0.);
+        for_each_cell(mesh[mesh_id_t::cells],
+                      [&](const auto& cell)
+                      {
+                          u[cell] = std::cos(3. * cell.center()[0]); // non-affine: carries real detail
+                      });
+        update_ghost_mr(u);
+
+        // Reconstruct the same level-3 cell 15 (right grandchild of the coarse leaf cell 3) two ways.
+        // flat: from level 1, delta_l = 2 -> reads level-1 cells only (neighbour via its projection).
+        const double flat = portion<1>(u, 1, 2, std::make_tuple(interval_t{3, 4}), std::make_tuple(3))(0);
+        // descending / real-aware: from level 2, delta_l = 1 -> its stencil reads level-2 cell 8, a
+        // REAL leaf under the refined neighbour. After update_ghost_mr the level-2 strip blends real
+        // leaves with prediction ghosts, so this is exactly the real-aware answer.
+        const double descending = portion<1>(u, 2, 1, std::make_tuple(interval_t{7, 8}), std::make_tuple(1))(0);
+
+        // The two disagree: the flat reconstruction ignored the neighbour's real level-2 leaf.
+        EXPECT_GT(std::abs(flat - descending), 1e-4);
+
+        // ... and the descending one is closer to the true field (both carry the coarse-cell
+        // truncation error, but the flat one adds the projection error on top).
+        const double truth = std::cos(3. * (15 + 0.5) / (1 << 3));
+        EXPECT_LT(std::abs(descending - truth), std::abs(flat - truth));
     }
 }
