@@ -28,6 +28,7 @@ find_package(Threads)
 set(SAMURAI_BENCHMARK_SOURCES
     benchmark_celllist_construction.cpp
     benchmark_detail_computation.cpp
+    benchmark_dynamic_set.cpp
     benchmark_fv_scheme.cpp
     benchmark_search.cpp
     benchmark_set.cpp
