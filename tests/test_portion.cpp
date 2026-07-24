@@ -172,8 +172,8 @@ namespace samurai
         const int i = 8;
         for (std::size_t dl = 0; dl <= 4; ++dl)
         {
-            const int n   = 1 << dl;
-            auto column   = portion<1>(u, L, dl, std::make_tuple(interval_t{i, i + 1}), std::make_tuple(interval_t{0, n}));
+            const int n    = 1 << dl;
+            auto column    = portion<1>(u, L, dl, std::make_tuple(interval_t{i, i + 1}), std::make_tuple(interval_t{0, n}));
             const double c = u(L, interval_t{i, i + 1})(0);
             EXPECT_NEAR(column[0], n * c, 1e-12) << "dl = " << dl;
         }
@@ -191,8 +191,8 @@ namespace samurai
         const int i = 8, j = 8;
         for (std::size_t dl = 0; dl <= 3; ++dl)
         {
-            const int n    = 1 << dl;
-            auto column    = portion<1>(u, L, dl, std::make_tuple(interval_t{i, i + 1}, j), std::make_tuple(interval_t{0, n}, interval_t{0, n}));
+            const int n = 1 << dl;
+            auto column = portion<1>(u, L, dl, std::make_tuple(interval_t{i, i + 1}, j), std::make_tuple(interval_t{0, n}, interval_t{0, n}));
             const double c = u(L, interval_t{i, i + 1}, j)(0);
             EXPECT_NEAR(column[0], (n * n) * c, 1e-12) << "dl = " << dl;
         }
@@ -223,7 +223,12 @@ namespace samurai
         auto coarse = std::make_tuple(interval_t{i, i + 1});
 
         // {full column, partial box, box starting below 0, single child}
-        for (auto box : {interval_t{0, 4}, interval_t{1, 3}, interval_t{-1, 3}, interval_t{2, 3}})
+        for (auto box : {
+                 interval_t{0,  4},
+                 interval_t{1,  3},
+                 interval_t{-1, 3},
+                 interval_t{2,  3}
+        })
         {
             double ref = 0.;
             for (int k = box.start; k < box.end; ++k)
@@ -293,7 +298,7 @@ namespace samurai
                       });
 
         const int i = 2, child = 3;
-        auto pv     = portion<1>(u, L, dl, std::make_tuple(interval_t{i, i + 1}), std::make_tuple(child));
+        auto pv         = portion<1>(u, L, dl, std::make_tuple(interval_t{i, i + 1}), std::make_tuple(child));
         const double x0 = ((i << dl) + child + .5) / (1 << (L + dl));
         EXPECT_DOUBLE_EQ(pv(0, 0), x0);
         EXPECT_DOUBLE_EQ(pv(0, 1), 2. * x0);

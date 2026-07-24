@@ -353,8 +353,8 @@ namespace samurai
                                   {
                                       for (std::size_t comp = 0; comp < n_comp; ++comp)
                                       {
-                                          const auto& taps = stencil[comp];
-                                          auto out         = access(f_out, comp, lvl, i, index, no_shift, tseq);
+                                          const auto& taps     = stencil[comp];
+                                          auto out             = access(f_out, comp, lvl, i, index, no_shift, tseq);
                                           const std::size_t sz = static_cast<std::size_t>(out.size());
 
                                           // Accumulate the taps into a reused contiguous buffer with plain scalar

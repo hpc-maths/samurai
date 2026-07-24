@@ -655,7 +655,11 @@ namespace samurai
             {
                 for (value_t k = start[d]; k < end[d]; ++k)
                 {
-                    accumulate_slice<prediction_stencil_radius, value_t, dim>(out, delta_l, start, end, std::tuple_cat(prefix, std::make_tuple(k)));
+                    accumulate_slice<prediction_stencil_radius, value_t, dim>(out,
+                                                                              delta_l,
+                                                                              start,
+                                                                              end,
+                                                                              std::tuple_cat(prefix, std::make_tuple(k)));
                 }
             }
         }
