@@ -87,3 +87,81 @@ def test_lbm_demo_d2q9_taylor_green(config):
         config,
         ["--level", "5", "--U0", "0.05", "--nu", "0.02", "--Tf", "2"],
     )
+
+
+# ------------------------------------------------------------------ D1Q5 |c| > 1 stream
+@pytest.mark.h5diff()
+@pytest.mark.parametrize(
+    "case, extra",
+    [
+        ("uniform", ["--min-level", "7", "--max-level", "7", "--Tf", "0.2", "--nfiles", "1"]),
+        ("adaptive", ["--min-level", "3", "--max-level", "8", "--mr-eps", "1e-4", "--Tf", "0.2", "--nfiles", "1"]),
+    ],
+)
+def test_lbm_demo_d1q5_dam(case, extra, config):
+    run_demo("lbm-new-D1Q5-shallow-waters-dam", config, extra)
+
+
+# ------------------------------------------------------------------ D1Q222 Euler (multi-block)
+@pytest.mark.h5diff()
+@pytest.mark.parametrize(
+    "case, extra",
+    [
+        ("uniform", ["--min-level", "8", "--max-level", "8", "--Tf", "0.2", "--nfiles", "1"]),
+        ("adaptive", ["--min-level", "3", "--max-level", "9", "--mr-eps", "1e-3", "--Tf", "0.2", "--nfiles", "1"]),
+    ],
+)
+def test_lbm_demo_d1q222_sod(case, extra, config):
+    run_demo("lbm-new-D1Q222-euler-sod", config, extra)
+
+
+# ------------------------------------------------------------------ D2Q4444 Euler (multi-block, 2D)
+@pytest.mark.h5diff()
+@pytest.mark.parametrize(
+    "case, extra",
+    [
+        ("uniform", ["--min-level", "5", "--max-level", "5", "--Tf", "0.1", "--nfiles", "1"]),
+        ("adaptive", ["--min-level", "2", "--max-level", "6", "--mr-eps", "1e-3", "--Tf", "0.1", "--nfiles", "1"]),
+    ],
+)
+def test_lbm_demo_d2q4444_lax_liu(case, extra, config):
+    run_demo("lbm-new-D2Q4444-euler-lax-liu", config, extra)
+
+
+# ------------------------------------------------------------------ D2Q4444 Euler reflecting wall
+@pytest.mark.h5diff()
+@pytest.mark.parametrize(
+    "case, extra",
+    [
+        ("uniform", ["--min-level", "5", "--max-level", "5", "--Tf", "0.3", "--nfiles", "1"]),
+        ("adaptive", ["--min-level", "2", "--max-level", "6", "--mr-eps", "1e-3", "--Tf", "0.3", "--nfiles", "1"]),
+    ],
+)
+def test_lbm_demo_d2q4444_implosion(case, extra, config):
+    run_demo("lbm-new-D2Q4444-euler-implosion", config, extra)
+
+
+# ------------------------------------------------------------------ D2Q5444 Euler + gravity source
+@pytest.mark.h5diff()
+@pytest.mark.parametrize(
+    "case, extra",
+    [
+        ("uniform", ["--min-level", "6", "--max-level", "6", "--Tf", "0.5", "--nfiles", "1"]),
+        ("adaptive", ["--min-level", "2", "--max-level", "7", "--mr-eps", "1e-3", "--Tf", "0.5", "--nfiles", "1"]),
+    ],
+)
+def test_lbm_demo_d2q5444_rayleigh_taylor(case, extra, config):
+    run_demo("lbm-new-D2Q5444-euler-rayleigh-taylor", config, extra)
+
+
+# ------------------------------------------------------------------ D2Q9 von Karman (obstacle + inflow/outflow)
+@pytest.mark.h5diff()
+@pytest.mark.parametrize(
+    "case, extra",
+    [
+        ("uniform", ["--min-level", "5", "--max-level", "5", "--Tf", "2", "--nfiles", "1"]),
+        ("adaptive", ["--min-level", "4", "--max-level", "6", "--mr-eps", "1e-3", "--Tf", "1", "--nfiles", "1"]),
+    ],
+)
+def test_lbm_demo_d2q9_von_karman(case, extra, config):
+    run_demo("lbm-new-D2Q9-von-karman", config, extra)

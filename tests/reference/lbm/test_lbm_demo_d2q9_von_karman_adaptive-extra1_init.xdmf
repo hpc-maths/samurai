@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<Xdmf>
+    <Domain>
+        <Grid Name="mesh">
+            <Topology TopologyType="Quadrilateral" NumberOfElements="800">
+                <DataItem Dimensions="3200" Format="HDF">test_lbm_demo_d2q9_von_karman_adaptive-extra1_init.h5:/mesh/connectivity</DataItem>
+            </Topology>
+            <Geometry GeometryType="XYZ">
+                <DataItem Dimensions="2643" Format="HDF">test_lbm_demo_d2q9_von_karman_adaptive-extra1_init.h5:/mesh/points</DataItem>
+            </Geometry>
+            <Attribute Name="m_0" Center="Cell">
+                <DataItem Dimensions="800" Format="HDF" Precision="8">test_lbm_demo_d2q9_von_karman_adaptive-extra1_init.h5:/mesh/fields/m_0</DataItem>
+            </Attribute>
+            <Attribute Name="m_1" Center="Cell">
+                <DataItem Dimensions="800" Format="HDF" Precision="8">test_lbm_demo_d2q9_von_karman_adaptive-extra1_init.h5:/mesh/fields/m_1</DataItem>
+            </Attribute>
+            <Attribute Name="m_2" Center="Cell">
+                <DataItem Dimensions="800" Format="HDF" Precision="8">test_lbm_demo_d2q9_von_karman_adaptive-extra1_init.h5:/mesh/fields/m_2</DataItem>
+            </Attribute>
+            <Attribute Name="m_3" Center="Cell">
+                <DataItem Dimensions="800" Format="HDF" Precision="8">test_lbm_demo_d2q9_von_karman_adaptive-extra1_init.h5:/mesh/fields/m_3</DataItem>
+            </Attribute>
+            <Attribute Name="m_4" Center="Cell">
+                <DataItem Dimensions="800" Format="HDF" Precision="8">test_lbm_demo_d2q9_von_karman_adaptive-extra1_init.h5:/mesh/fields/m_4</DataItem>
+            </Attribute>
+            <Attribute Name="m_5" Center="Cell">
+                <DataItem Dimensions="800" Format="HDF" Precision="8">test_lbm_demo_d2q9_von_karman_adaptive-extra1_init.h5:/mesh/fields/m_5</DataItem>
+            </Attribute>
+            <Attribute Name="m_6" Center="Cell">
+                <DataItem Dimensions="800" Format="HDF" Precision="8">test_lbm_demo_d2q9_von_karman_adaptive-extra1_init.h5:/mesh/fields/m_6</DataItem>
+            </Attribute>
+            <Attribute Name="m_7" Center="Cell">
+                <DataItem Dimensions="800" Format="HDF" Precision="8">test_lbm_demo_d2q9_von_karman_adaptive-extra1_init.h5:/mesh/fields/m_7</DataItem>
+            </Attribute>
+            <Attribute Name="m_8" Center="Cell">
+                <DataItem Dimensions="800" Format="HDF" Precision="8">test_lbm_demo_d2q9_von_karman_adaptive-extra1_init.h5:/mesh/fields/m_8</DataItem>
+            </Attribute>
+            <Attribute Name="rho" Center="Cell">
+                <DataItem Dimensions="800" Format="HDF" Precision="8">test_lbm_demo_d2q9_von_karman_adaptive-extra1_init.h5:/mesh/fields/rho</DataItem>
+            </Attribute>
+            <Attribute Name="velocity_0" Center="Cell">
+                <DataItem Dimensions="800" Format="HDF" Precision="8">test_lbm_demo_d2q9_von_karman_adaptive-extra1_init.h5:/mesh/fields/velocity_0</DataItem>
+            </Attribute>
+            <Attribute Name="velocity_1" Center="Cell">
+                <DataItem Dimensions="800" Format="HDF" Precision="8">test_lbm_demo_d2q9_von_karman_adaptive-extra1_init.h5:/mesh/fields/velocity_1</DataItem>
+            </Attribute>
+            <Attribute Name="solid" Center="Cell">
+                <DataItem Dimensions="800" Format="HDF" Precision="8">test_lbm_demo_d2q9_von_karman_adaptive-extra1_init.h5:/mesh/fields/solid</DataItem>
+            </Attribute>
+            <Attribute Name="level" Center="Cell">
+                <DataItem Dimensions="800" Format="HDF" Precision="8">test_lbm_demo_d2q9_von_karman_adaptive-extra1_init.h5:/mesh/fields/level</DataItem>
+            </Attribute>
+        </Grid>
+    </Domain>
+</Xdmf>
