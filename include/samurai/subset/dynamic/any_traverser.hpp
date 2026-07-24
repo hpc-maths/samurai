@@ -129,6 +129,11 @@ namespace samurai
         using impl_t = ISetTraverser<TInterval>;
 
         // Sized to hold a leaf model (a couple of iterators + vptr) with margin.
+        // Only leaf traversers can ever fit: operator/modifier traversers embed
+        // AnyTraverser children, so their size grows with the buffer and they
+        // never fit whatever the size. A larger buffer therefore does not inline
+        // more, it only makes the (numerous) inline leaves costlier to copy - a
+        // buffer sweep confirmed 48 is the sweet spot.
         static constexpr std::size_t buffer_size = 48;
 
       public:
