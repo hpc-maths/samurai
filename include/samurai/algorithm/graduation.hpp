@@ -14,7 +14,6 @@
 namespace mpi = boost::mpi;
 #endif
 
-#include "../array_of_interval_and_point.hpp"
 #include "../cell_flag.hpp"
 #include "../concepts.hpp"
 #include "../mesh.hpp"
@@ -242,48 +241,11 @@ namespace samurai
         return true;
     }
 
-    template <mesh_like mesh_t>
-    auto update_subdomains_mpi([[maybe_unused]] const mesh_t& mesh, const auto& mpi_neighbourhood)
-    {
-        std::vector<mesh_t> mpi_meshes(mpi_neighbourhood.size());
-#ifdef SAMURAI_WITH_MPI
-        // No neighbour to exchange with (e.g. a sequential run or an emptied rank): serializing the whole
-        // mesh below would be pure waste, so bail out before touching the archive.
-        if (mpi_neighbourhood.empty())
-        {
-            return mpi_meshes;
-        }
-        mpi::communicator world;
-        std::vector<mpi::request> req;
-
-        boost::mpi::packed_oarchive::buffer_type buffer;
-        boost::mpi::packed_oarchive oa(world, buffer);
-        oa << mesh;
-
-        std::transform(mpi_neighbourhood.cbegin(),
-                       mpi_neighbourhood.cend(),
-                       std::back_inserter(req),
-                       [&](const auto& neighbour)
-                       {
-                           return world.isend(neighbour.rank, neighbour.rank, buffer);
-                       });
-
-        std::size_t index = 0;
-        for (auto& neighbour : mpi_neighbourhood)
-        {
-            world.recv(neighbour.rank, world.rank(), mpi_meshes[index++]);
-        }
-
-        mpi::wait_all(req.begin(), req.end());
-#endif // SAMURAI_WITH_MPI
-        return mpi_meshes;
-    }
-
     // Exchange a SINGLE level-array with the MPI neighbours (one message per neighbour),
     // returning their level-arrays. Used by the single-pass graduation to share, at each
     // level of its top-down sweep, only that level's cells - instead of serializing the
-    // whole multi-level mesh as update_subdomains_mpi does. The message tag is the level
-    // so the per-level exchanges (issued in lock-step across ranks) never cross.
+    // whole multi-level mesh. The message tag is the level so the per-level exchanges
+    // (issued in lock-step across ranks) never cross.
     template <size_t dim, typename TInterval>
     std::vector<LevelCellArray<dim, TInterval>> exchange_level_mpi([[maybe_unused]] const LevelCellArray<dim, TInterval>& lca,
                                                                    [[maybe_unused]] const auto& mpi_neighbourhood,
@@ -316,136 +278,88 @@ namespace samurai
         return neighbour_levels;
     }
 
-    template <size_t dim, typename TInterval, size_t max_size, typename TCoord>
-    void list_interval_to_refine_for_contiguous_boundary_cells(
-        const int max_stencil_radius,
-        const CellArray<dim, TInterval, max_size>& ca,
-        const CellArray<dim, TInterval, max_size>& domain,
-        [[maybe_unused]] const auto& mpi_meshes,
-        const std::array<bool, dim>& is_periodic,
-        std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, CellArray<dim, TInterval, max_size>::max_size>& out)
+    // Boundary-contiguity cells folded into the single-pass graduation (see
+    // graded_closure_single_pass). Both helpers are PURE functions of the graded level-l
+    // cells they are given: `fine_sources` is this rank's graded level-l cells followed by
+    // each neighbour's, so the result depends only on the UNION of the boundary cells and is
+    // therefore INDEPENDENT of how the MPI partition splits them between ranks (the caller
+    // then clips the result to the local coverage to keep only the cells it owns). This is
+    // the single-pass analogue of list_interval_to_refine_for_contiguous_boundary_cells.
+
+    // Case 1 (jump l -> l-1): the level-l cells sitting on each non-periodic physical face,
+    // thickened n_contig cells inward (fine-cell units) so a coarser cell's wide stencil
+    // never reaches past the domain. Returns the level-l cells to add.
+    template <size_t dim, typename TInterval>
+    LevelCellArray<dim, TInterval> boundary_case1_cells(size_t l,
+                                                        int n_contig,
+                                                        const CellArray<dim, TInterval>& domain,
+                                                        const std::array<bool, dim>& is_periodic,
+                                                        const std::vector<LevelCellArray<dim, TInterval>>& fine_sources)
     {
-        if (max_stencil_radius == 1)
+        using lca_t = LevelCellArray<dim, TInterval>;
+        lca_t extra;
+        bool have = false;
+        for (const auto& fine_l : fine_sources)
         {
-            return;
-        }
-
-        size_t max_level = ca.max_level();
-        size_t min_level = ca.min_level();
-
-        for (const auto& mpi_mesh : mpi_meshes)
-        {
-            max_level = std::max(max_level, mpi_mesh.max_level());
-            min_level = std::min(min_level, mpi_mesh.min_level());
-        }
-
-        // An empty (sub)mesh with no non-empty neighbour -- e.g. a rank emptied by
-        // load balancing -- has no boundary cells to refine. Its min_level is
-        // max_size + 1 and max_level is 0, so min_level > max_level: bail out
-        // before the descending level loops below underflow size_t. Local set
-        // algebra only here (no collective), so an early return cannot deadlock.
-        if (min_level > max_level)
-        {
-            return;
-        }
-
-        // We want to avoid a flux being computed with ghosts outside of the domain if the cell doesn't touch the boundary,
-        // because we only want to apply the B.C. on the cells that touch the boundary.
-        // For details and figures, see https://github.com/hpc-maths/samurai/pull/320
-
-        for_each_cartesian_direction<dim>(
-            [&](const auto direction_idx, const auto& translation)
-            {
-                if (not is_periodic[direction_idx])
+            for_each_cartesian_direction<dim>(
+                [&](const auto dir, const auto& t)
                 {
-                    // 1. Jump level --> level-1
-                    // Case where the boundary is at level L and the jump is going down to L-1:
-                    //     We want to have enough contiguous boundary cells to ensure that the stencil at the lower level
-                    //     won't go outside the domain.
-                    //     To ensure max_stencil_radius at L-1, we need 2*max_stencil_radius at level L.
-                    //     However, since we project the B.C. in the first outside ghost at level L-1, we can reduce the number of
-                    //     contiguous cells by 1 at level L-1. This makes, at level L, 2*(max_stencil_radius - 2) contiguous cells.
-                    //     (One cell is a real cell, the other is a ghost cell outside of the domain, which makes max_stencil_radius - 2
-                    //     ghosts cells inside the domain).
-
-                    int n_contiguous_boundary_cells = std::max(max_stencil_radius, 2 * (max_stencil_radius - 2));
-
-                    if (n_contiguous_boundary_cells > 1)
+                    if (is_periodic[dir])
                     {
-                        for (size_t level = max_level; level != min_level; --level)
-                        {
-                            // The boundary cells that drive the inward refinement must be seen from EVERY mesh (this rank
-                            // and all its neighbours), otherwise the set of boundary cells - and hence the refinement -
-                            // depends on the MPI partition: a boundary cell owned by a neighbour would be invisible here.
-                            // We therefore refine ONLY this rank's own level-1 cells (out drives the local `ca`), but from
-                            // boundary cells taken from `ca` and from each neighbour mesh. In sequential runs mpi_meshes is
-                            // empty and this reduces to the original single-mesh behaviour.
-                            auto refine_from = [&](const auto& src)
-                            {
-                                auto boundary_expr = difference(src[level], translate(domain[level], -translation));
-                                LevelCellArray<dim, TInterval> boundaryCells(boundary_expr.on(level));
-                                for (int i = 2; i <= n_contiguous_boundary_cells; i += 2)
-                                {
-                                    // Here, the set algebra doesn't work, so we put the translation in a LevelCellArray before
-                                    // computing the intersection.
-                                    LevelCellArray<dim, TInterval> translated_boundary(translate(boundaryCells, -i * translation));
-                                    auto refine_subset = intersection(translated_boundary, ca[level - 1]).on(level - 1);
-                                    refine_subset(
-                                        [&](const auto& x_interval, const auto& yz)
-                                        {
-                                            out[level - 1].push_back(x_interval, yz);
-                                        });
-                                }
-                            };
-                            refine_from(ca);
-#ifdef SAMURAI_WITH_MPI
-                            for (const auto& mpi_mesh : mpi_meshes)
-                            {
-                                refine_from(mpi_mesh);
-                            }
-#endif
-                        }
+                        return;
                     }
-
-                    // 2. Jump level --> level+1
-                    // Case where the boundary is at level L and jump is going up:
-                    //    If the number of boundary contiguous cells is >= ceil(max_stencil_radius/2), then there is nothing to do,
-                    //    since the half stencil at L+1 will not go out of the domain. Here, we just test if max_stencil_radius > 2 by
-                    //    simplicity, but at some point it would be nice to implement the real test. Otherwise, ensuring
-                    //    max_stencil_radius contiguous cells at level L+1 is enough.
-                    if (max_stencil_radius > 2)
+                    const lca_t boundary_cells(difference(fine_l, translate(domain[l], -t)).on(l));
+                    for (int i = 2; i <= n_contig; i += 2)
                     {
-                        for (size_t level = max_level - 1; level != min_level - 1; --level)
-                        {
-                            // Same partition-independence concern as the level-1 case above: take the boundary cells from
-                            // `ca` and from every neighbour mesh, but refine only this rank's own level+1 cells.
-                            auto refine_from = [&](const auto& src)
-                            {
-                                auto boundaryCells = difference(src[level], translate(domain[level], -translation));
-                                for (int i = 1; i != max_stencil_radius; ++i)
-                                {
-                                    auto refine_subset = translate(
-                                                             intersection(translate(boundaryCells, -i * translation), ca[level + 1]).on(level),
-                                                             i * translation)
-                                                             .on(level);
-                                    refine_subset(
-                                        [&](const auto& x_interval, const auto& yz)
-                                        {
-                                            out[level].push_back(x_interval, yz);
-                                        });
-                                }
-                            };
-                            refine_from(ca);
-#ifdef SAMURAI_WITH_MPI
-                            for (const auto& mpi_mesh : mpi_meshes)
-                            {
-                                refine_from(mpi_mesh);
-                            }
-#endif
-                        }
+                        lca_t inside(intersection(translate(boundary_cells, -i * t), domain[l]).on(l));
+                        extra = have ? lca_t(union_(extra, inside).on(l)) : std::move(inside);
+                        have  = true;
                     }
-                }
-            });
+                });
+        }
+        return extra;
+    }
+
+    // Case 2 (jump l-1 -> l, max_stencil_radius > 2): a coarse (l-1) face cell with a fine
+    // cell within (radius-1) COARSE cells inward is refined to level l, pulling the fine
+    // level out to the physical boundary. Expressed at l-1 (coarse domain face from the
+    // pyramid + fine cells projected down) because the distance unit is the coarse cell.
+    // Returns the level-l cells to add.
+    template <size_t dim, typename TInterval>
+    LevelCellArray<dim, TInterval> boundary_case2_cells(size_t l,
+                                                        int max_stencil_radius,
+                                                        const CellArray<dim, TInterval>& domain,
+                                                        const std::array<bool, dim>& is_periodic,
+                                                        const std::vector<LevelCellArray<dim, TInterval>>& fine_sources)
+    {
+        using lca_t = LevelCellArray<dim, TInterval>;
+        lca_t extra;
+        bool have = false;
+        if (max_stencil_radius <= 2 || l == 0)
+        {
+            return extra;
+        }
+        const size_t lc = l - 1;
+        for (const auto& fine_l : fine_sources)
+        {
+            const lca_t fine_on_c(self(fine_l).on(lc));
+            for_each_cartesian_direction<dim>(
+                [&](const auto dir, const auto& t)
+                {
+                    if (is_periodic[dir])
+                    {
+                        return;
+                    }
+                    const lca_t face_coarse(difference(domain[lc], translate(domain[lc], -t)).on(lc));
+                    for (int i = 1; i < max_stencil_radius; ++i)
+                    {
+                        lca_t ref(self(lca_t(intersection(face_coarse, translate(fine_on_c, i * t)).on(lc))).on(l));
+                        extra = have ? lca_t(union_(extra, ref).on(l)) : std::move(ref);
+                        have  = true;
+                    }
+                });
+        }
+        return extra;
     }
 
     // if add the intervals in add_m_interval
@@ -535,12 +449,17 @@ namespace samurai
     // that level's F is exchanged with the neighbours (exchange_level_mpi) - so a cascade
     // crossing a partition boundary is captured, without the whole-mesh exchange the
     // fixed-point loop does per iteration.
-    template <std::size_t dim, class TInterval, size_t max_size, class MeshType>
+    // FoldBoundary is a COMPILE-TIME switch: when false the whole boundary-contiguity
+    // machinery is `if constexpr`-eliminated, so the interior-only sweep (the common
+    // max_stencil_radius == 1 case) pays exactly zero for it. make_graduation picks the
+    // <false> instantiation for radius <= 1, so that case is byte-for-byte the interior sweep.
+    template <std::size_t dim, class TInterval, size_t max_size, class MeshType, bool FoldBoundary = false>
     void graded_closure_single_pass(CellArray<dim, TInterval, max_size>& ca,
                                     const CellArray<dim, TInterval, max_size>& domain,
                                     const std::array<bool, dim>& is_periodic,
                                     const size_t grad_width,
-                                    [[maybe_unused]] const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood)
+                                    [[maybe_unused]] const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood,
+                                    [[maybe_unused]] const int max_stencil_radius = 1)
     {
         using ca_type = CellArray<dim, TInterval, max_size>;
         using lca_t   = typename ca_type::lca_type;
@@ -618,8 +537,69 @@ namespace samurai
         };
 
         std::array<lca_t, max_size> F;
+
+        // Fold the boundary contiguity into the sweep at level l. The ENTIRE body is behind
+        // `if constexpr (FoldBoundary)`, so for the interior-only instantiation (radius <= 1)
+        // this lambda is empty and its per-level calls cost nothing - the common case pays
+        // zero for the boundary machinery.
+        //
+        // When folding: case 2 runs FIRST (it can add boundary cells), then case 1 runs on
+        // the UPDATED level-l cells, so it thickens the run case 2 just created - the
+        // boundary->boundary feedback the looped algorithm needs a whole re-grade turn for.
+        // Case 1 only ever adds cells inward (never new face cells), so a single case2 ->
+        // case1 order converges with no within-level iteration. The driving level-l cells are
+        // taken from THIS rank AND every neighbour (per-level graded-cell exchange, tags
+        // disjoint from the F[l] exchange and from each other), so the result is independent
+        // of the MPI partition.
+        const auto extend_boundary = [&]([[maybe_unused]] size_t l)
+        {
+            if constexpr (FoldBoundary)
+            {
+                const int n_contig = std::max(max_stencil_radius, 2 * (max_stencil_radius - 2));
+                if (max_stencil_radius <= 1 || domain.empty() || n_contig <= 1)
+                {
+                    return;
+                }
+                // The actual level-l cells (F[l] also carries everything required finer).
+                const auto graded_level = [&](size_t ll) -> lca_t
+                {
+                    return (ll < max_level) ? lca_t(difference(F[ll], self(F[ll + 1]).on(ll)).on(ll)) : F[ll];
+                };
+                const auto exchange_graded_level = [&](const lca_t& graded_l, size_t ll, int phase) -> std::vector<lca_t>
+                {
+                    if (!has_neighbour)
+                    {
+                        return {};
+                    }
+                    return exchange_level_mpi(graded_l, mpi_neighbourhood, static_cast<int>(max_size * (1 + phase) + ll));
+                };
+                const auto grow_F = [&](size_t ll, lca_t&& piece)
+                {
+                    lca_t req(union_(F[ll], piece).on(ll));
+                    F[ll] = (ll > min_level) ? clip(lca_t(self(req).on(ll - 1).on(ll)), ll) : clip(std::move(req), ll);
+                };
+                const auto sources = [&](const lca_t& my_fine, const std::vector<lca_t>& nbr_fine)
+                {
+                    std::vector<lca_t> s;
+                    s.reserve(1 + nbr_fine.size());
+                    s.push_back(my_fine);
+                    s.insert(s.end(), nbr_fine.begin(), nbr_fine.end());
+                    return s;
+                };
+
+                lca_t g = graded_level(l);
+                if (max_stencil_radius > 2 && l > 0)
+                {
+                    grow_F(l, boundary_case2_cells(l, max_stencil_radius, domain, is_periodic, sources(g, exchange_graded_level(g, l, 0))));
+                    g = graded_level(l); // refresh: case 1 must see the cells case 2 just added
+                }
+                grow_F(l, boundary_case1_cells(l, n_contig, domain, is_periodic, sources(g, exchange_graded_level(g, l, 1))));
+            }
+        };
+
         std::array<std::vector<lca_t>, max_size> neighbour_F;
         F[max_level] = ca[max_level];
+        extend_boundary(max_level);
         if (has_neighbour)
         {
             neighbour_F[max_level] = exchange_level_mpi(F[max_level], mpi_neighbourhood, static_cast<int>(max_level));
@@ -655,6 +635,7 @@ namespace samurai
             lca_t req(union_(ca[l], expanded).on(l));
             // Round up to whole (l-1) parents (complete-tree invariant) then clip.
             F[l] = (l > min_level) ? clip(lca_t(self(req).on(l - 1).on(l)), l) : clip(std::move(req), l);
+            extend_boundary(l);
             if (has_neighbour)
             {
                 neighbour_F[l] = exchange_level_mpi(F[l], mpi_neighbourhood, static_cast<int>(l));
@@ -677,167 +658,46 @@ namespace samurai
         std::swap(ca, graded_ca);
     }
 
-    // Apply a refinement list (produced by list_interval_to_refine_*): each flagged
-    // cell at level l is removed and replaced by its 2^dim children at level l+1.
-    // Returns whether `ca` actually changed. Shared by the fixed-point loop and the
-    // single-pass boundary-contiguity loop.
-    template <std::size_t dim, class TInterval, size_t max_size, class TCoord>
-    bool apply_refinement_list(CellArray<dim, TInterval, max_size>& ca, std::array<ArrayOfIntervalAndPoint<TInterval, TCoord>, max_size>& out)
-    {
-        using ca_type    = CellArray<dim, TInterval, max_size>;
-        using coord_type = typename ca_type::lca_type::coord_type;
-
-        const size_t max_level = ca.max_level();
-        const size_t min_level = ca.min_level();
-
-        ca_type ca_add_p;
-        ca_type ca_remove_p;
-        std::vector<TInterval> add_p_interval;
-        std::vector<coord_type> add_p_inner_stencil;
-        std::vector<size_t> add_p_idx;
-
-        bool any_change = false;
-        for (size_t level = min_level; level < max_level + 1; ++level)
-        {
-            out[level].remove_overlapping_intervals();
-            const size_t imax = out[level].size();
-            if (imax > 0)
-            {
-                any_change = true;
-            }
-            for (size_t i = 0; i != imax; ++i)
-            {
-                const auto& x_interval = out[level][i].first;
-                const auto& yz         = out[level][i].second;
-                ca_remove_p[level].add_interval_back(x_interval, yz);
-                if constexpr (dim == 1)
-                {
-                    ca_add_p[level + 1].add_interval_back(2 * x_interval, 2 * yz);
-                }
-                else
-                {
-                    nestedLoop<dim - 1, 0, dim - 2>(0,
-                                                    2,
-                                                    [&](const auto& inner_stencil)
-                                                    {
-                                                        add_p_interval.push_back(2 * x_interval);
-                                                        if constexpr (dim > 2)
-                                                        {
-                                                            add_p_inner_stencil.emplace_back(2 * yz + inner_stencil);
-                                                            add_p_idx.push_back(add_p_interval.size() - 1);
-                                                        }
-                                                    });
-                }
-                if (dim != 1 and (i + 1 == imax or yz[dim - 2] != out[level].get_coord(i + 1)[dim - 2]))
-                {
-                    add_list_of_interval_back(add_p_interval, coord_type(2 * yz), add_p_inner_stencil, add_p_idx, ca_add_p[level + 1]);
-                    add_p_interval.clear();
-                    add_p_inner_stencil.clear();
-                    add_p_idx.clear();
-                }
-            }
-        }
-
-        if (!any_change)
-        {
-            return false;
-        }
-
-        ca_type new_ca;
-        for (std::size_t level = std::min(ca.min_level(), ca_add_p.min_level()); level < std::max(ca.max_level(), ca_add_p.max_level()) + 1;
-             ++level)
-        {
-            auto set = difference(union_(ca[level], ca_add_p[level]), ca_remove_p[level]);
-            set(
-                [&](const auto& x_interval, const auto& yz)
-                {
-                    new_ca[level].add_interval_back(x_interval, yz);
-                });
-        }
-        const bool changed = (new_ca != ca);
-        std::swap(new_ca, ca);
-        return changed;
-    }
-
+    // Graduate `ca` in a SINGLE top-down sweep: interior 2:1 grading AND boundary contiguity
+    // are folded into one pass (no outer fixed-point loop). At each level the boundary run is
+    // extended BEFORE the next coarser level is graded, so the boundary->interior feedback is
+    // captured within the same pass (see graded_closure_single_pass / extend_boundary). Both
+    // boundary cases are handled - case 1 (jump l -> l-1, thicken the run inward) and case 2
+    // (max_stencil_radius > 2, jump l-1 -> l, pull the fine level out to the boundary) - and
+    // under MPI the boundary cells are gathered from the neighbours so the graded mesh is
+    // independent of the partition. Returns 1 (the sweep is not iterative).
+    //
+    // Radius <= 1 (no boundary contiguity to enforce) dispatches to the <FoldBoundary=false>
+    // instantiation: the plain interior sweep, with none of the boundary machinery compiled in.
     template <std::size_t dim, class TInterval, class MeshType, size_t max_size>
     size_t make_graduation(CellArray<dim, TInterval, max_size>& ca,
                            const CellArray<dim, TInterval, max_size>& domain,
-                           [[maybe_unused]] const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood,
+                           const std::vector<MPI_Subdomain<MeshType>>& mpi_neighbourhood,
                            const std::array<bool, dim>& is_periodic,
                            const size_t grad_width      = 1,
                            const int max_stencil_radius = 1 // half of width of the numerical scheme's stencil.
     )
     {
         ScopedTimer timer("make_graduation");
-
-        using ca_type    = CellArray<dim, TInterval, max_size>;
-        using coord_type = typename ca_type::lca_type::coord_type;
-
-        // Single-pass interior grading (one top-down sweep). With MPI neighbours the
-        // sweep is synchronised and exchanges only the current level's cells at each
-        // step (see graded_closure_single_pass), so it replaces the fixed-point loop's
-        // whole-mesh exchanges. When there is no boundary contiguity to enforce
-        // (max_stencil_radius == 1) a single sweep is the whole graduation.
-        if (max_stencil_radius == 1)
+        if (max_stencil_radius <= 1)
         {
-            graded_closure_single_pass(ca, domain, is_periodic, grad_width, mpi_neighbourhood);
-#ifdef SAMURAI_DEBUG_GRADUATION
-            // is_graduated is a purely local check; under MPI the boundary grading is
-            // completed by the neighbours, so only assert in the sequential case.
-            if (mpi_neighbourhood.empty() && !is_graduated(ca))
-            {
-                std::cerr << "[SAMURAI_DEBUG_GRADUATION] single-pass graduation produced a non-graduated mesh\n";
-                std::abort();
-            }
-#endif
-            return 1;
+            graded_closure_single_pass<dim, TInterval, max_size, MeshType, false>(ca,
+                                                                                  domain,
+                                                                                  is_periodic,
+                                                                                  grad_width,
+                                                                                  mpi_neighbourhood,
+                                                                                  max_stencil_radius);
         }
-
-        // Boundary contiguity (max_stencil_radius > 1): the interior single-pass grades
-        // in one sweep, but the boundary pass ADDS cells that can create new interior
-        // violations, so re-grade in a short outer loop (usually one or two turns). This
-        // handles both the sequential and the MPI case - the neighbour cells the boundary
-        // pass needs are fetched with update_subdomains_mpi (a no-op without neighbours),
-        // and the outer-loop termination is agreed with one collective per turn.
+        else
         {
-#ifdef SAMURAI_WITH_MPI
-            mpi::communicator world;
-#endif
-            size_t nit   = 0;
-            bool changed = true;
-            while (
-#ifdef SAMURAI_WITH_MPI
-                mpi::all_reduce(world, changed, std::logical_or())
-#else
-                changed
-#endif
-            )
-            {
-                ++nit;
-                graded_closure_single_pass(ca, domain, is_periodic, grad_width, mpi_neighbourhood);
-                changed = false;
-                if (!domain.empty())
-                {
-                    const auto mpi_meshes = update_subdomains_mpi(ca, mpi_neighbourhood);
-                    std::array<ArrayOfIntervalAndPoint<TInterval, coord_type>, max_size> boundary_out;
-                    for (auto& o : boundary_out)
-                    {
-                        o.clear();
-                    }
-                    list_interval_to_refine_for_contiguous_boundary_cells(max_stencil_radius, ca, domain, mpi_meshes, is_periodic, boundary_out);
-                    changed = apply_refinement_list(ca, boundary_out);
-                }
-            }
-#ifdef SAMURAI_DEBUG_GRADUATION
-            // is_graduated is a purely local check; only assert without neighbours.
-            if (mpi_neighbourhood.empty() && !is_graduated(ca))
-            {
-                std::cerr << "[SAMURAI_DEBUG_GRADUATION] single-pass graduation produced a non-graduated mesh\n";
-                std::abort();
-            }
-#endif
-            return nit;
+            graded_closure_single_pass<dim, TInterval, max_size, MeshType, true>(ca,
+                                                                                 domain,
+                                                                                 is_periodic,
+                                                                                 grad_width,
+                                                                                 mpi_neighbourhood,
+                                                                                 max_stencil_radius);
         }
+        return 1;
     }
 
     template <std::size_t dim, class TInterval, size_t max_size>
