@@ -106,6 +106,76 @@ namespace samurai
         expect_boundary_refined(3);
     }
 
+    // Corner coupling (2D). At a domain corner two physical boundary faces meet, so the
+    // boundary run extended along one face can create cells that then need extension along
+    // the perpendicular face. This reproduces the exact mesh (a central level-5 block inside
+    // a level-4 frame, radius 3) that exposed a fused single-pass under-refinement at the
+    // corners: the fine level must be pulled into the corner, which needs the per-level
+    // extension to be iterated until the corner region stabilises.
+    TEST(graduation, boundary_contiguity_corner_2d)
+    {
+        constexpr size_t dim = 2;
+
+        // domain pyramid: [0, 16)^2 at level 4 (= [0, 32)^2 at level 5), down to level 0.
+        CellList<dim> domain_cl;
+        for (int l = 5; l >= 0; --l)
+        {
+            const int n = 32 >> (5 - l);
+            for (int j = 0; j < n; ++j)
+            {
+                domain_cl[static_cast<std::size_t>(l)][{j}].add_interval({0, n});
+            }
+        }
+        CellArray<dim> domain{domain_cl};
+
+        // Tiling input: central level-5 block [4,28)^2 (= [2,14)^2 at level 4) surrounded by
+        // a level-4 frame filling [0,16)^2.
+        CellList<dim> cl;
+        for (int j = 0; j < 16; ++j) // level-4 rows
+        {
+            if (j < 2 || j >= 14)
+            {
+                cl[4][{j}].add_interval({0, 16});
+            }
+            else
+            {
+                cl[4][{j}].add_interval({0, 2});
+                cl[4][{j}].add_interval({14, 16});
+            }
+        }
+        for (int j = 4; j < 28; ++j) // level-5 rows of the central block
+        {
+            cl[5][{j}].add_interval({4, 28});
+        }
+        CellArray<dim> ca{cl};
+
+        const std::array<bool, dim> is_periodic{false, false};
+
+        struct DummyMesh
+        {
+        };
+
+        std::vector<MPI_Subdomain<DummyMesh>> no_neighbours;
+        make_graduation(ca, domain, no_neighbours, is_periodic, size_t{1}, 3);
+
+        EXPECT_TRUE(is_graduated(ca));
+
+        // The fine level (5) must be pulled into the bottom-left corner: level 4 must NOT
+        // remain at the very corner cell (x=[0,2)@L4, row 0). The buggy single pass left L4
+        // there instead of refining to L5.
+        CellList<dim> corner_cl;
+        corner_cl[4][{0}].add_interval({0, 2});
+        const LevelCellArray<dim> corner = CellArray<dim>{corner_cl}[4];
+        size_t remaining                 = 0;
+        intersection(ca[4], corner)
+            .on(4)(
+                [&](const auto&, const auto&)
+                {
+                    ++remaining;
+                });
+        EXPECT_EQ(remaining, 0u) << "the fine level must be pulled into the domain corner (corner coupling)";
+    }
+
     static size_t count_intervals(size_t l, const LevelCellArray<1>& a)
     {
         size_t n = 0;

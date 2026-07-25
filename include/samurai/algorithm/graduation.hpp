@@ -587,13 +587,35 @@ namespace samurai
                     return s;
                 };
 
-                lca_t g = graded_level(l);
-                if (max_stencil_radius > 2 && l > 0)
+                // Corner coupling: extending the run along one boundary face can create
+                // cells that sit on a PERPENDICULAR face, which then need their own boundary
+                // extension. Repeat case2+case1 until F[l] stops growing (bounded, local to
+                // the corner region). Under MPI the continuation is agreed with one small
+                // all_reduce per turn so every rank runs the same number of exchange turns
+                // (a data-dependent local count would desynchronise the collective).
+#ifdef SAMURAI_WITH_MPI
+                mpi::communicator world;
+#endif
+                bool changed = true;
+                while (
+#ifdef SAMURAI_WITH_MPI
+                    world.size() > 1 ? mpi::all_reduce(world, changed, std::logical_or()) : changed
+#else
+                    changed
+#endif
+                )
                 {
-                    grow_F(l, boundary_case2_cells(l, max_stencil_radius, domain, is_periodic, sources(g, exchange_graded_level(g, l, 0))));
-                    g = graded_level(l); // refresh: case 1 must see the cells case 2 just added
+                    const lca_t before = F[l];
+                    lca_t g            = graded_level(l);
+                    if (max_stencil_radius > 2 && l > 0)
+                    {
+                        grow_F(l,
+                               boundary_case2_cells(l, max_stencil_radius, domain, is_periodic, sources(g, exchange_graded_level(g, l, 0))));
+                        g = graded_level(l); // refresh: case 1 must see the cells case 2 just added
+                    }
+                    grow_F(l, boundary_case1_cells(l, n_contig, domain, is_periodic, sources(g, exchange_graded_level(g, l, 1))));
+                    changed = !(F[l] == before);
                 }
-                grow_F(l, boundary_case1_cells(l, n_contig, domain, is_periodic, sources(g, exchange_graded_level(g, l, 1))));
             }
         };
 
