@@ -60,6 +60,7 @@ set(SAMURAI_TESTS
     test_stencil.cpp
     test_subdomain_bbox.cpp
     test_subset.cpp
+    test_subset_dynamic.cpp
     test_timers.cpp
     test_utils.cpp
     test_version.cpp
