@@ -2,6 +2,7 @@
 // SPDX-License-Identifier:  BSD-3-Clause
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <functional>
@@ -183,22 +184,18 @@ namespace samurai
         template <class Vel>
         static bool has_diagonal_velocity(const Vel& velocities)
         {
-            for (const auto& c : velocities)
-            {
-                std::size_t nnz = 0;
-                for (std::size_t d = 0; d < dim; ++d)
-                {
-                    if (c[d] != 0)
-                    {
-                        ++nnz;
-                    }
-                }
-                if (nnz > 1)
-                {
-                    return true;
-                }
-            }
-            return false;
+            return std::any_of(velocities.begin(),
+                               velocities.end(),
+                               [](const auto& c)
+                               {
+                                   return std::count_if(c.begin(),
+                                                        c.end(),
+                                                        [](int v)
+                                                        {
+                                                            return v != 0;
+                                                        })
+                                        > 1;
+                               });
         }
 
       public:

@@ -6,6 +6,7 @@
 #include "../boundary.hpp"
 #include "../field/concepts.hpp"
 #include "polynomial_extrapolation.hpp"
+#include <algorithm>
 
 #include <stdexcept>
 
@@ -127,14 +128,12 @@ namespace samurai
     {
         auto declared = [&](const DirectionVector<dim>& d)
         {
-            for (const auto& rd : region_directions)
-            {
-                if (rd == d)
-                {
-                    return true;
-                }
-            }
-            return false;
+            return std::any_of(region_directions.begin(),
+                               region_directions.end(),
+                               [&](const auto& rd)
+                               {
+                                   return rd == d;
+                               });
         };
 
         if (declared(direction))
