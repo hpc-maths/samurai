@@ -44,67 +44,214 @@ namespace samurai
         EXPECT_TRUE(is_graduated(ca));
     }
 
-#ifdef SAMURAI_WITH_MPI
-    // Non-regression test for the partition-dependence bug fixed alongside this test:
-    // list_interval_to_refine_for_contiguous_boundary_cells (active only when
-    // max_stencil_radius > 1) used to look for physical-boundary cells in the local
-    // `ca` only, so a boundary cell owned by a neighbour rank was invisible and the
-    // refinement it must trigger on the neighbouring inner cells depended on the MPI
-    // partition. The fix takes boundary cells from `ca` AND from every mesh in
-    // `mpi_meshes`, while still refining only the local rank's own cells.
-    //
-    // Domain: x in [0, 16) at level 4. A single coarse cell (level 3, index 6, i.e.
-    // fine x in [12, 14)) sits close enough to the right physical boundary
-    // (x = 16) that it must be refined to level 4 for a scheme with
-    // max_stencil_radius = 3, regardless of which rank owns the level-4 boundary
-    // cells (fine x in [14, 16)) that trigger this refinement.
-    TEST(graduation, contiguous_boundary_partition_independent)
+    // Build the 1D domain pyramid [0, n) at `top_level`, projected down to level 0, as the
+    // multi-level CellArray make_graduation expects (domain[l] = domain at level l).
+    static CellArray<1> domain_pyramid_1d(int top_level, int n_cells_top)
     {
-        constexpr size_t dim         = 1;
-        constexpr int stencil_radius = 3;
-
-        using ca_type    = CellArray<dim>;
-        using interval_t = typename ca_type::interval_t;
-        using coord_type = typename ca_type::lca_type::coord_type;
-        using out_t      = std::array<ArrayOfIntervalAndPoint<interval_t, coord_type>, ca_type::max_size>;
-
-        CellList<dim> domain_cl;
-        domain_cl[4][{}].add_interval({0, 16});
-        LevelCellArray<dim> domain(domain_cl[4]);
-
-        const std::array<bool, dim> is_periodic{false};
-
-        // Scenario A: this rank owns everything, including the boundary cells.
-        CellList<dim> cl_local;
-        cl_local[4][{}].add_interval({14, 16});
-        cl_local[3][{}].add_interval({6, 7});
-        ca_type ca_all_local{cl_local};
-
-        out_t out_single_rank{};
-        std::vector<ca_type> no_neighbours;
-        list_interval_to_refine_for_contiguous_boundary_cells(stencil_radius, ca_all_local, domain, no_neighbours, is_periodic, out_single_rank);
-
-        // Scenario B: this rank owns only the interior coarse cell; a neighbour rank
-        // owns the boundary cells (as can happen after load balancing moves a
-        // subdomain boundary into an active region).
-        CellList<dim> cl_interior_only;
-        cl_interior_only[3][{}].add_interval({6, 7});
-        ca_type ca_without_boundary{cl_interior_only};
-
-        CellList<dim> cl_neighbour;
-        cl_neighbour[4][{}].add_interval({14, 16});
-        ca_type neighbour_ca{cl_neighbour};
-        std::vector<ca_type> mpi_meshes{neighbour_ca};
-
-        out_t out_split_rank{};
-        list_interval_to_refine_for_contiguous_boundary_cells(stencil_radius, ca_without_boundary, domain, mpi_meshes, is_periodic, out_split_rank);
-
-        // The coarse cell must be flagged for refinement in both cases, identically,
-        // whether the boundary cells that trigger it are local or owned by a
-        // neighbour.
-        ASSERT_EQ(out_single_rank[3].size(), 1u);
-        ASSERT_EQ(out_split_rank[3].size(), 1u);
-        EXPECT_EQ(out_single_rank[3].get_interval(0), out_split_rank[3].get_interval(0));
+        CellList<1> cl;
+        for (int l = top_level; l >= 0; --l)
+        {
+            const int n = n_cells_top >> (top_level - l);
+            cl[static_cast<std::size_t>(l)][{}].add_interval({0, n});
+        }
+        return CellArray<1>{cl};
     }
-#endif // SAMURAI_WITH_MPI
+
+    // Boundary contiguity exercised end to end through the production make_graduation (the
+    // folded single pass). A level-4 run [14,16) touches the right physical boundary and a
+    // level-3 cell [6,7) (fine [12,14)) sits one coarse cell inside it. For a wide stencil
+    // that L3 cell must be refined to level 4 so the boundary run is thick enough. The mesh
+    // tiles the domain (coverage == domain).
+    static void expect_boundary_refined(int radius)
+    {
+        const std::array<bool, 1> is_periodic{false};
+
+        struct DummyMesh
+        {
+        };
+
+        std::vector<MPI_Subdomain<DummyMesh>> no_neighbours;
+
+        CellList<1> cl;
+        cl[4][{}].add_interval({14, 16});
+        cl[3][{}].add_interval({0, 7});
+        CellArray<1> ca{cl};
+
+        make_graduation(ca, domain_pyramid_1d(4, 16), no_neighbours, is_periodic, size_t{1}, radius);
+
+        EXPECT_TRUE(is_graduated(ca));
+
+        // The boundary-adjacent level-3 cell [6,7) must have been refined to level 4, so
+        // nothing remains at level 3 there.
+        CellList<1> hole_cl;
+        hole_cl[3][{}].add_interval({6, 7});
+        const LevelCellArray<1> hole = CellArray<1>{hole_cl}[3];
+        size_t remaining             = 0;
+        intersection(ca[3], hole)
+            .on(3)(
+                [&](const auto&, const auto&)
+                {
+                    ++remaining;
+                });
+        EXPECT_EQ(remaining, 0u) << "the boundary-adjacent level-3 cell must be refined (radius=" << radius << ")";
+    }
+
+    TEST(graduation, boundary_contiguity_radius2)
+    {
+        expect_boundary_refined(2);
+    }
+
+    TEST(graduation, boundary_contiguity_radius3)
+    {
+        expect_boundary_refined(3);
+    }
+
+    // Corner coupling (2D). At a domain corner two physical boundary faces meet, so the
+    // boundary run extended along one face can create cells that then need extension along
+    // the perpendicular face. This reproduces the exact mesh (a central level-5 block inside
+    // a level-4 frame, radius 3) that exposed a fused single-pass under-refinement at the
+    // corners: the fine level must be pulled into the corner, which needs the per-level
+    // extension to be iterated until the corner region stabilises.
+    TEST(graduation, boundary_contiguity_corner_2d)
+    {
+        constexpr size_t dim = 2;
+
+        // domain pyramid: [0, 16)^2 at level 4 (= [0, 32)^2 at level 5), down to level 0.
+        CellList<dim> domain_cl;
+        for (int l = 5; l >= 0; --l)
+        {
+            const int n = 32 >> (5 - l);
+            for (int j = 0; j < n; ++j)
+            {
+                domain_cl[static_cast<std::size_t>(l)][{j}].add_interval({0, n});
+            }
+        }
+        CellArray<dim> domain{domain_cl};
+
+        // Tiling input: central level-5 block [4,28)^2 (= [2,14)^2 at level 4) surrounded by
+        // a level-4 frame filling [0,16)^2.
+        CellList<dim> cl;
+        for (int j = 0; j < 16; ++j) // level-4 rows
+        {
+            if (j < 2 || j >= 14)
+            {
+                cl[4][{j}].add_interval({0, 16});
+            }
+            else
+            {
+                cl[4][{j}].add_interval({0, 2});
+                cl[4][{j}].add_interval({14, 16});
+            }
+        }
+        for (int j = 4; j < 28; ++j) // level-5 rows of the central block
+        {
+            cl[5][{j}].add_interval({4, 28});
+        }
+        CellArray<dim> ca{cl};
+
+        const std::array<bool, dim> is_periodic{false, false};
+
+        struct DummyMesh
+        {
+        };
+
+        std::vector<MPI_Subdomain<DummyMesh>> no_neighbours;
+        make_graduation(ca, domain, no_neighbours, is_periodic, size_t{1}, 3);
+
+        EXPECT_TRUE(is_graduated(ca));
+
+        // The fine level (5) must be pulled into the bottom-left corner: level 4 must NOT
+        // remain at the very corner cell (x=[0,2)@L4, row 0). The buggy single pass left L4
+        // there instead of refining to L5.
+        CellList<dim> corner_cl;
+        corner_cl[4][{0}].add_interval({0, 2});
+        const LevelCellArray<dim> corner = CellArray<dim>{corner_cl}[4];
+        size_t remaining                 = 0;
+        intersection(ca[4], corner)
+            .on(4)(
+                [&](const auto&, const auto&)
+                {
+                    ++remaining;
+                });
+        EXPECT_EQ(remaining, 0u) << "the fine level must be pulled into the domain corner (corner coupling)";
+    }
+
+    static size_t count_intervals(size_t l, const LevelCellArray<1>& a)
+    {
+        size_t n = 0;
+        self(a).on(l)(
+            [&](const auto&, const auto&)
+            {
+                ++n;
+            });
+        return n;
+    }
+
+    static bool same_lca(size_t l, const LevelCellArray<1>& a, const LevelCellArray<1>& b)
+    {
+        return count_intervals(l, LevelCellArray<1>(difference(a, b).on(l))) == 0
+            && count_intervals(l, LevelCellArray<1>(difference(b, a).on(l))) == 0;
+    }
+
+    // The fused single-pass boundary helpers (boundary_case1_cells / boundary_case2_cells)
+    // must be INDEPENDENT of the MPI partition: a physical-boundary cell owned by a
+    // NEIGHBOUR rank must drive exactly the same refinement as if this rank owned it. This
+    // is the single-pass analogue of graduation.contiguous_boundary_partition_independent,
+    // tested directly on the pure helpers (no real MPI needed) by feeding the boundary run
+    // either as this rank's own cells or as a neighbour source.
+    TEST(graduation, fused_boundary_case1_partition_independent)
+    {
+        CellList<1> domain_cl;
+        domain_cl[4][{}].add_interval({0, 16});
+        domain_cl[3][{}].add_interval({0, 8});
+        CellArray<1> domain{domain_cl};
+        const std::array<bool, 1> is_periodic{false};
+        const int radius   = 3;
+        const int n_contig = std::max(radius, 2 * (radius - 2)); // = 3
+
+        CellList<1> bcl;
+        bcl[4][{}].add_interval({14, 16}); // level-4 run on the right physical boundary
+        const LevelCellArray<1> boundary = CellArray<1>{bcl}[4];
+        const LevelCellArray<1> empty4;
+
+        const LevelCellArray<1> all_local = boundary_case1_cells(size_t{4},
+                                                                 n_contig,
+                                                                 domain,
+                                                                 is_periodic,
+                                                                 std::vector<LevelCellArray<1>>{boundary});
+        const LevelCellArray<1> split     = boundary_case1_cells(size_t{4},
+                                                             n_contig,
+                                                             domain,
+                                                             is_periodic,
+                                                             std::vector<LevelCellArray<1>>{empty4, boundary});
+
+        EXPECT_GT(count_intervals(4, all_local), 0u) << "the boundary run must force an inner refinement";
+        EXPECT_TRUE(same_lca(4, all_local, split)) << "case-1 refinement must not depend on which rank owns the boundary cell";
+    }
+
+    TEST(graduation, fused_boundary_case2_partition_independent)
+    {
+        CellList<1> domain_cl;
+        domain_cl[4][{}].add_interval({0, 16});
+        domain_cl[3][{}].add_interval({0, 8});
+        CellArray<1> domain{domain_cl};
+        const std::array<bool, 1> is_periodic{false};
+        const int radius = 3;
+
+        // A level-4 (fine) cell sitting one coarse cell inside the right boundary, so case 2
+        // must pull the fine level out to the boundary. Provided either locally or by a neighbour.
+        CellList<1> fcl;
+        fcl[4][{}].add_interval({12, 14});
+        const LevelCellArray<1> fine = CellArray<1>{fcl}[4];
+        const LevelCellArray<1> empty4;
+
+        const LevelCellArray<1> all_local = boundary_case2_cells(size_t{4}, radius, domain, is_periodic, std::vector<LevelCellArray<1>>{fine});
+        const LevelCellArray<1> split = boundary_case2_cells(size_t{4},
+                                                             radius,
+                                                             domain,
+                                                             is_periodic,
+                                                             std::vector<LevelCellArray<1>>{empty4, fine});
+
+        EXPECT_TRUE(same_lca(4, all_local, split)) << "case-2 refinement must not depend on which rank owns the fine cell";
+    }
 }
