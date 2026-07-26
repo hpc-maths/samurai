@@ -168,12 +168,48 @@ namespace samurai
         std::array<double, n_comp> m_add{};   // constant rhs (empty m_feq); all zero => homogeneous
         feq_fn m_feq{};                       // velocity-consistent rhs: inner distribution -> f^eq to reflect around
 
+        // Set when the velocity set contains a diagonal velocity (more than one non-zero
+        // component, e.g. D2Q9's {1,1} or D2Q4diag). Such a scheme streams across the domain
+        // corners, so those ghosts must carry the reflection too: see fills_diagonal_directions().
+        bool m_diagonal_velocities = false;
+
+        bool fills_diagonal_directions() const override
+        {
+            return m_diagonal_velocities;
+        }
+
+      private:
+
+        template <class Vel>
+        static bool has_diagonal_velocity(const Vel& velocities)
+        {
+            for (const auto& c : velocities)
+            {
+                std::size_t nnz = 0;
+                for (std::size_t d = 0; d < dim; ++d)
+                {
+                    if (c[d] != 0)
+                    {
+                        ++nnz;
+                    }
+                }
+                if (nnz > 1)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+      public:
+
         // Single block, homogeneous (no-slip wall for BounceBack, zero even moment for AntiBounceBack).
         template <class Vel>
         LbmReflectionImpl(const typename base_t::lca_t& domain, const BcValue<Field>& bcv, const Vel& velocities)
             : base_t(domain, bcv)
             , m_opposite(detail::lbm_opposite_velocities<n_comp, dim>(velocities))
         {
+            m_diagonal_velocities = has_diagonal_velocity(velocities);
             m_odd_axis.fill(-1);
             m_add.fill(0.);
         }
@@ -186,6 +222,7 @@ namespace samurai
             : base_t(domain, bcv)
             , m_opposite(detail::lbm_opposite_velocities<n_comp, dim>(velocities))
         {
+            m_diagonal_velocities = has_diagonal_velocity(velocities);
             m_odd_axis.fill(-1);
             set_wall(wall);
         }
@@ -202,6 +239,7 @@ namespace samurai
             , m_opposite(detail::lbm_opposite_velocities<n_comp, dim>(velocities, block_sizes))
             , m_odd_axis(detail::lbm_expand_odd_axis<n_comp>(block_sizes, block_odd_axis))
         {
+            m_diagonal_velocities = has_diagonal_velocity(velocities);
             m_add.fill(0.);
         }
 
@@ -218,6 +256,7 @@ namespace samurai
             , m_opposite(detail::lbm_opposite_velocities<n_comp, dim>(velocities, block_sizes))
             , m_odd_axis(detail::lbm_expand_odd_axis<n_comp>(block_sizes, block_odd_axis))
         {
+            m_diagonal_velocities = has_diagonal_velocity(velocities);
             set_wall(wall);
         }
 

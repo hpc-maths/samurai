@@ -114,6 +114,148 @@ namespace samurai
     }
 
     /**
+     * Is the diagonal @a direction covered by a boundary region declaring @a region_directions?
+     *
+     * Either the diagonal itself is declared (the default @c Everywhere region enumerates every one
+     * of the 3^dim - 1 directions), or every Cartesian component of it is declared - so a wall put
+     * on {left, top, bottom} owns the top-left and bottom-left corners, which are corners *of that
+     * wall*, but not the bottom-right one, where the neighbouring face carries another condition.
+     * A corner between two different boundary conditions is deliberately left alone.
+     */
+    template <std::size_t dim, class Directions>
+    bool diagonal_direction_is_declared(const Directions& region_directions, const DirectionVector<dim>& direction)
+    {
+        auto declared = [&](const DirectionVector<dim>& d)
+        {
+            for (const auto& rd : region_directions)
+            {
+                if (rd == d)
+                {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        if (declared(direction))
+        {
+            return true;
+        }
+
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            if (direction[d] != 0)
+            {
+                DirectionVector<dim> component;
+                component.fill(0);
+                component[d] = direction[d];
+                if (!declared(component))
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Apply a boundary condition on the outer ghosts in a DIAGONAL (non-Cartesian) direction: the
+     * domain corners in 2D, the domain edges and vertices in 3D.
+     *
+     * Only the boundary conditions that ask for it are applied here - see
+     * @c Bc::fills_diagonal_directions(). No finite-volume condition does: an FV flux stencil never
+     * reads a diagonal ghost, so those ghosts keep being filled by
+     * @c update_outer_corners_by_polynomial_extrapolation, unchanged. A lattice-Boltzmann reflection
+     * whose velocity set contains a diagonal velocity does: such a scheme streams across the corner,
+     * so the corner ghost must carry the wall reflection and not an extrapolation of a distribution
+     * function, which is meaningless there.
+     *
+     * The stencil needs no rotation. A reflection has @c stencil_size == 2, so the diagonal stencil is
+     * just {inner, inner + direction}, exact for any direction - unlike @c convert_for_direction(),
+     * which builds the rotation taking e1 to @a direction and hence only works for a Cartesian one.
+     */
+    template <class Field, std::size_t stencil_size>
+    void apply_diagonal_bc_impl(Bc<Field>& bc, std::size_t level, const DirectionVector<Field::dim>& direction, Field& field)
+    {
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+
+        static constexpr std::size_t dim = Field::dim;
+
+        if constexpr (dim == 1 || stencil_size != 2)
+        {
+            // 1D has no diagonal direction, and only the 2-point stencil of a reflection is
+            // implemented: a wider diagonal stencil would need the general lattice-symmetry
+            // machinery, which this does not add.
+            return;
+        }
+        else
+        {
+            auto& mesh = field.mesh();
+
+            if (level < mesh.min_level() || level > mesh.max_level())
+            {
+                return;
+            }
+
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                if (direction[d] != 0 && mesh.is_periodic(d))
+                {
+                    return; // a periodic axis has no real boundary in that direction
+                }
+            }
+
+            if (!diagonal_direction_is_declared<dim>(bc.get_region().first, direction))
+            {
+                return;
+            }
+
+            Stencil<2, dim> stencil;
+            xt::view(stencil, 0)  = 0;
+            xt::view(stencil, 1)  = direction;
+            auto stencil_analyzer = make_stencil_analyzer(stencil);
+
+            // mesh.corner(direction) holds the inner corner cells of that diagonal, precomputed on
+            // the mesh (the corner extrapolation uses it too). Restricted to the cells that exist at
+            // this level: on an adapted mesh the corner is not covered at every level, and iterating
+            // ghosts that do not exist is an out-of-bounds access.
+            auto corner_cells = intersection(self(mesh.corner(direction)).on(level), mesh[mesh_id_t::cells][level]).on(level);
+
+            apply_bc_on_subset(bc, field, corner_cells, stencil_analyzer, direction);
+        }
+    }
+
+    /**
+     * Apply, in the diagonal @a direction, those boundary conditions of @a field that fill diagonal
+     * directions. A no-op for every finite-volume condition.
+     */
+    template <class Field>
+        requires field_like<Field>
+    void apply_field_bc_diagonal(std::size_t level, const DirectionVector<Field::dim>& direction, Field& field)
+    {
+        static constexpr std::size_t max_stencil_size_implemented_BC = Bc<Field>::max_stencil_size_implemented;
+
+        for (auto& bc : field.get_bc())
+        {
+            if (!bc->fills_diagonal_directions())
+            {
+                continue;
+            }
+
+            static_for<1, max_stencil_size_implemented_BC + 1>::apply(
+                [&](auto integral_constant_i)
+                {
+                    static constexpr std::size_t i = decltype(integral_constant_i)::value;
+
+                    if (bc->stencil_size() == i)
+                    {
+                        apply_diagonal_bc_impl<Field, i>(*bc.get(), level, direction, field);
+                    }
+                });
+        }
+    }
+
+    /**
      * Apply polynomial extrapolation on the outside ghosts close to boundary cells
      * @param bc The PolynomialExtrapolation boundary condition
      * @param level Level where to apply the polynomial extrapolation

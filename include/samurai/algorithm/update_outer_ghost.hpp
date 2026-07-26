@@ -366,6 +366,11 @@ namespace samurai
                         if (!any_periodic)
                         {
                             update_outer_corners_by_polynomial_extrapolation(level, direction, field);
+                            // A boundary condition that owns the diagonal directions overwrites the
+                            // extrapolation just applied (no FV condition does; an LBM reflection with
+                            // diagonal velocities does). It runs BEFORE project_corner_below so that the
+                            // value carried down to the coarser levels is the corrected one.
+                            apply_field_bc_diagonal(level, direction, field);
                             project_corner_below(level, direction, field); // project to level-1 and level-2
                         }
                     });

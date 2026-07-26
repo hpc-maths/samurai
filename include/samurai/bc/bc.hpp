@@ -594,6 +594,28 @@ namespace samurai
         virtual std::unique_ptr<Bc> clone() const = 0;
         virtual int stencil_size() const          = 0;
 
+        /**
+         * Does this boundary condition also fill the outer ghosts in the DIAGONAL (non-Cartesian)
+         * directions, i.e. the domain corners (and, in 3D, the domain edges)?
+         *
+         * False for every finite-volume boundary condition: an FV flux stencil is built from
+         * @c star_stencil / @c line_stencil / @c directional_stencils and never reads a diagonal
+         * ghost, and "the Dirichlet extension along {-1,-1}" has no meaning. Those corners are
+         * filled by @c update_outer_corners_by_polynomial_extrapolation instead.
+         *
+         * True for a lattice-Boltzmann reflection whose velocity set contains a diagonal velocity
+         * (D2Q9, D2Q4diag, ...): such a scheme streams across the corner, so the corner ghost must
+         * carry the wall reflection, and a polynomial extrapolation of a distribution function is
+         * meaningless there.
+         *
+         * Only implemented for @c stencil_size() == 2, which is what a reflection needs: the
+         * diagonal stencil is then simply {inner, inner + direction} and requires no rotation.
+         */
+        virtual bool fills_diagonal_directions() const
+        {
+            return false;
+        }
+
         static constexpr int max_stencil_size_implemented = 10; // cppcheck-suppress unusedStructMember
         APPLY_AND_STENCIL_FUNCTIONS(1)
         APPLY_AND_STENCIL_FUNCTIONS(2)
