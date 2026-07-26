@@ -23,6 +23,7 @@ page describes the three layers built on that idea:
 Everything lives in {file}`include/samurai/reconstruction.hpp`.
 
 (rec-prediction)=
+
 ## Prediction: the interpolating wavelet
 
 Prediction is **linear**: the predicted value of a finer cell is a fixed linear
@@ -84,6 +85,7 @@ the LBM stream expresses a shift by crossing coarse-cell boundaries.
 ```
 
 (rec-portion)=
+
 ## `portion`: reconstructing the children of a coarse cell
 
 `portion` applies a prediction stencil to a field. It answers: *what is the value
@@ -133,6 +135,7 @@ children.
 ```
 
 (rec-reconstruction)=
+
 ## `reconstruction`: projecting onto a uniform fine mesh
 
 ```cpp
@@ -213,9 +216,9 @@ A(m,   i) &= \sum_k c_k(i)\, A\bigl(m-1,\ \lfloor i/2\rfloor + k\bigr)
 \end{aligned}
 $$
 
-Here $c_k(i) = \texttt{prediction<r>(1, i \& 1)}$ is exactly the one-level recipe of
-{ref}`the first section <rec-prediction>` (offsets relative to the parent
-$\lfloor i/2 \rfloor$). "Really stored" means the cell belongs to
+Here $c_k(i) = \texttt{prediction<r>(1, i \& 1)}$ is exactly the one-level
+recipe of {ref}`the first section <rec-prediction>` (offsets relative to
+the parent $\lfloor i/2 \rfloor$). "Really stored" means the cell belongs to
 $\texttt{cells} \cup \texttt{proj\_cells}$: either a genuine finer leaf, or a
 projection cell carrying the exact average of its children.
 
@@ -225,10 +228,11 @@ refinement without double counting, and reduces to the flat result wherever the
 neighbourhood is not refined.
 
 ```{important}
-The cascade reads the field **only** at stored cells - the base level $l_0$ and the
-overriding finer cells - and recurses everywhere else. It therefore never reads a
-cell the adapted mesh does not hold, at any depth. A naive recursion on the *value*
-would instead try to read guessed positions that are not stored.
+The cascade reads the field **only** at stored cells - the base level $l_0$
+and the overriding finer cells - and recurses everywhere else. It therefore
+never reads a cell the adapted mesh does not hold, at any depth. A naive
+recursion on the *value* would instead try to read guessed positions that are
+not stored.
 ```
 
 #### For reference: the building blocks
@@ -257,22 +261,23 @@ auto make_real_backed_lca(const Mesh& mesh)
 The cascade is evaluated by:
 
 - `reconstruct_exact(l0, delta_l, coord, read_at, stored, memo)` - the scalar,
-  memoised recursion of $A(m, i)$ for a single value. The memo is shared across the
-  sub-cells of one reconstruction, so the cost stays $O(\text{cone} \times
+  memoised recursion of $A(m, i)$ for a single value. The memo is shared across
+  the sub-cells of one reconstruction, so the cost stays $O(\text{cone} \times
   \text{depth})$ rather than exponential.
 - `reconstruct_exact_box(l0, L, lo_L, hi_L, read_at, stored, out)` - the
-  vectorised version used by `reconstruction` and the LBM stream. It fills a whole
-  fine box level by level over dense buffers, using the real value where a cell is
-  stored and guessing otherwise. With the "use the stored value" step disabled it
-  becomes the flat reconstruction, which is why both paths share one
+  vectorised version used by `reconstruction` and the LBM stream. It fills a
+  whole fine box level by level over dense buffers, using the real value where a
+  cell is stored and guessing otherwise. With the "use the stored value" step
+  disabled it becomes the flat reconstruction, which is why both paths share one
   `reconstruct_box` core.
 
 ## Summary
 
-| Layer | Entry point | Role |
-| --- | --- | --- |
-| Stencil | `prediction`, `prediction_map` | the interpolating-wavelet combination, memoised |
-| Apply | `portion` | reconstruct the child(ren) of a coarse cell (scalar or summed slice) |
-| Project | `reconstruction` | fill a uniform fine field from an adapted one |
-| Exact | `reconstruct_exact` / `reconstruct_exact_box`, `make_real_backed_lca` | use the real finer cells instead of guessing across refinement boundaries |
-```
+- **Stencil** - `prediction`, `prediction_map`: the interpolating-wavelet
+  combination, memoised.
+- **Apply** - `portion`: reconstruct the child(ren) of a coarse cell, either one
+  scalar child or a whole summed slice.
+- **Project** - `reconstruction`: fill a uniform fine field from an adapted one.
+- **Exact** - `reconstruct_exact` / `reconstruct_exact_box`, backed by
+  `make_real_backed_lca`: use the real finer cells instead of guessing across
+  refinement boundaries.
