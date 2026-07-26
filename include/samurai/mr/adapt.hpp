@@ -295,16 +295,9 @@ namespace samurai
         // Detail computation //
         //--------------------//
 
-        // We compute the detail in the cells and ghosts below the cells, except near the (non-periodic) boundaries, where we compute
-        // the detail only in the cells (justification in the comments below).
-
-        bool periodic_in_all_directions = true;
-        std::array<bool, dim> contract_directions;
-        for (std::size_t d = 0; d < dim; ++d)
-        {
-            periodic_in_all_directions = periodic_in_all_directions && mesh.is_periodic(d);
-            contract_directions[d]     = !mesh.is_periodic(d);
-        }
+        // The detail is computed at every position of all_cells[level] lying below a leaf cell (at
+        // level+1 or level+2). The set is not contracted near non-periodic boundaries: there, the
+        // prediction stencil reads the outer ghosts filled by the boundary conditions.
 
         times::timers.start("detail computation");
         for (std::size_t level = ((min_level > 0) ? min_level - 1 : 0); level < max_level - ite; ++level)
