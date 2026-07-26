@@ -849,60 +849,6 @@ namespace samurai
         return make_field_operator_function<to_coarsen_op>(std::forward<CT>(e)...);
     }
 
-    /*************************
-     * refine_ghost operator *
-     *************************/
-
-    template <std::size_t dim, class TInterval>
-    class refine_ghost_op : public field_operator_base<dim, TInterval>
-    {
-      public:
-
-        INIT_OPERATOR(refine_ghost_op)
-
-        template <class T>
-        SAMURAI_INLINE void operator()(Dim<1>, T& flag) const
-        {
-            auto mask = flag(level + 1, i) & static_cast<std::uint8_t>(CellFlag::keep);
-            apply_on_masked(flag(level, i / 2),
-                            mask,
-                            [](auto& e)
-                            {
-                                e = static_cast<std::uint8_t>(CellFlag::refine);
-                            });
-        }
-
-        template <class T>
-        SAMURAI_INLINE void operator()(Dim<2>, T& flag) const
-        {
-            auto mask = flag(level + 1, i, j) & static_cast<std::uint8_t>(CellFlag::keep);
-            apply_on_masked(flag(level, i / 2, j / 2),
-                            mask,
-                            [](auto& e)
-                            {
-                                e = static_cast<std::uint8_t>(CellFlag::refine);
-                            });
-        }
-
-        template <class T>
-        SAMURAI_INLINE void operator()(Dim<3>, T& flag) const
-        {
-            auto mask = flag(level + 1, i, j, k) & static_cast<std::uint8_t>(CellFlag::keep);
-            apply_on_masked(flag(level, i / 2, j / 2, k / 2),
-                            mask,
-                            [](auto& e)
-                            {
-                                e = static_cast<std::uint8_t>(CellFlag::refine);
-                            });
-        }
-    };
-
-    template <class... CT>
-    SAMURAI_INLINE auto refine_ghost(CT&&... e)
-    {
-        return make_field_operator_function<refine_ghost_op>(std::forward<CT>(e)...);
-    }
-
     /********************
      * enlarge operator *
      ********************/
