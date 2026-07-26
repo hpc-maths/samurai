@@ -174,35 +174,37 @@ namespace samurai
                 rhs[q] = monomial_average(q, child_lo, child_hi);
             }
 
-            for (std::size_t col = 0; col < n; ++col)
+            // `col` and `row` would shadow samurai::col() / samurai::row()
+            // (storage/xtensor/xtensor_static.hpp), so the indices are named for what they are.
+            for (std::size_t pivot_col = 0; pivot_col < n; ++pivot_col)
             {
-                std::size_t pivot = col;
-                while (pivot < n && a[pivot][col].is_zero())
+                std::size_t pivot_row = pivot_col;
+                while (pivot_row < n && a[pivot_row][pivot_col].is_zero())
                 {
-                    ++pivot;
+                    ++pivot_row;
                 }
-                std::swap(a[col], a[pivot]);
-                std::swap(rhs[col], rhs[pivot]);
+                std::swap(a[pivot_col], a[pivot_row]);
+                std::swap(rhs[pivot_col], rhs[pivot_row]);
 
-                const Rational p = a[col][col];
+                const Rational p = a[pivot_col][pivot_col];
                 for (std::size_t k = 0; k < n; ++k)
                 {
-                    a[col][k] = a[col][k] / p;
+                    a[pivot_col][k] = a[pivot_col][k] / p;
                 }
-                rhs[col] = rhs[col] / p;
+                rhs[pivot_col] = rhs[pivot_col] / p;
 
-                for (std::size_t row = 0; row < n; ++row)
+                for (std::size_t other = 0; other < n; ++other)
                 {
-                    if (row == col || a[row][col].is_zero())
+                    if (other == pivot_col || a[other][pivot_col].is_zero())
                     {
                         continue;
                     }
-                    const Rational f = a[row][col];
+                    const Rational f = a[other][pivot_col];
                     for (std::size_t k = 0; k < n; ++k)
                     {
-                        a[row][k] = a[row][k] - f * a[col][k];
+                        a[other][k] = a[other][k] - f * a[pivot_col][k];
                     }
-                    rhs[row] = rhs[row] - f * rhs[col];
+                    rhs[other] = rhs[other] - f * rhs[pivot_col];
                 }
             }
 
