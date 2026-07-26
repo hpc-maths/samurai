@@ -1003,23 +1003,13 @@ namespace samurai
     template <class Mesh>
     auto make_real_backed_lca(const Mesh& mesh)
     {
-        static constexpr std::size_t dim = Mesh::dim;
-        using interval_t                 = typename Mesh::interval_t;
-        using lca_t                      = LevelCellArray<dim, interval_t>;
-        using lcl_t                      = LevelCellList<dim, interval_t>;
-        using mesh_id_t                  = typename Mesh::mesh_id_t;
+        using lca_t     = typename Mesh::lca_type;
+        using mesh_id_t = typename Mesh::mesh_id_t;
 
         std::vector<lca_t> stored(mesh.max_level() + 1);
         for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
         {
-            lcl_t lcl{level};
-            auto expr = union_(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::proj_cells][level]);
-            expr(
-                [&](const auto& interval, const auto& index_yz)
-                {
-                    lcl[index_yz].add_interval(interval);
-                });
-            stored[level] = {lcl};
+            stored[level] = lca_t(union_(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::proj_cells][level]));
         }
         return stored;
     }
