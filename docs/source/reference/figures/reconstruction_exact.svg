@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="700" height="384" viewBox="0 0 700 384" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="a2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#718096"/>
+    </marker>
+    <marker id="a2b" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#a0aec0"/>
+    </marker>
+    <marker id="ao" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#c05621"/>
+    </marker>
+  </defs>
+
+  <!-- shared level labels -->
+  <text x="12" y="107" font-size="13" fill="#4a5568" font-style="italic">L</text>
+  <text x="12" y="185" font-size="13" fill="#4a5568" font-style="italic">l0+1</text>
+  <text x="12" y="281" font-size="13" fill="#4a5568" font-style="italic">l0</text>
+
+  <!-- panel divider -->
+  <line x1="352" y1="46" x2="352" y2="360" stroke="#e2e8f0" stroke-width="2"/>
+
+  <!-- ============================ PANEL A : FLAT ============================ -->
+  <g>
+    <text x="172" y="30" font-size="15" fill="#2b6cb0" text-anchor="middle" font-weight="bold">flat reconstruction</text>
+
+    <!-- cone -->
+    <polygon points="224,90 150,250 296,250" fill="#2b6cb0" fill-opacity="0.08"/>
+
+    <!-- refinement boundary (right edge of the donor) -->
+    <line x1="232" y1="150" x2="232" y2="306" stroke="#cbd5e0" stroke-width="1.4" stroke-dasharray="3 3"/>
+
+    <!-- L row : t is the right-most fine child of the donor -->
+    <g fill="#eef5fb" stroke="#2b6cb0" stroke-width="1.3">
+      <rect x="168" y="92" width="16" height="22"/>
+      <rect x="184" y="92" width="16" height="22"/>
+      <rect x="200" y="92" width="16" height="22"/>
+    </g>
+    <rect x="216" y="92" width="16" height="22" fill="#cfe0f2" stroke="#2b6cb0" stroke-width="2.2"/>
+    <text x="224" y="108" font-size="11" fill="#1a365d" text-anchor="middle">t</text>
+
+    <!-- l0+1 row : the 3 cells feeding t; the boundary cell is guessed from l0 -->
+    <g fill="#f4f8fc" stroke="#90aecd" stroke-width="1.1">
+      <rect x="104" y="165" width="32" height="32"/>
+      <rect x="136" y="165" width="32" height="32"/>
+      <rect x="264" y="165" width="32" height="32"/>
+    </g>
+    <g fill="#ffffff" stroke="#a0aec0" stroke-width="1.6" stroke-dasharray="4 3">
+      <rect x="168" y="165" width="32" height="32"/>
+      <rect x="200" y="165" width="32" height="32"/>
+      <rect x="232" y="165" width="32" height="32"/>
+    </g>
+    <text x="248" y="185" font-size="8.5" fill="#718096" text-anchor="middle">guess</text>
+
+    <!-- l0 row : coarse cells; the 3rd (donor) is stored, the region to the right is refined -->
+    <g fill="#dbe9f6" stroke="#2b6cb0" stroke-width="1.7">
+      <rect x="40"  y="250" width="64" height="52"/>
+      <rect x="104" y="250" width="64" height="52"/>
+      <rect x="168" y="250" width="64" height="52"/>
+    </g>
+    <text x="200" y="281" font-size="11" fill="#1a365d" text-anchor="middle">stored</text>
+    <rect x="232" y="250" width="64" height="52" fill="#f7fafc" stroke="#cbd5e0" stroke-width="1.3" stroke-dasharray="4 3"/>
+    <text x="264" y="281" font-size="9.5" fill="#a0aec0" text-anchor="middle">refined</text>
+
+    <!-- step 1 : t <- its 3 cells at l0+1 -->
+    <line x1="222" y1="114" x2="188" y2="163" stroke="#718096" stroke-width="1.4" marker-end="url(#a2)"/>
+    <line x1="224" y1="114" x2="216" y2="163" stroke="#718096" stroke-width="1.4" marker-end="url(#a2)"/>
+    <line x1="226" y1="114" x2="246" y2="163" stroke="#718096" stroke-width="1.4" marker-end="url(#a2)"/>
+
+    <!-- step 2 : the boundary cell is guessed from l0 -->
+    <line x1="246" y1="197" x2="206" y2="248" stroke="#a0aec0" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#a2b)"/>
+    <line x1="250" y1="197" x2="262" y2="248" stroke="#a0aec0" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#a2b)"/>
+
+    <text x="172" y="332" font-size="12" fill="#718096" text-anchor="middle">The boundary cell is guessed from l0,</text>
+    <text x="172" y="348" font-size="12" fill="#718096" text-anchor="middle">so the real finer cell is ignored.</text>
+  </g>
+
+  <!-- ============================ PANEL B : EXACT ============================ -->
+  <g transform="translate(360,0)">
+    <text x="172" y="30" font-size="15" fill="#c05621" text-anchor="middle" font-weight="bold">exact reconstruction</text>
+
+    <!-- cone -->
+    <polygon points="224,90 150,250 296,250" fill="#2b6cb0" fill-opacity="0.08"/>
+
+    <!-- refinement boundary -->
+    <line x1="232" y1="150" x2="232" y2="306" stroke="#cbd5e0" stroke-width="1.4" stroke-dasharray="3 3"/>
+
+    <!-- L row -->
+    <g fill="#eef5fb" stroke="#2b6cb0" stroke-width="1.3">
+      <rect x="168" y="92" width="16" height="22"/>
+      <rect x="184" y="92" width="16" height="22"/>
+      <rect x="200" y="92" width="16" height="22"/>
+    </g>
+    <rect x="216" y="92" width="16" height="22" fill="#cfe0f2" stroke="#2b6cb0" stroke-width="2.2"/>
+    <text x="224" y="108" font-size="11" fill="#1a365d" text-anchor="middle">t</text>
+
+    <!-- l0+1 row : the boundary cell is a real stored leaf -->
+    <g fill="#f4f8fc" stroke="#90aecd" stroke-width="1.1">
+      <rect x="104" y="165" width="32" height="32"/>
+      <rect x="136" y="165" width="32" height="32"/>
+    </g>
+    <g fill="#ffffff" stroke="#a0aec0" stroke-width="1.6" stroke-dasharray="4 3">
+      <rect x="168" y="165" width="32" height="32"/>
+      <rect x="200" y="165" width="32" height="32"/>
+    </g>
+    <rect x="232" y="165" width="32" height="32" fill="#fde3cf" stroke="#dd6b20" stroke-width="2.4"/>
+    <text x="248" y="178" font-size="8.5" fill="#9c4221" text-anchor="middle">real</text>
+    <text x="248" y="190" font-size="8" fill="#9c4221" text-anchor="middle">stored</text>
+    <rect x="264" y="165" width="32" height="32" fill="#fdeee2" stroke="#e0a678" stroke-width="1.3"/>
+
+    <!-- l0 row -->
+    <g fill="#dbe9f6" stroke="#2b6cb0" stroke-width="1.7">
+      <rect x="40"  y="250" width="64" height="52"/>
+      <rect x="104" y="250" width="64" height="52"/>
+      <rect x="168" y="250" width="64" height="52"/>
+    </g>
+    <text x="200" y="281" font-size="11" fill="#1a365d" text-anchor="middle">stored</text>
+    <rect x="232" y="250" width="64" height="52" fill="#f7fafc" stroke="#cbd5e0" stroke-width="1.3" stroke-dasharray="4 3"/>
+    <text x="264" y="281" font-size="9.5" fill="#a0aec0" text-anchor="middle">refined</text>
+
+    <!-- step 1 : t <- 3 cells (orange to the real leaf across the boundary) -->
+    <line x1="222" y1="114" x2="188" y2="163" stroke="#718096" stroke-width="1.4" marker-end="url(#a2)"/>
+    <line x1="224" y1="114" x2="216" y2="163" stroke="#718096" stroke-width="1.4" marker-end="url(#a2)"/>
+    <line x1="226" y1="114" x2="246" y2="163" stroke="#c05621" stroke-width="1.9" marker-end="url(#ao)"/>
+
+    <!-- the real leaf overrides: no prediction from l0 -->
+    <text x="248" y="222" font-size="11" fill="#c05621" text-anchor="middle">override</text>
+
+    <text x="172" y="332" font-size="12" fill="#9c4221" text-anchor="middle">The real finer cell across the boundary</text>
+    <text x="172" y="348" font-size="12" fill="#9c4221" text-anchor="middle">is used as-is and carried up into t.</text>
+  </g>
+</svg>

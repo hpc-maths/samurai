@@ -8,12 +8,14 @@ For the C++ classes and functions themselves, see the {doc}`API reference <../ap
 ## Mesh
 
 - {doc}`subset`: the operations that combine the levels of a mesh into set expressions, at compile time or at runtime.
+- {doc}`reconstruction`: the prediction stencil, the portion of a coarse cell, and the reconstruction of an adapted field onto its finest level, flat or exact across refinement boundaries.
 
 ```{toctree}
 :caption: Mesh
 :hidden:
 
 subset
+reconstruction
 ```
 
 ## Numerical schemes
