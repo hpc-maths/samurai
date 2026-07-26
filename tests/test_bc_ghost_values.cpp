@@ -12,6 +12,24 @@
 //   domain corner, the off-diagonal ghosts copy the diagonal value.
 // - Far ghost layers (ghost_width > 1): filled by polynomial extrapolation.
 // - SetRegion: a B.C. restricted to a user subset via ->on(subset).
+//
+// TWO CONVENTIONS, and the distinction is load-bearing. bc/ is written in the
+// point-value convention: bc/dirichlet.hpp fits a polynomial through the cell
+// values placed at cell *centres* ("If we set the abscissa 0 at the center of
+// cells[0], this system reads p(0) = u[cells[0]] ..."). A finite-volume field
+// stores cell *averages*. The two disagree, and the disagreement is not
+// cosmetic: for a relation carrying a boundary datum, the reproduction order in
+// the cell-average sense is capped at m + 1, where m is the differential order
+// of the datum (0 for a Dirichlet value, 1 for a Neumann derivative). So every
+// Dirichlet<k> reproduces only degree 1 on cell averages, whatever k is.
+//
+// Both conventions are therefore asserted here, via @ref Sampling:
+//   - point:   exactness up to degree `order`, which is what the construction
+//              intends and what pins the coefficients (full coverage of them).
+//   - average: exactness up to the cap, and NON-exactness one degree above,
+//              which pins the real order from both sides.
+// A test written only in the point-value convention passes by making the same
+// convention error as the code, and cannot see the cap at all.
 
 #include <cmath>
 #include <map>
@@ -24,6 +42,7 @@
 #include <samurai/field.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
+#include <samurai/numeric/gauss_legendre.hpp>
 #include <samurai/samurai.hpp>
 #include <samurai/subset/node.hpp>
 
@@ -31,6 +50,36 @@ namespace samurai
 {
     namespace
     {
+        // How a field value is taken from the analytical function f: a point sample at
+        // the cell centre (the convention bc/ is written in) or the exact average of f
+        // over the cell (what a finite-volume field stores). See the file header.
+        enum class Sampling
+        {
+            point,
+            average
+        };
+
+        inline const char* name_of(Sampling s)
+        {
+            return s == Sampling::point ? "point" : "average";
+        }
+
+        // Exact average of f over the cell. Degree 10 is well above every polynomial
+        // used in this file, so the quadrature is exact and introduces no error of its
+        // own; the division by |cell| turns the integral into the average.
+        template <std::size_t dim, class TInterval, class F>
+        double cell_average(const Cell<dim, TInterval>& cell, F&& f)
+        {
+            static GaussLegendre<10> gl;
+            return gl.template quadrature<1>(cell, f) / std::pow(cell.length, static_cast<double>(dim));
+        }
+
+        template <std::size_t dim, class TInterval, class F>
+        double sample(Sampling s, const Cell<dim, TInterval>& cell, F&& f)
+        {
+            return s == Sampling::point ? f(cell.center()) : cell_average(cell, f);
+        }
+
         // Non-zero axis and its sign for a Cartesian direction.
         template <std::size_t dim>
         std::pair<std::size_t, int> axis_and_sign(const DirectionVector<dim>& direction)
@@ -94,17 +143,27 @@ namespace samurai
             return n;
         }
 
-        // Iterate over the `h` filled ghost layers on the +/-direction side, at
-        // every level, and check that each ghost holds f(ghost center). Works on
-        // both uniform and adapted meshes (domain_boundary gives the boundary
-        // cells per level). Returns the number of ghosts checked.
+        // Result of sweeping the filled ghosts: how many were seen, and the largest
+        // deviation from the oracle. Returned rather than asserted, so a caller can
+        // demand exactness (error ~ 0) or demand NON-exactness (error above a floor),
+        // which is what pins a reproduction order from both sides.
+        struct GhostSweep
+        {
+            std::size_t nb    = 0;
+            double max_err    = 0.;
+            double worst_at_h = 0.;
+        };
+
+        // Sweep the `h` filled ghost layers on the +/-direction side, at every level,
+        // comparing each ghost to `f` taken in the requested convention. Works on both
+        // uniform and adapted meshes (domain_boundary gives the boundary cells per level).
         template <class Field, class F>
-        std::size_t check_ghosts(Field& u, const DirectionVector<Field::dim>& direction, int h, F&& f)
+        GhostSweep sweep_ghosts(Field& u, const DirectionVector<Field::dim>& direction, int h, Sampling sampling, F&& f)
         {
             using mesh_id_t = typename Field::mesh_t::mesh_id_t;
             auto& mesh      = u.mesh();
 
-            std::size_t nb = 0;
+            GhostSweep out;
             for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
             {
                 auto inner  = domain_boundary(mesh, level, direction);
@@ -116,13 +175,27 @@ namespace samurai
                                   ghosts,
                                   [&](auto& cell)
                                   {
-                                      ++nb;
-                                      EXPECT_NEAR(u[cell], f(cell.center()), 1e-11)
-                                          << "dim=" << Field::dim << " direction=" << direction << " level=" << level << " layer=" << k;
+                                      ++out.nb;
+                                      const double e = std::abs(u[cell] - sample(sampling, cell, f));
+                                      if (e > out.max_err)
+                                      {
+                                          out.max_err    = e;
+                                          out.worst_at_h = cell.length;
+                                      }
                                   });
                 }
             }
-            return nb;
+            return out;
+        }
+
+        // Point-value convention with exactness demanded, i.e. the original behaviour of
+        // this helper. Kept so the existing tests read unchanged.
+        template <class Field, class F>
+        std::size_t check_ghosts(Field& u, const DirectionVector<Field::dim>& direction, int h, F&& f)
+        {
+            auto s = sweep_ghosts(u, direction, h, Sampling::point, f);
+            EXPECT_NEAR(s.max_err, 0., 1e-11) << "dim=" << Field::dim << " direction=" << direction;
+            return s.nb;
         }
 
         // Dirichlet of the given order. `functional` selects the FunctionBc path
@@ -258,6 +331,128 @@ namespace samurai
 
                     EXPECT_GT(check_ghosts(u, direction, h, f), 0u);
                 });
+        }
+
+        // ------------------------------------------------------------------------
+        // Reproduction order, probed from both sides and in both conventions.
+        // ------------------------------------------------------------------------
+
+        // Coefficients of the probe polynomial. Arbitrary but fixed and all nonzero, so
+        // that no term is accidentally annihilated by a symmetry of the relation - a
+        // polynomial that happens to be (anti)symmetric about the boundary would make
+        // the probe vacuous.
+        inline constexpr double probe_coeff[6] = {1., 3., -2., 0.7, -0.4, 0.25};
+
+        // Polynomial of degree `deg` in the normal coordinate alone, so its restriction
+        // to a boundary face is constant and the Dirichlet/Neumann datum is a scalar.
+        template <class Coords>
+        double normal_polynomial(const Coords& coords, std::size_t normal_axis, std::size_t deg)
+        {
+            const double x = coords[normal_axis];
+            double p       = 0.;
+            double xk      = 1.;
+            for (std::size_t k = 0; k <= deg; ++k, xk *= x)
+            {
+                p += probe_coeff[k] * xk;
+            }
+            return p;
+        }
+
+        template <class Coords>
+        double normal_polynomial_derivative(const Coords& coords, std::size_t normal_axis, std::size_t deg)
+        {
+            const double x = coords[normal_axis];
+            double p       = 0.;
+            double xk      = 1.;
+            for (std::size_t k = 1; k <= deg; ++k, xk *= x)
+            {
+                p += probe_coeff[k] * static_cast<double>(k) * xk;
+            }
+            return p;
+        }
+
+        // Fill the field with the degree-`deg` probe in the given convention, apply a
+        // Dirichlet<order>, and sweep every filled ghost in that same convention. The
+        // boundary datum stays a POINT value of f at the face in both conventions,
+        // because that is what the BC consumes - and that asymmetry is precisely what
+        // caps the cell-average order.
+        template <std::size_t dim, std::size_t order, class Mesh>
+        GhostSweep dirichlet_sweep(Mesh& mesh, Sampling sampling, std::size_t deg)
+        {
+            GhostSweep worst;
+            for_each_cartesian_direction<dim>(
+                [&](const auto& direction)
+                {
+                    auto [normal_axis, s] = axis_and_sign<dim>(direction);
+
+                    auto f = [normal_axis, deg](const auto& coords)
+                    {
+                        return normal_polynomial(coords, normal_axis, deg);
+                    };
+
+                    auto u = make_scalar_field<double>("u", mesh);
+                    for_each_cell(mesh,
+                                  [&](auto& cell)
+                                  {
+                                      u[cell] = sample(sampling, cell, f);
+                                  });
+
+                    xt::xtensor_fixed<double, xt::xshape<dim>> face;
+                    face.fill(0.);
+                    face[normal_axis] = (s > 0) ? 1. : 0.;
+                    make_bc<Dirichlet<order>>(u, f(face));
+                    apply_field_bc(u, DirectionVector<dim>(direction));
+
+                    auto sw = sweep_ghosts(u, direction, static_cast<int>(order), sampling, f);
+                    worst.nb += sw.nb;
+                    if (sw.max_err > worst.max_err)
+                    {
+                        worst.max_err    = sw.max_err;
+                        worst.worst_at_h = sw.worst_at_h;
+                    }
+                });
+            return worst;
+        }
+
+        // Same, for Neumann<1>. Its datum is the outward normal derivative at the face,
+        // again a point quantity.
+        template <std::size_t dim, class Mesh>
+        GhostSweep neumann_sweep(Mesh& mesh, Sampling sampling, std::size_t deg)
+        {
+            GhostSweep worst;
+            for_each_cartesian_direction<dim>(
+                [&](const auto& direction)
+                {
+                    auto [normal_axis, s] = axis_and_sign<dim>(direction);
+
+                    auto f = [normal_axis, deg](const auto& coords)
+                    {
+                        return normal_polynomial(coords, normal_axis, deg);
+                    };
+
+                    auto u = make_scalar_field<double>("u", mesh);
+                    for_each_cell(mesh,
+                                  [&](auto& cell)
+                                  {
+                                      u[cell] = sample(sampling, cell, f);
+                                  });
+
+                    xt::xtensor_fixed<double, xt::xshape<dim>> face;
+                    face.fill(0.);
+                    face[normal_axis] = (s > 0) ? 1. : 0.;
+                    // outward normal derivative: d/dx along the outward normal
+                    make_bc<Neumann<1>>(u, static_cast<double>(s) * normal_polynomial_derivative(face, normal_axis, deg));
+                    apply_field_bc(u, DirectionVector<dim>(direction));
+
+                    auto sw = sweep_ghosts(u, direction, 1, sampling, f);
+                    worst.nb += sw.nb;
+                    if (sw.max_err > worst.max_err)
+                    {
+                        worst.max_err    = sw.max_err;
+                        worst.worst_at_h = sw.worst_at_h;
+                    }
+                });
+            return worst;
         }
 
         // Number of axes along which the point lies outside the unit box.
@@ -665,6 +860,109 @@ namespace samurai
     {
         auto mesh = uniform_mesh<3>(4, 1);
         run_neumann<3>(mesh, true);
+    }
+
+    //-------------------------------------------------------------------------
+    // Reproduction order in both conventions, pinned from both sides.
+    //
+    // Exactness alone does not pin an order: it must also FAIL one degree above,
+    // otherwise a relation of higher order than claimed passes silently. Each test
+    // below asserts both.
+    //
+    // The point-value column is what bc/ is written for and what pins the
+    // coefficients. The cell-average column is what a finite-volume field gets, and
+    // it is capped at m + 1 with m the differential order of the boundary datum:
+    //   Dirichlet (m = 0) -> 1, for EVERY order;
+    //   Neumann   (m = 1) -> 2, one higher than the class name suggests.
+    //-------------------------------------------------------------------------
+
+    namespace
+    {
+        // A residual is "not exact" only if it is far above roundoff. The probe values
+        // are O(1), so 1e-6 is a wide margin either way.
+        constexpr double exact_tol     = 1e-11;
+        constexpr double not_exact_tol = 1e-6;
+
+        template <std::size_t dim, std::size_t order>
+        void check_dirichlet_orders(std::size_t expected_point, std::size_t expected_average)
+        {
+            auto mesh = uniform_mesh<dim>(4, static_cast<int>(order));
+
+            for (auto sampling : {Sampling::point, Sampling::average})
+            {
+                const std::size_t expected = (sampling == Sampling::point) ? expected_point : expected_average;
+
+                auto at_order = dirichlet_sweep<dim, order>(mesh, sampling, expected);
+                EXPECT_GT(at_order.nb, 0u);
+                EXPECT_NEAR(at_order.max_err, 0., exact_tol) << "Dirichlet<" << order << "> dim=" << dim << " " << name_of(sampling)
+                                                             << ": expected exactness on degree " << expected;
+
+                auto above = dirichlet_sweep<dim, order>(mesh, sampling, expected + 1);
+                EXPECT_GT(above.max_err, not_exact_tol)
+                    << "Dirichlet<" << order << "> dim=" << dim << " " << name_of(sampling) << ": degree " << (expected + 1)
+                    << " must NOT be reproduced, else the order is higher than claimed";
+            }
+        }
+
+        template <std::size_t dim>
+        void check_neumann_orders(std::size_t expected_point, std::size_t expected_average)
+        {
+            auto mesh = uniform_mesh<dim>(4, 1);
+
+            for (auto sampling : {Sampling::point, Sampling::average})
+            {
+                const std::size_t expected = (sampling == Sampling::point) ? expected_point : expected_average;
+
+                auto at_order = neumann_sweep<dim>(mesh, sampling, expected);
+                EXPECT_GT(at_order.nb, 0u);
+                EXPECT_NEAR(at_order.max_err, 0., exact_tol)
+                    << "Neumann<1> dim=" << dim << " " << name_of(sampling) << ": expected exactness on degree " << expected;
+
+                auto above = neumann_sweep<dim>(mesh, sampling, expected + 1);
+                EXPECT_GT(above.max_err, not_exact_tol)
+                    << "Neumann<1> dim=" << dim << " " << name_of(sampling) << ": degree " << (expected + 1) << " must NOT be reproduced";
+            }
+        }
+    }
+
+    TEST(bc_ghost_values, order_dirichlet1_1d)
+    {
+        check_dirichlet_orders<1, 1>(/*point=*/1, /*average=*/1);
+    }
+
+    TEST(bc_ghost_values, order_dirichlet2_1d)
+    {
+        check_dirichlet_orders<1, 2>(/*point=*/2, /*average=*/1);
+    }
+
+    TEST(bc_ghost_values, order_dirichlet3_1d)
+    {
+        check_dirichlet_orders<1, 3>(/*point=*/3, /*average=*/1);
+    }
+
+    TEST(bc_ghost_values, order_dirichlet4_1d)
+    {
+        check_dirichlet_orders<1, 4>(/*point=*/4, /*average=*/1);
+    }
+
+    TEST(bc_ghost_values, order_dirichlet2_2d)
+    {
+        check_dirichlet_orders<2, 2>(/*point=*/2, /*average=*/1);
+    }
+
+    TEST(bc_ghost_values, order_dirichlet2_3d)
+    {
+        check_dirichlet_orders<3, 2>(/*point=*/2, /*average=*/1);
+    }
+
+    TEST(bc_ghost_values, order_neumann_1d)
+    {
+        check_neumann_orders<1>(/*point=*/2, /*average=*/2);
+    }
+
+    TEST(bc_ghost_values, order_neumann_2d)
+    {
+        check_neumann_orders<2>(/*point=*/2, /*average=*/2);
     }
 
     //-------------------------------------------------------------------------
