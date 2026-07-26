@@ -72,7 +72,7 @@ namespace samurai
 
             constexpr Rational() = default;
 
-            constexpr Rational(std::int64_t num, std::int64_t den = 1)
+            constexpr explicit Rational(std::int64_t num, std::int64_t den = 1)
                 : n(num)
                 , d(den)
             {
@@ -100,22 +100,22 @@ namespace samurai
 
             constexpr Rational operator+(const Rational& o) const
             {
-                return {n * o.d + o.n * d, d * o.d};
+                return Rational{n * o.d + o.n * d, d * o.d};
             }
 
             constexpr Rational operator-(const Rational& o) const
             {
-                return {n * o.d - o.n * d, d * o.d};
+                return Rational{n * o.d - o.n * d, d * o.d};
             }
 
             constexpr Rational operator*(const Rational& o) const
             {
-                return {n * o.n, d * o.d};
+                return Rational{n * o.n, d * o.d};
             }
 
             constexpr Rational operator/(const Rational& o) const
             {
-                return {n * o.d, d * o.n};
+                return Rational{n * o.d, d * o.n};
             }
 
             constexpr bool is_zero() const
