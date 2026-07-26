@@ -308,11 +308,11 @@ namespace samurai
                     {
                         return;
                     }
-                    const lca_t boundary_cells(difference(fine_l, translate(domain[l], -t)).on(l));
+                    const lca_t boundary_cells(difference(fine_l, translate(domain[l], -t)));
                     for (int i = 2; i <= n_contig; i += 2)
                     {
-                        lca_t inside(intersection(translate(boundary_cells, -i * t), domain[l]).on(l));
-                        extra = have ? lca_t(union_(extra, inside).on(l)) : std::move(inside);
+                        lca_t inside(intersection(translate(boundary_cells, -i * t), domain[l]));
+                        extra = have ? lca_t(union_(extra, inside)) : std::move(inside);
                         have  = true;
                     }
                 });
@@ -350,11 +350,11 @@ namespace samurai
                     {
                         return;
                     }
-                    const lca_t face_coarse(difference(domain[lc], translate(domain[lc], -t)).on(lc));
+                    const lca_t face_coarse(difference(domain[lc], translate(domain[lc], -t)));
                     for (int i = 1; i < max_stencil_radius; ++i)
                     {
-                        lca_t ref(self(lca_t(intersection(face_coarse, translate(fine_on_c, i * t)).on(lc))).on(l));
-                        extra = have ? lca_t(union_(extra, ref).on(l)) : std::move(ref);
+                        lca_t ref(self(lca_t(intersection(face_coarse, translate(fine_on_c, i * t)))).on(l));
+                        extra = have ? lca_t(union_(extra, ref)) : std::move(ref);
                         have  = true;
                     }
                 });
@@ -527,13 +527,13 @@ namespace samurai
                     continue;
                 }
                 lca_t projected(self(ca[l]).on(ca.max_level()));
-                coverage = first ? projected : lca_t(union_(coverage, projected).on(ca.max_level()));
+                coverage = first ? projected : lca_t(union_(coverage, projected));
                 first    = false;
             }
         }
         const auto clip = [&](lca_t&& x, size_t l) -> lca_t
         {
-            return use_coverage ? lca_t(intersection(x, self(coverage).on(l)).on(l)) : lca_t(intersection(x, domain[l]).on(l));
+            return use_coverage ? lca_t(intersection(x, self(coverage).on(l))) : lca_t(intersection(x, domain[l]));
         };
 
         std::array<lca_t, max_size> F;
@@ -555,6 +555,15 @@ namespace samurai
         {
             if constexpr (FoldBoundary)
             {
+                // Case-1 inward thickness (fine cells) forced along a physical face, as the max of two
+                // lower bounds (see PR hpc-maths/samurai#320 for figures):
+                //  - 2*(R-2): to keep a coarse (l-1) cell's radius-R stencil inside the domain we need R
+                //    contiguous l-1 cells; one is the exterior ghost carrying the projected B.C. and one is
+                //    the boundary cell itself, so only R-2 must be backed by real cells inward -> 2*(R-2)
+                //    fine cells (one l-1 cell = 2 level-l cells).
+                //  - R: the fine level's own stencil still needs R contiguous cells at the boundary; for
+                //    small R (2, 3) the 2*(R-2) term collapses to 0/2, so this floor takes over.
+                // The two terms cross at R=4; below it R wins, above it 2*(R-2) (slope 2R-4) wins.
                 const int n_contig = std::max(max_stencil_radius, 2 * (max_stencil_radius - 2));
                 if (max_stencil_radius <= 1 || domain.empty() || n_contig <= 1)
                 {
@@ -563,7 +572,7 @@ namespace samurai
                 // The actual level-l cells (F[l] also carries everything required finer).
                 const auto graded_level = [&](size_t ll) -> lca_t
                 {
-                    return (ll < max_level) ? lca_t(difference(F[ll], self(F[ll + 1]).on(ll)).on(ll)) : F[ll];
+                    return (ll < max_level) ? lca_t(difference(F[ll], self(F[ll + 1]).on(ll))) : F[ll];
                 };
                 const auto exchange_graded_level = [&](const lca_t& graded_l, size_t ll, int phase) -> std::vector<lca_t>
                 {
@@ -575,7 +584,7 @@ namespace samurai
                 };
                 const auto grow_F = [&](size_t ll, lca_t&& piece)
                 {
-                    lca_t req(union_(F[ll], piece).on(ll));
+                    lca_t req(union_(F[ll], piece));
                     F[ll] = (ll > min_level) ? clip(lca_t(self(req).on(ll - 1).on(ll)), ll) : clip(std::move(req), ll);
                 };
                 const auto sources = [&](const lca_t& my_fine, const std::vector<lca_t>& nbr_fine)
@@ -636,9 +645,9 @@ namespace samurai
             lca_t finer = F[l + 1];
             for (const auto& nf : neighbour_F[l + 1])
             {
-                // Union accumulation with a per-step .on() reconstruction: a raw loop reads better than std::accumulate.
+                // Union accumulation with a per-step lca_t reconstruction: a raw loop reads better than std::accumulate.
                 // cppcheck-suppress useStlAlgorithm
-                finer = lca_t(union_(finer, nf).on(l + 1));
+                finer = lca_t(union_(finer, nf));
             }
 
             lca_t expanded(nestedExpand(self(finer).on(l), w));
@@ -649,12 +658,12 @@ namespace samurai
                 const lca_t base = expanded;
                 for (const auto& d : detail::get_periodic_directions(nb_cells_finest_level, int(domain.max_level()) - int(l), is_periodic))
                 {
-                    // Union accumulation with a per-step .on() reconstruction: a raw loop reads better than std::accumulate.
+                    // Union accumulation with a per-step lca_t reconstruction: a raw loop reads better than std::accumulate.
                     // cppcheck-suppress useStlAlgorithm
-                    expanded = lca_t(union_(expanded, translate(base, d)).on(l));
+                    expanded = lca_t(union_(expanded, translate(base, d)));
                 }
             }
-            lca_t req(union_(ca[l], expanded).on(l));
+            lca_t req(union_(ca[l], expanded));
             // Round up to whole (l-1) parents (complete-tree invariant) then clip.
             F[l] = (l > min_level) ? clip(lca_t(self(req).on(l - 1).on(l)), l) : clip(std::move(req), l);
             extend_boundary(l);
@@ -672,10 +681,10 @@ namespace samurai
                 graded_ca[l].add_interval_back(x_interval, yz);
             };
         };
-        self(F[max_level]).on(max_level)(collect(max_level));
+        graded_ca[max_level] = F[max_level];
         for (size_t l = min_level; l < max_level; ++l)
         {
-            difference(F[l], self(F[l + 1]).on(l)).on(l)(collect(l));
+            difference(F[l], self(F[l + 1]).on(l))(collect(l));
         }
         std::swap(ca, graded_ca);
     }
