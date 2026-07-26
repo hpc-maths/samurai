@@ -1384,11 +1384,11 @@ namespace samurai
                             PetscInt ghost_index = this->local_row_index(ghost, field_i);
                             MatSetValueLocal(A, ghost_index, ghost_index, scaling, current_insert_mode());
 
-                            auto ii      = ghost.indices(0);
-                            auto ig      = ii >> 1;
-                            double isign = (ii & 1) ? -1 : 1;
+                            auto ii                   = ghost.indices(0);
+                            auto ig                   = ii >> 1;
+                            const std::size_t iparity = static_cast<std::size_t>(ii & 1);
 
-                            auto interpx = samurai::interp_coeffs<2 * prediction_stencil_radius + 1>(isign);
+                            const auto& interpx = samurai::prediction_coefficients<prediction_stencil_radius>(iparity, 0).c;
 
                             auto parent_index = this->local_col_index(static_cast<PetscInt>(this->mesh().get_index(ghost.level - 1, ig)),
                                                                       field_i);
@@ -1417,11 +1417,11 @@ namespace samurai
             {
                 std::vector<cell_coeff_pair_t> linear_comb;
 
-                auto ii      = ghost.indices(0);
-                auto ig      = ii >> 1;
-                double isign = (ii & 1) ? -1 : 1;
+                auto ii                   = ghost.indices(0);
+                auto ig                   = ii >> 1;
+                const std::size_t iparity = static_cast<std::size_t>(ii & 1);
 
-                auto interpx = samurai::interp_coeffs<2 * prediction_stencil_radius + 1>(isign);
+                const auto& interpx = samurai::prediction_coefficients<prediction_stencil_radius>(iparity, 0).c;
 
                 auto parent_index = this->mesh().get_index(ghost.level - 1, ig);
                 linear_comb.emplace_back(parent_index, 1.);
@@ -1456,15 +1456,15 @@ namespace samurai
                             PetscInt ghost_index = this->local_row_index(ghost, field_i);
                             MatSetValueLocal(A, ghost_index, ghost_index, scaling, current_insert_mode());
 
-                            auto ii      = ghost.indices(0);
-                            auto ig      = ii >> 1;
-                            auto j       = ghost.indices(1);
-                            auto jg      = j >> 1;
-                            double isign = (ii & 1) ? -1 : 1;
-                            double jsign = (j & 1) ? -1 : 1;
+                            auto ii                   = ghost.indices(0);
+                            auto ig                   = ii >> 1;
+                            auto j                    = ghost.indices(1);
+                            auto jg                   = j >> 1;
+                            const std::size_t iparity = static_cast<std::size_t>(ii & 1);
+                            const std::size_t jparity = static_cast<std::size_t>(j & 1);
 
-                            auto interpx = samurai::interp_coeffs<2 * prediction_stencil_radius + 1>(isign);
-                            auto interpy = samurai::interp_coeffs<2 * prediction_stencil_radius + 1>(jsign);
+                            const auto& interpx = samurai::prediction_coefficients<prediction_stencil_radius>(iparity, 0).c;
+                            const auto& interpy = samurai::prediction_coefficients<prediction_stencil_radius>(jparity, 0).c;
 
                             auto parent_index = this->local_col_index(static_cast<PetscInt>(this->mesh().get_index(ghost.level - 1, ig, jg)),
                                                                       field_i);
@@ -1497,15 +1497,15 @@ namespace samurai
             {
                 std::vector<cell_coeff_pair_t> linear_comb;
 
-                auto ii      = ghost.indices(0);
-                auto ig      = ii >> 1;
-                auto j       = ghost.indices(1);
-                auto jg      = j >> 1;
-                double isign = (ii & 1) ? -1 : 1;
-                double jsign = (j & 1) ? -1 : 1;
+                auto ii                   = ghost.indices(0);
+                auto ig                   = ii >> 1;
+                auto j                    = ghost.indices(1);
+                auto jg                   = j >> 1;
+                const std::size_t iparity = static_cast<std::size_t>(ii & 1);
+                const std::size_t jparity = static_cast<std::size_t>(j & 1);
 
-                auto interpx = samurai::interp_coeffs<2 * prediction_stencil_radius + 1>(isign);
-                auto interpy = samurai::interp_coeffs<2 * prediction_stencil_radius + 1>(jsign);
+                const auto& interpx = samurai::prediction_coefficients<prediction_stencil_radius>(iparity, 0).c;
+                const auto& interpy = samurai::prediction_coefficients<prediction_stencil_radius>(jparity, 0).c;
 
                 auto parent_index = this->mesh().get_index(ghost.level - 1, ig, jg);
                 linear_comb.emplace_back(parent_index, 1.);
@@ -1544,19 +1544,19 @@ namespace samurai
                             PetscInt ghost_index = this->local_row_index(ghost, field_i);
                             MatSetValueLocal(A, ghost_index, ghost_index, scaling, current_insert_mode());
 
-                            auto ii      = ghost.indices(0);
-                            auto ig      = ii >> 1;
-                            auto j       = ghost.indices(1);
-                            auto jg      = j >> 1;
-                            auto k       = ghost.indices(2);
-                            auto kg      = k >> 1;
-                            double isign = (ii & 1) ? -1 : 1;
-                            double jsign = (j & 1) ? -1 : 1;
-                            double ksign = (k & 1) ? -1 : 1;
+                            auto ii                   = ghost.indices(0);
+                            auto ig                   = ii >> 1;
+                            auto j                    = ghost.indices(1);
+                            auto jg                   = j >> 1;
+                            auto k                    = ghost.indices(2);
+                            auto kg                   = k >> 1;
+                            const std::size_t iparity = static_cast<std::size_t>(ii & 1);
+                            const std::size_t jparity = static_cast<std::size_t>(j & 1);
+                            const std::size_t kparity = static_cast<std::size_t>(k & 1);
 
-                            auto interpx = samurai::interp_coeffs<2 * prediction_stencil_radius + 1>(isign);
-                            auto interpy = samurai::interp_coeffs<2 * prediction_stencil_radius + 1>(jsign);
-                            auto interpz = samurai::interp_coeffs<2 * prediction_stencil_radius + 1>(ksign);
+                            const auto& interpx = samurai::prediction_coefficients<prediction_stencil_radius>(iparity, 0).c;
+                            const auto& interpy = samurai::prediction_coefficients<prediction_stencil_radius>(jparity, 0).c;
+                            const auto& interpz = samurai::prediction_coefficients<prediction_stencil_radius>(kparity, 0).c;
 
                             auto parent_index = this->local_col_index(
                                 static_cast<PetscInt>(this->mesh().get_index(ghost.level - 1, ig, jg, kg)),
@@ -1595,19 +1595,19 @@ namespace samurai
             {
                 std::vector<cell_coeff_pair_t> linear_comb;
 
-                auto ii      = ghost.indices(0);
-                auto ig      = ii >> 1;
-                auto j       = ghost.indices(1);
-                auto jg      = j >> 1;
-                auto k       = ghost.indices(2);
-                auto kg      = k >> 1;
-                double isign = (ii & 1) ? -1 : 1;
-                double jsign = (j & 1) ? -1 : 1;
-                double ksign = (k & 1) ? -1 : 1;
+                auto ii                   = ghost.indices(0);
+                auto ig                   = ii >> 1;
+                auto j                    = ghost.indices(1);
+                auto jg                   = j >> 1;
+                auto k                    = ghost.indices(2);
+                auto kg                   = k >> 1;
+                const std::size_t iparity = static_cast<std::size_t>(ii & 1);
+                const std::size_t jparity = static_cast<std::size_t>(j & 1);
+                const std::size_t kparity = static_cast<std::size_t>(k & 1);
 
-                auto interpx = samurai::interp_coeffs<2 * prediction_stencil_radius + 1>(isign);
-                auto interpy = samurai::interp_coeffs<2 * prediction_stencil_radius + 1>(jsign);
-                auto interpz = samurai::interp_coeffs<2 * prediction_stencil_radius + 1>(ksign);
+                const auto& interpx = samurai::prediction_coefficients<prediction_stencil_radius>(iparity, 0).c;
+                const auto& interpy = samurai::prediction_coefficients<prediction_stencil_radius>(jparity, 0).c;
+                const auto& interpz = samurai::prediction_coefficients<prediction_stencil_radius>(kparity, 0).c;
 
                 auto parent_index = this->mesh().get_index(ghost.level - 1, ig, jg, kg);
                 linear_comb.emplace_back(parent_index, 1.);

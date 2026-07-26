@@ -16,9 +16,16 @@
 #include "../operators_base.hpp"
 #include "../static_algorithm.hpp"
 #include "../utils.hpp"
+#include "prediction_coefficients.hpp"
 
 namespace samurai
 {
+    // Superseded by @ref prediction_coefficients (numeric/prediction_coefficients.hpp), which
+    // solves these same values from the cell-average moment conditions instead of tabulating
+    // them, and generalises them to the boundary-shifted stencils. Nothing in the library calls
+    // interp_coeffs any more; it is kept as the independent reference that the generated family
+    // is checked against, bit for bit, in tests/test_prediction_coefficients.cpp. It goes away
+    // with the public API break of the boundary rewrite, along with the order ceiling it imposes.
     template <std::size_t s>
     SAMURAI_INLINE std::array<double, s> interp_coeffs(double sign);
 
@@ -159,8 +166,8 @@ namespace samurai
         constexpr std::size_t order = 2 * pred_stencil_size + 1;
 
         // (even index coefficients, odd index coefficients)
-        std::array<std::array<double, order>, 2> interp_coeff_pair = {
-            {interp_coeffs<order>(1.), interp_coeffs<order>(-1.)}
+        const std::array<std::array<double, order>, 2> interp_coeff_pair = {
+            {prediction_coefficients<pred_stencil_size>(0, 0).c, prediction_coefficients<pred_stencil_size>(1, 0).c}
         };
 
         // Compute the memory accessors for the source data
@@ -297,8 +304,8 @@ namespace samurai
         using value_t               = typename TInterval::value_t;
 
         // (even index coefficients, odd index coefficients)
-        std::array<std::array<double, order>, 2> interp_coeff_pair = {
-            {interp_coeffs<order>(1.), interp_coeffs<order>(-1.)}
+        const std::array<std::array<double, order>, 2> interp_coeff_pair = {
+            {prediction_coefficients<pred_stencil_size>(0, 0).c, prediction_coefficients<pred_stencil_size>(1, 0).c}
         };
 
         const auto* src_data = src.data();
