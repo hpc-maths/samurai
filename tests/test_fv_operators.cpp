@@ -911,10 +911,16 @@ namespace samurai
     //
     //  2. With a solution EVEN about the faces (prod cos(2 pi x)), the boundary
     //     truncation error does not converge: O(1), flat from level 4 to 7. That is
-    //     not a bug. The ghost value is correct only to O(h^2) - Dirichlet reproduces
-    //     degree 1 in the cell-average sense, whatever order is requested - and the
-    //     operator divides by h^2, so the local truncation error at a boundary cell
-    //     is O(1) for any closure one order below the interior.
+    //     not a bug. This test samples u at cell centres, and Dirichlet<1> reproduces
+    //     only degree 1 on point values, so the ghost carries an O(h^2) error
+    //     (2(1 - cos(pi h)) ~ pi^2 h^2, hence the plateau at pi^2 in 1D and 2 pi^2
+    //     at the 2D corners, where both directions contribute); the operator divides
+    //     by h^2, so the local truncation error at a boundary cell is O(1) for any
+    //     closure one order below the interior. With point sampling, a higher-order
+    //     Dirichlet would converge here; on the cell AVERAGES a finite-volume field
+    //     actually stores, the cap asserted in test_bc_ghost_values.cpp keeps the
+    //     ghost error at O(h^2) - and this plateau in place - for EVERY Dirichlet
+    //     order.
     //
     // Consequence for the acceptance bar: the max-norm operator truncation error is
     // the WRONG functional to extend to the boundary. A mesh-independent boundary
@@ -944,8 +950,10 @@ namespace samurai
         }
 
         // Max truncation error of -Laplacian over boundary-touching cells only, for a
-        // manufactured solution that is even about every face (so the Dirichlet odd
-        // reflection is maximally wrong rather than accidentally exact).
+        // manufactured solution that is even about every face. The ghost relation
+        // u_ghost = 2g - u_0 reproduces the odd part of u - g about the face exactly
+        // and errs by twice its even part at the first cell centre; an even solution
+        // makes that error leading-order instead of accidentally zero.
         template <std::size_t dim>
         double boundary_diffusion_error(std::size_t level)
         {
@@ -1026,11 +1034,14 @@ namespace samurai
     }
 
     // The same measurement with the antisymmetric solution of the convergence tests
-    // above, kept as an executable warning: the boundary appears to be order 3 there,
-    // purely because Dirichlet<1> is an odd reflection and prod sin is antisymmetric
-    // about every face. This is what a naively lifted interior restriction would
-    // report. If this test ever fails, the odd-reflection coincidence has gone, and
-    // the trap it documents is no longer a trap.
+    // above, kept as an executable warning: the boundary appears to be order 3 there.
+    // Antisymmetry pays twice: Dirichlet<1> is an odd reflection, so the ghost is
+    // EXACT and the boundary cell is left with the plain interior truncation
+    // -(h^2/12) u'''' + O(h^4); and u'''' ~ sin(2 pi x) vanishes at the faces, so
+    // that term is O(h) on a boundary cell - h^2 * h = order 3. This is what a
+    // naively lifted interior restriction would report. If this test ever fails, the
+    // odd-reflection coincidence has gone, and the trap it documents is no longer a
+    // trap.
     namespace
     {
         template <std::size_t dim>
