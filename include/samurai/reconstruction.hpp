@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "arguments.hpp"
 #include "field.hpp"
 #include "numeric/prediction.hpp"
 #include "samurai_config.hpp"
@@ -1103,6 +1104,28 @@ namespace samurai
                 return c;
             }
         };
+    }
+
+    /**
+     * Support of the composed prediction, in cells of the base level: the radius, around the coarse
+     * cell it lives in, of the base-level footprint read by a reconstruction cascade spanning @a j
+     * levels with a prediction stencil of half-width @a r.
+     *
+     * It is the per-level box growth of @ref detail::reconstruct_box unrolled: S_0 = 0,
+     * S_{k+1} = r + ceil(S_k / 2), which saturates at 2r. Note that it is NOT r + j: the widening is
+     * geometric (r + r/2 + r/4 + ...), so it is strictly larger than r + j - 1 as soon as r >= 3.
+     * Used to size the halo of the band of cells a stream/flux has to recompute across a refinement
+     * boundary (see LBMScheme::stream_exact_reconstruction).
+     */
+    template <class value_t = int>
+    constexpr value_t composed_prediction_support(std::size_t r, std::size_t j)
+    {
+        value_t support = 0;
+        for (std::size_t k = 0; k < j; ++k)
+        {
+            support = static_cast<value_t>(r) + (support + 1) / 2;
+        }
+        return support;
     }
 
     namespace detail

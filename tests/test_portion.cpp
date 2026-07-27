@@ -683,4 +683,125 @@ namespace samurai
         }
         EXPECT_GT(checked, 0u);
     }
+
+    // The composed prediction support is the geometric series r + r/2 + r/4 + ..., NOT r + j.
+    TEST(reconstruction, composed_prediction_support_saturates_at_twice_the_radius)
+    {
+        const std::map<std::size_t, std::vector<int>> expected{
+            {0, {0, 0, 0, 0, 0, 0, 0}   },
+            {1, {0, 1, 2, 2, 2, 2, 2}   },
+            {2, {0, 2, 3, 4, 4, 4, 4}   },
+            {3, {0, 3, 5, 6, 6, 6, 6}   },
+            {4, {0, 4, 6, 7, 8, 8, 8}   },
+            {5, {0, 5, 8, 9, 10, 10, 10}},
+        };
+        for (const auto& [r, support] : expected)
+        {
+            for (std::size_t j = 0; j < support.size(); ++j)
+            {
+                EXPECT_EQ(composed_prediction_support(r, j), support[j]) << "r=" << r << " j=" << j;
+            }
+        }
+        // The trap: a linear r + j - 1 under-estimates the support as soon as r >= 3, which would
+        // silently shrink the band of cells the exact-reconstruction stream recomputes.
+        EXPECT_GT(composed_prediction_support(3, 2), 3 + 2 - 1);
+        EXPECT_GT(composed_prediction_support(5, 3), 5 + 3 - 1);
+    }
+
+    // Every base-level cell the cascade reads must lie inside the halo that the exact-reconstruction
+    // stream uses to select the cells to recompute: composed_prediction_support(r, j) cells for the
+    // prediction, plus ceil(maxvel / 2^j) for the velocity shift applied at the finest level (see
+    // LBMScheme::stream_exact_reconstruction, which adds one more cell of margin on top of that).
+    // A halo too small would leave cells whose cone crosses a refinement boundary with the flat
+    // value, with no error and no warning.
+    template <std::size_t r, std::size_t dim>
+    void check_band_covers_read_footprint(std::size_t max_j, int max_vel, int nx)
+    {
+        using value_t            = default_config::value_t;
+        constexpr std::size_t l0 = 3;
+        constexpr value_t base   = 5; // donor cell, away from the origin so no shift is ambiguous
+
+        std::size_t checked = 0;
+        for (std::size_t j = 0; j <= max_j; ++j)
+        {
+            const value_t support = composed_prediction_support<value_t>(r, j);
+            for (int m = 0; m <= max_vel; ++m)
+            {
+                const value_t shift = static_cast<value_t>((m + (1 << j) - 1) >> j);
+                const value_t reach = support + shift;
+
+                // Every velocity with max_d |c_d| <= m must fit in that same halo, since the stream
+                // sizes the band once for all the velocities of all the blocks.
+                const auto ncomb = static_cast<std::size_t>(std::pow(2 * m + 1, dim));
+                for (std::size_t s = 0; s < ncomb; ++s)
+                {
+                    std::array<value_t, dim> c{};
+                    std::size_t t = s;
+                    for (std::size_t d = 0; d < dim; ++d)
+                    {
+                        c[d] = static_cast<value_t>(t % static_cast<std::size_t>(2 * m + 1)) - m;
+                        t /= static_cast<std::size_t>(2 * m + 1);
+                    }
+
+                    // The donor box of LBMScheme::donor_box: an x-interval of nx cells, a single cell
+                    // in the transverse directions, taken at the finest level and shifted by -c.
+                    std::array<value_t, dim> lo, hi, start, end;
+                    for (std::size_t d = 0; d < dim; ++d)
+                    {
+                        start[d] = base;
+                        end[d]   = base + static_cast<value_t>((d == 0) ? nx : 1);
+                        lo[d]    = (start[d] << j) - c[d];
+                        hi[d]    = (end[d] << j) - c[d];
+                    }
+
+                    std::size_t nread = 0;
+                    auto read         = [&](std::size_t l, const std::array<value_t, dim>& g) -> double
+                    {
+                        EXPECT_EQ(l, l0) << "the flat cascade must only read the base level";
+                        for (std::size_t d = 0; d < dim; ++d)
+                        {
+                            EXPECT_GE(g[d], start[d] - reach) << "r=" << r << " j=" << j << " m=" << m << " c=" << c[0] << " d=" << d;
+                            EXPECT_LE(g[d], end[d] - 1 + reach) << "r=" << r << " j=" << j << " m=" << m << " c=" << c[0] << " d=" << d;
+                        }
+                        ++nread;
+                        return 0.;
+                    };
+
+                    std::vector<double> out;
+                    reconstruct_flat_box<r>(l0, l0 + j, lo, hi, read, out);
+                    EXPECT_GT(nread, 0u);
+                    ++checked;
+                }
+            }
+        }
+        EXPECT_GT(checked, 0u);
+    }
+
+    TEST(reconstruction, band_covers_the_read_footprint_1D)
+    {
+        check_band_covers_read_footprint<0, 1>(6, 4, 1);
+        check_band_covers_read_footprint<1, 1>(6, 4, 1);
+        check_band_covers_read_footprint<2, 1>(6, 4, 1);
+        check_band_covers_read_footprint<3, 1>(6, 4, 1);
+        check_band_covers_read_footprint<4, 1>(6, 4, 1);
+        check_band_covers_read_footprint<5, 1>(6, 4, 1);
+        // A multi-cell x-interval: the halo is measured from the interval bounds.
+        check_band_covers_read_footprint<1, 1>(5, 3, 4);
+        check_band_covers_read_footprint<3, 1>(5, 3, 4);
+    }
+
+    TEST(reconstruction, band_covers_the_read_footprint_2D)
+    {
+        check_band_covers_read_footprint<0, 2>(4, 2, 1);
+        check_band_covers_read_footprint<1, 2>(4, 2, 1);
+        check_band_covers_read_footprint<2, 2>(4, 2, 1);
+        check_band_covers_read_footprint<3, 2>(4, 2, 1);
+        check_band_covers_read_footprint<1, 2>(3, 2, 3);
+    }
+
+    TEST(reconstruction, band_covers_the_read_footprint_3D)
+    {
+        check_band_covers_read_footprint<1, 3>(2, 2, 1);
+        check_band_covers_read_footprint<2, 3>(2, 1, 1);
+    }
 }

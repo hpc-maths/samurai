@@ -514,18 +514,27 @@ namespace samurai
             const auto maxvel           = static_cast<value_t>(max_abs_velocity());
 
             std::vector<double> box_vals;
-            for (std::size_t level = mesh.min_level(); level <= max_level; ++level)
+            // Only a level with a gap to max_level can differ from the flat stream: at max_level the
+            // cascade has depth 0 (the correction is the identity) and proj_cells is empty anyway.
+            for (std::size_t level = mesh.min_level(); level < max_level; ++level)
             {
                 const std::size_t j  = max_level - level;
                 const std::size_t nc = std::size_t{1} << (j * dim);
                 const double inv_nc  = 1. / static_cast<double>(nc);
 
-                // Halo (in level-l0 cells) covering a donor's cone footprint at this gap j: the flat
-                // prediction support (r one level, saturating at 2r) plus the velocity shift, with a
-                // margin. Level-dependent so the finer levels (small j) get a tighter band; over-
-                // inclusion only redoes a few extra cells, it never changes the result.
-                const auto support = std::min(static_cast<value_t>(2 * r), static_cast<value_t>(r + j - 1));
-                const auto reach   = support + maxvel + 1;
+                // Halo (in level-l cells) covering a donor's cone footprint at this gap j: the
+                // prediction support plus the velocity shift, with a margin. Level-dependent so the
+                // finer levels (small j) get a tighter band. Over-inclusion is harmless but not
+                // without consequence: on an extra cell the cascade agrees with the flat prediction
+                // only up to rounding (see reconstruct_flat_box), so the band size is observable at
+                // machine precision. Under-inclusion, on the other hand, silently drops a correction.
+                //
+                // The velocity shift is applied at max_level (see donor_box), so it is worth
+                // ceil(maxvel / 2^j) cells at this level. `support + shift` is already covering
+                // (pinned by reconstruction.band_covers_the_read_footprint); the +1 is pure margin.
+                const auto support = composed_prediction_support<value_t>(r, j);
+                const auto shift   = (maxvel + (value_t{1} << j) - 1) >> j;
+                const auto reach   = support + shift + 1;
 
                 // Cells whose cone reaches a refined cell of this level; the rest keep the flat value.
                 auto interface_cells = intersection(mesh[mesh_id_t::cells][level], expand(mesh[mesh_id_t::proj_cells][level], reach));
