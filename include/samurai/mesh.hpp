@@ -635,8 +635,12 @@ namespace samurai
         {
             return 0.;
         }
-        const int radius          = max_stencil_radius();
-        const int prediction_size = (min_level() != max_level()) ? config_t::prediction_stencil_radius : 0;
+        const int radius = max_stencil_radius();
+        // 2r, not r: near a boundary the prediction stencil shifts inward and reaches twice as
+        // far, and the coarse levels carry that margin (see update_sub_mesh_impl). A rank whose
+        // ghosts now reach further has to be discovered as a neighbour, or two ranks end up
+        // holding intersecting ghosts without being registered with each other.
+        const int prediction_size = (min_level() != max_level()) ? 2 * config_t::prediction_stencil_radius : 0;
         const int reach           = (2 * radius) + (4 * prediction_size) + 4;
         return reach * cell_length(my_cells.min_level());
     }
