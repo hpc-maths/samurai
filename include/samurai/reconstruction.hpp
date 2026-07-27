@@ -24,7 +24,7 @@
  * keeps only the cells actually present in the adapted mesh; the value of an
  * absent finer cell is @e predicted from its coarser neighbours through the
  * wavelet interpolation of half-width @c prediction_stencil_radius (the
- * @c interp_coeffs<2*radius+1> of numeric/prediction.hpp). Prediction is linear,
+ * @ref prediction_coefficients of numeric/prediction_coefficients.hpp). Prediction is linear,
  * so the predicted value is a fixed linear combination of coarse-cell values
  * that depends only on the level gap and on the child position inside its coarse
  * cell, never on the field. Three layers build on that fact:
@@ -376,7 +376,7 @@ namespace samurai
      * crossing coarse-cell boundaries).
      *
      * @tparam order  half-width of the wavelet interpolation, i.e.
-     *                @c prediction_stencil_radius (uses @c interp_coeffs<2*order+1>).
+     *                @c prediction_stencil_radius (uses @ref prediction_coefficients).
      * @param  level  the level gap @c delta_l (NOT an absolute level). @c 0 is the
      *                identity map @c {indices: 1} (the cell itself).
      *
@@ -409,7 +409,7 @@ namespace samurai
         }
 
         auto parent_indices = std::make_tuple((indices >> 1)...);
-        auto signs          = std::make_tuple(((indices & 1) ? -1. : 1.)...);
+        auto parities       = std::make_tuple(static_cast<std::size_t>(indices & 1)...);
 
         std::apply(
             [&](auto... parent_values)
@@ -418,12 +418,16 @@ namespace samurai
             },
             parent_indices);
 
+        // Shift 0: this map is built in coarse-cell units around a reference cell placed at
+        // the origin, with no notion of where the domain boundary is, so it can only be the
+        // centred family. A boundary-aware caller passes the position class in (see
+        // prediction_coefficients.hpp); the cache key would then have to carry it.
         auto interp_coeff_values = std::apply(
-            [&](auto... sign_values)
+            [&](auto... parity_values)
             {
-                return std::make_tuple(interp_coeffs<2 * order + 1>(sign_values)...);
+                return std::make_tuple(prediction_coefficients<order>(parity_values, 0).c...);
             },
-            signs);
+            parities);
 
         detail::multi_dim_loop(interp_coeff_values,
                                [&](auto... loop_indices)

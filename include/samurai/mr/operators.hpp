@@ -153,10 +153,10 @@ namespace samurai
             }
             else
             {
-                using value_t    = typename TInterval::value_t;
-                auto sorder      = static_cast<value_t>(order);
-                auto interp_even = interp_coeffs<2 * order + 1>(1.);
-                auto interp_odd  = interp_coeffs<2 * order + 1>(-1.);
+                using value_t           = typename TInterval::value_t;
+                auto sorder             = static_cast<value_t>(order);
+                const auto& interp_even = prediction_coefficients<order>(0, 0).c;
+                const auto& interp_odd  = prediction_coefficients<order>(1, 0).c;
 
                 detail(level + 1, 2 * i)     = field(level + 1, 2 * i);
                 detail(level + 1, 2 * i + 1) = field(level + 1, 2 * i + 1);
@@ -235,8 +235,8 @@ namespace samurai
             }
             else
             {
-                auto interp_even = interp_coeffs<2 * order + 1>(1.);
-                auto interp_odd  = interp_coeffs<2 * order + 1>(-1.);
+                const auto& interp_even = prediction_coefficients<order>(0, 0).c;
+                const auto& interp_odd  = prediction_coefficients<order>(1, 0).c;
 
                 constexpr std::size_t interp_size = 2 * order + 1;
 
@@ -374,8 +374,8 @@ namespace samurai
             }
             else
             {
-                auto interp_even = interp_coeffs<2 * order + 1>(1.);
-                auto interp_odd  = interp_coeffs<2 * order + 1>(-1.);
+                const auto& interp_even = prediction_coefficients<order>(0, 0).c;
+                const auto& interp_odd  = prediction_coefficients<order>(1, 0).c;
 
                 constexpr std::size_t interp_size = 2 * order + 1;
 
