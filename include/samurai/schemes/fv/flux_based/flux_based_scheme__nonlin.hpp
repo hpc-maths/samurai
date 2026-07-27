@@ -313,6 +313,15 @@ namespace samurai
         // The block is the stencil_size fine cells around the interface (flux direction, plus a small
         // margin) times the 2^{delta_l} children in each transverse direction - covering every cell
         // predict_value reads. This replaces the per-cell portion() with one dense cascade.
+        //
+        // Deliberately no interface band here, unlike LBMScheme::stream_exact_reconstruction. Such a
+        // band would be safe - away from any refinement, the exact and flat cascades are the same code
+        // up to the is_stored predicate, so they agree bit-for-bit, and over-inclusion would cost
+        // nothing at all - but it cannot pay for itself. Measured on the 2D WENO5 burgers case
+        // (min_level 2, max_level 8, --finer-level-flux -1): the whole cost of the is_stored lookups
+        // is 0.48 s out of 25.3 s (1.9%), while the finer-level flux machinery itself accounts for
+        // 14.6 s (59%). A band could only reclaim a fraction of that 1.9%, in exchange for a coverage
+        // invariant to keep correct. If this path ever needs to be faster, the 14.6 s is the target.
         void build_recons_box(const FluxParameters<true>& flux_params,
                               const StencilCells<cfg>& cells,
                               const input_field_t& field,
