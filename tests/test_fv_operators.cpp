@@ -895,6 +895,210 @@ namespace samurai
         check_diffusion_convergence<2>();
     }
 
+    // ---------------------------------------------------------------------------
+    // Boundary truncation error: the baseline, and a guard against a vacuous test.
+    //
+    // The convergence tests above deliberately exclude boundary cells, so they say
+    // nothing about the boundary closure. Extending them to the boundary does NOT
+    // work by dropping the exclusion, for two reasons, both measured here:
+    //
+    //  1. Their manufactured solution, prod sin(2 pi x), is zero and ANTISYMMETRIC
+    //     about every face - and Dirichlet<1> (u_ghost = 2g - u_0) is exactly an odd
+    //     reflection, hence exact on it. Including boundary cells then reports order
+    //     3 at the boundary, BETTER than the interior's 2, and proves nothing at all.
+    //     A vacuous test that looks like a triumph. Do not "fix" the test below by
+    //     switching it back to sines.
+    //
+    //  2. With a solution EVEN about the faces (prod cos(2 pi x)), the boundary
+    //     truncation error does not converge: O(1), flat from level 4 to 7. That is
+    //     not a bug. This test samples u at cell centres, and Dirichlet<1> reproduces
+    //     only degree 1 on point values, so the ghost carries an O(h^2) error
+    //     (2(1 - cos(pi h)) ~ pi^2 h^2, hence the plateau at pi^2 in 1D and 2 pi^2
+    //     at the 2D corners, where both directions contribute); the operator divides
+    //     by h^2, so the local truncation error at a boundary cell is O(1) for any
+    //     closure one order below the interior. With point sampling, a higher-order
+    //     Dirichlet would converge here; on the cell AVERAGES a finite-volume field
+    //     actually stores, the cap asserted in test_bc_ghost_values.cpp keeps the
+    //     ghost error at O(h^2) - and this plateau in place - for EVERY Dirichlet
+    //     order.
+    //
+    // Consequence for the acceptance bar: the max-norm operator truncation error is
+    // the WRONG functional to extend to the boundary. A mesh-independent boundary
+    // convergence statement needs a SOLUTION error (solve, then measure
+    // ||u_h - u||), where an O(1) truncation confined to O(N^(d-1)) cells still
+    // leaves the solution convergent. That needs an elliptic solve and is not
+    // covered here.
+    //
+    // What is asserted below is today's baseline. When the boundary closure improves,
+    // this test must be updated, and that update is the evidence of the improvement.
+    // ---------------------------------------------------------------------------
+    namespace
+    {
+        template <class Cell>
+        bool touches_boundary(const Cell& cell, std::size_t nb_cells_per_dir)
+        {
+            const auto nx = static_cast<long long>(nb_cells_per_dir);
+            for (std::size_t d = 0; d < Cell::dim; ++d)
+            {
+                const auto i = static_cast<long long>(cell.indices[d]);
+                if (i == 0 || i == nx - 1)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Max truncation error of -Laplacian over boundary-touching cells only, for a
+        // manufactured solution that is even about every face. The ghost relation
+        // u_ghost = 2g - u_0 reproduces the odd part of u - g about the face exactly
+        // and errs by twice its even part at the first cell centre; an even solution
+        // makes that error leading-order instead of accidentally zero.
+        template <std::size_t dim>
+        double boundary_diffusion_error(std::size_t level)
+        {
+            const std::size_t nx = 1u << level;
+            auto mesh            = uniform_mesh<dim>(level);
+            auto u               = make_scalar_field<double>("u", mesh);
+
+            constexpr double k = 2 * M_PI;
+            auto exact         = [&](const auto& x)
+            {
+                double v = 1.;
+                for (std::size_t d = 0; d < dim; ++d)
+                {
+                    v *= std::cos(k * x(d));
+                }
+                return v;
+            };
+            for_each_cell(mesh,
+                          [&](const auto& cell)
+                          {
+                              u[cell] = exact(cell.center());
+                          });
+
+            // cos is nonzero on the faces and varies along them, so the Dirichlet datum
+            // is a function of position, not a constant.
+            using cell_t   = typename decltype(u)::cell_t;
+            using coords_t = typename cell_t::coords_t;
+            make_bc<Dirichlet<1>>(u,
+                                  [exact](const auto&, const cell_t&, const coords_t& c)
+                                  {
+                                      return exact(c);
+                                  });
+
+            DiffCoeff<dim> K;
+            K.fill(1.);
+            auto diff   = make_diffusion_order2<decltype(u)>(K);
+            auto result = diff(u);
+
+            double err = 0.;
+            for_each_cell(mesh,
+                          [&](const auto& cell)
+                          {
+                              if (touches_boundary(cell, nx))
+                              {
+                                  const double expected = dim * k * k * exact(cell.center());
+                                  err                   = std::max(err, std::abs(result[cell] - expected));
+                              }
+                          });
+            return err;
+        }
+
+        template <std::size_t dim>
+        void check_boundary_truncation_does_not_converge()
+        {
+            const double e5 = boundary_diffusion_error<dim>(5);
+            const double e6 = boundary_diffusion_error<dim>(6);
+            const double e7 = boundary_diffusion_error<dim>(7);
+
+            // O(1): the error must not be shrinking towards zero.
+            EXPECT_GT(e7, 1.0) << "dim=" << dim << " errors: " << e5 << " " << e6 << " " << e7;
+
+            // And it must be flat: an observed order well below the interior's 2. If this
+            // ever exceeds 0.5, the boundary closure has changed and the comment block
+            // above, plus the acceptance bar it describes, need revisiting.
+            EXPECT_LT(observed_order(e5, e6), 0.5) << "dim=" << dim << " errors: " << e5 << " " << e6 << " " << e7;
+            EXPECT_LT(observed_order(e6, e7), 0.5) << "dim=" << dim << " errors: " << e5 << " " << e6 << " " << e7;
+        }
+    }
+
+    TEST(fv_operators, boundary_truncation_baseline_1d)
+    {
+        check_boundary_truncation_does_not_converge<1>();
+    }
+
+    TEST(fv_operators, boundary_truncation_baseline_2d)
+    {
+        check_boundary_truncation_does_not_converge<2>();
+    }
+
+    // The same measurement with the antisymmetric solution of the convergence tests
+    // above, kept as an executable warning: the boundary appears to be order 3 there.
+    // Antisymmetry pays twice: Dirichlet<1> is an odd reflection, so the ghost is
+    // EXACT and the boundary cell is left with the plain interior truncation
+    // -(h^2/12) u'''' + O(h^4); and u'''' ~ sin(2 pi x) vanishes at the faces, so
+    // that term is O(h) on a boundary cell - h^2 * h = order 3. This is what a
+    // naively lifted interior restriction would report. If this test ever fails, the
+    // odd-reflection coincidence has gone, and the trap it documents is no longer a
+    // trap.
+    namespace
+    {
+        template <std::size_t dim>
+        double boundary_diffusion_error_antisymmetric(std::size_t level)
+        {
+            const std::size_t nx = 1u << level;
+            auto mesh            = uniform_mesh<dim>(level);
+            auto u               = make_scalar_field<double>("u", mesh);
+
+            constexpr double k = 2 * M_PI;
+            auto exact         = [&](const auto& x)
+            {
+                double v = 1.;
+                for (std::size_t d = 0; d < dim; ++d)
+                {
+                    v *= std::sin(k * x(d));
+                }
+                return v;
+            };
+            for_each_cell(mesh,
+                          [&](const auto& cell)
+                          {
+                              u[cell] = exact(cell.center());
+                          });
+            make_bc<Dirichlet<1>>(u, 0.);
+
+            DiffCoeff<dim> K;
+            K.fill(1.);
+            auto diff   = make_diffusion_order2<decltype(u)>(K);
+            auto result = diff(u);
+
+            double err = 0.;
+            for_each_cell(mesh,
+                          [&](const auto& cell)
+                          {
+                              if (touches_boundary(cell, nx))
+                              {
+                                  const double expected = dim * k * k * exact(cell.center());
+                                  err                   = std::max(err, std::abs(result[cell] - expected));
+                              }
+                          });
+            return err;
+        }
+    }
+
+    TEST(fv_operators, boundary_truncation_antisymmetric_solution_is_vacuous)
+    {
+        const double e5 = boundary_diffusion_error_antisymmetric<1>(5);
+        const double e6 = boundary_diffusion_error_antisymmetric<1>(6);
+        const double e7 = boundary_diffusion_error_antisymmetric<1>(7);
+
+        // Order 3 at the boundary, above the interior's 2, on a solution the boundary
+        // condition happens to be exact on. Measuring the closure this way is vacuous.
+        EXPECT_NEAR(observed_order(e5, e6), 3.0, 0.3) << "errors: " << e5 << " " << e6 << " " << e7;
+        EXPECT_NEAR(observed_order(e6, e7), 3.0, 0.3) << "errors: " << e5 << " " << e6 << " " << e7;
+    }
+
     // WENO5 convection is 5th-order accurate on a smooth solution. We advect a
     // sine wave with a constant positive velocity and check the slope of the
     // error on interior cells (stencil half-width 3).
