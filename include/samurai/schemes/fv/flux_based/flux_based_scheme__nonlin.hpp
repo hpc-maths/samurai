@@ -1,4 +1,5 @@
 #pragma once
+#include "../../../arguments.hpp"
 #include "flux_based_scheme.hpp"
 
 #include <fmt/format.h>

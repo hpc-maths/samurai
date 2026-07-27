@@ -14,6 +14,7 @@
 
 #include "../../algorithm.hpp"
 #include "../../algorithm/update_ghost_mr.hpp"
+#include "../../arguments.hpp"
 #include "../../reconstruction.hpp"
 #include "velocity_scheme.hpp"
 
