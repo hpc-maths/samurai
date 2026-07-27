@@ -576,7 +576,7 @@ namespace samurai
                 {
                     return (ll < max_level) ? lca_t(difference(F[ll], self(F[ll + 1]).on(ll))) : F[ll];
                 };
-                const auto exchange_graded_level = [&](const lca_t& graded_l, size_t ll, int phase) -> std::vector<lca_t>
+                const auto exchange_graded_level = [&](const lca_t& graded_l, size_t ll, size_t phase) -> std::vector<lca_t>
                 {
                     if (!has_neighbour)
                     {
