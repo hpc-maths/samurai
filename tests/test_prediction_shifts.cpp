@@ -13,21 +13,30 @@
 //   2. The bulk of an interval comes back as ONE run with every shift zero. That is the
 //      form of the interior bit-identity requirement: a consumer running its current
 //      kernel on that run cannot move an interior value.
-//   3. A holed domain is decomposed exactly, cell for cell, including an interval that
+//   3. The shift is chosen for the whole stencil BOX, not one direction at a time, so a
+//      re-entrant corner - which no single direction can see - is clamped, and a shape no
+//      shift can fit a box into reports that it does not fit.
+//   4. A holed domain is decomposed exactly, cell for cell, including an interval that
 //      passes over the edge of a hole. Classifying such an interval by its worst cell
 //      would move interior values, which is why the query returns runs at all.
-//   4. Classifying against the cells one rank holds gives a DIFFERENT answer from
+//   5. Classifying against the cells one rank holds gives a DIFFERENT answer from
 //      classifying against the whole domain. This is the executable form of the
 //      partition-independence invariant: it says what going wrong would look like.
-//   5. The runs tile the queried interval exactly, in order, with none empty.
+//   6. The runs tile the queried interval exactly, in order, with none empty, and no two
+//      neighbouring runs carry the same shift - they are maximal, so a consumer launches
+//      one kernel per genuine change of shift.
 
+#include <algorithm>
+#include <cstdlib>
 #include <map>
+#include <sstream>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include <samurai/box.hpp>
 #include <samurai/level_cell_array.hpp>
+#include <samurai/numeric/prediction_coefficients.hpp>
 #include <samurai/prediction_shifts.hpp>
 #include <samurai/subset/node.hpp>
 
@@ -46,6 +55,9 @@ namespace samurai
 
         template <std::size_t dim>
         using index_t = xt::xtensor_fixed<value_t<dim>, xt::xshape<dim - 1>>;
+
+        template <std::size_t dim>
+        using coord_t = xt::xtensor_fixed<value_t<dim>, xt::xshape<dim>>;
 
         template <std::size_t dim>
         using box_t = Box<value_t<dim>, dim>;
@@ -88,14 +100,15 @@ namespace samurai
                                                   period,
                                                   i,
                                                   index,
-                                                  [&](const auto& run, const auto& shifts)
+                                                  [&](const auto& run, const auto& shift)
                                                   {
-                                                      out.push_back({run.start, run.end, shifts.shift, shifts.fits});
+                                                      out.push_back({run.start, run.end, shift.shift, shift.fits});
                                                   });
 
-            // Property 5, checked everywhere rather than in a test of its own: the runs
-            // tile the queried interval exactly, so a consumer looping over them visits
-            // every cell once.
+            // Property 6, checked everywhere rather than in a test of its own: the runs tile
+            // the queried interval exactly, so a consumer looping over them visits every
+            // cell once, and they are maximal, so it never launches two kernels where one
+            // would do.
             EXPECT_FALSE(out.empty());
             EXPECT_EQ(out.front().start, i.start);
             EXPECT_EQ(out.back().end, i.end);
@@ -105,65 +118,144 @@ namespace samurai
                 if (k > 0)
                 {
                     EXPECT_EQ(out[k].start, out[k - 1].end) << "gap or overlap before " << out[k];
+                    EXPECT_FALSE(out[k].shift == out[k - 1].shift && out[k].fits == out[k - 1].fits)
+                        << "run " << out[k] << " should have been merged into " << out[k - 1];
                 }
             }
             return out;
         }
 
-        /**
-         * The same answer, worked out the slow and obvious way: ask the domain about one
-         * cell at a time. This is the definition the fast query has to agree with - it
-         * knows nothing about rows, cursors or runs, so a disagreement is a bug in the
-         * machinery rather than in both at once.
-         */
+        /// The shifts a radius-@a radius stencil can take, in the order the rule prefers.
         template <std::size_t radius, std::size_t dim>
-        PredictionShifts<dim>
-        reference_shifts(const lca_t<dim>& domain, xt::xtensor_fixed<value_t<dim>, xt::xshape<dim>> coord, const period_t<dim>& period = {})
+        std::vector<std::array<int, dim>> shifts_by_preference()
         {
-            const auto holds = [&](const auto& c)
-            {
-                return find(domain, c) >= 0;
-            };
+            constexpr int r = static_cast<int>(radius);
 
-            if (!holds(coord))
-            {
-                return {{}, false};
-            }
-
-            PredictionShifts<dim> shifts;
+            std::vector<std::array<int, dim>> out;
+            std::size_t count = 1;
             for (std::size_t d = 0; d < dim; ++d)
             {
-                std::array<int, 2> available = {0, 0};
-                for (std::size_t side = 0; side < 2; ++side)
+                count *= static_cast<std::size_t>(2 * r + 1);
+            }
+            for (std::size_t n = 0; n < count; ++n)
+            {
+                std::array<int, dim> shift{};
+                auto rest = n;
+                for (std::size_t d = 0; d < dim; ++d)
                 {
-                    const auto step = (side == 0) ? -1 : 1;
-                    for (std::size_t k = 1; k <= 2 * radius; ++k)
+                    shift[d] = static_cast<int>(rest % static_cast<std::size_t>(2 * r + 1)) - r;
+                    rest /= static_cast<std::size_t>(2 * r + 1);
+                }
+                out.push_back(shift);
+            }
+
+            // Least shifted overall; then shifting x least, then y, and so on; then
+            // negative before positive. Spelled out here rather than shared with the query,
+            // so that the two say the same thing independently.
+            std::sort(out.begin(),
+                      out.end(),
+                      [](const auto& a, const auto& b)
+                      {
+                          int total_a = 0;
+                          int total_b = 0;
+                          for (std::size_t d = 0; d < dim; ++d)
+                          {
+                              total_a += std::abs(a[d]);
+                              total_b += std::abs(b[d]);
+                          }
+                          if (total_a != total_b)
+                          {
+                              return total_a < total_b;
+                          }
+                          for (std::size_t d = 0; d < dim; ++d)
+                          {
+                              if (std::abs(a[d]) != std::abs(b[d]))
+                              {
+                                  return std::abs(a[d]) < std::abs(b[d]);
+                              }
+                          }
+                          return a < b;
+                      });
+            return out;
+        }
+
+        /**
+         * The same answer, worked out the slow and obvious way: try the shifts in the order
+         * the rule prefers them and keep the first one whose whole stencil box the domain
+         * holds, asking about one cell at a time. This is the definition the fast query has
+         * to agree with - it knows nothing about rows, cursors, runs or shift tables, so a
+         * disagreement is a bug in the machinery rather than in both at once.
+         */
+        template <std::size_t radius, std::size_t dim>
+        PredictionStencilShift<dim> reference_shift(const lca_t<dim>& domain, const coord_t<dim>& coord, const period_t<dim>& period = {})
+        {
+            constexpr int r = static_cast<int>(radius);
+
+            std::size_t wraps = 1;
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                wraps *= 3;
+            }
+
+            // Does the domain hold this cell, counting the cells a periodic exchange fills
+            // it from - the same cell one wrap away, in any combination of directions?
+            const auto holds = [&](const coord_t<dim>& c)
+            {
+                for (std::size_t n = 0; n < wraps; ++n)
+                {
+                    auto probe  = c;
+                    auto rest   = n;
+                    bool usable = true;
+                    for (std::size_t d = 0; d < dim; ++d)
                     {
-                        auto neighbour = coord;
-                        neighbour[d] += static_cast<value_t<dim>>(step * static_cast<int>(k));
-                        if (!holds(neighbour))
+                        const auto choice = rest % 3;
+                        rest /= 3;
+                        if (choice == 0)
                         {
-                            if (period[d] == 0)
-                            {
-                                break;
-                            }
-                            // Off the end of a periodic direction the stencil reads the
-                            // cell one wrap away.
-                            neighbour[d] -= static_cast<value_t<dim>>(step) * period[d];
-                            if (!holds(neighbour))
-                            {
-                                break;
-                            }
+                            continue;
                         }
-                        ++available[side];
+                        if (period[d] == 0)
+                        {
+                            usable = false;
+                            break;
+                        }
+                        probe[d] += (choice == 1 ? -1 : 1) * period[d];
+                    }
+                    if (usable && find(domain, probe) >= 0)
+                    {
+                        return true;
                     }
                 }
+                return false;
+            };
 
-                const auto shift = prediction_shift(radius, available[0], available[1]);
-                shifts.shift[d]  = shift.shift;
-                shifts.fits      = shifts.fits && shift.fits;
+            std::size_t box = 1;
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                box *= static_cast<std::size_t>(2 * r + 1);
             }
-            return shifts;
+
+            for (const auto& shift : shifts_by_preference<radius, dim>())
+            {
+                bool admissible = true;
+                for (std::size_t n = 0; n < box && admissible; ++n)
+                {
+                    auto probe = coord;
+                    auto rest  = n;
+                    for (std::size_t d = 0; d < dim; ++d)
+                    {
+                        const auto offset = static_cast<int>(rest % static_cast<std::size_t>(2 * r + 1)) - r;
+                        rest /= static_cast<std::size_t>(2 * r + 1);
+                        probe[d] += static_cast<value_t<dim>>(shift[d] + offset);
+                    }
+                    admissible = holds(probe);
+                }
+                if (admissible)
+                {
+                    return {shift, true};
+                }
+            }
+            return {{}, false};
         }
 
         /// The shift of every cell of an interval, one entry per cell.
@@ -180,6 +272,36 @@ namespace samurai
                 }
             }
             return out;
+        }
+
+        /// The query against the slow answer, at every cell of a slab of the domain.
+        template <std::size_t radius, std::size_t dim>
+        void expect_agreement(const lca_t<dim>& domain, const interval_t<dim>& i, const index_t<dim>& index, const period_t<dim>& period = {})
+        {
+            for (const auto& run : runs_of<radius>(domain, i, index, period))
+            {
+                for (auto x = run.start; x < run.end; ++x)
+                {
+                    auto coord = coord_t<dim>{};
+                    coord[0]   = x;
+                    for (std::size_t d = 0; d + 1 < dim; ++d)
+                    {
+                        coord[d + 1] = index[d];
+                    }
+
+                    std::ostringstream where;
+                    where << "at (";
+                    for (std::size_t d = 0; d < dim; ++d)
+                    {
+                        where << (d == 0 ? "" : ",") << coord[d];
+                    }
+                    where << ") in run " << run;
+
+                    const auto expected = reference_shift<radius, dim>(domain, coord, period);
+                    EXPECT_EQ(run.shift, expected.shift) << where.str();
+                    EXPECT_EQ(run.fits, expected.fits) << where.str();
+                }
+            }
         }
     }
 
@@ -210,6 +332,29 @@ namespace samurai
         EXPECT_EQ((shift_per_cell<2, dim>(domain, {0, 16}, {})), expected);
     }
 
+    TEST(prediction_shifts, in_one_dimension_the_rule_is_the_shared_1d_classifier)
+    {
+        constexpr std::size_t dim = 1;
+        const lca_t<dim> domain{
+            4,
+            box_t<dim>{{0}, {16}}
+        };
+
+        // With one direction there is no box and no mixed term, so the geometric rule has to
+        // reduce to prediction_shift() applied to the two availability counts - the same
+        // classifier the coefficients are keyed on. Anything else would mean two rules.
+        for (value_t<dim> x = 0; x < 16; ++x)
+        {
+            const auto avail_low  = std::min(static_cast<int>(x), 4);
+            const auto avail_high = std::min(static_cast<int>(15 - x), 4);
+            const auto expected   = prediction_shift(2, avail_low, avail_high);
+
+            const auto got = prediction_shifts_at<2, dim>(domain, {}, {x});
+            EXPECT_EQ(got.shift[0], expected.shift) << "at x = " << x;
+            EXPECT_EQ(got.fits, expected.fits) << "at x = " << x;
+        }
+    }
+
     TEST(prediction_shifts, the_bulk_is_one_run_with_no_shift)
     {
         constexpr std::size_t dim = 1;
@@ -220,11 +365,12 @@ namespace samurai
 
         // The interior comes back as a single run, so a consumer runs its current kernel
         // over it unchanged - the mechanism by which interior values stay bit-identical.
+        // The run reaches right up to the shifted cells: the decomposition breaks the
+        // interval where the geometry changes, but neighbouring runs carrying the same
+        // shift are merged, so what comes out is one run per change of shift.
         const std::vector<ShiftRun<dim>> expected = {
             {0, 1, {1},  true},
-            {1, 2, {0},  true},
-            {2, 6, {0},  true},
-            {6, 7, {0},  true},
+            {1, 7, {0},  true},
             {7, 8, {-1}, true}
         };
         EXPECT_EQ((runs_of<1, dim>(domain, {0, 8}, {})), expected);
@@ -280,8 +426,9 @@ namespace samurai
             box_t<dim>{{0, 0}, {8, 8}}
         };
 
-        // A corner is "clamp in x and clamp in y", one independent shift per direction,
-        // with no notion of a diagonal or of an outward normal.
+        // On a box the box rule and a per-direction clamp agree at every cell, corners
+        // included: a convex corner is "clamp in x and clamp in y", and no other shift fits
+        // the stencil box in.
         EXPECT_EQ((prediction_shifts_at<1, dim>(domain, {}, {0, 0})).shift, (std::array<int, 2>{1, 1}));
         EXPECT_EQ((prediction_shifts_at<1, dim>(domain, {}, {7, 0})).shift, (std::array<int, 2>{-1, 1}));
         EXPECT_EQ((prediction_shifts_at<1, dim>(domain, {}, {0, 7})).shift, (std::array<int, 2>{1, -1}));
@@ -322,16 +469,15 @@ namespace samurai
         };
         const lca_t<dim> domain{difference(full, hole)};
 
-        // The row just above the hole. Over the hole's span the stencil must shift up,
-        // away from the cells the hole removed; on either side of it, it must not - and
-        // that is one interval, so the query has to split it.
+        // The row just above the hole. Over the hole's span the stencil must shift up, away
+        // from the cells the hole removed; away from it, it must not - and that is one
+        // interval, so the query has to split it. The shifted run reaches one cell past the
+        // hole at each end: those cells have the hole's corner in their stencil box.
         const std::vector<ShiftRun<dim>> expected = {
             {0,  1,  {1, 0},  true},
-            {1,  2,  {0, 0},  true},
-            {2,  4,  {0, 0},  true},
-            {4,  8,  {0, 1},  true},
-            {8,  10, {0, 0},  true},
-            {10, 11, {0, 0},  true},
+            {1,  3,  {0, 0},  true},
+            {3,  9,  {0, 1},  true},
+            {9,  11, {0, 0},  true},
             {11, 12, {-1, 0}, true}
         };
         EXPECT_EQ((runs_of<1, dim>(domain, {0, 12}, {8})), expected);
@@ -341,17 +487,67 @@ namespace samurai
         EXPECT_EQ((prediction_shifts_at<1, dim>(domain, {}, {6, 3})).shift, (std::array<int, 2>{0, -1}));
         EXPECT_FALSE((prediction_shifts_at<1, dim>(domain, {}, {6, 6})).fits);
 
-        // A hole's side is a boundary in one direction only, exactly as the domain's own
-        // side is, and the clamp is read per direction with no notion of a normal.
+        // A hole's side is a boundary like the domain's own side, and the shift it forces is
+        // read off the geometry with no notion of a normal.
         EXPECT_EQ((prediction_shifts_at<1, dim>(domain, {}, {3, 4})).shift, (std::array<int, 2>{-1, 0}));
         EXPECT_EQ((prediction_shifts_at<1, dim>(domain, {}, {8, 5})).shift, (std::array<int, 2>{1, 0}));
+    }
 
-        // A cell diagonally off the hole's corner sees no boundary at all: in each
-        // direction separately the cells it reads are there. A rule that looked at the
-        // hole rather than at one direction at a time would shift it, and move an interior
-        // value for nothing.
-        EXPECT_EQ((prediction_shifts_at<1, dim>(domain, {}, {3, 3})).shift, (std::array<int, 2>{0, 0}));
-        EXPECT_EQ((prediction_shifts_at<1, dim>(domain, {}, {8, 8})).shift, (std::array<int, 2>{0, 0}));
+    TEST(prediction_shifts, a_re_entrant_corner_is_clamped_though_no_direction_sees_it)
+    {
+        constexpr std::size_t dim = 2;
+        const std::size_t level   = 4;
+
+        const lca_t<dim> full{
+            level,
+            box_t<dim>{{0, 0}, {12, 12}}
+        };
+        const lca_t<dim> hole{
+            level,
+            box_t<dim>{{4, 4}, {8, 8}}
+        };
+        const lca_t<dim> domain{difference(full, hole)};
+
+        // The cell diagonally off the hole's corner. In each direction separately every cell
+        // it reads is there, so a per-direction clamp leaves it alone - and its stencil box
+        // then reads the hole's corner cell (4,4), which the domain does not hold and which
+        // nothing fills. The box rule sees it and shifts.
+        EXPECT_FALSE(find(domain, coord_t<dim>{4, 4}) >= 0);
+        const auto diagonal = prediction_shifts_at<1, dim>(domain, {}, {3, 3});
+        EXPECT_TRUE(diagonal.fits);
+        EXPECT_EQ(diagonal.shift, (std::array<int, 2>{0, -1}));
+
+        // One direction is enough to clear the corner, so it shifts by one cell and not by
+        // one cell in each direction, and it takes it transversally: a shift along x would
+        // move the reads of the innermost loop for nothing.
+        EXPECT_EQ((prediction_shifts_at<1, dim>(domain, {}, {8, 8})).shift, (std::array<int, 2>{0, 1}));
+        EXPECT_EQ((prediction_shifts_at<1, dim>(domain, {}, {3, 8})).shift, (std::array<int, 2>{0, 1}));
+        EXPECT_EQ((prediction_shifts_at<1, dim>(domain, {}, {8, 3})).shift, (std::array<int, 2>{0, -1}));
+    }
+
+    TEST(prediction_shifts, a_shape_no_box_fits_into_does_not_fit)
+    {
+        constexpr std::size_t dim = 2;
+        const std::size_t level   = 4;
+
+        // A plus: three cells wide in x through the middle row, three cells tall in y
+        // through the middle column, and nothing at the four corners.
+        const lca_t<dim> across{
+            level,
+            box_t<dim>{{0, 1}, {3, 2}}
+        };
+        const lca_t<dim> down{
+            level,
+            box_t<dim>{{1, 0}, {2, 3}}
+        };
+        const lca_t<dim> domain{union_(across, down)};
+
+        // The centre cell has one cell available either side of it in x AND in y, so every
+        // direction taken on its own says a radius-1 stencil fits. The box does not: its
+        // corners are the plus's missing corners, and no shift moves a 3x3 box inside a
+        // plus. fits is the joint condition, which is what the mesh has to guarantee.
+        EXPECT_EQ(prediction_shift(1, 1, 1).fits, true);
+        EXPECT_FALSE((prediction_shifts_at<1, dim>(domain, {}, {1, 1})).fits);
     }
 
     TEST(prediction_shifts, two_different_boundaries_clamp_a_cell_independently)
@@ -455,7 +651,9 @@ namespace samurai
         EXPECT_EQ((prediction_shifts_at<1, dim>(domain, both, {6, 3})).shift, (std::array<int, 2>{0, -1}));
         EXPECT_EQ((prediction_shifts_at<1, dim>(domain, both, {3, 6})).shift, (std::array<int, 2>{-1, 0}));
 
-        // The domain's own edges, on the other hand, are not boundaries any more.
+        // The domain's own edges, on the other hand, are not boundaries any more - and the
+        // wrap reaches diagonally too, so a corner cell of a doubly periodic domain reads
+        // the opposite corner and stays centred.
         EXPECT_EQ((prediction_shifts_at<1, dim>(domain, both, {0, 0})).shift, (std::array<int, 2>{0, 0}));
         EXPECT_EQ((prediction_shifts_at<1, dim>(domain, both, {11, 11})).shift, (std::array<int, 2>{0, 0}));
     }
@@ -482,15 +680,7 @@ namespace samurai
 
         for (value_t<dim> y = 0; y < 16; ++y)
         {
-            for (const auto& run : runs_of<1, dim>(domain, {0, 16}, {y}, both))
-            {
-                for (auto x = run.start; x < run.end; ++x)
-                {
-                    const auto expected = reference_shifts<1, dim>(domain, {x, y}, both);
-                    EXPECT_EQ(run.shift, expected.shift) << "at (" << x << "," << y << ") in run " << run;
-                    EXPECT_EQ(run.fits, expected.fits) << "at (" << x << "," << y << ") in run " << run;
-                }
-            }
+            expect_agreement<1, dim>(domain, {0, 16}, {y}, both);
         }
     }
 
@@ -534,18 +724,15 @@ namespace samurai
         // compared too.
         for (value_t<dim> y = -2; y < 18; ++y)
         {
-            const auto runs = runs_of<1, dim>(domain, {-2, 21}, {y});
-            for (const auto& run : runs)
+            expect_agreement<1, dim>(domain, {-2, 21}, {y});
+
+            for (const auto& run : runs_of<1, dim>(domain, {-2, 21}, {y}))
             {
                 for (auto x = run.start; x < run.end; ++x)
                 {
-                    const auto expected = reference_shifts<1, dim>(domain, {x, y});
-                    EXPECT_EQ(run.shift, expected.shift) << "at (" << x << "," << y << ") in run " << run;
-                    EXPECT_EQ(run.fits, expected.fits) << "at (" << x << "," << y << ") in run " << run;
-
                     ++seen[run.shift];
-                    outside += (find(domain, {x, y}) < 0) ? 1 : 0;
-                    cramped += (!run.fits && find(domain, {x, y}) >= 0) ? 1 : 0;
+                    outside += (find(domain, coord_t<dim>{x, y}) < 0) ? 1 : 0;
+                    cramped += (!run.fits && find(domain, coord_t<dim>{x, y}) >= 0) ? 1 : 0;
                 }
             }
         }
@@ -565,15 +752,7 @@ namespace samurai
         // Radius 2 reads further, so it exercises rows the radius-1 pass never consults.
         for (value_t<dim> y = -2; y < 18; ++y)
         {
-            for (const auto& run : runs_of<2, dim>(domain, {-2, 21}, {y}))
-            {
-                for (auto x = run.start; x < run.end; ++x)
-                {
-                    const auto expected = reference_shifts<2, dim>(domain, {x, y});
-                    EXPECT_EQ(run.shift, expected.shift) << "at (" << x << "," << y << ") in run " << run;
-                    EXPECT_EQ(run.fits, expected.fits) << "at (" << x << "," << y << ") in run " << run;
-                }
-            }
+            expect_agreement<2, dim>(domain, {-2, 21}, {y});
         }
     }
 
@@ -596,15 +775,20 @@ namespace samurai
         {
             for (value_t<dim> y = -1; y < 9; ++y)
             {
-                for (const auto& run : runs_of<1, dim>(domain, {-1, 9}, {y, z}))
-                {
-                    for (auto x = run.start; x < run.end; ++x)
-                    {
-                        const auto expected = reference_shifts<1, dim>(domain, {x, y, z});
-                        EXPECT_EQ(run.shift, expected.shift) << "at (" << x << "," << y << "," << z << ")";
-                        EXPECT_EQ(run.fits, expected.fits) << "at (" << x << "," << y << "," << z << ")";
-                    }
-                }
+                expect_agreement<1, dim>(domain, {-1, 9}, {y, z});
+            }
+        }
+
+        // The same domain read as periodic in all three directions. Two transverse
+        // directions then step off the end at once at an edge of the box, which no 2D sweep
+        // and no non-periodic sweep reaches: the row the stencil wants exists only after
+        // wrapping both of them.
+        const period_t<dim> all = {8, 8, 8};
+        for (value_t<dim> z = 0; z < 8; ++z)
+        {
+            for (value_t<dim> y = 0; y < 8; ++y)
+            {
+                expect_agreement<1, dim>(domain, {0, 8}, {y, z}, all);
             }
         }
     }
