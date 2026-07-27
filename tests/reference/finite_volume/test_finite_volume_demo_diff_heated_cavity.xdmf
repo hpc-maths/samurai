@@ -2,14 +2,14 @@
 <Xdmf>
     <Domain>
         <Grid Name="mesh">
-            <Topology TopologyType="Quadrilateral" NumberOfElements="2371">
-                <DataItem Dimensions="9484" Format="HDF">test_finite_volume_demo_diff_heated_cavity.h5:/mesh/connectivity</DataItem>
+            <Topology TopologyType="Quadrilateral" NumberOfElements="16">
+                <DataItem Dimensions="64" Format="HDF">test_finite_volume_demo_diff_heated_cavity.h5:/mesh/connectivity</DataItem>
             </Topology>
             <Geometry GeometryType="XYZ">
-                <DataItem Dimensions="7659" Format="HDF">test_finite_volume_demo_diff_heated_cavity.h5:/mesh/points</DataItem>
+                <DataItem Dimensions="75" Format="HDF">test_finite_volume_demo_diff_heated_cavity.h5:/mesh/points</DataItem>
             </Geometry>
             <Attribute Name="temperature" Center="Cell">
-                <DataItem Dimensions="2371" Format="HDF" Precision="8">test_finite_volume_demo_diff_heated_cavity.h5:/mesh/fields/temperature</DataItem>
+                <DataItem Dimensions="16" Format="HDF" Precision="8">test_finite_volume_demo_diff_heated_cavity.h5:/mesh/fields/temperature</DataItem>
             </Attribute>
         </Grid>
     </Domain>

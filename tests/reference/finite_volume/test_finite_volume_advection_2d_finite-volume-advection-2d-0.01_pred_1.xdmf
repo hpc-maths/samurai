@@ -2,14 +2,14 @@
 <Xdmf>
     <Domain>
         <Grid Name="mesh">
-            <Topology TopologyType="Quadrilateral" NumberOfElements="35320">
-                <DataItem Dimensions="141280" Format="HDF">test_finite_volume_advection_2d_finite-volume-advection-2d-0.01_pred_1.h5:/mesh/connectivity</DataItem>
+            <Topology TopologyType="Quadrilateral" NumberOfElements="35380">
+                <DataItem Dimensions="141520" Format="HDF">test_finite_volume_advection_2d_finite-volume-advection-2d-0.01_pred_1.h5:/mesh/connectivity</DataItem>
             </Topology>
             <Geometry GeometryType="XYZ">
-                <DataItem Dimensions="110973" Format="HDF">test_finite_volume_advection_2d_finite-volume-advection-2d-0.01_pred_1.h5:/mesh/points</DataItem>
+                <DataItem Dimensions="111153" Format="HDF">test_finite_volume_advection_2d_finite-volume-advection-2d-0.01_pred_1.h5:/mesh/points</DataItem>
             </Geometry>
             <Attribute Name="u" Center="Cell">
-                <DataItem Dimensions="35320" Format="HDF" Precision="8">test_finite_volume_advection_2d_finite-volume-advection-2d-0.01_pred_1.h5:/mesh/fields/u</DataItem>
+                <DataItem Dimensions="35380" Format="HDF" Precision="8">test_finite_volume_advection_2d_finite-volume-advection-2d-0.01_pred_1.h5:/mesh/fields/u</DataItem>
             </Attribute>
         </Grid>
     </Domain>
