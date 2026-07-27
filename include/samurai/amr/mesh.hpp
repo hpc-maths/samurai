@@ -252,6 +252,19 @@ namespace samurai
                                                          interval.end + config_t::prediction_stencil_radius});
                             });
                     });
+
+                // The inward band, for the same reason as in mr/mesh.hpp: near a boundary the
+                // prediction stencil shifts inward so that it reads only cells the domain has,
+                // and it then reaches 2r on one side instead of r. Clipped to the domain, so it
+                // adds no outer ghost that nothing would write.
+                auto inward = intersection(
+                    nestedExpand(self(this->cells()[mesh_id_t::pred_cells][level]).on(level - 1), 2 * config_t::prediction_stencil_radius),
+                    this->domain(level - 1));
+                inward(
+                    [&](const auto& interval, const auto& index_yz)
+                    {
+                        lcl[index_yz].add_interval(interval);
+                    });
             }
             this->cells()[mesh_id_t::cells_and_ghosts] = {cl, false};
 
