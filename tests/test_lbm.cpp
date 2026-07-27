@@ -940,7 +940,6 @@ namespace samurai
             const double lambda = 5., gamma = 1.4, gm1 = gamma - 1., g = 2.;
             const double rho_down = 1., rho_up = uniform_density ? 1. : 2.;
             const double l = lambda, l2 = l * l;
-            constexpr double pi = 3.14159265358979323846;
 
             Box<double, dim> box({0., 0.}, {1., 1.});
             auto cfg = mesh_config<dim>().min_level(max_level).max_level(max_level).periodic(false).max_stencil_size(4).graduation_width(2);
