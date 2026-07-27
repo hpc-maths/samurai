@@ -24,6 +24,8 @@
 #include "timers.hpp"
 
 #ifdef SAMURAI_WITH_MPI
+#include <boost/serialization/array.hpp>
+#include <boost/serialization/utility.hpp>
 #include <boost/serialization/vector.hpp>
 
 #include "mpi/subdomain_bbox.hpp"
@@ -137,6 +139,10 @@ namespace samurai
 
         using coords_t = typename lca_type::coords_t;
 
+        // The domain's bounding box: (first, last + 1) per direction, in cells at the
+        // domain's own level.
+        using domain_bbox_t = std::array<std::pair<value_t, value_t>, dim>;
+
         using mesh_interval_t = typename ca_type::lca_type::mesh_interval_t;
 
         using mesh_t = samurai::MeshIDArray<ca_type, mesh_id_t>;
@@ -173,6 +179,7 @@ namespace samurai
         const lca_type& domain() const;
         const lca_type& domain(std::size_t level) const;
         const ca_type& domain_pyramid() const;
+        const domain_bbox_t& domain_bbox() const;
         const lca_type& subdomain() const;
         const lca_type& subdomain(std::size_t level) const;
 
@@ -273,7 +280,10 @@ namespace samurai
                                      std::set<int>& candidates) const;
 #endif
 
+        void compute_domain_bbox();
+
         ca_type m_domain;
+        domain_bbox_t m_domain_bbox{};
         ca_type m_subdomain;
         mesh_t m_cells;
         ca_type m_union;
@@ -295,6 +305,7 @@ namespace samurai
             }
 
             ar & m_domain;
+            ar & m_domain_bbox;
             ar & m_subdomain;
             ar & m_union;
             ar & m_config;
@@ -428,6 +439,7 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE void Mesh_base<D, Config>::finalize_mesh(const coords_t& origin_point, double scaling_factor)
     {
+        compute_domain_bbox();
         construct_union();
         update_meshid_neighbour(mesh_id_t::cells);
         update_sub_mesh();
@@ -723,6 +735,30 @@ namespace samurai
         return m_domain[level];
     }
 
+    // The domain's bounding box, in cells at the domain's own level.
+    //
+    // Cached because it is a linear scan of the domain and it is asked for per interval by
+    // the prediction machinery, which needs the periodic wrap. It is a property of the
+    // domain, so it is recomputed exactly where the domain is set: here, at the end of
+    // construction, and it travels with the domain through swap and the MPI neighbour
+    // exchange. tests/test_domain_bbox.cpp is what keeps that true.
+    template <class D, class Config>
+    SAMURAI_INLINE auto Mesh_base<D, Config>::domain_bbox() const -> const domain_bbox_t&
+    {
+        return m_domain_bbox;
+    }
+
+    template <class D, class Config>
+    SAMURAI_INLINE void Mesh_base<D, Config>::compute_domain_bbox()
+    {
+        if (m_domain.empty() || m_domain[max_level()].empty())
+        {
+            m_domain_bbox = domain_bbox_t{};
+            return;
+        }
+        m_domain_bbox = m_domain[max_level()].minmax_indices();
+    }
+
     // Whole-domain pyramid: the domain represented at every level (m_domain[level]
     // is precomputed for all levels). Exposed so that consumers needing the domain
     // at several levels - e.g. make_graduation - can index domain[level] directly
@@ -895,6 +931,7 @@ namespace samurai
         using std::swap;
         swap(m_cells, mesh.m_cells);
         swap(m_domain, mesh.m_domain);
+        swap(m_domain_bbox, mesh.m_domain_bbox);
         swap(m_subdomain, mesh.m_subdomain);
         swap(m_mpi_neighbourhood, mesh.m_mpi_neighbourhood);
         swap(m_union, mesh.m_union);
@@ -1126,7 +1163,8 @@ namespace samurai
         for (auto& neighbour : m_mpi_neighbourhood)
         {
             world.recv(neighbour.rank, world.rank(), neighbour.mesh.m_subdomain);
-            neighbour.mesh.m_domain = m_domain;
+            neighbour.mesh.m_domain      = m_domain;
+            neighbour.mesh.m_domain_bbox = m_domain_bbox;
 #ifdef SAMURAI_WITH_PETSC
             neighbour.mesh.compute_gravity_center();
 #endif

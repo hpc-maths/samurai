@@ -118,6 +118,24 @@ namespace samurai
         }
     };
 
+    /**
+     * The shift to use along @a d, given what the query concluded.
+     *
+     * Where no shift fits, the centred stencil is kept. Two situations reach that, and both
+     * are the behaviour of today's code rather than a new one:
+     *   - the cell is outside the domain, where prediction reads the outer ghosts the
+     *     boundary conditions write and there is nothing to shift into;
+     *   - the band available at that level is too narrow to hold the stencil however it is
+     *     shifted, which is the constructibility condition the mesh must guarantee. Saying
+     *     so loudly rather than carrying on is a diagnostic of its own, not this function's
+     *     business.
+     */
+    template <std::size_t dim>
+    constexpr int shift_of(const PredictionStencilShift<dim>& shifts, std::size_t d)
+    {
+        return shifts.fits ? shifts.shift[d] : 0;
+    }
+
     namespace detail
     {
         constexpr std::size_t ipow(std::size_t base, std::size_t exponent)
@@ -752,5 +770,40 @@ namespace samurai
                                                   shift = run_shift;
                                               });
         return shift;
+    }
+
+    /**
+     * The periodic wrap of each direction of @a mesh, seen at @a level, in the form
+     * @ref for_each_prediction_shift_run takes: @c 0 where the direction is not periodic.
+     *
+     * Computed exactly as @c update_ghost_periodic computes the shift it copies by, so that
+     * what prediction believes about a periodic direction and what fills the ghosts there
+     * cannot drift apart.
+     *
+     * The mesh caches its domain's bounding box, so this is a handful of integer operations
+     * and returns immediately when no direction is periodic - it is called per interval.
+     */
+    template <class Mesh>
+    auto prediction_period(const Mesh& mesh, std::size_t level)
+    {
+        static constexpr std::size_t dim = Mesh::dim;
+        using value_t                    = typename Mesh::interval_t::value_t;
+
+        const auto& domain = mesh.domain();
+        assert(level <= domain.level() && "prediction_period: no periodic wrap is defined below the domain's own level");
+        const auto delta_l = domain.level() - level;
+
+        std::array<value_t, dim> period{};
+        if (!mesh.is_periodic())
+        {
+            return period;
+        }
+
+        const auto& bbox = mesh.domain_bbox();
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            period[d] = mesh.is_periodic(d) ? static_cast<value_t>((bbox[d].second - bbox[d].first) >> delta_l) : 0;
+        }
+        return period;
     }
 }

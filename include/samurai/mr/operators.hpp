@@ -11,6 +11,7 @@
 #include "../field.hpp"
 #include "../numeric/prediction.hpp"
 #include "../operators_base.hpp"
+#include "../prediction_shifts.hpp"
 #include "../utils.hpp"
 
 namespace samurai
@@ -153,39 +154,53 @@ namespace samurai
             }
             else
             {
-                using value_t           = typename TInterval::value_t;
-                auto sorder             = static_cast<value_t>(order);
-                const auto& interp_even = prediction_coefficients<order>(0, 0).c;
-                const auto& interp_odd  = prediction_coefficients<order>(1, 0).c;
+                using value_t = typename TInterval::value_t;
+                auto sorder   = static_cast<value_t>(order);
 
-                detail(level + 1, 2 * i)     = field(level + 1, 2 * i);
-                detail(level + 1, 2 * i + 1) = field(level + 1, 2 * i + 1);
+                for_each_prediction_shift_run<order>(field.mesh().domain(level),
+                                                     prediction_period(field.mesh(), level),
+                                                     i,
+                                                     index,
+                                                     [&](const auto& run, const auto& shifts)
+                                                     {
+                                                         const auto& coeffs_even = prediction_coefficients<order>(0, shift_of(shifts, 0));
+                                                         const auto& coeffs_odd  = prediction_coefficients<order>(1, shift_of(shifts, 0));
+                                                         const auto& interp_even = coeffs_even.c;
+                                                         const auto& interp_odd  = coeffs_odd.c;
+                                                         const auto start        = static_cast<value_t>(coeffs_even.start);
 
-                auto detail_1 = detail(level + 1, 2 * i);
-                auto detail_2 = detail(level + 1, 2 * i + 1);
+                                                         detail(level + 1, 2 * run)     = field(level + 1, 2 * run);
+                                                         detail(level + 1, 2 * run + 1) = field(level + 1, 2 * run + 1);
 
-                for (value_t ki = 0; ki < 2 * sorder + 1; ++ki)
-                {
-                    std::size_t uki = static_cast<std::size_t>(ki);
-                    auto field_ik   = field(level, i + ki - sorder);
-                    detail_1 -= interp_even[uki] * field_ik;
-                    detail_2 -= interp_odd[uki] * field_ik;
-                }
+                                                         auto detail_1 = detail(level + 1, 2 * run);
+                                                         auto detail_2 = detail(level + 1, 2 * run + 1);
+
+                                                         for (value_t ki = 0; ki < 2 * sorder + 1; ++ki)
+                                                         {
+                                                             std::size_t uki = static_cast<std::size_t>(ki);
+                                                             auto field_ik   = field(level, run + ki + start);
+                                                             detail_1 -= interp_even[uki] * field_ik;
+                                                             detail_2 -= interp_odd[uki] * field_ik;
+                                                         }
+                                                     });
             }
         }
 
-        template <std::size_t order>
-        SAMURAI_INLINE auto get_indices(Dim<2>, const auto& mesh) const
+        // The storage index of the first cell of each stencil column, for one run of the
+        // interval. `start` is the stencil's first offset in each direction, which is
+        // -order away from the cell only where the stencil is centred.
+        template <std::size_t order, class Run, class Start>
+        SAMURAI_INLINE auto get_indices(Dim<2>, const auto& mesh, const Run& run, const Start& start) const
         {
             using value_t                     = typename TInterval::value_t;
             constexpr std::size_t interp_size = 2 * order + 1;
 
-            std::array<std::size_t, interp_size * interp_size> indices;
+            std::array<std::size_t, interp_size * interp_size> indices{};
 
             for (std::size_t kj = 0; kj < interp_size; ++kj)
             {
                 auto ind_l_i_jk = static_cast<std::size_t>(
-                    mesh.get_index(level, i.start - static_cast<value_t>(order), j + static_cast<value_t>(kj) - static_cast<value_t>(order)));
+                    mesh.get_index(level, run.start + start[0], j + static_cast<value_t>(kj) + start[1]));
                 for (std::size_t ki = 0; ki < interp_size; ++ki)
                 {
                     auto idx     = ki + kj * interp_size;
@@ -196,22 +211,22 @@ namespace samurai
             return indices;
         }
 
-        template <std::size_t order>
-        SAMURAI_INLINE auto get_indices(Dim<3>, const auto& mesh) const
+        template <std::size_t order, class Run, class Start>
+        SAMURAI_INLINE auto get_indices(Dim<3>, const auto& mesh, const Run& run, const Start& start) const
         {
             using value_t                     = typename TInterval::value_t;
             constexpr std::size_t interp_size = 2 * order + 1;
 
-            std::array<std::size_t, interp_size * interp_size * interp_size> indices;
+            std::array<std::size_t, interp_size * interp_size * interp_size> indices{};
 
             for (std::size_t kk = 0; kk < interp_size; ++kk)
             {
                 for (std::size_t kj = 0; kj < interp_size; ++kj)
                 {
                     auto ind_l_i_jk = static_cast<std::size_t>(mesh.get_index(level,
-                                                                              i.start - static_cast<value_t>(order),
-                                                                              j + static_cast<value_t>(kj) - static_cast<value_t>(order),
-                                                                              k + static_cast<value_t>(kk) - static_cast<value_t>(order)));
+                                                                              run.start + start[0],
+                                                                              j + static_cast<value_t>(kj) + start[1],
+                                                                              k + static_cast<value_t>(kk) + start[2]));
                     for (std::size_t ki = 0; ki < interp_size; ++ki)
                     {
                         auto idx     = ki + kj * interp_size + kk * interp_size * interp_size;
@@ -221,6 +236,29 @@ namespace samurai
             }
 
             return indices;
+        }
+
+        // The 1D coefficient family of each direction, for one run: the parity pair, and
+        // the stencil's first offset. At shift 0 in every direction this is the centred
+        // family, so the products below are bit for bit what they were.
+        template <std::size_t order, std::size_t d, class Shifts>
+        SAMURAI_INLINE static auto coefficients_of(const Shifts& shifts)
+        {
+            return std::make_pair(std::cref(prediction_coefficients<order>(0, shift_of(shifts, d)).c),
+                                  std::cref(prediction_coefficients<order>(1, shift_of(shifts, d)).c));
+        }
+
+        template <std::size_t order, std::size_t dim_, class Shifts>
+        SAMURAI_INLINE static auto stencil_start(const Shifts& shifts)
+        {
+            using value_t = typename TInterval::value_t;
+
+            std::array<value_t, dim_> start;
+            for (std::size_t d = 0; d < dim_; ++d)
+            {
+                start[d] = static_cast<value_t>(-static_cast<int>(order) + shift_of(shifts, d));
+            }
+            return start;
         }
 
         template <class T1, class T2, std::size_t order = T2::mesh_t::config_t::prediction_stencil_radius>
@@ -235,131 +273,140 @@ namespace samurai
             }
             else
             {
-                const auto& interp_even = prediction_coefficients<order>(0, 0).c;
-                const auto& interp_odd  = prediction_coefficients<order>(1, 0).c;
-
-                constexpr std::size_t interp_size = 2 * order + 1;
-
-                // Precompute, once per operator call, the 4 child coefficients
-                // of each stencil point (they depend only on (ki,kj), never on
-                // the cell or the component). Layout {EE, OE, EO, OO} matches the
-                // 4 children (2i,2j), (2i+1,2j), (2i,2j+1), (2i+1,2j+1). Each
-                // product keeps the left-associated form of the scalar code, so
-                // the wavelet details are bit-identical; the per-child loop below
-                // is a 4-wide update the compiler lowers to SIMD.
-                std::array<std::array<double, 4>, interp_size * interp_size> coeff;
-                for (std::size_t kj = 0; kj < interp_size; ++kj)
-                {
-                    for (std::size_t ki = 0; ki < interp_size; ++ki)
+                for_each_prediction_shift_run<order>(
+                    field.mesh().domain(level),
+                    prediction_period(field.mesh(), level),
+                    i,
+                    index,
+                    [&](const auto& run, const auto& shifts)
                     {
-                        coeff[ki + kj * interp_size] = {interp_even[ki] * interp_even[kj],
-                                                        interp_odd[ki] * interp_even[kj],
-                                                        interp_even[ki] * interp_odd[kj],
-                                                        interp_odd[ki] * interp_odd[kj]};
-                    }
-                }
+                        const auto [interp_even_x, interp_odd_x] = coefficients_of<order, 0>(shifts);
+                        const auto [interp_even_y, interp_odd_y] = coefficients_of<order, 1>(shifts);
+                        const auto start                         = stencil_start<order, 2>(shifts);
 
-                auto indices = get_indices<order>(Dim<2>{}, field.mesh());
+                        constexpr std::size_t interp_size = 2 * order + 1;
 
-                const auto* data = field.data();
-
-                auto* detail_data = detail.data();
-
-                auto ind1 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * i.start, 2 * j));
-                auto ind2 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * i.start, 2 * j + 1));
-
-                for (std::size_t ii = 0, i_f = 0; ii < i.size(); ++ii, i_f += 2)
-                {
-                    if constexpr (T2::is_scalar)
-                    {
-                        std::array<double, 4> d = {data[ind1 + i_f], data[ind1 + i_f + 1], data[ind2 + i_f], data[ind2 + i_f + 1]};
-
+                        // Precompute, once per run of the interval, the 4 child coefficients
+                        // of each stencil point (they depend only on (ki,kj), never on
+                        // the cell or the component). Layout {EE, OE, EO, OO} matches the
+                        // 4 children (2i,2j), (2i+1,2j), (2i,2j+1), (2i+1,2j+1). Each
+                        // product keeps the left-associated form of the scalar code, so
+                        // the wavelet details are bit-identical; the per-child loop below
+                        // is a 4-wide update the compiler lowers to SIMD.
+                        std::array<std::array<double, 4>, interp_size * interp_size> coeff;
                         for (std::size_t kj = 0; kj < interp_size; ++kj)
                         {
                             for (std::size_t ki = 0; ki < interp_size; ++ki)
                             {
-                                const double src = data[indices[ki + kj * interp_size] + ii];
-#ifdef SAMURAI_CHECK_NAN
-                                if (std::isnan(src))
-                                {
-                                    using value_t = typename TInterval::value_t;
-                                    std::cerr << "NaN detected in compute_detail_op at level " << level << ", i "
-                                              << (i.start + static_cast<value_t>(ii)) << ", j "
-                                              << (j + static_cast<double>(kj) - static_cast<double>(order)) << std::endl;
-                                    exit(1);
-                                }
-#endif
-                                const auto& c = coeff[ki + kj * interp_size];
-                                for (std::size_t k = 0; k < 4; ++k)
-                                {
-                                    d[k] -= c[k] * src;
-                                }
+                                coeff[ki + kj * interp_size] = {interp_even_x[ki] * interp_even_y[kj],
+                                                                interp_odd_x[ki] * interp_even_y[kj],
+                                                                interp_even_x[ki] * interp_odd_y[kj],
+                                                                interp_odd_x[ki] * interp_odd_y[kj]};
                             }
                         }
 
-                        detail_data[ind1 + i_f]     = d[0];
-                        detail_data[ind1 + i_f + 1] = d[1];
-                        detail_data[ind2 + i_f]     = d[2];
-                        detail_data[ind2 + i_f + 1] = d[3];
-                    }
-                    else
-                    {
-                        for (std::size_t nc = 0; nc < T2::n_comp; ++nc)
+                        auto indices = get_indices<order>(Dim<2>{}, field.mesh(), run, start);
+
+                        const auto* data = field.data();
+
+                        auto* detail_data = detail.data();
+
+                        auto ind1 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * run.start, 2 * j));
+                        auto ind2 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * run.start, 2 * j + 1));
+
+                        for (std::size_t ii = 0, i_f = 0; ii < run.size(); ++ii, i_f += 2)
                         {
-                            std::array<double, 4> d = {data[(ind1 + i_f) * T2::n_comp + nc],
-                                                       data[(ind1 + i_f + 1) * T2::n_comp + nc],
-                                                       data[(ind2 + i_f) * T2::n_comp + nc],
-                                                       data[(ind2 + i_f + 1) * T2::n_comp + nc]};
-
-                            for (std::size_t kj = 0; kj < interp_size; ++kj)
+                            if constexpr (T2::is_scalar)
                             {
-                                for (std::size_t ki = 0; ki < interp_size; ++ki)
+                                std::array<double, 4> d = {data[ind1 + i_f], data[ind1 + i_f + 1], data[ind2 + i_f], data[ind2 + i_f + 1]};
+
+                                for (std::size_t kj = 0; kj < interp_size; ++kj)
                                 {
-                                    const double src = data[(indices[ki + kj * interp_size] + ii) * T2::n_comp + nc];
-
+                                    for (std::size_t ki = 0; ki < interp_size; ++ki)
+                                    {
+                                        const double src = data[indices[ki + kj * interp_size] + ii];
 #ifdef SAMURAI_CHECK_NAN
-                                    if (std::isnan(src))
-                                    {
-                                        using value_t = typename TInterval::value_t;
-                                        std::cerr << "NaN detected in compute_detail_op at level " << level << ", i "
-                                                  << (i.start + static_cast<value_t>(ii)) << ", j "
-                                                  << (j + static_cast<double>(kj) - static_cast<double>(order)) << ", nc " << nc
-                                                  << std::endl;
-                                        exit(1);
-                                    }
+                                        if (std::isnan(src))
+                                        {
+                                            using value_t = typename TInterval::value_t;
+                                            std::cerr << "NaN detected in compute_detail_op at level " << level << ", i "
+                                                      << (run.start + static_cast<value_t>(ii)) << ", j "
+                                                      << (j + static_cast<value_t>(kj) + start[1]) << std::endl;
+                                            exit(1);
+                                        }
 #endif
-
-                                    const auto& c = coeff[ki + kj * interp_size];
-                                    for (std::size_t k = 0; k < 4; ++k)
-                                    {
-                                        d[k] -= c[k] * src;
+                                        const auto& c = coeff[ki + kj * interp_size];
+                                        for (std::size_t k = 0; k < 4; ++k)
+                                        {
+                                            d[k] -= c[k] * src;
+                                        }
                                     }
                                 }
-                            }
 
-                            if constexpr (requires { detail.begin_item(); })
-                            {
-                                detail_data[detail.begin_item() + (ind1 + i_f) * T1::n_comp + nc]     = d[0];
-                                detail_data[detail.begin_item() + (ind1 + i_f + 1) * T1::n_comp + nc] = d[1];
-                                detail_data[detail.begin_item() + (ind2 + i_f) * T1::n_comp + nc]     = d[2];
-                                detail_data[detail.begin_item() + (ind2 + i_f + 1) * T1::n_comp + nc] = d[3];
+                                detail_data[ind1 + i_f]     = d[0];
+                                detail_data[ind1 + i_f + 1] = d[1];
+                                detail_data[ind2 + i_f]     = d[2];
+                                detail_data[ind2 + i_f + 1] = d[3];
                             }
                             else
                             {
-                                detail_data[(ind1 + i_f) * T1::n_comp + nc]     = d[0];
-                                detail_data[(ind1 + i_f + 1) * T1::n_comp + nc] = d[1];
-                                detail_data[(ind2 + i_f) * T1::n_comp + nc]     = d[2];
-                                detail_data[(ind2 + i_f + 1) * T1::n_comp + nc] = d[3];
+                                for (std::size_t nc = 0; nc < T2::n_comp; ++nc)
+                                {
+                                    std::array<double, 4> d = {data[(ind1 + i_f) * T2::n_comp + nc],
+                                                               data[(ind1 + i_f + 1) * T2::n_comp + nc],
+                                                               data[(ind2 + i_f) * T2::n_comp + nc],
+                                                               data[(ind2 + i_f + 1) * T2::n_comp + nc]};
+
+                                    for (std::size_t kj = 0; kj < interp_size; ++kj)
+                                    {
+                                        for (std::size_t ki = 0; ki < interp_size; ++ki)
+                                        {
+                                            const double src = data[(indices[ki + kj * interp_size] + ii) * T2::n_comp + nc];
+
+#ifdef SAMURAI_CHECK_NAN
+                                            if (std::isnan(src))
+                                            {
+                                                using value_t = typename TInterval::value_t;
+                                                std::cerr << "NaN detected in compute_detail_op at level " << level << ", i "
+                                                          << (run.start + static_cast<value_t>(ii)) << ", j "
+                                                          << (j + static_cast<value_t>(kj) + start[1]) << ", nc " << nc << std::endl;
+                                                exit(1);
+                                            }
+#endif
+
+                                            const auto& c = coeff[ki + kj * interp_size];
+                                            for (std::size_t k = 0; k < 4; ++k)
+                                            {
+                                                d[k] -= c[k] * src;
+                                            }
+                                        }
+                                    }
+
+                                    if constexpr (requires { detail.begin_item(); })
+                                    {
+                                        detail_data[detail.begin_item() + (ind1 + i_f) * T1::n_comp + nc]     = d[0];
+                                        detail_data[detail.begin_item() + (ind1 + i_f + 1) * T1::n_comp + nc] = d[1];
+                                        detail_data[detail.begin_item() + (ind2 + i_f) * T1::n_comp + nc]     = d[2];
+                                        detail_data[detail.begin_item() + (ind2 + i_f + 1) * T1::n_comp + nc] = d[3];
+                                    }
+                                    else
+                                    {
+                                        detail_data[(ind1 + i_f) * T1::n_comp + nc]     = d[0];
+                                        detail_data[(ind1 + i_f + 1) * T1::n_comp + nc] = d[1];
+                                        detail_data[(ind2 + i_f) * T1::n_comp + nc]     = d[2];
+                                        detail_data[(ind2 + i_f + 1) * T1::n_comp + nc] = d[3];
+                                    }
+                                }
                             }
                         }
-                    }
-                }
+                    });
             }
         }
 
         template <class T1, class T2, std::size_t order = T2::mesh_t::config_t::prediction_stencil_radius>
         SAMURAI_INLINE void operator()(Dim<3>, T1& detail, const T2& field) const
         {
+            using value_t = typename TInterval::value_t;
             if constexpr (order == 0)
             {
                 detail(level + 1, 2 * i, 2 * j, 2 * k)             = field(level + 1, 2 * i, 2 * j, 2 * k) - field(level, i, j, k);
@@ -374,161 +421,171 @@ namespace samurai
             }
             else
             {
-                const auto& interp_even = prediction_coefficients<order>(0, 0).c;
-                const auto& interp_odd  = prediction_coefficients<order>(1, 0).c;
-
-                constexpr std::size_t interp_size = 2 * order + 1;
-
-                // Precompute, once per operator call, the 8 child coefficients of
-                // each stencil point (they depend only on (ki,kj,kk), never on the
-                // cell or the component). Layout matches the 8 children in the
-                // (2i[+1], 2j[+1], 2k[+1]) order below. Each product keeps the
-                // left-associated form of the scalar code, so the wavelet details
-                // are bit-identical; the per-child loop is a SIMD update.
-                std::array<std::array<double, 8>, interp_size * interp_size * interp_size> coeff;
-                for (std::size_t kk = 0; kk < interp_size; ++kk)
-                {
-                    for (std::size_t kj = 0; kj < interp_size; ++kj)
+                for_each_prediction_shift_run<order>(
+                    field.mesh().domain(level),
+                    prediction_period(field.mesh(), level),
+                    i,
+                    index,
+                    [&](const auto& run, const auto& shifts)
                     {
-                        for (std::size_t ki = 0; ki < interp_size; ++ki)
-                        {
-                            coeff[ki + kj * interp_size + kk * interp_size * interp_size] = {
-                                interp_even[ki] * interp_even[kj] * interp_even[kk],
-                                interp_odd[ki] * interp_even[kj] * interp_even[kk],
-                                interp_even[ki] * interp_odd[kj] * interp_even[kk],
-                                interp_odd[ki] * interp_odd[kj] * interp_even[kk],
-                                interp_even[ki] * interp_even[kj] * interp_odd[kk],
-                                interp_odd[ki] * interp_even[kj] * interp_odd[kk],
-                                interp_even[ki] * interp_odd[kj] * interp_odd[kk],
-                                interp_odd[ki] * interp_odd[kj] * interp_odd[kk]};
-                        }
-                    }
-                }
+                        const auto [interp_even_x, interp_odd_x] = coefficients_of<order, 0>(shifts);
+                        const auto [interp_even_y, interp_odd_y] = coefficients_of<order, 1>(shifts);
+                        const auto [interp_even_z, interp_odd_z] = coefficients_of<order, 2>(shifts);
+                        const auto start                         = stencil_start<order, 3>(shifts);
 
-                auto indices = get_indices<order>(Dim<3>{}, field.mesh());
+                        constexpr std::size_t interp_size = 2 * order + 1;
 
-                const auto* data = field.data();
-
-                auto* detail_data = detail.data();
-
-                auto ind1 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * i.start, 2 * j, 2 * k));
-                auto ind2 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * i.start, 2 * j + 1, 2 * k));
-                auto ind3 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * i.start, 2 * j, 2 * k + 1));
-                auto ind4 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * i.start, 2 * j + 1, 2 * k + 1));
-
-                for (std::size_t ii = 0, i_f = 0; ii < i.size(); ++ii, i_f += 2)
-                {
-                    if constexpr (T2::is_scalar)
-                    {
-                        std::array<double, 8> d = {data[ind1 + i_f],
-                                                   data[ind1 + i_f + 1],
-                                                   data[ind2 + i_f],
-                                                   data[ind2 + i_f + 1],
-                                                   data[ind3 + i_f],
-                                                   data[ind3 + i_f + 1],
-                                                   data[ind4 + i_f],
-                                                   data[ind4 + i_f + 1]};
-
+                        // Precompute, once per run of the interval, the 8 child coefficients of
+                        // each stencil point (they depend only on (ki,kj,kk), never on the
+                        // cell or the component). Layout matches the 8 children in the
+                        // (2i[+1], 2j[+1], 2k[+1]) order below. Each product keeps the
+                        // left-associated form of the scalar code, so the wavelet details
+                        // are bit-identical; the per-child loop is a SIMD update.
+                        std::array<std::array<double, 8>, interp_size * interp_size * interp_size> coeff;
                         for (std::size_t kk = 0; kk < interp_size; ++kk)
                         {
                             for (std::size_t kj = 0; kj < interp_size; ++kj)
                             {
                                 for (std::size_t ki = 0; ki < interp_size; ++ki)
                                 {
-                                    const std::size_t idx = ki + kj * interp_size + kk * interp_size * interp_size;
-                                    const double src      = data[indices[idx] + ii];
-#ifdef SAMURAI_CHECK_NAN
-                                    if (std::isnan(src))
-                                    {
-                                        std::cerr << "NaN detected in compute_detail_op at level " << level << ", i " << (i.start + ii)
-                                                  << ", j " << (j + static_cast<double>(kj) - static_cast<double>(order)) << ", k "
-                                                  << (k + static_cast<double>(kk) - static_cast<double>(order)) << std::endl;
-                                        exit(1);
-                                    }
-#endif
-                                    const auto& c = coeff[idx];
-                                    for (std::size_t m = 0; m < 8; ++m)
-                                    {
-                                        d[m] -= c[m] * src;
-                                    }
+                                    coeff[ki + kj * interp_size + kk * interp_size * interp_size] = {
+                                        interp_even_x[ki] * interp_even_y[kj] * interp_even_z[kk],
+                                        interp_odd_x[ki] * interp_even_y[kj] * interp_even_z[kk],
+                                        interp_even_x[ki] * interp_odd_y[kj] * interp_even_z[kk],
+                                        interp_odd_x[ki] * interp_odd_y[kj] * interp_even_z[kk],
+                                        interp_even_x[ki] * interp_even_y[kj] * interp_odd_z[kk],
+                                        interp_odd_x[ki] * interp_even_y[kj] * interp_odd_z[kk],
+                                        interp_even_x[ki] * interp_odd_y[kj] * interp_odd_z[kk],
+                                        interp_odd_x[ki] * interp_odd_y[kj] * interp_odd_z[kk]};
                                 }
                             }
                         }
 
-                        detail_data[ind1 + i_f]     = d[0];
-                        detail_data[ind1 + i_f + 1] = d[1];
-                        detail_data[ind2 + i_f]     = d[2];
-                        detail_data[ind2 + i_f + 1] = d[3];
-                        detail_data[ind3 + i_f]     = d[4];
-                        detail_data[ind3 + i_f + 1] = d[5];
-                        detail_data[ind4 + i_f]     = d[6];
-                        detail_data[ind4 + i_f + 1] = d[7];
-                    }
-                    else
-                    {
-                        for (std::size_t nc = 0; nc < T2::n_comp; ++nc)
-                        {
-                            std::array<double, 8> d = {data[(ind1 + i_f) * T2::n_comp + nc],
-                                                       data[(ind1 + i_f + 1) * T2::n_comp + nc],
-                                                       data[(ind2 + i_f) * T2::n_comp + nc],
-                                                       data[(ind2 + i_f + 1) * T2::n_comp + nc],
-                                                       data[(ind3 + i_f) * T2::n_comp + nc],
-                                                       data[(ind3 + i_f + 1) * T2::n_comp + nc],
-                                                       data[(ind4 + i_f) * T2::n_comp + nc],
-                                                       data[(ind4 + i_f + 1) * T2::n_comp + nc]};
+                        auto indices = get_indices<order>(Dim<3>{}, field.mesh(), run, start);
 
-                            for (std::size_t kk = 0; kk < interp_size; ++kk)
+                        const auto* data = field.data();
+
+                        auto* detail_data = detail.data();
+
+                        auto ind1 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * run.start, 2 * j, 2 * k));
+                        auto ind2 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * run.start, 2 * j + 1, 2 * k));
+                        auto ind3 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * run.start, 2 * j, 2 * k + 1));
+                        auto ind4 = static_cast<std::size_t>(field.mesh().get_index(level + 1, 2 * run.start, 2 * j + 1, 2 * k + 1));
+
+                        for (std::size_t ii = 0, i_f = 0; ii < run.size(); ++ii, i_f += 2)
+                        {
+                            if constexpr (T2::is_scalar)
                             {
-                                for (std::size_t kj = 0; kj < interp_size; ++kj)
+                                std::array<double, 8> d = {data[ind1 + i_f],
+                                                           data[ind1 + i_f + 1],
+                                                           data[ind2 + i_f],
+                                                           data[ind2 + i_f + 1],
+                                                           data[ind3 + i_f],
+                                                           data[ind3 + i_f + 1],
+                                                           data[ind4 + i_f],
+                                                           data[ind4 + i_f + 1]};
+
+                                for (std::size_t kk = 0; kk < interp_size; ++kk)
                                 {
-                                    for (std::size_t ki = 0; ki < interp_size; ++ki)
+                                    for (std::size_t kj = 0; kj < interp_size; ++kj)
                                     {
-                                        const std::size_t idx = ki + kj * interp_size + kk * interp_size * interp_size;
-                                        const double src      = data[(indices[idx] + ii) * T2::n_comp + nc];
+                                        for (std::size_t ki = 0; ki < interp_size; ++ki)
+                                        {
+                                            const std::size_t idx = ki + kj * interp_size + kk * interp_size * interp_size;
+                                            const double src      = data[indices[idx] + ii];
 #ifdef SAMURAI_CHECK_NAN
-                                        if (std::isnan(src))
-                                        {
-                                            std::cerr << "NaN detected in compute_detail_op at level " << level << ", i " << (i.start + ii)
-                                                      << ", j " << (j + static_cast<double>(kj) - static_cast<double>(order)) << ", k "
-                                                      << (k + static_cast<double>(kk) - static_cast<double>(order)) << ", nc " << nc
-                                                      << std::endl;
-                                            exit(1);
-                                        }
+                                            if (std::isnan(src))
+                                            {
+                                                std::cerr << "NaN detected in compute_detail_op at level " << level << ", i "
+                                                          << (run.start + ii) << ", j " << (j + static_cast<value_t>(kj) + start[1])
+                                                          << ", k " << (k + static_cast<value_t>(kk) + start[2]) << std::endl;
+                                                exit(1);
+                                            }
 #endif
-                                        const auto& c = coeff[idx];
-                                        for (std::size_t m = 0; m < 8; ++m)
-                                        {
-                                            d[m] -= c[m] * src;
+                                            const auto& c = coeff[idx];
+                                            for (std::size_t m = 0; m < 8; ++m)
+                                            {
+                                                d[m] -= c[m] * src;
+                                            }
                                         }
                                     }
                                 }
-                            }
 
-                            if constexpr (requires { detail.begin_item(); })
-                            {
-                                detail_data[detail.begin_item() + (ind1 + i_f) * T1::n_comp + nc]     = d[0];
-                                detail_data[detail.begin_item() + (ind1 + i_f + 1) * T1::n_comp + nc] = d[1];
-                                detail_data[detail.begin_item() + (ind2 + i_f) * T1::n_comp + nc]     = d[2];
-                                detail_data[detail.begin_item() + (ind2 + i_f + 1) * T1::n_comp + nc] = d[3];
-                                detail_data[detail.begin_item() + (ind3 + i_f) * T1::n_comp + nc]     = d[4];
-                                detail_data[detail.begin_item() + (ind3 + i_f + 1) * T1::n_comp + nc] = d[5];
-                                detail_data[detail.begin_item() + (ind4 + i_f) * T1::n_comp + nc]     = d[6];
-                                detail_data[detail.begin_item() + (ind4 + i_f + 1) * T1::n_comp + nc] = d[7];
+                                detail_data[ind1 + i_f]     = d[0];
+                                detail_data[ind1 + i_f + 1] = d[1];
+                                detail_data[ind2 + i_f]     = d[2];
+                                detail_data[ind2 + i_f + 1] = d[3];
+                                detail_data[ind3 + i_f]     = d[4];
+                                detail_data[ind3 + i_f + 1] = d[5];
+                                detail_data[ind4 + i_f]     = d[6];
+                                detail_data[ind4 + i_f + 1] = d[7];
                             }
                             else
                             {
-                                detail_data[(ind1 + i_f) * T1::n_comp + nc]     = d[0];
-                                detail_data[(ind1 + i_f + 1) * T1::n_comp + nc] = d[1];
-                                detail_data[(ind2 + i_f) * T1::n_comp + nc]     = d[2];
-                                detail_data[(ind2 + i_f + 1) * T1::n_comp + nc] = d[3];
-                                detail_data[(ind3 + i_f) * T1::n_comp + nc]     = d[4];
-                                detail_data[(ind3 + i_f + 1) * T1::n_comp + nc] = d[5];
-                                detail_data[(ind4 + i_f) * T1::n_comp + nc]     = d[6];
-                                detail_data[(ind4 + i_f + 1) * T1::n_comp + nc] = d[7];
+                                for (std::size_t nc = 0; nc < T2::n_comp; ++nc)
+                                {
+                                    std::array<double, 8> d = {data[(ind1 + i_f) * T2::n_comp + nc],
+                                                               data[(ind1 + i_f + 1) * T2::n_comp + nc],
+                                                               data[(ind2 + i_f) * T2::n_comp + nc],
+                                                               data[(ind2 + i_f + 1) * T2::n_comp + nc],
+                                                               data[(ind3 + i_f) * T2::n_comp + nc],
+                                                               data[(ind3 + i_f + 1) * T2::n_comp + nc],
+                                                               data[(ind4 + i_f) * T2::n_comp + nc],
+                                                               data[(ind4 + i_f + 1) * T2::n_comp + nc]};
+
+                                    for (std::size_t kk = 0; kk < interp_size; ++kk)
+                                    {
+                                        for (std::size_t kj = 0; kj < interp_size; ++kj)
+                                        {
+                                            for (std::size_t ki = 0; ki < interp_size; ++ki)
+                                            {
+                                                const std::size_t idx = ki + kj * interp_size + kk * interp_size * interp_size;
+                                                const double src      = data[(indices[idx] + ii) * T2::n_comp + nc];
+#ifdef SAMURAI_CHECK_NAN
+                                                if (std::isnan(src))
+                                                {
+                                                    std::cerr << "NaN detected in compute_detail_op at level " << level << ", i "
+                                                              << (run.start + ii) << ", j " << (j + static_cast<value_t>(kj) + start[1])
+                                                              << ", k " << (k + static_cast<value_t>(kk) + start[2]) << ", nc " << nc
+                                                              << std::endl;
+                                                    exit(1);
+                                                }
+#endif
+                                                const auto& c = coeff[idx];
+                                                for (std::size_t m = 0; m < 8; ++m)
+                                                {
+                                                    d[m] -= c[m] * src;
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    if constexpr (requires { detail.begin_item(); })
+                                    {
+                                        detail_data[detail.begin_item() + (ind1 + i_f) * T1::n_comp + nc]     = d[0];
+                                        detail_data[detail.begin_item() + (ind1 + i_f + 1) * T1::n_comp + nc] = d[1];
+                                        detail_data[detail.begin_item() + (ind2 + i_f) * T1::n_comp + nc]     = d[2];
+                                        detail_data[detail.begin_item() + (ind2 + i_f + 1) * T1::n_comp + nc] = d[3];
+                                        detail_data[detail.begin_item() + (ind3 + i_f) * T1::n_comp + nc]     = d[4];
+                                        detail_data[detail.begin_item() + (ind3 + i_f + 1) * T1::n_comp + nc] = d[5];
+                                        detail_data[detail.begin_item() + (ind4 + i_f) * T1::n_comp + nc]     = d[6];
+                                        detail_data[detail.begin_item() + (ind4 + i_f + 1) * T1::n_comp + nc] = d[7];
+                                    }
+                                    else
+                                    {
+                                        detail_data[(ind1 + i_f) * T1::n_comp + nc]     = d[0];
+                                        detail_data[(ind1 + i_f + 1) * T1::n_comp + nc] = d[1];
+                                        detail_data[(ind2 + i_f) * T1::n_comp + nc]     = d[2];
+                                        detail_data[(ind2 + i_f + 1) * T1::n_comp + nc] = d[3];
+                                        detail_data[(ind3 + i_f) * T1::n_comp + nc]     = d[4];
+                                        detail_data[(ind3 + i_f + 1) * T1::n_comp + nc] = d[5];
+                                        detail_data[(ind4 + i_f) * T1::n_comp + nc]     = d[6];
+                                        detail_data[(ind4 + i_f + 1) * T1::n_comp + nc] = d[7];
+                                    }
+                                }
                             }
                         }
-                    }
-                }
+                    });
             }
         }
     };
