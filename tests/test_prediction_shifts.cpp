@@ -25,6 +25,11 @@
 //   6. The runs tile the queried interval exactly, in order, with none empty, and no two
 //      neighbouring runs carry the same shift - they are maximal, so a consumer launches
 //      one kernel per genuine change of shift.
+//   7. The two seams the query is built on hold by themselves: the shift table and the
+//      row array index rows the same way (checked at compile time), and one row's cover
+//      reports exactly where it stops holding. That last property cannot be read off the
+//      public decomposition - a cover cut too early only fragments the sweep before the
+//      pieces are merged back together - yet the one-query-per-interval cost rests on it.
 
 #include <algorithm>
 #include <cstdlib>
@@ -301,6 +306,51 @@ namespace samurai
                     EXPECT_EQ(run.shift, expected.shift) << where.str();
                     EXPECT_EQ(run.fits, expected.fits) << where.str();
                 }
+            }
+        }
+
+        /**
+         * The row array is indexed through TransverseRows on both sides - the query when
+         * it builds the rows, the shift table when it names them - so the one contract is
+         * that index_of inverts offset. Both are constexpr: should one side's enumeration
+         * order ever change alone, this stops compiling instead of misreading rows.
+         */
+        template <std::size_t radius, std::size_t dim>
+        constexpr bool index_of_inverts_offset()
+        {
+            using rows_t = detail::TransverseRows<radius, dim>;
+            for (std::size_t k = 0; k < rows_t::count; ++k)
+            {
+                if (rows_t::index_of(rows_t::offset(k)) != k)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        static_assert(index_of_inverts_offset<1, 1>() && index_of_inverts_offset<1, 2>() && index_of_inverts_offset<1, 3>());
+        static_assert(index_of_inverts_offset<2, 1>() && index_of_inverts_offset<2, 2>() && index_of_inverts_offset<2, 3>());
+
+        /// One expected answer of DomainRow::around, for asserting a row point by point.
+        struct CoverPoint
+        {
+            value_t<1> x;
+            bool holds;
+            int low;
+            int high;
+            value_t<1> until;
+        };
+
+        void expect_cover(detail::DomainRow<interval_t<1>>& row, const std::vector<CoverPoint>& expected)
+        {
+            for (const auto& e : expected)
+            {
+                const auto cover = row.around(e.x);
+                EXPECT_EQ(cover.holds, e.holds) << "at x = " << e.x;
+                EXPECT_EQ(cover.low, e.low) << "at x = " << e.x;
+                EXPECT_EQ(cover.high, e.high) << "at x = " << e.x;
+                EXPECT_EQ(cover.until, e.until) << "at x = " << e.x;
             }
         }
     }
@@ -820,5 +870,71 @@ namespace samurai
         {
             EXPECT_TRUE(run.fits) << run;
         }
+    }
+
+    TEST(prediction_shifts, a_row_cover_reports_exactly_where_it_stops_holding)
+    {
+        // One row holding [0, 8) and [12, 20) - a hole in the middle, an end each side -
+        // read at reach 2 (radius 1) with no wrap.
+        const std::vector<interval_t<1>> cells = {
+            {0,  8 },
+            {12, 20}
+        };
+        detail::DomainRow<interval_t<1>> row{
+            detail::RowScan<interval_t<1>>{cells.data(), cells.size()},
+            0,
+            2
+        };
+
+        // What until buys: the driver asks once per breakpoint, not once per cell, so
+        // until must be exact. Too late would misclassify cells - the sweeps of test 4
+        // would see it - but too early only fragments the sweep before the merge glues
+        // the pieces back together, so that side of the contract is only visible here:
+        // in the bulk of a run the cover holds all the way to run.end - reach, and it
+        // moves cell by cell only within reach of an end or off the row.
+        expect_cover(row,
+                     {
+                         {-1, false, 0, 0, 0                                     }, // before everything: covered from 0
+                         {0,  true,  0, 2, 1                                     }, // within reach of the run's start
+                         {1,  true,  1, 2, 2                                     },
+                         {2,  true,  2, 2, 6                                     }, // the bulk: constant until end - reach
+                         {5,  true,  2, 2, 6                                     },
+                         {6,  true,  2, 1, 7                                     }, // within reach of its end
+                         {7,  true,  2, 0, 8                                     },
+                         {8,  false, 0, 0, 12                                    }, // the hole: covered again from 12
+                         {12, true,  0, 2, 13                                    },
+                         {14, true,  2, 2, 18                                    },
+                         {19, true,  2, 0, 20                                    },
+                         {20, false, 0, 0, std::numeric_limits<value_t<1>>::max()},
+        });
+    }
+
+    TEST(prediction_shifts, a_wrap_tops_the_cover_up_but_does_not_move_its_breakpoints)
+    {
+        // The same row, read with wrap 20: the row's own ends now count through the
+        // cells the periodic exchange fills them from, while the hole's edges do not -
+        // a hole cell's image one wrap away is outside the domain.
+        const std::vector<interval_t<1>> cells = {
+            {0,  8 },
+            {12, 20}
+        };
+        detail::DomainRow<interval_t<1>> row{
+            detail::RowScan<interval_t<1>>{cells.data(), cells.size()},
+            20,
+            2
+        };
+
+        // low and high are topped up, until is not: it still breaks the sweep at the
+        // geometric ends of the run. A wrap makes the end cells read the same as the
+        // bulk - the merge is what makes them one run with it, and only when the shift
+        // agrees. Cutting a run the wrap has evened out is the cheap mistake; gluing
+        // one the geometry still splits would be the wrong one.
+        expect_cover(row,
+                     {
+                         {0,  true, 2, 2, 1 }, // low reads 19, 18 through the wrap; until stays x + 1
+                         {7,  true, 2, 0, 8 }, // the hole's edge: images of 8, 9 are outside, nothing tops up
+                         {12, true, 0, 2, 13}, // same on the hole's other side
+                         {19, true, 2, 2, 20}, // the domain's end: high reads 0, 1 through the wrap
+        });
     }
 }
