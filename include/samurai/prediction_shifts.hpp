@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cassert>
 #include <cstddef>
 #include <cstdlib>
@@ -42,11 +43,17 @@
  *      the domain happens to be stored.
  *
  * Asking the box, rather than each direction separately, is what a **re-entrant corner**
- * needs. Per-direction availability cannot see a cell that is missing only diagonally: at
- * the cell diagonally off the corner of a hole, every direction reads cells the domain has,
- * yet the corner of the box is inside the hole. The two rules agree everywhere else - on a
- * box domain they agree at every cell, corners included - so this is a statement about
- * re-entrant corners only, whether they belong to a hole or to an L-shaped domain.
+ * needs. Per-direction availability cannot see a cell that is missing only diagonally:
+ *
+ *         # # # . .        # a cell of the domain, . a cell of a hole
+ *         # # # . .
+ *         # # c # #        every cell c reads along an axis is there, yet the
+ *         # # # # #        top-right corner of the radius-1 box around c is in
+ *                          the hole - only the box rule sees it and shifts
+ *
+ * The two rules agree everywhere else - on a box domain they agree at every cell, corners
+ * included - so this is a statement about re-entrant corners only, whether they belong to a
+ * hole or to an L-shaped domain.
  *
  * That also makes @c fits a joint condition: it is false when *no* shift makes the box fit,
  * which is strictly stronger than each direction being wide enough on its own. It is the
@@ -72,7 +79,13 @@
  * The decomposition is exact on a holed domain, and that is the reason it is a run
  * decomposition rather than one class per interval: an interval passing over the edge of a
  * hole has cells whose stencil must be shifted and cells whose stencil must not, and
- * classifying the whole interval by its worst cell would move interior values.
+ * classifying the whole interval by its worst cell would move interior values:
+ *
+ *         the interval:      # # # # # # # # # # # #
+ *         a hole below it:           . . . .
+ *         its shift along y: 0 0 0 ^ ^ ^ ^ ^ ^ 0 0 0     ^ shifted away from the
+ *                                                          hole, one cell past it
+ *                                                          each side at radius 1
  *
  * **A periodic direction has no boundary.** Stepping off the end of one reaches the cells
  * the periodic ghost exchange fills from, so the stencil stays centred there and nothing is
@@ -117,8 +130,7 @@ namespace samurai
 
         /**
          * The @a n-th vector of the box `[-half, half]^len`, direction 0 varying fastest.
-         * The inverse is the mixed-radix digit sum, which is how the tables below index
-         * rows.
+         * For the transverse row tables, @ref TransverseRows::index_of is its inverse.
          */
         template <std::size_t len>
         constexpr std::array<int, len> nth_offset(std::size_t n, int half)
@@ -254,16 +266,18 @@ namespace samurai
          * wrapped where the displacement has stepped off the end of a periodic direction.
          *
          * A row that exists is never wrapped, so a hole inside the domain still clamps:
-         * only stepping off the *end* of the domain wraps. Two transverse directions can
-         * step off at once - the corner of a doubly periodic 3D domain - and wrapping one
-         * of them alone leaves the row still empty, so the combinations are tried fewest
-         * wraps first and the first non-empty one wins.
+         * only stepping off the *end* of the domain wraps, and a hole's image one wrap
+         * away is outside the domain. Only a direction the displacement stepped in, and
+         * that is periodic, can have stepped off the end; when two of them have at once -
+         * the corner of a doubly periodic 3D domain - wrapping one of them alone leaves
+         * the row still empty, so the combinations are tried fewest wraps first and the
+         * first non-empty one wins.
          */
         template <std::size_t dim, class TInterval>
-        RowScan<TInterval> wrapped_row_scan(const LevelCellArray<dim, TInterval>& domain,
-                                            const xt::xtensor_fixed<typename TInterval::value_t, xt::xshape<dim - 1>>& index,
-                                            const std::array<int, dim - 1>& offset,
-                                            const std::array<typename TInterval::value_t, dim>& period)
+        RowScan<TInterval> displaced_row(const LevelCellArray<dim, TInterval>& domain,
+                                         const xt::xtensor_fixed<typename TInterval::value_t, xt::xshape<dim - 1>>& index,
+                                         const std::array<int, dim - 1>& offset,
+                                         const std::array<typename TInterval::value_t, dim>& period)
         {
             using value_t               = typename TInterval::value_t;
             constexpr std::size_t cross = dim - 1;
@@ -280,39 +294,35 @@ namespace samurai
                 return row;
             }
 
-            for (std::size_t wraps = 1; wraps <= cross; ++wraps)
+            // The directions that can have stepped off the end.
+            std::array<std::size_t, cross> wrappable{};
+            std::size_t n = 0;
+            for (std::size_t d = 0; d < cross; ++d)
             {
-                for (std::size_t mask = 0; mask < (std::size_t{1} << cross); ++mask)
+                if (offset[d] != 0 && period[d + 1] != 0)
                 {
-                    std::size_t bits = 0;
-                    for (std::size_t d = 0; d < cross; ++d)
-                    {
-                        bits += (mask >> d) & std::size_t{1};
-                    }
-                    if (bits != wraps)
+                    wrappable[n++] = d;
+                }
+            }
+
+            // Each subset of them, as a mask over the wrappable list.
+            for (int wraps = 1; wraps <= static_cast<int>(n); ++wraps)
+            {
+                for (std::size_t mask = 1; mask < (std::size_t{1} << n); ++mask)
+                {
+                    if (std::popcount(mask) != wraps)
                     {
                         continue;
                     }
 
                     auto wrapped = base;
-                    bool usable  = true;
-                    for (std::size_t d = 0; d < cross && usable; ++d)
+                    for (std::size_t b = 0; b < n; ++b)
                     {
-                        if (((mask >> d) & std::size_t{1}) == 0)
+                        if ((mask >> b) & std::size_t{1})
                         {
-                            continue;
-                        }
-                        // Only a direction the displacement stepped in can have stepped off
-                        // the end, and only a periodic one wraps.
-                        usable = offset[d] != 0 && period[d + 1] != 0;
-                        if (usable)
-                        {
+                            const auto d = wrappable[b];
                             wrapped[d] -= static_cast<value_t>(offset[d] > 0 ? 1 : -1) * period[d + 1];
                         }
-                    }
-                    if (!usable)
-                    {
-                        continue;
                     }
 
                     auto candidate = row_scan(domain, wrapped);
@@ -324,6 +334,107 @@ namespace samurai
             }
             return row;
         }
+
+        /**
+         * How far one row covers around a cell:
+         *
+         *                            x
+         *             [ = = = = = = # = = = = = = = = = ]    the run the row holds x in
+         *               <-- low --> ^ <----- high ----->     both capped at the reach
+         *
+         * @c holds is false when the row does not hold the cell itself, and the counts
+         * include the cells a periodic wrap reads off either end of the row. @c until is
+         * the first coordinate above the cell at which any of this may change, so a
+         * caller sweeping a range knows how far the answer it just got remains valid.
+         */
+        template <class value_t>
+        struct RowCover
+        {
+            bool holds    = false;
+            int low       = 0;
+            int high      = 0;
+            value_t until = 0;
+        };
+
+        /**
+         * One row of the periodically extended domain. Which row of the domain that is
+         * was settled by @ref displaced_row - the transverse half of the wrap; this class
+         * adds the wrap *along* the row, so that off either end of a periodic direction
+         * the cover keeps counting through the cells the periodic ghost exchange fills
+         * the stencil from.
+         */
+        template <class TInterval>
+        class DomainRow
+        {
+          public:
+
+            using value_t = typename TInterval::value_t;
+
+            DomainRow() = default;
+
+            DomainRow(RowScan<TInterval> scan, value_t wrap, int reach)
+                : m_scan(scan)
+                , m_wrap(wrap)
+                , m_reach(reach)
+            {
+            }
+
+            /**
+             * The cover around @a x - queried at increasing @a x, as @ref RowScan
+             * requires.
+             *
+             * @c until is read off the geometry alone, *before* the wrap below tops the
+             * counts back up: within the reach of either end of a run the cover changes
+             * cell by cell, and in between it is constant - the bulk, where the consumers
+             * keep their current kernel:
+             *
+             *        [ + + + + | = = = = = = = = = = = | + + + + ]
+             *          2r cells:   the bulk: constant    2r cells:
+             *          changes     until run.end - 2r    changes
+             *          each cell                         each cell
+             *
+             * A wrap makes the two ends read the same as the bulk; it does not make them
+             * one run with it.
+             */
+            RowCover<value_t> around(value_t x)
+            {
+                RowCover<value_t> cover;
+                cover.holds = m_scan.covers(x, cover.until);
+                if (!cover.holds)
+                {
+                    return cover;
+                }
+
+                const auto& run = m_scan.current();
+                cover.low       = static_cast<int>(std::min(x - run.start, static_cast<value_t>(m_reach)));
+                cover.high      = static_cast<int>(std::min(run.end - 1 - x, static_cast<value_t>(m_reach)));
+                cover.until     = (cover.low < m_reach || cover.high < m_reach) ? x + 1 : run.end - static_cast<value_t>(m_reach);
+
+                // Off the end of a periodic direction the stencil reads the cells the
+                // periodic exchange fills it from, one wrap away. One cell at a time,
+                // because along the row the count varies from cell to cell. A cell
+                // missing because of a hole is not restored by this: its image one wrap
+                // away is outside the domain, so the test fails.
+                if (m_wrap != 0)
+                {
+                    while (cover.low < m_reach && m_scan.contains(x - cover.low - 1 + m_wrap))
+                    {
+                        ++cover.low;
+                    }
+                    while (cover.high < m_reach && m_scan.contains(x + cover.high + 1 - m_wrap))
+                    {
+                        ++cover.high;
+                    }
+                }
+                return cover;
+            }
+
+          private:
+
+            RowScan<TInterval> m_scan;
+            value_t m_wrap = 0;
+            int m_reach    = 0;
+        };
 
         /// Is @a a the more centred of the two shifts? The order is the file comment's.
         template <std::size_t dim>
@@ -357,35 +468,66 @@ namespace samurai
             return false;
         }
 
-        /// How many transverse offsets a radius-@c radius stencil can reach: `[-2r, 2r]` per
-        /// transverse direction, a shift of at most r reading at most r further out.
-        template <std::size_t radius>
-        constexpr std::size_t row_extent = 4 * radius + 1;
-
-        /// The `[-2r, 2r]^(dim-1)` transverse offsets, flattened.
+        /**
+         * The transverse rows a radius-@c radius stencil can reach. Availability is only
+         * ever needed up to `2r` from the cell: a stencil short by r on one side needs 2r
+         * available opposite it, and nothing beyond that changes the answer. The same 2r
+         * bounds the transverse reach, a shift of at most r reading at most r further out:
+         *
+         *        -2r        -r         0         +r        +2r
+         *         [==========(=========c=========)==========]
+         *                     the centred stencil            [ ] everything any
+         *                                                        shift can reach
+         *
+         * The type owns both the enumeration of the `[-2r, 2r]^(dim-1)` transverse
+         * offsets and the index of an offset in that enumeration, so a table built with
+         * @ref index_of points into a row array built with @ref offset by construction
+         * rather than by convention.
+         */
         template <std::size_t radius, std::size_t dim>
-        constexpr std::size_t row_count = ipow(row_extent<radius>, dim - 1);
+        struct TransverseRows
+        {
+            static constexpr int reach         = 2 * static_cast<int>(radius);
+            static constexpr std::size_t width = 4 * radius + 1;
+            static constexpr std::size_t count = ipow(width, dim - 1);
 
-        /// The transverse rows one stencil box covers: `[-r, r]^(dim-1)` around its shift.
-        template <std::size_t radius, std::size_t dim>
-        constexpr std::size_t band_size = ipow(2 * radius + 1, dim - 1);
+            /// The @a k-th transverse offset, `k < count`.
+            static constexpr std::array<int, dim - 1> offset(std::size_t k)
+            {
+                return nth_offset<dim - 1>(k, reach);
+            }
 
-        /// The shifts a stencil can take: `[-r, r]^dim`.
-        template <std::size_t radius, std::size_t dim>
-        constexpr std::size_t shift_count = ipow(2 * radius + 1, dim);
+            /// Where a transverse offset sits in the enumeration - @ref offset 's inverse.
+            static constexpr std::size_t index_of(const std::array<int, dim - 1>& o)
+            {
+                std::size_t flat   = 0;
+                std::size_t stride = 1;
+                for (std::size_t d = 0; d + 1 < dim; ++d)
+                {
+                    flat += static_cast<std::size_t>(o[d] + reach) * stride;
+                    stride *= width;
+                }
+                return flat;
+            }
+        };
 
         /**
          * The candidate shifts in the order they are preferred, with the rows each one
          * reads. Both depend on nothing but @c radius and @c dim, so they are tabulated
-         * once: taking the first admissible entry of @c shift is the rule, and @c rows[c]
-         * holds the indices - into the caller's `[-2r, 2r]^(dim-1)` row table - of the
-         * `(2r+1)^(dim-1)` rows the c-th stencil box covers.
+         * once: taking the first admissible entry of @c shift is the whole selection
+         * rule, and @c rows[c] holds the @ref TransverseRows indices of the rows the c-th
+         * stencil box covers.
          */
         template <std::size_t radius, std::size_t dim>
         struct ShiftSearch
         {
-            std::array<std::array<int, dim>, shift_count<radius, dim>> shift{};
-            std::array<std::array<std::size_t, band_size<radius, dim>>, shift_count<radius, dim>> rows{};
+            /// The shifts a stencil can take: `[-r, r]^dim`.
+            static constexpr std::size_t count = ipow(2 * radius + 1, dim);
+            /// The rows one stencil box covers: `[-r, r]^(dim-1)` around its shift.
+            static constexpr std::size_t band = ipow(2 * radius + 1, dim - 1);
+
+            std::array<std::array<int, dim>, count> shift{};
+            std::array<std::array<std::size_t, band>, count> rows{};
         };
 
         template <std::size_t radius, std::size_t dim>
@@ -393,37 +535,67 @@ namespace samurai
         {
             constexpr int r             = static_cast<int>(radius);
             constexpr std::size_t cross = dim - 1;
+            using search_t              = ShiftSearch<radius, dim>;
 
-            static const ShiftSearch<radius, dim> table = []
+            static const search_t table = []
             {
-                ShiftSearch<radius, dim> out;
-                for (std::size_t c = 0; c < shift_count<radius, dim>; ++c)
+                search_t out;
+                for (std::size_t c = 0; c < search_t::count; ++c)
                 {
                     out.shift[c] = nth_offset<dim>(c, r);
                 }
                 std::sort(out.shift.begin(), out.shift.end(), more_centred<dim>);
 
-                for (std::size_t c = 0; c < shift_count<radius, dim>; ++c)
+                for (std::size_t c = 0; c < search_t::count; ++c)
                 {
-                    for (std::size_t k = 0; k < band_size<radius, dim>; ++k)
+                    for (std::size_t k = 0; k < search_t::band; ++k)
                     {
                         const auto within = nth_offset<cross>(k, r);
 
-                        std::size_t flat   = 0;
-                        std::size_t stride = 1;
+                        std::array<int, cross> transverse{};
                         for (std::size_t d = 0; d < cross; ++d)
                         {
-                            const auto transverse = out.shift[c][d + 1] + within[d] + 2 * r;
-                            flat += static_cast<std::size_t>(transverse) * stride;
-                            stride *= row_extent<radius>;
+                            transverse[d] = out.shift[c][d + 1] + within[d];
                         }
-                        out.rows[c][k] = flat;
+                        out.rows[c][k] = TransverseRows<radius, dim>::index_of(transverse);
                     }
                 }
                 return out;
             }();
 
             return table;
+        }
+
+        /**
+         * The most centred shift whose whole stencil box the domain holds, read off the
+         * cover of every row the stencil can reach: shifted by @c s, the box reads
+         * `[s_0 - r, s_0 + r]` along each of the rows it covers, so @c s is admissible
+         * exactly when each of those rows holds the cell and covers at least that far.
+         */
+        template <std::size_t radius, std::size_t dim, class value_t>
+        PredictionStencilShift<dim> most_centred_fit(const std::array<RowCover<value_t>, TransverseRows<radius, dim>::count>& covers)
+        {
+            constexpr int r   = static_cast<int>(radius);
+            using search_t    = ShiftSearch<radius, dim>;
+            const auto& order = shift_search<radius, dim>();
+
+            PredictionStencilShift<dim> best;
+            best.fits = false;
+            for (std::size_t c = 0; c < search_t::count && !best.fits; ++c)
+            {
+                bool admissible = true;
+                for (std::size_t k = 0; k < search_t::band && admissible; ++k)
+                {
+                    const auto& cover = covers[order.rows[c][k]];
+                    admissible        = cover.holds && order.shift[c][0] - r >= -cover.low && order.shift[c][0] + r <= cover.high;
+                }
+                if (admissible)
+                {
+                    best.shift = order.shift[c];
+                    best.fits  = true;
+                }
+            }
+            return best;
         }
     }
 
@@ -461,22 +633,14 @@ namespace samurai
                                        Func&& f)
     {
         using value_t = typename TInterval::value_t;
+        using rows_t  = detail::TransverseRows<radius, dim>;
 
-        constexpr int r = static_cast<int>(radius);
-
-        // Availability is only ever needed up to 2r: a stencil short by r on one side needs
-        // 2r available opposite it, and nothing beyond that changes the answer. The
-        // transverse rows the stencil can reach are the same 2r out, a shift of at most r
-        // reading at most r further.
-        constexpr int reach                = 2 * r;
-        constexpr std::size_t rows_reached = detail::row_count<radius, dim>;
-
-        const auto& order = detail::shift_search<radius, dim>();
-
-        std::array<detail::RowScan<TInterval>, rows_reached> rows;
-        for (std::size_t k = 0; k < rows_reached; ++k)
+        // One cursor per transverse row the stencil can reach, over the periodically
+        // extended domain.
+        std::array<detail::DomainRow<TInterval>, rows_t::count> rows;
+        for (std::size_t k = 0; k < rows_t::count; ++k)
         {
-            rows[k] = detail::wrapped_row_scan(domain, index, detail::nth_offset<dim - 1>(k, reach), period);
+            rows[k] = detail::DomainRow<TInterval>(detail::displaced_row(domain, index, rows_t::offset(k), period), period[0], rows_t::reach);
         }
 
         // The run being accumulated. Runs are emitted only when the shift changes, so two
@@ -493,82 +657,21 @@ namespace samurai
             }
         };
 
-        // How far each row reaches either side of x, capped at the reach, and where the
-        // answer it gives stops holding.
-        std::array<bool, rows_reached> covered{};
-        std::array<int, rows_reached> low{};
-        std::array<int, rows_reached> high{};
+        std::array<detail::RowCover<value_t>, rows_t::count> covers;
 
         value_t x = i.start;
         while (x < i.end)
         {
+            // The cover of every row around x, and the first coordinate at which any of
+            // those covers may change - before which the shift cannot change either.
             value_t next = i.end;
-
-            for (std::size_t k = 0; k < rows_reached; ++k)
+            for (std::size_t k = 0; k < rows_t::count; ++k)
             {
-                value_t change = 0;
-                covered[k]     = rows[k].covers(x, change);
-                if (!covered[k])
-                {
-                    next = std::min(next, change);
-                    continue;
-                }
-
-                const auto& run = rows[k].current();
-                low[k]          = static_cast<int>(std::min(x - run.start, static_cast<value_t>(reach)));
-                high[k]         = static_cast<int>(std::min(run.end - 1 - x, static_cast<value_t>(reach)));
-
-                // The class changes cell by cell within 2r of each end of the run of cells
-                // the row holds, and is constant in between - the bulk the consumers keep
-                // their current kernel on. This reads the geometry, before the periodic
-                // wrap below tops the counts back up: a wrap makes the two ends read the
-                // same as the bulk, it does not make them one run with it.
-                if (low[k] < reach || high[k] < reach)
-                {
-                    next = std::min(next, x + 1);
-                }
-                else
-                {
-                    next = std::min(next, run.end - static_cast<value_t>(reach));
-                }
-
-                // Off the end of a periodic direction the stencil reads the cells the
-                // periodic exchange fills it from, one wrap away. One cell at a time,
-                // because in x the count varies from cell to cell. A cell missing because
-                // of a hole is not restored by this: its image one wrap away is outside the
-                // domain, so the test fails.
-                if (period[0] != 0)
-                {
-                    for (auto k_low = low[k]; k_low < reach && rows[k].contains(x - k_low - 1 + period[0]); ++k_low)
-                    {
-                        low[k] = k_low + 1;
-                    }
-                    for (auto k_high = high[k]; k_high < reach && rows[k].contains(x + k_high + 1 - period[0]); ++k_high)
-                    {
-                        high[k] = k_high + 1;
-                    }
-                }
+                covers[k] = rows[k].around(x);
+                next      = std::min(next, covers[k].until);
             }
 
-            // The most centred shift whose whole stencil box the domain holds. The x extent
-            // is read off the rows the box covers: shifted by s, it reads [s - r, s + r]
-            // around x, which each of those rows must hold.
-            PredictionStencilShift<dim> shift;
-            shift.fits = false;
-            for (std::size_t c = 0; c < detail::shift_count<radius, dim> && !shift.fits; ++c)
-            {
-                bool admissible = true;
-                for (std::size_t k = 0; k < detail::band_size<radius, dim> && admissible; ++k)
-                {
-                    const auto row = order.rows[c][k];
-                    admissible     = covered[row] && order.shift[c][0] - r >= -low[row] && order.shift[c][0] + r <= high[row];
-                }
-                if (admissible)
-                {
-                    shift.shift = order.shift[c];
-                    shift.fits  = true;
-                }
-            }
+            const auto shift = detail::most_centred_fit<radius, dim>(covers);
 
             // A breakpoint that failed to move would spin here rather than fail, so it is
             // asserted instead of being clamped away.
