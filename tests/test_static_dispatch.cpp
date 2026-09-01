@@ -108,4 +108,32 @@ namespace samurai
                                          });
         EXPECT_EQ(sum, 6); // 3 elements * 2
     }
+
+    // The result is returned via guaranteed copy elision, without staging it in any
+    // intermediate storage: a callable may validly return a type with no copy or move
+    // constructor at all.
+    TEST(static_dispatch, supports_non_movable_return_type)
+    {
+        struct non_movable
+        {
+            int value;
+
+            explicit non_movable(int v)
+                : value(v)
+            {
+            }
+
+            non_movable(const non_movable&)            = delete;
+            non_movable& operator=(const non_movable&) = delete;
+            non_movable(non_movable&&)                 = delete;
+            non_movable& operator=(non_movable&&)      = delete;
+        };
+
+        auto result = dispatch_static<1, 4>(3,
+                                            [](auto ic)
+                                            {
+                                                return non_movable{static_cast<int>(decltype(ic)::value) * 10};
+                                            });
+        EXPECT_EQ(result.value, 30);
+    }
 }

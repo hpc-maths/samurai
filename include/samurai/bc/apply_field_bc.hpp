@@ -444,6 +444,10 @@ namespace samurai
         }
 
         static constexpr std::size_t max_stencil_size_PE = PolynomialExtrapolation<Field, 2>::max_stencil_size_implemented_PE;
+        // PolynomialExtrapolation is only implemented for even stencil_size, so we dispatch directly on the
+        // ghost layer (stencil_size = 2 * ghost_layer) instead of on the stencil size, to avoid instantiating
+        // the unused odd-stencil_size candidates.
+        static constexpr std::size_t max_ghost_layers_PE = max_stencil_size_PE / 2;
 
         int ghost_width        = field.mesh().ghost_width();
         const auto& domain     = detail::get_mesh(field.mesh());
@@ -455,19 +459,14 @@ namespace samurai
         // Step 1: Fill the diagonal ghost cells layer by layer using stencil sizes 2, 4, ..., 2*ghost_width
         for (int ghost_layer = 1; ghost_layer <= ghost_width; ++ghost_layer)
         {
-            int stencil_s = 2 * ghost_layer;
-            dispatch_static<2, max_stencil_size_PE>(
-                static_cast<std::size_t>(stencil_s),
-                [&](auto stencil_size_)
-                {
-                    static constexpr int stencil_size = static_cast<int>(stencil_size_());
-                    if constexpr (stencil_size % 2 == 0) // (PolynomialExtrapolation is only implemented for even stencil_size)
-                    {
-                        PolynomialExtrapolation<Field, stencil_size> bc(domain, ConstantBc<Field>(), true);
-                        auto corner = self(corner_lca).on(level);
-                        apply_extrapolation_bc_cells<stencil_size>(bc, level, field, direction, corner);
-                    }
-                });
+            dispatch_static<1, max_ghost_layers_PE>(static_cast<std::size_t>(ghost_layer),
+                                                    [&](auto ghost_layer_)
+                                                    {
+                                                        static constexpr int stencil_size = 2 * static_cast<int>(ghost_layer_());
+                                                        PolynomialExtrapolation<Field, stencil_size> bc(domain, ConstantBc<Field>(), true);
+                                                        auto corner = self(corner_lca).on(level);
+                                                        apply_extrapolation_bc_cells<stencil_size>(bc, level, field, direction, corner);
+                                                    });
         }
 
         // Step 2: Fill off-diagonal ghost cells by copying the diagonal ghost value.
@@ -622,6 +621,10 @@ namespace samurai
     {
         int ghost_width                                              = field.mesh().ghost_width();
         static constexpr std::size_t max_stencil_size_implemented_PE = PolynomialExtrapolation<Field, 2>::max_stencil_size_implemented_PE;
+        // PolynomialExtrapolation is only implemented for even stencil_size, so we dispatch directly on the
+        // ghost layer (stencil_size = 2 * ghost_layer) instead of on the stencil size, to avoid instantiating
+        // the unused odd-stencil_size candidates.
+        static constexpr std::size_t max_ghost_layers_implemented_PE = max_stencil_size_implemented_PE / 2;
 
         // 1. We fill the ghosts that are further than those filled by the B.C. (where there are boundary cells)
 
@@ -634,21 +637,17 @@ namespace samurai
         // We populate the ghosts sequentially from the closest to the farthest.
         for (int ghost_layer = ghost_layers_filled_by_bc + 1; ghost_layer <= ghost_width; ++ghost_layer)
         {
-            int stencil_s = 2 * ghost_layer;
-            dispatch_static<2, max_stencil_size_implemented_PE>(
-                static_cast<std::size_t>(stencil_s),
-                [&](auto stencil_size_)
+            dispatch_static<1, max_ghost_layers_implemented_PE>(
+                static_cast<std::size_t>(ghost_layer),
+                [&](auto ghost_layer_)
                 {
-                    static constexpr int stencil_size = static_cast<int>(stencil_size_());
+                    static constexpr int stencil_size = 2 * static_cast<int>(ghost_layer_());
 
-                    if constexpr (stencil_size % 2 == 0) // (because PolynomialExtrapolation is only implemented for even stencil_size)
-                    {
-                        auto& domain = detail::get_mesh(field.mesh());
-                        PolynomialExtrapolation<Field, stencil_size> bc(domain, ConstantBc<Field>(), true);
+                    auto& domain = detail::get_mesh(field.mesh());
+                    PolynomialExtrapolation<Field, stencil_size> bc(domain, ConstantBc<Field>(), true);
 
-                        auto boundary_cells = domain_boundary(field.mesh(), level, direction);
-                        apply_extrapolation_bc_cells<stencil_size>(bc, level, field, direction, boundary_cells);
-                    }
+                    auto boundary_cells = domain_boundary(field.mesh(), level, direction);
+                    apply_extrapolation_bc_cells<stencil_size>(bc, level, field, direction, boundary_cells);
                 });
         }
 
@@ -659,22 +658,18 @@ namespace samurai
 
         for (int ghost_layer = ghost_layers_filled_by_projection_bc + 1; ghost_layer <= ghost_width; ++ghost_layer)
         {
-            int stencil_s = 2 * ghost_layer;
-            dispatch_static<2, max_stencil_size_implemented_PE>(
-                static_cast<std::size_t>(stencil_s),
-                [&](auto stencil_size_)
+            dispatch_static<1, max_ghost_layers_implemented_PE>(
+                static_cast<std::size_t>(ghost_layer),
+                [&](auto ghost_layer_)
                 {
-                    static constexpr int stencil_size = static_cast<int>(stencil_size_());
+                    static constexpr int stencil_size = 2 * static_cast<int>(ghost_layer_());
 
-                    if constexpr (stencil_size % 2 == 0) // (because PolynomialExtrapolation is only implemented for even stencil_size)
-                    {
-                        auto& domain = detail::get_mesh(field.mesh());
-                        PolynomialExtrapolation<Field, stencil_size> bc(domain, ConstantBc<Field>(), true);
+                    auto& domain = detail::get_mesh(field.mesh());
+                    PolynomialExtrapolation<Field, stencil_size> bc(domain, ConstantBc<Field>(), true);
 
-                        auto domain2         = self(field.mesh().domain()).on(level);
-                        auto boundary_ghosts = difference(domain2, translate(domain2, -direction));
-                        apply_extrapolation_bc_ghosts<stencil_size>(bc, level, field, direction, boundary_ghosts);
-                    }
+                    auto domain2         = self(field.mesh().domain()).on(level);
+                    auto boundary_ghosts = difference(domain2, translate(domain2, -direction));
+                    apply_extrapolation_bc_ghosts<stencil_size>(bc, level, field, direction, boundary_ghosts);
                 });
         }
     }

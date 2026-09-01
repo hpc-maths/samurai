@@ -4,7 +4,6 @@
 #pragma once
 
 #include <cstddef>
-#include <optional>
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
@@ -13,36 +12,31 @@ namespace samurai
 {
     namespace detail
     {
-        template <std::size_t min, class F, std::size_t... Is>
-        constexpr decltype(auto) dispatch_static_impl(std::size_t value, F&& f, std::index_sequence<Is...>)
+        // Recursive binary dispatch: each leaf (min == max) does `return f(...)` directly,
+        // so the selected branch's result is returned by value with guaranteed copy elision
+        // (no intermediate staging), for both void and non-void callables.
+        template <std::size_t min, std::size_t max, class F>
+        constexpr decltype(auto) dispatch_static_impl(std::size_t value, F&& f)
         {
-            using result_t = decltype(std::forward<F>(f)(std::integral_constant<std::size_t, min>{}));
-
-            if constexpr (std::is_void_v<result_t>)
+            if constexpr (min == max)
             {
-                // Fold over the candidates: the ternary short-circuits so `f` is
-                // invoked at most once (for the branch where `value == min + Is`).
-                const bool matched = ((value == min + Is ? (std::forward<F>(f)(std::integral_constant<std::size_t, min + Is>{}), true) : false)
-                                      || ...);
-                if (!matched)
+                if (value != min)
                 {
                     throw std::out_of_range("dispatch_static: value out of range");
                 }
+                return std::forward<F>(f)(std::integral_constant<std::size_t, min>{});
             }
             else
             {
-                static_assert(!std::is_reference_v<result_t>, "dispatch_static: the callable must return by value (or void)");
-
-                std::optional<result_t> result;
-                const bool matched = ((value == min + Is
-                                           ? (result.emplace(std::forward<F>(f)(std::integral_constant<std::size_t, min + Is>{})), true)
-                                           : false)
-                                      || ...);
-                if (!matched)
+                constexpr std::size_t mid = min + (max - min) / 2;
+                if (value <= mid)
                 {
-                    throw std::out_of_range("dispatch_static: value out of range");
+                    return dispatch_static_impl<min, mid>(value, std::forward<F>(f));
                 }
-                return static_cast<result_t>(std::move(*result));
+                else
+                {
+                    return dispatch_static_impl<mid + 1, max>(value, std::forward<F>(f));
+                }
             }
         }
     }
@@ -59,7 +53,8 @@ namespace samurai
      * Throws std::out_of_range if @p value is outside [ @p min , @p max ].
      *
      * The return value of @p f (which must be the same type for every candidate)
-     * is forwarded to the caller; a `void`-returning callable is supported.
+     * is forwarded to the caller by value, with guaranteed copy elision; a
+     * `void`-returning callable is supported.
      *
      * @tparam min  lowest value handled (inclusive)
      * @tparam max  highest value handled (inclusive)
@@ -70,6 +65,10 @@ namespace samurai
     constexpr decltype(auto) dispatch_static(std::size_t value, F&& f)
     {
         static_assert(min <= max, "dispatch_static requires min <= max");
-        return detail::dispatch_static_impl<min>(value, std::forward<F>(f), std::make_index_sequence<max - min + 1>{});
+
+        using result_t = decltype(std::forward<F>(f)(std::integral_constant<std::size_t, min>{}));
+        static_assert(!std::is_reference_v<result_t>, "dispatch_static: the callable must return by value (or void)");
+
+        return detail::dispatch_static_impl<min, max>(value, std::forward<F>(f));
     }
 }
