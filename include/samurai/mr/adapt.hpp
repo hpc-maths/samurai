@@ -316,7 +316,10 @@ namespace samurai
         times::timers.stop("detail computation");
 
         times::timers.start("tag cells");
-        for (std::size_t level = min_level; level <= max_level - ite; ++level)
+        // Cells at level 0 have no coarser level to read the detail from, so they cannot be
+        // reconsidered for refinement here (level - 1 would underflow); they keep whatever tag
+        // they already carry.
+        for (std::size_t level = std::max(min_level, static_cast<std::size_t>(1)); level <= max_level - ite; ++level)
         {
             std::size_t exponent = dim * (max_level - level);
             double eps_l         = cfg.epsilon() / (1 << exponent);
