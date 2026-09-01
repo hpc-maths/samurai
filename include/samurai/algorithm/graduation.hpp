@@ -163,9 +163,11 @@ namespace samurai
             auto subset_2 = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level]);
 
             auto ghost_width = mesh.cfg().graduation_width();
-            assert(ghost_width < 10 && "Graduation not implemented for ghost_width higher than 10");
-            // maximum ghost width is set to 9; widths outside [1, 9] leave the tags untouched.
-            if (ghost_width >= 1 && ghost_width < 10)
+            // A width of 0 means no graduation constraint. Any other width is dispatched to the
+            // matching tag_to_keep<N> instantiation; dispatch_static itself throws std::out_of_range
+            // if the width exceeds what is instantiated below (tag_to_keep has no inherent limit,
+            // this range is just how many candidates we compile in).
+            if (ghost_width > 0)
             {
                 dispatch_static<1, 9>(ghost_width,
                                       [&](auto static_ghost_width_)
