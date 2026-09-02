@@ -4,9 +4,13 @@
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 
+#include <algorithm>
+#include <functional>
 #include <stdexcept>
 #include <tuple>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include "field.hpp"
 #include "numeric/prediction.hpp"
@@ -563,6 +567,74 @@ namespace samurai
         return prediction<order, index_t...>(interior, level, indices...);
     }
 
+    namespace detail
+    {
+        /// A prediction map laid out for iteration: the (offset, weight) terms, contiguous.
+        template <std::size_t dim, class index_t>
+        struct flat_prediction_map
+        {
+            std::vector<std::pair<std::array<index_t, dim>, double>> terms;
+        };
+
+        /**
+         * The maps of every child of a coarse cell of position class @a cls, @a delta_l levels
+         * above it, in one contiguous table indexed by the child's x-major linear index. Built
+         * once per (class, delta_l) from @ref prediction and memoised, so that a consumer
+         * broadcasting the children over an interval pays one lookup per run rather than one
+         * per child, and iterates contiguous terms rather than a hash map.
+         */
+        template <std::size_t order, class index_t, std::size_t dim>
+        const std::vector<flat_prediction_map<dim, index_t>>&
+        children_maps(const PredictionPositionClass<prediction_class_reach<order>, dim>& cls, std::size_t delta_l)
+        {
+            using class_t = PredictionPositionClass<prediction_class_reach<order>, dim>;
+            using table_t = std::vector<flat_prediction_map<dim, index_t>>;
+            static std::unordered_map<std::tuple<class_t, std::size_t>, table_t> tables;
+
+            const auto key = std::make_tuple(cls, delta_l);
+            auto iter      = tables.find(key);
+            if (iter != tables.end())
+            {
+                return iter->second;
+            }
+
+            const index_t nb_cells = index_t{1} << delta_l;
+            std::size_t count      = 1;
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                count *= static_cast<std::size_t>(nb_cells);
+            }
+            table_t table(count);
+            for (std::size_t linear = 0; linear < count; ++linear)
+            {
+                std::array<index_t, dim> child{};
+                std::size_t rest = linear;
+                for (std::size_t d = 0; d < dim; ++d)
+                {
+                    child[d] = static_cast<index_t>(rest % static_cast<std::size_t>(nb_cells));
+                    rest /= static_cast<std::size_t>(nb_cells);
+                }
+                const auto& map = std::apply(
+                                      [&](auto... c)
+                                      {
+                                          return std::cref(prediction<order, decltype(c)...>(cls, delta_l, c...));
+                                      },
+                                      child)
+                                      .get();
+                auto& terms = table[linear].terms;
+                terms.assign(map.coeff.begin(), map.coeff.end());
+                // A fixed order, so that the accumulation is deterministic across runs.
+                std::sort(terms.begin(),
+                          terms.end(),
+                          [](const auto& a, const auto& b)
+                          {
+                              return a.first < b.first;
+                          });
+            }
+            return tables.emplace(key, std::move(table)).first->second;
+        }
+    }
+
     /**
      * Subset operator used by @ref reconstruction. On the intersection of a coarse
      * level with the uniform reconstruction level, it writes every fine child of the
@@ -608,14 +680,14 @@ namespace samurai
                     src,
                     [&](const auto& run, const auto& cls)
                     {
+                        const auto& table = detail::children_maps<prediction_stencil_radius, index_t, 1>(cls, delta_l);
                         for (index_t ii = 0; ii < nb_cells; ++ii)
                         {
-                            const auto& pred = prediction<prediction_stencil_radius, index_t>(cls, delta_l, ii);
-                            for (const auto& kv : pred.coeff)
+                            auto i_f = (run << delta_l) + ii;
+                            i_f.step = nb_cells;
+                            for (const auto& [offset, weight] : table[static_cast<std::size_t>(ii)].terms)
                             {
-                                auto i_f = (run << delta_l) + ii;
-                                i_f.step = nb_cells;
-                                dest(reconstruct_level, i_f) += kv.second * src(level, run + kv.first[0]);
+                                dest(reconstruct_level, i_f) += weight * src(level, run + offset[0]);
                             }
                         }
                     });
@@ -641,18 +713,19 @@ namespace samurai
                     src,
                     [&](const auto& run, const auto& cls)
                     {
+                        const auto& table = detail::children_maps<prediction_stencil_radius, index_t, 2>(cls, delta_l);
                         for (index_t jj = 0; jj < nb_cells; ++jj)
                         {
                             auto j_f = (j << delta_l) + jj;
                             for (index_t ii = 0; ii < nb_cells; ++ii)
                             {
-                                const auto& pred = prediction<prediction_stencil_radius, index_t>(cls, delta_l, ii, jj);
-                                auto i_f         = (run << delta_l) + ii;
-                                i_f.step         = nb_cells;
+                                auto i_f = (run << delta_l) + ii;
+                                i_f.step = nb_cells;
 
-                                for (const auto& kv : pred.coeff)
+                                const auto& terms = table[static_cast<std::size_t>(ii + nb_cells * jj)].terms;
+                                for (const auto& [offset, weight] : terms)
                                 {
-                                    dest(reconstruct_level, i_f, j_f) += kv.second * src(level, run + kv.first[0], j + kv.first[1]);
+                                    dest(reconstruct_level, i_f, j_f) += weight * src(level, run + offset[0], j + offset[1]);
                                 }
                             }
                         }
@@ -678,6 +751,7 @@ namespace samurai
                     src,
                     [&](const auto& run, const auto& cls)
                     {
+                        const auto& table = detail::children_maps<prediction_stencil_radius, index_t, 3>(cls, delta_l);
                         for (index_t kk = 0; kk < nb_cells; ++kk)
                         {
                             auto k_f = (k << delta_l) + kk;
@@ -686,16 +760,14 @@ namespace samurai
                                 auto j_f = (j << delta_l) + jj;
                                 for (index_t ii = 0; ii < nb_cells; ++ii)
                                 {
-                                    const auto& pred = prediction<prediction_stencil_radius, index_t>(cls, delta_l, ii, jj, kk);
-                                    auto i_f         = (run << delta_l) + ii;
-                                    i_f.step         = nb_cells;
+                                    auto i_f = (run << delta_l) + ii;
+                                    i_f.step = nb_cells;
 
-                                    for (const auto& kv : pred.coeff)
+                                    const auto& terms = table[static_cast<std::size_t>(ii + nb_cells * (jj + nb_cells * kk))].terms;
+                                    for (const auto& [offset, weight] : terms)
                                     {
-                                        dest(reconstruct_level,
-                                             i_f,
-                                             j_f,
-                                             k_f) += kv.second * src(level, run + kv.first[0], j + kv.first[1], k + kv.first[2]);
+                                        dest(reconstruct_level, i_f, j_f, k_f) += weight
+                                                                                * src(level, run + offset[0], j + offset[1], k + offset[2]);
                                     }
                                 }
                             }
