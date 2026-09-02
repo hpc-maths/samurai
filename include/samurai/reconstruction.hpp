@@ -934,7 +934,7 @@ namespace samurai
             // The stencils depend on where the coarse cells sit relative to the domain, so the
             // row is reconstructed run by run of constant position class; away from every
             // boundary the whole row is one run.
-            const auto& row = std::get<0>(i);
+            const auto& interval = std::get<0>(i);
             xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> index;
             [&]<std::size_t... Is>(std::index_sequence<Is...>)
             {
@@ -944,7 +944,7 @@ namespace samurai
             for_each_prediction_position_run<prediction_class_reach<prediction_stencil_radius>>(
                 f.mesh(),
                 level,
-                row,
+                interval,
                 index,
                 [&](const interval_t& run, const auto& cls)
                 {
@@ -962,14 +962,15 @@ namespace samurai
                                 {
                                     result += kv.second * get_f(level, indices...)[0];
                                 }
-                                else if (run.start == row.start && run.end == row.end)
+                                else if (run.start == interval.start && run.end == interval.end)
                                 {
                                     result += kv.second * get_f(level, indices...);
                                 }
                                 else
                                 {
-                                    xt::view(result, xt::range(run.start - row.start, run.end - row.start)) += kv.second
-                                                                                                             * get_f(level, indices...);
+                                    xt::view(result, xt::range(run.start - interval.start, run.end - interval.start)) += kv.second
+                                                                                                                       * get_f(level,
+                                                                                                                               indices...);
                                 }
                             },
                             detail::compute_new_indices(0, i_run, kv.first));

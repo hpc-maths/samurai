@@ -1266,12 +1266,12 @@ namespace samurai
                 {
                     const value_t lo_d = domain.box[d].first;
                     const value_t hi_d = domain.box[d].second;
-                    value_t row        = index[d - 1] + static_cast<value_t>(offset[d - 1]);
-                    if ((row < lo_d || row >= hi_d) && domain.period[d] != 0 && offset[d - 1] != 0)
+                    value_t coord      = index[d - 1] + static_cast<value_t>(offset[d - 1]);
+                    if ((coord < lo_d || coord >= hi_d) && domain.period[d] != 0 && offset[d - 1] != 0)
                     {
-                        row -= static_cast<value_t>(offset[d - 1] > 0 ? 1 : -1) * (hi_d - lo_d);
+                        coord -= static_cast<value_t>(offset[d - 1] > 0 ? 1 : -1) * (hi_d - lo_d);
                     }
-                    held[k] = row >= lo_d && row < hi_d;
+                    held[k] = coord >= lo_d && coord < hi_d;
                 }
             }
 
