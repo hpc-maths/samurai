@@ -600,8 +600,8 @@ namespace samurai
          *
          * False for every finite-volume boundary condition: an FV flux stencil is built from
          * @c star_stencil / @c line_stencil / @c directional_stencils and never reads a diagonal
-         * ghost, and "the Dirichlet extension along {-1,-1}" has no meaning. Those corners are
-         * filled by @c update_outer_corners_by_polynomial_extrapolation instead.
+         * ghost, and "the Dirichlet extension along {-1,-1}" has no meaning. Those corners keep
+         * the polynomial extrapolation of @c update_outer_corners_by_polynomial_extrapolation.
          *
          * True for a lattice-Boltzmann reflection whose velocity set contains a diagonal velocity
          * (D2Q9, D2Q4diag, ...): such a scheme streams across the corner, so the corner ghost must

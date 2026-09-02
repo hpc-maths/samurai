@@ -201,16 +201,10 @@ namespace samurai::detail
         auto max_level        = mesh.max_level();
         std::size_t min_level = 0;
 
+        // Top-down: the projection ghosts of each level, averaged from the level above. The
+        // projection reads cells inside the domain only, so no outer ghost is needed yet.
         for (std::size_t level = max_level + 1; level-- > min_level;)
         {
-            exchange_subdomains_merged(level, field, other_fields...);
-            update_ghost_periodic(level, field, other_fields...);
-            update_outer_ghosts(level, field, other_fields...);
-            // Second subdomain sync, required for decomposition independence:
-            // update_outer_ghosts recomputes the outer/B.C. ghosts locally, but
-            // for non-stripe partitions the owner-computed outer values (see
-            // outer_subdomain_corner) must still be redistributed to every rank
-            // that references them.
             exchange_subdomains_merged(level, field, other_fields...);
             update_ghost_periodic(level, field, other_fields...);
 
@@ -221,6 +215,23 @@ namespace samurai::detail
             }
         }
 
+        // Bottom-up: the prediction ghosts of each level, from the level below, then the outer
+        // ghosts of the level, written from its cells inside the domain - all of which have a
+        // value at that point. The prediction at the next level reads this level's outer
+        // ghosts only where the domain is too narrow for the stencil to shift inward, so they
+        // are filled before it. The subdomain sync after them is required for decomposition
+        // independence: the outer ghosts are computed locally, but for non-stripe partitions
+        // the owner-computed outer values (see outer_subdomain_corner) must still be
+        // redistributed to every rank that references them, and the periodic exchange copies
+        // them across a periodic direction.
+        auto fill_outer_ghosts = [&](std::size_t level)
+        {
+            update_outer_ghosts(level, field, other_fields...);
+            exchange_subdomains_merged(level, field, other_fields...);
+            update_ghost_periodic(level, field, other_fields...);
+        };
+
+        fill_outer_ghosts(min_level);
         for (std::size_t level = min_level + 1; level <= max_level; ++level)
         {
             auto pred_ghosts = difference(mesh[mesh_id_t::all_cells][level],
@@ -230,6 +241,7 @@ namespace samurai::detail
             expr.apply_op(variadic_prediction<pred_order, false>(field, other_fields...));
             exchange_subdomains_merged(level, field, other_fields...);
             update_ghost_periodic(level, field, other_fields...);
+            fill_outer_ghosts(level);
         }
 
         field.ghosts_updated() = true;

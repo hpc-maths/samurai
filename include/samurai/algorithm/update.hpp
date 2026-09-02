@@ -9,8 +9,7 @@
 // API:
 //
 //   update_basic_ghost.hpp  update_ghost
-//   update_outer_ghost.hpp  project_bc / predict_bc / project_corner_below /
-//                           update_outer_ghosts
+//   update_outer_ghost.hpp  update_outer_ghosts
 //   update_subdomain.hpp    outer_subdomain_corner / update_tag_subdomains
 //   update_periodic.hpp     update_ghost_periodic / update_tag_periodic
 //   update_fields.hpp       update_fields / update_field
