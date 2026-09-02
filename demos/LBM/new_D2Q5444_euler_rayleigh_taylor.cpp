@@ -53,6 +53,7 @@ int main(int argc, char* argv[])
     std::string filename = "new_D2Q5444_euler_rayleigh_taylor";
     std::size_t nfiles   = 1;
 
+    // The exact-reconstruction stream is enabled through the global --exact-reconstruction option.
     app.add_option("--lambda", lambda, "Lattice velocity")->capture_default_str()->group("Simulation parameters");
     app.add_option("--gamma", gamma, "Ratio of specific heats")->capture_default_str()->group("Simulation parameters");
     app.add_option("--gravity", g, "Gravity")->capture_default_str()->group("Simulation parameters");

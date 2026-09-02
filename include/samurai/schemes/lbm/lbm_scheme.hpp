@@ -14,6 +14,7 @@
 
 #include "../../algorithm.hpp"
 #include "../../algorithm/update_ghost_mr.hpp"
+#include "../../arguments.hpp"
 #include "../../reconstruction.hpp"
 #include "velocity_scheme.hpp"
 
@@ -177,6 +178,23 @@ namespace samurai
         }
 
         /**
+         * Enable the "exact-reconstruction" stream (default: the global --exact-reconstruction
+         * option). When off, the stream reconstructs each streamed value with the flat prediction
+         * (the fast production path). When on, wherever the prediction cone crosses a refinement
+         * boundary it instead uses the real detail carried by the finer leaves that are actually
+         * present (see @ref reconstruct_exact_box), removing the projection error at interfaces.
+         */
+        void set_exact_reconstruction(bool exact)
+        {
+            m_exact_reconstruction = exact;
+        }
+
+        bool exact_reconstruction() const
+        {
+            return m_exact_reconstruction;
+        }
+
+        /**
          * One LBM time step. Updates both @a f (distributions) and @a m (moments). Wall boundary
          * conditions are the ones attached to @a f (see @ref BounceBack / @ref AntiBounceBack and
          * @c make_bc); they are applied by @c update_ghost_mr before the stream reads the ghosts.
@@ -204,7 +222,14 @@ namespace samurai
 
             {
                 ScopedTimer timer_stream("lbm stream");
-                stream(f, *m_f_stream);
+                if (m_exact_reconstruction)
+                {
+                    stream_exact_reconstruction(f, *m_f_stream);
+                }
+                else
+                {
+                    stream(f, *m_f_stream);
+                }
             }
             std::swap(f.array(), m_f_stream->array());
             {
@@ -387,6 +412,167 @@ namespace samurai
             }
         }
 
+        // Read one stored cell f(comp, level, coord) unpacking the transverse directions (the reader
+        // used by the exact reconstruction).
+        template <std::size_t... K>
+        static double
+        read_cell(const field_t& f, std::size_t comp, std::size_t level, const std::array<value_t, dim>& coord, std::index_sequence<K...>)
+        {
+            return f(comp, level, interval_t{coord[0], coord[0] + 1}, coord[K + 1]...)[0];
+        }
+
+        // Integer indices, at the finest level, of the n-th fine sub-cell of coarse cell (ci, index)
+        // at level gap j, shifted by the donor offset -c.
+        template <std::size_t... D>
+        static std::array<value_t, dim>
+        donor_coord(value_t ci, const auto& index, std::size_t j, std::size_t n, const velocity_t& c, std::index_sequence<D...>)
+        {
+            const value_t width = value_t{1} << j;
+            auto along          = [&](auto dc) -> value_t
+            {
+                constexpr std::size_t d = dc;
+                value_t base;
+                if constexpr (d == 0)
+                {
+                    base = ci;
+                }
+                else
+                {
+                    base = static_cast<value_t>(index[d - 1]);
+                }
+                const value_t local = static_cast<value_t>((n >> (d * j)) & static_cast<std::size_t>(width - 1));
+                return (base << j) + local - static_cast<value_t>(c[d]);
+            };
+            return {along(std::integral_constant<std::size_t, D>{})...};
+        }
+
+        // Finest-level bounding box [lo, hi) of every donor sub-cell of the coarse x-interval i
+        // (transverse index) at level gap j, shifted by -c. Contiguous in x over the interval.
+        template <std::size_t... D>
+        static std::pair<std::array<value_t, dim>, std::array<value_t, dim>>
+        donor_box(const auto& i, const auto& index, std::size_t j, const velocity_t& c, std::index_sequence<D...>)
+        {
+            std::array<value_t, dim> lo, hi;
+            (
+                [&]
+                {
+                    constexpr std::size_t d = D;
+                    value_t start, end;
+                    if constexpr (d == 0)
+                    {
+                        start = i.start;
+                        end   = i.end;
+                    }
+                    else
+                    {
+                        start = static_cast<value_t>(index[d - 1]);
+                        end   = start + 1;
+                    }
+                    lo[d] = (start << j) - static_cast<value_t>(c[d]);
+                    hi[d] = (end << j) - static_cast<value_t>(c[d]);
+                }(),
+                ...);
+            return {lo, hi};
+        }
+
+        // Largest |velocity| component over all blocks (sizes the interface halo).
+        int max_abs_velocity() const
+        {
+            int m = 0;
+            for_each_block(
+                [&](const auto& block, std::size_t)
+                {
+                    constexpr std::size_t q = std::decay_t<decltype(block)>::q;
+                    for (std::size_t a = 0; a < q; ++a)
+                    {
+                        for (std::size_t d = 0; d < dim; ++d)
+                        {
+                            m = std::max(m, std::abs(block.velocities[a][d]));
+                        }
+                    }
+                });
+            return m;
+        }
+
+        // stream_exact_reconstruction: the flat stream() everywhere, then the streamed value is
+        // recomputed with the real finer cells (reconstruct_exact_box) on the sparse band of cells
+        // whose reconstruction cone (possibly shifted by the velocity) reaches a refined (proj) cell.
+        // Diagnostic path (see set_exact_reconstruction); the flat stream is the fast default.
+        void stream_exact_reconstruction(const field_t& f_in, field_t& f_out) const
+        {
+            using mesh_id_t         = typename field_t::mesh_t::mesh_id_t;
+            constexpr std::size_t r = field_t::mesh_t::config_t::prediction_stencil_radius;
+            constexpr auto tseq     = std::make_index_sequence<dim - 1>{};
+            constexpr auto dseq     = std::make_index_sequence<dim>{};
+            const std::array<int, dim> no_shift{};
+
+            // Flat reconstruction everywhere (fast); the interface band is corrected below.
+            stream(f_in, f_out);
+
+            auto& mesh                  = f_in.mesh();
+            const std::size_t max_level = mesh.max_level();
+            auto stored                 = make_real_backed_lca(mesh);
+            const auto maxvel           = static_cast<value_t>(max_abs_velocity());
+
+            std::vector<double> box_vals;
+            // Only a level with a gap to max_level can differ from the flat stream: at max_level the
+            // cascade has depth 0 (the correction is the identity) and proj_cells is empty anyway.
+            for (std::size_t level = mesh.min_level(); level < max_level; ++level)
+            {
+                const std::size_t j  = max_level - level;
+                const std::size_t nc = std::size_t{1} << (j * dim);
+                const double inv_nc  = 1. / static_cast<double>(nc);
+
+                // Halo (in level-l cells) covering a donor's cone footprint at this gap j: the
+                // prediction support plus the velocity shift, with a margin. Level-dependent so the
+                // finer levels (small j) get a tighter band. Over-inclusion is harmless but not
+                // without consequence: on an extra cell the cascade agrees with the flat prediction
+                // only up to rounding (see reconstruct_flat_box), so the band size is observable at
+                // machine precision. Under-inclusion, on the other hand, silently drops a correction.
+                //
+                // The velocity shift is applied at max_level (see donor_box), so it is worth
+                // ceil(maxvel / 2^j) cells at this level. `support + shift` is already covering
+                // (pinned by reconstruction.band_covers_the_read_footprint); the +1 is pure margin.
+                const auto support = composed_prediction_support<value_t>(r, j);
+                const auto shift   = (maxvel + (value_t{1} << j) - 1) >> j;
+                const auto reach   = support + shift + 1;
+
+                // Cells whose cone reaches a refined cell of this level; the rest keep the flat value.
+                auto interface_cells = intersection(mesh[mesh_id_t::cells][level], expand(mesh[mesh_id_t::proj_cells][level], reach));
+
+                for_each_block(
+                    [&](const auto& block, std::size_t offset)
+                    {
+                        constexpr std::size_t q = std::decay_t<decltype(block)>::q;
+                        for (std::size_t a = 0; a < q; ++a)
+                        {
+                            const std::size_t comp = offset + a;
+                            const auto& c          = block.velocities[a];
+                            auto read              = [&](std::size_t rl, const std::array<value_t, dim>& coord) -> double
+                            {
+                                return read_cell(f_in, comp, rl, coord, tseq);
+                            };
+                            interface_cells(
+                                [&](const auto& i, const auto& index)
+                                {
+                                    auto [lo, hi] = donor_box(i, index, j, c, dseq);
+                                    reconstruct_exact_box<r>(level, max_level, lo, hi, read, stored, box_vals);
+                                    const detail::ra_box<dim, value_t> box{lo, hi};
+                                    for (value_t ci = i.start; ci < i.end; ++ci)
+                                    {
+                                        double acc = 0.;
+                                        for (std::size_t n = 0; n < nc; ++n)
+                                        {
+                                            acc += box_vals[box.offset(donor_coord(ci, index, j, n, c, dseq))];
+                                        }
+                                        access(f_out, comp, level, interval_t{ci, ci + 1}, index, no_shift, tseq) = inv_nc * acc;
+                                    }
+                                });
+                        }
+                    });
+            }
+        }
+
         // collide: m = M.f (all blocks) ; equilibrium (sees all moments) ; relax (MRT) ;
         //          optional source (body force) ; f = M^{-1} m.
         template <class MField>
@@ -472,8 +658,9 @@ namespace samurai
         std::string m_name;
         double m_lambda;
         std::tuple<Blocks...> m_blocks;
-        source_t m_source;                         // optional body-force source term (see set_source)
-        mutable std::optional<field_t> m_f_stream; // worker for the streamed distributions (reused across steps)
+        source_t m_source;                                        // optional body-force source term (see set_source)
+        bool m_exact_reconstruction = args::exact_reconstruction; // exact-reconstruction stream (default from --exact-reconstruction)
+        mutable std::optional<field_t> m_f_stream;                // worker for the streamed distributions (reused across steps)
     };
 
     /**

@@ -1,13 +1,21 @@
-#include <cmath>
-
 #include <gtest/gtest.h>
+
+#include <cmath>
+#include <functional>
+#include <map>
+#include <set>
+#include <utility>
+
 #include <samurai/algorithm.hpp>
 #include <samurai/algorithm/update_ghost_mr.hpp>
 #include <samurai/box.hpp>
 #include <samurai/cell_list.hpp>
 #include <samurai/field.hpp>
+#include <samurai/mesh_config.hpp>
+#include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/reconstruction.hpp>
+#include <samurai/samurai.hpp>
 #include <samurai/uniform_mesh.hpp>
 
 // Tests for portion() (include/samurai/reconstruction.hpp): the reconstructed value a field would
@@ -354,5 +362,446 @@ namespace samurai
         // truncation error, but the flat one adds the projection error on top).
         const double truth = std::cos(3. * (15 + 0.5) / (1 << 3));
         EXPECT_LT(std::abs(descending - truth), std::abs(flat - truth));
+    }
+
+    // ------------------------------------------------------------------------------------
+    //  exact-reconstruction reconstruction (reconstruct_exact): on an adapted mesh it must equal
+    //  the multiresolution reconstruction capped at the donor's base level (finer real cells
+    //  override, coarser-neighbour ghosts kept as the flat path sees them), reduce to the flat
+    //  portion() when the cone stays clear of refinement, and actually differ from flat at a
+    //  refinement interface.
+    // ------------------------------------------------------------------------------------
+
+    // Deterministic graded staircase L1..L5 (wide base) so a delta_l = 4 cone spans the L2, L3
+    // and L4 real cells at once (nested-refinement / double-count case).
+    TEST(portion_exact, graded_staircase_1D)
+    {
+        constexpr std::size_t dim = 1;
+        CellList<dim> cl;
+        cl[1][{}].add_interval({0, 8});     // [0,128)   in level-5 units
+        cl[2][{}].add_interval({16, 18});   // [128,144)
+        cl[3][{}].add_interval({36, 38});   // [144,152)
+        cl[4][{}].add_interval({76, 78});   // [152,156)
+        cl[5][{}].add_interval({156, 160}); // [156,160)
+
+        auto cfg                = mesh_config<dim>().min_level(1).max_level(5).max_stencil_radius(2);
+        auto mesh               = mra::make_mesh(cl, cfg);
+        using mesh_t            = decltype(mesh);
+        using mesh_id_t         = mesh_t::mesh_id_t;
+        using interval_t        = mesh_t::interval_t;
+        using value_t           = interval_t::value_t;
+        constexpr std::size_t r = mesh_t::config_t::prediction_stencil_radius;
+
+        auto u = make_scalar_field<double>("u", mesh);
+        for_each_cell(mesh[mesh_id_t::cells],
+                      [&](const auto& c)
+                      {
+                          u[c] = std::cos(3. * c.center()[0]);
+                      });
+        update_ghost_mr(u);
+
+        auto stored = make_real_backed_lca(mesh);
+        auto read   = [&](std::size_t l, const std::array<value_t, dim>& c) -> double
+        {
+            return u(l, interval_t{c[0], c[0] + 1})[0];
+        };
+
+        // Independent reference: capped recursion using a std::set membership (a different
+        // mechanism than the find()-based test inside reconstruct_exact).
+        std::vector<std::set<value_t>> in_set(mesh.max_level() + 1);
+        for (std::size_t l = mesh.min_level(); l <= mesh.max_level(); ++l)
+        {
+            for (auto id : {mesh_id_t::cells, mesh_id_t::proj_cells})
+            {
+                for_each_interval(mesh[id][l],
+                                  [&](std::size_t, const auto& i, const auto&)
+                                  {
+                                      for (value_t k = i.start; k < i.end; ++k)
+                                      {
+                                          in_set[l].insert(k);
+                                      }
+                                  });
+            }
+        }
+        std::function<double(std::size_t, std::size_t, value_t)> ref = [&](std::size_t l0, std::size_t m, value_t i) -> double
+        {
+            if (m == l0 || in_set[m].count(i))
+            {
+                return u(m, interval_t{i, i + 1})[0];
+            }
+            double res = 0.;
+            for (const auto& kv : prediction<r, value_t>(1, i & 1).coeff)
+            {
+                res += kv.second * ref(l0, m - 1, (i >> 1) + kv.first[0]);
+            }
+            return res;
+        };
+
+        auto flat_portion = [&](std::size_t l0, std::size_t delta_l, value_t g) -> double
+        {
+            value_t coarse = g >> delta_l;
+            value_t local  = g - (coarse << delta_l);
+            return portion<r>(u, l0, delta_l, std::make_tuple(interval_t{coarse, coarse + 1}), std::make_tuple(local))[0];
+        };
+
+        std::size_t checked       = 0;
+        std::size_t nb_nontrivial = 0;
+        for (std::size_t l0 = mesh.min_level(); l0 < mesh.max_level(); ++l0)
+        {
+            std::size_t delta_l = mesh.max_level() - l0;
+            for (value_t g = 0; g < 160; ++g)
+            {
+                double flat = std::numeric_limits<double>::quiet_NaN();
+                double expected;
+                double got;
+                try
+                {
+                    flat     = flat_portion(l0, delta_l, g);
+                    expected = ref(l0, mesh.max_level(), g);
+                    std::map<std::pair<std::size_t, std::array<value_t, dim>>, double> memo;
+                    got = reconstruct_exact<r>(l0, delta_l, std::array<value_t, dim>{g}, read, stored, memo);
+                }
+                catch (...)
+                {
+                    continue; // g whose flat stencil leaves all_cells: not a case the stream hits
+                }
+                ++checked;
+                // main property: the capped multiresolution reconstruction, to machine precision
+                EXPECT_NEAR(got, expected, 1e-13) << "l0=" << l0 << " g=" << g;
+                if (std::abs(expected - flat) > 1e-9)
+                {
+                    ++nb_nontrivial; // correction active (cone crosses a refinement)
+                }
+                else
+                {
+                    // no refinement in the cone => reduces to the flat prediction (up to the
+                    // rounding of a cascade vs a single flattened stencil)
+                    EXPECT_NEAR(got, flat, 1e-12) << "l0=" << l0 << " g=" << g;
+                }
+            }
+        }
+        EXPECT_GT(checked, 0u);
+        EXPECT_GT(nb_nontrivial, 0u); // the correction is actually active at the interfaces
+    }
+
+    // Adapted 2D mesh (sharp front => graded refinement): exercises the dim-generic machinery
+    // and nested refinement in 2D against the same capped-recursion reference.
+    TEST(portion_exact, adapted_mesh_2D)
+    {
+        ::samurai::initialize();
+        constexpr std::size_t dim = 2;
+        using box_t               = Box<double, dim>;
+
+        auto fill = [](auto& field)
+        {
+            auto& mesh = field.mesh();
+            using mid  = std::decay_t<decltype(mesh)>::mesh_id_t;
+            for_each_cell(mesh[mid::cells],
+                          [&](const auto& c)
+                          {
+                              auto x   = c.center()[0];
+                              auto y   = c.center()[1];
+                              field[c] = std::tanh(20. * (x - 0.5)) + std::cos(4. * y);
+                          });
+        };
+
+        auto cfg  = mesh_config<dim>().min_level(2).max_level(6);
+        auto mesh = mra::make_mesh(
+            box_t{
+                {0., 0.},
+                {1., 1.}
+        },
+            cfg);
+        auto u = make_scalar_field<double>("u", mesh);
+        fill(u);
+        make_MRAdapt(u)(mra_config().epsilon(1e-3).regularity(2.));
+        fill(u); // re-fill on the adapted topology
+        update_ghost_mr(u);
+
+        using mesh_t            = decltype(mesh);
+        using mesh_id_t         = mesh_t::mesh_id_t;
+        using interval_t        = mesh_t::interval_t;
+        using value_t           = interval_t::value_t;
+        constexpr std::size_t r = mesh_t::config_t::prediction_stencil_radius;
+        const std::size_t L     = mesh.max_level();
+
+        auto stored = make_real_backed_lca(mesh);
+        auto read   = [&](std::size_t l, const std::array<value_t, dim>& c) -> double
+        {
+            return u(l, interval_t{c[0], c[0] + 1}, c[1])[0];
+        };
+
+        std::vector<std::set<std::pair<value_t, value_t>>> in_set(L + 1);
+        for (std::size_t l = mesh.min_level(); l <= L; ++l)
+        {
+            for (auto id : {mesh_id_t::cells, mesh_id_t::proj_cells})
+            {
+                for_each_interval(mesh[id][l],
+                                  [&](std::size_t, const auto& i, const auto& index)
+                                  {
+                                      for (value_t k = i.start; k < i.end; ++k)
+                                      {
+                                          in_set[l].insert({k, index[0]});
+                                      }
+                                  });
+            }
+        }
+        std::function<double(std::size_t, std::size_t, value_t, value_t)> ref = [&](std::size_t l0, std::size_t m, value_t i, value_t j) -> double
+        {
+            if (m == l0 || in_set[m].count({i, j}))
+            {
+                return u(m, interval_t{i, i + 1}, j)[0];
+            }
+            double res = 0.;
+            for (const auto& kv : prediction<r, value_t>(1, i & 1, j & 1).coeff)
+            {
+                res += kv.second * ref(l0, m - 1, (i >> 1) + kv.first[0], (j >> 1) + kv.first[1]);
+            }
+            return res;
+        };
+
+        std::size_t checked = 0, nb_nontrivial = 0;
+        for (std::size_t l0 = mesh.min_level(); l0 < L; ++l0)
+        {
+            std::size_t delta_l = L - l0;
+            value_t nsub        = value_t{1} << delta_l;
+            for_each_interval(
+                mesh[mesh_id_t::cells][l0],
+                [&](std::size_t, const auto& ii, const auto& idx)
+                {
+                    for (value_t ci = ii.start; ci < ii.end; ++ci)
+                    {
+                        for (value_t sy = 0; sy < nsub; ++sy)
+                        {
+                            for (value_t sx = 0; sx < nsub; ++sx)
+                            {
+                                value_t gx = (ci << delta_l) + sx;
+                                value_t gy = (idx[0] << delta_l) + sy;
+                                double expected, got, flat;
+                                try
+                                {
+                                    expected = ref(l0, L, gx, gy);
+                                    std::map<std::pair<std::size_t, std::array<value_t, dim>>, double> memo;
+                                    got  = reconstruct_exact<r>(l0, delta_l, std::array<value_t, dim>{gx, gy}, read, stored, memo);
+                                    flat = portion<r>(u,
+                                                      l0,
+                                                      delta_l,
+                                                      std::make_tuple(interval_t{ci, ci + 1}, idx[0]),
+                                                      std::make_tuple(sx, sy))[0];
+                                }
+                                catch (...)
+                                {
+                                    continue;
+                                }
+                                ++checked;
+                                EXPECT_NEAR(got, expected, 1e-12) << "l0=" << l0 << " g=(" << gx << "," << gy << ")";
+                                if (std::abs(expected - flat) > 1e-9)
+                                {
+                                    ++nb_nontrivial;
+                                }
+                            }
+                        }
+                    }
+                });
+        }
+        EXPECT_GT(checked, 0u);
+        EXPECT_GT(nb_nontrivial, 0u);
+        ::samurai::finalize();
+    }
+
+    // The vectorised reconstruct_exact_box (the fast path used by the LBM stream) must be
+    // bit-identical to the scalar reconstruct_exact, cell for cell, over a whole sub-cell box.
+    TEST(portion_exact, box_matches_scalar_1D)
+    {
+        constexpr std::size_t dim = 1;
+        CellList<dim> cl;
+        cl[1][{}].add_interval({0, 8});
+        cl[2][{}].add_interval({16, 18});
+        cl[3][{}].add_interval({36, 38});
+        cl[4][{}].add_interval({76, 78});
+        cl[5][{}].add_interval({156, 160});
+
+        auto cfg                = mesh_config<dim>().min_level(1).max_level(5).max_stencil_radius(2);
+        auto mesh               = mra::make_mesh(cl, cfg);
+        using mesh_t            = decltype(mesh);
+        using mesh_id_t         = mesh_t::mesh_id_t;
+        using interval_t        = mesh_t::interval_t;
+        using value_t           = interval_t::value_t;
+        constexpr std::size_t r = mesh_t::config_t::prediction_stencil_radius;
+        const std::size_t L     = mesh.max_level();
+
+        auto u = make_scalar_field<double>("u", mesh);
+        for_each_cell(mesh[mesh_id_t::cells],
+                      [&](const auto& c)
+                      {
+                          u[c] = std::cos(3. * c.center()[0]);
+                      });
+        update_ghost_mr(u);
+
+        auto stored = make_real_backed_lca(mesh);
+        auto read   = [&](std::size_t l, const std::array<value_t, dim>& c) -> double
+        {
+            return u(l, interval_t{c[0], c[0] + 1})[0];
+        };
+
+        std::size_t checked = 0;
+        for (std::size_t l0 = mesh.min_level(); l0 < L; ++l0)
+        {
+            std::size_t delta_l = L - l0;
+            for_each_interval(mesh[mesh_id_t::cells][l0],
+                              [&](std::size_t, const auto& i, const auto&)
+                              {
+                                  std::array<value_t, dim> lo{i.start << delta_l};
+                                  std::array<value_t, dim> hi{i.end << delta_l};
+                                  detail::ra_box<dim, value_t> box{lo, hi};
+                                  std::vector<double> out;
+                                  try
+                                  {
+                                      reconstruct_exact_box<r>(l0, L, lo, hi, read, stored, out);
+                                  }
+                                  catch (...)
+                                  {
+                                      return;
+                                  }
+                                  for (std::size_t f = 0; f < box.count(); ++f)
+                                  {
+                                      auto g = box.coord(f);
+                                      exact_reconstruction_memo_t<dim, value_t> memo;
+                                      double scalar;
+                                      try
+                                      {
+                                          scalar = reconstruct_exact<r>(l0, delta_l, g, read, stored, memo);
+                                      }
+                                      catch (...)
+                                      {
+                                          continue;
+                                      }
+                                      EXPECT_DOUBLE_EQ(out[f], scalar) << "l0=" << l0 << " g=" << g[0];
+                                      ++checked;
+                                  }
+                              });
+        }
+        EXPECT_GT(checked, 0u);
+    }
+
+    // The composed prediction support is the geometric series r + r/2 + r/4 + ..., NOT r + j.
+    TEST(reconstruction, composed_prediction_support_saturates_at_twice_the_radius)
+    {
+        const std::map<std::size_t, std::vector<int>> expected{
+            {0, {0, 0, 0, 0, 0, 0, 0}   },
+            {1, {0, 1, 2, 2, 2, 2, 2}   },
+            {2, {0, 2, 3, 4, 4, 4, 4}   },
+            {3, {0, 3, 5, 6, 6, 6, 6}   },
+            {4, {0, 4, 6, 7, 8, 8, 8}   },
+            {5, {0, 5, 8, 9, 10, 10, 10}},
+        };
+        for (const auto& [r, support] : expected)
+        {
+            for (std::size_t j = 0; j < support.size(); ++j)
+            {
+                EXPECT_EQ(composed_prediction_support(r, j), support[j]) << "r=" << r << " j=" << j;
+            }
+        }
+        // The trap: a linear r + j - 1 under-estimates the support as soon as r >= 3, which would
+        // silently shrink the band of cells the exact-reconstruction stream recomputes.
+        EXPECT_GT(composed_prediction_support(3, 2), 3 + 2 - 1);
+        EXPECT_GT(composed_prediction_support(5, 3), 5 + 3 - 1);
+    }
+
+    // Every base-level cell the cascade reads must lie inside the halo that the exact-reconstruction
+    // stream uses to select the cells to recompute: composed_prediction_support(r, j) cells for the
+    // prediction, plus ceil(maxvel / 2^j) for the velocity shift applied at the finest level (see
+    // LBMScheme::stream_exact_reconstruction, which adds one more cell of margin on top of that).
+    // A halo too small would leave cells whose cone crosses a refinement boundary with the flat
+    // value, with no error and no warning.
+    template <std::size_t r, std::size_t dim>
+    void check_band_covers_read_footprint(std::size_t max_j, int max_vel, int nx)
+    {
+        using value_t            = default_config::value_t;
+        constexpr std::size_t l0 = 3;
+        constexpr value_t base   = 5; // donor cell, away from the origin so no shift is ambiguous
+
+        std::size_t checked = 0;
+        for (std::size_t j = 0; j <= max_j; ++j)
+        {
+            const value_t support = composed_prediction_support<value_t>(r, j);
+            for (int m = 0; m <= max_vel; ++m)
+            {
+                const value_t shift = static_cast<value_t>((m + (1 << j) - 1) >> j);
+                const value_t reach = support + shift;
+
+                // Every velocity with max_d |c_d| <= m must fit in that same halo, since the stream
+                // sizes the band once for all the velocities of all the blocks.
+                const auto ncomb = static_cast<std::size_t>(std::pow(2 * m + 1, dim));
+                for (std::size_t s = 0; s < ncomb; ++s)
+                {
+                    std::array<value_t, dim> c{};
+                    std::size_t t = s;
+                    for (std::size_t d = 0; d < dim; ++d)
+                    {
+                        c[d] = static_cast<value_t>(t % static_cast<std::size_t>(2 * m + 1)) - m;
+                        t /= static_cast<std::size_t>(2 * m + 1);
+                    }
+
+                    // The donor box of LBMScheme::donor_box: an x-interval of nx cells, a single cell
+                    // in the transverse directions, taken at the finest level and shifted by -c.
+                    std::array<value_t, dim> lo, hi, start, end;
+                    for (std::size_t d = 0; d < dim; ++d)
+                    {
+                        start[d] = base;
+                        end[d]   = base + static_cast<value_t>((d == 0) ? nx : 1);
+                        lo[d]    = (start[d] << j) - c[d];
+                        hi[d]    = (end[d] << j) - c[d];
+                    }
+
+                    std::size_t nread = 0;
+                    auto read         = [&](std::size_t l, const std::array<value_t, dim>& g) -> double
+                    {
+                        EXPECT_EQ(l, l0) << "the flat cascade must only read the base level";
+                        for (std::size_t d = 0; d < dim; ++d)
+                        {
+                            EXPECT_GE(g[d], start[d] - reach) << "r=" << r << " j=" << j << " m=" << m << " c=" << c[0] << " d=" << d;
+                            EXPECT_LE(g[d], end[d] - 1 + reach) << "r=" << r << " j=" << j << " m=" << m << " c=" << c[0] << " d=" << d;
+                        }
+                        ++nread;
+                        return 0.;
+                    };
+
+                    std::vector<double> out;
+                    reconstruct_flat_box<r>(l0, l0 + j, lo, hi, read, out);
+                    EXPECT_GT(nread, 0u);
+                    ++checked;
+                }
+            }
+        }
+        EXPECT_GT(checked, 0u);
+    }
+
+    TEST(reconstruction, band_covers_the_read_footprint_1D)
+    {
+        check_band_covers_read_footprint<0, 1>(6, 4, 1);
+        check_band_covers_read_footprint<1, 1>(6, 4, 1);
+        check_band_covers_read_footprint<2, 1>(6, 4, 1);
+        check_band_covers_read_footprint<3, 1>(6, 4, 1);
+        check_band_covers_read_footprint<4, 1>(6, 4, 1);
+        check_band_covers_read_footprint<5, 1>(6, 4, 1);
+        // A multi-cell x-interval: the halo is measured from the interval bounds.
+        check_band_covers_read_footprint<1, 1>(5, 3, 4);
+        check_band_covers_read_footprint<3, 1>(5, 3, 4);
+    }
+
+    TEST(reconstruction, band_covers_the_read_footprint_2D)
+    {
+        check_band_covers_read_footprint<0, 2>(4, 2, 1);
+        check_band_covers_read_footprint<1, 2>(4, 2, 1);
+        check_band_covers_read_footprint<2, 2>(4, 2, 1);
+        check_band_covers_read_footprint<3, 2>(4, 2, 1);
+        check_band_covers_read_footprint<1, 2>(3, 2, 3);
+    }
+
+    TEST(reconstruction, band_covers_the_read_footprint_3D)
+    {
+        check_band_covers_read_footprint<1, 3>(2, 2, 1);
+        check_band_covers_read_footprint<2, 3>(2, 1, 1);
     }
 }

@@ -595,8 +595,6 @@ namespace samurai
             return; // No outer corners in 1D
         }
 
-        auto domain = self(field.mesh().domain()).on(level);
-
         for_each_diagonal_direction<dim>(
             [&](const auto& direction)
             {
