@@ -8,7 +8,9 @@
 #include <bit>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
+#include <functional>
 #include <limits>
 #include <type_traits>
 #include <vector>
@@ -678,6 +680,83 @@ namespace samurai
      * cells the domain holds but around which no shift makes the stencil box fit. The query
      * reports it rather than deciding what to do about it.
      */
+    namespace detail
+    {
+        /**
+         * The driver both run decompositions share: walk @a i once over the covers of the
+         * `(2 reach + 1)^(dim-1)` transverse rows within @a reach of it, hand each breakpoint's
+         * covers to @a classify, and call @a f on the maximal runs over which what @a classify
+         * returns is constant. @a classify gets the covers in the @ref TransverseRows
+         * enumeration for that reach.
+         */
+        template <int reach, std::size_t dim, class TInterval, class Classify, class Func>
+        void for_each_cover_run(const LevelCellArray<dim, TInterval>& domain,
+                                const std::array<typename TInterval::value_t, dim>& period,
+                                const TInterval& i,
+                                const xt::xtensor_fixed<typename TInterval::value_t, xt::xshape<dim - 1>>& index,
+                                Classify&& classify,
+                                Func&& f)
+        {
+            using value_t = typename TInterval::value_t;
+            using rows_t  = TransverseRows<reach, dim>;
+            using class_t = std::decay_t<decltype(classify(static_cast<const RowCover<value_t>*>(nullptr)))>;
+
+            // One cursor per transverse row within reach, over the periodically extended
+            // domain.
+            QueryScratch<DomainRow<TInterval>, rows_t::count> rows;
+            for (std::size_t k = 0; k < rows_t::count; ++k)
+            {
+                rows[k] = DomainRow<TInterval>(displaced_row(domain, index, rows_t::offset(k), period), period[0], rows_t::reach);
+            }
+
+            // The run being accumulated. Runs are emitted only when the class changes, so two
+            // neighbouring runs never carry the same one.
+            bool pending = false;
+            value_t run_start{};
+            class_t run_class{};
+
+            const auto flush = [&](value_t end)
+            {
+                if (pending)
+                {
+                    f(TInterval{run_start, end, i.index}, run_class);
+                }
+            };
+
+            QueryScratch<RowCover<value_t>, rows_t::count> covers;
+
+            value_t x = i.start;
+            while (x < i.end)
+            {
+                // The cover of every row around x, and the first coordinate at which any of
+                // those covers may change - before which the class cannot change either.
+                value_t next = i.end;
+                for (std::size_t k = 0; k < rows_t::count; ++k)
+                {
+                    covers[k] = rows[k].around(x);
+                    next      = std::min(next, covers[k].until);
+                }
+
+                const class_t current = classify(covers.data());
+
+                // A breakpoint that failed to move would spin here rather than fail, so it is
+                // asserted instead of being clamped away.
+                assert(next > x && "for_each_cover_run: the run decomposition did not advance");
+
+                if (!pending || !(current == run_class))
+                {
+                    flush(x);
+                    pending   = true;
+                    run_start = x;
+                    run_class = current;
+                }
+                x = next;
+            }
+
+            flush(i.end);
+        }
+    }
+
     template <std::size_t radius, std::size_t dim, class TInterval, class Func>
     void for_each_prediction_shift_run(const LevelCellArray<dim, TInterval>& domain,
                                        const std::array<typename TInterval::value_t, dim>& period,
@@ -686,61 +765,16 @@ namespace samurai
                                        Func&& f)
     {
         using value_t = typename TInterval::value_t;
-        using rows_t  = detail::TransverseRows<2 * static_cast<int>(radius), dim>;
-
-        // One cursor per transverse row the stencil can reach, over the periodically
-        // extended domain.
-        detail::QueryScratch<detail::DomainRow<TInterval>, rows_t::count> rows;
-        for (std::size_t k = 0; k < rows_t::count; ++k)
-        {
-            rows[k] = detail::DomainRow<TInterval>(detail::displaced_row(domain, index, rows_t::offset(k), period), period[0], rows_t::reach);
-        }
-
-        // The run being accumulated. Runs are emitted only when the shift changes, so two
-        // neighbouring runs never carry the same one.
-        bool pending = false;
-        value_t run_start{};
-        PredictionStencilShift<dim> run_shift;
-
-        const auto flush = [&](value_t end)
-        {
-            if (pending)
+        detail::for_each_cover_run<2 * static_cast<int>(radius)>(
+            domain,
+            period,
+            i,
+            index,
+            [](const detail::RowCover<value_t>* covers)
             {
-                f(TInterval{run_start, end, i.index}, run_shift);
-            }
-        };
-
-        detail::QueryScratch<detail::RowCover<value_t>, rows_t::count> covers;
-
-        value_t x = i.start;
-        while (x < i.end)
-        {
-            // The cover of every row around x, and the first coordinate at which any of
-            // those covers may change - before which the shift cannot change either.
-            value_t next = i.end;
-            for (std::size_t k = 0; k < rows_t::count; ++k)
-            {
-                covers[k] = rows[k].around(x);
-                next      = std::min(next, covers[k].until);
-            }
-
-            const auto shift = detail::most_centred_fit<radius, dim>(covers.data());
-
-            // A breakpoint that failed to move would spin here rather than fail, so it is
-            // asserted instead of being clamped away.
-            assert(next > x && "for_each_prediction_shift_run: the run decomposition did not advance");
-
-            if (!pending || !(shift == run_shift))
-            {
-                flush(x);
-                pending   = true;
-                run_start = x;
-                run_shift = shift;
-            }
-            x = next;
-        }
-
-        flush(i.end);
+                return detail::most_centred_fit<radius, dim>(covers);
+            },
+            std::forward<Func>(f));
     }
 
     /**
@@ -1090,4 +1124,328 @@ namespace samurai
                                               });
         return shift;
     }
+
+    /**
+     * Where a cell sits relative to the domain, as a composed prediction map needs to know it.
+     *
+     * A map predicting a cell several levels below a coarse cell is a composition of one-level
+     * predictions, one per intermediate level, each of which is shifted or not according to the
+     * domain around *its* parent. The composed map therefore depends on the domain within some
+     * distance of the coarse cell, and on nothing else: this class is that neighbourhood, and it
+     * is what @ref prediction is memoised on, so that the memo stays free of any mesh.
+     *
+     * It holds the cover of every transverse row within @c reach of the cell - `low` and `high`
+     * cells available below and above the cell along that row, capped at the reach, or `low ==
+     * -1` where the row does not hold the cell at all. @ref contains answers, from that alone,
+     * whether the domain holds any cell at any finer level within the reach, which is what the
+     * shift rule at every step of the composition asks. That relies on the domain being
+     * **nested**: every child of a cell of the domain at one level belongs to the domain at the
+     * next, which is how the domain pyramid is built for a domain whose boundaries are
+     * representable at the coarsest level involved.
+     *
+     * The reach a composed map needs is derived where it is used, see @ref prediction_class_reach.
+     */
+    template <int reach, std::size_t dim>
+    struct PredictionPositionClass
+    {
+        using rows_t                      = detail::TransverseRows<reach, dim>;
+        static constexpr int reach_v      = reach;
+        static constexpr std::size_t rows = rows_t::count;
+
+        std::array<std::int8_t, rows> low{}; ///< per row: cells available below the cell, capped at @c reach; -1 when the row does not hold
+                                             ///< it
+        std::array<std::int8_t, rows> high{}; ///< per row: cells available above the cell, capped at @c reach
+
+        bool operator==(const PredictionPositionClass& o) const = default;
+
+        /// The class of a cell with the whole reach available on every side: the interior.
+        static constexpr PredictionPositionClass interior()
+        {
+            PredictionPositionClass out;
+            out.low.fill(static_cast<std::int8_t>(reach));
+            out.high.fill(static_cast<std::int8_t>(reach));
+            return out;
+        }
+
+        /// From the covers the row scan gives, in the @ref detail::TransverseRows enumeration.
+        template <class value_t>
+        static PredictionPositionClass from_covers(const detail::RowCover<value_t>* covers)
+        {
+            PredictionPositionClass out;
+            for (std::size_t k = 0; k < rows; ++k)
+            {
+                out.low[k]  = covers[k].holds ? static_cast<std::int8_t>(covers[k].low) : std::int8_t{-1};
+                out.high[k] = covers[k].holds ? static_cast<std::int8_t>(covers[k].high) : std::int8_t{0};
+            }
+            return out;
+        }
+
+        /**
+         * Does the domain hold the cell @a q, @a gap levels below the classified cell? @a q is
+         * in cells of that finer level, relative to the classified cell, which occupies
+         * `[0, 2^gap)^dim` there. Every coordinate must resolve within the reach; asking
+         * beyond it is a bug in the caller's reach, and asserted.
+         */
+        template <class value_t>
+        bool contains(std::size_t gap, const std::array<value_t, dim>& q) const
+        {
+            std::array<int, dim - 1> transverse{};
+            for (std::size_t d = 1; d < dim; ++d)
+            {
+                const auto t = static_cast<int>(q[d] >> gap); // floor division, also for negatives
+                assert(t >= -reach && t <= reach && "PredictionPositionClass::contains: asked beyond the class's reach");
+                if (t < -reach || t > reach)
+                {
+                    return false;
+                }
+                transverse[d - 1] = t;
+            }
+            const std::size_t k = rows_t::index_of(transverse);
+            if (low[k] < 0)
+            {
+                return false;
+            }
+            const auto x = static_cast<int>(q[0] >> gap);
+            assert(x >= -reach && x <= reach && "PredictionPositionClass::contains: asked beyond the class's reach");
+            return x >= -low[k] && x <= high[k];
+        }
+    };
+
+    /**
+     * The reach a composed prediction map of stencil radius @c radius needs its position class
+     * to have: `3r + 1`.
+     *
+     * The support of the composed map stays within `2r` coarse cells of the reference cell,
+     * whatever the level gap (it is a geometric series in `r` that converges below `2r`). But
+     * the shift rule *checks* more than the support holds: at the last step of the composition
+     * the parents are the coarse cells within `r` of the reference, and around each of them
+     * the candidate stencil boxes reach `2r` further, which is `3r`. One more for the children
+     * a slice request (the LBM stream) places in the neighbouring coarse cell.
+     */
+    template <std::size_t radius>
+    constexpr int prediction_class_reach = 3 * static_cast<int>(radius) + 1;
+
+    namespace detail
+    {
+        /**
+         * The run decomposition of @a i into position classes on a box domain, read off the
+         * box: a row is held where its index lies in the box (always, along a periodic
+         * direction), and the cover along x is the distance to the box's ends, or the whole
+         * reach along a periodic x. Returns false where the box cannot answer - a periodic
+         * direction narrower than the reach - and the row scan takes over.
+         */
+        template <int reach, std::size_t dim, class TInterval, class Func>
+        bool box_position_runs(const PredictionDomain<dim, TInterval>& domain,
+                               const TInterval& i,
+                               const xt::xtensor_fixed<typename TInterval::value_t, xt::xshape<dim - 1>>& index,
+                               Func& f)
+        {
+            using value_t = typename TInterval::value_t;
+            using class_t = PredictionPositionClass<reach, dim>;
+            using rows_t  = typename class_t::rows_t;
+
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                if (domain.period[d] != 0 && domain.box[d].second - domain.box[d].first < static_cast<value_t>(reach + 1))
+                {
+                    return false;
+                }
+            }
+
+            // Which rows are held does not depend on x. A row lies in the box, or - along a
+            // periodic direction, and only where the displacement from the cell's own row is
+            // what stepped off the box - one wrap brings it back in: the row scan wraps
+            // displacements, never the cell's own row, so a cell outside the domain in a
+            // periodic direction has no row of its own.
+            std::array<bool, rows_t::count> held{};
+            for (std::size_t k = 0; k < rows_t::count; ++k)
+            {
+                const auto offset = rows_t::offset(k);
+                held[k]           = true;
+                for (std::size_t d = 1; d < dim && held[k]; ++d)
+                {
+                    const value_t lo_d = domain.box[d].first;
+                    const value_t hi_d = domain.box[d].second;
+                    value_t row        = index[d - 1] + static_cast<value_t>(offset[d - 1]);
+                    if ((row < lo_d || row >= hi_d) && domain.period[d] != 0 && offset[d - 1] != 0)
+                    {
+                        row -= static_cast<value_t>(offset[d - 1] > 0 ? 1 : -1) * (hi_d - lo_d);
+                    }
+                    held[k] = row >= lo_d && row < hi_d;
+                }
+            }
+
+            const value_t lo = domain.box[0].first;
+            const value_t hi = domain.box[0].second;
+
+            const auto class_at = [&](value_t x)
+            {
+                class_t out;
+                const bool inside = x >= lo && x < hi;
+                std::int8_t low   = -1;
+                std::int8_t high  = 0;
+                if (inside)
+                {
+                    low  = static_cast<std::int8_t>(domain.period[0] != 0 ? reach : std::min<int>(static_cast<int>(x - lo), reach));
+                    high = static_cast<std::int8_t>(domain.period[0] != 0 ? reach : std::min<int>(static_cast<int>(hi - 1 - x), reach));
+                }
+                for (std::size_t k = 0; k < rows_t::count; ++k)
+                {
+                    out.low[k]  = held[k] ? low : std::int8_t{-1};
+                    out.high[k] = held[k] ? high : std::int8_t{0};
+                }
+                return out;
+            };
+
+            bool pending = false;
+            value_t run_start{};
+            class_t run_class{};
+
+            const auto segment = [&](value_t start, const class_t& cls)
+            {
+                if (pending && cls == run_class)
+                {
+                    return;
+                }
+                if (pending)
+                {
+                    f(TInterval{run_start, start, i.index}, run_class);
+                }
+                pending   = true;
+                run_start = start;
+                run_class = cls;
+            };
+
+            value_t x = i.start;
+            while (x < i.end)
+            {
+                value_t next = x + 1;
+                if (x < lo)
+                {
+                    next = std::min(i.end, lo);
+                }
+                else if (x >= hi)
+                {
+                    next = i.end;
+                }
+                else if (domain.period[0] != 0)
+                {
+                    next = std::min(i.end, hi);
+                }
+                else if (x - lo >= static_cast<value_t>(reach) && hi - 1 - x >= static_cast<value_t>(reach))
+                {
+                    next = std::min(i.end, hi - static_cast<value_t>(reach));
+                }
+                segment(x, class_at(x));
+                x = next;
+            }
+
+            if (pending)
+            {
+                f(TInterval{run_start, i.end, i.index}, run_class);
+            }
+            return true;
+        }
+    }
+
+    /**
+     * Split @a i into the maximal runs over which the position class at reach @c reach is
+     * constant, and call @a f on each as @c f(run, cls). The box arithmetic where the level is
+     * a box, the row scan otherwise.
+     */
+    template <int reach, std::size_t dim, class TInterval, class Func>
+    void for_each_prediction_position_run(const PredictionDomain<dim, TInterval>& domain,
+                                          const TInterval& i,
+                                          const xt::xtensor_fixed<typename TInterval::value_t, xt::xshape<dim - 1>>& index,
+                                          Func&& f)
+    {
+        using value_t = typename TInterval::value_t;
+        using class_t = PredictionPositionClass<reach, dim>;
+
+        if (domain.is_box && detail::box_position_runs<reach>(domain, i, index, f))
+        {
+            return;
+        }
+        detail::for_each_cover_run<reach>(
+            domain.cells,
+            domain.period,
+            i,
+            index,
+            [](const detail::RowCover<value_t>* covers)
+            {
+                return class_t::from_covers(covers);
+            },
+            std::forward<Func>(f));
+    }
+
+    /// A mesh that has a domain to position a stencil against - unlike a uniform mesh, which
+    /// has no boundary of its own to be near.
+    template <class Mesh>
+    concept has_prediction_domain = requires(const Mesh& mesh, std::size_t level) {
+        mesh.domain(level);
+        mesh.domain_bbox(level);
+        mesh.domain_is_box(level);
+        mesh.is_periodic();
+    };
+
+    /**
+     * The position-class runs of an interval of @a mesh at @a level. A mesh with no domain to
+     * be positioned against - a uniform mesh - is one interior run: its cells are never near
+     * a boundary that would shift a stencil.
+     */
+    template <int reach, class Mesh, class TInterval, class Func>
+    void for_each_prediction_position_run(const Mesh& mesh,
+                                          std::size_t level,
+                                          const TInterval& i,
+                                          const xt::xtensor_fixed<typename TInterval::value_t, xt::xshape<Mesh::dim - 1>>& index,
+                                          Func&& f)
+    {
+        if constexpr (has_prediction_domain<Mesh>)
+        {
+            for_each_prediction_position_run<reach>(prediction_domain(mesh, level), i, index, std::forward<Func>(f));
+        }
+        else
+        {
+            f(i, PredictionPositionClass<reach, Mesh::dim>::interior());
+        }
+    }
+
+    /// The position class of one cell, for consumers that visit cells one at a time.
+    template <int reach, std::size_t dim, class TInterval>
+    PredictionPositionClass<reach, dim> prediction_position_at(const PredictionDomain<dim, TInterval>& domain,
+                                                               const xt::xtensor_fixed<typename TInterval::value_t, xt::xshape<dim>>& coord)
+    {
+        using value_t = typename TInterval::value_t;
+
+        xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> index;
+        for (std::size_t d = 0; d + 1 < dim; ++d)
+        {
+            index[d] = coord[d + 1];
+        }
+
+        PredictionPositionClass<reach, dim> cls;
+        for_each_prediction_position_run<reach>(domain,
+                                                TInterval{coord[0], coord[0] + 1},
+                                                index,
+                                                [&](const auto&, const auto& run_class)
+                                                {
+                                                    cls = run_class;
+                                                });
+        return cls;
+    }
 }
+
+template <int reach, std::size_t dim>
+struct std::hash<samurai::PredictionPositionClass<reach, dim>>
+{
+    std::size_t operator()(const samurai::PredictionPositionClass<reach, dim>& c) const noexcept
+    {
+        std::size_t seed = 0;
+        for (std::size_t k = 0; k < c.rows; ++k)
+        {
+            seed ^= static_cast<std::size_t>(static_cast<std::uint8_t>(c.low[k]) | (static_cast<std::uint8_t>(c.high[k]) << 8)) + 0x9e3779b9
+                  + (seed << 6) + (seed >> 2);
+        }
+        return seed;
+    }
+};
