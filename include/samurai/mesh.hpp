@@ -895,6 +895,11 @@ namespace samurai
         swap(m_mpi_neighbourhood, mesh.m_mpi_neighbourhood);
         swap(m_union, mesh.m_union);
         swap(m_config, mesh.m_config);
+        // The gravity centre is a property of the cells and must follow them: left behind, a
+        // rank that adapted would keep the centre of its previous mesh while its neighbours
+        // hold the centre of its current one, and the petsc ownership rule that compares the
+        // two would no longer agree from one rank to the next.
+        swap(m_gravity_center, mesh.m_gravity_center);
     }
 
     template <class D, class Config>
