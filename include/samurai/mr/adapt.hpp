@@ -4,7 +4,11 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <concepts>
+#include <stdexcept>
+
+#include <fmt/format.h>
 
 #include <CLI/CLI.hpp>
 
@@ -242,34 +246,115 @@ namespace samurai
         }
     }
 
-    template <class Mesh>
-    void keep_boundary_refined(const Mesh& mesh, auto& tag, const DirectionVector<Mesh::dim>& direction)
+    namespace detail
     {
-        // Since the adaptation process starts at max_level, we just need to flag to `keep` the boundary cells at max_level only.
-        // There will never be boundary cells at lower levels.
-        auto bdry = domain_boundary_layer(mesh, mesh.max_level(), direction, static_cast<std::size_t>(mesh.max_stencil_radius()));
-        for_each_cell(mesh,
-                      bdry,
-                      [&](auto& cell)
-                      {
-                          tag[cell] = static_cast<std::uint8_t>(CellFlag::keep);
-                      });
+        /**
+         * The cells of @a level that a box in real coordinates covers: every cell whose interior
+         * meets the box. Built from the cell length at that level directly, without the
+         * approximation a mesh applies to its own domain, so that a region much smaller than the
+         * coarsest cell still names the fine cells it covers.
+         */
+        template <class Mesh>
+        auto cells_of_box(const Mesh& mesh, std::size_t level, const Box<double, Mesh::dim>& box)
+        {
+            constexpr std::size_t dim = Mesh::dim;
+            using lca_t               = typename Mesh::lca_type;
+            using lcl_t               = typename Mesh::lcl_type;
+            using value_t             = typename Mesh::interval_t::value_t;
+
+            const double h = mesh.cell_length(level);
+            std::array<value_t, dim> start;
+            std::array<value_t, dim> end;
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                start[d] = static_cast<value_t>(std::floor((box.min_corner()[d] - mesh.origin_point()[d]) / h + 1e-10));
+                end[d]   = static_cast<value_t>(std::ceil((box.max_corner()[d] - mesh.origin_point()[d]) / h - 1e-10));
+                end[d]   = std::max(end[d], start[d] + 1);
+            }
+
+            lcl_t lcl(level, mesh.origin_point(), mesh.scaling_factor());
+            if constexpr (dim == 1)
+            {
+                lcl[{}].add_interval({start[0], end[0]});
+            }
+            else
+            {
+                xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> index;
+                std::array<value_t, dim - 1> lo;
+                std::array<value_t, dim - 1> hi;
+                for (std::size_t d = 0; d + 1 < dim; ++d)
+                {
+                    lo[d] = start[d + 1];
+                    hi[d] = end[d + 1];
+                }
+                std::array<value_t, dim - 1> cur = lo;
+                bool done                        = false;
+                while (!done)
+                {
+                    for (std::size_t d = 0; d + 1 < dim; ++d)
+                    {
+                        index[d] = cur[d];
+                    }
+                    lcl[index].add_interval({start[0], end[0]});
+
+                    std::size_t d = 0;
+                    while (d + 1 < dim)
+                    {
+                        if (++cur[d] < hi[d])
+                        {
+                            break;
+                        }
+                        cur[d] = lo[d];
+                        ++d;
+                    }
+                    done = d + 1 >= dim;
+                }
+            }
+            return lca_t(lcl);
+        }
     }
 
-    template <class Mesh>
-    void keep_boundary_refined(const Mesh& mesh, auto& tag)
+    /**
+     * The tag contribution of one level constraint (see mra_config::min_level_in): on the
+     * region, the cells below the required level are refined and the cells at it are kept.
+     * Composed with the multiresolution tags through the maximum the adaptation already
+     * takes, so it can only add refinement, and graduation preserves it.
+     */
+    template <class Mesh, class Tag>
+    void apply_min_level(const Mesh& mesh, Tag& tag, const mra_config::level_constraint& constraint)
     {
         constexpr std::size_t dim = Mesh::dim;
+        using mesh_id_t           = typename Mesh::mesh_id_t;
+        using point_t             = typename Box<double, dim>::point_t;
 
-        DirectionVector<dim> direction;
-        direction.fill(0);
+        if (constraint.min_corner.size() != dim)
+        {
+            throw std::invalid_argument(fmt::format("mra_config::min_level_in: the region has {} coordinates, the mesh has {} dimensions",
+                                                    constraint.min_corner.size(),
+                                                    dim));
+        }
+
+        point_t min_corner;
+        point_t max_corner;
         for (std::size_t d = 0; d < dim; ++d)
         {
-            direction(d) = 1;
-            keep_boundary_refined(mesh, tag, direction);
-            direction(d) = -1;
-            keep_boundary_refined(mesh, tag, direction);
-            direction(d) = 0;
+            min_corner[d] = constraint.min_corner[d];
+            max_corner[d] = constraint.max_corner[d];
+        }
+        const Box<double, dim> region(min_corner, max_corner);
+
+        const std::size_t target = std::min(constraint.level, mesh.max_level());
+        for (std::size_t level = mesh.min_level(); level <= target; ++level)
+        {
+            const auto region_cells = detail::cells_of_box(mesh, level, region);
+            auto cells              = intersection(mesh[mesh_id_t::cells][level], region_cells);
+            const auto value        = static_cast<std::uint8_t>(level < target ? CellFlag::refine : CellFlag::keep);
+            for_each_cell(mesh,
+                          cells,
+                          [&](const auto& cell)
+                          {
+                              tag[cell] = value;
+                          });
         }
     }
 
@@ -334,12 +419,12 @@ namespace samurai
         }
         times::timers.stop("tag cells");
 
-        times::timers.start("refine boundary");
-        if (args::refine_boundary) // cppcheck-suppress knownConditionTrueFalse
+        times::timers.start("level constraints");
+        for (const auto& constraint : cfg.min_levels())
         {
-            keep_boundary_refined(mesh, m_tag);
+            apply_min_level(mesh, m_tag, constraint);
         }
-        times::timers.stop("refine boundary");
+        times::timers.stop("level constraints");
 
         times::timers.start("tag finalization");
         for (std::size_t level = max_level; level > 0; --level)

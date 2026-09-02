@@ -49,6 +49,7 @@ set(SAMURAI_TESTS
     test_lbm.cpp
     test_lbm_corner_bc.cpp
     test_level_cell_list.cpp
+    test_level_constraint.cpp
     test_list_of_intervals.cpp
     test_load_balancing_weight.cpp
     test_mra.cpp

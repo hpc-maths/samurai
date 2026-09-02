@@ -104,9 +104,10 @@ namespace samurai
 
         void enable_max_level_flux(bool enable)
         {
-            if (enable && dim > 1 && stencil_size > 4 && !args::refine_boundary) // cppcheck-suppress knownConditionTrueFalse
+            if (enable && dim > 1 && stencil_size > 4) // cppcheck-suppress knownConditionTrueFalse
             {
-                std::cout << "Warning: for stencils larger than 4, computing fluxes at max_level may cause issues close to the boundary."
+                std::cout << "Warning: for stencils larger than 4, computing fluxes at max_level may cause issues close to the boundary "
+                             "unless the boundary is kept at max_level (mra_config::min_level_in)."
                           << std::endl;
             }
             m_finer_level_flux = enable ? -1 : 0;
