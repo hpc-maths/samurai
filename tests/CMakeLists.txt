@@ -56,6 +56,7 @@ set(SAMURAI_TESTS
     test_portion.cpp
     test_prediction_boundary_reproduction.cpp
     test_prediction_coefficients.cpp
+    test_prediction_domain.cpp
     test_prediction_inward_reach.cpp
     test_prediction_shifts.cpp
     test_projection_prediction_roundtrip.cpp

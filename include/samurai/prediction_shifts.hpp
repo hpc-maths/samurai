@@ -17,6 +17,7 @@
 
 #include "algorithm.hpp"
 #include "level_cell_array.hpp"
+#include "numeric/prediction_coefficients.hpp"
 
 /**
  * @file prediction_shifts.hpp
@@ -805,5 +806,226 @@ namespace samurai
             period[d] = mesh.is_periodic(d) ? static_cast<value_t>((bbox[d].second - bbox[d].first) >> delta_l) : 0;
         }
         return period;
+    }
+
+    /**
+     * The domain at one level, as the shift query reads it: the cells, the periodic wrap of
+     * each direction, and - when the cells are exactly their bounding box - that box.
+     *
+     * On a box the position of a stencil is arithmetic on the box: the availability along a
+     * direction is the distance to the box's two ends, or the reach when the direction is
+     * periodic, and no row of the domain has to be scanned. That is what keeps the query out
+     * of the profile on the common case, and what makes it affordable at all in many
+     * dimensions, where the rows a stencil can reach number `(4r+1)^(dim-1)`. The two paths
+     * are the same rule - on a box, availability per direction and the joint box test agree
+     * at every cell - and tests/test_prediction_domain.cpp holds them to that cell for cell.
+     *
+     * Built by @ref prediction_domain from a mesh, which caches both the box and whether the
+     * level is one.
+     */
+    template <std::size_t dim, class TInterval>
+    struct PredictionDomain
+    {
+        using value_t = typename TInterval::value_t;
+        using box_t   = std::array<std::pair<value_t, value_t>, dim>;
+
+        PredictionDomain(const LevelCellArray<dim, TInterval>& cells_, const std::array<value_t, dim>& period_, bool is_box_, const box_t& box_)
+            : cells(cells_)
+            , period(period_)
+            , is_box(is_box_)
+            , box(box_)
+        {
+        }
+
+        const LevelCellArray<dim, TInterval>& cells; ///< the domain at the level
+        std::array<value_t, dim> period{};           ///< the periodic wrap per direction, 0 where the direction is not periodic
+        bool is_box = false;                         ///< the cells are exactly their bounding box
+        box_t box{};                                 ///< that bounding box, `[first, second)` per direction; read only when @c is_box
+    };
+
+    /// The domain of @a mesh at @a level, in the form the shift query reads.
+    template <class Mesh>
+    auto prediction_domain(const Mesh& mesh, std::size_t level)
+    {
+        using domain_t = PredictionDomain<Mesh::dim, typename Mesh::interval_t>;
+        return domain_t{mesh.domain(level), prediction_period(mesh, level), mesh.domain_is_box(level), mesh.domain_bbox(level)};
+    }
+
+    namespace detail
+    {
+        /**
+         * The run decomposition of @a i on a box domain, read off the box. Returns false when
+         * the box cannot answer - a periodic direction narrower than the stencil, where the
+         * wrap would read a cell twice - and the general query then takes over.
+         *
+         * Same contract as the general query: cells the domain does not hold report @c fits
+         * false with a zero shift, whether or not the direction is periodic; along a
+         * periodic direction the stencil is never clamped; and two adjacent runs never carry
+         * the same shift.
+         */
+        template <std::size_t radius, std::size_t dim, class TInterval, class Func>
+        bool box_shift_runs(const PredictionDomain<dim, TInterval>& domain,
+                            const TInterval& i,
+                            const xt::xtensor_fixed<typename TInterval::value_t, xt::xshape<dim - 1>>& index,
+                            Func& f)
+        {
+            using value_t       = typename TInterval::value_t;
+            constexpr int reach = 2 * static_cast<int>(radius);
+
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                if (domain.period[d] != 0 && domain.box[d].second - domain.box[d].first < static_cast<value_t>(reach + 1))
+                {
+                    return false;
+                }
+            }
+
+            const auto whole_interval_does_not_fit = [&]
+            {
+                f(TInterval{i.start, i.end, i.index}, PredictionStencilShift<dim>{{}, false});
+                return true;
+            };
+
+            // The transverse directions are fixed over the interval: the row is either outside
+            // the domain, or its shift along each of them is settled once.
+            PredictionStencilShift<dim> transverse;
+            for (std::size_t d = 1; d < dim; ++d)
+            {
+                const value_t x  = index[d - 1];
+                const value_t lo = domain.box[d].first;
+                const value_t hi = domain.box[d].second;
+                if (x < lo || x >= hi)
+                {
+                    return whole_interval_does_not_fit();
+                }
+                if (domain.period[d] != 0)
+                {
+                    continue;
+                }
+                const auto s = prediction_shift(radius,
+                                                std::min<int>(static_cast<int>(x - lo), reach),
+                                                std::min<int>(static_cast<int>(hi - 1 - x), reach));
+                if (!s.fits)
+                {
+                    return whole_interval_does_not_fit();
+                }
+                transverse.shift[d] = s.shift;
+            }
+
+            // Along x the shift changes cell by cell within reach of either end of the box and
+            // is constant in between; outside the box nothing fits.
+            const value_t lo = domain.box[0].first;
+            const value_t hi = domain.box[0].second;
+
+            bool pending = false;
+            value_t run_start{};
+            PredictionStencilShift<dim> run_shift;
+
+            const auto segment = [&](value_t start, const PredictionStencilShift<dim>& shift)
+            {
+                if (pending && shift == run_shift)
+                {
+                    return;
+                }
+                if (pending)
+                {
+                    f(TInterval{run_start, start, i.index}, run_shift);
+                }
+                pending   = true;
+                run_start = start;
+                run_shift = shift;
+            };
+
+            value_t x = i.start;
+            while (x < i.end)
+            {
+                if (x < lo)
+                {
+                    segment(x, PredictionStencilShift<dim>{{}, false});
+                    x = std::min(i.end, lo);
+                    continue;
+                }
+                if (x >= hi)
+                {
+                    segment(x, PredictionStencilShift<dim>{{}, false});
+                    x = i.end;
+                    continue;
+                }
+
+                auto shift   = transverse;
+                value_t next = x + 1;
+                if (domain.period[0] != 0)
+                {
+                    next = std::min(i.end, hi);
+                }
+                else
+                {
+                    const int low  = std::min<int>(static_cast<int>(x - lo), reach);
+                    const int high = std::min<int>(static_cast<int>(hi - 1 - x), reach);
+                    const auto s   = prediction_shift(radius, low, high);
+                    if (!s.fits)
+                    {
+                        shift = PredictionStencilShift<dim>{{}, false};
+                    }
+                    else
+                    {
+                        shift.shift[0] = s.shift;
+                    }
+                    if (low == reach && high == reach)
+                    {
+                        next = std::min(i.end, hi - static_cast<value_t>(reach));
+                    }
+                }
+                segment(x, shift);
+                x = next;
+            }
+
+            if (pending)
+            {
+                f(TInterval{run_start, i.end, i.index}, run_shift);
+            }
+            return true;
+        }
+    }
+
+    /**
+     * @ref for_each_prediction_shift_run on a @ref PredictionDomain: the box arithmetic where
+     * the level is a box, the general query otherwise. This is the form the consumers use.
+     */
+    template <std::size_t radius, std::size_t dim, class TInterval, class Func>
+    void for_each_prediction_shift_run(const PredictionDomain<dim, TInterval>& domain,
+                                       const TInterval& i,
+                                       const xt::xtensor_fixed<typename TInterval::value_t, xt::xshape<dim - 1>>& index,
+                                       Func&& f)
+    {
+        if (domain.is_box && detail::box_shift_runs<radius>(domain, i, index, f))
+        {
+            return;
+        }
+        for_each_prediction_shift_run<radius>(domain.cells, domain.period, i, index, std::forward<Func>(f));
+    }
+
+    /// @ref prediction_shifts_at on a @ref PredictionDomain.
+    template <std::size_t radius, std::size_t dim, class TInterval>
+    PredictionStencilShift<dim> prediction_shifts_at(const PredictionDomain<dim, TInterval>& domain,
+                                                     const xt::xtensor_fixed<typename TInterval::value_t, xt::xshape<dim>>& coord)
+    {
+        using value_t = typename TInterval::value_t;
+
+        xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> index;
+        for (std::size_t d = 0; d + 1 < dim; ++d)
+        {
+            index[d] = coord[d + 1];
+        }
+
+        PredictionStencilShift<dim> shift;
+        for_each_prediction_shift_run<radius>(domain,
+                                              TInterval{coord[0], coord[0] + 1},
+                                              index,
+                                              [&](const auto&, const auto& run_shift)
+                                              {
+                                                  shift = run_shift;
+                                              });
+        return shift;
     }
 }

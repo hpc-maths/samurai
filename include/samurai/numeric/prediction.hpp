@@ -168,8 +168,7 @@ namespace samurai
         using value_t               = typename TInterval::value_t;
 
         for_each_prediction_shift_run<pred_stencil_size>(
-            src.mesh().domain(level),
-            prediction_period(src.mesh(), level),
+            prediction_domain(src.mesh(), level),
             i,
             index,
             [&](const auto& run, const auto& shifts)
@@ -341,8 +340,7 @@ namespace samurai
         }
 
         for_each_prediction_shift_run<pred_stencil_size>(
-            src.mesh().domain(level - 1),
-            prediction_period(src.mesh(), level - 1),
+            prediction_domain(src.mesh(), level - 1),
             parents,
             parent_index,
             [&](const auto& run, const auto& shifts)

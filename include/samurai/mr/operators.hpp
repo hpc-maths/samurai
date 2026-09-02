@@ -157,8 +157,7 @@ namespace samurai
                 using value_t = typename TInterval::value_t;
                 auto sorder   = static_cast<value_t>(order);
 
-                for_each_prediction_shift_run<order>(field.mesh().domain(level),
-                                                     prediction_period(field.mesh(), level),
+                for_each_prediction_shift_run<order>(prediction_domain(field.mesh(), level),
                                                      i,
                                                      index,
                                                      [&](const auto& run, const auto& shifts)
@@ -274,8 +273,7 @@ namespace samurai
             else
             {
                 for_each_prediction_shift_run<order>(
-                    field.mesh().domain(level),
-                    prediction_period(field.mesh(), level),
+                    prediction_domain(field.mesh(), level),
                     i,
                     index,
                     [&](const auto& run, const auto& shifts)
@@ -422,8 +420,7 @@ namespace samurai
             else
             {
                 for_each_prediction_shift_run<order>(
-                    field.mesh().domain(level),
-                    prediction_period(field.mesh(), level),
+                    prediction_domain(field.mesh(), level),
                     i,
                     index,
                     [&](const auto& run, const auto& shifts)
