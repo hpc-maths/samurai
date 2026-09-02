@@ -1,10 +1,14 @@
 #include <algorithm>
+#include <stdexcept>
 
 #include <gtest/gtest.h>
 
 #include <samurai/algorithm/graduation.hpp>
+#include <samurai/box.hpp>
 #include <samurai/cell_array.hpp>
 #include <samurai/cell_list.hpp>
+#include <samurai/field.hpp>
+#include <samurai/mr/mesh.hpp>
 
 namespace samurai
 {
@@ -253,5 +257,39 @@ namespace samurai
                                                              std::vector<LevelCellArray<1>>{empty4, fine});
 
         EXPECT_TRUE(same_lca(4, all_local, split)) << "case-2 refinement must not depend on which rank owns the fine cell";
+    }
+
+    namespace
+    {
+        // samurai::graduation() (as opposed to make_graduation() above) reads the graduation width
+        // from mesh.cfg() and dispatches it through dispatch_static<1, 9>.
+        auto make_graduation_width_test_tag(std::size_t graduation_width)
+        {
+            static constexpr std::size_t dim = 1;
+            using box_t                      = Box<double, dim>;
+
+            auto mesh_cfg = mesh_config<dim>().min_level(1).max_level(3).graduation_width(graduation_width);
+            auto mesh     = mra::make_mesh(box_t{xt::zeros<double>({dim}), xt::ones<double>({dim})}, mesh_cfg);
+            auto tag      = make_scalar_field<int>("tag", mesh);
+            tag.fill(static_cast<int>(CellFlag::keep));
+            return tag;
+        }
+    }
+
+    // A graduation width of 0 means "no graduation constraint" and must not throw.
+    TEST(graduation, width_zero_is_a_noop)
+    {
+        auto tag = make_graduation_width_test_tag(0);
+        const xt::xtensor_fixed<int, xt::xshape<2, 1>> stencil{{1}, {-1}};
+        EXPECT_NO_THROW(samurai::graduation(tag, stencil));
+    }
+
+    // A width beyond what dispatch_static<1, 9> is instantiated for must fail loudly
+    // (std::out_of_range) instead of silently skipping the graduation step.
+    TEST(graduation, width_above_dispatch_range_throws)
+    {
+        auto tag = make_graduation_width_test_tag(15);
+        const xt::xtensor_fixed<int, xt::xshape<2, 1>> stencil{{1}, {-1}};
+        EXPECT_THROW(samurai::graduation(tag, stencil), std::out_of_range);
     }
 }

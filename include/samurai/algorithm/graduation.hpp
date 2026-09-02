@@ -17,6 +17,7 @@ namespace mpi = boost::mpi;
 #include "../cell_flag.hpp"
 #include "../concepts.hpp"
 #include "../mesh.hpp"
+#include "../static_dispatch.hpp"
 #include "../stencil.hpp"
 #include "../subset/node.hpp"
 #include "../subset/utils.hpp"
@@ -162,17 +163,18 @@ namespace samurai
             auto subset_2 = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level]);
 
             auto ghost_width = mesh.cfg().graduation_width();
-            assert(ghost_width < 10 && "Graduation not implemented for ghost_width higher than 10");
-            // maximum ghost width is set to 9
-            static_for<1, 10>::apply(
-                [&](auto static_ghost_width_)
-                {
-                    static constexpr int static_ghost_width = static_cast<int>(static_ghost_width_());
-                    if (ghost_width == static_ghost_width)
-                    {
-                        subset_2.apply_op(tag_to_keep<static_ghost_width>(tag, CellFlag::refine));
-                    }
-                });
+            // A width of 0 means no graduation constraint. Any other width is dispatched to the
+            // matching tag_to_keep<N> instantiation; dispatch_static itself throws std::out_of_range
+            // if the width exceeds what is instantiated below (tag_to_keep has no inherent limit,
+            // this range is just how many candidates we compile in).
+            if (ghost_width > 0)
+            {
+                dispatch_static<1, 9>(ghost_width,
+                                      [&](auto static_ghost_width_)
+                                      {
+                                          subset_2.apply_op(tag_to_keep<static_cast<int>(static_ghost_width_())>(tag, CellFlag::refine));
+                                      });
+            }
 
             /**
              *      K     C                          K     K
