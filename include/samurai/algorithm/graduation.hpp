@@ -172,8 +172,7 @@ namespace samurai
                 dispatch_static<1, 9>(ghost_width,
                                       [&](auto static_ghost_width_)
                                       {
-                                          static constexpr int static_ghost_width = static_cast<int>(static_ghost_width_());
-                                          subset_2.apply_op(tag_to_keep<static_ghost_width>(tag, CellFlag::refine));
+                                          subset_2.apply_op(tag_to_keep<static_cast<int>(static_ghost_width_())>(tag, CellFlag::refine));
                                       });
             }
 
