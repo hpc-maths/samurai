@@ -10,6 +10,8 @@
 #include <cstddef>
 #include <cstdlib>
 #include <limits>
+#include <type_traits>
+#include <vector>
 
 #include <xtensor/containers/xfixed.hpp>
 
@@ -288,10 +290,10 @@ namespace samurai
                 base[d] += static_cast<value_t>(offset[d]);
             }
 
-            auto row = row_scan(domain, base);
-            if (!row.empty())
+            auto scan = row_scan(domain, base);
+            if (!scan.empty())
             {
-                return row;
+                return scan;
             }
 
             // The directions that can have stepped off the end.
@@ -332,7 +334,7 @@ namespace samurai
                     }
                 }
             }
-            return row;
+            return scan;
         }
 
         /**
@@ -372,7 +374,7 @@ namespace samurai
 
             DomainRow() = default;
 
-            DomainRow(RowScan<TInterval> scan, value_t wrap, int reach)
+            DomainRow(const RowScan<TInterval>& scan, value_t wrap, int reach)
                 : m_scan(scan)
                 , m_wrap(wrap)
                 , m_reach(reach)
@@ -469,26 +471,27 @@ namespace samurai
         }
 
         /**
-         * The transverse rows a radius-@c radius stencil can reach. Availability is only
-         * ever needed up to `2r` from the cell: a stencil short by r on one side needs 2r
-         * available opposite it, and nothing beyond that changes the answer. The same 2r
-         * bounds the transverse reach, a shift of at most r reading at most r further out:
+         * The transverse rows within @c reach_ of a cell. For the shift query the reach is
+         * `2r`: availability is only ever needed up to `2r` from the cell, since a stencil
+         * short by r on one side needs 2r available opposite it, and nothing beyond that
+         * changes the answer. The same 2r bounds the transverse reach, a shift of at most r
+         * reading at most r further out:
          *
          *        -2r        -r         0         +r        +2r
          *         [==========(=========c=========)==========]
          *                     the centred stencil            [ ] everything any
          *                                                        shift can reach
          *
-         * The type owns both the enumeration of the `[-2r, 2r]^(dim-1)` transverse
-         * offsets and the index of an offset in that enumeration, so a table built with
+         * The type owns both the enumeration of the `[-reach, reach]^(dim-1)` transverse
+         * offsets and the index of an offset in that enumeration, so an index computed with
          * @ref index_of points into a row array built with @ref offset by construction
          * rather than by convention.
          */
-        template <std::size_t radius, std::size_t dim>
+        template <int reach_, std::size_t dim>
         struct TransverseRows
         {
-            static constexpr int reach         = 2 * static_cast<int>(radius);
-            static constexpr std::size_t width = 4 * radius + 1;
+            static constexpr int reach         = reach_;
+            static constexpr std::size_t width = 2 * static_cast<std::size_t>(reach) + 1;
             static constexpr std::size_t count = ipow(width, dim - 1);
 
             /// The @a k-th transverse offset, `k < count`.
@@ -512,11 +515,15 @@ namespace samurai
         };
 
         /**
-         * The candidate shifts in the order they are preferred, with the rows each one
-         * reads. Both depend on nothing but @c radius and @c dim, so they are tabulated
-         * once: taking the first admissible entry of @c shift is the whole selection
-         * rule, and @c rows[c] holds the @ref TransverseRows indices of the rows the c-th
-         * stencil box covers.
+         * The candidate shifts in the order they are preferred: `[-r, r]^dim`, sorted by
+         * @ref more_centred. It depends on nothing but @c radius and @c dim, so it is built
+         * once, and taking the first admissible entry is the whole selection rule.
+         *
+         * On the heap, and holding the candidates only. The rows each candidate reads were
+         * tabulated too, as `count x band` indices, and that table is `(2r+1)^(2 dim - 1)`
+         * entries: 16 GB of static storage at radius 3 in six dimensions, which is what the
+         * prediction roundtrip test instantiates. The rows are cheap to recompute where they
+         * are needed, so they are.
          */
         template <std::size_t radius, std::size_t dim>
         struct ShiftSearch
@@ -525,45 +532,26 @@ namespace samurai
             static constexpr std::size_t count = ipow(2 * radius + 1, dim);
             /// The rows one stencil box covers: `[-r, r]^(dim-1)` around its shift.
             static constexpr std::size_t band = ipow(2 * radius + 1, dim - 1);
-
-            std::array<std::array<int, dim>, count> shift{};
-            std::array<std::array<std::size_t, band>, count> rows{};
         };
 
         template <std::size_t radius, std::size_t dim>
-        const ShiftSearch<radius, dim>& shift_search()
+        const std::vector<std::array<int, dim>>& shift_search()
         {
-            constexpr int r             = static_cast<int>(radius);
-            constexpr std::size_t cross = dim - 1;
-            using search_t              = ShiftSearch<radius, dim>;
+            constexpr int r = static_cast<int>(radius);
+            using search_t  = ShiftSearch<radius, dim>;
 
-            static const search_t table = []
+            static const std::vector<std::array<int, dim>> order = []
             {
-                search_t out;
+                std::vector<std::array<int, dim>> out(search_t::count);
                 for (std::size_t c = 0; c < search_t::count; ++c)
                 {
-                    out.shift[c] = nth_offset<dim>(c, r);
+                    out[c] = nth_offset<dim>(c, r);
                 }
-                std::sort(out.shift.begin(), out.shift.end(), more_centred<dim>);
-
-                for (std::size_t c = 0; c < search_t::count; ++c)
-                {
-                    for (std::size_t k = 0; k < search_t::band; ++k)
-                    {
-                        const auto within = nth_offset<cross>(k, r);
-
-                        std::array<int, cross> transverse{};
-                        for (std::size_t d = 0; d < cross; ++d)
-                        {
-                            transverse[d] = out.shift[c][d + 1] + within[d];
-                        }
-                        out.rows[c][k] = TransverseRows<radius, dim>::index_of(transverse);
-                    }
-                }
+                std::sort(out.begin(), out.end(), more_centred<dim>);
                 return out;
             }();
 
-            return table;
+            return order;
         }
 
         /**
@@ -571,32 +559,78 @@ namespace samurai
          * cover of every row the stencil can reach: shifted by @c s, the box reads
          * `[s_0 - r, s_0 + r]` along each of the rows it covers, so @c s is admissible
          * exactly when each of those rows holds the cell and covers at least that far.
+         *
+         * @param covers one cover per row of `TransverseRows<2r, dim>`, in that enumeration
          */
         template <std::size_t radius, std::size_t dim, class value_t>
-        PredictionStencilShift<dim> most_centred_fit(const std::array<RowCover<value_t>, TransverseRows<radius, dim>::count>& covers)
+        PredictionStencilShift<dim> most_centred_fit(const RowCover<value_t>* covers)
         {
-            constexpr int r   = static_cast<int>(radius);
-            using search_t    = ShiftSearch<radius, dim>;
-            const auto& order = shift_search<radius, dim>();
+            constexpr int r             = static_cast<int>(radius);
+            constexpr std::size_t cross = dim - 1;
+            using search_t              = ShiftSearch<radius, dim>;
+            using rows_t                = TransverseRows<2 * r, dim>;
+            const auto& order           = shift_search<radius, dim>();
 
             PredictionStencilShift<dim> best;
             best.fits = false;
             for (std::size_t c = 0; c < search_t::count && !best.fits; ++c)
             {
-                bool admissible = true;
+                const auto& shift = order[c];
+                bool admissible   = true;
                 for (std::size_t k = 0; k < search_t::band && admissible; ++k)
                 {
-                    const auto& cover = covers[order.rows[c][k]];
-                    admissible        = cover.holds && order.shift[c][0] - r >= -cover.low && order.shift[c][0] + r <= cover.high;
+                    const auto within = nth_offset<cross>(k, r);
+                    std::array<int, cross> transverse{};
+                    for (std::size_t d = 0; d < cross; ++d)
+                    {
+                        transverse[d] = shift[d + 1] + within[d];
+                    }
+                    const auto& cover = covers[rows_t::index_of(transverse)];
+                    admissible        = cover.holds && shift[0] - r >= -cover.low && shift[0] + r <= cover.high;
                 }
                 if (admissible)
                 {
-                    best.shift = order.shift[c];
+                    best.shift = shift;
                     best.fits  = true;
                 }
             }
             return best;
         }
+
+        /**
+         * A fixed-size buffer for one query: on the stack while it is small, on the heap
+         * once it is not. The row arrays are `(4r+1)^(dim-1)` entries, five in 2D at radius
+         * 1 and 371293 at radius 3 in six dimensions, and the second is not a stack object.
+         */
+        template <class T, std::size_t count>
+        class QueryScratch
+        {
+          public:
+
+            static constexpr bool on_stack = count * sizeof(T) <= 4096;
+
+            QueryScratch()
+            {
+                if constexpr (!on_stack)
+                {
+                    m_data.resize(count);
+                }
+            }
+
+            T& operator[](std::size_t k)
+            {
+                return m_data[k];
+            }
+
+            const T* data() const
+            {
+                return m_data.data();
+            }
+
+          private:
+
+            std::conditional_t<on_stack, std::array<T, count>, std::vector<T>> m_data{};
+        };
     }
 
     /**
@@ -633,11 +667,11 @@ namespace samurai
                                        Func&& f)
     {
         using value_t = typename TInterval::value_t;
-        using rows_t  = detail::TransverseRows<radius, dim>;
+        using rows_t  = detail::TransverseRows<2 * static_cast<int>(radius), dim>;
 
         // One cursor per transverse row the stencil can reach, over the periodically
         // extended domain.
-        std::array<detail::DomainRow<TInterval>, rows_t::count> rows;
+        detail::QueryScratch<detail::DomainRow<TInterval>, rows_t::count> rows;
         for (std::size_t k = 0; k < rows_t::count; ++k)
         {
             rows[k] = detail::DomainRow<TInterval>(detail::displaced_row(domain, index, rows_t::offset(k), period), period[0], rows_t::reach);
@@ -657,7 +691,7 @@ namespace samurai
             }
         };
 
-        std::array<detail::RowCover<value_t>, rows_t::count> covers;
+        detail::QueryScratch<detail::RowCover<value_t>, rows_t::count> covers;
 
         value_t x = i.start;
         while (x < i.end)
@@ -671,7 +705,7 @@ namespace samurai
                 next      = std::min(next, covers[k].until);
             }
 
-            const auto shift = detail::most_centred_fit<radius, dim>(covers);
+            const auto shift = detail::most_centred_fit<radius, dim>(covers.data());
 
             // A breakpoint that failed to move would spin here rather than fail, so it is
             // asserted instead of being clamped away.

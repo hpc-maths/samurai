@@ -318,7 +318,7 @@ namespace samurai
         template <std::size_t radius, std::size_t dim>
         constexpr bool index_of_inverts_offset()
         {
-            using rows_t = detail::TransverseRows<radius, dim>;
+            using rows_t = detail::TransverseRows<2 * static_cast<int>(radius), dim>;
             for (std::size_t k = 0; k < rows_t::count; ++k)
             {
                 if (rows_t::index_of(rows_t::offset(k)) != k)
