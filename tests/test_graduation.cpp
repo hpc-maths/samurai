@@ -263,6 +263,9 @@ namespace samurai
     {
         // samurai::graduation() (as opposed to make_graduation() above) reads the graduation width
         // from mesh.cfg() and dispatches it through dispatch_static<1, 9>.
+        //
+        // The tag is built on holder(mesh) so that it owns its mesh: a plain field only points to
+        // the mesh it was built on, which here is a local of this helper.
         auto make_graduation_width_test_tag(std::size_t graduation_width)
         {
             static constexpr std::size_t dim = 1;
@@ -270,7 +273,8 @@ namespace samurai
 
             auto mesh_cfg = mesh_config<dim>().min_level(1).max_level(3).graduation_width(graduation_width);
             auto mesh     = mra::make_mesh(box_t{xt::zeros<double>({dim}), xt::ones<double>({dim})}, mesh_cfg);
-            auto tag      = make_scalar_field<int>("tag", mesh);
+            auto m        = holder(mesh);
+            auto tag      = make_scalar_field<int>("tag", m);
             tag.fill(static_cast<int>(CellFlag::keep));
             return tag;
         }
