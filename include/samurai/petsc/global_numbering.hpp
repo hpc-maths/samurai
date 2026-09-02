@@ -119,8 +119,8 @@ namespace samurai
             if (args::print_petsc_numbering)
             {
                 sleep(static_cast<unsigned int>(rank));
-                std::cout << fmt::format("[{}]: n_owned_unknowns = {}, n_ghost_unknowns = {}\n", rank, n_owned_unknowns, n_ghost_unknowns);
-                std::cout << fmt::format("[{}]: OWNED local_index = [{},{}], global_index = [{},{}]\n",
+                std::cerr << fmt::format("[{}]: n_owned_unknowns = {}, n_ghost_unknowns = {}\n", rank, n_owned_unknowns, n_ghost_unknowns);
+                std::cerr << fmt::format("[{}]: OWNED local_index = [{},{}], global_index = [{},{}]\n",
                                          rank,
                                          local_index,
                                          local_index + static_cast<PetscInt>(n_owned_unknowns) - 1,
@@ -148,7 +148,7 @@ namespace samurai
 
             if (args::print_petsc_numbering)
             {
-                std::cout << fmt::format("rank {}: GHOSTS local_index = [{},{}]\n",
+                std::cerr << fmt::format("rank {}: GHOSTS local_index = [{},{}]\n",
                                          rank,
                                          local_index,
                                          local_index + static_cast<PetscInt>(n_ghost_unknowns) - 1);
@@ -275,7 +275,7 @@ namespace samurai
                     {
                         if (ownership.owner_rank[cell_index] == rank)
                         {
-                            std::cout << fmt::format("[{}]:          cell_index {} (owned by {}): CI{} L{} G{}\n",
+                            std::cerr << fmt::format("[{}]:          cell_index {} (owned by {}): CI{} L{} G{}\n",
                                                      world.rank(),
                                                      cell_index,
                                                      ownership.owner_rank[cell_index],
@@ -285,7 +285,7 @@ namespace samurai
                         }
                         else
                         {
-                            std::cout << fmt::format("[{}]:          cell_index {} (owned by {}): CI{} L{} G{}\n",
+                            std::cerr << fmt::format("[{}]:          cell_index {} (owned by {}): CI{} L{} G{}\n",
                                                      world.rank(),
                                                      cell_index,
                                                      ownership.owner_rank[cell_index],
