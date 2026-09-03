@@ -617,7 +617,7 @@ namespace samurai
                 const auto& map = std::apply(
                                       [&](auto... c)
                                       {
-                                          return std::cref(prediction<order, decltype(c)...>(cls, delta_l, c...));
+                                          return std::cref(prediction<order>(cls, delta_l, static_cast<index_t>(c)...));
                                       },
                                       child)
                                       .get();
@@ -868,7 +868,7 @@ namespace samurai
                 out += std::apply(
                     [&](auto... idx)
                     {
-                        return prediction<prediction_stencil_radius, value_t>(cls, delta_l, idx...);
+                        return prediction<prediction_stencil_radius>(cls, delta_l, static_cast<value_t>(idx)...);
                     },
                     prefix);
             }
@@ -963,7 +963,7 @@ namespace samurai
             return std::apply(
                 [&](const auto&... index) -> auto&
                 {
-                    return prediction<prediction_stencil_radius, value_t>(cls, delta_l, index...);
+                    return prediction<prediction_stencil_radius>(cls, delta_l, static_cast<value_t>(index)...);
                 },
                 ii);
         }
