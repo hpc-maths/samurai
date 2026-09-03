@@ -82,6 +82,10 @@ namespace samurai
         using config_t        = Config;
 
         static constexpr std::size_t dim = config_t::dim;
+        /// The prediction stencil may shift inward near a boundary: update_sub_mesh_impl holds
+        /// `2r` cells inward of every cell a prediction or a detail is computed for, and the
+        /// ghost update fills them (see holds_prediction_inward_reach in prediction_shifts.hpp).
+        static constexpr bool holds_inward_prediction_reach = true;
 
         using mesh_id_t  = typename base_type::mesh_id_t;
         using interval_t = typename base_type::interval_t;
@@ -327,9 +331,90 @@ namespace samurai
         }
 
         // Add cells for the MRA to be able to compute the details at one and two levels below each cells.
-        // The prediction operator gives the number of ghost cells to add in each direction.
+        //
+        // The margin is r outward and 2r inward, r being the prediction stencil radius.
+        //
+        // Outward, r is all there is to read: a centred stencil reaches r, and past the
+        // domain those cells are the outer ghosts the boundary conditions write. Adding more
+        // there would add cells nobody writes and nobody reads - and a cell the mesh holds
+        // but nothing writes is worse than one it does not hold, because it is read as a
+        // value.
+        //
+        // Inward, r is not enough. Near a boundary - the domain's own, or a hole's - the
+        // stencil cannot stay centred: it shifts inward so that it reads only cells the
+        // domain has, and it then reaches 2r on one side. With only r of margin it names
+        // cells the mesh does not hold, and the alternative - reading whatever a centred
+        // stencil finds outside - is what feeds boundary-condition values to the wavelet.
+        //
+        // 2r is also where the composed prediction map's support saturates, independently of
+        // the level gap, and it is the same 2 already hardcoded in the max_stencil_radius
+        // floor and in reconstruction()'s and transfer()'s "the prediction stencil reaches
+        // two coarse cells".
         if (this->max_level() != this->min_level())
         {
+            constexpr int prediction_reach        = config_t::prediction_stencil_radius;
+            constexpr int prediction_inward_reach = 2 * config_t::prediction_stencil_radius;
+
+            // Where the inward band is allowed to put cells, at a level.
+            //
+            // Inside the domain, everywhere. Only cells within 2r of a boundary can be named by
+            // a clamped stencil, so restricting the band to that shell was tried - and it is a
+            // trap: a stencil at distance 0 is shifted by r and reads distance 2r *inclusive*,
+            // so the shell has to be 2r + 1 wide, and getting it wrong loses exactly one cell
+            // and aborts eight demos. It bought 1.5 % of update_sub_mesh. Not worth the edge.
+            //
+            // Outside, the band extends beyond a *periodic* boundary, where the cells exist and
+            // the periodic exchange fills them, and where a stencil clamped in one direction
+            // reads further along the others. It does not extend beyond a non-periodic one:
+            // there the outer ghosts stop at r, the boundary conditions fill exactly those, and
+            // a cell the mesh holds but nothing writes is worse than one it does not hold.
+            //
+            // The level is clamped because the callers build both arms of
+            // add_prediction_ghosts unconditionally and let it drop the `level - 2` one at
+            // level 1: the set expressions are lazy, so an underflowed level costs nothing
+            // there, but this is not lazy.
+            std::vector<lca_type> band(this->max_level() + 1);
+            std::vector<bool> band_known(this->max_level() + 1, false);
+
+            auto band_at = [&](std::size_t target_level) -> const lca_type&
+            {
+                const std::size_t l = std::min(target_level, this->max_level());
+                if (!band_known[l])
+                {
+                    if (this->is_periodic())
+                    {
+                        lcl_type lcl{l, this->origin_point(), this->scaling_factor()};
+                        auto add = [&](const auto& set)
+                        {
+                            set(
+                                [&](const auto& i, const auto& idx)
+                                {
+                                    lcl[idx].add_interval(i);
+                                });
+                        };
+                        add(self(this->domain(l)));
+                        for (std::size_t d = 0; d < dim; ++d)
+                        {
+                            if (!this->is_periodic(d))
+                            {
+                                continue;
+                            }
+                            DirectionVector<dim> shift = xt::zeros<int>({dim});
+                            shift[d]                   = prediction_inward_reach;
+                            add(translate(this->domain(l), shift));
+                            add(translate(this->domain(l), -shift));
+                        }
+                        band[l] = lca_type{lcl};
+                    }
+                    else
+                    {
+                        band[l] = this->domain(l);
+                    }
+                    band_known[l] = true;
+                }
+                return band[l];
+            };
+
             auto add_prediction_ghosts = [&](auto&& subset_cells, auto&& subset_cells_and_ghosts, auto level)
             {
                 lcl_type& lcl_m1 = cell_list[level - 1];
@@ -355,13 +440,42 @@ namespace samurai
                 this->cells()[mesh_id_t::cells],
                 [&](std::size_t level)
                 {
-                    // own part
-                    add_prediction_ghosts(
-                        nestedExpand(self(this->cells()[mesh_id_t::cells][level]).on(level - 2), config_t::prediction_stencil_radius),
-                        intersection(nestedExpand(self(this->cells()[mesh_id_t::cells_and_ghosts][level]).on(level - 1),
-                                                  config_t::prediction_stencil_radius),
-                                     nestedExpand(self(this->subdomain()).on(level - 1), config_t::prediction_stencil_radius)),
-                        level);
+                    if (!this->is_periodic())
+                    {
+                        // Without a periodic direction the two contributions below - the r
+                        // margin, and the 2r band clipped to the domain - are one set: the 2r
+                        // expansion clipped to the domain expanded by r. One traversal of two
+                        // operands per arm instead of two traversals of one and three.
+                        add_prediction_ghosts(
+                            intersection(nestedExpand(self(this->cells()[mesh_id_t::cells][level]).on(level - 2), prediction_inward_reach),
+                                         nestedExpand(self(this->domain(std::min(level - 2, this->max_level()))), prediction_reach)),
+                            intersection(
+                                nestedExpand(self(this->cells()[mesh_id_t::cells_and_ghosts][level]).on(level - 1), prediction_inward_reach),
+                                nestedExpand(self(this->domain(level - 1)), prediction_reach),
+                                nestedExpand(self(this->subdomain()).on(level - 1), prediction_inward_reach)),
+                            level);
+                    }
+                    else
+                    {
+                        // own part
+                        add_prediction_ghosts(
+                            nestedExpand(self(this->cells()[mesh_id_t::cells][level]).on(level - 2), prediction_reach),
+                            intersection(nestedExpand(self(this->cells()[mesh_id_t::cells_and_ghosts][level]).on(level - 1), prediction_reach),
+                                         nestedExpand(self(this->subdomain()).on(level - 1), prediction_reach)),
+                            level);
+
+                        // The inward band, added on top of the r margin rather than folded into
+                        // it: same shape as the arms above, so the set expressions resolve at the
+                        // same level, and the cell list merges the two contributions.
+                        add_prediction_ghosts(
+                            intersection(nestedExpand(self(this->cells()[mesh_id_t::cells][level]).on(level - 2), prediction_inward_reach),
+                                         band_at(level - 2)),
+                            intersection(
+                                nestedExpand(self(this->cells()[mesh_id_t::cells_and_ghosts][level]).on(level - 1), prediction_inward_reach),
+                                band_at(level - 1),
+                                nestedExpand(self(this->subdomain()).on(level - 1), prediction_inward_reach)),
+                            level);
+                    }
 
                     // periodic part
                     const int delta_l = int(this->domain().level() - level);
@@ -369,10 +483,21 @@ namespace samurai
                     {
                         add_prediction_ghosts(
                             intersection(nestedExpand(translate(this->cells()[mesh_id_t::cells][level], d >> delta_l).on(level - 2),
-                                                      config_t::prediction_stencil_radius),
+                                                      prediction_reach),
                                          self(this->subdomain()).on(level - 2)),
                             intersection(nestedExpand(translate(this->cells()[mesh_id_t::cells_and_ghosts][level], d >> delta_l).on(level - 1),
-                                                      config_t::prediction_stencil_radius),
+                                                      prediction_reach),
+                                         self(this->subdomain()).on(level - 1)),
+                            level);
+
+                        add_prediction_ghosts(
+                            intersection(nestedExpand(translate(this->cells()[mesh_id_t::cells][level], d >> delta_l).on(level - 2),
+                                                      prediction_inward_reach),
+                                         band_at(level - 2),
+                                         self(this->subdomain()).on(level - 2)),
+                            intersection(nestedExpand(translate(this->cells()[mesh_id_t::cells_and_ghosts][level], d >> delta_l).on(level - 1),
+                                                      prediction_inward_reach),
+                                         band_at(level - 1),
                                          self(this->subdomain()).on(level - 1)),
                             level);
                     }
@@ -387,11 +512,20 @@ namespace samurai
                     [&](std::size_t level)
                     {
                         add_prediction_ghosts(
-                            intersection(nestedExpand(self(neighbour.mesh[mesh_id_t::cells][level]).on(level - 2),
-                                                      config_t::prediction_stencil_radius),
+                            intersection(nestedExpand(self(neighbour.mesh[mesh_id_t::cells][level]).on(level - 2), prediction_reach),
+                                         self(this->subdomain()).on(level - 2)),
+                            intersection(
+                                nestedExpand(self(neighbour.mesh[mesh_id_t::cells_and_ghosts][level]).on(level - 1), prediction_reach),
+                                self(this->subdomain()).on(level - 1)),
+                            level);
+
+                        add_prediction_ghosts(
+                            intersection(nestedExpand(self(neighbour.mesh[mesh_id_t::cells][level]).on(level - 2), prediction_inward_reach),
+                                         band_at(level - 2),
                                          self(this->subdomain()).on(level - 2)),
                             intersection(nestedExpand(self(neighbour.mesh[mesh_id_t::cells_and_ghosts][level]).on(level - 1),
-                                                      config_t::prediction_stencil_radius),
+                                                      prediction_inward_reach),
+                                         band_at(level - 1),
                                          self(this->subdomain()).on(level - 1)),
                             level);
 
@@ -401,11 +535,23 @@ namespace samurai
                         {
                             add_prediction_ghosts(
                                 intersection(nestedExpand(translate(neighbour.mesh[mesh_id_t::cells][level], d >> delta_l).on(level - 2),
-                                                          config_t::prediction_stencil_radius),
+                                                          prediction_reach),
                                              self(this->subdomain()).on(level - 2)),
                                 intersection(
                                     nestedExpand(translate(neighbour.mesh[mesh_id_t::cells_and_ghosts][level], d >> delta_l).on(level - 1),
-                                                 config_t::prediction_stencil_radius),
+                                                 prediction_reach),
+                                    self(this->subdomain()).on(level - 1)),
+                                level);
+
+                            add_prediction_ghosts(
+                                intersection(nestedExpand(translate(neighbour.mesh[mesh_id_t::cells][level], d >> delta_l).on(level - 2),
+                                                          prediction_inward_reach),
+                                             band_at(level - 2),
+                                             self(this->subdomain()).on(level - 2)),
+                                intersection(
+                                    nestedExpand(translate(neighbour.mesh[mesh_id_t::cells_and_ghosts][level], d >> delta_l).on(level - 1),
+                                                 prediction_inward_reach),
+                                    band_at(level - 1),
                                     self(this->subdomain()).on(level - 1)),
                                 level);
                         }

@@ -1146,9 +1146,9 @@ namespace samurai
     // Corner extrapolation on an adapted mesh, through the full update_ghost_mr
     // pipeline. At the finest level the refined corner is filled by the same
     // reflection extrapolation as on a uniform mesh, so its diagonal ghosts match
-    // corner_oracle. (Coarse-level corner ghosts instead come from the
-    // level-to-level projection project_corner_below; the no-crash path of that
-    // projection is covered by test_ghost_update.cpp.)
+    // corner_oracle. (The coarse levels have no corner ghosts to fill there: the mesh
+    // holds outer cells only around the real cells of a level, and nothing reads a
+    // coarse outer ghost under a refined corner.)
     template <std::size_t dim>
     void run_corners_adapted()
     {

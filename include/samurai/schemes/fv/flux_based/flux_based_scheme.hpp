@@ -22,9 +22,10 @@ namespace samurai
         using bdry_cfg = BoundaryConfigFV<cfg::stencil_size / 2>;
 
         // cppcheck-suppress knownConditionTrueFalse
-        if (args::finer_level_flux != 0 && cfg::dim > 1 && cfg::stencil_size > 4 && !args::refine_boundary)
+        if (args::finer_level_flux != 0 && cfg::dim > 1 && cfg::stencil_size > 4)
         {
-            std::cout << "Warning: for stencils larger than 4, computing fluxes at max_level may cause issues close to the boundary."
+            std::cout << "Warning: for stencils larger than 4, computing fluxes at max_level may cause issues close to the boundary "
+                         "unless the boundary is kept at max_level (mra_config::min_level_in)."
                       << std::endl;
         }
 

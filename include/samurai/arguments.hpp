@@ -23,7 +23,6 @@ namespace samurai
         static bool dont_redirect_output = false;
 #endif
         static int finer_level_flux       = 0;
-        static bool refine_boundary       = false;
         static bool save_debug_fields     = false;
         static bool print_petsc_numbering = false;
         static int sleep_at_startup       = 0;
@@ -64,7 +63,6 @@ namespace samurai
                "Computation of fluxes at finer levels (default: 0, i.e. no finer level flux, -1 for max_level flux, > 0 for current level + finer_level_flux)")
             ->capture_default_str()
             ->group("SAMURAI");
-        app.add_flag("--refine-boundary", args::refine_boundary, "Keep the boundary refined at max_level")->capture_default_str()->group("SAMURAI");
         app.add_flag("--print-petsc-numbering", args::print_petsc_numbering, "Print the local and global numbering used for PETSc")
             ->capture_default_str()
             ->group("SAMURAI");

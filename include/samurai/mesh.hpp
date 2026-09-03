@@ -24,6 +24,8 @@
 #include "timers.hpp"
 
 #ifdef SAMURAI_WITH_MPI
+#include <boost/serialization/array.hpp>
+#include <boost/serialization/utility.hpp>
 #include <boost/serialization/vector.hpp>
 
 #include "mpi/subdomain_bbox.hpp"
@@ -137,6 +139,9 @@ namespace samurai
 
         using coords_t = typename lca_type::coords_t;
 
+        // The domain's bounding box: (first, last + 1) per direction, in cells at one level.
+        using domain_bbox_t = std::array<std::pair<value_t, value_t>, dim>;
+
         using mesh_interval_t = typename ca_type::lca_type::mesh_interval_t;
 
         using mesh_t = samurai::MeshIDArray<ca_type, mesh_id_t>;
@@ -173,6 +178,9 @@ namespace samurai
         const lca_type& domain() const;
         const lca_type& domain(std::size_t level) const;
         const ca_type& domain_pyramid() const;
+        const domain_bbox_t& domain_bbox() const;
+        const domain_bbox_t& domain_bbox(std::size_t level) const;
+        bool domain_is_box(std::size_t level) const;
         const lca_type& subdomain() const;
         const lca_type& subdomain(std::size_t level) const;
 
@@ -273,7 +281,11 @@ namespace samurai
                                      std::set<int>& candidates) const;
 #endif
 
+        void compute_domain_extent();
+
         ca_type m_domain;
+        std::vector<domain_bbox_t> m_domain_bbox; // per level
+        std::vector<bool> m_domain_is_box;        // per level: the cells are exactly their bounding box
         ca_type m_subdomain;
         mesh_t m_cells;
         ca_type m_union;
@@ -295,6 +307,8 @@ namespace samurai
             }
 
             ar & m_domain;
+            ar & m_domain_bbox;
+            ar & m_domain_is_box;
             ar & m_subdomain;
             ar & m_union;
             ar & m_config;
@@ -428,6 +442,7 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE void Mesh_base<D, Config>::finalize_mesh(const coords_t& origin_point, double scaling_factor)
     {
+        compute_domain_extent();
         construct_union();
         update_meshid_neighbour(mesh_id_t::cells);
         update_sub_mesh();
@@ -635,8 +650,12 @@ namespace samurai
         {
             return 0.;
         }
-        const int radius          = max_stencil_radius();
-        const int prediction_size = (min_level() != max_level()) ? config_t::prediction_stencil_radius : 0;
+        const int radius = max_stencil_radius();
+        // 2r, not r: near a boundary the prediction stencil shifts inward and reaches twice as
+        // far, and the coarse levels carry that margin (see update_sub_mesh_impl). A rank whose
+        // ghosts now reach further has to be discovered as a neighbour, or two ranks end up
+        // holding intersecting ghosts without being registered with each other.
+        const int prediction_size = (min_level() != max_level()) ? 2 * config_t::prediction_stencil_radius : 0;
         const int reach           = (2 * radius) + (4 * prediction_size) + 4;
         return reach * cell_length(my_cells.min_level());
     }
@@ -717,6 +736,61 @@ namespace samurai
     SAMURAI_INLINE auto Mesh_base<D, Config>::domain(std::size_t level) const -> const lca_type&
     {
         return m_domain[level];
+    }
+
+    // The domain's extent at every level: its bounding box, and whether the cells are
+    // exactly that box.
+    //
+    // Cached because both are linear scans of the domain and both are asked for per interval
+    // by the prediction machinery: the box at max_level gives the periodic wrap, and where a
+    // level is a box the position of a stencil is arithmetic on that box rather than a scan
+    // of the domain's rows. They are properties of the domain, so they are recomputed exactly
+    // where the domain is set: here, at the end of construction, and they travel with the
+    // domain through swap and the MPI neighbour exchange. tests/test_prediction_domain.cpp
+    // is what keeps that true.
+    template <class D, class Config>
+    SAMURAI_INLINE auto Mesh_base<D, Config>::domain_bbox() const -> const domain_bbox_t&
+    {
+        return domain_bbox(max_level());
+    }
+
+    template <class D, class Config>
+    SAMURAI_INLINE auto Mesh_base<D, Config>::domain_bbox(std::size_t level) const -> const domain_bbox_t&
+    {
+        assert(level < m_domain_bbox.size() && "domain_bbox: no extent is cached at this level");
+        return m_domain_bbox[level];
+    }
+
+    template <class D, class Config>
+    SAMURAI_INLINE bool Mesh_base<D, Config>::domain_is_box(std::size_t level) const
+    {
+        assert(level < m_domain_is_box.size() && "domain_is_box: no extent is cached at this level");
+        return m_domain_is_box[level];
+    }
+
+    template <class D, class Config>
+    SAMURAI_INLINE void Mesh_base<D, Config>::compute_domain_extent()
+    {
+        const std::size_t n_levels = std::max(max_level(), m_domain.max_level()) + 1;
+        m_domain_bbox.assign(n_levels, domain_bbox_t{});
+        m_domain_is_box.assign(n_levels, false);
+
+        for (std::size_t level = 0; level < n_levels; ++level)
+        {
+            const auto& level_cells = m_domain[level];
+            if (level_cells.empty())
+            {
+                continue;
+            }
+            m_domain_bbox[level] = level_cells.minmax_indices();
+
+            std::size_t volume = 1;
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                volume *= static_cast<std::size_t>(m_domain_bbox[level][d].second - m_domain_bbox[level][d].first);
+            }
+            m_domain_is_box[level] = level_cells.nb_cells() == volume;
+        }
     }
 
     // Whole-domain pyramid: the domain represented at every level (m_domain[level]
@@ -891,10 +965,17 @@ namespace samurai
         using std::swap;
         swap(m_cells, mesh.m_cells);
         swap(m_domain, mesh.m_domain);
+        swap(m_domain_bbox, mesh.m_domain_bbox);
+        swap(m_domain_is_box, mesh.m_domain_is_box);
         swap(m_subdomain, mesh.m_subdomain);
         swap(m_mpi_neighbourhood, mesh.m_mpi_neighbourhood);
         swap(m_union, mesh.m_union);
         swap(m_config, mesh.m_config);
+        // The gravity centre is a property of the cells and must follow them: left behind, a
+        // rank that adapted would keep the centre of its previous mesh while its neighbours
+        // hold the centre of its current one, and the petsc ownership rule that compares the
+        // two would no longer agree from one rank to the next.
+        swap(m_gravity_center, mesh.m_gravity_center);
     }
 
     template <class D, class Config>
@@ -1117,7 +1198,9 @@ namespace samurai
         for (auto& neighbour : m_mpi_neighbourhood)
         {
             world.recv(neighbour.rank, world.rank(), neighbour.mesh.m_subdomain);
-            neighbour.mesh.m_domain = m_domain;
+            neighbour.mesh.m_domain        = m_domain;
+            neighbour.mesh.m_domain_bbox   = m_domain_bbox;
+            neighbour.mesh.m_domain_is_box = m_domain_is_box;
 #ifdef SAMURAI_WITH_PETSC
             neighbour.mesh.compute_gravity_center();
 #endif
