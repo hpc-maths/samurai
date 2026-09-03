@@ -436,24 +436,42 @@ namespace samurai
                 this->cells()[mesh_id_t::cells],
                 [&](std::size_t level)
                 {
-                    // own part
-                    add_prediction_ghosts(
-                        nestedExpand(self(this->cells()[mesh_id_t::cells][level]).on(level - 2), prediction_reach),
-                        intersection(nestedExpand(self(this->cells()[mesh_id_t::cells_and_ghosts][level]).on(level - 1), prediction_reach),
-                                     nestedExpand(self(this->subdomain()).on(level - 1), prediction_reach)),
-                        level);
+                    if (!this->is_periodic())
+                    {
+                        // Without a periodic direction the two contributions below - the r
+                        // margin, and the 2r band clipped to the domain - are one set: the 2r
+                        // expansion clipped to the domain expanded by r. One traversal of two
+                        // operands per arm instead of two traversals of one and three.
+                        add_prediction_ghosts(
+                            intersection(nestedExpand(self(this->cells()[mesh_id_t::cells][level]).on(level - 2), prediction_inward_reach),
+                                         nestedExpand(self(this->domain(std::min(level - 2, this->max_level()))), prediction_reach)),
+                            intersection(
+                                nestedExpand(self(this->cells()[mesh_id_t::cells_and_ghosts][level]).on(level - 1), prediction_inward_reach),
+                                nestedExpand(self(this->domain(level - 1)), prediction_reach),
+                                nestedExpand(self(this->subdomain()).on(level - 1), prediction_inward_reach)),
+                            level);
+                    }
+                    else
+                    {
+                        // own part
+                        add_prediction_ghosts(
+                            nestedExpand(self(this->cells()[mesh_id_t::cells][level]).on(level - 2), prediction_reach),
+                            intersection(nestedExpand(self(this->cells()[mesh_id_t::cells_and_ghosts][level]).on(level - 1), prediction_reach),
+                                         nestedExpand(self(this->subdomain()).on(level - 1), prediction_reach)),
+                            level);
 
-                    // The inward band, added on top of the r margin rather than folded into
-                    // it: same shape as the arms above, so the set expressions resolve at the
-                    // same level, and the cell list merges the two contributions.
-                    add_prediction_ghosts(
-                        intersection(nestedExpand(self(this->cells()[mesh_id_t::cells][level]).on(level - 2), prediction_inward_reach),
-                                     band_at(level - 2)),
-                        intersection(
-                            nestedExpand(self(this->cells()[mesh_id_t::cells_and_ghosts][level]).on(level - 1), prediction_inward_reach),
-                            band_at(level - 1),
-                            nestedExpand(self(this->subdomain()).on(level - 1), prediction_inward_reach)),
-                        level);
+                        // The inward band, added on top of the r margin rather than folded into
+                        // it: same shape as the arms above, so the set expressions resolve at the
+                        // same level, and the cell list merges the two contributions.
+                        add_prediction_ghosts(
+                            intersection(nestedExpand(self(this->cells()[mesh_id_t::cells][level]).on(level - 2), prediction_inward_reach),
+                                         band_at(level - 2)),
+                            intersection(
+                                nestedExpand(self(this->cells()[mesh_id_t::cells_and_ghosts][level]).on(level - 1), prediction_inward_reach),
+                                band_at(level - 1),
+                                nestedExpand(self(this->subdomain()).on(level - 1), prediction_inward_reach)),
+                            level);
+                    }
 
                     // periodic part
                     const int delta_l = int(this->domain().level() - level);
