@@ -1362,6 +1362,13 @@ namespace samurai
         using value_t = typename TInterval::value_t;
         using class_t = PredictionPositionClass<reach, dim>;
 
+        if (!domain.clamp)
+        {
+            // The mesh does not guarantee the inward reach a shifted stencil reads (see
+            // holds_prediction_inward_reach): one interior run, the centred maps everywhere.
+            f(i, class_t::interior());
+            return;
+        }
         if (domain.is_box && detail::box_position_runs<reach>(domain, i, index, f))
         {
             return;
