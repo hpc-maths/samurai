@@ -635,8 +635,12 @@ namespace samurai
         {
             return 0.;
         }
-        const int radius          = max_stencil_radius();
-        const int prediction_size = (min_level() != max_level()) ? config_t::prediction_stencil_radius : 0;
+        const int radius = max_stencil_radius();
+        // 2r, not r: near a boundary the prediction stencil shifts inward and reaches twice as
+        // far, and the coarse levels carry that margin (see update_sub_mesh_impl). A rank whose
+        // ghosts now reach further has to be discovered as a neighbour, or two ranks end up
+        // holding intersecting ghosts without being registered with each other.
+        const int prediction_size = (min_level() != max_level()) ? 2 * config_t::prediction_stencil_radius : 0;
         const int reach           = (2 * radius) + (4 * prediction_size) + 4;
         return reach * cell_length(my_cells.min_level());
     }
@@ -895,6 +899,11 @@ namespace samurai
         swap(m_mpi_neighbourhood, mesh.m_mpi_neighbourhood);
         swap(m_union, mesh.m_union);
         swap(m_config, mesh.m_config);
+        // The gravity centre is a property of the cells and must follow them: left behind, a
+        // rank that adapted would keep the centre of its previous mesh while its neighbours
+        // hold the centre of its current one, and the petsc ownership rule that compares the
+        // two would no longer agree from one rank to the next.
+        swap(m_gravity_center, mesh.m_gravity_center);
     }
 
     template <class D, class Config>
