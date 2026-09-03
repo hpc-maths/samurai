@@ -44,9 +44,13 @@ namespace samurai
     {
         constexpr std::size_t dim = Field::dim;
 
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+
         auto& mesh = field.mesh();
 
-        if (level > mesh.max_level())
+        // A level the mesh does not hold at all has no outer ghost to fill; the ghost update
+        // visits every level from 0 up, and a mesh refined everywhere holds only a few of them.
+        if (level > mesh.max_level() || mesh[mesh_id_t::reference][level].empty())
         {
             return;
         }
