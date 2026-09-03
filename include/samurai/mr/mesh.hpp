@@ -82,6 +82,10 @@ namespace samurai
         using config_t        = Config;
 
         static constexpr std::size_t dim = config_t::dim;
+        /// The prediction stencil may shift inward near a boundary: update_sub_mesh_impl holds
+        /// `2r` cells inward of every cell a prediction or a detail is computed for, and the
+        /// ghost update fills them (see holds_prediction_inward_reach in prediction_shifts.hpp).
+        static constexpr bool holds_inward_prediction_reach = true;
 
         using mesh_id_t  = typename base_type::mesh_id_t;
         using interval_t = typename base_type::interval_t;

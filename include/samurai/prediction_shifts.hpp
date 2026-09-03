@@ -829,11 +829,16 @@ namespace samurai
         using value_t = typename TInterval::value_t;
         using box_t   = std::array<std::pair<value_t, value_t>, dim>;
 
-        PredictionDomain(const LevelCellArray<dim, TInterval>& cells_, const std::array<value_t, dim>& period_, bool is_box_, const box_t& box_)
+        PredictionDomain(const LevelCellArray<dim, TInterval>& cells_,
+                         const std::array<value_t, dim>& period_,
+                         bool is_box_,
+                         const box_t& box_,
+                         bool clamp_ = true)
             : cells(cells_)
             , period(period_)
             , is_box(is_box_)
             , box(box_)
+            , clamp(clamp_)
         {
         }
 
@@ -841,6 +846,31 @@ namespace samurai
         std::array<value_t, dim> period{};           ///< the periodic wrap per direction, 0 where the direction is not periodic
         bool is_box = false;                         ///< the cells are exactly their bounding box
         box_t box{};                                 ///< that bounding box, `[first, second)` per direction; read only when @c is_box
+        bool clamp = true;                           ///< whether a stencil may shift inward at all (see @ref holds_prediction_inward_reach)
+    };
+
+    /**
+     * Whether a mesh type guarantees that every cell a clamped prediction stencil reads is held
+     * *and filled* at the level it is read from - the inward reach of `2r` cells that MRMesh's
+     * update_sub_mesh_impl builds and its ghost update fills. A mesh declares it with
+     * `static constexpr bool holds_inward_prediction_reach = true;`.
+     *
+     * Without that guarantee, shifting a stencil inward reads cells the mesh may hold but never
+     * writes - the ghosts of a coarse level under a finer region, two cells in from a boundary,
+     * which an AMR mesh with a one-cell ghost layer holds because they neighbour a coarse cell
+     * yet cannot project, their children not being held - and the values it predicts from them
+     * are whatever the allocation left there. Such a mesh keeps the centred stencil everywhere
+     * and reads its outer ghosts, as it always did.
+     */
+    template <class Mesh, class = void>
+    struct holds_prediction_inward_reach : std::false_type
+    {
+    };
+
+    template <class Mesh>
+    struct holds_prediction_inward_reach<Mesh, std::void_t<decltype(Mesh::holds_inward_prediction_reach)>>
+        : std::bool_constant<Mesh::holds_inward_prediction_reach>
+    {
     };
 
     /// The domain of @a mesh at @a level, in the form the shift query reads.
@@ -848,7 +878,11 @@ namespace samurai
     auto prediction_domain(const Mesh& mesh, std::size_t level)
     {
         using domain_t = PredictionDomain<Mesh::dim, typename Mesh::interval_t>;
-        return domain_t{mesh.domain(level), prediction_period(mesh, level), mesh.domain_is_box(level), mesh.domain_bbox(level)};
+        return domain_t{mesh.domain(level),
+                        prediction_period(mesh, level),
+                        mesh.domain_is_box(level),
+                        mesh.domain_bbox(level),
+                        holds_prediction_inward_reach<Mesh>::value};
     }
 
     namespace detail
@@ -998,6 +1032,13 @@ namespace samurai
                                        const xt::xtensor_fixed<typename TInterval::value_t, xt::xshape<dim - 1>>& index,
                                        Func&& f)
     {
+        if (!domain.clamp)
+        {
+            // The mesh does not guarantee the inward reach a shifted stencil reads: centred
+            // everywhere, reading the outer ghosts, as before the stencil could shift.
+            f(i, PredictionStencilShift<dim>{});
+            return;
+        }
         if (domain.is_box && detail::box_shift_runs<radius>(domain, i, index, f))
         {
             return;

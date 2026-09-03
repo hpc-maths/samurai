@@ -10,6 +10,7 @@
 
 #include <gtest/gtest.h>
 
+#include <samurai/amr/mesh.hpp>
 #include <samurai/box.hpp>
 #include <samurai/level_cell_array.hpp>
 #include <samurai/mr/mesh.hpp>
@@ -302,5 +303,55 @@ namespace samurai
         const auto shifts = prediction_shifts_at<1>(view, xt::xtensor_fixed<int, xt::xshape<dim>>{8, 7});
         EXPECT_TRUE(shifts.fits);
         EXPECT_EQ(shifts.shift[1], -1);
+    }
+
+    // The stencil shifts inward only on a mesh that guarantees the cells it then reads are held
+    // and filled - MRMesh, through the inward reach of its sub-mesh update. Any other mesh keeps
+    // the centred stencil at its boundary cells and reads its outer ghosts, as it always did:
+    // an AMR mesh with a one-cell ghost layer holds the cell two in from the boundary under a
+    // finer region without ever writing it.
+    TEST(prediction_domain, only_a_mesh_with_the_inward_reach_shifts_its_stencil)
+    {
+        constexpr std::size_t dim = 2;
+        const Box<double, dim> box{
+            {0., 0.},
+            {1., 1.}
+        };
+        const std::size_t level = 4;
+        // The cell at the low x boundary, mid-height: the centred stencil of radius 1 reads x = -1.
+        const xt::xtensor_fixed<int, xt::xshape<dim>> boundary_cell{0, 8};
+
+        auto mr_mesh = mra::make_mesh(box, mesh_config<dim>().min_level(2).max_level(5));
+        static_assert(holds_prediction_inward_reach<decltype(mr_mesh)>::value);
+        const auto mr_domain = prediction_domain(mr_mesh, level);
+        EXPECT_TRUE(mr_domain.clamp);
+        const auto mr_shift = prediction_shifts_at<1>(mr_domain, boundary_cell);
+        EXPECT_TRUE(mr_shift.fits);
+        EXPECT_EQ(mr_shift.shift[0], 1);
+        EXPECT_EQ(mr_shift.shift[1], 0);
+
+        auto amr_mesh = amr::make_mesh(box, mesh_config<dim>().min_level(2).max_level(5));
+        static_assert(!holds_prediction_inward_reach<decltype(amr_mesh)>::value);
+        const auto amr_domain = prediction_domain(amr_mesh, level);
+        EXPECT_FALSE(amr_domain.clamp);
+        const auto amr_shift = prediction_shifts_at<1>(amr_domain, boundary_cell);
+        EXPECT_TRUE(amr_shift.fits);
+        EXPECT_EQ(amr_shift.shift[0], 0);
+        EXPECT_EQ(amr_shift.shift[1], 0);
+
+        // And the run decomposition is the single centred run over the whole interval.
+        std::size_t runs = 0;
+        for_each_prediction_shift_run<1>(amr_domain,
+                                         typename decltype(amr_mesh)::interval_t{0, 16},
+                                         xt::xtensor_fixed<int, xt::xshape<dim - 1>>{8},
+                                         [&](const auto& run, const auto& shift)
+                                         {
+                                             ++runs;
+                                             EXPECT_EQ(run.start, 0);
+                                             EXPECT_EQ(run.end, 16);
+                                             EXPECT_EQ(shift.shift[0], 0);
+                                             EXPECT_TRUE(shift.fits);
+                                         });
+        EXPECT_EQ(runs, 1u);
     }
 }
