@@ -1278,6 +1278,26 @@ namespace samurai
             const value_t lo = domain.box[0].first;
             const value_t hi = domain.box[0].second;
 
+            // Same shortcut as the shift query: an interval at least `reach` away from every
+            // non-periodic face is one interior run.
+            {
+                // Inside the box in every direction, and at least `reach` from the faces of
+                // the non-periodic directions; a row a periodic wrap brings back is held too.
+                const value_t margin_x = domain.period[0] != 0 ? 0 : static_cast<value_t>(reach);
+                bool interior          = i.start - lo >= margin_x && hi - i.end >= margin_x;
+                for (std::size_t d = 1; d < dim && interior; ++d)
+                {
+                    const value_t x      = index[d - 1];
+                    const value_t margin = domain.period[d] != 0 ? 0 : static_cast<value_t>(reach);
+                    interior             = x - domain.box[d].first >= margin && domain.box[d].second - 1 - x >= margin;
+                }
+                if (interior)
+                {
+                    f(TInterval{i.start, i.end, i.index}, class_t::interior());
+                    return true;
+                }
+            }
+
             const auto class_at = [&](value_t x)
             {
                 class_t out;
