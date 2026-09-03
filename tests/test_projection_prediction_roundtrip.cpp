@@ -372,6 +372,12 @@ namespace samurai
         //   - s=0 (piecewise-constant copy): machine-precision exact -> 1e-14.
         //   - s>=1 low dim: 1e-13.
         //   - s>=2 higher dim: progressively looser.
+        //   - Near a boundary the prediction stencil is shifted inward, and a shifted stencil
+        //     has a larger l1 mass than a centred one: 10/3 against 4/3 in 1D, so up to
+        //     (10/3 / (4/3))^dim = 2.5^dim where every direction is clamped at once - 15.6 in
+        //     3D. The roundoff floor is therefore *position dependent*, worst at a corner, and
+        //     the 3D rows are loose for that reason rather than by accident. The identity
+        //     itself is unaffected: both operators reproduce the polynomial exactly.
         std::vector<RoundtripParams> make_params()
         {
             // clang-format off
@@ -396,7 +402,7 @@ namespace samurai
                 // ---- s=2: per-axis degree 4 ---------------------------------------
                 {.ft=FieldType::Scalar, .s=2, .dim=1, .L=4, .tol=1e-13},
                 {.ft=FieldType::Scalar, .s=2, .dim=2, .L=4, .tol=1e-13},
-                {.ft=FieldType::Scalar, .s=2, .dim=3, .L=4, .tol=1e-13},
+                {.ft=FieldType::Scalar, .s=2, .dim=3, .L=4, .tol=3e-12},
                 {.ft=FieldType::Scalar, .s=2, .dim=4, .L=3, .tol=3e-12},
                 {.ft=FieldType::Scalar, .s=2, .dim=5, .L=2, .tol=3e-11},
                 {.ft=FieldType::Scalar, .s=2, .dim=6, .L=2, .tol=5e-10},
@@ -428,7 +434,7 @@ namespace samurai
                 // ---- vec2 s=2 ----------------------------------------------------
                 {.ft=FieldType::Vector, .s=2, .dim=1, .L=4, .tol=1e-13},
                 {.ft=FieldType::Vector, .s=2, .dim=2, .L=4, .tol=1e-13},
-                {.ft=FieldType::Vector, .s=2, .dim=3, .L=4, .tol=5e-13},
+                {.ft=FieldType::Vector, .s=2, .dim=3, .L=4, .tol=3e-12},
                 {.ft=FieldType::Vector, .s=2, .dim=4, .L=3, .tol=1e-11},
                 {.ft=FieldType::Vector, .s=2, .dim=5, .L=2, .tol=1e-10},
                 {.ft=FieldType::Vector, .s=2, .dim=6, .L=2, .tol=1e-09},

@@ -71,13 +71,14 @@ namespace samurai
     }
 
     // Regression: when the refined region reaches the domain boundary/corner in 3D,
-    // update_ghost_mr projects the outer corner/edge ghosts two levels down
-    // (project_corner_below). It reads the corner-most child at a reconstructed,
+    // update_ghost_mr used to project the outer corner/edge ghosts two levels down
+    // (project_corner_below), reading the corner-most child at a reconstructed,
     // fixed-parity position; on such a mesh that child may not exist, so
     // LevelCellArray::get_interval indexed its storage with a negative offset cast to
-    // size_t (out-of-bounds read, SIGSEGV). get_interval now raises std::out_of_range
-    // in that case, and project_corner_below looks the child up per cell and copies it
-    // only when it exists. The 2D analogue never triggered it.
+    // size_t (out-of-bounds read, SIGSEGV). That projection is gone - nothing reads a
+    // coarse outer ghost any more - and this stays as the smoke test of the whole ghost
+    // update on a mesh whose refinement touches the boundary. The 2D analogue never
+    // triggered it.
     TEST(ghost_update, boundary_touching_refinement_3d)
     {
         ::samurai::initialize();

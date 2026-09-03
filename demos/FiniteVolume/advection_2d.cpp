@@ -58,12 +58,17 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 #endif
 }
 
-template <std::size_t pred_stencil_size>
-int main_fct(bool first_run, int argc, char* argv[])
+/**
+ * The command-line parameters, parsed once in main() and copied into each run. The options
+ * used to be registered on the locals of the first main_fct() call and parsed again in the
+ * second: CLI11 then wrote through pointers into a frame that no longer existed, which
+ * corrupted whatever the second call kept there and ended, on some platforms, in a free() of
+ * an invalid pointer at the end of the second run.
+ */
+struct Parameters
 {
-    constexpr std::size_t dim = 2;
+    static constexpr std::size_t dim = 2;
 
-    // Simulation parameters
     xt::xtensor_fixed<double, xt::xshape<dim>> min_corner = {0., 0.};
     xt::xtensor_fixed<double, xt::xshape<dim>> max_corner = {1., 1.};
     std::array<double, dim> a{
@@ -74,14 +79,12 @@ int main_fct(bool first_run, int argc, char* argv[])
     double t   = 0.;
     std::string restart_file;
 
-    // Output parameters
     fs::path path        = fs::current_path();
     std::string filename = "FV_advection_2d";
     std::size_t nfiles   = 1;
 
-    if (first_run)
+    void register_options(CLI::App& app)
     {
-        auto& app = samurai::app;
         app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
         app.add_option("--max-corner", max_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
         app.add_option("--velocity", a, "The velocity of the advection equation")->capture_default_str()->group("Simulation parameters");
@@ -93,7 +96,23 @@ int main_fct(bool first_run, int argc, char* argv[])
         app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
         app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
     }
-    SAMURAI_PARSE(argc, argv);
+};
+
+template <std::size_t pred_stencil_size>
+int main_fct(const Parameters& params)
+{
+    constexpr std::size_t dim = Parameters::dim;
+
+    const auto& min_corner   = params.min_corner;
+    const auto& max_corner   = params.max_corner;
+    const auto& a            = params.a;
+    const double Tf          = params.Tf;
+    const double cfl         = params.cfl;
+    double t                 = params.t;
+    const auto& restart_file = params.restart_file;
+    const auto& path         = params.path;
+    std::string filename     = params.filename;
+    const std::size_t nfiles = params.nfiles;
 
     filename = fmt::format("{}_pred_{}", filename, pred_stencil_size);
 
@@ -157,8 +176,11 @@ int main_fct(bool first_run, int argc, char* argv[])
 int main(int argc, char* argv[])
 {
     samurai::initialize("Finite volume example for the advection equation in 2d using multiresolution", argc, argv);
-    main_fct<0>(true, argc, argv);
-    main_fct<1>(false, argc, argv);
+    Parameters params;
+    params.register_options(samurai::app);
+    SAMURAI_PARSE(argc, argv);
+    main_fct<0>(params);
+    main_fct<1>(params);
     samurai::finalize();
     return 0;
 }
