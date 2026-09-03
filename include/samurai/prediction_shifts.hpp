@@ -922,6 +922,27 @@ namespace samurai
 
             // The transverse directions are fixed over the interval: the row is either outside
             // the domain, or its shift along each of them is settled once.
+            // The common case first, and cheaply: an interval at least `reach` away from every
+            // non-periodic face of the box is one centred run. A 3D ghost update asks this for
+            // tens of millions of two-cell intervals, of which about one percent shifts.
+            {
+                // Inside the box in every direction (a cell outside it never fits, periodic or
+                // not), and at least `reach` from the faces of the non-periodic directions.
+                const value_t margin_x = domain.period[0] != 0 ? 0 : static_cast<value_t>(reach);
+                bool interior          = i.start - domain.box[0].first >= margin_x && domain.box[0].second - i.end >= margin_x;
+                for (std::size_t d = 1; d < dim && interior; ++d)
+                {
+                    const value_t x      = index[d - 1];
+                    const value_t margin = domain.period[d] != 0 ? 0 : static_cast<value_t>(reach);
+                    interior             = x - domain.box[d].first >= margin && domain.box[d].second - 1 - x >= margin;
+                }
+                if (interior)
+                {
+                    f(TInterval{i.start, i.end, i.index}, PredictionStencilShift<dim>{});
+                    return true;
+                }
+            }
+
             PredictionStencilShift<dim> transverse;
             for (std::size_t d = 1; d < dim; ++d)
             {

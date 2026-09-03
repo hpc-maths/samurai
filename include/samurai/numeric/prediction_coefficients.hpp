@@ -236,19 +236,20 @@ namespace samurai
         assert(parity < 2 && "prediction_coefficients: parity is 0 or 1");
         assert(std::abs(shift) <= static_cast<int>(radius) && "prediction_coefficients: |shift| must not exceed the stencil radius");
 
-        static std::unordered_map<int, PredictionCoefficients<radius>> cache;
-
-        const int key = 2 * shift + static_cast<int>(parity);
-        auto it       = cache.find(key);
-        if (it != cache.end())
+        // A flat table indexed by (shift, parity): the consumers ask for these once per run
+        // of a set traversal, tens of millions of times in a 3D ghost update where the runs
+        // are two cells long, so the lookup has to cost a load, not a hash.
+        constexpr std::size_t count = 2 * (2 * radius + 1);
+        static std::array<PredictionCoefficients<radius>, count> table;
+        static std::array<bool, count> known{};
+        const std::size_t key = 2 * static_cast<std::size_t>(shift + static_cast<int>(radius)) + parity;
+        if (!known[key])
         {
-            return it->second;
+            table[key].start = -static_cast<int>(radius) + shift;
+            table[key].c     = detail::solve_moment_system<radius>(parity, shift);
+            known[key]       = true;
         }
-
-        PredictionCoefficients<radius> out;
-        out.start = -static_cast<int>(radius) + shift;
-        out.c     = detail::solve_moment_system<radius>(parity, shift);
-        return cache.emplace(key, out).first->second;
+        return table[key];
     }
 
     /// What @ref prediction_shift concluded about a position.

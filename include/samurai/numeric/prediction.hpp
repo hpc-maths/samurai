@@ -195,13 +195,20 @@ namespace samurai
                 //
                 // Since the data are contiguous in the i direction, we just have to compute the memory addresses of the first column.
 
+                xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> node_index_start;
+                for (std::size_t d = 0; d + 1 < dim; ++d)
+                {
+                    node_index_start[d] = index[d] + stencil_start[d + 1];
+                }
+                const value_t node_x_start = run.start + stencil_start[0];
+
                 std::array<std::size_t, ce_pow(order, dim)> src_offsets;
                 std::size_t ind = 0;
                 static_nested_loop<dim, 0, order>(
                     [&](const auto& stencil)
                     {
-                        auto new_index     = index + xt::view(stencil, xt::range(1, dim)) + xt::view(stencil_start, xt::range(1, dim));
-                        src_offsets[ind++] = memory_offset(src.mesh(), {level, run.start + stencil[0] + stencil_start[0], new_index});
+                        auto new_index     = node_index_start + xt::view(stencil, xt::range(1, dim));
+                        src_offsets[ind++] = memory_offset(src.mesh(), {level, node_x_start + stencil[0], new_index});
                     });
 
                 // Compute the memory accessors for the destination data
@@ -372,13 +379,22 @@ namespace samurai
                     parity[d] = (index[d - 1] & 1) ? 1 : 0;
                 }
 
+                // The stencil's origin, once per run: the node loop below runs 27 times per run
+                // in 3D, on runs two cells long, so it must not carry an xtensor sum of its own.
+                xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> node_index_start;
+                for (std::size_t d = 0; d + 1 < dim; ++d)
+                {
+                    node_index_start[d] = parent_index[d] + stencil_start[d + 1];
+                }
+                const value_t node_x_start = run.start + stencil_start[0];
+
                 std::array<std::size_t, ce_pow(order, dim)> src_offsets;
                 std::size_t ind = 0;
                 static_nested_loop<dim, 0, order>(
                     [&](const auto& stencil)
                     {
-                        auto new_index = parent_index + xt::view(stencil, xt::range(1, dim)) + xt::view(stencil_start, xt::range(1, dim));
-                        src_offsets[ind++] = memory_offset(src.mesh(), {level - 1, run.start + stencil[0] + stencil_start[0], new_index});
+                        auto new_index     = node_index_start + xt::view(stencil, xt::range(1, dim));
+                        src_offsets[ind++] = memory_offset(src.mesh(), {level - 1, node_x_start + stencil[0], new_index});
                     });
 
                 auto apply_pred = [&](const auto& i_f, const auto& i_c)
