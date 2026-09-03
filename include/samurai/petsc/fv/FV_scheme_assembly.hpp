@@ -1326,313 +1326,129 @@ namespace samurai
             {
                 if constexpr (!ghost_elimination_enabled)
                 {
-                    static_assert(dim >= 1 && dim <= 3, "assemble_prediction() is not implemented for this dimension.");
-                    if constexpr (dim == 1)
-                    {
-                        assemble_prediction_1D(A);
-                    }
-                    else if constexpr (dim == 2)
-                    {
-                        assemble_prediction_2D(A);
-                    }
-                    else if constexpr (dim == 3)
-                    {
-                        assemble_prediction_3D(A);
-                    }
+                    samurai::for_each_prediction_ghost(
+                        mesh(),
+                        [&](auto& ghost)
+                        {
+                            if (!is_locally_owned(ghost)) // cppcheck-suppress knownConditionTrueFalse
+                            {
+                                return;
+                            }
+
+                            double h       = mesh().cell_length(ghost.level);
+                            double scaling = 1. / (h * h);
+                            for (unsigned int field_i = 0; field_i < input_n_comp; ++field_i)
+                            {
+                                PetscInt ghost_index = this->local_row_index(ghost, field_i);
+                                MatSetValueLocal(A, ghost_index, ghost_index, scaling, current_insert_mode());
+
+                                for_each_prediction_stencil_node(
+                                    ghost,
+                                    [&](std::size_t coarse_cell, double weight)
+                                    {
+                                        auto col = this->local_col_index(static_cast<PetscInt>(coarse_cell), field_i);
+                                        MatSetValueLocal(A, ghost_index, col, scaling * (-weight), current_insert_mode());
+                                    });
+                                set_is_row_not_empty(ghost_index);
+                            }
+                        });
                 }
             }
 
+            /**
+             * The prediction of @a ghost as a linear combination of coarse cells:
+             * `value(ghost) = sum_k weight_k * value(cell_k)`, the parent first.
+             */
             template <class Cell>
             auto prediction_linear_combination(const Cell& ghost)
             {
-                static_assert(dim >= 1 && dim <= 3, "prediction_linear_combination() is not implemented for this dimension.");
-                if constexpr (dim == 1)
-                {
-                    return prediction_linear_combination_1D(ghost);
-                }
-                else if constexpr (dim == 2)
-                {
-                    return prediction_linear_combination_2D(ghost);
-                }
-                else if constexpr (dim == 3)
-                {
-                    return prediction_linear_combination_3D(ghost);
-                }
+                std::vector<cell_coeff_pair_t> linear_comb;
+                for_each_prediction_stencil_node(ghost,
+                                                 [&](std::size_t coarse_cell, double weight)
+                                                 {
+                                                     linear_comb.emplace_back(coarse_cell, weight);
+                                                 });
+                return linear_comb;
             }
 
           private:
 
-            void assemble_prediction_1D(Mat& A)
+            /**
+             * The coarse cells the prediction of @a ghost reads, each with its weight, the
+             * parent first and the other nodes in x-major order.
+             *
+             * The stencil is the one the explicit prediction takes at that ghost: centred on the
+             * parent away from a boundary and shifted inward near one, by the same rule asked of
+             * the same domain, so that the assembled matrix and the explicit operator are one
+             * operator (prediction_shifts.hpp). Centred, the parent's weight is exactly 1 and the
+             * weights are the products they always were.
+             */
+            template <class Cell, class Func>
+            void for_each_prediction_stencil_node(const Cell& ghost, Func&& f) const
             {
-                // double scalar = 1;
-                //  if constexpr (is_FluxBasedScheme_v<Scheme>)
-                //  {
-                //      scalar = scheme().scalar();
-                //  }
+                static constexpr std::size_t size = 2 * prediction_stencil_radius + 1;
+                using coord_t                     = xt::xtensor_fixed<coord_index_t, xt::xshape<dim>>;
 
-                samurai::for_each_prediction_ghost(
-                    mesh(),
-                    [&](auto& ghost)
-                    {
-                        if (!is_locally_owned(ghost)) // cppcheck-suppress knownConditionTrueFalse
-                        {
-                            return;
-                        }
+                const std::size_t coarse_level = ghost.level - 1;
 
-                        double h       = mesh().cell_length(ghost.level);
-                        double scaling = 1. / (h * h);
-                        for (unsigned int field_i = 0; field_i < input_n_comp; ++field_i)
-                        {
-                            PetscInt ghost_index = this->local_row_index(ghost, field_i);
-                            MatSetValueLocal(A, ghost_index, ghost_index, scaling, current_insert_mode());
-
-                            auto ii                   = ghost.indices(0);
-                            auto ig                   = ii >> 1;
-                            const std::size_t iparity = static_cast<std::size_t>(ii & 1);
-
-                            const auto& interpx = samurai::prediction_coefficients<prediction_stencil_radius>(iparity, 0).c;
-
-                            auto parent_index = this->local_col_index(static_cast<PetscInt>(this->mesh().get_index(ghost.level - 1, ig)),
-                                                                      field_i);
-                            MatSetValueLocal(A, ghost_index, parent_index, -scaling, current_insert_mode());
-
-                            for (std::size_t ci = 0; ci < interpx.size(); ++ci)
-                            {
-                                if (ci != prediction_stencil_radius)
-                                {
-                                    double value           = -interpx[ci];
-                                    auto coarse_cell_index = this->local_col_index(
-                                        static_cast<PetscInt>(
-                                            this->mesh().get_index(ghost.level - 1,
-                                                                   ig + static_cast<coord_index_t>(ci - prediction_stencil_radius))),
-                                        field_i);
-                                    MatSetValueLocal(A, ghost_index, coarse_cell_index, scaling * value, current_insert_mode());
-                                }
-                            }
-                            set_is_row_not_empty(ghost_index);
-                        }
-                    });
-            }
-
-            template <class Cell>
-            auto prediction_linear_combination_1D(const Cell& ghost)
-            {
-                std::vector<cell_coeff_pair_t> linear_comb;
-
-                auto ii                   = ghost.indices(0);
-                auto ig                   = ii >> 1;
-                const std::size_t iparity = static_cast<std::size_t>(ii & 1);
-
-                const auto& interpx = samurai::prediction_coefficients<prediction_stencil_radius>(iparity, 0).c;
-
-                auto parent_index = this->mesh().get_index(ghost.level - 1, ig);
-                linear_comb.emplace_back(parent_index, 1.);
-
-                for (std::size_t ci = 0; ci < interpx.size(); ++ci)
+                coord_t parent;
+                std::array<std::size_t, dim> parity;
+                for (std::size_t d = 0; d < dim; ++d)
                 {
-                    if (ci != prediction_stencil_radius)
+                    parent[d] = ghost.indices(d) >> 1;
+                    parity[d] = static_cast<std::size_t>(ghost.indices(d) & 1);
+                }
+
+                const auto shift = prediction_shifts_at<prediction_stencil_radius>(prediction_domain(mesh(), coarse_level), parent);
+
+                std::array<const std::array<double, size>*, dim> coeffs;
+                std::array<coord_index_t, dim> start;
+                std::array<std::size_t, dim> parent_node;
+                for (std::size_t d = 0; d < dim; ++d)
+                {
+                    const auto& c = samurai::prediction_coefficients<prediction_stencil_radius>(parity[d], shift.fits ? shift.shift[d] : 0);
+                    coeffs[d]     = &c.c;
+                    start[d]      = static_cast<coord_index_t>(c.start);
+                    parent_node[d] = static_cast<std::size_t>(-c.start);
+                }
+
+                const auto cell_index = [&](const coord_t& cell)
+                {
+                    return [&]<std::size_t... Is>(std::index_sequence<Is...>)
                     {
-                        auto coarse_cell_index = this->mesh().get_index(ghost.level - 1,
-                                                                        ig + static_cast<coord_index_t>(ci - prediction_stencil_radius));
-                        linear_comb.emplace_back(coarse_cell_index, interpx[ci]);
+                        return static_cast<std::size_t>(this->mesh().get_index(coarse_level, cell[Is]...));
+                    }(std::make_index_sequence<dim>{});
+                };
+
+                const auto visit = [&](const std::array<std::size_t, dim>& node)
+                {
+                    double weight = 1.;
+                    coord_t cell;
+                    for (std::size_t d = 0; d < dim; ++d)
+                    {
+                        weight *= (*coeffs[d])[node[d]];
+                        cell[d] = parent[d] + start[d] + static_cast<coord_index_t>(node[d]);
+                    }
+                    f(cell_index(cell), weight);
+                };
+
+                visit(parent_node);
+
+                constexpr std::size_t count = ce_pow(size, dim);
+                for (std::size_t n = 0; n < count; ++n)
+                {
+                    std::array<std::size_t, dim> node;
+                    std::size_t rest = n;
+                    for (std::size_t d = dim; d-- > 0;)
+                    {
+                        node[d] = rest % size;
+                        rest /= size;
+                    }
+                    if (node != parent_node)
+                    {
+                        visit(node);
                     }
                 }
-                return linear_comb;
-            }
-
-            void assemble_prediction_2D(Mat& A)
-            {
-                samurai::for_each_prediction_ghost(
-                    mesh(),
-                    [&](auto& ghost)
-                    {
-                        if (!is_locally_owned(ghost)) // cppcheck-suppress knownConditionTrueFalse
-                        {
-                            return;
-                        }
-
-                        double h       = mesh().cell_length(ghost.level);
-                        double scaling = 1. / (h * h);
-                        for (unsigned int field_i = 0; field_i < input_n_comp; ++field_i)
-                        {
-                            PetscInt ghost_index = this->local_row_index(ghost, field_i);
-                            MatSetValueLocal(A, ghost_index, ghost_index, scaling, current_insert_mode());
-
-                            auto ii                   = ghost.indices(0);
-                            auto ig                   = ii >> 1;
-                            auto j                    = ghost.indices(1);
-                            auto jg                   = j >> 1;
-                            const std::size_t iparity = static_cast<std::size_t>(ii & 1);
-                            const std::size_t jparity = static_cast<std::size_t>(j & 1);
-
-                            const auto& interpx = samurai::prediction_coefficients<prediction_stencil_radius>(iparity, 0).c;
-                            const auto& interpy = samurai::prediction_coefficients<prediction_stencil_radius>(jparity, 0).c;
-
-                            auto parent_index = this->local_col_index(static_cast<PetscInt>(this->mesh().get_index(ghost.level - 1, ig, jg)),
-                                                                      field_i);
-                            MatSetValueLocal(A, ghost_index, parent_index, -scaling, current_insert_mode());
-
-                            for (std::size_t ci = 0; ci < interpx.size(); ++ci)
-                            {
-                                for (std::size_t cj = 0; cj < interpy.size(); ++cj)
-                                {
-                                    if (ci != prediction_stencil_radius || cj != prediction_stencil_radius)
-                                    {
-                                        double value           = -interpx[ci] * interpy[cj];
-                                        auto coarse_cell_index = this->local_col_index(
-                                            static_cast<PetscInt>(
-                                                this->mesh().get_index(ghost.level - 1,
-                                                                       ig + static_cast<coord_index_t>(ci - prediction_stencil_radius),
-                                                                       jg + static_cast<coord_index_t>(cj - prediction_stencil_radius))),
-                                            field_i);
-                                        MatSetValueLocal(A, ghost_index, coarse_cell_index, scaling * value, current_insert_mode());
-                                    }
-                                }
-                            }
-                            set_is_row_not_empty(ghost_index);
-                        }
-                    });
-            }
-
-            template <class Cell>
-            auto prediction_linear_combination_2D(const Cell& ghost)
-            {
-                std::vector<cell_coeff_pair_t> linear_comb;
-
-                auto ii                   = ghost.indices(0);
-                auto ig                   = ii >> 1;
-                auto j                    = ghost.indices(1);
-                auto jg                   = j >> 1;
-                const std::size_t iparity = static_cast<std::size_t>(ii & 1);
-                const std::size_t jparity = static_cast<std::size_t>(j & 1);
-
-                const auto& interpx = samurai::prediction_coefficients<prediction_stencil_radius>(iparity, 0).c;
-                const auto& interpy = samurai::prediction_coefficients<prediction_stencil_radius>(jparity, 0).c;
-
-                auto parent_index = this->mesh().get_index(ghost.level - 1, ig, jg);
-                linear_comb.emplace_back(parent_index, 1.);
-
-                for (std::size_t ci = 0; ci < interpx.size(); ++ci)
-                {
-                    for (std::size_t cj = 0; cj < interpy.size(); ++cj)
-                    {
-                        if (ci != prediction_stencil_radius || cj != prediction_stencil_radius)
-                        {
-                            auto coarse_cell_index = this->mesh().get_index(ghost.level - 1,
-                                                                            ig + static_cast<coord_index_t>(ci - prediction_stencil_radius),
-                                                                            jg + static_cast<coord_index_t>(cj - prediction_stencil_radius));
-                            linear_comb.emplace_back(coarse_cell_index, interpx[ci] * interpy[cj]);
-                        }
-                    }
-                }
-                return linear_comb;
-            }
-
-            void assemble_prediction_3D(Mat& A)
-            {
-                samurai::for_each_prediction_ghost(
-                    mesh(),
-                    [&](auto& ghost)
-                    {
-                        if (!is_locally_owned(ghost)) // cppcheck-suppress knownConditionTrueFalse
-                        {
-                            return;
-                        }
-
-                        double h       = mesh().cell_length(ghost.level);
-                        double scaling = 1. / (h * h);
-                        for (unsigned int field_i = 0; field_i < input_n_comp; ++field_i)
-                        {
-                            PetscInt ghost_index = this->local_row_index(ghost, field_i);
-                            MatSetValueLocal(A, ghost_index, ghost_index, scaling, current_insert_mode());
-
-                            auto ii                   = ghost.indices(0);
-                            auto ig                   = ii >> 1;
-                            auto j                    = ghost.indices(1);
-                            auto jg                   = j >> 1;
-                            auto k                    = ghost.indices(2);
-                            auto kg                   = k >> 1;
-                            const std::size_t iparity = static_cast<std::size_t>(ii & 1);
-                            const std::size_t jparity = static_cast<std::size_t>(j & 1);
-                            const std::size_t kparity = static_cast<std::size_t>(k & 1);
-
-                            const auto& interpx = samurai::prediction_coefficients<prediction_stencil_radius>(iparity, 0).c;
-                            const auto& interpy = samurai::prediction_coefficients<prediction_stencil_radius>(jparity, 0).c;
-                            const auto& interpz = samurai::prediction_coefficients<prediction_stencil_radius>(kparity, 0).c;
-
-                            auto parent_index = this->local_col_index(
-                                static_cast<PetscInt>(this->mesh().get_index(ghost.level - 1, ig, jg, kg)),
-                                field_i);
-                            MatSetValueLocal(A, ghost_index, parent_index, -scaling, current_insert_mode());
-
-                            for (std::size_t ci = 0; ci < interpx.size(); ++ci)
-                            {
-                                for (std::size_t cj = 0; cj < interpy.size(); ++cj)
-                                {
-                                    for (std::size_t ck = 0; ck < interpz.size(); ++ck)
-                                    {
-                                        if (ci != prediction_stencil_radius || cj != prediction_stencil_radius
-                                            || ck != prediction_stencil_radius)
-                                        {
-                                            double value           = -interpx[ci] * interpy[cj] * interpz[ck];
-                                            auto coarse_cell_index = this->local_col_index(
-                                                static_cast<PetscInt>(this->mesh().get_index(
-                                                    ghost.level - 1,
-                                                    ig + static_cast<coord_index_t>(ci - prediction_stencil_radius),
-                                                    jg + static_cast<coord_index_t>(cj - prediction_stencil_radius),
-                                                    kg + static_cast<coord_index_t>(ck - prediction_stencil_radius))),
-                                                field_i);
-                                            MatSetValueLocal(A, ghost_index, coarse_cell_index, scaling * value, current_insert_mode());
-                                        }
-                                    }
-                                }
-                            }
-                            set_is_row_not_empty(ghost_index);
-                        }
-                    });
-            }
-
-            template <class Cell>
-            auto prediction_linear_combination_3D(const Cell& ghost)
-            {
-                std::vector<cell_coeff_pair_t> linear_comb;
-
-                auto ii                   = ghost.indices(0);
-                auto ig                   = ii >> 1;
-                auto j                    = ghost.indices(1);
-                auto jg                   = j >> 1;
-                auto k                    = ghost.indices(2);
-                auto kg                   = k >> 1;
-                const std::size_t iparity = static_cast<std::size_t>(ii & 1);
-                const std::size_t jparity = static_cast<std::size_t>(j & 1);
-                const std::size_t kparity = static_cast<std::size_t>(k & 1);
-
-                const auto& interpx = samurai::prediction_coefficients<prediction_stencil_radius>(iparity, 0).c;
-                const auto& interpy = samurai::prediction_coefficients<prediction_stencil_radius>(jparity, 0).c;
-                const auto& interpz = samurai::prediction_coefficients<prediction_stencil_radius>(kparity, 0).c;
-
-                auto parent_index = this->mesh().get_index(ghost.level - 1, ig, jg, kg);
-                linear_comb.emplace_back(parent_index, 1.);
-
-                for (std::size_t ci = 0; ci < interpx.size(); ++ci)
-                {
-                    for (std::size_t cj = 0; cj < interpy.size(); ++cj)
-                    {
-                        for (std::size_t ck = 0; ck < interpz.size(); ++ck)
-                        {
-                            if (ci != prediction_stencil_radius || cj != prediction_stencil_radius || ck != prediction_stencil_radius)
-                            {
-                                auto coarse_cell_index = this->mesh().get_index(
-                                    ghost.level - 1,
-                                    ig + static_cast<coord_index_t>(ci - prediction_stencil_radius),
-                                    jg + static_cast<coord_index_t>(cj - prediction_stencil_radius),
-                                    kg + static_cast<coord_index_t>(ck - prediction_stencil_radius));
-                                linear_comb.emplace_back(coarse_cell_index, interpx[ci] * interpy[cj] * interpz[ck]);
-                            }
-                        }
-                    }
-                }
-                return linear_comb;
             }
 
           public:
