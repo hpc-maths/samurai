@@ -387,9 +387,14 @@ namespace samurai
 
             if (!m_disable_minimal_ghost_width)
             {
-                // 2 is because prediction_stencil_radius=1, if >1 we don't know what to do...
-                // The idea is to have enough ghosts at the boundary for the reconstruction and the transfer to work.
-                m_max_stencil_radius = std::max(m_max_stencil_radius, 2);
+                // 2r, twice the prediction stencil radius. Near a boundary the prediction
+                // stencil shifts inward so that it reads only cells the domain has, and it
+                // then reaches 2r on one side; the composed prediction map's support saturates
+                // at exactly 2r as well, independently of the level gap, which is what
+                // reconstruction() and transfer() need. This used to read 2 with the comment
+                // "if >1 we don't know what to do": the answer is 2r, and at r = 1 it is the
+                // same number.
+                m_max_stencil_radius = std::max(m_max_stencil_radius, 2 * static_cast<int>(prediction_stencil_radius));
             }
 
             m_ghost_width = std::max(m_max_stencil_radius, static_cast<int>(prediction_stencil_radius));
