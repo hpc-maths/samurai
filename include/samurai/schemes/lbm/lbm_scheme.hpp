@@ -9,6 +9,7 @@
 #include <span>
 #include <string>
 #include <tuple>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -274,20 +275,30 @@ namespace samurai
          * The stream is linear, so the projection (average) over the 2^{j.dim} fine sub-cells of their
          * reconstructed donor value is a single application of the summed prediction map of the donor
          * sub-cell slice [-c[d], 2^j - c[d]) (one interval per direction, the full column shifted by
-         * -c). That map depends only on (j, c), not on the cell, so the stencil is built once per
-         * (level, component) and reused over the whole level. It handles axial, diagonal and |c| > 1
-         * velocities uniformly; at the finest level (j == 0) it is the plain shift by -c, and for the
-         * rest velocity c == 0 it reduces to the identity (mean conservation).
+         * -c). That map depends on (j, c) and on where the cell sits relative to the domain - the
+         * one-level predictions it composes are shifted inward near a boundary, like every other
+         * prediction in samurai - so the stencil is built once per (level, component, position
+         * class) and reused over every run of cells of that class; away from the boundary a level
+         * is one class. It handles axial, diagonal and |c| > 1 velocities uniformly; at the finest
+         * level (j == 0) it is the plain shift by -c, and for the rest velocity c == 0 it reduces
+         * to the identity (mean conservation).
          */
+        static constexpr std::size_t prediction_radius = field_t::mesh_t::config_t::prediction_stencil_radius;
+        using position_class_t                         = detail::prediction_class_t<prediction_radius, dim>;
+
         template <std::size_t... D>
-        static std::vector<stencil_tap>
-        build_stencil(std::size_t level, std::size_t j, const velocity_t& c, double inv_nc, std::index_sequence<D...> /*dim_seq*/)
+        static std::vector<stencil_tap> build_stencil(const position_class_t& cls,
+                                                      std::size_t level,
+                                                      std::size_t j,
+                                                      const velocity_t& c,
+                                                      double inv_nc,
+                                                      std::index_sequence<D...> /*dim_seq*/)
         {
-            constexpr std::size_t radius = field_t::mesh_t::config_t::prediction_stencil_radius;
+            constexpr std::size_t radius = prediction_radius;
             const auto width             = static_cast<value_t>(std::size_t{1} << j); // 2^j sub-cells per direction
             const auto slice             = std::make_tuple(interval_t{-static_cast<value_t>(c[D]), width - static_cast<value_t>(c[D])}...);
 
-            const auto& map = detail::get_prediction<radius, field_t>(level, j, slice);
+            const auto& map = detail::get_prediction<radius, field_t>(cls, level, j, slice);
 
             std::vector<stencil_tap> taps;
             taps.reserve(map.coeff.size());
@@ -317,9 +328,10 @@ namespace samurai
         }
 
         // stream: multi-level linear transport. For each level the per-component stencils are built
-        // once (build_stencil; the underlying prediction maps are cached across steps), then applied
-        // to every cell strip - reading f_in and writing f_out directly, with no per-strip prediction
-        // lookup and no temporary.
+        // once per position class (build_stencil; the underlying prediction maps are cached across
+        // steps), then applied to every run of cells of that class - reading f_in and writing f_out
+        // directly, with no per-strip prediction lookup and no temporary. Away from every boundary
+        // a strip is one run and the level one class, so the bulk pays one table lookup per strip.
         void stream(const field_t& f_in, field_t& f_out) const
         {
             using mesh_id_t     = typename field_t::mesh_t::mesh_id_t;
@@ -330,59 +342,80 @@ namespace samurai
             auto& mesh                  = f_in.mesh();
             const std::size_t max_level = mesh.max_level(); // configured finest level of the hierarchy
 
-            std::array<std::vector<stencil_tap>, n_comp> stencil;
-            std::vector<double> res; // reused accumulation buffer, sized to the current strip
+            using stencils_t = std::array<std::vector<stencil_tap>, n_comp>;
+            std::unordered_map<position_class_t, stencils_t> stencils; // per position class, at the current level
+            std::vector<double> res;                                   // reused accumulation buffer, sized to the current run
 
             for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
             {
                 const std::size_t j = max_level - level;
                 const double inv_nc = 1. / static_cast<double>(std::size_t{1} << (j * dim)); // 1/2^{j.dim} projection weight
 
-                for_each_block(
-                    [&](const auto& block, std::size_t offset)
+                stencils.clear();
+                const auto stencils_of = [&](const position_class_t& cls) -> const stencils_t&
+                {
+                    auto it = stencils.find(cls);
+                    if (it == stencils.end())
                     {
-                        constexpr std::size_t q = std::decay_t<decltype(block)>::q;
-                        for (std::size_t a = 0; a < q; ++a)
-                        {
-                            stencil[offset + a] = build_stencil(level, j, block.velocities[a], inv_nc, dseq);
-                        }
-                    });
+                        stencils_t built;
+                        for_each_block(
+                            [&](const auto& block, std::size_t offset)
+                            {
+                                constexpr std::size_t q = std::decay_t<decltype(block)>::q;
+                                for (std::size_t a = 0; a < q; ++a)
+                                {
+                                    built[offset + a] = build_stencil(cls, level, j, block.velocities[a], inv_nc, dseq);
+                                }
+                            });
+                        it = stencils.emplace(cls, std::move(built)).first;
+                    }
+                    return it->second;
+                };
 
                 for_each_interval(mesh[mesh_id_t::cells][level],
                                   [&](std::size_t lvl, const auto& i, const auto& index)
                                   {
-                                      for (std::size_t comp = 0; comp < n_comp; ++comp)
-                                      {
-                                          const auto& taps     = stencil[comp];
-                                          auto out             = access(f_out, comp, lvl, i, index, no_shift, tseq);
-                                          const std::size_t sz = static_cast<std::size_t>(out.size());
+                                      for_each_prediction_position_run<prediction_class_reach<prediction_radius>>(
+                                          mesh,
+                                          level,
+                                          i,
+                                          index,
+                                          [&](const auto& run, const auto& cls)
+                                          {
+                                              const auto& stencil = stencils_of(cls);
+                                              for (std::size_t comp = 0; comp < n_comp; ++comp)
+                                              {
+                                                  const auto& taps     = stencil[comp];
+                                                  auto out             = access(f_out, comp, lvl, run, index, no_shift, tseq);
+                                                  const std::size_t sz = static_cast<std::size_t>(out.size());
 
-                                          // Accumulate the taps into a reused contiguous buffer with plain scalar
-                                          // loops (no temporary allocation, no lazy-expression machinery), then write
-                                          // the strided f_out strip once.
-                                          res.resize(sz);
-                                          {
-                                              auto vin       = access(f_in, comp, lvl, i, index, taps[0].off, tseq);
-                                              const double w = taps[0].w;
-                                              for (std::size_t ic = 0; ic < sz; ++ic)
-                                              {
-                                                  res[ic] = w * vin(ic);
+                                                  // Accumulate the taps into a reused contiguous buffer with plain scalar
+                                                  // loops (no temporary allocation, no lazy-expression machinery), then write
+                                                  // the strided f_out strip once.
+                                                  res.resize(sz);
+                                                  {
+                                                      auto vin       = access(f_in, comp, lvl, run, index, taps[0].off, tseq);
+                                                      const double w = taps[0].w;
+                                                      for (std::size_t ic = 0; ic < sz; ++ic)
+                                                      {
+                                                          res[ic] = w * vin(ic);
+                                                      }
+                                                  }
+                                                  for (std::size_t t = 1; t < taps.size(); ++t)
+                                                  {
+                                                      auto vin       = access(f_in, comp, lvl, run, index, taps[t].off, tseq);
+                                                      const double w = taps[t].w;
+                                                      for (std::size_t ic = 0; ic < sz; ++ic)
+                                                      {
+                                                          res[ic] += w * vin(ic);
+                                                      }
+                                                  }
+                                                  for (std::size_t ic = 0; ic < sz; ++ic)
+                                                  {
+                                                      out(ic) = res[ic];
+                                                  }
                                               }
-                                          }
-                                          for (std::size_t t = 1; t < taps.size(); ++t)
-                                          {
-                                              auto vin       = access(f_in, comp, lvl, i, index, taps[t].off, tseq);
-                                              const double w = taps[t].w;
-                                              for (std::size_t ic = 0; ic < sz; ++ic)
-                                              {
-                                                  res[ic] += w * vin(ic);
-                                              }
-                                          }
-                                          for (std::size_t ic = 0; ic < sz; ++ic)
-                                          {
-                                              out(ic) = res[ic];
-                                          }
-                                      }
+                                          });
                                   });
             }
         }
