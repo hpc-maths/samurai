@@ -16,6 +16,7 @@
 #include "cell_array.hpp"
 #include "cell_list.hpp"
 #include "domain_builder.hpp"
+#include "level_pyramid.hpp"
 #include "mesh_config.hpp"
 #include "petsc/cell_ownership.hpp"
 #include "static_algorithm.hpp"
@@ -219,6 +220,18 @@ namespace samurai
         void to_stream(std::ostream& os) const;
 
         const lca_type& corner(const DirectionVector<dim>& direction) const;
+        const lca_type& corner(const DirectionVector<dim>& direction, std::size_t level) const;
+
+        // Boundary geometry at every level. These sets depend on the domain only,
+        // so they are built once per domain (see construct_boundary_geometry) and
+        // inherited by the meshes constructed from a reference mesh.
+        //   boundary_inner_layer(level, d) = domain(level) \ translate(domain(level), -d)
+        //     the cells of the domain whose neighbour in direction d is outside.
+        //   boundary_outer_layer(level, d, k) = translate(domain, k d) \ translate(domain, (k - 1) d)
+        //     the k-th layer of ghost positions outside the domain in direction d.
+        const lca_type& boundary_inner_layer(std::size_t level, const DirectionVector<dim>& direction) const;
+        const lca_type& boundary_outer_layer(std::size_t level, const DirectionVector<dim>& direction, int layer) const;
+        static std::size_t cartesian_direction_index(const DirectionVector<dim>& direction);
 
         CellOwnership& cell_ownership();
         const CellOwnership& cell_ownership() const;
@@ -248,7 +261,9 @@ namespace samurai
         void construct_domain();
         void build_pyramid(ca_type& pyramid, const lca_type& reference);
         void construct_union();
-        void construct_corners();
+        void construct_corners() const;
+        void construct_boundary_geometry() const;
+        void ensure_boundary_geometry() const;
         void update_sub_mesh();
         void renumbering();
         void find_neighbourhood();
@@ -277,7 +292,17 @@ namespace samurai
         ca_type m_subdomain;
         mesh_t m_cells;
         ca_type m_union;
-        std::vector<lca_type> m_corners;
+        // Static geometry: one level pyramid per diagonal direction (corners),
+        // per cartesian direction (inner boundary layer) and per cartesian
+        // direction and layer (outer boundary layers). A pure function of
+        // m_domain, built once per domain, inherited by the meshes constructed
+        // from a reference mesh and copied to the neighbour meshes. mutable so
+        // that a mesh that received its domain without going through
+        // finalize_mesh (a deserialised neighbour mesh) builds it on first use.
+        mutable bool m_has_boundary_geometry = false;
+        mutable std::vector<ca_type> m_corners;
+        mutable std::vector<ca_type> m_boundary_inner;
+        mutable std::vector<std::vector<ca_type>> m_boundary_outer;
         std::vector<mpi_subdomain_t> m_mpi_neighbourhood;
         coords_t m_gravity_center;
 
@@ -399,6 +424,10 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const ca_type& ca, const self_type& ref_mesh)
         : m_domain(ref_mesh.m_domain)
+        , m_has_boundary_geometry(ref_mesh.m_has_boundary_geometry)
+        , m_corners(ref_mesh.m_corners)
+        , m_boundary_inner(ref_mesh.m_boundary_inner)
+        , m_boundary_outer(ref_mesh.m_boundary_outer)
         , m_mpi_neighbourhood(ref_mesh.m_mpi_neighbourhood)
         , m_config(ref_mesh.m_config)
     {
@@ -431,7 +460,7 @@ namespace samurai
         construct_union();
         update_meshid_neighbour(mesh_id_t::cells);
         update_sub_mesh();
-        construct_corners();
+        construct_boundary_geometry();
         renumbering();
         set_origin_point(origin_point);
         set_scaling_factor(scaling_factor);
@@ -894,6 +923,10 @@ namespace samurai
         swap(m_subdomain, mesh.m_subdomain);
         swap(m_mpi_neighbourhood, mesh.m_mpi_neighbourhood);
         swap(m_union, mesh.m_union);
+        swap(m_has_boundary_geometry, mesh.m_has_boundary_geometry);
+        swap(m_corners, mesh.m_corners);
+        swap(m_boundary_inner, mesh.m_boundary_inner);
+        swap(m_boundary_outer, mesh.m_boundary_outer);
         swap(m_config, mesh.m_config);
     }
 
@@ -925,7 +958,7 @@ namespace samurai
     }
 
     template <class D, class Config>
-    SAMURAI_INLINE void Mesh_base<D, Config>::construct_corners()
+    SAMURAI_INLINE void Mesh_base<D, Config>::construct_corners() const
     {
         static_assert(
             dim <= 6,
@@ -943,6 +976,12 @@ namespace samurai
             // directions (all components ±1) and edge directions in 3D (one zero component).
             m_corners.clear();
             const auto& domain_lca = m_domain[max_level()];
+            // The corner is computed at max_level and stored as a level pyramid,
+            // so that corner(direction, level) is a plain level cell array.
+            auto push_corner = [&](auto&& corner_lca)
+            {
+                m_corners.push_back(make_level_pyramid<ca_type>(corner_lca, max_level()));
+            };
             for_each_diagonal_direction<dim>(
                 [&](const auto& direction)
                 {
@@ -965,47 +1004,47 @@ namespace samurai
                     // TODO: make a ND version
                     if (n == 2)
                     {
-                        m_corners.push_back(
-                            difference(domain_lca, union_(translate(domain_lca, nonzero_shifts[0]), translate(domain_lca, nonzero_shifts[1])))
-                                .to_lca());
+                        push_corner(difference(domain_lca,
+                                               union_(translate(domain_lca, nonzero_shifts[0]), translate(domain_lca, nonzero_shifts[1])))
+                                        .to_lca());
                     }
                     else if (n == 3)
                     {
-                        m_corners.push_back(difference(domain_lca,
-                                                       union_(translate(domain_lca, nonzero_shifts[0]),
-                                                              translate(domain_lca, nonzero_shifts[1]),
-                                                              translate(domain_lca, nonzero_shifts[2])))
-                                                .to_lca());
+                        push_corner(difference(domain_lca,
+                                               union_(translate(domain_lca, nonzero_shifts[0]),
+                                                      translate(domain_lca, nonzero_shifts[1]),
+                                                      translate(domain_lca, nonzero_shifts[2])))
+                                        .to_lca());
                     }
                     else if (n == 4)
                     {
-                        m_corners.push_back(difference(domain_lca,
-                                                       union_(translate(domain_lca, nonzero_shifts[0]),
-                                                              translate(domain_lca, nonzero_shifts[1]),
-                                                              translate(domain_lca, nonzero_shifts[2]),
-                                                              translate(domain_lca, nonzero_shifts[3])))
-                                                .to_lca());
+                        push_corner(difference(domain_lca,
+                                               union_(translate(domain_lca, nonzero_shifts[0]),
+                                                      translate(domain_lca, nonzero_shifts[1]),
+                                                      translate(domain_lca, nonzero_shifts[2]),
+                                                      translate(domain_lca, nonzero_shifts[3])))
+                                        .to_lca());
                     }
                     else if (n == 5)
                     {
-                        m_corners.push_back(difference(domain_lca,
-                                                       union_(translate(domain_lca, nonzero_shifts[0]),
-                                                              translate(domain_lca, nonzero_shifts[1]),
-                                                              translate(domain_lca, nonzero_shifts[2]),
-                                                              translate(domain_lca, nonzero_shifts[3]),
-                                                              translate(domain_lca, nonzero_shifts[4])))
-                                                .to_lca());
+                        push_corner(difference(domain_lca,
+                                               union_(translate(domain_lca, nonzero_shifts[0]),
+                                                      translate(domain_lca, nonzero_shifts[1]),
+                                                      translate(domain_lca, nonzero_shifts[2]),
+                                                      translate(domain_lca, nonzero_shifts[3]),
+                                                      translate(domain_lca, nonzero_shifts[4])))
+                                        .to_lca());
                     }
                     else if (n == 6)
                     {
-                        m_corners.push_back(difference(domain_lca,
-                                                       union_(translate(domain_lca, nonzero_shifts[0]),
-                                                              translate(domain_lca, nonzero_shifts[1]),
-                                                              translate(domain_lca, nonzero_shifts[2]),
-                                                              translate(domain_lca, nonzero_shifts[3]),
-                                                              translate(domain_lca, nonzero_shifts[4]),
-                                                              translate(domain_lca, nonzero_shifts[5])))
-                                                .to_lca());
+                        push_corner(difference(domain_lca,
+                                               union_(translate(domain_lca, nonzero_shifts[0]),
+                                                      translate(domain_lca, nonzero_shifts[1]),
+                                                      translate(domain_lca, nonzero_shifts[2]),
+                                                      translate(domain_lca, nonzero_shifts[3]),
+                                                      translate(domain_lca, nonzero_shifts[4]),
+                                                      translate(domain_lca, nonzero_shifts[5])))
+                                        .to_lca());
                     }
                 });
         }
@@ -1013,6 +1052,12 @@ namespace samurai
 
     template <class D, class Config>
     auto Mesh_base<D, Config>::corner(const DirectionVector<dim>& direction) const -> const lca_type&
+    {
+        return corner(direction, max_level());
+    }
+
+    template <class D, class Config>
+    auto Mesh_base<D, Config>::corner(const DirectionVector<dim>& direction, std::size_t level) const -> const lca_type&
     {
         std::size_t i           = 0;
         std::size_t i_direction = 0;
@@ -1026,7 +1071,91 @@ namespace samurai
                 ++i;
             });
 
-        return m_corners[i_direction];
+        ensure_boundary_geometry();
+        return m_corners[i_direction][level];
+    }
+
+    template <class D, class Config>
+    std::size_t Mesh_base<D, Config>::cartesian_direction_index(const DirectionVector<dim>& direction)
+    {
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            if (direction[d] != 0)
+            {
+                return 2 * d + (direction[d] < 0 ? 1 : 0);
+            }
+        }
+        throw std::invalid_argument("cartesian_direction_index: the zero vector is not a direction");
+    }
+
+    template <class D, class Config>
+    auto Mesh_base<D, Config>::boundary_inner_layer(std::size_t level, const DirectionVector<dim>& direction) const -> const lca_type&
+    {
+        ensure_boundary_geometry();
+        return m_boundary_inner[cartesian_direction_index(direction)][level];
+    }
+
+    template <class D, class Config>
+    auto
+    Mesh_base<D, Config>::boundary_outer_layer(std::size_t level, const DirectionVector<dim>& direction, int layer) const -> const lca_type&
+    {
+        assert(layer >= 1);
+        ensure_boundary_geometry();
+        const auto& layers = m_boundary_outer[cartesian_direction_index(direction)];
+        assert(static_cast<std::size_t>(layer) <= layers.size());
+        return layers[static_cast<std::size_t>(layer - 1)][level];
+    }
+
+    // The corners and the boundary layers depend on the domain only. A mesh built
+    // from a reference mesh inherits them (same domain); only the first mesh of a
+    // domain pays for their construction.
+    template <class D, class Config>
+    SAMURAI_INLINE void Mesh_base<D, Config>::ensure_boundary_geometry() const
+    {
+        if (!m_has_boundary_geometry)
+        {
+            construct_boundary_geometry();
+        }
+    }
+
+    template <class D, class Config>
+    SAMURAI_INLINE void Mesh_base<D, Config>::construct_boundary_geometry() const
+    {
+        if (m_has_boundary_geometry)
+        {
+            return;
+        }
+        ScopedTimer timer("construct_boundary_geometry");
+
+        construct_corners();
+
+        m_boundary_inner.clear();
+        m_boundary_outer.clear();
+        const int n_layers = std::max(ghost_width(), max_stencil_radius());
+        for_each_cartesian_direction<dim>(
+            [&](const auto& direction)
+            {
+                ca_type inner;
+                std::vector<ca_type> outer(static_cast<std::size_t>(n_layers));
+                for (std::size_t level = 0; level <= max_level(); ++level)
+                {
+                    const auto& domain_l = m_domain[level];
+                    if (domain_l.empty())
+                    {
+                        continue;
+                    }
+                    inner[level] = difference(domain_l, translate(domain_l, -direction)).to_lca();
+                    for (int k = 1; k <= n_layers; ++k)
+                    {
+                        outer[static_cast<std::size_t>(k - 1)]
+                             [level] = difference(translate(domain_l, k * direction), translate(domain_l, (k - 1) * direction)).to_lca();
+                    }
+                }
+                m_boundary_inner.push_back(std::move(inner));
+                m_boundary_outer.push_back(std::move(outer));
+            });
+
+        m_has_boundary_geometry = true;
     }
 
 #ifdef SAMURAI_WITH_PETSC
@@ -1117,7 +1246,11 @@ namespace samurai
         for (auto& neighbour : m_mpi_neighbourhood)
         {
             world.recv(neighbour.rank, world.rank(), neighbour.mesh.m_subdomain);
-            neighbour.mesh.m_domain = m_domain;
+            neighbour.mesh.m_domain                = m_domain;
+            neighbour.mesh.m_has_boundary_geometry = m_has_boundary_geometry;
+            neighbour.mesh.m_corners               = m_corners;
+            neighbour.mesh.m_boundary_inner        = m_boundary_inner;
+            neighbour.mesh.m_boundary_outer        = m_boundary_outer;
 #ifdef SAMURAI_WITH_PETSC
             neighbour.mesh.compute_gravity_center();
 #endif

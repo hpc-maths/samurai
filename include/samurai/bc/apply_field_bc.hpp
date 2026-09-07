@@ -63,7 +63,6 @@ namespace samurai
 
         auto& region            = bc.get_region();
         auto& region_directions = region.first;
-        auto& region_lca        = region.second;
         auto stencil_0          = bc.get_stencil(std::integral_constant<std::size_t, stencil_size>());
 
         for (std::size_t d = 0; d < region_directions.size(); ++d)
@@ -91,8 +90,8 @@ namespace samurai
                     auto stencil          = convert_for_direction(stencil_0, direction);
                     auto stencil_analyzer = make_stencil_analyzer(stencil);
 
-                    // Inner cells in the boundary region
-                    auto bdry_cells = intersection(mesh[mesh_id_t::cells][level], region_lca[d]).on(level);
+                    // Inner cells in the boundary region (the region is read at this level)
+                    auto bdry_cells = intersection(mesh[mesh_id_t::cells][level], bc.region_at(d, level));
                     if (level >= mesh.min_level()) // otherwise there is no cells
                     {
                         apply_bc_on_subset(bc, field, bdry_cells, stencil_analyzer, direction);
@@ -219,7 +218,7 @@ namespace samurai
             // the mesh (the corner extrapolation uses it too). Restricted to the cells that exist at
             // this level: on an adapted mesh the corner is not covered at every level, and iterating
             // ghosts that do not exist is an out-of-bounds access.
-            auto corner_cells = intersection(self(mesh.corner(direction)).on(level), mesh[mesh_id_t::cells][level]).on(level);
+            auto corner_cells = intersection(mesh.corner(direction, level), mesh[mesh_id_t::cells][level]);
 
             apply_bc_on_subset(bc, field, corner_cells, stencil_analyzer, direction);
         }
@@ -451,7 +450,7 @@ namespace samurai
 
         int ghost_width        = field.mesh().ghost_width();
         const auto& domain     = detail::get_mesh(field.mesh());
-        const auto& corner_lca = field.mesh().corner(direction);
+        const auto& corner_lca = field.mesh().corner(direction, level);
 
         assert(static_cast<std::size_t>(2 * ghost_width) <= max_stencil_size_PE); // otherwise we don't have the implementation for such a
                                                                                   // large stencil size in polynomial extrapolation
@@ -464,7 +463,7 @@ namespace samurai
                                                     {
                                                         static constexpr int stencil_size = 2 * static_cast<int>(ghost_layer_());
                                                         PolynomialExtrapolation<Field, stencil_size> bc(domain, ConstantBc<Field>(), true);
-                                                        auto corner = self(corner_lca).on(level);
+                                                        auto corner = self(corner_lca);
                                                         apply_extrapolation_bc_cells<stencil_size>(bc, level, field, direction, corner);
                                                     });
         }
@@ -499,7 +498,7 @@ namespace samurai
             return; // No off-diagonal ghosts for Cartesian directions
         }
 
-        auto corner_at_level = self(corner_lca).on(level);
+        auto corner_at_level = self(corner_lca);
 
         // Build unit direction vectors for each non-zero dimension.
         std::array<DirectionVector<Field::dim>, Field::dim> e_dirs;
@@ -540,7 +539,7 @@ namespace samurai
         // fine to coarse (see project_corner_below() in algorithm/update.hpp, called right
         // after this function in update_outer_ghosts()).
         using mesh_id_t   = typename Field::mesh_t::mesh_id_t;
-        auto corner_cells = intersection(corner_at_level, field.mesh()[mesh_id_t::cells][level]).on(level);
+        auto corner_cells = intersection(corner_at_level, field.mesh()[mesh_id_t::cells][level]);
 
         for (int k = 1; k <= ghost_width; ++k)
         {
@@ -667,8 +666,7 @@ namespace samurai
                     auto& domain = detail::get_mesh(field.mesh());
                     PolynomialExtrapolation<Field, stencil_size> bc(domain, ConstantBc<Field>(), true);
 
-                    auto domain2         = self(field.mesh().domain()).on(level);
-                    auto boundary_ghosts = difference(domain2, translate(domain2, -direction));
+                    auto boundary_ghosts = self(field.mesh().boundary_inner_layer(level, direction));
                     apply_extrapolation_bc_ghosts<stencil_size>(bc, level, field, direction, boundary_ghosts);
                 });
         }

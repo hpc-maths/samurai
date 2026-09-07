@@ -3,13 +3,17 @@
 
 #pragma once
 
+#include <algorithm>
 #include <functional>
+#include <iterator>
 #include <memory>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "../cell.hpp"
+#include "../cell_array.hpp"
+#include "../level_pyramid.hpp"
 #include "../samurai_config.hpp"
 #include "../static_algorithm.hpp"
 #include "../stencil.hpp"
@@ -635,6 +639,9 @@ namespace samurai
         auto on(const Regions&... regions);
 
         const region_t& get_region() const;
+        // The d-th region of get_region() at the given level: the cells of
+        // self(get_region().second[d]).on(level), materialised once.
+        const lca_t& region_at(std::size_t d, std::size_t level) const;
 
         value_t constant_value();
         value_t value(const direction_t& d, const cell_t& cell_in, const coords_t& coords) const;
@@ -642,9 +649,14 @@ namespace samurai
 
       private:
 
+        using region_pyramid_t = CellArray<dim, interval_t>;
+
+        void build_region_pyramids();
+
         bcvalue_impl p_bcvalue;
         const lca_t& m_domain; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
         region_t m_region;
+        std::vector<region_pyramid_t> m_region_pyramids;
     };
 
     ///////////////////
@@ -656,6 +668,7 @@ namespace samurai
         , m_domain(domain)
         , m_region(bcr.get_region(domain))
     {
+        build_region_pyramids();
     }
 
     template <class Field>
@@ -664,6 +677,7 @@ namespace samurai
         , m_domain(domain)
         , m_region(Everywhere<dim, interval_t>().get_region(domain))
     {
+        build_region_pyramids();
     }
 
     template <class Field>
@@ -678,6 +692,7 @@ namespace samurai
         : p_bcvalue(bc.p_bcvalue->clone())
         , m_domain(bc.m_domain)
         , m_region(bc.m_region)
+        , m_region_pyramids(bc.m_region_pyramids)
     {
     }
 
@@ -690,8 +705,9 @@ namespace samurai
         }
         bcvalue_impl bcvalue = bc.p_bcvalue->clone();
         std::swap(p_bcvalue, bcvalue);
-        m_domain = bc.m_domain;
-        m_region = bc.m_region;
+        m_domain          = bc.m_domain;
+        m_region          = bc.m_region;
+        m_region_pyramids = bc.m_region_pyramids;
         return *this;
     }
 
@@ -707,6 +723,7 @@ namespace samurai
         {
             m_region = make_bc_region<dim, interval_t>(region).get_region(m_domain);
         }
+        build_region_pyramids();
         return this;
     }
 
@@ -715,6 +732,7 @@ namespace samurai
     SAMURAI_INLINE auto Bc<Field>::on(const Regions&... regions)
     {
         m_region = make_bc_region<dim, interval_t>(regions...).get_region(m_domain);
+        build_region_pyramids();
         return this;
     }
 
@@ -722,6 +740,29 @@ namespace samurai
     SAMURAI_INLINE auto Bc<Field>::get_region() const -> const region_t&
     {
         return m_region;
+    }
+
+    template <class Field>
+    SAMURAI_INLINE auto Bc<Field>::region_at(std::size_t d, std::size_t level) const -> const lca_t&
+    {
+        return m_region_pyramids[d][level];
+    }
+
+    // The regions are given at the level of the domain. The boundary condition is
+    // applied at every level, so each region is materialised once at every level
+    // instead of being coarsened on the fly by every traversal.
+    template <class Field>
+    SAMURAI_INLINE void Bc<Field>::build_region_pyramids()
+    {
+        m_region_pyramids.clear();
+        m_region_pyramids.reserve(m_region.second.size());
+        std::transform(m_region.second.cbegin(),
+                       m_region.second.cend(),
+                       std::back_inserter(m_region_pyramids),
+                       [this](const lca_t& lca)
+                       {
+                           return make_level_pyramid<region_pyramid_t>(lca, m_domain.level());
+                       });
     }
 
     template <class Field>

@@ -5,6 +5,7 @@
 
 #include "../algorithm.hpp"
 #include "../bc/apply_field_bc.hpp"
+#include "../numeric/prediction.hpp"
 
 #ifndef NDEBUG
 #include "../io/hdf5.hpp"
@@ -26,15 +27,17 @@ namespace samurai
 
         assert(layer > 0 && layer <= mesh.max_stencil_radius());
 
-        auto domain = self(mesh.domain()).on(proj_level);
-
-        auto& inner = mesh.get_union()[proj_level];
+        const auto& inner = mesh.get_union()[proj_level];
         // auto inner = self(mesh[mesh_id_t::cells][proj_level + 1]).on(proj_level);
 
-        // We want only 1 layer (the further one),
-        // so we remove all closer layers by making the difference with the domain translated by (layer - 1) * direction
-        auto outside_layer     = difference(translate(inner, layer * direction), translate(domain, (layer - 1) * direction));
-        auto projection_ghosts = intersection(outside_layer, mesh[mesh_id_t::reference][proj_level]).on(proj_level);
+        // We want only 1 layer (the further one). inner lies inside the domain, so
+        // "inner translated by layer, minus the domain translated by layer - 1" is
+        // "inner translated by layer, inside the layer-th outer boundary layer of the
+        // domain". That layer is precomputed and thin: the traversal visits its rows
+        // only, instead of every row of inner.
+        auto projection_ghosts = intersection(translate(inner, layer * direction),
+                                              mesh.boundary_outer_layer(proj_level, direction, layer),
+                                              mesh[mesh_id_t::reference][proj_level]);
 
         if (mesh.domain().is_box())
         {
@@ -204,19 +207,27 @@ namespace samurai
             n_bc_ghosts = field.get_bc().front()->stencil_size() / 2;
         }
 
-        // auto& cells = mesh[mesh_id_t::cells][pred_level - 1];
-        //  auto cells                     = domain_boundary(mesh, pred_level - 1, direction);
-        // auto bc_ghosts = difference(translate(cells, n_bc_ghosts * direction), self(mesh.domain()).on(pred_level - 1));
-        auto bc_ghosts = domain_boundary_outer_layer(mesh, pred_level - 1, direction, n_bc_ghosts);
-
-        auto outside_prediction_ghosts = intersection(bc_ghosts, mesh[mesh_id_t::reference][pred_level]).on(pred_level);
-
         if (mesh.domain().is_box())
         {
-            predict_bc(outside_prediction_ghosts, pred_level, direction, field);
+            // The B.C. ghosts at pred_level - 1 are the n_bc_ghosts layers outside the
+            // boundary cells. On a box the layers are disjoint, so they are predicted
+            // one by one, straight from the set expressions: no level cell array is
+            // materialised and the traversal stays on the rows of the boundary layer.
+            const auto& domain  = mesh.domain(pred_level - 1);
+            auto inner_boundary = domain_boundary(mesh, pred_level - 1, direction);
+            for (int layer = 1; layer <= n_bc_ghosts; ++layer)
+            {
+                auto bc_ghosts                 = difference(translate(inner_boundary, layer * direction), domain);
+                auto outside_prediction_ghosts = intersection(bc_ghosts, mesh[mesh_id_t::reference][pred_level]).on(pred_level);
+                predict_bc(outside_prediction_ghosts, pred_level, direction, field);
+            }
         }
         else
         {
+            auto bc_ghosts = domain_boundary_outer_layer(mesh, pred_level - 1, direction, n_bc_ghosts);
+
+            auto outside_prediction_ghosts = intersection(bc_ghosts, mesh[mesh_id_t::reference][pred_level]).on(pred_level);
+
             // We don't want to fill by prediction the ghosts that have been/will be filled by the B.C. in other directions.
             // This can happen when there is a hole in the domain.
 
@@ -227,37 +238,42 @@ namespace samurai
         }
     }
 
+    // Order-0 prediction of the B.C. ghosts: each fine ghost takes the value of its
+    // parent. Done per interval with the order-0 prediction kernel (two cell
+    // lookups per interval) instead of two lookups per cell.
     template <class Subset, class Field>
     void
     predict_bc(Subset& prediction_ghosts, std::size_t pred_level, [[maybe_unused]] const DirectionVector<Field::dim>& direction, Field& field)
     {
         using interval_t = typename Field::mesh_t::interval_t;
 
+        static constexpr std::size_t dim = Field::dim;
+
         prediction_ghosts(
             [&](const auto& i, const auto& index)
             {
-                interval_t i_cell = {i.start, i.start + 1};
-                for (auto ii = i.start; ii < i.end; ++ii, i_cell += 1)
-                {
 #ifdef SAMURAI_CHECK_NAN
-                    if (xt::any(xt::isnan(field(pred_level - 1, i_cell >> 1, index >> 1))))
-                    {
-                        std::cerr << std::endl;
+                const interval_t i_coarse = {i.start >> 1, ((i.end - 1) >> 1) + 1};
+                if (xt::any(xt::isnan(field(pred_level - 1, i_coarse, index >> 1))))
+                {
+                    std::cerr << std::endl;
 #ifdef SAMURAI_WITH_MPI
-                        mpi::communicator world;
-                        std::cerr << "[" << world.rank() << "] ";
+                    mpi::communicator world;
+                    std::cerr << "[" << world.rank() << "] ";
 #endif
-                        std::cerr << "NaN found in field(" << (pred_level - 1) << "," << (i_cell >> 1) << "," << (index >> 1)
-                                  << ") during prediction of the B.C. into the cell at (" << pred_level << ", " << ii << ", " << index
-                                  << ") " << std::endl;
+                    std::cerr << "NaN found in field(" << (pred_level - 1) << "," << i_coarse << "," << (index >> 1)
+                              << ") during prediction of the B.C. into the cells at (" << pred_level << ", " << i << ", " << index << ") "
+                              << std::endl;
 #ifndef NDEBUG
-                        samurai::save(fs::current_path(), "update_ghosts", {true, true}, field.mesh(), field);
+                    samurai::save(fs::current_path(), "update_ghosts", {true, true}, field.mesh(), field);
 #endif
-                        std::exit(1);
-                    }
-#endif
-                    field(pred_level, i_cell, index) = field(pred_level - 1, i_cell >> 1, index >> 1);
+                    std::exit(1);
                 }
+#endif
+                prediction_op<dim, interval_t>(
+                    pred_level,
+                    i,
+                    index)(Dim<dim>{}, field, field, std::integral_constant<std::size_t, 0>{}, std::integral_constant<bool, false>{});
             });
     }
 
@@ -288,7 +304,7 @@ namespace samurai
             // from level+1, which has already been done since the levels are processed from fine
             // to coarse). This cascade fills the corner ghosts at every level below the corner
             // cells, even when max_level - min_level > 2.
-            auto fine_inner_corner = self(mesh.corner(direction)).on(level);
+            auto fine_inner_corner = self(mesh.corner(direction, level));
             auto fine_outer_corner = intersection(translate(fine_inner_corner, direction), mesh[mesh_id_t::reference][level]);
             auto projection_ghost  = intersection(fine_outer_corner.on(proj_level), mesh[mesh_id_t::reference][proj_level]);
 
@@ -365,6 +381,7 @@ namespace samurai
                         }
                         if (!any_periodic)
                         {
+                            SAMURAI_MEASURE_PHASE("B.C. corners");
                             update_outer_corners_by_polynomial_extrapolation(level, direction, field);
                             // A boundary condition that owns the diagonal directions overwrites the
                             // extrapolation just applied (no FV condition does; an LBM reflection with
@@ -399,6 +416,7 @@ namespace samurai
                             n_bc_ghosts = static_cast<int>(field.get_bc().front()->stencil_size()) / 2;
                         }
                         int max_coarse_layer = n_bc_ghosts % 2 == 0 ? n_bc_ghosts / 2 : (n_bc_ghosts + 1) / 2;
+                        SAMURAI_MEASURE_PHASE("B.C. project_bc");
                         for (int layer = 1; layer <= max_coarse_layer; ++layer)
                         {
                             project_bc(level, direction, layer, field); // project from level+1 to level
@@ -406,11 +424,13 @@ namespace samurai
                     }
                     if (level >= mesh.min_level())
                     {
+                        SAMURAI_MEASURE_PHASE("B.C. apply_field_bc");
                         // Apply the B.C. at the same level as the cells
                         apply_field_bc(level, direction, field);
                     }
                     if (level < mesh.max_level() && level >= mesh.min_level())
                     {
+                        SAMURAI_MEASURE_PHASE("B.C. predict_bc");
                         // Predict the B.C. to level+1 (prediction of order 0, which is the same as a projection)
                         predict_bc(level + 1, direction, field);
                     }
@@ -430,6 +450,7 @@ namespace samurai
                 {
                     if (!mesh.is_periodic(direction_index))
                     {
+                        SAMURAI_MEASURE_PHASE("B.C. further ghosts (P.E.)");
                         update_further_ghosts_by_polynomial_extrapolation(level, direction, field);
                     }
                 });
