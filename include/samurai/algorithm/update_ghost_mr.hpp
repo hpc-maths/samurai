@@ -204,8 +204,14 @@ namespace samurai::detail
         for (std::size_t level = max_level + 1; level-- > min_level;)
         {
             exchange_subdomains_merged(level, field, other_fields...);
-            update_ghost_periodic(level, field, other_fields...);
-            update_outer_ghosts(level, field, other_fields...);
+            {
+                SAMURAI_MEASURE_PHASE("periodic ghosts");
+                update_ghost_periodic(level, field, other_fields...);
+            }
+            {
+                SAMURAI_MEASURE_PHASE("outer ghosts (B.C.)");
+                update_outer_ghosts(level, field, other_fields...);
+            }
             // Second subdomain sync, required for decomposition independence:
             // update_outer_ghosts recomputes the outer/B.C. ghosts locally, but
             // for non-stripe partitions the owner-computed outer values (see
@@ -216,6 +222,7 @@ namespace samurai::detail
 
             if (level > min_level)
             {
+                SAMURAI_MEASURE_PHASE("projection ghosts");
                 auto set_at_levelm1 = intersection(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::proj_cells][level - 1]).on(level - 1);
                 set_at_levelm1.apply_op(variadic_projection(field, other_fields...));
             }
@@ -227,7 +234,10 @@ namespace samurai::detail
                                           union_(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::proj_cells][level]));
             auto expr        = intersection(pred_ghosts, mesh.subdomain(level), mesh[mesh_id_t::all_cells][level - 1]).on(level);
 
-            expr.apply_op(variadic_prediction<pred_order, false>(field, other_fields...));
+            {
+                SAMURAI_MEASURE_PHASE("prediction ghosts");
+                expr.apply_op(variadic_prediction<pred_order, false>(field, other_fields...));
+            }
             exchange_subdomains_merged(level, field, other_fields...);
             update_ghost_periodic(level, field, other_fields...);
         }

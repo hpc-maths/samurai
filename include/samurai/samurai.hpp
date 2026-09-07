@@ -13,6 +13,9 @@ namespace mpi = boost::mpi;
 
 #include "arguments.hpp"
 #include "timers.hpp"
+#ifdef SAMURAI_MEASURE_SET_ALGEBRA
+#include "subset/apply.hpp"
+#endif
 #include "version.hpp"
 #include <cstdlib>
 #include <thread>
@@ -104,6 +107,18 @@ namespace samurai
             times::timers.stop("total runtime");
             std::cout << std::endl;
             times::timers.print();
+#ifdef SAMURAI_MEASURE_SET_ALGEBRA
+            const auto& c = detail::set_algebra_counters();
+            std::cout << "\nset algebra counters (run totals): applies " << c.applies << ", rows " << c.rows << ", intervals " << c.intervals
+                      << ", cells " << c.cells << ", row blocks " << c.blocks << ", empty row segments " << c.empty_segments << std::endl;
+            std::cout << "set algebra counters by phase:" << std::endl;
+            for (const auto& [phase, pc] : detail::set_algebra_phase_counters())
+            {
+                std::cout << "  " << phase << ": applies " << pc.applies << ", rows " << pc.rows << ", intervals " << pc.intervals
+                          << ", cells " << pc.cells << ", row blocks " << pc.blocks << ", empty row segments " << pc.empty_segments
+                          << std::endl;
+            }
+#endif
         }
 #if defined(SAMURAI_WITH_PETSC)
         PetscFinalize();
