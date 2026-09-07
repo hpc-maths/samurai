@@ -247,6 +247,7 @@ OPTION(BUILD_TESTS "samurai test suite" OFF)
 OPTION(SPLIT_TESTS "samurai split each test and create an executable for each" OFF)
 OPTION(WITH_STATS "samurai mesh stats" OFF)
 option(SAMURAI_CHECK_NAN "Check NaN in computations" OFF)
+option(SAMURAI_MEASURE_SET_ALGEBRA "Measure the set algebra cost: every apply() runs twice when timers are on (measurement builds only)" OFF)
 
 if(WITH_STATS)
   find_package(nlohmann_json REQUIRED)
@@ -256,6 +257,10 @@ endif()
 
 if(SAMURAI_CHECK_NAN)
   target_compile_definitions(samurai INTERFACE SAMURAI_CHECK_NAN)
+endif()
+
+if(SAMURAI_MEASURE_SET_ALGEBRA)
+  target_compile_definitions(samurai INTERFACE SAMURAI_MEASURE_SET_ALGEBRA)
 endif()
 
 if(SAMURAI_ENABLE_INLINE)

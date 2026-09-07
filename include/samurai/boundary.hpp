@@ -14,22 +14,41 @@ namespace samurai
         return difference(cells, translate(self(domain).on(level), -layer_width * direction));
     }
 
+    // The domain and the subdomain are stored at every level (domain(level),
+    // subdomain(level)): reading them there avoids coarsening the finest one on
+    // the fly, which costs 2^(max_level - level) fine rows per coarse row.
     template <class Mesh, class Vector>
     SAMURAI_INLINE auto domain_boundary_layer(const Mesh& mesh, std::size_t level, const Vector& direction, std::size_t layer_width)
     {
-        return boundary_layer(mesh, mesh.domain(), level, direction, layer_width);
+        using mesh_id_t = typename Mesh::mesh_id_t;
+
+        const auto& cells = mesh[mesh_id_t::cells][level];
+
+        return difference(cells, translate(mesh.domain(level), -layer_width * direction));
     }
 
     template <class Mesh, class Vector>
     SAMURAI_INLINE auto subdomain_boundary_layer(const Mesh& mesh, std::size_t level, const Vector& direction, std::size_t layer_width)
     {
-        return boundary_layer(mesh, mesh.subdomain(), level, direction, layer_width);
+        using mesh_id_t = typename Mesh::mesh_id_t;
+
+        const auto& cells = mesh[mesh_id_t::cells][level];
+
+        return difference(cells, translate(mesh.subdomain(level), -layer_width * direction));
     }
 
+    // The boundary cells in one direction are the cells lying in the (precomputed,
+    // one cell thick) inner boundary layer of the domain. Written as an
+    // intersection, the traversal only visits the rows of that layer, whereas
+    // difference(cells, translate(domain, -direction)) visits every row of cells.
     template <class Mesh, class Vector>
     SAMURAI_INLINE auto domain_boundary(const Mesh& mesh, std::size_t level, const Vector& direction)
     {
-        return domain_boundary_layer(mesh, level, direction, 1);
+        using mesh_id_t = typename Mesh::mesh_id_t;
+
+        const auto& cells = mesh[mesh_id_t::cells][level];
+
+        return intersection(cells, mesh.boundary_inner_layer(level, direction));
     }
 
     template <class Mesh, class Vector>

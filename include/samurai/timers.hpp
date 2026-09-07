@@ -28,6 +28,43 @@
 #include <chrono>
 #endif
 
+// Measurement builds only (-DSAMURAI_MEASURE_SET_ALGEBRA=ON): a scoped timer
+// that splits a hot function into phases. Expands to nothing otherwise.
+#ifdef SAMURAI_MEASURE_SET_ALGEBRA
+namespace samurai::measure
+{
+    // Name of the innermost SAMURAI_MEASURE_PHASE scope, for the per-phase set
+    // algebra counters (subset/apply.hpp).
+    inline const char*& current_phase()
+    {
+        static thread_local const char* phase = "(no phase)";
+        return phase;
+    }
+
+    struct PhaseScope
+    {
+        explicit PhaseScope(const char* name)
+            : m_previous(current_phase())
+        {
+            current_phase() = name;
+        }
+
+        ~PhaseScope()
+        {
+            current_phase() = m_previous;
+        }
+
+        const char* m_previous;
+    };
+}
+
+#define SAMURAI_MEASURE_PHASE(name)                                      \
+    ::samurai::ScopedTimer samurai_measure_phase_timer_##__LINE__(name); \
+    ::samurai::measure::PhaseScope samurai_measure_phase_scope_##__LINE__(name)
+#else
+#define SAMURAI_MEASURE_PHASE(name)
+#endif
+
 namespace samurai
 {
     // =========================================================================
