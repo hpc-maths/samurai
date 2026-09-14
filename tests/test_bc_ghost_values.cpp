@@ -1076,6 +1076,30 @@ namespace samurai
         run_corners<3>(2);
     }
 
+    // Past 3 layers the extrapolation stencil stops growing: it has reached
+    // max_stencil_size_implemented_PE (6) and slides outward instead, resting on
+    // the diagonal ghosts the shallower layers have already filled. Layers 4 and
+    // 5 are the two the sliding covers.
+    TEST(bc_ghost_values, corners_2d_ghost_width_3)
+    {
+        run_corners<2>(3);
+    }
+
+    TEST(bc_ghost_values, corners_2d_ghost_width_4)
+    {
+        run_corners<2>(4);
+    }
+
+    TEST(bc_ghost_values, corners_2d_ghost_width_5)
+    {
+        run_corners<2>(5);
+    }
+
+    TEST(bc_ghost_values, corners_3d_ghost_width_4)
+    {
+        run_corners<3>(4);
+    }
+
     // Copy invariant, independent of the reflection oracle: within a corner
     // block, all ghosts that share the same outward-sign pattern and the same
     // offset along the first outside axis hold the same value (the off-diagonal
@@ -1254,6 +1278,56 @@ namespace samurai
     {
         auto mesh = uniform_mesh<3>(4, 3);
         run_further<3, 1, true>(mesh, 3);
+    }
+
+    // Ghost widths beyond the 3 layers that a growing stencil reaches. The
+    // stencil stays at its largest implemented size (6) and slides outward, so
+    // layers 4 and 5 are filled too, and still exactly. Before the sliding they
+    // were silently left untouched.
+    TEST(bc_ghost_values, further_ghosts_dirichlet1_uniform_2d_ghost_width_4)
+    {
+        auto mesh = uniform_mesh<2>(4, 4);
+        run_further<2, 1, false>(mesh, 4);
+    }
+
+    TEST(bc_ghost_values, further_ghosts_dirichlet1_uniform_2d_ghost_width_5)
+    {
+        auto mesh = uniform_mesh<2>(4, 5);
+        run_further<2, 1, false>(mesh, 5);
+    }
+
+    TEST(bc_ghost_values, further_ghosts_dirichlet1_uniform_3d_ghost_width_4)
+    {
+        auto mesh = uniform_mesh<3>(4, 4);
+        run_further<3, 1, false>(mesh, 4);
+    }
+
+    TEST(bc_ghost_values, further_ghosts_dirichlet1_adapted_2d_ghost_width_4)
+    {
+        auto mesh = adapted_mesh<2>(4);
+        run_further<2, 1, false>(mesh, 4);
+    }
+
+    // The slid stencil keeps the degree it had at layer 3, so a cubic field is
+    // still reproduced exactly on the layer it fills.
+    TEST(bc_ghost_values, further_ghosts_dirichlet3_uniform_2d_ghost_width_4)
+    {
+        auto mesh = uniform_mesh<2>(4, 4);
+        run_further<2, 3, false>(mesh, 4);
+    }
+
+    // One layer further and the stencil would no longer reach the boundary cell.
+    // The extrapolation says so, rather than leaving that layer unfilled.
+    TEST(bc_ghost_values, further_ghosts_ghost_width_above_the_limit_throws)
+    {
+        auto mesh = uniform_mesh<2>(4, 6);
+        ASSERT_EQ(mesh.ghost_width(), 6);
+
+        auto u = make_scalar_field<double>("u", mesh);
+        u.fill(0.);
+        make_bc<Dirichlet<1>>(u, 0.);
+
+        EXPECT_THROW(update_further_ghosts_by_polynomial_extrapolation(u), std::runtime_error);
     }
 
     //-------------------------------------------------------------------------
