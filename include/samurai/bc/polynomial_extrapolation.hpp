@@ -13,6 +13,16 @@ namespace samurai
 
         static constexpr std::size_t max_stencil_size_implemented_PE = 6;
 
+        /**
+         * Deepest outer ghost layer the extrapolation reaches, over all the implemented
+         * stencil sizes. The stencil ends on the ghost it fills, so it grows with the layer
+         * until it hits @c max_stencil_size_implemented_PE and then slides outward at
+         * constant size, resting on the ghosts the shallower layers have filled. Sliding
+         * keeps making sense only while the stencil still covers the boundary cell, which
+         * holds up to the layer @c max_stencil_size_implemented_PE - 1.
+         */
+        static constexpr std::size_t max_ghost_layers_implemented_PE = max_stencil_size_implemented_PE - 1;
+
         static_assert(stencil_size_ % 2 == 0, "stencil_size must be even.");
         static_assert(stencil_size_ >= 2 && stencil_size_ <= max_stencil_size_implemented_PE);
 
