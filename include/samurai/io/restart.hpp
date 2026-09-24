@@ -108,6 +108,7 @@ namespace samurai
             // HighFive v3 does not support xfixed_container so we have to dump from an xtensor_container first
             H5Easy::dump(file, "/mesh/origin_point", xt::xtensor<double, 1>{lca.origin_point()});
             H5Easy::dump(file, "/mesh/scaling_factor", lca.scaling_factor());
+            H5Easy::dump(file, "/mesh/is_box", lca.is_box());
         }
 
         for (std::size_t d = 0; d < dim; ++d)
@@ -184,6 +185,8 @@ namespace samurai
         dump(file, mesh[mesh_id_t::cells]);
         H5Easy::dump(file, "/mesh/min_level", mesh.min_level(), H5Easy::DumpMode::Overwrite);
         H5Easy::dump(file, "/mesh/max_level", mesh.max_level(), H5Easy::DumpMode::Overwrite);
+        // The domain is rebuilt from the cells on load, which cannot tell whether it is a box.
+        H5Easy::dump(file, "/mesh/is_box", mesh.domain().is_box());
         dump_fields(file, mesh[mesh_id_t::cells], fields...);
     }
 
@@ -254,6 +257,12 @@ namespace samurai
         return output;
     }
 
+    // Files written before "/mesh/is_box" existed are read as non-box domains.
+    inline bool load_is_box(const HighFive::File& file)
+    {
+        return file.exist("/mesh/is_box") && H5Easy::load<bool>(file, "/mesh/is_box");
+    }
+
     template <std::size_t dim_, class interval_t>
     void load(const HighFive::File& file, LevelCellArray<dim_, interval_t>& lca)
     {
@@ -283,6 +292,10 @@ namespace samurai
 
         lca.set_origin_point(origin_point);
         lca.set_scaling_factor(scaling_factor);
+        if (load_is_box(file))
+        {
+            lca.box_like();
+        }
 
         if (!file.exist(fmt::format("/mesh/level/{}", min_level)))
         {
@@ -448,6 +461,10 @@ namespace samurai
         auto mesh_cfg = mesh.cfg();
         mesh_cfg.min_level(min_level).max_level(max_level).disable_args_parse();
         Mesh new_mesh{ca, mesh_cfg};
+        if (load_is_box(file))
+        {
+            new_mesh.box_like();
+        }
         std::swap(mesh, new_mesh);
         load_fields(file, mesh, fields...);
     }

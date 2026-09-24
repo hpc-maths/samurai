@@ -30,6 +30,7 @@ namespace samurai
             dump("mesh", mesh);
             load("mesh", mesh2);
             EXPECT_TRUE(mesh == mesh2);
+            EXPECT_TRUE(mesh2.is_box());
         }
         {
             auto mesh = LevelCellArray<2>(4, Box<double, 2>({0, 0}, {1, 1}));
@@ -37,6 +38,7 @@ namespace samurai
             dump("mesh", mesh);
             load("mesh", mesh2);
             EXPECT_TRUE(mesh == mesh2);
+            EXPECT_TRUE(mesh2.is_box());
         }
         {
             auto mesh = LevelCellArray<3>(4, Box<double, 3>({0, 0, 0}, {1, 1, 1}));
@@ -44,6 +46,7 @@ namespace samurai
             dump("mesh", mesh);
             load("mesh", mesh2);
             EXPECT_TRUE(mesh == mesh2);
+            EXPECT_TRUE(mesh2.is_box());
         }
     }
 
@@ -101,6 +104,47 @@ namespace samurai
         dump("mesh", mesh);
         load("mesh", mesh2);
         EXPECT_TRUE(mesh == mesh2);
+    }
+
+    TEST(restart, restart_box_domain)
+    {
+        auto mesh = create_mesh<2>(1);
+        ASSERT_TRUE(mesh.domain().is_box());
+        dump("mesh", mesh);
+
+        decltype(mesh) mesh2;
+        load("mesh", mesh2);
+        EXPECT_TRUE(mesh2.domain().is_box());
+    }
+
+    TEST(restart, restart_non_box_domain)
+    {
+        CellList<2> cl;
+        cl[3][{0}].add_interval({0, 8});
+        cl[3][{1}].add_interval({0, 4});
+        auto mesh_cfg = mesh_config<2>().min_level(3).max_level(3).disable_minimal_ghost_width();
+        auto mesh     = mra::make_mesh(cl, mesh_cfg);
+        ASSERT_FALSE(mesh.domain().is_box());
+        dump("mesh", mesh);
+
+        decltype(mesh) mesh2;
+        load("mesh", mesh2);
+        EXPECT_FALSE(mesh2.domain().is_box());
+    }
+
+    TEST(restart, restart_file_without_is_box)
+    {
+        auto mesh = create_mesh<2>(1);
+        dump("mesh", mesh);
+        {
+            HighFive::File file("mesh.h5", HighFive::File::ReadWrite);
+            file.unlink("/mesh/is_box");
+        }
+
+        decltype(mesh) mesh2;
+        load("mesh", mesh2);
+        EXPECT_TRUE(mesh == mesh2);
+        EXPECT_FALSE(mesh2.domain().is_box());
     }
 
     TEST(restart, restart_field)
