@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <samurai/amr/mesh.hpp>
 #include <samurai/box.hpp>
 #include <samurai/field.hpp>
 #include <samurai/io/restart.hpp>
@@ -145,6 +146,69 @@ namespace samurai
         load("mesh", mesh2);
         EXPECT_TRUE(mesh == mesh2);
         EXPECT_FALSE(mesh2.domain().is_box());
+    }
+
+    struct mra_factory
+    {
+        static auto make_mesh(const auto& box, const auto& config)
+        {
+            return mra::make_mesh(box, config);
+        }
+
+        static auto make_empty_mesh(const auto& config)
+        {
+            return mra::make_empty_mesh(config);
+        }
+    };
+
+    struct amr_factory
+    {
+        static auto make_mesh(const auto& box, const auto& config)
+        {
+            return amr::make_mesh(box, config);
+        }
+
+        static auto make_empty_mesh(const auto& config)
+        {
+            return amr::make_empty_mesh(config);
+        }
+    };
+
+    template <class Factory>
+    class restart_empty_mesh : public ::testing::Test
+    {
+    };
+
+    using restart_empty_mesh_types = ::testing::Types<mra_factory, amr_factory>;
+
+    TYPED_TEST_SUITE(restart_empty_mesh, restart_empty_mesh_types, );
+
+    // load() rebuilds the mesh from the configuration of the mesh it fills, so an
+    // empty mesh must carry the configuration it was created from.
+    TYPED_TEST(restart_empty_mesh, keeps_config)
+    {
+        using Factory = TypeParam;
+
+        auto config = mesh_config<2>().min_level(2).max_level(5).start_level(5).periodic(true).max_stencil_size(6);
+        auto mesh   = Factory::make_mesh(Box<double, 2>({0, 0}, {1, 1}), config);
+        auto u      = make_scalar_field<double>("u", mesh);
+        u.fill(1.);
+        dump("mesh_empty", mesh, u);
+
+        auto mesh2 = Factory::make_empty_mesh(config);
+        EXPECT_TRUE(mesh2.is_periodic());
+        EXPECT_EQ(mesh2.max_stencil_radius(), 3);
+        EXPECT_EQ(mesh2.ghost_width(), mesh.ghost_width());
+
+        auto u2 = make_scalar_field<double>("u", mesh2);
+        load("mesh_empty", mesh2, u2);
+
+        using mesh_id_t = typename decltype(mesh)::mesh_id_t;
+        EXPECT_TRUE(mesh2.is_periodic());
+        EXPECT_EQ(mesh2.max_stencil_radius(), 3);
+        EXPECT_TRUE(mesh == mesh2);
+        EXPECT_TRUE(mesh[mesh_id_t::reference] == mesh2[mesh_id_t::reference]);
+        EXPECT_TRUE(u == u2);
     }
 
     TEST(restart, restart_field)
