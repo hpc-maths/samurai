@@ -228,6 +228,7 @@ namespace samurai
         using derived_type = D;
 
         Mesh_base() = default; // cppcheck-suppress uninitMemberVar
+        explicit Mesh_base(const config_t& config);
         Mesh_base(const ca_type& ca, const self_type& ref_mesh);
         Mesh_base(const cl_type& cl, const self_type& ref_mesh);
         Mesh_base(const cl_type& cl, const config_t& config);
@@ -322,6 +323,12 @@ namespace samurai
     SAMURAI_INLINE auto Mesh_base<D, Config>::derived_cast() && noexcept -> derived_type
     {
         return *static_cast<derived_type*>(this);
+    }
+
+    template <class D, class Config>
+    SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const config_t& config)
+        : m_config(config)
+    {
     }
 
     template <class D, class Config>

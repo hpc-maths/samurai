@@ -37,6 +37,18 @@ namespace samurai
         using type = amr::AMR_Id;
     };
 
+    namespace detail
+    {
+        // Configuration held by every mesh the samurai::amr factories build.
+        template <class mesh_config_t>
+        auto amr_mesh_config(const mesh_config_t& cfg)
+        {
+            auto mesh_cfg = cfg;
+            mesh_cfg.parse_args();
+            return mesh_cfg;
+        }
+    }
+
     namespace amr
     {
 
@@ -86,6 +98,7 @@ namespace samurai
             using lca_type = typename base_type::lca_type;
 
             Mesh() = default;
+            explicit Mesh(const config_t& config);
             Mesh(const ca_type& ca, const self_type& ref_mesh);
             Mesh(const cl_type& cl, const self_type& ref_mesh);
             Mesh(const cl_type& cl, const config_t& config);
@@ -104,6 +117,12 @@ namespace samurai
         /////////////////////////////
         // AMR mesh implementation //
         /////////////////////////////
+
+        template <class Config>
+        SAMURAI_INLINE Mesh<Config>::Mesh(const config_t& config)
+            : base_type(config)
+        {
+        }
 
         template <class Config>
         SAMURAI_INLINE Mesh<Config>::Mesh(const ca_type& ca, const self_type& ref_mesh)
@@ -269,37 +288,30 @@ namespace samurai
             }
         }
 
+        // Create a mesh without cells that holds the configuration, to be filled later
+        // by assignment or by samurai::load.
         template <class mesh_config_t>
-        auto make_empty_mesh(const mesh_config_t&)
+        auto make_empty_mesh(const mesh_config_t& cfg)
         {
-            return Mesh<mesh_config_t>();
+            return Mesh<mesh_config_t>(detail::amr_mesh_config(cfg));
         }
 
         template <class mesh_config_t>
         auto make_mesh(const typename Mesh<mesh_config_t>::cl_type& cl, const mesh_config_t& cfg)
         {
-            auto mesh_cfg = cfg;
-            mesh_cfg.parse_args();
-
-            return Mesh<mesh_config_t>(cl, mesh_cfg);
+            return Mesh<mesh_config_t>(cl, detail::amr_mesh_config(cfg));
         }
 
         template <class mesh_config_t>
         auto make_mesh(const typename Mesh<mesh_config_t>::ca_type& ca, const mesh_config_t& cfg)
         {
-            auto mesh_cfg = cfg;
-            mesh_cfg.parse_args();
-
-            return Mesh<mesh_config_t>(ca, mesh_cfg);
+            return Mesh<mesh_config_t>(ca, detail::amr_mesh_config(cfg));
         }
 
         template <class mesh_config_t>
         auto make_mesh(const samurai::Box<double, mesh_config_t::dim>& b, const mesh_config_t& cfg)
         {
-            auto mesh_cfg = cfg;
-            mesh_cfg.parse_args();
-
-            return Mesh<mesh_config_t>(b, mesh_cfg);
+            return Mesh<mesh_config_t>(b, detail::amr_mesh_config(cfg));
         }
     }
 } // namespace samurai::amr

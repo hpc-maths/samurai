@@ -95,6 +95,7 @@ namespace samurai
         using base_type::max_stencil_radius;
 
         MRMesh() = default;
+        explicit MRMesh(const config_t& config);
         MRMesh(const ca_type& ca, const self_type& ref_mesh);
         MRMesh(const cl_type& cl, const self_type& ref_mesh);
         MRMesh(const cl_type& cl, const config_t& config);
@@ -125,6 +126,12 @@ namespace samurai
         template <typename... T>
         xt::xtensor<bool, 1> exists(mesh_id_t type, std::size_t level, interval_t interval, T... index) const;
     };
+
+    template <class Config>
+    SAMURAI_INLINE MRMesh<Config>::MRMesh(const config_t& config)
+        : base_type(config)
+    {
+    }
 
     template <class Config>
     SAMURAI_INLINE MRMesh<Config>::MRMesh(const ca_type& ca, const self_type& ref_mesh)
@@ -478,53 +485,51 @@ namespace samurai
         }
     }
 
+    namespace detail
+    {
+        // Configuration held by every mesh the samurai::mra factories build.
+        template <class mesh_config_t>
+        auto mr_mesh_config(const mesh_config_t& cfg)
+        {
+            auto mesh_cfg = cfg;
+            mesh_cfg.parse_args();
+            mesh_cfg.start_level(mesh_cfg.max_level());
+            return mesh_cfg;
+        }
+    }
+
     namespace mra
     {
-        // create an empty mesh
+        // Create a mesh without cells that holds the configuration, to be filled later
+        // by assignment or by samurai::load.
         template <class mesh_config_t>
-        auto make_empty_mesh(const mesh_config_t&)
+        auto make_empty_mesh(const mesh_config_t& cfg)
         {
-            return MRMesh<mesh_config_t>();
+            return MRMesh<mesh_config_t>(detail::mr_mesh_config(cfg));
         }
 
         template <class mesh_config_t>
         auto make_mesh(const typename MRMesh<mesh_config_t>::cl_type& cl, const mesh_config_t& cfg)
         {
-            auto mesh_cfg = cfg;
-            mesh_cfg.parse_args();
-            mesh_cfg.start_level() = mesh_cfg.max_level(); // cppcheck-suppress unreadVariable
-
-            return MRMesh<mesh_config_t>(cl, mesh_cfg);
+            return MRMesh<mesh_config_t>(cl, detail::mr_mesh_config(cfg));
         }
 
         template <class mesh_config_t>
         auto make_mesh(const typename MRMesh<mesh_config_t>::ca_type& ca, const mesh_config_t& cfg)
         {
-            auto mesh_cfg = cfg;
-            mesh_cfg.parse_args();
-            mesh_cfg.start_level() = mesh_cfg.max_level(); // cppcheck-suppress unreadVariable
-
-            return MRMesh<mesh_config_t>(ca, mesh_cfg);
+            return MRMesh<mesh_config_t>(ca, detail::mr_mesh_config(cfg));
         }
 
         template <class mesh_config_t>
         auto make_mesh(const samurai::Box<double, mesh_config_t::dim>& b, const mesh_config_t& cfg)
         {
-            auto mesh_cfg = cfg;
-            mesh_cfg.parse_args();
-            mesh_cfg.start_level() = mesh_cfg.max_level(); // cppcheck-suppress unreadVariable
-
-            return MRMesh<mesh_config_t>(b, mesh_cfg);
+            return MRMesh<mesh_config_t>(b, detail::mr_mesh_config(cfg));
         }
 
         template <class mesh_config_t>
         auto make_mesh(const samurai::DomainBuilder<mesh_config_t::dim>& domain_builder, const mesh_config_t& cfg)
         {
-            auto mesh_cfg = cfg;
-            mesh_cfg.parse_args();
-            mesh_cfg.start_level() = mesh_cfg.max_level(); // cppcheck-suppress unreadVariable
-
-            return MRMesh<mesh_config_t>(domain_builder, mesh_cfg);
+            return MRMesh<mesh_config_t>(domain_builder, detail::mr_mesh_config(cfg));
         }
     }
 } // namespace samurai
