@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="620" height="320" viewBox="0 0 620 320" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#2d3748"/>
+    </marker>
+  </defs>
+
+  <!-- formula on top -->
+  <text x="310" y="34" font-size="15" fill="#2d3748" text-anchor="middle">
+    f(l+1, ii=0) = f(i) + 1/8 ( f(i-1) - f(i+1) )
+  </text>
+
+  <!-- ===== level l+1 (fine, on top): the two children of cell i ===== -->
+  <text x="40" y="102" font-size="14" fill="#4a5568" font-style="italic">level l+1</text>
+  <!-- ii=0 : left (even) child, highlighted -->
+  <rect x="260" y="78" width="60" height="52" fill="#cfe0f2" stroke="#2b6cb0" stroke-width="2.2"/>
+  <text x="290" y="109" font-size="13" fill="#1a365d" text-anchor="middle">ii=0</text>
+  <!-- ii=1 : right (odd) child -->
+  <rect x="320" y="78" width="60" height="52" fill="#eef5fb" stroke="#2b6cb0" stroke-width="1.6"/>
+  <text x="350" y="109" font-size="13" fill="#1a365d" text-anchor="middle">ii=1</text>
+
+  <!-- ===== level l (coarse, on bottom): i-1, i, i+1 ===== -->
+  <text x="40" y="242" font-size="14" fill="#4a5568" font-style="italic">level l</text>
+  <rect x="140" y="212" width="120" height="56" fill="#dbe9f6" stroke="#2b6cb0" stroke-width="2"/>
+  <text x="200" y="246" font-size="15" fill="#1a365d" text-anchor="middle">f(i-1)</text>
+  <rect x="260" y="212" width="120" height="56" fill="#dbe9f6" stroke="#2b6cb0" stroke-width="2"/>
+  <text x="320" y="246" font-size="15" fill="#1a365d" text-anchor="middle">f(i)</text>
+  <rect x="380" y="212" width="120" height="56" fill="#dbe9f6" stroke="#2b6cb0" stroke-width="2"/>
+  <text x="440" y="246" font-size="15" fill="#1a365d" text-anchor="middle">f(i+1)</text>
+
+  <!-- prediction arrows: coarse (bottom) -> child ii=0 (top) -->
+  <line x1="205" y1="212" x2="283" y2="132" stroke="#2d3748" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <line x1="320" y1="212" x2="291" y2="132" stroke="#2d3748" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <line x1="435" y1="212" x2="299" y2="132" stroke="#2d3748" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- weights -->
+  <text x="228" y="180" font-size="13" fill="#c05621" text-anchor="middle">+1/8</text>
+  <text x="312" y="176" font-size="13" fill="#2b6cb0" text-anchor="middle">1</text>
+  <text x="404" y="180" font-size="13" fill="#c05621" text-anchor="middle">-1/8</text>
+
+  <!-- nesting guide: the two children span exactly cell i -->
+  <line x1="260" y1="140" x2="260" y2="206" stroke="#a0aec0" stroke-width="0.8" stroke-dasharray="3 3"/>
+  <line x1="380" y1="140" x2="380" y2="206" stroke="#a0aec0" stroke-width="0.8" stroke-dasharray="3 3"/>
+</svg>
