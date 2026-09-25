@@ -4,12 +4,17 @@
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 
+#include <algorithm>
+#include <functional>
 #include <stdexcept>
 #include <tuple>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include "field.hpp"
 #include "numeric/prediction.hpp"
+#include "prediction_shifts.hpp"
 #include "samurai_config.hpp"
 #include "subset/node.hpp"
 #include "utils.hpp"
@@ -236,6 +241,63 @@ namespace samurai
                                        std::make_index_sequence<std::tuple_size_v<std::decay_t<decltype(parent_indices)>>>{});
         }
 
+        /// Shift @c parent_indices by the stencil offset of a tensor-product node whose stencil
+        /// starts @c starts[d] cells from the parent along @c d (@c -order when centred, more
+        /// when shifted inward): @c loop_indices runs over @c [0, 2*order+1).
+        template <std::size_t... Is>
+        auto compute_shifted_indices(const auto& starts, const auto& parent_indices, const auto& loop_indices, std::index_sequence<Is...>)
+        {
+            return std::make_tuple((std::get<Is>(parent_indices) + static_cast<default_config::value_t>(starts[Is])
+                                    + static_cast<default_config::value_t>(std::get<Is>(loop_indices)))...);
+        }
+
+        auto compute_shifted_indices(const auto& starts, const auto& parent_indices, const auto& loop_indices)
+        {
+            return compute_shifted_indices(starts,
+                                           parent_indices,
+                                           loop_indices,
+                                           std::make_index_sequence<std::tuple_size_v<std::decay_t<decltype(parent_indices)>>>{});
+        }
+
+        /**
+         * The shift of the one-level prediction stencil around @a parent, a cell @a gap levels
+         * below the cell a @ref PredictionPositionClass describes, read off that class: the
+         * most centred candidate whose whole box the domain holds - the rule of
+         * prediction_shifts.hpp, asked of the class instead of the mesh.
+         */
+        template <std::size_t radius, std::size_t dim, int reach, class value_t>
+        PredictionStencilShift<dim>
+        class_shift(const PredictionPositionClass<reach, dim>& cls, std::size_t gap, const std::array<value_t, dim>& parent)
+        {
+            constexpr int r             = static_cast<int>(radius);
+            constexpr std::size_t nodes = ipow(2 * radius + 1, dim);
+            const auto& candidates      = shift_search<radius, dim>();
+
+            PredictionStencilShift<dim> best;
+            best.fits = false;
+            for (std::size_t c = 0; c < candidates.size() && !best.fits; ++c)
+            {
+                const auto& shift = candidates[c];
+                bool admissible   = true;
+                for (std::size_t n = 0; n < nodes && admissible; ++n)
+                {
+                    const auto k = nth_offset<dim>(n, r);
+                    std::array<value_t, dim> q;
+                    for (std::size_t d = 0; d < dim; ++d)
+                    {
+                        q[d] = parent[d] + static_cast<value_t>(shift[d] + k[d]);
+                    }
+                    admissible = cls.contains(gap, q);
+                }
+                if (admissible)
+                {
+                    best.shift = shift;
+                    best.fits  = true;
+                }
+            }
+            return best;
+        }
+
         /// Tensor-product weight of a stencil node: the product over the directions of the
         /// per-direction interpolation coefficients @c interp_coeffs[d][indices[d]].
         template <std::size_t... Is>
@@ -377,24 +439,38 @@ namespace samurai
      *
      * @tparam order  half-width of the wavelet interpolation, i.e.
      *                @c prediction_stencil_radius (uses @ref prediction_coefficients).
+     * @param  cls    where the reference cell sits relative to the domain, see
+     *                @ref PredictionPositionClass. Near a boundary the one-level stencils the
+     *                map composes are shifted inward so that they read only cells the domain
+     *                has, exactly as @c prediction_op does level by level; the class carries
+     *                what that decision needs, so the map depends on it and on nothing else
+     *                about the mesh. @ref PredictionPositionClass::interior gives the centred
+     *                family everywhere, which is the map away from every boundary.
      * @param  level  the level gap @c delta_l (NOT an absolute level). @c 0 is the
      *                identity map @c {indices: 1} (the cell itself).
      *
      * Built by recursion on the gap: the child's parent is @c indices>>1 one level up,
-     * and the odd/even parity @c indices&1 picks the interpolation sign per direction.
-     * The map is the parent's stencil plus the tensor-product interpolation correction
-     * of the non-central neighbours, each itself a @c level-1 stencil, so composing the
-     * one-level wavelet prediction @c level times. Every intermediate map is memoised in
-     * a static cache keyed by @c (order, level, indices).
+     * and the odd/even parity @c indices&1 picks the interpolation coefficients per direction.
+     * The map is the parent's stencil, weighted by the parent's own coefficient, plus the
+     * tensor-product interpolation correction of the other stencil nodes, each itself a
+     * @c level-1 stencil, so composing the one-level wavelet prediction @c level times. Every
+     * intermediate map is memoised in a static cache keyed by @c (order, level, cls, indices).
+     * The nodes are visited in the same order as before the stencils could shift, and a
+     * centred parent carries the coefficient 1 exactly, so away from every boundary the maps
+     * are bit for bit what they were.
      */
     template <std::size_t order = 1, class... index_t>
-    auto& prediction(std::size_t level, index_t... indices)
+        requires(sizeof...(index_t) >= 1)
+    auto&
+    prediction(const PredictionPositionClass<prediction_class_reach<order>, sizeof...(index_t)>& cls, std::size_t level, index_t... indices)
     {
         static constexpr std::size_t dim = sizeof...(index_t);
+        using class_t                    = PredictionPositionClass<prediction_class_reach<order>, dim>;
+        using value_t                    = default_config::value_t;
 
-        static std::unordered_map<std::tuple<std::size_t, std::size_t, index_t...>, prediction_map<dim, default_config::value_t>> values;
+        static std::unordered_map<std::tuple<std::size_t, std::size_t, class_t, index_t...>, prediction_map<dim, value_t>> values;
 
-        auto key  = std::make_tuple(order, level, indices...);
+        auto key  = std::make_tuple(order, level, cls, indices...);
         auto iter = values.find(key);
 
         if (iter != values.end())
@@ -404,48 +480,159 @@ namespace samurai
 
         if (level == 0)
         {
-            values[key] = prediction_map<dim, default_config::value_t>{{indices...}};
+            values[key] = prediction_map<dim, value_t>{{indices...}};
             return values[key];
         }
 
         auto parent_indices = std::make_tuple((indices >> 1)...);
         auto parities       = std::make_tuple(static_cast<std::size_t>(indices & 1)...);
 
+        // The stencil around the parent, which lives level - 1 gaps below the reference cell.
+        const auto parent_array = std::apply(
+            [](auto... p)
+            {
+                return std::array<value_t, dim>{static_cast<value_t>(p)...};
+            },
+            parent_indices);
+        const auto shift = detail::class_shift<order, dim>(cls, level - 1, parent_array);
+
+        std::array<int, dim> starts{};
+        std::array<std::size_t, dim> parent_node{};
+        auto interp_coeff_values = [&]<std::size_t... Is>(std::index_sequence<Is...>)
+        {
+            return std::make_tuple(
+                [&]
+                {
+                    const auto& c   = prediction_coefficients<order>(std::get<Is>(parities), shift.fits ? shift.shift[Is] : 0);
+                    starts[Is]      = c.start;
+                    parent_node[Is] = static_cast<std::size_t>(-c.start);
+                    return c.c;
+                }()...);
+        }(std::make_index_sequence<dim>{});
+
+        // The parent's own contribution first: its map, weighted by the product of its
+        // coefficients - exactly 1 for a centred stencil.
+        double parent_weight = 1.;
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            parent_weight *= std::apply(
+                [&](const auto&... c)
+                {
+                    std::size_t dd = 0;
+                    double out     = 0.;
+                    ((dd++ == d ? (out = c[parent_node[d]], 0) : 0), ...);
+                    return out;
+                },
+                interp_coeff_values);
+        }
+
         std::apply(
             [&](auto... parent_values)
             {
-                values[key] = prediction<order, index_t...>(level - 1, parent_values...);
+                values[key] = prediction<order, index_t...>(cls, level - 1, parent_values...);
             },
             parent_indices);
-
-        // Shift 0: this map is built in coarse-cell units around a reference cell placed at
-        // the origin, with no notion of where the domain boundary is, so it can only be the
-        // centred family. A boundary-aware caller passes the position class in (see
-        // prediction_coefficients.hpp); the cache key would then have to carry it.
-        auto interp_coeff_values = std::apply(
-            [&](auto... parity_values)
-            {
-                return std::make_tuple(prediction_coefficients<order>(parity_values, 0).c...);
-            },
-            parities);
+        if (parent_weight != 1.)
+        {
+            values[key] *= parent_weight;
+        }
 
         detail::multi_dim_loop(interp_coeff_values,
                                [&](auto... loop_indices)
                                {
-                                   bool is_not_center = ((loop_indices != order) || ...);
+                                   std::size_t dd           = 0;
+                                   const bool is_not_parent = ((loop_indices != parent_node[dd++]) || ...);
 
-                                   if (is_not_center)
+                                   if (is_not_parent)
                                    {
                                        double c = detail::compute_coeff(interp_coeff_values, std::make_tuple(loop_indices...));
                                        std::apply(
                                            [&](auto... offsets)
                                            {
-                                               values[key] += c * prediction<order, index_t...>(level - 1, offsets...);
+                                               values[key] += c * prediction<order, index_t...>(cls, level - 1, offsets...);
                                            },
-                                           detail::compute_new_indices(order, parent_indices, std::make_tuple(loop_indices...)));
+                                           detail::compute_shifted_indices(starts, parent_indices, std::make_tuple(loop_indices...)));
                                    }
                                });
         return values[key];
+    }
+
+    /// The map of a child of a reference cell away from every boundary: the centred family.
+    template <std::size_t order = 1, class... index_t>
+        requires(sizeof...(index_t) >= 1)
+    auto& prediction(std::size_t level, index_t... indices)
+    {
+        static constexpr std::size_t dim = sizeof...(index_t);
+        static const auto interior       = PredictionPositionClass<prediction_class_reach<order>, dim>::interior();
+        return prediction<order, index_t...>(interior, level, indices...);
+    }
+
+    namespace detail
+    {
+        /// A prediction map laid out for iteration: the (offset, weight) terms, contiguous.
+        template <std::size_t dim, class index_t>
+        struct flat_prediction_map
+        {
+            std::vector<std::pair<std::array<index_t, dim>, double>> terms;
+        };
+
+        /**
+         * The maps of every child of a coarse cell of position class @a cls, @a delta_l levels
+         * above it, in one contiguous table indexed by the child's x-major linear index. Built
+         * once per (class, delta_l) from @ref prediction and memoised, so that a consumer
+         * broadcasting the children over an interval pays one lookup per run rather than one
+         * per child, and iterates contiguous terms rather than a hash map.
+         */
+        template <std::size_t order, class index_t, std::size_t dim>
+        const std::vector<flat_prediction_map<dim, index_t>>&
+        children_maps(const PredictionPositionClass<prediction_class_reach<order>, dim>& cls, std::size_t delta_l)
+        {
+            using class_t = PredictionPositionClass<prediction_class_reach<order>, dim>;
+            using table_t = std::vector<flat_prediction_map<dim, index_t>>;
+            static std::unordered_map<std::tuple<class_t, std::size_t>, table_t> tables;
+
+            const auto key = std::make_tuple(cls, delta_l);
+            auto iter      = tables.find(key);
+            if (iter != tables.end())
+            {
+                return iter->second;
+            }
+
+            const index_t nb_cells = index_t{1} << delta_l;
+            std::size_t count      = 1;
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                count *= static_cast<std::size_t>(nb_cells);
+            }
+            table_t table(count);
+            for (std::size_t linear = 0; linear < count; ++linear)
+            {
+                std::array<index_t, dim> child{};
+                std::size_t rest = linear;
+                for (std::size_t d = 0; d < dim; ++d)
+                {
+                    child[d] = static_cast<index_t>(rest % static_cast<std::size_t>(nb_cells));
+                    rest /= static_cast<std::size_t>(nb_cells);
+                }
+                const auto& map = std::apply(
+                                      [&](auto... c)
+                                      {
+                                          return std::cref(prediction<order>(cls, delta_l, static_cast<index_t>(c)...));
+                                      },
+                                      child)
+                                      .get();
+                auto& terms = table[linear].terms;
+                terms.assign(map.coeff.begin(), map.coeff.end());
+                // A fixed order, so that the accumulation is deterministic across runs.
+                std::sort(terms.begin(),
+                          terms.end(),
+                          [](const auto& a, const auto& b)
+                          {
+                              return a.first < b.first;
+                          });
+            }
+            return tables.emplace(key, std::move(table)).first->second;
+        }
     }
 
     /**
@@ -465,6 +652,16 @@ namespace samurai
 
         INIT_OPERATOR(reconstruction_op_)
 
+        // The runs of the interval over which the position class is constant, each with its
+        // class: the stencils of the children of a coarse cell depend on where that cell sits
+        // relative to the domain, and on a box domain the whole interval is one run away from
+        // the boundary.
+        template <std::size_t radius, class T2, class Func>
+        SAMURAI_INLINE void for_each_class_run(const T2& src, Func&& f) const
+        {
+            for_each_prediction_position_run<prediction_class_reach<radius>>(src.mesh(), level, i, index, std::forward<Func>(f));
+        }
+
         template <class T1, class T2>
         SAMURAI_INLINE void operator()(Dim<1>, std::size_t& reconstruct_level, T1& dest, const T2& src) const
         {
@@ -479,16 +676,21 @@ namespace samurai
             else
             {
                 index_t nb_cells = 1 << delta_l;
-                for (index_t ii = 0; ii < nb_cells; ++ii)
-                {
-                    auto pred = prediction<prediction_stencil_radius, index_t>(delta_l, ii);
-                    for (const auto& kv : pred.coeff)
+                for_each_class_run<prediction_stencil_radius>(
+                    src,
+                    [&](const auto& run, const auto& cls)
                     {
-                        auto i_f = (i << delta_l) + ii;
-                        i_f.step = nb_cells;
-                        dest(reconstruct_level, i_f) += kv.second * src(level, i + kv.first[0]);
-                    }
-                }
+                        const auto& table = detail::children_maps<prediction_stencil_radius, index_t, 1>(cls, delta_l);
+                        for (index_t ii = 0; ii < nb_cells; ++ii)
+                        {
+                            auto i_f = (run << delta_l) + ii;
+                            i_f.step = nb_cells;
+                            for (const auto& [offset, weight] : table[static_cast<std::size_t>(ii)].terms)
+                            {
+                                dest(reconstruct_level, i_f) += weight * src(level, run + offset[0]);
+                            }
+                        }
+                    });
             }
         }
 
@@ -507,21 +709,27 @@ namespace samurai
             else
             {
                 index_t nb_cells = 1 << delta_l;
-                for (index_t jj = 0; jj < nb_cells; ++jj)
-                {
-                    auto j_f = (j << delta_l) + jj;
-                    for (index_t ii = 0; ii < nb_cells; ++ii)
+                for_each_class_run<prediction_stencil_radius>(
+                    src,
+                    [&](const auto& run, const auto& cls)
                     {
-                        const auto& pred = prediction<prediction_stencil_radius, index_t>(delta_l, ii, jj);
-                        auto i_f         = (i << delta_l) + ii;
-                        i_f.step         = nb_cells;
-
-                        for (const auto& kv : pred.coeff)
+                        const auto& table = detail::children_maps<prediction_stencil_radius, index_t, 2>(cls, delta_l);
+                        for (index_t jj = 0; jj < nb_cells; ++jj)
                         {
-                            dest(reconstruct_level, i_f, j_f) += kv.second * src(level, i + kv.first[0], j + kv.first[1]);
+                            auto j_f = (j << delta_l) + jj;
+                            for (index_t ii = 0; ii < nb_cells; ++ii)
+                            {
+                                auto i_f = (run << delta_l) + ii;
+                                i_f.step = nb_cells;
+
+                                const auto& terms = table[static_cast<std::size_t>(ii + nb_cells * jj)].terms;
+                                for (const auto& [offset, weight] : terms)
+                                {
+                                    dest(reconstruct_level, i_f, j_f) += weight * src(level, run + offset[0], j + offset[1]);
+                                }
+                            }
                         }
-                    }
-                }
+                    });
             }
         }
 
@@ -539,26 +747,32 @@ namespace samurai
             else
             {
                 index_t nb_cells = 1 << delta_l;
-                for (index_t kk = 0; kk < nb_cells; ++kk)
-                {
-                    auto k_f = (k << delta_l) + kk;
-                    for (index_t jj = 0; jj < nb_cells; ++jj)
+                for_each_class_run<prediction_stencil_radius>(
+                    src,
+                    [&](const auto& run, const auto& cls)
                     {
-                        auto j_f = (j << delta_l) + jj;
-                        for (index_t ii = 0; ii < nb_cells; ++ii)
+                        const auto& table = detail::children_maps<prediction_stencil_radius, index_t, 3>(cls, delta_l);
+                        for (index_t kk = 0; kk < nb_cells; ++kk)
                         {
-                            const auto& pred = prediction<prediction_stencil_radius, index_t>(delta_l, ii, jj, kk);
-                            auto i_f         = (i << delta_l) + ii;
-                            i_f.step         = nb_cells;
-
-                            for (const auto& kv : pred.coeff)
+                            auto k_f = (k << delta_l) + kk;
+                            for (index_t jj = 0; jj < nb_cells; ++jj)
                             {
-                                dest(reconstruct_level, i_f, j_f, k_f) += kv.second
-                                                                        * src(level, i + kv.first[0], j + kv.first[1], k + kv.first[2]);
+                                auto j_f = (j << delta_l) + jj;
+                                for (index_t ii = 0; ii < nb_cells; ++ii)
+                                {
+                                    auto i_f = (run << delta_l) + ii;
+                                    i_f.step = nb_cells;
+
+                                    const auto& terms = table[static_cast<std::size_t>(ii + nb_cells * (jj + nb_cells * kk))].terms;
+                                    for (const auto& [offset, weight] : terms)
+                                    {
+                                        dest(reconstruct_level, i_f, j_f, k_f) += weight
+                                                                                * src(level, run + offset[0], j + offset[1], k + offset[2]);
+                                    }
+                                }
                             }
                         }
-                    }
-                }
+                    });
             }
         }
     };
@@ -588,10 +802,12 @@ namespace samurai
         using mesh_id_t = typename mesh_t::mesh_id_t;
         using ca_type   = typename mesh_t::ca_type;
 
-        if (field.mesh().max_stencil_radius() < 2)
+        // 2r: the composed prediction map reaches 2r coarse cells, and a stencil clamped at a
+        // boundary reaches 2r inward.
+        if (field.mesh().max_stencil_radius() < 2 * static_cast<int>(mesh_t::config_t::prediction_stencil_radius))
         {
-            throw std::runtime_error("The reconstruction function requires at least 2 ghosts on the boundary.\nTo fix this issue, remove "
-                                     "mesh_config.disable_minimal_ghost_width().");
+            throw std::runtime_error("The reconstruction function requires at least 2 * prediction_stencil_radius ghosts on the "
+                                     "boundary.\nTo fix this issue, remove mesh_config.disable_minimal_ghost_width().");
         }
 
         update_ghost_mr_if_needed(field);
@@ -638,8 +854,9 @@ namespace samurai
          * child indices may be negative (e.g. the LBM donor slice shifted by @c -c),
          * which the @c std::size_t @ref multi_dim_loop cannot iterate.
          */
-        template <std::size_t prediction_stencil_radius, class value_t, std::size_t dim, class PMap, class Prefix>
+        template <std::size_t prediction_stencil_radius, class value_t, std::size_t dim, class PMap, class Class, class Prefix>
         void accumulate_slice(PMap& out,
+                              const Class& cls,
                               std::size_t delta_l,
                               const std::array<value_t, dim>& start,
                               const std::array<value_t, dim>& end,
@@ -651,7 +868,7 @@ namespace samurai
                 out += std::apply(
                     [&](auto... idx)
                     {
-                        return prediction<prediction_stencil_radius, value_t>(delta_l, idx...);
+                        return prediction<prediction_stencil_radius>(cls, delta_l, static_cast<value_t>(idx)...);
                     },
                     prefix);
             }
@@ -660,6 +877,7 @@ namespace samurai
                 for (value_t k = start[d]; k < end[d]; ++k)
                 {
                     accumulate_slice<prediction_stencil_radius, value_t, dim>(out,
+                                                                              cls,
                                                                               delta_l,
                                                                               start,
                                                                               end,
@@ -667,6 +885,10 @@ namespace samurai
                 }
             }
         }
+
+        /// The position class the composed maps of a field of this radius are keyed on.
+        template <std::size_t prediction_stencil_radius, std::size_t dim>
+        using prediction_class_t = PredictionPositionClass<prediction_class_reach<prediction_stencil_radius>, dim>;
 
         /**
          * Prediction stencil to apply for a @ref portion request, dispatched on the type
@@ -685,21 +907,27 @@ namespace samurai
          *    makes the LBM stream cheap (see @c LBMScheme::portion_column); a nonlinear user
          *    such as the FV flux must instead recompute each child with the scalar form.
          *
+         * @param cls    where the coarse cell sits relative to the domain, which the maps
+         *               depend on near a boundary (see @ref PredictionPositionClass).
          * @param level  coarse level where the field is read; only a cache discriminator,
-         *               the stencil itself depends on @c delta_l and @a ii alone.
+         *               the stencil itself depends on @c delta_l, @a cls and @a ii alone.
          */
         template <std::size_t prediction_stencil_radius, class Field, class... index_t>
             requires(Field::dim == sizeof...(index_t) && (std::same_as<typename Field::interval_t, index_t> && ...))
-        decltype(auto) get_prediction(std::size_t level, std::size_t delta_l, const std::tuple<index_t...>& ii)
+        decltype(auto) get_prediction(const prediction_class_t<prediction_stencil_radius, Field::dim>& cls,
+                                      std::size_t level,
+                                      std::size_t delta_l,
+                                      const std::tuple<index_t...>& ii)
         {
             static constexpr std::size_t dim = Field::dim;
             using value_t                    = typename Field::interval_t::value_t;
-            static std::unordered_map<std::tuple<std::size_t, std::size_t, index_t...>, prediction_map<dim, value_t>> values;
+            using class_t                    = prediction_class_t<prediction_stencil_radius, dim>;
+            static std::unordered_map<std::tuple<std::size_t, std::size_t, class_t, index_t...>, prediction_map<dim, value_t>> values;
 
             auto& map = std::apply(
                 [&](auto&... index) -> auto&
                 {
-                    return values[{prediction_stencil_radius, level, index...}];
+                    return values[{prediction_stencil_radius, level, cls, index...}];
                 },
                 ii);
 
@@ -717,7 +945,7 @@ namespace samurai
                         return std::array<value_t, dim>{iv.end...};
                     },
                     ii);
-                accumulate_slice<prediction_stencil_radius, value_t, dim>(map, delta_l, start, end, std::tuple<>{});
+                accumulate_slice<prediction_stencil_radius, value_t, dim>(map, cls, delta_l, start, end, std::tuple<>{});
             }
 
             return map;
@@ -726,13 +954,16 @@ namespace samurai
         /// Scalar form of @ref get_prediction: the stencil of the single child @a ii.
         template <std::size_t prediction_stencil_radius, class Field, class... index_t>
             requires((std::same_as<typename Field::interval_t::value_t, index_t> && ...))
-        decltype(auto) get_prediction(std::size_t, std::size_t delta_l, const std::tuple<index_t...>& ii)
+        decltype(auto) get_prediction(const prediction_class_t<prediction_stencil_radius, Field::dim>& cls,
+                                      std::size_t,
+                                      std::size_t delta_l,
+                                      const std::tuple<index_t...>& ii)
         {
             using value_t = typename Field::interval_t::value_t;
             return std::apply(
-                [delta_l](const auto&... index) -> auto&
+                [&](const auto&... index) -> auto&
                 {
-                    return prediction<prediction_stencil_radius, value_t>(delta_l, index...);
+                    return prediction<prediction_stencil_radius>(cls, delta_l, static_cast<value_t>(index)...);
                 },
                 ii);
         }
@@ -752,14 +983,16 @@ namespace samurai
                      && (std::same_as<typename Field::interval_t::value_t, index_t> && ...))
         void portion_impl(auto& result,
                           Func&& get_f,
+                          const Field& f,
                           std::size_t level,
                           std::size_t delta_l,
                           const std::tuple<typename Field::interval_t, index_t...>& i,
                           const std::tuple<cell_index_t...>& ii)
         {
-            using result_t = std::decay_t<decltype(result)>;
-
-            const auto& pred = get_prediction<prediction_stencil_radius, Field>(level, delta_l, ii);
+            using result_t            = std::decay_t<decltype(result)>;
+            using interval_t          = typename Field::interval_t;
+            using value_t             = typename interval_t::value_t;
+            constexpr std::size_t dim = Field::dim;
 
             if constexpr (std::is_same_v<result_t, double>)
             {
@@ -770,22 +1003,51 @@ namespace samurai
                 result.fill(0.);
             }
 
-            for (const auto& kv : pred.coeff)
+            // The stencils depend on where the coarse cells sit relative to the domain, so the
+            // row is reconstructed run by run of constant position class; away from every
+            // boundary the whole row is one run.
+            const auto& interval = std::get<0>(i);
+            xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> index;
+            [&]<std::size_t... Is>(std::index_sequence<Is...>)
             {
-                std::apply(
-                    [&](auto... indices)
+                ((index[Is] = std::get<Is + 1>(i)), ...);
+            }(std::make_index_sequence<dim - 1>{});
+
+            for_each_prediction_position_run<prediction_class_reach<prediction_stencil_radius>>(
+                f.mesh(),
+                level,
+                interval,
+                index,
+                [&](const interval_t& run, const auto& cls)
+                {
+                    const auto& pred = get_prediction<prediction_stencil_radius, Field>(cls, level, delta_l, ii);
+
+                    auto i_run         = i;
+                    std::get<0>(i_run) = run;
+
+                    for (const auto& kv : pred.coeff)
                     {
-                        if constexpr (std::is_same_v<result_t, double>)
-                        {
-                            result += kv.second * get_f(level, indices...)[0];
-                        }
-                        else
-                        {
-                            result += kv.second * get_f(level, indices...);
-                        }
-                    },
-                    detail::compute_new_indices(0, i, kv.first));
-            }
+                        std::apply(
+                            [&](auto... indices)
+                            {
+                                if constexpr (std::is_same_v<result_t, double>)
+                                {
+                                    result += kv.second * get_f(level, indices...)[0];
+                                }
+                                else if (run.start == interval.start && run.end == interval.end)
+                                {
+                                    result += kv.second * get_f(level, indices...);
+                                }
+                                else
+                                {
+                                    xt::view(result, xt::range(run.start - interval.start, run.end - interval.start)) += kv.second
+                                                                                                                       * get_f(level,
+                                                                                                                               indices...);
+                                }
+                            },
+                            detail::compute_new_indices(0, i_run, kv.first));
+                    }
+                });
         }
     }
 
@@ -820,7 +1082,7 @@ namespace samurai
         {
             return f(element, level, indices...);
         };
-        detail::portion_impl<Field::mesh_t::config_t::prediction_stencil_radius, Field>(result, get_f, level, delta_l, i, ii);
+        detail::portion_impl<Field::mesh_t::config_t::prediction_stencil_radius, Field>(result, get_f, f, level, delta_l, i, ii);
     }
 
     template <class Field, class... index_t, class... cell_index_t>
@@ -855,7 +1117,7 @@ namespace samurai
             return f(level, indices...);
         };
 
-        detail::portion_impl<prediction_stencil_radius, Field>(result, get_f, level, delta_l, i, ii);
+        detail::portion_impl<prediction_stencil_radius, Field>(result, get_f, f, level, delta_l, i, ii);
     }
 
     template <class Field, class... index_t, class... cell_index_t>
@@ -953,7 +1215,7 @@ namespace samurai
         auto src_tuple = detail::extract_src_tuple<dim, interval_t>(src_indices);
         auto dst_tuple = detail::extract_dst_tuple<dim>(delta_l, dst_indices);
 
-        detail::portion_impl<Field::mesh_t::config_t::prediction_stencil_radius, Field>(result, get_f, level, delta_l, src_tuple, dst_tuple);
+        detail::portion_impl<Field::mesh_t::config_t::prediction_stencil_radius, Field>(result, get_f, f, level, delta_l, src_tuple, dst_tuple);
     }
 
     /**
@@ -975,10 +1237,11 @@ namespace samurai
         auto& mesh_src                   = field_src.mesh();
         auto& mesh_dst                   = field_dst.mesh();
 
-        if (field_src.mesh().max_stencil_radius() < 2)
+        if (field_src.mesh().max_stencil_radius()
+            < 2 * static_cast<int>(std::decay_t<decltype(mesh_src)>::config_t::prediction_stencil_radius))
         {
-            throw std::runtime_error("The transfer function requires at least 2 ghosts on the boundary.\nTo fix this issue, remove "
-                                     "mesh_config.disable_minimal_ghost_width().");
+            throw std::runtime_error("The transfer function requires at least 2 * prediction_stencil_radius ghosts on the boundary.\nTo "
+                                     "fix this issue, remove mesh_config.disable_minimal_ghost_width().");
         }
 
         update_ghost_mr_if_needed(field_src);
