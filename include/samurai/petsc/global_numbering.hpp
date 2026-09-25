@@ -1,4 +1,6 @@
 #pragma once
+#include <algorithm>
+
 #include "../arguments.hpp"
 #include "cell_ownership.hpp"
 #include <petsc.h>
@@ -117,8 +119,8 @@ namespace samurai
             if (args::print_petsc_numbering)
             {
                 sleep(static_cast<unsigned int>(rank));
-                std::cout << fmt::format("[{}]: n_owned_unknowns = {}, n_ghost_unknowns = {}\n", rank, n_owned_unknowns, n_ghost_unknowns);
-                std::cout << fmt::format("[{}]: OWNED local_index = [{},{}], global_index = [{},{}]\n",
+                std::cerr << fmt::format("[{}]: n_owned_unknowns = {}, n_ghost_unknowns = {}\n", rank, n_owned_unknowns, n_ghost_unknowns);
+                std::cerr << fmt::format("[{}]: OWNED local_index = [{},{}], global_index = [{},{}]\n",
                                          rank,
                                          local_index,
                                          local_index + static_cast<PetscInt>(n_owned_unknowns) - 1,
@@ -146,7 +148,7 @@ namespace samurai
 
             if (args::print_petsc_numbering)
             {
-                std::cout << fmt::format("rank {}: GHOSTS local_index = [{},{}]\n",
+                std::cerr << fmt::format("rank {}: GHOSTS local_index = [{},{}]\n",
                                          rank,
                                          local_index,
                                          local_index + static_cast<PetscInt>(n_ghost_unknowns) - 1);
@@ -163,7 +165,35 @@ namespace samurai
                 }
             }
 
-            // Exchange global indices of the local cells/ghosts with neighbouring MPI processes
+            // Exchange global indices of the local cells/ghosts with neighbouring MPI processes.
+            //
+            // The exchange is positional: the n-th value received is the n-th value the
+            // neighbour sent. That only holds if both sides walk the same cells in the same
+            // order, and the two conditions below are what make them:
+            //
+            //   - **one value per shared unknown, owned or not.** Filtering on ownership while
+            //     sending and on the *other* rank's ownership while receiving compares two
+            //     ranks' opinions, and where those disagree - which is what the ownership
+            //     correction passes exist to repair, and cannot always - the sequences drift
+            //     and every later ghost gets another cell's global index. The corruption is
+            //     silent: it produces a valid-looking index in another rank's range, and the
+            //     only symptom is petsc refusing an unexpected column much later. Sending
+            //     UNSET for what I do not own costs one integer per shared cell and removes
+            //     the possibility;
+            //   - **the same level range and the same operand order on both sides.** Both are
+            //     derived from the pair, not from one side's mesh: the levels from both
+            //     meshes' extent, the operand order from the rank numbers.
+            auto shared_cells = [&](const auto& neighbour, std::size_t level)
+            {
+                const auto& mine  = mesh[mesh_id_t::reference][level];
+                const auto& other = neighbour.mesh[mesh_id_t::reference][level];
+                return rank < neighbour.rank ? intersection(mine, other) : intersection(other, mine);
+            };
+
+            auto shared_max_level = [&](const auto& neighbour)
+            {
+                return std::max(max_level, neighbour.mesh[mesh_id_t::reference].max_level());
+            };
 
             // SEND
             std::vector<mpi::request> req;
@@ -173,21 +203,18 @@ namespace samurai
             {
                 auto& to_send = to_send_by_neighbour[i_neigh];
 
-                for (std::size_t level = min_level; level <= max_level; ++level)
+                for (std::size_t level = 0; level <= shared_max_level(neighbour); ++level)
                 {
-                    auto intersecting_cells_and_ghosts = intersection(mesh[mesh_id_t::reference][level],
-                                                                      neighbour.mesh[mesh_id_t::reference][level]);
+                    auto shared = shared_cells(neighbour, level);
                     for_each_cell(mesh,
-                                  intersecting_cells_and_ghosts,
+                                  shared,
                                   [&](auto& cell)
                                   {
-                                      auto cell_index = static_cast<std::size_t>(cell.index);
-                                      if (ownership.owner_rank[cell_index] == rank)
+                                      auto cell_index  = static_cast<std::size_t>(cell.index);
+                                      const bool owned = ownership.owner_rank[cell_index] == rank;
+                                      for (int i = 0; i < n_unknowns_per_cell; ++i)
                                       {
-                                          for (int i = 0; i < n_unknowns_per_cell; ++i)
-                                          {
-                                              to_send.push_back(global_indices[owned_unknown_index(cell_index, i)]);
-                                          }
+                                          to_send.push_back(owned ? global_indices[owned_unknown_index(cell_index, i)] : UNSET);
                                       }
                                   });
                 }
@@ -201,29 +228,43 @@ namespace samurai
                 std::vector<PetscInt> to_recv;
                 std::size_t read = 0;
                 world.recv(neighbour.rank /* source */, rank /* tag */, to_recv);
-                for (std::size_t level = 0; level <= max_level; ++level)
+                for (std::size_t level = 0; level <= shared_max_level(neighbour); ++level)
                 {
-                    auto intersecting_cells_and_ghosts = intersection(neighbour.mesh[mesh_id_t::reference][level],
-                                                                      mesh[mesh_id_t::reference][level]);
+                    auto shared = shared_cells(neighbour, level);
                     for_each_cell(mesh,
-                                  intersecting_cells_and_ghosts,
+                                  shared,
                                   [&](auto& cell)
                                   {
                                       auto cell_index = static_cast<std::size_t>(cell.index);
-                                      if (ownership.owner_rank[cell_index] == neighbour.rank)
+                                      for (int i = 0; i < n_unknowns_per_cell; ++i)
                                       {
-                                          for (int i = 0; i < n_unknowns_per_cell; ++i)
+                                          const PetscInt sent = to_recv[read++];
+                                          if (ownership.owner_rank[cell_index] != neighbour.rank)
                                           {
-                                              assert(global_indices[ghost_unknown_index(cell_index, i)] == UNSET);
-                                              global_indices[ghost_unknown_index(cell_index, i)] = to_recv[read++];
+                                              continue;
                                           }
+                                          // The neighbour says it does not own a cell this rank
+                                          // considers its ghost. That is an ownership
+                                          // disagreement, and it used to become a wrong global
+                                          // index; say so instead.
+                                          if (sent == UNSET)
+                                          {
+                                              std::cerr << fmt::format(
+                                                  "[{}] rank {} does not own the cell at level {} that this rank holds as its ghost: "
+                                                  "the two disagree on ownership, so no global index exists for it.\n",
+                                                  rank,
+                                                  neighbour.rank,
+                                                  level);
+                                              continue;
+                                          }
+                                          assert(global_indices[ghost_unknown_index(cell_index, i)] == UNSET);
+                                          global_indices[ghost_unknown_index(cell_index, i)] = sent;
                                       }
                                   });
                 }
             }
 
             mpi::wait_all(req.begin(), req.end());
-
             if (args::print_petsc_numbering)
             {
                 sleep(static_cast<unsigned int>(rank));
@@ -234,7 +275,7 @@ namespace samurai
                     {
                         if (ownership.owner_rank[cell_index] == rank)
                         {
-                            std::cout << fmt::format("[{}]:          cell_index {} (owned by {}): CI{} L{} G{}\n",
+                            std::cerr << fmt::format("[{}]:          cell_index {} (owned by {}): CI{} L{} G{}\n",
                                                      world.rank(),
                                                      cell_index,
                                                      ownership.owner_rank[cell_index],
@@ -244,7 +285,7 @@ namespace samurai
                         }
                         else
                         {
-                            std::cout << fmt::format("[{}]:          cell_index {} (owned by {}): CI{} L{} G{}\n",
+                            std::cerr << fmt::format("[{}]:          cell_index {} (owned by {}): CI{} L{} G{}\n",
                                                      world.rank(),
                                                      cell_index,
                                                      ownership.owner_rank[cell_index],
@@ -258,25 +299,16 @@ namespace samurai
         }
 #endif
 
+        // Two local unknowns mapping to the same global index is silent corruption: petsc
+        // accepts the mapping and the only symptom is a refused column much later, in another
+        // rank's range. Sorting a copy makes the check O(n log n) instead of O(n^2), which is
+        // what it costs to be affordable at all - the quadratic version could only ever live
+        // inside an assert, and asserts are compiled out of the builds that run in CI.
         inline bool has_duplicates(const std::vector<PetscInt>& local_to_global_mapping)
         {
-            bool duplicate_found = false;
-            for (std::size_t i = 0; i < local_to_global_mapping.size(); ++i)
-            {
-                for (std::size_t j = i + 1; j < local_to_global_mapping.size(); ++j)
-                {
-                    if (local_to_global_mapping[i] == local_to_global_mapping[j])
-                    {
-                        duplicate_found = true;
-                        break;
-                    }
-                }
-                if (duplicate_found)
-                {
-                    break;
-                }
-            }
-            return duplicate_found;
+            std::vector<PetscInt> sorted(local_to_global_mapping);
+            std::sort(sorted.begin(), sorted.end());
+            return std::adjacent_find(sorted.begin(), sorted.end()) != sorted.end();
         }
     }
 }
