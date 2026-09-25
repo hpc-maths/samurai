@@ -14,6 +14,7 @@
 
 #include "../field/concepts.hpp"
 #include "../operators_base.hpp"
+#include "../prediction_shifts.hpp"
 #include "../static_algorithm.hpp"
 #include "../utils.hpp"
 #include "prediction_coefficients.hpp"
@@ -164,103 +165,128 @@ namespace samurai
         static_assert(DEST::n_comp == SRC::n_comp, "Source and destination fields must have the same number of components");
 
         constexpr std::size_t order = 2 * pred_stencil_size + 1;
+        using value_t               = typename TInterval::value_t;
 
-        // (even index coefficients, odd index coefficients)
-        const std::array<std::array<double, order>, 2> interp_coeff_pair = {
-            {prediction_coefficients<pred_stencil_size>(0, 0).c, prediction_coefficients<pred_stencil_size>(1, 0).c}
-        };
-
-        // Compute the memory accessors for the source data
-        // For example, in 2D, for a prediction stencil of size 1, we need to access the following cells in the source field
-        //
-        // (level, i-1, j+1) (level, i, j+1) (level, i+1, j+1)
-        // (level, i-1, j  ) (level, i, j  ) (level, i+1, j  )
-        // (level, i-1, j-1) (level, i, j-1) (level, i+1, j-1)
-        //
-        // Since the data are contiguous in the i direction, we just have to compute the memory addresses of the first column.
-
-        std::array<std::size_t, ce_pow(order, dim)> src_offsets;
-        std::size_t ind = 0;
-        static_nested_loop<dim, -static_cast<int>(pred_stencil_size), static_cast<int>(pred_stencil_size) + 1>(
-            [&](const auto& stencil)
+        for_each_prediction_shift_run<pred_stencil_size>(
+            prediction_domain(src.mesh(), level),
+            i,
+            index,
+            [&](const auto& run, const auto& shifts)
             {
-                auto new_index     = index + xt::view(stencil, xt::range(1, dim));
-                src_offsets[ind++] = memory_offset(src.mesh(), {level, i.start + stencil[0], new_index});
-            });
-
-        // Compute the memory accessors for the destination data
-        // For example, in 2D, we need to access the following cells in the destination field
-        //
-        // (level + 1, 2i  , 2j  ) (level + 1, 2i+1, 2j  )
-        // (level + 1, 2i  , 2j+1) (level + 1, 2i+1, 2j+1)
-        //
-        // Since the data are contiguous in the i direction, once again, we just have to compute the memory addresses of the first column.
-
-        std::array<std::size_t, 1ULL << dim> dest_offsets;
-        ind = 0;
-        static_nested_loop<dim - 1, 0, 2>(
-            [&](const auto& stencil)
-            {
-                auto new_index        = 2 * index + stencil;
-                dest_offsets[ind]     = memory_offset(dest.mesh(), {level + 1, 2 * i.start, new_index});
-                dest_offsets[ind + 1] = dest_offsets[ind] + 1;
-                ind += 2;
-            });
-
-        const auto* src_data = src.data();
-        auto* dest_data      = dest.data();
-
-        std::array<double, (1ULL << dim) * SRC::n_comp> dest_values{};
-        for (std::size_t i_c = 0, i_f = 0; i_c < i.size(); ++i_c, i_f += 2)
-        {
-            dest_values.fill(0);
-            std::size_t io = 0;
-            static_nested_loop<dim, 0, order>(
-                [&](const auto& stencil)
+                // (even index coefficients, odd index coefficients), per direction: near a boundary
+                // the stencil is shifted inward, by a different amount in each direction.
+                std::array<std::array<std::array<double, order>, 2>, dim> interp_coeff_pair;
+                xt::xtensor_fixed<value_t, xt::xshape<dim>> stencil_start;
+                for (std::size_t d = 0; d < dim; ++d)
                 {
-                    std::array<double, SRC::n_comp> field_ijk{};
-                    for (std::size_t n = 0; n < SRC::n_comp; ++n)
-                    {
-                        field_ijk[n] = src_data[(src_offsets[io] + i_c) * SRC::n_comp + n];
-                    }
-                    ++io;
+                    const auto& even        = prediction_coefficients<pred_stencil_size>(0, shift_of(shifts, d));
+                    const auto& odd         = prediction_coefficients<pred_stencil_size>(1, shift_of(shifts, d));
+                    interp_coeff_pair[d][0] = even.c;
+                    interp_coeff_pair[d][1] = odd.c;
+                    stencil_start[d]        = static_cast<value_t>(even.start);
+                }
 
-                    std::size_t ind = 0;
+                // Compute the memory accessors for the source data
+                // For example, in 2D, for a prediction stencil of size 1, we need to access the following cells in the source field
+                //
+                // (level, i-1, j+1) (level, i, j+1) (level, i+1, j+1)
+                // (level, i-1, j  ) (level, i, j  ) (level, i+1, j  )
+                // (level, i-1, j-1) (level, i, j-1) (level, i+1, j-1)
+                //
+                // Since the data are contiguous in the i direction, we just have to compute the memory addresses of the first column.
+
+                xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> node_index_start;
+                for (std::size_t d = 0; d + 1 < dim; ++d)
+                {
+                    node_index_start[d] = index[d] + stencil_start[d + 1];
+                }
+                const value_t node_x_start = run.start + stencil_start[0];
+
+                std::array<std::size_t, ce_pow(order, dim)> src_offsets;
+                std::size_t ind = 0;
+                static_nested_loop<dim, 0, order>(
+                    [&](const auto& stencil)
+                    {
+                        auto new_index     = node_index_start + xt::view(stencil, xt::range(1, dim));
+                        src_offsets[ind++] = memory_offset(src.mesh(), {level, node_x_start + stencil[0], new_index});
+                    });
+
+                // Compute the memory accessors for the destination data
+                // For example, in 2D, we need to access the following cells in the destination field
+                //
+                // (level + 1, 2i  , 2j  ) (level + 1, 2i+1, 2j  )
+                // (level + 1, 2i  , 2j+1) (level + 1, 2i+1, 2j+1)
+                //
+                // Since the data are contiguous in the i direction, once again, we just have to compute the memory addresses of the first
+                // column.
+
+                std::array<std::size_t, 1ULL << dim> dest_offsets;
+                ind = 0;
+                static_nested_loop<dim - 1, 0, 2>(
+                    [&](const auto& stencil)
+                    {
+                        auto new_index        = 2 * index + stencil;
+                        dest_offsets[ind]     = memory_offset(dest.mesh(), {level + 1, 2 * run.start, new_index});
+                        dest_offsets[ind + 1] = dest_offsets[ind] + 1;
+                        ind += 2;
+                    });
+
+                const auto* src_data = src.data();
+                auto* dest_data      = dest.data();
+
+                std::array<double, (1ULL << dim) * SRC::n_comp> dest_values{};
+                for (std::size_t i_c = 0, i_f = 0; i_c < run.size(); ++i_c, i_f += 2)
+                {
+                    dest_values.fill(0);
+                    std::size_t io = 0;
+                    static_nested_loop<dim, 0, order>(
+                        [&](const auto& stencil)
+                        {
+                            std::array<double, SRC::n_comp> field_ijk{};
+                            for (std::size_t n = 0; n < SRC::n_comp; ++n)
+                            {
+                                field_ijk[n] = src_data[(src_offsets[io] + i_c) * SRC::n_comp + n];
+                            }
+                            ++io;
+
+                            std::size_t ind = 0;
+                            std::apply(
+                                [&](const auto&... s)
+                                {
+                                    for (std::size_t n = 0; n < SRC::n_comp; ++n)
+                                    {
+                                        (void)std::initializer_list<int>{
+                                            ((dest_values[ind++] += field_ijk[n]
+                                                                  * std::apply(
+                                                                        [&](const auto&... ki)
+                                                                        {
+                                                                            std::size_t is = 0;
+                                                                            double coeff   = 1.;
+                                                                            ((coeff *= interp_coeff_pair[is][ki][static_cast<std::size_t>(
+                                                                                  stencil[is])],
+                                                                              ++is),
+                                                                             ...);
+                                                                            return coeff;
+                                                                        },
+                                                                        s)),
+                                             0)...};
+                                    }
+                                },
+                                make_index_ranges<dim, 0, 2>());
+                        });
+
+                    std::size_t id = 0;
                     std::apply(
                         [&](const auto&... s)
                         {
                             for (std::size_t n = 0; n < SRC::n_comp; ++n)
                             {
-                                (void)std::initializer_list<int>{
-                                    ((dest_values[ind++] += field_ijk[n]
-                                                          * std::apply(
-                                                                [&](const auto&... ki)
-                                                                {
-                                                                    std::size_t is = 0;
-                                                                    double coeff   = 1.;
-                                                                    ((coeff *= interp_coeff_pair[ki][static_cast<std::size_t>(stencil[is])],
-                                                                      ++is),
-                                                                     ...);
-                                                                    return coeff;
-                                                                },
-                                                                s)),
-                                     0)...};
+                                ((dest_data[(s + i_f) * SRC::n_comp + n] = dest_values[id++]), ...);
                             }
                         },
-                        make_index_ranges<dim, 0, 2>());
-                });
-
-            std::size_t id = 0;
-            std::apply(
-                [&](const auto&... s)
-                {
-                    for (std::size_t n = 0; n < SRC::n_comp; ++n)
-                    {
-                        ((dest_data[(s + i_f) * SRC::n_comp + n] = dest_values[id++]), ...);
-                    }
-                },
-                dest_offsets);
-        }
+                        dest_offsets);
+                }
+            });
     }
 
     template <std::size_t dim, class TInterval>
@@ -303,68 +329,112 @@ namespace samurai
         constexpr std::size_t order = 2 * pred_stencil_size + 1;
         using value_t               = typename TInterval::value_t;
 
-        // (even index coefficients, odd index coefficients)
-        const std::array<std::array<double, order>, 2> interp_coeff_pair = {
-            {prediction_coefficients<pred_stencil_size>(0, 0).c, prediction_coefficients<pred_stencil_size>(1, 0).c}
-        };
-
         const auto* src_data = src.data();
         auto* dest_data      = dest.data();
 
         auto dest_offset = memory_offset(dest.mesh(), {level, i.start, index});
 
-        std::array<std::size_t, dim> parity;
-        parity[0] = (i.start & 1) ? 1 : 0;
-        for (std::size_t d = 1; d < dim; ++d)
+        // Here the destination is the fine level and the stencil lives one level up, so the
+        // shift is classified there: on the parents of `i`, and over the coarse domain.
+        const TInterval parents{i.start >> 1, ((i.end - 1) >> 1) + 1, i.index};
+
+        // Built cell by cell rather than as `index >> 1`: that is a lazy xtensor expression,
+        // and storing one keeps a reference to the scalar it was written against.
+        xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> parent_index;
+        for (std::size_t d = 0; d + 1 < dim; ++d)
         {
-            parity[d] = (index[d - 1] & 1) ? 1 : 0;
+            parent_index[d] = index[d] >> 1;
         }
 
-        std::array<std::size_t, ce_pow(order, dim)> src_offsets;
-        std::size_t ind = 0;
-        static_nested_loop<dim, -static_cast<int>(pred_stencil_size), static_cast<int>(pred_stencil_size) + 1>(
-            [&](const auto& stencil)
+        for_each_prediction_shift_run<pred_stencil_size>(
+            prediction_domain(src.mesh(), level - 1),
+            parents,
+            parent_index,
+            [&](const auto& run, const auto& shifts)
             {
-                auto new_index     = (index >> 1) + xt::view(stencil, xt::range(1, dim));
-                src_offsets[ind++] = memory_offset(src.mesh(), {level - 1, (i.start >> 1) + stencil[0], new_index});
-            });
-
-        auto apply_pred = [&](const auto& i_f, const auto& i_c)
-        {
-            std::array<double, SRC::n_comp> dest_value{};
-            std::size_t io = 0;
-            static_nested_loop<dim, 0, order>(
-                [&](const auto& stencil)
+                // The fine cells of `i` whose parent this run holds.
+                const value_t fine_start = std::max(i.start, 2 * run.start);
+                const value_t fine_end   = std::min(i.end, 2 * run.end);
+                if (fine_start >= fine_end)
                 {
+                    return;
+                }
+
+                // (even index coefficients, odd index coefficients), per direction
+                std::array<std::array<std::array<double, order>, 2>, dim> interp_coeff_pair;
+                xt::xtensor_fixed<value_t, xt::xshape<dim>> stencil_start;
+                for (std::size_t d = 0; d < dim; ++d)
+                {
+                    const auto& even        = prediction_coefficients<pred_stencil_size>(0, shift_of(shifts, d));
+                    const auto& odd         = prediction_coefficients<pred_stencil_size>(1, shift_of(shifts, d));
+                    interp_coeff_pair[d][0] = even.c;
+                    interp_coeff_pair[d][1] = odd.c;
+                    stencil_start[d]        = static_cast<value_t>(even.start);
+                }
+
+                std::array<std::size_t, dim> parity;
+                parity[0] = (fine_start & 1) ? 1 : 0;
+                for (std::size_t d = 1; d < dim; ++d)
+                {
+                    parity[d] = (index[d - 1] & 1) ? 1 : 0;
+                }
+
+                // The stencil's origin, once per run: the node loop below runs 27 times per run
+                // in 3D, on runs two cells long, so it must not carry an xtensor sum of its own.
+                xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> node_index_start;
+                for (std::size_t d = 0; d + 1 < dim; ++d)
+                {
+                    node_index_start[d] = parent_index[d] + stencil_start[d + 1];
+                }
+                const value_t node_x_start = run.start + stencil_start[0];
+
+                std::array<std::size_t, ce_pow(order, dim)> src_offsets;
+                std::size_t ind = 0;
+                static_nested_loop<dim, 0, order>(
+                    [&](const auto& stencil)
+                    {
+                        auto new_index     = node_index_start + xt::view(stencil, xt::range(1, dim));
+                        src_offsets[ind++] = memory_offset(src.mesh(), {level - 1, node_x_start + stencil[0], new_index});
+                    });
+
+                auto apply_pred = [&](const auto& i_f, const auto& i_c)
+                {
+                    std::array<double, SRC::n_comp> dest_value{};
+                    std::size_t io = 0;
+                    static_nested_loop<dim, 0, order>(
+                        [&](const auto& stencil)
+                        {
+                            for (std::size_t n = 0; n < SRC::n_comp; ++n)
+                            {
+                                auto field_ijk = src_data[(src_offsets[io] + i_c) * SRC::n_comp + n];
+
+                                dest_value[n] += field_ijk
+                                               * std::apply(
+                                                     [&](const auto&... ki)
+                                                     {
+                                                         std::size_t is = 0;
+                                                         double coeff   = 1.;
+                                                         ((coeff *= interp_coeff_pair[is][ki][static_cast<std::size_t>(stencil[is])], ++is),
+                                                          ...);
+                                                         return coeff;
+                                                     },
+                                                     parity);
+                            }
+                            io++;
+                        });
+
                     for (std::size_t n = 0; n < SRC::n_comp; ++n)
                     {
-                        auto field_ijk = src_data[(src_offsets[io] + i_c) * SRC::n_comp + n];
-
-                        dest_value[n] += field_ijk
-                                       * std::apply(
-                                             [&](const auto&... ki)
-                                             {
-                                                 std::size_t is = 0;
-                                                 double coeff   = 1.;
-                                                 ((coeff *= interp_coeff_pair[ki][static_cast<std::size_t>(stencil[is])], ++is), ...);
-                                                 return coeff;
-                                             },
-                                             parity);
+                        dest_data[(dest_offset + i_f) * SRC::n_comp + n] = dest_value[n];
                     }
-                    io++;
-                });
+                    parity[0] = (parity[0] & 1) ? 0 : 1;
+                };
 
-            for (std::size_t n = 0; n < SRC::n_comp; ++n)
-            {
-                dest_data[(dest_offset + i_f) * SRC::n_comp + n] = dest_value[n];
-            }
-            parity[0] = (parity[0] & 1) ? 0 : 1;
-        };
-
-        for (std::size_t i_f = 0; i_f < i.size(); ++i_f)
-        {
-            apply_pred(i_f, static_cast<std::size_t>(((i.start + static_cast<value_t>(i_f)) >> 1) - (i.start >> 1)));
-        }
+                for (value_t x = fine_start; x < fine_end; ++x)
+                {
+                    apply_pred(static_cast<std::size_t>(x - i.start), static_cast<std::size_t>((x >> 1) - run.start));
+                }
+            });
     }
 
     template <std::size_t dim, class TInterval>

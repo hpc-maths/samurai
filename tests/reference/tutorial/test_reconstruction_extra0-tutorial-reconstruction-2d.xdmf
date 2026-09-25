@@ -2,17 +2,17 @@
 <Xdmf>
     <Domain>
         <Grid Name="mesh">
-            <Topology TopologyType="Quadrilateral" NumberOfElements="23104">
-                <DataItem Dimensions="92416" Format="HDF">test_reconstruction_extra0-tutorial-reconstruction-2d.h5:/mesh/connectivity</DataItem>
+            <Topology TopologyType="Quadrilateral" NumberOfElements="11920">
+                <DataItem Dimensions="47680" Format="HDF">test_reconstruction_extra0-tutorial-reconstruction-2d.h5:/mesh/connectivity</DataItem>
             </Topology>
             <Geometry GeometryType="XYZ">
-                <DataItem Dimensions="77859" Format="HDF">test_reconstruction_extra0-tutorial-reconstruction-2d.h5:/mesh/points</DataItem>
+                <DataItem Dimensions="38835" Format="HDF">test_reconstruction_extra0-tutorial-reconstruction-2d.h5:/mesh/points</DataItem>
             </Geometry>
             <Attribute Name="u" Center="Cell">
-                <DataItem Dimensions="23104" Format="HDF" Precision="8">test_reconstruction_extra0-tutorial-reconstruction-2d.h5:/mesh/fields/u</DataItem>
+                <DataItem Dimensions="11920" Format="HDF" Precision="8">test_reconstruction_extra0-tutorial-reconstruction-2d.h5:/mesh/fields/u</DataItem>
             </Attribute>
             <Attribute Name="level" Center="Cell">
-                <DataItem Dimensions="23104" Format="HDF" Precision="8">test_reconstruction_extra0-tutorial-reconstruction-2d.h5:/mesh/fields/level</DataItem>
+                <DataItem Dimensions="11920" Format="HDF" Precision="8">test_reconstruction_extra0-tutorial-reconstruction-2d.h5:/mesh/fields/level</DataItem>
             </Attribute>
         </Grid>
     </Domain>
