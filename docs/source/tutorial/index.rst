@@ -5,6 +5,7 @@ Tutorials
    :caption: Tutorial
    :maxdepth: 1
 
+   getting_started
    hands_on
    interval
    field
