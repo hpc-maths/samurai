@@ -36,7 +36,7 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
                            });
 
     samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
-    samurai::save(path, fmt::format("{}_full_{}", filename, suffix), {true, true}, mesh, u, level_);
+    samurai::save(path, fmt::format("{}_full{}", filename, suffix), {true, true}, mesh, u, level_);
 }
 
 void check_diff(auto& mesh)
@@ -47,6 +47,9 @@ void check_diff(auto& mesh)
 
     auto my_min_indices = mesh.subdomain().min_indices();
 
+    // Every level is checked: a difference confined to a coarse level must not be hidden by the levels after it.
+    // Each rank checks its own cells against each neighbour; the neighbourhood is symmetric, so the neighbour
+    // checks the other direction.
     bool different = false;
     for (const auto& neighbour : mesh.mpi_neighbourhood())
     {
@@ -58,41 +61,22 @@ void check_diff(auto& mesh)
         samurai::for_each_level(mesh,
                                 [&](auto level)
                                 {
-                                    auto set  = samurai::difference(mesh[mesh_id_t::cells][level],
+                                    auto set = samurai::difference(mesh[mesh_id_t::cells][level],
                                                                    samurai::translate(neighbour.mesh[mesh_id_t::cells][level],
                                                                                       translation >> (mesh.subdomain().level() - level)));
-                                    different = !set.empty();
+                                    set(
+                                        [&](const auto& i, const auto& index)
+                                        {
+                                            // std::cerr: std::cout is redirected to /dev/null on every rank but 0
+                                            std::cerr << "Difference found !! " << level << " " << i << " " << index << " for domain "
+                                                      << world.rank() << " with subdomain " << neighbour.rank << "\n";
+                                            different = true;
+                                        });
                                 });
-        if (different)
-        {
-            break;
-        }
     }
 
     if (mpi::all_reduce(world, different, std::logical_or<>()))
     {
-        for (const auto& neighbour : mesh.mpi_neighbourhood())
-        {
-            auto neighbour_min_indices = neighbour.mesh.subdomain().min_indices();
-
-            xt::xtensor_fixed<int, xt::xshape<2>> translation{my_min_indices[0] - neighbour_min_indices[0],
-                                                              my_min_indices[1] - neighbour_min_indices[1]};
-
-            samurai::for_each_level(mesh,
-                                    [&](auto level)
-                                    {
-                                        auto set = samurai::difference(mesh[mesh_id_t::cells][level],
-                                                                       samurai::translate(neighbour.mesh[mesh_id_t::cells][level],
-                                                                                          translation >> (mesh.subdomain().level() - level)));
-                                        set(
-                                            [&](const auto& i, const auto& index)
-                                            {
-                                                std::cout << "Difference found !! " << level << " " << i << " " << index << " for domain "
-                                                          << world.rank() << " with subdomain " << neighbour.rank << "\n";
-                                                different = true;
-                                            });
-                                    });
-        }
         samurai::save("diff_mesh", mesh);
         throw std::runtime_error("Difference found between subdomains");
     }
@@ -139,14 +123,11 @@ int main(int argc, char* argv[])
     int npx = 1;
     int npy = 1;
 
-    // Multiresolution parameters
-    std::size_t min_level = 8;
-    std::size_t max_level = 8;
-
     // Output parameters
     fs::path path        = fs::current_path();
     std::string filename = "burgers";
-    std::size_t nfiles   = 0;
+    std::size_t nfiles   = 1;
+    bool no_output       = false;
 
     bool pause = false;
 
@@ -160,7 +141,8 @@ int main(int argc, char* argv[])
     app.add_option("--npy", npy, "Number of processes in y direction")->capture_default_str()->group("MPI parameters");
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
-    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
+    app.add_option("--nfiles", nfiles, "Number of output files (0 saves every time step)")->capture_default_str()->group("Output");
+    app.add_flag("--no-output", no_output, "Do not write any output file")->group("Output");
     app.add_flag("--pause", pause, "Pause before starting the simulation")->group("Debugging");
     app.allow_extras();
     SAMURAI_PARSE(argc, argv);
@@ -186,7 +168,13 @@ int main(int argc, char* argv[])
     // Problem definition //
     //--------------------//
 
+    // The levels are those of the mesh configuration, overridable by --min-level and --max-level.
+    // The multiresolution analysis requires the initial mesh to be uniform at the max level;
+    // it is adapted before the first time step.
     auto config = samurai::mesh_config<dim>().min_level(4).max_level(10).max_stencil_size(4).graduation_width(2).disable_minimal_ghost_width();
+    config.parse_args();
+    const std::size_t max_level = config.max_level();
+
     auto box = get_box(min_corner, max_corner, npx);
     samurai::CellArray<2> cells;
     for (std::size_t level = 0; level < cells.max_size; ++level)
@@ -224,13 +212,19 @@ int main(int argc, char* argv[])
     auto mra_config   = samurai::mra_config().epsilon(1e-3);
     MRadaptation(mra_config);
 
-    double dt_save    = nfiles == 0 ? dt : Tf / static_cast<double>(nfiles);
-    std::size_t nsave = 0, nt = 0;
-    if (nfiles != 1)
+    auto save_solution = [&](std::size_t isave)
     {
-        std::string suffix = (nfiles != 1) ? fmt::format("_level_{}_{}_np_{}_{}_ite_{}", min_level, max_level, npx, npy, nsave) : "";
+        std::string suffix = (nfiles != 1) ? fmt::format("_level_{}_{}_np_{}_{}_ite_{}", mesh.min_level(), mesh.max_level(), npx, npy, isave)
+                                           : "";
         save(path, filename, u, suffix);
+    };
+
+    // Save k is written at t >= k * dt_save. Save 0 is the initial solution, skipped when only the final one is wanted.
+    if (!no_output && nfiles != 1)
+    {
+        save_solution(0);
     }
+    std::size_t nsave = 1, nt = 0;
 
     // Convection operator
     xt::xtensor_fixed<double, xt::xshape<dim>> velocity = {0.5, 0.5};
@@ -241,8 +235,13 @@ int main(int argc, char* argv[])
     //   Time iteration   //
     //--------------------//
 
-    double dx = mesh.cell_length(max_level);
-    dt        = cfl * dx / velocity(0);
+    // The time step must satisfy the CFL condition on the finest level the mesh may reach,
+    // not on the level of the initial mesh.
+    if (dt == 0.)
+    {
+        dt = cfl * mesh.min_cell_length() / velocity(0);
+    }
+    const double dt_save = (nfiles == 0) ? dt : Tf / static_cast<double>(nfiles);
 
     while (t != Tf)
     {
@@ -270,12 +269,10 @@ int main(int argc, char* argv[])
         std::swap(u.array(), unp1.array());
 
         // Save the result
-        if (nfiles == 0 || t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
+        if (!no_output && (nfiles == 0 || t >= static_cast<double>(nsave) * dt_save || t == Tf))
         {
             std::cout << "  (saving results)" << std::flush;
-            std::string suffix = (nfiles != 1) ? fmt::format("_level_{}_{}_np_{}_{}_ite_{}", min_level, max_level, npx, npy, nsave) : "";
-            save(path, filename, u, suffix);
-            nsave++;
+            save_solution(nsave++);
         }
 
         std::cout << std::endl;
