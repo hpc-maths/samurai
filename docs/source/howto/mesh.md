@@ -41,7 +41,6 @@ Describe the mesh with `samurai::mesh_config`, then pass it to `samurai::mra::ma
 
 This example creates a 2D multiresolution mesh on the box from $(0.0, 0.0)$ to $(1.0, 1.0)$ with a minimum level of 2 and a maximum level of 5.
 All cells start at the maximum level, because multiresolution needs the solution at the finest level before it can coarsen the mesh.
-For the multiresolution method itself (details, prediction operator), see the [samurai article on HAL](https://hal.science/hal-04545389v1).
 
 ## Create an AMR mesh
 
