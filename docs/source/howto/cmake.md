@@ -62,7 +62,7 @@ Pass them with `-D` when you configure your project, for example `-DSAMURAI_WITH
 Each one is `OFF` by default.
 
 | Option | Effect | Requires |
-|---|---|---|
+| --- | --- | --- |
 | `SAMURAI_WITH_MPI` | Distributed-memory parallelism with MPI. | Boost.MPI and Boost.Serialization, and an HDF5 built with MPI support. |
 | `SAMURAI_WITH_PETSC` | PETSc solvers for implicit schemes. | PETSc, found through `pkg-config`: the directory that holds `PETSc.pc` must be in `PKG_CONFIG_PATH`. |
 | `SAMURAI_WITH_OPENMP` | Shared-memory parallelism with OpenMP. | A compiler with OpenMP support. |
