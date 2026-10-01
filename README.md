@@ -330,16 +330,13 @@ Here is a minimal example of `CMakeLists.txt`:
 cmake_minimum_required(VERSION 3.16)
 project(my_samurai_project CXX)
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
 find_package(samurai CONFIG REQUIRED)
 
 add_executable(my_samurai_project main.cpp)
 target_link_libraries(my_samurai_project PRIVATE samurai::samurai)
 ```
 
-samurai requires a C++20 compiler.
+samurai requires a C++20 compiler. Linking to `samurai::samurai` compiles your target as C++20, so the project does not need to set `CMAKE_CXX_STANDARD`.
 MPI and PETSc are disabled by default.
 To enable them, set these options before `find_package(samurai)`:
 
