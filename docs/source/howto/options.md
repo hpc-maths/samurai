@@ -64,14 +64,14 @@ min level: 2, max level: 7
 
 `samurai::initialize` registers the options below. The `--help` output lists them by group.
 
-**Options**
+### Options
 
 | Option | Value | Effect |
 |---|---|---|
 | `--config` | file path | Reads option values from a TOML file (see {ref}`howto-options-config`). |
 | `-h`, `--help` | flag | Prints the help message and exits. Needs `SAMURAI_PARSE`. |
 
-**SAMURAI**
+### SAMURAI
 
 | Option | Value | Effect |
 |---|---|---|
@@ -93,14 +93,14 @@ min level: 2, max level: 7
 |---|---|---|
 | `--dont-redirect-output` | flag | Keeps the standard output of every MPI rank. By default, only rank 0 prints. |
 
-**Tools**
+### Tools
 
 | Option | Value | Effect |
 |---|---|---|
 | `--timers` | flag | Prints the timers when `samurai::finalize` runs (see the [timers guide](timers.md)). |
 | `--info` | flag | Prints the samurai version, its dependencies and the build configuration, then exits. |
 
-**Multiresolution**
+### Multiresolution
 
 | Option | Value | Effect |
 |---|---|---|
