@@ -499,6 +499,14 @@ namespace samurai
                                               {
                                                   return b;
                                               });
+        // Without a non-periodic direction there is no physical face, so the
+        // boundary contiguity (extend_boundary) has nothing to enforce.
+        [[maybe_unused]] const bool all_periodic = std::all_of(is_periodic.begin(),
+                                                               is_periodic.end(),
+                                                               [](bool b)
+                                                               {
+                                                                   return b;
+                                                               });
         std::array<int, dim> nb_cells_finest_level{};
         if (any_periodic)
         {
@@ -567,7 +575,11 @@ namespace samurai
                 //    small R (2, 3) the 2*(R-2) term collapses to 0/2, so this floor takes over.
                 // The two terms cross at R=4; below it R wins, above it 2*(R-2) (slope 2R-4) wins.
                 const int n_contig = std::max(max_stencil_radius, 2 * (max_stencil_radius - 2));
-                if (max_stencil_radius <= 1 || domain.empty() || n_contig <= 1)
+                // Both boundary cases skip the periodic directions: on a fully
+                // periodic domain they add nothing, and the exchanges and
+                // all_reduce of the loop below are pure cost. The periodicity is
+                // the same on every rank, so every rank returns here or none does.
+                if (max_stencil_radius <= 1 || domain.empty() || n_contig <= 1 || all_periodic)
                 {
                     return;
                 }
