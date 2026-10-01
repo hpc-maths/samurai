@@ -74,20 +74,26 @@ To use the installed samurai in your own code, go to [Check the installation](#c
 
 ## Install with spack
 
-% TODO: the spack package name and the +mpi / +petsc variants were not checked against the spack recipe.
-
-1. Install samurai:
+1. Install samurai and load it in your environment:
 
    ```bash
    spack install samurai
+   spack load samurai
    ```
 
-2. If you need MPI or PETSc, add the matching variant:
+2. To enable optional features, add the matching variant:
 
    ```bash
    spack install samurai +mpi
-   spack install samurai +petsc
    ```
+
+   | Variant | Effect |
+   |---|---|
+   | `+mpi` | MPI support, with parallel HDF5 and Boost.MPI |
+   | `+openmp` | OpenMP support |
+   | `+check_nan` | Checks for NaN values in computations |
+
+   PETSc is always installed as a dependency, so no variant is needed for it. `spack info samurai` lists the available versions and variants.
 
 (build-from-source)=
 
