@@ -2,16 +2,16 @@
   <a href="https://github.com/hpc-maths/samurai">
     <picture>
         <source media="(prefers-color-scheme: dark)" height="200" srcset="./docs/source/logo/dark_logo.png">
-        <img alt="Text changing depending on mode. Light: 'So light!' Dark: 'So dark!'" height=200 src="./docs/source/logo/light_logo.png">
+        <img alt="samurai logo" height=200 src="./docs/source/logo/light_logo.png">
     </picture>
   </a>
 </h1>
 
 <div align="center">
   <br />
-  <a href="https://github.com/hpc-maths/samurai/issues/new?assignees=&labels=bug&template=01_BUG_REPORT.md&title=bug%3A+">Report a Bug</a>
+  <a href="https://github.com/hpc-maths/samurai/issues/new?template=bug_report.yml">Report a Bug</a>
   ·
-  <a href="https://github.com/hpc-maths/samurai/issues/new?assignees=&labels=enhancement&template=02_FEATURE_REQUEST.md&title=feat%3A+">Request a Feature</a>
+  <a href="https://github.com/hpc-maths/samurai/issues/new?template=new_features.yml">Request a Feature</a>
   ·
   <a href="https://github.com/hpc-maths/samurai/discussions">Ask a Question</a>
   <br />
@@ -26,7 +26,6 @@
 
 [![Pull Requests welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg?style=flat-square)](https://github.com/hpc-maths/samurai/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22)
 [![code with love by hpc-maths](https://img.shields.io/badge/%3C%2F%3E%20with%20%E2%99%A5%20by-HPC@Maths-ff1414.svg?style=flat-square)](https://github.com/hpc-maths)
-
 
 </div>
 
@@ -47,7 +46,7 @@ Samurai also offers a flexible and pleasant interface to easily implement numeri
 - [Features](#features)
 - [Installation](#installation)
   - [From conda](#from-conda)
-  - [From Conan Center](#from-conan-center)
+  - [From Spack](#from-spack)
   - [From source](#from-source)
 - [Get help](#get-help)
 - [Project assistance](#project-assistance)
@@ -73,7 +72,7 @@ with homogeneous Dirichlet boundary conditions and $a = (1, 1)$. The initial sol
 $$
 u_0(x, y) = \left\\{
 \begin{align*}
-1 & \\; \text{in} \\; [0.4, 0.6]\times [0.4, 0.6], \\
+1 & \\; \text{if} \\; (x - 0.3)^2 + (y - 0.3)^2 \leq 0.2^2, \\
 0 & \\; \text{elsewhere}.
 \end{align*}
 \right.
@@ -83,25 +82,52 @@ To solve this equation, we use the well known [upwind scheme](https://en.wikiped
 
 The following steps describe how to solve this problem with samurai. It is important to note that these steps are generally the same whatever the equations we want to solve.
 
+- Include the headers and write the `main` function
+
+    ```cpp
+    #include <array>
+
+    #include <samurai/algorithm.hpp>
+    #include <samurai/bc.hpp>
+    #include <samurai/field.hpp>
+    #include <samurai/io/hdf5.hpp>
+    #include <samurai/mr/adapt.hpp>
+    #include <samurai/mr/mesh.hpp>
+    #include <samurai/samurai.hpp>
+    #include <samurai/stencil_field.hpp>
+
+    int main(int argc, char* argv[])
+    {
+        samurai::initialize("Advection equation in 2D", argc, argv);
+        SAMURAI_PARSE(argc, argv);
+
+        // the code of the next steps goes here
+
+        samurai::finalize();
+        return 0;
+    }
+    ```
+
+    `samurai::initialize` and `samurai::finalize` set up and close the command line options, the timers, and MPI when MPI is enabled. `SAMURAI_PARSE` reads the command line options (run the program with `--help` to list them).
+
 - Define the configuration of the problem
 
     ```cpp
-    constexpr size_t dim = 2;
-    using Config = samurai::MRConfig<dim>;
-    std::size_t min_level = 2, max_level = 8;
-    ````
+    constexpr std::size_t dim = 2;
+    auto config = samurai::mesh_config<dim>().min_level(4).max_level(10);
+    ```
 
 - Create the Cartesian mesh
 
     ```cpp
     const samurai::Box<double, dim> box({0., 0.}, {1., 1.});
-    samurai::MRMesh<Config> mesh(box, min_level, max_level);
+    auto mesh = samurai::mra::make_mesh(box, config);
     ```
 
 - Create the field on this mesh
 
     ```cpp
-    auto u = samurai::make_field<double, 1>("u", mesh);
+    auto u = samurai::make_scalar_field<double>("u", mesh);
     samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
     ```
 
@@ -110,51 +136,59 @@ The following steps describe how to solve this problem with samurai. It is impor
     ```cpp
     samurai::for_each_cell(mesh, [&](const auto& cell)
     {
-        double length = 0.2;
-        if (xt::all(xt::abs(cell.center() - 0.5) <= 0.5*length))
+        auto center = cell.center();
+        double radius = 0.2;
+        if ((center[0] - 0.3) * (center[0] - 0.3) + (center[1] - 0.3) * (center[1] - 0.3) <= radius * radius)
         {
             u[cell] = 1;
         }
+        else
+        {
+            u[cell] = 0;
+        }
     });
-    ````
+    ```
 
-- Create the adaptation method
+- Create the adaptation method and its parameters
 
     ```cpp
     auto MRadaptation = samurai::make_MRAdapt(u);
+    auto mra_config   = samurai::mra_config().epsilon(2e-4);
     ```
 
 - Time loop
 
     ```cpp
-    double dx = mesh.cell_length(max_level);
-    double dt = 0.5*dx;
-    auto unp1 = samurai::make_field<double, 1>("u", mesh);
+    std::array<double, dim> a{{1, 1}};
+    double Tf = 0.1;
+    double t  = 0.;
+    double dt = 0.5 * mesh.min_cell_length();
+    auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);
 
-    // Time loop
-    for (std::size_t nite = 0; nite < 50; ++nite)
+    while (t < Tf)
     {
         // adapt u
-        MRadaptation(1e-4, 2);
+        MRadaptation(mra_config);
+
+        t += dt;
 
         // update the ghosts used by the upwind scheme
         samurai::update_ghost_mr(u);
 
         // upwind scheme
-        samurai::for_each_interval(mesh, [&](std::size_t level, const auto& i, const auto& index)
-        {
-            double dx = mesh.cell_length(level);
-            auto j = index[0];
+        unp1.resize();
+        unp1 = u - dt * samurai::upwind(a, u);
 
-            unp1(level, i, j) = u(level, i, j) - dt / dx * (u(level, i, j) - u(level, i - 1, j)
-                                                          + u(level, i, j) - u(level, i, j - 1));
-        });
-
-        std::swap(unp1.array(), u.array());
+        std::swap(u.array(), unp1.array());
     }
+
+    samurai::save("advection_2d", mesh, u);
     ```
 
+    `samurai::save` writes the solution to `advection_2d.h5` and `advection_2d.xdmf`, which you can open with [ParaView](https://www.paraview.org/).
+
 The whole example can be found [here](./demos/FiniteVolume/advection_2d.cpp).
+It differs from the steps above: it adds command line options for the simulation parameters, saves the solution at several times, can restart from a saved file, reduces the number of ghost cells with `disable_minimal_ghost_width()`, adjusts the last time step to end exactly at `Tf`, and runs the simulation twice with two prediction stencils.
 
 ### The projection operator
 
@@ -166,13 +200,15 @@ $$
 
 This operator allows to compute the cell-average value of the solution at a grid node at level $l$ from cell-average values of the solution known on children-nodes at grid level $l + 1$ for a 2D problem.
 
-We assume that we already have a samurai mesh with several level defined in the variable `mesh`. To access to a level, we use the operator `mesh[level]`. We also assume that we created a field on this mesh using the `make_field` and initialized it.
+We assume that we already have a samurai mesh with several level defined in the variable `mesh`. A multiresolution mesh stores several sets of cells, selected by a `mesh_id_t` value: `mesh[mesh_id_t::all_cells][level]` returns all the cells of level `level`, including the ghost cells. We also assume that we created a field `u` on this mesh using `make_scalar_field` and initialized it.
 
 The following steps describe how to implement the projection operator with samurai.
 
 - Create a subset of the mesh using set algebra
+
 ```cpp
-auto set = samurai::intersection(mesh[level], mesh[level+1]).on(level);
+using mesh_id_t = typename std::decay_t<decltype(mesh)>::mesh_id_t;
+auto set = samurai::intersection(mesh[mesh_id_t::all_cells][level], mesh[mesh_id_t::all_cells][level + 1]).on(level);
 ```
 
 - Apply an operator on this subset
@@ -212,7 +248,7 @@ The [tutorial](./demos/tutorial/) directory is a good first step followed by the
 - [x] MRA cell-based methods
 - [ ] MRA point-based methods
 - [x] HDF5 output format support
-- [ ] MPI implementation
+- [x] MPI implementation
 
 ## Installation
 
@@ -240,54 +276,45 @@ For parallel computation,
 mamba install libboost-mpi libboost-devel libboost-headers 'hdf5=*=mpi*'
 ```
 
-### From Conan Center
-
-If you want to install samurai from Conan, you can use the following command:
+### From Spack
 
 ```bash
-conan install --requires=samurai/0.13.0
+spack install samurai
+spack load samurai
 ```
+
+The variants `+mpi`, `+openmp` and `+check_nan` enable MPI, OpenMP and NaN checks, for example `spack install samurai +mpi`. `spack info samurai` lists the available versions and variants.
 
 ### From source
 
-Run the cmake configuration
+Run the cmake configuration with mamba or conda.
 
-- With mamba or conda
+First, you need to create the environment with all the dependencies
+installed, run
 
-    First, you need to create the environment with all the dependencies
-    installed, run
+```bash
+mamba env create --file conda/environment.yml
+```
 
-    ```bash
-    mamba env create --file conda/environment.yml
-    ```
+for sequential computation, or
 
-    for sequential computation, or
+```bash
+mamba env create --file conda/mpi-environment.yml
+```
 
-    ```bash
-    mamba env create --file conda/mpi-environment.yml
-    ```
+for parallel computation. Then activate the environment
 
-    for parallel computation. Then
+```bash
+mamba activate samurai-env
+```
 
-    ```bash
-    mamba activate samurai-env
-    ```
+(`samurai-mpi-env` for the parallel environment), and run
 
-    ```bash
-    cmake . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_DEMOS=ON
-    ```
+```bash
+cmake . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_DEMOS=ON
+```
 
-- With vcpkg
-
-    ```bash
-    cmake . -B ./build -DENABLE_VCPKG=ON -DBUILD_DEMOS=ON
-    ```
-
-- With conan
-
-    ```bash
-    cmake . -B ./build -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN_OPTION=ON -DBUILD_DEMOS=ON
-    ```
+Add `-DWITH_MPI=ON` to build the parallel version.
 
 Build the demos
 
@@ -300,34 +327,39 @@ cmake --build ./build --config Release
 Here is a minimal example of `CMakeLists.txt`:
 
 ```cmake
-cmake_minimum_required(VERSION 3.15)
-set(CMAKE_CXX_STANDARD 17)
-
+cmake_minimum_required(VERSION 3.16)
 project(my_samurai_project CXX)
 
-set(SAMURAI_WITH_MPI ON)
-set(SAMURAI_WITH_PETSC OFF)
 find_package(samurai CONFIG REQUIRED)
 
 add_executable(my_samurai_project main.cpp)
 target_link_libraries(my_samurai_project PRIVATE samurai::samurai)
 ```
 
-The MPI load balancing module can optionally use external graph partitioners.
-Both require `SAMURAI_WITH_MPI=ON` and the corresponding library (available in
-conda-forge as `parmetis` / `ptscotch`):
+samurai requires a C++20 compiler. Linking to `samurai::samurai` compiles your target as C++20, so the project does not need to set `CMAKE_CXX_STANDARD`.
+MPI and PETSc are disabled by default.
+To enable them, set these options before `find_package(samurai)`:
 
 ```cmake
-set(SAMURAI_WITH_PARMETIS ON)  # enable the ParMETIS (Metis) strategy
-set(SAMURAI_WITH_PTSCOTCH ON)  # enable the PT-Scotch (Scotch) strategy
+set(SAMURAI_WITH_MPI ON)    # requires a parallel HDF5 and Boost.MPI
+set(SAMURAI_WITH_PETSC ON)  # requires PETSc and pkg-config
+```
+
+The MPI load balancing module can optionally use external graph partitioners.
+They are options of the samurai build itself, so set them when you configure samurai from source.
+Both require `-DWITH_MPI=ON` and the corresponding library (available in
+conda-forge as `parmetis` / `ptscotch`):
+
+```bash
+cmake . -B build -DWITH_MPI=ON -DSAMURAI_WITH_PARMETIS=ON  # enable the ParMETIS (Metis) strategy
+cmake . -B build -DWITH_MPI=ON -DSAMURAI_WITH_PTSCOTCH=ON  # enable the PT-Scotch (Scotch) strategy
 ```
 
 ## Get help
 
-For a better understanding of all the components of samurai, you can consult the documentation https://hpc-math-samurai.readthedocs.io.
+For a better understanding of all the components of samurai, you can consult the [samurai documentation](https://hpc-math-samurai.readthedocs.io).
 
 If you have any question or remark, you can write a message on [github discussions](https://github.com/hpc-maths/samurai/discussions) and we will be happy do help you or to discuss with you.
-
 
 ## Project assistance
 
@@ -343,11 +375,10 @@ Together, we can make samurai **better**!
 
 First off, thanks for taking the time to contribute! Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make will benefit everybody else and are **greatly appreciated**.
 
-
 Please read [our contribution guidelines](./docs/CONTRIBUTING.md), and thank you for being involved!
 
 ## License
 
-This project is licensed under the **BSD license**.
+This project is licensed under the **BSD-3-Clause license**.
 
 See [LICENSE](LICENSE) for more information.
