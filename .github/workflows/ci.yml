@@ -52,7 +52,7 @@ jobs:
                           docs/source/howto/snippet/*)
                               snippets=true ;;
                           docs/* | *.md | LICENSE | AUTHORS.txt | codemeta.json | CITATION.cff | \
-                          .readthedocs.yml | .github/ISSUE_TEMPLATE/* | .github/PULL_REQUEST_TEMPLATE.md | \
+                          .readthedocs.yml | .markdownlint* | .github/ISSUE_TEMPLATE/* | .github/PULL_REQUEST_TEMPLATE.md | \
                           release-please-config.json | .release-please-manifest.json)
                               ;;
                           *)
