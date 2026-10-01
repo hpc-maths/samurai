@@ -5,6 +5,7 @@ Tutorials
    :caption: Tutorial
    :maxdepth: 1
 
+   hands_on
    interval
    field
    algorithm
