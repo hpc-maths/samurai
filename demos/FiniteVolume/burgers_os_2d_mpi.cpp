@@ -11,7 +11,6 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
-#include <algorithm>
 #include <chrono>
 #include <numbers>
 #include <thread>
@@ -169,17 +168,12 @@ int main(int argc, char* argv[])
     // Problem definition //
     //--------------------//
 
-    // The levels are those of the mesh configuration, overridable by --min-level, --max-level and --start-level.
-    // The initial mesh is uniform at the start level and adapted by the multiresolution before the first time step.
-    auto config = samurai::mesh_config<dim>()
-                      .min_level(4)
-                      .max_level(10)
-                      .start_level(8)
-                      .max_stencil_size(4)
-                      .graduation_width(2)
-                      .disable_minimal_ghost_width();
+    // The levels are those of the mesh configuration, overridable by --min-level and --max-level.
+    // The multiresolution analysis requires the initial mesh to be uniform at the max level;
+    // it is adapted before the first time step.
+    auto config = samurai::mesh_config<dim>().min_level(4).max_level(10).max_stencil_size(4).graduation_width(2).disable_minimal_ghost_width();
     config.parse_args();
-    const std::size_t start_level = std::clamp(config.start_level(), config.min_level(), config.max_level());
+    const std::size_t max_level = config.max_level();
 
     auto box = get_box(min_corner, max_corner, npx);
     samurai::CellArray<2> cells;
@@ -188,8 +182,8 @@ int main(int argc, char* argv[])
         cells[level].set_origin_point(min_corner);
         cells[level].set_scaling_factor(scaling_factor);
     }
-    cells[start_level] = {start_level, box, min_corner, approx_box_tol, scaling_factor};
-    auto mesh          = samurai::mra::make_mesh(cells, config);
+    cells[max_level] = {max_level, box, min_corner, approx_box_tol, scaling_factor};
+    auto mesh        = samurai::mra::make_mesh(cells, config);
     mesh.cfg().periodic(true);
     mesh.box_like();
     mesh = {cells, mesh};
