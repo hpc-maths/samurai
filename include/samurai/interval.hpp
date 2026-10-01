@@ -8,7 +8,9 @@
 #include <fmt/format.h>
 
 #ifdef SAMURAI_WITH_MPI
+#include <boost/mpi/datatype.hpp>
 #include <boost/serialization/base_object.hpp>
+#include <boost/serialization/is_bitwise_serializable.hpp>
 #endif
 
 #include "samurai_config.hpp"
@@ -378,6 +380,21 @@ namespace samurai
     }
 
 } // namespace samurai
+
+#ifdef SAMURAI_WITH_MPI
+// An Interval is four integers: Boost.MPI can send it as an MPI datatype, so an
+// array of intervals (the cells of a LevelCellArray) is packed in one call instead
+// of field by field through the serialization archive.
+template <class TValue, class TIndex>
+struct boost::mpi::is_mpi_datatype<samurai::Interval<TValue, TIndex>> : boost::mpl::true_
+{
+};
+
+template <class TValue, class TIndex>
+struct boost::serialization::is_bitwise_serializable<samurai::Interval<TValue, TIndex>> : boost::mpl::true_
+{
+};
+#endif
 
 template <class TValue, class TIndex>
 struct fmt::formatter<samurai::Interval<TValue, TIndex>>
