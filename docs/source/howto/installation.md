@@ -88,7 +88,7 @@ To use the installed samurai in your own code, go to [Check the installation](#c
    ```
 
    | Variant | Effect |
-   |---|---|
+   | --- | --- |
    | `+mpi` | MPI support, with parallel HDF5 and Boost.MPI |
    | `+openmp` | OpenMP support |
    | `+check_nan` | Checks for NaN values in computations |
@@ -147,7 +147,7 @@ This route uses a conda environment for the dependencies. If you install them an
    Add the options of the features you need to this command:
 
    | Option | Effect |
-   |---|---|
+   | --- | --- |
    | `-DWITH_MPI=ON` | Builds with MPI. Needs Boost.MPI and a parallel HDF5. |
    | `-DWITH_PETSC=ON` | Builds the demos and tests that use PETSc. Needs PETSc and `pkg-config`. |
    | `-DWITH_OPENMP=ON` | Builds with OpenMP. |
