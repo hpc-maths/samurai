@@ -288,10 +288,11 @@ namespace samurai
         // provably hold identical data from a previous exchange:
         // - m_same_cells_as_ref: the cells of this mesh are geometrically
         //   identical to those of the reference mesh it was built from;
-        // - m_same_subdomain_as_ref: the subdomain and the ghost reach (both
-        //   functions of the cells) are identical to the reference mesh's - the
-        //   neighbourhood, a pure function of every rank's subdomain and ghost
-        //   reach, cannot change when this holds on every rank (see
+        // - m_same_subdomain_as_ref: the subdomain is identical to the
+        //   reference mesh's, and the ghost reach and the periodicity are those
+        //   the reference neighbourhood was discovered with - the neighbourhood,
+        //   a pure function of every rank's subdomain, ghost reach and of the
+        //   periodicity, cannot change when this holds on every rank (see
         //   exchange_neighbour_meshes);
         // - m_same_neighbourhood: the neighbour rank set is the same as the
         //   reference mesh's (set by find_neighbourhood);
@@ -302,6 +303,16 @@ namespace samurai
         bool m_same_subdomain_as_ref      = false;
         bool m_same_neighbourhood         = false;
         bool m_neighbours_cells_unchanged = false;
+
+        // Inputs of the neighbourhood discovery other than the subdomains, as
+        // they were when find_neighbourhood last ran for the current
+        // neighbourhood. They are recorded rather than recomputed from the
+        // reference mesh because its configuration can be changed through
+        // cfg() after its construction (e.g. cfg().periodic(true) followed by
+        // a rebuild from that mesh): the reference neighbourhood was then
+        // discovered with the old values.
+        double m_discovery_ghost_reach = -1.;
+        std::array<bool, dim> m_discovery_periodicity{};
 
         template <class Payload, class RecvInto>
         bool exchange_with_neighbours(const Payload& payload, bool send_full, RecvInto&& recv_into);
@@ -439,12 +450,15 @@ namespace samurai
 
 #ifdef SAMURAI_WITH_MPI
         // Identical cells imply an identical subdomain; otherwise compare.
-        // The neighbourhood is a function of the subdomains AND of the ghost
+        // The neighbourhood is a function of the subdomains, of the ghost
         // reaches (the pairwise expansion width is max(reach_a, reach_b), and
-        // the reach varies with the coarsest populated level of the cells):
-        // both must be unchanged for the discovery skip to be valid.
+        // the reach varies with the coarsest populated level of the cells) and
+        // of the periodicity: all must match the inputs the reference
+        // neighbourhood was discovered with for the discovery skip to be valid.
+        m_discovery_ghost_reach = ref_mesh.m_discovery_ghost_reach;
+        m_discovery_periodicity = ref_mesh.m_discovery_periodicity;
         m_same_subdomain_as_ref = (m_same_cells_as_ref || m_subdomain == ref_mesh.m_subdomain)
-                               && ghost_physical_reach() == ref_mesh.ghost_physical_reach();
+                               && ghost_physical_reach() == m_discovery_ghost_reach && m_config.periodic() == m_discovery_periodicity;
 #endif
 
         exchange_neighbour_meshes();
@@ -950,6 +964,11 @@ namespace samurai
         swap(m_mpi_neighbourhood, mesh.m_mpi_neighbourhood);
         swap(m_union, mesh.m_union);
         swap(m_config, mesh.m_config);
+#ifdef SAMURAI_WITH_MPI
+        // The discovery inputs describe the neighbourhood: they move with it.
+        swap(m_discovery_ghost_reach, mesh.m_discovery_ghost_reach);
+        swap(m_discovery_periodicity, mesh.m_discovery_periodicity);
+#endif
     }
 
     template <class D, class Config>
@@ -1364,6 +1383,9 @@ namespace samurai
         auto my_bbox        = mpi_neighbor::compute_subdomain_bbox(m_subdomain[max_level()]);
         my_bbox.rank        = rank;
         my_bbox.ghost_reach = ghost_physical_reach();
+
+        m_discovery_ghost_reach = my_bbox.ghost_reach;
+        m_discovery_periodicity = m_config.periodic();
 
         std::vector<mpi_neighbor::SubdomainBoundingBox<dim>> all_bboxes(static_cast<std::size_t>(size));
         mpi::all_gather(world, my_bbox, all_bboxes);
