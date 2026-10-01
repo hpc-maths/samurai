@@ -14,7 +14,7 @@
 #
 import os
 import shutil
-import subprocess
+import subprocess  # nosec B404: runs the doxygen executable found by shutil.which
 
 # -- Project information -----------------------------------------------------
 
@@ -254,7 +254,7 @@ def use_placeholder_xml(app, config):
     """
     placeholder_dir = os.path.join(app.doctreedir, "doxygen-placeholder-xml")
     os.makedirs(placeholder_dir, exist_ok=True)
-    with open(os.path.join(placeholder_dir, "index.xml"), "w") as f:
+    with open(os.path.join(placeholder_dir, "index.xml"), "w", encoding="utf-8") as f:
         f.write(
             '<?xml version="1.0"?>\n'
             '<doxygenindex version="1.9.8"></doxygenindex>\n'
@@ -294,7 +294,7 @@ def run_doxygen_if_xml_missing(app, config):
         use_placeholder_xml(app, config)
         return
     logger.info("running doxygen to generate %s", xml_dir)
-    result = subprocess.run([doxygen], cwd=docs_dir)
+    result = subprocess.run([doxygen], cwd=docs_dir, check=False)  # nosec B603: fixed argument list, no shell
     if result.returncode != 0 or not os.path.isfile(
         os.path.join(xml_dir, "index.xml")
     ):
