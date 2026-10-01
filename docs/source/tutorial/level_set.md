@@ -1,0 +1,402 @@
+# Level-set transport on an adaptive mesh
+
+In this tutorial, we follow a circle that a vortex flow stretches into a spiral.
+The circle is the zero level of a level-set function, which we transport with a finite volume scheme on an adaptive mesh refinement (AMR) mesh between levels 4 and 8.
+After each time step, we reinitialize the level-set function and adapt the mesh around the contour.
+
+The code shown on this page comes from the demo [`demos/FiniteVolume/level_set_AMR.cpp`](https://github.com/hpc-maths/samurai/blob/main/demos/FiniteVolume/level_set_AMR.cpp) and its operators in [`demos/FiniteVolume/stencil_field.hpp`](https://github.com/hpc-maths/samurai/blob/main/demos/FiniteVolume/stencil_field.hpp).
+
+## Before you start
+
+- You have built {{ project }} from source (see {ref}`build-from-source`): the demo is part of the source tree, not of the installed library.
+- You know how to create a mesh and a field (see the {doc}`mesh how-to guide <../howto/mesh>` and the {doc}`field tutorial <field>`).
+- To look at the results, you have ParaView (see the {doc}`plot how-to guide <../howto/plot>`).
+
+## Run the demo
+
+From the root of the source tree, with the build directory `build` you configured, build and run the demo:
+
+```bash
+cmake --build build --target finite-volume-level-set-amr
+./build/demos/FiniteVolume/finite-volume-level-set-amr
+```
+
+The demo prints one line per time step, from `iteration 0: t = 0.00244140625, dt = 0.00244140625` to the final time $t = 3.14$, then the timers.
+It writes the level set, the velocity and the level of each cell at the final time in `FV_level_set_2d_AMR.h5` and `FV_level_set_2d_AMR.xdmf`, in the current directory, and the mesh and the level set in the restart file `FV_level_set_2d_AMR_restart.h5`.
+Open the `.xdmf` file in ParaView to see the mesh and the contour $\phi = 0$.
+
+To save intermediate steps, add `--nfiles 10`: the demo then writes ten files, `FV_level_set_2d_AMR_ite_1.h5` to `FV_level_set_2d_AMR_ite_10.h5`.
+`--help` lists the other options, among them `--Tf` (final time), `--cfl`, `--min-level` and `--max-level`.
+
+## The level-set method
+
+A contour $\Gamma(t)$ in the plane is the zero level of a scalar function $\phi(t, \mathbf{x})$, the level-set function:
+
+$$
+\Gamma(t) = \left\{ \mathbf{x} \in \mathbb{R}^2 \;:\; \phi(t, \mathbf{x}) = 0 \right\}.
+$$ (eq-level-set-contour)
+
+We take $\phi < 0$ inside the contour and $\phi > 0$ outside.
+The outward normal vector $\mathbf{n}$ and the mean curvature $\kappa$ of the contour follow from derivatives of $\phi$ (see {ref}`Osher and Fedkiw <ref-osher-fedkiw>`):
+
+$$
+\mathbf{n} = \dfrac{\nabla \phi}{\left| \nabla \phi \right|}, \qquad \kappa = \nabla \cdot \mathbf{n} = \nabla \cdot \left( \dfrac{\nabla \phi}{\left| \nabla \phi \right|} \right).
+$$
+
+The contour moves with a velocity field $\mathbf{u} = (u, v)$, divergence-free everywhere.
+The level-set function then follows the passive transport equation (also called the color equation):
+
+$$
+\partial_t \phi + \mathbf{u} \cdot \nabla \phi = 0.
+$$ (eq-level-set-transport)
+
+A level-set function is easiest to use when it is a signed distance to the contour ($\left| \nabla \phi \right| = 1$).
+Transport by {eq}`eq-level-set-transport` does not keep this property, so we restore it after each time step (see {ref}`reinitialize-the-level-set-function`).
+
+## Notation
+
+The mesh is made of square cells at levels between $\underline{J} = 4$ and $\overline{J} = 8$.
+We write $\phi_{j, k, h}^n$ for the value of $\phi$ at time $t^n$ in the cell of level $j$ with index $k$ along $x$ and index $h$ along $y$.
+On the unit square, a cell of level $j$ has side $\Delta x_j = 2^{-j}$ (`mesh.cell_length(j)`), and the finest cells have side $\Delta x_{\overline{J}} = 2^{-8}$ (`mesh.min_cell_length()`).
+
+Values with half indices, such as $F_{j, k-1/2, h}^n$, live on the interface between two neighboring cells of the same level.
+$\phi$ and $\mathbf{u}$ are stored on the leaves of the mesh (`mesh_id_t::cells`) only.
+A scheme on a leaf also reads values of neighbors at the same level that are not leaves: these are ghost cells, filled by {cpp:func}`samurai::update_ghost` before each use.
+
+For a real number $a$, we write $a^+ = \max(0, a)$ and $a^- = \min(0, a)$.
+
+## The test case
+
+The domain is $\Omega = [0, 1]^2$ and the velocity field is the steady vortex
+
+$$
+\mathbf{u}(x, y) = \left( -\sin^2(\pi x) \sin(2\pi y), \; \sin^2(\pi y) \sin(2\pi x) \right).
+$$
+
+The initial contour is the circle of radius $3/20$ centered at $(1/2, 3/4)$, given by its signed distance
+
+$$
+\phi(0, x, y) = \sqrt{(x - 1/2)^2 + (y - 3/4)^2} - 3/20.
+$$
+
+`init_level_set` sets this value at the center of each leaf and gives $\phi$ a homogeneous Neumann boundary condition:
+
+```{literalinclude} ../../../demos/FiniteVolume/level_set_AMR.cpp
+:language: c++
+:lines: 21-45
+```
+
+`init_velocity` builds $\mathbf{u}$ as a vector field with two components.
+It fills the leaves and the ghost cells (`mesh_id_t::cells_and_ghosts`) and also uses a homogeneous Neumann boundary condition:
+
+```{literalinclude} ../../../demos/FiniteVolume/level_set_AMR.cpp
+:language: c++
+:lines: 47-68,77-79
+```
+
+The velocity is computed once, on the initial mesh.
+When the mesh changes, $\mathbf{u}$ moves to the new cells with the same projection and prediction operators as $\phi$ (see {ref}`adapt-the-mesh`).
+
+The mesh is an AMR mesh with levels 4 to 8.
+It starts with all its cells at level 8 (`start_level(8)`), and the first adaptation coarsens it away from the contour.
+The schemes below read two cells on each side, hence `max_stencil_radius(2)`:
+
+```{literalinclude} ../../../demos/FiniteVolume/level_set_AMR.cpp
+:language: c++
+:lines: 172-185
+:dedent:
+```
+
+The demo runs with these parameters by default:
+
+| Parameter | Value | Command-line option |
+| --- | --- | --- |
+| Levels $\underline{J}$ to $\overline{J}$ | 4 to 8 | `--min-level`, `--max-level` |
+| Final time $T$ | 3.14 | `--Tf` |
+| CFL number | $5/8$ | `--cfl` |
+| Time step $\Delta t$ | $\text{CFL} \times \Delta x_{\overline{J}} = 5/2048$ | |
+| Fictitious time step $\Delta \tau$ | $\Delta t / 100$ | |
+| Fictitious iterations per time step | 2 | |
+| Boundary conditions | homogeneous Neumann for $\phi$ and $\mathbf{u}$ | |
+
+Since $\left| u \right| \leq 1$ and $\left| v \right| \leq 1$, the time step keeps $\left| u \right| \Delta t / \Delta x_j \leq 5/8$ at every level.
+All levels advance with the same time step $\Delta t$.
+
+## Transport the level-set function
+
+We discretize {eq}`eq-level-set-transport` with an explicit finite volume scheme.
+On each leaf, with $F$ the numerical flux along $x$ and $G$ the numerical flux along $y$:
+
+$$
+\phi_{j, k, h}^{n+1} = \phi_{j, k, h}^{n} - \frac{\Delta t}{\Delta x_j} \left( F_{j, k+1/2, h}^n - F_{j, k-1/2, h}^n + G_{j, k, h+1/2}^n - G_{j, k, h-1/2}^n \right).
+$$ (eq-level-set-fv)
+
+In the demo, this reads:
+
+```{literalinclude} ../../../demos/FiniteVolume/level_set_AMR.cpp
+:language: c++
+:lines: 233-238
+:dedent:
+```
+
+`samurai::upwind_variable` is a finite volume operator: it derives from `samurai::finite_volume`, which computes the sum of the fluxes (right flux minus left flux, plus up flux minus down flux) divided by $\Delta x_j$ (see `include/samurai/stencil_field.hpp`).
+The operator itself only defines the four fluxes `left_flux` ($F_{j, k-1/2, h}^n$), `right_flux` ($F_{j, k+1/2, h}^n$), `down_flux` ($G_{j, k, h-1/2}^n$) and `up_flux` ($G_{j, k, h+1/2}^n$).
+
+### The limited Lax-Wendroff flux
+
+The flux is the limited Lax-Wendroff flux of {ref}`LeVeque <ref-leveque>` (equation 6.32), with a limiter $\psi : \mathbb{R} \to [0, 2]$.
+On the left interface of cell $(j, k, h)$:
+
+$$
+\begin{aligned}
+F_{j, k-1/2, h}^n = {} & \left( u_{j, k-1/2, h}^n \right)^- \phi_{j, k, h}^n + \left( u_{j, k-1/2, h}^n \right)^+ \phi_{j, k-1, h}^n \\
+& + \frac{1}{2} \left| u_{j, k-1/2, h}^n \right| \left( 1 - \left| u_{j, k-1/2, h}^n \right| \frac{\Delta t}{\Delta x_j} \right) \psi\left( \theta_{j, k-1/2, h}^n \right) \left( \phi_{j, k, h}^n - \phi_{j, k-1, h}^n \right).
+\end{aligned}
+$$ (eq-level-set-flux)
+
+The first line is the upwind flux and the second line the limited correction.
+The limiter is the monotonized central (MC) limiter of {ref}`van Leer <ref-van-leer>`:
+
+$$
+\psi(\theta) = \max\left( 0, \min\left( 2\theta, \frac{1 + \theta}{2}, 2 \right) \right).
+$$
+
+Following equation 6.36 of {ref}`LeVeque <ref-leveque>`, $\theta$ is the ratio of the jump at the upwind interface to the jump at the current interface:
+
+$$
+\theta_{j, k-1/2, h}^n =
+\begin{cases}
+\dfrac{\phi_{j, k-1, h}^n - \phi_{j, k-2, h}^n}{\phi_{j, k, h}^n - \phi_{j, k-1, h}^n} & \text{if } u_{j, k-1/2, h}^n \geq 0, \\[2ex]
+\dfrac{\phi_{j, k+1, h}^n - \phi_{j, k, h}^n}{\phi_{j, k, h}^n - \phi_{j, k-1, h}^n} & \text{if } u_{j, k-1/2, h}^n < 0.
+\end{cases}
+$$
+
+When the denominator is smaller than $10^{-8}$ in absolute value, the code replaces it with $10^{-8}$.
+
+The velocity on the interface comes from a quadratic interpolation of the first velocity component in the cells $k-1$, $k$ and $k+1$:
+
+$$
+u_{j, k-1/2, h}^n = \frac{3}{8} u_{j, k-1, h}^n + \frac{3}{4} u_{j, k, h}^n - \frac{1}{8} u_{j, k+1, h}^n,
+\qquad
+u_{j, k+1/2, h}^n = \frac{3}{8} u_{j, k+1, h}^n + \frac{3}{4} u_{j, k, h}^n - \frac{1}{8} u_{j, k-1, h}^n.
+$$
+
+Each cell computes the velocity on its own interfaces from the three cells centered on itself.
+$G$ is built the same way along $y$, with the second velocity component $v$ and the indices $h - 2$ to $h + 2$.
+As {ref}`LeVeque <ref-leveque>` points out (p. 163), we cannot expect this finite volume scheme to be formally second-order accurate when the velocity field $\mathbf{u}$ is not uniform.
+
+In `stencil_field.hpp`, `flux` computes {eq}`eq-level-set-flux` from the interface velocity `vel`, the left and right values `ul` and `ur`, $\Delta t / \Delta x_j$ (`lb`) and $\theta$ (`r`).
+`left_flux` computes the interface velocity and $\theta$, then calls `flux`:
+
+```{literalinclude} ../../../demos/FiniteVolume/stencil_field.hpp
+:language: c++
+:lines: 83-94,121-135,146-184
+:dedent:
+```
+
+`right_flux`, `down_flux` and `up_flux` follow the same pattern.
+
+(reinitialize-the-level-set-function)=
+
+## Reinitialize the level-set function
+
+After each time step $t^n$, we bring $\phi$ back to a signed distance function, as is customary for level-set methods (see {ref}`Gibou, Fedkiw and Osher <ref-gibou-2018>`).
+Let $\phi^0$ be the level-set function right after the transport step.
+We solve the eikonal equation in a fictitious time $\tau$:
+
+$$
+\begin{cases}
+\partial_{\tau} \phi + S(\phi^0) \left( \left| \nabla \phi \right| - 1 \right) = 0, \\
+\phi(\tau = 0) = \phi^0,
+\end{cases}
+$$
+
+where $S(\phi^0) = 1$ if $\phi^0 \geq 0$ and $S(\phi^0) = -1$ otherwise.
+At steady state, $\left| \nabla \phi \right| = 1$, and the sign of $\phi$, hence the contour, is unchanged.
+The demo does not iterate to steady state: it makes 2 fictitious iterations with $\Delta \tau = \Delta t / 100$ per time step.
+
+### The Godunov Hamiltonian
+
+The semi-discretization uses the Godunov Hamiltonian.
+Its arguments $a$ and $b$ are the backward and forward differences along $x$, and $c$ and $d$ the backward and forward differences along $y$:
+
+$$
+H(a, b, c, d) =
+\begin{cases}
+\sqrt{\max\left( (a^+)^2, (b^-)^2 \right) + \max\left( (c^+)^2, (d^-)^2 \right)} - 1 & \text{if } \phi^0 \geq 0, \\[1ex]
+-\left( \sqrt{\max\left( (a^-)^2, (b^+)^2 \right) + \max\left( (c^-)^2, (d^+)^2 \right)} - 1 \right) & \text{if } \phi^0 < 0.
+\end{cases}
+$$
+
+High-order schemes compute these one-sided differences with weighted essentially non-oscillatory (WENO) reconstructions.
+The demo uses the second-order one-sided differences
+
+$$
+D_x^- \phi_{j, k, h} = \frac{3 \phi_{j, k, h} - 4 \phi_{j, k-1, h} + \phi_{j, k-2, h}}{2 \Delta x_j},
+\qquad
+D_x^+ \phi_{j, k, h} = \frac{-3 \phi_{j, k, h} + 4 \phi_{j, k+1, h} - \phi_{j, k+2, h}}{2 \Delta x_j},
+$$
+
+and the same along $y$ for $D_y^-$ and $D_y^+$.
+We write $H(\phi) = H\left( D_x^- \phi, D_x^+ \phi, D_y^- \phi, D_y^+ \phi \right)$.
+
+### The TVD-RK2 time stepping
+
+The fictitious time stepping is the second-order total variation diminishing Runge-Kutta scheme (TVD-RK2).
+From $\phi^{\eta}$ to $\phi^{\eta + 1}$:
+
+$$
+\begin{aligned}
+\overline{\phi}_{j, k, h} &= \phi_{j, k, h}^{\eta} - \Delta \tau \, H\left( \phi^{\eta} \right)_{j, k, h}, \\
+\overline{\overline{\phi}}_{j, k, h} &= \overline{\phi}_{j, k, h} - \Delta \tau \, H\left( \overline{\phi} \right)_{j, k, h}, \\
+\phi_{j, k, h}^{\eta + 1} &= \frac{1}{2} \phi_{j, k, h}^{\eta} + \frac{1}{2} \overline{\overline{\phi}}_{j, k, h}.
+\end{aligned}
+$$
+
+$H$ is evaluated on the cells of the finest level $\overline{J}$ only, which lie close to the contour.
+On the other cells, $H$ is zero and the reinitialization leaves $\phi$ unchanged.
+In the demo, `phihat` is $\overline{\phi}$ and the ghost cells of each stage are updated before $H$ reads them:
+
+```{literalinclude} ../../../demos/FiniteVolume/level_set_AMR.cpp
+:language: c++
+:lines: 240-246,251-259
+:dedent:
+```
+
+:::{note}
+The last stage of the demo combines with `phi_0`, the level-set function before the reinitialization, instead of $\phi^{\eta}$.
+Both are equal in the first fictitious iteration and differ from the second iteration onward.
+:::
+
+`H_wrap` computes $H$ at the finest level:
+
+```{literalinclude} ../../../demos/FiniteVolume/stencil_field.hpp
+:language: c++
+:lines: 10-26,34-77
+:dedent:
+```
+
+In this code, `dxp` is $D_x^- \phi$ and `dxm` is $D_x^+ \phi$.
+
+(adapt-the-mesh)=
+
+## Adapt the mesh
+
+Before each time step, we adapt the mesh to the contour.
+The criterion follows {ref}`Min and Gibou <ref-min-gibou>`, {ref}`Gibou, Fedkiw and Osher <ref-gibou-2018>`, {ref}`Theillard et al. <ref-theillard>` and {ref}`Bellotti <ref-bellotti>`: a cell must be at the finest level when it is close to the contour,
+
+$$
+\left| \phi_{j, k, h} \right| < \text{Lip}(\phi) \, M \sqrt{2} \, \Delta x_{\overline{J}},
+$$ (eq-level-set-criterion)
+
+where $\text{Lip}(\phi) = 1.2$ is an estimate of the Lipschitz constant of the level-set function and $M = 5$.
+The threshold uses the size of the finest cells $\Delta x_{\overline{J}}$, whatever the level of the cell.
+
+`AMR_criteria` tags each leaf with a {cpp:enum}`samurai::CellFlag`:
+
+- a cell that meets {eq}`eq-level-set-criterion` is tagged `refine`, or `keep` if it is already at the finest level;
+- any other cell is tagged `coarsen`, or `keep` if it is already at the coarsest level.
+
+```{literalinclude} ../../../demos/FiniteVolume/level_set_AMR.cpp
+:language: c++
+:lines: 81-118
+```
+
+The adaptation loop then applies the tags until the mesh no longer changes:
+
+```{literalinclude} ../../../demos/FiniteVolume/level_set_AMR.cpp
+:language: c++
+:lines: 211-212,214-222
+:dedent:
+```
+
+In each pass:
+
+1. `tag.resize()` resizes the tag field to the current mesh.
+2. `AMR_criteria` sets the tags.
+3. {cpp:func}`samurai::graduation` changes the tags so that the new mesh stays graded: two neighboring cells, in the directions of `stencil_grad`, differ by one level at most. This is why bands of levels 5 to 7 surround the band of level 8 in the figure below. `stencil_grad` holds the four directions $\pm x$ and $\pm y$:
+
+   ```{literalinclude} ../../../demos/FiniteVolume/level_set_AMR.cpp
+   :language: c++
+   :lines: 197-202
+   :dedent:
+   ```
+
+4. {cpp:func}`samurai::update_ghost` fills the ghost cells of $\phi$ and $\mathbf{u}$, which the transfer to the new mesh reads.
+5. {cpp:func}`samurai::update_field` builds the new mesh from the tags and moves $\phi$ and $\mathbf{u}$ to it. A cell tagged `refine` is split into four cells, whose values come from the prediction operator; four cells tagged `coarsen` are merged into their parent cell, whose value is the average of theirs (projection). It returns `true` when the new mesh equals the current one, which ends the loop.
+
+A cell changes by one level at most per pass, so the loop needs several passes on the first time step to coarsen the initial mesh from level 8 to level 4.
+
+`update_field` only moves the fields it receives.
+The demo resizes the other fields on the mesh (`tag`, `phinp1`, `phihat`) with `resize()` before it uses them.
+
+## Results
+
+The figure shows the level of each cell (color) and the contour $\phi = 0$ (white line), at the initial time on the left and after the flow has stretched the circle on the right.
+
+```{image} ./figures/level_set.png
+:alt: Two square plots of the AMR mesh colored by level, from 4 (gray) to 8 (dark blue). On the left, a white circle in the upper half of the domain is surrounded by a ring of level 8 cells, then bands of levels 7, 6 and 5. On the right, the circle has been stretched into a spiral, and the bands of fine cells follow it.
+:width: 100%
+:align: center
+```
+
+TODO: give the time of the right picture and the command line that produced it.
+
+The finest cells stay in a narrow band around the contour, and the mesh stays coarse (level 4) in the rest of the domain.
+
+## What we built
+
+We transported a level-set function with a limited Lax-Wendroff finite volume scheme on an AMR mesh, reinitialized it with a TVD-RK2 scheme on the Godunov Hamiltonian, and adapted the mesh to the contour with a user-defined criterion, {cpp:func}`samurai::graduation` and {cpp:func}`samurai::update_field`.
+
+## Next steps
+
+- [`demos/FiniteVolume/level_set_MRA.cpp`](https://github.com/hpc-maths/samurai/blob/main/demos/FiniteVolume/level_set_MRA.cpp) solves the same problem on a multiresolution mesh.
+- The {doc}`graduation tutorial <graduation>` explains what graduation does to a mesh.
+- The {doc}`finite volume schemes reference <../reference/finite_volume_schemes>` describes the operators {{ project }} provides to write schemes without defining fluxes by hand.
+
+## References
+
+(ref-osher-fedkiw)=
+
+S. Osher and R. Fedkiw.
+*Level Set Methods and Dynamic Implicit Surfaces*.
+Applied Mathematical Sciences 153, Springer, 2003.
+[doi:10.1007/b98879](https://doi.org/10.1007/b98879)
+
+(ref-leveque)=
+
+R. J. LeVeque.
+*Finite Volume Methods for Hyperbolic Problems*.
+Cambridge University Press, 2002.
+[doi:10.1017/CBO9780511791253](https://doi.org/10.1017/CBO9780511791253)
+
+(ref-van-leer)=
+
+B. van Leer.
+Towards the ultimate conservative difference scheme. IV. A new approach to numerical convection.
+*Journal of Computational Physics*, 23(3):276-299, 1977.
+[doi:10.1016/0021-9991(77)90095-X](https://doi.org/10.1016/0021-9991(77)90095-X)
+
+(ref-gibou-2018)=
+
+F. Gibou, R. Fedkiw and S. Osher.
+A review of level-set methods and some recent applications.
+*Journal of Computational Physics*, 353:82-109, 2018.
+[doi:10.1016/j.jcp.2017.10.006](https://doi.org/10.1016/j.jcp.2017.10.006)
+
+(ref-min-gibou)=
+
+C. Min and F. Gibou.
+A second order accurate level set method on non-graded adaptive Cartesian grids.
+*Journal of Computational Physics*, 225(1):300-321, 2007.
+TODO: check the volume and pages, and add the DOI.
+
+(ref-theillard)=
+
+M. Theillard et al., 2019.
+TODO: give the full reference and its DOI.
+
+(ref-bellotti)=
+
+T. Bellotti, 2019.
+TODO: give the full reference and its DOI.
