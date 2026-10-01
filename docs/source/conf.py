@@ -16,6 +16,8 @@ import os
 import shutil
 import subprocess  # nosec B404: runs the doxygen executable found by shutil.which
 
+from sphinx.util import logging
+
 # -- Project information -----------------------------------------------------
 
 project = "samurai"
@@ -270,8 +272,6 @@ def run_doxygen_if_xml_missing(app, config):
     When Doxygen is not installed or fails, the build goes on with a warning
     and the API pages are empty.
     """
-    from sphinx.util import logging
-
     logger = logging.getLogger(__name__)
     xml_dir = os.path.normpath(
         os.path.join(app.confdir, config.breathe_projects["samurai"])
