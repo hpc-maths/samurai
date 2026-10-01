@@ -1211,24 +1211,29 @@ namespace samurai
 #endif
             // TODO: Don't build subdomain when we are in serial or in parallel with only one rank. This is a waste of memory and time.
             // Just use the domain as subdomain in this case.
-            lcl_type lcl = {max_level(), m_domain.origin_point(), m_domain.scaling_factor()};
-
-            for_each_interval(m_cells[mesh_id_t::cells],
-                              [&](std::size_t level, const auto& i, const auto& index)
-                              {
-                                  std::size_t shift = max_level() - level;
-                                  interval_t to_add = i << shift;
-                                  auto shift_index  = index << shift;
-                                  static_nested_loop<dim - 1>(0,
-                                                              1 << shift,
-                                                              1,
-                                                              [&](auto stencil)
-                                                              {
-                                                                  auto new_index = shift_index + stencil;
-                                                                  lcl[new_index].add_interval(to_add);
-                                                              });
-                              });
-            build_pyramid(m_subdomain, lca_type{lcl});
+            //
+            // The subdomain at level l is the footprint of the cells seen at that level,
+            // i.e. the union over k of cells[k].on(l). It is built in two sweeps with one
+            // projection per level: the levels k >= l from the finest level down, the
+            // levels k <= l from the coarsest level up. Expanding every cell to the finest
+            // level first (a level-l cell becomes 2^(max_level - l) rows there) and
+            // projecting back to each level cost much more.
+            const auto& cells     = m_cells[mesh_id_t::cells];
+            const std::size_t top = max_level();
+            std::vector<lca_type> from_finer(top + 1);
+            for (std::size_t level = top + 1; level-- > 0;)
+            {
+                from_finer[level] = (level == top) ? cells[level] : lca_type(union_(cells[level], self(from_finer[level + 1]).on(level)));
+            }
+            m_subdomain.clear();
+            lca_type from_coarser;
+            for (std::size_t level = 0; level <= top; ++level)
+            {
+                from_coarser       = (level == 0) ? cells[level] : lca_type(union_(cells[level], self(from_coarser).on(level)));
+                m_subdomain[level] = lca_type(union_(from_finer[level], from_coarser));
+            }
+            m_subdomain.set_origin_point(m_domain.origin_point());
+            m_subdomain.set_scaling_factor(m_domain.scaling_factor());
         }
         else
         {
