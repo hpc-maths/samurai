@@ -4,8 +4,9 @@ channels:
   - conda-forge
 
 dependencies:
-  - breathe
+  - breathe=5.0.0
   - doxygen
+  - myst-parser=5.1.0
   - pydata-sphinx-theme
-  - python=3.11
-  - myst-parser
+  - python=3.12
+  - sphinx=9.1.0
