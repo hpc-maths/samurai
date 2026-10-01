@@ -11,6 +11,7 @@ Pick one route:
 samurai is a header-only C++ library: whichever route you take, you also need a C++ compiler and CMake to build the programs that use it.
 
 (install-requirements)=
+
 ## Requirements
 
 samurai needs:
@@ -32,6 +33,7 @@ For optional features, it also needs:
 The files `conda/environment.yml` and `conda/mpi-environment.yml` in the repository list the exact package versions the CI uses.
 
 (install-with-conda)=
+
 ## Install with conda
 
 samurai is packaged on the `conda-forge` channel. These commands work with `conda`, `mamba` and `micromamba`.
@@ -69,6 +71,7 @@ samurai is packaged on the `conda-forge` channel. These commands work with `cond
 To use the installed samurai in your own code, go to [Check the installation](#check-the-installation).
 
 (install-with-spack)=
+
 ## Install with spack
 
 % TODO: the spack package name and the +mpi / +petsc variants were not checked against the spack recipe.
@@ -87,9 +90,10 @@ To use the installed samurai in your own code, go to [Check the installation](#c
    ```
 
 (build-from-source)=
+
 ## Build from source
 
-This route uses a conda environment for the dependencies. If you install them another way, make sure they meet the [requirements](#install-requirements) and skip step 2.
+This route uses a conda environment for the dependencies. If you install them another way, make sure they meet the {ref}`requirements <install-requirements>` and skip step 2.
 
 1. Clone the repository:
 
@@ -174,6 +178,7 @@ Conan and vcpkg are not supported.
 The repository has a `conanfile.py` and a `vcpkg.json`, and CMake has the `ENABLE_CONAN_OPTION` and `ENABLE_VCPKG` options, but no CI job tests them, and `conanfile.py` requests xtensor 0.24.7, which the configuration rejects.
 
 (check-the-installation)=
+
 ## Check the installation
 
 If you built from source, build and run one demo from the build directory you configured.
