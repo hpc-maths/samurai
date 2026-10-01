@@ -4,7 +4,7 @@ This guide shows how to look at the meshes and fields that a samurai program wri
 samurai writes two kinds of HDF5 files, and each kind has its own viewers:
 
 | File written by | Dimension | Viewer |
-|---|---|---|
+| --- | --- | --- |
 | `samurai::save` (`.h5` + `.xdmf`) | 2D, 3D | ParaView, through the `.xdmf` file |
 | `samurai::save` (`.h5`) | 1D | `python/read_mesh.py` (Matplotlib) |
 | `samurai::dump` (`.h5`) | 1D, 2D, 3D | ParaView with `tools/paraview/SamuraiReader.py`, or yt with `tools/yt/samurai_yt.py` |
@@ -173,7 +173,7 @@ python <samurai-dir>/python/read_mesh.py --help
 ```
 
 | Option | Default | Effect |
-|---|---|---|
+| --- | --- | --- |
 | `<file>` or `<prefix>` | required | File name, or series prefix with `--end`, without `.h5` |
 | `--field <field> [<field> ...]` | none: plot the mesh | Fields to plot, one subplot each |
 | `--start <n>` | 0 | First step of a time series |
