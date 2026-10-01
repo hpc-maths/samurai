@@ -52,13 +52,22 @@ This writes `output_path/fields.h5` and `output_path/fields.xdmf` with the scala
 
 ## Add debug fields
 
-To add the fields `indices`, `coordinates` (cell centers) and `levels` to every file that `save` writes, run your program with the `--save-debug-fields` option:
+Run your program with the `--save-debug-fields` option to add three fields to every file that `save` writes:
+
+| Field | Content |
+|---|---|
+| `indices` | the integer indices of the cell on its level, one component per dimension |
+| `coordinates` | the center of the cell |
+| `levels` | the level of the cell |
+
+With these fields you can color the mesh by level in ParaView, or find a cell from its indices while you debug a scheme.
 
 ```bash
 ./your_program --save-debug-fields
 ```
 
 The option is read by `samurai::initialize(argc, argv)`. Without that call, the option has no effect.
+The [options how-to guide](options.md) lists every option that samurai predefines, with its default value.
 
 (howto-save-submeshes)=
 
