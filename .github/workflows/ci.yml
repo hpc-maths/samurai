@@ -16,6 +16,57 @@ env:
 
 jobs:
     #
+    # Decide which jobs this pull request needs. Documentation and project
+    # metadata do not change the library, so they skip the build and test jobs.
+    # The documentation snippets are compiled only when they change. Any file
+    # not listed below runs the full CI.
+    #
+    #########################################################
+    changes:
+        runs-on: ubuntu-latest
+        outputs:
+            code: ${{ steps.filter.outputs.code }}
+            snippets: ${{ steps.filter.outputs.snippets }}
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Classify the changed files
+              id: filter
+              env:
+                  BASE_SHA: ${{ github.event.pull_request.base.sha }}
+                  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+              run: |
+                  if ! files=$(git diff --name-only "$BASE_SHA...$HEAD_SHA"); then
+                      echo "Cannot list the changed files: running the full CI."
+                      echo "code=true" >> "$GITHUB_OUTPUT"
+                      echo "snippets=true" >> "$GITHUB_OUTPUT"
+                      exit 0
+                  fi
+                  code=false
+                  snippets=false
+                  while IFS= read -r file; do
+                      [ -z "$file" ] && continue
+                      case "$file" in
+                          docs/source/howto/snippet/*)
+                              snippets=true ;;
+                          docs/* | *.md | LICENSE | AUTHORS.txt | codemeta.json | CITATION.cff | \
+                          .readthedocs.yml | .github/ISSUE_TEMPLATE/* | .github/PULL_REQUEST_TEMPLATE.md | \
+                          release-please-config.json | .release-please-manifest.json)
+                              ;;
+                          *)
+                              echo "Needs the full CI: $file"
+                              code=true ;;
+                      esac
+                  done <<< "$files"
+                  if [ "$code" = true ]; then
+                      snippets=true
+                  fi
+                  echo "code=$code" >> "$GITHUB_OUTPUT"
+                  echo "snippets=$snippets" >> "$GITHUB_OUTPUT"
+                  echo "code=$code snippets=$snippets"
+    #
     # Check samurai with pre-commit
     #
     #########################################################
@@ -30,6 +81,8 @@ jobs:
     #
     #########################################################
     cppcheck:
+        needs: [changes]
+        if: needs.changes.outputs.code == 'true'
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
@@ -68,7 +121,8 @@ jobs:
     #
     #########################################################
     linux-mamba:
-        needs: [pre-commit, cppcheck]
+        needs: [changes, pre-commit, cppcheck]
+        if: needs.changes.outputs.code == 'true'
         runs-on: ubuntu-latest
         strategy:
             fail-fast: false
@@ -242,7 +296,8 @@ jobs:
     #
     #########################################################
     linux-mpi-mamba:
-        needs: [pre-commit, cppcheck]
+        needs: [changes, pre-commit, cppcheck]
+        if: needs.changes.outputs.code == 'true'
         runs-on: self-hosted
         steps:
             - uses: actions/checkout@v4
@@ -501,7 +556,8 @@ jobs:
               run: ccache --show-stats --verbose
 
     macos-mamba:
-        needs: [pre-commit, cppcheck]
+        needs: [changes, pre-commit, cppcheck]
+        if: needs.changes.outputs.code == 'true'
         runs-on: macos-26
         steps:
             - uses: actions/checkout@v4
@@ -585,7 +641,8 @@ jobs:
     #
     #########################################################
     linux-mamba-check-nan:
-        needs: [pre-commit, cppcheck]
+        needs: [changes, pre-commit, cppcheck]
+        if: needs.changes.outputs.code == 'true'
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
@@ -662,7 +719,8 @@ jobs:
     #
     #########################################################
     linux-mamba-check-nan-mpi:
-        needs: [pre-commit, cppcheck]
+        needs: [changes, pre-commit, cppcheck]
+        if: needs.changes.outputs.code == 'true'
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
@@ -747,7 +805,13 @@ jobs:
     #
     #########################################################
     compile_snippets:
-        needs: [pre-commit, cppcheck]
+        needs: [changes, pre-commit, cppcheck]
+        # Runs for documentation snippet changes, where cppcheck is skipped.
+        if: >-
+            !cancelled()
+            && needs.changes.outputs.snippets == 'true'
+            && needs.pre-commit.result == 'success'
+            && contains(fromJSON('["success", "skipped"]'), needs.cppcheck.result)
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
@@ -801,7 +865,8 @@ jobs:
     #
     #########################################################
     benchmarks:
-        needs: [pre-commit, cppcheck]
+        needs: [changes, pre-commit, cppcheck]
+        if: needs.changes.outputs.code == 'true'
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
@@ -858,3 +923,34 @@ jobs:
                       echo "=== $exe ==="
                       "$exe" --benchmark_min_time=0.01s
                   done
+    #
+    # One status for the whole workflow: it fails when a job failed or was
+    # cancelled, and passes when the jobs that were needed passed and the others
+    # were skipped. It also fails if the `changes` job itself failed, which would
+    # otherwise skip every job and leave the pull request green.
+    #
+    #########################################################
+    ci-status:
+        if: always()
+        needs:
+            [
+                changes,
+                pre-commit,
+                cppcheck,
+                linux-mamba,
+                linux-mpi-mamba,
+                macos-mamba,
+                linux-mamba-check-nan,
+                linux-mamba-check-nan-mpi,
+                compile_snippets,
+                benchmarks,
+            ]
+        runs-on: ubuntu-latest
+        steps:
+            - name: Check the results of the CI jobs
+              env:
+                  RESULTS: ${{ toJSON(needs) }}
+              run: |
+                  echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+                  echo "$RESULTS" | jq -e 'to_entries | all(.value.result == "success" or .value.result == "skipped")' > /dev/null
+                  echo "$RESULTS" | jq -e '.changes.result == "success"' > /dev/null
