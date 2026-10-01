@@ -526,24 +526,31 @@ namespace samurai
         // - clipping to the global domain would let a rank claim cells it does not own.
         const bool has_domain   = !domain.empty();
         const bool use_coverage = has_neighbour || !has_domain;
-        lca_t coverage;
+        // Coverage of each level, materialized once: the clip and the boundary layer
+        // read it at every level. It is computed from the cells, not taken from the
+        // subdomain of the mesh: a coarsening across a subdomain boundary makes the
+        // footprint of the new cells differ from the one of the mesh.
+        std::array<lca_t, max_size> coverage;
         if (use_coverage)
         {
-            bool first = true;
-            for (size_t l = ca.min_level(); l <= ca.max_level(); ++l)
+            // coverage[l] is the union over k of ca[k].on(l), built in two sweeps with
+            // one projection per level: the levels k >= l from the finest level down,
+            // the levels k <= l from the coarsest level up.
+            std::array<lca_t, max_size> from_finer;
+            for (size_t l = max_level + 1; l-- > min_level;)
             {
-                if (ca[l].empty())
-                {
-                    continue;
-                }
-                lca_t projected(self(ca[l]).on(ca.max_level()));
-                coverage = first ? projected : lca_t(union_(coverage, projected));
-                first    = false;
+                from_finer[l] = (l == max_level) ? lca_t(ca[l]) : lca_t(union_(ca[l], self(from_finer[l + 1]).on(l)));
+            }
+            lca_t from_coarser;
+            for (size_t l = min_level; l <= max_level; ++l)
+            {
+                from_coarser = (l == min_level) ? lca_t(ca[l]) : lca_t(union_(ca[l], self(from_coarser).on(l)));
+                coverage[l]  = lca_t(union_(from_finer[l], from_coarser));
             }
         }
         const auto clip = [&](lca_t&& x, size_t l) -> lca_t
         {
-            return use_coverage ? lca_t(intersection(x, self(coverage).on(l))) : lca_t(intersection(x, domain[l]));
+            return use_coverage ? lca_t(intersection(x, coverage[l])) : lca_t(intersection(x, domain[l]));
         };
 
         std::array<lca_t, max_size> F;
@@ -642,12 +649,30 @@ namespace samurai
             }
         };
 
+        // What a neighbour needs of F[l]: at its level l-1 step, F[l] is expanded by w
+        // cells, rounded to whole parents (one more cell) and clipped to the neighbour's
+        // coverage, which is disjoint from ours. A cell of F[l] can thus only matter if it
+        // lies within 2 (w + 1) level-l cells of the boundary of our coverage (the global
+        // boundary included, which covers the periodic images). Sending that layer only,
+        // with one cell of margin at level l-1, keeps the messages and the neighbours'
+        // set operations proportional to the subdomain boundary.
+        const auto boundary_layer = [&](size_t l) -> lca_t
+        {
+            // The layer is computed by expansion (a box, like the grading expansion) of the
+            // exterior shell of the coverage; contract() only probes the cells at exactly
+            // +/- width along each axis and misses concave corners.
+            const int r      = 2 * (w + 2);
+            const lca_t& cov = coverage[l];
+            const lca_t shell(difference(nestedExpand(cov, r), cov));
+            return lca_t(intersection(F[l], nestedExpand(shell, r)));
+        };
+
         std::array<std::vector<lca_t>, max_size> neighbour_F;
         F[max_level] = ca[max_level];
         extend_boundary(max_level);
         if (has_neighbour)
         {
-            neighbour_F[max_level] = exchange_level_mpi(F[max_level], mpi_neighbourhood, static_cast<int>(max_level));
+            neighbour_F[max_level] = exchange_level_mpi(boundary_layer(max_level), mpi_neighbourhood, static_cast<int>(max_level));
         }
         for (size_t l = max_level; l-- > min_level;)
         {
@@ -683,7 +708,7 @@ namespace samurai
             extend_boundary(l);
             if (has_neighbour)
             {
-                neighbour_F[l] = exchange_level_mpi(F[l], mpi_neighbourhood, static_cast<int>(l));
+                neighbour_F[l] = exchange_level_mpi(boundary_layer(l), mpi_neighbourhood, static_cast<int>(l));
             }
         }
 
