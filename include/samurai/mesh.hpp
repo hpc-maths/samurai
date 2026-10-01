@@ -319,21 +319,31 @@ namespace samurai
 #endif
 
 #ifdef SAMURAI_WITH_MPI
-        friend class boost::serialization::access;
-
-        template <class Archive>
-        void serialize(Archive& ar, const unsigned long)
+        // What update_mesh_neighbour sends of this mesh: every mesh id and the
+        // configuration (ghost width, periodicity). The two other members a
+        // neighbour mesh holds do not travel with it: the subdomain is exchanged
+        // by find_neighbourhood (and unchanged when the discovery is skipped),
+        // and the domain, identical on every rank, is copied locally. Sending
+        // them made the message grow with the global domain, i.e. with the
+        // number of ranks. The union of the cells is not read on neighbour
+        // meshes and is not sent either.
+        //
+        // A mesh as a whole has no serialization on purpose: a neighbour mesh
+        // is only this view.
+        struct NeighbourPayload
         {
-            for (std::size_t id = 0; id < mesh_t::size; ++id)
-            {
-                ar& m_cells[id];
-            }
+            Mesh_base& mesh;
 
-            ar & m_domain;
-            ar & m_subdomain;
-            ar & m_union;
-            ar & m_config;
-        }
+            template <class Archive>
+            void serialize(Archive& ar, const unsigned int)
+            {
+                for (std::size_t id = 0; id < mesh_t::size; ++id)
+                {
+                    ar & mesh.m_cells[id];
+                }
+                ar & mesh.m_config;
+            }
+        };
 #endif
 
 #ifdef SAMURAI_WITH_PETSC
@@ -1186,17 +1196,18 @@ namespace samurai
     {
         ScopedTimer timer("update_mesh_neighbour");
 #ifdef SAMURAI_WITH_MPI
-        // send/recv the meshes of the neighbouring subdomains. The full mesh
-        // (every mesh id) is a function of our cells and of the neighbours'
-        // cells: it is unchanged - and replaced by a token - when our cells and
-        // neighbour set are those of the reference mesh AND every neighbour sent
-        // a token in update_meshid_neighbour(cells).
+        // send/recv the mesh ids of the neighbouring subdomains (see
+        // NeighbourPayload). They are a function of our cells and of the
+        // neighbours' cells: they are unchanged - and replaced by a token - when
+        // our cells and neighbour set are those of the reference mesh AND every
+        // neighbour sent a token in update_meshid_neighbour(cells).
         const bool send_full = !(m_same_cells_as_ref && m_same_neighbourhood && m_neighbours_cells_unchanged);
-        exchange_with_neighbours(derived_cast(),
+        exchange_with_neighbours(NeighbourPayload{*this},
                                  send_full,
                                  [](auto& world, auto& neighbour)
                                  {
-                                     world.recv(neighbour.rank, world.rank(), neighbour.mesh);
+                                     NeighbourPayload payload{neighbour.mesh};
+                                     world.recv(neighbour.rank, world.rank(), payload);
                                  });
 
 #ifdef SAMURAI_WITH_PETSC
