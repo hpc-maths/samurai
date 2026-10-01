@@ -46,7 +46,7 @@ Samurai also offers a flexible and pleasant interface to easily implement numeri
 - [Features](#features)
 - [Installation](#installation)
   - [From conda](#from-conda)
-  - [From Conan Center](#from-conan-center)
+  - [From Spack](#from-spack)
   - [From source](#from-source)
 - [Get help](#get-help)
 - [Project assistance](#project-assistance)
@@ -276,13 +276,14 @@ For parallel computation,
 mamba install libboost-mpi libboost-devel libboost-headers 'hdf5=*=mpi*'
 ```
 
-### From Conan Center
-
-If you want to install samurai from Conan, you can use the following command:
+### From Spack
 
 ```bash
-conan install --requires=samurai/0.33.0
+spack install samurai
+spack load samurai
 ```
+
+The variants `+mpi`, `+openmp` and `+check_nan` enable MPI, OpenMP and NaN checks, for example `spack install samurai +mpi`. `spack info samurai` lists the available versions and variants.
 
 ### From source
 
@@ -321,12 +322,6 @@ Run the cmake configuration
 
     ```bash
     cmake . -B ./build -DENABLE_VCPKG=ON -DBUILD_DEMOS=ON
-    ```
-
-- With conan
-
-    ```bash
-    cmake . -B ./build -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN_OPTION=ON -DBUILD_DEMOS=ON
     ```
 
 Build the demos
