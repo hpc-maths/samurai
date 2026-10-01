@@ -12,4 +12,8 @@ QUIET             = YES
 JAVADOC_AUTOBRIEF = YES
 WARN_IF_UNDOCUMENTED = NO
 MACRO_EXPANSION = YES
-PREDEFINED = IN_DOXYGEN
+# Expand SAMURAI_INLINE to nothing so that signatures do not depend on the
+# inlining options (see include/samurai/samurai_config.hpp).
+PREDEFINED = SAMURAI_INLINE=
+# Implementation details are not part of the public API.
+EXCLUDE_SYMBOLS = detail *::detail

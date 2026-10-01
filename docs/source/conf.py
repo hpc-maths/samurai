@@ -13,6 +13,10 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import os
+import shutil
+import subprocess  # nosec B404: runs the doxygen executable found by shutil.which
+
+from sphinx.util import logging
 
 # -- Project information -----------------------------------------------------
 
@@ -45,15 +49,19 @@ extensions = [
 ]
 
 breathe_projects = {"samurai": "../xml"}
+breathe_default_project = "samurai"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 
 # The suffix(es) of source filenames.
-# You can specify multiple suffix as a list of string:
-#
-# source_suffix = ['.rst', '.md']
-source_suffix = ".rst"
+# Pages are written in reStructuredText or MyST Markdown. A docname has no
+# extension, so converting `page.rst` to `page.md` keeps its URL and its
+# toctree entries.
+source_suffix = {
+    ".rst": "restructuredtext",
+    ".md": "markdown",
+}
 
 rst_epilog = f"""
 .. |project| replace:: {project}
@@ -62,6 +70,10 @@ rst_epilog = f"""
    :language: c++
 
 """
+
+# MyST counterpart of the `|project|` substitution in `rst_epilog`:
+# write `{{ project }}` in Markdown pages.
+myst_substitutions = {"project": project}
 
 # The master toctree document.
 master_doc = "index"
@@ -215,17 +227,83 @@ epub_exclude_files = ["search.html"]
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = True
 
-# -- Breathe configuration for readthedocs -----------------------------------
-
-import subprocess, os
-
-read_the_docs_build = os.environ.get("READTHEDOCS", None) == "True"
-
-if read_the_docs_build:
-
-    subprocess.call("cd ..; doxygen", shell=True)
+# -- MyST configuration ------------------------------------------------------
 
 myst_enable_extensions = [
     "amsmath",
+    "attrs_inline",
+    "colon_fence",
+    "deflist",
     "dollarmath",
+    "substitution",
 ]
+
+# Generate anchors for headings up to level 3, so that `[text](page.md#section)`
+# links resolve.
+myst_heading_anchors = 3
+
+# -- Doxygen XML for Breathe -------------------------------------------------
+
+docs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+doxygen_xml_dir = os.path.join(docs_dir, "xml")
+
+
+def use_placeholder_xml(app, config):
+    """Point Breathe to an empty Doxygen index so that the build still completes.
+
+    The placeholder lives in the build directory, not in docs/xml, so that the
+    next build runs Doxygen again once it is installed.
+    """
+    placeholder_dir = os.path.join(app.doctreedir, "doxygen-placeholder-xml")
+    os.makedirs(placeholder_dir, exist_ok=True)
+    with open(os.path.join(placeholder_dir, "index.xml"), "w", encoding="utf-8") as f:
+        f.write(
+            '<?xml version="1.0"?>\n'
+            '<doxygenindex version="1.9.8"></doxygenindex>\n'
+        )
+    config.breathe_projects["samurai"] = placeholder_dir
+
+
+def run_doxygen_if_xml_missing(app, config):
+    """Run Doxygen when the XML read by Breathe does not exist yet.
+
+    This gives the same API pages on Read the Docs and in a local build.
+    Existing XML is not regenerated: delete docs/xml to refresh it.
+    When Doxygen is not installed or fails, the build goes on with a warning
+    and the API pages are empty.
+    """
+    logger = logging.getLogger(__name__)
+    xml_dir = os.path.normpath(
+        os.path.join(app.confdir, config.breathe_projects["samurai"])
+    )
+    if os.path.isfile(os.path.join(xml_dir, "index.xml")):
+        return
+    if xml_dir != doxygen_xml_dir:
+        logger.warning(
+            "%s has no Doxygen index.xml: the API pages are empty.", xml_dir
+        )
+        use_placeholder_xml(app, config)
+        return
+    doxygen = shutil.which("doxygen")
+    if doxygen is None:
+        logger.warning(
+            "doxygen is not installed and %s does not exist: "
+            "the API pages are empty. Install doxygen and rebuild.",
+            xml_dir,
+        )
+        use_placeholder_xml(app, config)
+        return
+    logger.info("running doxygen to generate %s", xml_dir)
+    result = subprocess.run([doxygen], cwd=docs_dir, check=False)  # nosec B603: fixed argument list, no shell
+    if result.returncode != 0 or not os.path.isfile(
+        os.path.join(xml_dir, "index.xml")
+    ):
+        logger.warning(
+            "doxygen failed (exit code %d): the API pages are empty.",
+            result.returncode,
+        )
+        use_placeholder_xml(app, config)
+
+
+def setup(app):
+    app.connect("config-inited", run_doxygen_if_xml_missing)
