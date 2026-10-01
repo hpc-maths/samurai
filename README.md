@@ -287,42 +287,34 @@ The variants `+mpi`, `+openmp` and `+check_nan` enable MPI, OpenMP and NaN check
 
 ### From source
 
-Run the cmake configuration
+Run the cmake configuration with mamba or conda.
 
-- With mamba or conda
+First, you need to create the environment with all the dependencies
+installed, run
 
-    First, you need to create the environment with all the dependencies
-    installed, run
+```bash
+mamba env create --file conda/environment.yml
+```
 
-    ```bash
-    mamba env create --file conda/environment.yml
-    ```
+for sequential computation, or
 
-    for sequential computation, or
+```bash
+mamba env create --file conda/mpi-environment.yml
+```
 
-    ```bash
-    mamba env create --file conda/mpi-environment.yml
-    ```
+for parallel computation. Then activate the environment
 
-    for parallel computation. Then activate the environment
+```bash
+mamba activate samurai-env
+```
 
-    ```bash
-    mamba activate samurai-env
-    ```
+(`samurai-mpi-env` for the parallel environment), and run
 
-    (`samurai-mpi-env` for the parallel environment), and run
+```bash
+cmake . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_DEMOS=ON
+```
 
-    ```bash
-    cmake . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_DEMOS=ON
-    ```
-
-    Add `-DWITH_MPI=ON` to build the parallel version.
-
-- With vcpkg
-
-    ```bash
-    cmake . -B ./build -DENABLE_VCPKG=ON -DBUILD_DEMOS=ON
-    ```
+Add `-DWITH_MPI=ON` to build the parallel version.
 
 Build the demos
 
