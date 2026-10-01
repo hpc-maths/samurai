@@ -1,79 +1,152 @@
 # How-to: save your samurai mesh and fields
 
-In this how-to guide, we will show you how to save your samurai mesh and fields to files. Saving meshes and fields is essential for post-processing, visualization, and restarting simulations. The data are saved in HDF5 format and a xdmf file is also created for visualization with Paraview.
+This guide shows you how to write a samurai mesh and its fields to disk so that you can post-process and visualize them.
+The `save` function writes an HDF5 file and an XDMF file that ParaView opens directly.
 
-We have two kinds of saving functions:
-- `save` to save the data for post-processing purposes.
-- `dump`and `load` to save and load the data for restarting simulations.
+samurai has two families of output functions:
 
-## Saving for post-processing
+- `save` writes the mesh and fields for post-processing: an HDF5 file and an XDMF file.
+- `dump` and `load` write and read restart files: an HDF5 file only, with no XDMF file.
 
-To save a samurai mesh and fields for post-processing, you can use the `save` function provided by samurai. Here is a simple example of how to save a mesh:
+## Before you start
+
+- You have a mesh and fields. If not, see the [mesh how-to guide](mesh.md) and the [field how-to guide](field.md).
+- Include `samurai/io/hdf5.hpp` to use `save`, and `samurai/io/restart.hpp` to use `dump` and `load`.
+- Call `samurai::initialize(argc, argv)` at the start of `main` and `samurai::finalize()` at the end if your build uses MPI or if you want the `--save-debug-fields` option.
+  `initialize` starts MPI and reads the samurai command-line options.
+- For an MPI build, HDF5 must be built with parallel (MPI-IO) support.
+
+## Save a mesh
+
+Call `save` with an output directory, a file name without extension and the mesh:
 
 ```{literalinclude} snippet/save/save_mesh.cpp
     :language: c++
 ```
 
-In this example, we first create a 2D multi-resolution mesh over the box defined from $(0.0, 0.0)$ to $(1.0, 1.0)$ with a minimum refinement level of 2 and a maximum refinement level of 5. Then, we use the `save` function to save the mesh to a file named "mesh_filename.h5". An accompanying "mesh_filename.xdmf" file is also created for visualization in Paraview.
+The first call writes `output_path/mesh_filename.h5` and `output_path/mesh_filename.xdmf`.
+If `output_path` does not exist, `save` creates it.
+`save` creates only the last directory of the path: the parent directories must already exist.
 
-If the filename is only provided, the file will be saved in the current directory as described in the snippet above in the comment.
+If you leave out the directory, as in the second call, `save` writes the files in the current working directory.
 
-```{note}
-To have the `save` function available, you need to include the header file `samurai/io/hdf5.hpp`.
+```{warning}
+`save` overwrites any existing file with the same name.
+To keep one file per time step, add the step number to the file name, for example with `fmt::format("{}_ite_{}", filename, nsave)`.
 ```
 
-You can also save fields along with the mesh. Here is an example of how to save a scalar field and a vector field on the mesh:
+## Save fields with the mesh
+
+Pass the fields after the mesh:
 
 ```{literalinclude} snippet/save/save_field.cpp
     :language: c++
 ```
 
-In this example, we create a scalar field named "u" and a vector field named "v" with 3 components on the multi-resolution mesh. We then use the `save` function to save both fields along with the mesh to a file named "output_path/fields.h5". An accompanying "output_path/fields.xdmf" file is also created for visualization in Paraview.
+This writes `output_path/fields.h5` and `output_path/fields.xdmf` with the scalar field `u` and the vector field `v`.
 
-```{note}
-- The first argument after the filename in the `save` function must be the mesh.
-- You can save multiple fields at once by passing them as additional arguments to the `save` function.
+- The mesh must come right after the file name (or after the options, see {ref}`howto-save-submeshes`).
+- You can pass any number of fields.
+- A vector field is written as one dataset per component: `v_0`, `v_1` and `v_2` for the field `v` above.
+- `save` does not check that the fields are defined on the mesh you pass: make sure they are.
+
+## Add debug fields
+
+Run your program with the `--save-debug-fields` option to add three fields to every file that `save` writes:
+
+| Field | Content |
+|---|---|
+| `indices` | the integer indices of the cell on its level, one component per dimension |
+| `coordinates` | the center of the cell |
+| `levels` | the level of the cell |
+
+With these fields you can color the mesh by level in ParaView, or find a cell from its indices while you debug a scheme.
+
+```bash
+./your_program --save-debug-fields
 ```
 
-```{caution}
-We don't verify that the fields belong to the mesh provided. It is your responsibility to ensure that the fields are defined on the same mesh.
-```
+The option is read by `samurai::initialize(argc, argv)`. Without that call, the option has no effect.
+The [options how-to guide](options.md) lists every option that samurai predefines, with its default value.
 
-A default option exists to save some debug fields such as the level, the coordinates, and the indexes of each cell. You can enable this option in command line by using `--save-debug-fields`.
+(howto-save-submeshes)=
 
-## Saving for restarting simulations
+## Save the sub-meshes
 
-To save a samurai mesh and fields for restarting simulations, you can use the `dump` function provided by samurai. Here is a simple example of how to dump a mesh:
+A samurai mesh holds several sub-meshes.
+A `UniformMesh` holds the cells and the cells with their ghost cells.
+An `MRMesh` also holds the sub-meshes used to compute the details.
+By default, `save` writes only the cells.
 
-```{literalinclude} snippet/save/dump_mesh.cpp
-    :language: c++
-```
-
-In this example, we first create a 2D multi-resolution mesh over the box defined from $(0.0, 0.0)$ to $(1.0, 1.0)$ with a minimum refinement level of 2 and a maximum refinement level of 5. Then, we use the `dump` function to save the mesh to a file named "restart_file.h5". And, we use the `load` function to load the mesh from the file. The arguments are the same as before with the `save` function.
-
-```{caution}
-If you use `dump` in a parallel MPI program, the `load` function must be called with the same number of MPI processes as when the `dump` function was called.
-```
-
-## Save all the sub-meshes
-
-In samurai, a mesh can be composed of several sub-meshes. By default, the `save` functions only save the main mesh.
-
-For example, a `UniformMesh`is composed by the true cells mesh and a ghost cells mesh at the boundary of the domain. In the same way, a `MRMesh` is composed of several sub-meshes to compute the details.
-
-For debugging or post-processing purposes, it can be interesting to save all the sub-meshes of a mesh. To do so, you can add some boolean flags in the `save` function:
+To write the sub-meshes as well, pass a `samurai::Hdf5Options` object after the file name:
 
 ```{literalinclude} snippet/save/save_all_submeshes.cpp
     :language: c++
 ```
 
-We added two boolean flags after the filename in the `save` function:
+The arguments of `Hdf5Options` depend on the mesh type:
 
-- The first flag indicates if we want to save the mesh by levels. If set to `true`, each level of the mesh will be saved as a separate sub-mesh in the HDF5 file.
-- The second flag indicates if we want to save the mesh by ids. If set to `true`, each sub-mesh identified by its unique ID will be saved as a separate sub-mesh in the HDF5 file.
+| Mesh type | Arguments | Effect |
+|---|---|---|
+| `MRMesh`, `AMRMesh` | `{by_level, by_mesh_id}` | `by_level` writes one grid per level, named `Level <level>`, from `min_level - 2` (or 0) to `max_level`. `by_mesh_id` writes one grid per sub-mesh, named after its mesh id (`cells`, `cells and ghosts`, ...). With both set, each level holds one grid per sub-mesh. |
+| `CellArray` | `{by_level, by_mesh_id}` | `by_level` works as for `MRMesh`. `by_mesh_id` writes the cell array as one grid named `cell_array`. |
+| `UniformMesh` | `{by_mesh_id}` | `by_mesh_id` writes the `cells` and `cells and ghosts` sub-meshes as separate grids. A `UniformMesh` has one level, so there is no `by_level` argument. |
+| `LevelCellArray` | `{by_level, by_mesh_id}` | Only `by_mesh_id` has an effect, and it writes the single sub-mesh as its own grid. |
 
-```{caution}
-You always have to provide a path and a filename when you want to save all the sub-meshes.
+Both arguments default to `false`.
+
+When you leave out the directory, pass the options as a named object and not as a braced list:
+
+```cpp
+samurai::Hdf5Options<decltype(mesh)> options(true, true);
+samurai::save("fields", options, mesh, field_1, field_2);
 ```
 
-To plot your data, please refer to the [plot how-to guide](plot.md).
+The call `samurai::save("fields", {true, true}, mesh, ...)` also matches the overload that takes a directory and a file name (`{true, true}` converts to a `std::string`), so the call is either ambiguous or resolved to the wrong overload.
+With a directory, as in the snippet above, the braced list works.
+
+## If you run with MPI
+
+- `save` is collective over `MPI_COMM_WORLD`: every rank must call it with the same directory and file name.
+- All ranks write into one HDF5 file. Rank 0 writes the XDMF file.
+  In the HDF5 file, the data of each rank is stored under `/mesh/rank_<rank>/`.
+- To use another communicator, pass it after the file name: `samurai::save(path, filename, comm, mesh, fields...)`.
+- To write one file per rank, use `samurai::local_save(path, filename, mesh, fields...)`.
+  Each rank writes `<filename>_rank<rank>.h5` and `<filename>_rank<rank>.xdmf`.
+
+## Check the result
+
+1. List the output directory. It contains `fields.h5` and `fields.xdmf`.
+2. List the content of the HDF5 file:
+
+   ```bash
+   h5ls -r output_path/fields.h5
+   ```
+
+   For a run on one process, the file holds the datasets `/mesh/points`, `/mesh/connectivity`, `/mesh/fields/u` and `/mesh/fields/v_0` to `/mesh/fields/v_2`.
+3. Open `fields.xdmf` (not the `.h5` file) in ParaView with **File > Open**. The fields `u`, `v_0`, `v_1` and `v_2` appear in the list of cell arrays.
+
+## Save for a restart
+
+To write a file that your program can read back, use `dump` and `load`:
+
+```{literalinclude} snippet/save/dump_mesh.cpp
+    :language: c++
+```
+
+`dump` writes `restart_file.h5` in the current directory.
+`load` reads it back: it replaces the mesh with the saved one and fills the fields that have the same names.
+
+- `dump` writes no XDMF file. Use `save` for files that you open in ParaView.
+- `dump` does not create the directory: it must exist.
+- The fields you pass to `load` must have the same names and number of components as the dumped fields.
+
+```{warning}
+In an MPI program, run `load` with the same number of MPI processes as `dump`.
+Otherwise, `load` throws `std::runtime_error` with the message `The number of processes in the restart file (...) does not match the current number of processes (...)`.
+```
+
+## Related
+
+- [How-to: plot samurai fields and meshes](plot.md), to visualize the files that `save` writes.
+- [How-to: set options in samurai](options.md), for the other samurai command-line options.
