@@ -27,7 +27,6 @@
 [![Pull Requests welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg?style=flat-square)](https://github.com/hpc-maths/samurai/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22)
 [![code with love by hpc-maths](https://img.shields.io/badge/%3C%2F%3E%20with%20%E2%99%A5%20by-HPC@Maths-ff1414.svg?style=flat-square)](https://github.com/hpc-maths)
 
-
 </div>
 
 The use of mesh adaptation methods in numerical simulation allows to drastically reduce the memory footprint and the computational costs. There are different kinds of methods: AMR patch-based, AMR cell-based, multiresolution cell-based or point-based, ...
@@ -206,6 +205,7 @@ We assume that we already have a samurai mesh with several level defined in the 
 The following steps describe how to implement the projection operator with samurai.
 
 - Create a subset of the mesh using set algebra
+
 ```cpp
 using mesh_id_t = typename std::decay_t<decltype(mesh)>::mesh_id_t;
 auto set = samurai::intersection(mesh[mesh_id_t::all_cells][level], mesh[mesh_id_t::all_cells][level + 1]).on(level);
@@ -373,10 +373,9 @@ cmake . -B build -DWITH_MPI=ON -DSAMURAI_WITH_PTSCOTCH=ON  # enable the PT-Scotc
 
 ## Get help
 
-For a better understanding of all the components of samurai, you can consult the documentation https://hpc-math-samurai.readthedocs.io.
+For a better understanding of all the components of samurai, you can consult the [samurai documentation](https://hpc-math-samurai.readthedocs.io).
 
 If you have any question or remark, you can write a message on [github discussions](https://github.com/hpc-maths/samurai/discussions) and we will be happy do help you or to discuss with you.
-
 
 ## Project assistance
 
@@ -391,7 +390,6 @@ Together, we can make samurai **better**!
 ## Contributing
 
 First off, thanks for taking the time to contribute! Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make will benefit everybody else and are **greatly appreciated**.
-
 
 Please read [our contribution guidelines](./docs/CONTRIBUTING.md), and thank you for being involved!
 
