@@ -54,6 +54,17 @@
 //      projection/prediction ghosts, i.e. the ghosts that span several
 //      subdomains) is fully checked.
 //
+// Two more suites check the exchanges themselves, on the periodic cases:
+//
+//  (C) Merged fields (fixtures merged_fields_2d/3d). update_ghost_mr(u, v, w)
+//      exchanges the ghosts of all its fields in one message per neighbour; the
+//      result must be bit-identical to updating each field on its own.
+//
+//  (D) Tag exchange (fixtures tag_exchange_2d/3d). update_tag_periodic and
+//      update_tag_subdomains only combine the tags of copies of the same cell
+//      modulo the period, so position-derived tags give an exact oracle (see
+//      the comment above expect_tag_exchange).
+//
 // Every combination is a distinct GoogleTest case so a failure pinpoints it,
 // and each executable is run at np = 2, 3, 4 by CTest.
 //
@@ -63,9 +74,11 @@
 // serialized requests). Fixed in update_periodic.hpp; the 3D periodic cases below
 // are the regression guard.
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <map>
 #include <set>
@@ -440,4 +453,384 @@ namespace
     }
 
     INSTANTIATE_TEST_SUITE_P(all, ghost_independence_3d, testing::ValuesIn(make_icases()), icase_name);
+
+    // ---- (C) merged periodic exchange of several fields -------------------
+    //
+    // update_ghost_mr(u, v, w) exchanges the periodic and subdomain ghosts of
+    // all its fields in one message per neighbour. The fields are independent,
+    // so every value, ghosts included, must be bit-identical to the one obtained
+    // by updating each field on its own. Fields with different numbers of
+    // components check the packing offsets.
+
+    std::vector<ICase> make_periodic_icases()
+    {
+        std::vector<ICase> cases;
+        for (const auto& c : make_icases())
+        {
+            if (c.periodic)
+            {
+                cases.push_back(c);
+            }
+        }
+        return cases;
+    }
+
+    template <std::size_t Dim, class Cell>
+    std::uint64_t cell_hash(const Cell& cell)
+    {
+        std::uint64_t h = 1469598103934665603ULL;
+        auto mix        = [&](std::uint64_t v)
+        {
+            h ^= v + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
+        };
+        mix(static_cast<std::uint64_t>(cell.level));
+        for (std::size_t d = 0; d < Dim; ++d)
+        {
+            mix(static_cast<std::uint64_t>(static_cast<long>(cell.indices[d])));
+        }
+        return h;
+    }
+
+    template <std::size_t Dim>
+    void expect_merged_fields_match_single_field_updates(const ICase& c, const std::string& ctx)
+    {
+        using mesh_id_t = typename config<Dim>::mesh_id_t;
+
+        DomainCorner<Dim> lo, hi;
+        domain_bounds<Dim>(c.domain, lo, hi);
+        auto mesh = build_mesh_on_domain<Dim>(c.geom, c.domain, c.stencil_size, c.periodic, lo, hi);
+        auto u    = samurai::make_scalar_field<double>("u", mesh);
+        u.fill(0.);
+        apply_decomposition<Dim>(c.decomp, u);
+        auto& m = u.mesh();
+
+        auto v  = samurai::make_vector_field<double, 2>("v", m);
+        auto w  = samurai::make_scalar_field<double>("w", m);
+        auto u1 = samurai::make_scalar_field<double>("u1", m);
+        auto v1 = samurai::make_vector_field<double, 2>("v1", m);
+        auto w1 = samurai::make_scalar_field<double>("w1", m);
+        for (auto* f : {&u, &w, &u1, &w1})
+        {
+            f->fill(0.);
+        }
+        v.fill(0.);
+        v1.fill(0.);
+        samurai::for_each_cell(m[mesh_id_t::cells],
+                               [&](const auto& cell)
+                               {
+                                   const auto h = cell_hash<Dim>(cell);
+                                   u[cell]      = static_cast<double>(h % 1000003) / 7.;
+                                   w[cell]      = static_cast<double>((h >> 20) % 1000003) / 11.;
+                                   v[cell][0]   = static_cast<double>((h >> 10) % 1000003) / 13.;
+                                   v[cell][1]   = static_cast<double>((h >> 30) % 1000003) / 17.;
+                                   u1[cell]     = u[cell];
+                                   w1[cell]     = w[cell];
+                                   v1[cell][0]  = v[cell][0];
+                                   v1[cell][1]  = v[cell][1];
+                               });
+
+        samurai::update_ghost_mr(u, v, w);
+        samurai::update_ghost_mr(u1);
+        samurai::update_ghost_mr(v1);
+        samurai::update_ghost_mr(w1);
+
+        std::size_t mismatches = 0;
+        samurai::for_each_cell(m[mesh_id_t::reference],
+                               [&](const auto& cell)
+                               {
+                                   // bitwise comparison on purpose: the merged exchange must not
+                                   // change a single bit
+                                   if (u[cell] != u1[cell] || w[cell] != w1[cell] || v[cell][0] != v1[cell][0] || v[cell][1] != v1[cell][1])
+                                   {
+                                       ++mismatches;
+                                   }
+                               });
+        if (mismatches != 0)
+        {
+            mpi::communicator world;
+            std::cerr << "[rank " << world.rank() << "] " << ctx << ": " << mismatches
+                      << " cells differ between the merged and the single-field updates" << std::endl;
+        }
+        EXPECT_TRUE_ALL_RANKS(mismatches == 0);
+    }
+
+    class merged_fields_2d : public samurai_test::MpiTest,
+                             public testing::WithParamInterface<ICase>
+    {
+    };
+
+    TEST_P(merged_fields_2d, match_single_field_updates)
+    {
+        expect_merged_fields_match_single_field_updates<2>(GetParam(), "2d_" + icase_label(GetParam()));
+    }
+
+    INSTANTIATE_TEST_SUITE_P(all, merged_fields_2d, testing::ValuesIn(make_periodic_icases()), icase_name);
+
+    class merged_fields_3d : public samurai_test::MpiTest,
+                             public testing::WithParamInterface<ICase>
+    {
+    };
+
+    TEST_P(merged_fields_3d, match_single_field_updates)
+    {
+        expect_merged_fields_match_single_field_updates<3>(GetParam(), "3d_" + icase_label(GetParam()));
+    }
+
+    INSTANTIATE_TEST_SUITE_P(all, merged_fields_3d, testing::ValuesIn(make_periodic_icases()), icase_name);
+
+    // ---- (D) periodic and subdomain tag exchange ---------------------------
+    //
+    // Oracle. Every real cell starts with a tag in [1, 127] derived from its
+    // position, every ghost outside the domain with the flag bit 128, every
+    // other ghost with 0. update_tag_periodic and update_tag_subdomains only
+    // combine (or, or overwrite with) the tags of copies of the SAME cell modulo
+    // the period. So after the exchange, at every level:
+    //   - a real cell holds its own tag, plus the flag if and only if a copy of
+    //     it lies outside the domain along a single dimension within the ghost
+    //     width on some rank (the second pass of update_tag_periodic brings the
+    //     tag of that copy back to the cell);
+    //   - the low bits of any other cell are 0 or the tag of the real cell it
+    //     is a copy of (0 if there is none);
+    //   - a ghost that some neighbour must fill holds that tag in its low bits:
+    //     an in-domain ghost of a real cell (subdomain exchange), and a ghost
+    //     outside the domain along a single dimension, within the ghost width,
+    //     of a real cell (first pass of the periodic exchange along that
+    //     dimension). Corners, filled through a chain of copies, are only
+    //     checked against the previous rule.
+    // Run once with update_tag_subdomains(..., erase = false) and once with
+    // erase = true, the two uses of mr/adapt.hpp.
+
+    template <std::size_t Dim>
+    using cell_key = std::array<long, Dim + 1>;
+
+    template <std::size_t Dim>
+    std::uint8_t tag_of(const cell_key<Dim>& key)
+    {
+        std::uint64_t h = 1469598103934665603ULL;
+        for (long k : key)
+        {
+            h ^= static_cast<std::uint64_t>(k) + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
+        }
+        return static_cast<std::uint8_t>(1 + h % 127);
+    }
+
+    template <std::size_t Dim>
+    void expect_tag_exchange(const ICase& c, bool erase, const std::string& ctx)
+    {
+        using mesh_id_t = typename config<Dim>::mesh_id_t;
+        mpi::communicator world;
+
+        DomainCorner<Dim> lo, hi;
+        domain_bounds<Dim>(c.domain, lo, hi);
+        auto mesh = build_mesh_on_domain<Dim>(c.geom, c.domain, c.stencil_size, c.periodic, lo, hi);
+        auto u    = samurai::make_scalar_field<double>("u", mesh);
+        u.fill(0.);
+        apply_decomposition<Dim>(c.decomp, u);
+        auto& m = u.mesh();
+
+        auto key_of = [](const auto& cell)
+        {
+            cell_key<Dim> key{};
+            key[0] = static_cast<long>(cell.level);
+            for (std::size_t d = 0; d < Dim; ++d)
+            {
+                key[d + 1] = static_cast<long>(cell.indices[d]);
+            }
+            return key;
+        };
+
+        const auto& domain    = m.domain();
+        const auto domain_min = domain.min_indices();
+        const auto domain_max = domain.max_indices();
+        const long gw         = m.ghost_width();
+
+        // Position of a cell with respect to the domain: the cell it is a copy
+        // of, the number of dimensions along which it lies outside the domain,
+        // and how far outside (along the last of them).
+        struct placement
+        {
+            cell_key<Dim> wrapped;
+            std::size_t n_out = 0;
+            long out_distance = 0;
+        };
+
+        auto place = [&](const cell_key<Dim>& key)
+        {
+            placement p;
+            p.wrapped                 = key;
+            const std::size_t delta_l = domain.level() - static_cast<std::size_t>(key[0]);
+            for (std::size_t d = 0; d < Dim; ++d)
+            {
+                const long dmin   = static_cast<long>(domain_min[d] >> delta_l);
+                const long dmax   = static_cast<long>(domain_max[d] >> delta_l);
+                const long period = dmax - dmin;
+                const long x      = key[d + 1];
+                if (x < dmin || x >= dmax)
+                {
+                    ++p.n_out;
+                    p.out_distance = (x < dmin) ? dmin - x : x - dmax + 1;
+                }
+                p.wrapped[d + 1] = dmin + (((x - dmin) % period) + period) % period;
+            }
+            return p;
+        };
+
+        // Gather on every rank the keys selected by `select` on every rank.
+        auto gather_keys = [&](const auto& cells, auto&& select)
+        {
+            std::vector<long> local;
+            samurai::for_each_cell(cells,
+                                   [&](const auto& cell)
+                                   {
+                                       const auto key = key_of(cell);
+                                       if (select(key))
+                                       {
+                                           local.insert(local.end(), key.begin(), key.end());
+                                       }
+                                   });
+            std::vector<std::vector<long>> all;
+            mpi::all_gather(world, local, all);
+            std::set<cell_key<Dim>> keys;
+            for (const auto& chunk : all)
+            {
+                for (std::size_t k = 0; k + Dim + 1 <= chunk.size(); k += Dim + 1)
+                {
+                    cell_key<Dim> key{};
+                    std::copy(chunk.begin() + static_cast<std::ptrdiff_t>(k),
+                              chunk.begin() + static_cast<std::ptrdiff_t>(k + Dim + 1),
+                              key.begin());
+                    keys.insert(key);
+                }
+            }
+            return keys;
+        };
+
+        const auto real = gather_keys(m[mesh_id_t::cells],
+                                      [](const auto&)
+                                      {
+                                          return true;
+                                      });
+        // the real cells with a copy outside the domain along a single
+        // dimension within the ghost width, on any rank
+        std::set<cell_key<Dim>> flagged;
+        for (const auto& key : gather_keys(m[mesh_id_t::reference],
+                                           [&](const auto& key)
+                                           {
+                                               const auto p = place(key);
+                                               return p.n_out == 1 && p.out_distance <= gw;
+                                           }))
+        {
+            flagged.insert(place(key).wrapped);
+        }
+
+        constexpr std::uint8_t flag = 128;
+        auto tag                    = samurai::make_scalar_field<std::uint8_t>("tag", m);
+        tag.fill(0);
+        samurai::for_each_cell(m[mesh_id_t::reference],
+                               [&](const auto& cell)
+                               {
+                                   if (place(key_of(cell)).n_out > 0)
+                                   {
+                                       tag[cell] = flag;
+                                   }
+                               });
+        samurai::for_each_cell(m[mesh_id_t::cells],
+                               [&](const auto& cell)
+                               {
+                                   tag[cell] = tag_of<Dim>(key_of(cell));
+                               });
+
+        const auto& ref = m[mesh_id_t::reference];
+        for (std::size_t level = ref.min_level(); level <= ref.max_level(); ++level)
+        {
+            samurai::update_tag_periodic(level, tag);
+            samurai::update_tag_subdomains(level, tag, erase);
+        }
+
+        std::set<cell_key<Dim>> local_cells;
+        samurai::for_each_cell(m[mesh_id_t::cells],
+                               [&](const auto& cell)
+                               {
+                                   local_cells.insert(key_of(cell));
+                               });
+
+        std::size_t errors           = 0;
+        std::size_t checked_interior = 0;
+        std::size_t checked_periodic = 0;
+        samurai::for_each_cell(ref,
+                               [&](const auto& cell)
+                               {
+                                   const auto key              = key_of(cell);
+                                   const auto p                = place(key);
+                                   const std::uint8_t expected = real.count(p.wrapped) ? tag_of<Dim>(p.wrapped) : 0;
+                                   const std::uint8_t value    = tag[cell];
+                                   const std::uint8_t low      = value & static_cast<std::uint8_t>(flag - 1);
+
+                                   bool ok = true;
+                                   std::string rule;
+                                   if (local_cells.count(key))
+                                   {
+                                       const auto own = static_cast<std::uint8_t>(tag_of<Dim>(key) | (flagged.count(key) ? flag : 0));
+                                       ok             = (value == own);
+                                       rule           = "real cell, expected " + std::to_string(own);
+                                   }
+                                   else if (expected != 0 && p.n_out == 0)
+                                   {
+                                       ok   = (low == expected);
+                                       rule = "in-domain ghost, expected low bits " + std::to_string(expected);
+                                       ++checked_interior;
+                                   }
+                                   else if (expected != 0 && p.n_out == 1 && p.out_distance <= gw)
+                                   {
+                                       ok   = (low == expected);
+                                       rule = "periodic ghost, expected low bits " + std::to_string(expected);
+                                       ++checked_periodic;
+                                   }
+                                   else
+                                   {
+                                       ok   = (low == 0 || low == expected);
+                                       rule = "other cell, expected low bits 0 or " + std::to_string(expected);
+                                   }
+                                   if (!ok && errors++ < 8)
+                                   {
+                                       std::cerr << "[rank " << world.rank() << "] " << ctx << ": tag " << int(value) << " at level "
+                                                 << key[0] << " (" << rule << ")" << std::endl;
+                                   }
+                               });
+        EXPECT_TRUE_ALL_RANKS(errors == 0);
+
+        // Guard against a vacuous pass: both exchanges must have filled ghosts,
+        // and the second periodic pass must have had something to bring back.
+        const std::size_t total_interior = mpi::all_reduce(world, checked_interior, std::plus<std::size_t>());
+        const std::size_t total_periodic = mpi::all_reduce(world, checked_periodic, std::plus<std::size_t>());
+        EXPECT_GT(total_interior, 0u) << ctx << ": no in-domain ghost was checked";
+        EXPECT_GT(total_periodic, 0u) << ctx << ": no periodic ghost was checked";
+        EXPECT_FALSE(flagged.empty()) << ctx << ": no real cell has a periodic copy";
+    }
+
+    class tag_exchange_2d : public samurai_test::MpiTest,
+                            public testing::WithParamInterface<ICase>
+    {
+    };
+
+    TEST_P(tag_exchange_2d, tags_of_copies_agree)
+    {
+        expect_tag_exchange<2>(GetParam(), false, "2d_or_" + icase_label(GetParam()));
+        expect_tag_exchange<2>(GetParam(), true, "2d_erase_" + icase_label(GetParam()));
+    }
+
+    INSTANTIATE_TEST_SUITE_P(all, tag_exchange_2d, testing::ValuesIn(make_periodic_icases()), icase_name);
+
+    class tag_exchange_3d : public samurai_test::MpiTest,
+                            public testing::WithParamInterface<ICase>
+    {
+    };
+
+    TEST_P(tag_exchange_3d, tags_of_copies_agree)
+    {
+        expect_tag_exchange<3>(GetParam(), false, "3d_or_" + icase_label(GetParam()));
+        expect_tag_exchange<3>(GetParam(), true, "3d_erase_" + icase_label(GetParam()));
+    }
+
+    INSTANTIATE_TEST_SUITE_P(all, tag_exchange_3d, testing::ValuesIn(make_periodic_icases()), icase_name);
 }
