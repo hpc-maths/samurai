@@ -67,14 +67,14 @@ min level: 2, max level: 7
 ### Options
 
 | Option | Value | Effect |
-|---|---|---|
+| --- | --- | --- |
 | `--config` | file path | Reads option values from a TOML file (see {ref}`howto-options-config`). |
 | `-h`, `--help` | flag | Prints the help message and exits. Needs `SAMURAI_PARSE`. |
 
 ### SAMURAI
 
 | Option | Value | Effect |
-|---|---|---|
+| --- | --- | --- |
 | `--min-level` | integer | Minimum level of the mesh. Overrides `mesh_config::min_level`. |
 | `--max-level` | integer | Maximum level of the mesh. Overrides `mesh_config::max_level`. |
 | `--start-level` | integer | Start level of an AMR mesh. Overrides `mesh_config::start_level`. A multiresolution mesh always starts at its maximum level and ignores this option. |
@@ -87,23 +87,23 @@ min level: 2, max level: 7
 | `--print-petsc-numbering` | flag | With PETSc, prints the local and global numbering used by PETSc. |
 | `--save-debug-fields` | flag | Adds debug fields (coordinates, indices, levels, ...) to the HDF5 output files. |
 
-**IO** (MPI builds only)
+### IO (MPI builds only)
 
 | Option | Value | Effect |
-|---|---|---|
+| --- | --- | --- |
 | `--dont-redirect-output` | flag | Keeps the standard output of every MPI rank. By default, only rank 0 prints. |
 
 ### Tools
 
 | Option | Value | Effect |
-|---|---|---|
+| --- | --- | --- |
 | `--timers` | flag | Prints the timers when `samurai::finalize` runs (see the [timers guide](timers.md)). |
 | `--info` | flag | Prints the samurai version, its dependencies and the build configuration, then exits. |
 
 ### Multiresolution
 
 | Option | Value | Effect |
-|---|---|---|
+| --- | --- | --- |
 | `--mr-eps` | real | Threshold on the details used to adapt the mesh. Overrides `mra_config::epsilon` (default `1e-4`). |
 | `--mr-reg` | real | Regularity used to adapt the mesh. Overrides `mra_config::regularity` (default `1`). |
 | `--mr-rel-detail` | flag | Uses relative details instead of absolute details. |
