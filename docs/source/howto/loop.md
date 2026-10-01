@@ -6,7 +6,7 @@ This guide shows how to visit the cells of a samurai mesh, either one cell at a 
 
 You need a samurai mesh. If you don't have one yet, see the {doc}`mesh how-to <mesh>`. The examples that set field values also create a scalar field; the {doc}`field how-to <field>` explains how.
 
-Both loops visit the leaf cells of the mesh only: the cells that hold the solution, at whatever level they sit. They don't visit ghost cells, nor the cells of the coarser levels that the multiresolution algorithms add for the prediction operator and the projection.
+Called on a mesh, both loops visit the cells that hold the solution (`mesh[mesh_id_t::cells]`), at whatever level they sit. To visit other cells, such as the ghost cells, pass a sub-mesh or a subset instead of the mesh: see {ref}`howto-loop-choose-cells`.
 
 ## Looping over cells
 
@@ -87,6 +87,52 @@ In 3D, add the $z$ index after `j`: `field(level, i, j, k)`.
 ```{warning}
 `field(level, i, j)` is an xtensor view, not a number, so the math functions of the standard library such as `std::sin` and `std::exp` don't accept it. Use the xtensor functions instead, such as `xt::sin` and `xt::exp`, as the example does.
 ```
+
+(howto-loop-choose-cells)=
+
+## Choosing the cells to visit
+
+A samurai mesh stores several sets of cells, selected by a `mesh_id_t` value. `for_each_cell(mesh, f)` and `for_each_interval(mesh, f)` use `mesh[mesh_id_t::cells]`. Pass another set to visit other cells:
+
+```c++
+using mesh_id_t = typename std::decay_t<decltype(mesh)>::mesh_id_t;
+
+// the cells and their ghost cells
+samurai::for_each_cell(mesh[mesh_id_t::cells_and_ghosts],
+                       [&](const auto& cell)
+                       {
+                           std::cout << cell.level << " " << cell.center() << std::endl;
+                       });
+
+// the cells of one level
+samurai::for_each_interval(mesh[mesh_id_t::cells][level],
+                           [&](std::size_t level, const auto& i, const auto& index)
+                           {
+                               std::cout << level << " " << i << " " << index << std::endl;
+                           });
+
+// the ghost cells of one level only, built with the set algebra
+auto ghosts = samurai::difference(mesh[mesh_id_t::cells_and_ghosts][level], mesh[mesh_id_t::cells][level]);
+samurai::for_each_cell(mesh,
+                       ghosts,
+                       [&](const auto& cell)
+                       {
+                           std::cout << cell.center() << std::endl;
+                       });
+```
+
+`mesh[id]` holds every level and `mesh[id][level]` one level. A subset is any expression of the set algebra (`intersection`, `union_`, `difference`, `translate`, ...); `for_each_interval(set, f)` loops over its intervals and `for_each_cell(mesh, set, f)` over its cells.
+
+The available sets depend on the mesh type:
+
+| `mesh_id_t` | Uniform mesh | Multiresolution mesh | AMR mesh | Cells |
+| --- | --- | --- | --- | --- |
+| `cells` | yes | yes | yes | the cells that hold the solution |
+| `cells_and_ghosts` | yes | yes | yes | the cells and their ghost cells |
+| `proj_cells` | | yes | yes | the cells computed by projection from the finer level |
+| `pred_cells` | | | yes | the cells filled by the prediction operator |
+| `union_cells` | | yes | | the cells used by the multiresolution analysis |
+| `all_cells` | | yes | yes | every cell stored by the mesh |
 
 ## Running the cell loop in parallel
 
