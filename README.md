@@ -232,6 +232,8 @@ If you want to learn more about samurai skills by looking at examples, we encour
 
 The [tutorial](./demos/tutorial/) directory is a good first step followed by the [FiniteVolume](./demos/FiniteVolume/) directory.
 
+For a guided path, the [Hands-on samurai](https://hpc-maths.github.io/2025-hands-on-samurai/) course takes you from multiresolution meshes and fields to finite volume solvers for the Burgers and Euler equations on adaptive meshes.
+
 ## Features
 
 - [x] Facilitate data manipulation by using the formalism on a uniform Cartesian grid
