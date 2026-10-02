@@ -97,7 +97,8 @@ namespace samurai
         std::size_t i_neigh = 0;
         for (auto& neighbour : mesh.mpi_neighbourhood())
         {
-            if (!mesh[mesh_id_t::reference][level].empty() && !neighbour.mesh[mesh_id_t::reference][level].empty())
+            // same symmetric guard as exchange_subdomains_merged
+            if (mesh.has_reference_band(level) && !neighbour.mesh[mesh_id_t::reference][level].empty())
             {
                 auto out_interface = intersection(mesh[mesh_id_t::reference][level],
                                                   neighbour.mesh[mesh_id_t::reference][level],
@@ -114,7 +115,8 @@ namespace samurai
 
         for (auto& neighbour : mesh.mpi_neighbourhood())
         {
-            if (!mesh[mesh_id_t::reference][level].empty() && !neighbour.mesh[mesh_id_t::reference][level].empty())
+            // same symmetric guard as exchange_subdomains_merged
+            if (mesh.has_reference_band(level) && !neighbour.mesh[mesh_id_t::reference][level].empty())
             {
                 std::vector<value_t> to_recv;
                 std::ptrdiff_t count = 0;

@@ -287,7 +287,7 @@ namespace samurai::load_balancing
             // safe to skip, when this rank has no neighbour.
             if (n > 0)
             {
-                mesh.update_mesh_neighbour();
+                mesh.update_mesh_neighbour_full();
             }
 
             // -- phase 1: fluxes (neighbour-only diffusion) -------------------------

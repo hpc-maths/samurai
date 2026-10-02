@@ -17,7 +17,7 @@
  * periodicity) is enumerated with `for_each_interior_interface` (set algebra),
  * and each interface yields one edge. Global vertex indices are resolved with a
  * map keyed on (level, indices) covering the local cells and every neighbour's
- * cells (obtained from update_mesh_neighbour, which gathers the full neighbour
+ * cells (obtained from update_mesh_neighbour_full, which gathers the full neighbour
  * meshes) — so no field ghost-update is needed. The distributed graph is then
  * symmetrized (PT-Scotch requires an undirected graph).
  *
@@ -116,7 +116,7 @@ namespace samurai::load_balancing
      * keyed on (level, indices) holding the local cells (gid = go + local order,
      * matching the vwgt order) and every neighbour's cells (gid = neighbour
      * offset + the cell's order in the neighbour mesh, which matches the
-     * neighbour's own numbering because update_mesh_neighbour copies the full
+     * neighbour's own numbering because update_mesh_neighbour_full copies the full
      * mesh and for_each_cell is deterministic).
      *
      * Edge weights are 1: in a Cartesian AMR grid two cells share at most one
@@ -182,7 +182,7 @@ namespace samurai::load_balancing
 
         // Bring in the neighbours' full meshes and number their cells with the
         // same offset/order their owner uses (deterministic for_each_cell order).
-        mesh.update_mesh_neighbour();
+        mesh.update_mesh_neighbour_full();
         for (const auto& neigh : mesh.mpi_neighbourhood())
         {
             const idx_t neigh_go = g.vtxdist[static_cast<std::size_t>(neigh.rank)];

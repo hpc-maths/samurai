@@ -24,6 +24,8 @@
 #include "timers.hpp"
 
 #ifdef SAMURAI_WITH_MPI
+#include <boost/serialization/array.hpp>
+#include <boost/serialization/split_member.hpp>
 #include <boost/serialization/vector.hpp>
 
 #include "mpi/subdomain_bbox.hpp"
@@ -213,7 +215,10 @@ namespace samurai
         cell_t get_cell(std::size_t level, const xt::xexpression<E>& coord) const;
 
         void update_mesh_neighbour();
+        void update_mesh_neighbour_full();
+        bool has_reference_band(std::size_t level) const;
         void update_meshid_neighbour(const mesh_id_t& mesh_id);
+        int neighbour_band_width() const;
 
         void to_stream(std::ostream& os) const;
 
@@ -345,6 +350,88 @@ namespace samurai
                 ar & mesh.m_config;
             }
         };
+
+        // A neighbour only reads this mesh near its own subdomain. At level l,
+        // the cells of its subdomain are never entirely covered by ours (the
+        // subdomains are disjoint at the finest level), so what it reads lies
+        // within neighbour_band_width() level-l cells of the complement of our
+        // level-l interior: the cells entirely covered by our subdomain (the
+        // complement includes the outside of the domain, which covers the
+        // periodic images). The subdomain pyramid itself cannot be used: at
+        // coarse levels a cell belongs to the pyramids of every rank it
+        // overlaps, so the pyramids of two neighbours overlap there.
+        // m_band_core holds, level by level, the part of the interior further
+        // than the width from its complement; the band payloads below send every
+        // mesh id without it, so that the messages and the neighbour copies grow
+        // with the subdomain boundary instead of the subdomain. The load
+        // balancing still exchanges the whole meshes (update_mesh_neighbour_full),
+        // since it numbers the neighbour cells.
+        std::vector<lca_type> m_band_core;
+        int m_band_width = -1; // the width m_band_core was built with
+        // set when m_band_core was taken from the reference mesh (same subdomain)
+        bool m_band_from_ref = false;
+        void build_band_mask();
+        ca_type band_of(const ca_type& cells) const;
+
+        // One mesh id, restricted to the band (update_meshid_neighbour).
+        struct MeshIdBandPayload
+        {
+            Mesh_base& mesh;
+            std::size_t mesh_id;
+
+            template <class Archive>
+            void save(Archive& ar, const unsigned int) const
+            {
+                ar & mesh.band_of(mesh.m_cells[mesh_id]);
+            }
+
+            template <class Archive>
+            void load(Archive& ar, const unsigned int)
+            {
+                ar & mesh.m_cells[mesh_id];
+            }
+
+            BOOST_SERIALIZATION_SPLIT_MEMBER()
+        };
+
+        // Every mesh id restricted to the band, the configuration and, with
+        // PETSc, the gravity centre (which a band cannot give back).
+        struct NeighbourBandPayload
+        {
+            Mesh_base& mesh;
+
+            template <class Archive>
+            void save(Archive& ar, const unsigned int) const
+            {
+                for (std::size_t id = 0; id < mesh_t::size; ++id)
+                {
+                    ar & mesh.band_of(mesh.m_cells[id]);
+                }
+                ar & mesh.m_config;
+#ifdef SAMURAI_WITH_PETSC
+                std::array<double, dim> center;
+                std::copy(mesh.m_gravity_center.begin(), mesh.m_gravity_center.end(), center.begin());
+                ar & center;
+#endif
+            }
+
+            template <class Archive>
+            void load(Archive& ar, const unsigned int)
+            {
+                for (std::size_t id = 0; id < mesh_t::size; ++id)
+                {
+                    ar & mesh.m_cells[id];
+                }
+                ar & mesh.m_config;
+#ifdef SAMURAI_WITH_PETSC
+                std::array<double, dim> center;
+                ar & center;
+                std::copy(center.begin(), center.end(), mesh.m_gravity_center.begin());
+#endif
+            }
+
+            BOOST_SERIALIZATION_SPLIT_MEMBER()
+        };
 #endif
 
 #ifdef SAMURAI_WITH_PETSC
@@ -472,10 +559,21 @@ namespace samurai
         // the reach varies with the coarsest populated level of the cells) and
         // of the periodicity: all must match the inputs the reference
         // neighbourhood was discovered with for the discovery skip to be valid.
-        m_discovery_ghost_reach = ref_mesh.m_discovery_ghost_reach;
-        m_discovery_periodicity = ref_mesh.m_discovery_periodicity;
-        m_same_subdomain_as_ref = (m_same_cells_as_ref || m_subdomain == ref_mesh.m_subdomain)
-                               && ghost_physical_reach() == m_discovery_ghost_reach && m_config.periodic() == m_discovery_periodicity;
+        m_discovery_ghost_reach   = ref_mesh.m_discovery_ghost_reach;
+        m_discovery_periodicity   = ref_mesh.m_discovery_periodicity;
+        const bool same_subdomain = m_same_cells_as_ref || m_subdomain == ref_mesh.m_subdomain;
+        m_same_subdomain_as_ref   = same_subdomain && ghost_physical_reach() == m_discovery_ghost_reach
+                               && m_config.periodic() == m_discovery_periodicity;
+
+        // The band core only depends on the subdomain and on the band width:
+        // reuse the one of the reference mesh when both are unchanged (which is
+        // the case at every adaptation until a load balancing).
+        if (same_subdomain && ref_mesh.m_band_width == neighbour_band_width() && ref_mesh.m_band_core.size() == max_level() + 1)
+        {
+            m_band_core     = ref_mesh.m_band_core;
+            m_band_width    = ref_mesh.m_band_width;
+            m_band_from_ref = true;
+        }
 #endif
 
         exchange_neighbour_meshes();
@@ -514,6 +612,15 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE void Mesh_base<D, Config>::finalize_mesh(const coords_t& origin_point, double scaling_factor)
     {
+#ifdef SAMURAI_WITH_MPI
+        // Without neighbours nothing is sent; otherwise build the band core unless
+        // it was taken from the reference mesh.
+        if (!m_mpi_neighbourhood.empty() && !m_band_from_ref)
+        {
+            build_band_mask();
+        }
+        m_band_from_ref = false;
+#endif
         construct_union();
         update_meshid_neighbour(mesh_id_t::cells);
         update_sub_mesh();
@@ -521,10 +628,11 @@ namespace samurai
         renumbering();
         set_origin_point(origin_point);
         set_scaling_factor(scaling_factor);
-        update_mesh_neighbour();
 #if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
+        // Before update_mesh_neighbour: the neighbours receive it with the band.
         compute_gravity_center();
 #endif
+        update_mesh_neighbour();
     }
 
     template <class D, class Config>
@@ -985,6 +1093,10 @@ namespace samurai
         // The discovery inputs describe the neighbourhood: they move with it.
         swap(m_discovery_ghost_reach, mesh.m_discovery_ghost_reach);
         swap(m_discovery_periodicity, mesh.m_discovery_periodicity);
+        // The band mask describes the band the neighbours received of this
+        // mesh: it moves with the cells.
+        swap(m_band_core, mesh.m_band_core);
+        swap(m_band_width, mesh.m_band_width);
 #endif
     }
 
@@ -1209,14 +1321,30 @@ namespace samurai
         // our cells and neighbour set are those of the reference mesh AND every
         // neighbour sent a token in update_meshid_neighbour(cells).
         const bool send_full = !(m_same_cells_as_ref && m_same_neighbourhood && m_neighbours_cells_unchanged);
-        exchange_with_neighbours(NeighbourPayload{*this},
+        exchange_with_neighbours(NeighbourBandPayload{*this},
                                  send_full,
+                                 [](auto& world, auto& neighbour)
+                                 {
+                                     NeighbourBandPayload payload{neighbour.mesh};
+                                     world.recv(neighbour.rank, world.rank(), payload);
+                                 });
+#endif
+    }
+
+    // The whole mesh ids of the neighbours, for the load balancing (which numbers
+    // the neighbour cells). Always sent: the token state only describes the band.
+    template <class D, class Config>
+    SAMURAI_INLINE void Mesh_base<D, Config>::update_mesh_neighbour_full()
+    {
+        ScopedTimer timer("update_mesh_neighbour_full");
+#ifdef SAMURAI_WITH_MPI
+        exchange_with_neighbours(NeighbourPayload{*this},
+                                 true,
                                  [](auto& world, auto& neighbour)
                                  {
                                      NeighbourPayload payload{neighbour.mesh};
                                      world.recv(neighbour.rank, world.rank(), payload);
                                  });
-
 #ifdef SAMURAI_WITH_PETSC
         for (auto& neighbour : m_mpi_neighbourhood)
         {
@@ -1225,6 +1353,84 @@ namespace samurai
 #endif
 #endif
     }
+
+#ifdef SAMURAI_WITH_MPI
+    // Width of the band, in cells of each level. It covers what the neighbours
+    // read: the ghost cells of their reference mesh (within ghost_width of their
+    // subdomain), the cells and ghosts their update_sub_mesh intersects with their
+    // expanded subdomain, including the prediction ghosts two levels below (4
+    // cells of the finer level per level-(l-2) prediction cell, hence the
+    // 4 (prediction_stencil_radius + 1) term), and the interfaces, plus a margin.
+    template <class D, class Config>
+    SAMURAI_INLINE int Mesh_base<D, Config>::neighbour_band_width() const
+    {
+        return 2 * static_cast<int>(ghost_width()) + 4 * (static_cast<int>(config_t::prediction_stencil_radius) + 1) + 2;
+    }
+
+    // Whether the band this rank sends of its reference cells is non-empty at
+    // `level`, i.e. what its neighbours see of it there.
+    template <class D, class Config>
+    SAMURAI_INLINE bool Mesh_base<D, Config>::has_reference_band(std::size_t level) const
+    {
+        const auto& ref = m_cells[mesh_id_t::reference][level];
+        if (ref.empty() || level >= m_band_core.size())
+        {
+            return false;
+        }
+        return !difference(ref, m_band_core[level]).empty();
+    }
+
+    template <class D, class Config>
+    void Mesh_base<D, Config>::build_band_mask()
+    {
+        const int width       = neighbour_band_width();
+        const std::size_t top = max_level();
+        m_band_width          = width;
+
+        // Interior of the subdomain at each level: the cells entirely covered by
+        // it, from the finest level (where the subdomain is exact) down. A level-l
+        // cell is covered when none of its children is a hole.
+        std::vector<lca_type> interior(top + 1);
+        interior[top] = m_subdomain[top];
+        for (std::size_t level = top; level-- > 0;)
+        {
+            const lca_type holes(difference(self(m_subdomain[level]).on(level + 1), interior[level + 1]));
+            interior[level] = lca_type(difference(m_subdomain[level], self(holes).on(level)));
+        }
+
+        // Core: the interior minus its cells within `width` of its complement (a
+        // box erosion, computed by expanding the exterior shell; contract() only
+        // probes +/- width along each axis). An empty interior gives an empty core.
+        m_band_core.assign(top + 1, lca_type{});
+        for (std::size_t level = 0; level <= top; ++level)
+        {
+            if (interior[level].empty())
+            {
+                m_band_core[level] = lca_type(level);
+                continue;
+            }
+            const lca_type shell(difference(nestedExpand(interior[level], width), interior[level]));
+            m_band_core[level] = lca_type(difference(interior[level], nestedExpand(shell, width)));
+        }
+    }
+
+    template <class D, class Config>
+    auto Mesh_base<D, Config>::band_of(const ca_type& cells) const -> ca_type
+    {
+        ca_type band;
+        for (std::size_t level = 0; level <= max_level(); ++level)
+        {
+            if (cells[level].empty())
+            {
+                continue;
+            }
+            band[level] = lca_type(difference(cells[level], m_band_core[level]), cells[level].origin_point(), cells[level].scaling_factor());
+        }
+        band.set_origin_point(cells.origin_point());
+        band.set_scaling_factor(cells.scaling_factor());
+        return band;
+    }
+#endif
 
     // TODO : find a clever way to factorize the two next functions. For new, I have to duplicate the code 2 times.
 
@@ -1239,11 +1445,13 @@ namespace samurai
         const bool is_cells  = mesh_id == mesh_id_t::cells;
         const bool send_full = !(is_cells && m_same_cells_as_ref && m_same_neighbourhood);
 
-        const bool all_tokens = exchange_with_neighbours(derived_cast()[mesh_id],
+        const auto id         = static_cast<std::size_t>(mesh_id);
+        const bool all_tokens = exchange_with_neighbours(MeshIdBandPayload{*this, id},
                                                          send_full,
-                                                         [&mesh_id](auto& world, auto& neighbour)
+                                                         [id](auto& world, auto& neighbour)
                                                          {
-                                                             world.recv(neighbour.rank, world.rank(), neighbour.mesh[mesh_id]);
+                                                             MeshIdBandPayload payload{neighbour.mesh, id};
+                                                             world.recv(neighbour.rank, world.rank(), payload);
                                                          });
         if (is_cells)
         {
@@ -1534,9 +1742,8 @@ namespace samurai
             // what the former update_neighbour_subdomain round used to bring).
             neighbour.mesh.m_subdomain = std::move(candidate_subdomains[neighbour_candidate_index[j]]);
             neighbour.mesh.m_domain    = m_domain;
-#ifdef SAMURAI_WITH_PETSC
-            neighbour.mesh.compute_gravity_center();
-#endif
+            // The gravity centre of the neighbour (PETSc) comes with its band in
+            // update_mesh_neighbour; its cached cells are only a band.
         }
 
 #endif
