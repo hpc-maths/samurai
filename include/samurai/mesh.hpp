@@ -261,15 +261,15 @@ namespace samurai
         // corners, renumbering, origin/scaling propagation, ghost exchange and,
         // under MPI+PETSc, the gravity-center computation).
         //
-        // same_cells_as_ref is true only when the mesh is built from a
-        // reference mesh with geometrically identical cells. The returned flag
+        // ref_cells is the cells array of the reference mesh, or nullptr when
+        // the mesh is not built from one. The returned flag
         // (neighbours_up_to_date, forwarded to finalize_mesh) is true when every
         // neighbour already holds this mesh's subdomain and cells: the
         // construction exchanges then degrade to tokens (see
         // exchange_with_neighbours). This state only lives for the duration of
         // the construction: the public update_*_neighbour always send the full
         // payload.
-        bool exchange_neighbour_meshes(bool same_cells_as_ref);
+        bool exchange_neighbour_meshes(const ca_type* ref_cells);
         void finalize_mesh(const coords_t& origin_point, double scaling_factor, bool neighbours_up_to_date);
 
 #ifdef SAMURAI_WITH_MPI
@@ -362,7 +362,7 @@ namespace samurai
 #endif
 
         construct_subdomain();
-        const bool neighbours_up_to_date = exchange_neighbour_meshes(false);
+        const bool neighbours_up_to_date = exchange_neighbour_meshes(nullptr);
         finalize_mesh(domain_ref.origin_point(), domain_ref.scaling_factor(), neighbours_up_to_date);
     }
 
@@ -398,7 +398,7 @@ namespace samurai
 
         construct_subdomain();
         m_domain                         = m_subdomain;
-        const bool neighbours_up_to_date = exchange_neighbour_meshes(false);
+        const bool neighbours_up_to_date = exchange_neighbour_meshes(nullptr);
         finalize_mesh(domain_builder.origin_point(), m_config.scaling_factor(), neighbours_up_to_date);
     }
 
@@ -416,7 +416,7 @@ namespace samurai
 
         construct_subdomain();
         construct_domain();
-        const bool neighbours_up_to_date = exchange_neighbour_meshes(false);
+        const bool neighbours_up_to_date = exchange_neighbour_meshes(nullptr);
         finalize_mesh(ca.origin_point(), ca.scaling_factor(), neighbours_up_to_date);
     }
 
@@ -431,14 +431,8 @@ namespace samurai
         // When the cells are identical to the reference mesh's, the neighbours
         // may already hold everything this mesh would send them: the exchanges
         // of exchange_neighbour_meshes/finalize_mesh then degrade to tokens.
-#ifdef SAMURAI_WITH_MPI
-        const bool same_cells_as_ref = (ref_mesh[mesh_id_t::cells] == ca);
-#else
-        const bool same_cells_as_ref = false;
-#endif
-
         construct_subdomain();
-        const bool neighbours_up_to_date = exchange_neighbour_meshes(same_cells_as_ref);
+        const bool neighbours_up_to_date = exchange_neighbour_meshes(&ref_mesh[mesh_id_t::cells]);
         finalize_mesh(ref_mesh.origin_point(), ref_mesh.scaling_factor(), neighbours_up_to_date);
     }
 
@@ -449,14 +443,17 @@ namespace samurai
     }
 
     template <class D, class Config>
-    SAMURAI_INLINE bool Mesh_base<D, Config>::exchange_neighbour_meshes([[maybe_unused]] bool same_cells_as_ref)
+    SAMURAI_INLINE bool Mesh_base<D, Config>::exchange_neighbour_meshes([[maybe_unused]] const ca_type* ref_cells)
     {
         ScopedTimer timer("exchange neighbour meshes");
 #ifdef SAMURAI_WITH_MPI
         // The subdomain is a function of our cells only: the neighbours hold it
         // when the cells and the neighbour set are those of the reference mesh.
+        // The cells are compared last: the comparison walks every interval and
+        // is useless when there is no neighbour or the neighbour set changed.
         const bool same_neighbourhood    = find_neighbourhood();
-        const bool neighbours_up_to_date = same_cells_as_ref && same_neighbourhood;
+        const bool neighbours_up_to_date = same_neighbourhood && !m_mpi_neighbourhood.empty() && ref_cells != nullptr
+                                        && *ref_cells == m_cells[mesh_id_t::cells];
         update_neighbour_subdomain(!neighbours_up_to_date);
         return neighbours_up_to_date;
 #else
@@ -1171,14 +1168,13 @@ namespace samurai
                                  [](auto& ia, auto& neighbour)
                                  {
                                      ia >> neighbour.mesh;
-                                 });
-
 #ifdef SAMURAI_WITH_PETSC
-        for (auto& neighbour : m_mpi_neighbourhood)
-        {
-            neighbour.mesh.compute_gravity_center();
-        }
+                                     // The gravity center is not serialized. A
+                                     // neighbour that sent a token keeps the one
+                                     // of its cached mesh, which is unchanged.
+                                     neighbour.mesh.compute_gravity_center();
 #endif
+                                 });
     }
 
     // This function is to only send m_subdomain instead of the whole mesh data
@@ -1195,9 +1191,6 @@ namespace samurai
         for (auto& neighbour : m_mpi_neighbourhood)
         {
             neighbour.mesh.m_domain = m_domain;
-#ifdef SAMURAI_WITH_PETSC
-            neighbour.mesh.compute_gravity_center();
-#endif
         }
     }
 
