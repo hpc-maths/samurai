@@ -275,6 +275,11 @@ def test_finite_volume_demo_diff_heated_cavity(config):
         "qr",  # we use QR because MUMPS yields different results on macos and linux, so the comparison fails on the CI
     ]
     output = subprocess.run(cmd, check=True, capture_output=True)
+    # The only demo with a non-linear block solver, and the one whose result has been seen to
+    # differ between CI runners. Its output (SNES convergence, PETSc errors) is otherwise
+    # discarded; pytest shows it with the failure when the comparison fails.
+    print(output.stdout.decode(errors="replace"))
+    print(output.stderr.decode(errors="replace"))
 
 
 @pytest.mark.h5diff()
