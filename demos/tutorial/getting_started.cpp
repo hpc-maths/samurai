@@ -4,7 +4,6 @@
 // Program of the getting started tutorial (docs/source/tutorial/getting_started.md):
 // advection of a disc on a 2D mesh adapted by multiresolution.
 
-#include <array>
 #include <iostream>
 #include <string>
 
@@ -15,7 +14,7 @@
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/samurai.hpp>
-#include <samurai/stencil_field.hpp>
+#include <samurai/schemes/fv.hpp>
 
 // Save the solution together with the level of each cell
 template <class Field>
@@ -63,7 +62,10 @@ int main(int argc, char* argv[])
     save("getting_started_init", u);
 
     // Solve the advection equation
-    const std::array<double, dim> velocity{1., 1.};
+    samurai::VelocityVector<dim> velocity;
+    velocity.fill(1.);
+    auto conv = samurai::make_convection_upwind<decltype(u)>(velocity);
+
     const double Tf  = 0.3;
     const double cfl = 0.5;
     double dt        = cfl * mesh.min_cell_length();
@@ -84,11 +86,10 @@ int main(int argc, char* argv[])
         }
         std::cout << fmt::format("iteration {}: t = {:.6f}, dt = {:.6f}", nt++, t, dt) << std::endl;
 
-        samurai::update_ghost_mr(u);
         unp1.resize();
-        unp1 = u - dt * samurai::upwind(velocity, u);
+        unp1 = u - dt * conv(u);
 
-        std::swap(u.array(), unp1.array());
+        samurai::swap(u, unp1);
     }
     save("getting_started", u);
 

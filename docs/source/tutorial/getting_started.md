@@ -139,12 +139,14 @@ We call it once here, to keep the initial state.
 The time step comes from the finest cells: `mesh.min_cell_length()` is the side of a cell at level 8.
 The last time step is shortened so that the loop stops at $t = 0.3$.
 
+Before the loop, `samurai::make_convection_upwind<decltype(u)>(velocity)` builds the upwind scheme of the convection term.
+The scheme is defined by its numerical fluxes at the cell faces, which lets {{ project }} treat correctly the faces between two cells of different levels.
+
 Each iteration:
 
 1. adapts the mesh to the current solution;
-2. fills the ghost cells with `samurai::update_ghost_mr`, from the boundary condition and from the neighboring levels;
-3. resizes `unp1` to the new mesh and computes $u^{n+1} = u^n - \Delta t \, \mathrm{div}_h(\mathbf{a} u^n)$, where `samurai::upwind(velocity, u)` is the upwind approximation of the flux divergence, computed on each cell at its own level;
-4. swaps the values of `u` and `unp1`, so that `u` holds the new solution.
+2. resizes `unp1` to the new mesh and computes $u^{n+1} = u^n - \Delta t \, \mathrm{div}_h(\mathbf{a} u^n)$ with `conv(u)`, which first fills the ghost cells it reads, from the boundary condition and from the neighboring levels;
+3. swaps `u` and `unp1` with `samurai::swap`, so that `u` holds the new solution and keeps track of whether its ghost cells are up to date.
 
 After the loop, `save` writes the final state.
 
