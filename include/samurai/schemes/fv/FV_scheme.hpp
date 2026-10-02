@@ -1,4 +1,5 @@
 #pragma once
+#include "../../algorithm/update_ghost_mr.hpp"
 #include "../../bc.hpp"
 #include "../../boundary.hpp"
 #include "../../concepts.hpp"

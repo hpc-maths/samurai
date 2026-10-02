@@ -8,6 +8,7 @@
 #include <tuple>
 #include <unordered_map>
 
+#include "algorithm/update_ghost_mr.hpp"
 #include "field.hpp"
 #include "numeric/prediction.hpp"
 #include "samurai_config.hpp"
